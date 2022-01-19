@@ -1747,6 +1747,8 @@ namespace smt {
             assign_fixed(n, val, 1, &explain);
         }
 
+        bool is_fixed(enode* n, expr_ref& val, literal_vector& explain);
+
         void display(std::ostream & out) const;
 
         void display_unsat_core(std::ostream & out) const;

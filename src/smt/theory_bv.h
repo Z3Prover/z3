@@ -282,6 +282,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
 
         bool get_fixed_value(app* x, numeral & result) const;
+        bool is_fixed(theory_var v, expr_ref& val, literal_vector& explain) override;
 
         bool check_assignment(theory_var v);
         bool check_invariant();

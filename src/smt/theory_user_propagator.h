@@ -30,16 +30,24 @@ namespace smt {
     class theory_user_propagator : public theory, public user_propagator::callback {
 
         struct prop_info {
-            unsigned_vector m_ids;
-            expr_ref        m_conseq;
+            unsigned_vector                        m_ids;
+            expr_ref                               m_conseq;
             svector<std::pair<unsigned, unsigned>> m_eqs;
-            prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
+            literal_vector                         m_lits;
+            theory_var                             m_var = null_theory_var;
+            prop_info(unsigned num_fixed, unsigned const* fixed_ids,
+                      unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
                 m_ids(num_fixed, fixed_ids),
-                m_conseq(c)
-            {
+                m_conseq(c) {
                 for (unsigned i = 0; i < num_eqs; ++i)
                     m_eqs.push_back(std::make_pair(eq_lhs[i], eq_rhs[i]));
             }
+            
+            prop_info(literal_vector const& lits, theory_var v, expr_ref const& val):
+                m_conseq(val),
+                m_lits(lits),
+                m_var(v) {}
+                
         };
 
         struct stats {
@@ -70,6 +78,9 @@ namespace smt {
         stats                  m_stats;
 
         void force_push();
+
+        void propagate_consequence(prop_info const& prop);
+        void propagate_new_fixed(prop_info const& prop);
 
     public:
         theory_user_propagator(context& ctx);

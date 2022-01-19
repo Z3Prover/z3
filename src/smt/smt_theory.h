@@ -615,6 +615,12 @@ namespace smt {
         bool is_relevant_and_shared(enode * n) const;
 
         bool assume_eq(enode * n1, enode * n2);
+
+
+        /**
+         * \brief theory plugin for fixed values.
+         */
+        virtual bool is_fixed(theory_var v, expr_ref& val, literal_vector & explain) { return false; }
     };
     
 };

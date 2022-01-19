@@ -519,6 +519,21 @@ namespace smt {
         }
     }
 
+    bool theory_bv::is_fixed(theory_var v, expr_ref& val, literal_vector& lits) {
+        numeral r;
+        enode* n = get_enode(v);
+        if (!get_fixed_value(v, r))
+            return false;
+        val = m_util.mk_numeral(r, n->get_sort());
+        for (literal b : m_bits[v]) {
+            if (ctx.get_assignment(b) == l_false)
+                b.neg();
+            lits.push_back(b);
+        }
+        return true;
+    }
+
+
     bool theory_bv::get_fixed_value(theory_var v, numeral & result)  const {
         result.reset();
         unsigned i = 0;
