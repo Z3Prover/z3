@@ -761,6 +761,10 @@ namespace euf {
         return true;
     }
 
+    bool solver::is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain) {
+        return false;
+    }
+
     void solver::pre_simplify() {
         for (auto* e : m_solvers)
             e->pre_simplify();

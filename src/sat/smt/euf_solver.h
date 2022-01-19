@@ -371,6 +371,7 @@ namespace euf {
         void rewrite(expr_ref& e) { m_rewriter(e); }
         bool is_shared(euf::enode* n) const;
         bool enable_ackerman_axioms(expr* n) const;
+        bool is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain);
 
         // relevancy
 

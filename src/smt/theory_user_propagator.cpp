@@ -48,7 +48,7 @@ unsigned theory_user_propagator::add_expr(expr* e) {
         ctx.assert_expr(eq);
         ctx.internalize_assertions();
         e = r;
-        ctx.mark_as_relevant(eq);
+        ctx.mark_as_relevant(eq.get());
     }
     enode* n = ensure_enode(e);
     if (is_attached_to_var(n))

@@ -32,6 +32,9 @@ namespace user_solver {
             unsigned_vector m_ids;
             expr_ref        m_conseq;
             svector<std::pair<unsigned, unsigned>> m_eqs;
+            sat::literal_vector                    m_lits;
+            euf::theory_var                        m_var = euf::null_theory_var;
+
             prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
                 m_ids(num_fixed, fixed_ids),
                 m_conseq(c)
@@ -39,6 +42,12 @@ namespace user_solver {
                 for (unsigned i = 0; i < num_eqs; ++i)
                     m_eqs.push_back(std::make_pair(eq_lhs[i], eq_rhs[i]));
             }
+
+            prop_info(sat::literal_vector const& lits, euf::theory_var v, expr_ref const& val):
+                m_conseq(val),
+                m_lits(lits),
+                m_var(v) {}
+
         };
 
         struct stats {
@@ -79,6 +88,9 @@ namespace user_solver {
         };
 
         sat::justification mk_justification(unsigned propagation_index);
+
+        void propagate_consequence(prop_info const& prop);
+        void propagate_new_fixed(prop_info const& prop);
 
 	void validate_propagation();
 

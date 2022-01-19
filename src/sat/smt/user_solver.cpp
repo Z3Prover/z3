@@ -36,6 +36,10 @@ namespace user_solver {
             return n->get_th_var(get_id());
         euf::theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
+        expr_ref r(m);
+        sat::literal_vector explain;
+        if (ctx.is_fixed(n, r, explain))
+            m_prop.push_back(prop_info(explain, v, r));
         return v;
     }
 
@@ -93,6 +97,18 @@ namespace user_solver {
         m_pop_eh(m_user_context, num_scopes);
     }
 
+    void solver::propagate_consequence(prop_info const& prop) {
+        sat::literal lit = ctx.internalize(prop.m_conseq, false, false, true);
+        if (s().value(lit) != l_true) {
+            s().assign(lit, mk_justification(m_qhead));
+            ++m_stats.m_num_propagations;
+        }
+    }
+
+    void solver::propagate_new_fixed(prop_info const& prop) {
+        new_fixed_eh(prop.m_var, prop.m_conseq, prop.m_lits.size(), prop.m_lits.data());
+    }
+
     bool solver::unit_propagate() {
         if (m_qhead == m_prop.size())
             return false;
@@ -100,12 +116,11 @@ namespace user_solver {
         ctx.push(value_trail<unsigned>(m_qhead));
         unsigned np = m_stats.m_num_propagations;
         for (; m_qhead < m_prop.size() && !s().inconsistent(); ++m_qhead) {
-            auto const& prop = m_prop[m_qhead];            
-            sat::literal lit = ctx.internalize(prop.m_conseq, false, false, true);
-            if (s().value(lit) != l_true) {
-                s().assign(lit, mk_justification(m_qhead));
-                ++m_stats.m_num_propagations;
-            }
+            auto const& prop = m_prop[m_qhead];
+            if (prop.m_var == euf::null_theory_var)
+                propagate_consequence(prop);
+            else
+                propagate_new_fixed(prop);
         }       
         return np < m_stats.m_num_propagations;
     }
