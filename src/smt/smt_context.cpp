@@ -2922,7 +2922,7 @@ namespace smt {
         while (l) {
             theory_id tid = l->get_id();
             auto* p = m_theories.get_plugin(tid);
-            if (p && p->is_fixed(l->get_var(), val, explain))
+            if (p && p->is_fixed_propagated(l->get_var(), val, explain))
                 return true;
             l = l->get_next();
         }

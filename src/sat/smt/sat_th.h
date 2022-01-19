@@ -118,6 +118,8 @@ namespace euf {
 
         virtual bool enable_ackerman_axioms(euf::enode* n) const { return true; }
 
+        virtual bool is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) { return false; }
+
         virtual void relevant_eh(euf::enode* n) {}
 
         /**

@@ -58,6 +58,15 @@ namespace bv {
         m_bb.set_flat(false);
     }
 
+    bool solver::is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) {
+        numeral n;
+        if (!get_fixed_value(v, n))
+            return false;
+        val = bv.mk_numeral(n, m_bits[v].size());
+        lits.append(m_bits[v]);
+        return true;
+    }
+
     void solver::fixed_var_eh(theory_var v1) {
         numeral val1, val2;
         VERIFY(get_fixed_value(v1, val1));

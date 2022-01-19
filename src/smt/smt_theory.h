@@ -620,7 +620,7 @@ namespace smt {
         /**
          * \brief theory plugin for fixed values.
          */
-        virtual bool is_fixed(theory_var v, expr_ref& val, literal_vector & explain) { return false; }
+        virtual bool is_fixed_propagated(theory_var v, expr_ref& val, literal_vector & explain) { return false; }
     };
     
 };

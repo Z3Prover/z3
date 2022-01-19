@@ -519,7 +519,7 @@ namespace smt {
         }
     }
 
-    bool theory_bv::is_fixed(theory_var v, expr_ref& val, literal_vector& lits) {
+    bool theory_bv::is_fixed_propagated(theory_var v, expr_ref& val, literal_vector& lits) {
         numeral r;
         enode* n = get_enode(v);
         if (!get_fixed_value(v, r))

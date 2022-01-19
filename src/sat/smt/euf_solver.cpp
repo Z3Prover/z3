@@ -762,6 +762,25 @@ namespace euf {
     }
 
     bool solver::is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain) {
+        if (n->bool_var() != sat::null_bool_var) {
+            switch (s().value(n->bool_var())) {
+            case l_true:
+                val = m.mk_true();
+                explain.push_back(sat::literal(n->bool_var()));
+                return true;                
+            case l_false:
+                val = m.mk_false();
+                explain.push_back(~sat::literal(n->bool_var()));
+                return true;
+            default:
+                return false;
+            }
+        }
+        for (auto const& thv : enode_th_vars(n)) {
+            auto* th = m_id2solver.get(thv.get_id(), nullptr);
+            if (th && !th->is_fixed(thv.get_var(), val, explain))
+                return true;
+        }
         return false;
     }
 

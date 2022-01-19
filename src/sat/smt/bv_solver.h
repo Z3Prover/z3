@@ -226,6 +226,7 @@ namespace bv {
         void get_bits(euf::enode* n, expr_ref_vector& r);
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
         void fixed_var_eh(theory_var v);
+        bool is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) override;
         bool is_bv(theory_var v) const { return bv.is_bv(var2expr(v)); }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
