@@ -1068,41 +1068,6 @@ public:
         }
     }
 
-    static void test_fi_linear4(unsigned bw = 4) {
-        {
-            scoped_solver s(__func__);
-            auto y = s.var(s.add_var(bw));
-            s.add_ule(3*y + 1, 10*y);
-            s.check();
-            s.expect_sat();
-        }
-        {
-            scoped_solver s(__func__);
-            auto y = s.var(s.add_var(bw));
-            s.add_ult(3*y + 1, 10*y);
-            s.check();
-            s.expect_sat();
-        }
-        {
-            scoped_solver s(__func__);
-            auto y = s.var(s.add_var(bw));
-            s.add_ule(y-y+8, y);
-            s.add_ule(y, y-y+12);
-            s.add_ult(9*y + 3, 7*y + 1);
-            s.check();
-            s.expect_sat();
-        }
-        {
-            scoped_solver s(__func__);
-            auto y = s.var(s.add_var(bw));
-            s.add_ule(y-y+8, y);
-            s.add_ule(y, y-y+12);
-            s.add_ule(9*y + 3, 7*y + 1);
-            s.check();
-            s.expect_sat();
-        }
-    }
-
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
     // static void test_mixed_vars() {
@@ -1343,9 +1308,6 @@ void tst_polysat() {
 
     test_fi::exhaustive();
     test_fi::randomized();
-    return;
-
-    test_polysat::test_fi_linear4();
     return;
 
     test_polysat::test_ineq_axiom1(32, 2);  // crashes
