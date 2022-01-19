@@ -2,6 +2,7 @@
 #include "math/polysat/solver.h"
 #include "ast/ast.h"
 #include "parsers/smt2/smt2parser.h"
+#include "util/util.h"
 #include <vector>
 
 namespace {
@@ -793,21 +794,24 @@ public:
     }
 
     // xy < xz and !Omega(x*y) => y < z
-    static void test_ineq_axiom1(unsigned bw = 32) {
-        auto const bound = rational::power_of_two(bw/2);
-
-        for (unsigned i = 0; i < 6; ++i) {
-            scoped_solver s(__func__);
+    static void test_ineq_axiom1(unsigned bw = 32, std::optional<unsigned> perm = std::nullopt) {
+        if (perm) {
+            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(*perm));
+            auto const bound = rational::power_of_two(bw/2);
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
             auto z = s.var(s.add_var(bw));
-            permute_args(i, x, y, z);
+            permute_args(*perm, x, y, z);
             s.add_ult(x * y, x * z);
             s.add_ule(z, y);
             s.add_ult(x, bound);
             s.add_ult(y, bound);
             s.check();
             s.expect_unsat();
+        } else {
+            for (unsigned i = 0; i < 6; ++i) {
+                test_ineq_axiom1(bw, i);
+            }
         }
     }
 
@@ -1062,8 +1066,41 @@ public:
             s.check();
             s.expect_unsat();
         }
- 
+    }
 
+    static void test_fi_linear4(unsigned bw = 4) {
+        {
+            scoped_solver s(__func__);
+            auto y = s.var(s.add_var(bw));
+            s.add_ule(3*y + 1, 10*y);
+            s.check();
+            s.expect_sat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto y = s.var(s.add_var(bw));
+            s.add_ult(3*y + 1, 10*y);
+            s.check();
+            s.expect_sat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto y = s.var(s.add_var(bw));
+            s.add_ule(y-y+8, y);
+            s.add_ule(y, y-y+12);
+            s.add_ult(9*y + 3, 7*y + 1);
+            s.check();
+            s.expect_sat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto y = s.var(s.add_var(bw));
+            s.add_ule(y-y+8, y);
+            s.add_ule(y, y-y+12);
+            s.add_ule(9*y + 3, 7*y + 1);
+            s.check();
+            s.expect_sat();
+        }
     }
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
@@ -1080,6 +1117,107 @@ public:
     // }
 
 };  // class test_polysat
+
+
+/// Here we deal with linear constraints of the form
+///
+///     a1*x + b1 <= a2*x + b2   (mod m = 2^bw)
+///
+/// and their negation.
+class test_fi {
+
+    static bool is_violated(rational const& a1, rational const& b1, rational const& a2, rational const& b2, rational const& val, bool negated, rational const& m) {
+        rational const lhs = (a1*val + b1) % m;
+        rational const rhs = (a2*val + b2) % m;
+        if (negated)
+            return lhs <= rhs;
+        else
+            return lhs > rhs;
+    }
+
+    // Returns true if the input is valid and the test did useful work
+    static bool check_one(rational const& a1, rational const& b1, rational const& a2, rational const& b2, rational const& val, bool negated, unsigned bw) {
+        rational const m = rational::power_of_two(bw);
+        if (a1.is_zero() && a2.is_zero())
+            return false;
+        if (!is_violated(a1, b1, a2, b2, val, negated, m))
+            return false;
+
+        scoped_solver s(__func__);
+        auto x = s.var(s.add_var(bw));
+        signed_constraint c = s.ule(a1*x + b1, a2*x + b2);
+        if (negated)
+            c.negate();
+        viable& v = s.m_viable;
+        v.intersect(x.var(), c);
+        // Trigger forbidden interval refinement
+        v.is_viable(x.var(), val);
+        auto* e = v.m_units[x.var()];
+        if (!e) {
+            std::cout << "test_fi: no interval for a1=" << a1 << " b1=" << b1 << " a2=" << a2 << " b2=" << b2 << " val=" << val << " neg=" << negated << std::endl;
+            // VERIFY(false);
+            return false;
+        }
+        VERIFY(e);
+        auto* first = e;
+        SASSERT(e->next() == e);  // the result is expected to be a single interval (although for this check it doesn't really matter if there's more...)
+        do {
+            rational const& lo = e->interval.lo_val();
+            rational const& hi = e->interval.hi_val();
+            for (rational x = lo; x != hi; x = (x + 1) % m) {
+                // LOG("lo=" << lo << " hi=" << hi << " x=" << x);
+                if (!is_violated(a1, b1, a2, b2, val, negated, m)) {
+                    std::cout << "test_fi: unsound for a1=" << a1 << " b1=" << b1 << " a2=" << a2 << " b2=" << b2 << " val=" << val << " neg=" << negated << std::endl;
+                    VERIFY(false);
+                }
+            }
+            e = e->next();
+        }
+        while (e != first);
+        return true;
+    }
+
+public:
+    static void exhaustive(unsigned bw = 3) {
+        rational const m = rational::power_of_two(bw);
+        for (rational a1(1); a1 < m; ++a1) {
+            for (rational a2(1); a2 < m; ++a2) {
+                // TODO: remove this to test other cases
+                if (a1 == a2)
+                    continue;
+                for (rational b1(0); b1 < m; ++b1)
+                    for (rational b2(0); b2 < m; ++b2)
+                        for (rational val(0); val < m; ++val)
+                            for (bool negated : {true, false})
+                                check_one(a1, b1, a2, b2, val, negated, bw);
+            }
+        }
+    }
+
+    static void randomized(unsigned num_rounds = 10'000, unsigned bw = 16) {
+        rational const m = rational::power_of_two(bw);
+        VERIFY(bw <= 32 && "random_gen generates 32-bit numbers");
+        random_gen rng;
+        unsigned round = num_rounds;
+        while (round) {
+            // rational a1 = (rational(rng()) % (m - 1)) + 1;
+            // rational a2 = (rational(rng()) % (m - 1)) + 1;
+            rational a1 = rational(rng()) % m;
+            rational a2 = rational(rng()) % m;
+            if (a1.is_zero() || a2.is_zero() || a1 == a2)
+                continue;
+            rational b1 = rational(rng()) % m;
+            rational b2 = rational(rng()) % m;
+            rational val = rational(rng()) % m;
+            bool useful =
+                check_one(a1, b1, a2, b2, val, true, bw)
+                || check_one(a1, b1, a2, b2, val, false, bw);
+            if (useful)
+                round--;
+        }
+    }
+
+};  // class test_fi
 
 
     // convert assertions into internal solver state
@@ -1202,6 +1340,20 @@ public:
 
 void tst_polysat() {
     using namespace polysat;
+
+    test_fi::exhaustive();
+    test_fi::randomized();
+    return;
+
+    test_polysat::test_fi_linear4();
+    return;
+
+    test_polysat::test_ineq_axiom1(32, 2);  // crashes
+    return;
+
+    // looks like a fishy conflict lemma?
+    test_polysat::test_monot_bounds();
+    return;
 
     test_polysat::test_quot_rem_incomplete();
     test_polysat::test_quot_rem_fixed();

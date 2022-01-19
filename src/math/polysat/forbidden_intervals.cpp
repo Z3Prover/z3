@@ -244,6 +244,7 @@ namespace polysat {
             fi.coeff = -1;
             fi.interval = to_interval(c, false, fi.coeff, lo_val, lo, hi_val, hi);
             add_non_unit_side_conds(fi, b1, e1, b2, e2);
+            SASSERT(!fi.interval.is_currently_empty());
             return true;
         }
         return false;

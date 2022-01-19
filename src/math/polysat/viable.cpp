@@ -206,6 +206,10 @@ namespace polysat {
             return floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
         };
 
+// TODO: looks like there's an infinite loop for:
+// [match_linear3]        a1 = 3; b1 = 0; e1 = 0
+// [match_linear3]        a2 = 3; b2 = -2; e2 = -2
+
         // naive widening. TODO: can we accelerate this?
         // condition e->interval.hi_val() < coeff_val is
         // to ensure that widening is performed on the same interval
@@ -255,7 +259,8 @@ namespace polysat {
                     increase_hi(hi);
                 }
                 LOG("forbidden interval " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
-                SASSERT(hi <= max_value);
+                SASSERT(hi <= mod_value);
+                if (hi == mod_value) hi = 0;
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
@@ -291,9 +296,10 @@ namespace polysat {
             rational const& b1 = e->interval.lo().val();
             rational const& a2 = e->interval.hi_val();
             rational const& b2 = e->interval.hi().val();
-            rational lhs = a1 * val + b1;
-            rational rhs = a2 * val + b2;
             SASSERT(a1 != a2 && a1 != 0 && a2 != 0);
+
+            rational lhs = mod(a1 * val + b1, mod_value);
+            rational rhs = mod(a2 * val + b2, mod_value);
 
             auto delta_l = [&](rational const& val) {
                 rational m1 = ceil((rhs + 1) / a2);
@@ -304,7 +310,8 @@ namespace polysat {
                 else
                     m3 = ceil(m3);
 
-                return std::min(m1, m3) - 1;
+                // return std::min(m1, m3) - 1;
+                return std::min(val, std::min(m1, m3) - 1);
             };
             auto delta_u = [&](rational const& val) {
                 rational m1 = ceil((mod_value - lhs) / a1);
@@ -326,8 +333,10 @@ namespace polysat {
                 // TODO: increase interval
                 LOG("refine-disequal-lin: " << " [" << lo << ", " << hi << "[");
 
-                SASSERT(0 <= lo);
-                SASSERT(hi <= max_value);
+                SASSERT(0 <= lo && lo <= val);
+                // SASSERT(val <= hi && hi <= max_value);
+                SASSERT(val <= hi && hi <= mod_value);
+                if (hi == mod_value) hi = 0;
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();

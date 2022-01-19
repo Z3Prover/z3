@@ -77,6 +77,7 @@ namespace polysat {
         friend class constraint_manager;
         friend class scoped_solverv;
         friend class test_polysat;
+        friend class test_fi;
 
         reslimit&                m_lim;
         params_ref               m_params;

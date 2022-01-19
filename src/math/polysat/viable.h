@@ -29,6 +29,8 @@ namespace polysat {
     class solver;
 
     class viable {
+        friend class test_fi;
+
         solver& s;
         
         struct entry : public dll_base<entry>, public fi_record { 

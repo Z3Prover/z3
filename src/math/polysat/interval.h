@@ -70,6 +70,8 @@ namespace polysat {
             return {interval::full(), rational::zero(), rational::zero()};
         }
         static eval_interval proper(pdd const &lo, rational const &lo_val, pdd const &hi, rational const &hi_val) {
+            SASSERT(0 <= lo_val && lo_val <= lo.manager().max_value());
+            SASSERT(0 <= hi_val && hi_val <= hi.manager().max_value());
             return {interval::proper(lo, hi), lo_val, hi_val};
         }
 
