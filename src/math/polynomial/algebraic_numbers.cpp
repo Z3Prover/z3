@@ -722,6 +722,7 @@ namespace algebraic_numbers {
            \brief Make sure that if a is 0, then a.m_cell == 0
         */
         void normalize(numeral & a) {
+            std::cout << "normalize\n";
             if (is_zero(a))
                 return;
             if (a.is_basic()) {
@@ -730,9 +731,9 @@ namespace algebraic_numbers {
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
-                if (!upm().normalize_interval_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c)))
+                if (!upm().normalize_interval_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c))) 
                     reset(a);
-                SASSERT(acell_inv(*c));
+                SASSERT(is_zero(a) || acell_inv(*a.to_algebraic()));
             }
         }
 
