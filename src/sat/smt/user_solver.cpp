@@ -186,5 +186,51 @@ namespace user_solver {
         return result;
     }
 
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        if (!visit_rec(m, e, sign, root, redundant)) {
+            TRACE("array", tout << mk_pp(e, m) << "\n";);
+            return sat::null_literal;
+        }
+        sat::literal lit = ctx.expr2literal(e);
+        if (sign)
+            lit.neg();
+        if (root)
+            add_unit(lit);
+        return lit;
+    }
+
+    void solver::internalize(expr* e, bool redundant) {
+        visit_rec(m, e, false, false, redundant);
+    }
+
+    bool solver::visit(expr* e) {
+        if (visited(e))
+            return true;
+        if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
+            ctx.internalize(e, m_is_redundant);
+            return true;
+        }
+        m_stack.push_back(sat::eframe(e));
+        return false;        
+    }
+    
+    bool solver::visited(expr* e) {
+        euf::enode* n = expr2enode(e);
+        return n && n->is_attached_to(get_id());        
+    }
+    
+    bool solver::post_visit(expr* e, bool sign, bool root) {
+        euf::enode* n = expr2enode(e);
+        SASSERT(!n || !n->is_attached_to(get_id()));
+        if (!n) 
+            n = mk_enode(e, false);        
+        auto v = add_expr(e);
+        if (m_created_eh)
+            m_created_eh(m_user_context, this, e, v);
+        return true;
+    }
+
+
+
 }
 

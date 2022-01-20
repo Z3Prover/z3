@@ -687,6 +687,11 @@ public:
         return ensure_euf()->user_propagate_register_expr(e);
     }
 
+    void user_propagate_register_created(user_propagator::created_eh_t& r) {
+        ensure_euf()->user_propagate_register_created(r);
+    }
+
+
 private:
 
     lbool internalize_goal(goal_ref& g) {        
