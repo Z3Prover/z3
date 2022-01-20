@@ -170,16 +170,25 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
-        if (m_bvars.is_false(lit)) 
+        switch (m_bvars.value(lit)) {
+        case l_false:
             set_conflict(c);
-        else {
+            break;
+        case l_true:
+            // constraint c is already asserted
+            SASSERT(m_bvars.level(lit) <= m_level);
+            // TODO: track additional dep?
+            break;
+        case l_undef:
             m_bvars.asserted(lit, m_level, dep);
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(lit);
             if (c.is_currently_false(*this))
                 set_conflict(c);
+            break;
+        default:
+            UNREACHABLE();
         }
-
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
