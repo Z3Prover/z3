@@ -59,6 +59,7 @@ unsigned theory_user_propagator::add_expr(expr* e) {
         ctx.set_var_theory(bv, get_id());
         ctx.set_enode_flag(bv, true);
     }
+    SASSERT(!m.is_bool(e) || ctx.b_internalized(e));
 
     ctx.attach_th_var(n, this, v);
     literal_vector explain;
