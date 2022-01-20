@@ -975,7 +975,7 @@ namespace polysat {
             }
             unsigned expected_watches = std::min(2u, c->vars().size());
             if (num_watches != expected_watches)
-                LOG("wrong number of watches: " << c);
+                LOG("wrong number of watches: " << sc << "   vars: " << sc->vars());
             SASSERT_EQ(num_watches, expected_watches);
         }
         return true;
