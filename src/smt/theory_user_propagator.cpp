@@ -54,7 +54,7 @@ unsigned theory_user_propagator::add_expr(expr* e) {
     if (is_attached_to_var(n))
         return n->get_th_var(get_id());
     theory_var v = mk_var(n);
-    if (m.is_bool(e)) {
+    if (m.is_bool(e) && !ctx.b_internalized(e)) {
         bool_var bv = ctx.mk_bool_var(e);
         ctx.set_var_theory(bv, get_id());
         ctx.set_enode_flag(bv, true);
