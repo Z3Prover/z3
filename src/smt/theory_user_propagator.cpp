@@ -208,7 +208,14 @@ bool theory_user_propagator::internalize_term(app* term)  {
         ensure_enode(arg);
     if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
         ctx.mk_enode(term, true, false, true);
+    
     unsigned v = add_expr(term);
+    if (m.is_bool(term)) {
+        bool_var bv = ctx.mk_bool_var(term);
+        ctx.set_var_theory(bv, get_id());
+        ctx.set_enode_flag(bv, true);
+    }
+
     if (m_created_eh)
         m_created_eh(m_user_context, this, term, v);
     return true;
