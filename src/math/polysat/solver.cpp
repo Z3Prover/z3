@@ -750,8 +750,10 @@ namespace polysat {
 
     void solver::assign_eval(sat::literal lit) {
         unsigned level = 0;
+        // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
         for (auto v : lit2cnstr(lit)->vars())
-            level = std::max(get_level(v), level);
+            if (is_assigned(v))
+                level = std::max(get_level(v), level);
         m_bvars.eval(lit, level);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
