@@ -104,8 +104,9 @@ namespace polysat {
         vector<justification>    m_justification; // justification for variable assignment
         vector<signed_constraints> m_pwatch;      // watch list datastructure into constraints.
 #ifndef NDEBUG
-        std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is begin propagated
+        std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is being propagated
 #endif
+        bool                     m_propagating = false;  // set to true during propagation
 
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;

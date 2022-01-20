@@ -192,10 +192,9 @@ namespace polysat {
     void solver::propagate() {
         if (!can_propagate())
             return;
-        static bool propagating = false;
-        if (propagating)
+        if (m_propagating)
             return;
-        propagating = true;
+        m_propagating = true;
         push_qhead();
         while (can_propagate()) {
             auto const& item = m_search[m_qhead++];
@@ -207,6 +206,7 @@ namespace polysat {
         linear_propagate();
         SASSERT(wlist_invariant());
         SASSERT(assignment_invariant());
+        m_propagating = false;
     }
 
     /**
