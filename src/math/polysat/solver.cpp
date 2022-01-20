@@ -192,6 +192,10 @@ namespace polysat {
     void solver::propagate() {
         if (!can_propagate())
             return;
+        static bool propagating = false;
+        if (propagating)
+            return;
+        propagating = true;
         push_qhead();
         while (can_propagate()) {
             auto const& item = m_search[m_qhead++];
@@ -230,14 +234,19 @@ namespace polysat {
     */
     void solver::propagate(pvar v) {
         LOG_H2("Propagate v" << v);
+        SASSERT(!m_locked_wlist);
+        DEBUG_CODE(m_locked_wlist = v;);
         auto& wlist = m_pwatch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
+        LOG("wlist old: " << wlist);
         for (; i < sz && !is_conflict(); ++i)
             if (!wlist[i].propagate(*this, v))
                 wlist[j++] = wlist[i];
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
         wlist.shrink(j);
+        LOG("wlist new: " << wlist);
+        DEBUG_CODE(m_locked_wlist = std::nullopt;);
     }
 
     bool solver::propagate(sat::literal lit, clause& cl) {
@@ -374,6 +383,7 @@ namespace polysat {
 
     void solver::add_watch(signed_constraint c, pvar v) {
         SASSERT(c);
+        // SASSERT(m_locked_wlist != v);  // appending doesn't interfere with propagation, so it should be fine
         LOG("Watching v" << v << " in constraint " << c);
         m_pwatch[v].push_back(c);
     }
@@ -389,6 +399,7 @@ namespace polysat {
     void solver::erase_watch(pvar v, signed_constraint c) {
         if (v == null_var)
             return;
+        SASSERT(m_locked_wlist != v);
         auto& wlist = m_pwatch[v];
         unsigned sz = wlist.size();
         for (unsigned i = 0; i < sz; ++i) {

@@ -76,6 +76,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 #define LOG(x)    LOG_(LogLevel::Default , x)
 #define LOG_V(x)  LOG_(LogLevel::Verbose , x)
 #define COND_LOG(c, x) if (c) LOG(x)
+#define LOGE(x)   LOG(#x << " = " << (x))
 
 #define IF_LOGGING(x) \
   do {                \
@@ -96,6 +97,8 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 #define LOG_H3(x) LOG_(0, x)
 #define LOG(x)    LOG_(0, x)
 #define LOG_V(x)  LOG_(0, x)
+#define COND_LOG(c, x)  LOG_(c, x)
+#define LOGE(x)   LOG_(0, x)
 
 #define IF_LOGGING(x) \
   do {                \
