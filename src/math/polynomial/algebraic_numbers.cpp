@@ -722,7 +722,6 @@ namespace algebraic_numbers {
            \brief Make sure that if a is 0, then a.m_cell == 0
         */
         void normalize(numeral & a) {
-            std::cout << "normalize\n";
             if (is_zero(a))
                 return;
             if (a.is_basic()) {
