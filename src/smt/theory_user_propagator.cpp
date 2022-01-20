@@ -54,6 +54,12 @@ unsigned theory_user_propagator::add_expr(expr* e) {
     if (is_attached_to_var(n))
         return n->get_th_var(get_id());
     theory_var v = mk_var(n);
+    if (m.is_bool(e)) {
+        bool_var bv = ctx.mk_bool_var(e);
+        ctx.set_var_theory(bv, get_id());
+        ctx.set_enode_flag(bv, true);
+    }
+
     ctx.attach_th_var(n, this, v);
     literal_vector explain;
     if (ctx.is_fixed(n, r, explain))
@@ -210,11 +216,6 @@ bool theory_user_propagator::internalize_term(app* term)  {
         ctx.mk_enode(term, true, false, true);
     
     unsigned v = add_expr(term);
-    if (m.is_bool(term)) {
-        bool_var bv = ctx.mk_bool_var(term);
-        ctx.set_var_theory(bv, get_id());
-        ctx.set_enode_flag(bv, true);
-    }
 
     if (m_created_eh)
         m_created_eh(m_user_context, this, term, v);
