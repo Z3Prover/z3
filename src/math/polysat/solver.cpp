@@ -75,6 +75,7 @@ namespace polysat {
             else if (m_constraints.should_gc()) m_constraints.gc(*this);
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
+            else if (can_decide_on_lemma()) decide_on_lemma();
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
@@ -201,9 +202,10 @@ namespace polysat {
     void solver::propagate() {
         if (!can_propagate())
             return;
-        if (m_propagating)
-            return;
-        m_propagating = true;
+#ifndef NDEBUG
+        SASSERT(!m_propagating);
+        flet<bool> save_(m_propagating, true);
+#endif
         push_qhead();
         while (can_propagate()) {
             auto const& item = m_search[m_qhead++];
@@ -215,7 +217,6 @@ namespace polysat {
         linear_propagate();
         SASSERT(wlist_invariant());
         SASSERT(assignment_invariant());
-        m_propagating = false;
     }
 
     /**
@@ -320,6 +321,7 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
 #endif
+        drop_enqueued_lemma();
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -598,12 +600,33 @@ namespace polysat {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
         add_clause(lemma);
-        if (!is_conflict())
-            decide_bool(lemma);
+        enqueue_decision_on_lemma(lemma);
     }
 
-    // Guess a literal from the given clause; returns the guessed constraint
-    void solver::decide_bool(clause& lemma) {
+    void solver::enqueue_decision_on_lemma(clause& lemma) {
+        m_lemmas.push_back(&lemma);
+    }
+
+    void solver::drop_enqueued_lemma() {
+        m_lemmas.reset();
+    }
+
+    bool solver::can_decide_on_lemma() {
+        return !m_lemmas.empty();
+    }
+
+    void solver::decide_on_lemma() {
+        SASSERT(!is_conflict());
+        SASSERT(m_lemmas.size() == 1);  // we expect to only have a single one
+        // TODO: maybe it would be nicer to have a queue of lemmas, instead of storing lemmas per-literal in m_bvars?
+        while (!m_lemmas.empty()) {
+            clause* lemma = m_lemmas.back();
+            m_lemmas.pop_back();
+            decide_on_lemma(*lemma);
+        }
+    }
+
+    void solver::decide_on_lemma(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
@@ -718,10 +741,11 @@ namespace polysat {
 
         backjump(m_bvars.level(var) - 1);
 
+        // reason should force ~lit after propagation
         add_clause(*reason);
 
-        if (!is_conflict() && lemma)
-            decide_bool(*lemma);
+        if (lemma)  // TODO: can (should) this ever be NULL?
+            enqueue_decision_on_lemma(*lemma);
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
@@ -808,7 +832,6 @@ namespace polysat {
         }
         SASSERT(!clause.empty());
         m_constraints.store(&clause, *this);
-        propagate();
     }
 
     void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {
