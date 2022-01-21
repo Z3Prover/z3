@@ -194,7 +194,7 @@ namespace polysat {
         s.m_stats.m_num_bailouts++;
     }
 
-    void conflict::resolve(constraint_manager const& m, sat::literal lit, clause const& cl) {
+    void conflict::resolve(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
@@ -208,10 +208,28 @@ namespace polysat {
         SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
         remove_literal(lit);        
-        unset_mark(m.lookup(lit));        
+        unset_mark(s.lit2cnstr(lit));        
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
-                insert(m.lookup(~lit2));
+                insert(s.lit2cnstr(~lit2));
+    }
+
+    void conflict::resolve_with_assignment(sat::literal lit, unsigned lvl) {
+        // The reason for lit is conceptually:
+        //    x1 = v1 /\ ... /\ xn = vn ==> lit
+
+        SASSERT(lit != sat::null_literal);
+        SASSERT(~lit != sat::null_literal);
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c){ return !c->has_bvar(); }));
+        SASSERT(contains_literal(lit));
+        SASSERT(!contains_literal(~lit));
+
+        remove_literal(lit);
+        signed_constraint c = s.lit2cnstr(lit);
+        unset_mark(c);
+        for (pvar v : c->vars())
+            if (s.is_assigned(v) && s.get_level(v) <= lvl)
+                m_vars.insert(v);  // TODO: check this
     }
 
     /** 
