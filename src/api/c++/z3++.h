@@ -1340,9 +1340,9 @@ namespace z3 {
         friend expr bvmul_no_overflow(expr const& a, expr const& b, bool is_signed);
         friend expr bvmul_no_underflow(expr const& a, expr const& b);
         
-        expr rotate_left(unsigned i) { Z3_ast r = Z3_mk_rotate_left(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
-        expr rotate_right(unsigned i) { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
-        expr repeat(unsigned i) { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
+        expr rotate_left(unsigned i) const { Z3_ast r = Z3_mk_rotate_left(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
+        expr rotate_right(unsigned i) const { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
+        expr repeat(unsigned i) const { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
 
         friend expr bvredor(expr const & a);
         friend expr bvredand(expr const & a);
