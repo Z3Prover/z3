@@ -164,6 +164,8 @@ namespace polysat {
             LOG("try-reduce is false " << c2.is_currently_false(s));
             if (!c2.is_currently_false(s))
                 continue;
+            if (c2.bvalue(s) == l_false)
+                return false;
             if (!c2->has_bvar() || l_undef == c2.bvalue(s)) {
                 vector<signed_constraint> premises;
                 premises.push_back(c);
@@ -174,10 +176,13 @@ namespace polysat {
             core.reset();
             LOG_H3("Polynomial superposition " << eq << " " << c << " reduced to " << c2);
             if (c2.bvalue(s) == l_false) {
+                UNREACHABLE();
+                // TODO this loops or crashes depending on whether we
+                // return true or false.
                 core.insert(eq);
                 core.insert(c);
                 core.insert(~c2);
-                return false;
+                return true;
             }
             core.set(c2);
             return true;
