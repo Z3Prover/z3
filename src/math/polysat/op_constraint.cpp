@@ -290,8 +290,6 @@ namespace polysat {
     }
 
     lbool op_constraint::eval_and(pdd const& p, pdd const& q, pdd const& r) const {
-        auto& m = p.manager();
-
         if ((p.is_zero() || q.is_zero()) && r.is_zero())
             return l_true;
 
