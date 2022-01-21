@@ -393,8 +393,6 @@ bool theory_seq::split_lengths(dependency* dep,
     lits.push_back(lit1);
     lits.push_back(lit2);
 
-    SASSERT(!ctx.is_relevant(lit1) || ctx.get_assignment(lit1) == l_true);
-    SASSERT(!ctx.is_relevant(lit2) || ctx.get_assignment(lit2) == l_true);
     if (ctx.get_assignment(lit1) != l_true ||
         ctx.get_assignment(lit2) != l_true) {
         ctx.mark_as_relevant(lit1);
