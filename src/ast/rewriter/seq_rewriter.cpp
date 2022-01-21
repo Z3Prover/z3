@@ -5572,41 +5572,36 @@ bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
 }
 
 bool seq_rewriter::max_length(expr* e, rational& len) {
-    if (str().is_unit(e)) {
-        len = 1;
-        return true;
-    }
-    if (str().is_at(e)) {
-        len = 1;
-        return true;
-    }
+    ptr_buffer<expr> es;
+    es.push_back(e);
+    len = 0;
     zstring s;
-    if (str().is_string(e, s)) {
-        len = rational(s.length());
-        return true;
-    }
-    if (str().is_empty(e)) {
-        len = 0;
-        return true;
-    }
     expr* s1 = nullptr, *i = nullptr, *l = nullptr;
     rational n;
-    if (str().is_extract(e, s1, i, l) && m_autil.is_numeral(l, n) && !n.is_neg()) {
-        len = n;
-        return true;
-    }
-    if (str().is_concat(e)) {
-        rational l(0);
-        len = 0;
-        for (expr* arg : *to_app(e)) {
-            if (!max_length(arg, l))
-                return false;
-            len += l;
+
+    while (!es.empty()) {
+        e = es.back();
+        es.pop_back();
+        if (str().is_unit(e)) 
+            len += 1;
+        else if (str().is_at(e))
+            len += 1;
+        else if (str().is_string(e, s))
+            len += rational(s.length());
+        else if (str().is_extract(e, s1, i, l) && m_autil.is_numeral(l, n) && !n.is_neg())
+            len += n;
+        else if (str().is_empty(e))
+            continue;
+        else if (str().is_concat(e)) {
+            for (expr* arg : *to_app(e))
+                es.push_back(arg);
         }
-        return true;
+        else
+            return false;
     }
-    return false;
+    return true;
 }
+
 
 bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
     zstring s1;
