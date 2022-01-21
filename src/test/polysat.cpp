@@ -1232,7 +1232,12 @@ public:
             b = to_app(e)->get_arg(1);
             auto pa = to_pdd(m, s, expr2pdd, a);
             auto pb = to_pdd(m, s, expr2pdd, b);
-            r = alloc(pdd, s.lshr(pa, pb));
+            r = alloc(pdd, s.band(pa, pb));
+        }
+        else if (bv.is_bv_neg(e)) {
+            a = to_app(e)->get_arg(0);
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            r = alloc(pdd, -pa);
         }
         else if (bv.is_numeral(e, n, sz)) 
             r = alloc(pdd, s.value(n, sz));
