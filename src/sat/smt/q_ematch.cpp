@@ -564,7 +564,7 @@ namespace q {
     };
 
     void ematch::add(quantifier* _q) {
-        TRACE("q", tout << "add " << mk_pp(_q, m) << "\n";);
+        TRACE("q", tout << "add " << mk_pp(_q, m) << "\n");
         clause* c = clausify(_q);
         quantifier* q = c->q();
         if (m_q2clauses.contains(q)) {
@@ -588,7 +588,7 @@ namespace q {
             app * mp = to_app(q->get_pattern(i));
             SASSERT(m.is_pattern(mp));
             bool unary = (mp->get_num_args() == 1);
-            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
+            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n");
             if (!unary && j >= num_eager_multi_patterns) {
                 TRACE("q", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
                 if (!m_lazy_mam)

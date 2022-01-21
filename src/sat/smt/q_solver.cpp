@@ -286,6 +286,11 @@ namespace q {
                     idx = i;
                 }
             }
+            if (!e1 && updated) {
+                m_expanded.reset();
+                m_expanded.push_back(r);
+                return true;
+            }
             if (!e1)
                 return false;
 
