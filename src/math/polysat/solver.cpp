@@ -500,8 +500,7 @@ namespace polysat {
         
         search_iterator search_it(m_search);
         while (search_it.next()) {
-            LOG("search state: " << m_search);
-            LOG("Conflict: " << m_conflict);
+            // LOG("search state: " << m_search);
             auto& item = *search_it;
             search_it.set_resolved();
             LOG_H2("Working on " << search_item_pp(m_search, item));
@@ -512,6 +511,7 @@ namespace polysat {
                     m_search.pop_assignment();
                     continue;
                 }
+                LOG("Conflict: " << m_conflict);
                 inc_activity(v);
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
@@ -529,6 +529,7 @@ namespace polysat {
                     continue;
                 if (m_bvars.level(var) <= base_level())  
                     continue;
+                LOG("Conflict: " << m_conflict);
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
                     return;

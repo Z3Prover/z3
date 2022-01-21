@@ -1245,6 +1245,7 @@ public:
             r = alloc(pdd, s.var(s.add_var(sz)));
         else {
             std::cout << "UNKNOWN " << mk_pp(e, m) << "\n";
+            NOT_IMPLEMENTED_YET();
             r = alloc(pdd, s.var(s.add_var(sz)));
         }
         expr2pdd.insert(e, r);
