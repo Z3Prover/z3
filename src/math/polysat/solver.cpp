@@ -208,6 +208,8 @@ namespace polysat {
 #endif
         push_qhead();
         while (can_propagate()) {
+            if (is_conflict())
+                return;
             auto const& item = m_search[m_qhead++];
             if (item.is_assignment())
                 propagate(item.var());
