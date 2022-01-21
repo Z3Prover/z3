@@ -1315,9 +1315,6 @@ void tst_polysat() {
     test_fi::randomized();
     return;
 
-    test_polysat::test_ineq_axiom1(32, 2);  // crashes
-    return;
-
     // looks like a fishy conflict lemma?
     test_polysat::test_monot_bounds();
     return;
@@ -1438,6 +1435,7 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     VERIFY(parse_smt2_commands(ctx, is));
     ptr_vector<expr> fmls = ctx.assertions();
     polysat::scoped_solver s("polysat");
+    s.set_max_conflicts(1000);
     g_solver = &s;
     polysat::internalize(m, s, fmls);
     std::cout << "checking\n";

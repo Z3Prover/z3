@@ -24,8 +24,8 @@ namespace polysat {
             m_value.push_back(l_undef);
             m_level.push_back(UINT_MAX);
             m_deps.push_back(null_dependency);
-            m_reason.push_back(nullptr);
-            m_lemma.push_back(nullptr);
+            m_kind.push_back(kind_t::unassigned);
+            m_clause.push_back(nullptr);
             m_watch.push_back({});
             m_watch.push_back({});
             m_activity.push_back(0);
@@ -36,8 +36,8 @@ namespace polysat {
             SASSERT_EQ(m_level[var], UINT_MAX);
             SASSERT_EQ(m_value[2*var], l_undef);
             SASSERT_EQ(m_value[2*var+1], l_undef);
-            SASSERT_EQ(m_reason[var], nullptr);
-            SASSERT_EQ(m_lemma[var], nullptr);
+            SASSERT_EQ(m_kind[var], kind_t::unassigned);
+            SASSERT_EQ(m_clause[var], nullptr);
             SASSERT_EQ(m_deps[var], null_dependency);
         }
         m_free_vars.mk_var_eh(var);
@@ -50,8 +50,8 @@ namespace polysat {
         m_value[lit.index()]    = l_undef;
         m_value[(~lit).index()] = l_undef;
         m_level[var] = UINT_MAX;
-        m_reason[var] = nullptr;
-        m_lemma[var] = nullptr;
+        m_kind[var] = kind_t::unassigned;
+        m_clause[var] = nullptr;
         m_deps[var] = null_dependency;
         m_watch[lit.index()].reset();
         m_watch[(~lit).index()].reset();
@@ -62,31 +62,36 @@ namespace polysat {
 
     void bool_var_manager::propagate(sat::literal lit, unsigned lvl, clause& reason) {
         LOG("Propagate literal " << lit << " @ " << lvl << " by " << reason);
-        assign(lit, lvl, &reason, nullptr, null_dependency);
+        assign(kind_t::propagation, lit, lvl, &reason);
+        SASSERT(is_propagation(lit));
     }
 
-    void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause* lemma) {
+    void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause& lemma) {
         LOG("Decide literal " << lit << " @ " << lvl);
-        assign(lit, lvl, nullptr, lemma);
+        assign(kind_t::decision, lit, lvl, &lemma);
+        SASSERT(is_decision(lit));
     }
 
     void bool_var_manager::eval(sat::literal lit, unsigned lvl) {
         LOG("Eval literal " << lit << " @ " << lvl);
-        assign(lit, lvl, nullptr, nullptr);
+        assign(kind_t::propagation, lit, lvl, nullptr);
+        SASSERT(is_propagation(lit));
     }
 
     void bool_var_manager::asserted(sat::literal lit, unsigned lvl, unsigned dep) {
         LOG("Asserted " << lit << " @ " << lvl);
-        assign(lit, lvl, nullptr, nullptr, dep);
+        assign(kind_t::decision, lit, lvl, nullptr, dep);
+        SASSERT(is_decision(lit));
     }
 
-    void bool_var_manager::assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma, unsigned dep) {
+    void bool_var_manager::assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, unsigned dep) {
         SASSERT(!is_assigned(lit));
+        SASSERT(k != kind_t::unassigned);
         m_value[lit.index()] = l_true;
         m_value[(~lit).index()] = l_false;
         m_level[lit.var()] = lvl;
-        m_reason[lit.var()] = reason;
-        m_lemma[lit.var()] = lemma;
+        m_kind[lit.var()] = k;
+        m_clause[lit.var()] = reason;
         m_deps[lit.var()] = dep;
         m_free_vars.del_var_eh(lit.var());
     }
@@ -96,8 +101,8 @@ namespace polysat {
         m_value[lit.index()] = l_undef;
         m_value[(~lit).index()] = l_undef;
         m_level[lit.var()] = UINT_MAX;
-        m_reason[lit.var()] = nullptr;
-        m_lemma[lit.var()] = nullptr;
+        m_kind[lit.var()] = kind_t::unassigned;
+        m_clause[lit.var()] = nullptr;
         m_deps[lit.var()] = null_dependency;
         m_free_vars.unassign_var_eh(lit.var());
     }

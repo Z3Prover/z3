@@ -250,14 +250,12 @@ namespace polysat {
         DEBUG_CODE(m_locked_wlist = v;);
         auto& wlist = m_pwatch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
-        LOG("wlist old: " << wlist);
         for (; i < sz && !is_conflict(); ++i)
             if (!wlist[i].propagate(*this, v))
                 wlist[j++] = wlist[i];
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
         wlist.shrink(j);
-        LOG("wlist new: " << wlist);
         DEBUG_CODE(m_locked_wlist = std::nullopt;);
     }
 
@@ -578,10 +576,13 @@ namespace polysat {
     *   NOTE: boolean resolution should work normally even in bailout mode.
     */
     void solver::resolve_bool(sat::literal lit) {       
-        SASSERT(m_bvars.is_propagation(lit.var()));
-        clause const& other = *m_bvars.reason(lit.var());
-        LOG_H3("resolve_bool: " << lit << " " << other);
-        m_conflict.resolve(m_constraints, lit, other);
+        SASSERT(m_bvars.is_propagation(lit));
+        clause const* other = m_bvars.reason(lit);
+        LOG_H3("resolve_bool: " << lit << " " << show_deref(other));
+        if (other)
+            m_conflict.resolve(lit, *other);
+        else
+            m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
     }
     
     void solver::report_unsat() {
@@ -664,7 +665,7 @@ namespace polysat {
             break;
         default:
             push_level();
-            assign_decision(choice, &lemma);
+            assign_decision(choice, lemma);
             break;
         }
     }
@@ -740,14 +741,16 @@ namespace polysat {
         // The lemma where 'lit' comes from.
         // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
+        // We only revert decisions that come from lemmas, so lemma must not be NULL here.
+        // (Externally asserted literals are at a base level, so we would return UNSAT instead of reverting.)
+        SASSERT(lemma);
 
         backjump(m_bvars.level(var) - 1);
 
         // reason should force ~lit after propagation
         add_clause(*reason);
 
-        if (lemma)  // TODO: can (should) this ever be NULL?
-            enqueue_decision_on_lemma(*lemma);
+        enqueue_decision_on_lemma(*lemma);
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
@@ -768,7 +771,7 @@ namespace polysat {
         m_search.push_boolean(lit);
     }
 
-    void solver::assign_decision(sat::literal lit, clause* lemma) {
+    void solver::assign_decision(sat::literal lit, clause& lemma) {
         m_bvars.decide(lit, m_level, lemma);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);

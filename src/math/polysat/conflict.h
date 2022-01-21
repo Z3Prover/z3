@@ -98,7 +98,11 @@ namespace polysat {
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.
          */
-        void resolve(constraint_manager const& m, sat::literal lit, clause const& cl);
+        void resolve(sat::literal lit, clause const& cl);
+
+        /** lit was fully evaluated under the assignment up to level 'lvl'.
+         */
+        void resolve_with_assignment(sat::literal lit, unsigned lvl);
 
         /** Perform value resolution by applying various inference rules.
          *  Returns true if it was possible to eliminate the variable 'v'.
