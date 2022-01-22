@@ -854,7 +854,10 @@ struct purify_arith_proc {
                 for (auto const& p : mods) {
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
+                
                 fmc->add(u().mk_mod0(), body);
+                body = m().mk_ite(u().mk_ge(v1, u().mk_int(0)), body, u().mk_uminus(body));
+                fmc->add(u().mk_rem0(), body);
             }
             if (!idivs.empty()) {
                 expr_ref body(u().mk_int(0), m());
