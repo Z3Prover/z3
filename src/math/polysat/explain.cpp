@@ -176,7 +176,6 @@ namespace polysat {
             core.reset();
             LOG_H3("Polynomial superposition " << eq << " " << c << " reduced to " << c2);
             if (c2.bvalue(s) == l_false) {
-                UNREACHABLE();
                 // TODO this loops or crashes depending on whether we
                 // return true or false.
                 core.insert(eq);

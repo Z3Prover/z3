@@ -52,12 +52,24 @@ namespace polysat {
         // We keep the e1, e2 around in case we need side conditions such as e1=b1, e2=b2.
         auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), fi.side_cond);
         auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), fi.side_cond);
-        if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero()))
+
+        _backtrack.released = true;
+                
+        // v > q
+        if (ok1 && !ok2 && match_non_zero(c, a1, b1, e1, fi))
+            return true;
+
+        // p > v
+        if (!ok1 && ok2 && match_non_max(c, a2, b2, e2, fi))
+            return true;
+            
+        if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero())) {
+            _backtrack.released = false;
             return false;
+        }
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());
    
-        _backtrack.released = true;
 
         if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
@@ -249,6 +261,55 @@ namespace polysat {
         }
         return false;
     }
+
+    /** 
+     * v > q
+     * forbidden interval for v is [0,1[
+     * 
+     * Generalizations todo:
+     *
+     * v - k > q
+     * forbidden interval for v is [k,k+1[
+     * 
+     * a*v - k > q, a odd
+     * forbidden interval for v is [a^-1*k, a^-1*k + 1[
+     */
+    bool forbidden_intervals::match_non_zero(
+        signed_constraint const& c,
+        rational const & a1, pdd const& b1, pdd const& e1,
+        fi_record& fi) {
+        if (a1.is_odd() && b1.is_zero() && !c.is_positive()) {
+            auto& m = e1.manager();
+            rational lo_val(0);
+            auto lo = m.zero();
+            rational hi_val(1);
+            auto hi = m.one();
+            fi.coeff = 1;
+            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            if (b1 != e1)
+                fi.side_cond.push_back(s.eq(b1, e1));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * p > v
+     * forbidden interval for v is [-1,0[
+     * p > v + k
+     * forbidden interval for v is [-k-1,-k[
+     */
+    bool forbidden_intervals::match_non_max(
+        signed_constraint const& c,
+        rational const & a2, pdd const& b2, pdd const& e2,
+        fi_record& fi) {
+        if (a2.is_one() && b2.is_zero() && !c.is_positive()) {
+            // todo
+            
+        }
+        return false;
+    }
+
 
     void forbidden_intervals::add_non_unit_side_conds(fi_record& fi, pdd const& b1, pdd const& e1, pdd const& b2, pdd const& e2) {
         if (fi.coeff == 1)

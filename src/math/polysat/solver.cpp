@@ -831,7 +831,7 @@ namespace polysat {
 
     // Add lemma to storage
     void solver::add_clause(clause& clause) {
-        LOG("Lemma: " << clause);
+        LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
             // SASSERT(m_bvars.value(lit) != l_true);
