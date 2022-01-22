@@ -376,6 +376,7 @@ public:
     MATCH_BINARY(is_sge);
     MATCH_BINARY(is_ugt);
     MATCH_BINARY(is_sgt);
+    MATCH_BINARY(is_bv_umul_no_ovfl);
     MATCH_BINARY(is_bv_ashr);
     MATCH_BINARY(is_bv_lshr);
     MATCH_BINARY(is_bv_shl);

@@ -85,7 +85,8 @@ namespace polysat {
             LOG(m_name << ": " << m_last_result << "\n");
             statistics st;
             collect_statistics(st);
-            LOG(st << "\n" << *this << "\n");
+            // LOG(st << "\n" << *this << "\n");
+            std::cout << st << "\n" << *this << "\n";
         }
 
         void expect_unsat() {
@@ -1297,6 +1298,14 @@ public:
                     s.add_slt(pb, pa);
                 else 
                     s.add_sle(pa, pb);
+            }
+            else if (bv.is_bv_umul_no_ovfl(fm, a, b)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                if (is_not)
+                    s.add_ovfl(pa, pb);
+                else
+                    s.add_noovfl(pa, pb);
             }
             else {
                 std::cout << "SKIP: " << mk_pp(fm, m) << "\n";            
