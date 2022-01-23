@@ -76,8 +76,12 @@ namespace polysat {
                 // Ensure that c is assigned and justified                    
                 premises.push_back(c1);
                 premises.push_back(c2);
+                // var dependency on c is lost
+                // c evaluates to false, when the clause ~c1 or ~c2 or c
+                // gets created, c is assigned to false by evaluation propagation
+                // It should have been assigned true by unit propagation.
                 core.replace(c2, c, premises);
-                // SASSERT_EQ(l_true, c.bvalue(s));  // TODO: currently violated, check this!
+                SASSERT_EQ(l_true, c.bvalue(s));  // TODO: currently violated, check this!
                 SASSERT(c.is_currently_false(s));
                 break;
             default:
@@ -88,6 +92,7 @@ namespace polysat {
             // c alone (+ variables) is now enough to represent the conflict.
             core.reset();
             core.set(c);
+            std::cout << "set c\n";
             return c->contains_var(v) ? l_undef : l_true;
         }
         return l_false;

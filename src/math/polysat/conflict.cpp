@@ -127,7 +127,7 @@ namespace polysat {
      */
     void conflict::insert(signed_constraint c) {
         if (c.is_always_true())
-            return;
+            return;        
         if (c->is_marked())
             return;
         LOG("inserting: " << c);
@@ -150,6 +150,7 @@ namespace polysat {
      */
     void conflict::insert(signed_constraint c, vector<signed_constraint> const& premises) {
         keep(c);
+
         clause_builder c_lemma(s);
         for (auto premise : premises) {
             LOG_H3("premise: " << premise);
@@ -162,7 +163,7 @@ namespace polysat {
         clause_ref lemma = c_lemma.build();
         SASSERT(lemma);
         cm().store(lemma.get(), s);
-        if (s.m_bvars.value(c.blit()) == l_undef)
+        if (c.bvalue(s) == l_undef)
             s.assign_propagate(c.blit(), *lemma);
     }
 
