@@ -57,11 +57,16 @@ namespace polysat {
         m_constraints.push_back(c);
     }
 
-    void constraint_manager::store(clause* cl, solver& s) {       
+
+    void constraint_manager::register_clause(clause* cl, solver& s) {
         while (m_clauses.size() <= s.base_level())
             m_clauses.push_back({});
         m_clauses[s.base_level()].push_back(cl);
-        watch(*cl, s);
+    }
+
+    void constraint_manager::store(clause* cl, solver& s, bool value_propagate) {
+        register_clause(cl, s);
+        watch(*cl, s, value_propagate);
     }
 
     // Release constraints at the given level and above.
@@ -79,7 +84,7 @@ namespace polysat {
     // if clause is unsat then assign arbitrary
     // solver handles unsat clauses by creating a conflict.
     // solver also can propagate, but need to check that it does indeed.
-    void constraint_manager::watch(clause& cl, solver& s) {      
+    void constraint_manager::watch(clause& cl, solver& s, bool value_propagate) {      
         if (cl.empty())
             return;
 
@@ -88,7 +93,7 @@ namespace polysat {
             if (m_bvars.is_false(cl[i]))
                 continue;
             signed_constraint sc = s.lit2cnstr(cl[i]);
-            if (sc.is_currently_false(s)) {
+            if (value_propagate && sc.is_currently_false(s)) {
                 if (m_bvars.is_true(cl[i])) {
                     s.set_conflict(sc);
                     return;

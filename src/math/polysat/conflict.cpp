@@ -162,7 +162,7 @@ namespace polysat {
         c_lemma.push(c.blit());
         clause_ref lemma = c_lemma.build();
         SASSERT(lemma);
-        cm().store(lemma.get(), s);
+        cm().store(lemma.get(), s, false);
         if (c.bvalue(s) == l_undef)
             s.assign_propagate(c.blit(), *lemma);
     }

@@ -838,7 +838,7 @@ namespace polysat {
             // SASSERT(m_bvars.value(lit) != l_true);
         }
         SASSERT(!clause.empty());
-        m_constraints.store(&clause, *this);
+        m_constraints.store(&clause, *this, true);
     }
 
     void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {

@@ -67,8 +67,10 @@ namespace polysat {
         void gc_constraints(solver& s);
         void gc_clauses(solver& s);
 
-        void watch(clause& cl, solver& s);
+        void watch(clause& cl, solver& s, bool value_propagate);
         void unwatch(clause& cl);
+
+        void register_clause(clause* cl, solver& s);
 
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
@@ -78,7 +80,7 @@ namespace polysat {
         void erase_bvar(constraint* c);
         // sat::literal get_or_assign_blit(signed_constraint& c);
 
-        void store(clause* cl, solver& s);
+        void store(clause* cl, solver& s, bool value_propagate);
 
         /// Release clauses at the given level and above.
         void release_level(unsigned lvl);
