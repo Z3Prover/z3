@@ -122,9 +122,9 @@ namespace polysat {
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive) {
-        auto p = lhs().subst_val(s.assignment());
-        auto q = rhs().subst_val(s.assignment());
-
+        auto p = s.subst(lhs());
+        auto q = s.subst(rhs());
+        
         signed_constraint sc(this, is_positive);
 
         LOG_H3("Narrowing " << sc);
@@ -190,15 +190,15 @@ namespace polysat {
         return is_always_false(is_positive, lhs(), rhs());
     }
 
-    bool ule_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
-        auto p = lhs().subst_val(a);
-        auto q = rhs().subst_val(a);
+    bool ule_constraint::is_currently_false(solver& s, bool is_positive) const {
+        auto p = s.subst(lhs());
+        auto q = s.subst(rhs());
         return is_always_false(is_positive, p, q);
     }
 
-    bool ule_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
-        auto p = lhs().subst_val(a);
-        auto q = rhs().subst_val(a);
+    bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {
+        auto p = s.subst(lhs());
+        auto q = s.subst(rhs());
         if (is_positive) {
             if (p.is_zero())
                 return true;
@@ -207,6 +207,7 @@ namespace polysat {
         else 
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
+
 
     inequality ule_constraint::as_inequality(bool is_positive) const {
         if (is_positive)

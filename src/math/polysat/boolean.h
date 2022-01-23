@@ -90,10 +90,10 @@ namespace polysat {
 
         friend std::ostream& operator<<(std::ostream& out, kind_t const& k) {
             switch (k) {
-            case kind_t::unassigned: return out << "unassigned"; break;
-            case kind_t::propagation: return out << "propagation"; break;
-            case kind_t::decision: return out << "decision"; break;
-            default: UNREACHABLE();
+            case kind_t::unassigned: return out << "unassigned"; 
+            case kind_t::propagation: return out << "propagation"; 
+            case kind_t::decision: return out << "decision"; 
+            default: UNREACHABLE(); return out;
             }
          }
     };

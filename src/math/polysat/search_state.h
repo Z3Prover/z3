@@ -20,6 +20,8 @@ namespace polysat {
     typedef std::pair<pvar, rational> assignment_item_t;
     typedef vector<assignment_item_t> assignment_t;
 
+    class solver;
+
     enum class search_item_k
     {
         assignment,
@@ -49,18 +51,23 @@ namespace polysat {
     };
 
     class search_state {
+        solver&             s;
 
         vector<search_item> m_items;
         assignment_t        m_assignment;  // First-order part of the search state
-        
+        mutable scoped_ptr_vector<pdd>         m_subst;
+        vector<pdd>         m_subst_trail;
+
         bool value(pvar v, rational& r) const;
 
     public:
+        search_state(solver& s): s(s) {}
         unsigned size() const { return m_items.size(); }
         search_item const& back() const { return m_items.back(); }
         search_item const& operator[](unsigned i) const { return m_items[i]; }
 
         assignment_t const& assignment() const { return m_assignment; }
+        pdd& assignment(unsigned sz) const;        
 
         void push_assignment(pvar p, rational const& r);
         void push_boolean(sat::literal lit);

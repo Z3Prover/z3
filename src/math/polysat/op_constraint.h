@@ -23,6 +23,8 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     class op_constraint final : public constraint {
     public:
         enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op, not_op };
@@ -54,8 +56,8 @@ namespace polysat {
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
         bool is_always_false(bool is_positive) const override;
-        bool is_currently_false(assignment_t const& a, bool is_positive) const override;
-        bool is_currently_true(assignment_t const& a, bool is_positive) const override;
+        bool is_currently_false(solver& s, bool is_positive) const override;
+        bool is_currently_true(solver& s, bool is_positive) const override;
         void narrow(solver& s, bool is_positive) override;
         inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;

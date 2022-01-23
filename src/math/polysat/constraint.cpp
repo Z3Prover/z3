@@ -137,14 +137,6 @@ namespace polysat {
         return {lookup(lit.var()), lit};
     }
 
-    bool signed_constraint::is_currently_false(solver& s) const { 
-        return is_currently_false(s.assignment());
-    }
-
-    bool signed_constraint::is_currently_true(solver& s) const { 
-        return is_currently_true(s.assignment());
-    }
-
     /** Look up constraint among stored constraints. */
     constraint* constraint_manager::dedup(constraint* c1) {
         constraint* c2 = nullptr;

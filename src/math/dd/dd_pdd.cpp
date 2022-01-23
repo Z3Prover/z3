@@ -165,7 +165,11 @@ namespace dd {
         return true;
     }
 
-    pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
+    pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
+        return pdd(apply(p.root, s.root, pdd_subst_val_op), this);
+    }
+
+    pdd pdd_manager::subst_val0(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
         typedef std::pair<unsigned, rational> pr;
         vector<pr> s(_s);        
         std::function<bool (pr const&, pr const&)> compare_level = 
@@ -173,9 +177,15 @@ namespace dd {
         std::sort(s.begin(), s.end(), compare_level);
         pdd r(one());
         for (auto const& q : s) 
-            r = (r * mk_var(q.first)) + q.second;            
-        return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
+            r = (r * mk_var(q.first)) + q.second;
+        return subst_val(p, r);
     }
+
+    pdd pdd_manager::subst_add(pdd const& s, unsigned v, rational const& val) {
+        pdd v_val = mk_var(v) + val;
+        return pdd(apply(s.root, v_val.root, pdd_subst_add_op), this);
+    }
+    
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -246,6 +256,14 @@ namespace dd {
                 else break;
             }
             if (is_val(p) || is_val(q)) return p;            
+            break;
+        case pdd_subst_add_op:
+            if (is_one(p)) return q;
+            SASSERT(!is_val(p));
+            SASSERT(!is_val(q));
+            if (level(p) < level(q))
+                // p*hi(q) + lo(q)
+                return make_node(level(q), lo(q), p);
             break;
         default:
             UNREACHABLE();
@@ -404,6 +422,14 @@ namespace dd {
                 npop = 3;
             }
             break;
+        case pdd_subst_add_op:
+            SASSERT(!is_val(p));
+            SASSERT(!is_val(q));
+            SASSERT(level_p > level_q);
+            push(apply_rec(hi(p), q, pdd_subst_add_op));           // hi := add_subst(hi(p), q)
+            r = make_node(level_p, lo(p), read(1));                // r := hi*var(p) + lo(p)
+            npop = 1;
+            break;
         default:
             r = null_pdd;
             UNREACHABLE();
@@ -414,6 +440,7 @@ namespace dd {
         SASSERT(!m_free_nodes.contains(r));
         return r;
     }
+
 
     pdd pdd_manager::minus(pdd const& a) {
         if (m_semantics == mod2_e) {

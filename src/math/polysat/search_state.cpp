@@ -13,6 +13,7 @@ Author:
 --*/
 
 #include "math/polysat/search_state.h"
+#include "math/polysat/solver.h"
 
 namespace polysat {
 
@@ -44,15 +45,33 @@ namespace polysat {
                 return true;
             }
         return false;
-    }   
+    }
 
     void search_state::push_assignment(pvar p, rational const& r) {
         m_items.push_back(search_item::assignment(p));
         m_assignment.push_back({p, r});
+        auto& m = s.var2pdd(p);
+        unsigned sz = s.size(p);
+        pdd& s = assignment(sz);
+        m_subst_trail.push_back(s);
+        s = s.subst_add(p, r);
+        SASSERT(s == *m_subst[sz]);
+    }
+
+    pdd& search_state::assignment(unsigned sz) const {
+        m_subst.reserve(sz + 1);
+        if (!m_subst[sz])
+            m_subst.set(sz, alloc(pdd, s.sz2pdd(sz).one()));
+        return *m_subst[sz];
     }
 
     void search_state::pop_assignment() {
         m_assignment.pop_back();
+        pdd& s = m_subst_trail.back();
+        auto& m = s.manager();
+        unsigned sz = m.power_of_2();
+        *m_subst[sz] = s;
+        m_subst_trail.pop_back();
     }
 
     void search_state::push_boolean(sat::literal lit) {
@@ -62,7 +81,7 @@ namespace polysat {
     void search_state::pop() {
         auto const& item = m_items.back();
         if (item.is_assignment() && !m_assignment.empty() && item.var() == m_assignment.back().first) 
-            m_assignment.pop_back();        
+            pop_assignment();
         m_items.pop_back();
     }
 

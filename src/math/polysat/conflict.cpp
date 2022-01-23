@@ -281,6 +281,11 @@ namespace polysat {
             return;
         if (!c.is_currently_false(s))
             return;
+
+        return;
+#if 0
+        
+        TODO - fix for new subst
         assignment_t a;
         for (auto v : m_vars)
             a.push_back(std::make_pair(v, s.get_value(v)));
@@ -302,6 +307,7 @@ namespace polysat {
         for (auto const& [v, val] : a)
             m_vars.insert(v);
         LOG("reduced " << m_vars);
+#endif
     }
 
 

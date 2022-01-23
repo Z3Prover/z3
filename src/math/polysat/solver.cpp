@@ -38,7 +38,8 @@ namespace polysat {
         m_forbidden_intervals(*this),
         m_bvars(),
         m_free_pvars(m_activity),
-        m_constraints(m_bvars) {
+        m_constraints(m_bvars),
+        m_search(*this) {
     }
 
     solver::~solver() {
@@ -82,7 +83,7 @@ namespace polysat {
         return l_undef;
     }
 
-    dd::pdd_manager& solver::sz2pdd(unsigned sz) {
+    dd::pdd_manager& solver::sz2pdd(unsigned sz) const {
         m_pdd.reserve(sz + 1);
         if (!m_pdd[sz])
             m_pdd.set(sz, alloc(dd::pdd_manager, 1000, dd::pdd_manager::semantics::mod2N_e, sz));
@@ -901,7 +902,7 @@ namespace polysat {
     }
 
     bool solver::try_eval(pdd const& p, rational& out_value) const {
-        pdd r = p.subst_val(assignment());
+        pdd r = subst(p);
         if (r.is_val())
             out_value = r.val();
         return r.is_val();
@@ -1009,6 +1010,13 @@ namespace polysat {
         }
         return true;
     }
+
+    pdd solver::subst(pdd const& p) const {
+        unsigned sz = p.manager().power_of_2();
+        pdd const& s = m_search.assignment(sz);
+        return p.subst_val(s);
+    }
+
 
     /** Check that boolean assignment and constraint evaluation are consistent */
     bool solver::assignment_invariant() {

@@ -85,8 +85,8 @@ namespace polysat {
             LOG(m_name << ": " << m_last_result << "\n");
             statistics st;
             collect_statistics(st);
-            // LOG(st << "\n" << *this << "\n");
-            std::cout << st << "\n" << *this << "\n";
+            LOG(st << "\n" << *this << "\n");
+            std::cout << st << "\n";
         }
 
         void expect_unsat() {
@@ -1321,17 +1321,16 @@ public:
 void tst_polysat() {
     using namespace polysat;
 
-    test_fi::exhaustive();
-    test_fi::randomized();
-    return;
+    test_polysat::test_l2();
 
+#if 0
     // looks like a fishy conflict lemma?
     test_polysat::test_monot_bounds();
-    return;
+     return;
 
     test_polysat::test_quot_rem_incomplete();
     test_polysat::test_quot_rem_fixed();
-    return;
+    //return;
 
     test_polysat::test_band();
     return;
@@ -1346,6 +1345,8 @@ void tst_polysat() {
     test_polysat::test_ineq_axiom5();
     test_polysat::test_ineq_axiom6();
     return;
+
+#endif
 
     test_polysat::test_ineq_basic4();
     //return;
@@ -1390,6 +1391,11 @@ void tst_polysat() {
     test_polysat::test_ineq_axiom4();
     test_polysat::test_ineq_axiom5();
     test_polysat::test_ineq_axiom6();
+
+    test_fi::exhaustive();
+    test_fi::randomized();
+    return;
+
 #if 0
     test_polysat::test_ineq_non_axiom4(32, 5);
 #endif

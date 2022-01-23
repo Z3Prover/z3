@@ -68,8 +68,9 @@ namespace dd {
             pdd_mul_op = 5,
             pdd_reduce_op = 6,
             pdd_subst_val_op = 7,
-            pdd_div_const_op = 8,
-            pdd_no_op = 9
+            pdd_subst_add_op = 8,
+            pdd_div_const_op = 9,
+            pdd_no_op = 10
         };
 
         struct node {
@@ -338,8 +339,10 @@ namespace dd {
         pdd mk_xor(pdd const& p, unsigned q);
         pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
-        pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
+        pdd subst_val0(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
+        pdd subst_val(pdd const& a, pdd const& s);
+        pdd subst_add(pdd const& s, unsigned v, rational const& val);
         bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
         pdd reduce(unsigned v, pdd const& a, pdd const& b);
         void quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r);
@@ -436,8 +439,10 @@ namespace dd {
         bool resolve(unsigned v, pdd const& other, pdd& result) { return m.resolve(v, *this, other, result); }
         pdd reduce(unsigned v, pdd const& other) const { return m.reduce(v, *this, other); }
 
-        pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
+        pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
+        pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
+        pdd subst_add(unsigned var, rational const& val) { return m.subst_add(*this, var, val); }
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }

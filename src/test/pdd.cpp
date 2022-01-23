@@ -309,10 +309,10 @@ public :
         sub1.push_back(std::make_pair(va, rational(1)));
         sub2.push_back(std::make_pair(va, rational(2)));
         sub3.push_back(std::make_pair(va, rational(3)));
-        std::cout << "sub 0 " << p.subst_val(sub0) << "\n";
-        std::cout << "sub 1 " << p.subst_val(sub1) << "\n";
-        std::cout << "sub 2 " << p.subst_val(sub2) << "\n";
-        std::cout << "sub 3 " << p.subst_val(sub3) << "\n";
+        std::cout << "sub 0 " << p.subst_val0(sub0) << "\n";
+        std::cout << "sub 1 " << p.subst_val0(sub1) << "\n";
+        std::cout << "sub 2 " << p.subst_val0(sub2) << "\n";
+        std::cout << "sub 3 " << p.subst_val0(sub3) << "\n";
 
         std::cout << "expect 1 " << (2*a + 1).is_never_zero() << "\n";
         std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_never_zero() << "\n";
@@ -538,7 +538,7 @@ public :
             pdd const p = 2*a + b + 1;
             SASSERT(p.subst_val(va, rational(0)) == b + 1);
         }
-
+        
         {
             pdd const p = a + 2*b;
             SASSERT(p.subst_val(va, rational(0)) == 2*b);
@@ -555,7 +555,7 @@ public :
             vector<std::pair<unsigned, rational>> sub;
             sub.push_back({vb, rational(2)});
             sub.push_back({vc, rational(3)});
-            SASSERT(p.subst_val(sub) == a + d + 1);
+            SASSERT(p.subst_val0(sub) == a + d + 1);
         }
 
         {
@@ -563,10 +563,10 @@ public :
             vector<std::pair<unsigned, rational>> sub;
             sub.push_back({vb, rational(2)});
             sub.push_back({vc, rational(3)});
-            SASSERT(p.subst_val(sub) == (a + 2) * (d + 3));
+            SASSERT(p.subst_val0(sub) == (a + 2) * (d + 3));
             sub.push_back({va, rational(3)});
             sub.push_back({vd, rational(2)});
-            SASSERT(p.subst_val(sub) == m.one());
+            SASSERT(p.subst_val0(sub) == m.one());
         }
     }
 

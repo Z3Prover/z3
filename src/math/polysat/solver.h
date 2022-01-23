@@ -69,20 +69,20 @@ namespace polysat {
         friend class forbidden_intervals;
         friend class linear_solver;
         friend class viable;
-        friend class viable2;
+        friend class search_state;
         friend class assignment_pp;
         friend class assignments_pp;
         friend class ex_polynomial_superposition;
-        friend class inf_saturate;
+        friend class inf_saturate;        
         friend class constraint_manager;
-        friend class scoped_solverv;
+        friend class scoped_solverv;        
         friend class test_polysat;
         friend class test_fi;
 
         reslimit&                m_lim;
         params_ref               m_params;
 
-        scoped_ptr_vector<dd::pdd_manager> m_pdd;
+        mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
         linear_solver            m_linear_solver;
         conflict                 m_conflict; 
@@ -115,6 +115,7 @@ namespace polysat {
 
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
+        pdd subst(pdd const& p) const; 
 
         unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
         unsigned                 m_level = 0;
@@ -145,7 +146,7 @@ namespace polysat {
 
         void del_var();
 
-        dd::pdd_manager& sz2pdd(unsigned sz);
+        dd::pdd_manager& sz2pdd(unsigned sz) const;
         dd::pdd_manager& var2pdd(pvar v);
 
         void push_level();

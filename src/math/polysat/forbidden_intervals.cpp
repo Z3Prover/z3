@@ -111,13 +111,13 @@ namespace polysat {
         // r := eval(q)
         // Add side constraint q = r.
         if (!q.is_val()) {
-            pdd r = q.subst_val(s.assignment());
+            pdd r = s.subst(q);
             if (!r.is_val())
                 return std::tuple(false, rational(0), q, e);
             out_side_cond.push_back(s.eq(q, r));
             q = r;
         }
-        auto b = e.subst_val(s.assignment());
+        auto b = s.subst(e); 
         return std::tuple(b.is_val(), q.val(), e, b);
     };
 

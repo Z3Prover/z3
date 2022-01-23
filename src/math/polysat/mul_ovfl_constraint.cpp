@@ -81,18 +81,19 @@ namespace polysat {
         return is_always_false(is_positive, m_p, m_q);
     }
 
-    bool mul_ovfl_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
-        return is_always_false(is_positive, p().subst_val(a), q().subst_val(a));
+
+    bool mul_ovfl_constraint::is_currently_false(solver& s, bool is_positive) const {
+        return is_always_false(is_positive, s.subst(p()), s.subst(q()));
     }
 
-    bool mul_ovfl_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
-        return is_always_true(is_positive, p().subst_val(a), q().subst_val(a));
+    bool mul_ovfl_constraint::is_currently_true(solver& s, bool is_positive) const {
+        return is_always_true(is_positive, s.subst(p()), s.subst(q()));
     }
 
     void mul_ovfl_constraint::narrow(solver& s, bool is_positive) {    
-        auto p1 = p().subst_val(s.assignment());
-        auto q1 = q().subst_val(s.assignment());
-
+        auto p1 = s.subst(p());
+        auto q1 = s.subst(q());
+        
         if (is_always_false(is_positive, p1, q1)) {
             s.set_conflict({ this, is_positive });
             return;

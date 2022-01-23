@@ -78,12 +78,12 @@ namespace polysat {
         return is_always_false(is_positive, p(), q(), r());
     }
 
-    bool op_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
-        return is_always_false(is_positive, p().subst_val(a), q().subst_val(a), r().subst_val(a));
+    bool op_constraint::is_currently_false(solver& s, bool is_positive) const {
+        return is_always_false(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));        
     }
 
-    bool op_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
-        return is_always_true(is_positive, p().subst_val(a), q().subst_val(a), r().subst_val(a));
+    bool op_constraint::is_currently_true(solver& s, bool is_positive) const {
+        return is_always_true(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));        
     }
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {
@@ -130,7 +130,7 @@ namespace polysat {
     void op_constraint::narrow(solver& s, bool is_positive) {
         SASSERT(is_positive);
 
-        if (is_currently_true(s.assignment(), is_positive))
+        if (is_currently_true(s, is_positive))
             return;
 
         switch (m_op) {
@@ -144,7 +144,7 @@ namespace polysat {
             NOT_IMPLEMENTED_YET();
             break;
         }
-        if (!s.is_conflict() && is_currently_false(s.assignment(), is_positive))
+        if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
     }
 
@@ -180,9 +180,9 @@ namespace polysat {
      * when r, q are variables.
      */
     void op_constraint::narrow_lshr(solver& s) {
-        auto pv = p().subst_val(s.assignment());
-        auto qv = q().subst_val(s.assignment());
-        auto rv = r().subst_val(s.assignment());
+        auto pv = s.subst(p());
+        auto qv = s.subst(q());
+        auto rv = s.subst(r());
         unsigned K = p().manager().power_of_2();
 
         signed_constraint lshr(this, true);
@@ -253,10 +253,10 @@ namespace polysat {
     * q = max_value => p = r
     */
     void op_constraint::narrow_and(solver& s) {
-        auto pv = p().subst_val(s.assignment());
-        auto qv = q().subst_val(s.assignment());
-        auto rv = r().subst_val(s.assignment());
-
+        auto pv = s.subst(p());
+        auto qv = s.subst(q());
+        auto rv = s.subst(r());
+        
         signed_constraint andc(this, true);
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             s.add_clause(~andc, s.ule(r(), p()), true);
