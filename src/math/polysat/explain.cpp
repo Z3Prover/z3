@@ -92,7 +92,6 @@ namespace polysat {
             // c alone (+ variables) is now enough to represent the conflict.
             core.reset();
             core.set(c);
-            std::cout << "set c\n";
             return c->contains_var(v) ? l_undef : l_true;
         }
         return l_false;
