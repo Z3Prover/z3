@@ -261,9 +261,6 @@ namespace dd {
             if (is_one(p)) return q;
             SASSERT(!is_val(p));
             SASSERT(!is_val(q));
-            if (level(p) < level(q))
-                // p*hi(q) + lo(q)
-                return make_node(level(q), lo(q), p);
             break;
         default:
             UNREACHABLE();
@@ -425,10 +422,16 @@ namespace dd {
         case pdd_subst_add_op:
             SASSERT(!is_val(p));
             SASSERT(!is_val(q));
-            SASSERT(level_p > level_q);
-            push(apply_rec(hi(p), q, pdd_subst_add_op));           // hi := add_subst(hi(p), q)
-            r = make_node(level_p, lo(p), read(1));                // r := hi*var(p) + lo(p)
-            npop = 1;
+            SASSERT(level_p != level_q);
+            if (level_p < level_q) {
+                r = make_node(level_q, lo(q), p);                 // p*hi(q) + lo(q)
+                npop = 0;
+            }
+            else {
+                push(apply_rec(hi(p), q, pdd_subst_add_op));       // hi := add_subst(hi(p), q)
+                r = make_node(level_p, lo(p), read(1));            // r := hi*var(p) + lo(p)
+                npop = 1;
+            }
             break;
         default:
             r = null_pdd;
