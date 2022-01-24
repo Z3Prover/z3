@@ -230,9 +230,9 @@ namespace datatype {
         
             bool is_fully_interp(sort * s) const override;
         
-            bool is_value(app* e) const override;
+            bool is_value(app* e) const override { return is_value_aux(false, e); }
         
-            bool is_unique_value(app * e) const override { return is_value(e); }
+            bool is_unique_value(app * e) const override { return is_value_aux(true, e); }
         
             void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
                 
@@ -257,7 +257,8 @@ namespace datatype {
             bool has_nested_arrays() const { return m_has_nested_arrays; }
 
         private:
-            bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
+            bool is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const;
+            bool is_value_aux(bool unique, app * arg) const;
         
             func_decl * mk_update_field(
                 unsigned num_parameters, parameter const * parameters, 
