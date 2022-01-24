@@ -1069,6 +1069,18 @@ public:
         }
     }
 
+    static void test_fi_zero() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(256));
+        auto b = s.var(s.add_var(256));
+        auto c = s.var(s.add_var(256));
+        s.add_eq(a, 0);
+        s.add_eq(c, 0);  // add c to prevent simplification by leading coefficient
+        s.add_eq(4*a - 123456789*b + c);
+        s.check();
+        s.expect_sat({{a, 0}, {b, 0}});
+    }
+
     static void test_fi_nonzero() {
         scoped_solver s(__func__);
         auto a = s.var(s.add_var(5));
@@ -1337,6 +1349,7 @@ public:
 void tst_polysat() {
     using namespace polysat;
 
+    test_polysat::test_fi_zero();
     test_polysat::test_fi_nonzero();
     test_polysat::test_fi_nonmax();
     return;
