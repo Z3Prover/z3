@@ -1069,6 +1069,22 @@ public:
         }
     }
 
+    static void test_fi_nonzero() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(5));
+        auto b = s.var(s.add_var(5));
+        s.add_ult(b*b*b, 7*a + 6);
+        s.check();
+    }
+
+    static void test_fi_nonmax() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(5));
+        auto b = s.var(s.add_var(5));
+        s.add_ult(a + 8, b*b*b);
+        s.check();
+    }
+
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
     // static void test_mixed_vars() {
@@ -1320,6 +1336,10 @@ public:
 
 void tst_polysat() {
     using namespace polysat;
+
+    test_polysat::test_fi_nonzero();
+    test_polysat::test_fi_nonmax();
+    return;
 
     test_polysat::test_l2();
 

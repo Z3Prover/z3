@@ -52,6 +52,11 @@ namespace polysat {
 
         void add_non_unit_side_conds(fi_record& fi, pdd const& b1, pdd const& e1, pdd const& b2, pdd const& e2);
 
+        bool match_zero(signed_constraint const& c,
+            rational const & a1, pdd const& b1, pdd const& e1,
+            rational const & a2, pdd const& b2, pdd const& e2,
+            fi_record& fi);
+
         bool match_non_zero(signed_constraint const& c,
             rational const & a1, pdd const& b1, pdd const& e1,
             fi_record& fi);
