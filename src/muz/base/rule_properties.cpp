@@ -204,6 +204,68 @@ void rule_properties::operator()(var* n) {
 void rule_properties::operator()(quantifier* n) {
     m_quantifiers.insert(n, m_rule);
 }
+
+bool rule_properties::check_accessor(app* n) {
+    sort* s = n->get_arg(0)->get_sort();
+    SASSERT(m_dt.is_datatype(s));
+    if (m_dt.get_datatype_constructors(s)->size() <= 1)
+        return true;
+
+    
+    func_decl* f = n->get_decl();
+    func_decl * c = m_dt.get_accessor_constructor(f);
+    unsigned ut_size = m_rule->get_uninterpreted_tail_size();
+    unsigned t_size  = m_rule->get_tail_size();
+
+    auto is_recognizer_base = [&](expr* t) {
+        return m_dt.is_recognizer(t) &&
+            to_app(t)->get_arg(0) == n->get_arg(0) &&
+            m_dt.get_recognizer_constructor(to_app(t)->get_decl()) == c;
+    };
+    auto is_recognizer = [&](expr* t) {
+        if (m.is_and(t))
+            for (expr* arg : *to_app(t))
+                if (is_recognizer_base(arg))
+                    return true;
+        return is_recognizer_base(t);
+    };
+
+    
+    for (unsigned i = ut_size; i < t_size; ++i)
+        if (is_recognizer(m_rule->get_tail(i)))
+            return true;
+
+
+    // create parent use list for every sub-expression in the rule
+    obj_map<expr, ptr_vector<expr>> use_list;
+    for (unsigned i = ut_size; i < t_size; ++i) {
+        app* t = m_rule->get_tail(i);
+        for (expr* sub : subterms::all(expr_ref(t, m))) 
+            if (is_app(sub)) 
+                for (expr* arg : *to_app(sub))
+                    use_list.insert_if_not_there(arg, ptr_vector<expr>()).push_back(sub);
+    }
+
+    // walk parents of n to check that each path is guarded by a recognizer.
+    ptr_vector<expr> todo;
+    todo.push_back(n);
+    for (unsigned i = 0; i < todo.size(); ++i) {
+        expr* e = todo[i];
+        if (!use_list.contains(e))
+            return false;
+        for (expr* parent : use_list[e]) {
+            if (is_recognizer(parent)) 
+                continue;
+            if (m.is_ite(parent) && to_app(parent)->get_arg(1) == e && is_recognizer(to_app(parent)->get_arg(0))) 
+                continue;
+            todo.push_back(parent);                
+        }
+    }
+    
+    return true;
+    
+}
+
 void rule_properties::operator()(app* n) {
     func_decl_ref f_out(m);
     expr* n1 = nullptr, *n2 = nullptr;
@@ -216,23 +278,9 @@ void rule_properties::operator()(app* n) {
         m_uninterp_funs.insert(f, m_rule);
     }
     else if (m_dt.is_accessor(n)) {
-        sort* s = n->get_arg(0)->get_sort();
-        SASSERT(m_dt.is_datatype(s));
-        if (m_dt.get_datatype_constructors(s)->size() > 1) {
-            bool found = false;
-            func_decl * c = m_dt.get_accessor_constructor(f);
-            unsigned ut_size = m_rule->get_uninterpreted_tail_size();
-            unsigned t_size  = m_rule->get_tail_size();  
-            for (unsigned i = ut_size; !found && i < t_size; ++i) {
-                app* t = m_rule->get_tail(i);
-                if (m_dt.is_recognizer(t) && t->get_arg(0) == n->get_arg(0) && m_dt.get_recognizer_constructor(t->get_decl()) == c) {
-                    found = true;
-                }
-            }
-            if (!found) {
-                m_uninterp_funs.insert(f, m_rule);
-            }
-        }
+        if (!check_accessor(n))
+            m_uninterp_funs.insert(f, m_rule);            
+        
     }
     else if (m_a.is_considered_uninterpreted(f, n->get_num_args(), n->get_args(), f_out)) {
         m_uninterp_funs.insert(f, m_rule);
