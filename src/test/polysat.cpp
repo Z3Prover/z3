@@ -1097,6 +1097,29 @@ public:
         s.check();
     }
 
+    static void test_fi_disequal_mild() {
+        {
+            // small version
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(6));
+            auto b = s.var(s.add_var(6));
+            // v > -3*v
+            s.add_eq(a - 3);
+            s.add_ult(-a*b, b);
+            s.check();
+        }
+        {
+            // large version
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(256));
+            auto b = s.var(s.add_var(256));
+            // v > -100*v
+            s.add_eq(a - 100);
+            s.add_ult(-a*b, b);
+            s.check();
+        }
+    }
+
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
     // static void test_mixed_vars() {
@@ -1352,6 +1375,7 @@ void tst_polysat() {
     test_polysat::test_fi_zero();
     test_polysat::test_fi_nonzero();
     test_polysat::test_fi_nonmax();
+    test_polysat::test_fi_disequal_mild();
     return;
 
     test_polysat::test_l2();

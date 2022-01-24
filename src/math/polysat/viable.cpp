@@ -327,10 +327,31 @@ namespace polysat {
             };
 
             if (lhs > rhs || (e->src.is_negative() && lhs == rhs)) {
-                rational lo = val - delta_l(val);
-                rational hi = val + delta_u(val) + 1;
+                rational lo;
+                rational hi;
 
-                // TODO: increase interval
+                // TODO: extract into separate function
+                if (e->src.is_negative() && a2.is_one() && b1.is_zero() && b2.is_zero()) {
+                    // special case:  v > -a*v for some numeral a
+                    rational const& a = mod(-a1, mod_value);
+                    if (val.is_zero()) {
+                        lo = 0;
+                        hi = ceil( (mod_value + 1) / (a + 1) );
+                    } else {
+                        rational const y = mod(-a * val, mod_value);
+                        lo = ceil( val + (y - max_value) / a );
+                        hi = ceil( (y + a*val + 1) / (a + 1) );
+                        // can always extend to 0
+                        if (lo.is_one())
+                            lo = 0;
+                    }
+                } else {
+                    // general case
+                    lo = val - delta_l(val);
+                    hi = val + delta_u(val) + 1;
+                    // TODO: increase interval
+                }
+
                 LOG("refine-disequal-lin: " << " [" << lo << ", " << hi << "[");
 
                 SASSERT(0 <= lo && lo <= val);
