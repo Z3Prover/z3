@@ -222,6 +222,7 @@ bool rule_properties::check_accessor(app* n) {
             to_app(t)->get_arg(0) == n->get_arg(0) &&
             m_dt.get_recognizer_constructor(to_app(t)->get_decl()) == c;
     };
+    
     auto is_recognizer = [&](expr* t) {
         if (m.is_and(t))
             for (expr* arg : *to_app(t))
@@ -240,6 +241,7 @@ bool rule_properties::check_accessor(app* n) {
     obj_map<expr, ptr_vector<expr>> use_list;
     for (unsigned i = ut_size; i < t_size; ++i) {
         app* t = m_rule->get_tail(i);
+        use_list.insert_if_not_there(t, ptr_vector<expr>()).push_back(nullptr); // add marker for top-level expression.
         for (expr* sub : subterms::all(expr_ref(t, m))) 
             if (is_app(sub)) 
                 for (expr* arg : *to_app(sub))
@@ -254,6 +256,8 @@ bool rule_properties::check_accessor(app* n) {
         if (!use_list.contains(e))
             return false;
         for (expr* parent : use_list[e]) {
+            if (!parent)
+                return false; // top-level expressions are not guarded
             if (is_recognizer(parent)) 
                 continue;
             if (m.is_ite(parent) && to_app(parent)->get_arg(1) == e && is_recognizer(to_app(parent)->get_arg(0))) 
