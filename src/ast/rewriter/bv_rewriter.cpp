@@ -2818,14 +2818,15 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
         return BR_DONE;
     }
 
-    if (is_num1 && is_num2) {
-        rational mr = a0_val * a1_val;
-        rational lim = rational::power_of_two(bv_sz-1);
-        result = m().mk_bool_val(mr < lim);
-        return BR_DONE;
-    }
-
-    return BR_FAILED;
+    if (!is_num1 || !is_num2)
+        return BR_FAILED;
+    
+    rational lim = rational::power_of_two(bv_sz);
+    rational r = a0_val * a1_val;
+    bool sign1 = m_util.has_sign_bit(a0_val, bv_sz);
+    bool sign2 = m_util.has_sign_bit(a1_val, bv_sz);
+    result = m().mk_bool_val((sign1 != sign2) || r < lim);
+    return BR_DONE;
 }
 
 br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
