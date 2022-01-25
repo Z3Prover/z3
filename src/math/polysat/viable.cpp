@@ -206,10 +206,6 @@ namespace polysat {
             return floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
         };
 
-// TODO: looks like there's an infinite loop for:
-// [match_linear3]        a1 = 3; b1 = 0; e1 = 0
-// [match_linear3]        a2 = 3; b2 = -2; e2 = -2
-
         // naive widening. TODO: can we accelerate this?
         // condition e->interval.hi_val() < coeff_val is
         // to ensure that widening is performed on the same interval
@@ -232,7 +228,10 @@ namespace polysat {
                     break;
                 if (e->interval.lo_val() > coeff_val)
                     break;
-                lo -= delta_l(coeff_val);
+                rational d = delta_l(coeff_val);
+                if (d.is_zero())
+                    break;
+                lo -= d;
             }
         };
         do {
