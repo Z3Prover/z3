@@ -418,6 +418,7 @@ public:
             m_vars.push_back(e);
             m_internal2var.setx(i, j, 0);
             m_var2internal.setx(j, i, 0);
+            m_created_eh(ctx, cb, e, j);
         };
         m_ctx->user_propagate_register_created(i_created_eh);
     }
