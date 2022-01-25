@@ -465,6 +465,7 @@ public:
         m_final_eh = nullptr;
         m_eq_eh = nullptr;
         m_diseq_eh = nullptr;
+        m_created_eh = nullptr;
     }
 
     void user_propagate_init(
