@@ -112,6 +112,10 @@ public:
         return m_tactic->user_propagate_register_expr(e);
     }
 
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
+        m_tactic->user_propagate_register_created(created_eh);
+    }
+
     void user_propagate_clear() override {
         if (m_tactic)
             m_tactic->user_propagate_clear();
