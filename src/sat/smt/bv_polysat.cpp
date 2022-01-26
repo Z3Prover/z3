@@ -204,7 +204,7 @@ namespace bv {
         sat::literal lit(a->m_bv, sign);
         if (sign)
             sc = ~sc;
-        m_polysat.assign_eh(sc, 1 + 2*lit.index());
+        m_polysat.assign_eh(sc, polysat::dependency(1 + 2*lit.index()));
     }
 
     bool solver::polysat_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
@@ -215,7 +215,7 @@ namespace bv {
         auto sc = m_polysat.eq(p, q);
         m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));        
-        m_polysat.assign_eh(sc, 2 * m_var_eqs_head); 
+        m_polysat.assign_eh(sc, polysat::dependency(2 * m_var_eqs_head)); 
         m_var_eqs_head++;
         return true;
     }
@@ -226,7 +226,7 @@ namespace bv {
         pdd q = var2pdd(v2);
         auto sc = ~m_polysat.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
-        m_polysat.assign_eh(sc, 1 + 2 * neq.index());
+        m_polysat.assign_eh(sc, polysat::dependency(1 + 2 * neq.index()));
         return true;
     }
 
@@ -248,15 +248,15 @@ namespace bv {
     }
 
     void solver::polysat_core() {
-        svector<polysat::dep_t> deps;
+        polysat::dependency_vector deps;
         sat::literal_vector core;
         euf::enode_pair_vector eqs;
         m_polysat.unsat_core(deps);
         for (auto n : deps) {
-            if (0 != (n & 1))
-                core.push_back(sat::to_literal(n / 2));
+            if (0 != (n.val() & 1))
+                core.push_back(sat::to_literal(n.val() / 2));
             else {
-                auto [v1, v2] = m_var_eqs[n / 2];
+                auto [v1, v2] = m_var_eqs[n.val() / 2];
                 eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
             }
         }
