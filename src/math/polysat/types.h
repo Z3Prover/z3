@@ -29,8 +29,8 @@ namespace polysat {
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;
     typedef unsigned pvar;
-
-    const unsigned null_dependency = UINT_MAX;
+    typedef unsigned dep_t;
+    const dep_t null_dependency = std::numeric_limits<unsigned>::max();;
     const pvar null_var = UINT_MAX;
 
 }

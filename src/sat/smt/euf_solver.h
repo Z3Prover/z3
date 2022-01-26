@@ -384,6 +384,7 @@ namespace euf {
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
         void add_aux(unsigned n, sat::literal const* lits) { m_relevancy.add_def(n, lits); }
         void add_aux(sat::literal a) { sat::literal lits[1] = { a }; add_aux(1, lits); }
+        void add_aux_equiv(sat::literal a, sat::literal b) { add_aux(~a, b); add_aux(a, ~b); }
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void mark_relevant(sat::literal lit) { m_relevancy.mark_relevant(lit); }

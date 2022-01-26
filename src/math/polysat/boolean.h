@@ -29,7 +29,7 @@ namespace polysat {
         svector<sat::bool_var>  m_unused;   // previously deleted variables that can be reused by new_var();
         svector<lbool>          m_value;    // current value (indexed by literal)
         unsigned_vector         m_level;    // level of assignment (indexed by variable)
-        unsigned_vector         m_deps;     // dependencies of external asserts
+        svector<dep_t>          m_deps;     // dependencies of external asserts
         unsigned_vector         m_activity; //
         svector<kind_t>         m_kind;     // decision or propagation?
         // Clause associated with the assignment (indexed by variable):
@@ -40,7 +40,7 @@ namespace polysat {
         var_queue                   m_free_vars;  // free Boolean variables
         vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
 
-        void assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, unsigned dep = null_dependency);
+        void assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dep_t dep = null_dependency);
 
     public:
 
@@ -66,7 +66,7 @@ namespace polysat {
         unsigned level(sat::literal lit) const { return level(lit.var()); }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return is_propagation(var) ? m_clause[var] : nullptr; }
         clause* reason(sat::literal lit) const { return reason(lit.var()); }
-        unsigned dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
+        dep_t dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
 
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_clause[var]; }
        
@@ -83,7 +83,7 @@ namespace polysat {
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
         void decide(sat::literal lit, unsigned lvl, clause& lemma);
         void eval(sat::literal lit, unsigned lvl);
-        void asserted(sat::literal lit, unsigned lvl, unsigned dep);
+        void asserted(sat::literal lit, unsigned lvl, dep_t dep);
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;

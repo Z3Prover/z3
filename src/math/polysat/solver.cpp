@@ -83,6 +83,12 @@ namespace polysat {
         return l_undef;
     }
 
+    lbool solver::unit_propagate() {
+        flet<uint64_t> _max_d(m_max_decisions, m_stats.m_num_decisions + 1);
+        return check_sat();
+    }
+
+
     dd::pdd_manager& solver::sz2pdd(unsigned sz) const {
         m_pdd.reserve(sz + 1);
         if (!m_pdd[sz])
@@ -164,7 +170,7 @@ namespace polysat {
     }
 
 
-    void solver::assign_eh(signed_constraint c, unsigned dep) {
+    void solver::assign_eh(signed_constraint c, dep_t dep) {
         SASSERT(at_base_level());
         SASSERT(c);
         if (is_conflict())
@@ -195,6 +201,7 @@ namespace polysat {
         m_linear_solver.new_constraint(*c.get());
 #endif
     }
+    
 
     bool solver::can_propagate() {
         return m_qhead < m_search.size() && !is_conflict();
@@ -592,7 +599,7 @@ namespace polysat {
         SASSERT(!m_conflict.empty());
     }
 
-    void solver::unsat_core(unsigned_vector& deps) {
+    void solver::unsat_core(svector<dep_t>& deps) {
         deps.reset();
         for (auto c : m_conflict) {
             auto d = m_bvars.dep(c.blit());

@@ -19,6 +19,7 @@ Author:
 #include "sat/smt/sat_th.h"
 #include "sat/smt/bv_ackerman.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "math/polysat/solver.h"
 
 namespace euf {
     class solver;
@@ -166,6 +167,7 @@ namespace bv {
             svector<std::pair<atom*, eq_occurs*>> m_bit2occ;
             literal    m_var = sat::null_literal;
             literal    m_def = sat::null_literal;
+            polysat::signed_constraint m_sc;
             atom(bool_var b) :m_bv(b), m_eqs(nullptr), m_occs(nullptr) {}
             ~atom() { m_bit2occ.clear(); }
             var_pos_it begin() const { return var_pos_it(m_occs); }
@@ -194,6 +196,7 @@ namespace bv {
 
         bv_util                  bv;
         arith_util               m_autil;
+        polysat::solver          m_polysat;
         stats                    m_stats;
         ackerman                 m_ackerman;
         bit_blaster              m_bb;
@@ -232,7 +235,7 @@ namespace bv {
         void add_bit(theory_var v, sat::literal lit);
         atom* mk_atom(sat::bool_var b);
         void eq_internalized(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, sat::literal eq, euf::enode* n);
-        void del_eq_occurs(atom* a, eq_occurs* occ);
+        void del_eq_occurs(atom* a, eq_occurs* occ);        
 
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
@@ -262,6 +265,39 @@ namespace bv {
         void assert_int2bv_axiom(app* n);
         void assert_ackerman(theory_var v1, theory_var v2);
         bool reflect() const { return get_config().m_bv_reflect; }
+
+        // polysat
+        void internalize_polysat(app* a);
+        void polysat_push();
+        void polysat_pop(unsigned n);
+        void polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)>& fn);
+        polysat::pdd expr2pdd(expr* e);
+        void polysat_set(euf::theory_var v, polysat::pdd const& p);
+        polysat::pdd var2pdd(euf::theory_var v);
+        void polysat_set(expr* e, polysat::pdd const& p);
+        template<bool Signed, bool Reverse, bool Negated>
+        void polysat_le(app* n);
+        void polysat_neg(app* a);
+        void polysat_num(app* a);
+        void polysat_mkbv(app* a);
+        void solver::polysat_umul_noovfl(app* e);
+        void solver::polysat_div_rem_i(app* e, bool is_div);
+        void solver::polysat_div_rem(app* e, bool is_div);
+        void polysat_bit2bool(atom* a, expr* e, unsigned idx);
+        bool polysat_sort_cnstr(euf::enode* n);
+        void polysat_assign(atom* a);
+        void polysat_propagate();
+        void polysat_core();
+        bool polysat_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2);
+        bool polysat_diseq_eh(euf::th_eq const& ne);
+        void polysat_add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
+        lbool polysat_final();
+        bool use_polysat() const { return get_config().m_bv_polysat; }
+        vector<polysat::pdd> m_var2pdd;
+        bool_vector          m_var2pdd_valid;
+        unsigned_vector      m_pddvar2var;
+        svector<std::pair<euf::theory_var, euf::theory_var>> m_var_eqs;
+        unsigned             m_var_eqs_head = 0;
 
         // delay internalize
         enum class internalize_mode {

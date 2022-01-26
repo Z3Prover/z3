@@ -96,6 +96,8 @@ namespace bv {
 
     void solver::apply_sort_cnstr(euf::enode * n, sort * s) {
         force_push();
+        if (polysat_sort_cnstr(n))
+            return;
         get_var(n);
     }
 
@@ -149,7 +151,7 @@ namespace bv {
             internalize_circuit(a);
             break;
         case internalize_mode::polysat_i:
-            NOT_IMPLEMENTED_YET();
+            internalize_polysat(a);
             break;
         default:
             mk_bits(n->get_th_var(get_id()));
@@ -351,8 +353,8 @@ namespace bv {
             for (expr* bit : bits) {
                 sat::literal lit = ctx.internalize(bit, false, false, m_is_redundant);
                 TRACE("bv", tout << "set " << m_bits[v][i] << " == " << lit << "\n";);
-                add_clause(~lit, m_bits[v][i]);
-                add_clause(lit, ~m_bits[v][i]);
+                add_equiv(lit, m_bits[v][i]);
+                ctx.add_aux_equiv(lit, m_bits[v][i]);
                 ++i;
             }
             return;
@@ -545,8 +547,8 @@ namespace bv {
 	    unsigned sz = bv.get_bv_size(n);
 	    expr_ref zero(bv.mk_numeral(0, sz), m);
 	    sat::literal eqZ = eq_internalize(arg2, zero);
-	    sat::literal eqU = mk_literal(iun(arg1));
-	    sat::literal eqI = mk_literal(ibin(arg1, arg2));
+	    sat::literal eqU = eq_internalize(n, iun(arg1));
+	    sat::literal eqI = eq_internalize(n, ibin(arg1, arg2));
 	    add_clause(~eqZ, eqU);
 	    add_clause(eqZ, eqI);
 	    ctx.add_aux(~eqZ, eqU);
@@ -676,12 +678,13 @@ namespace bv {
             TRACE("bv", tout << "add-bit: " << lit << " " << literal2expr(lit) << "\n";);
             atom* a = new (get_region()) atom(lit.var());
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+            polysat_bit2bool(a, arg, idx);
             insert_bv2a(lit.var(), a);
             ctx.push(mk_atom_trail(lit.var(), *this));
         }
         else if (lit != lit0) {
-            add_clause(lit0, ~lit);
-            add_clause(~lit0, lit);
+            add_equiv(lit0, lit);
+            ctx.add_aux_equiv(lit0, lit);
         }
 
         // validate_atoms();

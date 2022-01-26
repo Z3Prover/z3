@@ -14,6 +14,7 @@ z3_add_component(sat_smt
     bv_delay_internalize.cpp
     bv_internalize.cpp
     bv_invariant.cpp
+    bv_polysat.cpp
     bv_solver.cpp
     dt_solver.cpp
     euf_ackerman.cpp
@@ -46,5 +47,6 @@ z3_add_component(sat_smt
     euf
     mbp
     smt_params
+    polysat
 )
 

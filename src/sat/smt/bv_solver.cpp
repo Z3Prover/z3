@@ -52,6 +52,7 @@ namespace bv {
         euf::th_euf_solver(ctx, symbol("bv"), id),
         bv(m),
         m_autil(m),
+        m_polysat(m.limit()),
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
@@ -216,6 +217,8 @@ namespace bv {
         if (!is_bv(v1))
             return;
         if (s().is_probing())
+            return;
+        if (polysat_diseq_eh(ne))
             return;
         
         TRACE("bv", tout << "diff: " << v1 << " != " << v2 << " @" << s().scope_lvl() << "\n";);
@@ -400,9 +403,8 @@ namespace bv {
         if (a) {
             force_push();
             m_prop_queue.push_back(propagation_item(a));            
-            for (auto p : a->m_bit2occ) {
-                del_eq_occurs(p.first, p.second);
-            }
+            for (auto p : a->m_bit2occ) 
+                del_eq_occurs(p.first, p.second);            
         }
     }
 
@@ -417,11 +419,13 @@ namespace bv {
                 for (auto vp : *p.m_atom)
                     propagate_bits(vp);
                 for (eq_occurs const& eq : p.m_atom->eqs()) 
-                    propagate_eq_occurs(eq);                
+                    propagate_eq_occurs(eq);
+                polysat_assign(p.m_atom);
             }
             else 
                 propagate_bits(p.m_vp);            
         }
+        polysat_propagate();
         // check_missing_propagation();
         return true;
     }
@@ -521,13 +525,19 @@ namespace bv {
         
         if (!ok)
             return sat::check_result::CR_CONTINUE;
-        return sat::check_result::CR_DONE;
+
+        switch (polysat_final()) {
+        case l_true: return sat::check_result::CR_DONE;
+        case l_false: return sat::check_result::CR_CONTINUE;
+        default: return sat::check_result::CR_GIVEUP;
+        }
     }
 
     void solver::push_core() {
         TRACE("bv", tout << "push: " << get_num_vars() << "@" << m_prop_queue_lim.size() << "\n";);
         th_euf_solver::push_core();
         m_prop_queue_lim.push_back(m_prop_queue.size());
+        polysat_push();
     }
 
     void solver::pop_core(unsigned n) {
@@ -540,6 +550,8 @@ namespace bv {
         m_bits.shrink(old_sz);
         m_wpos.shrink(old_sz);
         m_zero_one_bits.shrink(old_sz);
+        polysat_pop(n);
+        
         TRACE("bv", tout << "num vars " << old_sz << "@" << m_prop_queue_lim.size() << "\n";);
     }
 
@@ -605,10 +617,13 @@ namespace bv {
     lbool solver::get_phase(bool_var v) { return l_undef; }
     std::ostream& solver::display(std::ostream& out) const {
         unsigned num_vars = get_num_vars();
-        if (num_vars > 0)
-            out << "bv-solver:\n";
+        if (num_vars == 0)
+            return out;
+        out << "bv-solver:\n";
         for (unsigned v = 0; v < num_vars; v++)
             out << pp(v);
+        if (use_polysat())
+            m_polysat.display(out);
         return out;
     }
 
@@ -662,6 +677,7 @@ namespace bv {
         st.update("bv bit2eq", m_stats.m_num_bit2eq);
         st.update("bv bit2ne", m_stats.m_num_bit2ne);
         st.update("bv ackerman", m_stats.m_ackerman);
+        m_polysat.collect_statistics(st);
     }
 
     sat::extension* solver::copy(sat::solver* s) { UNREACHABLE(); return nullptr; }
@@ -727,6 +743,10 @@ namespace bv {
             return;
         }
         theory_var v = n->get_th_var(get_id());
+        if (m_bits[v].empty() && use_polysat()) {
+            polysat_add_value(n, mdl, values);
+            return;
+        }
         rational val;
         unsigned i = 0;
         for (auto l : m_bits[v]) {
@@ -747,6 +767,9 @@ namespace bv {
     }
 
     void solver::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
+
+        if (polysat_merge_eh(r1, r2, v1, v2))
+            return;
 
         TRACE("bv", tout << "merging: v" << v1 << " #" << var2enode(v1)->get_expr_id() << " v" << v2 << " #" << var2enode(v2)->get_expr_id() << "\n";);
 
