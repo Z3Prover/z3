@@ -2820,12 +2820,14 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
 
     if (!is_num1 || !is_num2)
         return BR_FAILED;
-    
+
+    bool sign0 = m_util.has_sign_bit(a0_val, bv_sz);
+    bool sign1 = m_util.has_sign_bit(a1_val, bv_sz);
+    if (sign0) a0_val = rational::power_of_two(bv_sz) - a0_val;
+    if (sign1) a1_val = rational::power_of_two(bv_sz) - a1_val;
     rational lim = rational::power_of_two(bv_sz);
     rational r = a0_val * a1_val;
-    bool sign1 = m_util.has_sign_bit(a0_val, bv_sz);
-    bool sign2 = m_util.has_sign_bit(a1_val, bv_sz);
-    result = m().mk_bool_val((sign1 != sign2) || r < lim);
+    result = m().mk_bool_val((sign0 != sign1) || r < lim);
     return BR_DONE;
 }
 
