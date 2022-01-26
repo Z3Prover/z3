@@ -310,6 +310,7 @@ namespace polysat {
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
+        signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
         signed_constraint ule(pdd const& p, rational const& q) { return ule(p, p.manager().mk_val(q)); }
         signed_constraint ule(rational const& p, pdd const& q) { return ule(q.manager().mk_val(p), q); }
@@ -325,27 +326,33 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
         /** Create and activate polynomial constraints. */
-        void add_eq(pdd const& p, dependency dep = null_dependency)                { assign_eh(eq(p), dep); }
-        void add_diseq(pdd const& p, dependency dep = null_dependency)             { assign_eh(diseq(p), dep); }
-        void add_ule(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(ule(p, q), dep); }
-        void add_ult(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(ult(p, q), dep); }
-        void add_sle(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(sle(p, q), dep); }
-        void add_slt(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(slt(p, q), dep); }
-        void add_noovfl(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(~mul_ovfl(p, q), dep); }
-        void add_ovfl(pdd const& p, pdd const& q, dependency dep = null_dependency) { assign_eh(mul_ovfl(p, q), dep); }
+        void add_eq(pdd const& p, dependency dep = null_dependency)                         { assign_eh(eq(p), dep); }
+        void add_eq(pdd const& p, pdd const& q, dependency dep = null_dependency)           { assign_eh(eq(p, q), dep); }
+        void add_eq(pdd const& p, rational const& q, dependency dep = null_dependency)      { assign_eh(eq(p, q), dep); }
+        void add_eq(pdd const& p, unsigned q, dependency dep = null_dependency)             { assign_eh(eq(p, q), dep); }
+        void add_diseq(pdd const& p, dependency dep = null_dependency)                      { assign_eh(diseq(p), dep); }
+        void add_diseq(pdd const& p, pdd const& q, dependency dep = null_dependency)        { assign_eh(diseq(p, q), dep); }
+        void add_diseq(pdd const& p, rational const& q, dependency dep = null_dependency)   { assign_eh(diseq(p, q), dep); }
+        void add_diseq(pdd const& p, unsigned q, dependency dep = null_dependency)          { assign_eh(diseq(p, q), dep); }
+        void add_ule(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(ule(p, q), dep); }
+        void add_ult(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(ult(p, q), dep); }
+        void add_sle(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(sle(p, q), dep); }
+        void add_slt(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(slt(p, q), dep); }
+        void add_noovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)       { assign_eh(~mul_ovfl(p, q), dep); }
+        void add_ovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)         { assign_eh(mul_ovfl(p, q), dep); }
 
-        void add_ule(pdd const& p, rational const& q, dependency dep = null_dependency) { add_ule(p, p.manager().mk_val(q), dep); }
-        void add_ule(rational const& p, pdd const& q, dependency dep = null_dependency) { add_ule(q.manager().mk_val(p), q, dep); }
-        void add_ule(pdd const& p, unsigned q, dependency dep = null_dependency) { add_ule(p, rational(q), dep); }
-        void add_ule(unsigned p, pdd const& q, dependency dep = null_dependency) { add_ule(rational(p), q, dep); }
-        void add_ult(pdd const& p, rational const& q, dependency dep = null_dependency) { add_ult(p, p.manager().mk_val(q), dep); }
-        void add_ult(rational const& p, pdd const& q, dependency dep = null_dependency) { add_ult(q.manager().mk_val(p), q, dep); }
-        void add_ult(pdd const& p, unsigned q, dependency dep = null_dependency) { add_ult(p, rational(q), dep); }
-        void add_ult(unsigned p, pdd const& q, dependency dep = null_dependency) { add_ult(rational(p), q, dep); }
-        void add_noovfl(pdd const& p, rational const& q, dependency dep = null_dependency) { add_noovfl(p, p.manager().mk_val(q), dep); }
-        void add_noovfl(rational const& p, pdd const& q, dependency dep = null_dependency) { add_noovfl(q, p, dep); }
-        void add_noovfl(pdd const& p, unsigned q, dependency dep = null_dependency) { add_noovfl(p, rational(q), dep); }
-        void add_noovfl(unsigned p, pdd const& q, dependency dep = null_dependency) { add_noovfl(q, p, dep); }
+        void add_ule(pdd const& p, rational const& q, dependency dep = null_dependency)     { add_ule(p, p.manager().mk_val(q), dep); }
+        void add_ule(rational const& p, pdd const& q, dependency dep = null_dependency)     { add_ule(q.manager().mk_val(p), q, dep); }
+        void add_ule(pdd const& p, unsigned q, dependency dep = null_dependency)            { add_ule(p, rational(q), dep); }
+        void add_ule(unsigned p, pdd const& q, dependency dep = null_dependency)            { add_ule(rational(p), q, dep); }
+        void add_ult(pdd const& p, rational const& q, dependency dep = null_dependency)     { add_ult(p, p.manager().mk_val(q), dep); }
+        void add_ult(rational const& p, pdd const& q, dependency dep = null_dependency)     { add_ult(q.manager().mk_val(p), q, dep); }
+        void add_ult(pdd const& p, unsigned q, dependency dep = null_dependency)            { add_ult(p, rational(q), dep); }
+        void add_ult(unsigned p, pdd const& q, dependency dep = null_dependency)            { add_ult(rational(p), q, dep); }
+        void add_noovfl(pdd const& p, rational const& q, dependency dep = null_dependency)  { add_noovfl(p, p.manager().mk_val(q), dep); }
+        void add_noovfl(rational const& p, pdd const& q, dependency dep = null_dependency)  { add_noovfl(q, p, dep); }
+        void add_noovfl(pdd const& p, unsigned q, dependency dep = null_dependency)         { add_noovfl(p, rational(q), dep); }
+        void add_noovfl(unsigned p, pdd const& q, dependency dep = null_dependency)         { add_noovfl(q, p, dep); }
 
         /**
          * Activate the constraint corresponding to the given boolean variable.
