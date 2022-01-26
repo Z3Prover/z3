@@ -50,8 +50,10 @@ def init_project_def():
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
     add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe_lite', ['tactic', 'mbp'], 'qe/lite')
+    add_lib('bigfix',['util'], 'math/bigfix')
+    add_lib('polysat', ['bigfix','util','dd','simplex','interval'],'math/polysat')
     add_lib('solver_assertions', ['pattern','smt_params','cmd_context','qe_lite'], 'solver/assertions')
-    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
+    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite', 'polysat'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
@@ -81,8 +83,6 @@ def init_project_def():
     add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic', 'smt_tactic', 'arith_tactics', 'smtlogic_tactics'], 'tactic/fpa')
     add_lib('portfolio', ['smtlogic_tactics', 'sat_solver', 'ufbv_tactic', 'fpa_tactics', 'aig_tactic', 'fp',  'fd_solver', 'qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('opt', ['smt', 'smtlogic_tactics', 'sls_tactic', 'sat_solver'], 'opt')
-    add_lib('bigfix',['util'], 'math/bigfix')
-    add_lib('polysat', ['bigfix','util','dd','simplex','interval'],'math/polysat')
     API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_fpa.h', 'z3_spacer.h']
     add_lib('api', ['portfolio',  'realclosure', 'opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
