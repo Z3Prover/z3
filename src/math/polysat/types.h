@@ -28,9 +28,29 @@ namespace polysat {
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;
-    typedef unsigned pvar;
 
-    const unsigned null_dependency = UINT_MAX;
-    const pvar null_var = UINT_MAX;
+    typedef unsigned pvar;
+    inline const pvar null_var = UINT_MAX;
+
+    class dependency {
+        unsigned m_val;
+    public:
+        explicit dependency(unsigned val): m_val(val) {}
+        unsigned val() const { return m_val; }
+        bool is_null() const { return m_val == UINT_MAX; }
+        unsigned hash() const { return val(); }
+    };
+
+    inline const dependency null_dependency = dependency(UINT_MAX);
+    typedef svector<dependency> dependency_vector;
+
+    inline bool operator<(dependency const& d1, dependency const& d2) { return d1.val() < d2.val();  }
+    inline bool operator==(dependency const& d1, dependency const& d2) { return d1.val() == d2.val(); }
+    inline bool operator!=(dependency const& d1, dependency const& d2) { return d1.val() != d2.val(); }
+
+    inline std::ostream& operator<<(std::ostream& out, dependency const& d) {
+        out << "dep(" << d.val() << ")";
+        return out;
+    }
 
 }

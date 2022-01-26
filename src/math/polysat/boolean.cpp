@@ -78,13 +78,13 @@ namespace polysat {
         SASSERT(is_propagation(lit));
     }
 
-    void bool_var_manager::asserted(sat::literal lit, unsigned lvl, unsigned dep) {
+    void bool_var_manager::asserted(sat::literal lit, unsigned lvl, dependency dep) {
         LOG("Asserted " << lit << " @ " << lvl);
         assign(kind_t::decision, lit, lvl, nullptr, dep);
         SASSERT(is_decision(lit));
     }
 
-    void bool_var_manager::assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, unsigned dep) {
+    void bool_var_manager::assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep) {
         SASSERT(!is_assigned(lit));
         SASSERT(k != kind_t::unassigned);
         m_value[lit.index()] = l_true;

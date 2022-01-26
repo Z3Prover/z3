@@ -1014,11 +1014,11 @@ public:
         auto idx = s.var(s.add_var(bw));
         auto second = s.var(s.add_var(bw));
         auto first = s.var(s.add_var(bw));
-        s.add_eq(q*idx + r, UINT_MAX);
+        s.add_eq(q*idx + r - UINT_MAX);
         s.add_ult(r, idx);
         s.add_noovfl(q, idx);
         s.add_ult(first, second);
-        s.add_diseq(idx, 0);
+        s.add_diseq(idx);
         s.add_ule(second - first, q);
         s.add_noovfl(second  - first, idx);
         s.check();       
@@ -1074,8 +1074,8 @@ public:
         auto a = s.var(s.add_var(256));
         auto b = s.var(s.add_var(256));
         auto c = s.var(s.add_var(256));
-        s.add_eq(a, 0);
-        s.add_eq(c, 0);  // add c to prevent simplification by leading coefficient
+        s.add_eq(a);
+        s.add_eq(c);  // add c to prevent simplification by leading coefficient
         s.add_eq(4*a - 123456789*b + c);
         s.check();
         s.expect_sat({{a, 0}, {b, 0}});

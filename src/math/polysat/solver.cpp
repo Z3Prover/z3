@@ -164,7 +164,7 @@ namespace polysat {
     }
 
 
-    void solver::assign_eh(signed_constraint c, unsigned dep) {
+    void solver::assign_eh(signed_constraint c, dependency dep) {
         SASSERT(at_base_level());
         SASSERT(c);
         if (is_conflict())
@@ -592,7 +592,7 @@ namespace polysat {
         SASSERT(!m_conflict.empty());
     }
 
-    void solver::unsat_core(unsigned_vector& deps) {
+    void solver::unsat_core(dependency_vector& deps) {
         deps.reset();
         for (auto c : m_conflict) {
             auto d = m_bvars.dep(c.blit());
