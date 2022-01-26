@@ -35,7 +35,7 @@ Notes:
 #include "ast/rewriter/expr_replacer.h"
 #include "model/model_smt2_pp.h"
 #include "ast/scoped_proof.h"
-#include "qe/qe_lite.h"
+#include "qe/lite/qe_lite.h"
 #include "muz/spacer/spacer_qe_project.h"
 #include "model/model_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"

@@ -40,8 +40,8 @@ void preprocessor_params::display(std::ostream & out) const {
     pattern_inference_params::display(out);
     bit_blaster_params::display(out);
 
-    DISPLAY_PARAM(m_lift_ite);
-    DISPLAY_PARAM(m_ng_lift_ite);
+    DISPLAY_PARAM((int)m_lift_ite);
+    DISPLAY_PARAM((int)m_ng_lift_ite);
     DISPLAY_PARAM(m_pull_cheap_ite);
     DISPLAY_PARAM(m_pull_nested_quantifiers);
     DISPLAY_PARAM(m_eliminate_term_ite);

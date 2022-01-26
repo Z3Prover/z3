@@ -230,13 +230,17 @@ namespace q {
                 if (!n)
                     return nullptr;
                 for (unsigned i = args.size(); i-- > 0; ) {
-                    if (args[i] != n->get_arg(i)) {
-                        // roots could be different when using commutativity
-                        // instead of compensating for this, we just bail out
-                        if (args[i]->get_root() != n->get_arg(i)->get_root())
-                            return nullptr;
-                        evidence.push_back(euf::enode_pair(args[i], n->get_arg(i)));
-                    }
+                    euf::enode* a = args[i], *b = n->get_arg(i);
+                    if (a == b)
+                        continue;
+
+                    // roots could be different when using commutativity
+                    // instead of compensating for this, we just bail out
+                    if (a->get_root() != b->get_root())
+                        return nullptr;
+
+                    TRACE("q", tout << "evidence " << ctx.bpp(a) << " " << ctx.bpp(b) << "\n");
+                    evidence.push_back(euf::enode_pair(a, b));
                 }
                 m_indirect_nodes.push_back(n);
                 m_eval.setx(t->get_id(), n, nullptr);
@@ -246,20 +250,5 @@ namespace q {
         }
         return m_eval[e->get_id()];
     }
-
-    void eval::explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing) {
-        clause& c = j.m_clause;
-        for (unsigned i = 0; i < j.m_num_ev; ++i) {
-            auto [a, b] = j.m_evidence[i];
-            SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
-            if (a->get_root() == b->get_root())
-                ctx.add_antecedent(a, b);
-            else
-                ctx.add_diseq_antecedent(a, b);                            
-        }
-        r.push_back(c.m_literal);
-        (void)probing; // ignored        
-    }
-
     
 }

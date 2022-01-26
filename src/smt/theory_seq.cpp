@@ -349,7 +349,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("propagate_contains");
         return FC_CONTINUE;
     }
-    if (fixed_length(true)) {
+    if (check_fixed_length(true, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("zero_length");
         return FC_CONTINUE;
@@ -359,7 +359,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("split_based_on_length");
         return FC_CONTINUE;
     }
-    if (fixed_length()) {
+    if (check_fixed_length(false, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("fixed_length");
         return FC_CONTINUE;
@@ -413,6 +413,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("branch_itos");
         return FC_CONTINUE;
     }
+    if (check_fixed_length(false, true)) {
+        ++m_stats.m_fixed_length;
+        TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
     if (m_unhandled_expr) {
         TRACEFIN("give_up");
         TRACE("seq", tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
@@ -461,18 +466,18 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
 }
 
 
-bool theory_seq::fixed_length(bool is_zero) {
+bool theory_seq::check_fixed_length(bool is_zero, bool check_long_strings) {
     bool found = false;    
     for (unsigned i = 0; i < m_length.size(); ++i) {
         expr* e = m_length.get(i);
-        if (fixed_length(e, is_zero)) {
+        if (fixed_length(e, is_zero, check_long_strings)) {
             found = true;
         }
     }
     return found;
 }
 
-bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
+bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings) {
     rational lo, hi;
     expr* e = nullptr;
     VERIFY(m_util.str.is_length(len_e, e));
@@ -493,12 +498,21 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
 
     expr_ref seq(e, m), head(m), tail(m);
 
+
+    TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
+    literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
+    if (ctx.get_assignment(a) == l_false)
+        return false;
+
+    if (!check_long_strings && lo > 20 && !is_zero)
+        return false;
+
     if (lo.is_zero()) {
         seq = m_util.str.mk_empty(e->get_sort());
     }
     else if (!is_zero) {
         unsigned _lo = lo.get_unsigned();
-        expr_ref_vector elems(m);        
+        expr_ref_vector elems(m);
         for (unsigned j = 0; j < _lo; ++j) {
             m_sk.decompose(seq, head, tail);
             elems.push_back(head);
@@ -506,10 +520,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         }
         seq = mk_concat(elems.size(), elems.data());
     }
-    TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
-    literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
-    if (ctx.get_assignment(a) == l_false)
-        return false;
     literal b = mk_seq_eq(seq, e);
     if (ctx.get_assignment(b) == l_true)
         return false;
@@ -2636,6 +2646,9 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_replace(n)) {
         m_ax.add_replace_axiom(n);
     }
+    else if (m_util.str.is_replace_all(n)) {
+        m_ax.add_replace_all_axiom(n);
+    }
     else if (m_util.str.is_extract(n)) {
         m_ax.add_extract_axiom(n);
     }
@@ -2873,7 +2886,7 @@ void theory_seq::add_axiom(literal_vector & lits) {
     for (literal lit : lits)
         ctx.mark_as_relevant(lit);
 
-    IF_VERBOSE(10, verbose_stream() << "ax ";
+    IF_VERBOSE(10, verbose_stream() << "ax";
                for (literal l : lits) ctx.display_literal_smt2(verbose_stream() << " ", l); 
                verbose_stream() << "\n");
     m_new_propagation = true;
@@ -3014,10 +3027,6 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         if (is_true)
             m_regex.propagate_is_empty(lit);
     }
-    else if (m_sk.is_is_non_empty(e)) {
-        if (is_true)
-            m_regex.propagate_is_non_empty(lit);
-    }
     else if (m_sk.is_eq(e, e1, e2)) {
         if (is_true) {
             propagate_eq(lit, e1, e2, true);
@@ -3036,6 +3045,10 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         if (is_true) {
             propagate_length_limit(e);
         }
+    }
+    else if (m_sk.is_is_non_empty(e)) {
+        if (is_true)
+            m_regex.propagate_is_non_empty(lit);        
     }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
@@ -3180,6 +3193,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
         m_util.str.is_length(n) || 
+        /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
         m_util.str.is_le(n)) {
         enque_axiom(n);
     }

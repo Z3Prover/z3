@@ -2470,6 +2470,10 @@ namespace smt2 {
             next();
         }
 
+        /**
+         * (declare-fun f (sorts) sort)
+         * (declare-fun (alphas) (sorts) sort)
+         */
         void parse_declare_fun() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_fun);

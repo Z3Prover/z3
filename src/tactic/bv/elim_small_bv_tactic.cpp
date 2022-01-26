@@ -145,11 +145,13 @@ class elim_small_bv_tactic : public tactic {
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);
 
-                    if (bv_sz >= 31ul || ((unsigned)(1ul << bv_sz)) + num_steps > m_max_steps) {
+                    if (bv_sz >= 31)
                         return false;
-                    }
+                    unsigned max_num = 1u << bv_sz;
+                    if (max_num > m_max_steps || max_num + num_steps > m_max_steps)
+                        return false;
                     
-                    for (unsigned j = 0; j < (1ul << bv_sz) && !max_steps_exceeded(num_steps); j++) {
+                    for (unsigned j = 0; j < max_num && !max_steps_exceeded(num_steps); j++) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
                         new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n));
                         num_steps++;
@@ -207,10 +209,10 @@ class elim_small_bv_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_params = p;
-            m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-            m_max_steps = p.get_uint("max_steps", UINT_MAX);
-            m_max_bits = p.get_uint("max_bits", 4);
+            m_params.append(p);
+            m_max_memory = megabytes_to_bytes(m_params.get_uint("max_memory", UINT_MAX));
+            m_max_steps = m_params.get_uint("max_steps", UINT_MAX);
+            m_max_bits = m_params.get_uint("max_bits", 4);
         }
     };
 
@@ -241,8 +243,8 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        m_rw.cfg().updt_params(p);
+        m_params.append(p);
+        m_rw.cfg().updt_params(m_params);
     }
 
     void collect_param_descrs(param_descrs & r) override {

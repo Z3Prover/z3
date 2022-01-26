@@ -229,11 +229,12 @@ namespace sat {
             literal r  = roots[v];
             SASSERT(v != r.var());
 
-            if (m_solver.m_cut_simplifier) m_solver.m_cut_simplifier->set_root(v, r);
+            if (m_solver.m_cut_simplifier)
+                m_solver.m_cut_simplifier->set_root(v, r);
+
             bool set_root = m_solver.set_root(l, r);
-            bool root_ok = !m_solver.is_external(v) || set_root;
             TRACE("elim_eqs", tout << l << " " << r << "\n";);
-            if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok))) {
+            if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !set_root))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 if (m_solver.m_config.m_drat) {
                     m_solver.m_drat.add(~l, r, sat::status::redundant());

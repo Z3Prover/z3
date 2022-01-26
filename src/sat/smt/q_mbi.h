@@ -83,7 +83,7 @@ namespace q {
         q_body* specialize(quantifier* q);
         q_body* q2body(quantifier* q);
         expr_ref solver_project(model& mdl, q_body& qb, expr_ref_vector& eqs, bool use_inst);
-        void add_universe_restriction(quantifier* q, q_body& qb);
+        void add_universe_restriction(q_body& qb);
         void add_domain_eqs(model& mdl, q_body& qb);
         void add_domain_bounds(model& mdl, q_body& qb);
         void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);

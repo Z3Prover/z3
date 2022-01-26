@@ -1192,6 +1192,9 @@ typedef enum {
     Z3_OP_SEQ_CONTAINS,
     Z3_OP_SEQ_EXTRACT,
     Z3_OP_SEQ_REPLACE,
+    Z3_OP_SEQ_REPLACE_RE,
+    Z3_OP_SEQ_REPLACE_RE_ALL,
+    Z3_OP_SEQ_REPLACE_ALL,
     Z3_OP_SEQ_AT,
     Z3_OP_SEQ_NTH,
     Z3_OP_SEQ_LENGTH,
@@ -1205,6 +1208,8 @@ typedef enum {
     Z3_OP_INT_TO_STR,
     Z3_OP_UBV_TO_STR,
     Z3_OP_SBV_TO_STR,
+    Z3_OP_STR_TO_CODE,
+    Z3_OP_STR_FROM_CODE,
     Z3_OP_STRING_LT,
     Z3_OP_STRING_LE,
 
@@ -1216,7 +1221,9 @@ typedef enum {
     Z3_OP_RE_UNION,
     Z3_OP_RE_RANGE,
     Z3_OP_RE_LOOP,
+    Z3_OP_RE_POWER,
     Z3_OP_RE_INTERSECT,
+    Z3_OP_RE_DIFF,
     Z3_OP_RE_EMPTY_SET,
     Z3_OP_RE_FULL_SET,
     Z3_OP_RE_COMPLEMENT,
@@ -1418,18 +1425,18 @@ typedef enum
 /**
    \brief Z3 custom error handler (See #Z3_set_error_handler).
 */
-typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
-
+Z3_DECLARE_CLOSURE(Z3_error_handler, void, (Z3_context c, Z3_error_code e));
 
 /**
    \brief callback functions for user propagator.
 */
-typedef void Z3_push_eh(void* ctx);
-typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
-typedef void* Z3_fresh_eh(void* ctx, Z3_context new_context);
-typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
-typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
-typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
+Z3_DECLARE_CLOSURE(Z3_push_eh,    void, (void* ctx));
+Z3_DECLARE_CLOSURE(Z3_pop_eh,     void, (void* ctx, unsigned num_scopes));
+Z3_DECLARE_CLOSURE(Z3_fresh_eh,   void*, (void* ctx, Z3_context new_context));
+Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value));
+Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, unsigned x, unsigned y));
+Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
+Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast e, unsigned id));
 
 
 /**
@@ -1510,7 +1517,7 @@ extern "C" {
 
        def_API('Z3_global_param_get', BOOL, (_in(STRING), _out(STRING)))
     */
-    Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value);
+    Z3_bool Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value);
 
     /**@}*/
 
@@ -3702,6 +3709,21 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_int_to_str(Z3_context c, Z3_ast s);
 
+
+    /**
+       \brief String to code conversion.
+       
+       def_API('Z3_mk_string_to_code', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_string_to_code(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Code to string conversion.
+       
+       def_API('Z3_mk_string_from_code', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_string_from_code(Z3_context c, Z3_ast a);
+
     /**
        \brief Unsigned bit-vector to string conversion.
 
@@ -3812,6 +3834,13 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_re_complement(Z3_context c, Z3_ast re);
 
     /**
+       \brief Create the difference of regular expressions.
+
+       def_API('Z3_mk_re_diff', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_diff(Z3_context c, Z3_ast re1, Z3_ast re2);
+
+    /**
        \brief Create an empty regular expression of sort \c re.
 
        \pre re is a regular expression sort.
@@ -3829,6 +3858,13 @@ extern "C" {
        def_API('Z3_mk_re_full', AST ,(_in(CONTEXT), _in(SORT)))
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
+
+
+    /**
+       \brief Create a character literal
+       def_API('Z3_mk_char', AST, (_in(CONTEXT), _in(UINT)))
+    */
+    Z3_ast Z3_API Z3_mk_char(Z3_context c, unsigned ch);
 
     /**
          \brief Create less than or equal to between two characters.
@@ -4312,7 +4348,7 @@ extern "C" {
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
+    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
 
     /**
        \brief Return the domain of the given array sort.
@@ -5251,7 +5287,7 @@ extern "C" {
 
        def_API('Z3_model_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _in(BOOL), _out(AST)))
     */
-    Z3_bool_opt Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
+    Z3_bool Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
 
     /**
        \brief Return the interpretation (i.e., assignment) of constant \c a in the model \c m.
@@ -6675,6 +6711,24 @@ extern "C" {
        \brief register a callback on expression dis-equalities.
     */
     void Z3_API Z3_solver_propagate_diseq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
+
+    /**
+    * \brief register a callback when a new expression with a registered function is used by the solver 
+    * The registered function appears at the top level and is created using \ref Z3_propagate_solver_declare.
+    */
+    void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh);
+
+    /**
+        Create uninterpreted function declaration for the user propagator.
+        When expressions using the function are created by the solver invoke a callback
+        to \ref \Z3_solver_progate_created with arguments
+        1. context and callback solve
+        2. declared_expr: expression using function that was used as the top-level symbol
+        3. declared_id: a unique identifier (unique within the current scope) to track the expression.
+     
+      def_API('Z3_solver_propagate_declare', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
+    */
+    Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range);
 
     /**
        \brief register an expression to propagate on with the solver.

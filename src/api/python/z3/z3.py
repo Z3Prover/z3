@@ -1150,6 +1150,8 @@ def _to_expr_ref(a, ctx):
         return FPRMRef(a, ctx)
     if sk == Z3_SEQ_SORT:
         return SeqRef(a, ctx)
+    if sk == Z3_CHAR_SORT:
+        return CharRef(a, ctx)
     if sk == Z3_RE_SORT:
         return ReRef(a, ctx)
     return ExprRef(a, ctx)
@@ -4809,7 +4811,7 @@ def Ext(a, b):
     """
     ctx = a.ctx
     if z3_debug():
-        _z3_assert(is_array_sort(a) and is_array(b), "arguments must be arrays")
+        _z3_assert(is_array_sort(a) and (is_array(b) or b.is_lambda()), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 
@@ -8789,6 +8791,10 @@ def Product(*args):
         _args, sz = _to_ast_array(args)
         return ArithRef(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
 
+def Abs(arg):
+    """Create the absolute value of an arithmetic expression"""
+    return If(arg > 0, arg, -arg)
+    
 
 def AtMost(*args):
     """Create an at-most Pseudo-Boolean k constraint.
@@ -10580,7 +10586,6 @@ class CharSortRef(SortRef):
     """Character sort."""
 
 
-
 def StringSort(ctx=None):
     """Create a string sort
     >>> s = StringSort()
@@ -10646,17 +10651,67 @@ class SeqRef(ExprRef):
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
     def __le__(self, other):
-        return SeqRef(Z3_mk_str_le(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_str_le(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
 
     def __lt__(self, other):
-        return SeqRef(Z3_mk_str_lt(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_str_lt(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
 
     def __ge__(self, other):
-        return SeqRef(Z3_mk_str_le(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_str_le(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
 
     def __gt__(self, other):
-        return SeqRef(Z3_mk_str_lt(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_str_lt(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
 
+
+def _coerce_char(ch, ctx=None):
+    if isinstance(ch, str):
+        ctx = _get_ctx(ctx)
+        ch = CharVal(ch, ctx)
+    if not is_expr(ch):
+        raise Z3Exception("Character expression expected")    
+    return ch
+
+class CharRef(ExprRef):
+    """Character expression."""
+
+    def __le__(self, other):
+        other = _coerce_char(other, self.ctx)
+        return _to_expr_ref(Z3_mk_char_le(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
+
+    def to_int(self):
+        return _to_expr_ref(Z3_mk_char_to_int(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def to_bv(self):
+        return _to_expr_ref(Z3_mk_char_to_bv(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def is_digit(self):
+        return _to_expr_ref(Z3_mk_char_is_digit(self.ctx_ref(), self.as_ast()), self.ctx)
+
+
+def CharVal(ch, ctx=None):
+    ctx = _get_ctx(ctx)
+    if isinstance(ch, str):
+        ch = ord(ch)
+    if not isinstance(ch, int):
+        raise Z3Exception("character value should be an ordinal")
+    return _to_expr_ref(Z3_mk_char(ctx.ref(), ch), ctx)
+    
+def CharFromBv(ch, ctx=None):
+    if not is_expr(ch):
+        raise Z3Expression("Bit-vector expression needed")
+    return _to_expr_ref(Z3_mk_char_from_bv(ch.ctx_ref(), ch.as_ast()), ch.ctx)
+
+def CharToBv(ch, ctx=None):
+    ch = _coerce_char(ch, ctx)
+    return ch.to_bv()
+
+def CharToInt(ch, ctx=None):
+    ch = _coerce_char(ch, ctx)
+    return ch.to_int()
+
+def CharIsDigit(ch, ctx=None):
+    ch = _coerce_char(ch, ctx)
+    return ch.is_digit()
 
 def _coerce_seq(s, ctx=None):
     if isinstance(s, str):
@@ -10772,6 +10827,7 @@ def Full(s):
     if isinstance(s, ReSortRef):
         return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
     raise Z3Exception("Non-sequence, non-regular expression sort passed to Full")
+
 
 
 def Unit(a):
@@ -10905,6 +10961,18 @@ def IntToStr(s):
     return SeqRef(Z3_mk_int_to_str(s.ctx_ref(), s.as_ast()), s.ctx)
 
 
+def StrToCode(s):
+    """Convert a unit length string to integer code"""
+    if not is_expr(s):
+        s = _py2expr(s)
+    return ArithRef(Z3_mk_string_to_code(s.ctx_ref(), s.as_ast()), s.ctx)
+
+def StrFromCode(c):
+    """Convert code to a string"""
+    if not is_expr(c):
+        c = _py2expr(c)
+    return SeqRef(Z3_mk_string_from_code(c.ctx_ref(), c.as_ast()), c.ctx)
+    
 def Re(s, ctx=None):
     """The regular expression that accepts sequence 's'
     >>> s1 = Re("ab")
@@ -11064,6 +11132,11 @@ def Range(lo, hi, ctx=None):
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
+
+def Diff(a, b, ctx=None):
+    """Create the difference regular epression
+    """
+    return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
 
 def AllChar(regex_sort, ctx=None):
     """Create a regular expression that accepts all single character strings

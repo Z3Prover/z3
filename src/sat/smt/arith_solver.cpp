@@ -561,6 +561,8 @@ namespace arith {
     }
 
     void solver::dbg_finalize_model(model& mdl) {
+        if (m_not_handled)
+            return;
         bool found_bad = false;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             if (!is_bool(v))
@@ -953,6 +955,7 @@ namespace arith {
             if (n1->get_root() == n2->get_root())
                 continue;
             literal eq = eq_internalize(n1, n2);
+            ctx.mark_relevant(eq);
             if (s().value(eq) != l_true)
                 return true;
         }
@@ -1446,21 +1449,19 @@ namespace arith {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-        if (!m_nla) {
-            TRACE("arith", tout << "no nla\n";);
+        CTRACE("arith", !m_nla, tout << "no nla\n";);
+        if (!m_nla) 
             return l_true;
-        }
         if (!m_nla->need_check())
             return l_true;
 
         m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check(m_nla_lemma_vector);
         switch (r) {
-        case l_false: {
+        case l_false: 
             for (const nla::lemma& l : m_nla_lemma_vector)
                 false_case_of_check_nla(l);
             break;
-        }
         case l_true:
             if (assume_eqs())
                 return l_false;
@@ -1477,11 +1478,28 @@ namespace arith {
     }
 
     bool solver::include_func_interp(func_decl* f) const {
-        return 
-            a.is_div0(f) ||
-            a.is_idiv0(f) ||
-            a.is_power0(f) ||
-            a.is_rem0(f) ||
-            a.is_mod0(f);        
+        SASSERT(f->get_family_id() == get_id());
+        switch (f->get_decl_kind()) {
+        case OP_ADD:
+        case OP_SUB:
+        case OP_UMINUS:
+        case OP_MUL:
+        case OP_LE:
+        case OP_LT:
+        case OP_GE:
+        case OP_GT:
+        case OP_MOD:
+        case OP_REM:
+        case OP_DIV:
+        case OP_IDIV:
+        case OP_POWER:
+        case OP_IS_INT:
+        case OP_TO_INT:
+        case OP_TO_REAL:
+        case OP_NUM:
+            return false;
+        default:
+            return true;            
+        }
     }
 }

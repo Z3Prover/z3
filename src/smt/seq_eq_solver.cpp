@@ -375,6 +375,15 @@ bool theory_seq::split_lengths(dependency* dep,
     SASSERT(X != Y);
 
     // |b| < |X| <= |b| + |Y| => x = bY1, Y = Y1Y2
+    // at this point |b| = lenB - |Y| which is less than |X|
+    // given how bs is constructed:
+    // bs is constructed as a vector of strings with length >= |X|
+    // but when the last element it removed the length is < |X|
+    // We also have |X| <= |b| + |Y|, also by how bs is constructed.
+    // Therefore the antecedent is true in the current model.
+    // It could be the antecendet is not justified, so we create
+    // literals to justify the antecedent and ensure they are relevant.
+    // If the literals are relevant and assigned they should be true.
     expr_ref lenXE = mk_len(X);
     expr_ref lenYE = mk_len(Y);
     expr_ref lenb = mk_len(b);
@@ -383,7 +392,7 @@ bool theory_seq::split_lengths(dependency* dep,
     literal_vector lits;
     lits.push_back(lit1);
     lits.push_back(lit2);
-    
+
     if (ctx.get_assignment(lit1) != l_true ||
         ctx.get_assignment(lit2) != l_true) {
         ctx.mark_as_relevant(lit1);

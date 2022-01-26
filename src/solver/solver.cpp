@@ -226,7 +226,7 @@ void solver::collect_param_descrs(param_descrs & r) {
 }
 
 void solver::reset_params(params_ref const & p) {
-    m_params = p;
+    m_params.append(p);
     solver_params sp(m_params);
     m_cancel_backup_file = sp.cancel_backup_file();
 }

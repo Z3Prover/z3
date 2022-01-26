@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/static_features.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 
 static_features::static_features(ast_manager & m):
@@ -39,7 +40,8 @@ static_features::static_features(ast_manager & m):
 }
 
 void static_features::reset() {
-    m_already_visited                      .reset();
+    m_pre_processed                      .reset();
+    m_post_processed.reset();
     m_cnf                                  = true;
     m_num_exprs                            = 0;
     m_num_roots                            = 0;
@@ -343,8 +345,8 @@ void static_features::update_core(expr * e) {
         }
         func_decl * d = to_app(e)->get_decl();
         inc_num_apps(d);
-        if (d->get_arity() > 0 && !is_marked(d)) {
-            mark(d);
+        if (d->get_arity() > 0 && !is_marked_pre(d)) {
+            mark_pre(d);
             if (fid == null_family_id)
                 m_num_uninterpreted_functions++;
         }
@@ -396,73 +398,68 @@ void static_features::update_core(sort * s) {
     check_array(s);
 }
 
-void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth) {
-    TRACE("static_features", tout << "processing\n" << mk_pp(e, m) << "\n";);
-    if (is_var(e))
-        return;
-    if (is_marked(e)) {
-        m_num_sharing++;
-        return;
-    }    
+bool static_features::pre_process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx) {
+    if (is_marked_post(e))
+        return true;
 
-    if (stack_depth > m_max_stack_depth) {
-        ptr_vector<expr> todo;
-        todo.push_back(e);
-        for (unsigned i = 0; i < todo.size(); ++i) {
-            e = todo[i];
-            if (is_marked(e))
-                continue;
-            if (is_basic_expr(e)) {
-                mark(e);
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else {
-                process(e, form_ctx, or_and_ctx, ite_ctx, stack_depth - 10);
-            }
-        }
-        return;
+    if (is_marked_pre(e))
+        return true;
+
+    if (is_var(e)) {
+        mark_pre(e);
+        mark_post(e);
+        return true;
     }
 
-    mark(e);
+    mark_pre(e);
 
     update_core(e);
 
     if (is_quantifier(e)) {
         expr * body = to_quantifier(e)->get_expr();
-        process(body, false, false, false, stack_depth+1);
+        if (is_marked_post(body)) 
+            return true;                    
+        add_process(body, false, false, false);
+        return false;
+    }
+
+    auto [form_ctx_new, or_and_ctx_new, ite_ctx_new] = new_ctx(e);
+
+    bool all_processed = true;
+    for (expr* arg : *to_app(e)) {
+        m.is_not(arg, arg);
+        if (is_marked_post(arg))
+            ++m_num_sharing;
+        else {
+            add_process(arg, form_ctx_new, or_and_ctx_new, ite_ctx_new);
+            all_processed = false;
+        }
+    }    
+    return all_processed;    
+}
+
+void static_features::post_process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx) {
+    if (is_marked_post(e))
+        return;
+
+    mark_post(e);
+
+    if (is_quantifier(e)) {
+        expr * body = to_quantifier(e)->get_expr();
         set_depth(e, get_depth(body)+1);
         return;
     }
-    
-    bool form_ctx_new   = false;
-    bool or_and_ctx_new = false;
-    bool ite_ctx_new    = false;
 
-    if (is_basic_expr(e)) {
-        switch (to_app(e)->get_decl_kind()) {
-        case OP_ITE:
-            form_ctx_new = m.is_bool(e);
-            ite_ctx_new  = true;
-            break;
-        case OP_AND: 
-        case OP_OR: 
-            form_ctx_new   = true;
-            or_and_ctx_new = true;
-            break;
-        case OP_EQ:
-            form_ctx_new   = true;
-            break;
-        }
-    }
-    
     unsigned depth = 0;
     unsigned form_depth = 0;
     unsigned or_and_depth = 0;
     unsigned ite_depth = 0;
 
+    auto [form_ctx_new, or_and_ctx_new, ite_ctx_new] = new_ctx(e);
+
     for (expr* arg : *to_app(e)) {
         m.is_not(arg, arg);
-        process(arg, form_ctx_new, or_and_ctx_new, ite_ctx_new, stack_depth+1);
+        SASSERT(is_marked_post(arg));
         depth        = std::max(depth, get_depth(arg));
         if (form_ctx_new)
             form_depth   = std::max(form_depth, get_form_depth(arg));
@@ -507,16 +504,58 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
         }
         set_ite_depth(e, ite_depth);
     }
+
 }
 
+std::tuple<bool, bool, bool> static_features::new_ctx(expr* e) {
+    bool form_ctx_new   = false;
+    bool or_and_ctx_new = false;
+    bool ite_ctx_new    = false;
+
+    if (is_basic_expr(e)) {
+        switch (to_app(e)->get_decl_kind()) {
+        case OP_ITE:
+            form_ctx_new = m.is_bool(e);
+            ite_ctx_new  = true;
+            break;
+        case OP_AND: 
+        case OP_OR: 
+            form_ctx_new   = true;
+            or_and_ctx_new = true;
+            break;
+        case OP_EQ:
+            form_ctx_new   = true;
+            break;
+        }
+    }
+
+    return std::tuple(form_ctx_new, or_and_ctx_new, ite_ctx_new);
+}
+
+void static_features::process_all() {
+    while (!m_to_process.empty()) {
+        auto const& [e, form, or_and, ite] = m_to_process.back();
+        if (is_marked_post(e)) {
+            m_to_process.pop_back();
+            ++m_num_sharing;
+            continue;
+        }
+        if (!pre_process(e, form, or_and, ite))
+            continue;
+        post_process(e, form, or_and, ite);
+        m_to_process.pop_back();
+    }
+}
+
+
 void static_features::process_root(expr * e) {
-    if (is_marked(e)) {
+    if (is_marked_post(e)) {
         m_num_sharing++;
         return;
     }
     m_num_roots++;
     if (m.is_or(e)) {
-        mark(e);
+        mark_post(e);
         m_num_clauses++;
         m_num_bool_exprs++;
         unsigned num_args  = to_app(e)->get_num_args();
@@ -530,7 +569,8 @@ void static_features::process_root(expr * e) {
             expr * arg = to_app(e)->get_arg(i);
             if (m.is_not(arg))
                 arg = to_app(arg)->get_arg(0);
-            process(arg, true, true, false, 0);
+            add_process(arg, true, true, false);
+            process_all();
             depth        = std::max(depth, get_depth(arg));
             form_depth   = std::max(form_depth, get_form_depth(arg));
             or_and_depth = std::max(or_and_depth, get_or_and_depth(arg));
@@ -558,7 +598,8 @@ void static_features::process_root(expr * e) {
         m_num_units++;
         m_num_clauses++;
     }
-    process(e, false, false, false, 0);
+    add_process(e, false, false, false);
+    process_all();
 }
 
 void static_features::collect(unsigned num_formulas, expr * const * formulas) {

@@ -4,9 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifndef Z3_bool_opt
-#define Z3_bool_opt Z3_bool
-#endif
 
 #ifndef Z3_API
 # ifdef __GNUC__
@@ -18,4 +15,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 #ifndef DEFINE_TYPE
 #define DEFINE_TYPE(T) typedef struct _ ## T *T
+#endif
+
+#ifndef Z3_DECLARE_CLOSURE
+#define Z3_DECLARE_CLOSURE(_NAME_,_RETURN_,_ARGS_) typedef _RETURN_ _NAME_ _ARGS_
 #endif

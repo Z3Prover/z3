@@ -627,7 +627,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 count_down_subterm_references(result, reference_map);
 
                 // Any term that was newly introduced by the rewrite step is only referenced within / reachable from the result term.
-                for (auto kv : reference_map) {
+                for (auto const& kv : reference_map) {
                     if (kv.m_value == 0) {
                         m().trace_stream() << "[attach-enode] #" << kv.m_key->get_id() << " 0\n";
                     }
@@ -691,7 +691,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return;
         if (m_new_subst) {
             m_rep.reset();
-            for (auto kv : m_subst->sub())
+            for (auto const& kv : m_subst->sub())
                 m_rep.insert(kv.m_key, kv.m_value);
             m_new_subst = false;
         }
@@ -859,8 +859,8 @@ ast_manager & th_rewriter::m() const {
 }
 
 void th_rewriter::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->cfg().updt_params(p);
+    m_params.append(p);
+    m_imp->cfg().updt_params(m_params);
 }
 
 void th_rewriter::get_param_descrs(param_descrs & r) {

@@ -125,20 +125,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool top_level_relevant() {
         return m_top_level && relevancy_enabled();
     }
-
-    void add_dual_def(unsigned n, sat::literal const* lits) {
-        if (relevancy_enabled())
-            ensure_euf()->add_aux(n, lits);        
-    }
-
-    void add_dual_root(unsigned n, sat::literal const* lits) {
-        if (relevancy_enabled())
-            ensure_euf()->add_root(n, lits);
-    }
-
-    void add_dual_root(sat::literal lit) {
-        add_dual_root(1, &lit);
-    }
     
     void mk_clause(sat::literal l) {
         mk_clause(1, &l);
@@ -156,7 +142,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void mk_clause(unsigned n, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
-        add_dual_def(n, lits);
+        if (relevancy_enabled())
+            ensure_euf()->add_aux(n, lits);
         m_solver.add_clause(n, lits, mk_status());
     }
 
@@ -176,7 +163,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void mk_root_clause(unsigned n, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
-        add_dual_root(n, lits);
+        if (relevancy_enabled())
+            ensure_euf()->add_root(n, lits);
         m_solver.add_clause(n, lits, m_is_redundant ? mk_status() : sat::status::input());
     }
 
@@ -186,8 +174,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             return v;
         v = m_solver.add_var(is_ext);
         log_def(v, n);
-        if (top_level_relevant() && !is_bool_op(n))
-            ensure_euf()->track_relevancy(v);
         return v;
     }
 
@@ -216,14 +202,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (!m_expr2var_replay || !m_expr2var_replay->find(t, v))  
             v = add_var(true, t);
         m_map.insert(t, v);
-        if (relevancy_enabled() && (m.is_true(t) || m.is_false(t))) {
-            add_dual_root(sat::literal(v, m.is_false(t)));
-            ensure_euf()->track_relevancy(v);
-        }
         return v;
     }
 
     sat::bool_var add_bool_var(expr* t) override {
+        force_push();
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) 
             v = mk_bool_var(t);
@@ -238,11 +221,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
         for (; m_num_scopes > 0; --m_num_scopes) {
             m_map.push();
             m_cache_lim.push_back(m_cache_trail.size());
-        }
+        }        
     }
 
     void push() override {
-        ++m_num_scopes;
+        ++m_num_scopes;        
     }
 
     void pop(unsigned n) override {
@@ -263,7 +246,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
         }
         m_cache_trail.shrink(k);
-        m_cache_lim.shrink(m_cache_lim.size() - n);                              
+        m_cache_lim.shrink(m_cache_lim.size() - n);    
     }
 
     // remove non-external literals from cache.
@@ -677,8 +660,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (lit == sat::null_literal) 
             return;
-        if (top_level_relevant())
-            euf->track_relevancy(lit.var());
         if (root)
             mk_root_clause(lit);
         else

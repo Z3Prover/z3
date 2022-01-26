@@ -19,9 +19,11 @@ Author:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/pull_quant.h"
+#include "ast/rewriter/inj_axiom.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
+#include "qe/lite/qe_lite.h"
 
 
 namespace q {
@@ -44,19 +46,23 @@ namespace q {
         if (l.sign() == is_forall(e)) {
             sat::literal lit = skolemize(q);
             add_clause(~l, lit);
-            ctx.add_root(~l, lit);
+            return;
         }
-        else if (expand(q)) {
-            for (expr* e : m_expanded) {
-                sat::literal lit = ctx.internalize(e, l.sign(), false, false);
-                add_clause(~l, lit);
-                ctx.add_root(~l, lit);
+        quantifier* q_flat = nullptr;
+        if (!m_flat.find(q, q_flat)) {
+            if (expand(q)) {
+                for (expr* e : m_expanded) {
+                    sat::literal lit = ctx.internalize(e, l.sign(), false, false);
+                    add_clause(~l, lit);
+                }
+                return;
             }
+            q_flat = flatten(q);
         }
-        else if (is_ground(q->get_expr())) {
-            auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+            
+        if (is_ground(q_flat->get_expr())) {
+            auto lit = ctx.internalize(q_flat->get_expr(), l.sign(), false, false);
             add_clause(~l, lit);
-            ctx.add_root(~l, lit);
         }
         else {
             ctx.push_vec(m_universal, l);
@@ -72,9 +78,12 @@ namespace q {
 
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
-            case l_true:  return sat::check_result::CR_DONE;
-            case l_false: return sat::check_result::CR_CONTINUE;
-            case l_undef: break;
+            case l_true:  
+                return sat::check_result::CR_DONE;
+            case l_false: 
+                return sat::check_result::CR_CONTINUE;
+            case l_undef: 
+                break;
             }
         }
         return sat::check_result::CR_GIVEUP;
@@ -169,13 +178,18 @@ namespace q {
 
     quantifier* solver::flatten(quantifier* q) {
         quantifier* q_flat = nullptr;
-        if (!has_quantifiers(q->get_expr())) 
-            return q;
         if (m_flat.find(q, q_flat))
             return q_flat;
+
+        expr_ref new_q(q, m), r(m);
         proof_ref pr(m);
-        expr_ref  new_q(m);
-        if (is_forall(q)) {
+        if (!has_quantifiers(q->get_expr())) {
+            if (!ctx.get_config().m_refine_inj_axiom)
+                return q;
+            if (!simplify_inj_axiom(m, q, new_q))
+                return q;
+        }
+        else if (is_forall(q)) {
             pull_quant pull(m);
             pull(q, new_q, pr);
             SASSERT(is_well_sorted(m, new_q));
@@ -221,15 +235,34 @@ namespace q {
         return val;
     }
 
+    /**
+     * Expand returns true if it was able to rewrite the formula.
+     * If the rewrite results in a quantifier, the rewritten quantifier
+     * is stored in m_flat to avoid repeated expansions.
+     * 
+     */
     bool solver::expand(quantifier* q) {
-        expr_ref r(m);
+        expr_ref r(q, m);
         proof_ref pr(m);
-        m_der(q, r, pr);
+        ctx.rewrite(r);
+        m_der(r, r, pr);
+        if (ctx.get_config().m_qe_lite) {
+            qe_lite qe(m, ctx.s().params());
+            qe(r);
+        }
         m_expanded.reset();
-        if (r != q) {
-            ctx.get_rewriter()(r);
-            m_expanded.push_back(r);
-            return true;
+        bool updated = q != r;
+        if (updated) {
+            ctx.rewrite(r);
+            if (!is_quantifier(r)) {
+                m_expanded.push_back(r);
+                return true;
+            }            
+            if (is_forall(q)  != is_forall(r)) {
+                m_expanded.push_back(r);
+                return true;
+            }
+            q = to_quantifier(r);
         }
         if (is_forall(q)) 
             flatten_and(q->get_expr(), m_expanded);
@@ -253,6 +286,11 @@ namespace q {
                     idx = i;
                 }
             }
+            if (!e1 && updated) {
+                m_expanded.reset();
+                m_expanded.push_back(r);
+                return true;
+            }
             if (!e1)
                 return false;
 
@@ -267,12 +305,19 @@ namespace q {
         if (m_expanded.size() > 1) {
             for (unsigned i = m_expanded.size(); i-- > 0; ) {
                 expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);
-                ctx.get_rewriter()(tmp);
+                ctx.rewrite(tmp);
                 m_expanded[i] = tmp;
             }
             return true;
         }
-        return false;
+        else if (m_expanded.size() == 1 && updated) {
+            m_expanded[0] = r;
+            flatten(to_quantifier(r));
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
     bool solver::split(expr* arg, expr_ref& e1, expr_ref& e2) {

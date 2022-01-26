@@ -1,0 +1,27 @@
+{
+  "name": "z3-solver",
+  "keywords": ["Z3", "theorem", "prover", "solver", "satisfiability", "smt", "satisfiability modulo theories"],
+  "homepage": "https://github.com/Z3Prover/z3/tree/master/src/api/js",
+  "repository": "github:Z3Prover/z3",
+  "engines": {
+    "node": ">=16"
+  },
+  "main": "build/wrapper.js",
+  "types": "build/wrapper.d.ts",
+  "files": [
+    "build/*.{js,d.ts,wasm}"
+  ],
+  "scripts": {
+    "build-ts": "mkdir -p build && node scripts/make-ts-wrapper.js > build/wrapper.ts && tsc",
+    "build-wasm": "mkdir -p build && node scripts/make-cc-wrapper.js > build/async-fns.cc && ./build-wasm.sh",
+    "format": "prettier --write --single-quote --arrow-parens avoid --print-width 120 --trailing-comma all '{,src/,scripts/}*.{js,ts}'",
+    "test": "node test-ts-api.js"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.8",
+    "prettier": "^2.5.1",
+    "sprintf-js": "^1.1.2",
+    "typescript": "^4.5.4"
+  },
+  "license": "MIT"
+}

@@ -26,7 +26,7 @@ Notes:
 #include "api/api_model.h"
 #include "api/api_ast_map.h"
 #include "api/api_ast_vector.h"
-#include "qe/qe_lite.h"
+#include "qe/lite/qe_lite.h"
 #include "muz/spacer/spacer_util.h"
 
 extern "C"

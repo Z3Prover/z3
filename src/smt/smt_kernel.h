@@ -301,22 +301,19 @@ namespace smt {
         
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh);
 
-
-        /**
-           \brief register an expression to be tracked fro user propagation.
-        */
-        unsigned user_propagate_register(expr* e);
+        unsigned user_propagate_register_expr(expr* e);
         
+        void user_propagate_register_created(user_propagator::created_eh_t& r);
 
         /**
            \brief Return a reference to smt::context.
-           This is a temporary hack to support user theories.
-           TODO: remove this hack.
-           We need to revamp user theories too.
+           This breaks abstractions. 
+           
+           It is currently used by the opt-solver
+           to access optimization services from arithmetic solvers
+           and to ensure that the solver has registered PB theory solver.
 
-           This method breaks the abstraction barrier.
-
-           \warning We should not use this method
+           \warning This method should not be used in new code.
         */
         context & get_context();
     };

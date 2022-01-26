@@ -49,6 +49,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_refine_inj_axiom(*this),
     m_max_bv_sharing_fn(*this),
     m_elim_term_ite(*this),
+    m_qe_lite(*this),
     m_pull_nested_quantifiers(*this),
     m_elim_bvs_from_quantifiers(*this),
     m_cheap_quant_fourier_motzkin(*this),
@@ -71,12 +72,12 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
 
 void asserted_formulas::setup() {
     switch (m_smt_params.m_lift_ite) {
-    case LI_FULL:
-        m_smt_params.m_ng_lift_ite = LI_NONE;
+    case lift_ite_kind::LI_FULL:
+        m_smt_params.m_ng_lift_ite = lift_ite_kind::LI_NONE;
         break;
-    case LI_CONSERVATIVE:
-        if (m_smt_params.m_ng_lift_ite == LI_CONSERVATIVE)
-            m_smt_params.m_ng_lift_ite = LI_NONE;
+    case lift_ite_kind::LI_CONSERVATIVE:
+        if (m_smt_params.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE)
+            m_smt_params.m_ng_lift_ite = lift_ite_kind::LI_NONE;
         break;
     default:
         break;
@@ -281,10 +282,11 @@ void asserted_formulas::reduce() {
     if (!invoke(m_reduce_asserted_formulas)) return;
     if (!invoke(m_pull_nested_quantifiers)) return;
     if (!invoke(m_lift_ite)) return;
-    m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == LI_CONSERVATIVE);
-    m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == LI_CONSERVATIVE);
+    m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
+    m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
     if (!invoke(m_ng_lift_ite)) return;
     if (!invoke(m_elim_term_ite)) return;
+    if (!invoke(m_qe_lite)) return;
     if (!invoke(m_refine_inj_axiom)) return;
     if (!invoke(m_distribute_forall)) return;
     if (!invoke(m_find_macros)) return;

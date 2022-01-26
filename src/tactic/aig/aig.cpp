@@ -559,7 +559,7 @@ struct aig_manager::imp {
             aig_lit r;
             switch (num) {
             case 0:
-                r = m.m_true;
+                r = m.m_false;
                 break;
             case 1:
                 r = m_result_stack[spos];

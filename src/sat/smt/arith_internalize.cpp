@@ -237,9 +237,10 @@ namespace arith {
                 if (!is_first) {
                     // skip recursive internalization
                 }
-                else if (a.is_to_int(n, n1)) {
-                    mk_to_int_axiom(t);
-                }
+                else if (a.is_to_int(n, n1)) 
+                    mk_to_int_axiom(t);                
+                else if (a.is_abs(n)) 
+                    mk_abs_axiom(t);                
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     m_idiv_terms.push_back(n);
@@ -268,17 +269,16 @@ namespace arith {
                 }
                 else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
                     found_unsupported(n);
+                    ensure_arg_vars(to_app(n));
                 }
                 else {
-                    // no-op
+                    ensure_arg_vars(to_app(n));
                 }
             }
             else {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
-                    for (expr* arg : *to_app(n)) 
-                        if (a.is_arith_expr(arg) && !m.is_bool(arg))
-                            internalize_term(arg);
+                    ensure_arg_vars(to_app(n));
                 }
                 theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
@@ -425,6 +425,12 @@ namespace arith {
             e_internalize(arg);
     }
 
+    void solver::ensure_arg_vars(app* n) {
+        for (expr* arg : *to_app(n))
+            if (a.is_real(arg) || a.is_int(arg))
+                internalize_term(arg);
+    }
+
     theory_var solver::internalize_power(app* t, app* n, unsigned p) {
         internalize_args(t, true);
         bool _has_var = has_var(t);
@@ -545,11 +551,13 @@ namespace arith {
         }
         m_left_side.clear();
         // reset the coefficients after they have been used.
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            theory_var var = vars[i];
+        for (theory_var var : vars) {
             rational const& r = m_columns[var];
             if (!r.is_zero()) {
-                m_left_side.push_back(std::make_pair(r, register_theory_var_in_lar_solver(var)));
+                auto vi = register_theory_var_in_lar_solver(var);
+                if (lp::tv::is_term(vi))
+                    vi = lp().map_term_index_to_column_index(vi);
+                m_left_side.push_back(std::make_pair(r, vi));
                 m_columns[var].reset();
             }
         }

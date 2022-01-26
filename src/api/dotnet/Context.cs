@@ -980,7 +980,8 @@ namespace Microsoft.Z3
             Debug.Assert(t != null);
             Debug.Assert(t.All(a => a != null));
             CheckContextMatch<BoolExpr>(t);
-            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+            var ands = t.ToArray();
+            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.ArrayToNative(ands)));
         }
 
         /// <summary>
@@ -1005,7 +1006,8 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != null));
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+            var ts = t.ToArray();
+            return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         #endregion
@@ -1032,7 +1034,8 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != null));
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+            var ts = t.ToArray();
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
@@ -1044,7 +1047,8 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != null));
 
             CheckContextMatch<ArithExpr>(t);
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+            var ts = t.ToArray();
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
@@ -1056,7 +1060,8 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != null));
 
             CheckContextMatch<ArithExpr>(t);
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+            var ts = t.ToArray();
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
@@ -2663,6 +2668,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a difference regular expression.
+        /// </summary>
+        public ReExpr MkDiff(ReExpr a, ReExpr b) 
+        {
+            Debug.Assert(a != null);
+            Debug.Assert(b != null);
+            CheckContextMatch(a, b);
+            return new ReExpr(this, Native.Z3_mk_re_diff(nCtx, a.NativeObject, b.NativeObject));
+        }
+
+        /// <summary>
         /// Create the empty regular expression.
         /// The sort s should be a regular expression.
         /// </summary>
@@ -2749,10 +2765,11 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkAtMost(IEnumerable<BoolExpr> args, uint k)
         {
-           Debug.Assert(args != null);
-           CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Count(),
-                                                          AST.EnumToNative(args), k));
+            Debug.Assert(args != null);
+            CheckContextMatch<BoolExpr>(args);
+            var ts = args.ToArray();
+            return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) ts.Length,
+                                                          AST.ArrayToNative(ts), k));
         }
 
         /// <summary>
@@ -2760,10 +2777,11 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkAtLeast(IEnumerable<BoolExpr> args, uint k)
         {
-           Debug.Assert(args != null);
-           CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Count(),
-                                                          AST.EnumToNative(args), k));
+            Debug.Assert(args != null);
+            CheckContextMatch<BoolExpr>(args);
+            var ts = args.ToArray();
+            return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) ts.Length,
+                                                          AST.ArrayToNative(ts), k));
         }
 
         /// <summary>

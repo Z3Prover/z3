@@ -28,7 +28,7 @@ Revision History:
 #include "ast/rewriter/ast_counter.h"
 #include "ast/rewriter/rewriter.h"
 #include "muz/base/hnf.h"
-#include "qe/qe_lite.h"
+#include "qe/lite/qe_lite.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/label_rewriter.h"
@@ -287,13 +287,12 @@ namespace datalog {
     class rule : public accounted_object {
         friend class rule_manager;
 
-        app*     m_head{ nullptr };
-        proof*   m_proof{ nullptr };
-        unsigned m_tail_size:20;
-        // unsigned m_reserve:12;
-        unsigned m_ref_cnt{ 0 };
-        unsigned m_positive_cnt{ 0 };
-        unsigned m_uninterp_cnt{ 0 };
+        app*     m_head = nullptr;
+        proof*   m_proof = nullptr;
+        unsigned m_tail_size = 0;
+        unsigned m_ref_cnt = 0;
+        unsigned m_positive_cnt = 0;
+        unsigned m_uninterp_cnt = 0;
         symbol   m_name;
         /**
            The following field is an array of tagged pointers. 

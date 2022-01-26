@@ -43,7 +43,6 @@ namespace q {
         
     public:
         eval(euf::solver& ctx);
-        void explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing);
 
         lbool operator()(euf::enode* const* binding, clause& c, euf::enode_pair_vector& evidence);
         lbool operator()(euf::enode* const* binding, clause& c, unsigned& idx, euf::enode_pair_vector& evidence);

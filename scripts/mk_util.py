@@ -15,7 +15,7 @@ import shutil
 from mk_exception import *
 import mk_genfile_common
 from fnmatch import fnmatch
-import distutils.sysconfig
+import sysconfig
 import compileall
 import subprocess
 
@@ -48,7 +48,7 @@ CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
 JAVAC=None
 JAR=None
-PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib(prefix=getenv("PREFIX", None))
+PYTHON_PACKAGE_DIR=sysconfig.get_path('purelib')
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
@@ -92,7 +92,6 @@ DOTNET_CORE_ENABLED=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
-JS_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
 STATIC_BIN=False
@@ -681,7 +680,7 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
@@ -749,8 +748,6 @@ def parse_options():
             GIT_DESCRIBE = True
         elif opt in ('', '--ml'):
             ML_ENABLED = True
-        elif opt == "--js":
-            JS_ENABLED = True
         elif opt in ('', '--log-sync'):
             LOG_SYNC = True
         elif opt == '--single-threaded':
@@ -813,16 +810,6 @@ def set_build_dir(d):
     BUILD_DIR = norm_path(d)
     REV_BUILD_DIR = reverse_path(d)
 
-def set_z3js_dir(p):
-    global SRC_DIR, Z3JS_SRC_DIR
-    p = norm_path(p)
-    full = os.path.join(SRC_DIR, p)
-    if not os.path.exists(full):
-        raise MKException("Python bindings directory '%s' does not exist" % full)
-    Z3JS_SRC_DIR = full
-    if VERBOSE:
-        print("Js bindings directory was detected.")
-
 def set_z3py_dir(p):
     global SRC_DIR, Z3PY_SRC_DIR
     p = norm_path(p)
@@ -858,9 +845,6 @@ def get_components():
 def get_z3py_dir():
     return Z3PY_SRC_DIR
 
-# Return directory where the js bindings are located
-def get_z3js_dir():
-    return Z3JS_SRC_DIR
 
 # Return true if in verbose mode
 def is_verbose():
@@ -871,9 +855,6 @@ def is_java_enabled():
 
 def is_ml_enabled():
     return ML_ENABLED
-
-def is_js_enabled():
-    return JS_ENABLED
 
 def is_dotnet_core_enabled():
     return DOTNET_CORE_ENABLED
@@ -1611,7 +1592,7 @@ class PythonInstallComponent(Component):
                                       os.path.join(self.pythonPkgDir,'z3'),
                                       in_prefix=self.in_prefix_install)
 
-        if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
+        if PYTHON_PACKAGE_DIR != sysconfig.get_path('purelib'):
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
 
     def mk_uninstall(self, out):
@@ -2692,7 +2673,7 @@ def mk_config():
             print("Python pkg dir: %s" % PYTHON_PACKAGE_DIR)
             if GPROF:
                 print('gprof:          enabled')
-            print('Python version: %s' % distutils.sysconfig.get_python_version())
+            print('Python version: %s' % sysconfig.get_python_version())
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -3025,17 +3006,14 @@ def mk_bindings(api_files):
         ml_output_dir = None
         if is_ml_enabled():
           ml_output_dir = get_component('ml').src_dir
-        if is_js_enabled():
-          set_z3js_dir("api/js")
-          js_output_dir = get_component('js').src_dir
         # Get the update_api module to do the work for us
+        update_api.VERBOSE = is_verbose()
         update_api.generate_files(api_files=new_api_files,
           api_output_dir=get_component('api').src_dir,
           z3py_output_dir=get_z3py_dir(),
           dotnet_output_dir=dotnet_output_dir,
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
-          js_output_dir=get_z3js_dir(),
           ml_output_dir=ml_output_dir,
           ml_src_dir=ml_output_dir
         )

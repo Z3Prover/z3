@@ -124,7 +124,7 @@ namespace sat {
         clause_vector           m_clauses;
         clause_vector           m_learned;
         unsigned                m_num_frozen;
-        unsigned_vector         m_active_vars, m_free_vars, m_vars_to_reinit;
+        unsigned_vector         m_active_vars, m_free_vars, m_vars_to_free, m_vars_to_reinit;
         vector<watch_list>      m_watches;
         svector<lbool>          m_assignment;
         svector<justification>  m_justification; 
@@ -266,6 +266,11 @@ namespace sat {
         //
         // -----------------------
         void add_clause(unsigned num_lits, literal * lits, sat::status st) override { mk_clause(num_lits, lits, st); }
+        void add_clause(literal l1, literal l2, status st) {
+            literal lits[2] = { l1, l2 };
+            add_clause(2, lits, st);
+        }
+        void add_clause(literal lit, status st) { literal lits[1] = { lit }; add_clause(1, lits, st); }
         bool_var add_var(bool ext) override { return mk_var(ext, true); }
 
         bool_var mk_var(bool ext = false, bool dvar = true);
@@ -444,9 +449,10 @@ namespace sat {
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
         struct bin_clause_hash { unsigned operator()(bin_clause const& b) const { return b.first.hash() + 2*b.second.hash(); } };
-    protected:
-        watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
-        watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }
+
+        watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
+        watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
+    protected:            
         watch_list & get_wlist(unsigned l_idx) { return m_watches[l_idx]; }
         bool is_marked(bool_var v) const { return m_mark[v]; }
         void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }

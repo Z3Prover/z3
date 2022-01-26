@@ -66,7 +66,7 @@ namespace q {
         ptr_vector<quantifier> univ;
         for (sat::literal lit : m_qs.universal()) {
             quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
-            if (ctx.is_relevant(q))
+            if (ctx.is_relevant(lit.var()))
                 univ.push_back(q);
         }
         if (univ.empty())
@@ -256,7 +256,7 @@ namespace q {
               tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
               if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
-              ctx.display(tout);              
+              /*ctx.display(tout); */
               );
         if (v2r.find(value, r)) 
             return r->get_expr();

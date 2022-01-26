@@ -57,8 +57,6 @@ namespace array {
 
     bool solver::assert_axiom(unsigned idx) {
         axiom_record& r = m_axiom_trail[idx];
-        if (!is_relevant(r))
-            return false;
         switch (r.m_kind) {
         case axiom_record::kind_t::is_store:
             return assert_store_axiom(to_app(r.n->get_expr()));
@@ -86,33 +84,10 @@ namespace array {
             return assert_default_const_axiom(to_app(child));
         else if (a.is_store(child))
             return assert_default_store_axiom(to_app(child));
-        else if (a.is_map(child))
+        else if (is_map_combinator(child))
             return assert_default_map_axiom(to_app(child));
         else
             return false;                
-    }
-
-
-    bool solver::is_relevant(axiom_record const& r) const {
-        return true;
-#if 0
-        // relevancy propagation is currently incomplete on terms
-
-        expr* child = r.n->get_expr();
-        switch (r.m_kind) {
-        case axiom_record::kind_t::is_select: {
-            app* select = r.select->get_app();
-            for (unsigned i = 1; i < select->get_num_args(); ++i)
-                if (!ctx.is_relevant(select->get_arg(i)))
-                    return false;
-            return ctx.is_relevant(child);            
-        }
-        case axiom_record::kind_t::is_default:
-            return ctx.is_relevant(child);            
-        default:
-            return true;
-        }
-#endif
     }
 
     bool solver::assert_select(unsigned idx, axiom_record& r) {
@@ -140,7 +115,7 @@ namespace array {
             return assert_select_as_array_axiom(select, to_app(child));
         else if (a.is_store(child))
             return assert_select_store_axiom(select, to_app(child));
-        else if (a.is_map(child))
+        else if (is_map_combinator(child))
             return assert_select_map_axiom(select, to_app(child));
         else if (is_lambda(child))
             return assert_select_lambda_axiom(select, child);
@@ -215,10 +190,17 @@ namespace array {
             return new_prop;
         
         sat::literal sel_eq = sat::null_literal;
+        auto ensure_relevant = [&](sat::literal lit) {
+            if (ctx.is_relevant(lit))
+                return;
+            new_prop = true;
+            ctx.mark_relevant(lit);            
+        };
         auto init_sel_eq = [&]() {
             if (sel_eq != sat::null_literal) 
                 return true;
             sel_eq = mk_literal(sel_eq_e);
+            ensure_relevant(sel_eq);
             return s().value(sel_eq) != l_true;
         };
 
@@ -235,6 +217,7 @@ namespace array {
                 break;
             }
             sat::literal idx_eq = eq_internalize(idx1, idx2);
+            ensure_relevant(idx_eq);
             if (s().value(idx_eq) == l_true)
                 continue;
             if (s().value(idx_eq) == l_undef)
@@ -253,8 +236,7 @@ namespace array {
      * Assert
      *    select(const(v), i) = v
      */
-    bool solver::assert_select_const_axiom(app* select, app* cnst) {
-        
+    bool solver::assert_select_const_axiom(app* select, app* cnst) {        
         ++m_stats.m_num_select_const_axiom;
         expr* val = nullptr;
         VERIFY(a.is_const(cnst, val));
@@ -291,16 +273,19 @@ namespace array {
         return add_clause(lit1, ~lit2);
     }
 
+    bool solver::is_map_combinator(expr* map) const {
+        return a.is_map(map) || a.is_union(map) || a.is_intersect(map) || a.is_difference(map) || a.is_complement(map);
+    }
+
     /**
     * Assert axiom:
     * select(map[f](a, ... d), i) = f(select(a,i),...,select(d,i))
     */
     bool solver::assert_select_map_axiom(app* select, app* map) {
         ++m_stats.m_num_select_map_axiom;
-        SASSERT(a.is_map(map));
         SASSERT(a.is_select(select));
+        SASSERT(is_map_combinator(map));
         SASSERT(map->get_num_args() > 0);
-        func_decl* f = a.get_map_func_decl(map);
         unsigned num_args = select->get_num_args();
         ptr_buffer<expr> args1, args2;
         vector<ptr_vector<expr> > args2l;
@@ -321,7 +306,8 @@ namespace array {
 
         expr_ref sel1(m), sel2(m);
         sel1 = a.mk_select(args1);
-        sel2 = m.mk_app(f, args2);
+        sel2 = apply_map(map, args2.size(), args2.data());
+
         rewrite(sel2); 
         euf::enode* n1 = e_internalize(sel1);
         euf::enode* n2 = e_internalize(sel2);
@@ -348,21 +334,44 @@ namespace array {
         return ctx.propagate(n1, n2, array_axiom());
     }
 
+    expr_ref solver::apply_map(app* map, unsigned n, expr* const* args) {
+        expr_ref result(m);
+        if (a.is_map(map)) 
+            result = m.mk_app(a.get_map_func_decl(map), n, args);
+        else if (a.is_union(map)) 
+            result = m.mk_or(n, args);
+        else if (a.is_intersect(map)) 
+            result = m.mk_and(n, args);
+        else if (a.is_difference(map)) {
+            SASSERT(n > 0);
+            result = args[0];
+            for (unsigned i = 1; i < n; ++i)
+                result = m.mk_and(result, m.mk_not(args[i]));
+        }
+        else if (a.is_complement(map)) {
+            SASSERT(n == 1);
+            result = m.mk_not(args[0]);
+        }
+        else {            
+            UNREACHABLE();
+        }
+        rewrite(result);
+        return result;
+    }
+
+
     /**
      * Assert:
      *    default(map[f](a,..,d)) = f(default(a),..,default(d))
      */
     bool solver::assert_default_map_axiom(app* map) {
         ++m_stats.m_num_default_map_axiom;
-        SASSERT(a.is_map(map));
-        func_decl* f = a.get_map_func_decl(map);
-        SASSERT(map->get_num_args() == f->get_arity());
+        SASSERT(is_map_combinator(map));
         expr_ref_vector args2(m);
         for (expr* arg : *map)
             args2.push_back(a.mk_default(arg));
         expr_ref def1(a.mk_default(map), m);
-        expr_ref def2(m.mk_app(f, args2), m);
-        rewrite(def2);
+        expr_ref def2 = apply_map(map, args2.size(), args2.data());
         return ctx.propagate(e_internalize(def1), e_internalize(def2), array_axiom());
     }
 
@@ -534,11 +543,14 @@ namespace array {
         unsigned num_vars = get_num_vars();
         bool change = false;
         for (unsigned v = 0; v < num_vars; v++) {
-            propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
             if (!d.m_prop_upward)
                 continue;
             euf::enode* n = var2enode(v);
+            if (!ctx.is_relevant(n))
+                continue;
+            for (euf::enode* lambda : d.m_parent_lambdas)
+                propagate_select_axioms(d, lambda);
             if (add_as_array_eqs(n))
                 change = true;
             bool has_default = false;
@@ -552,8 +564,8 @@ namespace array {
         m_delay_qhead = 0;
         
         for (; m_delay_qhead < sz; ++m_delay_qhead) 
-            if (m_axiom_trail[m_delay_qhead].is_delayed() && assert_axiom(m_delay_qhead))
-                change = true;  
+            if (m_axiom_trail[m_delay_qhead].is_delayed() && assert_axiom(m_delay_qhead)) 
+                change = true;              
         flet<bool> _enable_delay(m_enable_delay, false);
         if (unit_propagate())
             change = true;
@@ -567,6 +579,8 @@ namespace array {
             return false;
         for (unsigned i = 0; i < ctx.get_egraph().enodes_of(f).size(); ++i) {
             euf::enode* p = ctx.get_egraph().enodes_of(f)[i];
+            if (!ctx.is_relevant(p))
+                continue;
             expr_ref_vector select(m);
             select.push_back(n->get_expr());
             for (expr* arg : *to_app(p->get_expr()))
@@ -574,7 +588,8 @@ namespace array {
             expr_ref _e(a.mk_select(select.size(), select.data()), m);
             euf::enode* e = e_internalize(_e);
             if (e->get_root() != p->get_root()) {
-                add_unit(eq_internalize(_e, p->get_expr()));
+                sat::literal eq = eq_internalize(_e, p->get_expr());
+                add_unit(eq);
                 change = true;
             }
         }
@@ -594,13 +609,12 @@ namespace array {
                 expr* e2 = var2expr(v2);
                 if (e1->get_sort() != e2->get_sort())
                     continue;
-                if (must_have_different_model_values(v1, v2)) {
-                    continue;
-                }
-                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) {
-                    continue;
-                }
+                if (must_have_different_model_values(v1, v2)) 
+                    continue;                
+                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) 
+                    continue;                
                 sat::literal lit = eq_internalize(e1, e2);
+                ctx.mark_relevant(lit);
                 if (s().value(lit) == l_undef) 
                     prop = true;
             }
@@ -612,10 +626,11 @@ namespace array {
         ptr_buffer<euf::enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
-            euf::enode * n = var2enode(i);
-            
+            euf::enode * n = var2enode(i);            
             if (!is_array(n)) 
-                continue;            
+                continue;
+            if (!ctx.is_relevant(n))
+                continue;
             euf::enode * r = n->get_root();
             if (r->is_marked1()) 
                 continue;            

@@ -605,8 +605,8 @@ ctx_simplify_tactic::~ctx_simplify_tactic() {
 }
 
 void ctx_simplify_tactic::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->updt_params(p);
+    m_params.append(p);
+    m_imp->updt_params(m_params);
 }
 
 void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {

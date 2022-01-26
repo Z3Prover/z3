@@ -21,7 +21,7 @@ Author:
 #include "util/buffer.h"
 #include "util/rational.h"
 
-enum string_encoding {
+enum class string_encoding {
   ascii, // exactly 8 bits
   unicode,
   bmp // basic multilingual plane; exactly 16 bits
@@ -41,22 +41,22 @@ public:
     static unsigned ascii_num_bits() { return 8; }
     static unsigned max_char() {
       switch (get_encoding()) {
-        case unicode:
+      case string_encoding::unicode:
           return unicode_max_char();
-        case bmp:
+      case string_encoding::bmp:
           return bmp_max_char();
-        case ascii:
+      case string_encoding::ascii:
           return ascii_max_char();
       }
       return unicode_max_char();
     }
     static unsigned num_bits() {
       switch (get_encoding()) {
-        case unicode:
+      case string_encoding::unicode:
           return unicode_num_bits();
-        case bmp:
+      case string_encoding::bmp:
           return bmp_num_bits();
-        case ascii:
+      case string_encoding::ascii:
           return ascii_num_bits();
       }
       return unicode_num_bits();

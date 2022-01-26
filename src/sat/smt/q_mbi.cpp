@@ -51,7 +51,7 @@ namespace q {
         m_instantiations.reset();
         for (sat::literal lit : m_qs.m_universal) {
             quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
-            if (!ctx.is_relevant(q))
+            if (!ctx.is_relevant(lit.var()))
                 continue;
             init_model();
             switch (check_forall(q)) {
@@ -67,11 +67,10 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto [qlit, fml, generation] : m_instantiations) {
+        for (auto const& [qlit, fml, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ctx.mk_literal(fml);
             m_qs.add_clause(~qlit, ~lit);
-            ctx.add_root(~qlit, ~lit);
         }
         m_instantiations.reset();
         return result;
@@ -130,7 +129,7 @@ namespace q {
                 r = n;
             }
             else if (n->generation() == gen) {
-                if ((++count) % m_qs.random() == 0)
+                if ((m_qs.random() % ++count) == 0)
                     r = n;
             }
             if (count > m_max_choose_candidates)
@@ -156,7 +155,7 @@ namespace q {
         unsigned inc = 1;
         while (true) {
             ::solver::scoped_push _sp(*m_solver);
-            add_universe_restriction(q, *qb);
+            add_universe_restriction(*qb);
             m_solver->assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
             lbool r = m_solver->check_sat(0, nullptr);
@@ -218,17 +217,17 @@ namespace q {
             qlit.neg();
         ctx.rewrite(proj);
         TRACE("q", tout << "project: " << proj << "\n";);
+        IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
         unsigned generation = ctx.get_max_generation(proj);    
         m_instantiations.push_back(instantiation_t(qlit, proj, generation));
     }
 
-    void mbqi::add_universe_restriction(quantifier* q, q_body& qb) {
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) {
-            sort* s = q->get_decl_sort(i);
+    void mbqi::add_universe_restriction(q_body& qb) {
+        for (app* v : qb.vars) {
+            sort* s = v->get_sort();
             if (m_model->has_uninterpreted_sort(s))
-                restrict_to_universe(qb.vars.get(i), m_model->get_universe(s));
+                restrict_to_universe(v, m_model->get_universe(s));
         }
     }
 
@@ -309,8 +308,10 @@ namespace q {
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
             }
-            if (p)
-                (*p)(*m_model, vars, fmls);
+            if (!p)
+                continue;
+            if (!(*p)(*m_model, vars, fmls))
+                return expr_ref(nullptr, m);
         }
         for (app* v : vars) {
             expr_ref term(m);

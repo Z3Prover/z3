@@ -200,7 +200,7 @@ class seq_rewriter {
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
-    expr_ref mk_der_antimorov_union(expr* r1, expr* r2);
+    expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
     bool ite_bdds_compatabile(expr* a, expr* b);
     /* if r has the form deriv(en..deriv(e1,to_re(s))..) returns 's = [e1..en]' else returns '() in r'*/
     expr_ref is_nullable_symbolic_regex(expr* r, sort* seq_sort);
@@ -214,14 +214,19 @@ class seq_rewriter {
     expr_ref mk_in_antimirov_rec(expr* s, expr* d);
     expr_ref mk_in_antimirov(expr* s, expr* d);
 
-    expr_ref mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr* path);
+    expr_ref mk_antimirov_deriv_intersection(expr* elem, expr* d1, expr* d2, expr* path);
     expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
-    expr_ref mk_antimirov_deriv_negate(expr* d);
+    expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
     expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
+    expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 
-    expr_ref simplify_path(expr* path);
+    expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
+
+    // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
+    // simplify path, e.g., (:var 0) = 'a' & (:var 0) = 'b' is simplified to false
+    expr_ref simplify_path(expr* elem, expr* path);
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
@@ -414,5 +419,10 @@ public:
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
+
+    /* Apply simplifications to the union to keep the union normalized (r1 and r2 are not normalized)*/
+    expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
+    /* Apply simplifications to the intersection to keep it normalized (r1 and r2 are not normalized)*/
+    expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
 };
 

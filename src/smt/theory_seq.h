@@ -243,7 +243,7 @@ namespace smt {
             replay_fixed_length(ast_manager& m, expr* e) : m_e(e, m) {}
             ~replay_fixed_length() override {}
             void operator()(theory_seq& th) override {
-                th.fixed_length(m_e);
+                th.fixed_length(m_e, false, false);
                 m_e.reset();
             }
         };
@@ -436,8 +436,8 @@ namespace smt {
         bool check_length_coherence();
         bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
-        bool fixed_length(bool is_zero = false);
-        bool fixed_length(expr* e, bool is_zero);
+        bool check_fixed_length(bool is_zero, bool check_long_strings);
+        bool fixed_length(expr* e, bool is_zero, bool check_long_strings);
         bool branch_variable_eq(depeq const& e);
         bool branch_binary_variable(depeq const& e);
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);

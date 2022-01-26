@@ -14,7 +14,7 @@ namespace user_propagator {
     
     class context_obj {
     public:
-        virtual ~context_obj() {}
+        virtual ~context_obj() = default;
     };
     
     typedef std::function<void(void*, callback*)> final_eh_t;
@@ -23,7 +23,30 @@ namespace user_propagator {
     typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
     typedef std::function<void(void*)>                 push_eh_t;
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
+    typedef std::function<void(void*, callback*, expr*, unsigned)> created_eh_t;
 
+
+    class plugin : public decl_plugin {
+    public:
+
+        static symbol name() { return symbol("user_propagator"); }
+
+        enum kind_t { OP_USER_PROPAGATE };
+
+        decl_plugin* mk_fresh() override { return alloc(plugin); }
+
+        sort* mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override {
+            UNREACHABLE();
+            return nullptr;
+        }
+
+        func_decl* mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters,
+            unsigned arity, sort* const* domain, sort* range) override {
+            UNREACHABLE();
+            return nullptr;
+        }
+
+    };
 
     class core {
     public:
@@ -54,12 +77,17 @@ namespace user_propagator {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
         
-        virtual unsigned user_propagate_register(expr* e) { 
+        virtual unsigned user_propagate_register_expr(expr* e) { 
+            throw default_exception("user-propagators are only supported on the SMT solver");
+        }
+
+        virtual void user_propagate_register_created(created_eh_t& r) {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 
         virtual void user_propagate_clear() {
         }
+
        
     };
 

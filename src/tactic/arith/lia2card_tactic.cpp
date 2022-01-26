@@ -135,8 +135,8 @@ public:
     char const* name() const override { return "lia2card"; }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        m_compile_equality = p.get_bool("compile_equality", true);
+        m_params.append(p);
+        m_compile_equality = m_params.get_bool("compile_equality", true);
     }
 
     expr_ref mk_bounded(expr_ref_vector& axioms, app* x, unsigned lo, unsigned hi) {

@@ -14,9 +14,11 @@ See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z
 
 ## Build status
 
-| Azure Pipelines | Code Coverage | Open Bugs | Android Build | WASM Build |
+| Azure Pipelines | Code Coverage | Open Bugs | Android Build | WASM Build | 
 | --------------- | --------------|-----------|---------------|------------|
 | [![Build Status](https://dev.azure.com/Z3Public/Z3/_apis/build/status/Z3Prover.z3?branchName=master)](https://dev.azure.com/Z3Public/Z3/_build/latest?definitionId=1&branchName=master) | [![CodeCoverage](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml) | [![Open Issues](https://github.com/Z3Prover/z3/actions/workflows/wip.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wip.yml) |[![Android Build](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml) | [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) |
+
+<a href="https://github.com/z3prover/z3/pkgs/container/z3">Docker image</a>.
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
@@ -193,9 +195,9 @@ See [``examples/python``](examples/python) for examples.
 
 The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C++ API of Z3. Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
 
-### ``Web Assembly``
+### ``Web Assembly`` / ``TypeScript`` / ``JavaScript``
 
-[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
+A WebAssembly build with associated TypeScript typings is published on npm as [z3-solver](https://www.npmjs.com/package/z3-solver). Information about building these bindings can be found in [src/api/js](src/api/js).
 
 ## System Overview
 

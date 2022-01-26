@@ -31,6 +31,7 @@ Done:
 #include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/normal_forms/pull_quant.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_solver.h"
@@ -69,8 +70,14 @@ namespace q {
             m_mam->add_node(n, false);
         };
         ctx.get_egraph().set_on_merge(_on_merge);
-        ctx.get_egraph().set_on_make(_on_make);
+        if (!ctx.relevancy_enabled())
+            ctx.get_egraph().set_on_make(_on_make);
         m_mam = mam::mk(ctx, *this);
+    }
+
+    void ematch::relevant_eh(euf::enode* n) {
+        if (ctx.relevancy_enabled())
+            m_mam->add_node(n, false);
     }
 
     void ematch::ensure_ground_enodes(expr* e) {
@@ -90,32 +97,58 @@ namespace q {
         }
     }
 
+    /**
+    * Create a justification for binding b.
+    * The justification involves equalities in the E-graph that have
+    * explanations. Retrieve the explanations while the justification
+    * is created to ensure the justification trail is well-founded
+    * during conflict resolution.
+    */
     sat::ext_justification_idx ematch::mk_justification(unsigned idx, clause& c, euf::enode* const* b) {
         void* mem = ctx.get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, &m_qs);
         bool sign = false;
-        expr* l = nullptr, *r = nullptr;            
-        lit lit(expr_ref(l, m), expr_ref(r, m), sign); 
+        expr* l = nullptr, * r = nullptr;
+        lit lit(expr_ref(l, m), expr_ref(r, m), sign);
         if (idx != UINT_MAX)
             lit = c[idx];
-        auto* ev = static_cast<euf::enode_pair*>(ctx.get_region().allocate(sizeof(euf::enode_pair) * m_evidence.size()));
-        for (unsigned i = m_evidence.size(); i-- > 0; )
-            ev[i] = m_evidence[i];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_evidence.size(), ev);
+        m_explain.reset();
+        ctx.get_egraph().begin_explain();
+        ctx.reset_explain();
+        for (auto const& [a, b] : m_evidence) {
+            SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
+            if (a->get_root() == b->get_root())
+                ctx.get_egraph().explain_eq<size_t>(m_explain, a, b);
+            else
+                ctx.add_diseq_antecedent(m_explain, a, b);
+        }
+        ctx.get_egraph().end_explain();
+
+        size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
+        for (unsigned i = m_explain.size(); i-- > 0; )
+            ev[i] = m_explain[i];
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_explain.size(), ev);
         return constraint->to_index();
     }
 
     void ematch::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
-        m_eval.explain(l, justification::from_index(idx), r, probing);
+        justification& j = justification::from_index(idx);
+        for (unsigned i = 0; i < j.m_num_ex; ++i)
+            ctx.add_explain(j.m_explain[i]);
+        r.push_back(j.m_clause.m_literal);
     }
 
     quantifier_ref ematch::nnf_skolem(quantifier* q) {
+        SASSERT(is_forall(q));
         expr_ref r(m);
         proof_ref p(m);
         m_new_defs.reset();
         m_new_proofs.reset();
         m_nnf(q, m_new_defs, m_new_proofs, r, p);
-        SASSERT(is_quantifier(r));
+        SASSERT(is_forall(r));
+        pull_quant pull(m);
+        pull(r, r, p);
+        SASSERT(is_forall(r));
         for (expr* d : m_new_defs)
             m_qs.add_unit(m_qs.mk_literal(d));
         CTRACE("q", r != q, tout << mk_pp(q, m) << " -->\n" << r << "\n" << m_new_defs << "\n";);
@@ -295,7 +328,7 @@ namespace q {
         TRACE("q", b->display(ctx, tout << "on-binding " << mk_pp(q, m) << "\n") << "\n";);
 
 
-        if (false && propagate(false, _binding, max_generation, c, new_propagation))
+        if (propagate(false, _binding, max_generation, c, new_propagation))
             return;
 
         binding::push_to_front(c.m_bindings, b);
@@ -304,6 +337,10 @@ namespace q {
     }
 
     bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
+        if (!m_enable_propagate)
+            return false;
+        if (ctx.s().inconsistent())
+            return true;
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
         m_evidence.reset();
@@ -331,7 +368,7 @@ namespace q {
             propagate(ev == l_false, idx, j_idx);
         else
             m_prop_queue.push_back(prop(ev == l_false, idx, j_idx));
-        propagated = true;
+        propagated = true;        
         return true;
     }
 
@@ -352,7 +389,7 @@ namespace q {
         if (m_prop_queue.empty())
             return false;
         for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
-            auto [is_conflict, idx, j_idx] = m_prop_queue[i];
+            auto const& [is_conflict, idx, j_idx] = m_prop_queue[i];
             propagate(is_conflict, idx, j_idx);
         }
         m_prop_queue.reset();
@@ -527,7 +564,7 @@ namespace q {
     };
 
     void ematch::add(quantifier* _q) {
-        TRACE("q", tout << "add " << mk_pp(_q, m) << "\n";);
+        TRACE("q", tout << "add " << mk_pp(_q, m) << "\n");
         clause* c = clausify(_q);
         quantifier* q = c->q();
         if (m_q2clauses.contains(q)) {
@@ -551,7 +588,7 @@ namespace q {
             app * mp = to_app(q->get_pattern(i));
             SASSERT(m.is_pattern(mp));
             bool unary = (mp->get_num_args() == 1);
-            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
+            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n");
             if (!unary && j >= num_eager_multi_patterns) {
                 TRACE("q", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
                 if (!m_lazy_mam)
@@ -570,7 +607,7 @@ namespace q {
 
 
     bool ematch::unit_propagate() {
-        return false;
+        // return false;
         return ctx.get_config().m_ematching && propagate(false);
     }
 
@@ -581,7 +618,7 @@ namespace q {
             return m_inst_queue.propagate() || propagated;
         ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
-        for (; m_qhead < m_clause_queue.size(); ++m_qhead) {
+        for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
             unsigned idx = m_clause_queue[m_qhead];
             clause& c = *m_clauses[idx];
             binding* b = c.m_bindings;
@@ -589,7 +626,7 @@ namespace q {
                 continue;
 
             do {                
-                if (false && propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
+                if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
                     to_remove.push_back(b);
                 else if (flush) {
                     instantiate(*b);
@@ -642,7 +679,7 @@ namespace q {
     void ematch::collect_statistics(statistics& st) const {
         m_inst_queue.collect_statistics(st);
         st.update("q redundant", m_stats.m_num_redundant);
-        st.update("q units",     m_stats.m_num_propagations);
+        st.update("q unit propagations",     m_stats.m_num_propagations);
         st.update("q conflicts", m_stats.m_num_conflicts);
         st.update("q delayed bindings", m_stats.m_num_delayed_bindings);
     }

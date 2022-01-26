@@ -136,8 +136,8 @@ public:
     char const* name() const override { return "solver_subsumption"; }
 
     void updt_params(params_ref const& p) override { 
-        m_params = p; 
-        unsigned max_conflicts = p.get_uint("max_conflicts", 2);
+        m_params.append(p);
+        unsigned max_conflicts = m_params.get_uint("max_conflicts", 2);
         m_params.set_uint("sat.max_conflicts", max_conflicts);
         m_params.set_uint("smt.max_conflicts", max_conflicts);
     }

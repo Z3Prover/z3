@@ -38,6 +38,7 @@ class elim_uncnstr_tactic : public tactic {
     struct rw_cfg : public default_rewriter_cfg {
         bool                   m_produce_proofs;
         obj_hashtable<expr> &  m_vars;
+        obj_hashtable<expr>&   m_nonvars;
         ref<mc>                m_mc;
         arith_util             m_a_util;
         bv_util                m_bv_util;
@@ -49,10 +50,11 @@ class elim_uncnstr_tactic : public tactic {
         unsigned long long     m_max_memory;
         unsigned               m_max_steps;
         
-        rw_cfg(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, mc * _m, 
-                unsigned long long max_memory, unsigned max_steps):
+        rw_cfg(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, obj_hashtable<expr> & nonvars, mc * _m, 
+               unsigned long long max_memory, unsigned max_steps):
             m_produce_proofs(produce_proofs),
             m_vars(vars),
+            m_nonvars(nonvars),
             m_mc(_m),
             m_a_util(m),
             m_bv_util(m),
@@ -73,7 +75,7 @@ class elim_uncnstr_tactic : public tactic {
         }
         
         bool uncnstr(expr * arg) const {
-            return m_vars.contains(arg);
+            return m_vars.contains(arg) && !m_nonvars.contains(arg);
         }
         
         bool uncnstr(unsigned num, expr * const * args) const {
@@ -749,16 +751,17 @@ class elim_uncnstr_tactic : public tactic {
     class rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
     public:
-        rw(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, mc * _m, 
+        rw(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, obj_hashtable<expr>& nonvars, mc * _m,
             unsigned long long max_memory, unsigned max_steps):
             rewriter_tpl<rw_cfg>(m, produce_proofs, m_cfg),
-            m_cfg(m, produce_proofs, vars, _m, max_memory, max_steps) {
+            m_cfg(m, produce_proofs, vars, nonvars, _m, max_memory, max_steps) {
         }
     };
     
     ast_manager &                    m_manager;
     ref<mc>                          m_mc;
     obj_hashtable<expr>              m_vars;
+    obj_hashtable<expr>              m_nonvars;
     scoped_ptr<rw>                   m_rw;
     unsigned                         m_num_elim_apps = 0;
     unsigned long long               m_max_memory;
@@ -774,12 +777,11 @@ class elim_uncnstr_tactic : public tactic {
     }
     
     void init_rw(bool produce_proofs) {
-        m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);            
+        m_rw = alloc(rw, m(), produce_proofs, m_vars, m_nonvars, m_mc.get(), m_max_memory, m_max_steps);            
     }
 
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
-        
         TRACE("goal", g->display(tout););
         tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
@@ -860,9 +862,9 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_max_steps  = p.get_uint("max_steps", UINT_MAX);
+        m_params.append(p);
+        m_max_memory = megabytes_to_bytes(m_params.get_uint("max_memory", UINT_MAX));
+        m_max_steps  = m_params.get_uint("max_steps", UINT_MAX);
     }
     
     void collect_param_descrs(param_descrs & r) override {
@@ -889,6 +891,16 @@ public:
     void reset_statistics() override {
         m_num_elim_apps = 0;
     }
+
+    unsigned user_propagate_register_expr(expr* e) override { 
+        m_nonvars.insert(e);
+        return 0;
+    }
+
+    void user_propagate_clear() override {
+        m_nonvars.reset();
+    }
+
 
 };
 }

@@ -21,7 +21,10 @@ Author:
 namespace bv {
 
     bool solver::check_delay_internalized(expr* e) {
-        if (!ctx.is_relevant(e))
+        euf::enode* n = expr2enode(e);
+        if (!n)
+            return true;
+        if (!ctx.is_relevant(n))
             return true;
         if (get_internalize_mode(e) != internalize_mode::delay_i)
             return true;
@@ -247,7 +250,7 @@ namespace bv {
             return;
         expr_ref tmp = literal2expr(bits.back());
         for (unsigned i = bits.size() - 1; i-- > 0; ) {
-            auto b = bits[i];
+            sat::literal b = bits[i];
             tmp = m.mk_or(literal2expr(b), tmp);
             xs.push_back(tmp);
         }
@@ -356,9 +359,27 @@ namespace bv {
     solver::internalize_mode solver::get_internalize_mode(expr* e) {
         if (!bv.is_bv(e))
             return internalize_mode::no_delay_i;
-        if (!get_config().m_bv_delay)
-            return internalize_mode::no_delay_i;
         if (!reflect())
+            return internalize_mode::no_delay_i;
+        if (get_config().m_bv_polysat) {
+            switch (to_app(e)->get_decl_kind()) {
+            case OP_BMUL: 
+            case OP_BUMUL_NO_OVFL:
+            case OP_BSMOD_I:
+            case OP_BUREM_I:
+            case OP_BUDIV_I:
+            case OP_BADD:
+                return internalize_mode::polysat_i;
+            case OP_BSMUL_NO_OVFL:
+            case OP_BSMUL_NO_UDFL:
+            case OP_BSDIV_I: 
+            case OP_BSREM_I:
+            default:
+                return internalize_mode::no_delay_i;
+            }
+        }
+
+        if (!get_config().m_bv_delay)
             return internalize_mode::no_delay_i;
         internalize_mode mode;
         switch (to_app(e)->get_decl_kind()) {

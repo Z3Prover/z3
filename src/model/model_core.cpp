@@ -111,6 +111,7 @@ void model_core::unregister_decl(func_decl * d) {
         m_interp[m_const_decls.back()].first = v.first;
         m_const_decls.pop_back();
         m_interp.remove(d);
+        m_decls.erase(d);
         m.dec_ref(k);
         m.dec_ref(v.second);
         return;
@@ -122,6 +123,7 @@ void model_core::unregister_decl(func_decl * d) {
         auto v = ef->get_data().m_value;
         m_finterp.remove(d);
         m_func_decls.erase(d);
+        m_decls.erase(d);
         m.dec_ref(k);
         dealloc(v);
     }

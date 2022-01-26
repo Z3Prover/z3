@@ -162,31 +162,34 @@ namespace euf {
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
-            if (relevancy_enabled()) {
-                add_aux(~lit, lit2);
-                add_aux(lit, ~lit2);
-            }
+            add_aux(~lit, lit2);
+            add_aux(lit, ~lit2);
             lit = lit2;
         }
 
+        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
         m_bool_var2expr.reserve(v + 1, nullptr);
         if (m_bool_var2expr[v] && m_egraph.find(e)) {
+            if (m_egraph.find(e)->bool_var() != v) {
+                IF_VERBOSE(0, verbose_stream()
+                 << "var " << v << "\n"
+                 << "found var " << m_egraph.find(e)->bool_var() << "\n"
+                 << mk_pp(m_bool_var2expr[v], m) << "\n"
+                 << mk_pp(e, m) << "\n");
+            }
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
-        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
+
         m_bool_var2expr[v] = e;
-        m_var_trail.push_back(v);
+        m_var_trail.push_back(v);        
         enode* n = m_egraph.find(e);
-        if (!n) {
+        if (!n) 
             n = mk_enode(e, 0, nullptr);
-        }
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
-        if (!si.is_bool_op(e))
-            track_relevancy(lit.var());
         if (s().value(lit) != l_undef) 
             m_egraph.set_value(n, s().value(lit));
         return lit;
@@ -224,9 +227,8 @@ namespace euf {
                     lits.push_back(lit);
                 }
             }
+            add_root(lits);
             s().mk_clause(lits, st);
-            if (relevancy_enabled())
-                add_root(lits);
         }
         else {
             // g(f(x_i)) = x_i
@@ -244,15 +246,13 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(1, &lit, st);
+                s().add_clause(lit, st);
                 eqs.push_back(mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
-            s().mk_clause(1, &lit, st);
-            if (relevancy_enabled())
-                add_root(1, &lit);
+            s().add_clause(lit, st);
         }
     }
 
@@ -268,9 +268,7 @@ namespace euf {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = ~mk_literal(eq);
-                    s().add_clause(1, &lit, st);
-                    if (relevancy_enabled())
-                        add_root(1, &lit);
+                    s().add_clause(lit, st);
                 }
             }
         }
@@ -287,9 +285,7 @@ namespace euf {
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(1, &lit, st);
-                if (relevancy_enabled())
-                    add_root(1, &lit);
+                s().add_clause(lit, st);
             }
         }
     }
@@ -302,16 +298,16 @@ namespace euf {
             expr_ref eq_th = mk_eq(e, th);
             sat::literal lit_th = mk_literal(eq_th);
             if (th == el) {
-                s().add_clause(1, &lit_th, st);
+                s().add_clause(lit_th, st);
             }
             else {
                 sat::literal lit_c = mk_literal(c);
                 expr_ref eq_el = mk_eq(e, el);
                 sat::literal lit_el = mk_literal(eq_el);
-                literal lits1[2] = { ~lit_c,  lit_th };
-                literal lits2[2] = { lit_c, lit_el };
-                s().add_clause(2, lits1, st);
-                s().add_clause(2, lits2, st);
+                add_root(~lit_c, lit_th);
+                add_root(lit_c, lit_el);
+                s().add_clause(~lit_c, lit_th, st);
+                s().add_clause(lit_c, lit_el, st);
             }
         }
         else if (m.is_distinct(e)) {
@@ -326,10 +322,10 @@ namespace euf {
             expr_ref fml(m.mk_or(eqs), m);
             sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
-            sat::literal lits1[2] = { ~dist, ~some_eq };
-            sat::literal lits2[2] = { dist, some_eq };
-            s().add_clause(2, lits1, st);
-            s().add_clause(2, lits2, st);
+            add_root(~dist, ~some_eq);
+            add_root(dist, some_eq);
+            s().add_clause(~dist, ~some_eq, st);
+            s().add_clause(dist, some_eq, st);
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -338,10 +334,10 @@ namespace euf {
             enode* n2 = m_egraph.find(e2);
             if (n2) {
                 sat::literal lit2 = expr2literal(e2);
-                sat::literal lits1[2] = { ~lit1, lit2 };
-                sat::literal lits2[2] = { lit1, ~lit2 };
-                s().add_clause(2, lits1, st);
-                s().add_clause(2, lits2, st);
+                add_root(~lit1, lit2);
+                add_root(lit1, ~lit2);
+                s().add_clause(~lit1, lit2, st);
+                s().add_clause(lit1, ~lit2, st);
             }
         }
     }
@@ -357,7 +353,7 @@ namespace euf {
         // contains a parent application.
         
         family_id th_id = m.get_basic_family_id();
-        for (auto p : euf::enode_th_vars(n)) {
+        for (auto const& p : euf::enode_th_vars(n)) {
             family_id id = p.get_id();
             if (m.get_basic_family_id() != id) {
                 if (th_id != m.get_basic_family_id())
@@ -402,7 +398,7 @@ namespace euf {
         // Remark: The inconsistency is not going to be detected if they are
         // not marked as shared.
 
-        for (auto p : euf::enode_th_vars(n)) 
+        for (auto const& p : euf::enode_th_vars(n)) 
             if (fid2solver(p.get_id())->is_shared(p.get_var()))
                 return true;
 

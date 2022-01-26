@@ -1338,7 +1338,9 @@ namespace pb {
     }
 
     solver::solver(euf::solver& ctx, euf::theory_id id) :
-        solver(ctx.get_manager(), ctx.get_si(), id) {}
+        solver(ctx.get_manager(), ctx.get_si(), id) {
+        m_ctx = &ctx;
+    }
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
         : euf::th_solver(m, symbol("ba"), id),
@@ -1370,6 +1372,21 @@ namespace pb {
             s().mk_clause(_lits.size(), _lits.data(), sat::status::th(learned, get_id()));
             return nullptr;
         }
+
+        if (k == 0) {
+            if (lit != sat::null_literal)
+                s().add_clause(lit, sat::status::th(false, get_id()));
+            return nullptr;
+        }
+
+        if (k > lits.size()) {
+            if (lit == sat::null_literal)
+                s().add_clause(0, nullptr, sat::status::th(false, get_id()));
+            else
+                s().add_clause(~lit, sat::status::th(false, get_id()));
+            return nullptr;
+        }
+
         if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
         }
@@ -1403,8 +1420,10 @@ namespace pb {
             if (m_solver) m_solver->set_external(lit.var());
             c->watch_literal(*this, lit);
             c->watch_literal(*this, ~lit);
-        }        
-        SASSERT(c->well_formed());
+        }     
+        if (!c->well_formed()) 
+            std::cout << *c << "\n";
+        VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
             std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
                 out << "c ba constraint " << *c << " 0\n";
@@ -1429,12 +1448,27 @@ namespace pb {
 
     constraint* solver::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k, bool learned) {
         bool units = true;
-        for (wliteral wl : wlits) units &= wl.first == 1;
-        if (k == 0 && lit == sat::null_literal) {
+        for (wliteral wl : wlits) 
+            units &= wl.first == 1;
+
+        if (k == 0) {
+            if (lit != sat::null_literal)
+                s().add_clause(lit, sat::status::th(false, get_id()));
+            return nullptr;
+        }
+        rational weight(0);
+        for (auto const [w, l] : wlits)
+            weight += w;
+        if (weight < k) {
+            if (lit == sat::null_literal)
+                s().add_clause(0, nullptr, sat::status::th(false, get_id()));
+            else
+                s().add_clause(~lit, sat::status::th(false, get_id()));
             return nullptr;
         }
         if (!learned) {
-            for (wliteral wl : wlits) s().set_external(wl.second.var()); 
+            for (wliteral wl : wlits) 
+                s().set_external(wl.second.var()); 
         }
         if (units || k == 1) {
             literal_vector lits;
@@ -2006,7 +2040,7 @@ namespace pb {
             s().pop_to_base_level();
         if (s().inconsistent())
             return;
-        unsigned trail_sz, count = 0;
+        unsigned trail_sz = 0, count = 0;
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;
@@ -2159,12 +2193,13 @@ namespace pb {
     }
 
     bool solver::set_root(literal l, literal r) { 
-        if (s().is_assumption(l.var())) {
+        if (s().is_assumption(l.var())) 
             return false;
-        }
         reserve_roots();
         m_roots[l.index()] = r;
         m_roots[(~l).index()] = ~r;
+        m_roots[r.index()] = r;
+        m_roots[(~r).index()] = ~r;
         m_root_vars[l.var()] = true;
         return true;
     }
@@ -2180,7 +2215,6 @@ namespace pb {
             flush_roots(*m_learned[i]);
         cleanup_constraints();
         // validate();
-
         // validate_eliminated();
     }
 
@@ -2191,7 +2225,8 @@ namespace pb {
 
     void solver::validate_eliminated(ptr_vector<constraint> const& cs) {
         for (constraint const* c : cs) {
-            if (c->learned()) continue;
+            if (c->learned())
+                continue;
             for (auto l : constraint::literal_iterator(*c))
                 VERIFY(!s().was_eliminated(l.var()));
         }
@@ -2415,9 +2450,10 @@ namespace pb {
         for (unsigned i = 0; !found && i < c.size(); ++i) {
             found = m_root_vars[c.get_lit(i).var()];
         }
-        if (!found) return;
+        if (!found)
+            return;
         clear_watch(c);
-        
+
         // this could create duplicate literals
         for (unsigned i = 0; i < c.size(); ++i) {
             literal lit = m_roots[c.get_lit(i).index()];

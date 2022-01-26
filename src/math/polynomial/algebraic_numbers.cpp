@@ -730,9 +730,9 @@ namespace algebraic_numbers {
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
-                if (!upm().normalize_interval_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c)))
+                if (!upm().normalize_interval_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c))) 
                     reset(a);
-                SASSERT(acell_inv(*c));
+                SASSERT(is_zero(a) || acell_inv(*a.to_algebraic()));
             }
         }
 

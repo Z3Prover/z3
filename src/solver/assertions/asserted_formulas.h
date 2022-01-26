@@ -37,6 +37,7 @@ Revision History:
 #include "ast/normal_forms/elim_term_ite.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
+#include "qe/lite/qe_lite.h"
 
 
 class asserted_formulas {
@@ -154,7 +155,7 @@ class asserted_formulas {
     public:
         elim_term_ite_fn(asserted_formulas& af): simplify_fmls(af, "elim-term-ite"), m_elim(af.m, af.m_defined_names) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
-        bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != LI_FULL; }
+        bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != lift_ite_kind::LI_FULL; }
         void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
         void push() { m_elim.push(); }
         void pop(unsigned n) { m_elim.pop(n); }
@@ -187,8 +188,10 @@ class asserted_formulas {
     MK_SIMPLIFIERF(cheap_quant_fourier_motzkin, elim_bounds_rw, "cheap-fourier-motzkin", af.m_smt_params.m_eliminate_bounds && af.has_quantifiers(), true);
     MK_SIMPLIFIERF(elim_bvs_from_quantifiers, bv_elim_rw, "eliminate-bit-vectors-from-quantifiers", af.m_smt_params.m_bb_quantifiers, true);
     MK_SIMPLIFIERF(apply_bit2int, bit2int, "propagate-bit-vector-over-integers", af.m_smt_params.m_simplify_bit2int, true);
-    MK_SIMPLIFIERF(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != LI_NONE, true);
-    MK_SIMPLIFIERF(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != LI_NONE, true);
+    MK_SIMPLIFIERF(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != lift_ite_kind::LI_NONE, true);
+    MK_SIMPLIFIERF(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != lift_ite_kind::LI_NONE, true);
+
+    MK_SIMPLIFIERA(qe_lite_fn, qe_lite, "qe-lite", af.m_smt_params.m_qe_lite && af.has_quantifiers(), (af.m, af.m_params), true);
 
 
     reduce_asserted_formulas_fn m_reduce_asserted_formulas;
@@ -197,6 +200,7 @@ class asserted_formulas {
     refine_inj_axiom_fn         m_refine_inj_axiom;
     max_bv_sharing_fn           m_max_bv_sharing_fn;
     elim_term_ite_fn            m_elim_term_ite;
+    qe_lite_fn                  m_qe_lite;
     pull_nested_quantifiers     m_pull_nested_quantifiers;
     elim_bvs_from_quantifiers   m_elim_bvs_from_quantifiers;
     cheap_quant_fourier_motzkin m_cheap_quant_fourier_motzkin;

@@ -30,16 +30,24 @@ namespace smt {
     class theory_user_propagator : public theory, public user_propagator::callback {
 
         struct prop_info {
-            unsigned_vector m_ids;
-            expr_ref        m_conseq;
+            unsigned_vector                        m_ids;
+            expr_ref                               m_conseq;
             svector<std::pair<unsigned, unsigned>> m_eqs;
-            prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
+            literal_vector                         m_lits;
+            theory_var                             m_var = null_theory_var;
+            prop_info(unsigned num_fixed, unsigned const* fixed_ids,
+                      unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
                 m_ids(num_fixed, fixed_ids),
-                m_conseq(c)
-            {
+                m_conseq(c) {
                 for (unsigned i = 0; i < num_eqs; ++i)
                     m_eqs.push_back(std::make_pair(eq_lhs[i], eq_rhs[i]));
             }
+            
+            prop_info(literal_vector const& lits, theory_var v, expr_ref const& val):
+                m_conseq(val),
+                m_lits(lits),
+                m_var(v) {}
+                
         };
 
         struct stats {
@@ -56,6 +64,8 @@ namespace smt {
         user_propagator::fixed_eh_t     m_fixed_eh;
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
+        user_propagator::created_eh_t m_created_eh;
+
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
         uint_set               m_fixed;
@@ -68,6 +78,9 @@ namespace smt {
         stats                  m_stats;
 
         void force_push();
+
+        void propagate_consequence(prop_info const& prop);
+        void propagate_new_fixed(prop_info const& prop);
 
     public:
         theory_user_propagator(context& ctx);
@@ -94,6 +107,7 @@ namespace smt {
         void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
+        void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
@@ -103,8 +117,8 @@ namespace smt {
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 
         theory * mk_fresh(context * new_ctx) override;
-        bool internalize_atom(app * atom, bool gate_ctx) override { UNREACHABLE(); return false; }
-        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        bool internalize_atom(app* atom, bool gate_ctx) override;
+        bool internalize_term(app* term) override;
         void new_eq_eh(theory_var v1, theory_var v2) override { if (m_eq_eh) m_eq_eh(m_user_context, this, v1, v2); }
         void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) m_diseq_eh(m_user_context, this, v1, v2); }
         bool use_diseqs() const override { return ((bool)m_diseq_eh); }
@@ -119,7 +133,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override { return nullptr; }
         void init_model(model_generator & m) override {}
-        bool include_func_interp(func_decl* f) override { return false; }
+        bool include_func_interp(func_decl* f) override { return true; }
         bool can_propagate() override;
         void propagate() override; 
         void display(std::ostream& out) const override {}

@@ -146,15 +146,10 @@ namespace q {
                 
         unsigned gen = get_new_gen(f, ent.m_cost);
         bool new_propagation = false;
-        if (false && em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
+        if (em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
             return;
 
-#if 0
-        std::cout << mk_pp(q, m) << "\n";
-        std::cout << num_bindings << "\n";
-        for (unsigned i = 0; i < num_bindings; ++i)
-            std::cout << mk_pp(f[i]->get_expr(), m) << " " << mk_pp(f[i]->get_sort(), m) << "\n";
-#endif
+
         auto* ebindings = m_subst(q, num_bindings);
         for (unsigned i = 0; i < num_bindings; ++i)
             ebindings[i] = f[i]->get_expr();
@@ -168,7 +163,15 @@ namespace q {
 
         m_stats.m_num_instances++;
 
-        // f.display(ctx, std::cout << mk_pp(f.q(), m) << "\n" << instance << "\n") <<  "\n";
+#if 0
+        std::cout << "instantiate\n";
+        for (unsigned i = 0; i < num_bindings; ++i)
+            std::cout << ctx.bpp(f[i]) << " ";
+        std::cout << "\n";
+        std::cout << mk_pp(q, m) << "\n";
+#endif
+
+//        f.display(ctx, std::cout << mk_pp(f.q(), m) << "\n" << instance << "\n") <<  "\n";
 
         
         euf::solver::scoped_generation _sg(ctx, gen);

@@ -424,15 +424,19 @@ namespace q {
         friend class compiler;
         friend class code_tree_manager;
 
-        void display_seq(std::ostream & out, instruction * head, unsigned indent) const {
-            for (unsigned i = 0; i < indent; i++) {
+        void spaces(std::ostream& out, unsigned indent) const {
+            for (unsigned i = 0; i < indent; i++) 
                 out << "    ";
-            }
+        }
+
+        void display_seq(std::ostream & out, instruction * head, unsigned indent) const {
+            spaces(out, indent);
             instruction * curr = head;
             out << *curr;
             curr = curr->m_next;
             while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                 out << "\n";
+                spaces(out, indent);
                 out << *curr;
                 curr = curr->m_next;
             }
@@ -549,8 +553,8 @@ namespace q {
         void unmark(unsigned head) {
             for (unsigned i = m_candidates.size(); i-- > head; ) {
                 enode* app = m_candidates[i];
-                if (app->is_marked1())
-                    app->unmark1();
+                if (app->is_marked3())
+                    app->unmark3();
             }
         }
 
@@ -598,7 +602,7 @@ namespace q {
                 ast_manager & m = m_egraph->get_manager();
                 out << "patterns:\n";
                 for (auto [q, a] : m_patterns) 
-                    out << mk_pp(q, m) << " " << mk_pp(a, m) << "\n";
+                    out << q->get_id() << ": " << mk_pp(q, m) << " " << mk_pp(a, m) << "\n";
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -942,9 +946,9 @@ namespace q {
         void linearise_core() {
             m_aux.reset();
             app *         first_app = nullptr;
-            unsigned      first_app_reg;
-            unsigned      first_app_sz;
-            unsigned      first_app_num_unbound_vars;
+            unsigned      first_app_reg = 0;
+            unsigned      first_app_sz = 0;
+            unsigned      first_app_num_unbound_vars = 0;
             // generate first the non-BIND operations
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
@@ -2018,9 +2022,9 @@ namespace q {
                 code_tree::scoped_unmark _unmark(t);
                 while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
                     TRACE("trigger_bug", tout << "candidate\n" << ctx.bpp(app) << "\n";);
-                    if (!app->is_marked1() && app->is_cgr()) {
+                    if (!app->is_marked3() && app->is_cgr()) {
                         execute_core(t, app);                       
-                        app->mark1();
+                        app->mark3();
                     }
                 }
             }
@@ -2878,8 +2882,10 @@ namespace q {
                 if (tree->expected_num_args() == p->get_num_args()) 
                     m_compiler.insert(tree, qa, mp, first_idx, false);
             }
-            DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
-                       ctx.push(push_back_trail<std::pair<quantifier*,app*>, false>(m_trees[lbl_id]->get_patterns())););
+            DEBUG_CODE(if (first_idx == 0) {
+                m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
+                ctx.push(push_back_trail<std::pair<quantifier*, app*>, false>(m_trees[lbl_id]->get_patterns()));
+            });
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
@@ -3089,7 +3095,7 @@ namespace q {
         void add_candidate(code_tree * t, enode * app) {
             if (!t)
                 return;
-            TRACE("q", tout << "candidate " << t << " " << ctx.bpp(app) << "\n";);
+            TRACE("q", tout << "candidate " << ctx.bpp(app) << "\n";);
             if (!t->has_candidates()) {
                 ctx.push(push_back_trail<code_tree*, false>(m_to_match));
                 m_to_match.push_back(t);

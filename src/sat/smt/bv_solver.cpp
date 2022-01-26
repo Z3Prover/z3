@@ -58,6 +58,15 @@ namespace bv {
         m_bb.set_flat(false);
     }
 
+    bool solver::is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) {
+        numeral n;
+        if (!get_fixed_value(v, n))
+            return false;
+        val = bv.mk_numeral(n, m_bits[v].size());
+        lits.append(m_bits[v]);
+        return true;
+    }
+
     void solver::fixed_var_eh(theory_var v1) {
         numeral val1, val2;
         VERIFY(get_fixed_value(v1, val1));
@@ -158,7 +167,7 @@ namespace bv {
         SASSERT(m_bits[v1][idx] == ~m_bits[v2][idx]);
         TRACE("bv", tout << "found new diseq axiom\n" << pp(v1) << pp(v2););
         m_stats.m_num_diseq_static++;
-        expr_ref eq = mk_var_eq(v1, v2);
+        expr_ref eq(m.mk_eq(var2expr(v1), var2expr(v2)), m);
         add_unit(~ctx.internalize(eq, false, false, m_is_redundant));
     }
 
@@ -740,6 +749,7 @@ namespace bv {
     void solver::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
 
         TRACE("bv", tout << "merging: v" << v1 << " #" << var2enode(v1)->get_expr_id() << " v" << v2 << " #" << var2enode(v2)->get_expr_id() << "\n";);
+
         if (!merge_zero_one_bits(r1, r2)) {
             TRACE("bv", tout << "conflict detected\n";);
             return; // conflict was detected

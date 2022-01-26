@@ -144,10 +144,16 @@ namespace bv {
         SASSERT(!n->is_attached_to(get_id()));
         mk_var(n);
         SASSERT(n->is_attached_to(get_id()));
-        if (internalize_mode::no_delay_i != get_internalize_mode(a)) 
-            mk_bits(n->get_th_var(get_id()));
-        else
+        switch (get_internalize_mode(a)) {
+        case internalize_mode::no_delay_i:
             internalize_circuit(a);
+            break;
+        case internalize_mode::polysat_i:
+            NOT_IMPLEMENTED_YET();
+            break;
+        default:
+            mk_bits(n->get_th_var(get_id()));
+        }
         return true;
     }
 
@@ -166,6 +172,7 @@ namespace bv {
 #define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_par_unary(a, pun);
 #define internalize_nfl(F) ebin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref& out) { m_bb.F(sz, xs, ys, out);}; internalize_novfl(a, ebin);
 #define internalize_int(B, U) ibin = [&](expr* x, expr* y) { return B(x, y); }; iun = [&](expr* x) { return U(x); }; internalize_interp(a, ibin, iun);
+#define if_unary(F) if (a->get_num_args() == 1) { internalize_un(F); break; }
 
         switch (a->get_decl_kind()) {
         case OP_BV_NUM:           internalize_num(a); break;
@@ -190,7 +197,7 @@ namespace bv {
         case OP_BXOR:             internalize_ac(mk_xor); break;
         case OP_BNAND:            internalize_bin(mk_nand); break;
         case OP_BNOR:             internalize_bin(mk_nor); break;
-        case OP_BXNOR:            internalize_bin(mk_xnor); break;
+        case OP_BXNOR:            if_unary(mk_not); internalize_bin(mk_xnor); break;
         case OP_BCOMP:            internalize_bin(mk_comp); break;        
         case OP_SIGN_EXT:         internalize_pun(mk_sign_extend); break;
         case OP_ZERO_EXT:         internalize_pun(mk_zero_extend); break;
@@ -370,6 +377,7 @@ namespace bv {
         if (m_true == sat::null_literal) {
             ctx.push(value_trail<sat::literal>(m_true));
             m_true = ctx.internalize(m.mk_true(), false, true, false);
+            s().assign_unit(m_true);
         }
         return m_true;
     }
@@ -426,7 +434,6 @@ namespace bv {
         expr_ref sum(m_autil.mk_add(sz, args.data()), m);
         sat::literal lit = eq_internalize(n, sum);
 	add_unit(lit);
-	ctx.add_root(lit);
     }
 
     void solver::internalize_int2bv(app* n) {
@@ -456,7 +463,6 @@ namespace bv {
         rhs = m_autil.mk_mod(e, m_autil.mk_int(mod));
 	sat::literal eq_lit = eq_internalize(lhs, rhs);
 	add_unit(eq_lit);
-	ctx.add_root(eq_lit);
        
         expr_ref_vector n_bits(m);
         get_bits(n_enode, n_bits);
@@ -469,7 +475,6 @@ namespace bv {
             lhs = n_bits.get(i);
 	    eq_lit = eq_internalize(lhs, rhs);
 	    add_unit(eq_lit);
-	    ctx.add_root(eq_lit);
         }
     }
 
@@ -535,7 +540,6 @@ namespace bv {
         if (p.hi_div0()) {
             eq_lit = eq_internalize(n, ibin(arg1, arg2));
 	    add_unit(eq_lit);
-	    ctx.add_root(eq_lit);
 	}
 	else {
 	    unsigned sz = bv.get_bv_size(n);
@@ -653,7 +657,6 @@ namespace bv {
         mk_bits(get_th_var(e));
 	sat::literal eq_lit = eq_internalize(e, r);
         add_unit(eq_lit);
-	ctx.add_root(eq_lit);
     }
 
     void solver::internalize_bit2bool(app* n) {

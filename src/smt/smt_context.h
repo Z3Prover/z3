@@ -1723,12 +1723,18 @@ namespace smt {
             m_user_propagator->register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register(expr* e) {
+        unsigned user_propagate_register_expr(expr* e) {
             if (!m_user_propagator) 
                 throw default_exception("user propagator must be initialized");
             return m_user_propagator->add_expr(e);
         }
-        
+
+        void user_propagate_register_created(user_propagator::created_eh_t& r) {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_created(r);
+        }
+
         bool watches_fixed(enode* n) const;
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
@@ -1740,6 +1746,8 @@ namespace smt {
         void assign_fixed(enode* n, expr* val, literal explain) {
             assign_fixed(n, val, 1, &explain);
         }
+
+        bool is_fixed(enode* n, expr_ref& val, literal_vector& explain);
 
         void display(std::ostream & out) const;
 

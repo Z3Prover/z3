@@ -206,8 +206,8 @@ tactic * bv_bound_chk_tactic::translate(ast_manager & m) {
 
 
 void bv_bound_chk_tactic::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->updt_params(p);
+    m_params.append(p);
+    m_imp->updt_params(m_params);
 }
 
 void bv_bound_chk_tactic::cleanup() {

@@ -60,6 +60,10 @@ public:
         \brief full rewriting based light-weight quantifier elimination round.
     */
     void operator()(expr_ref& fml, proof_ref& pr);
+
+    void operator()(expr* fml, expr_ref& result, proof_ref& pr) { result = fml; (*this)(result, pr); }
+
+    void operator()(expr_ref& fml) { proof_ref pr(fml.m()); (*this)(fml, pr); }
 };
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref());

@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.13'
+  ReleaseVersion: '4.8.15'
 
 stages:
 
@@ -171,6 +171,11 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2        
+      displayName: 'Download Win32 Build'
+      inputs:
+        artifact: 'WindowsBuild-x86'
+        path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
@@ -309,7 +314,7 @@ stages:
   jobs:
 
   - job: GitHubPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to GitHub"
     pool:
       vmImage: "windows-latest"

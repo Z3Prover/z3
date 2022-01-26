@@ -32,6 +32,7 @@ Notes:
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
 #include "ast/ast_ll_pp.h"
+#include <vector>
 
 namespace euf {
 
@@ -105,10 +106,11 @@ namespace euf {
             struct lbl_hash {};
             struct lbl_set {};
             struct update_children {};
+            struct set_relevant {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, is_update_children,
                     is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
                     is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
-                    is_inconsistent, is_value_assignment, is_lbl_set };
+                    is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -151,6 +153,8 @@ namespace euf {
                 tag(tag_t::is_lbl_set), r1(n), n1(nullptr), m_lbls(n->m_lbls.get()) {}    
             update_record(enode* n, update_children) :
                 tag(tag_t::is_update_children), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(enode* n, set_relevant) :
+                tag(tag_t::is_set_relevant), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
@@ -181,7 +185,8 @@ namespace euf {
         enode_vector           m_todo;
         stats                  m_stats;
         bool                   m_uses_congruence = false;
-        std::function<void(enode*,enode*)>     m_on_merge;
+        bool                   m_default_relevant = true;
+        std::vector<std::function<void(enode*,enode*)>>     m_on_merge;
         std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
@@ -292,8 +297,10 @@ namespace euf {
         void set_merge_enabled(enode* n, bool enable_merge);
         void set_value(enode* n, lbool value);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
+        void set_relevant(enode* n);
+        void set_default_relevant(bool b) { m_default_relevant = b; }
 
-        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge = on_merge; }
+        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge.push_back(on_merge); }
         void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }

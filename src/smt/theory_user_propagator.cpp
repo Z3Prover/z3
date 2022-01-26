@@ -23,7 +23,7 @@ Author:
 using namespace smt;
 
 theory_user_propagator::theory_user_propagator(context& ctx):
-    theory(ctx, ctx.get_manager().mk_family_id("user_propagator"))
+    theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name()))
 {}
 
 theory_user_propagator::~theory_user_propagator() {
@@ -40,11 +40,31 @@ void theory_user_propagator::force_push() {
 
 unsigned theory_user_propagator::add_expr(expr* e) {
     force_push();
+    expr_ref r(m);
+    ctx.get_rewriter()(e, r);
+    if (r != e) {
+        r = m.mk_fresh_const("aux-expr", e->get_sort());
+        expr_ref eq(m.mk_eq(r, e), m);
+        ctx.assert_expr(eq);
+        ctx.internalize_assertions();
+        e = r;
+        ctx.mark_as_relevant(eq.get());
+    }
     enode* n = ensure_enode(e);
     if (is_attached_to_var(n))
         return n->get_th_var(get_id());
     theory_var v = mk_var(n);
+    if (m.is_bool(e) && !ctx.b_internalized(e)) {
+        bool_var bv = ctx.mk_bool_var(e);
+        ctx.set_var_theory(bv, get_id());
+        ctx.set_enode_flag(bv, true);
+    }
+    SASSERT(!m.is_bool(e) || ctx.b_internalized(e));
+
     ctx.attach_th_var(n, this, v);
+    literal_vector explain;
+    if (ctx.is_fixed(n, r, explain))
+        m_prop.push_back(prop_info(explain, v, r));
     return v;
 }
 
@@ -118,59 +138,91 @@ bool theory_user_propagator::can_propagate() {
     return m_qhead < m_prop.size();
 }
 
+void theory_user_propagator::propagate_consequence(prop_info const& prop) {
+    justification* js;
+    m_lits.reset();   
+    m_eqs.reset();
+    for (unsigned id : prop.m_ids)
+        m_lits.append(m_id2justification[id]);
+    for (auto const& p : prop.m_eqs)
+        m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
+    DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
+    DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
+    DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
+    
+    TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n");
+    
+    if (m.is_false(prop.m_conseq)) {
+        js = ctx.mk_justification(
+            ext_theory_conflict_justification(
+                get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
+        ctx.set_conflict(js);
+    }
+    else {
+        for (auto& lit : m_lits)
+            lit.neg();
+        for (auto const& [a,b] : m_eqs)
+            m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+        
+        literal lit; 
+        if (has_quantifiers(prop.m_conseq)) {
+            expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
+            expr_ref eq(m.mk_eq(fn, prop.m_conseq), m);
+            ctx.assert_expr(eq);
+            ctx.internalize_assertions();
+            lit = mk_literal(fn);
+        }
+        else 
+            lit = mk_literal(prop.m_conseq);            
+        ctx.mark_as_relevant(lit);
+        m_lits.push_back(lit);
+        ctx.mk_th_lemma(get_id(), m_lits);
+        TRACE("user_propagate", ctx.display(tout););
+    }
+}
+
+void theory_user_propagator::propagate_new_fixed(prop_info const& prop) {
+    new_fixed_eh(prop.m_var, prop.m_conseq, prop.m_lits.size(), prop.m_lits.data());
+}
+
+
 void theory_user_propagator::propagate() {
     TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     if (m_qhead == m_prop.size())
         return;
     force_push();
     unsigned qhead = m_qhead;
-    justification* js;
     while (qhead < m_prop.size() && !ctx.inconsistent()) {
         auto const& prop = m_prop[qhead];
-        m_lits.reset();   
-        m_eqs.reset();
-        for (unsigned id : prop.m_ids)
-            m_lits.append(m_id2justification[id]);
-        for (auto const& p : prop.m_eqs)
-            m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
-        DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
-        DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
-        DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
-
-        TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n");
-	
-        if (m.is_false(prop.m_conseq)) {
-            js = ctx.mk_justification(
-                ext_theory_conflict_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
-            ctx.set_conflict(js);
-        }
-        else {
-            for (auto& lit : m_lits)
-                lit.neg();
-            for (auto const& [a,b] : m_eqs)
-                m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-
-            literal lit; 
-            if (has_quantifiers(prop.m_conseq)) {
-                expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
-                expr_ref eq(m.mk_eq(fn, prop.m_conseq), m);
-                ctx.assert_expr(eq);
-                ctx.internalize_assertions();
-                lit = mk_literal(fn);
-            }
-            else 
-                lit = mk_literal(prop.m_conseq);            
-            ctx.mark_as_relevant(lit);
-            m_lits.push_back(lit);
-            ctx.mk_th_lemma(get_id(), m_lits);
-            TRACE("user_propagate", ctx.display(tout););
-        }
+        if (prop.m_var == null_theory_var)
+            propagate_consequence(prop);
+        else
+            propagate_new_fixed(prop);
         ++m_stats.m_num_propagations;
         ++qhead;
     }
     ctx.push_trail(value_trail<unsigned>(m_qhead));
     m_qhead = qhead;
+}
+
+
+bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
+    return internalize_term(atom);
+}
+
+bool theory_user_propagator::internalize_term(app* term)  { 
+    for (auto arg : *term)
+        ensure_enode(arg);
+    if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
+        ctx.mk_enode(term, true, false, true);
+    
+    unsigned v = add_expr(term);
+
+    if (!m_created_eh && (m_fixed_eh || m_eq_eh || m_diseq_eh))        
+        throw default_exception("You have to register a created event handler for new terms if you track them");
+    if (m_created_eh)
+        m_created_eh(m_user_context, this, term, v);
+    return true;
 }
 
 void theory_user_propagator::collect_statistics(::statistics & st) const {

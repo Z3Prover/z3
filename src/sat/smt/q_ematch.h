@@ -89,11 +89,13 @@ namespace q {
         unsigned                      m_qhead = 0;
         unsigned_vector               m_clause_queue;
         euf::enode_pair_vector        m_evidence;
+        bool                          m_enable_propagate = true;
 
         euf::enode* const* copy_nodes(clause& c, euf::enode* const* _binding);
         binding* tmp_binding(clause& c, app* pat, euf::enode* const* _binding);
         binding* alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
-        
+       
+        ptr_vector<size_t> m_explain;
         sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
         void ensure_ground_enodes(expr* e);
@@ -135,8 +137,9 @@ namespace q {
 
         bool unit_propagate();        
 
-
         void add(quantifier* q);
+
+        void relevant_eh(euf::enode* n);
 
         void collect_statistics(statistics& st) const;
 

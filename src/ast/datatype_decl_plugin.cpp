@@ -580,7 +580,7 @@ namespace datatype {
             m_defs.remove(s);
         }
 
-        bool plugin::is_value_visit(expr * arg, ptr_buffer<app> & todo) const {
+        bool plugin::is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const {
             if (!is_app(arg))
                 return false;
             family_id fid = to_app(arg)->get_family_id();
@@ -592,12 +592,13 @@ namespace datatype {
                 todo.push_back(to_app(arg));
                 return true;
             }
-            else {
+            else if (unique)
+                return m_manager->is_unique_value(arg);
+            else 
                 return m_manager->is_value(arg);
-            }
         }
         
-        bool plugin::is_value(app * e) const {
+        bool plugin::is_value_aux(bool unique, app * e) const {
             TRACE("dt_is_value", tout << "checking\n" << mk_ismt2_pp(e, *m_manager) << "\n";);
             if (!u().is_constructor(e))
                 return false;
@@ -608,7 +609,7 @@ namespace datatype {
             ptr_buffer<app> todo;
             // potentially expensive check for common sub-expressions.
             for (expr* arg : *e) {
-                if (!is_value_visit(arg, todo)) {
+                if (!is_value_visit(unique, arg, todo)) {
                     TRACE("dt_is_value", tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
                     return false;
                 }
@@ -618,7 +619,7 @@ namespace datatype {
                 SASSERT(u().is_constructor(curr));
                 todo.pop_back();
                 for (expr* arg : *curr) {
-                    if (!is_value_visit(arg, todo)) {
+                    if (!is_value_visit(unique, arg, todo)) {
                         TRACE("dt_is_value", tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
                         return false;
                     }

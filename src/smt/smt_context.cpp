@@ -2906,6 +2906,30 @@ namespace smt {
         m_user_propagator->new_fixed_eh(v, val, sz, explain);
     }
 
+    bool context::is_fixed(enode* n, expr_ref& val, literal_vector& explain) {
+        if (m.is_bool(n->get_expr())) {
+            literal lit = get_literal(n->get_expr());
+            switch (get_assignment(lit)) {
+            case l_true:
+                val = m.mk_true(); explain.push_back(lit); return true;
+            case l_false:
+                val = m.mk_false(); explain.push_back(~lit); return true;
+            default:
+                return false;
+            }
+        }
+        theory_var_list * l = n->get_th_var_list();
+        while (l) {
+            theory_id tid = l->get_id();
+            auto* p = m_theories.get_plugin(tid);
+            if (p && p->is_fixed_propagated(l->get_var(), val, explain))
+                return true;
+            l = l->get_next();
+        }
+        return false;
+    }
+
+
     void context::push() {       
         pop_to_base_lvl();
         setup_context(false);

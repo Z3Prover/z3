@@ -1,42 +1,51 @@
-name: WASM Build
+name: WebAssembly Build
 
 on:
   push:
     branches: [ master ]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: src/api/js
 
 env:
-  BUILD_TYPE: Release
+  EM_VERSION: 3.1.0
 
 jobs:
-  build:
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Import emscripten
-      uses: mymindstorm/setup-emsdk@v9
-      
-    - name: Configure CMake and build
-      run:  |
-        mkdir build
-        cd build
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 'lts/*'
 
-        emcmake cmake \
-          -DCMAKE_BUILD_TYPE=MinSizeRel \
-          -DZ3_BUILD_LIBZ3_SHARED=OFF \
-          -DZ3_ENABLE_EXAMPLE_TARGETS=OFF \
-          -DZ3_BUILD_TEST_EXECUTABLES=OFF \
-          -DZ3_BUILD_EXECUTABLE=OFF \
-          -DZ3_SINGLE_THREADED=ON \
-          -DCMAKE_CXX_FLAGS="-s DISABLE_EXCEPTION_CATCHING=0" \
-          ..; 
-        make
-        tar -cvf z3-build-wasm.tar *.a
-        
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: z3-build-wasm
-        path: build/z3-build-wasm.tar
+      - name: Setup emscripten
+        uses: mymindstorm/setup-emsdk@v11
+        with:
+          no-install: true
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build-ts
+
+      - name: Build wasm
+        run: |
+          emsdk install ${EM_VERSION}
+          emsdk activate ${EM_VERSION}
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          which node
+          which clang++
+          npm run build-wasm
+
+      - name: Test
+        run: npm test

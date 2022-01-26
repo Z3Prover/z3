@@ -73,6 +73,7 @@ namespace smt {
         void add_indexof_axiom(expr* n) { m_ax.indexof_axiom(n); }
         void add_last_indexof_axiom(expr* n) { m_ax.last_indexof_axiom(n); }
         void add_replace_axiom(expr* n) { m_ax.replace_axiom(n); }
+        void add_replace_all_axiom(expr* n) { m_ax.replace_all_axiom(n); }
         void add_at_axiom(expr* n) { m_ax.at_axiom(n); }
         void add_nth_axiom(expr* n) { m_ax.nth_axiom(n); }
         void add_itos_axiom(expr* n) { m_ax.itos_axiom(n); }

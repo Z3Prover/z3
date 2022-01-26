@@ -201,8 +201,8 @@ public:
     char const* name() const override { return "sat"; }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        if (m_imp) m_imp->updt_params(p);
+        m_params.append(p);
+        if (m_imp) m_imp->updt_params(m_params);
     }
 
     void collect_param_descrs(param_descrs & r) override {

@@ -178,7 +178,7 @@ namespace datalog {
             m_ctx.register_predicate(m_hnf.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            mk_horn_rule(fmls[i].get(), prs[i].get(), rules, name);
+            mk_horn_rule(fmls.get(i), prs.get(i), rules, name);
         }
     }
 
@@ -190,11 +190,9 @@ namespace datalog {
         hoist_compound_predicates(index, m_head, m_body);
         TRACE("dl_rule",
               tout << mk_pp(m_head, m) << " :- ";
-              for (unsigned i = 0; i < m_body.size(); ++i) {
-                  tout << mk_pp(m_body[i].get(), m) << " ";
-              }
+              for (expr* b : m_body) 
+                  tout << mk_pp(b, m) << " ";              
               tout << "\n";);
-
 
         mk_negations(m_body, m_neg);
         check_valid_rule(m_head, m_body.size(), m_body.data());
@@ -241,9 +239,8 @@ namespace datalog {
             m_args.reset();
             head = ensure_app(e2);
             flatten_and(e1, m_args);
-            for (unsigned i = 0; i < m_args.size(); ++i) {
-                body.push_back(ensure_app(m_args[i].get()));
-            }
+            for (expr* a : m_args)
+                body.push_back(ensure_app(a));            
         }
         else {
             head = ensure_app(fml);
@@ -255,7 +252,7 @@ namespace datalog {
         unsigned sz = body.size();
         hoist_compound(index, head, body);
         for (unsigned i = 0; i < sz; ++i) {
-            app_ref b(body[i].get(), m);
+            app_ref b(body.get(i), m);
             hoist_compound(index, b, body);
             body[i] = b;
         }
@@ -781,7 +778,7 @@ namespace datalog {
             tail_neg.push_back(false);
         }
 
-        SASSERT(tail.size()==tail_neg.size());
+        SASSERT(tail.size() == tail_neg.size());
         rule_ref old_r = r;
         r = mk(head, tail.size(), tail.data(), tail_neg.data(), old_r->name());
         r->set_accounting_parent_object(m_ctx, old_r);
@@ -949,7 +946,8 @@ namespace datalog {
     }
 
     bool rule::has_negation() const {
-        for (unsigned i = 0; i < get_uninterpreted_tail_size(); ++i) {
+        unsigned sz = get_uninterpreted_tail_size();
+        for (unsigned i = 0; i < sz; ++i) {
             if (is_neg_tail(i)) {
                 return true;
             }

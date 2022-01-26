@@ -124,7 +124,7 @@ namespace {
         smt_params m_smt_params_save;
 
         void push_params() override {
-            m_params_save = params_ref();
+            m_params_save.reset();           
             m_params_save.copy(solver::get_params());
             m_smt_params_save = m_smt_params;
         }
@@ -200,7 +200,6 @@ namespace {
             return m_context.check(num_assumptions, assumptions);
         }
 
-
         lbool check_sat_cc_core(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
             return m_context.check(cube, clauses);
         }
@@ -237,8 +236,12 @@ namespace {
             m_context.user_propagate_register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register(expr* e) override { 
-            return m_context.user_propagate_register(e);
+        unsigned user_propagate_register_expr(expr* e) override { 
+            return m_context.user_propagate_register_expr(e);
+        }
+
+        void user_propagate_register_created(user_propagator::created_eh_t& c) override {
+            m_context.user_propagate_register_created(c);
         }
 
         struct scoped_minimize_core {

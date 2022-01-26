@@ -119,7 +119,7 @@ public:
 
     unsigned num_exprs() const;
   
-    expr * form(unsigned i) const { return m().get(m_forms, i); }
+    expr * form(unsigned i) const { return inconsistent() ? m().mk_false() : m().get(m_forms, i); }
     proof * pr(unsigned i) const { return m().size(m_proofs) > i ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
     expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : nullptr; }
 
