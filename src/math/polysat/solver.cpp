@@ -144,10 +144,10 @@ namespace polysat {
         // Axioms for quotient/remainder:
         //      a = b*q + r
         //      multiplication does not overflow in b*q
-        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r    (TODO: maybe the version with disjunction is easier for the solver; should compare later)
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
-        add_eq(b * q + r - a);
+        add_eq(a, b * q + r);
         add_noovfl(b, q);
         add_ule(r, b*q+r);
 
@@ -1082,8 +1082,22 @@ namespace polysat {
                 all_ok = all_ok && ok;
             }
         }
+        for (auto clauses : m_constraints.clauses()) {
+            for (auto cl : clauses) {
+                bool clause_ok = false;
+                for (sat::literal lit : *cl) {
+                    bool ok = lit2cnstr(lit).is_currently_true(*this);
+                    if (ok) {
+                        clause_ok = true;
+                        break;
+                    }
+                }
+                LOG((clause_ok ? "PASS" : "FAIL") << ": " << show_deref(cl) << (cl->is_redundant() ? " (redundant)" : ""));
+                all_ok = all_ok && clause_ok;
+            }
+        }
         if (all_ok) LOG("All good!");
-        return true;
+        return all_ok;
     }
 }
 
