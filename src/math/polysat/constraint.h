@@ -178,6 +178,8 @@ namespace polysat {
         virtual bool is_always_false(bool is_positive) const = 0;
         virtual bool is_currently_false(solver& s, bool is_positive) const = 0;
         virtual bool is_currently_true(solver& s, bool is_positive) const = 0;
+        virtual bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const = 0;
+        virtual bool is_currently_true(solver& s, assignment_t const& sub, bool is_positive) const = 0;
         virtual void narrow(solver& s, bool is_positive) = 0;
         virtual inequality as_inequality(bool is_positive) const = 0;
 
@@ -245,6 +247,7 @@ namespace polysat {
         bool is_always_true() const { return get()->is_always_false(is_negative()); }        
         bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
         bool is_currently_true(solver& s) const { return get()->is_currently_true(s, is_positive()); }
+        bool is_currently_false(solver& s, assignment_t const& sub) const { return get()->is_currently_false(s, sub, is_positive()); }
         lbool bvalue(solver& s) const;
         unsigned level(solver& s) const { return get()->level(s); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }

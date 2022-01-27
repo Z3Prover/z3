@@ -38,6 +38,8 @@ namespace polysat {
         bool is_always_false(bool is_positive) const override;
         bool is_currently_false(solver& s, bool is_positive) const override;
         bool is_currently_true(solver& s, bool is_positive) const override;
+        bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const override;
+        bool is_currently_true(solver& s, assignment_t const& sub, bool is_positive) const override;
         void narrow(solver& s, bool is_positive) override;
         inequality as_inequality(bool is_positive) const override;
         unsigned hash() const override;

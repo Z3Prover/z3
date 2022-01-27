@@ -116,6 +116,7 @@ namespace polysat {
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
         pdd subst(pdd const& p) const; 
+        pdd subst(assignment_t const& sub, pdd const& p) const;
 
         unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
         unsigned                 m_level = 0;

@@ -229,8 +229,10 @@ namespace polysat {
         signed_constraint c = s.lit2cnstr(lit);
         unset_mark(c);
         for (pvar v : c->vars())
-            if (s.is_assigned(v) && s.get_level(v) <= lvl)
+            if (s.is_assigned(v) && s.get_level(v) <= lvl) {
                 m_vars.insert(v);  // TODO: check this
+                inc_pref(v);
+            }
     }
 
     /** 
@@ -282,11 +284,7 @@ namespace polysat {
             return;
         if (!c.is_currently_false(s))
             return;
-
-        return;
-#if 0
         
-        TODO - fix for new subst
         assignment_t a;
         for (auto v : m_vars)
             a.push_back(std::make_pair(v, s.get_value(v)));
@@ -295,7 +293,7 @@ namespace polysat {
             std::pair<pvar, rational> last = a.back();
             a[i] = last;
             a.pop_back();
-            if (c.is_currently_false(a)) 
+            if (c.is_currently_false(s, a)) 
                 --i;
             else {
                 a.push_back(last);
@@ -308,7 +306,6 @@ namespace polysat {
         for (auto const& [v, val] : a)
             m_vars.insert(v);
         LOG("reduced " << m_vars);
-#endif
     }
 
 

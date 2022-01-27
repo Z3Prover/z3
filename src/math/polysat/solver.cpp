@@ -1040,6 +1040,14 @@ namespace polysat {
         return p.subst_val(s);
     }
 
+    pdd solver::subst(assignment_t const& sub, pdd const& p) const {
+        unsigned sz = p.manager().power_of_2();
+        pdd s = p.manager().mk_val(1);
+        for (auto const [var, val] : sub) 
+            if (size(var) == sz)
+                s = p.manager().subst_add(s, var, val);
+        return p.subst_val(s);
+    }
 
     /** Check that boolean assignment and constraint evaluation are consistent */
     bool solver::assignment_invariant() {
