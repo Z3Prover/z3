@@ -162,6 +162,9 @@ class Goal:
         self.cube = cube
         self.parent = parent
 
+    def __lt__(self, other):
+        return self.level < other.level
+
 def is_seq(f):
     return isinstance(f, list) or isinstance(f, tuple) or isinstance(f, AstVector)
 
@@ -210,12 +213,12 @@ class MiniIC3:
     def next(self, f):
         if is_seq(f):
            return [self.next(f1) for f1 in f]
-        return substitute(f, zip(self.x0, self.xn))    
+        return substitute(f, [p for p in zip(self.x0, self.xn)])    
     
     def prev(self, f):
         if is_seq(f):
            return [self.prev(f1) for f1 in f]
-        return substitute(f, zip(self.xn, self.x0))    
+        return substitute(f, [p for p in zip(self.xn, self.x0)])    
     
     def add_solver(self):
         s = fd_solver()

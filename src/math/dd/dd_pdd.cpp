@@ -890,12 +890,8 @@ namespace dd {
                 rest = p;
             }
         }
-        if (gc_generation != m_gc_generation) {
-            // Cache was reset while factoring (due to GC),
-            // which means the old entry has been removed and we need to insert it again.
-            auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
-            e = &et->get_data();
-        }
+        et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+        e = &et->get_data();        
         e->m_lc = lc.root;
         e->m_rest = rest.root;
     }
