@@ -2829,7 +2829,7 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
     bool sign1 = m_util.has_sign_bit(a1_val, bv_sz);
     if (sign0) a0_val = rational::power_of_two(bv_sz) - a0_val;
     if (sign1) a1_val = rational::power_of_two(bv_sz) - a1_val;
-    rational lim = rational::power_of_two(bv_sz);
+    rational lim = rational::power_of_two(bv_sz-1);
     rational r = a0_val * a1_val;
     result = m().mk_bool_val((sign0 != sign1) || r < lim);
     return BR_DONE;
