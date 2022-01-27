@@ -185,7 +185,7 @@ namespace polysat {
         void set_conflict(clause& cl) { m_conflict.set(cl); }
         void set_conflict(pvar v) { m_conflict.set(v); }
 
-        bool can_decide() const { return !m_free_pvars.empty(); }
+        bool can_decide() const { return !m_free_pvars.empty() || m_bvars.can_decide(); }
         void decide();
         void pdecide(pvar v);
         void bdecide(sat::bool_var b);

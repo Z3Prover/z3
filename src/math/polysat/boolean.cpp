@@ -40,7 +40,6 @@ namespace polysat {
             SASSERT_EQ(m_clause[var], nullptr);
             SASSERT_EQ(m_deps[var], null_dependency);
         }
-        m_free_vars.mk_var_eh(var);
         return var;
     }
 
@@ -69,6 +68,12 @@ namespace polysat {
     void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause& lemma) {
         LOG("Decide literal " << lit << " @ " << lvl);
         assign(kind_t::decision, lit, lvl, &lemma);
+        SASSERT(is_decision(lit));
+    }
+
+    void bool_var_manager::decide(sat::literal lit, unsigned lvl) {
+        LOG("Decide literal " << lit << " @ " << lvl);
+        assign(kind_t::decision, lit, lvl, nullptr);
         SASSERT(is_decision(lit));
     }
 

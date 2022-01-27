@@ -150,20 +150,13 @@ namespace polysat {
         add_eq(b * q + r - a);
         add_noovfl(b, q);
         add_ule(r, b*q+r);
-        auto c1 = eq(b);
-        auto c2 = ult(r, b);
-        auto c3 = diseq(b);
-        auto c4 = eq(q + 1);
-        add_clause(c1, c2, false);
-        add_clause(c3, c4, false);
 
-        // BUG:
-        // need to watch these constraints.
-        // ... but activation discipline seems to 
-        // work only for lemmas. Literals are watched only when assigned true.
-        // The literals are de-activated
-        // after propagation
-        // Should these clauses then be added as lemmas that force a branch?
+        auto c_eq = eq(b);
+        add_clause(c_eq, ult(r, b), false);
+        add_clause(~c_eq, eq(q + 1), false);
+
+        // force decisions on whether b == 0
+        m_bvars.track_var(c_eq.blit());
 
         return std::tuple<pdd, pdd>(q, r);
     }
@@ -449,7 +442,10 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        pdecide(m_free_pvars.next_var());
+        if (!m_free_pvars.empty()) 
+            pdecide(m_free_pvars.next_var());
+        else 
+            bdecide(m_bvars.next_var());
     }
 
     void solver::pdecide(pvar v) {
@@ -472,8 +468,15 @@ namespace polysat {
             push_level();
             assign_core(v, val, justification::decision(m_level));
             break;
-        }
+        }        
     }   
+
+    void solver::bdecide(sat::bool_var b) {
+        sat::literal lit(b);
+        m_bvars.decide(lit, m_level);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+    }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
         if (j.is_decision()) 
@@ -766,16 +769,14 @@ namespace polysat {
         // The lemma where 'lit' comes from.
         // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
-        // We only revert decisions that come from lemmas, so lemma must not be NULL here.
-        // (Externally asserted literals are at a base level, so we would return UNSAT instead of reverting.)
-        SASSERT(lemma);
 
         backjump(m_bvars.level(var) - 1);
 
         // reason should force ~lit after propagation
         add_clause(*reason);
 
-        enqueue_decision_on_lemma(*lemma);
+        if (lemma)
+            enqueue_decision_on_lemma(*lemma);
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {

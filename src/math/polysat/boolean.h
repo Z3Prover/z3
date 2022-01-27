@@ -74,6 +74,7 @@ namespace polysat {
         unsigned_vector& activity() { return m_activity; }
         bool can_decide() const { return !m_free_vars.empty(); }
         sat::bool_var next_var() { return m_free_vars.next_var(); }
+        void track_var(sat::literal lit) { m_free_vars.mk_var_eh(lit.var()); }
 
         // TODO connect activity updates with solver
         void inc_activity(sat::literal lit) { m_activity[lit.var()]++; }
@@ -82,6 +83,8 @@ namespace polysat {
         /// Set the given literal to true
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
         void decide(sat::literal lit, unsigned lvl, clause& lemma);
+        void decide(sat::literal lit, unsigned lvl);
+
         void eval(sat::literal lit, unsigned lvl);
         void asserted(sat::literal lit, unsigned lvl, dependency dep);
         void unassign(sat::literal lit);
