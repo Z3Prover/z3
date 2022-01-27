@@ -2809,6 +2809,10 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
 
     bool is_num1 = is_numeral(args[0], a0_val, bv_sz);
     bool is_num2 = is_numeral(args[1], a1_val, bv_sz);
+    if (bv_sz == 1) {
+        result = m().mk_bool_val(!(a0_val.is_one() && a1_val.is_one()));
+        return BR_DONE;
+    }
     if (is_num1 && (a0_val.is_zero() || a0_val.is_one())) {
         result = m().mk_true();
         return BR_DONE;
