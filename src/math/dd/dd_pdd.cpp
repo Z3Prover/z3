@@ -859,7 +859,7 @@ namespace dd {
             rest = pdd(e->m_rest, this);
             return;
         }
-        unsigned const gc_generation = m_gc_generation;
+
         if (level(p.root) > level_v) {
             pdd lc1 = zero(), rest1 = zero();
             pdd vv = mk_var(p.var());

@@ -84,7 +84,9 @@ namespace polysat {
     }
 
     lbool solver::unit_propagate() {
-        flet<uint64_t> _max_d(m_max_decisions, m_stats.m_num_decisions + 1);
+        return l_undef;
+        // disabled to allow debugging unsoundness for watched literals
+        flet<uint64_t> _max_d(m_max_conflicts, m_stats.m_num_conflicts + 2);
         return check_sat();
     }
 
@@ -148,8 +150,21 @@ namespace polysat {
         add_eq(b * q + r - a);
         add_noovfl(b, q);
         add_ule(r, b*q+r);
-        add_clause(eq(b), ult(r, b), false);
-        add_clause(diseq(b), eq(q + 1), false);
+        auto c1 = eq(b);
+        auto c2 = ult(r, b);
+        auto c3 = diseq(b);
+        auto c4 = eq(q + 1);
+        add_clause(c1, c2, false);
+        add_clause(c3, c4, false);
+
+        // BUG:
+        // need to watch these constraints.
+        // ... but activation discipline seems to 
+        // work only for lemmas. Literals are watched only when assigned true.
+        // The literals are de-activated
+        // after propagation
+        // Should these clauses then be added as lemmas that force a branch?
+
         return std::tuple<pdd, pdd>(q, r);
     }
 
@@ -171,6 +186,7 @@ namespace polysat {
 
 
     void solver::assign_eh(signed_constraint c, dependency dep) {
+        backjump(base_level());
         SASSERT(at_base_level());
         SASSERT(c);
         if (is_conflict())

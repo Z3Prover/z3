@@ -280,9 +280,9 @@ namespace bv {
         void polysat_neg(app* a);
         void polysat_num(app* a);
         void polysat_mkbv(app* a);
-        void solver::polysat_umul_noovfl(app* e);
-        void solver::polysat_div_rem_i(app* e, bool is_div);
-        void solver::polysat_div_rem(app* e, bool is_div);
+        void polysat_umul_noovfl(app* e);
+        void polysat_div_rem_i(app* e, bool is_div);
+        void polysat_div_rem(app* e, bool is_div);
         void polysat_bit2bool(atom* a, expr* e, unsigned idx);
         bool polysat_sort_cnstr(euf::enode* n);
         void polysat_assign(atom* a);
@@ -292,6 +292,7 @@ namespace bv {
         bool polysat_diseq_eh(euf::th_eq const& ne);
         void polysat_add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
         lbool polysat_final();
+        void polysat_display(std::ostream& out) const;
         bool use_polysat() const { return get_config().m_bv_polysat; }
         vector<polysat::pdd> m_var2pdd;
         bool_vector          m_var2pdd_valid;

@@ -622,8 +622,7 @@ namespace bv {
         out << "bv-solver:\n";
         for (unsigned v = 0; v < num_vars; v++)
             out << pp(v);
-        if (use_polysat())
-            m_polysat.display(out);
+        polysat_display(out);
         return out;
     }
 

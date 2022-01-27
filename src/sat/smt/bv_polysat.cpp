@@ -321,4 +321,13 @@ namespace bv {
         VERIFY(m_polysat.try_eval(p, val));
         values[n->get_root_id()] = bv.mk_numeral(val, get_bv_size(n));        
     }   
+
+    void solver::polysat_display(std::ostream& out) const {
+        if (!use_polysat())
+            return;
+        m_polysat.display(out);
+        for (unsigned v = 0; v < get_num_vars(); ++v) 
+            if (m_var2pdd_valid.get(v, false))
+                out << ctx.bpp(var2enode(v)) << " := " << m_var2pdd[v] << "\n";        
+    }
 }
