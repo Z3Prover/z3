@@ -45,6 +45,7 @@ namespace polysat {
 
         void set_mark(signed_constraint c);
         void unset_mark(signed_constraint c);
+        void unset_bmark(signed_constraint c);
 
         bool contains_literal(sat::literal lit) const;
         void insert_literal(sat::literal lit);

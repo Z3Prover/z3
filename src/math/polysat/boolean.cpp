@@ -61,8 +61,8 @@ namespace polysat {
 
     void bool_var_manager::propagate(sat::literal lit, unsigned lvl, clause& reason) {
         LOG("Propagate literal " << lit << " @ " << lvl << " by " << reason);
-        assign(kind_t::propagation, lit, lvl, &reason);
-        SASSERT(is_propagation(lit));
+        assign(kind_t::bool_propagation, lit, lvl, &reason);
+        SASSERT(is_bool_propagation(lit));
     }
 
     void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause& lemma) {
@@ -79,8 +79,8 @@ namespace polysat {
 
     void bool_var_manager::eval(sat::literal lit, unsigned lvl) {
         LOG("Eval literal " << lit << " @ " << lvl);
-        assign(kind_t::propagation, lit, lvl, nullptr);
-        SASSERT(is_propagation(lit));
+        assign(kind_t::value_propagation, lit, lvl, nullptr);
+        SASSERT(is_value_propagation(lit));
     }
 
     void bool_var_manager::asserted(sat::literal lit, unsigned lvl, dependency dep) {

@@ -122,18 +122,24 @@ namespace polysat {
         class iterator {
             entry* curr = nullptr;
             bool   visited = false;
+            unsigned idx = 0;
         public:
             iterator(entry* curr, bool visited) : 
                 curr(curr), visited(visited || !curr) {}
 
             iterator& operator++() {
-                visited = true;
-                curr = curr->next();
+                if (idx < curr->side_cond.size()) 
+                    ++idx;
+                else {
+                    idx = 0;
+                    visited = true;
+                    curr = curr->next();
+                }
                 return *this;
             }
 
             signed_constraint& operator*() { 
-                return curr->src; 
+                return idx < curr->side_cond.size() ? curr->side_cond[idx] : curr->src;
             }
 
             bool operator==(iterator const& other) const {

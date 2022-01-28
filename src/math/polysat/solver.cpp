@@ -561,8 +561,10 @@ namespace polysat {
                     revert_bool_decision(lit);
                     return;
                 }
-                SASSERT(m_bvars.is_propagation(var));
-                resolve_bool(lit);
+                if (m_bvars.is_bool_propagation(var))
+                    m_conflict.resolve(lit, *m_bvars.reason(lit));
+                else
+                    m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
             }
         }
         // here we build conflict clause if it has free variables.
@@ -600,18 +602,17 @@ namespace polysat {
     }
 
 
+#if 0
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack 
     *   NOTE: boolean resolution should work normally even in bailout mode.
     */
     void solver::resolve_bool(sat::literal lit) {       
-        SASSERT(m_bvars.is_propagation(lit));
-        clause const* other = m_bvars.reason(lit);
-        LOG_H3("resolve_bool: " << lit << " " << show_deref(other));
-        if (other)
-            m_conflict.resolve(lit, *other);
-        else
-            m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
+        SASSERT(m_bvars.is_bool_propagation(lit));
+        clause const& other = *m_bvars.reason(lit);
+        LOG_H3("resolve_bool: " << lit << " " << show_deref(&other));
+        m_conflict.resolve(lit, *other);        
     }
+#endif
     
     void solver::report_unsat() {
         backjump(base_level());
@@ -620,6 +621,7 @@ namespace polysat {
 
     void solver::unsat_core(dependency_vector& deps) {
         deps.reset();
+        LOG("conflict" << m_conflict);
         for (auto c : m_conflict) {
             auto d = m_bvars.dep(c.blit());
             if (d != null_dependency)

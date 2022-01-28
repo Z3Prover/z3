@@ -70,7 +70,7 @@ namespace polysat {
     * The core is then the conjuction of this constraint and assigned variables.
     */
     void conflict::set(signed_constraint c) {
-        LOG("Conflict: " << c);
+        LOG("Conflict: " << c << " " << c.bvalue(s));
         SASSERT(empty());
         if (c.bvalue(s) == l_false) {
             auto* cl = s.m_bvars.reason(c.blit().var());
@@ -209,7 +209,7 @@ namespace polysat {
         SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
         remove_literal(lit);        
-        unset_mark(s.lit2cnstr(lit));        
+        unset_bmark(s.lit2cnstr(lit));         
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
                 insert(s.lit2cnstr(~lit2));
@@ -228,11 +228,12 @@ namespace polysat {
         remove_literal(lit);
         signed_constraint c = s.lit2cnstr(lit);
         unset_mark(c);
-        for (pvar v : c->vars())
+        for (pvar v : c->vars()) {
             if (s.is_assigned(v) && s.get_level(v) <= lvl) {
-                m_vars.insert(v);  // TODO: check this
+                m_vars.insert(v);  
                 inc_pref(v);
             }
+        }
     }
 
     /** 
@@ -330,9 +331,19 @@ namespace polysat {
         
         m_vars.remove(v);
 
-        if (j.is_propagation()) 
-            for (auto const& c : s.m_viable.get_constraints(v))
-                insert(c);        
+        // TODO: side-conditions depend on variable assignments
+        // we need to track these when the side conditions are used
+        // or we need to propagate the side-conditions if they are not set.
+        // 
+        if (j.is_propagation()) {
+            for (auto const& c : s.m_viable.get_constraints(v)) {
+                if (!c->has_bvar()) {
+                    cm().ensure_bvar(c.get());
+                    s.assign_eval(c.blit());
+                }
+                insert(c);
+            }        
+        }
 
         if (try_explain(v))
             return true;
@@ -392,17 +403,26 @@ namespace polysat {
         }
     }
 
-    void conflict::unset_mark(signed_constraint c) {
+    /**
+     * unset marking on the constraint, but keep variable dependencies.
+     */
+    void conflict::unset_bmark(signed_constraint c) {
         if (!c->is_marked())
             return;
         c->unset_mark();
         if (c->has_bvar())
             unset_bmark(c->bvar());
-        if (c->is_var_dependent()) {
-            c->unset_var_dependent();
-            for (auto v : c->vars())
-                dec_pref(v);
-        }
+    }
+
+    void conflict::unset_mark(signed_constraint c) {
+        if (!c->is_marked())
+            return;
+        unset_bmark(c);
+        if (!c->is_var_dependent()) 
+            return;
+        c->unset_var_dependent();
+        for (auto v : c->vars())
+            dec_pref(v);        
     }
 
     void conflict::inc_pref(pvar v) {
