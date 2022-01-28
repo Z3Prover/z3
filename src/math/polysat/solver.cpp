@@ -502,7 +502,8 @@ namespace polysat {
     void solver::resolve_conflict() {        
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
-        LOG("search state: " << m_search);
+        LOG("Search state: " << m_search);
+        LOG("Assignment: " << assignments_pp(*this));
         for (pvar v = 0; v < m_justification.size(); ++v)
             LOG("v" << v << " " << viable::var_pp(m_viable, v));
         ++m_stats.m_num_conflicts;
@@ -527,13 +528,13 @@ namespace polysat {
         
         search_iterator search_it(m_search);
         while (search_it.next()) {
-            // LOG("search state: " << m_search);
             auto& item = *search_it;
             search_it.set_resolved();
             LOG_H2("Working on " << search_item_pp(m_search, item));
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
+                LOG(m_justification[v]);
                 if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout()) {
                     m_search.pop_assignment();
                     continue;
@@ -552,6 +553,8 @@ namespace polysat {
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
                 sat::bool_var const var = lit.var();
+                LOG(bool_justification_pp(m_bvars, lit));
+                LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 if (!m_conflict.is_bmarked(var))
                     continue;
                 if (m_bvars.level(var) <= base_level())  

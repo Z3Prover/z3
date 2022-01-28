@@ -92,6 +92,7 @@ namespace polysat {
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_justification(sat::literal lit, std::ostream& out) const;
 
         friend std::ostream& operator<<(std::ostream& out, kind_t const& k) {
             switch (k) {
@@ -104,6 +105,14 @@ namespace polysat {
          }
     };
 
+    struct bool_justification_pp {
+        bool_var_manager const& b;
+        sat::literal lit;
+        bool_justification_pp(bool_var_manager const& b, sat::literal lit) : b(b), lit(lit) {}
+    };
+
     inline std::ostream& operator<<(std::ostream& out, bool_var_manager const& m) { return m.display(out); }
+
+    inline std::ostream& operator<<(std::ostream& out, bool_justification_pp const& p) { return p.b.display_justification(p.lit, out); }
 
 }

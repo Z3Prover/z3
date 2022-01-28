@@ -122,4 +122,13 @@ namespace polysat {
         }
         return out;
     }
+
+    std::ostream& bool_var_manager::display_justification(sat::literal lit, std::ostream& out) const {
+        out << m_kind[lit.var()];
+        if (is_assigned(lit))
+            out << " @ " << level(lit);
+        if (is_bool_propagation(lit))
+            out << " by " << show_deref(reason(lit));
+        return out;
+    }
 }
