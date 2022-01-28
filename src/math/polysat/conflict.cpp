@@ -331,13 +331,11 @@ namespace polysat {
         
         m_vars.remove(v);
 
-        // TODO: side-conditions depend on variable assignments
-        // we need to track these when the side conditions are used
-        // or we need to propagate the side-conditions if they are not set.
-        // 
         if (j.is_propagation()) {
             for (auto const& c : s.m_viable.get_constraints(v)) {
                 if (!c->has_bvar()) {
+                    // it is a side-condition that was not propagated already.
+                    // it is true in the current variable assignment.
                     cm().ensure_bvar(c.get());
                     s.assign_eval(c.blit());
                 }
