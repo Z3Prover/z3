@@ -50,7 +50,8 @@ namespace polysat {
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
-            out << " v" << v;
+            if (is_pmarked(v))
+                out << " v" << v;
         return out;
     }
 
@@ -328,7 +329,14 @@ namespace polysat {
         auto const& j = s.m_justification[v];
 
         s.inc_activity(v); 
-        
+
+#if 0
+        if (j.is_decision() && m_vars.contains(v)) {
+            set_bailout();
+            return false;
+        }
+#endif
+   
         m_vars.remove(v);
 
         if (j.is_propagation()) {
@@ -343,32 +351,38 @@ namespace polysat {
             }        
         }
 
+        LOG("try-explain v" << v);
         if (try_explain(v))
             return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (s.inc()) {
+            LOG("try-eliminate v" << v);
             // TODO: as a last resort, substitute v by m_value[v]?
             if (try_eliminate(v))
                 return true;
             if (!try_saturate(v))
                 break;
         }
+        LOG("bailout v" << v);
         set_bailout();
         if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);
         return false;
     }
 
-    bool conflict::try_eliminate(pvar v) {       
+    bool conflict::try_eliminate(pvar v) {    
+        LOG("try v" << v << " contains " << m_vars.contains(v));
+        if (m_vars.contains(v))
+            return false;
         bool has_v = false;
         for (auto c : *this)
-            has_v |= c->is_var_dependent() && c->contains_var(v);
+            has_v |= c->contains_var(v);
         if (!has_v)
             return true;
         for (auto* engine : ve_engines)
-            if (engine->perform(s, v, *this))
-                return true;
+            if (engine->perform(s, v, *this)) 
+                return true;            
         return false;
     }
 

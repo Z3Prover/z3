@@ -24,6 +24,7 @@ namespace polysat {
             unassigned,
             bool_propagation,
             value_propagation,
+            assumption,
             decision,
         };
 
@@ -57,6 +58,8 @@ namespace polysat {
         bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
         bool is_decision(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::decision; }
         bool is_decision(sat::literal lit) const { return is_decision(lit.var()); }
+        bool is_assumption(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::assumption; }
+        bool is_assumption(sat::literal lit) const { return is_assumption(lit.var()); }
         bool is_bool_propagation(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::bool_propagation; }
         bool is_bool_propagation(sat::literal lit) const { return is_bool_propagation(lit.var()); }
         bool is_value_propagation(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::value_propagation; }
