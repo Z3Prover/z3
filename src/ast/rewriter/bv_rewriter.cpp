@@ -196,11 +196,11 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         SASSERT(num_args == 1);
         return mk_bit2bool(args[0], f->get_parameter(0).get_int(), result);
     case OP_BSMUL_NO_OVFL:
-        return mk_bvsmul_no_overflow(num_args, args, result);
+        return mk_bvsmul_no_overflow(num_args, args, true, result);
+    case OP_BSMUL_NO_UDFL:
+        return mk_bvsmul_no_overflow(num_args, args, false, result);
     case OP_BUMUL_NO_OVFL:
         return mk_bvumul_no_overflow(num_args, args, result);
-    case OP_BSMUL_NO_UDFL:
-        return mk_bvsmul_no_underflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -2802,22 +2802,19 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     return BR_FAILED;
 }
 
-br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
+br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {
     SASSERT(num == 2);
     unsigned bv_sz;
     rational a0_val, a1_val;
 
     bool is_num1 = is_numeral(args[0], a0_val, bv_sz);
     bool is_num2 = is_numeral(args[1], a1_val, bv_sz);
-    if (bv_sz == 1) {
-        result = m().mk_bool_val(!(a0_val.is_one() && a1_val.is_one()));
-        return BR_DONE;
-    }
-    if (is_num1 && (a0_val.is_zero() || a0_val.is_one())) {
+    
+    if (is_num1 && (a0_val.is_zero() || (bv_sz != 1 && a0_val.is_one()))) {
         result = m().mk_true();
         return BR_DONE;
     }
-    if (is_num2 && (a1_val.is_zero() || a1_val.is_one())) {
+    if (is_num2 && (a1_val.is_zero() || (bv_sz != 1 && a1_val.is_one()))) {
         result = m().mk_true();
         return BR_DONE;
     }
@@ -2831,7 +2828,7 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
     if (sign1) a1_val = rational::power_of_two(bv_sz) - a1_val;
     rational lim = rational::power_of_two(bv_sz-1);
     rational r = a0_val * a1_val;
-    result = m().mk_bool_val((sign0 != sign1) || r < lim);
+    result = m().mk_bool_val((is_overflow == (sign0 != sign1)) || r < lim);
     return BR_DONE;
 }
 
@@ -2855,37 +2852,6 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
         rational mr = a0_val * a1_val;
         rational lim = rational::power_of_two(bv_sz);
         result = m().mk_bool_val(mr < lim);
-        return BR_DONE;
-    }
-
-    return BR_FAILED;
-}
-
-br_status bv_rewriter::mk_bvsmul_no_underflow(unsigned num, expr * const * args, expr_ref & result) {
-    SASSERT(num == 2);
-    unsigned bv_sz;
-    rational a0_val, a1_val;
-
-    bool is_num1 = is_numeral(args[0], a0_val, bv_sz);
-    bool is_num2 = is_numeral(args[1], a1_val, bv_sz);
-    if (is_num1 && (a0_val.is_zero() || a0_val.is_one())) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-    if (is_num2 && (a1_val.is_zero() || a1_val.is_one())) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-
-    if (is_num1 && is_num2) {
-        rational ul = rational::power_of_two(bv_sz);
-        rational lim = rational::power_of_two(bv_sz-1);
-        if (a0_val >= lim) a0_val -= ul;
-        if (a1_val >= lim) a1_val -= ul;        
-        rational mr = a0_val * a1_val;
-        rational neg_lim = -lim;
-        TRACE("bv_rewriter_bvsmul_no_underflow", tout << "a0:" << a0_val << " a1:" << a1_val << " mr:" << mr << " neg_lim:" << neg_lim << std::endl;);
-        result = m().mk_bool_val(mr >= neg_lim);
         return BR_DONE;
     }
 
