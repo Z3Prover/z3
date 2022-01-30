@@ -2828,7 +2828,10 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
     if (sign1) a1_val = rational::power_of_two(bv_sz) - a1_val;
     rational lim = rational::power_of_two(bv_sz-1);
     rational r = a0_val * a1_val;
-    result = m().mk_bool_val((is_overflow == (sign0 != sign1)) || r < lim);
+    if (is_overflow)
+        result = m().mk_bool_val(sign0 != sign1 || r < lim);
+    else
+        result = m().mk_bool_val(sign0 == sign1 || r <= lim);
     return BR_DONE;
 }
 
