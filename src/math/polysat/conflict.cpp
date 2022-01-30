@@ -50,8 +50,7 @@ namespace polysat {
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
-            if (is_pmarked(v))
-                out << " v" << v;
+            out << " v" << v;
         return out;
     }
 
@@ -83,7 +82,7 @@ namespace polysat {
         else {
             SASSERT(c.is_currently_false(s));
             // TBD: fails with test_subst       SASSERT(c.bvalue(s) == l_true);
-            c->set_var_dependent();
+            insert_vars(c);
             insert(c);
         }
         SASSERT(!empty());
@@ -139,6 +138,13 @@ namespace polysat {
         else
             m_constraints.push_back(c);
     }
+
+    void conflict::insert_vars(signed_constraint c) {
+        for (pvar v : c->vars()) 
+            if (s.is_assigned(v)) 
+                m_vars.insert(v);  
+    }
+
 
 
     /**
@@ -210,7 +216,7 @@ namespace polysat {
         SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
         remove_literal(lit);        
-        unset_bmark(s.lit2cnstr(lit));         
+        unset_mark(s.lit2cnstr(lit));         
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
                 insert(s.lit2cnstr(~lit2));
@@ -229,12 +235,7 @@ namespace polysat {
         remove_literal(lit);
         signed_constraint c = s.lit2cnstr(lit);
         unset_mark(c);
-        for (pvar v : c->vars()) {
-            if (s.is_assigned(v) && s.get_level(v) <= lvl) {
-                m_vars.insert(v);  
-                inc_pref(v);
-            }
-        }
+        insert_vars(c);
     }
 
     /** 
@@ -268,8 +269,6 @@ namespace polysat {
             lemma.push(~c);
 
         for (unsigned v : m_vars) {
-            if (!is_pmarked(v))
-                continue;
             auto eq = s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(eq.get());
             if (eq.bvalue(s) == l_undef) 
@@ -406,50 +405,17 @@ namespace polysat {
         c->set_mark();
         if (c->has_bvar())
             set_bmark(c->bvar());    
-        if (c->is_var_dependent()) {
-            for (auto v : c->vars()) {
-                if (s.is_assigned(v))
-                    m_vars.insert(v);
-                inc_pref(v);
-            }
-        }
     }
 
     /**
      * unset marking on the constraint, but keep variable dependencies.
      */
-    void conflict::unset_bmark(signed_constraint c) {
+    void conflict::unset_mark(signed_constraint c) {
         if (!c->is_marked())
             return;
         c->unset_mark();
         if (c->has_bvar())
             unset_bmark(c->bvar());
-    }
-
-    void conflict::unset_mark(signed_constraint c) {
-        if (!c->is_marked())
-            return;
-        unset_bmark(c);
-        if (!c->is_var_dependent()) 
-            return;
-        c->unset_var_dependent();
-        for (auto v : c->vars())
-            dec_pref(v);        
-    }
-
-    void conflict::inc_pref(pvar v) {
-        if (v >= m_pvar2count.size())
-            m_pvar2count.resize(v + 1);        
-        m_pvar2count[v]++;
-    }
-
-    void conflict::dec_pref(pvar v) {
-        SASSERT(m_pvar2count[v] > 0);
-        m_pvar2count[v]--;
-    }
-
-    bool conflict::is_pmarked(pvar v) const {
-        return m_pvar2count.get(v, 0) > 0;
     }
 
     void conflict::set_bmark(sat::bool_var b) {

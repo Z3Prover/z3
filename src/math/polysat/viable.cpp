@@ -557,9 +557,10 @@ namespace polysat {
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
                 core.insert(c);
             }
-            for (auto sc : e->side_cond)
+            for (auto sc : e->side_cond) {
                 core.insert(sc);
-            e->src->set_var_dependent(); 
+                core.insert_vars(sc);
+            }
             core.insert(e->src);
             e = n;
         }             

@@ -88,7 +88,7 @@ namespace polysat {
         for (auto d : m_new_constraints)
             core.insert(d);
         if (c.bvalue(s) != l_false)
-            c->set_var_dependent();
+            core.insert_vars(c);
         core.insert(~c);       
         LOG("Core " << core);
         return true;        

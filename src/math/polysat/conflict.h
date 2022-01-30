@@ -10,6 +10,37 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+    A conflict state is of the form <Vars, Constraints>
+    Where Vars are shorthand for the constraints v = value(v) for v in Vars and value(v) is the assignent.
+    
+    The conflict state is unsatisfiable under background clauses F.
+    Dually, the negation is a consequence of F.
+
+    Conflict resolution resolves an assignment in the search stack against the conflict state.
+
+    Assignments are of the form:
+  
+    lit <- D => lit              - lit is propagated by the clause D => lit
+    lit <- ?                     - lit is a decision literal.
+    lit <- asserted              - lit is asserted
+    lit <- Vars                  - lit is propagated from variable evaluation.
+
+    v = value <- Cs              - v is assigned value by constraints Cs
+    v = value <- ?               - v is a decision literal.
+
+    - All literals should be assigned in the stack prior to their use.
+    
+    lit <- D => lit, < Vars, { lit } u Cs >   ===>   < Vars, Cs u D >
+    lit <- ?,        < Vars, { lit } u Cs >   ===>   ~lit <- (Cs & Vars = value(Vars) => ~lit)
+    lit <- asserted, < Vars, { lit } u Cs >   ===>   accumulate lit for a core
+    lit <- Vars',    < Vars, { lit } u Cs >   ===>   ~lit <- (Cs & Vars = value(Vars) => ~lit)
+
+    v = value <- Cs, < Vars u { v }, Cs >     ===>   
+    
+    
+    
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
@@ -77,7 +108,7 @@ namespace polysat {
 
         void reset();
 
-        bool is_pmarked(pvar v) const;
+        bool contains_pvar(pvar v) const { return m_vars.contains(v); }
         bool is_bmarked(sat::bool_var b) const;
 
         /** conflict because the constraint c is false under current variable assignment */
@@ -88,6 +119,7 @@ namespace polysat {
         void set(clause const& cl);
 
         void insert(signed_constraint c);
+        void insert_vars(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> const& premises);
         void remove(signed_constraint c);
         void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises);

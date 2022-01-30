@@ -534,7 +534,7 @@ namespace polysat {
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout()) {
+                if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
                     m_search.pop_assignment();
                     continue;
                 }
