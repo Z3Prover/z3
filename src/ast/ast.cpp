@@ -27,6 +27,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_translation.h"
 #include "util/z3_version.h"
 
@@ -2131,12 +2132,17 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 expr* ast_manager::coerce_to(expr* e, sort* s) {
     sort* se = e->get_sort();
     if (s != se && s->get_family_id() == arith_family_id && se->get_family_id() == arith_family_id) {
-        if (s->get_decl_kind() == REAL_SORT) {
+        if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
-        }
-        else {
-            return mk_app(arith_family_id, OP_TO_INT, e);        
-        }
+        else 
+            return mk_app(arith_family_id, OP_TO_INT, e);                
+    }
+    if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
+        arith_util au(*this);
+        if (s->get_decl_kind() == REAL_SORT) 
+            return mk_ite(e, au.mk_real(1), au.mk_real(0));
+        else 
+            return mk_ite(e, au.mk_int(1), au.mk_int(0));
     }
     else {
         return e;
