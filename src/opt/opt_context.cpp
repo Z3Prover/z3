@@ -301,7 +301,7 @@ namespace opt {
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
         
-        lbool is_sat = s.check_sat(asms.size(),asms.data());
+        lbool is_sat = s.check_sat(asms.size(), asms.data());
 
         TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
