@@ -773,6 +773,7 @@ namespace smt {
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
 
+        bool m_has_lambda = false;
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);

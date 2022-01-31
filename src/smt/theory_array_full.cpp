@@ -763,7 +763,6 @@ namespace smt {
             app_ref sel1(m), sel2(m);
             sel1 = mk_select(args1);
             sel2 = mk_select(args2);
-            std::cout << "small domain " << sel1 << " " << sel2 << "\n";
             is_new = try_assign_eq(sel1, sel2);
 #endif
         }

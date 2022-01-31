@@ -3731,7 +3731,7 @@ namespace smt {
         if (status == l_false) {
             return false;
         }
-        if (status == l_true && !m_qmanager->has_quantifiers()) {
+        if (status == l_true && !m_qmanager->has_quantifiers() && !m_has_lambda) {
             return false;
         }
         if (status == l_true && m_qmanager->has_quantifiers()) {
@@ -3754,6 +3754,11 @@ namespace smt {
                 break;
             }
         }
+        if (status == l_true && m_has_lambda) {
+            m_last_search_failure = LAMBDAS;
+            status = l_undef;
+            return false;
+        }
         inc_limits();
         if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
             SASSERT(!inconsistent());
@@ -3765,13 +3770,13 @@ namespace smt {
                 pop_scope(m_scope_lvl - curr_lvl);
                 SASSERT(at_search_level());
             }
-            for (theory* th : m_theory_set) {
-                if (!inconsistent()) th->restart_eh();
-            }
+            for (theory* th : m_theory_set) 
+                if (!inconsistent()) 
+                    th->restart_eh();
+
             TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";);
-            if (!inconsistent()) {
+            if (!inconsistent()) 
                 m_qmanager->restart_eh();
-            }
             if (inconsistent()) {
                 VERIFY(!resolve_conflict());
                 status = l_false;
@@ -3993,6 +3998,10 @@ namespace smt {
         TRACE("final_check_step", tout << "RESULT final_check: " << result << "\n";);
         if (result == FC_GIVEUP && f != OK)
             m_last_search_failure = f;
+        if (result == FC_DONE && m_has_lambda) {
+            m_last_search_failure = LAMBDAS;
+            result = FC_GIVEUP;
+        }
         return result;
     }
 
