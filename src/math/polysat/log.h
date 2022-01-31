@@ -2,6 +2,12 @@
 #define POLYSAT_LOG_HPP
 
 
+#include <cstdint>
+#include <iostream>
+#include <string>
+#include "math/polysat/log_helper.h"
+
+
 // By default, enable logging only in debug mode
 #ifndef POLYSAT_LOGGING_ENABLED
 #   ifndef NDEBUG
@@ -14,11 +20,6 @@
 
 #if POLYSAT_LOGGING_ENABLED
 
-
-#include <cstdint>
-#include <iostream>
-#include <string>
-#include "math/polysat/log_helper.h"
 
 class polysat_log_indent
 {
