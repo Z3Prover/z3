@@ -1195,23 +1195,33 @@ class test_fi {
     }
 
 public:
-    static void exhaustive(unsigned bw = 3) {
-        rational const m = rational::power_of_two(bw);
-        for (rational a1(1); a1 < m; ++a1) {
-            for (rational a2(1); a2 < m; ++a2) {
-                // TODO: remove this to test other cases
-                if (a1 == a2)
-                    continue;
-                for (rational b1(0); b1 < m; ++b1)
-                    for (rational b2(0); b2 < m; ++b2)
-                        for (rational val(0); val < m; ++val)
-                            for (bool negated : {true, false})
-                                check_one(a1, b1, a2, b2, val, negated, bw);
+    static void exhaustive(unsigned bw = 0) {
+        if (bw == 0) {
+            exhaustive(1);
+            exhaustive(2);
+            exhaustive(3);
+            exhaustive(4);
+            exhaustive(5);
+        } else {
+            std::cout << "test_fi::exhaustive for bw=" << bw << std::endl;
+            rational const m = rational::power_of_two(bw);
+            for (rational p(1); p < m; ++p) {
+                for (rational r(1); r < m; ++r) {
+                    // TODO: remove this condition to test the cases other than disequal_lin! (also start p,q from 0)
+                    if (p == r)
+                        continue;
+                    for (rational q(0); q < m; ++q)
+                        for (rational s(0); s < m; ++s)
+                            for (rational v(0); v < m; ++v)
+                                for (bool negated : {true, false})
+                                    check_one(p, q, r, s, v, negated, bw);
+                }
             }
         }
     }
 
-    static void randomized(unsigned num_rounds = 10'000, unsigned bw = 16) {
+    static void randomized(unsigned num_rounds = 100'000, unsigned bw = 16) {
+        std::cout << "test_fi::randomized for bw=" << bw << " (" << num_rounds << " rounds)" << std::endl;
         rational const m = rational::power_of_two(bw);
         VERIFY(bw <= 32 && "random_gen generates 32-bit numbers");
         random_gen rng;
