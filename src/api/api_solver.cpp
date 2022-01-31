@@ -114,7 +114,7 @@ extern "C" {
     }
 
     solver2smt2_pp::solver2smt2_pp(ast_manager& m, const std::string& file):
-        m_pp_util(m), m_out(file), m_tracked(m) {
+        m_pp_util(m), m_out(file, std::ofstream::trunc | std::ofstream::out), m_tracked(m) {
         if (!m_out) {
             throw default_exception("could not open " + file + " for output");
         }
