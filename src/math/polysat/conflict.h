@@ -36,26 +36,36 @@ Notes:
     l <- ?,            < Vars, { l } u C >   ===>   ~l <- (C & Vars = value(Vars) => ~l)
     l <- asserted,     < Vars, { l } u C >   ===>   < Vars, { l } u C >
     l <- Vars',        < Vars, { l } u C >   ===>   < Vars u Vars', C >          if all Vars' are propagated
-    l <- Vars',        < Vars, { l } u C >   ===>   backjump to unassign variable.
+    l <- Vars',        < Vars, { l } u C >   ===>   Mark < Vars, { l } u C > as bailout
 
-    v = value <- D,  < Vars u { v }, C >   ===>   < Vars, D u C >
-    v = value <- ?,  < Vars u { v }, C >   ===>   v != value <- (C & Vars = value(Vars) => v != value)
+    v = value <- D,  < Vars u { v }, C >     ===>   < Vars, D u C >
+    v = value <- ?,  < Vars u { v }, C >     ===>   v != value <- (C & Vars = value(Vars) => v != value)
     
     
-Example derivation:
+Example derivations:
 
-Trail:       z <= y <- asserted, 
-             xz > xy <- asserted, 
-             x = a <- ?, 
-             y = b <- ?, 
-             z = c <- ?   
+Trail:       z <= y  <- asserted 
+             xz > xy <- asserted 
+             x = a   <- ? 
+             y = b   <- ? 
+             z = c   <- ?   
 Conflict:    < {x, y, z}, xz > xy > when ~O(a,b) and c <= b
-Lemma:       x <= a & y <= b => ~O(x,y)
+Append       x <= a <- { x }
+Append       y <= b <- { y }
+Conflict:    < {}, y >= z, xz > xy, x <= a, y <= b >
+Based on:    z <= y & x <= a & y <= b => xz <= xy
+Resolve:     y <= b <- { y }, y is a decision variable.
+Bailout:     lemma ~(y >= z & xz > xy & x <= a & y <= b) at decision level of lemma
+
+With overflow predicate:
 Append       ~O(x, y) <- { x, y }                  
-Saturate     z <= y & ~O(x,y) => xz <= xy
 Conflict:    < {}, y >= z, xz > xy, ~O(x,y) >
+Based on     z <= y & ~O(x,y) => xz <= xy
+Resolve:     ~O(x, y) <- { x, y } both x, y are decision variables
 Lemma:       y < z or xz <= xy or O(x,y)
-Backjump:    "to before y is guessed"
+
+
+
  
     
 --*/
