@@ -27,19 +27,36 @@ Notes:
     lit <- asserted              - lit is asserted
     lit <- Vars                  - lit is propagated from variable evaluation.
 
-    v = value <- Cs              - v is assigned value by constraints Cs
+    v = value <- D               - v is assigned value by constraints D
     v = value <- ?               - v is a decision literal.
 
     - All literals should be assigned in the stack prior to their use.
     
-    lit <- D => lit, < Vars, { lit } u Cs >   ===>   < Vars, Cs u D >
-    lit <- ?,        < Vars, { lit } u Cs >   ===>   ~lit <- (Cs & Vars = value(Vars) => ~lit)
-    lit <- asserted, < Vars, { lit } u Cs >   ===>   accumulate lit for a core
-    lit <- Vars',    < Vars, { lit } u Cs >   ===>   ~lit <- (Cs & Vars = value(Vars) => ~lit)
+    l <- D => l,       < Vars, { l } u C >   ===>   < Vars, C u D >
+    l <- ?,            < Vars, { l } u C >   ===>   ~l <- (C & Vars = value(Vars) => ~l)
+    l <- asserted,     < Vars, { l } u C >   ===>   < Vars, { l } u C >
+    l <- Vars',        < Vars, { l } u C >   ===>   < Vars u Vars', C >          if all Vars' are propagated
+    l <- Vars',        < Vars, { l } u C >   ===>   backjump to unassign variable.
 
-    v = value <- Cs, < Vars u { v }, Cs >     ===>   
+    v = value <- D,  < Vars u { v }, C >   ===>   < Vars, D u C >
+    v = value <- ?,  < Vars u { v }, C >   ===>   v != value <- (C & Vars = value(Vars) => v != value)
     
     
+Example derivation:
+
+Trail:       z <= y <- asserted, 
+             xz > xy <- asserted, 
+             x = a <- ?, 
+             y = b <- ?, 
+             z = c <- ?   
+Conflict:    < {x, y, z}, xz > xy > when ~O(a,b) and c <= b
+Lemma:       x <= a & y <= b => ~O(x,y)
+Append       ~O(x, y) <- { x, y }                  
+Saturate     z <= y & ~O(x,y) => xz <= xy
+Conflict:    < {}, y >= z, xz > xy, ~O(x,y) >
+Lemma:       y < z or xz <= xy or O(x,y)
+Backjump:    "to before y is guessed"
+ 
     
 --*/
 #pragma once
