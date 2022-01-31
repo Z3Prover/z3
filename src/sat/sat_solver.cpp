@@ -4174,7 +4174,7 @@ namespace sat {
     lbool solver::find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes) {
         max_cliques<neg_literal> mc;
         m_user_bin_clauses.reset();
-        m_binary_clause_graph.reset();
+        // m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true, false);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
         for (auto const& b : m_user_bin_clauses) {
@@ -4189,7 +4189,7 @@ namespace sat {
         vector<unsigned_vector> _mutexes;
         literal_vector _lits(lits);
         if (m_ext) {
-            // m_ext->find_mutexes(_lits, mutexes);
+            m_ext->find_mutexes(_lits, mutexes);
         }
         unsigned_vector ps;
         for (literal lit : _lits) {
