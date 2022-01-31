@@ -85,8 +85,8 @@ namespace polysat {
 
     void bool_var_manager::asserted(sat::literal lit, unsigned lvl, dependency dep) {
         LOG("Asserted " << lit << " @ " << lvl);
-        assign(kind_t::decision, lit, lvl, nullptr, dep);
-        SASSERT(is_decision(lit));
+        assign(dep == null_dependency ? kind_t::decision : kind_t::assumption, lit, lvl, nullptr, dep);
+        SASSERT(is_decision(lit) || is_assumption(lit));
     }
 
     void bool_var_manager::assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep) {

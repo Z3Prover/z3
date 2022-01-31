@@ -557,14 +557,14 @@ namespace polysat {
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 if (!m_conflict.is_bmarked(var))
                     continue;
-                if (m_bvars.level(var) <= base_level())  
-                    continue;
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_decision(var)) {
+                if (m_bvars.is_assumption(var))
+                    continue;
+                else if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
                     return;
                 }
-                if (m_bvars.is_bool_propagation(var))
+                else if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve(lit, *m_bvars.reason(lit));
                 else
                     m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
@@ -603,19 +603,6 @@ namespace polysat {
         }
         m_activity_inc >>= 14;
     }
-
-
-#if 0
-    /** Conflict resolution case where boolean literal 'lit' is on top of the stack 
-    *   NOTE: boolean resolution should work normally even in bailout mode.
-    */
-    void solver::resolve_bool(sat::literal lit) {       
-        SASSERT(m_bvars.is_bool_propagation(lit));
-        clause const& other = *m_bvars.reason(lit);
-        LOG_H3("resolve_bool: " << lit << " " << show_deref(&other));
-        m_conflict.resolve(lit, *other);        
-    }
-#endif
     
     void solver::report_unsat() {
         backjump(base_level());
@@ -785,7 +772,7 @@ namespace polysat {
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
-        unsigned lvl = base_level();
+        unsigned lvl = 0;
         for (auto lit : cl) {
             if (lit == lit0)
                 continue;
