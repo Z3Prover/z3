@@ -805,6 +805,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::literal internalize(expr* n, bool redundant) override {
+        bool is_not = m.is_not(n, n);
         flet<bool> _top(m_top_level, false);
         unsigned sz = m_result_stack.size();
         (void)sz;
@@ -820,6 +821,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_map.insert(n, result.var());    
             m_solver.set_external(result.var());
         }
+
+        if (is_not)
+            result.neg();
         return result;
     }
 
