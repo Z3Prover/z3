@@ -218,7 +218,7 @@ struct sat2goal::imp {
             }
             sat::literal lit(l.var(), false);
             m_lit2expr.set(lit.index(), aux);
-            m_lit2expr.set((~lit).index(), m.mk_not(aux));
+            m_lit2expr.set((~lit).index(), mk_not(m, aux));
         }        
         return m_lit2expr.get(l.index());
     }

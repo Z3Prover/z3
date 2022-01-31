@@ -19,6 +19,7 @@ Notes:
 
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_util.h"
 #include "tactic/goal.h"
 #include "sat/smt/atom2bool_var.h"
 
@@ -27,7 +28,7 @@ void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
         sat::literal l(static_cast<sat::bool_var>(kv.m_value), false);
         lit2expr.set(l.index(), kv.m_key);
         l.neg();
-        lit2expr.set(l.index(), m().mk_not(kv.m_key));
+        lit2expr.set(l.index(), mk_not(m(), kv.m_key));
     }
 }
 
