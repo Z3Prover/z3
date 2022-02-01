@@ -423,6 +423,22 @@ namespace polysat {
             return false;
         if (c.lhs.is_val() || c.rhs.is_val())
             return false;
+
+        pdd q_l(c.lhs), e_l(c.lhs), q_r(c.rhs), e_r(c.rhs);
+        bool is_linear = true;
+        is_linear &= c.lhs.degree(v) <= 1;
+        is_linear &= c.rhs.degree(v) <= 1;
+        if (c.lhs.degree(v) == 1) {
+            c.lhs.factor(v, 1, q_l, e_l); 
+            is_linear &= q_l.is_val();
+        }
+        if (c.rhs.degree(v) == 1) {
+            c.rhs.factor(v, 1, q_r, e_r);
+            is_linear &= q_r.is_val();
+        }
+        if (is_linear)
+            return false;
+
         if (!c.as_signed_constraint().is_currently_false(s))
             return false;
         rational l_val, r_val;

@@ -88,14 +88,11 @@ namespace polysat {
         signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
+        uint_set m_bail_vars;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
-
-        unsigned_vector m_pvar2count;             // reference count of variables
-        void inc_pref(pvar v);
-        void dec_pref(pvar v);
 
         bool_vector m_bvar2mark;                  // mark of Boolean variables
         void set_bmark(sat::bool_var b);
@@ -135,7 +132,7 @@ namespace polysat {
 
         void reset();
 
-        bool contains_pvar(pvar v) const { return m_vars.contains(v); }
+        bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool is_bmarked(sat::bool_var b) const;
 
         /** conflict because the constraint c is false under current variable assignment */
@@ -145,6 +142,7 @@ namespace polysat {
         /** all literals in clause are false */
         void set(clause const& cl);
 
+        void propagate(signed_constraint c);
         void insert(signed_constraint c);
         void insert_vars(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> const& premises);

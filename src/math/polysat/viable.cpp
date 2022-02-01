@@ -555,19 +555,15 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                core.insert(c);
+                core.propagate(c);
             }
-            for (auto sc : e->side_cond) {
-                core.insert(sc);
-                core.insert_vars(sc);
-            }
+            for (auto sc : e->side_cond) 
+                core.propagate(sc);
             core.insert(e->src);
             e = n;
         }             
         while (e != first);
 
-        // core.set_bailout();
-        // TODO - review this; c is true under current assignment?
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
                 core.reset();
