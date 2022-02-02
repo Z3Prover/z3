@@ -1375,10 +1375,6 @@ namespace polysat {
 void tst_polysat() {
     using namespace polysat;
 
-    test_polysat::test_ineq1();
-    test_polysat::test_ineq2();
-    test_polysat::test_monot();
-    return;
 
     test_polysat::test_fi_zero();
     test_polysat::test_fi_nonzero();

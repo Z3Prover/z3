@@ -46,9 +46,11 @@ namespace polysat {
 
     void viable::pop_viable() {
         auto& [v, k, e] = m_trail.back();
+        SASSERT(well_formed(m_units[v]));
         switch (k) {
         case entry_kind::unit_e: 
             e->remove_from(m_units[v], e); 
+            SASSERT(well_formed(m_units[v]));
             break;
         case entry_kind::equal_e: 
             e->remove_from(m_equal_lin[v], e); 
@@ -67,13 +69,15 @@ namespace polysat {
         SASSERT(e->prev() != e || e->next() == e);
         SASSERT(k == entry_kind::unit_e);
         (void)k;
+        SASSERT(well_formed(m_units[v]));
         if (e->prev() != e) {
             e->prev()->insert_after(e);
-            if (e->interval.lo_val() < e->next()->interval.lo_val())
+            if (e->interval.lo_val() < m_units[v]->interval.lo_val())
                 m_units[v] = e;
         }
         else 
-            m_units[v] = e;        
+            m_units[v] = e;  
+        SASSERT(well_formed(m_units[v]));
         m_trail.pop_back();
     }
 
@@ -102,6 +106,7 @@ namespace polysat {
     }
 
     void viable::insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k) {
+        SASSERT(well_formed(m_units[v]));
         m_trail.push_back({ v, k, e });
         s.m_trail.push_back(trail_instr_t::viable_add_i);
         e->init(e);
@@ -109,6 +114,7 @@ namespace polysat {
             entries[v] = e;
         else
             e->insert_after(entries[v]);
+        SASSERT(well_formed(m_units[v]));
     }
 
     bool viable::intersect(pvar v, entry* ne) {
@@ -440,6 +446,7 @@ namespace polysat {
         }         
         return refine_viable(v, val);
     }
+
 
     rational viable::min_viable(pvar v) { 
         refined:
