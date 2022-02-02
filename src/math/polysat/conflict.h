@@ -10,6 +10,64 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+    A conflict state is of the form <Vars, Constraints>
+    Where Vars are shorthand for the constraints v = value(v) for v in Vars and value(v) is the assignent.
+    
+    The conflict state is unsatisfiable under background clauses F.
+    Dually, the negation is a consequence of F.
+
+    Conflict resolution resolves an assignment in the search stack against the conflict state.
+
+    Assignments are of the form:
+  
+    lit <- D => lit              - lit is propagated by the clause D => lit
+    lit <- ?                     - lit is a decision literal.
+    lit <- asserted              - lit is asserted
+    lit <- Vars                  - lit is propagated from variable evaluation.
+
+    v = value <- D               - v is assigned value by constraints D
+    v = value <- ?               - v is a decision literal.
+
+    - All literals should be assigned in the stack prior to their use.
+    
+    l <- D => l,       < Vars, { l } u C >   ===>   < Vars, C u D >
+    l <- ?,            < Vars, { l } u C >   ===>   ~l <- (C & Vars = value(Vars) => ~l)
+    l <- asserted,     < Vars, { l } u C >   ===>   < Vars, { l } u C >
+    l <- Vars',        < Vars, { l } u C >   ===>   < Vars u Vars', C >          if all Vars' are propagated
+    l <- Vars',        < Vars, { l } u C >   ===>   Mark < Vars, { l } u C > as bailout
+
+    v = value <- D,  < Vars u { v }, C >     ===>   < Vars, D u C >
+    v = value <- ?,  < Vars u { v }, C >     ===>   v != value <- (C & Vars = value(Vars) => v != value)
+    
+    
+Example derivations:
+
+Trail:       z <= y  <- asserted 
+             xz > xy <- asserted 
+             x = a   <- ? 
+             y = b   <- ? 
+             z = c   <- ?   
+Conflict:    < {x, y, z}, xz > xy > when ~O(a,b) and c <= b
+Append       x <= a <- { x }
+Append       y <= b <- { y }
+Conflict:    < {}, y >= z, xz > xy, x <= a, y <= b >
+Based on:    z <= y & x <= a & y <= b => xz <= xy
+Resolve:     y <= b <- { y }, y is a decision variable.
+Bailout:     lemma ~(y >= z & xz > xy & x <= a & y <= b) at decision level of lemma
+
+With overflow predicate:
+Append       ~O(x, y) <- { x, y }                  
+Conflict:    < {}, y >= z, xz > xy, ~O(x,y) >
+Based on     z <= y & ~O(x,y) => xz <= xy
+Resolve:     ~O(x, y) <- { x, y } both x, y are decision variables
+Lemma:       y < z or xz <= xy or O(x,y)
+
+
+
+ 
+    
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
@@ -30,14 +88,11 @@ namespace polysat {
         signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
+        uint_set m_bail_vars;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
-
-        unsigned_vector m_pvar2count;             // reference count of variables
-        void inc_pref(pvar v);
-        void dec_pref(pvar v);
 
         bool_vector m_bvar2mark;                  // mark of Boolean variables
         void set_bmark(sat::bool_var b);
@@ -77,7 +132,7 @@ namespace polysat {
 
         void reset();
 
-        bool is_pmarked(pvar v) const;
+        bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool is_bmarked(sat::bool_var b) const;
 
         /** conflict because the constraint c is false under current variable assignment */
@@ -87,7 +142,9 @@ namespace polysat {
         /** all literals in clause are false */
         void set(clause const& cl);
 
+        void propagate(signed_constraint c);
         void insert(signed_constraint c);
+        void insert_vars(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> const& premises);
         void remove(signed_constraint c);
         void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises);

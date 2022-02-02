@@ -91,7 +91,7 @@ namespace polysat {
         void decide(sat::literal lit, unsigned lvl, clause& lemma);
         void decide(sat::literal lit, unsigned lvl);
         void eval(sat::literal lit, unsigned lvl);
-        void asserted(sat::literal lit, unsigned lvl, dependency dep);
+        void assumption(sat::literal lit, unsigned lvl, dependency dep);
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;

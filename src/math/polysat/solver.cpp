@@ -190,14 +190,14 @@ namespace polysat {
         switch (m_bvars.value(lit)) {
         case l_false:
             set_conflict(c);
+            SASSERT(dep == null_dependency && "track dependencies is TODO");
             break;
         case l_true:
             // constraint c is already asserted
             SASSERT(m_bvars.level(lit) <= m_level);
-            // TODO: track additional dep?
             break;
         case l_undef:
-            m_bvars.asserted(lit, m_level, dep);
+            m_bvars.assumption(lit, m_level, dep);
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(lit);
             if (c.is_currently_false(*this))
@@ -535,7 +535,7 @@ namespace polysat {
                 // Resolve over variable assignment
                 pvar v = item.var();
                 LOG(m_justification[v]);
-                if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout()) {
+                if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
                     m_search.pop_assignment();
                     continue;
                 }

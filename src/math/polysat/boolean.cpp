@@ -83,9 +83,9 @@ namespace polysat {
         SASSERT(is_value_propagation(lit));
     }
 
-    void bool_var_manager::asserted(sat::literal lit, unsigned lvl, dependency dep) {
+    void bool_var_manager::assumption(sat::literal lit, unsigned lvl, dependency dep) {
         LOG("Asserted " << lit << " @ " << lvl);
-        assign(dep == null_dependency ? kind_t::decision : kind_t::assumption, lit, lvl, nullptr, dep);
+        assign(kind_t::assumption, lit, lvl, nullptr, dep);
         SASSERT(is_decision(lit) || is_assumption(lit));
     }
 

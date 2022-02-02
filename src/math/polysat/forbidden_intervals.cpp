@@ -73,11 +73,9 @@ namespace polysat {
         // a*v <= 0, a odd
         if (match_zero(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
-
         // a*v + b > 0, a odd
         if (match_non_zero_linear(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
-
         if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
         if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi))
@@ -349,7 +347,7 @@ namespace polysat {
         signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1,
         fi_record& fi) {
-        if (a1.is_odd() && b1.is_zero() && !c.is_positive()) {
+        if (a1.is_odd() && b1.is_zero() && c.is_negative()) {
             auto& m = e1.manager();
             rational lo_val(0);
             auto lo = m.zero();
@@ -361,7 +359,7 @@ namespace polysat {
                 fi.side_cond.push_back(s.eq(b1, e1));
             return true;
         }
-        if (a1.is_odd() && b1.is_val() && !c.is_positive()) {
+        if (a1.is_odd() && b1.is_val() && c.is_negative()) {
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
             rational a1_inv;
@@ -389,7 +387,7 @@ namespace polysat {
         signed_constraint const& c,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
-        if (a2.is_one() && b2.is_val() && !c.is_positive()) {
+        if (a2.is_one() && b2.is_val() && c.is_negative()) {
             auto& m = e2.manager();
             rational const& mod_value = m.two_to_N();
             rational lo_val(mod(-b2.val() - 1, mod_value));

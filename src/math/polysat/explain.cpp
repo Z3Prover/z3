@@ -165,10 +165,9 @@ namespace polysat {
             auto c2 = s.ule(a, b);
             if (!c.is_positive())
                 c2 = ~c2;
-            LOG("try-reduce is false " << c2.is_currently_false(s));
             if (!c2.is_currently_false(s))
                 continue;
-            if (c2.bvalue(s) == l_false)
+            if (c2.is_always_false() || c2.bvalue(s) == l_false)
                 return false;
             if (!c2->has_bvar() || l_undef == c2.bvalue(s)) {
                 vector<signed_constraint> premises;

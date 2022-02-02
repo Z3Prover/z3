@@ -46,9 +46,11 @@ namespace polysat {
 
     void viable::pop_viable() {
         auto& [v, k, e] = m_trail.back();
+        SASSERT(well_formed(m_units[v]));
         switch (k) {
         case entry_kind::unit_e: 
             e->remove_from(m_units[v], e); 
+            SASSERT(well_formed(m_units[v]));
             break;
         case entry_kind::equal_e: 
             e->remove_from(m_equal_lin[v], e); 
@@ -67,13 +69,15 @@ namespace polysat {
         SASSERT(e->prev() != e || e->next() == e);
         SASSERT(k == entry_kind::unit_e);
         (void)k;
+        SASSERT(well_formed(m_units[v]));
         if (e->prev() != e) {
             e->prev()->insert_after(e);
-            if (e->interval.lo_val() < e->next()->interval.lo_val())
+            if (e->interval.lo_val() < m_units[v]->interval.lo_val())
                 m_units[v] = e;
         }
         else 
-            m_units[v] = e;        
+            m_units[v] = e;  
+        SASSERT(well_formed(m_units[v]));
         m_trail.pop_back();
     }
 
@@ -102,6 +106,7 @@ namespace polysat {
     }
 
     void viable::insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k) {
+        SASSERT(well_formed(m_units[v]));
         m_trail.push_back({ v, k, e });
         s.m_trail.push_back(trail_instr_t::viable_add_i);
         e->init(e);
@@ -109,6 +114,7 @@ namespace polysat {
             entries[v] = e;
         else
             e->insert_after(entries[v]);
+        SASSERT(well_formed(m_units[v]));
     }
 
     bool viable::intersect(pvar v, entry* ne) {
@@ -122,6 +128,7 @@ namespace polysat {
             m_alloc.push_back(ne);
             return false;
         }
+        
 
         auto create_entry = [&]() {
             m_trail.push_back({ v, entry_kind::unit_e, ne });
@@ -135,6 +142,13 @@ namespace polysat {
             s.m_trail.push_back(trail_instr_t::viable_rem_i);
             e->remove_from(m_units[v], e);
         };
+
+        if (ne->interval.is_full()) {
+            while (m_units[v]) 
+                remove_entry(m_units[v]);
+            m_units[v] = create_entry();
+            return true;
+        }
 
         if (!e) 
             m_units[v] = create_entry();
@@ -257,16 +271,21 @@ namespace polysat {
                     lo = val - lambda_l; 
                     increase_hi(hi);
                 }
-                LOG("forbidden interval " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
+                LOG("forbidden interval v" << v << " " << val << " " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
                 SASSERT(hi <= mod_value);
-                if (hi == mod_value) hi = 0;
+                bool full = (lo == 0 && hi == mod_value);                    
+                if (hi == mod_value) 
+                    hi = 0;
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
-                ne->interval = eval_interval::proper(lop, lo, hip, hi);
+                if (full)
+                    ne->interval = eval_interval::full();
+                else 
+                    ne->interval = eval_interval::proper(lop, lo, hip, hi);
                 intersect(v, ne);
                 return false;
             }
@@ -371,6 +390,8 @@ namespace polysat {
         entry* first = e;
         entry* last = e->prev();
 
+        if (e->interval.is_full())
+            return false;
         // quick check: last interval doesn't wrap around, so hi_val
         // has not been covered
         if (last->interval.lo_val() < last->interval.hi_val()) 
@@ -412,6 +433,7 @@ namespace polysat {
         }         
         return refine_viable(v, val);
     }
+
 
     rational viable::min_viable(pvar v) { 
         refined:
@@ -542,18 +564,15 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                core.insert(c);
+                core.propagate(c);
             }
-            for (auto sc : e->side_cond)
-                core.insert(sc);
-            e->src->set_var_dependent(); 
+            for (auto sc : e->side_cond) 
+                core.propagate(sc);
             core.insert(e->src);
             e = n;
         }             
         while (e != first);
 
-        // core.set_bailout();
-        // TODO - review this; c is true under current assignment?
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
                 core.reset();
@@ -606,7 +625,7 @@ namespace polysat {
 
     std::ostream& viable::display(std::ostream& out) const {
         for (pvar v = 0; v < m_units.size(); ++v)
-            display(out << "v" << v << ": ", v);
+            display(out << "v" << v << ": ", v) << "\n";
         return out;
     }
 
