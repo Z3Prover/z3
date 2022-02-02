@@ -1120,7 +1120,7 @@ namespace polysat {
                 s.check();
             }
         }
-    
+        
         // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
         // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
         // static void test_mixed_vars() {
@@ -1136,7 +1136,7 @@ namespace polysat {
     
     };  // class test_polysat
     
-    
+
     // Here we deal with linear constraints of the form
     //
     //     a1*x + b1 <= a2*x + b2   (mod m = 2^bw)
@@ -1144,7 +1144,7 @@ namespace polysat {
     // and their negation.
     
     class test_fi {
-
+        
         static bool is_violated(rational const& a1, rational const& b1, rational const& a2, rational const& b2, 
                                 rational const& val, bool negated, rational const& m) {
             rational const lhs = (a1*val + b1) % m;
@@ -1197,52 +1197,55 @@ namespace polysat {
             return true;
         }
 
-public:
-    static void exhaustive(unsigned bw = 0) {
-        if (bw == 0) {
-            exhaustive(1);
-            exhaustive(2);
-            exhaustive(3);
-            exhaustive(4);
-            exhaustive(5);
-        } else {
-            std::cout << "test_fi::exhaustive for bw=" << bw << std::endl;
-            rational const m = rational::power_of_two(bw);
-            for (rational p(1); p < m; ++p) {
-                for (rational r(1); r < m; ++r) {
-                    // TODO: remove this condition to test the cases other than disequal_lin! (also start p,q from 0)
-                    if (p == r)
-                        continue;
-                    for (rational q(0); q < m; ++q)
-                        for (rational s(0); s < m; ++s)
-                            for (rational v(0); v < m; ++v)
-                                for (bool negated : {true, false})
-                                    check_one(p, q, r, s, v, negated, bw);
+    public:
+        static void exhaustive(unsigned bw = 0) {
+            if (bw == 0) {
+                exhaustive(1);
+                exhaustive(2);
+                exhaustive(3);
+                exhaustive(4);
+                exhaustive(5);
+            }
+            else {
+                std::cout << "test_fi::exhaustive for bw=" << bw << std::endl;
+                rational const m = rational::power_of_two(bw);
+                for (rational p(1); p < m; ++p) {
+                    for (rational r(1); r < m; ++r) {
+                        // TODO: remove this condition to test the cases other than disequal_lin! (also start p,q from 0)
+                        if (p == r)
+                            continue;
+                        for (rational q(0); q < m; ++q)
+                            for (rational s(0); s < m; ++s)
+                                for (rational v(0); v < m; ++v)
+                                    for (bool negated : {true, false})
+                                        check_one(p, q, r, s, v, negated, bw);
+                    }
                 }
             }
         }
-
-    static void randomized(unsigned num_rounds = 100'000, unsigned bw = 16) {
-        std::cout << "test_fi::randomized for bw=" << bw << " (" << num_rounds << " rounds)" << std::endl;
-        rational const m = rational::power_of_two(bw);
-        VERIFY(bw <= 32 && "random_gen generates 32-bit numbers");
-        random_gen rng;
-        unsigned round = num_rounds;
-        while (round) {
-            // rational a1 = (rational(rng()) % (m - 1)) + 1;
-            // rational a2 = (rational(rng()) % (m - 1)) + 1;
-            rational a1 = rational(rng()) % m;
-            rational a2 = rational(rng()) % m;
-            if (a1.is_zero() || a2.is_zero() || a1 == a2)
-                continue;
-            rational b1 = rational(rng()) % m;
-            rational b2 = rational(rng()) % m;
-            rational val = rational(rng()) % m;
-            bool useful =
-                check_one(a1, b1, a2, b2, val, true, bw)
-                || check_one(a1, b1, a2, b2, val, false, bw);
-            if (useful)
-                round--;
+            
+        static void randomized(unsigned num_rounds = 100000, unsigned bw = 16) {
+            std::cout << "test_fi::randomized for bw=" << bw << " (" << num_rounds << " rounds)" << std::endl;
+            rational const m = rational::power_of_two(bw);
+            VERIFY(bw <= 32 && "random_gen generates 32-bit numbers");
+            random_gen rng;
+            unsigned round = num_rounds;
+            while (round) {
+                // rational a1 = (rational(rng()) % (m - 1)) + 1;
+                // rational a2 = (rational(rng()) % (m - 1)) + 1;
+                rational a1 = rational(rng()) % m;
+                rational a2 = rational(rng()) % m;
+                if (a1.is_zero() || a2.is_zero() || a1 == a2)
+                    continue;
+                rational b1 = rational(rng()) % m;
+                rational b2 = rational(rng()) % m;
+                rational val = rational(rng()) % m;
+                bool useful =
+                    check_one(a1, b1, a2, b2, val, true, bw)
+                    || check_one(a1, b1, a2, b2, val, false, bw);
+                if (useful)
+                    round--;
+            }
         }
         
     };  // class test_fi
