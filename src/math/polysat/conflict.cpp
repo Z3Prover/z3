@@ -26,6 +26,7 @@ Notes:
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
 #include "math/polysat/explain.h"
+#include "math/polysat/solve_explain.h"
 #include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
@@ -35,6 +36,7 @@ namespace polysat {
 
     conflict::conflict(solver& s):s(s) {
         ex_engines.push_back(alloc(ex_polynomial_superposition, s));
+        ex_engines.push_back(alloc(solve_explain, s));
         ve_engines.push_back(alloc(ve_reduction));
         inf_engines.push_back(alloc(inf_saturate, s));
     }

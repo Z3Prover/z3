@@ -28,7 +28,7 @@ namespace polysat {
     public:
         explainer(solver& s) :s(s) {}
         virtual ~explainer() {}
-        virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict& core) = 0;
+        virtual bool try_explain(pvar v, conflict& core) = 0;
     };
 
     class ex_polynomial_superposition : public explainer {
@@ -43,46 +43,4 @@ namespace polysat {
         bool try_explain(pvar v, conflict& core) override;
     };
 
-
-
-
-
-
-
-#if 0
-    class conflict_explainer {
-        solver& m_solver;
-
-        // conflict m_conflict;
-        vector<constraint> m_new_assertions;  // to be inserted into Gamma (conclusions from saturation)
-
-        scoped_ptr_vector<inference_engine> inference_engines;
-
-        bool push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
-
-        // Gamma
-        // search_state& search() { return m_solver.m_search; }
-        // Core
-        // conflict& conflict() { return m_solver.m_conflict; }
-    public:
-        /** Create empty conflict */
-        conflict_explainer(solver& s);
-
-        /** Perform one step of core saturation, if possible.
-         *  Core saturation derives new constraints according applicable inference rules.
-         */
-        bool saturate();
-
-        /** resolve conflict state against assignment to v */
-        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);
-        void resolve(sat::literal lit);
-
-        // TODO: move conflict resolution from solver into this class.
-        //       we have a single public method as entry point to conflict resolution.
-        //       what do we need to return?
-
-        /** conflict resolution until first (relevant) decision */
-        void resolve();
-    };
-#endif
 }

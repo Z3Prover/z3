@@ -17,6 +17,7 @@ z3_add_component(polysat
     simplify.cpp
     op_constraint.cpp
     solver.cpp
+    solve_explain.cpp
     ule_constraint.cpp
     viable.cpp
     variable_elimination.cpp
