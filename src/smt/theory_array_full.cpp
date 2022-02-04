@@ -181,6 +181,17 @@ namespace smt {
         }
     }
 
+    void theory_array_full::add_lambda(theory_var v, enode* lam) {
+        var_data * d  = m_var_data[v];
+        unsigned lambda_equiv_class_size = get_lambda_equiv_size(v, d);
+        if (m_params.m_array_always_prop_upward || lambda_equiv_class_size >= 1) 
+            set_prop_upward(v, d);
+        ptr_vector<enode> & lambdas = m_var_data_full[v]->m_lambdas;
+        m_trail_stack.push(push_back_trail<enode *, false>(lambdas));
+        lambdas.push_back(lam);
+        instantiate_default_lambda_def_axiom(lam);        
+    }
+
     void theory_array_full::add_as_array(theory_var v, enode* arr) {
         var_data * d  = m_var_data[v];
         unsigned lambda_equiv_class_size = get_lambda_equiv_size(v, d);
@@ -237,6 +248,10 @@ namespace smt {
         else if (is_as_array(n)) {
             instantiate_default_as_array_axiom(n);
             d->m_as_arrays.push_back(n);
+        }
+        else if (m.is_lambda_def(n->get_decl())) {
+            instantiate_default_lambda_def_axiom(n);
+            d->m_lambdas.push_back(n);
         }
         return r;
     }
@@ -331,18 +346,16 @@ namespace smt {
         // v1 is the new root
         SASSERT(v1 == find(v1));
         var_data_full * d2 = m_var_data_full[v2];
-        for (enode * n : d2->m_maps) {
+        for (enode * n : d2->m_maps) 
             add_map(v1, n);
-        }
-        for (enode * n : d2->m_parent_maps) {
+        for (enode * n : d2->m_parent_maps) 
             add_parent_map(v1, n);
-        }
-        for (enode * n : d2->m_consts) {
+        for (enode * n : d2->m_consts) 
             add_const(v1, n);
-        }
-        for (enode * n : d2->m_as_arrays) {
+        for (enode * n : d2->m_as_arrays) 
             add_as_array(v1, n);
-        }
+        for (enode* n : d2->m_lambdas)
+            add_lambda(v1, n);
         TRACE("array", 
               tout << pp(get_enode(v1), m) << "\n";
               tout << pp(get_enode(v2), m) << "\n";
@@ -576,6 +589,23 @@ namespace smt {
         return try_assign_eq(val.get(), def);
 #endif
     }
+
+    bool theory_array_full::instantiate_default_lambda_def_axiom(enode* arr) {
+        if (!ctx.add_fingerprint(this, m_default_lambda_fingerprint, 1, &arr))
+            return false;
+        m_stats.m_num_default_lambda_axiom++;
+        expr* def = mk_default(arr->get_expr());
+        quantifier* lam = m.is_lambda_def(arr->get_decl());
+        expr_ref_vector args(m);
+        args.push_back(lam);
+        for (unsigned i = 0; i < lam->get_num_decls(); ++i) 
+            args.push_back(mk_epsilon(lam->get_decl_sort(i)).first);
+        expr_ref val(mk_select(args), m);
+        ctx.internalize(def, false);
+        ctx.internalize(val.get(), false);
+        return try_assign_eq(val.get(), def);
+    }
+
 
     bool theory_array_full::has_unitary_domain(app* array_term) {
         SASSERT(is_array_sort(array_term));
@@ -863,5 +893,6 @@ namespace smt {
         st.update("array def store", m_stats.m_num_default_store_axiom);
         st.update("array def as-array", m_stats.m_num_default_as_array_axiom);
         st.update("array sel as-array", m_stats.m_num_select_as_array_axiom);
+        st.update("array def lambda", m_stats.m_num_default_lambda_axiom);
     }
 }
