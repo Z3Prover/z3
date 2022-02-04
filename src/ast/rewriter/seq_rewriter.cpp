@@ -5531,44 +5531,37 @@ lbool seq_rewriter::eq_length(expr* x, expr* y) {
     maximal length (the sequence is bounded).
 */
 
-bool seq_rewriter::min_length(expr* e, unsigned& len) {
+bool seq_rewriter::min_length(unsigned sz, expr* const* ss, unsigned& len) {
+    ptr_buffer<expr> es;
+    for (unsigned i = 0; i < sz; ++i)
+        es.push_back(ss[i]);
     zstring s;
     len = 0;
-    if (str().is_unit(e)) {
-        len = 1;
-        return true;
+    bool bounded = true;
+    while (!es.empty()) {
+        expr* e = es.back();
+        es.pop_back();
+        if (str().is_unit(e)) 
+            len += 1;
+        else if (str().is_empty(e)) 
+            continue;
+        else if (str().is_string(e, s)) 
+            len += s.length();
+        else if (str().is_concat(e)) 
+            for (expr* arg : *to_app(e))
+                es.push_back(arg);
+        else
+            bounded = false;
     }
-    else if (str().is_empty(e)) {
-        len = 0;
-        return true;
-    }
-    else if (str().is_string(e, s)) {
-        len = s.length();
-        return true;
-    }
-    else if (str().is_concat(e)) {
-        unsigned min_l = 0;
-        bool bounded = true;
-        for (expr* arg : *to_app(e)) {
-            if (!min_length(arg, min_l))
-                bounded = false;
-            len += min_l;
-        }
-        return bounded;
-    }
-    return false;
+    return bounded;
+}
+
+bool seq_rewriter::min_length(expr* e, unsigned& len) {
+    return min_length(1, &e, len);
 }
 
 bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
-    unsigned min_l = 0;
-    bool bounded = true;
-    len = 0;
-    for (expr* arg : es) {
-        if (!min_length(arg, min_l))
-            bounded = false;
-        len += min_l;
-    }
-    return bounded;
+    return min_length(es.size(), es.data(), len);
 }
 
 bool seq_rewriter::max_length(expr* e, rational& len) {

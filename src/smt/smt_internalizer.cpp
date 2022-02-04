@@ -605,6 +605,8 @@ namespace smt {
         bool_var bv = get_bool_var(fa);
         assign(literal(bv, false), nullptr);
         mark_as_relevant(bv);
+        push_trail(value_trail<bool>(m_has_lambda));
+        m_has_lambda = true;
     }
 
     /**

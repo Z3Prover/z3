@@ -21,6 +21,7 @@ Author:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/sat_simplifier_params.hpp"
+#include "sat/sat_scc.h"
 
 namespace pb {
 
@@ -1422,7 +1423,7 @@ namespace pb {
             c->watch_literal(*this, ~lit);
         }     
         if (!c->well_formed()) 
-            std::cout << *c << "\n";
+            IF_VERBOSE(0, verbose_stream() << *c << "\n");
         VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
             std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
@@ -3133,32 +3134,35 @@ namespace pb {
     void solver::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
         sat::literal_set slits(lits);
         bool change = false;
+        
         for (constraint* cp : m_constraints) {
-            if (!cp->is_card()) continue;
+            if (!cp->is_card()) 
+                continue;
+            if (cp->lit() != sat::null_literal)
+                continue;
             card const& c = cp->to_card();
-            if (c.size() == c.k() + 1) {
-                literal_vector mux;
-                for (literal lit : c) {
-                    if (slits.contains(~lit)) {
-                        mux.push_back(~lit);
-                    }
-                }
-                if (mux.size() <= 1) {
-                    continue;
-                }
+            if (c.size() != c.k() + 1) 
+                continue;
 
-                for (literal m : mux) {
-                    slits.remove(m);
-                }
-                change = true;
-                mutexes.push_back(mux);
-            }
+            literal_vector mux;
+            for (literal lit : c) 
+                if (slits.contains(~lit)) 
+                    mux.push_back(~lit);
+
+            if (mux.size() <= 1) 
+                continue;
+            
+            for (literal m : mux) 
+                slits.remove(m);
+
+            change = true;
+            mutexes.push_back(mux);            
         }        
-        if (!change) return;
+        if (!change) 
+            return;
         lits.reset();
-        for (literal l : slits) {
+        for (literal l : slits) 
             lits.push_back(l);
-        }
     }
 
     void solver::display(std::ostream& out, ineq const& ineq, bool values) const {

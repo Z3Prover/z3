@@ -56,6 +56,8 @@ namespace smt {
             return out;
         case QUANTIFIERS:
             return out << "QUANTIFIERS";
+        case LAMBDAS:
+            return out << "LAMBDAS";
         }
         UNREACHABLE();
         return out << "?";
@@ -79,6 +81,7 @@ namespace smt {
         }
         case RESOURCE_LIMIT: r = "(resource limits reached)"; break;
         case QUANTIFIERS: r = "(incomplete quantifiers)"; break;
+        case LAMBDAS: r = "(incomplete lambdas)"; break;
         case UNKNOWN: r = m_unknown; break;
         }
         return r;
