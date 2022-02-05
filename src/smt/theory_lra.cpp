@@ -65,8 +65,6 @@ class theory_lra::imp {
         unsigned m_idiv_lim;
         unsigned m_asserted_qhead;            
         unsigned m_asserted_atoms_lim;
-        unsigned m_underspecified_lim;
-        expr*    m_not_handled;
     };
 
     struct delayed_atom {
@@ -161,7 +159,7 @@ class theory_lra::imp {
     svector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
 
     svector<delayed_atom>  m_asserted_atoms;        
-    expr*                  m_not_handled;
+    ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<expr>       m_idiv_terms;
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
@@ -299,14 +297,15 @@ class theory_lra::imp {
     }
 
     void found_unsupported(expr* n) {
-        ctx().push_trail(value_trail<expr*>(m_not_handled));
-        TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n";);
-        m_not_handled = n;    
-    }
+        ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_not_handled));
+        TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n");
+        m_not_handled.push_back(n);
+    } 
 
     void found_underspecified(expr* n) {
         if (a.is_underspecified(n)) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
+            ctx().push_trail(push_back_vector<ptr_vector<app>>(m_underspecified));
             m_underspecified.push_back(to_app(n));
         }
         expr* e = nullptr, *x = nullptr, *y = nullptr;
@@ -857,7 +856,6 @@ public:
         m_zero_var(UINT_MAX),
         m_rone_var(UINT_MAX),
         m_rzero_var(UINT_MAX),
-        m_not_handled(nullptr),
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
         m_num_conflicts(0),
@@ -1052,8 +1050,6 @@ public:
         sc.m_asserted_qhead = m_asserted_qhead;
         sc.m_idiv_lim = m_idiv_terms.size();
         sc.m_asserted_atoms_lim = m_asserted_atoms.size();
-        sc.m_not_handled = m_not_handled;
-        sc.m_underspecified_lim = m_underspecified.size();
         lp().push();
         if (m_nla)
             m_nla->push();
@@ -1070,8 +1066,6 @@ public:
         m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
-        m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
-        m_not_handled = m_scopes[old_size].m_not_handled;
         m_scopes.resize(old_size);            
         lp().pop(num_scopes);
         // VERIFY(l_false != make_feasible());
@@ -1567,9 +1561,9 @@ public:
             if (assume_eqs()) {
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
-            }    
-            if (m_not_handled != nullptr) {
-                TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
+            }
+            for (expr* e : m_not_handled) {
+                TRACE("arith", tout << "unhandled operator " << mk_pp(e, m) << "\n";);        
                 st = FC_GIVEUP;
             }                
             return st;
@@ -2020,9 +2014,8 @@ public:
        Use the set to determine if a variable is shared.
     */
     bool is_shared(theory_var v) const {
-        if (m_underspecified.empty()) {
+        if (m_underspecified.empty()) 
             return false;
-        }
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         unsigned usz   = m_underspecified.size();
@@ -2031,19 +2024,15 @@ public:
             for (unsigned i = 0; i < usz; ++i) {
                 app* u = m_underspecified[i];
                 unsigned sz = u->get_num_args();
-                for (unsigned j = 0; j < sz; ++j) {
-                    if (ctx().get_enode(u->get_arg(j))->get_root() == r) {
+                for (unsigned j = 0; j < sz; ++j) 
+                    if (ctx().get_enode(u->get_arg(j))->get_root() == r) 
                         return true;
-                    }
-                }
             }
         }
         else {
-            for (enode * parent : r->get_const_parents()) {
-                if (a.is_underspecified(parent->get_expr())) {
+            for (enode * parent : r->get_const_parents()) 
+                if (a.is_underspecified(parent->get_expr())) 
                     return true;
-                }
-            }
         }
         return false;
     }
@@ -3199,7 +3188,7 @@ public:
         m_arith_eq_adapter.reset_eh();
         m_solver = nullptr;
         m_internalize_head = 0;
-        m_not_handled = nullptr;
+        m_not_handled.reset();
         del_bounds(0);
         m_unassigned_bounds.reset();
         m_asserted_qhead  = 0;
