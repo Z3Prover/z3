@@ -2015,8 +2015,7 @@ class QuantifierRef(BoolRef):
         """
         if z3_debug():
             _z3_assert(self.is_lambda(), "quantifier should be a lambda expression")
-        arg = self.sort().domain().cast(arg)
-        return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
+        return _array_select(self, arg)
 
     def weight(self):
         """Return the weight annotation of `self`.
@@ -4546,13 +4545,21 @@ class ArrayRef(ExprRef):
         >>> a[i].sexpr()
         '(select a i)'
         """
-        arg = self.domain().cast(arg)
-        return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
+        return _array_select(self, arg)
 
     def default(self):
         return _to_expr_ref(Z3_mk_array_default(self.ctx_ref(), self.as_ast()), self.ctx)
 
 
+def _array_select(ar, arg):
+    if isinstance(arg, tuple):
+        args = [ar.domain().cast(a) for a in arg]
+        _args, sz = _to_ast_array(args)
+        return _to_expr_ref(Z3_mk_select_n(ar.ctx_ref(), ar.as_ast(), sz, _args), ar.ctx)
+    arg = ar.domain().cast(arg)
+    return _to_expr_ref(Z3_mk_select(ar.ctx_ref(), ar.as_ast(), arg.as_ast()), ar.ctx)
+
+    
 def is_array_sort(a):
     return Z3_get_sort_kind(a.ctx.ref(), Z3_get_sort(a.ctx.ref(), a.ast)) == Z3_ARRAY_SORT
 
