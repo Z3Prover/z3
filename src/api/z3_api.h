@@ -4358,10 +4358,26 @@ extern "C" {
 
        \sa Z3_mk_array_sort
        \sa Z3_get_sort_kind
+       \sa Z3_get_array_sort_domain_n
 
        def_API('Z3_get_array_sort_domain', SORT, (_in(CONTEXT), _in(SORT)))
     */
     Z3_sort Z3_API Z3_get_array_sort_domain(Z3_context c, Z3_sort t);
+
+
+    /**
+       \brief Return the i'th domain sort of an n-dimensional array.
+
+       \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
+
+       \sa Z3_mk_array_sort
+       \sa Z3_get_sort_kind
+       \sa Z3_get_array_sort_domain
+
+       def_API('Z3_get_array_sort_domain_n', SORT, (_in(CONTEXT), _in(SORT), _in(UINT)))
+       
+     */
+    Z3_sort Z3_API Z3_get_array_sort_domain_n(Z3_context c, Z3_sort t, unsigned idx);
 
     /**
        \brief Return the range of the given array sort.

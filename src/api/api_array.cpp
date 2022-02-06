@@ -309,6 +309,22 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_sort Z3_API Z3_get_array_sort_domain_n(Z3_context c, Z3_sort t, unsigned idx) {
+        Z3_TRY;
+        LOG_Z3_get_array_sort_domain_n(c, t, idx);
+        RESET_ERROR_CODE();
+        CHECK_VALID_AST(t, nullptr);
+        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
+            to_sort(t)->get_decl_kind() == ARRAY_SORT &&
+            get_array_arity(to_sort(t)) > idx) {
+            Z3_sort r = reinterpret_cast<Z3_sort>(get_array_domain(to_sort(t), idx));
+            RETURN_Z3(r);
+        }
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+        RETURN_Z3(nullptr);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_sort Z3_API Z3_get_array_sort_range(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_get_array_sort_range(c, t);
