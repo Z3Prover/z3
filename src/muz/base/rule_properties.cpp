@@ -210,19 +210,19 @@ bool rule_properties::check_accessor(app* n) {
     SASSERT(m_dt.is_datatype(s));
     if (m_dt.get_datatype_constructors(s)->size() <= 1)
         return true;
-
     
     func_decl* f = n->get_decl();
     func_decl * c = m_dt.get_accessor_constructor(f);
     unsigned ut_size = m_rule->get_uninterpreted_tail_size();
     unsigned t_size  = m_rule->get_tail_size();
+    ptr_vector<expr> recognizers;
 
     auto is_recognizer_base = [&](expr* t) {
         return m_dt.is_recognizer(t) &&
             to_app(t)->get_arg(0) == n->get_arg(0) &&
             m_dt.get_recognizer_constructor(to_app(t)->get_decl()) == c;
     };
-    
+    // t is a recognizer for n
     auto is_recognizer = [&](expr* t) {
         if (m.is_and(t))
             for (expr* arg : *to_app(t))
@@ -231,11 +231,13 @@ bool rule_properties::check_accessor(app* n) {
         return is_recognizer_base(t);
     };
 
-    
-    for (unsigned i = ut_size; i < t_size; ++i)
-        if (is_recognizer(m_rule->get_tail(i)))
+    for (unsigned i = ut_size; i < t_size; ++i) {
+        auto *tail = m_rule->get_tail(i);
+        if (is_recognizer(tail))
             return true;
-
+        if (m.is_not(tail) && m_dt.is_recognizer(to_app(tail)->get_arg(0)))
+            recognizers.push_back(to_app(tail)->get_arg(0));
+    }
 
     // create parent use list for every sub-expression in the rule
     obj_map<expr, ptr_vector<expr>> use_list;
@@ -256,18 +258,62 @@ bool rule_properties::check_accessor(app* n) {
         if (!use_list.contains(e))
             return false;
         for (expr* parent : use_list[e]) {
-            if (!parent)
-                return false; // top-level expressions are not guarded
-            if (is_recognizer(parent)) 
+            if (!parent) { // top-level expression
+                // check if n is an unguarded "else" branch
+                ptr_vector<func_decl> ctors;
+                for (auto *rc : recognizers)
+                    if (to_app(rc)->get_arg(0) == n->get_arg(0))
+                        ctors.push_back(m_dt.get_recognizer_constructor(to_app(rc)->get_decl()));
+                ptr_vector<func_decl> diff;
+                for (auto *dtc : *m_dt.get_datatype_constructors(s))
+                    if (std::find(ctors.begin(), ctors.end(), dtc) == ctors.end())
+                        diff.push_back(dtc);
+                // the only unguarded constructor for s is c:
+                // all the others are guarded and we are in an "else" branch so the accessor is safe
+                if (diff.size() == 1 && diff[0] == c)
+                    continue;
+                return false; // the accessor is not safe
+            }
+            if (is_recognizer_base(parent))
                 continue;
-            if (m.is_ite(parent) && to_app(parent)->get_arg(1) == e && is_recognizer(to_app(parent)->get_arg(0))) 
-                continue;
-            todo.push_back(parent);                
+            if (m.is_ite(parent)) {
+                if (to_app(parent)->get_arg(1) == e && is_recognizer(to_app(parent)->get_arg(0)))
+                    continue; // e is guarded
+                else
+                    if (m_dt.is_recognizer(to_app(parent)->get_arg(0)))
+                        recognizers.push_back(to_app(parent)->get_arg(0)); // e is in the else branch of the ite
+            }
+            if (m.is_or(parent)) {
+                for (expr *arg : *to_app(parent)) {
+                    // if all branches are guarded the remaining one might be safe
+                    if (m_dt.is_recognizer(arg))
+                        recognizers.push_back(arg);
+                    // if one branch is not(recognizer) then the accessor is safe
+                    if (m.is_not(arg)) {
+                        if (is_recognizer(to_app(arg)->get_arg(0)))
+                            goto _continue;
+                    }
+                }
+            }
+            if (m.is_and(parent)) {
+                for (expr *arg : *to_app(parent)) {
+                    // if one branch is guarded the accessor is safe
+                    if (is_recognizer(arg))
+                        goto _continue;
+                    // if all branches are not(recognizer) the remaining one might be safe
+                    if (m.is_not(arg)) {
+                        auto *neg_rec = to_app(arg)->get_arg(0);
+                        if (m_dt.is_recognizer(neg_rec))
+                            recognizers.push_back(neg_rec);
+                    }
+                }
+            }
+            todo.push_back(parent);
+        _continue:;
         }
     }
-    
+
     return true;
-    
 }
 
 void rule_properties::operator()(app* n) {
