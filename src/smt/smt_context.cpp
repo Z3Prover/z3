@@ -4613,6 +4613,22 @@ namespace smt {
         return result;
     }
 
+    void context::get_units(expr_ref_vector& result) {
+        expr_mark visited;
+        for (expr* fml : result)
+            visited.mark(fml);
+        for (literal lit : m_assigned_literals) {
+            if (get_assign_level(lit) > m_base_lvl)
+                break;
+            expr_ref e(m);
+            literal2expr(lit, e);
+            if (visited.is_marked(e))
+                continue;
+            result.push_back(std::move(e));
+        }
+    }
+
+
     failure context::get_last_search_failure() const {
         return m_last_search_failure;
     }

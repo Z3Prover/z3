@@ -202,6 +202,12 @@ namespace smt {
            \brief Return the set of formulas assigned by the kernel.
         */
         void get_assignments(expr_ref_vector & result);
+
+
+        /**
+           \brief Return units assigned by the kernel.
+        */
+        void get_units(expr_ref_vector& result);
         
         /**
            \brief Return the set of relevant labels in the last check command.

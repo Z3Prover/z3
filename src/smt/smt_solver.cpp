@@ -318,6 +318,10 @@ namespace {
             return m_context.get_formula(idx);
         }
 
+        void get_units_core(expr_ref_vector& units) override {
+            m_context.get_units(units);
+        }
+
         expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
             if (!m_cuber) {

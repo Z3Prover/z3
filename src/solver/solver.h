@@ -261,6 +261,8 @@ public:
     */
     expr_ref_vector get_units();
 
+    virtual void get_units_core(expr_ref_vector& units) {} 
+
     expr_ref_vector get_non_units();
 
     virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }

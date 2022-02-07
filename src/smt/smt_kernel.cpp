@@ -177,6 +177,10 @@ namespace smt {
     void kernel::get_assignments(expr_ref_vector & result) {
         m_imp->m_kernel.get_assignments(result);
     }
+
+    void kernel::get_units(expr_ref_vector & result) {
+        m_imp->m_kernel.get_units(result);
+    }    
         
     void kernel::get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
         m_imp->m_kernel.get_relevant_labels(cnstr, result);

@@ -1691,6 +1691,8 @@ namespace smt {
 
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
 
+        void get_units(expr_ref_vector& result);
+
         /*
          * user-propagator
          */
