@@ -4054,6 +4054,17 @@ public class Context implements AutoCloseable {
         );
     }
 
+    public <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkPartialOrder(
+                    nCtx(),
+                    sort.getNativeObject(),
+                    index
+                )
+        );
+    }
+
     /**
      * Wraps an AST.
      * Remarks: This function is used for transitions between
