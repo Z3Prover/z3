@@ -1995,7 +1995,7 @@ class MLComponent(Component):
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
 
-            stubs_install_path = '$$(%s printconf path)/stublibs' % OCAMLFIND
+            stubs_install_path = '$$(%s printconf destdir)/stublibs' % OCAMLFIND
             if not STATIC_LIB:
                 loadpath = '-ccopt -L' + stubs_install_path
                 dllpath = '-dllpath ' + stubs_install_path
