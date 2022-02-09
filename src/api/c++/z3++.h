@@ -155,6 +155,7 @@ namespace z3 {
 
     class context {
     private:
+        friend class user_propagator_base;
         bool       m_enable_exceptions;
         rounding_mode m_rounding_mode;
         Z3_context m_ctx;
@@ -3936,7 +3937,7 @@ namespace z3 {
         typedef std::function<void(expr const&, expr const&)> fixed_eh_t;
         typedef std::function<void(void)> final_eh_t;
         typedef std::function<void(expr const&, expr const&)> eq_eh_t;
-        typedef std::function<void(expr const&, expr const&)> created_eh_t;
+        typedef std::function<void(expr const&)> created_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
@@ -3978,13 +3979,15 @@ namespace z3 {
             scoped_context ctx(p->ctx());
             expr value(ctx(), _value);
             expr var(ctx(), _var);
-            static_cast<user_propagator_base*>(p)->m_fixed_eh(var, value);
+            p->m_fixed_eh(var, value);
         }
 
-        static void eq_eh(void* p, Z3_solver_callback cb, Z3_ast _x, Z3_ast _y) {
+        static void eq_eh(void* _p, Z3_solver_callback cb, Z3_ast _x, Z3_ast _y) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
+            scoped_context ctx(p->ctx());            
             expr x(ctx(), _x), y(ctx(), _y);
-            static_cast<user_propagator_base*>(p)->m_eq_eh(x, y);
+            p->m_eq_eh(x, y);
         }
 
         static void final_eh(void* p, Z3_solver_callback cb) {
@@ -3995,9 +3998,9 @@ namespace z3 {
         static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            scoped_context ctx(p->ctx());
+            scoped_context ctx(p->ctx());            
             expr e(ctx(), _e);
-            static_cast<user_propagator_base*>(p)->m_created_eh(e);
+            p->m_created_eh(e);
         }
 
 
@@ -4148,7 +4151,7 @@ namespace z3 {
             array<Z3_ast> _lhs(lhs);
             array<Z3_ast> _rhs(rhs);
             
-            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr, lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
+            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
     };
 
