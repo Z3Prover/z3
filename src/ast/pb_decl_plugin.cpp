@@ -35,7 +35,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     ast_manager& m = *m_manager;
     for (unsigned i = 0; i < arity; ++i) 
         if (!m.is_bool(domain[i])) 
-            m.raise_exception("invalid non-Boolean sort applied to 'at-most'");
+            m.raise_exception("invalid non-Boolean sort applied to Pseudo-Boolean relation");
     symbol sym;
     switch(k) {
     case OP_AT_LEAST_K: sym = m_at_least_sym; break;
