@@ -1433,10 +1433,10 @@ Z3_DECLARE_CLOSURE(Z3_error_handler, void, (Z3_context c, Z3_error_code e));
 Z3_DECLARE_CLOSURE(Z3_push_eh,    void, (void* ctx));
 Z3_DECLARE_CLOSURE(Z3_pop_eh,     void, (void* ctx, unsigned num_scopes));
 Z3_DECLARE_CLOSURE(Z3_fresh_eh,   void*, (void* ctx, Z3_context new_context));
-Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value));
-Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, unsigned x, unsigned y));
+Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, Z3_ast t, Z3_ast value));
+Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_ast s, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
-Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast e, unsigned id));
+Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 
 
 /**
@@ -6764,7 +6764,7 @@ extern "C" {
        def_API('Z3_solver_propagate_register', UINT, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
 
-    unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);   
+    void Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);   
 
     /**
         \brief register an expression to propagate on with the solver.
@@ -6774,7 +6774,7 @@ extern "C" {
 
         def_API('Z3_solver_propagate_register_cb', UINT, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST)))
     */
-    unsigned Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
+    void Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
 
     /**
        \brief propagate a consequence based on fixed values.
@@ -6782,10 +6782,10 @@ extern "C" {
        The callback adds a propagation consequence based on the fixed values of the
        \c ids. 
        
-       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, UINT), _in(UINT), _in_array(4, UINT), _in_array(4, UINT), _in(AST)))
+       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
     
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, Z3_ast conseq);
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

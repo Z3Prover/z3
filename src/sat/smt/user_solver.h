@@ -29,13 +29,13 @@ namespace user_solver {
     class solver : public euf::th_euf_solver, public user_propagator::callback {
 
         struct prop_info {
-            unsigned_vector m_ids;
-            expr_ref        m_conseq;
-            svector<std::pair<unsigned, unsigned>> m_eqs;
+            unsigned_vector  m_ids;
+            expr_ref         m_conseq;
+            svector<std::pair<expr*, expr*>> m_eqs;
             sat::literal_vector                    m_lits;
-            euf::theory_var                        m_var = euf::null_theory_var;
+            euf::theory_var                  m_var = euf::null_theory_var;
 
-            prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
+            prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr_ref const& c):
                 m_ids(num_fixed, fixed_ids),
                 m_conseq(c)
             {
@@ -72,6 +72,7 @@ namespace user_solver {
         vector<sat::literal_vector> m_id2justification;
         sat::literal_vector         m_lits;
         euf::enode_pair_vector      m_eqs;
+        unsigned_vector             m_fixed_ids;
         stats                  m_stats;
 
         struct justification {
@@ -118,7 +119,7 @@ namespace user_solver {
             m_fresh_eh     = fresh_eh;
         }
 
-        unsigned add_expr(expr* e);
+        void add_expr(expr* e);
 
         void register_final(user_propagator::final_eh_t& final_eh) { m_final_eh = final_eh; }
         void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
@@ -128,8 +129,8 @@ namespace user_solver {
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
-        void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* lhs, unsigned const* rhs, expr* conseq) override;
-        unsigned register_cb(expr* e) override;
+        void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
+        void register_cb(expr* e) override;
 
         void new_fixed_eh(euf::theory_var v, expr* value, unsigned num_lits, sat::literal const* jlits);
 

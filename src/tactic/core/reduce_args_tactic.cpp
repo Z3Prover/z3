@@ -78,7 +78,7 @@ public:
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     void cleanup() override;
-    unsigned user_propagate_register_expr(expr* e) override;
+    void user_propagate_register_expr(expr* e) override;
     void user_propagate_clear() override;
 };
 
@@ -502,9 +502,8 @@ void reduce_args_tactic::cleanup() {
     m_imp->m_vars.append(vars);
 }
 
-unsigned reduce_args_tactic::user_propagate_register_expr(expr* e) {
+void reduce_args_tactic::user_propagate_register_expr(expr* e) {
     m_imp->m_vars.push_back(e);
-    return 0;
 }
 
 void reduce_args_tactic::user_propagate_clear() {

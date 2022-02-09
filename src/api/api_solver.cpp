@@ -902,7 +902,7 @@ extern "C" {
         Z3_fixed_eh fixed_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::fixed_eh_t _fixed = (void(*)(void*,user_propagator::callback*,unsigned,expr*))fixed_eh;
+        user_propagator::fixed_eh_t _fixed = (void(*)(void*,user_propagator::callback*,expr*,expr*))fixed_eh;
         to_solver_ref(s)->user_propagate_register_fixed(_fixed);
         Z3_CATCH;        
     }
@@ -924,7 +924,7 @@ extern "C" {
         Z3_eq_eh eq_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::eq_eh_t _eq = (void(*)(void*,user_propagator::callback*,unsigned,unsigned))eq_eh;
+        user_propagator::eq_eh_t _eq = (void(*)(void*,user_propagator::callback*,expr*,expr*))eq_eh;
         to_solver_ref(s)->user_propagate_register_eq(_eq);
         Z3_CATCH;        
     }
@@ -935,39 +935,42 @@ extern "C" {
         Z3_eq_eh    diseq_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::eq_eh_t _diseq = (void(*)(void*,user_propagator::callback*,unsigned,unsigned))diseq_eh;
+        user_propagator::eq_eh_t _diseq = (void(*)(void*,user_propagator::callback*,expr*,expr*))diseq_eh;
         to_solver_ref(s)->user_propagate_register_diseq(_diseq);
         Z3_CATCH;        
     }
 
-    unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e) {
+    void Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e) {
         Z3_TRY;
         LOG_Z3_solver_propagate_register(c, s, e);
         RESET_ERROR_CODE();
-        return to_solver_ref(s)->user_propagate_register_expr(to_expr(e));
-        Z3_CATCH_RETURN(0);
+        to_solver_ref(s)->user_propagate_register_expr(to_expr(e));
+        Z3_CATCH;        
     }
 
-    unsigned Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback s, Z3_ast e) {
+    void Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback s, Z3_ast e) {
         Z3_TRY;
         LOG_Z3_solver_propagate_register_cb(c, s, e);
         RESET_ERROR_CODE();
-        return reinterpret_cast<user_propagator::callback*>(s)->register_cb(to_expr(e));
-        Z3_CATCH_RETURN(0);
+        reinterpret_cast<user_propagator::callback*>(s)->register_cb(to_expr(e));
+        Z3_CATCH;
     }
 
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, Z3_ast conseq) {
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, Z3_ast const* fixed_ids, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq) {
         Z3_TRY;
         LOG_Z3_solver_propagate_consequence(c, s, num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, conseq);
         RESET_ERROR_CODE();
-        reinterpret_cast<user_propagator::callback*>(s)->propagate_cb(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, to_expr(conseq));
+        expr* const * _fixed_ids = (expr* const*) fixed_ids;
+        expr* const * _eq_lhs = (expr*const*) eq_lhs;
+        expr* const * _eq_rhs = (expr*const*) eq_rhs;
+        reinterpret_cast<user_propagator::callback*>(s)->propagate_cb(num_fixed, _fixed_ids, num_eqs, _eq_lhs, _eq_rhs, to_expr(conseq));
         Z3_CATCH;        
     }
 
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*, unsigned))created_eh;
+        user_propagator::created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*))created_eh;
         to_solver_ref(s)->user_propagate_register_created(c);
         Z3_CATCH;
     }

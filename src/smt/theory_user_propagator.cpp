@@ -38,9 +38,10 @@ void theory_user_propagator::force_push() {
     }
 }
 
-unsigned theory_user_propagator::add_expr(expr* e) {
+void theory_user_propagator::add_expr(expr* term) {
     force_push();
     expr_ref r(m);
+    expr* e = term;
     ctx.get_rewriter()(e, r);
     if (r != e) {
         r = m.mk_fresh_const("aux-expr", e->get_sort());
@@ -52,8 +53,13 @@ unsigned theory_user_propagator::add_expr(expr* e) {
     }
     enode* n = ensure_enode(e);
     if (is_attached_to_var(n))
-        return n->get_th_var(get_id());
+        return;
+
+
     theory_var v = mk_var(n);
+    m_var2expr.setx(v, term, nullptr);
+    m_expr2var.setx(term->get_id(), v, 0);
+    
     if (m.is_bool(e) && !ctx.b_internalized(e)) {
         bool_var bv = ctx.mk_bool_var(e);
         ctx.set_var_theory(bv, get_id());
@@ -65,12 +71,12 @@ unsigned theory_user_propagator::add_expr(expr* e) {
     literal_vector explain;
     if (ctx.is_fixed(n, r, explain))
         m_prop.push_back(prop_info(explain, v, r));
-    return v;
+    
 }
 
 void theory_user_propagator::propagate_cb(
-    unsigned num_fixed, unsigned const* fixed_ids, 
-    unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
+    unsigned num_fixed, expr* const* fixed_ids, 
+    unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, 
     expr* conseq) {
     CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
            ctx.display(tout << "redundant consequence: " << mk_pp(conseq, m) << "\n"));
@@ -79,8 +85,8 @@ void theory_user_propagator::propagate_cb(
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
 
-unsigned theory_user_propagator::register_cb(expr* e) {
-    return add_expr(e);
+void theory_user_propagator::register_cb(expr* e) {
+    add_expr(e);
 }
 
 theory * theory_user_propagator::mk_fresh(context * new_ctx) {
@@ -114,7 +120,7 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
     m_fixed.insert(v);
     ctx.push_trail(insert_map<uint_set, unsigned>(m_fixed, v));
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
-    m_fixed_eh(m_user_context, this, v, value);
+    m_fixed_eh(m_user_context, this, var2expr(v), value);
 }
 
 void theory_user_propagator::push_scope_eh() {
@@ -142,12 +148,12 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
     justification* js;
     m_lits.reset();   
     m_eqs.reset();
-    for (unsigned id : prop.m_ids)
-        m_lits.append(m_id2justification[id]);
+    for (expr* id : prop.m_ids)
+        m_lits.append(m_id2justification[expr2var(id)]);
     for (auto const& p : prop.m_eqs)
-        m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
+        m_eqs.push_back(enode_pair(get_enode(expr2var(p.first)), get_enode(expr2var(p.second))));
     DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
-    DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
+    DEBUG_CODE(for (expr* e : prop.m_ids) VERIFY(m_fixed.contains(expr2var(e))););
     DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
     
     TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n");
@@ -216,12 +222,12 @@ bool theory_user_propagator::internalize_term(app* term)  {
     if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
         ctx.mk_enode(term, true, false, true);
     
-    unsigned v = add_expr(term);
+    add_expr(term);
 
     if (!m_created_eh && (m_fixed_eh || m_eq_eh || m_diseq_eh))        
         throw default_exception("You have to register a created event handler for new terms if you track them");
     if (m_created_eh)
-        m_created_eh(m_user_context, this, term, v);
+        m_created_eh(m_user_context, this, term);
     return true;
 }
 

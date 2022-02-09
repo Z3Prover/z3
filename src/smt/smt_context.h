@@ -1726,10 +1726,10 @@ namespace smt {
             m_user_propagator->register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register_expr(expr* e) {
+        void user_propagate_register_expr(expr* e) {
             if (!m_user_propagator) 
                 throw default_exception("user propagator must be initialized");
-            return m_user_propagator->add_expr(e);
+            m_user_propagator->add_expr(e);
         }
 
         void user_propagate_register_created(user_propagator::created_eh_t& r) {

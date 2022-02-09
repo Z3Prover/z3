@@ -108,8 +108,8 @@ public:
         m_tactic->user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned user_propagate_register_expr(expr* e) override {
-        return m_tactic->user_propagate_register_expr(e);
+    void user_propagate_register_expr(expr* e) override {
+        m_tactic->user_propagate_register_expr(e);
     }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
