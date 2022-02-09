@@ -76,10 +76,10 @@ namespace smt {
         literal_vector         m_lits;
         enode_pair_vector      m_eqs;
         stats                  m_stats;
-        ptr_vector<expr>       m_var2expr;
+        expr_ref_vector        m_var2expr;
         unsigned_vector        m_expr2var;
 
-        expr* var2expr(theory_var v) { return m_var2expr[v]; }
+        expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { return m_expr2var[e->get_id()]; }
 
         void force_push();

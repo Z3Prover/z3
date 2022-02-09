@@ -23,7 +23,8 @@ Author:
 using namespace smt;
 
 theory_user_propagator::theory_user_propagator(context& ctx):
-    theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name()))
+    theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name())),
+    m_var2expr(ctx.get_manager())
 {}
 
 theory_user_propagator::~theory_user_propagator() {
@@ -57,7 +58,8 @@ void theory_user_propagator::add_expr(expr* term) {
 
 
     theory_var v = mk_var(n);
-    m_var2expr.setx(v, term, nullptr);
+    m_var2expr.reserve(v + 1);
+    m_var2expr[v] = term;
     m_expr2var.setx(term->get_id(), v, 0);
     
     if (m.is_bool(e) && !ctx.b_internalized(e)) {
