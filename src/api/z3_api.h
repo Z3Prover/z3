@@ -6761,7 +6761,7 @@ extern "C" {
        \brief register an expression to propagate on with the solver.
        Only expressions of type Bool and type Bit-Vector can be registered for propagation.
 
-       def_API('Z3_solver_propagate_register', UINT, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+       def_API('Z3_solver_propagate_register', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
 
     void Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);   
@@ -6772,7 +6772,7 @@ extern "C" {
         Unlike \ref Z3_solver_propagate_register, this function takes a solver callback context
         as argument. It can be invoked during a callback to register new expressions.
 
-        def_API('Z3_solver_propagate_register_cb', UINT, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST)))
+        def_API('Z3_solver_propagate_register_cb', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST)))
     */
     void Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
 
