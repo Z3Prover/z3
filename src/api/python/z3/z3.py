@@ -11261,7 +11261,7 @@ def user_prop_fresh(id, ctx):
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx()))
+    prop.fixed(_to_expr_ref(ctypes.c_void_p(id), prop.ctx()), _to_expr_ref(ctypes.c_void_p(value), prop.ctx()))
     prop.cb = None
 
 
@@ -11275,6 +11275,8 @@ def user_prop_final(ctx, cb):
 def user_prop_eq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
+    x = _to_expr_ref(ctypes.c_void_p(x), prop.ctx())
+    y = _to_expr_ref(ctypes.c_void_p(y), prop.ctx())
     prop.eq(x, y)
     prop.cb = None
 
@@ -11282,6 +11284,8 @@ def user_prop_eq(ctx, cb, x, y):
 def user_prop_diseq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
+    x = _to_expr_ref(ctypes.c_void_p(x), prop.ctx())
+    y = _to_expr_ref(ctypes.c_void_p(y), prop.ctx())
     prop.diseq(x, y)
     prop.cb = None
 
@@ -11385,18 +11389,12 @@ class UserPropagateBase:
     # Propagation can only be invoked as during a fixed or final callback.
     #
     def propagate(self, e, ids, eqs=[]):
-        num_fixed = len(ids)
-        _ids = (ctypes.c_uint * num_fixed)()
-        for i in range(num_fixed):
-            _ids[i] = ids[i]
+        _ids, num_fixed = _to_ast_array(ids)
         num_eqs = len(eqs)
-        _lhs = (ctypes.c_uint * num_eqs)()
-        _rhs = (ctypes.c_uint * num_eqs)()
-        for i in range(num_eqs):
-            _lhs[i] = eqs[i][0]
-            _rhs[i] = eqs[i][1]
+        _lhs, _num_lhs = _to_ast_array([x for x, y in eqs])
+        _rhs, _num_lhs = _to_ast_array([y for x, y in eqs])
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
-    def conflict(self, ids):
-        self.propagate(BoolVal(False, self.ctx()), ids, eqs=[])
+    def conflict(self, deps):
+        self.propagate(BoolVal(False, self.ctx()), deps, eqs=[])
