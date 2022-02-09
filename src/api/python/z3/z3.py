@@ -8883,7 +8883,7 @@ def _pb_args_coeffs(args, default_ctx=None):
     for i in range(len(coeffs)):
         _z3_check_cint_overflow(coeffs[i], "coefficient")
         _coeffs[i] = coeffs[i]
-    return ctx, sz, _args, _coeffs
+    return ctx, sz, _args, _coeffs, args
 
 
 def PbLe(args, k):
@@ -8893,7 +8893,7 @@ def PbLe(args, k):
     >>> f = PbLe(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pble(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
@@ -8904,7 +8904,7 @@ def PbGe(args, k):
     >>> f = PbGe(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
@@ -8915,7 +8915,7 @@ def PbEq(args, k, ctx=None):
     >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
