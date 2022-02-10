@@ -4039,7 +4039,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Creates or accesses a linear order.
+     * Creates or a linear order.
      * @param index The index of the order.
      * @param sort The sort of the order.
      */
@@ -4054,6 +4054,11 @@ public class Context implements AutoCloseable {
         );
     }
 
+    /**
+     * Creates or a partial order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
     public <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
         return (FuncDecl<BoolSort>) FuncDecl.create(
                 this,
