@@ -60,7 +60,7 @@ void theory_user_propagator::add_expr(expr* term) {
     theory_var v = mk_var(n);
     m_var2expr.reserve(v + 1);
     m_var2expr[v] = term;
-    m_expr2var.setx(term->get_id(), v, 0);
+    m_expr2var.setx(term->get_id(), v, null_theory_var);
     
     if (m.is_bool(e) && !ctx.b_internalized(e)) {
         bool_var bv = ctx.mk_bool_var(e);

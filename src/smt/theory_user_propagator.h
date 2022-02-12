@@ -64,7 +64,7 @@ namespace smt {
         user_propagator::fixed_eh_t     m_fixed_eh;
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
-        user_propagator::created_eh_t m_created_eh;
+        user_propagator::created_eh_t   m_created_eh;
 
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
@@ -80,7 +80,11 @@ namespace smt {
         unsigned_vector        m_expr2var;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
-        theory_var expr2var(expr* e) { return m_expr2var[e->get_id()]; }
+        theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
+        void check_defined(expr* e) {
+            if (e->get_id() >= m_expr2var.size() || get_num_vars() <= m_expr2var[e->get_id()])
+                throw default_exception("expression is not registered");
+        }
 
         void force_push();
 
