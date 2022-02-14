@@ -1683,8 +1683,11 @@ public:
         if (m_idiv_terms.empty()) {
             return true;
         }
-        bool all_divs_valid = true; 
-        for (unsigned i = 0; i < m_idiv_terms.size(); ++i) {
+        bool all_divs_valid = true;
+        unsigned count = 0;
+        unsigned offset = ctx().get_random_value(); 
+        for (unsigned j = 0; j < m_idiv_terms.size(); ++j) {
+            unsigned i =  (offset + j) % m_idiv_terms.size();
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
@@ -1706,6 +1709,7 @@ public:
                 continue;
             }
 
+
             if (a.is_numeral(q, r2) && r2.is_pos()) {
                 if (!a.is_bounded(n)) {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
@@ -1714,7 +1718,8 @@ public:
                 if (!is_registered_var(v))
                     continue;
                 lp::impq val_v = get_ivalue(v);
-                if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
+                if (val_v.y.is_zero() && val_v.x == div(r1.x, r2))
+                    continue;
             
                 TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
                 rational div_r = div(r1.x, r2);
@@ -1732,6 +1737,7 @@ public:
                     hi = floor(hi/mul);
                     lo = ceil(lo/mul);
                 }
+                std::cout << mk_pp(p, m) << " " << mk_pp(n, m) << " " << hi << " " << lo << " " << div_r << "\n";
                 literal p_le_r1  = mk_literal(a.mk_le(p, a.mk_numeral(hi, true)));
                 literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(lo, true)));
                 literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div_r, true)));
@@ -1746,6 +1752,8 @@ public:
                 }
 
                 all_divs_valid = false;
+                ++count;
+
 
                 TRACE("arith",
                       tout << r1 << " div " << r2 << "\n";
@@ -1857,9 +1865,6 @@ public:
             return l_undef;
         }
         lbool lia_check = l_undef;
-        if (!check_idiv_bounds()) {
-            return l_false;
-        }
         switch (m_lia->check(&m_explanation)) {
         case lp::lia_move::sat:
             lia_check = l_true;
@@ -1929,6 +1934,9 @@ public:
         default:
             UNREACHABLE();
         }
+        if (lia_check != l_false && !check_idiv_bounds()) 
+            return l_false;
+
         return lia_check;
     }
 
