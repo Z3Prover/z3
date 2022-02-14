@@ -295,6 +295,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool is_ite_value_tree(expr * t) {
         if (!m().is_ite(t))
             return false;
+        if (t->get_ref_count() != 1)
+            return false;
         ptr_buffer<app> todo;
         todo.push_back(to_app(t));
         while (!todo.empty()) {
@@ -319,7 +321,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     br_status pull_ite(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         if (num == 2 && m().is_bool(f->get_range()) && !m().is_bool(args[0])) {
             if (m().is_ite(args[0])) {
-                if (m().is_value(args[1]))
+                if (m().is_value(args[1]) && args[0]->get_ref_count() == 1) 
                     return pull_ite_core<false>(f, to_app(args[0]), to_app(args[1]), result);
                 if (m().is_ite(args[1]) && to_app(args[0])->get_arg(0) == to_app(args[1])->get_arg(0)) {
                     // (p (ite C A1 B1) (ite C A2 B2)) --> (ite (p A1 A2) (p B1 B2))
@@ -329,17 +331,17 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     return BR_REWRITE2;
                 }
             }
-            if (m().is_ite(args[1]) && m().is_value(args[0]))
+            if (m().is_ite(args[1]) && m().is_value(args[0]) && args[1]->get_ref_count() == 1)
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);
         }
         family_id fid = f->get_family_id();
         if (num == 2 && (fid == m().get_basic_family_id() || fid == m_a_rw.get_fid() || fid == m_bv_rw.get_fid())) {
             // (f v3 (ite c v1 v2)) --> (ite v (f v3 v1) (f v3 v2))
-            if (m().is_value(args[0]) && is_ite_value_tree(args[1]))
+            if (m().is_value(args[0]) && is_ite_value_tree(args[1])) 
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);
 
             // (f (ite c v1 v2) v3) --> (ite v (f v1 v3) (f v2 v3))
-            if (m().is_value(args[1]) && is_ite_value_tree(args[0]))
+            if (m().is_value(args[1]) && is_ite_value_tree(args[0])) 
                 return pull_ite_core<false>(f, to_app(args[0]), to_app(args[1]), result);
         }
         return BR_FAILED;
