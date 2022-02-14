@@ -82,9 +82,11 @@ void theory_user_propagator::propagate_cb(
     expr* conseq) {
     CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
            ctx.display(tout << "redundant consequence: " << mk_pp(conseq, m) << "\n"));
-    if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true) 
+    expr_ref _conseq(conseq, m);
+    ctx.get_rewriter()(conseq, _conseq);
+    if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true) 
         return;
-    m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
+    m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, _conseq));    
 }
 
 void theory_user_propagator::register_cb(expr* e) {
