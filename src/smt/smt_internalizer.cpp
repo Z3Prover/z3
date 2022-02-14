@@ -375,7 +375,6 @@ namespace smt {
         }
         else {
             SASSERT(is_app(n));
-            SASSERT(!gate_ctx);
             internalize_term(to_app(n));
         }
     }
