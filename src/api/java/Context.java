@@ -4038,6 +4038,37 @@ public class Context implements AutoCloseable {
         return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
 
+    /**
+     * Creates or a linear order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public <R extends Sort> FuncDecl<BoolSort> mkLinearOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkLinearOrder(
+                        nCtx(),
+                        sort.getNativeObject(),
+                        index
+                )
+        );
+    }
+
+    /**
+     * Creates or a partial order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkPartialOrder(
+                    nCtx(),
+                    sort.getNativeObject(),
+                    index
+                )
+        );
+    }
 
     /**
      * Wraps an AST.
