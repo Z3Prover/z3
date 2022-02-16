@@ -139,24 +139,12 @@ namespace datalog {
             res = nullptr;
         }
         if (res && m_context.get_model_converter()) {
-            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
+            horn_subsume_model_converter* mc0 = alloc(horn_subsume_model_converter, m);
             for (func_decl* f : pruned_preds) {
                 const rule_vector& rules = source.get_predicate_rules(f);
-                expr_ref_vector fmls(m);
                 for (rule * r : rules) {
-                    app* head = r->get_head();
-                    expr_ref_vector conj(m);
-                    for (unsigned j = 0; j < head->get_num_args(); ++j) {
-                        expr* arg = head->get_arg(j);
-                        if (!is_var(arg)) {
-                            conj.push_back(m.mk_eq(m.mk_var(j, arg->get_sort()), arg));
-                        }
-                    }
-                    fmls.push_back(mk_and(conj));
+                    datalog::del_rule(mc0, *r, false);
                 }
-                expr_ref fml(m);
-                fml = m.mk_or(fmls.size(), fmls.data());
-                mc0->add(f, fml);
             }
             m_context.add_model_converter(mc0);
         }
