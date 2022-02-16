@@ -224,8 +224,6 @@ namespace smt {
     };
 
     void theory_bv::add_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx) {
-        if (!params().m_bv_eq_axioms)
-            return;
         m_prop_diseqs.push_back(bv_diseq(v1, v2, idx));
         ctx.push_trail(push_back_vector<svector<bv_diseq>>(m_prop_diseqs));
     }
@@ -432,8 +430,6 @@ namespace smt {
     };
 
     void theory_bv::add_fixed_eq(theory_var v1, theory_var v2) {
-        if (!params().m_bv_eq_axioms)
-            return;
 
         if (v1 > v2) {
             std::swap(v1, v2);
@@ -1152,8 +1148,6 @@ namespace smt {
     }
 
     void theory_bv::expand_diseq(theory_var v1, theory_var v2) {
-        if (!params().m_bv_eq_axioms)
-            return;
 
         SASSERT(get_bv_size(v1) == get_bv_size(v2));
         if (v1 > v2) {
@@ -1320,30 +1314,29 @@ namespace smt {
         }
         else {
             ctx.assign(consequent, mk_bit_eq_justification(v1, v2, consequent, antecedent));
-            if (params().m_bv_eq_axioms) {
-                literal_vector lits;
-                lits.push_back(~consequent);
-                lits.push_back(antecedent);
-                literal eq = mk_eq(get_expr(v1), get_expr(v2), false);
-                lits.push_back(~eq);
-                //
-                // Issue #3035:
-                // merge_eh invokes assign_bit, which updates the propagation queue and includes the 
-                // theory axiom for the propagated equality. When relevancy is non-zero, propagation may get
-                // lost on backtracking because the propagation queue is reset on conflicts.
-                // An alternative approach is to ensure the propagation queue is chronological with
-                // backtracking scopes (ie., it doesn't get reset, but shrunk to a previous level, and similar
-                // with a qhead indicator.
-                // 
-                ctx.mark_as_relevant(lits[0]);
-                ctx.mark_as_relevant(lits[1]);
-                ctx.mark_as_relevant(lits[2]);
-                {
-                    scoped_trace_stream _sts(*this, lits);
-                    ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-                }
+
+            literal_vector lits;
+            lits.push_back(~consequent);
+            lits.push_back(antecedent);
+            literal eq = mk_eq(get_expr(v1), get_expr(v2), false);
+            lits.push_back(~eq);
+            //
+            // Issue #3035:
+            // merge_eh invokes assign_bit, which updates the propagation queue and includes the 
+            // theory axiom for the propagated equality. When relevancy is non-zero, propagation may get
+            // lost on backtracking because the propagation queue is reset on conflicts.
+            // An alternative approach is to ensure the propagation queue is chronological with
+            // backtracking scopes (ie., it doesn't get reset, but shrunk to a previous level, and similar
+            // with a qhead indicator.
+            // 
+            ctx.mark_as_relevant(lits[0]);
+            ctx.mark_as_relevant(lits[1]);
+            ctx.mark_as_relevant(lits[2]);
+            {
+                scoped_trace_stream _sts(*this, lits);
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
             }
-     
+        
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
             // REMARK: bit_eq_justification is marked as a theory_bv justification.
