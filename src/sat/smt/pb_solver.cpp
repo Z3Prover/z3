@@ -1458,7 +1458,7 @@ namespace pb {
             return nullptr;
         }
         rational weight(0);
-        for (auto const [w, l] : wlits)
+        for (auto const &[w, l] : wlits)
             weight += w;
         if (weight < k) {
             if (lit == sat::null_literal)

@@ -1563,6 +1563,7 @@ public:
                 return FC_CONTINUE;
             }
             for (expr* e : m_not_handled) {
+                (void) e; // just in case TRACE() is a no-op
                 TRACE("arith", tout << "unhandled operator " << mk_pp(e, m) << "\n";);        
                 st = FC_GIVEUP;
             }                

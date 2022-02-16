@@ -110,7 +110,6 @@ protected:
         void operator()(quantifier * q) {
             m_stats["quantifiers"]++;
             SASSERT(is_app(q->get_expr()));
-            app * body = to_app(q->get_expr());
             switch (q->get_kind()) {
             case forall_k:
                 m_stats["forall-variables"] += q->get_num_decls();
