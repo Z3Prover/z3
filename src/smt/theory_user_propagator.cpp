@@ -101,6 +101,7 @@ theory * theory_user_propagator::mk_fresh(context * new_ctx) {
     if ((bool)m_final_eh) th->register_final(m_final_eh);
     if ((bool)m_eq_eh) th->register_eq(m_eq_eh);
     if ((bool)m_diseq_eh) th->register_diseq(m_diseq_eh);
+    if ((bool)m_created_eh) th->register_created(m_created_eh);
     return th;
 }
 
@@ -228,8 +229,8 @@ bool theory_user_propagator::internalize_term(app* term)  {
     
     add_expr(term);
 
-    if (!m_created_eh && (m_fixed_eh || m_eq_eh || m_diseq_eh))        
-        throw default_exception("You have to register a created event handler for new terms if you track them");
+    if (!m_created_eh && (m_fixed_eh || m_eq_eh || m_diseq_eh))
+        return true;
     if (m_created_eh)
         m_created_eh(m_user_context, this, term);
     return true;

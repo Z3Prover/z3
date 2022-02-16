@@ -3939,10 +3939,6 @@ namespace z3 {
         
         Z3_solver_callback cb { nullptr };
 
-        context& ctx() {
-            return c ? *c : s->ctx();
-        }
-
         struct scoped_cb {
             user_propagator_base& p;
             scoped_cb(void* _p, Z3_solver_callback cb):p(*static_cast<user_propagator_base*>(_p)) {
@@ -4004,6 +4000,10 @@ namespace z3 {
         virtual void pop(unsigned num_scopes) = 0;
 
         virtual ~user_propagator_base() = default;
+
+        context& ctx() {
+          return c ? *c : s->ctx();
+        }
 
         /**
            \brief user_propagators created using \c fresh() are created during 
