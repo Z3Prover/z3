@@ -1711,6 +1711,10 @@ namespace dd {
         return p.val();
     }
 
+    pdd pdd::shl(unsigned n) const {
+        return (*this) * rational::power_of_two(n);
+    }
+
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
     void pdd_iterator::next() {

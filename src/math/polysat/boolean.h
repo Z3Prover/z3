@@ -32,6 +32,7 @@ namespace polysat {
         svector<lbool>          m_value;    // current value (indexed by literal)
         unsigned_vector         m_level;    // level of assignment (indexed by variable)
         dependency_vector       m_deps;     // dependencies of external asserts
+        bool_vector             m_tracked;  // is the variable tracked
         unsigned_vector         m_activity; //
         svector<kind_t>         m_kind;     // decision or propagation?
         // Clause associated with the assignment (indexed by variable):
@@ -80,7 +81,7 @@ namespace polysat {
         unsigned_vector& activity() { return m_activity; }
         bool can_decide() const { return !m_free_vars.empty(); }
         sat::bool_var next_var() { return m_free_vars.next_var(); }
-        void track_var(sat::literal lit) { m_free_vars.mk_var_eh(lit.var()); }
+        void track_var(sat::literal lit) { m_tracked.setx(lit.var(), true, false);  m_free_vars.mk_var_eh(lit.var()); }
 
         // TODO connect activity updates with solver
         void inc_activity(sat::literal lit) { m_activity[lit.var()]++; }

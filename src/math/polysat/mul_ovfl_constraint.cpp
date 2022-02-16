@@ -90,7 +90,7 @@ namespace polysat {
         return is_always_true(is_positive, s.subst(p()), s.subst(q()));
     }
 
-    void mul_ovfl_constraint::narrow(solver& s, bool is_positive) {    
+    void mul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {    
         auto p1 = s.subst(p());
         auto q1 = s.subst(q());
         
@@ -100,10 +100,16 @@ namespace polysat {
         }
         if (is_always_true(is_positive, p1, q1))
             return;
+
+        if (try_viable(s, is_positive, p(), q(), p1, q1))
+            return;
+        
         if (narrow_bound(s, is_positive, p(), q(), p1, q1))
             return;
         if (narrow_bound(s, is_positive, q(), p(), q1, p1))
             return;
+
+        
     }
 
     /**
@@ -144,6 +150,14 @@ namespace polysat {
         SASSERT(s.m_bvars.is_true(conseq.blit()));
         return true;
     }
+
+    bool mul_ovfl_constraint::try_viable(
+        solver& s, bool is_positive,
+        pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
+        signed_constraint sc(this, is_positive);
+        return s.m_viable.intersect(p0, q0, sc);
+    }
+
 
     unsigned mul_ovfl_constraint::hash() const {
     	return mk_mix(p().hash(), q().hash(), kind());

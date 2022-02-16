@@ -56,6 +56,7 @@ namespace polysat {
         friend class constraint;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
+        friend class smul_ovfl_constraint;
         friend class op_constraint;
         friend class signed_constraint;
         friend class clause;
@@ -115,7 +116,6 @@ namespace polysat {
 
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
-        pdd subst(pdd const& p) const; 
         pdd subst(assignment_t const& sub, pdd const& p) const;
 
         unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
@@ -309,6 +309,12 @@ namespace polysat {
          */
         bool try_eval(pdd const& p, rational& out_value) const;
 
+        /**
+         * Apply current substitution to p.
+         */
+        pdd subst(pdd const& p) const; 
+
+
         /** Create constraints */
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
         signed_constraint diseq(pdd const& p) { return ~m_constraints.eq(p); }
@@ -328,8 +334,16 @@ namespace polysat {
         signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }
         signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
         signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
+        signed_constraint slt(pdd const& p, rational const& q) { return slt(p, p.manager().mk_val(q)); }
+        signed_constraint slt(rational const& p, pdd const& q) { return slt(q.manager().mk_val(p), q); }
+        signed_constraint slt(pdd const& p, int n) { return slt(p, rational(n)); }
+        signed_constraint slt(int n, pdd const& p) { return slt(rational(n), p); }
+        signed_constraint sgt(pdd const& p, pdd const& q) { return slt(q, p); }
+        signed_constraint sgt(pdd const& p, int n) { return slt(n, p); }
+        signed_constraint sgt(int n, pdd const& p) { return slt(p, n); }
         signed_constraint mul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
         signed_constraint mul_ovfl(rational const& p, pdd const& q) { return mul_ovfl(q.manager().mk_val(p), q); }
+        signed_constraint smul_ovfl(pdd const& p, pdd const& q) { return m_constraints.smul_ovfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
         /** Create and activate polynomial constraints. */

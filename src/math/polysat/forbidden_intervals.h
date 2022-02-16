@@ -70,6 +70,22 @@ namespace polysat {
             rational const & a2, pdd const& b2, pdd const& e2,
             fi_record& fi);
 
+        bool get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi);
+        
+        bool get_interval_mul_ovfl(signed_constraint const& c, pvar v, fi_record& fi);
+
+        struct backtrack {
+            bool released = false;
+            vector<signed_constraint>& side_cond;
+            unsigned sz;
+            backtrack(vector<signed_constraint>& s):side_cond(s), sz(s.size()) {}
+            ~backtrack() {
+                if (!released)
+                    side_cond.shrink(sz);
+            }
+        };
+
+
     public:
         forbidden_intervals(solver& s) :s(s) {}
         bool get_interval(signed_constraint const& c, pvar v, fi_record& fi);

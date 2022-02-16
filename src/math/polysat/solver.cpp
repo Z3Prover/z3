@@ -819,7 +819,7 @@ namespace polysat {
         SASSERT(!c->is_active());
         c->set_active(true);
         add_watch(c);
-        c.narrow(*this);
+        c.narrow(*this, true);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
 #endif

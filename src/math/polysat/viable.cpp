@@ -80,6 +80,40 @@ namespace polysat {
         SASSERT(well_formed(m_units[v]));
         m_trail.pop_back();
     }
+    
+    bool viable::intersect(pdd const & p, pdd const & q, signed_constraint const& sc) {
+        pvar v = null_var;
+        bool first = true;
+        bool prop = false;
+        if (p.is_unilinear())
+            v = p.var();
+        else if (q.is_unilinear())
+            v = q.var(), first = false;
+        else
+            return prop;
+
+    try_viable:
+        if (s.m_viable.intersect(v, sc)) {
+            rational val;
+            switch (s.m_viable.find_viable(v, val)) {
+            case dd::find_t::singleton:
+                s.propagate(v, val, sc); // TBD why is sc used as justification? It should be all of viable
+                prop = true;
+                break;
+            case dd::find_t::empty:
+                s.set_conflict(v);
+                return true;
+            default:
+                break;
+            }
+        }
+        if (first && q.is_unilinear() && q.var() != v) {
+            v = q.var();
+            first = false;
+            goto try_viable;
+        }
+        return prop;
+    }    
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
         auto& fi = s.m_forbidden_intervals;

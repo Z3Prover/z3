@@ -17,6 +17,7 @@ Author:
 #include "math/polysat/interval.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
+#include "math/polysat/mul_ovfl_constraint.h"
 
 namespace polysat {
 
@@ -28,20 +29,112 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
     bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, fi_record& fi) {
-        if (!c->is_ule())
-            return false;
-        
-        struct backtrack {
-            bool released = false;
-            vector<signed_constraint>& side_cond;
-            unsigned sz;
-            backtrack(vector<signed_constraint>& s):side_cond(s), sz(s.size()) {}
-            ~backtrack() {
-                if (!released)
-                    side_cond.shrink(sz);
-            }
-        };
+        if (c->is_ule())
+            return get_interval_ule(c, v, fi);
+        if (c->is_mul_ovfl())
+            return get_interval_mul_ovfl(c, v, fi);
+        return false;
+    }
 
+    
+    
+    bool forbidden_intervals::get_interval_mul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
+
+
+        std::cout << "FORBIDDEN v" << v << "\n";
+
+        backtrack _backtrack(fi.side_cond);     
+
+        fi.coeff = 1;
+        fi.src = c;
+
+        // eval(lhs) = a1*v + eval(e1) = a1*v + b1
+        // eval(rhs) = a2*v + eval(e2) = a2*v + b2
+        // We keep the e1, e2 around in case we need side conditions such as e1=b1, e2=b2.
+        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_mul_ovfl().p(), fi.side_cond);
+        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_mul_ovfl().q(), fi.side_cond);
+
+        auto& m = e1.manager();
+        rational bound = m.max_value();
+
+        if (ok2 && !ok1) {
+            std::swap(a1, a2);
+            std::swap(e1, e2);
+            std::swap(b1, b2);
+            std::swap(ok1, ok2);            
+        }
+        if (ok1 && !ok2 && a1.is_one() && b1.is_zero()) {
+            if (c.is_positive()) {
+                _backtrack.released = true;
+                rational lo_val(0);
+                rational hi_val(2);
+                pdd lo = m.mk_val(lo_val);
+                pdd hi = m.mk_val(hi_val);
+                fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+                return true;
+            }
+        }
+        
+        if (!ok1 || !ok2) 
+            return false;
+
+
+        if (a2.is_one() && a1.is_zero()) {
+            std::swap(a1, a2);
+            std::swap(e1, e2);
+            std::swap(b1, b2);
+        }
+
+        if (!a1.is_one() || !a2.is_zero())
+            return false;
+
+        if (!b1.is_zero())
+            return false;
+
+        _backtrack.released = true;
+
+        // Ovfl(v, e2)
+
+
+        if (c.is_positive()) {
+            if (b2.val() <= 1) {
+                fi.interval = eval_interval::full();
+                fi.side_cond.push_back(s.ule(e2, 1));
+            }
+            else {
+                // [0, div(bound, b2.val()) + 1[
+                rational lo_val(0);
+                rational hi_val(div(bound, b2.val()) + 1);
+                pdd lo = m.mk_val(lo_val);
+                pdd hi = m.mk_val(hi_val);
+                fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+                fi.side_cond.push_back(s.ule(e2, b2.val()));
+            }
+
+        }
+        else {
+            if (b2.val() <= 1) {
+                _backtrack.released = false;
+                return false;
+            }
+            else {
+                // [div(bound, b2.val()) + 1, 0[
+                rational lo_val(div(bound, b2.val()) + 1);
+                rational hi_val(0);
+                pdd lo = m.mk_val(lo_val);
+                pdd hi = m.mk_val(hi_val);
+                fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+                fi.side_cond.push_back(s.ule(b2.val(), e2));
+            }
+        }
+
+        LOG("overflow interval " << fi.interval);
+
+        return true;
+    }
+    
+    bool forbidden_intervals::get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi) {
+        
         backtrack _backtrack(fi.side_cond);     
 
         fi.coeff = 1;

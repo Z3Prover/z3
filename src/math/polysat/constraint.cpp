@@ -19,6 +19,7 @@ Author:
 #include "math/polysat/log_helper.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/mul_ovfl_constraint.h"
+#include "math/polysat/smul_ovfl_constraint.h"
 #include "math/polysat/op_constraint.h"
 
 namespace polysat {
@@ -237,6 +238,10 @@ namespace polysat {
         return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
     }
 
+    signed_constraint constraint_manager::smul_ovfl(pdd const& a, pdd const& b) {
+        return { dedup(alloc(smul_ovfl_constraint, *this, a, b)), true };
+    }
+
     signed_constraint constraint_manager::lshr(pdd const& p, pdd const& q, pdd const& r) {
         return { dedup(alloc(op_constraint, *this, op_constraint::code::lshr_op, p, q, r)), true };
     }
@@ -291,6 +296,14 @@ namespace polysat {
         return *dynamic_cast<mul_ovfl_constraint const*>(this);
     }
 
+    smul_ovfl_constraint& constraint::to_smul_ovfl() {
+        return *dynamic_cast<smul_ovfl_constraint*>(this);
+    }
+
+    smul_ovfl_constraint const& constraint::to_smul_ovfl() const {
+        return *dynamic_cast<smul_ovfl_constraint const*>(this);
+    }
+
     op_constraint& constraint::to_op() {
         return *dynamic_cast<op_constraint*>(this);
     }
@@ -320,7 +333,6 @@ namespace polysat {
             if (!s.is_assigned(other_v)) {
                 s.add_watch({this, is_positive}, other_v);
                 std::swap(vars()[idx], vars()[i]);
-               // narrow(s, is_positive);
                 return true;
             }
         }
@@ -333,7 +345,7 @@ namespace polysat {
     void constraint::propagate_core(solver& s, bool is_positive, pvar v, pvar other_v) {
         (void)v;
         (void)other_v;
-        narrow(s, is_positive);
+        narrow(s, is_positive, false);
     }
 
 

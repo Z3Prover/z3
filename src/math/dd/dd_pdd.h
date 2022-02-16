@@ -428,6 +428,7 @@ namespace dd {
         pdd operator*(rational const& other) const { return m.mul(other, *this); }
         pdd operator+(rational const& other) const { return m.add(other, *this); }
         pdd operator~() const { return m.mk_not(*this); }
+        pdd shl(unsigned n) const; 
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd div(rational const& other) const { return m.div(*this, other); }
         bool try_div(rational const& other, pdd& out_result) const { return m.try_div(*this, other, out_result); }

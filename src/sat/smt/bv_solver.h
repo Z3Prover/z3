@@ -281,6 +281,7 @@ namespace bv {
         void polysat_num(app* a);
         void polysat_mkbv(app* a);
         void polysat_umul_noovfl(app* e);
+        void polysat_smul_noovfl(app* e);
         void polysat_div_rem_i(app* e, bool is_div);
         void polysat_div_rem(app* e, bool is_div);
         void polysat_bit2bool(atom* a, expr* e, unsigned idx);

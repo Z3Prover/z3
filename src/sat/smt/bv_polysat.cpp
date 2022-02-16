@@ -57,6 +57,8 @@ namespace bv {
         case OP_SGT:              polysat_le<true,  false, true>(a); break;
 
         case OP_BUMUL_NO_OVFL:    polysat_umul_noovfl(a); break;
+        case OP_BSMUL_NO_OVFL:    polysat_smul_noovfl(a); break;
+                        
         case OP_BUDIV_I:          polysat_div_rem_i(a, true); break;       
         case OP_BUREM_I:          polysat_div_rem_i(a, false); break;
 
@@ -74,7 +76,6 @@ namespace bv {
         case OP_BSDIV:            
         case OP_BSREM:            
         case OP_BSMOD:                        
-        case OP_BSMUL_NO_OVFL:    
         case OP_BSMUL_NO_UDFL:    
         case OP_BSDIV_I:            
         case OP_BSREM_I:                        
@@ -105,6 +106,15 @@ namespace bv {
         auto p = expr2pdd(e->get_arg(0));
         auto q = expr2pdd(e->get_arg(1));
         auto sc = ~m_polysat.mul_ovfl(p, q);
+        sat::literal lit = expr2literal(e);
+        atom* a = mk_atom(lit.var());
+        a->m_sc = sc;
+    }
+
+    void solver::polysat_smul_noovfl(app* e) {
+        auto p = expr2pdd(e->get_arg(0));
+        auto q = expr2pdd(e->get_arg(1));
+        auto sc = ~m_polysat.smul_ovfl(p, q);
         sat::literal lit = expr2literal(e);
         atom* a = mk_atom(lit.var());
         a->m_sc = sc;

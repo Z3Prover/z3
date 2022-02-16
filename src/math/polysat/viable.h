@@ -81,6 +81,8 @@ namespace polysat {
          */
         bool intersect(pvar v, signed_constraint const& c);
 
+        bool intersect(pdd const & p, pdd const & q, signed_constraint const& c);
+
         /**
          * Check whether variable v has any viable values left according to m_viable.
          */

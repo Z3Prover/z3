@@ -54,7 +54,8 @@ namespace polysat {
         m_deps[var] = null_dependency;
         m_watch[lit.index()].reset();
         m_watch[(~lit).index()].reset();
-        m_free_vars.del_var_eh(var);
+        if (m_tracked.get(var, false))
+            m_free_vars.del_var_eh(var);
         // TODO: this is disabled for now, since re-using variables for different constraints may be confusing during debugging. Should be enabled later.
         // m_unused.push_back(var);
     }
@@ -98,7 +99,8 @@ namespace polysat {
         m_kind[lit.var()] = k;
         m_clause[lit.var()] = reason;
         m_deps[lit.var()] = dep;
-        m_free_vars.del_var_eh(lit.var());
+        if (m_tracked.get(lit.var(), false))
+            m_free_vars.del_var_eh(lit.var());
     }
 
     void bool_var_manager::unassign(sat::literal lit) {
@@ -109,7 +111,8 @@ namespace polysat {
         m_kind[lit.var()] = kind_t::unassigned;
         m_clause[lit.var()] = nullptr;
         m_deps[lit.var()] = null_dependency;
-        m_free_vars.unassign_var_eh(lit.var());
+        if (m_tracked.get(lit.var(), false))
+            m_free_vars.unassign_var_eh(lit.var());
     }
 
     std::ostream& bool_var_manager::display(std::ostream& out) const {

@@ -127,7 +127,7 @@ namespace polysat {
     *
     * We can assume that op_constraint is only asserted positive.
     */
-    void op_constraint::narrow(solver& s, bool is_positive) {
+    void op_constraint::narrow(solver& s, bool is_positive, bool first) {
         SASSERT(is_positive);
 
         if (is_currently_true(s, is_positive))

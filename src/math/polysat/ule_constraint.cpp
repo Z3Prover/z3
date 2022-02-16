@@ -121,7 +121,7 @@ namespace polysat {
         return out << m_lhs << (is_eq() ? " == " : " <= ") << m_rhs;
     }
 
-    void ule_constraint::narrow(solver& s, bool is_positive) {
+    void ule_constraint::narrow(solver& s, bool is_positive, bool first) {
         auto p = s.subst(lhs());
         auto q = s.subst(rhs());
         
@@ -142,34 +142,7 @@ namespace polysat {
             return;
         }
 
-        pvar v = null_var;
-        bool first = true;
-        if (p.is_unilinear())
-            v = p.var();
-        else if (q.is_unilinear())
-            v = q.var(), first = false;
-        else
-            return;
-
-    try_viable:
-        if (s.m_viable.intersect(v, sc)) {
-            rational val;
-            switch (s.m_viable.find_viable(v, val)) {
-            case dd::find_t::singleton:
-                s.propagate(v, val, sc); // TBD why is sc used as justification? It should be all of viable            
-                break;
-            case dd::find_t::empty:
-                s.set_conflict(v);
-                return;
-            default:
-                break;
-            }
-        }
-        if (first && q.is_unilinear() && q.var() != v) {
-            v = q.var();
-            first = false;
-            goto try_viable;
-        }
+        s.m_viable.intersect(p, q, sc);
     }
 
     bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {
