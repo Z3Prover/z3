@@ -434,9 +434,9 @@ namespace euf {
             check_for_user_propagator();
             m_user_propagator->register_created(ceh);
         }
-        unsigned user_propagate_register_expr(expr* e) {
+        void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();
-            return m_user_propagator->add_expr(e);
+            m_user_propagator->add_expr(e);
         }
 
         // solver factory

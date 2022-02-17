@@ -155,9 +155,10 @@ namespace z3 {
 
     class context {
     private:
+        friend class user_propagator_base;
         bool       m_enable_exceptions;
         rounding_mode m_rounding_mode;
-        Z3_context m_ctx;
+        Z3_context m_ctx = nullptr;
         void init(config & c) {
             set_context(Z3_mk_context_rc(c));
         }
@@ -173,7 +174,6 @@ namespace z3 {
         context(context const &) = delete;
         context & operator=(context const &) = delete;
 
-        friend class scoped_context;
         context(Z3_context c) { set_context(c); }
         void detach() { m_ctx = nullptr; }
     public:
@@ -394,14 +394,6 @@ namespace z3 {
         expr_vector parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
     };
 
-    class scoped_context final {
-        context m_ctx;
-    public:
-        scoped_context(Z3_context c): m_ctx(c) {}
-        ~scoped_context() { m_ctx.detach(); }
-        context& operator()() { return m_ctx; }
-    };
-
 
     template<typename T>
     class array {
@@ -509,7 +501,7 @@ namespace z3 {
         ast(context & c):object(c), m_ast(0) {}
         ast(context & c, Z3_ast n):object(c), m_ast(n) { Z3_inc_ref(ctx(), m_ast); }
         ast(ast const & s) :object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
-        ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
+        ~ast() { if (m_ast) { Z3_dec_ref(*m_ctx, m_ast); } }
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
         ast & operator=(ast const & s) {
@@ -3933,22 +3925,19 @@ namespace z3 {
 
     class user_propagator_base {
 
-        typedef std::function<void(unsigned, expr const&)> fixed_eh_t;
+        typedef std::function<void(expr const&, expr const&)> fixed_eh_t;
         typedef std::function<void(void)> final_eh_t;
-        typedef std::function<void(unsigned, unsigned)> eq_eh_t;
-        typedef std::function<void(unsigned, expr const&)> created_eh_t;
+        typedef std::function<void(expr const&, expr const&)> eq_eh_t;
+        typedef std::function<void(expr const&)> created_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
         fixed_eh_t m_fixed_eh;
         created_eh_t m_created_eh;
         solver*    s;
-        Z3_context c;
+        context*   c;
+        
         Z3_solver_callback cb { nullptr };
-
-        Z3_context ctx() {
-            return c ? c : (Z3_context)s->ctx();
-        }
 
         struct scoped_cb {
             user_propagator_base& p;
@@ -3972,17 +3961,19 @@ namespace z3 {
             return static_cast<user_propagator_base*>(p)->fresh(ctx);
         }
 
-        static void fixed_eh(void* _p, Z3_solver_callback cb, unsigned id, Z3_ast _value) {
+        static void fixed_eh(void* _p, Z3_solver_callback cb, Z3_ast _var, Z3_ast _value) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            scoped_context ctx(p->ctx());
-            expr value(ctx(), _value);
-            static_cast<user_propagator_base*>(p)->m_fixed_eh(id, value);
+            expr value(p->ctx(), _value);
+            expr var(p->ctx(), _var);
+            p->m_fixed_eh(var, value);
         }
 
-        static void eq_eh(void* p, Z3_solver_callback cb, unsigned x, unsigned y) {
+        static void eq_eh(void* _p, Z3_solver_callback cb, Z3_ast _x, Z3_ast _y) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            static_cast<user_propagator_base*>(p)->m_eq_eh(x, y);
+            expr x(p->ctx(), _x), y(p->ctx(), _y);
+            p->m_eq_eh(x, y);
         }
 
         static void final_eh(void* p, Z3_solver_callback cb) {
@@ -3990,17 +3981,16 @@ namespace z3 {
             static_cast<user_propagator_base*>(p)->m_final_eh(); 
         }
 
-        static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e, unsigned id) {
+        static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            scoped_context ctx(p->ctx());
-            expr e(ctx(), _e);
-            static_cast<user_propagator_base*>(p)->m_created_eh(id, e);
+            expr e(p->ctx(), _e);
+            p->m_created_eh(e);
         }
 
 
     public:
-        user_propagator_base(Z3_context c) : s(nullptr), c(c) {}
+        user_propagator_base(context& c) : s(nullptr), c(&c) {}
         
         user_propagator_base(solver* s): s(s), c(nullptr) {
               Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
@@ -4010,6 +4000,10 @@ namespace z3 {
         virtual void pop(unsigned num_scopes) = 0;
 
         virtual ~user_propagator_base() = default;
+
+        context& ctx() {
+          return c ? *c : s->ctx();
+        }
 
         /**
            \brief user_propagators created using \c fresh() are created during 
@@ -4035,7 +4029,7 @@ namespace z3 {
 
         void register_fixed() {
             assert(s);
-            m_fixed_eh = [this](unsigned id, expr const& e) {
+            m_fixed_eh = [this](expr const& id, expr const& e) {
                 fixed(id, e);
             };
             Z3_solver_propagate_fixed(ctx(), *s, fixed_eh);
@@ -4049,7 +4043,7 @@ namespace z3 {
 
         void register_eq() {
             assert(s);
-            m_eq_eh = [this](unsigned x, unsigned y) {
+            m_eq_eh = [this](expr const& x, expr const& y) {
                 eq(x, y);
             };
             Z3_solver_propagate_eq(ctx(), *s, eq_eh);
@@ -4084,19 +4078,19 @@ namespace z3 {
         }
 
         void register_created() {
-            m_created_eh = [this](unsigned id, expr const& e) {
-                created(id, e);
+            m_created_eh = [this](expr const& e) {
+                created(e);
             };
             Z3_solver_propagate_created(ctx(), *s, created_eh);
         }
 
-        virtual void fixed(unsigned /*id*/, expr const& /*e*/) { }
+        virtual void fixed(expr const& /*id*/, expr const& /*e*/) { }
 
-        virtual void eq(unsigned /*x*/, unsigned /*y*/) { }
+        virtual void eq(expr const& /*x*/, expr const& /*y*/) { }
 
         virtual void final() { }
 
-        virtual void created(unsigned /*id*/, expr const& /*e*/) {}
+        virtual void created(expr const& /*e*/) {}
 
         /**
            \brief tracks \c e by a unique identifier that is returned by the call.
@@ -4112,34 +4106,40 @@ namespace z3 {
            correspond to equalities that have been registered during a callback.
          */
 
-        unsigned add(expr const& e) {
+        void add(expr const& e) {
             if (cb)
-                return Z3_solver_propagate_register_cb(ctx(), cb, e);
-            if (s)
-                return Z3_solver_propagate_register(ctx(), *s, e);
-            assert(false);
-            return 0;
+                Z3_solver_propagate_register_cb(ctx(), cb, e);
+            else if (s)
+                Z3_solver_propagate_register(ctx(), *s, e);
+            else
+                assert(false);
         }
 
-        void conflict(unsigned num_fixed, unsigned const* fixed) {
+        void conflict(expr_vector const& fixed) {
             assert(cb);
-            scoped_context _ctx(ctx());
-            expr conseq = _ctx().bool_val(false);
-            Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, 0, nullptr, nullptr, conseq);
+            expr conseq = ctx().bool_val(false);
+            array<Z3_ast> _fixed(fixed);
+            Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
-        void propagate(unsigned num_fixed, unsigned const* fixed, expr const& conseq) {
+        void propagate(expr_vector const& fixed, expr const& conseq) {
             assert(cb);
-            assert(conseq.ctx() == ctx());
-            Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, 0, nullptr, nullptr, conseq);
+            assert((Z3_context)conseq.ctx() == (Z3_context)ctx());
+            array<Z3_ast> _fixed(fixed);
+            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
-        void propagate(unsigned num_fixed, unsigned const* fixed, 
-                       unsigned num_eqs, unsigned const* lhs, unsigned const * rhs, 
+        void propagate(expr_vector const& fixed,
+                       expr_vector const& lhs, expr_vector const& rhs,
                        expr const& conseq) {
             assert(cb);
-            assert(conseq.ctx() == ctx());
-            Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, num_eqs, lhs, rhs, conseq);
+            assert((Z3_context)conseq.ctx() == (Z3_context)ctx());
+            assert(lhs.size() == rhs.size());
+            array<Z3_ast> _fixed(fixed);
+            array<Z3_ast> _lhs(lhs);
+            array<Z3_ast> _rhs(rhs);
+            
+            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
     };
 

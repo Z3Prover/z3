@@ -236,8 +236,8 @@ namespace {
             m_context.user_propagate_register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register_expr(expr* e) override { 
-            return m_context.user_propagate_register_expr(e);
+        void user_propagate_register_expr(expr* e) override { 
+            m_context.user_propagate_register_expr(e);
         }
 
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {

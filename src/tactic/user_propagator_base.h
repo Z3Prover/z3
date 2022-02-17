@@ -8,8 +8,8 @@ namespace user_propagator {
     class callback {
     public:
         virtual ~callback() = default;
-        virtual void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
-        virtual unsigned register_cb(expr* e) = 0;
+        virtual void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr* conseq) = 0;
+        virtual void register_cb(expr* e) = 0;
     };
     
     class context_obj {
@@ -18,12 +18,12 @@ namespace user_propagator {
     };
     
     typedef std::function<void(void*, callback*)> final_eh_t;
-    typedef std::function<void(void*, callback*, unsigned, expr*)> fixed_eh_t;
-    typedef std::function<void(void*, callback*, unsigned, unsigned)> eq_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)> fixed_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)> eq_eh_t;
     typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
     typedef std::function<void(void*)>                 push_eh_t;
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
-    typedef std::function<void(void*, callback*, expr*, unsigned)> created_eh_t;
+    typedef std::function<void(void*, callback*, expr*)> created_eh_t;
 
 
     class plugin : public decl_plugin {
@@ -77,7 +77,7 @@ namespace user_propagator {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
         
-        virtual unsigned user_propagate_register_expr(expr* e) { 
+        virtual void user_propagate_register_expr(expr* e) { 
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 

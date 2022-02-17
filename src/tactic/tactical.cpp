@@ -190,9 +190,9 @@ public:
         m_t2->user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned user_propagate_register_expr(expr* e) override {
+    void user_propagate_register_expr(expr* e) override {
         m_t1->user_propagate_register_expr(e);
-        return m_t2->user_propagate_register_expr(e);
+        m_t2->user_propagate_register_expr(e);
     }
 
     void user_propagate_clear() override {
@@ -848,7 +848,7 @@ public:
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
-    unsigned user_propagate_register_expr(expr* e) override { return m_t->user_propagate_register_expr(e); }
+    void user_propagate_register_expr(expr* e) override { m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
 
 protected:
