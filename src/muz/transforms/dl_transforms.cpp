@@ -26,7 +26,6 @@ Revision History:
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "muz/transforms/dl_mk_bit_blast.h"
-#include "muz/transforms/dl_mk_array_blast.h"
 #include "muz/transforms/dl_mk_karr_invariants.h"
 #include "muz/transforms/dl_mk_magic_symbolic.h"
 #include "muz/transforms/dl_mk_quantifier_abstraction.h"
@@ -90,9 +89,6 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_bit_blast, ctx, 35000));
         transf.register_plugin(alloc(datalog::mk_karr_invariants, ctx, 36010));
         transf.register_plugin(alloc(datalog::mk_scale, ctx, 36030));
-        if (!ctx.get_params().xform_quantify_arrays()) {
-            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 35999));
-        }
         if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }

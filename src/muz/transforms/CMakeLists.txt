@@ -1,11 +1,13 @@
 
 z3_add_component(transforms
   SOURCES
-    dl_mk_array_blast.cpp
+    dl_mk_array_eq_rewrite.cpp
+    dl_mk_array_instantiation.cpp
     dl_mk_backwards.cpp
     dl_mk_bit_blast.cpp
     dl_mk_coalesce.cpp
     dl_mk_coi_filter.cpp
+    dl_mk_elim_term_ite.cpp
     dl_mk_filter_rules.cpp
     dl_mk_interp_tail_simplifier.cpp
     dl_mk_karr_invariants.cpp
@@ -19,13 +21,10 @@ z3_add_component(transforms
     dl_mk_separate_negated_tails.cpp
     dl_mk_slice.cpp
     dl_mk_subsumption_checker.cpp
+    dl_mk_synchronize.cpp    
     dl_mk_unbound_compressor.cpp
-    dl_mk_unfold.cpp
     dl_transforms.cpp
-    dl_mk_array_eq_rewrite.cpp
-    dl_mk_array_instantiation.cpp
-    dl_mk_elim_term_ite.cpp
-    dl_mk_synchronize.cpp
+    dl_mk_unfold.cpp
   COMPONENT_DEPENDENCIES
     dataflow
     hilbert
