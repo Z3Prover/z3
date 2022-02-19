@@ -241,7 +241,7 @@ class horn_tactic : public tactic {
                 verify(q, g, result, mc, pc);
             }
             g->set(pc.get());
-            g->set(mc.get());
+            g->add(mc.get());
         }
 
         void verify(expr* q,
