@@ -993,7 +993,9 @@ namespace smt {
         process_args(n);                          
         expr_ref_vector arg1_bits(m), arg2_bits(m);
         get_arg_bits(n, 0, arg1_bits);                                                  
-        get_arg_bits(n, 1, arg2_bits);                                                  
+        get_arg_bits(n, 1, arg2_bits);
+        if (ctx.b_internalized(n))
+            return;
         expr_ref le(m);
         if (Signed)
             m_bb.mk_sle(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
