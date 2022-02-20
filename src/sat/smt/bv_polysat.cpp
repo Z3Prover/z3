@@ -33,8 +33,10 @@ namespace bv {
     void solver::internalize_polysat(app* a) {
 
         std::function<polysat::pdd(polysat::pdd, polysat::pdd)> bin;
+        std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)> binc;
 
 #define mk_binary(a, fn) bin = fn; polysat_binary(a, bin);
+#define mk_binaryc(a, fn) binc = fn; polysat_binaryc(a, binc);
 
         switch (to_app(a)->get_decl_kind()) {
         case OP_BMUL:             mk_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
@@ -56,9 +58,10 @@ namespace bv {
         case OP_UGT:              polysat_le<false, false, true>(a); break;
         case OP_SGT:              polysat_le<true,  false, true>(a); break;
 
-        case OP_BUMUL_NO_OVFL:    polysat_umul_noovfl(a); break;
-        case OP_BSMUL_NO_OVFL:    polysat_smul_noovfl(a); break;
-                        
+        case OP_BUMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.mul_ovfl(p, q); }); break;            
+        case OP_BSMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_ovfl(p, q); }); break;
+        case OP_BSMUL_NO_UDFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_udfl(p, q); }); break;
+            
         case OP_BUDIV_I:          polysat_div_rem_i(a, true); break;       
         case OP_BUREM_I:          polysat_div_rem_i(a, false); break;
 
@@ -75,8 +78,7 @@ namespace bv {
         case OP_BREDOR:  // x > 0
         case OP_BSDIV:            
         case OP_BSREM:            
-        case OP_BSMOD:                        
-        case OP_BSMUL_NO_UDFL:    
+        case OP_BSMOD:     
         case OP_BSDIV_I:            
         case OP_BSREM_I:                        
         case OP_BSMOD_I:
@@ -102,19 +104,10 @@ namespace bv {
         }
     }
 
-    void solver::polysat_umul_noovfl(app* e) {
+    void solver::polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)>& fn) {
         auto p = expr2pdd(e->get_arg(0));
         auto q = expr2pdd(e->get_arg(1));
-        auto sc = ~m_polysat.mul_ovfl(p, q);
-        sat::literal lit = expr2literal(e);
-        atom* a = mk_atom(lit.var());
-        a->m_sc = sc;
-    }
-
-    void solver::polysat_smul_noovfl(app* e) {
-        auto p = expr2pdd(e->get_arg(0));
-        auto q = expr2pdd(e->get_arg(1));
-        auto sc = ~m_polysat.smul_ovfl(p, q);
+        auto sc = ~fn(p, q);
         sat::literal lit = expr2literal(e);
         atom* a = mk_atom(lit.var());
         a->m_sc = sc;

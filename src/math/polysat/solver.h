@@ -56,7 +56,7 @@ namespace polysat {
         friend class constraint;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
-        friend class smul_ovfl_constraint;
+        friend class smul_fl_constraint;
         friend class op_constraint;
         friend class signed_constraint;
         friend class clause;
@@ -344,6 +344,7 @@ namespace polysat {
         signed_constraint mul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
         signed_constraint mul_ovfl(rational const& p, pdd const& q) { return mul_ovfl(q.manager().mk_val(p), q); }
         signed_constraint smul_ovfl(pdd const& p, pdd const& q) { return m_constraints.smul_ovfl(p, q); }
+        signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
         /** Create and activate polynomial constraints. */

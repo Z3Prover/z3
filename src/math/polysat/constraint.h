@@ -20,12 +20,12 @@ Author:
 
 namespace polysat {
 
-    enum ckind_t { ule_t, mul_ovfl_t, smul_ovfl_t, op_t };
+    enum ckind_t { ule_t, mul_ovfl_t, smul_fl_t, op_t };
 
     class constraint;
     class ule_constraint;
     class mul_ovfl_constraint;
-    class smul_ovfl_constraint;
+    class smul_fl_constraint;
     class op_constraint;
     class signed_constraint;
 
@@ -100,6 +100,7 @@ namespace polysat {
         signed_constraint slt(pdd const& a, pdd const& b);
         signed_constraint mul_ovfl(pdd const& p, pdd const& q);
         signed_constraint smul_ovfl(pdd const& p, pdd const& q);
+        signed_constraint smul_udfl(pdd const& p, pdd const& q);
         signed_constraint bit(pdd const& p, unsigned i);
         signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
         signed_constraint band(pdd const& p, pdd const& q, pdd const& r);
@@ -141,7 +142,7 @@ namespace polysat {
         friend class clause;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
-        friend class smul_ovfl_constraint;
+        friend class smul_fl_constraint;
         friend class op_constraint;
 
         // constraint_manager* m_manager;
@@ -170,7 +171,7 @@ namespace polysat {
         virtual bool is_diseq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_mul_ovfl() const { return m_kind == ckind_t::mul_ovfl_t; }
-        bool is_smul_ovfl() const { return m_kind == ckind_t::smul_ovfl_t; }
+        bool is_smul_fl() const { return m_kind == ckind_t::smul_fl_t; }
         bool is_op() const { return m_kind == ckind_t::op_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
@@ -190,8 +191,8 @@ namespace polysat {
         ule_constraint const& to_ule() const;
         mul_ovfl_constraint& to_mul_ovfl();
         mul_ovfl_constraint const& to_mul_ovfl() const;
-        smul_ovfl_constraint& to_smul_ovfl();
-        smul_ovfl_constraint const& to_smul_ovfl() const;
+        smul_fl_constraint& to_smul_fl();
+        smul_fl_constraint const& to_smul_fl() const;
         op_constraint& to_op();
         op_constraint const& to_op() const;
         unsigned_vector& vars() { return m_vars; }

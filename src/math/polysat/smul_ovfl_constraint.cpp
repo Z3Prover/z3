@@ -15,8 +15,8 @@ Author:
 
 namespace polysat {
 
-    smul_ovfl_constraint::smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q):
-        constraint(m, ckind_t::smul_ovfl_t), m_p(p), m_q(q) {
+    smul_ovfl_constraint::smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow):
+        constraint(m, ckind_t::smul_ovfl_t), m_is_overflow(is_overflow), m_p(p), m_q(q) {
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())
@@ -45,27 +45,66 @@ namespace polysat {
     }
 
     std::ostream& smul_ovfl_constraint::display(std::ostream& out) const {
-        return out << "sovfl*(" << m_p << ", " << m_q << ")";       
+        if (m_is_overflow)
+            return out << "sovfl*(" << m_p << ", " << m_q << ")";
+        else
+            return out << "sudfl*(" << m_p << ", " << m_q << ")";            
     }
 
+    /**
+     * TODO - verify the rules for small bit-widths.
+     * 
+     *  sovfl(p,q) => p >= 2, q >= 2
+     *  sovfl(p,q) => p >s 0 <=> q >s 0
+     *  sovfl(p,q) & p >s 0 => p*q < 0 or ovfl(p,q)
+     *  sovfl(p,q) & p <s 0 => p*q < 0 or ovfl(-p,-q)
+
+     * ~sovfl(p,q) & p >s 0 = q >s 0 =>  q > 0 => ~ovfl(p,q) & p*q >=s 0
+     * smul_noovfl(p,q) => sign(p) != sign(q) or p'*q' < 2^{K-1}
+
+     * sudfl(p, q) => p >= 2, q >= 2
+     * sudfl(p, q) => p >s 0 xor q >s 0
+     * sudfl(p, q) & p >s 0 => p*q > 0 or ovfl(p, -q)
+     * sudfl(p, q) & q >s 0 => p*q > 0 or ovfl(-p, q)
+     *
+     * ~sudfl(p, q) & p >s 0 & q <s 0 => ~ovfl(p, -q) & p*q <s 0 
+     * ~sudfl(p, q) & p <s 0 & q >s 0 => ~ovfl(-p, q) & p*q <s 0 
+     */
     void smul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {
         if (!first)
             return;
         signed_constraint sc(this, is_positive);
-        if (is_positive) {
-            s.add_clause(~sc, s.ule(2, p()), false);
-            s.add_clause(~sc, s.ule(2, q()), false);
-            s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(q(), 0), false);
-            s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p(), 0), false);
-            s.add_clause(~sc, ~s.sgt(p(), 0), s.slt(p()*q(), 0), s.mul_ovfl(p(), q()), false);
-            s.add_clause(~sc, s.sgt(p(), 0),  s.slt(p()*q(), 0), s.mul_ovfl(-p(), -q()), false);
+        if (m_is_overflow) {
+            if (is_positive) {
+                s.add_clause(~sc, s.ule(2, p()), false);
+                s.add_clause(~sc, s.ule(2, q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(q(), 0), false);
+                s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p(), 0), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), s.slt(p()*q(), 0), s.mul_ovfl(p(), q()), false);
+                s.add_clause(~sc, s.sgt(p(), 0),  s.slt(p()*q(), 0), s.mul_ovfl(-p(), -q()), false);
+            }
+            else {
+                s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.mul_ovfl(p(), q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.slt(p()*q(), 0), false);
+                s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.mul_ovfl(-p(), -q()), false);
+                s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.slt((-p())*(-q()), 0), false);
+            }
         }
         else {
-            // smul_noovfl(p,q) => sign(p) != sign(q) or p'*q' < 2^{K-1}
-            s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.mul_ovfl(p(), q()), false);
-            s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.slt(p()*q(), 0), false);
-            s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.mul_ovfl(-p(), -q()), false);
-            s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.slt((-p())*(-q()), 0), false);
+            if (is_positive) {
+                s.add_clause(~sc, s.ule(2, p()), false);
+                s.add_clause(~sc, s.ule(2, q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), false);
+                s.add_clause(~sc, s.sgt(q(), 0), s.sgt(p(), 0), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(p()*q(), 0), s.mul_ovfl(p(), -q()), false);
+                s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p()*q(), 0), s.mul_ovfl(-p(), q()), false);
+            }
+            else {
+                s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.mul_ovfl(p(), -q()), false);
+                s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.slt(p()*q(), 0), false);
+                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.mul_ovfl(-p(), q()), false);
+                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.slt(p()*q(), 0), false);                
+            }                
         }
     }
 

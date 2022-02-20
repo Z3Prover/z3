@@ -20,11 +20,12 @@ namespace polysat {
     class smul_ovfl_constraint final : public constraint {
         friend class constraint_manager;
 
-        pdd m_p;
-        pdd m_q;
+        bool m_is_overflow;
+        pdd  m_p;
+        pdd  m_q;
 
         void simplify();
-        smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
+        smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
         
     public:
         ~smul_ovfl_constraint() override {}
