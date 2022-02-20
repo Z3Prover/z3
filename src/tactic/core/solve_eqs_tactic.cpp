@@ -649,7 +649,7 @@ class solve_eqs_tactic : public tactic {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     pr = nullptr;
                     expr* arg = args.get(i), *lhs = nullptr, *rhs = nullptr;
-                    if (m().is_eq(arg, lhs, rhs)) {                         
+                    if (m().is_eq(arg, lhs, rhs) && !m().is_bool(lhs)) {                         
                         if (trivial_solve1(lhs, rhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
                             insert_solution(g, idx, arg, var, def, pr);
                         }
