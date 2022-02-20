@@ -114,6 +114,7 @@ ALWAYS_DYNAMIC_BASE=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+FPMATH_ENABLED=getenv("FPMATH_ENABLED", "True")
 
 
 def check_output(cmd):
@@ -278,6 +279,9 @@ def test_gmp(cc):
 
 def test_fpmath(cc):
     global FPMATH_FLAGS
+    if FPMATH_ENABLED == "False":
+        FPMATH_FLAGS=""
+        return "Disabled"
     if is_verbose():
         print("Testing floating point support...")
     t = TempFile('tstsse.cpp')
