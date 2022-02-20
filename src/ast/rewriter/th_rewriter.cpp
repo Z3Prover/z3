@@ -305,12 +305,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             expr * arg1 = ite->get_arg(1);
             expr * arg2 = ite->get_arg(2);
 
-            if (m().is_ite(arg1) && arg1->get_ref_count() == 1) // do not apply on shared terms, since it may blowup
+            if (m().is_ite(arg1) && arg1->get_ref_count() == 1) // do not apply on shared terms, since it may blow up
                 todo.push_back(to_app(arg1));
             else if (!m().is_value(arg1))
                 return false;
 
-            if (m().is_ite(arg2) && arg2->get_ref_count() == 1) // do not apply on shared terms, since it may blowup
+            if (m().is_ite(arg2) && arg2->get_ref_count() == 1) // do not apply on shared terms, since it may blow up
                 todo.push_back(to_app(arg2));
             else if (!m().is_value(arg2))
                 return false;
