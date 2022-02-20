@@ -1,6 +1,6 @@
 variables:
   ReleaseVersion: '4.8.15'
-  MacFlags: 'CXXFLAGS="-arch arm64" LINK_EXTRA_FLAGS="-arch arm64" SLINK_EXTRA_FLAGS="-arch arm64"'
+  MacFlags: 'CXXFLAGS="-arch arm64" LINK_EXTRA_FLAGS="-arch arm64" SLINK_EXTRA_FLAGS="-arch arm64" CPPFLAGS="-arch arm64"'
 
 stages:
 - stage: Build
