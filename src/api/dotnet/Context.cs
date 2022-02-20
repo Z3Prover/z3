@@ -2497,7 +2497,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Check if the string s1 is lexicographically strictly less than s2.
+        /// Check if the string s1 is lexicographically less or equal to s2.
         /// </summary>
         public BoolExpr MkStringLe(SeqExpr s1, SeqExpr s2) 
         {

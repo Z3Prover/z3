@@ -1224,15 +1224,21 @@ extern "C" {
             case OP_RE_PLUS: return Z3_OP_RE_PLUS;
             case OP_RE_STAR: return Z3_OP_RE_STAR;
             case OP_RE_OPTION: return Z3_OP_RE_OPTION;
+            case OP_RE_RANGE: return Z3_OP_RE_RANGE;
             case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
             case OP_RE_UNION: return Z3_OP_RE_UNION;
             case OP_RE_DIFF: return Z3_OP_RE_DIFF;
-             case OP_RE_POWER: return Z3_OP_RE_POWER;
             case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
             case OP_RE_LOOP: return Z3_OP_RE_LOOP;
-             case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
-            //case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_POWER: return Z3_OP_RE_POWER;
+            case OP_RE_COMPLEMENT: return Z3_OP_RE_COMPLEMENT;
             case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
+
+            case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_CHAR_SET;
+            case OP_RE_OF_PRED: return Z3_OP_RE_OF_PRED;
+            case OP_RE_REVERSE: return Z3_OP_RE_REVERSE;
+            case OP_RE_DERIVATIVE: return Z3_OP_RE_DERIVATIVE;
             default:
                 return Z3_OP_INTERNAL;
             }
