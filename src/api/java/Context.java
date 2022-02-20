@@ -2107,6 +2107,26 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Check if the string s1 is lexicographically strictly less than s2.
+     */
+
+    public BoolExpr MkStringLt(SeqSort<CharSort> s1, SeqSort<CharSort> s2) 
+    {
+	checkContextMatch(s1, s2);
+	return new BoolExpr(this, Native.mkStrLt(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Check if the string s1 is lexicographically less or equal to s2.
+     */
+    public BoolExpr MkStringLe(SeqSort<CharSort> s1, SeqSort<CharSort> s2)
+    {
+	checkContextMatch(s1, s2);
+	return new BoolExpr(this, Native.mkStrLe(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+
+    /**
      * Retrieve sequence of length one at index.
      */
     public <R extends Sort> SeqExpr<R> mkAt(Expr<SeqSort<R>> s, Expr<IntSort> index)
