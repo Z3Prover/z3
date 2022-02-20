@@ -37,7 +37,7 @@ class bv1_blaster_tactic : public tactic {
         bv_util                            m_util;
         obj_map<func_decl, expr*>          m_const2bits;
         ptr_vector<func_decl>              m_newbits;
-        expr_ref_vector                    m_saved;
+        ast_ref_vector                     m_saved;
         expr_ref                           m_bit1;
         expr_ref                           m_bit0;
 
@@ -108,9 +108,11 @@ class bv1_blaster_tactic : public tactic {
             for (unsigned i = 0; i < bv_size; i++) {
                 bits.push_back(m().mk_fresh_const(nullptr, b));
                 m_newbits.push_back(to_app(bits.back())->get_decl());
+                m_saved.push_back(m_newbits.back());
             }
             r = butil().mk_concat(bits.size(), bits.data());
             m_saved.push_back(r);
+            m_saved.push_back(f);
             m_const2bits.insert(f, r);
             result = r;
         }

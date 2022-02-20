@@ -21,6 +21,7 @@ Notes:
 #include "tactic/model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 
 /**
@@ -40,9 +41,7 @@ struct bit_blaster_model_converter : public model_converter {
         obj_map<func_decl, expr*> const & const2bits, 
         ptr_vector<func_decl> const& newbits):
         m_vars(m), m_bits(m), m_newbits(m) {
-        for (auto const& kv : const2bits) {
-            func_decl * v = kv.m_key;
-            expr * bits   = kv.m_value;
+        for (auto const& [v, bits] : const2bits) {
             SASSERT(!TO_BOOL || is_app_of(bits, m.get_family_id("bv"), OP_MKBV));
             SASSERT(TO_BOOL  || is_app_of(bits, m.get_family_id("bv"), OP_CONCAT));
             m_vars.push_back(v);
