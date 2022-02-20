@@ -2112,8 +2112,8 @@ public class Context implements AutoCloseable {
 
     public BoolExpr MkStringLt(SeqSort<CharSort> s1, SeqSort<CharSort> s2) 
     {
-	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkStrLt(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+        checkContextMatch(s1, s2);
+        return new BoolExpr(this, Native.mkStrLt(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
 
     /**
@@ -2121,8 +2121,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr MkStringLe(SeqSort<CharSort> s1, SeqSort<CharSort> s2)
     {
-	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkStrLe(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+        checkContextMatch(s1, s2);
+        return new BoolExpr(this, Native.mkStrLe(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
 
 
