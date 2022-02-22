@@ -80,8 +80,8 @@ bool horn_subsume_model_converter::mk_horn(
             if (w >= subst.size()) {
                 subst.resize(w+1);
             }
-            if (subst[w].get()) {
-                conjs.push_back(m.mk_eq(v, subst[w].get()));
+            if (subst.get(w)) {
+                conjs.push_back(m.mk_eq(v, subst.get(w)));
             }
             else {
                 subst[w] = v;
@@ -92,11 +92,11 @@ bool horn_subsume_model_converter::mk_horn(
         }
     }
     expr_ref body_expr(m);
-    body_expr = m.mk_and(conjs.size(), conjs.data());
+    body_expr = m.mk_and(conjs);
 
     // substitute variables directly.
     if (!subst.empty()) {
-        body_expr = vs(body_expr, subst.size(), subst.data());
+        body_expr = vs(body_expr, subst);
     }    
 
     if (fv.empty()) {
@@ -174,17 +174,16 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
     func_decl_ref pred(m);
     expr_ref      body_res(m);
     for (unsigned i = 0; i < m_delay_head.size(); ++i) {
-        VERIFY(mk_horn(m_delay_head[i].get(), m_delay_body[i].get(), pred, body_res));
+        VERIFY(mk_horn(m_delay_head.get(i), m_delay_body.get(i), pred, body_res));
         insert(pred.get(), body_res.get());
     }
     m_delay_head.reset();
     m_delay_body.reset();
 
     TRACE("mc", tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
-    for (unsigned i = m_funcs.size(); i > 0; ) {
-        --i;
-        func_decl* h = m_funcs[i].get();
-        expr_ref body(m_bodies[i].get(), m);
+    for (unsigned i = m_funcs.size(); i-- > 0; ) {
+        func_decl* h = m_funcs.get(i);
+        expr_ref body(m_bodies.get(i), m);
         unsigned arity = h->get_arity();
         add_default_false_interpretation(body, mr);
         SASSERT(m.is_bool(body));
