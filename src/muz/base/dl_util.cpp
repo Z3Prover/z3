@@ -286,7 +286,7 @@ namespace datalog {
             ast_manager& m = mc->get_manager();
             expr_ref_vector body(m);
             if (unreachable) {
-                body.push_back(m.mk_false());
+                body.push_back(m.mk_true());
             }
             else {
                 for (unsigned i = 0; i < r.get_tail_size(); ++i) {
