@@ -943,7 +943,7 @@ expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
     rational v;
-    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, v) && v.is_zero()) {
+    if (false && str().is_extract(t, s, j, k) && m_autil.is_numeral(j, v) && v.is_zero()) {
         expr_ref_vector k_min_1(m());
         k_min_1.push_back(k);
         k_min_1.push_back(minus_one());
