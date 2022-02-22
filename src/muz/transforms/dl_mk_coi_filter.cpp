@@ -133,7 +133,6 @@ namespace datalog {
             if (engine.get_fact(pred).is_reachable())
                 should_keep = true;
             else if (m_context.get_model_converter()) {
-                bool should_keep = false;
                 for (rule* pr : source.get_predicate_rules(pred))
                     for (unsigned i = 0; i < pr->get_uninterpreted_tail_size(); ++i)
                         should_keep |= pr->get_tail(i)->get_decl() != pred;
