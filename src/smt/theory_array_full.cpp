@@ -745,8 +745,8 @@ namespace smt {
             //
             //
             expr_ref_vector args1(m), args2(m);
-            args1.push_back(store_app->get_arg(0));
-            args2.push_back(store_app);
+            args1.push_back(store_app);
+            args2.push_back(store_app->get_arg(0));
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store_app->get_arg(i);
@@ -762,39 +762,6 @@ namespace smt {
             ctx.internalize(def2, false);
             is_new = try_assign_eq(def1, sel1) || try_assign_eq(def2, sel2);
             return is_new;
-
-            
-#if 0
-            //
-            // This is incorrect, issue #5593.
-            //
-
-            // let A = store(B, i, v)
-            // 
-            // Add:
-            //   default(A) = ite(epsilon1 = i, v, default(B))
-            //   A[diag(i)] = B[diag(i)]
-            // 
-            expr_ref_vector eqs(m);
-            expr_ref_vector args1(m), args2(m);
-            args1.push_back(store_app->get_arg(0));
-            args2.push_back(store_app);
-
-            for (unsigned i = 1; i + 1 < num_args; ++i) {
-                expr* arg = store_app->get_arg(i);
-                sort* srt = arg->get_sort();
-                auto ep = mk_epsilon(srt);
-                eqs.push_back(m.mk_eq(ep.first, arg));
-                args1.push_back(m.mk_app(ep.second, arg));
-                args2.push_back(m.mk_app(ep.second, arg));
-            }            
-            expr_ref eq(mk_and(eqs), m);
-            def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), def2);             
-            app_ref sel1(m), sel2(m);
-            sel1 = mk_select(args1);
-            sel2 = mk_select(args2);
-            is_new = try_assign_eq(sel1, sel2);
-#endif
         }
 
         ctx.internalize(def1, false);
