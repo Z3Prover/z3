@@ -2080,7 +2080,7 @@ class MLComponent(Component):
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxa'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxs'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'dllz3ml'))))
-            if is_windows() or is_cygwin_mingw():
+            if is_windows() or is_cygwin_mingw() or is_msys2():
                 out.write('.dll')
             else:
                 out.write('.so') # .so also on OSX!
@@ -2628,7 +2628,7 @@ def mk_config():
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
-        if is_cygwin_mingw():
+        if is_cygwin_mingw() or is_msys2():
             # when cross-compiling with MinGW, we need to statically link its standard libraries
             # and to make it create an import library.
             SLIBEXTRAFLAGS = '%s -static-libgcc -static-libstdc++ -Wl,--out-implib,libz3.dll.a' % SLIBEXTRAFLAGS
