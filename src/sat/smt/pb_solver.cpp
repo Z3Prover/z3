@@ -2637,6 +2637,10 @@ namespace pb {
      *       add ~root(~l) to c, k <- k + 1
      */ 
     void solver::unit_strengthen() {
+        return;
+
+        // TODO - this is unsound exposed by 4_21_21_-1.txt
+
         sat::big big(s().m_rand);
         big.init(s(), true);
         for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) 
@@ -2646,7 +2650,8 @@ namespace pb {
     }
 
     void solver::unit_strengthen(sat::big& big, constraint& p) {
-        if (p.lit() != sat::null_literal) return;
+        if (p.lit() != sat::null_literal) 
+            return;
         unsigned sz = p.size();
         for (unsigned i = 0; i < sz; ++i) {
             literal u = p.get_lit(i);
@@ -2694,8 +2699,8 @@ namespace pb {
                     }
                 }
                 ++m_stats.m_num_big_strengthenings;
+                constraint* c = add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 p.set_removed();
-                add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 return;
             }
         }

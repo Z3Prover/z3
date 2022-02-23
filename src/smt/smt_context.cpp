@@ -211,6 +211,7 @@ namespace smt {
         new_ctx->m_is_auxiliary = true;
         new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
+        new_ctx->copy_user_propagator(*this);
         return new_ctx;
     }
 
