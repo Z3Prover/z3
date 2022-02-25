@@ -410,7 +410,7 @@ namespace datalog {
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
 
         for (rule * r : m_inlined_rules) {
-            datalog::del_rule(m_mc, *r, false);
+            datalog::del_rule(m_mc, *r, l_undef);
         }
     }
 
@@ -449,7 +449,7 @@ namespace datalog {
             }
         }
         if (modified) {
-            datalog::del_rule(m_mc, *r0, true);
+            datalog::del_rule(m_mc, *r0, l_false);
         }
 
         return modified;
@@ -473,7 +473,7 @@ namespace datalog {
         if (something_done && m_mc) {
             for (rule* r : orig) {
                 if (inlining_allowed(orig, r->get_decl())) {
-                    datalog::del_rule(m_mc, *r, true);
+                    datalog::del_rule(m_mc, *r, l_undef);
                 }
             }
         }
@@ -558,7 +558,7 @@ namespace datalog {
                 // nothing unifies with the tail atom, therefore the rule is unsatisfiable
                 // (we can say this because relation pred doesn't have any ground facts either)
                 res = nullptr;
-                datalog::del_rule(m_mc, *r, false);
+                datalog::del_rule(m_mc, *r, l_false);
                 return true;
             }
             if (!is_oriented_rewriter(inlining_candidate, strat)) {
@@ -568,7 +568,7 @@ namespace datalog {
                 goto process_next_tail;
             }
             if (!try_to_inline_rule(*r, *inlining_candidate, ti, res)) {
-                datalog::del_rule(m_mc, *r, false);
+                datalog::del_rule(m_mc, *r, l_false);
                 res = nullptr;
             }
             return true;
@@ -801,7 +801,7 @@ namespace datalog {
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
                     valid.set(j, false);
-                    datalog::del_rule(m_mc, *r2, true);
+                    datalog::del_rule(m_mc, *r2, l_true);
                     del_rule(r2, j);
                 }
 

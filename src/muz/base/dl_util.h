@@ -353,7 +353,7 @@ namespace datalog {
         unsigned get_max_rule_var(const rule& r);
     };
 
-    void del_rule(horn_subsume_model_converter* mc, rule& r, bool unreachable);
+    void del_rule(horn_subsume_model_converter* mc, rule& r, lbool unreachable);
 
     void resolve_rule(rule_manager& rm,
                       replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
