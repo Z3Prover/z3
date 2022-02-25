@@ -86,13 +86,13 @@ static char const * get_new_param_name(std::string const & p) {
 template <typename T>
 class smap : public map<char const*, T, str_hash_proc, str_eq_proc> {};
 
-typedef std::function<param_descrs*(void)> lazy_descrs_t;
+typedef param_descrs* (*lazy_descrs_t)(void);
 
 class lazy_param_descrs {
     param_descrs*      m_descrs;
-    ptr_vector<lazy_descrs_t>      m_mk;
+    svector<lazy_descrs_t> m_mk;
 
-    void apply(lazy_descrs_t& f) {
+    void apply(lazy_descrs_t f) {
         param_descrs* d = f();
         if (m_descrs) {
             m_descrs->copy(*d);
@@ -104,18 +104,16 @@ class lazy_param_descrs {
     }
     
     void reset_mk() {
-        for (auto* f : m_mk) dealloc(f);
         m_mk.reset();
     }
 
 public:
-    lazy_param_descrs(lazy_descrs_t& f): m_descrs(nullptr) {
+    lazy_param_descrs(lazy_descrs_t f): m_descrs(nullptr) {
         append(f);
     }
 
     ~lazy_param_descrs() { 
-        dealloc(m_descrs);  
-        reset_mk();
+        dealloc(m_descrs);
     }
 
     param_descrs* deref() {
@@ -124,8 +122,8 @@ public:
         return m_descrs;
     }
 
-    void append(lazy_descrs_t& f) {
-        m_mk.push_back(alloc(lazy_descrs_t, f));        
+    void append(lazy_descrs_t f) {
+        m_mk.push_back(f);
     }
 };
 
@@ -204,7 +202,7 @@ public:
         m_param_descrs.copy(d);
     }
 
-    void register_module(char const * module_name, lazy_descrs_t& f) {
+    void register_module(char const * module_name, lazy_descrs_t f) {
         // Don't need synchronization here, this method
         // is invoked from check_registered that is already protected.
         
@@ -599,7 +597,7 @@ void gparams::register_global(param_descrs & d) {
     g_imp->register_global(d);
 }
 
-void gparams::register_module(char const * module_name, lazy_descrs_t& f) {
+void gparams::register_module(char const * module_name, lazy_descrs_t f) {
     SASSERT(g_imp);
     g_imp->register_module(module_name, f);
 }

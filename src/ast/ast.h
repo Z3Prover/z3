@@ -367,8 +367,8 @@ public:
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
 
-    sort_info(decl_info const& di, sort_size const& num_elements) : 
-        decl_info(di), m_num_elements(num_elements) {}
+    sort_info(decl_info && di, sort_size const& num_elements) :
+        decl_info(std::move(di)), m_num_elements(num_elements) {}
 
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }

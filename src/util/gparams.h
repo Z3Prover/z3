@@ -85,8 +85,8 @@ public:
        module.
     */
 
-    typedef std::function<param_descrs*(void)> lazy_descrs_t;
-    static void register_module(char const* module_name, lazy_descrs_t& get_descrs);
+    typedef param_descrs* (*lazy_descrs_t)(void);
+    static void register_module(char const* module_name, lazy_descrs_t get_descrs);
 
     /**
        \brief Add a (small) description to the given module.

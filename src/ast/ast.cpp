@@ -1759,13 +1759,13 @@ ast * ast_manager::register_node_core(ast * n) {
     switch (n->get_kind()) {
     case AST_SORT:
         if (to_sort(n)->m_info != nullptr) {
-            to_sort(n)->m_info = alloc(sort_info, *(to_sort(n)->get_info()));
+            to_sort(n)->m_info = alloc(sort_info, std::move(*(to_sort(n)->get_info())));
             to_sort(n)->m_info->init_eh(*this);
         }
         break;
     case AST_FUNC_DECL:
         if (to_func_decl(n)->m_info != nullptr) {
-            to_func_decl(n)->m_info = alloc(func_decl_info, *(to_func_decl(n)->get_info()));
+            to_func_decl(n)->m_info = alloc(func_decl_info, std::move(*(to_func_decl(n)->get_info())));
             to_func_decl(n)->m_info->init_eh(*this);
         }
         inc_array_ref(to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
@@ -1993,7 +1993,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
         return s;
     }
     decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.data(), s->private_parameters());
-    sort_info sinfo(dinfo, s->get_num_elements());
+    sort_info sinfo(std::move(dinfo), s->get_num_elements());
     return mk_sort(s->get_name(), &sinfo);
 }
 
