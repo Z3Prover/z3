@@ -347,7 +347,7 @@ public:
     Config & cfg() { return m_cfg; }
     Config const & cfg() const { return m_cfg; }
 
-    ~rewriter_tpl() override;
+    ~rewriter_tpl() override {};
     
     void reset();
     void cleanup();
