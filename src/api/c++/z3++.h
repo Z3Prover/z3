@@ -25,6 +25,7 @@ Notes:
 #include<string>
 #include<sstream>
 #include<memory>
+#include<vector>
 #include<z3.h>
 #include<limits.h>
 #include<functional>
@@ -542,7 +543,7 @@ namespace z3 {
         ~ast_vector_tpl() { Z3_ast_vector_dec_ref(ctx(), m_vector); }
         operator Z3_ast_vector() const { return m_vector; }
         unsigned size() const { return Z3_ast_vector_size(ctx(), m_vector); }
-        T operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
+        T operator[](unsigned i) const { Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
         void push_back(T const & e) { Z3_ast_vector_push(ctx(), m_vector, e); check_error(); }
         void resize(unsigned sz) { Z3_ast_vector_resize(ctx(), m_vector, sz); check_error(); }
         T back() const { return operator[](size() - 1); }
@@ -1149,6 +1150,19 @@ namespace z3 {
            \pre i < num_args()
         */
         expr arg(unsigned i) const { Z3_ast r = Z3_get_app_arg(ctx(), *this, i); check_error(); return expr(ctx(), r); }
+        /**
+           \brief Return a vector of all the arguments of this application.
+           This method assumes the expression is an application.
+
+           \pre is_app()
+        */
+        expr_vector args() const {
+          expr_vector vec(ctx());
+          unsigned argCnt = num_args();
+          for (unsigned i = 0; i < argCnt; i++)
+            vec.push_back(arg(i));
+          return vec;
+        }
 
         /**
            \brief Return the 'body' of this quantifier.
@@ -3936,7 +3950,8 @@ namespace z3 {
         created_eh_t m_created_eh;
         solver*    s;
         context*   c;
-        
+        std::vector<z3::context*> subcontexts;
+
         Z3_solver_callback cb { nullptr };
 
         struct scoped_cb {
@@ -3944,8 +3959,8 @@ namespace z3 {
             scoped_cb(void* _p, Z3_solver_callback cb):p(*static_cast<user_propagator_base*>(_p)) {
                 p.cb = cb;
             }
-            ~scoped_cb() { 
-                p.cb = nullptr; 
+            ~scoped_cb() {
+                p.cb = nullptr;
             }
         };
 
@@ -3958,7 +3973,9 @@ namespace z3 {
         }
 
         static void* fresh_eh(void* p, Z3_context ctx) {
-            return static_cast<user_propagator_base*>(p)->fresh(ctx);
+            context* c = new context(ctx);
+            static_cast<user_propagator_base*>(p)->subcontexts.push_back(c);
+            return static_cast<user_propagator_base*>(p)->fresh(*c);
         }
 
         static void fixed_eh(void* _p, Z3_solver_callback cb, Z3_ast _var, Z3_ast _value) {
@@ -3993,60 +4010,69 @@ namespace z3 {
         user_propagator_base(context& c) : s(nullptr), c(&c) {}
         
         user_propagator_base(solver* s): s(s), c(nullptr) {
-              Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
+            Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
         }
 
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
 
-        virtual ~user_propagator_base() = default;
+        virtual ~user_propagator_base() {
+            for (auto& subcontext : subcontexts) {
+                subcontext->detach(); // detach first; the subcontexts will be freed internally!
+                delete subcontext;
+            }
+        }
 
         context& ctx() {
-          return c ? *c : s->ctx();
+            return c ? *c : s->ctx();
         }
 
         /**
-           \brief user_propagators created using \c fresh() are created during 
+           \brief user_propagators created using \c fresh() are created during
            search and their lifetimes are restricted to search time. They should
            be garbage collected by the propagator used to invoke \c fresh().
            The life-time of the Z3_context object can only be assumed valid during
            callbacks, such as \c fixed(), which contains expressions based on the
            context.
         */
-        virtual user_propagator_base* fresh(Z3_context ctx) = 0;
+        virtual user_propagator_base* fresh(context& ctx) = 0;
 
         /**
            \brief register callbacks.
            Callbacks can only be registered with user_propagators
-           that were created using a solver. 
+           that were created using a solver.
         */
 
-        void register_fixed(fixed_eh_t& f) { 
-            assert(s);
-            m_fixed_eh = f; 
-            Z3_solver_propagate_fixed(ctx(), *s, fixed_eh); 
+        void register_fixed(fixed_eh_t& f) {
+            m_fixed_eh = f;
+            if (s) {
+                Z3_solver_propagate_fixed(ctx(), *s, fixed_eh);
+            }
         }
 
         void register_fixed() {
-            assert(s);
-            m_fixed_eh = [this](expr const& id, expr const& e) {
+            m_fixed_eh = [this](expr const &id, expr const &e) {
                 fixed(id, e);
             };
-            Z3_solver_propagate_fixed(ctx(), *s, fixed_eh);
+            if (s) {
+                Z3_solver_propagate_fixed(ctx(), *s, fixed_eh);
+            }
         }
 
-        void register_eq(eq_eh_t& f) { 
-            assert(s);
-            m_eq_eh = f; 
-            Z3_solver_propagate_eq(ctx(), *s, eq_eh); 
+        void register_eq(eq_eh_t& f) {
+            m_eq_eh = f;
+            if (s) {
+                Z3_solver_propagate_eq(ctx(), *s, eq_eh);
+            }
         }
 
         void register_eq() {
-            assert(s);
             m_eq_eh = [this](expr const& x, expr const& y) {
                 eq(x, y);
             };
-            Z3_solver_propagate_eq(ctx(), *s, eq_eh);
+            if (s) {
+                Z3_solver_propagate_eq(ctx(), *s, eq_eh);
+            }
         }
 
         /**
@@ -4054,34 +4080,39 @@ namespace z3 {
            During the final check stage, all propagations have been processed.
            This is an opportunity for the user-propagator to delay some analysis
            that could be expensive to perform incrementally. It is also an opportunity
-           for the propagator to implement branch and bound optimization. 
+           for the propagator to implement branch and bound optimization.
         */
 
-        void register_final(final_eh_t& f) { 
-            assert(s);
-            m_final_eh = f; 
-            Z3_solver_propagate_final(ctx(), *s, final_eh); 
+        void register_final(final_eh_t& f) {
+            m_final_eh = f;
+            if (s) {
+                Z3_solver_propagate_final(ctx(), *s, final_eh);
+            }
         }
-        
-        void register_final() { 
-            assert(s);
+
+        void register_final() {
             m_final_eh = [this]() {
                 final();
             };
-            Z3_solver_propagate_final(ctx(), *s, final_eh); 
+            if (s) {
+                Z3_solver_propagate_final(ctx(), *s, final_eh);
+            }
         }
 
         void register_created(created_eh_t& c) {
-            assert(s);
             m_created_eh = c;
-            Z3_solver_propagate_created(ctx(), *s, created_eh);
+            if (s) {
+                Z3_solver_propagate_created(ctx(), *s, created_eh);
+            }
         }
 
         void register_created() {
             m_created_eh = [this](expr const& e) {
                 created(e);
             };
-            Z3_solver_propagate_created(ctx(), *s, created_eh);
+            if (s) {
+                Z3_solver_propagate_created(ctx(), *s, created_eh);
+            }
         }
 
         virtual void fixed(expr const& /*id*/, expr const& /*e*/) { }
@@ -4095,10 +4126,10 @@ namespace z3 {
         /**
            \brief tracks \c e by a unique identifier that is returned by the call.
 
-           If the \c fixed() callback is registered and if \c e is a Boolean or Bit-vector, 
+           If the \c fixed() callback is registered and if \c e is a Boolean or Bit-vector,
            the \c fixed() callback gets invoked when \c e is bound to a value.
            If the \c eq() callback is registered, then equalities between registered expressions
-           are reported. 
+           are reported.
            A consumer can use the \c propagate or \c conflict functions to invoke propagations
            or conflicts as a consequence of these callbacks. These functions take a list of identifiers
            for registered expressions that have been fixed. The list of identifiers must correspond to
@@ -4142,9 +4173,6 @@ namespace z3 {
             Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
     };
-
-
-    
 
 }
 

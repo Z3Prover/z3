@@ -94,8 +94,14 @@ void theory_user_propagator::register_cb(expr* e) {
 }
 
 theory * theory_user_propagator::mk_fresh(context * new_ctx) {
-    auto* th = alloc(theory_user_propagator, *new_ctx); 
-    void* ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);
+    auto* th = alloc(theory_user_propagator, *new_ctx);
+    void* ctx;
+    try {
+        ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);
+    }
+    catch (...) {
+      throw default_exception("Exception thrown in \"fresh\"-callback");
+    }
     th->add(ctx, m_push_eh, m_pop_eh, m_fresh_eh);
     if ((bool)m_fixed_eh) th->register_fixed(m_fixed_eh);
     if ((bool)m_final_eh) th->register_final(m_final_eh);
@@ -110,7 +116,12 @@ final_check_status theory_user_propagator::final_check_eh() {
         return FC_DONE;
     force_push();
     unsigned sz = m_prop.size();
-    m_final_eh(m_user_context, this);
+    try {
+        m_final_eh(m_user_context, this);
+    }
+    catch (...) {
+      throw default_exception("Exception thrown in \"final\"-callback");
+    }
     propagate();
     bool done = (sz == m_prop.size()) && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
@@ -125,7 +136,12 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
     m_fixed.insert(v);
     ctx.push_trail(insert_map<uint_set, unsigned>(m_fixed, v));
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
-    m_fixed_eh(m_user_context, this, var2expr(v), value);
+    try {
+         m_fixed_eh(m_user_context, this, var2expr(v), value);
+     }
+     catch (...) {
+       throw default_exception("Exception thrown in \"fixed\"-callback");
+     }
 }
 
 void theory_user_propagator::push_scope_eh() {
@@ -228,11 +244,17 @@ bool theory_user_propagator::internalize_term(app* term)  {
         ctx.mk_enode(term, true, false, true);
     
     add_expr(term);
+    
+    if (!m_created_eh)
+        throw default_exception("You have to register a created event handler for new terms if you track them");
 
-    if (!m_created_eh && (m_fixed_eh || m_eq_eh || m_diseq_eh))
-        return true;
-    if (m_created_eh)
+    try {
         m_created_eh(m_user_context, this, term);
+    }
+    catch (...) {
+      throw default_exception("Exception thrown in \"created\"-callback");
+    }
+
     return true;
 }
 

@@ -171,7 +171,7 @@ namespace smt {
         dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
         dst_ctx.internalize_assertions();
         
-        dst_ctx.copy_user_propagator(src_ctx);
+        dst_ctx.copy_user_propagator(src_ctx, true);
 
         TRACE("smt_context",
               src_ctx.display(tout);
@@ -193,13 +193,16 @@ namespace smt {
         }
     }
 
-    void context::copy_user_propagator(context& src_ctx) {
+    void context::copy_user_propagator(context& src_ctx, bool copy_registered) {
         if (!src_ctx.m_user_propagator) 
             return;
-        ast_translation tr(src_ctx.m, m, false);
         auto* p = get_theory(m.mk_family_id("user_propagator"));
         m_user_propagator = reinterpret_cast<theory_user_propagator*>(p);
         SASSERT(m_user_propagator);
+        if (!copy_registered) {
+            return;
+        }
+        ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
             app* e = src_ctx.m_user_propagator->get_expr(i);
             m_user_propagator->add_expr(tr(e));
@@ -211,7 +214,7 @@ namespace smt {
         new_ctx->m_is_auxiliary = true;
         new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
-        new_ctx->copy_user_propagator(*this);
+        new_ctx->copy_user_propagator(*this, false);
         return new_ctx;
     }
 

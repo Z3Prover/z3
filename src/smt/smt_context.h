@@ -1576,7 +1576,7 @@ namespace smt {
 
         void log_stats();
 
-        void copy_user_propagator(context& src);
+        void copy_user_propagator(context& src, bool copy_registered);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());

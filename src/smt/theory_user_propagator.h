@@ -142,7 +142,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override { return nullptr; }
         void init_model(model_generator & m) override {}
-        bool include_func_interp(func_decl* f) override { return true; }
+        bool include_func_interp(func_decl* f) override { return false; }
         bool can_propagate() override;
         void propagate() override; 
         void display(std::ostream& out) const override {}
