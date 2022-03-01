@@ -53,7 +53,7 @@ namespace Microsoft.Z3
         /// <returns>An expression if the function has an interpretation in the model, null otherwise.</returns>    
         public Z3_ast ConstFuncInterp(Z3_func_decl f)
         {
-            if (Native.Z3_get_arity(Context.nCtx, f) != 0) 
+            if (Native.Z3_get_arity(Context.nCtx, f) != 0)
                 throw new Z3Exception("Non-zero arity functions have FunctionInterpretations as a model. Use FuncInterp.");
 
             return Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
@@ -68,8 +68,8 @@ namespace Microsoft.Z3
         {
 
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f));
-	    
-            if (Native.Z3_get_arity(Context.nCtx, f) == 0) 
+
+            if (Native.Z3_get_arity(Context.nCtx, f) == 0)
             {
                 IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
 
@@ -288,15 +288,15 @@ namespace Microsoft.Z3
 
 
 
-	IntPtr NativeObject;
-	NativeContext Context;
-	
+        IntPtr NativeObject;
+        NativeContext Context;
+
         internal NativeModel(NativeContext ctx, IntPtr obj)
         {
-	    Context = ctx;
-	    NativeObject = obj;
+            Context = ctx;
+            NativeObject = obj;
             Debug.Assert(ctx != null);
-	    Native.Z3_model_inc_ref(ctx.nCtx, obj);
+            Native.Z3_model_inc_ref(ctx.nCtx, obj);
         }
 
 
@@ -304,9 +304,9 @@ namespace Microsoft.Z3
         /// Finalizer.
         /// </summary>
         ~NativeModel()
-	{
-	     Dispose();
-	}
+        {
+            Dispose();
+        }
 
         /// <summary>
         /// Disposes of the underlying native Z3 object.
@@ -315,8 +315,8 @@ namespace Microsoft.Z3
         {
             if (NativeObject != IntPtr.Zero)
             {
-	    	Native.Z3_model_dec_ref(Context.nCtx, NativeObject);
-                NativeObject = IntPtr.Zero;                
+                Native.Z3_model_dec_ref(Context.nCtx, NativeObject);
+                NativeObject = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
         }

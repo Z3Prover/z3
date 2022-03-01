@@ -84,7 +84,7 @@ namespace Microsoft.Z3
                 return res + Value + "]";
             }
 
-            #region Internal
+        #region Internal
             internal Entry(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
             internal class DecRefQueue : IDecRefQueue
@@ -113,7 +113,7 @@ namespace Microsoft.Z3
                 Context.FuncEntry_DRQ.Add(o);
                 base.DecRef(o);
             }
-            #endregion
+        #endregion
         };
 
         /// <summary>
@@ -188,23 +188,23 @@ namespace Microsoft.Z3
 #endif
 
         #region Internal
-	NativeContext Context;
-	IntPtr NativeObject;
-	internal NativeFuncInterp(NativeContext ctx, IntPtr obj)
+        NativeContext Context;
+        IntPtr NativeObject;
+        internal NativeFuncInterp(NativeContext ctx, IntPtr obj)
         {
-	    Context = ctx;
-	    NativeObject = obj;
+            Context = ctx;
+            NativeObject = obj;
             Debug.Assert(ctx != null);
-	    // inc-ref
+            // inc-ref
         }
 
         /// <summary>
         /// Finalizer.
         /// </summary>
         ~NativeFuncInterp()
-	{
-	     Dispose();
-	}
+        {
+            Dispose();
+        }
 
         /// <summary>
         /// Disposes of the underlying native Z3 object.
@@ -213,8 +213,8 @@ namespace Microsoft.Z3
         {
             if (NativeObject != IntPtr.Zero)
             {
-	    	Native.Z3_func_interp_dec_ref(Context.nCtx, NativeObject);
-                NativeObject = IntPtr.Zero;                
+                Native.Z3_func_interp_dec_ref(Context.nCtx, NativeObject);
+                NativeObject = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
         }
