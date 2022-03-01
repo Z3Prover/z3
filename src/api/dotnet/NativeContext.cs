@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Linq;
 
-namespace Microsoft.Z3 
+namespace Microsoft.Z3
 {
     using Z3_symbol = System.IntPtr;
     using Z3_config = System.IntPtr;
@@ -41,13 +41,14 @@ namespace Microsoft.Z3
     /// expressions.
     /// </summary>
 
-    public class NativeContext {
+    public class NativeContext
+    {
 
         #region Arithmetic
         /// <summary>
         /// Create an expression representing <c>t[0] + t[1] + ...</c>.
         /// </summary>
-	
+
         public Z3_ast MkAdd(params Z3_ast[] t)
         {
             Debug.Assert(t != null);
@@ -112,8 +113,24 @@ namespace Microsoft.Z3
             Debug.Assert(noPatterns == null || noPatterns.All(np => np != IntPtr.Zero));
             uint numPatterns = patterns == null ? 0 : (uint)patterns.Length;
             uint numNoPatterns = noPatterns == null ? 0 : (uint)noPatterns.Length;
-            Z3_symbol[] _names = Symbol.ArrayToNative(names); 
-            return Native.Z3_mk_quantifier_ex(nCtx, (byte)(is_forall ? 1 : 0), weight, quantifierID.NativeObject, skolemID.NativeObject, numPatterns, patterns, numNoPatterns, noPatterns, (uint)sorts.Length, sorts, _names, body);
+            if (noPatterns == null && quantifierID == null && skolemID == null)
+            {
+                return Native.Z3_mk_quantifier(nCtx, (byte)(is_forall ? 1 : 0), weight,
+                                numPatterns, patterns,
+                                (uint)sorts.Length, sorts,
+                                Symbol.ArrayToNative(names),
+                                body);
+            }
+            else
+            {
+                return Native.Z3_mk_quantifier_ex(nCtx, (byte)(is_forall ? 1 : 0), weight,
+                                  AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
+                                  numPatterns, patterns,
+                                  numNoPatterns, noPatterns,
+                                  (uint)sorts.Length, sorts,
+                                  Symbol.ArrayToNative(names),
+                                  body);
+            }
         }
 
         #endregion
@@ -162,5 +179,5 @@ namespace Microsoft.Z3
 
         #endregion
 
-}
+    }
 }
