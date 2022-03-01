@@ -231,7 +231,6 @@ namespace Microsoft.Z3
             return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
         }
 
-
         /// <summary>
         /// Create a new sequence sort.
         /// </summary>

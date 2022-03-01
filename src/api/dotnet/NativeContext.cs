@@ -254,6 +254,17 @@ namespace Microsoft.Z3
             return Native.Z3_mk_ite(nCtx, t1, t2, t3);
         }
 
+        /// <summary>
+        /// Create an expression representing <c>t1 -> t2</c>.
+        /// </summary>
+        public Z3_ast MkImplies(Z3_ast t1, Z3_ast t2)
+        {
+            Debug.Assert(t1 != IntPtr.Zero);
+            Debug.Assert(t2 != IntPtr.Zero);
+
+            return Native.Z3_mk_implies(nCtx, t1, t2);
+        }
+
         #endregion
 
         #region Sort
@@ -261,6 +272,7 @@ namespace Microsoft.Z3
         public Z3_sort MkIntSort() => Native.Z3_mk_int_sort(nCtx);
         public Z3_sort MkBoolSort() => Native.Z3_mk_bool_sort(nCtx);
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
+        public Z3_sort MkRealSort() => Native.Z3_mk_real_sort(nCtx);
 
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
@@ -313,7 +325,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an expression representing <c>t1 iff t2</c>.
         /// </summary>
-        public z3_ast MkIff(Z3_ast t1, Z3_ast t2)
+        public Z3_ast MkIff(Z3_ast t1, Z3_ast t2)
         {
             Debug.Assert(t1 != IntPtr.Zero);
             Debug.Assert(t2 != IntPtr.Zero);
@@ -758,47 +770,47 @@ namespace Microsoft.Z3
         /// <param name="noPatterns">array containing the anti-patterns created using <c>MkPattern</c>.</param>
         /// <param name="quantifierID">optional symbol to track quantifier.</param>
         /// <param name="skolemID">optional symbol to track skolem constants.</param>
-        public Z3_ast MkForall(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Z3_pattern[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
-        {
-            //Term ax = z3NativeContext.MkForall(0, new Pattern[] { pat },
-            //        bv_Sorts, bv_Names, body);
+    //    public Z3_ast MkForall(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Z3_pattern[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
+    //    {
+    //        //Term ax = z3NativeContext.MkForall(0, new Pattern[] { pat },
+    //        //        bv_Sorts, bv_Names, body);
 
-            Debug.Assert(sorts != null);
-            Debug.Assert(names != null);
-            Debug.Assert(body != null);
-            Debug.Assert(sorts.Length == names.Length);
-            Debug.Assert(sorts.All(s => s != null));
-            Debug.Assert(names.All(n => n != null));
-            Debug.Assert(patterns == null || patterns.All(p => p != null));
-            Debug.Assert(noPatterns == null || noPatterns.All(np => np != null));
+    //        Debug.Assert(sorts != null);
+    //        Debug.Assert(names != null);
+    //        Debug.Assert(body != null);
+    //        Debug.Assert(sorts.Length == names.Length);
+    //        Debug.Assert(sorts.All(s => s != null));
+    //        Debug.Assert(names.All(n => n != null));
+    //        Debug.Assert(patterns == null || patterns.All(p => p != null));
+    //        Debug.Assert(noPatterns == null || noPatterns.All(np => np != null));
 
-            var symbol = Native.Z3_mk_string_symbol(nCtx, name);
+    //        var symbol = Native.Z3_mk_string_symbol(nCtx, name);
 
-            var symbols = names.Select(n => Native.Z3_mk_string_symbol(nCtx, n)).ToArray();
+    //        var symbols = names.Select(n => Native.Z3_mk_string_symbol(nCtx, n)).ToArray();
 
-            return Native.Z3_mk_forall(nCtx, weight, patterns.Length, patterns, symbols.Length, symbols, [In] IntPtr[] a3, uint a4, [In] IntPtr[] a5, [In] IntPtr[] a6, IntPtr a7)
+    //        return Native.Z3_mk_forall(nCtx, weight, patterns.Length, patterns, symbols.Length, symbols, [In] IntPtr[] a3, uint a4, [In] IntPtr[] a5, [In] IntPtr[] a6, IntPtr a7)
 
 
 
-    //Z3_ast Z3_API Z3_mk_forall(Z3_context c,
-    //                           unsigned weight,
-    //                           unsigned num_patterns, Z3_pattern const patterns[],
-    //                           unsigned num_decls, Z3_sort const types[],
-    //                           Z3_symbol const decl_names[],
-    //                           Z3_ast body) {
-        }
+    ////Z3_ast Z3_API Z3_mk_forall(Z3_context c,
+    ////                           unsigned weight,
+    ////                           unsigned num_patterns, Z3_pattern const patterns[],
+    ////                           unsigned num_decls, Z3_sort const types[],
+    ////                           Z3_symbol const decl_names[],
+    ////                           Z3_ast body) {
+    //    }
 
         #region Quantifier Patterns
         /// <summary>
         /// Create a quantifier pattern.
         /// </summary>
-        public z MkPattern(params Z3_ast[] terms)
+        public Z3_pattern MkPattern(params Z3_ast[] terms)
         {
             Debug.Assert(terms != null);
             if (terms.Length == 0)
                 throw new Z3Exception("Cannot create a pattern from zero terms");
 
-            return Native.Z3_mk_pattern(nCtx, (uint)terms.Length, terms));
+            return Native.Z3_mk_pattern(nCtx, (uint)terms.Length, terms);
         }
         #endregion
         #endregion
