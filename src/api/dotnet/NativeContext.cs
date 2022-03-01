@@ -230,13 +230,36 @@ namespace Microsoft.Z3
         /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
-        /// <param name="ty">Sort of the numeral</param>
-        /// <returns>A Term with value <paramref name="v"/> and type <paramref name="ty"/></returns>
-        public Z3_ast MkNumeral(uint v, Z3_sort ty)
+        /// <param name="sort">Sort of the numeral</param>
+        public Z3_ast MkNumeral(int v, Z3_sort sort)
         {
-            Debug.Assert(ty != IntPtr.Zero);
+            Debug.Assert(sort != IntPtr.Zero);
 
-            return Native.Z3_mk_unsigned_int(nCtx, v, ty);
+            return Native.Z3_mk_int(nCtx, v, sort);
+        }
+
+        /// <summary>
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
+        /// </summary>
+        /// <param name="v">Value of the numeral</param>
+        /// <param name="sort">Sort of the numeral</param>
+        public Z3_ast MkNumeral(uint v, Z3_sort sort)
+        {
+            Debug.Assert(sort != null);
+
+            return Native.Z3_mk_unsigned_int(nCtx, v, sort);
+        }
+
+        /// <summary>
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
+        /// </summary>
+        /// <param name="v">Value of the numeral</param>
+        /// <param name="sort">Sort of the numeral</param>
+        public Z3_ast MkNumeral(long v, Z3_sort sort)
+        {
+            Debug.Assert(sort != null);
+
+            return Native.Z3_mk_int64(nCtx, v, sort);
         }
 
         /// <summary>
@@ -914,6 +937,27 @@ namespace Microsoft.Z3
 
             return Native.Z3_get_bv_sort_size(nCtx, bvSort);
         }
+
+        /// <summary>
+        /// Get the domain IntPtr for Sort
+        /// </summary>
+        public Z3_sort GetArraySortDomain(Z3_ast array)
+        {
+            Debug.Assert(array != IntPtr.Zero);
+
+            return Native.Z3_get_array_sort_domain(nCtx, array);
+        }
+
+        /// <summary>
+        /// Get the range IntPtr for Sort
+        /// </summary>
+        public Z3_sort GetArraySortRange(Z3_ast array)
+        {
+            Debug.Assert(array != IntPtr.Zero);
+
+            return Native.Z3_get_array_sort_range(nCtx, array);
+        }
+
         #endregion
 
         #region Internal
@@ -933,6 +977,19 @@ namespace Microsoft.Z3
             m_n_err_handler = new Native.Z3_error_handler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.Z3_set_error_handler(m_ctx, m_n_err_handler);
             GC.SuppressFinalize(this);
+        }
+
+        #endregion
+
+        #region Tracing
+        /// <summary>
+        /// Enable tracint to file
+        /// </summary>
+        /// <param name="file"></param>
+        public void TraceToFile(string file)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(file));
+            Native.Z3_enable_trace(file);
         }
 
         #endregion
