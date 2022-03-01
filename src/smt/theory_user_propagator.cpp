@@ -100,7 +100,7 @@ theory * theory_user_propagator::mk_fresh(context * new_ctx) {
         ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);
     }
     catch (...) {
-      throw default_exception("Exception thrown in \"fresh\"-callback");
+        throw default_exception("Exception thrown in \"fresh\"-callback");
     }
     th->add(ctx, m_push_eh, m_pop_eh, m_fresh_eh);
     if ((bool)m_fixed_eh) th->register_fixed(m_fixed_eh);
@@ -140,7 +140,7 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
          m_fixed_eh(m_user_context, this, var2expr(v), value);
      }
      catch (...) {
-       throw default_exception("Exception thrown in \"fixed\"-callback");
+        throw default_exception("Exception thrown in \"fixed\"-callback");
      }
 }
 
@@ -252,7 +252,7 @@ bool theory_user_propagator::internalize_term(app* term)  {
         m_created_eh(m_user_context, this, term);
     }
     catch (...) {
-      throw default_exception("Exception thrown in \"created\"-callback");
+        throw default_exception("Exception thrown in \"created\"-callback");
     }
 
     return true;

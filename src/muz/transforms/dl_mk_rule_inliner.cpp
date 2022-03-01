@@ -801,7 +801,7 @@ namespace datalog {
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
                     valid.set(j, false);
-                    datalog::del_rule(m_mc, *r2, l_true);
+                    datalog::del_rule(m_mc, *r2, l_false);
                     del_rule(r2, j);
                 }
 
