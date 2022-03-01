@@ -53,7 +53,7 @@ namespace Microsoft.Z3
         /// <returns>An expression if the function has an interpretation in the model, null otherwise.</returns>    
         public Z3_ast ConstFuncInterp(Z3_func_decl f)
         {
-            if (Native.Z3_get_arity(Context.nCtx, f) != 0) 
+            if (Native.Z3_get_arity(Context.nCtx, f) != 0)
                 throw new Z3Exception("Non-zero arity functions have FunctionInterpretations as a model. Use FuncInterp.");
 
             return Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
@@ -68,8 +68,8 @@ namespace Microsoft.Z3
         {
 
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f));
-	    
-            if (Native.Z3_get_arity(Context.nCtx, f) == 0) 
+
+            if (Native.Z3_get_arity(Context.nCtx, f) == 0)
             {
                 IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
 
@@ -82,7 +82,7 @@ namespace Microsoft.Z3
                         if (Native.Z3_is_as_array(Context.nCtx, n) == 0)
                             throw new Z3Exception("Argument was not an array constant");
                         var fd = Native.Z3_get_as_array_func_decl(Context.nCtx, n);
-                        return new NativeFuncInterp(Context, fd);
+                        return new NativeFuncInterp(Context, this, f, fd);
                     }
                 }
                 else
@@ -96,7 +96,7 @@ namespace Microsoft.Z3
                 if (n == IntPtr.Zero)
                     return null;
                 else
-                    return new NativeFuncInterp(Context, n);
+                    return new NativeFuncInterp(Context, this, f, n);
             }
         }
 
@@ -188,7 +188,7 @@ namespace Microsoft.Z3
                 for (uint i = 0; i < nConsts; i++)
                     res[i] = Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i);
                 for (uint i = 0; i < nFuncs; i++)
-                    res[nConsts + i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);                
+                    res[nConsts + i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);
                 return res;
             }
         }
@@ -238,9 +238,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Evaluate expression to a double, assuming it is a numeral already.
         /// </summary>
-        public double Double(Z3_ast t) {
+        public double Double(Z3_ast t)
+        {
             var r = Eval(t, true);
-            return Native.Z3_get_numeral_double(Context.nCtx, r);	    
+            return Native.Z3_get_numeral_double(Context.nCtx, r);
         }
 
         /// <summary>
@@ -258,7 +259,6 @@ namespace Microsoft.Z3
         /// the "universe" of the sort.
         /// </remarks>
         /// <seealso cref="NumSorts"/>
-        /// <seealso cref="SortUniverse"/>
         public Z3_sort[] Sorts
         {
             get
@@ -283,15 +283,15 @@ namespace Microsoft.Z3
         }
 
 
-	IntPtr NativeObject;
-	NativeContext Context;
-	
+        IntPtr NativeObject;
+        NativeContext Context;
+
         internal NativeModel(NativeContext ctx, IntPtr obj)
         {
-	    Context = ctx;
-	    NativeObject = obj;
+            Context = ctx;
+            NativeObject = obj;
             Debug.Assert(ctx != null);
-	    Native.Z3_model_inc_ref(ctx.nCtx, obj);
+            Native.Z3_model_inc_ref(ctx.nCtx, obj);
         }
 
 
@@ -299,9 +299,9 @@ namespace Microsoft.Z3
         /// Finalizer.
         /// </summary>
         ~NativeModel()
-	{
-	     Dispose();
-	}
+        {
+            Dispose();
+        }
 
         /// <summary>
         /// Disposes of the underlying native Z3 object.
@@ -310,8 +310,8 @@ namespace Microsoft.Z3
         {
             if (NativeObject != IntPtr.Zero)
             {
-	    	Native.Z3_model_dec_ref(Context.nCtx, NativeObject);
-                NativeObject = IntPtr.Zero;                
+                Native.Z3_model_dec_ref(Context.nCtx, NativeObject);
+                NativeObject = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
         }
