@@ -2587,9 +2587,9 @@ namespace z3 {
 
         friend std::ostream & operator<<(std::ostream & out, model const & m);
 
-        std::string to_string() const { return std::string(Z3_model_to_string(ctx(), m_model)); }
+        std::string to_string() const { return m_model ? std::string(Z3_model_to_string(ctx(), m_model)) : "null"; }
     };
-    inline std::ostream & operator<<(std::ostream & out, model const & m) { out << Z3_model_to_string(m.ctx(), m); return out; }
+    inline std::ostream & operator<<(std::ostream & out, model const & m) { return out << m.to_string(); }
 
     class stats : public object {
         Z3_stats m_stats;
@@ -3983,6 +3983,7 @@ namespace z3 {
             scoped_cb _cb(p, cb);
             expr value(p->ctx(), _value);
             expr var(p->ctx(), _var);
+            std::cout << "Fixed " << cb << "\n";
             p->m_fixed_eh(var, value);
         }
 
@@ -4150,6 +4151,7 @@ namespace z3 {
             assert(cb);
             expr conseq = ctx().bool_val(false);
             array<Z3_ast> _fixed(fixed);
+            std::cout << "conflict " << cb << " " << fixed << "\n";
             Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
