@@ -37,7 +37,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// A Model contains interpretations (assignments) of constants and functions. 
     /// </summary>
-    public class NativeModel
+    public class NativeModel : IDisposable
     {
         /// <summary>
         /// Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
@@ -155,28 +155,28 @@ namespace Microsoft.Z3
             get { return Native.Z3_model_get_num_funcs(Context.nCtx, NativeObject); }
         }
 
-#if false
 
         /// <summary>
         /// The function declarations of the function interpretations in the model.
         /// </summary>
-        public FuncDecl[] FuncDecls
+        public Z3_func_decl[] FuncDecls
         {
             get
             {
 
                 uint n = NumFuncs;
-                FuncDecl[] res = new FuncDecl[n];
+                Z3_func_decl[] res = new Z3_func_decl[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i));
+                    res[i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);
                 return res;
             }
         }
 
+
         /// <summary>
         /// All symbols that have an interpretation in the model.
         /// </summary>
-        public FuncDecl[] Decls
+        public Z3_func_decl[] Decls
         {
             get
             {
@@ -184,11 +184,11 @@ namespace Microsoft.Z3
                 uint nFuncs = NumFuncs;
                 uint nConsts = NumConsts;
                 uint n = nFuncs + nConsts;
-                FuncDecl[] res = new FuncDecl[n];
+                Z3_func_decl[] res = new Z3_func_decl[n];
                 for (uint i = 0; i < nConsts; i++)
-                    res[i] = new FuncDecl(Context, Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i));
+                    res[i] = Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i);
                 for (uint i = 0; i < nFuncs; i++)
-                    res[nConsts + i] = new FuncDecl(Context, Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i));                
+                    res[nConsts + i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);                
                 return res;
             }
         }
@@ -203,6 +203,7 @@ namespace Microsoft.Z3
             /// </summary>
             public ModelEvaluationFailedException() : base() { }
         }
+
 
         /// <summary>
         /// Evaluates the expression <paramref name="t"/> in the current model.
@@ -220,24 +221,19 @@ namespace Microsoft.Z3
         /// <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
         public Z3_ast Eval(Z3_ast t, bool completion = false)
         {
-            Debug.Assert(t != null);
 
             IntPtr v = IntPtr.Zero;
-            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t.NativeObject, (byte)(completion ? 1 : 0), ref v) == (byte)0)
+            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t, (byte)(completion ? 1 : 0), ref v) == (byte)0)
                 throw new ModelEvaluationFailedException();
             else
-                return Z3_ast.Create(Context, v);
+                return v;
         }
 
         /// <summary>
         /// Alias for <c>Eval</c>.
         /// </summary>        
-        public Z3_ast Evaluate(Z3_ast t, bool completion = false)
-        {
-            Debug.Assert(t != null);
+        public Z3_ast Evaluate(Z3_ast t, bool completion = false) => Eval(t, completion);
 
-            return Eval(t, completion);
-        }
 
         /// <summary>
         /// Evaluate expression to a double, assuming it is a numeral already.
@@ -252,6 +248,7 @@ namespace Microsoft.Z3
         /// </summary>    
         public uint NumSorts { get { return Native.Z3_model_get_num_sorts(Context.nCtx, NativeObject); } }
 
+
         /// <summary>
         /// The uninterpreted sorts that the model has an interpretation for. 
         /// </summary>
@@ -262,20 +259,19 @@ namespace Microsoft.Z3
         /// </remarks>
         /// <seealso cref="NumSorts"/>
         /// <seealso cref="SortUniverse"/>
-        public Sort[] Sorts
+        public Z3_sort[] Sorts
         {
             get
             {
 
                 uint n = NumSorts;
-                Sort[] res = new Sort[n];
+                Z3_sort[] res = new Z3_sort[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = Sort.Create(Context, Native.Z3_model_get_sort(Context.nCtx, NativeObject, i));
+                    res[i] = Native.Z3_model_get_sort(Context.nCtx, NativeObject, i);
                 return res;
             }
         }
 
-#endif
 
         /// <summary>
         /// Conversion of models to strings. 
@@ -285,7 +281,6 @@ namespace Microsoft.Z3
         {
             return Native.Z3_model_to_string(Context.nCtx, NativeObject);
         }
-
 
 
 	IntPtr NativeObject;
