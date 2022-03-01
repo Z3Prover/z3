@@ -30,6 +30,7 @@ namespace Microsoft.Z3
     {
 
 #if false
+
         /// <summary>
         /// An Entry object represents an element in the finite map used to encode
         /// a function interpretation.
@@ -187,7 +188,7 @@ namespace Microsoft.Z3
 
 #endif
 
-        #region Internal
+     #region Internal
 	NativeContext Context;
 	IntPtr NativeObject;
 	internal NativeFuncInterp(NativeContext ctx, IntPtr obj)
