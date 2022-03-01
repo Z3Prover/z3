@@ -86,6 +86,8 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     Log.cs
     Model.cs
     NativeContext.cs
+    NativeFuncInterp.cs
+    NativeModel.cs
     Optimize.cs
     ParamDescrs.cs
     Params.cs
