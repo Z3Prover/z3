@@ -22,6 +22,7 @@ Notes:
 using System;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
@@ -235,7 +236,6 @@ namespace Microsoft.Z3
         /// </summary>        
         public Z3_ast Evaluate(Z3_ast t, bool completion = false) => Eval(t, completion);
 
-
         /// <summary>
         /// Evaluate expression to a double, assuming it is a numeral already.
         /// </summary>
@@ -253,7 +253,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// One dimensional array of indices where the array is updated
             /// </summary>
-            public KeyValuePair<Z3_ast,Z3_ast>[] Updates;
+            public KeyValuePair<Z3_ast, Z3_ast>[] Updates;
 
             /// <summary>
             /// default Else case

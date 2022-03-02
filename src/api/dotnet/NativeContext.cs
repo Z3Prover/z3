@@ -335,6 +335,22 @@ namespace Microsoft.Z3
 
             return Native.Z3_mk_array_sort(nCtx, domain, range);
         }
+
+        /// <summary>
+        /// Create a new tuple sort.
+        /// </summary>
+        public Z3_sort MkTupleSort(Z3_symbol name, Z3_symbol[] fieldNames, Z3_sort[] fieldSorts, out Z3_func_decl constructor, Z3_func_decl[] projections )
+        {
+            Debug.Assert(name != IntPtr.Zero);
+            Debug.Assert(fieldNames != null);
+            Debug.Assert(fieldNames.All(fn => fn != IntPtr.Zero));
+            Debug.Assert(fieldSorts == null || fieldSorts.All(fs => fs != IntPtr.Zero));
+
+            var numFields = (uint)(fieldNames?.Length ?? 0);
+            constructor = IntPtr.Zero;
+            return Native.Z3_mk_tuple_sort(nCtx, name, numFields, fieldNames, fieldSorts, ref constructor, projections);
+        }
+
         #endregion
 
         #region Propositional
@@ -747,7 +763,7 @@ namespace Microsoft.Z3
         /// <param name="noPatterns">array containing the anti-patterns created using <c>MkPattern</c>.</param>
         /// <param name="quantifierID">optional symbol to track quantifier.</param>
         /// <param name="skolemID">optional symbol to track skolem constants.</param>
-        public Z3_ast MkForall(Z3_sort[] sorts, Symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
+        public Z3_ast MkForall(Z3_sort[] sorts, Z3_symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             return MkQuantifier(true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
@@ -765,14 +781,14 @@ namespace Microsoft.Z3
         /// <param name="quantifierID"></param>
         /// <param name="skolemID"></param>
         /// <returns></returns>
-        private Z3_ast MkQuantifier(bool is_forall, Z3_sort[] sorts, Symbol[] names, Z3_ast body, uint weight, Z3_ast[] patterns, Z3_ast[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        private Z3_ast MkQuantifier(bool is_forall, Z3_sort[] sorts, Z3_symbol[] names, Z3_ast body, uint weight, Z3_ast[] patterns, Z3_ast[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             Debug.Assert(sorts != null);
             Debug.Assert(names != null);
             Debug.Assert(body != null);
             Debug.Assert(sorts.Length == names.Length);
             Debug.Assert(sorts.All(s => s != IntPtr.Zero));
-            Debug.Assert(names.All(n => n != null));
+            Debug.Assert(names.All(n => n != IntPtr.Zero));
             Debug.Assert(patterns == null || patterns.All(p => p != IntPtr.Zero));
             Debug.Assert(noPatterns == null || noPatterns.All(np => np != IntPtr.Zero));
 
@@ -781,7 +797,7 @@ namespace Microsoft.Z3
                 return Native.Z3_mk_quantifier(nCtx, (byte)(is_forall ? 1 : 0), weight,
                                 (uint)(patterns?.Length ?? 0), patterns,
                                 (uint)(sorts?.Length ?? 0), sorts,
-                                Symbol.ArrayToNative(names),
+                                names,
                                 body);
             }
             else
@@ -791,7 +807,7 @@ namespace Microsoft.Z3
                                   (uint)(patterns?.Length ?? 0), patterns,
                                   (uint)(noPatterns?.Length ?? 0), noPatterns,
                                   (uint)(sorts?.Length ?? 0), sorts,
-                                  Symbol.ArrayToNative(names),
+                                  names,
                                   body);
             }
         }
@@ -1139,6 +1155,17 @@ namespace Microsoft.Z3
             return true;
         }
 
+        /// <summary>
+        /// Get printable string representing Z3_ast
+        /// </summary>
+        /// <param name="ast"></param>
+        /// <returns></returns>
+        public string ToString(Z3_ast ast)
+        {
+            Debug.Assert(ast != IntPtr.Zero);
+
+            return Native.Z3_ast_to_string(nCtx, ast);
+        }
 
         public Z3_lbool CheckAndGetModel(out NativeModel m)
         {
@@ -1237,7 +1264,7 @@ namespace Microsoft.Z3
         public Statistics.Entry[] GetStatistics(Z3_stats stats)
         {
             Native.Z3_stats_inc_ref(nCtx, stats);
-            var result = Statistics.NativeEntries(nCtx, stats); 
+            var result = Statistics.NativeEntries(nCtx, stats);
             Native.Z3_stats_dec_ref(nCtx, stats);
             return result;
         }
