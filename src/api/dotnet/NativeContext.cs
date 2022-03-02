@@ -197,6 +197,11 @@ namespace Microsoft.Z3
 
         }
 
+        /// <summary>
+        /// Retrieve statistics as an array of entries
+        /// </summary>
+        /// <param name="stats"></param>
+        /// <returns></returns>
         public Statistics.Entry[] GetStatistics(Z3_stats stats)
         {
             Native.Z3_stats_inc_ref(nCtx, stats);

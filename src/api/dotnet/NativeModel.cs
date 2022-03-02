@@ -261,6 +261,11 @@ namespace Microsoft.Z3
             public Z3_ast Else;
         }
 
+        /// <summary>
+        /// Convert the interpretation of t into a sequence of array updates
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns>null if the argument does evaluate to a sequence of stores to an array</returns>
         public ArrayValue TryGetArrayValue(Z3_ast t)
         {
             var r = Eval(t, true);
