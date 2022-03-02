@@ -22,201 +22,79 @@ using System;
 
 namespace Microsoft.Z3
 {
+
+    using Z3_context = System.IntPtr;
+    using Z3_ast = System.IntPtr;
+    using Z3_app = System.IntPtr;
+    using Z3_sort = System.IntPtr;
+    using Z3_func_decl = System.IntPtr;
+    using Z3_model = System.IntPtr;
+    using Z3_func_interp = System.IntPtr;
+    using Z3_func_entry = System.IntPtr;
+
     /// <summary>
     ///  A function interpretation is represented as a finite map and an 'else' value.
     ///  Each entry in the finite map represents the value of a function given a set of arguments.  
     /// </summary>
-    public class NativeFuncInterp : IDisposable
+    public class NativeFuncInterp 
     {
 
-#if false
         /// <summary>
-        /// An Entry object represents an element in the finite map used to encode
-        /// a function interpretation.
+        /// Evaluation entry of a function
         /// </summary>
-        public class Entry : Z3Object
+        public class Entry
         {
             /// <summary>
-            /// Return the (symbolic) value of this entry.
+            /// Argument values that define entry
             /// </summary>
-            public Expr Value
-            {
-                get
-                {
-                    return Expr.Create(Context, Native.Z3_func_entry_get_value(Context.nCtx, NativeObject));
-                }
-            }
+            public Z3_ast[] Arguments;
 
             /// <summary>
-            /// The number of arguments of the entry.
+            /// Result of applying function to Arguments in the interpretation
             /// </summary>
-            public uint NumArgs
-            {
-                get { return Native.Z3_func_entry_get_num_args(Context.nCtx, NativeObject); }
-            }
+            public Z3_ast Result;
+        }
 
-            /// <summary>
-            /// The arguments of the function entry.
-            /// </summary>
-            public Expr[] Args
-            {
-                get
-                {
+        /// <summary>
+        /// Function that is interpreted
+        /// </summary>
+        public Z3_func_decl Declaration;
 
-                    uint n = NumArgs;
-                    Expr[] res = new Expr[n];
-                    for (uint i = 0; i < n; i++)
-                        res[i] = Expr.Create(Context, Native.Z3_func_entry_get_arg(Context.nCtx, NativeObject, i));
-                    return res;
-                }
-            }
+        /// <summary>
+        /// Set of non-default entries defining the function graph
+        /// </summary>
+        public Entry[] Entries;
 
-            /// <summary>
-            /// A string representation of the function entry.
-            /// </summary>
-            public override string ToString()
-            {
-                uint n = NumArgs;
-                string res = "[";
-                Expr[] args = Args;
-                for (uint i = 0; i < n; i++)
-                    res += args[i] + ", ";
-                return res + Value + "]";
-            }
+        /// <summary>
+        /// Default cause of the function interpretation
+        /// </summary>
+        public Z3_ast Else;
 
         #region Internal
-            internal Entry(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
-
-            internal class DecRefQueue : IDecRefQueue
-            {
-                public DecRefQueue() : base() { }
-                public DecRefQueue(uint move_limit) : base(move_limit) { }
-                internal override void IncRef(Context ctx, IntPtr obj)
-                {
-                    Native.Z3_func_entry_inc_ref(ctx.nCtx, obj);
-                }
-
-                internal override void DecRef(Context ctx, IntPtr obj)
-                {
-                    Native.Z3_func_entry_dec_ref(ctx.nCtx, obj);
-                }
-            };
-
-            internal override void IncRef(IntPtr o)
-            {
-                Context.FuncEntry_DRQ.IncAndClear(Context, o);
-                base.IncRef(o);
-            }
-
-            internal override void DecRef(IntPtr o)
-            {
-                Context.FuncEntry_DRQ.Add(o);
-                base.DecRef(o);
-            }
-        #endregion
-        };
-
-        /// <summary>
-        /// The number of entries in the function interpretation.
-        /// </summary>
-        public uint NumEntries
+        internal NativeFuncInterp(NativeContext ctx, NativeModel mdl, Z3_func_decl decl, Z3_func_interp fi)
         {
-            get { return Native.Z3_func_interp_get_num_entries(Context.nCtx, NativeObject); }
-        }
-
-        /// <summary>
-        /// The entries in the function interpretation
-        /// </summary>
-        public Entry[] Entries
-        {
-            get
-            {
-
-                uint n = NumEntries;
-                Entry[] res = new Entry[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = new Entry(Context, Native.Z3_func_interp_get_entry(Context.nCtx, NativeObject, i));
-                return res;
-            }
-        }
-
-        /// <summary>
-        /// The (symbolic) `else' value of the function interpretation.
-        /// </summary>
-        public Expr Else
-        {
-            get
-            {
-
-                return Expr.Create(Context, Native.Z3_func_interp_get_else(Context.nCtx, NativeObject));
-            }
-        }
-
-        /// <summary>
-        /// The arity of the function interpretation
-        /// </summary>
-        public uint Arity
-        {
-            get { return Native.Z3_func_interp_get_arity(Context.nCtx, NativeObject); }
-        }
-
-        /// <summary>
-        /// A string representation of the function interpretation.
-        /// </summary>    
-        public override string ToString()
-        {
-            string res = "";
-            res += "[";
-            foreach (Entry e in Entries)
-            {
-                uint n = e.NumArgs;
-                if (n > 1) res += "[";
-                Expr[] args = e.Args;
-                for (uint i = 0; i < n; i++)
-                {
-                    if (i != 0) res += ", ";
-                    res += args[i];
-                }
-                if (n > 1) res += "]";
-                res += " -> " + e.Value + ", ";
-            }
-            res += "else -> " + Else;
-            res += "]";
-            return res;
-        }
-
-#endif
-
-        #region Internal
-        NativeContext Context;
-        IntPtr NativeObject;
-        internal NativeFuncInterp(NativeContext ctx, IntPtr obj)
-        {
-            Context = ctx;
-            NativeObject = obj;
             Debug.Assert(ctx != null);
-            // inc-ref
-        }
+            Z3_context nCtx = ctx.nCtx;
+            Native.Z3_func_interp_inc_ref(nCtx, fi);
 
-        /// <summary>
-        /// Finalizer.
-        /// </summary>
-        ~NativeFuncInterp()
-        {
-            Dispose();
-        }
+            Declaration = decl;
+            Else = Native.Z3_func_interp_get_else(nCtx, fi);
+            uint numEntries = Native.Z3_func_interp_get_num_entries(nCtx, fi);
+            uint numArgs = Native.Z3_func_interp_get_arity(nCtx, fi);
+            Entries = new Entry[numEntries];
 
-        /// <summary>
-        /// Disposes of the underlying native Z3 object.
-        /// </summary>
-        public void Dispose()
-        {
-            if (NativeObject != IntPtr.Zero)
+            for (uint j = 0; j < numEntries; ++j)
             {
-                Native.Z3_func_interp_dec_ref(Context.nCtx, NativeObject);
-                NativeObject = IntPtr.Zero;
+                var entry = Native.Z3_func_interp_get_entry(nCtx, fi, j);
+                Native.Z3_func_entry_inc_ref(nCtx, entry);
+                Entries[j].Arguments = new Z3_ast[numArgs];
+                for (uint i = 0; i < numArgs; ++i)
+                    Entries[j].Arguments[i] = Native.Z3_func_entry_get_arg(nCtx, entry, i);
+                Entries[j].Result = Native.Z3_func_entry_get_value(nCtx, entry);
+                Native.Z3_func_entry_dec_ref(nCtx, entry);
             }
-            GC.SuppressFinalize(this);
+
+            Native.Z3_func_interp_dec_ref(nCtx, fi);
         }
 
 

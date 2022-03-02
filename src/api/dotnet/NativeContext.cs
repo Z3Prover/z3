@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace Microsoft.Z3
 {
+    using Z3_symbol = System.IntPtr;
     using Z3_config = System.IntPtr;
     using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
@@ -710,6 +711,83 @@ namespace Microsoft.Z3
 
             return Native.Z3_mk_bvxor(nCtx, t1, t2);
         }
+        #endregion
+
+        #region Quantifiers
+        /// <summary>
+        /// Create a universal Quantifier.
+        /// </summary>
+        /// <remarks>
+        /// Creates a forall formula, where <paramref name="weight"/> is the weight,
+        /// <paramref name="patterns"/> is an array of patterns, <paramref name="sorts"/> is an array
+        /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
+        /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
+        /// quantifier. Quantifiers are associated with weights indicating the importance of
+        /// using the quantifier during instantiation.
+        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>.
+        /// Z3 applies the convention that the last element in <paramref name="names"/> and
+        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element
+        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable
+        /// with index 1, etc.
+        /// </remarks>
+        /// <param name="sorts">the sorts of the bound variables.</param>
+        /// <param name="names">names of the bound variables</param>
+        /// <param name="body">the body of the quantifier.</param>
+        /// <param name="weight">quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.</param>
+        /// <param name="patterns">array containing the patterns created using <c>MkPattern</c>.</param>
+        /// <param name="noPatterns">array containing the anti-patterns created using <c>MkPattern</c>.</param>
+        /// <param name="quantifierID">optional symbol to track quantifier.</param>
+        /// <param name="skolemID">optional symbol to track skolem constants.</param>
+        public Z3_ast MkForall(Z3_sort[] sorts, Symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
+        {
+            return MkQuantifier(true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
+        }
+
+        /// <summary>
+        /// Create a quantified expression either forall or exists
+        /// </summary>
+        /// <param name="is_forall"></param>
+        /// <param name="sorts"></param>
+        /// <param name="names"></param>
+        /// <param name="body"></param>
+        /// <param name="weight"></param>
+        /// <param name="patterns"></param>
+        /// <param name="noPatterns"></param>
+        /// <param name="quantifierID"></param>
+        /// <param name="skolemID"></param>
+        /// <returns></returns>
+        private Z3_ast MkQuantifier(bool is_forall, Z3_sort[] sorts, Symbol[] names, Z3_ast body, uint weight, Z3_ast[] patterns, Z3_ast[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        {
+            Debug.Assert(sorts != null);
+            Debug.Assert(names != null);
+            Debug.Assert(body != null);
+            Debug.Assert(sorts.Length == names.Length);
+            Debug.Assert(sorts.All(s => s != IntPtr.Zero));
+            Debug.Assert(names.All(n => n != null));
+            Debug.Assert(patterns == null || patterns.All(p => p != IntPtr.Zero));
+            Debug.Assert(noPatterns == null || noPatterns.All(np => np != IntPtr.Zero));
+            uint numPatterns = patterns == null ? 0 : (uint)patterns.Length;
+            uint numNoPatterns = noPatterns == null ? 0 : (uint)noPatterns.Length;
+            if (noPatterns == null && quantifierID == null && skolemID == null)
+            {
+                return Native.Z3_mk_quantifier(nCtx, (byte)(is_forall ? 1 : 0), weight,
+                                numPatterns, patterns,
+                                (uint)sorts.Length, sorts,
+                                Symbol.ArrayToNative(names),
+                                body);
+            }
+            else
+            {
+                return Native.Z3_mk_quantifier_ex(nCtx, (byte)(is_forall ? 1 : 0), weight,
+                                  AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
+                                  numPatterns, patterns,
+                                  numNoPatterns, noPatterns,
+                                  (uint)sorts.Length, sorts,
+                                  Symbol.ArrayToNative(names),
+                                  body);
+            }
+        }
+
         #endregion
 
         #region Options
