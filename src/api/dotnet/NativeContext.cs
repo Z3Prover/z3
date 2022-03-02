@@ -179,5 +179,23 @@ namespace Microsoft.Z3
 
         #endregion
 
+
+        /// <summary>
+        /// Utility to convert a vector object of ast to a .Net array
+        /// </summary>
+        /// <param name="vec"></param>
+        /// <returns></returns>
+        public Z3_ast[] ToArray(Z3_ast_vector vec)
+        {
+            Native.Z3_ast_vector_inc_ref(nCtx, vec);
+            var sz = Native.Z3_ast_vector_size(nCtx, vec);
+            var result = new Z3_ast[sz];
+            for (uint i = 0; i < sz; ++i)
+                result[i] = Native.Z3_ast_vector_get(nCtx, vec, i);
+            Native.Z3_ast_vector_dec_ref(nCtx, vec);
+            return result;
+
+        }
+
     }
 }
