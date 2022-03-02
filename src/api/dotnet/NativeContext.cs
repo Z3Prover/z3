@@ -197,5 +197,13 @@ namespace Microsoft.Z3
 
         }
 
+        public Statistics.Entry[] GetStatistics(Z3_stats stats)
+        {
+            Native.Z3_stats_inc_ref(nCtx, stats);
+            var result = Statistics.NativeEntries(nCtx, stats); 
+            Native.Z3_stats_dec_ref(nCtx, stats);
+            return result;
+        }
+
     }
 }

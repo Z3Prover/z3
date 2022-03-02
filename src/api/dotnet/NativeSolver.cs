@@ -32,8 +32,6 @@ namespace Microsoft.Z3
     using Z3_sort = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
     using Z3_model = System.IntPtr;
-    using Z3_func_interp = System.IntPtr;
-    using Z3_func_entry = System.IntPtr;
     using Z3_ast_vector = System.IntPtr;
     using Z3_solver = System.IntPtr;
 
@@ -54,6 +52,7 @@ namespace Microsoft.Z3
             }
         }
 
+#if false
         /// <summary>
         /// Sets the solver parameters.
         /// </summary>
@@ -67,7 +66,7 @@ namespace Microsoft.Z3
             }
         }
 
-#if false
+
         /// <summary>
         /// Sets parameter on the solver
         /// </summary>
@@ -252,11 +251,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                var assertions = Native.Z3_solver_get_assertions(Context.nCtx, NativeObject);
-                Native.Z3_ast_vector_inc_ref(Context.nCtx, assertions);
-                var sz = Native.Z3_ast_vector_size(Context.nCtx, assertions);
-                Native.Z3_ast_vector_dec_ref(Context.nCtx, assertions);
-                return sz;
+                return (uint)Context.ToArray(Native.Z3_solver_get_assertions(Context.nCtx, NativeObject)).Length;
             }
         }
 
@@ -267,8 +262,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                var assertions = Native.Z3_solver_get_assertions(Context.nCtx, NativeObject);
-                return Context.ToArray(assertions);
+                return Context.ToArray(Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
             }
         }
 
@@ -279,8 +273,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                var units = Native.Z3_solver_get_units(Context.nCtx, NativeObject);
-                return Context.ToArray(units);
+                return Context.ToArray(Native.Z3_solver_get_units(Context.nCtx, NativeObject));
             }
         }
 
@@ -321,34 +314,6 @@ namespace Microsoft.Z3
             return lboolToStatus(r);
         }
 
-#if false
-        /// <summary>
-        /// Retrieve fixed assignments to the set of variables in the form of consequences.
-        /// Each consequence is an implication of the form 
-        ///
-        ///       relevant-assumptions Implies variable = value
-        /// 
-        /// where the relevant assumptions is a subset of the assumptions that are passed in
-        /// and the equality on the right side of the implication indicates how a variable
-        /// is fixed.
-        /// </summary>
-        /// <remarks>
-        /// <seealso cref="Model"/>
-        /// <seealso cref="UnsatCore"/>
-        /// <seealso cref="Proof"/>    
-        /// </remarks>    
-        public Status Consequences(IEnumerable<Z3_ast> assumptions, IEnumerable<Z3_ast> variables, out Z3_ast[] consequences)
-        {
-            ASTVector result = new ASTVector(Context);
-            ASTVector asms = new ASTVector(Context);
-            ASTVector vars = new ASTVector(Context);
-            foreach (var asm in assumptions) asms.Push(asm);
-            foreach (var v in variables) vars.Push(v);
-            Z3_lbool r = (Z3_lbool)Native.Z3_solver_get_consequences(Context.nCtx, NativeObject, asms.NativeObject, vars.NativeObject, result.NativeObject);
-            consequences = result.ToBoolExprArray();
-            return lboolToStatus(r);
-        }
-#endif
 
         /// <summary>
         /// The model of the last <c>Check(params Expr[] assumptions)</c>.
@@ -412,46 +377,6 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Backtrack level that can be adjusted by conquer process
-        /// </summary>
-        public uint BacktrackLevel { get; set; }
-
-#if false
-        /// <summary>
-        /// Variables available and returned by the cuber.
-        /// </summary>
-        public Z3_ast[] CubeVariables { get; set; }
-
-
-        /// <summary>
-        /// Return a set of cubes.
-        /// </summary>
-        public IEnumerable<Z3_ast[]> Cube()
-        {
-            ASTVector cv = new ASTVector(Context);
-            if (CubeVariables != null)
-                foreach (var b in CubeVariables) cv.Push(b);
-
-            while (true)
-            {
-                var lvl = BacktrackLevel;
-                BacktrackLevel = uint.MaxValue;
-                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
-                var v = r.ToBoolExprArray();
-                CubeVariables = cv.ToBoolExprArray();
-                if (v.Length == 1 && v[0].IsFalse)
-                {
-                    break;
-                }
-                yield return v;
-                if (v.Length == 0)
-                {
-                    break;
-                }
-            }
-        }
-#endif
-        /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.
         /// </summary>
         public NativeSolver Translate(NativeContext ctx)
@@ -468,19 +393,18 @@ namespace Microsoft.Z3
             Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
         }
 
-#if false
+
         /// <summary>
         /// Solver statistics.
         /// </summary>
-        public Statistics Statistics
+        public Statistics.Entry[] Statistics
         {
             get
             {
-
-                return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject));
+                var stats = Native.Z3_solver_get_statistics(Context.nCtx, NativeObject);
+                return Context.GetStatistics(stats);
             }
         }
-#endif
 
         /// <summary>
         /// A string representation of the solver.
@@ -490,7 +414,7 @@ namespace Microsoft.Z3
             return Native.Z3_solver_to_string(Context.nCtx, NativeObject);
         }
 
-#region Internal
+        #region Internal
         NativeContext Context;
         IntPtr NativeObject;
         internal NativeSolver(NativeContext ctx, Z3_solver obj)
@@ -499,7 +423,6 @@ namespace Microsoft.Z3
             NativeObject = obj;
 
             Debug.Assert(ctx != null);
-            this.BacktrackLevel = uint.MaxValue;
             Native.Z3_solver_inc_ref(ctx.nCtx, obj);
         }
 
@@ -535,6 +458,6 @@ namespace Microsoft.Z3
             }
         }
 
-#endregion
+        #endregion
     }
 }
