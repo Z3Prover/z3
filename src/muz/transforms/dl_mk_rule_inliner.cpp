@@ -768,7 +768,7 @@ namespace datalog {
                     break;
                 }
 
-                rule* r2 = acc[j].get();
+                rule* r2 = acc.get(j);
 
                 // check that the head of r2 only unifies with this single body position.
                 TRACE("dl", output_predicate(m_context, r2->get_head(), tout << "unify head: "); tout << "\n";);
@@ -801,7 +801,7 @@ namespace datalog {
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
                     valid.set(j, false);
-                    datalog::del_rule(m_mc, *r2, l_false);
+                    datalog::del_rule(m_mc, *r2, l_undef);
                     del_rule(r2, j);
                 }
 

@@ -39,6 +39,7 @@ namespace Microsoft.Z3
     /// </summary>
     public class NativeModel : IDisposable
     {
+
         /// <summary>
         /// Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
         /// </summary>
@@ -242,6 +243,49 @@ namespace Microsoft.Z3
         {
             var r = Eval(t, true);
             return Native.Z3_get_numeral_double(Context.nCtx, r);
+        }
+
+        /// <summary>
+        /// An array value obtained by untangling a model assignment.
+        /// </summary>
+        public class ArrayValue
+        {
+            /// <summary>
+            /// One dimensional array of indices where the array is updated
+            /// </summary>
+            public KeyValuePair<Z3_ast,Z3_ast>[] Updates;
+
+            /// <summary>
+            /// default Else case
+            /// </summary>
+            public Z3_ast Else;
+        }
+
+        /// <summary>
+        /// Convert the interpretation of t into a sequence of array updates
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns>null if the argument does evaluate to a sequence of stores to an array</returns>
+        public ArrayValue TryGetArrayValue(Z3_ast t)
+        {
+            var r = Eval(t, true);
+            // check that r is a sequence of store over a constant default array.
+            var updates = new List<KeyValuePair<Z3_ast, Z3_ast>>();
+            var result = new ArrayValue();
+            while (true)
+            {
+                // check that r is an app, and the decl-kind is Z3_OP_ARRAY_CONST or Z3_OP_ARRAY_STORE
+                // if it is Z3_OP_ARRAY_CONST then set result.Else and break;
+                // if it is ARRAY_STORE, then append to 'updates' and continue
+                // in other cases return null
+                return null;
+
+            }
+#if false
+            result.Updates = updates.ToArray();
+         
+            return null;
+#endif
         }
 
         /// <summary>
