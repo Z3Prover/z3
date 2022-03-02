@@ -86,7 +86,8 @@ namespace Microsoft.Z3
         {
             Debug.Assert(t != null);
             Debug.Assert(t.All(a => a != IntPtr.Zero));
-            return Native.Z3_mk_add(nCtx, (uint)t.Length, t);
+
+            return Native.Z3_mk_add(nCtx, (uint)(t?.Length ?? 0), t);
         }
 
         /// <summary>
@@ -98,7 +99,7 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != IntPtr.Zero));
 
             var ts = t.ToArray();
-            return Native.Z3_mk_mul(nCtx, (uint)ts.Length, ts);
+            return Native.Z3_mk_mul(nCtx, (uint)(ts?.Length ?? 0), ts);
         }
 
         /// <summary>
@@ -213,7 +214,7 @@ namespace Microsoft.Z3
             Debug.Assert(t != null);
             Debug.Assert(t.All(a => a != IntPtr.Zero));
 
-            return Native.Z3_mk_and(nCtx, (uint)t.Length, t);
+            return Native.Z3_mk_and(nCtx, (uint)(t?.Length ?? 0), t);
         }
 
         /// <summary>
@@ -224,7 +225,7 @@ namespace Microsoft.Z3
             Debug.Assert(t != null);
             Debug.Assert(t.All(a => a != IntPtr.Zero));
 
-            return Native.Z3_mk_or(nCtx, (uint)t.Length, t);
+            return Native.Z3_mk_or(nCtx, (uint)(t?.Length ?? 0), t);
         }
 
         /// <summary>
@@ -377,10 +378,18 @@ namespace Microsoft.Z3
             Debug.Assert(!string.IsNullOrEmpty(name));
             Debug.Assert(range != IntPtr.Zero);
 
-            var symbol = Native.Z3_mk_string_symbol(nCtx, name);
-            return Native.Z3_mk_const(nCtx, symbol, range);
+            return Native.Z3_mk_const(nCtx, MkStringSymbol(name), range);
         }
 
+        #endregion
+
+        #region Symbol
+        public Z3_symbol MkStringSymbol(string name)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(name));
+
+            return Native.Z3_mk_string_symbol(nCtx, name);
+        }
         #endregion
 
         #region Terms
@@ -392,7 +401,7 @@ namespace Microsoft.Z3
             Debug.Assert(f != IntPtr.Zero);
             Debug.Assert(args == null || args.All(a => a != IntPtr.Zero));
 
-            return Native.Z3_mk_app(nCtx, f, (uint)args.Length, args);
+            return Native.Z3_mk_app(nCtx, f, (uint)(args?.Length ?? 0), args);
         }
 
         #endregion
@@ -766,13 +775,12 @@ namespace Microsoft.Z3
             Debug.Assert(names.All(n => n != null));
             Debug.Assert(patterns == null || patterns.All(p => p != IntPtr.Zero));
             Debug.Assert(noPatterns == null || noPatterns.All(np => np != IntPtr.Zero));
-            uint numPatterns = patterns == null ? 0 : (uint)patterns.Length;
-            uint numNoPatterns = noPatterns == null ? 0 : (uint)noPatterns.Length;
+
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
                 return Native.Z3_mk_quantifier(nCtx, (byte)(is_forall ? 1 : 0), weight,
-                                numPatterns, patterns,
-                                (uint)sorts.Length, sorts,
+                                (uint)(patterns?.Length ?? 0), patterns,
+                                (uint)(sorts?.Length ?? 0), sorts,
                                 Symbol.ArrayToNative(names),
                                 body);
             }
@@ -780,9 +788,9 @@ namespace Microsoft.Z3
             {
                 return Native.Z3_mk_quantifier_ex(nCtx, (byte)(is_forall ? 1 : 0), weight,
                                   AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
-                                  numPatterns, patterns,
-                                  numNoPatterns, noPatterns,
-                                  (uint)sorts.Length, sorts,
+                                  (uint)(patterns?.Length ?? 0), patterns,
+                                  (uint)(noPatterns?.Length ?? 0), noPatterns,
+                                  (uint)(sorts?.Length ?? 0), sorts,
                                   Symbol.ArrayToNative(names),
                                   body);
             }
@@ -827,6 +835,64 @@ namespace Microsoft.Z3
 
             return MkConst(name, MkArraySort(domain, range));
         }
+
+        /// <summary>
+        /// Array read.
+        /// </summary>
+        /// <remarks>
+        /// The argument <c>array</c> is the array and <c>index</c> is the index
+        /// of the array that gets read.
+        ///
+        /// The node <c>array</c> must have an array sort <c>[domain -> range]</c>,
+        /// and <c>index</c> must have the sort <c>domain</c>.
+        /// The sort of the result is <c>range</c>.
+        /// </remarks>
+        public Z3_ast MkArraySelect(Z3_ast array, Z3_ast index)
+        {
+            Debug.Assert(array != IntPtr.Zero);
+            Debug.Assert(index != IntPtr.Zero);
+
+            return Native.Z3_mk_select(nCtx, array, index);
+        }
+
+        /// <summary>
+        /// Array update.
+        /// </summary>
+        /// <remarks>
+        /// The node <c>a</c> must have an array sort <c>[domain1,..,domaink -> range]</c>,
+        /// <c>args</c> must have sort <c>domain1,..,domaink</c>,
+        /// <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
+        /// The semantics of this function is given by the theory of arrays described in the SMT-LIB
+        /// standard. See http://smtlib.org for more details.
+        /// The result of this function is an array that is equal to <c>a</c>
+        /// (with respect to <c>select</c>)
+        /// on all indices except for <c>args</c>, where it maps to <c>v</c>
+        /// (and the <c>select</c> of <c>a</c> with
+        /// respect to <c>args</c> may be a different value).
+        /// </remarks>
+        public Z3_ast MkArrayStore(Z3_ast a, Z3_ast[] args, Z3_ast v)
+        {
+            Debug.Assert(a != null);
+            Debug.Assert(args != null);
+            Debug.Assert(v != null);
+
+            return Native.Z3_mk_store_n(nCtx, a, (uint)(args?.Length ?? 0), args, v);
+        }
+
+        /// <summary>
+        /// Access the array default value.
+        /// </summary>
+        /// <remarks>
+        /// Produces the default range value, for arrays that can be represented as
+        /// finite maps with a default range value.
+        /// </remarks>
+        public Z3_ast MkArrayDefault(Z3_ast a)
+        {
+            Debug.Assert(a != null);
+
+            return Native.Z3_mk_array_default(nCtx, a);
+        }
+
         #endregion
 
         #region Function Declarations
@@ -854,9 +920,8 @@ namespace Microsoft.Z3
             Debug.Assert(range != IntPtr.Zero);
             Debug.Assert(domain.All(d => d != IntPtr.Zero));
 
-            return Native.Z3_mk_fresh_func_decl(nCtx, prefix, (uint)domain.Length, domain, range);
+            return Native.Z3_mk_fresh_func_decl(nCtx, prefix, (uint)(domain?.Length ?? 0), domain, range);
         }
-
 
         /// <summary>
         /// Creates a new constant function declaration.
@@ -871,61 +936,6 @@ namespace Microsoft.Z3
 
         #endregion
 
-        #region Quantifiers
-        /// <summary>
-        /// Create a universal Quantifier.
-        /// </summary>
-        /// <remarks>
-        /// Creates a forall formula, where <paramref name="weight"/> is the weight,
-        /// <paramref name="patterns"/> is an array of patterns, <paramref name="sorts"/> is an array
-        /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
-        /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
-        /// quantifier. Quantifiers are associated with weights indicating the importance of
-        /// using the quantifier during instantiation.
-        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>.
-        /// Z3 applies the convention that the last element in <paramref name="names"/> and
-        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element
-        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable
-        /// with index 1, etc.
-        /// </remarks>
-        /// <param name="sorts">the sorts of the bound variables.</param>
-        /// <param name="names">names of the bound variables</param>
-        /// <param name="body">the body of the quantifier.</param>
-        /// <param name="weight">quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.</param>
-        /// <param name="patterns">array containing the patterns created using <c>MkPattern</c>.</param>
-        /// <param name="noPatterns">array containing the anti-patterns created using <c>MkPattern</c>.</param>
-        /// <param name="quantifierID">optional symbol to track quantifier.</param>
-        /// <param name="skolemID">optional symbol to track skolem constants.</param>
-        //    public Z3_ast MkForall(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Z3_pattern[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
-        //    {
-        //        //Term ax = z3NativeContext.MkForall(0, new Pattern[] { pat },
-        //        //        bv_Sorts, bv_Names, body);
-
-        //        Debug.Assert(sorts != null);
-        //        Debug.Assert(names != null);
-        //        Debug.Assert(body != null);
-        //        Debug.Assert(sorts.Length == names.Length);
-        //        Debug.Assert(sorts.All(s => s != null));
-        //        Debug.Assert(names.All(n => n != null));
-        //        Debug.Assert(patterns == null || patterns.All(p => p != null));
-        //        Debug.Assert(noPatterns == null || noPatterns.All(np => np != null));
-
-        //        var symbol = Native.Z3_mk_string_symbol(nCtx, name);
-
-        //        var symbols = names.Select(n => Native.Z3_mk_string_symbol(nCtx, n)).ToArray();
-
-        //        return Native.Z3_mk_forall(nCtx, weight, patterns.Length, patterns, symbols.Length, symbols, [In] IntPtr[] a3, uint a4, [In] IntPtr[] a5, [In] IntPtr[] a6, IntPtr a7)
-
-
-
-        ////Z3_ast Z3_API Z3_mk_forall(Z3_context c,
-        ////                           unsigned weight,
-        ////                           unsigned num_patterns, Z3_pattern const patterns[],
-        ////                           unsigned num_decls, Z3_sort const types[],
-        ////                           Z3_symbol const decl_names[],
-        ////                           Z3_ast body) {
-        //    }
-
         #region Quantifier Patterns
         /// <summary>
         /// Create a quantifier pattern.
@@ -933,14 +943,12 @@ namespace Microsoft.Z3
         public Z3_pattern MkPattern(params Z3_ast[] terms)
         {
             Debug.Assert(terms != null);
-            if (terms.Length == 0)
+            if (terms == null || terms.Length == 0)
                 throw new Z3Exception("Cannot create a pattern from zero terms");
 
             return Native.Z3_mk_pattern(nCtx, (uint)terms.Length, terms);
         }
         #endregion
-        #endregion
-
 
         #region Utilities
         /// <summary>
@@ -981,6 +989,24 @@ namespace Microsoft.Z3
             Debug.Assert(ast != IntPtr.Zero);
 
             return Native.Z3_get_sort(nCtx, ast);
+        }
+
+        /// <summary>
+        /// Get the arguments for app
+        /// </summary>
+        /// <param name="app"></param>
+        /// <returns></returns>
+        public Z3_ast[] GetAppArgs(Z3_app app)
+        {
+            Debug.Assert(app != IntPtr.Zero);
+
+            var numArgs = Native.Z3_get_app_num_args(nCtx, app);
+            var args = new Z3_ast[numArgs];
+            for (uint i = 0; i < numArgs; i++)
+            {
+                args[i] = Native.Z3_get_app_arg(nCtx, app, i);
+            }
+            return args;
         }
 
         /// <summary>
@@ -1034,6 +1060,100 @@ namespace Microsoft.Z3
             Debug.Assert(array != IntPtr.Zero);
 
             return Native.Z3_get_array_sort_range(nCtx, array);
+        }
+
+        /// <summary>
+        /// Try to get integer from AST
+        /// </summary>
+        /// <param name="v"></param>
+        /// <param name="i"></param>
+        /// <returns></returns>
+        public bool TryGetNumeralInt(Z3_ast v, out int i)
+        {
+            Debug.Assert(v != IntPtr.Zero);
+
+            int result = i = 0;
+            if (Native.Z3_get_numeral_int(nCtx, v, ref result) == 0) ;
+            {
+                return false;
+            }
+            i = result;
+            return true;
+        }
+
+        /// <summary>
+        /// Try to get uint from AST
+        /// </summary>
+        /// <param name="v"></param>
+        /// <param name="u"></param>
+        /// <returns></returns>
+        public bool TryGetNumeralUInt(Z3_ast v, out uint u)
+        {
+            Debug.Assert(v != IntPtr.Zero);
+
+            uint result = u = 0;
+            if (Native.Z3_get_numeral_uint(nCtx, v, ref result) == 0)
+            {
+                return false;
+            }
+            u = result;
+            return true;
+        }
+
+        /// <summary>
+        /// Try to get long from AST
+        /// </summary>
+        /// <param name="v"></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <returns></returns>
+        public bool TryGetNumeralInt64(Z3_ast v, out long i)
+        {
+            Debug.Assert(v != IntPtr.Zero);
+
+            long result = i = 0;
+            if (Native.Z3_get_numeral_int64(nCtx, v, ref result) == 0)
+            {
+                return false;
+            }
+            i = result;
+            return true;
+        }
+
+        /// <summary>
+        /// Try get ulong from AST
+        /// </summary>
+        /// <param name="v"></param>
+        /// <param name="u"></param>
+        /// <returns></returns>
+        public bool TryGetNumeralUInt64(Z3_ast v, out ulong u)
+        {
+            Debug.Assert(v != IntPtr.Zero);
+
+            ulong result = u = 0;
+            if (Native.Z3_get_numeral_uint64(nCtx, v, ref result) == 0)
+            {
+                return false;
+            }
+            u = result;
+            return true;
+        }
+
+
+        public Z3_lbool CheckAndGetModel(out NativeModel m)
+        {
+            m = null;
+
+            //nCtx.CheckAndGetModel(out m);
+            //Z3_model model = IntPtr.Zero;
+            //Z3_lbool lb = Z3_check_and_get_model(nCtx, model);
+
+            //if (model != IntPtr.Zero)
+            //{
+            //    m = new NativeModel(nCtx, model);
+            //}
+            //return ToLBool(lb);
+            return Z3_lbool.Z3_L_FALSE;
         }
 
         #endregion
