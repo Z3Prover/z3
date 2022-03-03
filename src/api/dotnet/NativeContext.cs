@@ -934,6 +934,20 @@ namespace Microsoft.Z3
         /// <summary>
         /// Creates a new function declaration.
         /// </summary>
+        public Z3_func_decl MkFuncDecl(string name, Z3_sort[] domain, Z3_sort range)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(name));
+            Debug.Assert(range != IntPtr.Zero);
+            Debug.Assert(domain != null);
+            Debug.Assert(domain.All(d => d != IntPtr.Zero));
+
+            var symbol = Native.Z3_mk_string_symbol(nCtx, name);
+            return Native.Z3_mk_func_decl(nCtx, symbol, (uint)(domain?.Length ?? 0), domain, range);
+        }
+
+        /// <summary>
+        /// Creates a new function declaration.
+        /// </summary>
         public Z3_func_decl MkFuncDecl(string name, Z3_sort domain, Z3_sort range)
         {
             Debug.Assert(!string.IsNullOrEmpty(name));
