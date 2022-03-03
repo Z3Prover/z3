@@ -12,10 +12,8 @@ Abstract:
 Author:
 
     Christoph Wintersteiger (cwinter) 2012-03-22
-    Nikolaj Bjorner (nbjorner) 2022-03-01
-
-Notes:
-    
+    John Fleisher, Nikolaj Bjorner (nbjorner) 2022-03-01
+       
 --*/
 
 using System;
