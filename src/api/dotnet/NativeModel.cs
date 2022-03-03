@@ -19,20 +19,11 @@ Notes:
     
 --*/
 
-using System;
-using System.Diagnostics;
-using System.Collections.Generic;
-
 namespace Microsoft.Z3
 {
-    using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
-    using Z3_app = System.IntPtr;
-    using Z3_sort = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
-    using Z3_model = System.IntPtr;
-    using Z3_func_interp = System.IntPtr;
-    using Z3_func_entry = System.IntPtr;
+    using Z3_sort = System.IntPtr;
 
     /// <summary>
     /// A Model contains interpretations (assignments) of constants and functions. 
@@ -67,7 +58,6 @@ namespace Microsoft.Z3
         /// <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> 
         public NativeFuncInterp FuncInterp(Z3_func_decl f)
         {
-
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f));
 
             if (Native.Z3_get_arity(Context.nCtx, f) == 0)
@@ -235,7 +225,6 @@ namespace Microsoft.Z3
         /// </summary>        
         public Z3_ast Evaluate(Z3_ast t, bool completion = false) => Eval(t, completion);
 
-
         /// <summary>
         /// Evaluate expression to a double, assuming it is a numeral already.
         /// </summary>
@@ -253,12 +242,16 @@ namespace Microsoft.Z3
             /// <summary>
             /// One dimensional array of indices where the array is updated
             /// </summary>
-            public KeyValuePair<Z3_ast,Z3_ast>[] Updates;
+            public KeyValuePair<Z3_ast, Z3_ast>[] Updates;
 
             /// <summary>
             /// default Else case
             /// </summary>
             public Z3_ast Else;
+
+            public Z3_sort[] Domain;
+
+            public Z3_sort[] Range;
         }
 
         /// <summary>
@@ -266,26 +259,34 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="t"></param>
         /// <returns>null if the argument does evaluate to a sequence of stores to an array</returns>
-        public ArrayValue TryGetArrayValue(Z3_ast t)
+        public bool TryGetArrayValue(Z3_ast t, out ArrayValue result)
         {
             var r = Eval(t, true);
             // check that r is a sequence of store over a constant default array.
             var updates = new List<KeyValuePair<Z3_ast, Z3_ast>>();
-            var result = new ArrayValue();
-            while (true)
-            {
-                // check that r is an app, and the decl-kind is Z3_OP_ARRAY_CONST or Z3_OP_ARRAY_STORE
-                // if it is Z3_OP_ARRAY_CONST then set result.Else and break;
-                // if it is ARRAY_STORE, then append to 'updates' and continue
-                // in other cases return null
-                return null;
 
+            //while (true)
+            //{
+            //    // check that r is an app, and the decl-kind is Z3_OP_ARRAY_CONST or Z3_OP_ARRAY_STORE
+            //    // if it is Z3_OP_ARRAY_CONST then set result.Else and break;
+            //    // if it is ARRAY_STORE, then append to 'updates' and continue
+            //    // in other cases return null
+            //    return false;
+
+            //}
+
+            if (updates.Any())
+            {
+                result = new ArrayValue()
+                {
+                    Updates = updates.ToArray()
+                };
+
+                return true;
             }
-#if false
-            result.Updates = updates.ToArray();
-         
-            return null;
-#endif
+
+            result = null;
+            return false;
         }
 
         /// <summary>
