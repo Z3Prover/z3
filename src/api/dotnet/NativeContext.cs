@@ -781,6 +781,11 @@ namespace Microsoft.Z3
             return MkQuantifier(true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
 
+        public Z3_ast MkExists(Z3_sort[] sorts, Z3_symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
+        {
+            return MkQuantifier(false, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
+        }
+
         /// <summary>
         /// Create a quantified expression either forall or exists
         /// </summary>
