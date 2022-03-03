@@ -314,7 +314,6 @@ namespace Microsoft.Z3
             return lboolToStatus(r);
         }
 
-
         /// <summary>
         /// The model of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>

@@ -1167,22 +1167,6 @@ namespace Microsoft.Z3
             return Native.Z3_ast_to_string(nCtx, ast);
         }
 
-        public Z3_lbool CheckAndGetModel(out NativeModel m)
-        {
-            m = null;
-
-            //nCtx.CheckAndGetModel(out m);
-            //Z3_model model = IntPtr.Zero;
-            //Z3_lbool lb = Z3_check_and_get_model(nCtx, model);
-
-            //if (model != IntPtr.Zero)
-            //{
-            //    m = new NativeModel(nCtx, model);
-            //}
-            //return ToLBool(lb);
-            return Z3_lbool.Z3_L_FALSE;
-        }
-
         #endregion
 
         #region Internal
