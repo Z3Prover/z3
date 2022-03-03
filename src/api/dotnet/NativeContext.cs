@@ -963,6 +963,36 @@ namespace Microsoft.Z3
             return Native.Z3_mk_func_decl(nCtx, symbol, 0, new IntPtr[0], range);
         }
 
+        /// <summary>
+        /// Get domain for a funcdecl
+        /// </summary>
+        /// <param name="fdecl"></param>
+        /// <returns></returns>
+        public Z3_sort[] GetDomain(Z3_func_decl fdecl)
+        {
+            Debug.Assert(fdecl != IntPtr.Zero);
+
+            var sz = Native.Z3_get_domain_size(nCtx, fdecl);
+            var domain = new Z3_sort[sz];
+            for (uint i = 0; i < sz; i++)
+            {
+                domain[i] = Native.Z3_get_domain(nCtx, fdecl, i);
+            }
+            return domain;
+        }
+
+        /// <summary>
+        /// Get range for a funcdecl
+        /// </summary>
+        /// <param name="fdecl"></param>
+        /// <returns></returns>
+        public Z3_sort GetRange(Z3_func_decl fdecl)
+        {
+            Debug.Assert(fdecl != IntPtr.Zero);
+
+            return Native.Z3_get_range(nCtx, fdecl);
+        }
+
         #endregion
 
         #region Quantifier Patterns
@@ -1179,6 +1209,17 @@ namespace Microsoft.Z3
             }
             u = result;
             return true;
+        }
+
+        /// <summary>
+        /// Get string for numeral ast
+        /// </summary>
+        /// <param name="v"></param>
+        /// <returns></returns>
+        public string GetNumeralString(Z3_ast v)
+        {
+            Debug.Assert(v != IntPtr.Zero);
+            return Native.Z3_get_numeral_string(nCtx, v);
         }
 
         /// <summary>
