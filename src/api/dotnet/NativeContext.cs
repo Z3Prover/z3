@@ -1,39 +1,38 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    NativeContext.cs
+
+Abstract:
+
+    Z3 Managed API: Native Context
+
+Author:
+
+    Christoph Wintersteiger (cwinter) 2012-03-22
+    John Fleisher, Nikolaj Bjorner (nbjorner) 2022-03-01
+       
+--*/
+
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
     using Z3_app = System.IntPtr;
-    using Z3_apply_result = System.IntPtr;
     using Z3_ast = System.IntPtr;
-    using Z3_ast_map = System.IntPtr;
     using Z3_ast_vector = System.IntPtr;
-    using Z3_config = System.IntPtr;
-    using Z3_constructor = System.IntPtr;
-    using Z3_constructor_list = System.IntPtr;
-    using Z3_context = System.IntPtr;
-    using Z3_fixedpoint = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
-    using Z3_func_entry = System.IntPtr;
-    using Z3_func_interp = System.IntPtr;
-    using Z3_goal = System.IntPtr;
-    using Z3_literals = System.IntPtr;
-    using Z3_model = System.IntPtr;
-    using Z3_optimize = System.IntPtr;
-    using Z3_param_descrs = System.IntPtr;
-    using Z3_params = System.IntPtr;
     using Z3_pattern = System.IntPtr;
-    using Z3_probe = System.IntPtr;
-    using Z3_rcf_num = System.IntPtr;
     using Z3_solver = System.IntPtr;
-    using Z3_solver_callback = System.IntPtr;
     using Z3_sort = System.IntPtr;
     using Z3_stats = System.IntPtr;
     using Z3_symbol = System.IntPtr;
-    using Z3_tactic = System.IntPtr;
 
     /// <summary>
     /// The main interaction with Z3 happens via the Context.
@@ -236,8 +235,7 @@ namespace Microsoft.Z3
         public Z3_ast MkReal(string v)
         {
             Debug.Assert(!string.IsNullOrEmpty(v));
-
-            return Native.Z3_mk_numeral(nCtx, v, this.RealSort);
+            return Native.Z3_mk_numeral(nCtx, v, MkRealSort());
         }
 
         /// <summary>
@@ -306,11 +304,10 @@ namespace Microsoft.Z3
 
         #region Sort
 
-        public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
-        public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
-        public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
-
+        public Z3_sort MkIntSort() => Native.Z3_mk_int_sort(nCtx);
+        public Z3_sort MkBoolSort() => Native.Z3_mk_bool_sort(nCtx);
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
+        public Z3_sort MkRealSort() => Native.Z3_mk_real_sort(nCtx);
 
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
@@ -380,7 +377,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Creates a Boolean value.
         /// </summary>
-        public Z3_ast MkBool(bool value) => value ? MkTrue() : MkFalse();
+        public Z3_ast MkBool(bool value) => value ? MkTrue() : MkFalse();        
 
         /// <summary>
         /// Create an expression representing <c>t1 iff t2</c>.
@@ -1164,7 +1161,7 @@ namespace Microsoft.Z3
             Debug.Assert(v != IntPtr.Zero);
 
             int result = i = 0;
-            if (Native.Z3_get_numeral_int(nCtx, v, ref result) == 0)
+            if (Native.Z3_get_numeral_int(nCtx, v, ref result) == 0) 
             {
                 return false;
             }

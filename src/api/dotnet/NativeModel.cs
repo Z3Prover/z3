@@ -18,11 +18,11 @@ Author:
 Notes:
     
 --*/
+
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Linq;
+using System.Diagnostics;
 
 namespace Microsoft.Z3
 {
@@ -41,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">A Constant</param>
         /// <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
-        public Z3_ast ConstInterp(Z3_ast a) => ConstInterp(Native.Z3_get_app_decl(Context.nCtx, a));
+        public Z3_ast ConstInterp(Z3_ast a) => ConstFuncInterp(Native.Z3_get_app_decl(Context.nCtx, a));
 
         /// <summary>
         /// Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
@@ -254,44 +254,55 @@ namespace Microsoft.Z3
             /// </summary>
             public Z3_ast Else;
 
-            public Z3_sort[] Domain;
+            public Z3_ast[] Domain;
 
-            public Z3_sort[] Range;
+            public Z3_ast[] Range;
         }
 
         /// <summary>
         /// Convert the interpretation of t into a sequence of array updates
         /// </summary>
         /// <param name="t"></param>
+        /// <param name="result"></param>
         /// <returns>null if the argument does evaluate to a sequence of stores to an array</returns>
         public bool TryGetArrayValue(Z3_ast t, out ArrayValue result)
         {
             var r = Eval(t, true);
             // check that r is a sequence of store over a constant default array.
             var updates = new List<KeyValuePair<Z3_ast, Z3_ast>>();
-
-            //while (true)
-            //{
-            //    // check that r is an app, and the decl-kind is Z3_OP_ARRAY_CONST or Z3_OP_ARRAY_STORE
-            //    // if it is Z3_OP_ARRAY_CONST then set result.Else and break;
-            //    // if it is ARRAY_STORE, then append to 'updates' and continue
-            //    // in other cases return null
-            //    return false;
-
-            //}
-
-            if (updates.Any())
-            {
-                result = new ArrayValue()
-                {
-                    Updates = updates.ToArray()
-                };
-
-                return true;
-            }
-
             result = null;
-            return false;
+            while (true)
+            {
+                if (Context.GetAstKind(r) != Z3_ast_kind.Z3_APP_AST)
+                    return false;
+                Z3_func_decl f = Context.GetAppDecl(r);
+                var kind = Context.GetDeclKind(f);
+                if (kind == Z3_decl_kind.Z3_OP_CONST_ARRAY)
+                {
+#if false
+// TODO
+                    result = new ArrayValue();
+                    result.Else = r;
+                    result.Updates = updates.ToArray();
+                    result.Domain = updates.Select((x, y) => x).ToArray();
+                    result.Range = updates.Select((x, y) => y).ToArray();
+#endif
+                    return true;
+                }
+                else if (kind == Z3_decl_kind.Z3_OP_STORE)
+                {
+#if false
+                    Debug.Assert(Context.NumArgs(r) == 3);
+                    updates.Add(new KeyValuePair(Context.GetArg(r, 1), Context.GetArg(r, 2)));
+                    r = Context.GetArg(r, 0);
+#endif
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>
