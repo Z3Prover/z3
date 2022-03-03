@@ -45,21 +45,15 @@ namespace Microsoft.Z3
         /// <summary>
         /// A string that describes all available solver parameters.
         /// </summary>
-        public string Help
-        {
-            get
-            {
-                return Native.Z3_solver_get_help(nCtx, z3solver);
-            }
-        }
+        public string Help => Native.Z3_solver_get_help(nCtx, z3solver);
 
         private void SetParam(Action<Z3_params> setter)
         {
-            Z3_params p = Native.Z3_mk_params(Context.nCtx);
-            Native.Z3_params_inc_ref(Context.nCtx, p);
+            Z3_params p = Native.Z3_mk_params(nCtx);
+            Native.Z3_params_inc_ref(nCtx, p);
             setter(p);
-            Native.Z3_solver_set_params(Context.nCtx, NativeObject, p);
-            Native.Z3_params_dec_ref(Context.nCtx, p);
+            Native.Z3_solver_set_params(nCtx, z3solver, p);
+            Native.Z3_params_dec_ref(nCtx, p);
         }
 
         /// <summary>
@@ -67,7 +61,7 @@ namespace Microsoft.Z3
         /// </summary>
         public void Set(string name, bool value)
         {
-            SetParam((Z3_params p) => Native.Z3_params_set_bool(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), (byte)(value ? 1 : 0)));
+            SetParam((Z3_params p) => Native.Z3_params_set_bool(nCtx, p, Native.Z3_mk_string_symbol(nCtx, name), (byte)(value ? 1 : 0)));
         }
 
         /// <summary>
@@ -75,7 +69,7 @@ namespace Microsoft.Z3
         /// </summary>
         public void Set(string name, uint value)
         {
-            SetParam((Z3_params p) => Native.Z3_params_set_uint(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value));
+            SetParam((Z3_params p) => Native.Z3_params_set_uint(nCtx, p, Native.Z3_mk_string_symbol(nCtx, name), value));
         }
 
         /// <summary>
@@ -83,7 +77,7 @@ namespace Microsoft.Z3
         /// </summary>
         public void Set(string name, double value)
         {
-            SetParam((Z3_params p) => Native.Z3_params_set_double(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value));
+            SetParam((Z3_params p) => Native.Z3_params_set_double(nCtx, p, Native.Z3_mk_string_symbol(nCtx, name), value));
         }
 
         /// <summary>
@@ -91,43 +85,43 @@ namespace Microsoft.Z3
         /// </summary>
         public void Set(string name, string value)
         {
-            var value_sym = Native.Z3_mk_string_symbol(Context.nCtx, value);
-            SetParam((Z3_params p) => Native.Z3_params_set_symbol(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value_sym));
+            var value_sym = Native.Z3_mk_string_symbol(nCtx, value);
+            SetParam((Z3_params p) => Native.Z3_params_set_symbol(nCtx, p, Native.Z3_mk_string_symbol(nCtx, name), value_sym));
         }
+
 #if false
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+            /// <summary>
+            /// Sets parameter on the solver
+            /// </summary>
+            public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
 
         /// <summary>
         /// Retrieves parameter descriptions for solver.
         /// </summary>
         public ParamDescrs ParameterDescriptions
         {
-            get { return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(Context.nCtx, NativeObject)); }
+            get { return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(nCtx, NativeObject)); }
         }
-
 #endif
 
         /// <summary>
@@ -135,38 +129,26 @@ namespace Microsoft.Z3
         /// </summary>
         /// <seealso cref="Pop"/>
         /// <seealso cref="Push"/>
-        public uint NumScopes
-        {
-            get { return Native.Z3_solver_get_num_scopes(nCtx, z3solver); }
-        }
+        public uint NumScopes =>Native.Z3_solver_get_num_scopes(nCtx, z3solver); 
 
         /// <summary>
         /// Creates a backtracking point.
         /// </summary>
         /// <seealso cref="Pop"/>
-        public void Push()
-        {
-            Native.Z3_solver_push(nCtx, z3solver);
-        }
+        public void Push() => Native.Z3_solver_push(nCtx, z3solver);
 
         /// <summary>
         /// Backtracks <paramref name="n"/> backtracking points.
         /// </summary>
         /// <remarks>Note that an exception is thrown if <paramref name="n"/> is not smaller than <c>NumScopes</c></remarks>
         /// <seealso cref="Push"/>
-        public void Pop(uint n = 1)
-        {
-            Native.Z3_solver_pop(nCtx, z3solver, n);
-        }
+        public void Pop(uint n = 1) => Native.Z3_solver_pop(nCtx, z3solver, n);
 
         /// <summary>
         /// Resets the Solver.
         /// </summary>
         /// <remarks>This removes all assertions from the solver.</remarks>
-        public void Reset()
-        {
-            Native.Z3_solver_reset(nCtx, z3solver);
-        }
+        public void Reset() => Native.Z3_solver_reset(nCtx, z3solver);
 
         /// <summary>
         /// Assert a constraint (or multiple) into the solver.
@@ -185,18 +167,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// Alias for Assert.
         /// </summary>        
-        public void Add(params Z3_ast[] constraints)
-        {
-            Assert(constraints);
-        }
+        public void Add(params Z3_ast[] constraints) => Assert(constraints);
 
         /// <summary>
         /// Alias for Assert.
         /// </summary>        
-        public void Add(IEnumerable<Z3_ast> constraints)
-        {
-            Assert(constraints.ToArray());
-        }
+        public void Add(IEnumerable<Z3_ast> constraints) => Assert(constraints.ToArray());
 
         /// <summary>
         /// Add constraints to ensure the function f can only be injective.
@@ -209,28 +185,26 @@ namespace Microsoft.Z3
         /// <param name="f"></param>
         public void AssertInjective(Z3_func_decl f)
         {
-            uint arity = Native.Z3_get_arity(Context.nCtx, f);
-            Z3_sort range = Native.Z3_get_range(Context.nCtx, f);
+            uint arity = Native.Z3_get_arity(nCtx, f);
+            Z3_sort range = Native.Z3_get_range(nCtx, f);
             Z3_ast[] vars = new Z3_ast[arity];
             Z3_sort[] sorts = new Z3_sort[arity];
             Z3_symbol[] names = new Z3_symbol[arity];
             for (uint i = 0; i < arity; ++i)
             {
-                Z3_sort domain = Native.Z3_get_domain(Context.nCtx, f, i);
-                //vars[i] =  Context.MkBound(arity - i - 1, domain);
+                Z3_sort domain = Native.Z3_get_domain(nCtx, f, i);
+                vars[i] =  ntvContext.MkBound(arity - i - 1, domain);
                 sorts[i] = domain;
-                names[i] = Native.Z3_mk_int_symbol(Context.nCtx, (int)i);
+                names[i] = Native.Z3_mk_int_symbol(nCtx, (int)i);
             }
             Z3_ast app_f = IntPtr.Zero; // Context.MkApp(f, vars);
             for (uint i = 0; i < arity; ++i)
             {
-                Z3_sort domain = Native.Z3_get_domain(Context.nCtx, f, i);
-#if false
-                Z3_func_decl proj = Native.Z3_mk_fresh_func_decl("inv", new Z3_sort[] { range }, domain);
-                Z3_ast body = Context.MkEq(vars[i], Context.MkApp(proj, app_f));
-                Z3_ast q = Context.MkForall(names, sorts, body);
+                Z3_sort domain = Native.Z3_get_domain(nCtx, f, i);
+                Z3_func_decl proj = ntvContext.MkFreshFuncDecl("inv", new Z3_sort[] { range }, domain);
+                Z3_ast body = ntvContext.MkEq(vars[i], ntvContext.MkApp(proj, app_f));
+                Z3_ast q = ntvContext.MkForall(names, sorts, body);
                 Assert(q);
-#endif
             }
         }
 
@@ -292,19 +266,19 @@ namespace Microsoft.Z3
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions
-            => (uint)nativeContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver)).Length;
+            => (uint)ntvContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver)).Length;
 
         /// <summary>
         /// The set of asserted formulas.
         /// </summary>
         public Z3_ast[] Assertions
-            => nativeContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver));
+            => ntvContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver));
 
         /// <summary>
         /// Currently inferred units.
         /// </summary>
         public Z3_ast[] Units
-            => nativeContext.ToArray(Native.Z3_solver_get_units(nCtx, z3solver));
+            => ntvContext.ToArray(Native.Z3_solver_get_units(nCtx, z3solver));
 
         /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
@@ -357,7 +331,7 @@ namespace Microsoft.Z3
                 IntPtr x = Native.Z3_solver_get_model(nCtx, z3solver);
                 return x == IntPtr.Zero
                     ? null
-                    : new NativeModel(nativeContext, x);
+                    : new NativeModel(ntvContext, x);
             }
         }
 
@@ -380,7 +354,7 @@ namespace Microsoft.Z3
         /// if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
         /// </remarks>
         public Z3_ast[] UnsatCore
-            => nativeContext.ToArray(Native.Z3_solver_get_unsat_core(nCtx, z3solver));
+            => ntvContext.ToArray(Native.Z3_solver_get_unsat_core(nCtx, z3solver));
 
         /// <summary>
         /// A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>.
@@ -415,7 +389,7 @@ namespace Microsoft.Z3
             get
             {
                 var stats = Native.Z3_solver_get_statistics(nCtx, z3solver);
-                return nativeContext.GetStatistics(stats);
+                return ntvContext.GetStatistics(stats);
             }
         }
 
@@ -427,17 +401,17 @@ namespace Microsoft.Z3
             return Native.Z3_solver_to_string(nCtx, z3solver);
         }
 
-        #region Internal
-        readonly NativeContext nativeContext;
+#region Internal
+        readonly NativeContext ntvContext;
         Z3_solver z3solver;
-        Z3_context nCtx => nativeContext.nCtx;
+        Z3_context nCtx => ntvContext.nCtx;
 
         internal NativeSolver(NativeContext nativeCtx, Z3_solver z3solver)
         {
             Debug.Assert(nCtx != IntPtr.Zero);
             Debug.Assert(z3solver != IntPtr.Zero);
 
-            this.nativeContext = nativeCtx;
+            this.ntvContext = nativeCtx;
             this.z3solver = z3solver;
 
             Native.Z3_solver_inc_ref(nCtx, z3solver);
@@ -475,6 +449,6 @@ namespace Microsoft.Z3
             }
         }
 
-        #endregion
+#endregion
     }
 }
