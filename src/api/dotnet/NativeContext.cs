@@ -858,16 +858,44 @@ namespace Microsoft.Z3
 
         #region Arrays
 
-        /// <summary>
-        /// Create an array constant.
-        /// </summary>
-        public Z3_ast MkArrayConst(string name, Z3_sort domain, Z3_sort range)
-        {
-            Debug.Assert(!string.IsNullOrEmpty(name));
-            Debug.Assert(domain != IntPtr.Zero);
-            Debug.Assert(range != IntPtr.Zero);
 
-            return MkConst(name, MkArraySort(domain, range));
+        /// <summary>
+        /// Create a constant array.
+        /// </summary>
+        /// <remarks>
+        /// The resulting term is an array, such that a <c>select</c>on an arbitrary index
+        /// produces the value <c>v</c>.
+        /// </remarks>
+        public Z3_ast MkConstArray(Z3_sort domain, Z3_ast v)
+        {
+            Debug.Assert(domain != IntPtr.Zero);
+            Debug.Assert(v != IntPtr.Zero);
+
+            return Native.Z3_mk_const_array(nCtx, domain, v);
+        }
+
+        /// <summary>
+        /// Array update.
+        /// </summary>
+        /// <remarks>
+        /// The node <c>a</c> must have an array sort <c>[domain -> range]</c>,
+        /// <c>i</c> must have sort <c>domain</c>,
+        /// <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
+        /// The semantics of this function is given by the theory of arrays described in the SMT-LIB
+        /// standard. See http://smtlib.org for more details.
+        /// The result of this function is an array that is equal to <c>a</c>
+        /// (with respect to <c>select</c>)
+        /// on all indices except for <c>i</c>, where it maps to <c>v</c>
+        /// (and the <c>select</c> of <c>a</c> with
+        /// respect to <c>i</c> may be a different value).
+        /// </remarks>
+        public Z3_ast MkStore(Z3_ast a, Z3_ast i, Z3_ast v)
+        {
+            Debug.Assert(a != IntPtr.Zero);
+            Debug.Assert(i != IntPtr.Zero);
+            Debug.Assert(v != IntPtr.Zero);
+
+            return Native.Z3_mk_store(nCtx, a, i, v);
         }
 
         /// <summary>
@@ -881,36 +909,12 @@ namespace Microsoft.Z3
         /// and <c>index</c> must have the sort <c>domain</c>.
         /// The sort of the result is <c>range</c>.
         /// </remarks>
-        public Z3_ast MkArraySelect(Z3_ast array, Z3_ast index)
+        public Z3_ast MkSelect(Z3_ast array, Z3_ast index)
         {
             Debug.Assert(array != IntPtr.Zero);
             Debug.Assert(index != IntPtr.Zero);
 
             return Native.Z3_mk_select(nCtx, array, index);
-        }
-
-        /// <summary>
-        /// Array update.
-        /// </summary>
-        /// <remarks>
-        /// The node <c>a</c> must have an array sort <c>[domain1,..,domaink -> range]</c>,
-        /// <c>args</c> must have sort <c>domain1,..,domaink</c>,
-        /// <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
-        /// The semantics of this function is given by the theory of arrays described in the SMT-LIB
-        /// standard. See http://smtlib.org for more details.
-        /// The result of this function is an array that is equal to <c>a</c>
-        /// (with respect to <c>select</c>)
-        /// on all indices except for <c>args</c>, where it maps to <c>v</c>
-        /// (and the <c>select</c> of <c>a</c> with
-        /// respect to <c>args</c> may be a different value).
-        /// </remarks>
-        public Z3_ast MkArrayStore(Z3_ast a, Z3_ast[] args, Z3_ast v)
-        {
-            Debug.Assert(a != null);
-            Debug.Assert(args != null);
-            Debug.Assert(v != null);
-
-            return Native.Z3_mk_store_n(nCtx, a, (uint)(args?.Length ?? 0), args, v);
         }
 
         /// <summary>
@@ -920,7 +924,7 @@ namespace Microsoft.Z3
         /// Produces the default range value, for arrays that can be represented as
         /// finite maps with a default range value.
         /// </remarks>
-        public Z3_ast MkArrayDefault(Z3_ast a)
+        public Z3_ast MkDefault(Z3_ast a)
         {
             Debug.Assert(a != null);
 
