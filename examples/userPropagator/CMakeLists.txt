@@ -24,7 +24,15 @@ message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")
 
-add_executable(user_propagator_example example.cpp)
+add_executable(user_propagator_example
+        example.cpp
+        common.h
+        user_propagator.h
+        user_propagator_with_theory.h
+        user_propagator_subquery_maximisation.h
+        user_propagator_internal_maximisation.h
+        user_propagator_created_maximisation.h)
+
 target_include_directories(user_propagator_example PRIVATE ${Z3_CXX_INCLUDE_DIRS})
 target_link_libraries(user_propagator_example PRIVATE ${Z3_LIBRARIES})
 
