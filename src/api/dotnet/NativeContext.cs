@@ -40,7 +40,6 @@ namespace Microsoft.Z3
     /// NativeContext allows for efficient wrapper-reduced interaction with Z3
     /// expressions.
     /// </summary>
-
     public class NativeContext : IDisposable
     {
         /// <summary>
