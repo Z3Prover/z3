@@ -200,6 +200,11 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Add constraints to ensure the function f can only be injective.
+        /// Example:
+        /// for function f : D1 x D2 -> R
+        /// assert axioms
+        ///   forall (x1 : D1, x2 : D2) x1 = inv1(f(x1,x2))
+        ///   forall (x1 : D1, x2 : D2) x2 = inv2(f(x1,x2))
         /// </summary>
         /// <param name="f"></param>
         public void AssertInjective(Z3_func_decl f)
