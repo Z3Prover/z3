@@ -1,14 +1,39 @@
+using System;
+using System.Diagnostics;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Linq;
+
 namespace Microsoft.Z3
 {
     using Z3_app = System.IntPtr;
+    using Z3_apply_result = System.IntPtr;
     using Z3_ast = System.IntPtr;
+    using Z3_ast_map = System.IntPtr;
     using Z3_ast_vector = System.IntPtr;
+    using Z3_config = System.IntPtr;
+    using Z3_constructor = System.IntPtr;
+    using Z3_constructor_list = System.IntPtr;
+    using Z3_context = System.IntPtr;
+    using Z3_fixedpoint = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
+    using Z3_func_entry = System.IntPtr;
+    using Z3_func_interp = System.IntPtr;
+    using Z3_goal = System.IntPtr;
+    using Z3_literals = System.IntPtr;
+    using Z3_model = System.IntPtr;
+    using Z3_optimize = System.IntPtr;
+    using Z3_param_descrs = System.IntPtr;
+    using Z3_params = System.IntPtr;
     using Z3_pattern = System.IntPtr;
+    using Z3_probe = System.IntPtr;
+    using Z3_rcf_num = System.IntPtr;
     using Z3_solver = System.IntPtr;
+    using Z3_solver_callback = System.IntPtr;
     using Z3_sort = System.IntPtr;
     using Z3_stats = System.IntPtr;
     using Z3_symbol = System.IntPtr;
+    using Z3_tactic = System.IntPtr;
 
     /// <summary>
     /// The main interaction with Z3 happens via the Context.
