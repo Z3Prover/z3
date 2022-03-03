@@ -305,13 +305,38 @@ namespace Microsoft.Z3
         #region Sort
 
         /// <summary>
-        /// Sorts return same ptr for subsequent calls
+        /// Integer Sort
         /// </summary>
         public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
+        /// <summary>
+        /// Boolean Sort
+        /// </summary>
         public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
+        /// <summary>
+        /// Real Sort
+        /// </summary>
         public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
 
+        /// <summary>
+        /// Bit-vector sort
+        /// </summary>
+        /// <param name="size"></param>
+        /// <returns></returns>
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
+
+        /// <summary>
+        /// Given an elemSort create a List of elemSort 
+        /// The function returns the list sort, constructors, accessors and recognizers
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="elemSort"></param>
+        /// <param name="inil"></param>
+        /// <param name="iisnil"></param>
+        /// <param name="icons"></param>
+        /// <param name="iiscons"></param>
+        /// <param name="ihead"></param>
+        /// <param name="itail"></param>
+        /// <returns>The list algebraic datatype</returns>
 
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
@@ -410,6 +435,11 @@ namespace Microsoft.Z3
         #endregion
 
         #region Symbol
+        /// <summary>
+        /// Create a symbol from a string
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public Z3_symbol MkStringSymbol(string name)
         {
             Debug.Assert(!string.IsNullOrEmpty(name));
@@ -778,6 +808,18 @@ namespace Microsoft.Z3
             return MkQuantifier(true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
 
+        /// <summary>
+        /// Create an existential Quantifier.
+        /// </summary>
+        /// <param name="sorts"></param>
+        /// <param name="names"></param>
+        /// <param name="body"></param>
+        /// <param name="weight"></param>
+        /// <param name="patterns"></param>
+        /// <param name="noPatterns"></param>
+        /// <param name="quantifierID"></param>
+        /// <param name="skolemID"></param>
+        /// <returns></returns>
         public Z3_ast MkExists(Z3_sort[] sorts, Z3_symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             return MkQuantifier(false, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
@@ -1099,6 +1141,11 @@ namespace Microsoft.Z3
             return args;
         }
 
+        /// <summary>
+        /// Retrieve number of arguments to a function application
+        /// </summary>
+        /// <param name="app"></param>
+        /// <returns></returns>
         public uint GetNumArgs(Z3_app app)
         {
             Debug.Assert(app != IntPtr.Zero);

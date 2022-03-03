@@ -299,7 +299,6 @@ namespace Microsoft.Z3
                     return false;
                 }
             }
-            return true;
         }
 
         /// <summary>
