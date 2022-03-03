@@ -10,5 +10,4 @@
 
    - \ref @C_API@
    - \ref @CPP_API@ @DOTNET_API@ @JAVA_API@ @PYTHON_API@ @OCAML_API@
-   - Try Z3 online at <a href="http://rise4fun.com/z3">RiSE4Fun</a>.
 */
