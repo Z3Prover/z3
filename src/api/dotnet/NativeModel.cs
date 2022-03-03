@@ -276,7 +276,7 @@ namespace Microsoft.Z3
                 if (kind == Z3_decl_kind.Z3_OP_CONST_ARRAY)
                 {
                     result = new ArrayValue();
-                    result.Else = r;
+                    result.Else = ntvContext.GetAppArg(r, 0);
                     result.Updates = updates.ToArray();
                     result.Domain = updates.Keys.ToArray();
                     result.Range = updates.Values.ToArray();
