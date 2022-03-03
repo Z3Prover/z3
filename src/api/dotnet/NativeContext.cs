@@ -235,7 +235,7 @@ namespace Microsoft.Z3
         public Z3_ast MkReal(string v)
         {
             Debug.Assert(!string.IsNullOrEmpty(v));
-            return Native.Z3_mk_numeral(nCtx, v, MkRealSort());
+            return Native.Z3_mk_numeral(nCtx, v, RealSort);
         }
 
         /// <summary>
@@ -304,10 +304,14 @@ namespace Microsoft.Z3
 
         #region Sort
 
-        public Z3_sort MkIntSort() => Native.Z3_mk_int_sort(nCtx);
-        public Z3_sort MkBoolSort() => Native.Z3_mk_bool_sort(nCtx);
+        /// <summary>
+        /// Sorts return same ptr for subsequent calls
+        /// </summary>
+        public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
+        public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
+        public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
+
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
-        public Z3_sort MkRealSort() => Native.Z3_mk_real_sort(nCtx);
 
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
@@ -1086,16 +1090,23 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Z3_ast[] GetAppArgs(Z3_app app)
         {
-            Debug.Assert(app != IntPtr.Zero);
-
-            var numArgs = Native.Z3_get_app_num_args(nCtx, app);
+            var numArgs = GetNumArgs(app);
             var args = new Z3_ast[numArgs];
             for (uint i = 0; i < numArgs; i++)
             {
-                args[i] = Native.Z3_get_app_arg(nCtx, app, i);
+                args[i] = GetAppArg(app, i);
             }
             return args;
         }
+
+        public uint GetNumArgs(Z3_app app)
+        {
+            Debug.Assert(app != IntPtr.Zero);
+
+            return Native.Z3_get_app_num_args(nCtx, app);
+        }
+
+        internal Z3_ast GetAppArg(Z3_app app, uint i) => Native.Z3_get_app_arg(nCtx, app, i);
 
         /// <summary>
         /// Get App Decl from IntPtr
