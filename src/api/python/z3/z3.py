@@ -12,8 +12,6 @@ Z3 is used in many applications such as: software/hardware verification and test
 constraint solving, analysis of hybrid systems, security, biology (in silico analysis),
 and geometrical problems.
 
-Several online tutorials for Z3Py are available at:
-http://rise4fun.com/Z3Py/tutorial/guide
 
 Please send feedback, comments and/or corrections on the Issue tracker for
 https://github.com/Z3prover/z3.git. Your comments are very valuable.
@@ -102,9 +100,6 @@ def get_version():
 
 def get_full_version():
     return Z3_get_full_version()
-
-# We use _z3_assert instead of the assert command because we want to
-# produce nice error messages in Z3Py at rise4fun.com
 
 
 def _z3_assert(cond, msg):
@@ -9009,7 +9004,7 @@ def prove(claim, show=False, **keywords):
 
 
 def _solve_html(*args, **keywords):
-    """Version of function `solve` used in RiSE4Fun."""
+    """Version of function `solve` that renders HTML output."""
     show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
@@ -9033,7 +9028,7 @@ def _solve_html(*args, **keywords):
 
 
 def _solve_using_html(s, *args, **keywords):
-    """Version of function `solve_using` used in RiSE4Fun."""
+    """Version of function `solve_using` that renders HTML."""
     show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
@@ -9058,7 +9053,7 @@ def _solve_using_html(s, *args, **keywords):
 
 
 def _prove_html(claim, show=False, **keywords):
-    """Version of function `prove` used in RiSE4Fun."""
+    """Version of function `prove` that renders HTML."""
     if z3_debug():
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()
