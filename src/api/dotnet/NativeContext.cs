@@ -1,3 +1,29 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    NativeContext.cs
+
+Abstract:
+
+    Z3 Managed API: Native Context
+
+Author:
+
+    Christoph Wintersteiger (cwinter) 2012-03-22
+    Nikolaj Bjorner (nbjorner) 2022-03-01
+
+Notes:
+    
+--*/
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.InteropServices;
+
 namespace Microsoft.Z3
 {
     using Z3_app = System.IntPtr;

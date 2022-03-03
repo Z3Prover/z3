@@ -19,6 +19,11 @@ Notes:
     
 --*/
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+
 namespace Microsoft.Z3
 {
     using Z3_ast = System.IntPtr;
@@ -36,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">A Constant</param>
         /// <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
-        public Z3_ast ConstInterp(Z3_ast a) => ConstInterp(Native.Z3_get_app_decl(Context.nCtx, a));
+        public Z3_ast ConstInterp(Z3_ast a) => ConstFuncInterp(Native.Z3_get_app_decl(Context.nCtx, a));
 
         /// <summary>
         /// Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
