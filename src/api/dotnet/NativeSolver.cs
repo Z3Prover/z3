@@ -48,7 +48,7 @@ namespace Microsoft.Z3
             get
             {
 
-                return Native.Z3_solver_get_help(Context.nCtx, NativeObject);
+                return Native.Z3_solver_get_help(nCtx, z3solver);
             }
         }
 
@@ -62,7 +62,7 @@ namespace Microsoft.Z3
             {
                 Debug.Assert(value != null);
 
-                Native.Z3_solver_set_params(Context.nCtx, NativeObject, value.NativeObject);
+                Native.Z3_solver_set_params(nCtx, NativeObject, value.NativeObject);
             }
         }
 
@@ -125,7 +125,7 @@ namespace Microsoft.Z3
         /// <seealso cref="Push"/>
         public uint NumScopes
         {
-            get { return Native.Z3_solver_get_num_scopes(Context.nCtx, NativeObject); }
+            get { return Native.Z3_solver_get_num_scopes(nCtx, z3solver); }
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace Microsoft.Z3
         /// <seealso cref="Pop"/>
         public void Push()
         {
-            Native.Z3_solver_push(Context.nCtx, NativeObject);
+            Native.Z3_solver_push(nCtx, z3solver);
         }
 
         /// <summary>
@@ -144,7 +144,7 @@ namespace Microsoft.Z3
         /// <seealso cref="Push"/>
         public void Pop(uint n = 1)
         {
-            Native.Z3_solver_pop(Context.nCtx, NativeObject, n);
+            Native.Z3_solver_pop(nCtx, z3solver, n);
         }
 
         /// <summary>
@@ -153,7 +153,7 @@ namespace Microsoft.Z3
         /// <remarks>This removes all assertions from the solver.</remarks>
         public void Reset()
         {
-            Native.Z3_solver_reset(Context.nCtx, NativeObject);
+            Native.Z3_solver_reset(nCtx, z3solver);
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace Microsoft.Z3
 
             foreach (Z3_ast a in constraints)
             {
-                Native.Z3_solver_assert(Context.nCtx, NativeObject, a);
+                Native.Z3_solver_assert(nCtx, z3solver, a);
             }
         }
 
@@ -206,7 +206,7 @@ namespace Microsoft.Z3
                 throw new Z3Exception("Argument size mismatch");
 
             for (int i = 0; i < constraints.Length; i++)
-                Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraints[i], ps[i]);
+                Native.Z3_solver_assert_and_track(nCtx, z3solver, constraints[i], ps[i]);
         }
 
         /// <summary>
@@ -225,57 +225,38 @@ namespace Microsoft.Z3
             Debug.Assert(constraint != null);
             Debug.Assert(p != null);
 
-            Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraint, p);
+            Native.Z3_solver_assert_and_track(nCtx, z3solver, constraint, p);
         }
 
         /// <summary>
         /// Load solver assertions from a file.
         /// </summary>
         public void FromFile(string file)
-        {
-            Native.Z3_solver_from_file(Context.nCtx, NativeObject, file);
-        }
+            => Native.Z3_solver_from_file(nCtx, z3solver, file);
 
         /// <summary>
         /// Load solver assertions from a string.
         /// </summary>
         public void FromString(string str)
-        {
-            Native.Z3_solver_from_string(Context.nCtx, NativeObject, str);
-        }
+            => Native.Z3_solver_from_string(nCtx, z3solver, str);
 
         /// <summary>
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions
-        {
-            get
-            {
-                return (uint)Context.ToArray(Native.Z3_solver_get_assertions(Context.nCtx, NativeObject)).Length;
-            }
-        }
+            => (uint)nativeContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver)).Length;
 
         /// <summary>
         /// The set of asserted formulas.
         /// </summary>
         public Z3_ast[] Assertions
-        {
-            get
-            {
-                return Context.ToArray(Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
-            }
-        }
+            => nativeContext.ToArray(Native.Z3_solver_get_assertions(nCtx, z3solver));
 
         /// <summary>
         /// Currently inferred units.
         /// </summary>
         public Z3_ast[] Units
-        {
-            get
-            {
-                return Context.ToArray(Native.Z3_solver_get_units(Context.nCtx, NativeObject));
-            }
-        }
+            => nativeContext.ToArray(Native.Z3_solver_get_units(nCtx, z3solver));
 
         /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
@@ -289,9 +270,9 @@ namespace Microsoft.Z3
         {
             Z3_lbool r;
             if (assumptions == null || assumptions.Length == 0)
-                r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
+                r = (Z3_lbool)Native.Z3_solver_check(nCtx, z3solver);
             else
-                r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)assumptions.Length, assumptions);
+                r = (Z3_lbool)Native.Z3_solver_check_assumptions(nCtx, z3solver, (uint)assumptions.Length, assumptions);
             return lboolToStatus(r);
         }
 
@@ -308,9 +289,9 @@ namespace Microsoft.Z3
             Z3_lbool r;
             Z3_ast[] asms = assumptions.ToArray();
             if (asms.Length == 0)
-                r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
+                r = (Z3_lbool)Native.Z3_solver_check(nCtx, z3solver);
             else
-                r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)asms.Length, asms);
+                r = (Z3_lbool)Native.Z3_solver_check_assumptions(nCtx, z3solver, (uint)asms.Length, asms);
             return lboolToStatus(r);
         }
 
@@ -325,11 +306,10 @@ namespace Microsoft.Z3
         {
             get
             {
-                IntPtr x = Native.Z3_solver_get_model(Context.nCtx, NativeObject);
-                if (x == IntPtr.Zero)
-                    return null;
-                else
-                    return new NativeModel(Context, x);
+                IntPtr x = Native.Z3_solver_get_model(nCtx, z3solver);
+                return x == IntPtr.Zero
+                    ? null
+                    : new NativeModel(nativeContext, x);
             }
         }
 
@@ -341,12 +321,7 @@ namespace Microsoft.Z3
         /// if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
         /// </remarks>
         public Z3_ast Proof
-        {
-            get
-            {
-                return Native.Z3_solver_get_proof(Context.nCtx, NativeObject);
-            }
-        }
+            => Native.Z3_solver_get_proof(nCtx, z3solver);
 
         /// <summary>
         /// The unsat core of the last <c>Check</c>.
@@ -357,23 +332,13 @@ namespace Microsoft.Z3
         /// if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
         /// </remarks>
         public Z3_ast[] UnsatCore
-        {
-            get
-            {
-                return Context.ToArray(Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));
-            }
-        }
+            => nativeContext.ToArray(Native.Z3_solver_get_unsat_core(nCtx, z3solver));
 
         /// <summary>
         /// A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>.
         /// </summary>
         public string ReasonUnknown
-        {
-            get
-            {
-                return Native.Z3_solver_get_reason_unknown(Context.nCtx, NativeObject);
-            }
-        }
+            => Native.Z3_solver_get_reason_unknown(nCtx, z3solver);
 
         /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.
@@ -381,7 +346,7 @@ namespace Microsoft.Z3
         public NativeSolver Translate(NativeContext ctx)
         {
             Debug.Assert(ctx != null);
-            return new NativeSolver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
+            return new NativeSolver(ctx, Native.Z3_solver_translate(nCtx, z3solver, ctx.nCtx));
         }
 
         /// <summary>
@@ -389,9 +354,10 @@ namespace Microsoft.Z3
         /// </summary>
         public void ImportModelConverter(NativeSolver src)
         {
-            Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
-        }
+            Debug.Assert(src != null);
 
+            Native.Z3_solver_import_model_converter(nCtx, src.z3solver, z3solver);
+        }
 
         /// <summary>
         /// Solver statistics.
@@ -400,8 +366,8 @@ namespace Microsoft.Z3
         {
             get
             {
-                var stats = Native.Z3_solver_get_statistics(Context.nCtx, NativeObject);
-                return Context.GetStatistics(stats);
+                var stats = Native.Z3_solver_get_statistics(nCtx, z3solver);
+                return nativeContext.GetStatistics(stats);
             }
         }
 
@@ -410,19 +376,23 @@ namespace Microsoft.Z3
         /// </summary>
         public override string ToString()
         {
-            return Native.Z3_solver_to_string(Context.nCtx, NativeObject);
+            return Native.Z3_solver_to_string(nCtx, z3solver);
         }
 
         #region Internal
-        NativeContext Context;
-        IntPtr NativeObject;
-        internal NativeSolver(NativeContext ctx, Z3_solver obj)
-        {
-            Context = ctx;
-            NativeObject = obj;
+        readonly NativeContext nativeContext;
+        Z3_solver z3solver;
+        Z3_context nCtx => nativeContext.nCtx;
 
-            Debug.Assert(ctx != null);
-            Native.Z3_solver_inc_ref(ctx.nCtx, obj);
+        internal NativeSolver(NativeContext nativeCtx, Z3_solver z3solver)
+        {
+            Debug.Assert(nCtx != IntPtr.Zero);
+            Debug.Assert(z3solver != IntPtr.Zero);
+
+            this.nativeContext = nativeCtx;
+            this.z3solver = z3solver;
+
+            Native.Z3_solver_inc_ref(nCtx, z3solver);
         }
 
         /// <summary>
@@ -438,10 +408,10 @@ namespace Microsoft.Z3
         /// </summary>
         public void Dispose()
         {
-            if (NativeObject != IntPtr.Zero)
+            if (z3solver != IntPtr.Zero)
             {
-                Native.Z3_solver_dec_ref(Context.nCtx, NativeObject);
-                NativeObject = IntPtr.Zero;
+                Native.Z3_solver_dec_ref(nCtx, z3solver);
+                z3solver = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
         }

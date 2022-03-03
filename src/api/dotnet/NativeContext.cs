@@ -228,6 +228,19 @@ namespace Microsoft.Z3
             return Native.Z3_mk_or(nCtx, (uint)(t?.Length ?? 0), t);
         }
 
+
+        /// <summary>
+        /// Create a real numeral.
+        /// </summary>
+        /// <param name="v">A string representing the Term value in decimal notation.</param>
+        /// <returns>A Term with value <paramref name="v"/> and sort Real</returns>
+        public Z3_ast MkReal(string v, Z3_sort realSort)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(v));
+
+            return Native.Z3_mk_numeral(nCtx, v, realSort);
+        }
+
         /// <summary>
         /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// </summary>
@@ -339,7 +352,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a new tuple sort.
         /// </summary>
-        public Z3_sort MkTupleSort(Z3_symbol name, Z3_symbol[] fieldNames, Z3_sort[] fieldSorts, out Z3_func_decl constructor, Z3_func_decl[] projections )
+        public Z3_sort MkTupleSort(Z3_symbol name, Z3_symbol[] fieldNames, Z3_sort[] fieldSorts, out Z3_func_decl constructor, Z3_func_decl[] projections)
         {
             Debug.Assert(name != IntPtr.Zero);
             Debug.Assert(fieldNames != null);
@@ -966,6 +979,19 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Solver
+
+        /// <summary>
+        /// Creates a new (incremental) solver.
+        /// </summary>
+        public NativeSolver MkSimpleSolver()
+        {
+            Z3_solver nSolver = Native.Z3_mk_simple_solver(nCtx);
+            return new NativeSolver(this, nSolver);
+        }
+
+        #endregion
+
         #region Utilities
         /// <summary>
         /// Get the sort kind from IntPtr
@@ -1167,6 +1193,13 @@ namespace Microsoft.Z3
             return Native.Z3_ast_to_string(nCtx, ast);
         }
 
+        /// <summary>
+        /// Enable or disable warning messages
+        /// </summary>
+        /// <param name="turnOn"></param>
+        public void ToggleWarningMessages(bool turnOn)
+            => Native.Z3_toggle_warning_messages(turnOn ? (byte)1 : (byte)0);
+
         #endregion
 
         #region Internal
@@ -1185,6 +1218,7 @@ namespace Microsoft.Z3
             PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
             m_n_err_handler = new Native.Z3_error_handler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.Z3_set_error_handler(m_ctx, m_n_err_handler);
+
             GC.SuppressFinalize(this);
         }
 
@@ -1237,7 +1271,6 @@ namespace Microsoft.Z3
                 result[i] = Native.Z3_ast_vector_get(nCtx, vec, i);
             Native.Z3_ast_vector_dec_ref(nCtx, vec);
             return result;
-
         }
 
         /// <summary>
