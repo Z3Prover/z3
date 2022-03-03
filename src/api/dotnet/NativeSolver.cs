@@ -34,6 +34,8 @@ namespace Microsoft.Z3
     using Z3_model = System.IntPtr;
     using Z3_ast_vector = System.IntPtr;
     using Z3_solver = System.IntPtr;
+    using Z3_symbol = System.IntPtr;
+    using Z3_params = System.IntPtr;
 
     /// <summary>
     /// Solvers.
@@ -47,42 +49,52 @@ namespace Microsoft.Z3
         {
             get
             {
-
                 return Native.Z3_solver_get_help(nCtx, z3solver);
             }
         }
 
-#if false
-        /// <summary>
-        /// Sets the solver parameters.
-        /// </summary>
-        public Params Parameters
+        private void SetParam(Action<Z3_params> setter)
         {
-            set
-            {
-                Debug.Assert(value != null);
-
-                Native.Z3_solver_set_params(nCtx, NativeObject, value.NativeObject);
-            }
+            Z3_params p = Native.Z3_mk_params(Context.nCtx);
+            Native.Z3_params_inc_ref(Context.nCtx, p);
+            setter(p);
+            Native.Z3_solver_set_params(Context.nCtx, NativeObject, p);
+            Native.Z3_params_dec_ref(Context.nCtx, p);
         }
-
 
         /// <summary>
         /// Sets parameter on the solver
         /// </summary>
-        public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
+        public void Set(string name, bool value)
+        {
+            SetParam((Z3_params p) => Native.Z3_params_set_bool(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), (byte)(value ? 1 : 0)));
+        }
+
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(string name, uint value)
+        {
+            SetParam((Z3_params p) => Native.Z3_params_set_uint(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value));
+        }
+
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(string name, double value)
+        {
+            SetParam((Z3_params p) => Native.Z3_params_set_double(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value));
+        }
+
+        /// <summary>
+        /// Sets parameter on the solver
+        /// </summary>
+        public void Set(string name, string value)
+        {
+            var value_sym = Native.Z3_mk_string_symbol(Context.nCtx, value);
+            SetParam((Z3_params p) => Native.Z3_params_set_symbol(Context.nCtx, p, Native.Z3_mk_string_symbol(Context.nCtx, name), value_sym));
+        }
+#if false
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
@@ -184,6 +196,42 @@ namespace Microsoft.Z3
         public void Add(IEnumerable<Z3_ast> constraints)
         {
             Assert(constraints.ToArray());
+        }
+
+        /// <summary>
+        /// Add constraints to ensure the function f can only be injective.
+        /// Example:
+        /// for function f : D1 x D2 -> R
+        /// assert axioms
+        ///   forall (x1 : D1, x2 : D2) x1 = inv1(f(x1,x2))
+        ///   forall (x1 : D1, x2 : D2) x2 = inv2(f(x1,x2))
+        /// </summary>
+        /// <param name="f"></param>
+        public void AssertInjective(Z3_func_decl f)
+        {
+            uint arity = Native.Z3_get_arity(Context.nCtx, f);
+            Z3_sort range = Native.Z3_get_range(Context.nCtx, f);
+            Z3_ast[] vars = new Z3_ast[arity];
+            Z3_sort[] sorts = new Z3_sort[arity];
+            Z3_symbol[] names = new Z3_symbol[arity];
+            for (uint i = 0; i < arity; ++i)
+            {
+                Z3_sort domain = Native.Z3_get_domain(Context.nCtx, f, i);
+                //vars[i] =  Context.MkBound(arity - i - 1, domain);
+                sorts[i] = domain;
+                names[i] = Native.Z3_mk_int_symbol(Context.nCtx, (int)i);
+            }
+            Z3_ast app_f = IntPtr.Zero; // Context.MkApp(f, vars);
+            for (uint i = 0; i < arity; ++i)
+            {
+                Z3_sort domain = Native.Z3_get_domain(Context.nCtx, f, i);
+#if false
+                Z3_func_decl proj = Native.Z3_mk_fresh_func_decl("inv", new Z3_sort[] { range }, domain);
+                Z3_ast body = Context.MkEq(vars[i], Context.MkApp(proj, app_f));
+                Z3_ast q = Context.MkForall(names, sorts, body);
+                Assert(q);
+#endif
+            }
         }
 
         /// <summary>
