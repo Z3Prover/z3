@@ -254,9 +254,9 @@ namespace Microsoft.Z3
             /// </summary>
             public Z3_ast Else;
 
-            public Z3_sort[] Domain;
+            public Z3_ast[] Domain;
 
-            public Z3_sort[] Range;
+            public Z3_ast[] Range;
         }
 
         /// <summary>
