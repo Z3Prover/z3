@@ -1090,16 +1090,23 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Z3_ast[] GetAppArgs(Z3_app app)
         {
-            Debug.Assert(app != IntPtr.Zero);
-
-            var numArgs = Native.Z3_get_app_num_args(nCtx, app);
+            var numArgs = GetNumArgs(app);
             var args = new Z3_ast[numArgs];
             for (uint i = 0; i < numArgs; i++)
             {
-                args[i] = Native.Z3_get_app_arg(nCtx, app, i);
+                args[i] = GetAppArg(app, i);
             }
             return args;
         }
+
+        public uint GetNumArgs(Z3_app app)
+        {
+            Debug.Assert(app != IntPtr.Zero);
+
+            return Native.Z3_get_app_num_args(nCtx, app);
+        }
+
+        internal Z3_ast GetAppArg(Z3_app app, uint i) => Native.Z3_get_app_arg(nCtx, app, i);
 
         /// <summary>
         /// Get App Decl from IntPtr
