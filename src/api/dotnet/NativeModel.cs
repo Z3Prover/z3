@@ -19,21 +19,11 @@ Notes:
     
 --*/
 
-using System;
-using System.Diagnostics;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Microsoft.Z3
 {
-    using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
-    using Z3_app = System.IntPtr;
-    using Z3_sort = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
-    using Z3_model = System.IntPtr;
-    using Z3_func_interp = System.IntPtr;
-    using Z3_func_entry = System.IntPtr;
+    using Z3_sort = System.IntPtr;
 
     /// <summary>
     /// A Model contains interpretations (assignments) of constants and functions. 
@@ -68,7 +58,6 @@ namespace Microsoft.Z3
         /// <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> 
         public NativeFuncInterp FuncInterp(Z3_func_decl f)
         {
-
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f));
 
             if (Native.Z3_get_arity(Context.nCtx, f) == 0)
@@ -261,7 +250,7 @@ namespace Microsoft.Z3
             public Z3_ast Else;
 
             public Z3_sort[] Domain;
-            
+
             public Z3_sort[] Range;
         }
 

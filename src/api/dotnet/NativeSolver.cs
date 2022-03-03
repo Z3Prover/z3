@@ -18,24 +18,16 @@ Notes:
     
 --*/
 
-using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Collections.Generic;
-
 namespace Microsoft.Z3
 {
 
-    using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
-    using Z3_app = System.IntPtr;
-    using Z3_sort = System.IntPtr;
+    using Z3_context = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
-    using Z3_model = System.IntPtr;
-    using Z3_ast_vector = System.IntPtr;
-    using Z3_solver = System.IntPtr;
-    using Z3_symbol = System.IntPtr;
     using Z3_params = System.IntPtr;
+    using Z3_solver = System.IntPtr;
+    using Z3_sort = System.IntPtr;
+    using Z3_symbol = System.IntPtr;
 
     /// <summary>
     /// Solvers.
@@ -129,7 +121,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <seealso cref="Pop"/>
         /// <seealso cref="Push"/>
-        public uint NumScopes =>Native.Z3_solver_get_num_scopes(nCtx, z3solver); 
+        public uint NumScopes => Native.Z3_solver_get_num_scopes(nCtx, z3solver);
 
         /// <summary>
         /// Creates a backtracking point.
@@ -193,7 +185,7 @@ namespace Microsoft.Z3
             for (uint i = 0; i < arity; ++i)
             {
                 Z3_sort domain = Native.Z3_get_domain(nCtx, f, i);
-                vars[i] =  ntvContext.MkBound(arity - i - 1, domain);
+                vars[i] = ntvContext.MkBound(arity - i - 1, domain);
                 sorts[i] = domain;
                 names[i] = Native.Z3_mk_int_symbol(nCtx, (int)i);
             }
@@ -401,7 +393,7 @@ namespace Microsoft.Z3
             return Native.Z3_solver_to_string(nCtx, z3solver);
         }
 
-#region Internal
+        #region Internal
         readonly NativeContext ntvContext;
         Z3_solver z3solver;
         Z3_context nCtx => ntvContext.nCtx;
@@ -449,6 +441,6 @@ namespace Microsoft.Z3
             }
         }
 
-#endregion
+        #endregion
     }
 }
