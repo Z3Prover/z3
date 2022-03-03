@@ -233,11 +233,11 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="v">A string representing the Term value in decimal notation.</param>
         /// <returns>A Term with value <paramref name="v"/> and sort Real</returns>
-        public Z3_ast MkReal(string v, Z3_sort realSort)
+        public Z3_ast MkReal(string v)
         {
             Debug.Assert(!string.IsNullOrEmpty(v));
 
-            return Native.Z3_mk_numeral(nCtx, v, realSort);
+            return Native.Z3_mk_numeral(nCtx, v, this.RealSort);
         }
 
         /// <summary>
@@ -306,10 +306,11 @@ namespace Microsoft.Z3
 
         #region Sort
 
-        public Z3_sort MkIntSort() => Native.Z3_mk_int_sort(nCtx);
-        public Z3_sort MkBoolSort() => Native.Z3_mk_bool_sort(nCtx);
+        public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
+        public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
+        public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
+
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
-        public Z3_sort MkRealSort() => Native.Z3_mk_real_sort(nCtx);
 
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
@@ -379,11 +380,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Creates a Boolean value.
         /// </summary>
-        public Z3_ast MkBool(bool value)
-        {
-
-            return value ? MkTrue() : MkFalse();
-        }
+        public Z3_ast MkBool(bool value) => value ? MkTrue() : MkFalse();
 
         /// <summary>
         /// Create an expression representing <c>t1 iff t2</c>.
@@ -1167,7 +1164,7 @@ namespace Microsoft.Z3
             Debug.Assert(v != IntPtr.Zero);
 
             int result = i = 0;
-            if (Native.Z3_get_numeral_int(nCtx, v, ref result) == 0) ;
+            if (Native.Z3_get_numeral_int(nCtx, v, ref result) == 0)
             {
                 return false;
             }
@@ -1198,8 +1195,7 @@ namespace Microsoft.Z3
         /// Try to get long from AST
         /// </summary>
         /// <param name="v"></param>
-        /// <param name=""></param>
-        /// <param name=""></param>
+        /// <param name="i"></param>
         /// <returns></returns>
         public bool TryGetNumeralInt64(Z3_ast v, out long i)
         {
