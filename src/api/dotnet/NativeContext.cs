@@ -305,7 +305,7 @@ namespace Microsoft.Z3
         #region Sort
 
         /// <summary>
-        /// Sorts return same ptr for subsequent calls
+        /// Integer Sort
         /// </summary>
         public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
 
@@ -336,7 +336,8 @@ namespace Microsoft.Z3
         /// <param name="iiscons"></param>
         /// <param name="ihead"></param>
         /// <param name="itail"></param>
-        /// <returns></returns>
+        /// <returns>The list algebraic datatype</returns>
+
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
                                     out Z3_func_decl icons, out Z3_func_decl iiscons,
@@ -809,6 +810,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Same as MkForAll but defaults to "forall" = false
+        /// Create an existential Quantifier.
         /// </summary>
         /// <param name="sorts"></param>
         /// <param name="names"></param>
