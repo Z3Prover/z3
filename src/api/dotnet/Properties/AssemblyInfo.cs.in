@@ -36,3 +36,5 @@ using System.Security.Permissions;
 // [assembly: AssemblyVersion("4.2.0.0")]
 [assembly: AssemblyVersion("@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@")]
 [assembly: AssemblyFileVersion("@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@")]
+
+[assembly:AssemblyKeyFileAttribute(@"C:\dev\pex\src\Pex\src\keys\67StrongName.snk")]

@@ -308,11 +308,35 @@ namespace Microsoft.Z3
         /// Sorts return same ptr for subsequent calls
         /// </summary>
         public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
+
+        /// <summary>
+        /// Returns the "singleton" BoolSort for this NativeContext
+        /// </summary>
         public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
+
+        /// <summary>
+        /// Returns the "singleton" RealSort for this NativeContext
+        /// </summary>
         public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
 
+
+        /// <summary>
+        /// Returns the BvSort for size in this NativeContext
+        /// </summary>
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
 
+        /// <summary>
+        /// returns ListSort
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="elemSort"></param>
+        /// <param name="inil"></param>
+        /// <param name="iisnil"></param>
+        /// <param name="icons"></param>
+        /// <param name="iiscons"></param>
+        /// <param name="ihead"></param>
+        /// <param name="itail"></param>
+        /// <returns></returns>
         public Z3_sort MkListSort(string name, Z3_sort elemSort,
                                     out Z3_func_decl inil, out Z3_func_decl iisnil,
                                     out Z3_func_decl icons, out Z3_func_decl iiscons,
@@ -410,6 +434,11 @@ namespace Microsoft.Z3
         #endregion
 
         #region Symbol
+        /// <summary>
+        /// Return a ptr to symbol for string
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public Z3_symbol MkStringSymbol(string name)
         {
             Debug.Assert(!string.IsNullOrEmpty(name));
@@ -778,6 +807,18 @@ namespace Microsoft.Z3
             return MkQuantifier(true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
 
+        /// <summary>
+        /// Same as MkForAll but defaults to "forall" = false
+        /// </summary>
+        /// <param name="sorts"></param>
+        /// <param name="names"></param>
+        /// <param name="body"></param>
+        /// <param name="weight"></param>
+        /// <param name="patterns"></param>
+        /// <param name="noPatterns"></param>
+        /// <param name="quantifierID"></param>
+        /// <param name="skolemID"></param>
+        /// <returns></returns>
         public Z3_ast MkExists(Z3_sort[] sorts, Z3_symbol[] names, Z3_ast body, uint weight = 1, Z3_ast[] patterns = null, Z3_ast[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             return MkQuantifier(false, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
@@ -1099,6 +1140,11 @@ namespace Microsoft.Z3
             return args;
         }
 
+        /// <summary>
+        /// Return number of arguments for app
+        /// </summary>
+        /// <param name="app"></param>
+        /// <returns></returns>
         public uint GetNumArgs(Z3_app app)
         {
             Debug.Assert(app != IntPtr.Zero);

@@ -250,8 +250,14 @@ namespace Microsoft.Z3
             /// </summary>
             public Z3_ast Else;
 
+            /// <summary>
+            /// Domain for array
+            /// </summary>
             public Z3_ast[] Domain;
 
+            /// <summary>
+            /// Range for array
+            /// </summary>
             public Z3_ast[] Range;
         }
 
@@ -293,7 +299,6 @@ namespace Microsoft.Z3
                     return false;
                 }
             }
-            return true;
         }
 
         /// <summary>
