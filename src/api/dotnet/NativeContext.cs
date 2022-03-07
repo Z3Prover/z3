@@ -308,25 +308,25 @@ namespace Microsoft.Z3
         /// Integer Sort
         /// </summary>
         public Z3_sort IntSort => Native.Z3_mk_int_sort(nCtx);
+
         /// <summary>
-        /// Boolean Sort
+        /// Returns the "singleton" BoolSort for this NativeContext
         /// </summary>
         public Z3_sort BoolSort => Native.Z3_mk_bool_sort(nCtx);
+
         /// <summary>
-        /// Real Sort
+        /// Returns the "singleton" RealSort for this NativeContext
         /// </summary>
         public Z3_sort RealSort => Native.Z3_mk_real_sort(nCtx);
 
+
         /// <summary>
-        /// Bit-vector sort
+        /// Returns the BvSort for size in this NativeContext
         /// </summary>
-        /// <param name="size"></param>
-        /// <returns></returns>
         public Z3_sort MkBvSort(uint size) => Native.Z3_mk_bv_sort(nCtx, size);
 
         /// <summary>
-        /// Given an elemSort create a List of elemSort 
-        /// The function returns the list sort, constructors, accessors and recognizers
+        /// returns ListSort
         /// </summary>
         /// <param name="name"></param>
         /// <param name="elemSort"></param>
@@ -436,7 +436,7 @@ namespace Microsoft.Z3
 
         #region Symbol
         /// <summary>
-        /// Create a symbol from a string
+        /// Return a ptr to symbol for string
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
@@ -809,6 +809,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Same as MkForAll but defaults to "forall" = false
         /// Create an existential Quantifier.
         /// </summary>
         /// <param name="sorts"></param>
@@ -1142,7 +1143,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Retrieve number of arguments to a function application
+        /// Return number of arguments for app
         /// </summary>
         /// <param name="app"></param>
         /// <returns></returns>

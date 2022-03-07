@@ -251,12 +251,14 @@ namespace Microsoft.Z3
             public Z3_ast Else;
 
             /// <summary>
+            /// Domain for array
             /// Updates.Keys
             /// </summary>
             public Z3_ast[] Domain;
 
             /// <summary>
-            /// Updates.Range
+            /// Range for array
+            /// Updates.Values
             /// </summary>
             public Z3_ast[] Range;
         }
