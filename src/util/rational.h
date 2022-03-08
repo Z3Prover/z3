@@ -173,6 +173,10 @@ public:
         return *this; 
     }
 
+    rational& operator-=(int r) {
+        (*this) -= rational(r);
+        return *this;
+    }
 
     rational & operator*=(rational const & r) {
         m().mul(m_val, r.m_val, m_val);
