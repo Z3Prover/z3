@@ -449,7 +449,7 @@ namespace datalog {
             }
         }
         if (modified) {
-            datalog::del_rule(m_mc, *r0, l_false);
+            datalog::del_rule(m_mc, *r0, l_true);
         }
 
         return modified;
