@@ -45,8 +45,8 @@ expr * array_factory::mk_array_interp(sort * s, func_interp * & fi) {
     func_decl * f    = mk_aux_decl_for_array_sort(m_manager, s);
     fi = alloc(func_interp, m_manager, get_array_arity(s));
     m_model.register_decl(f, fi);
-    parameter p[1] = { parameter(f) };
-    expr * val = m_manager.mk_app(get_family_id(), OP_AS_ARRAY, 1, p);
+    parameter p(f);
+    expr * val = m_manager.mk_app(get_family_id(), OP_AS_ARRAY, 1, &p);
     register_value(val);
     return val;
 }

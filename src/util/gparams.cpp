@@ -276,20 +276,20 @@ public:
                 strm << "the parameter '" << param_name
                      << "', invoke 'z3 -p' to obtain the new parameter list, and 'z3 -pp:" << new_name
                      << "' for the full description of the parameter";
-                throw exception(strm.str());
+                throw exception(std::move(strm).str());
             }
             else if (is_old_param_name(param_name)) {
                 std::stringstream strm;
                 strm << "unknown parameter '" << param_name 
                      << "', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list";
-                throw default_exception(strm.str());
+                throw default_exception(std::move(strm).str());
             }
             else {
                 std::stringstream strm;
                 strm << "unknown parameter '" << param_name << "'\n";    
                 strm << "Legal parameters are:\n";
                 d.display(strm, 2, false, false);
-                throw default_exception(strm.str());
+                throw default_exception(std::move(strm).str());
             }
         }
         else {
@@ -298,7 +298,7 @@ public:
             strm << "at module '" << mod_name << "'\n";
             strm << "Legal parameters are:\n";
             d.display(strm, 2, false, false);
-            throw default_exception(strm.str());
+            throw default_exception(std::move(strm).str());
         }
     }
 
@@ -312,7 +312,7 @@ public:
                 if (!('0' <= *value && *value <= '9')) {
                     strm << "Expected values for parameter " << name 
                          << " is an unsigned integer. It was given argument '" << _value << "'";
-                    throw default_exception(strm.str());                    
+                    throw default_exception(std::move(strm).str());
                 }
             }
             break;
@@ -321,7 +321,7 @@ public:
                 if (!('0' <= *value && *value <= '9') && *value != '.' && *value != '-' && *value != '/') {
                     strm << "Expected values for parameter " << name 
                          << " is a double. It was given argument '" << _value << "'";
-                    throw default_exception(strm.str());                                        
+                    throw default_exception(std::move(strm).str());
                 }
             }
             break;
@@ -330,7 +330,7 @@ public:
             if (strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
                 strm << "Expected values for parameter " << name 
                      << " are 'true' or 'false'. It was given argument '" << value << "'";
-                throw default_exception(strm.str());
+                throw default_exception(std::move(strm).str());
             }
             break;
         default:
@@ -368,7 +368,7 @@ public:
                 if (mod_name[0]) {
                     strm << " at module '" << mod_name << "'";
                 }
-                throw default_exception(strm.str());
+                throw default_exception(std::move(strm).str());
             }
         }
         else if (k == CPK_SYMBOL) {
@@ -385,7 +385,7 @@ public:
             if (mod_name[0]) {
                 strm << " at module '" << mod_name << "'";            
             }
-            throw exception(strm.str());
+            throw exception(std::move(strm).str());
         }
     }
 
@@ -406,7 +406,7 @@ public:
             else {
                 std::stringstream strm;
                 strm << "invalid parameter, unknown module '" << m << "'";
-                throw exception(strm.str());
+                throw exception(std::move(strm).str());
             }
         }
     }
@@ -456,7 +456,7 @@ public:
         }
         std::stringstream strm;
         strm << "unknown module '" << m << "'";
-        throw exception(strm.str());
+        throw exception(std::move(strm).str());
     }
 
     // unfortunately, params_ref is not thread safe
@@ -523,7 +523,7 @@ public:
         if (!get_module_param_descr(module_name, d)) {
             std::stringstream strm;
             strm << "unknown module '" << module_name << "'";                    
-            throw exception(strm.str());
+            throw exception(std::move(strm).str());
         }
         out << "[module] " << module_name;
         char const * descr = nullptr;
@@ -548,7 +548,7 @@ public:
             if (!get_module_param_descr(m, d)) {
                 std::stringstream strm;
                 strm << "unknown module '" << m << "'";                    
-                throw exception(strm.str());
+                throw exception(std::move(strm).str());
             }
         }
         if (!d->contains(sp))

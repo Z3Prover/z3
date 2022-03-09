@@ -817,9 +817,9 @@ public:
         sort_ref range(ctx.m());
         array_sort_args.push_back(m_f->get_range());
         range = array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data());
-        parameter p[1] = { parameter(m_f) };
+        parameter p(m_f);
         func_decl_ref new_map(ctx.m());
-        new_map = ctx.m().mk_func_decl(get_array_fid(ctx), OP_ARRAY_MAP, 1, p, domain.size(), domain.data(), range.get());
+        new_map = ctx.m().mk_func_decl(get_array_fid(ctx), OP_ARRAY_MAP, 1, &p, domain.size(), domain.data(), range.get());
         if (new_map == 0)
             throw cmd_exception("invalid array map operator");
         ctx.insert(m_name, new_map);

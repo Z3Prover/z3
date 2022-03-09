@@ -886,8 +886,8 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
 }
 
 sort * bv_util::mk_sort(unsigned bv_size) {
-    parameter p[1] = { parameter(bv_size) };
-    return m_manager.mk_sort(get_fid(), BV_SORT, 1, p);
+    parameter p(bv_size);
+    return m_manager.mk_sort(get_fid(), BV_SORT, 1, &p);
 }
 
 unsigned bv_util::get_int2bv_size(parameter const& p) {

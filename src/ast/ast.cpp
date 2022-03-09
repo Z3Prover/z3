@@ -234,8 +234,7 @@ std::ostream& operator<<(std::ostream& out, sort_size const & ss) {
 // -----------------------------------
 std::ostream & operator<<(std::ostream & out, sort_info const & info) {
     operator<<(out, static_cast<decl_info const&>(info));
-    out << " :size " << info.get_num_elements();
-    return out;
+    return out << " :size " << info.get_num_elements();
 }
 
 // -----------------------------------
@@ -2237,7 +2236,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
                << ") passed to function " << mk_pp(decl, *this);
-        throw ast_exception(buffer.str());
+        throw ast_exception(std::move(buffer).str());
     }
     app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
