@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2021 Microsoft Corporation
+Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
@@ -47,10 +47,6 @@ namespace polysat {
         // op constraints?
     };
 
-    class univariate_solver_factory {
-    public:
-        virtual ~univariate_solver_factory() = default;
-        virtual scoped_ptr<univariate_solver> create() = 0;
-    };
+    scoped_ptr<univariate_solver> mk_univariate_bitblast_solver();
 
 }

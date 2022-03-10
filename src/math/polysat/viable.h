@@ -23,7 +23,7 @@ Author:
 #include "math/polysat/types.h"
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
-#include "math/polysat/univariate_solver.h"
+#include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
 
@@ -33,7 +33,6 @@ namespace polysat {
         friend class test_fi;
 
         solver& s;
-        scoped_ptr<univariate_solver_factory> m_univariate_solver_factory;
         
         struct entry : public dll_base<entry>, public fi_record { 
             entry() : fi_record({ eval_interval::full(), {}, {}, rational::one()}) {}

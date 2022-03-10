@@ -25,33 +25,8 @@ Notes:
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "math/polysat/solver.h"
-#include "math/polysat/univariate_solver.h"
 
 namespace bv {
-
-    class univariate_bitblast_solver : public polysat::univariate_solver {
-    public:
-        univariate_bitblast_solver() {};
-        ~univariate_bitblast_solver() override = default;
-        void push() override {}
-        void pop(unsigned n) override {}
-        lbool check() override { return l_undef; }
-        dep_vector unsat_core() override { return {}; }
-        rational model() override { return {}; }
-        void add_ule(univariate lhs, univariate rhs, bool sign, dep_t dep) override {}
-        void add_umul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {}
-        void add_smul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {}
-        void add_smul_udfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {}
-    };
-
-    class univariate_bitblast_factory : public polysat::univariate_solver_factory {
-    public:
-        ~univariate_bitblast_factory() override = default;
-        scoped_ptr<polysat::univariate_solver> create() override {
-            return alloc(univariate_bitblast_solver);
-        }
-    };
-
 
     typedef polysat::pdd pdd;
 
