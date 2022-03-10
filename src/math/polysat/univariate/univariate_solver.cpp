@@ -17,6 +17,7 @@ Author:
 --*/
 
 #include "math/polysat/univariate/univariate_solver.h"
+#include "sat/sat_solver/inc_sat_solver.h"
 #include "solver/solver.h"
 #include "util/util.h"
 
@@ -32,7 +33,7 @@ namespace polysat {
             NOT_IMPLEMENTED_YET();
             // which concrete solver do we want here?
             // need to set params to enable model and unsat core generation; and bit blasting?
-            s = mk_smt2_solver(m, params_ref::get_empty());
+            s = mk_inc_sat_solver(m, params_ref::get_empty());
         }
 
         ~univariate_bitblast_solver() override = default;
