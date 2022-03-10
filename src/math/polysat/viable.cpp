@@ -27,7 +27,10 @@ just check if the cached phase is viable without detecting that it is a propagat
 
 namespace polysat {
 
-    viable::viable(solver& s) : s(s) {}
+    viable::viable(solver& s):
+        s(s),
+        m_forbidden_intervals(s) {
+    }
 
     viable::~viable() {
         for (entry* e : m_alloc) 
@@ -93,9 +96,9 @@ namespace polysat {
             return prop;
 
     try_viable:
-        if (s.m_viable.intersect(v, sc)) {
+        if (intersect(v, sc)) {
             rational val;
-            switch (s.m_viable.find_viable(v, val)) {
+            switch (find_viable(v, val)) {
             case dd::find_t::singleton:
                 s.propagate(v, val, sc); // TBD why is sc used as justification? It should be all of viable
                 prop = true;
@@ -116,9 +119,8 @@ namespace polysat {
     }    
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
-        auto& fi = s.m_forbidden_intervals;
         entry* ne = alloc_entry();
-        if (!fi.get_interval(c, v, *ne)) {
+        if (!m_forbidden_intervals.get_interval(c, v, *ne)) {
             m_alloc.push_back(ne);
             return false;
         }

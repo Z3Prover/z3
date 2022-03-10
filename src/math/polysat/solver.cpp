@@ -35,7 +35,6 @@ namespace polysat {
         m_conflict(*this),
         m_simplify(*this),
         m_restart(*this),
-        m_forbidden_intervals(*this),
         m_bvars(),
         m_free_pvars(m_activity),
         m_constraints(m_bvars),

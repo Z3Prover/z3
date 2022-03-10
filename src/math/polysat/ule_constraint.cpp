@@ -133,7 +133,7 @@ namespace polysat {
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(is_positive, p, q)) {
-            s.set_conflict({this, is_positive});
+            s.set_conflict(sc);
             return;
         }
         if (p.is_val() && q.is_val()) {

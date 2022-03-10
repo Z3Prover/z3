@@ -23,6 +23,7 @@ Author:
 #include "math/polysat/types.h"
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
+#include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
@@ -33,6 +34,7 @@ namespace polysat {
         friend class test_fi;
 
         solver& s;
+        forbidden_intervals      m_forbidden_intervals;
         
         struct entry : public dll_base<entry>, public fi_record { 
             entry() : fi_record({ eval_interval::full(), {}, {}, rational::one()}) {}
