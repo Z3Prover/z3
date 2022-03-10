@@ -47,6 +47,12 @@ namespace polysat {
         // op constraints?
     };
 
-    scoped_ptr<univariate_solver> mk_univariate_bitblast_solver();
+    class univariate_solver_factory {
+    public:
+        virtual ~univariate_solver_factory();
+        virtual scoped_ptr<univariate_solver> operator()() = 0;
+    };
+
+    scoped_ptr<univariate_solver_factory> mk_univariate_bitblast_factory();
 
 }

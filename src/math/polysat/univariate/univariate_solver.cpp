@@ -29,11 +29,8 @@ namespace polysat {
         scoped_ptr<solver> s;
 
     public:
-        univariate_bitblast_solver() {
-            NOT_IMPLEMENTED_YET();
-            // which concrete solver do we want here?
-            // need to set params to enable model and unsat core generation; and bit blasting?
-            s = mk_inc_sat_solver(m, params_ref::get_empty());
+        univariate_bitblast_solver(solver_factory& mk_solver) {
+            s = mk_solver(m, params_ref::get_empty(), false, true, true, symbol::null);
         }
 
         ~univariate_bitblast_solver() override = default;
@@ -85,7 +82,24 @@ namespace polysat {
         }
     };
 
-    scoped_ptr<univariate_solver> mk_univariate_bitblast_solver() {
-        return alloc(univariate_bitblast_solver);
+    class univariate_bitblast_factory : public univariate_solver_factory {
+        symbol qf_bv;
+        scoped_ptr<solver_factory> sf;
+
+    public:
+        univariate_bitblast_factory() :
+            qf_bv("QF_BV") {
+            sf = mk_smt_strategic_solver_factory(qf_bv);
+        }
+
+        ~univariate_bitblast_factory() override = default;
+
+        scoped_ptr<univariate_solver> operator()() override {
+            return alloc(univariate_bitblast_solver, *sf);
+        }
+    };
+
+    scoped_ptr<univariate_solver_factory> mk_univariate_bitblast_factory() {
+        return alloc(univariate_bitblast_factory);
     }
 }
