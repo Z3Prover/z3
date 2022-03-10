@@ -31,7 +31,7 @@ namespace polysat {
         using dep_vector = svector<dep_t>;
         using univariate = vector<rational>;
 
-        virtual ~univariate_solver();
+        virtual ~univariate_solver() = default;
 
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
@@ -49,7 +49,7 @@ namespace polysat {
 
     class univariate_solver_factory {
     public:
-        virtual ~univariate_solver_factory();
+        virtual ~univariate_solver_factory() = default;
         virtual scoped_ptr<univariate_solver> create() = 0;
     };
 
