@@ -240,6 +240,7 @@ namespace polysat {
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_equal_lin(pvar v, rational const& val) {
+        // LOG_H2("refine-equal-lin with v" << v << ", val = " << val);
         auto* e = m_equal_lin[v];
         if (!e)
             return true;
@@ -283,8 +284,25 @@ namespace polysat {
             }
         };
         do {
+            LOG("refine-equal-lin for src: " << e->src);
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
+
+                if (e->interval.lo_val().is_one() && e->interval.hi_val().is_zero() && e->coeff.is_odd()) {
+                    rational lo(1);
+                    rational hi(0);
+                    LOG("refine-equal-lin: " << " [" << lo << ", " << hi << "[");
+                    pdd lop = s.var2pdd(v).mk_val(lo);
+                    pdd hip = s.var2pdd(v).mk_val(hi);
+                    entry* ne = alloc_entry();
+                    ne->src = e->src;
+                    ne->side_cond = e->side_cond;
+                    ne->coeff = 1;
+                    ne->interval = eval_interval::proper(lop, lo, hip, hi);
+                    intersect(v, ne);
+                    return false;
+                }
+
                 rational lo = val - delta_l(coeff_val);
                 rational hi = val + delta_u(coeff_val) + 1;
 

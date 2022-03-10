@@ -61,6 +61,7 @@ namespace polysat {
     void clause_builder::push(signed_constraint c) {
         SASSERT(c);
         SASSERT(c->has_bvar());
+        SASSERT(!c.is_always_false());   // if this case occurs legitimately, we should skip the constraint.
         if (c.is_always_true()) {
             m_is_tautology = true;
             return;
