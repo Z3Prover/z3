@@ -35,6 +35,7 @@ Author:
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
+#include "math/polysat/univariate_solver.h"
 
 
 
