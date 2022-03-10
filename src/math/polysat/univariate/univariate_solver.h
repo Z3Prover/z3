@@ -50,7 +50,7 @@ namespace polysat {
     class univariate_solver_factory {
     public:
         virtual ~univariate_solver_factory();
-        virtual scoped_ptr<univariate_solver> operator()() = 0;
+        virtual scoped_ptr<univariate_solver> operator()(unsigned bit_width) = 0;
     };
 
     scoped_ptr<univariate_solver_factory> mk_univariate_bitblast_factory();
