@@ -10,13 +10,13 @@ Author:
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
 
 --*/
-#include "math/polysat/smul_ovfl_constraint.h"
+#include "math/polysat/smul_fl_constraint.h"
 #include "math/polysat/solver.h"
 
 namespace polysat {
 
-    smul_ovfl_constraint::smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow):
-        constraint(m, ckind_t::smul_ovfl_t), m_is_overflow(is_overflow), m_p(p), m_q(q) {
+    smul_fl_constraint::smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow):
+        constraint(m, ckind_t::smul_fl_t), m_is_overflow(is_overflow), m_p(p), m_q(q) {
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())
@@ -24,7 +24,7 @@ namespace polysat {
                 m_vars.push_back(v);
 
     }
-    void smul_ovfl_constraint::simplify() {
+    void smul_fl_constraint::simplify() {
         if (m_p.is_zero() || m_q.is_zero() ||
             m_p.is_one() || m_q.is_one()) {
             m_q = 0;
@@ -35,7 +35,7 @@ namespace polysat {
             std::swap(m_p, m_q);
     }
 
-    std::ostream& smul_ovfl_constraint::display(std::ostream& out, lbool status) const {
+    std::ostream& smul_fl_constraint::display(std::ostream& out, lbool status) const {
         switch (status) {
         case l_true: return display(out);
         case l_false: return display(out << "~");
@@ -44,7 +44,7 @@ namespace polysat {
         return out;
     }
 
-    std::ostream& smul_ovfl_constraint::display(std::ostream& out) const {
+    std::ostream& smul_fl_constraint::display(std::ostream& out) const {
         if (m_is_overflow)
             return out << "sovfl*(" << m_p << ", " << m_q << ")";
         else
@@ -70,7 +70,7 @@ namespace polysat {
      * ~sudfl(p, q) & p >s 0 & q <s 0 => ~ovfl(p, -q) & p*q <s 0 
      * ~sudfl(p, q) & p <s 0 & q >s 0 => ~ovfl(-p, q) & p*q <s 0 
      */
-    void smul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {
+    void smul_fl_constraint::narrow(solver& s, bool is_positive, bool first) {
         if (!first)
             return;
         signed_constraint sc(this, is_positive);
@@ -108,11 +108,14 @@ namespace polysat {
         }
     }
 
-    unsigned smul_ovfl_constraint::hash() const {
-    	return mk_mix(p().hash(), q().hash(), kind());
+    unsigned smul_fl_constraint::hash() const {
+    	return mk_mix(p().hash(), q().hash(), mk_mix(kind(), is_overflow(), 0));
     }
 
-    bool smul_ovfl_constraint::operator==(constraint const& other) const {
-        return other.is_smul_ovfl() && p() == other.to_smul_ovfl().p() && q() == other.to_smul_ovfl().q();
+    bool smul_fl_constraint::operator==(constraint const& other) const {
+        return other.is_smul_fl()
+            && is_overflow() == other.to_smul_fl().is_overflow()
+            && p() == other.to_smul_fl().p()
+            && q() == other.to_smul_fl().q();
     }
 }

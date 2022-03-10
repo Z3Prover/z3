@@ -17,7 +17,7 @@ namespace polysat {
 
     class solver;
 
-    class smul_ovfl_constraint final : public constraint {
+    class smul_fl_constraint final : public constraint {
         friend class constraint_manager;
 
         bool m_is_overflow;
@@ -25,10 +25,11 @@ namespace polysat {
         pdd  m_q;
 
         void simplify();
-        smul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
+        smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
         
     public:
-        ~smul_ovfl_constraint() override {}
+        ~smul_fl_constraint() override {}
+        bool is_overflow() const { return m_is_overflow; }
         pdd const& p() const { return m_p; }
         pdd const& q() const { return m_q; }
         std::ostream& display(std::ostream& out, lbool status) const override;
