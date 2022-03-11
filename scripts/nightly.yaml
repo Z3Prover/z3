@@ -1,5 +1,9 @@
 variables:
-  ReleaseVersion: '4.8.15'
+  Major: '4'
+  Minor: '8'
+  Patch: '15'
+  Suffix: 'nightly'
+  NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)
   MacFlags: 'CXXFLAGS="-arch arm64 -arch x86_64" LINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" SLINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" FPMATH_ENABLED=False'
 
 stages:
@@ -171,7 +175,7 @@ stages:
         workingDirectory: $(Agent.TempDirectory)\package
         arguments:
           $(Agent.TempDirectory)\package
-          $(ReleaseVersion)
+          $(NightlyVersion)
           $(Build.Repository.Uri)
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
@@ -187,7 +191,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.$(ReleaseVersion).nupkg
+        Pattern: Microsoft.Z3.$(Major).$(Minor).$(Patch)-$(suffix).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -214,7 +218,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.$(ReleaseVersion).snupkg
+        Pattern: Microsoft.Z3.$(NightlyVersion).snupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -269,7 +273,7 @@ stages:
         workingDirectory: $(Agent.TempDirectory)\package
         arguments:
           $(Agent.TempDirectory)\package
-          $(ReleaseVersion)
+          $(NightlyVersion)
           $(Build.Repository.Uri)
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
@@ -286,7 +290,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x86.$(ReleaseVersion).nupkg
+        Pattern: Microsoft.Z3.x86.$(NightlyVersion).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -313,7 +317,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x86.$(ReleaseVersion).snupkg
+        Pattern: Microsoft.Z3.x86.$(NightlyVersion).snupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
