@@ -20,26 +20,32 @@ Author:
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "solver/solver.h"
 #include "util/util.h"
+#include "ast/ast.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/ast_smt2_pp.h"
 
 
 namespace polysat {
 
     class univariate_bitblast_solver : public univariate_solver {
+        // TODO: does it make sense to share m and bv between different solver instances?
         ast_manager m;
-        bv_util bv;
+        scoped_ptr<bv_util> bv;
         scoped_ptr<solver> s;
         unsigned bit_width;
         func_decl* x_decl;
+        expr* x;
 
     public:
         univariate_bitblast_solver(solver_factory& mk_solver, unsigned bit_width) :
-            bv(m),
             bit_width(bit_width)
         {
+            // m.register_plugin(symbol("bv"), alloc(bv_decl_plugin));  // this alone doesn't work
+            reg_decl_plugins(m);
+            bv = alloc(bv_util, m);
             s = mk_solver(m, params_ref::get_empty(), false, true, true, symbol::null);
-            // auto s = bv.mk_sort(bit_width);
-            // auto n = bv.mk_numeral(rational(123), bit_width);
-            x_decl = m.mk_const_decl("x", bv.mk_sort(bit_width));
+            x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
+            x = m.mk_const(x_decl);
         }
 
         ~univariate_bitblast_solver() override = default;
@@ -52,56 +58,79 @@ namespace polysat {
             s->pop(n);
         }
 
-        expr* mk_poly(univariate p) {
-            NOT_IMPLEMENTED_YET();
-            return nullptr;
+        expr* mk_numeral(rational const& r) const {
+            return bv->mk_numeral(r, bit_width);
         }
 
-        void add_ule(univariate lhs, univariate rhs, bool sign, dep_t dep) override {
-            expr* e = bv.mk_ule(mk_poly(lhs), mk_poly(rhs));
+        // [d,c,b,a]  ==>  ((a*x + b)*x + c)*x + d
+        expr* mk_poly(univariate const& p) const {
+            if (p.empty()) {
+                return mk_numeral(rational::zero());
+            } else {
+                expr* e = mk_numeral(p.back());
+                for (unsigned i = p.size() - 1; i-- > 0; ) {
+                    e = bv->mk_bv_mul(e, x);
+                    if (!p[i].is_zero())
+                        e = bv->mk_bv_add(e, mk_numeral(p[i]));
+                }
+                return e;
+            }
+        }
+
+        void add(expr* e, bool sign, dep_t dep) {
             if (sign)
                 e = m.mk_not(e);
-            // TODO: record dep, and pass second argument to assert_expr (for tracking in the unsat core)
-            s->assert_expr(e);
+            expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
+            s->assert_expr(e, a);
+            // std::cout << "add: " << expr_ref(e, m) << "  <==  " << expr_ref(a, m) << "\n";
         }
 
-        void add_umul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {
-            NOT_IMPLEMENTED_YET();
+        void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
+            add(bv->mk_ule(mk_poly(lhs), mk_poly(rhs)), sign, dep);
         }
 
-        void add_smul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {
-            NOT_IMPLEMENTED_YET();
+        void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
+            add(bv->mk_bvumul_no_ovfl(mk_poly(lhs), mk_poly(rhs)), !sign, dep);
         }
 
-        void add_smul_udfl(univariate lhs, univariate rhs, bool sign, dep_t dep) override {
-            NOT_IMPLEMENTED_YET();
+        void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
+            add(bv->mk_bvsmul_no_ovfl(mk_poly(lhs), mk_poly(rhs)), !sign, dep);
+        }
+
+        void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
+            add(bv->mk_bvsmul_no_udfl(mk_poly(lhs), mk_poly(rhs)), !sign, dep);
         }
 
         lbool check() override {
-            // TODO: need to pass assumptions to get an unsat core?
             return s->check_sat();
         }
 
         dep_vector unsat_core() override {
-            SASSERT(s->status() == l_false);
+            dep_vector deps;
             expr_ref_vector core(m);
             s->get_unsat_core(core);
-            NOT_IMPLEMENTED_YET();
-            return {};
+            for (expr* a : core) {
+                unsigned dep = to_app(a)->get_decl()->get_name().get_num();
+                deps.push_back(dep);
+            }
+            SASSERT(deps.size() > 0);
+            return deps;
         }
 
         rational model() override {
-            SASSERT(s->status() == l_true);
             model_ref model;
             s->get_model(model);
-            expr* val_expr = model->get_const_interp(x_decl);
-            SASSERT(val_expr->get_kind() == AST_APP);
-            app* val = static_cast<app*>(val_expr);
-            SASSERT(val->get_kind() == OP_BV_NUM);
+            SASSERT(model);
+            app* val = to_app(model->get_const_interp(x_decl));
+            SASSERT(val->get_decl_kind() == OP_BV_NUM);
             SASSERT(val->get_num_parameters() == 2);
             auto const& p = val->get_parameter(0);
             SASSERT(p.is_rational());
             return p.get_rational();
+        }
+
+        std::ostream& display(std::ostream& out) const override {
+            return out << *s;
         }
     };
 

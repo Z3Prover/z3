@@ -17,6 +17,7 @@ Author:
 --*/
 #pragma once
 
+#include <ostream>
 #include "util/lbool.h"
 #include "util/rational.h"
 #include "util/vector.h"
@@ -29,6 +30,9 @@ namespace polysat {
     public:
         using dep_t = unsigned;
         using dep_vector = svector<dep_t>;
+
+        /// Coefficients of univariate polynomial, index == degree,
+        /// e.g., the vector [ c, b, a ] represents a*x^2 + b*x + c.
         using univariate = vector<rational>;
 
         virtual ~univariate_solver() = default;
@@ -40,12 +44,18 @@ namespace polysat {
         virtual dep_vector unsat_core() = 0;
         virtual rational model() = 0;
 
-        virtual void add_ule(univariate lhs, univariate rhs, bool sign, dep_t dep) = 0;
-        virtual void add_umul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) = 0;
-        virtual void add_smul_ovfl(univariate lhs, univariate rhs, bool sign, dep_t dep) = 0;
-        virtual void add_smul_udfl(univariate lhs, univariate rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         // op constraints?
+
+        virtual std::ostream& display(std::ostream& out) const = 0;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, univariate_solver& s) {
+        return s.display(out);
+    }
 
     class univariate_solver_factory {
     public:

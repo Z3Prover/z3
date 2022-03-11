@@ -3,7 +3,7 @@ add_subdirectory(lp)
 ################################################################################
 # z3-test executable
 ################################################################################
-set(z3_test_deps api fuzzing simplex polysat)
+set(z3_test_deps api fuzzing simplex polysat polysat_univariate_solver)
 z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
 set (z3_test_extra_object_files "")
 foreach (component ${z3_test_expanded_deps})

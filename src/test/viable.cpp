@@ -1,6 +1,7 @@
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/viable.h"
+#include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
 
@@ -113,11 +114,80 @@ namespace polysat {
         vector<std::pair<unsigned, unsigned>> intervals;
         test_intervals(3, intervals);
     }
+
+    static void test_univariate() {
+        std::cout << "\ntest_univariate\n";
+        unsigned bw = 32;
+        rational modulus = rational::power_of_two(bw);
+        auto factory = mk_univariate_bitblast_factory();
+        auto solver = (*factory)(bw);
+
+        vector<rational> lhs;
+        vector<rational> rhs;
+
+        // c0: 2x+10 <= 123
+        lhs.clear();
+        lhs.push_back(rational(10));
+        lhs.push_back(rational(2));
+        rhs.clear();
+        rhs.push_back(rational(123));
+        solver->add_ule(lhs, rhs, false, 0);
+        std::cout << "status: " << solver->check() << "\n";
+        std::cout << "model: " << solver->model() << "\n";
+
+        solver->push();
+
+        // c1: x*x == 16
+        lhs.clear();
+        lhs.push_back(modulus - 16);
+        lhs.push_back(rational(0));
+        lhs.push_back(rational(1));
+        rhs.clear();
+        solver->add_ule(lhs, rhs, false, 1);
+        std::cout << "status: " << solver->check() << "\n";
+        std::cout << "model: " << solver->model() << "\n";
+
+        solver->push();
+
+        // c2: x <= 1000
+        lhs.clear();
+        lhs.push_back(rational(0));
+        lhs.push_back(rational(1));
+        rhs.clear();
+        rhs.push_back(rational(1000));
+        solver->add_ule(lhs, rhs, false, 2);
+        // std::cout << *solver << '\n';
+        std::cout << "status: " << solver->check() << "\n";
+        std::cout << "model: " << solver->model() << "\n";
+
+        solver->pop(2);
+
+        // c3: umul_ovfl(2, x)
+        lhs.clear();
+        lhs.push_back(rational(2));
+        rhs.clear();
+        rhs.push_back(rational(0));
+        rhs.push_back(rational(1));
+        solver->add_umul_ovfl(lhs, rhs, false, 3);
+        std::cout << "status: " << solver->check() << "\n";
+        std::cout << "model: " << solver->model() << "\n";
+
+        // c4: 1000 > x
+        lhs.clear();
+        lhs.push_back(rational(1000));
+        rhs.clear();
+        rhs.push_back(rational(0));
+        rhs.push_back(rational(1));
+        solver->add_ule(lhs, rhs, true, 4);
+        std::cout << "status: " << solver->check() << "\n";
+        std::cout << "core: " << solver->unsat_core() << "\n";
+    }
 }
 
 
 
 void tst_viable() {
     polysat::test1();
-    polysat::test2();
+    // polysat::test2();
+    polysat::test_univariate();
 }
