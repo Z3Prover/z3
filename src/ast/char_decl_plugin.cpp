@@ -16,6 +16,7 @@ Author:
 
 --*/
 #include "util/gparams.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/char_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -164,6 +165,14 @@ app* char_decl_plugin::mk_le(expr* a, expr* b) {
     unsigned v1 = 0, v2 = 0;
     if (a == b)
         return m_manager->mk_true();
+    bv_util bv(*m_manager);
+    if (bv.is_bv(a)) 
+        return bv.mk_ule(a, b);
+    arith_util arith(*m_manager);
+    if (arith.is_int_real(a))
+        return arith.mk_le(a, b);
+    if (a->get_sort() != char_sort()) 
+        throw default_exception("range comparison is only supported for bit-vectors, int, real and characters");
     bool c1 = is_const_char(a, v1);
     bool c2 = is_const_char(b, v2);
     if (c1 && c2)

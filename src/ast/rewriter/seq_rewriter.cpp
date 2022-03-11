@@ -3128,8 +3128,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         expr_ref range(m());
         expr_ref psi(m().mk_false(), m());
         if (str().is_unit_string(r1, c1) && str().is_unit_string(r2, c2)) {
-            SASSERT(u().is_char(c1));
-            SASSERT(u().is_char(c2));
+            // SASSERT(u().is_char(c1));
+            // SASSERT(u().is_char(c2));
             // case: c1 <= e <= c2
             range = simplify_path(e, m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
             psi = simplify_path(e, m().mk_and(path, range));
