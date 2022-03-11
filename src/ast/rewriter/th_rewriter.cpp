@@ -21,6 +21,7 @@ Notes:
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"
+#include "ast/rewriter/char_rewriter.h"
 #include "ast/rewriter/datatype_rewriter.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/fpa_rewriter.h"
@@ -48,6 +49,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     dl_rewriter         m_dl_rw;
     pb_rewriter         m_pb_rw;
     seq_rewriter        m_seq_rw;
+    char_rewriter       m_char_rw;
     recfun_rewriter     m_rec_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
@@ -247,6 +249,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_pb_rw.mk_app_core(f, num, args, result);
         if (fid == m_seq_rw.get_fid())
             return m_seq_rw.mk_app_core(f, num, args, result);
+        if (fid == m_char_rw.get_fid())
+            return m_char_rw.mk_app_core(f, num, args, result);        
         if (fid == m_rec_rw.get_fid())
             return m_rec_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
@@ -802,6 +806,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_dl_rw(m),
         m_pb_rw(m),
         m_seq_rw(m),
+        m_char_rw(m),
         m_rec_rw(m),
         m_a_util(m),
         m_bv_util(m),

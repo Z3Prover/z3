@@ -9,6 +9,7 @@ z3_add_component(rewriter
     bv_elim.cpp
     bv_rewriter.cpp
     cached_var_subst.cpp
+    char_rewriter.cpp
     datatype_rewriter.cpp
     der.cpp
     distribute_forall.cpp
