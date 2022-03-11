@@ -1141,6 +1141,32 @@ namespace dd {
         }
     }
 
+    /** Determine whether p contains at most one variable. */
+    bool pdd_manager::is_univariate(PDD p) {
+        unsigned const lvl = level(p);
+        while (!is_val(p)) {
+            if (!is_val(lo(p)))
+                return false;
+            if (level(p) != lvl)
+                return false;
+            p = hi(p);
+        }
+        return true;
+    }
+
+    /**
+     * Push coefficients of univariate polynomial in order of ascending degree.
+     * Example:     a*x^2 + b*x + c    ==>    [ c, b, a ]
+     */
+    void pdd_manager::get_univariate_coefficients(PDD p, vector<rational>& coeff) {
+        SASSERT(is_univariate(p));
+        while (!is_val(p)) {
+            coeff.push_back(val(lo(p)));
+            p = hi(p);
+        }
+        coeff.push_back(val(p));
+    }
+
     /*
       \brief determine if v occurs as a leaf variable.
      */

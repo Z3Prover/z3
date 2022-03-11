@@ -570,6 +570,28 @@ public :
         }
     }
 
+    static void univariate() {
+        std::cout << "univariate\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 4);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        pdd p = a*a*b - a*a;
+        SASSERT(!p.is_univariate());
+
+        pdd q = 3*a*a*a + 1*a + 2;
+        SASSERT(q.is_univariate());
+        vector<rational> coeff;
+        q.get_univariate_coefficients(coeff);
+        SASSERT_EQ(coeff.size(), 4);
+        SASSERT_EQ(coeff[0], 2);
+        SASSERT_EQ(coeff[1], 1);
+        SASSERT_EQ(coeff[2], 0);
+        SASSERT_EQ(coeff[3], 3);
+    }
 };
 
 }
@@ -591,4 +613,5 @@ void tst_pdd() {
     dd::test::binary_resolve();
     dd::test::pow();
     dd::test::subst_val();
+    dd::test::univariate();
 }
