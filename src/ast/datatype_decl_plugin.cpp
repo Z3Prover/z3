@@ -69,8 +69,8 @@ namespace datatype {
             domain.push_back(a->instantiate(ps)->get_range());
         }
         sort_ref range = get_def().instantiate(ps);
-        parameter pas[1] = { parameter(name()) };
-        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, pas, domain.size(), domain.data(), range), m);        
+        parameter pas(name());
+        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, &pas, domain.size(), domain.data(), range), m);
     }
 
     func_decl_ref constructor::instantiate(sort* dt) const {
@@ -1052,8 +1052,8 @@ namespace datatype {
     func_decl * util::get_constructor_is(func_decl * con) {
         SASSERT(is_constructor(con));
         sort * datatype = con->get_range();
-        parameter ps[1] = { parameter(con)};
-        return m.mk_func_decl(fid(), OP_DT_IS, 1, ps, 1, &datatype);
+        parameter ps(con);
+        return m.mk_func_decl(fid(), OP_DT_IS, 1, &ps, 1, &datatype);
     }
 
     func_decl * util::get_constructor_recognizer(func_decl * con) {
