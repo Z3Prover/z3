@@ -32,6 +32,9 @@ class char_rewriter {
     char_decl_plugin* m_char;
 
     br_status mk_char_from_bv(expr* e, expr_ref& result);
+
+    br_status mk_char_to_int(expr* e, expr_ref& result);
+
 public:
 
     char_rewriter(ast_manager& m);

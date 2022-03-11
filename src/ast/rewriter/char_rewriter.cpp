@@ -18,6 +18,8 @@ Author:
 #include "util/debug.h"
 #include "ast/rewriter/char_rewriter.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+
 
 char_rewriter::char_rewriter(ast_manager& m):
     m(m) {
@@ -37,6 +39,7 @@ br_status char_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
     case OP_CHAR_LE:
         break;
     case OP_CHAR_TO_INT:
+        st = mk_char_to_int(args[0], result);        
         break;
     case OP_CHAR_TO_BV:
         break;
@@ -52,10 +55,18 @@ br_status char_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
 br_status char_rewriter::mk_char_from_bv(expr* e, expr_ref& result) {
     bv_util bv(m);
     rational n;
-    if (bv.is_numeral(e, n) && n.is_unsigned()) {
-        if (n > m_char->max_char())
-            return BR_FAILED;
+    if (bv.is_numeral(e, n) && n.is_unsigned() && n <= m_char->max_char()) {
         result = m_char->mk_char(n.get_unsigned());
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status char_rewriter::mk_char_to_int(expr* e, expr_ref& result) {
+    unsigned n = 0;
+    if (m_char->is_const_char(e, n)) {
+        arith_util arith(m);
+        result = arith.mk_int(n);
         return BR_DONE;
     }
     return BR_FAILED;
