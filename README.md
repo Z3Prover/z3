@@ -42,7 +42,7 @@ python scripts/mk_make.py -x
 then:
 
 ```bash
-cd build
+mkdir build && cd build
 nmake
 ```
 
@@ -54,7 +54,7 @@ Execute:
 
 ```bash
 python scripts/mk_make.py
-cd build
+mkdir build && cd build
 make
 sudo make install
 ```
@@ -86,7 +86,7 @@ the ``--prefix=`` command line option to change the install prefix. For example:
 
 ```bash
 python scripts/mk_make.py --prefix=/home/leo
-cd build
+mkdir build && cd build
 make
 make install
 ```
