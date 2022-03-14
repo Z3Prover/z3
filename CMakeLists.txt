@@ -432,6 +432,11 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 ################################################################################
+# Check atomic linking as needed
+################################################################################
+include(${PROJECT_SOURCE_DIR}/cmake/check_link_atomic.cmake)
+
+################################################################################
 # Report default CMake flags
 ################################################################################
 # This is mainly for debugging.
