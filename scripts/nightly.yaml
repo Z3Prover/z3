@@ -453,5 +453,40 @@ stages:
         isDraft: false
         isPreRelease: true
 
+   # Publish to nightly feed on Azure
+  - job: NuGetPublishNightlyx64
+    steps:
+    - task: NuGetAuthenticate@0
+      displayName: 'NuGet Authenticate'
+      inputs:
+        nuGetServiceConnections: 'Z3-nightly nuget feed'
+    - task: NuGetToolInstaller@0
+      inputs:
+        versionSpec: 5.x
+        checkLatest: false
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NuGet x64 Package'
+      inputs:
+        artifact: 'Nuget64'
+        path: $(Agent.TempDirectory)/x64
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NuGet x86 Package'
+      inputs:
+        artifact: 'Nuget32'
+        path: $(Agent.TempDirectory)/x86
+    - task: NuGetCommand@2
+      displayName: 'NuGet Nightly x64 push'
+      inputs:
+        nuGetFeedType: External
+        packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
+        command: push
+        allowPackageConflicts: true
+    - task: NuGetCommand@2
+      displayName: 'NuGet Nightly x86 push'
+      inputs:
+        nuGetFeedType: External
+        packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
+        command: push
+        allowPackageConflicts: true
 
 # TBD: run regression tests on generated binaries.
