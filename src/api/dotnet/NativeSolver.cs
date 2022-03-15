@@ -405,7 +405,7 @@ namespace Microsoft.Z3
 
         internal NativeSolver(NativeContext nativeCtx, Z3_solver z3solver)
         {
-            Debug.Assert(nCtx != IntPtr.Zero);
+            Debug.Assert(nativeCtx != null);
             Debug.Assert(z3solver != IntPtr.Zero);
 
             this.ntvContext = nativeCtx;
