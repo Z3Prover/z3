@@ -453,8 +453,11 @@ stages:
         isDraft: false
         isPreRelease: true
 
+- stage: Nuget publish nightly
+  jobs:
    # Publish to nightly feed on Azure
-  - job: NuGetPublishNightlyx64
+  - job: NuGetPublishNightly
+    displayName: Push nuget packages to Azure Feed
     steps:
     - task: NuGetAuthenticate@0
       displayName: 'NuGet Authenticate'
