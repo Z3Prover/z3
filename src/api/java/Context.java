@@ -2201,6 +2201,14 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create power regular expression.
+     */
+    public <R extends Sort> ReExpr<R> mkPower(Expr<ReSort<R>> re, int n)
+    {
+        return (ReExpr<R>) Expr.create(this, Native.mkRePower(nCtx(), re.getNativeObject(), n));
+    }
+
+    /**
      * Take the lower and upper-bounded Kleene star of a regular expression.
      */
     public <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo, int hi)

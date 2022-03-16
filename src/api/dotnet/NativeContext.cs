@@ -69,7 +69,7 @@ namespace Microsoft.Z3
                 IntPtr cfg = Native.Z3_mk_config();
                 foreach (KeyValuePair<string, string> kv in settings)
                     Native.Z3_set_param_value(cfg, kv.Key, kv.Value);
-                m_ctx = Native.Z3_mk_context_rc(cfg);
+                m_ctx = Native.Z3_mk_context(cfg);
                 Native.Z3_del_config(cfg);
                 InitContext();
             }
