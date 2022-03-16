@@ -1053,6 +1053,12 @@ sort* seq_util::rex::to_seq(sort* re) {
     return to_sort(re->get_parameter(0).get_ast());
 }
 
+app* seq_util::rex::mk_power(expr* r, unsigned n) {
+    parameter param(n);
+    return m.mk_app(m_fid, OP_RE_POWER, 1, &param, 1, &r);
+}
+
+
 app* seq_util::rex::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
     return m.mk_app(m_fid, OP_RE_LOOP, 1, &param, 1, &r);

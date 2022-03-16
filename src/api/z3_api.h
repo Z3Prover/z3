@@ -3822,6 +3822,13 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi);
 
     /**
+       \brief Create a power regular expression.
+
+       def_API('Z3_mk_re_power', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
+     */
+    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast, unsigned n);
+
+    /**
        \brief Create the intersection of the regular languages.
 
        \pre n > 0
