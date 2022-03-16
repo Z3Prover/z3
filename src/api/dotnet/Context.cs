@@ -4927,6 +4927,10 @@ namespace Microsoft.Z3
             Fixedpoint_DRQ.Clear(this);
             Optimize_DRQ.Clear(this);
 
+	    if (m_boolSort != null) m_boolSort.Dispose();
+	    if (m_intSort != null) m_intSort.Dispose();
+	    if (m_realSort != null) m_realSort.Dispose();
+	    if (m_stringSort != null) m_stringSort.Dispose();
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
