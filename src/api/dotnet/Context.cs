@@ -312,9 +312,18 @@ namespace Microsoft.Z3
         public EnumSort MkEnumSort(string name, params string[] enumNames)
         {
             Debug.Assert(enumNames != null);
-	    using var sname = MkSymbol(name);
-	    using var snames = MkSymbols(enumNames);
-            return new EnumSort(this, sname, snames);
+
+            using var symbol = MkSymbol(name);
+            var symbols = MkSymbols(enumNames);
+            try 
+            {
+                return new EnumSort(this, symbol, symbols);
+            }
+            finally
+            {
+                foreach (var symbol in symbols)
+                    symbol.Dispose();
+            }
         }
 
         /// <summary>
@@ -338,8 +347,8 @@ namespace Microsoft.Z3
             Debug.Assert(elemSort != null);
 
             CheckContextMatch(elemSort);
-	    using var sname = MkSymbol(name);
-            return new ListSort(this, sname, elemSort);
+            using var symbol = MkSymbol(name);
+            return new ListSort(this, symbol, elemSort);
         }
 
         /// <summary>
@@ -366,8 +375,8 @@ namespace Microsoft.Z3
         /// <param name="size">The size of the sort</param>
         public FiniteDomainSort MkFiniteDomainSort(string name, ulong size)
         {
-	    using var sname = MkSymbol(name);
-            return new FiniteDomainSort(this, sname, size);
+            using var symbol = MkSymbol(name);
+            return new FiniteDomainSort(this, symbol, size);
         }
 
 
@@ -401,10 +410,19 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Constructor MkConstructor(string name, string recognizer, string[] fieldNames = null, Sort[] sorts = null, uint[] sortRefs = null)
         {
-	    using var sname = MkSymbol(name);
-	    using var srecognizer = MkSymbol(recognizer);
-	    using var sfieldNames = MkSymbols(fieldNames);
-            return new Constructor(this, sname, srecognizer, sfieldNames, sorts, sortRefs);
+
+            using var nameSymbol = MkSymbol(name);
+            using var recognizerSymbol = MkSymbol(recognizer);
+            var fieldSymbols = MkSymbols(fieldNames);
+            try
+            {
+                return new Constructor(this, nameSymbol, recognizerSymbol, fieldSymbols, sorts, sortRefs);
+            }
+            finally
+            {
+                foreach (var fieldSymbol in fieldSymbols)
+                    fieldSymbol.Dispose();
+            }
         }
 
         /// <summary>
@@ -431,8 +449,8 @@ namespace Microsoft.Z3
             Debug.Assert(constructors.All(c => c != null));
 
             CheckContextMatch<Constructor>(constructors);
-	    using var sname = MkSymbol(name);
-            return new DatatypeSort(this, sname, constructors);
+            using var symbol = MkSymbol(name);
+            return new DatatypeSort(this, symbol, constructors);
         }
 
         /// <summary>
@@ -480,8 +498,17 @@ namespace Microsoft.Z3
             Debug.Assert(names.Length == c.Length);
             //Debug.Assert(Contract.ForAll(0, c.Length, j => c[j] != null));
             //Debug.Assert(names.All(name => name != null));
-            var snames = MkSymbols(names);
-            return MkDatatypeSorts(snames, c);
+
+            var symbols = MkSymbols(names);
+            try
+            {
+                return MkDatatypeSorts(symbols, c);
+            }
+            finally
+            {
+                foreach (var symbol in symbols)
+                    symbol.Dispose();
+            }
         }
 
         /// <summary>
@@ -542,8 +569,8 @@ namespace Microsoft.Z3
 
             CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
-	    using var sname = MkSymbol(name);
-            return new FuncDecl(this, sname, domain, range);
+            using var symbol = MkSymbol(name);
+            return new FuncDecl(this, symbol, domain, range);
         }
 
         /// <summary>
@@ -556,8 +583,8 @@ namespace Microsoft.Z3
 
             CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
-    	    using var sname = MkSymbol(name);
-            return new FuncDecl(this, sname, domain, range, true);
+            using var symbol = MkSymbol(name);
+            return new FuncDecl(this, symbol, domain, range, true);
         }
 
         /// <summary>
@@ -585,9 +612,9 @@ namespace Microsoft.Z3
 
             CheckContextMatch(domain);
             CheckContextMatch(range);
-       	    using var sname = MkSymbol(name);
+            using var symbol = MkSymbol(name);
             Sort[] q = new Sort[] { domain };
-            return new FuncDecl(this, sname, q, range);
+            return new FuncDecl(this, symbol, q, range);
         }
 
         /// <summary>
@@ -626,8 +653,8 @@ namespace Microsoft.Z3
             Debug.Assert(range != null);
 
             CheckContextMatch(range);
-       	    using var sname = MkSymbol(name);
-            return new FuncDecl(this, sname, null, range);
+            using var symbol = MkSymbol(name);
+            return new FuncDecl(this, symbol, null, range);
         }
 
         /// <summary>
@@ -694,8 +721,9 @@ namespace Microsoft.Z3
         public Expr MkConst(string name, Sort range)
         {
             Debug.Assert(range != null);
-            using var sname = MkSymbol(name);
-            return MkConst(sname, range);
+
+            using var symbol = MkSymbol(name);
+            return MkConst(symbol, range);
         }
 
         /// <summary>
@@ -736,8 +764,8 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkBoolConst(string name)
         {
-            using var sname = MkSymbol(name);
-            return (BoolExpr)MkConst(sname, BoolSort);
+            using var symbol = MkSymbol(name);
+            return (BoolExpr)MkConst(symbol, BoolSort);
         }
 
         /// <summary>
@@ -785,8 +813,9 @@ namespace Microsoft.Z3
         public BitVecExpr MkBVConst(Symbol name, uint size)
         {
             Debug.Assert(name != null);
-	    using var sort = MkBitVecSort(size);
-            return (BitVecExpr)MkConst(name, sort);	    
+
+            using var sort = MkBitVecSort(size);
+            return (BitVecExpr)MkConst(name, sort);
         }
 
         /// <summary>
@@ -794,7 +823,7 @@ namespace Microsoft.Z3
         /// </summary>
         public BitVecExpr MkBVConst(string name, uint size)
         {
-	    using var sort = MkBitVecSort(size);
+            using var sort = MkBitVecSort(size);
             return (BitVecExpr)MkConst(name, sort);
         }
         #endregion
@@ -962,11 +991,10 @@ namespace Microsoft.Z3
                 if (r == null)
                     r = t;
                 else
-                    r = MkXor(r, t);
+                    using var left = r;
+                    r = MkXor(left, t);
             }
-            if (r == null)
-                r = MkTrue();
-            return r;
+            return r ?? MkTrue();
         }
 
         /// <summary>
@@ -2041,7 +2069,8 @@ namespace Microsoft.Z3
             Debug.Assert(domain != null);
             Debug.Assert(range != null);
 
-            return (ArrayExpr)MkConst(name, MkArraySort(domain, range));
+            using var sort = MkArraySort(domain, range);
+            return (ArrayExpr)MkConst(name, sort);
         }
 
         /// <summary>
@@ -2051,9 +2080,10 @@ namespace Microsoft.Z3
         {
             Debug.Assert(domain != null);
             Debug.Assert(range != null);
-	    using var sort = MkArraySort(domain, range);
-	    using var sname = MkSymbol(name);
-            return (ArrayExpr)MkConst(sname, sort);
+
+            using var symbol = MkSymbol(name);
+            using var sort = MkArraySort(domain, range);
+            return (ArrayExpr)MkConst(symbol, sort);
         }
 
 
@@ -3051,8 +3081,8 @@ namespace Microsoft.Z3
         /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(string v, uint size)
         {
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
+            using var sort = MkBitVecSort(size);
+            return (BitVecNum)MkNumeral(v, sort);
         }
 
         /// <summary>
@@ -3062,8 +3092,8 @@ namespace Microsoft.Z3
         /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(int v, uint size)
         {
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
+            using var sort = MkBitVecSort(size);
+            return (BitVecNum)MkNumeral(v, sort);
         }
 
         /// <summary>
@@ -3073,8 +3103,8 @@ namespace Microsoft.Z3
         /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(uint v, uint size)
         {
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
+            using var sort = MkBitVecSort(size);
+            return (BitVecNum)MkNumeral(v, sort);
         }
 
         /// <summary>
@@ -3084,8 +3114,8 @@ namespace Microsoft.Z3
         /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(long v, uint size)
         {
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
+            using var sort = MkBitVecSort(size);
+            return (BitVecNum)MkNumeral(v, sort);
         }
 
         /// <summary>
@@ -3095,8 +3125,8 @@ namespace Microsoft.Z3
         /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(ulong v, uint size)
         {
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
+            using var sort = MkBitVecSort(size);
+            return (BitVecNum)MkNumeral(v, sort);
         }
 
         /// <summary>
@@ -3343,7 +3373,7 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_string(nCtx, str,
+            using ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_string(nCtx, str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
@@ -3362,7 +3392,7 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
+            using ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
@@ -3847,8 +3877,8 @@ namespace Microsoft.Z3
         /// <seealso cref="MkSolver(Symbol)"/>
         public Solver MkSolver(string logic)
         {
-	    using var slogic = MkSymbol(logic);
-            return MkSolver(slogic);
+            using var symbol = MkSymbol(logic);
+            return MkSolver(symbol);
         }
 
         /// <summary>

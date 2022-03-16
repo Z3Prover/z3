@@ -58,43 +58,92 @@ namespace Microsoft.Z3
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(string name, bool value) 
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(string name, uint value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(string name, double value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(string name, string value)
+    {
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(string name, Symbol value)
+    {
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(Symbol name, bool value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(Symbol name, uint value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(Symbol name, double value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(Symbol name, string value)
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
+
 	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
-	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+	public void Set(Symbol name, Symbol value) 
+    { 
+        using var parameters = Context.MkParams().Add(name, value);
+        Parameters = parameters; 
+    }
 
 
 
@@ -245,7 +294,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
+                using ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
                 return assertions.Size;
             }
         }
@@ -258,7 +307,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
+                using ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
             }
         }
@@ -271,7 +320,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
+                using ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
             }
         }
@@ -330,9 +379,9 @@ namespace Microsoft.Z3
         /// </remarks>    
         public Status Consequences(IEnumerable<BoolExpr> assumptions, IEnumerable<Expr> variables, out BoolExpr[] consequences) 
         {
-            ASTVector result = new ASTVector(Context);
-            ASTVector asms = new ASTVector(Context);
-            ASTVector vars = new ASTVector(Context);
+            using ASTVector result = new ASTVector(Context);
+            using ASTVector asms = new ASTVector(Context);
+            using ASTVector vars = new ASTVector(Context);
             foreach (var asm in assumptions) asms.Push(asm);
             foreach (var v in variables) vars.Push(v);
             Z3_lbool r = (Z3_lbool)Native.Z3_solver_get_consequences(Context.nCtx, NativeObject, asms.NativeObject, vars.NativeObject, result.NativeObject);
@@ -391,7 +440,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));                
+                using ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));                
                 return core.ToBoolExprArray();
             }
         }
@@ -424,14 +473,14 @@ namespace Microsoft.Z3
 	/// </summary>
 	public IEnumerable<BoolExpr[]> Cube()
 	{
-             ASTVector cv = new ASTVector(Context);
+             using ASTVector cv = new ASTVector(Context);
              if (CubeVariables != null) 
                 foreach (var b in CubeVariables) cv.Push(b);
 
 	     while (true) {
                 var lvl = BacktrackLevel;
                 BacktrackLevel = uint.MaxValue;
-                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
+                using ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
                 var v = r.ToBoolExprArray();
                 CubeVariables = cv.ToBoolExprArray();
                 if (v.Length == 1 && v[0].IsFalse) {

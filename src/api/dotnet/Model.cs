@@ -87,7 +87,8 @@ namespace Microsoft.Z3
                         if (Native.Z3_is_as_array(Context.nCtx, n) == 0)
                             throw new Z3Exception("Argument was not an array constant");
                         IntPtr fd = Native.Z3_get_as_array_func_decl(Context.nCtx, n);
-                        return FuncInterp(new FuncDecl(Context, fd));
+                        using var decl = new FuncDecl(Context, fd);
+                        return FuncInterp(decl);
                     }
                 }
                 else
@@ -241,7 +242,7 @@ namespace Microsoft.Z3
         /// Evaluate expression to a double, assuming it is a numeral already.
         /// </summary>
         public double Double(Expr t) {
-            var r = Eval(t, true);
+            using var r = Eval(t, true);
             return Native.Z3_get_numeral_double(Context.nCtx, r.NativeObject);
         }
 
@@ -283,7 +284,7 @@ namespace Microsoft.Z3
         {
             Debug.Assert(s != null);
 
-            ASTVector av = new ASTVector(Context, Native.Z3_model_get_sort_universe(Context.nCtx, NativeObject, s.NativeObject));            
+            using ASTVector av = new ASTVector(Context, Native.Z3_model_get_sort_universe(Context.nCtx, NativeObject, s.NativeObject));            
             return av.ToExprArray();
         }
 
