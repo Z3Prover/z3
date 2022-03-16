@@ -3,7 +3,7 @@ variables:
   Minor: '8'
   Patch: '15'
   Suffix: 'nightly'
-  NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)
+  NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)+$(Rev:r)
   MacFlags: 'CXXFLAGS="-arch arm64 -arch x86_64" LINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" SLINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" FPMATH_ENABLED=False'
 
 stages:
