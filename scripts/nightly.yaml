@@ -453,7 +453,7 @@ stages:
         isDraft: false
         isPreRelease: true
 
-- stage: NugePublishNightly
+- stage: NugetPublishNightly
   jobs:
    # Publish to nightly feed on Azure
   - job: NuGetPublishNightly
@@ -468,12 +468,12 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet x64 Package'
       inputs:
-        artifact: 'Nuget64'
+        artifact: 'NuGet64'
         path: $(Agent.TempDirectory)/x64
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet x86 Package'
       inputs:
-        artifact: 'Nuget32'
+        artifact: 'NuGet32'
         path: $(Agent.TempDirectory)/x86
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x64 push'
