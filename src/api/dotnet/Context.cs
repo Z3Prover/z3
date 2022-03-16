@@ -202,8 +202,8 @@ namespace Microsoft.Z3
         /// </summary>
         public UninterpretedSort MkUninterpretedSort(string str)
         {
-
-            return MkUninterpretedSort(MkSymbol(str));
+	    using var sym = MkSymbol(str);
+            return MkUninterpretedSort(sym);
         }
 
         /// <summary>
@@ -312,8 +312,9 @@ namespace Microsoft.Z3
         public EnumSort MkEnumSort(string name, params string[] enumNames)
         {
             Debug.Assert(enumNames != null);
-
-            return new EnumSort(this, MkSymbol(name), MkSymbols(enumNames));
+	    using var sname = MkSymbol(name);
+	    using var snames = MkSymbols(enumNames);
+            return new EnumSort(this, sname, snames);
         }
 
         /// <summary>
@@ -337,7 +338,8 @@ namespace Microsoft.Z3
             Debug.Assert(elemSort != null);
 
             CheckContextMatch(elemSort);
-            return new ListSort(this, MkSymbol(name), elemSort);
+	    using var sname = MkSymbol(name);
+            return new ListSort(this, sname, elemSort);
         }
 
         /// <summary>
@@ -364,8 +366,8 @@ namespace Microsoft.Z3
         /// <param name="size">The size of the sort</param>
         public FiniteDomainSort MkFiniteDomainSort(string name, ulong size)
         {
-
-            return new FiniteDomainSort(this, MkSymbol(name), size);
+	    using var sname = MkSymbol(name);
+            return new FiniteDomainSort(this, sname, size);
         }
 
 
@@ -399,8 +401,10 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Constructor MkConstructor(string name, string recognizer, string[] fieldNames = null, Sort[] sorts = null, uint[] sortRefs = null)
         {
-
-            return new Constructor(this, MkSymbol(name), MkSymbol(recognizer), MkSymbols(fieldNames), sorts, sortRefs);
+	    using var sname = MkSymbol(name);
+	    using var srecognizer = MkSymbol(recognizer);
+	    using var sfieldNames = MkSymbols(fieldNames);
+            return new Constructor(this, sname, srecognizer, sfieldNames, sorts, sortRefs);
         }
 
         /// <summary>
@@ -427,7 +431,8 @@ namespace Microsoft.Z3
             Debug.Assert(constructors.All(c => c != null));
 
             CheckContextMatch<Constructor>(constructors);
-            return new DatatypeSort(this, MkSymbol(name), constructors);
+	    using var sname = MkSymbol(name);
+            return new DatatypeSort(this, sname, constructors);
         }
 
         /// <summary>
@@ -475,8 +480,8 @@ namespace Microsoft.Z3
             Debug.Assert(names.Length == c.Length);
             //Debug.Assert(Contract.ForAll(0, c.Length, j => c[j] != null));
             //Debug.Assert(names.All(name => name != null));
-
-            return MkDatatypeSorts(MkSymbols(names), c);
+            var snames = MkSymbols(names);
+            return MkDatatypeSorts(snames, c);
         }
 
         /// <summary>
@@ -537,7 +542,8 @@ namespace Microsoft.Z3
 
             CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
-            return new FuncDecl(this, MkSymbol(name), domain, range);
+	    using var sname = MkSymbol(name);
+            return new FuncDecl(this, sname, domain, range);
         }
 
         /// <summary>
@@ -550,7 +556,8 @@ namespace Microsoft.Z3
 
             CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
-            return new FuncDecl(this, MkSymbol(name), domain, range, true);
+    	    using var sname = MkSymbol(name);
+            return new FuncDecl(this, sname, domain, range, true);
         }
 
         /// <summary>
@@ -578,8 +585,9 @@ namespace Microsoft.Z3
 
             CheckContextMatch(domain);
             CheckContextMatch(range);
+       	    using var sname = MkSymbol(name);
             Sort[] q = new Sort[] { domain };
-            return new FuncDecl(this, MkSymbol(name), q, range);
+            return new FuncDecl(this, sname, q, range);
         }
 
         /// <summary>
@@ -618,7 +626,8 @@ namespace Microsoft.Z3
             Debug.Assert(range != null);
 
             CheckContextMatch(range);
-            return new FuncDecl(this, MkSymbol(name), null, range);
+       	    using var sname = MkSymbol(name);
+            return new FuncDecl(this, sname, null, range);
         }
 
         /// <summary>
@@ -685,8 +694,8 @@ namespace Microsoft.Z3
         public Expr MkConst(string name, Sort range)
         {
             Debug.Assert(range != null);
-
-            return MkConst(MkSymbol(name), range);
+            using var sname = MkSymbol(name);
+            return MkConst(sname, range);
         }
 
         /// <summary>
@@ -727,8 +736,8 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkBoolConst(string name)
         {
-
-            return (BoolExpr)MkConst(MkSymbol(name), BoolSort);
+            using var sname = MkSymbol(name);
+            return (BoolExpr)MkConst(sname, BoolSort);
         }
 
         /// <summary>
@@ -776,8 +785,8 @@ namespace Microsoft.Z3
         public BitVecExpr MkBVConst(Symbol name, uint size)
         {
             Debug.Assert(name != null);
-
-            return (BitVecExpr)MkConst(name, MkBitVecSort(size));
+	    using var sort = MkBitVecSort(size);
+            return (BitVecExpr)MkConst(name, sort);	    
         }
 
         /// <summary>
@@ -785,8 +794,8 @@ namespace Microsoft.Z3
         /// </summary>
         public BitVecExpr MkBVConst(string name, uint size)
         {
-
-            return (BitVecExpr)MkConst(name, MkBitVecSort(size));
+	    using var sort = MkBitVecSort(size);
+            return (BitVecExpr)MkConst(name, sort);
         }
         #endregion
 
@@ -2042,8 +2051,9 @@ namespace Microsoft.Z3
         {
             Debug.Assert(domain != null);
             Debug.Assert(range != null);
-
-            return (ArrayExpr)MkConst(MkSymbol(name), MkArraySort(domain, range));
+	    using var sort = MkArraySort(domain, range);
+	    using var sname = MkSymbol(name);
+            return (ArrayExpr)MkConst(sname, sort);
         }
 
 
@@ -3837,8 +3847,8 @@ namespace Microsoft.Z3
         /// <seealso cref="MkSolver(Symbol)"/>
         public Solver MkSolver(string logic)
         {
-
-            return MkSolver(MkSymbol(logic));
+	    using var slogic = MkSymbol(logic);
+            return MkSolver(slogic);
         }
 
         /// <summary>
