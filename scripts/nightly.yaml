@@ -466,15 +466,15 @@ stages:
         versionSpec: 5.x
         checkLatest: false
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download NuGet x64 Package'
-      inputs:
-        artifact: 'NuGet64'
-        path: $(Agent.TempDirectory)/x64
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet x86 Package'
       inputs:
         artifact: 'NuGet32'
         path: $(Agent.TempDirectory)/x86
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NuGet x64 Package'
+      inputs:
+        artifact: 'NuGet'
+        path: $(Agent.TempDirectory)/x64
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x64 push'
       inputs:
