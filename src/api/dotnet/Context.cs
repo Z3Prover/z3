@@ -4931,10 +4931,12 @@ namespace Microsoft.Z3
 	    if (m_intSort != null) m_intSort.Dispose();
 	    if (m_realSort != null) m_realSort.Dispose();
 	    if (m_stringSort != null) m_stringSort.Dispose();
+	    if (m_charSort != null) m_charSort.Dispose();
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
             m_stringSort = null;
+	    m_charSort = null;
             if (refCount == 0 && m_ctx != IntPtr.Zero)
             {
                 m_n_err_handler = null;
