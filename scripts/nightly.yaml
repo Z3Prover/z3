@@ -461,8 +461,6 @@ stages:
     steps:
     - task: NuGetAuthenticate@0
       displayName: 'NuGet Authenticate'
-      inputs:
-        nuGetServiceConnections: 'Z3-nightly nuget feed'
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -480,16 +478,16 @@ stages:
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x64 push'
       inputs:
-        nuGetFeedType: External
-        packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         command: push
+        publishVstsFeed: 'Z3Build/Z3-Nightly-builds'
+        packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         allowPackageConflicts: true
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x86 push'
       inputs:
-        nuGetFeedType: External
-        packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         command: push
+        publishVstsFeed: 'Z3Build/Z3-Nightly-builds'
+        packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         allowPackageConflicts: true
 
 # TBD: run regression tests on generated binaries.
