@@ -18,10 +18,10 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
@@ -202,7 +202,7 @@ namespace Microsoft.Z3
         /// </summary>
         public UninterpretedSort MkUninterpretedSort(string str)
         {
-	    using var sym = MkSymbol(str);
+            using var sym = MkSymbol(str);
             return MkUninterpretedSort(sym);
         }
 
@@ -314,7 +314,7 @@ namespace Microsoft.Z3
             Debug.Assert(enumNames != null);
 
             var enumSymbols = MkSymbols(enumNames);
-            try 
+            try
             {
                 using var symbol = MkSymbol(name);
                 return new EnumSort(this, symbol, enumSymbols);
@@ -991,8 +991,8 @@ namespace Microsoft.Z3
                 if (r == null)
                     r = t;
                 else
-                    using(r);
-                    r = MkXor(r, t);
+                    using (r)
+                        r = MkXor(r, t);
             }
             return r ?? MkTrue();
         }
@@ -4967,16 +4967,16 @@ namespace Microsoft.Z3
             Fixedpoint_DRQ.Clear(this);
             Optimize_DRQ.Clear(this);
 
-	    if (m_boolSort != null) m_boolSort.Dispose();
-	    if (m_intSort != null) m_intSort.Dispose();
-	    if (m_realSort != null) m_realSort.Dispose();
-	    if (m_stringSort != null) m_stringSort.Dispose();
-	    if (m_charSort != null) m_charSort.Dispose();
+            if (m_boolSort != null) m_boolSort.Dispose();
+            if (m_intSort != null) m_intSort.Dispose();
+            if (m_realSort != null) m_realSort.Dispose();
+            if (m_stringSort != null) m_stringSort.Dispose();
+            if (m_charSort != null) m_charSort.Dispose();
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
             m_stringSort = null;
-	    m_charSort = null;
+            m_charSort = null;
             if (refCount == 0 && m_ctx != IntPtr.Zero)
             {
                 m_n_err_handler = null;
