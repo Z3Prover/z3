@@ -993,7 +993,7 @@ namespace Microsoft.Z3
                         using (r)
                             return MkXor(r, t);
                     })
-                : MkTrue();
+                : MkFalse();
         }
 
         /// <summary>
