@@ -57,30 +57,30 @@ namespace Microsoft.Z3
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator /(ArithExpr a, int b) 
-        { 
+        {
             using var denominator = MkNum(a, b);
-            return a / denominator; 
+            return a / denominator;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator /(ArithExpr a, double b) 
-        { 
-            using var denomintor = MkNum(a, b);
-            return a / denominator; 
+        {
+            using var denominator = MkNum(a, b);
+            return a / denominator;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator /(int a, ArithExpr b) 
-        { 
+        {
             using var numerator = MkNum(b, a);
             return numerator / b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator /(double a, ArithExpr b) 
-        { 
+        {
             using var numerator = MkNum(b, a);
-            return numerator / b; 
+            return numerator / b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>

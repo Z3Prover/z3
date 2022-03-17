@@ -313,16 +313,16 @@ namespace Microsoft.Z3
         {
             Debug.Assert(enumNames != null);
 
-            using var symbol = MkSymbol(name);
-            var symbols = MkSymbols(enumNames);
+            var enumSymbols = MkSymbols(enumNames);
             try 
             {
-                return new EnumSort(this, symbol, symbols);
+                using var symbol = MkSymbol(name);
+                return new EnumSort(this, symbol, enumSymbols);
             }
             finally
             {
-                foreach (var symbol in symbols)
-                    symbol.Dispose();
+                foreach (var enumSymbol in enumSymbols)
+                    enumSymbol.Dispose();
             }
         }
 
@@ -991,8 +991,8 @@ namespace Microsoft.Z3
                 if (r == null)
                     r = t;
                 else
-                    using var left = r;
-                    r = MkXor(left, t);
+                    using(r);
+                    r = MkXor(r, t);
             }
             return r ?? MkTrue();
         }
