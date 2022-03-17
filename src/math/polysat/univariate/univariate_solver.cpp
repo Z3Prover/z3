@@ -101,6 +101,34 @@ namespace polysat {
             add(bv->mk_bvsmul_no_udfl(mk_poly(lhs), mk_poly(rhs)), !sign, dep);
         }
 
+        void add_lshr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_lshr(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_ashr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_ashr(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_shl(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_shl(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_and(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_and(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_or(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_or(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_xor(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+
+        void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_not(mk_poly(in)), mk_poly(out)), sign, dep);
+        }
+
         lbool check() override {
             return s->check_sat();
         }

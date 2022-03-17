@@ -48,7 +48,13 @@ namespace polysat {
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
-        // op constraints?
+        virtual void add_lshr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_ashr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_shl(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_and(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_or(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
 
         virtual std::ostream& display(std::ostream& out) const = 0;
     };
