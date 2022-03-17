@@ -65,6 +65,8 @@ namespace polysat {
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return false; }
+
+        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
 
 }

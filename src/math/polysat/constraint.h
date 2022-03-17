@@ -17,6 +17,7 @@ Author:
 #include "math/polysat/types.h"
 #include "math/polysat/interval.h"
 #include "math/polysat/search_state.h"
+#include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
 
@@ -213,9 +214,12 @@ namespace polysat {
         void unset_mark() { m_is_marked = false; }
         bool is_marked() const { return m_is_marked; }
 
-
         bool is_active() const { return m_is_active; }
         void set_active(bool f) { m_is_active = f; }
+
+        /// Assuming the constraint is univariate under the current assignment of 's',
+        /// adds the constraint to the univariate solver 'us'.
+        virtual void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const = 0;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -256,10 +260,11 @@ namespace polysat {
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
+        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(s, us, dep, is_positive()); }
+
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
         constraint* get() const { return m_constraint; }
-        
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
@@ -269,7 +274,6 @@ namespace polysat {
 
         bool is_eq() const;
         pdd const& eq() const;
-
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 

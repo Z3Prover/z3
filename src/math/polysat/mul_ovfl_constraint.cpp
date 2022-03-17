@@ -166,4 +166,10 @@ namespace polysat {
     bool mul_ovfl_constraint::operator==(constraint const& other) const {
         return other.is_mul_ovfl() && p() == other.to_mul_ovfl().p() && q() == other.to_mul_ovfl().q();
     }
+
+    void mul_ovfl_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        auto p_coeff = s.subst(p()).get_univariate_coefficients();
+        auto q_coeff = s.subst(q()).get_univariate_coefficients();
+        us.add_umul_ovfl(p_coeff, q_coeff, !is_positive, dep);
+    }
 }

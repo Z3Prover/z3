@@ -418,6 +418,7 @@ namespace dd {
         bool is_monomial() const { return m.is_monomial(root); }
         bool is_univariate() const { return m.is_univariate(root); }
         void get_univariate_coefficients(vector<rational>& coeff) const { m.get_univariate_coefficients(root, coeff); }
+        vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m.get_univariate_coefficients(root, coeff); return coeff; }
         bool is_never_zero() const { return m.is_never_zero(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 

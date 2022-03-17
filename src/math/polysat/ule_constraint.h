@@ -46,7 +46,7 @@ namespace polysat {
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return m_rhs.is_zero(); }
         bool is_diseq() const override { return m_lhs.is_one(); }
-        // pdd const& p() const { SASSERT(is_eq()); return m_lhs; }
+        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
 
 }

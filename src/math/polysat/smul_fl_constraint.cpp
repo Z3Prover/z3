@@ -118,4 +118,13 @@ namespace polysat {
             && p() == other.to_smul_fl().p()
             && q() == other.to_smul_fl().q();
     }
+
+    void smul_fl_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        auto p_coeff = s.subst(p()).get_univariate_coefficients();
+        auto q_coeff = s.subst(q()).get_univariate_coefficients();
+        if (is_overflow())
+            us.add_smul_ovfl(p_coeff, q_coeff, !is_positive, dep);
+        else
+            us.add_smul_udfl(p_coeff, q_coeff, !is_positive, dep);
+    }
 }

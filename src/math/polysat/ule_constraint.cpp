@@ -207,4 +207,9 @@ namespace polysat {
         return other.is_ule() && lhs() == other.to_ule().lhs() && rhs() == other.to_ule().rhs();
     }
 
+    void ule_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        auto p_coeff = s.subst(lhs()).get_univariate_coefficients();
+        auto q_coeff = s.subst(rhs()).get_univariate_coefficients();
+        us.add_ule(p_coeff, q_coeff, !is_positive, dep);
+    }
 }
