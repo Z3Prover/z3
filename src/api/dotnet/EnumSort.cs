@@ -74,7 +74,8 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Expr Const(uint inx)
         {
-            return Context.MkApp(ConstDecl(inx));
+            using var decl = ConstDecl(inx);
+            return Context.MkApp(decl);
         }
 
         /// <summary>

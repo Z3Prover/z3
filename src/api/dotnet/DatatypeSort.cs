@@ -79,7 +79,7 @@ namespace Microsoft.Z3
                 FuncDecl[][] res = new FuncDecl[n][];
                 for (uint i = 0; i < n; i++)
                 {
-                    FuncDecl fd = new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, i));
+                    using FuncDecl fd = new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, i));
                     uint ds = fd.DomainSize;
                     FuncDecl[] tmp = new FuncDecl[ds];
                     for (uint j = 0; j < ds; j++)

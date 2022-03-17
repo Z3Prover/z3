@@ -255,7 +255,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_rules(Context.nCtx, NativeObject));
+                using ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_rules(Context.nCtx, NativeObject));
                 return av.ToBoolExprArray();
             }
         }
@@ -268,7 +268,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_assertions(Context.nCtx, NativeObject));
+                using ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_assertions(Context.nCtx, NativeObject));
                 return av.ToBoolExprArray();
             }
         }
@@ -292,7 +292,7 @@ namespace Microsoft.Z3
         /// </summary>                
         public BoolExpr[] ParseFile(string file)
         {
-            ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_from_file(Context.nCtx, NativeObject, file));
+            using ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_from_file(Context.nCtx, NativeObject, file));
             return av.ToBoolExprArray();
         }
 
@@ -301,7 +301,7 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr[] ParseString(string s)
         {
-            ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_from_string(Context.nCtx, NativeObject, s));
+            using ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_from_string(Context.nCtx, NativeObject, s));
             return av.ToBoolExprArray();
         }
 
