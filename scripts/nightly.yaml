@@ -2,8 +2,8 @@ variables:
   Major: '4'
   Minor: '8'
   Patch: '15'
-  Suffix: 'nightly'
-  NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)+$(Rev:r)
+  Suffix: $(BuildDefinitionName)_$(Date:yyyyMMdd)$(Rev:.rr)
+  NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)
   MacFlags: 'CXXFLAGS="-arch arm64 -arch x86_64" LINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" SLINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" FPMATH_ENABLED=False'
 
 stages:
@@ -191,7 +191,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.$(Major).$(Minor).$(Patch)-$(suffix).nupkg
+        Pattern: Microsoft.Z3.$(NightlyVersion).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
