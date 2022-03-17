@@ -986,14 +986,11 @@ namespace Microsoft.Z3
             Debug.Assert(ts.All(a => a != null));
             CheckContextMatch<BoolExpr>(ts);
 
-            return ts.Any()
-                ? ts
-                    .Aggregate(MkFalse(), (r, t) =>
+            return ts.Aggregate(MkFalse(), (r, t) =>
                     {
                         using (r)
                             return MkXor(r, t);
-                    })
-                : MkFalse();
+                    });
         }
 
         /// <summary>
