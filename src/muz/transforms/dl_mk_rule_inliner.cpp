@@ -438,7 +438,6 @@ namespace datalog {
                 continue;
             }
 
-            TRACE("dl", tout << pt_len
             modified = true;
 
             func_decl * pred = r->get_decl(i);
