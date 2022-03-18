@@ -518,7 +518,7 @@ namespace polysat {
                 break;
             case dd::find_t::empty:
                 m_free_pvars.unassign_var_eh(v);
-                // TODO: get unsat core from univariate solver
+                auto core = m_viable_fallback.unsat_core(v);  // TODO: add constraints from unsat_core to conflict
                 set_conflict(v);
                 return;
             }

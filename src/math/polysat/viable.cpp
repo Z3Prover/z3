@@ -791,5 +791,14 @@ namespace polysat {
             return dd::find_t::empty;
         }
     }
+
+    signed_constraints viable_fallback::unsat_core(pvar v) {
+        signed_constraints cs;
+        for (unsigned dep : m_usolver[v]->unsat_core()) {
+            cs.push_back(m_constraints[v][dep]);
+        }
+        return cs;
+    }
+
 }
 

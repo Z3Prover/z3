@@ -211,7 +211,7 @@ namespace polysat {
         // bool check_value(pvar v, rational const& val);
 
         dd::find_t find_viable(pvar v, rational& out_val);
-        // TODO: get unsat core
+        signed_constraints unsat_core(pvar v);
     };
 
 }
