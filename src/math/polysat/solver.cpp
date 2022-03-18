@@ -598,15 +598,15 @@ namespace polysat {
         while (search_it.next()) {
             auto& item = *search_it;
             search_it.set_resolved();
-            LOG_H2("Working on " << search_item_pp(m_search, item));
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                LOG(m_justification[v]);
                 if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
                     m_search.pop_assignment();
                     continue;
                 }
+                LOG_H2("Working on " << search_item_pp(m_search, item));
+                LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
                 inc_activity(v);
                 justification& j = m_justification[v];
@@ -621,10 +621,12 @@ namespace polysat {
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
                 sat::bool_var const var = lit.var();
-                LOG(bool_justification_pp(m_bvars, lit));
-                LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 if (!m_conflict.is_bmarked(var))
                     continue;
+
+                LOG_H2("Working on " << search_item_pp(m_search, item));
+                LOG(bool_justification_pp(m_bvars, lit));
+                LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
                 if (m_bvars.is_assumption(var))
                     continue;
@@ -1000,7 +1002,10 @@ namespace polysat {
             if (item.is_assignment()) {
                 pvar v = item.var();
                 auto const& j = m_justification[v];
-                out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level();   
+                out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level() << " ";
+                if (j.is_propagation()) 
+                    for (auto const& c : m_viable.get_constraints(v))
+                        out << c << " ";
                 out << "\n";
             }
             else {

@@ -40,9 +40,6 @@ namespace polysat {
     
     bool forbidden_intervals::get_interval_mul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
 
-
-        std::cout << "FORBIDDEN v" << v << "\n";
-
         backtrack _backtrack(fi.side_cond);     
 
         fi.coeff = 1;

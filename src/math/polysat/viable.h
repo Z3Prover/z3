@@ -156,15 +156,15 @@ namespace polysat {
         };
 
         class constraints {
-            viable& v;
+            viable const& v;
             pvar var;
         public:
-            constraints(viable& v, pvar var) : v(v), var(var) {}
+            constraints(viable const& v, pvar var) : v(v), var(var) {}
             iterator begin() const { return iterator(v.m_units[var], false); }
             iterator end() const { return iterator(v.m_units[var], true); }
         };
 
-        constraints get_constraints(pvar v) { 
+        constraints get_constraints(pvar v) const { 
             return constraints(*this, v); 
         }
 
