@@ -437,6 +437,8 @@ namespace datalog {
                 tgt.add_rule(r);
                 continue;
             }
+
+            TRACE("dl", tout << pt_len
             modified = true;
 
             func_decl * pred = r->get_decl(i);
@@ -449,7 +451,7 @@ namespace datalog {
             }
         }
         if (modified) {
-            datalog::del_rule(m_mc, *r0, l_true);
+            datalog::del_rule(m_mc, *r0, l_undef);
         }
 
         return modified;
