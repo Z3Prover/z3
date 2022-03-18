@@ -2,7 +2,7 @@ variables:
   Major: '4'
   Minor: '8'
   Patch: '15'
-  Suffix: $(Build.DefinitionName)$(Build.BuildId)
+  Suffix: $(Build.DefinitionName)_$(Build.BuildId)
   NightlyVersion: $(Major).$(Minor).$(Patch)-$(Suffix)
   MacFlags: 'CXXFLAGS="-arch arm64 -arch x86_64" LINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" SLINK_EXTRA_FLAGS="-arch arm64 -arch x86_64" FPMATH_ENABLED=False'
 
@@ -479,14 +479,14 @@ stages:
       displayName: 'NuGet Nightly x64 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Public/Z3Public'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-builds'
         packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         allowPackageConflicts: true
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x86 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Public/Z3Public'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-builds'
         packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         allowPackageConflicts: true
 
