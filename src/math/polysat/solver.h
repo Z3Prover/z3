@@ -69,6 +69,7 @@ namespace polysat {
         friend class forbidden_intervals;
         friend class linear_solver;
         friend class viable;
+        friend class viable_fallback;
         friend class search_state;
         friend class assignment_pp;
         friend class assignments_pp;
@@ -84,6 +85,7 @@ namespace polysat {
 
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
+        viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
         conflict                 m_conflict; 
         simplify                 m_simplify;
@@ -172,6 +174,7 @@ namespace polysat {
 
         void propagate(sat::literal lit);
         void propagate(pvar v);
+        bool propagate(pvar v, signed_constraint c);
         void propagate(pvar v, rational const& val, signed_constraint c);
         bool propagate(sat::literal lit, clause& cl);
         void erase_watch(pvar v, signed_constraint c);

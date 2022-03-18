@@ -69,12 +69,11 @@ namespace polysat {
         ~viable();
 
         // declare and remove var
-        void push(unsigned) { m_units.push_back(nullptr); m_equal_lin.push_back(nullptr); m_diseq_lin.push_back(nullptr); }
+        void push_var(unsigned sz);
+        void pop_var();
 
-        void pop() { m_units.pop_back(); m_equal_lin.pop_back(); m_diseq_lin.pop_back(); }
-
+        // undo adding/removing of entries
         void pop_viable();
-
         void push_viable();
 
         /**
@@ -186,6 +185,35 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, viable::var_pp const& v) {
         return v.v.display(out, v.var);
     }
+
+
+    class viable_fallback {
+        solver& s;
+
+        scoped_ptr<univariate_solver_factory>   m_usolver_factory;
+        scoped_ptr_vector<univariate_solver>    m_usolver;
+        vector<signed_constraints>              m_constraints;
+        svector<unsigned>                       m_constraints_trail;
+
+    public:
+        viable_fallback(solver& s);
+
+        // declare and remove var
+        void push_var(unsigned sz);
+        void pop_var();
+
+        // add/remove constraints stored in the fallback solver
+        void push_constraint(pvar v, signed_constraint const& c);
+        void pop_constraint();
+
+        // Check whether all constraints for 'v' are satisfied.
+        bool check_constraints(pvar v);
+        // bool check_value(pvar v, rational const& val);
+
+        dd::find_t find_viable(pvar v, rational& out_val);
+        // TODO: get unsat core
+    };
+
 }
 
 

@@ -44,6 +44,7 @@ public:
 
     void reset() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.reset(); }
     void push_back(T * ptr) { m_vector.push_back(ptr); }
+    void push_back(scoped_ptr<T>&& ptr) { push_back(ptr.detach()); }
     void pop_back() { SASSERT(!empty()); set(size()-1, nullptr); m_vector.pop_back(); }
     T * back() const { return m_vector.back(); }
     T * operator[](unsigned idx) const { return m_vector[idx]; }

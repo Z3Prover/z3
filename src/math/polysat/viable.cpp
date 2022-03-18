@@ -33,8 +33,20 @@ namespace polysat {
     }
 
     viable::~viable() {
-        for (entry* e : m_alloc) 
-            dealloc(e);        
+        for (entry* e : m_alloc)
+            dealloc(e);
+    }
+
+    void viable::push_var(unsigned sz) {
+        m_units.push_back(nullptr);
+        m_equal_lin.push_back(nullptr);
+        m_diseq_lin.push_back(nullptr);
+    }
+
+    void viable::pop_var() {
+        m_units.pop_back();
+        m_equal_lin.pop_back();
+        m_diseq_lin.pop_back();
     }
 
     viable::entry* viable::alloc_entry() {       
@@ -58,8 +70,11 @@ namespace polysat {
         case entry_kind::equal_e: 
             e->remove_from(m_equal_lin[v], e); 
             break;
-        default: 
+        case entry_kind::diseq_e:
             e->remove_from(m_diseq_lin[v], e); 
+            break;
+        default:
+            UNREACHABLE();
             break;
         }
         m_alloc.push_back(e);       
@@ -711,6 +726,70 @@ namespace polysat {
         return true;
     }
 
+    //************************************************************************
+    // viable_fallback
+    //************************************************************************
 
+    viable_fallback::viable_fallback(solver& s):
+        s(s) {
+        m_usolver_factory = mk_univariate_bitblast_factory();
+    }
+
+    void viable_fallback::push_var(unsigned sz) {
+        auto& mk_solver = *m_usolver_factory;
+        m_usolver.push_back(mk_solver(sz));
+    }
+
+    void viable_fallback::pop_var() {
+        m_usolver.pop_back();
+    }
+
+    void viable_fallback::push_constraint(pvar v, signed_constraint const& c) {
+        // v is the only unassigned variable in c.
+        SASSERT(!s.is_assigned(v));
+        DEBUG_CODE(for (pvar w : c->vars()) { if (v != w) SASSERT(s.is_assigned(w)); });
+        auto& us = *m_usolver[v];
+        // TODO: would be enough to push the solver only for new decision levels
+        us.push();
+        unsigned dep = m_constraints[v].size();
+        c.add_to_univariate_solver(s, us, dep);
+        m_constraints[v].push_back(c);
+        m_constraints_trail.push_back(v);
+        s.m_trail.push_back(trail_instr_t::viable_constraint_i);
+    }
+
+    void viable_fallback::pop_constraint() {
+        pvar v = m_constraints_trail.back();
+        m_constraints_trail.pop_back();
+        m_constraints[v].pop_back();
+        m_usolver[v]->pop(1);
+    }
+
+    bool viable_fallback::check_constraints(pvar v) {
+        for (auto const& c : m_constraints[v]) {
+            // for this check, all variables need to be assigned
+            DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(s.is_assigned(w)); });
+            if (c.is_currently_false(s))
+                return false;
+            SASSERT(c.is_currently_true(s));
+        }
+        return true;
+    }
+
+    dd::find_t viable_fallback::find_viable(pvar v, rational& out_val) {
+        auto& us = *m_usolver[v];
+        switch (us.check()) {
+        case l_true:
+            out_val = us.model();
+            // we don't know whether the SMT instance has a unique solution
+            return dd::find_t::multiple;
+        case l_false:
+            return dd::find_t::empty;
+        default:
+            // TODO: what should we do here? (SMT solver had resource-out ==> polysat should abort too?)
+            UNREACHABLE();
+            return dd::find_t::empty;
+        }
+    }
 }
 

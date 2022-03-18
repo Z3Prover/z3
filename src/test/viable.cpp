@@ -33,7 +33,7 @@ namespace polysat {
         scoped_solverv s;
         auto xv = s.add_var(3);
         auto x = s.var(xv);
-        s.v.push(3);
+        s.v.push_var(3);
         rational val;
         auto c = s.ule(x + 3, x + 5);
         s.v.intersect(xv, c);
@@ -88,7 +88,7 @@ namespace polysat {
         scoped_solverv s;
         auto xv = s.add_var(3);
         auto x = s.var(xv);
-        s.v.push(3);
+        s.v.push_var(3);
         for (auto const& [lo, len] : intervals)
             add_interval(s, xv, x, lo, len);
         std::cout << intervals << "\n";

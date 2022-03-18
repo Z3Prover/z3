@@ -324,35 +324,6 @@ namespace polysat {
         return out.str();
     }
 
-    bool constraint::propagate(solver& s, bool is_positive, pvar v) {
-        LOG_H3("Propagate " << s.m_vars[v] << " in " << signed_constraint(this, is_positive));
-        SASSERT(!vars().empty());
-        unsigned idx = 0;
-        if (var(idx) != v)
-            idx = 1;
-        SASSERT(v == var(idx));
-        // find other watch variable.
-        for (unsigned i = vars().size(); i-- > 2; ) {
-            unsigned other_v = vars()[i];
-            if (!s.is_assigned(other_v)) {
-                s.add_watch({this, is_positive}, other_v);
-                std::swap(vars()[idx], vars()[i]);
-                return true;
-            }
-        }
-        // at most one variable remains unassigned.
-        unsigned other_v = var(idx);
-        propagate_core(s, is_positive, v, other_v);
-        return false;
-    }
-
-    void constraint::propagate_core(solver& s, bool is_positive, pvar v, pvar other_v) {
-        (void)v;
-        (void)other_v;
-        narrow(s, is_positive, false);
-    }
-
-
     unsigned constraint::level(solver& s) const {
         if (s.m_bvars.value(sat::literal(bvar())) != l_undef)
             return s.m_bvars.level(bvar());

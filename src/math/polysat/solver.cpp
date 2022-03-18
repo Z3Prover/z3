@@ -31,6 +31,7 @@ namespace polysat {
     solver::solver(reslimit& lim): 
         m_lim(lim),
         m_viable(*this),
+        m_viable_fallback(*this),
         m_linear_solver(*this),
         m_conflict(*this),
         m_simplify(*this),
@@ -105,7 +106,8 @@ namespace polysat {
         pvar v = m_value.size();
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
-        m_viable.push(sz);
+        m_viable.push_var(sz);
+        m_viable_fallback.push_var(sz);
         m_pwatch.push_back({});
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
@@ -122,7 +124,8 @@ namespace polysat {
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
         pvar v = m_value.size() - 1;
-        m_viable.pop();
+        m_viable.pop_var();
+        m_viable_fallback.pop_var();
         m_value.pop_back();
         m_justification.pop_back();
         m_pwatch.pop_back();
@@ -267,12 +270,38 @@ namespace polysat {
         auto& wlist = m_pwatch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i)
-            if (!wlist[i].propagate(*this, v))
+            if (propagate(v, wlist[i]))
                 wlist[j++] = wlist[i];
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
         wlist.shrink(j);
         DEBUG_CODE(m_locked_wlist = std::nullopt;);
+    }
+
+    bool solver::propagate(pvar v, signed_constraint c) {
+        LOG_H3("Propagate " << m_vars[v] << " in " << c);
+        SASSERT(!c->vars().empty());
+        unsigned idx = 0;
+        if (c->var(idx) != v)
+            idx = 1;
+        SASSERT(v == c->var(idx));
+        // find other watch variable.
+        for (unsigned i = c->vars().size(); i-- > 2; ) {
+            unsigned other_v = c->vars()[i];
+            if (!is_assigned(other_v)) {
+                add_watch(c, other_v);
+                std::swap(c->vars()[idx], c->vars()[i]);
+                SASSERT(!is_assigned(c->var(0)));
+                SASSERT(!is_assigned(c->var(1)));
+                return true;
+            }
+        }
+        // at most one variable remains unassigned.
+        unsigned other_v = c->var(idx);
+        if (!is_assigned(other_v))
+            m_viable_fallback.push_constraint(other_v, c);
+        c.narrow(*this, false);
+        return false;
     }
 
     bool solver::propagate(sat::literal lit, clause& cl) {
@@ -359,6 +388,10 @@ namespace polysat {
             }
             case trail_instr_t::viable_rem_i: {
                 m_viable.push_viable();
+                break;
+            }
+            case trail_instr_t::viable_constraint_i: {
+                m_viable_fallback.pop_constraint();
                 break;
             }
             case trail_instr_t::assign_i: {
@@ -451,6 +484,7 @@ namespace polysat {
         LOG("Decide v" << v);
         IF_LOGGING(m_viable.log(v));
         rational val;
+        justification j;
         switch (m_viable.find_viable(v, val)) {
         case dd::find_t::empty:
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
@@ -458,16 +492,40 @@ namespace polysat {
             DEBUG_CODE( UNREACHABLE(); );
             m_free_pvars.unassign_var_eh(v);
             set_conflict(v);
-            break;
+            return;
         case dd::find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
-            assign_core(v, val, justification::propagation(m_level));
+            j = justification::propagation(m_level);
             break;
         case dd::find_t::multiple:
-            push_level();
-            assign_core(v, val, justification::decision(m_level));
+            j = justification::decision(m_level + 1);
             break;
-        }        
+        }
+        // Verify the value we're trying to assign
+        // TODO: we should add a better way to test constraints under assignments, without modifying the solver state.
+        m_value[v] = val;
+        m_search.push_assignment(v, val);
+        bool is_valid = m_viable_fallback.check_constraints(v);
+        m_search.pop();
+        if (!is_valid) {
+            // Try to find a valid replacement value
+            switch (m_viable_fallback.find_viable(v, val)) {
+            case dd::find_t::singleton:
+            case dd::find_t::multiple:
+                // NOTE: I don't think this can happen if viable::find_viable returned a singleton. since all values excluded by viable are true negatives.
+                SASSERT(!j.is_propagation());
+                j = justification::decision(m_level + 1);
+                break;
+            case dd::find_t::empty:
+                m_free_pvars.unassign_var_eh(v);
+                // TODO: get unsat core from univariate solver
+                set_conflict(v);
+                return;
+            }
+        }
+        if (j.is_decision())
+            push_level();
+        assign_core(v, val, j);
     }   
 
     void solver::bdecide(sat::bool_var b) {
@@ -484,11 +542,14 @@ namespace polysat {
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(m_viable.is_viable(v, val));
+        SASSERT(j.level() == m_level);
+        SASSERT(!is_assigned(v));
         SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
+        SASSERT(m_viable_fallback.check_constraints(v));
 #if ENABLE_LINEAR_SOLVER
         // TODO: convert justification into a format that can be tracked in a depdendency core.
         m_linear_solver.set_value(v, val, UINT_MAX);
@@ -818,6 +879,8 @@ namespace polysat {
         SASSERT(!c->is_active());
         c->set_active(true);
         add_watch(c);
+        if (c->vars().size() == 1)
+            m_viable_fallback.push_constraint(c->var(0), c);
         c.narrow(*this, true);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);

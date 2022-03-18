@@ -178,8 +178,6 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
 
-        bool propagate(solver& s, bool is_positive, pvar v);
-        virtual void propagate_core(solver& s, bool is_positive, pvar v, pvar other_v);
         virtual bool is_always_false(bool is_positive) const = 0;
         virtual bool is_currently_false(solver& s, bool is_positive) const = 0;
         virtual bool is_currently_true(solver& s, bool is_positive) const = 0;
@@ -248,8 +246,6 @@ namespace polysat {
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
 
-        bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
-        void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
         bool is_always_false() const { return get()->is_always_false(is_positive()); }
         bool is_always_true() const { return get()->is_always_false(is_negative()); }        
         bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
