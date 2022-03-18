@@ -270,7 +270,7 @@ namespace polysat {
         auto& wlist = m_pwatch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i)
-            if (propagate(v, wlist[i]))
+            if (!propagate(v, wlist[i]))
                 wlist[j++] = wlist[i];
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
@@ -280,6 +280,7 @@ namespace polysat {
 
     bool solver::propagate(pvar v, signed_constraint c) {
         LOG_H3("Propagate " << m_vars[v] << " in " << c);
+        SASSERT(is_assigned(v));
         SASSERT(!c->vars().empty());
         unsigned idx = 0;
         if (c->var(idx) != v)
@@ -297,9 +298,11 @@ namespace polysat {
             }
         }
         // at most one variable remains unassigned.
-        unsigned other_v = c->var(idx);
-        if (!is_assigned(other_v))
-            m_viable_fallback.push_constraint(other_v, c);
+        if (c->vars().size() >= 2) {
+            unsigned other_v = c->var(1 - idx);
+            if (!is_assigned(other_v))
+                m_viable_fallback.push_constraint(other_v, c);
+        }
         c.narrow(*this, false);
         return false;
     }
@@ -505,8 +508,10 @@ namespace polysat {
         // TODO: we should add a better way to test constraints under assignments, without modifying the solver state.
         m_value[v] = val;
         m_search.push_assignment(v, val);
+        m_justification[v] = j;
         bool is_valid = m_viable_fallback.check_constraints(v);
         m_search.pop();
+        m_justification[v] = justification::unassigned();
         if (!is_valid) {
             // Try to find a valid replacement value
             switch (m_viable_fallback.find_viable(v, val)) {

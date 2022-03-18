@@ -738,15 +738,17 @@ namespace polysat {
     void viable_fallback::push_var(unsigned sz) {
         auto& mk_solver = *m_usolver_factory;
         m_usolver.push_back(mk_solver(sz));
+        m_constraints.push_back({});
     }
 
     void viable_fallback::pop_var() {
         m_usolver.pop_back();
+        m_constraints.pop_back();
     }
 
     void viable_fallback::push_constraint(pvar v, signed_constraint const& c) {
         // v is the only unassigned variable in c.
-        SASSERT(!s.is_assigned(v));
+        SASSERT(c->vars().size() == 1 || !s.is_assigned(v));
         DEBUG_CODE(for (pvar w : c->vars()) { if (v != w) SASSERT(s.is_assigned(w)); });
         auto& us = *m_usolver[v];
         // TODO: would be enough to push the solver only for new decision levels
