@@ -3983,7 +3983,6 @@ namespace z3 {
             scoped_cb _cb(p, cb);
             expr value(p->ctx(), _value);
             expr var(p->ctx(), _var);
-            std::cout << "Fixed " << cb << "\n";
             p->m_fixed_eh(var, value);
         }
 
@@ -4151,7 +4150,6 @@ namespace z3 {
             assert(cb);
             expr conseq = ctx().bool_val(false);
             array<Z3_ast> _fixed(fixed);
-            std::cout << "conflict " << cb << " " << fixed << "\n";
             Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
