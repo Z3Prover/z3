@@ -513,15 +513,18 @@ namespace polysat {
         m_search.pop();
         m_justification[v] = justification::unassigned();
         if (!is_valid) {
+            LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
             // Try to find a valid replacement value
             switch (m_viable_fallback.find_viable(v, val)) {
             case dd::find_t::singleton:
             case dd::find_t::multiple:
+                LOG("Fallback solver: " << assignment_pp(*this, v, val));
                 // NOTE: I don't think this can happen if viable::find_viable returned a singleton. since all values excluded by viable are true negatives.
                 SASSERT(!j.is_propagation());
                 j = justification::decision(m_level + 1);
                 break;
             case dd::find_t::empty:
+                LOG("Fallback solver: unsat");
                 m_free_pvars.unassign_var_eh(v);
                 auto core = m_viable_fallback.unsat_core(v);  // TODO: add constraints from unsat_core to conflict
                 set_conflict(v);

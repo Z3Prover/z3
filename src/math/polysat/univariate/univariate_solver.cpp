@@ -29,17 +29,19 @@ namespace polysat {
 
     class univariate_bitblast_solver : public univariate_solver {
         // TODO: does it make sense to share m and bv between different solver instances?
+        // TODO: consider pooling solvers to save setup overhead, see if solver/solver_pool.h can be used
         ast_manager m;
         scoped_ptr<bv_util> bv;
         scoped_ptr<solver> s;
         unsigned bit_width;
-        func_decl* x_decl;
-        expr* x;
+        func_decl_ref x_decl;
+        expr_ref x;
 
     public:
         univariate_bitblast_solver(solver_factory& mk_solver, unsigned bit_width) :
-            bit_width(bit_width)
-        {
+            bit_width(bit_width),
+            x_decl(m),
+            x(m) {
             // m.register_plugin(symbol("bv"), alloc(bv_decl_plugin));  // this alone doesn't work
             reg_decl_plugins(m);
             bv = alloc(bv_util, m);

@@ -100,10 +100,11 @@ namespace polysat {
 
         friend std::ostream& operator<<(std::ostream& out, kind_t const& k) {
             switch (k) {
-            case kind_t::unassigned: return out << "unassigned"; 
-            case kind_t::bool_propagation: return out << "bool propagation"; 
-            case kind_t::value_propagation: return out << "value propagation"; 
-            case kind_t::decision: return out << "decision"; 
+            case kind_t::unassigned: return out << "unassigned";
+            case kind_t::bool_propagation: return out << "bool propagation";
+            case kind_t::value_propagation: return out << "value propagation";
+            case kind_t::decision: return out << "decision";
+            case kind_t::assumption: return out << "assumption";
             default: UNREACHABLE(); return out;
             }
          }
