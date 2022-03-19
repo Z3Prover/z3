@@ -179,7 +179,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
+        artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)\package
     - task: NuGetToolInstaller@0
       inputs:
