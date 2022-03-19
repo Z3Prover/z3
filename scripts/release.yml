@@ -174,7 +174,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
-        artifact: 'Ubuntu'
+        artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'

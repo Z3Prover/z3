@@ -11387,7 +11387,7 @@ class UserPropagateBase:
         _ids, num_fixed = _to_ast_array(ids)
         num_eqs = len(eqs)
         _lhs, _num_lhs = _to_ast_array([x for x, y in eqs])
-        _rhs, _num_lhs = _to_ast_array([y for x, y in eqs])
+        _rhs, _num_rhs = _to_ast_array([y for x, y in eqs])
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
