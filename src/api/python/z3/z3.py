@@ -11378,7 +11378,7 @@ class UserPropagateBase:
     def add(self, e):
         assert self.solver
         assert not self._ctx
-        return Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
 
     #
     # Propagation can only be invoked as during a fixed or final callback.
