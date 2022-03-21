@@ -262,6 +262,8 @@ namespace q {
                 m_expanded.push_back(r);
                 return true;
             }
+            if (r == q)
+                return false;
             q = to_quantifier(r);
         }
         if (is_forall(q)) 
