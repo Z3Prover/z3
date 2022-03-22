@@ -212,7 +212,7 @@ namespace Microsoft.Z3
         public Handle AssertSoft(BoolExpr constraint, uint weight, string group)
         {
             Context.CheckContextMatch(constraint);
-            Symbol s = Context.MkSymbol(group);
+            using Symbol s = Context.MkSymbol(group);
             return new Handle(this, Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject));
         }
 
@@ -289,7 +289,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector core = new ASTVector(Context, Native.Z3_optimize_get_unsat_core(Context.nCtx, NativeObject));                
+                using ASTVector core = new ASTVector(Context, Native.Z3_optimize_get_unsat_core(Context.nCtx, NativeObject));                
                 return core.ToBoolExprArray();
             }
         }
@@ -337,7 +337,7 @@ namespace Microsoft.Z3
         /// </summary>            
         private Expr[] GetLowerAsVector(uint index)
         {
-            ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_lower_as_vector(Context.nCtx, NativeObject, index));
+            using ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_lower_as_vector(Context.nCtx, NativeObject, index));
             return v.ToExprArray();
         }
 
@@ -347,7 +347,7 @@ namespace Microsoft.Z3
         /// </summary>            
         private Expr[] GetUpperAsVector(uint index)
         {
-            ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_upper_as_vector(Context.nCtx, NativeObject, index));
+            using ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_upper_as_vector(Context.nCtx, NativeObject, index));
             return v.ToExprArray();
         }
 
@@ -396,7 +396,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector assertions = new ASTVector(Context, Native.Z3_optimize_get_assertions(Context.nCtx, NativeObject));
+                using ASTVector assertions = new ASTVector(Context, Native.Z3_optimize_get_assertions(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
             }
         }
@@ -409,7 +409,7 @@ namespace Microsoft.Z3
             get
             {
 
-                ASTVector objectives = new ASTVector(Context, Native.Z3_optimize_get_objectives(Context.nCtx, NativeObject));
+                using ASTVector objectives = new ASTVector(Context, Native.Z3_optimize_get_objectives(Context.nCtx, NativeObject));
                 return objectives.ToExprArray();
             }
         }

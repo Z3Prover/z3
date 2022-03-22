@@ -100,7 +100,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                ASTVector res = new ASTVector(Context, Native.Z3_ast_map_keys(Context.nCtx, NativeObject));
+                using ASTVector res = new ASTVector(Context, Native.Z3_ast_map_keys(Context.nCtx, NativeObject));
                 return res.ToArray();
             }
         }

@@ -293,11 +293,12 @@ namespace euf {
        VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
     }
 
-    void egraph::set_value(enode* n, lbool value) {  
+    void egraph::set_value(enode* n, lbool value, justification j) {  
         if (n->value() == l_undef) {
             force_push();
             TRACE("euf", tout << bpp(n) << " := " << value << "\n";);
             n->set_value(value);
+            n->m_lit_justification = j;
             m_updates.push_back(update_record(n, update_record::value_assignment()));
         }
     }
@@ -657,6 +658,7 @@ namespace euf {
             push_lca(n1->get_arg(1), n2->get_arg(0));
             return;
         }
+        TRACE("euf_verbose", tout << bpp(n1) << " " << bpp(n2) << "\n");
             
         for (unsigned i = 0; i < n1->num_args(); ++i) 
             push_lca(n1->get_arg(i), n2->get_arg(i));
@@ -714,6 +716,15 @@ namespace euf {
     }
 
     template <typename T>
+    void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {
+        if (j.is_external())
+            justifications.push_back(j.ext<T>());
+        else if (j.is_congruence()) 
+            push_congruence(a, b, j.is_commutative());
+    }
+
+
+    template <typename T>
     void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b) {
         SASSERT(a->get_root() == b->get_root());
         
@@ -746,10 +757,20 @@ namespace euf {
     void egraph::explain_todo(ptr_vector<T>& justifications) {
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             enode* n = m_todo[i];
-            if (n->m_target && !n->is_marked1()) {
+            if (n->is_marked1())
+                continue;
+            if (n->m_target) {
                 n->mark1();
                 CTRACE("euf_verbose", m_display_justification, n->m_justification.display(tout << n->get_expr_id() << " = " << n->m_target->get_expr_id() << " ", m_display_justification) << "\n";);
                 explain_eq(justifications, n, n->m_target, n->m_justification);
+            }
+            else if (!n->is_marked1() && n->value() != l_undef) {
+                n->mark1();
+                if (m.is_true(n->get_expr()) || m.is_false(n->get_expr()))
+                    continue;
+                justification j = n->m_lit_justification;
+                SASSERT(j.is_external());
+                justifications.push_back(j.ext<T>());
             }
         }
     }

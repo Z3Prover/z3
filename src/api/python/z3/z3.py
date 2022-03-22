@@ -11252,13 +11252,18 @@ def user_prop_fresh(id, ctx):
     _prop_closures.set(new_prop.id, new_prop)
     return ctypes.c_void_p(new_prop.id)
 
+def to_Ast(ptr,):
+    ast = Ast(ptr)
+    super(ctypes.c_void_p, ast).__init__(ptr)
+    return ast
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    prop.fixed(_to_expr_ref(ctypes.c_void_p(id), prop.ctx()), _to_expr_ref(ctypes.c_void_p(value), prop.ctx()))
+    id = _to_expr_ref(to_Ast(id), prop.ctx())
+    value = _to_expr_ref(to_Ast(value), prop.ctx())
+    prop.fixed(id, value)
     prop.cb = None
-
 
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
@@ -11266,21 +11271,19 @@ def user_prop_final(ctx, cb):
     prop.final()
     prop.cb = None
 
-
 def user_prop_eq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    x = _to_expr_ref(ctypes.c_void_p(x), prop.ctx())
-    y = _to_expr_ref(ctypes.c_void_p(y), prop.ctx())
+    x = _to_expr_ref(to_Ast(x), prop.ctx())
+    y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.eq(x, y)
     prop.cb = None
-
 
 def user_prop_diseq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    x = _to_expr_ref(ctypes.c_void_p(x), prop.ctx())
-    y = _to_expr_ref(ctypes.c_void_p(y), prop.ctx())
+    x = _to_expr_ref(to_Ast(x), prop.ctx())
+    y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.diseq(x, y)
     prop.cb = None
 
@@ -11378,7 +11381,7 @@ class UserPropagateBase:
     def add(self, e):
         assert self.solver
         assert not self._ctx
-        return Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
 
     #
     # Propagation can only be invoked as during a fixed or final callback.
@@ -11387,7 +11390,7 @@ class UserPropagateBase:
         _ids, num_fixed = _to_ast_array(ids)
         num_eqs = len(eqs)
         _lhs, _num_lhs = _to_ast_array([x for x, y in eqs])
-        _rhs, _num_lhs = _to_ast_array([y for x, y in eqs])
+        _rhs, _num_rhs = _to_ast_array([y for x, y in eqs])
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 

@@ -1682,6 +1682,7 @@ class DotNetDLLComponent(Component):
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
+    <LangVersion>8.0</LangVersion>
     <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
     <DebugType>portable</DebugType>
     <AssemblyName>Microsoft.Z3</AssemblyName>

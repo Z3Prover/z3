@@ -190,8 +190,9 @@ namespace euf {
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
-        if (s().value(lit) != l_undef) 
-            m_egraph.set_value(n, s().value(lit));
+        lbool val = s().value(lit);
+        if (val != l_undef) 
+            m_egraph.set_value(n, val, justification::external(to_ptr(val == l_true ? lit : ~lit)));
         return lit;
     }
 

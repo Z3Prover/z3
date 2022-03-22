@@ -2967,11 +2967,9 @@ namespace sat {
             }
             break;
         case PS_SAT_CACHING:
-            if (m_search_state == s_sat) {
-                for (unsigned i = 0; i < m_phase.size(); ++i) {
-                    m_phase[i] = m_best_phase[i];
-                }
-            }
+            if (m_search_state == s_sat) 
+                for (unsigned i = 0; i < m_phase.size(); ++i) 
+                    m_phase[i] = m_best_phase[i];                            
             break;
         case PS_RANDOM:
             for (auto& p : m_phase) p = (m_rand() % 2) == 0;

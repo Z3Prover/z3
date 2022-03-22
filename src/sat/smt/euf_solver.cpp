@@ -309,7 +309,7 @@ namespace euf {
         if (!n)
             return;
         bool sign = l.sign();   
-        m_egraph.set_value(n, sign ? l_false : l_true);
+        m_egraph.set_value(n, sign ? l_false : l_true, justification::external(to_ptr(l)));
         for (auto const& th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
 

@@ -44,6 +44,11 @@ Subsumption transformation (remove rule):
        P(x) := P(x) or (exists y . Q(y) & phi(x,y))
 
 
+For plan_inlining:
+ TODO: order of rule inlining would affect model converter?
+ so shouldn't model converter process inlined rules in a specific (topopologial) order?
+
+
 --*/
 
 
@@ -377,18 +382,15 @@ namespace datalog {
         return something_forbidden;
     }
 
-    void mk_rule_inliner::plan_inlining(rule_set const & orig)
-    {
+    void mk_rule_inliner::plan_inlining(rule_set const & orig) {
         count_pred_occurrences(orig);
 
         scoped_ptr<rule_set> candidate_inlined_set = create_allowed_rule_set(orig);
-        while (forbid_preds_from_cycles(*candidate_inlined_set)) {
+        while (forbid_preds_from_cycles(*candidate_inlined_set)) 
             candidate_inlined_set = create_allowed_rule_set(orig);
-        }
 
-        if (forbid_multiple_multipliers(orig, *candidate_inlined_set)) {
+        if (forbid_multiple_multipliers(orig, *candidate_inlined_set)) 
             candidate_inlined_set = create_allowed_rule_set(orig);
-        }
 
         TRACE("dl", tout<<"rules to be inlined:\n" << (*candidate_inlined_set); );
 
@@ -402,16 +404,13 @@ namespace datalog {
         for (rule_stratifier::item_set * stratum : comps) {
             SASSERT(stratum->size() == 1);
             func_decl * pred = *stratum->begin();
-            for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) {
+            for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) 
                 transform_rule(orig, r, m_inlined_rules);
-            }
         }
-
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
+            for (rule * r : m_inlined_rules) 
+                datalog::del_rule(m_mc, *r, l_undef);
 
-        for (rule * r : m_inlined_rules) {
-            datalog::del_rule(m_mc, *r, l_undef);
-        }
     }
 
     bool mk_rule_inliner::transform_rule(rule_set const& orig, rule * r0, rule_set& tgt) {
@@ -437,20 +436,19 @@ namespace datalog {
                 tgt.add_rule(r);
                 continue;
             }
+
             modified = true;
 
             func_decl * pred = r->get_decl(i);
             const rule_vector& pred_rules = m_inlined_rules.get_predicate_rules(pred);
             for (rule * inl_rule : pred_rules) {
                 rule_ref inl_result(m_rm);
-                if (try_to_inline_rule(*r.get(), *inl_rule, i, inl_result)) {
+                if (try_to_inline_rule(*r.get(), *inl_rule, i, inl_result)) 
                     todo.push_back(inl_result);
-                }
             }
         }
-        if (modified) {
-            datalog::del_rule(m_mc, *r0, l_true);
-        }
+        if (modified) 
+            datalog::del_rule(m_mc, *r0, l_undef);
 
         return modified;
     }

@@ -18,7 +18,7 @@ jobs:
     displayName: Build
     inputs:
       script:
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
+         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
         python scripts\mk_win_dist.py
             --${{parameters.BuildArchitecture}}-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk

@@ -223,7 +223,7 @@ class lar_solver : public column_namer {
     void insert_row_with_changed_bounds(unsigned rid);
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     void detect_rows_with_changed_bounds();
-    void set_value_for_nbasic_column(unsigned j, const impq & new_val);
+
     void update_x_and_inf_costs_for_columns_with_changed_bounds();
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     void solve_with_core_solver();
@@ -355,6 +355,9 @@ public:
             bp.consume(a, witness);
         }
     }
+
+    void set_value_for_nbasic_column(unsigned j, const impq& new_val);
+
     // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side);
     void activate_check_on_equal(constraint_index, var_index&);

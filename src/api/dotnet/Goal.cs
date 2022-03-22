@@ -203,8 +203,8 @@ namespace Microsoft.Z3
         /// <remarks>Essentially invokes the `simplify' tactic on the goal.</remarks>
         public Goal Simplify(Params p = null)
         {
-            Tactic t = Context.MkTactic("simplify");
-            ApplyResult res = t.Apply(this, p);
+            using Tactic t = Context.MkTactic("simplify");
+            using ApplyResult res = t.Apply(this, p);
 
             if (res.NumSubgoals == 0)
                 throw new Z3Exception("No subgoals");

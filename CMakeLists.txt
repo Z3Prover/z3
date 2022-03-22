@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.8.15.0 LANGUAGES CXX)
+project(Z3 VERSION 4.8.16.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -430,6 +430,11 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
   string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
 endif()
+
+################################################################################
+# Check atomic linking as needed
+################################################################################
+include(${PROJECT_SOURCE_DIR}/cmake/check_link_atomic.cmake)
 
 ################################################################################
 # Report default CMake flags

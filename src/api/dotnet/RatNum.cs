@@ -62,7 +62,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                IntNum n = Numerator;
+                using IntNum n = Numerator;
                 return BigInteger.Parse(n.ToString());
             }
         }
@@ -74,7 +74,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                IntNum n = Denominator;
+                using IntNum n = Denominator;
                 return BigInteger.Parse(n.ToString());
             }
         }

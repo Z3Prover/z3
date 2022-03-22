@@ -81,6 +81,7 @@ src/api/js/build/
 src/api/js/**/*.d.ts
 !src/api/js/scripts/*.js
 !src/api/js/src/*.js
+debug/*
 
 out/**
 *.bak
