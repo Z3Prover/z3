@@ -298,7 +298,7 @@ namespace euf {
             force_push();
             TRACE("euf", tout << bpp(n) << " := " << value << "\n";);
             n->set_value(value);
-            n->set_justification(j);
+            n->m_lit_justification = j;
             m_updates.push_back(update_record(n, update_record::value_assignment()));
         }
     }
@@ -768,7 +768,7 @@ namespace euf {
                 n->mark1();
                 if (m.is_true(n->get_expr()) || m.is_false(n->get_expr()))
                     continue;
-                justification j = n->m_justification;
+                justification j = n->m_lit_justification;
                 SASSERT(j.is_external());
                 justifications.push_back(j.ext<T>());
             }

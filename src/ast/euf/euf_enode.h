@@ -63,6 +63,7 @@ namespace euf {
         enode*        m_cg     = nullptr;
         th_var_list   m_th_vars;
         justification m_justification;
+        justification m_lit_justification;
         unsigned      m_num_args = 0;
         signed char   m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
         approx_set    m_lbls;
