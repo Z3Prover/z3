@@ -1868,7 +1868,7 @@ class JavaExample
             }
         } else
         {
-            System.out.println("BUG, the constraints are satisfiable.");
+            System.out.println("BUG, the constraints are not satisfiable.");
         }
     }
 
