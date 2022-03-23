@@ -471,7 +471,8 @@ stages:
     steps:
     - task: NuGetAuthenticate@0
       displayName: 'NuGet Authenticate'
-      inputs: Z3NightlyNuget
+      inputs:
+        nuGetServiceConnections: Z3NightlyNuget
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
