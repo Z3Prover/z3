@@ -439,19 +439,19 @@ stages:
       inputs:
         artifactName: 'NuGet32'
         targetPath: tmp
-    - task: GitHubRelease@0
-      inputs:
-        gitHubConnection: Z3GitHub
-        repositoryName: 'Z3Prover/z3'
-        action: 'delete'
-#     target: '$(Build.SourceVersion)'
-        tagSource: 'manual'
-        tag: 'Nightly'
-    - task: GitHubRelease@0
-      inputs:
-        gitHubConnection: Z3GitHub
-        repositoryName: 'Z3Prover/z3'
-        action: 'create'
+#     - task: GitHubRelease@0
+#       inputs:
+#         gitHubConnection: Z3GitHub
+#         repositoryName: 'Z3Prover/z3'
+#         action: 'delete'
+# #     target: '$(Build.SourceVersion)'
+#         tagSource: 'manual'
+#         tag: 'Nightly'
+#     - task: GitHubRelease@0
+#       inputs:
+#         gitHubConnection: Z3GitHub
+#         repositoryName: 'Z3Prover/z3'
+#         action: 'create'
 #     target: '$(Build.SourceVersion)'
         tagSource: 'manual'
         tag: 'Nightly'
