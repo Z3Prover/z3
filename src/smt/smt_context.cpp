@@ -29,6 +29,7 @@ Revision History:
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
+#include "model/model_params.hpp"
 #include "model/model.h"
 #include "model/model_pp.h"
 #include "smt/smt_context.h"
@@ -4638,7 +4639,8 @@ namespace smt {
     }
 
     void context::add_rec_funs_to_model() {
-        if (m_model)
+        model_params p;
+        if (m_model && p.user_functions())
             m_model->add_rec_funs();
     }
 

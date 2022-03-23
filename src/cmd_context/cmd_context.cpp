@@ -1815,6 +1815,9 @@ void cmd_context::display_model(model_ref& mdl) {
 }
 
 void cmd_context::add_declared_functions(model& mdl) {
+    model_params p;
+    if (!p.user_functions())
+        return;
     for (auto const& kv : m_func_decls) {
         func_decl* f = kv.m_value.first();
         if (f->get_family_id() == null_family_id && !mdl.has_interpretation(f)) {
