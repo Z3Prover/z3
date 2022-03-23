@@ -474,8 +474,6 @@ stages:
     steps:
     - task: NuGetAuthenticate@0
       displayName: 'NuGet Authenticate'
-      inputs:
-        nuGetServiceConnections: Z3NightlyNuget
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -494,14 +492,14 @@ stages:
       displayName: 'NuGet Nightly x64 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3 Public Nuget/Z3-Public-Nightly'
+        publishVstsFeed: 'Z3-Public-Nightly'
         packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         allowPackageConflicts: true
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x86 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3 Public Nuget/Z3-Public-Nightly'
+        publishVstsFeed: 'Z3-Public-Nightly'
         packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         allowPackageConflicts: true
 
