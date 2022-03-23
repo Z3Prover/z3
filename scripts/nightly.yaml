@@ -396,6 +396,7 @@ stages:
   jobs:
   - job: Deploy
     displayName: "Deploy into GitHub"
+    continueOnError: true
     pool:
       vmImage: "ubuntu-latest"
     steps:
