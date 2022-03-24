@@ -441,6 +441,7 @@ stages:
         artifactName: 'NuGet32'
         targetPath: tmp
     - task: GitHubRelease@0
+      continueOnError: true 
       inputs:
         gitHubConnection: Z3GitHub
         repositoryName: 'Z3Prover/z3'
@@ -448,8 +449,8 @@ stages:
 #     target: '$(Build.SourceVersion)'
         tagSource: 'manual'
         tag: 'Nightly'
-        continueOnError: true 
     - task: GitHubRelease@0
+      continueOnError: true 
       inputs:
         gitHubConnection: Z3GitHub
         repositoryName: 'Z3Prover/z3'
@@ -464,7 +465,6 @@ stages:
         assetUploadMode: 'replace'
         isDraft: false
         isPreRelease: true
-        continueOnError: true 
 
 - stage: NugetPublishNightly
   jobs:
