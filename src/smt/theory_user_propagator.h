@@ -110,7 +110,7 @@ namespace smt {
             m_fresh_eh     = fresh_eh;
         }
 
-        void add_expr(expr* e);
+        void add_expr(expr* e, bool ensure_enode);
 
         void register_final(user_propagator::final_eh_t& final_eh) { m_final_eh = final_eh; }
         void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
