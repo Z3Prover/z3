@@ -39,7 +39,7 @@ void theory_user_propagator::force_push() {
     }
 }
 
-void theory_user_propagator::add_expr(expr* term) {
+void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     force_push();
     expr_ref r(m);
     expr* e = term;
@@ -52,7 +52,7 @@ void theory_user_propagator::add_expr(expr* term) {
         e = r;
         ctx.mark_as_relevant(eq.get());
     }
-    enode* n = ensure_enode(e);
+    enode* n = ensure_enode ? this->ensure_enode(e) : ctx.get_enode(e);
     if (is_attached_to_var(n))
         return;
 
@@ -90,7 +90,7 @@ void theory_user_propagator::propagate_cb(
 }
 
 void theory_user_propagator::register_cb(expr* e) {
-    add_expr(e);
+    add_expr(e, true);
 }
 
 theory * theory_user_propagator::mk_fresh(context * new_ctx) {
@@ -243,7 +243,7 @@ bool theory_user_propagator::internalize_term(app* term)  {
     if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
         ctx.mk_enode(term, true, false, true);
     
-    add_expr(term);
+    add_expr(term, false);
     
     if (!m_created_eh)
         throw default_exception("You have to register a created event handler for new terms if you track them");
