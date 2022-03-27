@@ -206,7 +206,7 @@ namespace smt {
         ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
             app* e = src_ctx.m_user_propagator->get_expr(i);
-            m_user_propagator->add_expr(tr(e));
+            m_user_propagator->add_expr(tr(e), true);
         }
     }
 
