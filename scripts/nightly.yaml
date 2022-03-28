@@ -414,7 +414,7 @@ stages:
         targetPath: src/api/python/dist
 
   - job: PythonArm
-    condition eq(0,1)
+    condition: eq(0,1)
     displayName: "Python Arm packaging"
     pool:
       vmImage: "ubuntu-latest"
