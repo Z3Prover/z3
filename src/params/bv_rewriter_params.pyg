@@ -11,5 +11,6 @@ def_module_params(module_name='rewriter',
                           ("bv_extract_prop", BOOL, False, "attempt to partially propagate extraction inwards"),
                           ("bv_not_simpl", BOOL, False, "apply simplifications for bvnot"),
                           ("bv_ite2id", BOOL, False, "rewrite ite that can be simplified to identity"),
-                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications")
+                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications"),
+                          ("bv_le2extract", BOOL, True, "disassemble bvule to extract")
                           ))
