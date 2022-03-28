@@ -5,7 +5,6 @@ variables:
   Patch: '16'
   NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
   MacFlags: 'CXXFLAGS="-arch x86_64" LINK_EXTRA_FLAGS="-arch x86_64" SLINK_EXTRA_FLAGS="-arch x86_64"'
-  MacArmFlags: 'CXXFLAGS="-arch arm64" LINK_EXTRA_FLAGS="-arch arm64" SLINK_EXTRA_FLAGS="-arch arm64" FPMATH_ENABLED=False'
 
 stages:
 - stage: Build
@@ -25,20 +24,6 @@ stages:
         artifactName: 'Mac'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: MacArm
-    condition: eq(0,1)
-    displayName: "Mac Build"
-    pool:
-      vmImage: "macOS-latest"
-    steps:
-    - script: $(MacArmFlags) python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@1
-      inputs:
-        artifactName: 'MacArm'
-        targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: Ubuntu
     displayName: "Ubuntu build"
@@ -181,11 +166,6 @@ stages:
       inputs:
         artifact: 'Mac'
         path: $(Agent.TempDirectory)\package
-#    - task: DownloadPipelineArtifact@2
-#      displayName: 'Download macOS ARM Build'
-#      inputs:
-#        artifact: 'MacArm'
-#        path: $(Agent.TempDirectory)\package
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -413,24 +393,6 @@ stages:
         artifactName: 'Python packages'
         targetPath: src/api/python/dist
 
-  - job: PythonArm
-    condition: eq(0,1)
-    displayName: "Python Arm packaging"
-    pool:
-      vmImage: "ubuntu-latest"
-    steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: 'MacArm'
-        targetPath: $(Agent.TempDirectory)
-    - script: cd $(Agent.TempDirectory); mkdir osx-arm-bin; cd osx-arm-bin; unzip ../*osx*.zip
-    - script: python3 -m pip install --user -U setuptools wheel
-    - script: cd src/api/python; python3 setup.py sdist
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-arm-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'Python Arm packages'
-        targetPath: src/api/python/dist
 
 - stage: Deployment
   jobs:
@@ -469,11 +431,6 @@ stages:
       displayName: "Download Python"
       inputs:
         artifactName: 'Python packages'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download Python Arm"
-      inputs:
-        artifactName: 'Python Arm packages'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download NuGet"
