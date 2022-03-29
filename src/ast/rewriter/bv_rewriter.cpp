@@ -37,6 +37,7 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_extract_prop = p.bv_extract_prop();
     m_ite2id = p.bv_ite2id();
     m_le_extra = p.bv_le_extra();
+    m_le2extract = p.bv_le2extract();
     set_sort_sums(p.bv_sort_ac());
 }
 
@@ -577,7 +578,7 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
             result = m().mk_eq(a, m_util.mk_numeral(numeral(0), bv_sz));
             return BR_REWRITE1;
         }
-        else if (first_non_zero < bv_sz - 1) {
+        else if (first_non_zero < bv_sz - 1 && m_le2extract) {
             result = m().mk_and(m().mk_eq(m_mk_extract(bv_sz - 1, first_non_zero + 1, a), m_util.mk_numeral(numeral(0), bv_sz - first_non_zero - 1)),
                                 m_util.mk_ule(m_mk_extract(first_non_zero, 0, a), m_mk_extract(first_non_zero, 0, b)));
             return BR_REWRITE3;
