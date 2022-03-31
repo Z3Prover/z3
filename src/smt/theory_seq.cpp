@@ -1542,8 +1542,8 @@ bool theory_seq::add_length_to_eqc(expr* e) {
         expr* o = n->get_expr();
         if (!has_length(o)) {
             expr_ref len(m_util.str.mk_length(o), m);
-            ensure_enode(len);
             add_length(len);
+            ensure_enode(len);
             change = true;
         }
         n = n->get_next();
