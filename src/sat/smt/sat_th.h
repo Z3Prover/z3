@@ -188,6 +188,7 @@ namespace euf {
         enode* expr2enode(expr* e) const;
         enode* var2enode(theory_var v) const { return m_var2enode[v]; }
         expr* var2expr(theory_var v) const { return var2enode(v)->get_expr(); }
+        bool is_representative(theory_var v) const { return v == get_representative(v); }
         expr* bool_var2expr(sat::bool_var v) const;
         expr_ref literal2expr(sat::literal lit) const;
         enode* bool_var2enode(sat::bool_var v) const { expr* e = bool_var2expr(v); return e ? expr2enode(e) : nullptr; }

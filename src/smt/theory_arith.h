@@ -602,9 +602,11 @@ namespace smt {
         void add_row_entry(unsigned r_id, numeral const & coeff, theory_var v);
         uint_set& row_vars();
         class scoped_row_vars;
-        
+
+        void check_app(expr* e, expr* n);
         void internalize_internal_monomial(app * m, unsigned r_id);
         theory_var internalize_add(app * n);
+        theory_var internalize_sub(app * n);
         theory_var internalize_mul_core(app * m);
         theory_var internalize_mul(app * m);
         theory_var internalize_div(app * n);

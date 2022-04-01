@@ -24,6 +24,11 @@ namespace array {
 
     void solver::init_model() {
         collect_defaults();
+        collect_selects();
+    }
+
+    void solver::finalize_model(model& mdl) {
+        std::for_each(m_selects_range.begin(), m_selects_range.end(), delete_proc<select_set>());
     }
     
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) { 
@@ -103,17 +108,15 @@ namespace array {
 
         if (!get_else(v) && fi->get_else())
             set_else(v, fi->get_else());
-        
-        for (euf::enode* p : euf::enode_parents(n)) {
-            if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n) {
-                expr* value = values.get(p->get_root_id(), nullptr);
-                if (!value || value == fi->get_else())
-                    continue;
-                args.reset();
-                for (unsigned i = 1; i < p->num_args(); ++i) 
-                    args.push_back(values.get(p->get_arg(i)->get_root_id()));    
-                fi->insert_entry(args.data(), value);
-            }
+
+        for (euf::enode* p : *get_select_set(n)) {
+            expr* value = values.get(p->get_root_id(), nullptr);
+            if (!value || value == fi->get_else())
+                continue;
+            args.reset();
+            for (unsigned i = 1; i < p->num_args(); ++i) 
+                args.push_back(values.get(p->get_arg(i)->get_root_id()));    
+            fi->insert_entry(args.data(), value);
         }
         
         TRACE("array", tout << "array-as-function " << ctx.bpp(n) << " := " << mk_pp(f, m) << "\n" << "default " << mk_pp(fi->get_else(), m) << "\n";);
@@ -135,52 +138,103 @@ namespace array {
             return true;
 
         return false;
-#if 0
-        struct eq {
-            solver& s;
-            eq(solver& s) :s(s) {}
-            bool operator()(euf::enode* n1, euf::enode* n2) const {
-                SASSERT(s.a.is_select(n1->get_expr()));
-                SASSERT(s.a.is_select(n2->get_expr()));
-                for (unsigned i = n1->num_args(); i-- > 1; ) 
-                    if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
-                        return false;
-                return true;                
-            }
-        };
-        struct hash {
-            solver& s;
-            hash(solver& s) :s(s) {}
-            unsigned operator()(euf::enode* n) const {
-                SASSERT(s.a.is_select(n->get_expr()));
-                unsigned h = 33;
-                for (unsigned i = n->num_args(); i-- > 1; )
-                    h = hash_u_u(h, n->get_arg(i)->get_root_id());
-                return h;
-            }
-        };
-        eq eq_proc(*this);
-        hash hash_proc(*this);
-        hashtable<euf::enode*, hash, eq> table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, hash_proc, eq_proc);
-        euf::enode* p2 = nullptr;
-        auto maps_diff = [&](euf::enode* p, euf::enode* else_, euf::enode* r) {
-            return table.find(p, p2) ? p2->get_root() != r : (else_ && else_ != r);
-        };
-        auto table_diff = [&](euf::enode* r1, euf::enode* r2, euf::enode* else1) {
-            table.reset();
-            for (euf::enode* p : euf::enode_parents(r1))
-                if (a.is_select(p->get_expr()) && r1 == p->get_arg(0)->get_root())
-                    table.insert(p);
-            for (euf::enode* p : euf::enode_parents(r2))
-                if (a.is_select(p->get_expr()) && r2 == p->get_arg(0)->get_root())
-                    if (maps_diff(p, else1, p->get_root()))
-                        return true;
-            return false;
-        };
-        
-        return table_diff(r1, r2, else1) || table_diff(r2, r1, else2);
+    }
 
-#endif
+    unsigned solver::sel_hash::operator()(euf::enode * n) const {
+        return get_composite_hash<euf::enode *, sel_khasher, sel_chasher>(n, n->num_args() - 1, sel_khasher(), sel_chasher());
+    }
+
+    bool solver::sel_eq::operator()(euf::enode * n1, euf::enode * n2) const {
+        SASSERT(n1->num_args() == n2->num_args());
+        unsigned num_args = n1->num_args();
+        for (unsigned i = 1; i < num_args; i++) 
+            if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
+                return false;
+        return true;
+    }
+
+
+    void solver::collect_selects() {
+        int num_vars = get_num_vars();
+
+        m_selects.reset();
+        m_selects_domain.reset();
+        m_selects_range.reset();
+
+        for (theory_var v = 0; v < num_vars; ++v) {
+            euf::enode * r = var2enode(v)->get_root();                
+            if (is_representative(v) && ctx.is_relevant(r)) {
+                for (euf::enode * parent : euf::enode_parents(r)) {
+                    if (parent->get_cg() == parent &&
+                        ctx.is_relevant(parent) &&
+                        a.is_select(parent->get_expr()) &&
+                        parent->get_arg(0)->get_root() == r) {
+                        select_set * s = get_select_set(r);
+                        SASSERT(!s->contains(parent) || (*(s->find(parent)))->get_root() == parent->get_root());
+                        s->insert(parent);
+                    }
+                }
+            }
+        }
+        euf::enode_pair_vector todo;
+        for (euf::enode * r : m_selects_domain)
+            for (euf::enode* sel : *get_select_set(r))
+                propagate_select_to_store_parents(r, sel, todo);
+        for (unsigned qhead = 0; qhead < todo.size(); qhead++) {
+            euf::enode_pair & pair = todo[qhead];
+            euf::enode * r   = pair.first;
+            euf::enode * sel = pair.second;
+            propagate_select_to_store_parents(r, sel, todo);
+        }
+    }
+
+    void solver::propagate_select_to_store_parents(euf::enode* r, euf::enode* sel, euf::enode_pair_vector& todo) {
+        SASSERT(r->get_root() == r);
+        SASSERT(a.is_select(sel->get_expr()));
+        if (!ctx.is_relevant(r)) 
+            return;
+        
+        for (euf::enode * parent : euf::enode_parents(r)) {
+            if (ctx.is_relevant(parent) &&
+                a.is_store(parent->get_expr()) &&
+                parent->get_arg(0)->get_root() == r) {
+                // propagate upward
+                select_set * parent_sel_set = get_select_set(parent);
+                euf::enode * parent_root = parent->get_root();
+                
+                if (parent_sel_set->contains(sel))
+                    continue;
+
+                SASSERT(sel->num_args() + 1 == parent->num_args());
+                    
+                // check whether the sel idx was overwritten by the store
+                unsigned num_args = sel->num_args();
+                unsigned i = 1;
+                for (; i < num_args; i++) {
+                    if (sel->get_arg(i)->get_root() != parent->get_arg(i)->get_root())
+                        break;
+                }
+
+                if (i < num_args) {
+                    SASSERT(!parent_sel_set->contains(sel) || (*(parent_sel_set->find(sel)))->get_root() == sel->get_root());
+                    parent_sel_set->insert(sel);
+                    todo.push_back(std::make_pair(parent_root, sel));
+                }
+            }
+        }
+    }
+
+    solver::select_set* solver::get_select_set(euf::enode* n) {
+        euf::enode * r = n->get_root();
+        select_set * set = nullptr;
+        m_selects.find(r, set);
+        if (set == nullptr) {
+            set = alloc(select_set);
+            m_selects.insert(r, set);
+            m_selects_domain.push_back(r);
+            m_selects_range.push_back(set);
+        }
+        return set;
     }
 
     void solver::collect_defaults() {
