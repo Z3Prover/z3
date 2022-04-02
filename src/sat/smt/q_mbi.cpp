@@ -48,6 +48,7 @@ namespace q {
     lbool mbqi::operator()() {
         lbool result = l_true;
         m_model = nullptr;
+        ctx.save_model(m_model);
         m_instantiations.reset();
         for (sat::literal lit : m_qs.m_universal) {
             quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
@@ -73,6 +74,9 @@ namespace q {
             m_qs.add_clause(~qlit, ~lit);
         }
         m_instantiations.reset();
+        if (result != l_true)
+            m_model = nullptr;
+        ctx.save_model(m_model);
         return result;
     }
 
