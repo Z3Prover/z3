@@ -31,11 +31,11 @@ namespace array {
         std::for_each(m_selects_range.begin(), m_selects_range.end(), delete_proc<select_set>());
     }
     
-    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) { 
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         if (!a.is_array(n->get_expr())) {
             dep.insert(n, nullptr);
             return true;
-        }       
+        }
         for (euf::enode* p : euf::enode_parents(n->get_root())) {
             if (a.is_default(p->get_expr())) {
                 dep.add(n, p);
@@ -46,6 +46,13 @@ namespace array {
             dep.add(n, p);
             for (unsigned i = 1; i < p->num_args(); ++i)
                 dep.add(n, p->get_arg(i));
+        }
+        if (a.is_array(n->get_expr())) {
+            for (euf::enode* p : *get_select_set(n)) {
+                dep.add(n, p);
+                for (unsigned i = 1; i < p->num_args(); ++i)
+                    dep.add(n, p->get_arg(i));
+            }
         }
         for (euf::enode* k : euf::enode_class(n)) 
             if (a.is_const(k->get_expr())) 
