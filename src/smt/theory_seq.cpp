@@ -1498,8 +1498,8 @@ void theory_seq::add_length(expr* l) {
     TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
     m_length.push_back(l);
     m_has_length.insert(e);
-    m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length));
+    m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
 }
 
 /**
