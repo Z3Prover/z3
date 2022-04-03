@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "tactic/arith/bv2real_rewriter.h"
+#include "tactic/tactic_exception.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
@@ -40,6 +41,7 @@ bv2real_util::bv2real_util(ast_manager& m, rational const& default_root, rationa
     m_pos_le = m.mk_fresh_func_decl("<=","",2,domain,m.mk_bool_sort());
     m_decls.push_back(m_pos_lt);
     m_decls.push_back(m_pos_le);
+    m_max_memory = std::max((1ull << 31ull), 3*memory::get_allocation_size());
 }
 
 bool bv2real_util::is_bv2real(func_decl* f) const {
@@ -178,12 +180,10 @@ void bv2real_util::align_divisors(expr_ref& s1, expr_ref& s2, expr_ref& t1, expr
 expr* bv2real_util::mk_bv_mul(expr* s, expr* t) {
     SASSERT(m_bv.is_bv(s));
     SASSERT(m_bv.is_bv(t));
-    if (is_zero(s)) {
+    if (is_zero(s)) 
         return s;
-    }
-    if (is_zero(t)) {
+    if (is_zero(t)) 
         return t;
-    }    
     expr_ref s1(s, m()), t1(t, m());
     align_sizes(s1, t1);
     unsigned n = m_bv.get_bv_size(t1);
@@ -342,6 +342,10 @@ bool bv2real_util::mk_is_divisible_by(expr_ref& s, rational const& _overflow) {
     return overflow.is_one();
 }
 
+
+bool bv2real_util::memory_exceeded() const {
+    return m_max_memory <= memory::get_allocation_size();
+}
 
 
 // ---------------------------------------------------------------------
