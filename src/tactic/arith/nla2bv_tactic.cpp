@@ -103,17 +103,16 @@ class nla2bv_tactic : public tactic {
             TRACE("nla2bv", g.display(tout << "substitute vars\n"));
             reduce_bv2int(g);
             reduce_bv2real(g);
-            TRACE("nla2bv", g.display(tout << "after reduce\n"););
+            TRACE("nla2bv", g.display(tout << "after reduce\n"));
             mc = m_fmc.get();
-            for (unsigned i = 0; i < m_vars.size(); ++i) {
-                m_fmc->add(m_vars[i].get(), m_defs[i].get());
-            }
+            for (unsigned i = 0; i < m_vars.size(); ++i) 
+                m_fmc->add(m_vars.get(i), m_defs.get(i));
             for (unsigned i = 0; i < m_bv2real.num_aux_decls(); ++i) {
                 m_fmc->hide(m_bv2real.get_aux_decl(i));
             }        
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(nla->bv :sat-preserving " << m_is_sat_preserving << ")\n";);
-            TRACE("nla2bv_verbose", g.display(tout););
-            TRACE("nla2bv", tout << "Muls: " << count_mul(g) << "\n";);
+            TRACE("nla2bv_verbose", g.display(tout));
+            TRACE("nla2bv", tout << "Muls: " << count_mul(g) << "\n");
             g.inc_depth();
             if (!is_sat_preserving())
                 g.updt_prec(goal::UNDER);
