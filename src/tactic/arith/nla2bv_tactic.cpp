@@ -100,7 +100,7 @@ class nla2bv_tactic : public tactic {
                 return;
             }
             substitute_vars(g);
-            TRACE("nla2bv", g.display(tout << "substitute vars\n"););
+            TRACE("nla2bv", g.display(tout << "substitute vars\n"));
             reduce_bv2int(g);
             reduce_bv2real(g);
             TRACE("nla2bv", g.display(tout << "after reduce\n"););

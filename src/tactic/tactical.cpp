@@ -336,6 +336,9 @@ public:
                 catch (tactic_exception &) {
                     result.reset();
                 }
+                catch (rewriter_exception&) {
+                    result.reset();
+                }
                 catch (z3_error & ex) {
                     IF_VERBOSE(10, verbose_stream() << "z3 error: " << ex.error_code() << " in or-else\n");
                     throw;
