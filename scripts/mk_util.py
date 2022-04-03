@@ -2550,7 +2550,7 @@ def mk_config():
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -std=c++17' % CXXFLAGS
-        CXXFLAGS = '%s -fvisibility=hidden -fvisibility-inlines-hidden -c' % CXXFLAGS
+        CXXFLAGS = '%s -fvisibility=protected -fvisibility-inlines-hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         if LOG_SYNC:
