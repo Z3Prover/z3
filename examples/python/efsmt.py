@@ -10,7 +10,6 @@ def efsmt(y, phi, maxloops=None):
     vars = get_vars(phi)
     x = [item for item in vars if item not in y]
     esolver = Solver()
-    fsolver = Solver()
     esolver.add(BoolVal(True))
     loops = 0
     while maxloops is None or loops <= maxloops:
@@ -20,17 +19,15 @@ def efsmt(y, phi, maxloops=None):
             return unsat
         else:
             emodel = esolver.model()
-            tau = [emodel.eval(var, True) for var in x]
-            sub_phi = phi
-            for i in range(len(x)):
-                sub_phi = simplify(substitute(sub_phi, (x[i], tau[i])))
+            x_mappings = [(var, emodel.eval(var, model_completion=True)) for var in x]
+            sub_phi = simplify(substitute(phi, x_mappings))
+               
+            fsolver = Solver()
             fsolver.add(Not(sub_phi))
             if fsolver.check() == sat:
                 fmodel = fsolver.model()
-                sigma = [fmodel.eval(v, True) for v in y]
-                sub_phi = phi
-                for j in range(len(y)):
-                    sub_phi = simplify(substitute(sub_phi, (y[j], sigma[j])))
+                y_mappings = [(var, fmodel.eval(var, model_completion=True)) for var in y]
+                sub_phi = simplify(substitute(phi, y_mappings))
                 esolver.add(sub_phi)
             else:
                 return sat
