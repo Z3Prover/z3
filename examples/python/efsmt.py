@@ -16,20 +16,21 @@ def efsmt(ys, phi, maxloops = None):
     while maxloops is None or loops <= maxloops:
         loops += 1
         eres = E.check()
-        if eres == unsat:
-            return unsat
-        else:
+        if eres == sat:
             emodel = E.model()
             sub_phi = substitute(phi, [(x, emodel.eval(x, True)) for x in xs])
             F.push()
             F.add(Not(sub_phi))
-            if F.check() == sat:
+            fres = F.check()
+            if fres == sat:
                 fmodel = F.model()
                 sub_phi = substitute(phi, [(y, fmodel.eval(y, True)) for y in ys])
                 E.add(sub_phi)
             else:
-                return sat, [(x, emodel.eval(x, True)) for x in xs]
+                return fres, [(x, emodel.eval(x, True)) for x in xs]
             F.pop()
+        else:
+            return eres
     return unknown
 
 x, y, z = Reals("x y z")
