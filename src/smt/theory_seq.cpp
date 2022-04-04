@@ -1498,8 +1498,8 @@ void theory_seq::add_length(expr* l) {
     TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
     m_length.push_back(l);
     m_has_length.insert(e);
-    m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length));
+    m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
 }
 
 /**
@@ -1542,8 +1542,8 @@ bool theory_seq::add_length_to_eqc(expr* e) {
         expr* o = n->get_expr();
         if (!has_length(o)) {
             expr_ref len(m_util.str.mk_length(o), m);
-            ensure_enode(len);
             add_length(len);
+            ensure_enode(len);
             change = true;
         }
         n = n->get_next();

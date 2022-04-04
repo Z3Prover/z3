@@ -1484,13 +1484,11 @@ namespace qe {
                   tout << "free: " << m_free_vars << "\n";);
 
             free_vars.append(m_free_vars);
-            if (!m_free_vars.empty() || m_solver.inconsistent()) {
 
-                if (m_fml.get() != m_subfml.get()) {
-                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
-                    rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
-                    fml = m_fml;
-                }
+            if (m_fml.get() != m_subfml.get()) {
+                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
+                rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
+                fml = m_fml;
             }
             reset();
             m_solver.pop(1);

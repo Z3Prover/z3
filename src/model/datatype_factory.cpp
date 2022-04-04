@@ -48,10 +48,8 @@ expr * datatype_factory::get_some_value(sort * s) {
 */
 expr * datatype_factory::get_last_fresh_value(sort * s) {
     expr * val = nullptr;
-    if (m_last_fresh_value.find(s, val)) {
-        TRACE("datatype", tout << "cached fresh value: " << mk_pp(val, m_manager) << "\n";);
+    if (m_last_fresh_value.find(s, val)) 
         return val;
-    }
     value_set * set = get_value_set(s);
     if (set->empty())
         val = get_some_value(s);
@@ -200,7 +198,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     if (m_util.is_recursive(s)) {
         while (true) {
             ++num_iterations;
-            TRACE("datatype", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
+            TRACE("datatype", tout << num_iterations << " " << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
             ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
             for (func_decl * constructor : constructors) {
                 expr_ref_vector args(m_manager);
@@ -219,7 +217,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                         expr * maybe_new_arg = nullptr;
                         if (!m_util.is_datatype(s_arg))
                             maybe_new_arg = m_model.get_fresh_value(s_arg);
-                        else if (num_iterations <= 1)
+                        else if (num_iterations <= 1 || m_util.is_recursive(s_arg))
                             maybe_new_arg = get_almost_fresh_value(s_arg);                        
                         else 
                             maybe_new_arg = get_fresh_value(s_arg);

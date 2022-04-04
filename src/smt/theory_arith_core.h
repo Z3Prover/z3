@@ -302,6 +302,44 @@ namespace smt {
         }
     }
 
+    template<typename Ext>
+    void theory_arith<Ext>::check_app(expr* e, expr* n) {
+        if (is_app(e))
+            return;        
+        std::ostringstream strm;
+        strm << mk_pp(n, m) << " contains a " << (is_var(e) ? "free variable":"quantifier");
+        throw default_exception(strm.str());        
+    }
+    
+
+    template<typename Ext>
+    theory_var theory_arith<Ext>::internalize_sub(app * n) {
+        VERIFY(m_util.is_sub(n));
+        bool first = true;
+        unsigned r_id = mk_row();
+        scoped_row_vars _sc(m_row_vars, m_row_vars_top);
+        theory_var v;
+        for (expr* arg : *n) {
+            check_app(arg, n);
+            v = internalize_term_core(to_app(arg));
+            if (first)
+                add_row_entry<true>(r_id, numeral::one(), v);
+            else
+                add_row_entry<false>(r_id, numeral::one(), v);
+            first = false;
+        }
+        enode * e = mk_enode(n);
+        v = e->get_th_var(get_id());
+        if (v == null_theory_var) {
+            v = mk_var(e);
+            add_row_entry<false>(r_id, numeral::one(), v);
+            init_row(r_id);
+        }
+        else
+            del_row(r_id);
+        return v;
+    }
+    
     /**
        \brief Internalize a polynomial (+ h t). Return an alias for the monomial, that is,
        a variable v such that v = (+ h t) is a new row in the tableau.
@@ -314,11 +352,7 @@ namespace smt {
         unsigned r_id = mk_row();
         scoped_row_vars _sc(m_row_vars, m_row_vars_top);
         for (expr* arg : *n) {
-            if (is_var(arg)) {
-                std::ostringstream strm;
-                strm << mk_pp(n, m) << " contains a free variable";
-                throw default_exception(strm.str());
-            }
+            check_app(arg, n);
             internalize_internal_monomial(to_app(arg), r_id);
         }
         enode * e = mk_enode(n);
@@ -383,11 +417,7 @@ namespace smt {
             }
             unsigned r_id = mk_row();
             scoped_row_vars _sc(m_row_vars, m_row_vars_top);
-            if (is_var(arg1)) {
-                std::ostringstream strm;
-                strm << mk_pp(m, get_manager()) << " contains a free variable";
-                throw default_exception(strm.str());
-            }
+            check_app(arg1, m);
             if (reflection_enabled())
                 internalize_term_core(to_app(arg0));
             theory_var v = internalize_mul_core(to_app(arg1));
@@ -749,7 +779,6 @@ namespace smt {
                 return e->get_th_var(get_id());
         }
 
-        SASSERT(!m_util.is_sub(n));
         SASSERT(!m_util.is_uminus(n));
 
         if (m_util.is_add(n))
@@ -770,6 +799,8 @@ namespace smt {
             return internalize_to_int(n);
         else if (m_util.is_numeral(n))
             return internalize_numeral(n);
+        else if (m_util.is_sub(n))
+            return internalize_sub(n);
         if (m_util.is_power(n)) {
             // unsupported
             found_unsupported_op(n);

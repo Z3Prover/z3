@@ -405,6 +405,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_result_stack.shrink(old_sz);
         }
         else {
+            if (process_cached(t, root, sign))
+                return;
             SASSERT(num <= m_result_stack.size());
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
@@ -454,6 +456,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_result_stack.shrink(old_sz);
         }
         else {
+            if (process_cached(t, root, sign))
+                return;
             SASSERT(num <= m_result_stack.size());
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
@@ -507,6 +511,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
         }
         else {
+            if (process_cached(n, root, sign))
+                return;
             sat::bool_var k = add_var(false, n);
             sat::literal  l(k, false);
             cache(n, l);
@@ -537,6 +543,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_root_clause(sign ? lit : ~lit);            
         }
         else {
+            if (process_cached(t, root, sign))
+                return;
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             cache(t, l);
@@ -567,6 +575,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }            
         }
         else {
+            if (process_cached(t, root, sign))
+                return;
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             cache(t, l);
@@ -603,6 +613,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }                  
         }
         else {
+            if (process_cached(t, root, sign))
+                return;
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             if (m.is_xor(t))

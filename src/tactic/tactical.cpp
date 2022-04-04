@@ -336,6 +336,9 @@ public:
                 catch (tactic_exception &) {
                     result.reset();
                 }
+                catch (rewriter_exception&) {
+                    result.reset();
+                }
                 catch (z3_error & ex) {
                     IF_VERBOSE(10, verbose_stream() << "z3 error: " << ex.error_code() << " in or-else\n");
                     throw;
@@ -1019,7 +1022,6 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         cancel_eh<reslimit> eh(in->m().limit());
         { 
-            // Warning: scoped_timer is not thread safe in Linux.
             scoped_timer timer(m_timeout, &eh);
             m_t->operator()(in, result);            
         }
