@@ -85,13 +85,14 @@ namespace Microsoft.Z3
 
             for (uint j = 0; j < numEntries; ++j)
             {
-                var entry = Native.Z3_func_interp_get_entry(nCtx, fi, j);
-                Native.Z3_func_entry_inc_ref(nCtx, entry);
+                var ntvEntry = Native.Z3_func_interp_get_entry(nCtx, fi, j);
+                Entries[j] = new Entry();
+                Native.Z3_func_entry_inc_ref(nCtx, ntvEntry);
                 Entries[j].Arguments = new Z3_ast[numArgs];
                 for (uint i = 0; i < numArgs; ++i)
-                    Entries[j].Arguments[i] = Native.Z3_func_entry_get_arg(nCtx, entry, i);
-                Entries[j].Result = Native.Z3_func_entry_get_value(nCtx, entry);
-                Native.Z3_func_entry_dec_ref(nCtx, entry);
+                    Entries[j].Arguments[i] = Native.Z3_func_entry_get_arg(nCtx, ntvEntry, i);
+                Entries[j].Result = Native.Z3_func_entry_get_value(nCtx, ntvEntry);
+                Native.Z3_func_entry_dec_ref(nCtx, ntvEntry);
             }
 
             Native.Z3_func_interp_dec_ref(nCtx, fi);
