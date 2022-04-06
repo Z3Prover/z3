@@ -36,19 +36,13 @@ namespace array {
             dep.insert(n, nullptr);
             return true;
         }
-        for (euf::enode* p : euf::enode_parents(n->get_root())) {
-            if (a.is_default(p->get_expr())) {
-                dep.add(n, p);
-                continue;
-            }
-            if (!a.is_select(p->get_expr()))
-                continue;
-            dep.add(n, p);
-            for (unsigned i = 1; i < p->num_args(); ++i)
-                dep.add(n, p->get_arg(i));
-        }
         if (a.is_array(n->get_expr())) {
+            for (euf::enode* p : euf::enode_parents(n->get_root())) 
+                if (a.is_default(p->get_expr())) 
+                    dep.add(n, p);
+                            
             for (euf::enode* p : *get_select_set(n)) {
+                SASSERT(n != p);
                 dep.add(n, p);
                 for (unsigned i = 1; i < p->num_args(); ++i)
                     dep.add(n, p->get_arg(i));
@@ -56,11 +50,16 @@ namespace array {
         }
         for (euf::enode* k : euf::enode_class(n)) 
             if (a.is_const(k->get_expr())) 
-                dep.add(n, k->get_arg(0)); 
+                dep.add(n, k->get_arg(0));
+        for (euf::enode* k : euf::enode_class(n))
+            if (a.is_const(k->get_expr())) {
+                SASSERT(n != k->get_arg(0));
+            }
         theory_var v = get_th_var(n);
         euf::enode* d = get_default(v);
         if (d)
             dep.add(n, d);
+        SASSERT(n != d);
         if (!dep.deps().contains(n))
             dep.insert(n, nullptr);
         return true;
@@ -127,6 +126,12 @@ namespace array {
             if (!value || value == fi->get_else())
                 continue;
             args.reset();
+            for (unsigned i = 1; i < p->num_args(); ++i) {
+                if (!values.get(p->get_arg(i)->get_root_id())) {
+                    TRACE("array", tout << ctx.bpp(p->get_arg(i)) << "\n");
+                }
+                SASSERT(values.get(p->get_arg(i)->get_root_id()));
+            }
             for (unsigned i = 1; i < p->num_args(); ++i) 
                 args.push_back(values.get(p->get_arg(i)->get_root_id()));    
             fi->insert_entry(args.data(), value);
