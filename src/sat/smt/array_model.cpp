@@ -116,6 +116,12 @@ namespace array {
         if (!get_else(v) && fi->get_else())
             set_else(v, fi->get_else());
 
+        if (!get_else(v)) {
+            expr* else_value = mdl.get_some_value(get_array_range(srt));
+            fi->set_else(else_value);
+            set_else(v, else_value);
+        }
+
         for (euf::enode* p : *get_select_set(n)) {
             expr* value = values.get(p->get_root_id(), nullptr);
             if (!value || value == fi->get_else())
