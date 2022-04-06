@@ -139,7 +139,7 @@ public:
         else
             l = logic;
 
-        tactic_params tp;
+        tactic_params tp(p);
         tactic_ref t;
         if (tp.default_tactic() != symbol::null &&
             !tp.default_tactic().is_numerical() && 
@@ -151,6 +151,7 @@ public:
             sexpr_ref se = parse_sexpr(ctx, is, p, file_name);
             if (se) {
                 t = sexpr2tactic(ctx, se.get());
+                t->updt_params(p);
             }
         }
 

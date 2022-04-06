@@ -42,10 +42,11 @@ namespace polysat {
             bit_width(bit_width),
             x_decl(m),
             x(m) {
-            // m.register_plugin(symbol("bv"), alloc(bv_decl_plugin));  // this alone doesn't work
             reg_decl_plugins(m);
             bv = alloc(bv_util, m);
-            s = mk_solver(m, params_ref::get_empty(), false, true, true, symbol::null);
+            params_ref p;
+            p.set_bool("bv.polysat", false);
+            s = mk_solver(m, p, false, true, true, symbol::null);
             x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
             x = m.mk_const(x_decl);
         }
@@ -68,7 +69,8 @@ namespace polysat {
         expr* mk_poly(univariate const& p) const {
             if (p.empty()) {
                 return mk_numeral(rational::zero());
-            } else {
+            }
+            else {
                 expr* e = mk_numeral(p.back());
                 for (unsigned i = p.size() - 1; i-- > 0; ) {
                     e = bv->mk_bv_mul(e, x);

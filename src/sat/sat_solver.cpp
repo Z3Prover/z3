@@ -110,6 +110,7 @@ namespace sat {
     void solver::set_extension(extension* ext) {
         m_ext = ext;
         if (ext) {
+            ext->updt_params(m_params);
             ext->set_solver(this);
             for (unsigned i = num_user_scopes(); i-- > 0;)
                 ext->user_push();
@@ -3758,6 +3759,8 @@ namespace sat {
         if (m_config.m_cut_simplify && !m_cut_simplifier && m_user_scope_literals.empty()) {
             m_cut_simplifier = alloc(cut_simplifier, *this);
         }
+        if (m_ext)
+            m_ext->updt_params(m_params);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

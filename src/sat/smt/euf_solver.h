@@ -278,7 +278,7 @@ namespace euf {
         }
         trail_stack& get_trail_stack() { return m_trail; }
 
-        void updt_params(params_ref const& p);
+        void updt_params(params_ref const& p) override;
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
