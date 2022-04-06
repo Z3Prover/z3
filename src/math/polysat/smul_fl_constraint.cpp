@@ -126,7 +126,6 @@ namespace polysat {
             us.add_smul_ovfl(p_coeff, q_coeff, !is_positive, dep);
         else
             us.add_smul_udfl(p_coeff, q_coeff, !is_positive, dep);
-    	return mk_mix(p().hash(), q().hash(), kind());
     }
 
 }
