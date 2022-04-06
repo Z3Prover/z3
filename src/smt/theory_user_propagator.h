@@ -78,6 +78,10 @@ namespace smt {
         stats                  m_stats;
         expr_ref_vector        m_var2expr;
         unsigned_vector        m_expr2var;
+        bool                   m_push_popping;
+        expr_ref_vector        m_to_add;
+        unsigned_vector        m_to_add_lim;
+        unsigned               m_to_add_qhead = 0;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
