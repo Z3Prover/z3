@@ -69,6 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_HURD=False
 IS_OSX=False
+IS_OS_ARM64=False
 IS_FREEBSD=False
 IS_NETBSD=False
 IS_OPENBSD=False
@@ -598,6 +599,9 @@ if os.name == 'nt':
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
+        print("setting Darwin", os.uname()[4])
+        if os.uname()[4] == 'arm64':
+            IS_OS_ARM64 = True
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
     elif os.uname()[0] == 'GNU':
