@@ -292,9 +292,8 @@ namespace polysat {
             if (!is_assigned(other_v)) {
                 add_watch(c, other_v);
                 std::swap(c->vars()[idx], c->vars()[i]);
-                SASSERT(!is_assigned(c->var(0)));
-                SASSERT(!is_assigned(c->var(1)));
-                return true;
+                if (!is_assigned(c->var(1 - idx)))
+                    return true;
             }
         }
         // at most one variable remains unassigned.
@@ -437,7 +436,11 @@ namespace polysat {
 
     void solver::add_watch(signed_constraint c) {
         SASSERT(c);
-        auto const& vars = c->vars();
+        auto& vars = c->vars();
+        unsigned i = 0, j = 0, sz = vars.size();
+        for (; i < sz && j < 2; ++i)
+            if (!is_assigned(vars[i]))
+                std::swap(vars[i], vars[j++]);
         if (vars.size() > 0)
             add_watch(c, vars[0]);
         if (vars.size() > 1)
