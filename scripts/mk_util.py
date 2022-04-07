@@ -599,7 +599,6 @@ if os.name == 'nt':
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
-        print("setting Darwin", os.uname()[4])
         if os.uname()[4] == 'arm64':
             IS_OS_ARM64 = True
     elif os.uname()[0] == 'Linux':
@@ -2640,6 +2639,10 @@ def mk_config():
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
+        if IS_OSX and IS_OS_ARM64:
+            CXXFLAGS = '%s -arch arm64' % CXXFLAGS
+            LDFLAGS = '%s -arch arm64' % LDFLAGS
+            SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
 
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
