@@ -621,8 +621,9 @@ elif os.name == 'posix':
             LINUX_X64=True
         else:
             LINUX_X64=False
+
             
-if os.uname()[4] == 'arm64':
+if os.name == 'posix' and os.uname()[4] == 'arm64':
     IS_ARCH_ARM64 = True
 
             
