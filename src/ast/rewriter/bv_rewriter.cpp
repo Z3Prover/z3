@@ -2808,22 +2808,18 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
         return BR_FAILED;
     }
     unsigned sz = get_bv_size(args[0]);
-    std::cout << "sz:" << sz << " num_args: " << num_args << std::endl;
     // check if num_args > 2^sz
     bool exact = true;
     do {
         exact &= (num_args % 2) == 0;
         num_args /= 2;
         sz--;
-        std::cout << "sz:" << sz << " num_args: " << num_args << " exact: " << exact << std::endl;
     } while (num_args > 1 && sz > 0);
     
     if (sz + exact < num_args) {
         result = m().mk_false();
-        std::cout << "false" << std::endl;
         return BR_DONE;
     }
-    std::cout << "skip" << std::endl;
     return BR_FAILED;
 }
 
