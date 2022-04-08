@@ -181,7 +181,9 @@ def get_os_name():
 
 def get_z3_name():
     major, minor, build, revision = get_version()
-    if sys.maxsize >= 2**32:
+    if mk_util.IS_ARCH_ARM64:
+        platform = "arm64"    
+    elif sys.maxsize >= 2**32:
         platform = "x64"
     else:
         platform = "x86"

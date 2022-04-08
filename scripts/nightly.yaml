@@ -180,6 +180,11 @@ stages:
       inputs:
         artifact: 'Mac'
         path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Arm64 Build'
+      inputs:
+        artifact: 'MacArm64'
+        path: $(Agent.TempDirectory)\package	
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -434,6 +439,11 @@ stages:
       displayName: "Download Mac"
       inputs:
         artifactName: 'Mac'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download MacArm64"
+      inputs:
+        artifactName: 'MacArm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu"
