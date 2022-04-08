@@ -185,17 +185,27 @@ namespace opt {
     }
 
     void context::set_hard_constraints(expr_ref_vector const& fmls) {
-        if (m_scoped_state.set(fmls)) {
+        if (m_calling_on_model) {
+            for (expr* f : fmls)
+                add_hard_constraint(f);
+            return;
+        }
+        if (m_scoped_state.set(fmls)) 
+            clear_state();
+    }
+
+    void context::add_hard_constraint(expr* f) {
+        if (m_calling_on_model) 
+            get_solver().assert_expr(f);
+        else {
+            m_scoped_state.add(f);
             clear_state();
         }
     }
 
-    void context::add_hard_constraint(expr* f) { 
-        m_scoped_state.add(f);
-        clear_state();
-    }
-
     void context::add_hard_constraint(expr* f, expr* t) {
+        if (m_calling_on_model) 
+            throw default_exception("adding soft constraints is not supported during callbacks");
         m_scoped_state.m_asms.push_back(t);
         m_scoped_state.add(m.mk_implies(t, f));
         clear_state();
@@ -389,6 +399,7 @@ namespace opt {
             model_ref md = m->copy();
             if (!m_model_fixed.contains(md.get()))
                 fix_model(md);
+            flet<bool> _calling(m_calling_on_model, true);
             m_on_model_eh(m_on_model_ctx, md);
             m_model_fixed.pop_back();
         }

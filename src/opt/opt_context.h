@@ -165,6 +165,7 @@ namespace opt {
         ast_manager&        m;
         on_model_t          m_on_model_ctx;
         std::function<void(on_model_t&, model_ref&)> m_on_model_eh;
+        bool                m_calling_on_model = false;
         arith_util          m_arith;
         bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
