@@ -45,7 +45,7 @@ public:
     unsigned get_id() const { return m_id; }
     unsigned get_ref_count() const { return m_ref_count; }
     unsigned hash() const { return m_id; }
-    virtual void display(std::ostream & out) const {}
+    virtual std::ostream& display(std::ostream & out) const { return out;}
     virtual void reset_cache(pdecl_manager& m) {}
 };
 
@@ -123,7 +123,7 @@ protected:
     ~psort_user_decl() override {}
 public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
-    void display(std::ostream & out) const override;
+    std::ostream& display(std::ostream & out) const override;
 };
  
 class psort_builtin_decl : public psort_decl {
@@ -137,7 +137,7 @@ protected:
 public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
     sort * instantiate(pdecl_manager & m, unsigned n, unsigned const * s) override;
-    void display(std::ostream & out) const override;
+    std::ostream& display(std::ostream & out) const override;
 };
 
 class psort_dt_decl : public psort_decl {
@@ -148,7 +148,7 @@ protected:
     ~psort_dt_decl() override {}
 public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
-    void display(std::ostream & out) const override;
+    std::ostream& display(std::ostream & out) const override;
 };
 
 
@@ -198,7 +198,7 @@ class paccessor_decl : public pdecl {
     ptype const & get_type() const { return m_type; }
     ~paccessor_decl() override {}
 public:
-    void display(std::ostream & out) const override { pdecl::display(out); }
+    std::ostream& display(std::ostream & out) const override { pdecl::display(out); return out; }
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 
@@ -219,7 +219,7 @@ class pconstructor_decl : public pdecl {
     constructor_decl * instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s);
     ~pconstructor_decl() override {}
 public:
-    void display(std::ostream & out) const override { pdecl::display(out); }
+    std::ostream& display(std::ostream & out) const override { pdecl::display(out); return out; }
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 
@@ -237,7 +237,7 @@ class pdatatype_decl : public psort_decl {
     ~pdatatype_decl() override {}
 public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
-    void display(std::ostream & out) const override;
+    std::ostream& display(std::ostream & out) const override;
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
     bool commit(pdecl_manager& m);
@@ -289,6 +289,8 @@ class pdecl_manager {
     obj_hashtable<sort>          m_notified;
     ptr_vector<sort>             m_notified_trail;
     unsigned_vector              m_notified_lim;
+    svector<symbol>              m_datatypes_trail;
+    unsigned_vector              m_datatypes_lim;
 
     void init_list();
     void del_decl_core(pdecl * p);
@@ -319,6 +321,7 @@ public:
     sort * instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s);
     sort * instantiate(psort * s, unsigned num, sort * const * args);
     void notify_datatype(sort *r, psort_decl* p, unsigned n, sort* const* s);
+    void notify_mk_datatype(symbol const& name);
     void push();
     void pop(unsigned n);
 
