@@ -267,6 +267,7 @@ protected:
         cmd_context &             m_owner;
         datatype_util             m_dt_util;
     public:
+        void reset() { m_dt_util.reset(); }
         dt_eh(cmd_context & owner);
         ~dt_eh() override;
         void operator()(sort * dt, pdecl* pd) override;
