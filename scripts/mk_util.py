@@ -69,7 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_HURD=False
 IS_OSX=False
-IS_OS_ARM64=False
+IS_ARCH_ARM64=False
 IS_FREEBSD=False
 IS_NETBSD=False
 IS_OPENBSD=False
@@ -599,8 +599,6 @@ if os.name == 'nt':
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
-        if os.uname()[4] == 'arm64':
-            IS_OS_ARM64 = True
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
     elif os.uname()[0] == 'GNU':
@@ -624,7 +622,10 @@ elif os.name == 'posix':
         else:
             LINUX_X64=False
             
+if os.uname()[4] == 'arm64':
+    IS_ARCH_ARM64 = True
 
+            
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
     print("This script generates the Makefile for the Z3 theorem prover.")
@@ -2639,7 +2640,7 @@ def mk_config():
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
-        if IS_OSX and IS_OS_ARM64:
+        if IS_OSX and IS_ARCH_ARM64:
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
