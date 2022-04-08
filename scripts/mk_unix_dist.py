@@ -72,6 +72,7 @@ def parse_options():
                                                                    'nojava',
                                                                    'nodotnet',
                                                                    'dotnet-key=',
+                                                                   'arch=',
                                                                    'githash',
                                                                    'nopython'
                                                                    ])
@@ -96,6 +97,11 @@ def parse_options():
             JAVA_ENABLED = False
         elif opt == '--githash':
             GIT_HASH = True
+        elif opt == '--arch':
+            if arg == "arm64":
+                mk_util.IS_ARCH_ARM64 = True
+            else:
+                raise MKException(f"Invalid architecture directive '{arg}'. Legal directives: arm64")
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)

@@ -4,7 +4,6 @@ variables:
   Minor: '8'
   Patch: '16'
   NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
-  MacFlags: 'CXXFLAGS="-arch x86_64" LINK_EXTRA_FLAGS="-arch x86_64" SLINK_EXTRA_FLAGS="-arch x86_64"'
 
 stages:
 - stage: Build
@@ -15,13 +14,28 @@ stages:
     pool:
       vmImage: "macOS-latest"
     steps:
-    - script: $(MacFlags) python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@1
       inputs:
         artifactName: 'Mac'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+
+  - job: MacArm64
+    displayName: "Mac ARM64 Build"
+    pool:
+      vmImage: "macOS-latest"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@1
+      inputs:
+        artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
 
