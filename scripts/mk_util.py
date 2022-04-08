@@ -649,6 +649,7 @@ def display_help(exit_code):
         print("  -x, --x64                     create 64 binary when using Visual Studio.")
     else:
         print("  --x86                         force 32-bit x86 build on x64 systems.")
+    print("  --arm64=<bool>                    forcearm64 bit build  on/off (supported for Darwin).")
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
@@ -691,11 +692,11 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
-    global GUARD_CF, ALWAYS_DYNAMIC_BASE
+    global GUARD_CF, ALWAYS_DYNAMIC_BASE, IS_ARCH_ARM64
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
-                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
+                                               ['build=', 'debug', 'silent', 'x64', 'arm64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
@@ -718,6 +719,8 @@ def parse_options():
             VS_X64 = True
         elif opt in ('--x86'):
             LINUX_X64=False
+        elif opt in ('--arm64'):
+            IS_ARCH_ARM64 = arg in ('true','on','True','TRUE')
         elif opt in ('-h', '--help'):
             display_help(0)
         elif opt in ('-m', '--makefiles'):

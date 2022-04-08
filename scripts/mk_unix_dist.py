@@ -126,6 +126,8 @@ def mk_build_dir(path):
             opts.append('--git-describe')
         if PYTHON_ENABLED:
             opts.append('--python')
+        if mk_util.IS_ARCH_ARM64:
+            opts.append('--arm64=true')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
 
