@@ -101,7 +101,7 @@ def parse_options():
             if arg == "arm64":
                 mk_util.IS_ARCH_ARM64 = True
             else:
-                raise MKException(f"Invalid architecture directive '{arg}'. Legal directives: arm64")
+                raise MKException("Invalid architecture directive '%s'. Legal directives: arm64" % arg)
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
