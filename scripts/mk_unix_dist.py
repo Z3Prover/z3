@@ -56,6 +56,7 @@ def display_help():
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
+    print("  --arch=<arch>                 set architecture (to arm64) to force arm64 build")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
