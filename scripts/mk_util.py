@@ -279,10 +279,13 @@ def test_gmp(cc):
 
 
 def test_fpmath(cc):
-    global FPMATH_FLAGS
+    global FPMATH_FLAGS, IS_ARCH_ARM64, IS_OSX
     if FPMATH_ENABLED == "False":
         FPMATH_FLAGS=""
         return "Disabled"
+    if IS_ARCH_ARM64 and IS_OSX:
+        FPMATH_FLAGS = ""
+        return "Disabled-ARM64"
     if is_verbose():
         print("Testing floating point support...")
     t = TempFile('tstsse.cpp')
