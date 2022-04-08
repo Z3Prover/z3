@@ -217,10 +217,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if (k == OP_DISTINCT) {
-                SASSERT(num > 0);
-                family_id s_fid = args[0]->get_sort()->get_family_id();
-                if (s_fid == m_bv_rw.get_fid()) {
+            if (k == OP_DISTINCT && num > 0) {
+                if (m_bv_rw.is_bv(args[0])) {
                     st = m_bv_rw.mk_distinct(num, args, result);
                     if (st != BR_FAILED)
                         return st;
