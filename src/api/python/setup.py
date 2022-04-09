@@ -281,7 +281,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
                 osver = '.'.join(osver.split('.')[:2])
             if arch == 'x64':                
                 plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
-            elif arc == 'arm64':
+            elif arch == 'arm64':
                 plat_name ='macosx_%s_arm64' % osver.replace('.', '_')                
             else:
                 raise Exception(f"idk how os {distos} {osver} works. what goes here?")
