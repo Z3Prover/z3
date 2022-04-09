@@ -50,7 +50,13 @@ namespace opt {
     
     void maxsmt_solver_base::updt_params(params_ref& p) {
         m_params.copy(p);
-    }       
+    }
+
+    void maxsmt_solver_base::reset_upper() {
+        m_upper = m_lower;
+        for (soft& s : m_soft) 
+            m_upper += s.weight;
+    }
 
     solver& maxsmt_solver_base::s() {
         return m_c.get_solver(); 
@@ -289,6 +295,12 @@ namespace opt {
         }
     }
 
+    void maxsmt::reset_upper() {
+        if (m_msolver) {
+            m_msolver->reset_upper();
+            m_upper = m_msolver->get_upper();
+        }
+    }
 
     void maxsmt::verify_assignment() {
         // TBD: have to use a different solver 

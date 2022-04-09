@@ -791,11 +791,10 @@ public:
         improve_model(mdl);
         mdl->set_model_completion(true);
         unsigned correction_set_size = 0;
-        for (expr* a : m_asms) {
-            if (mdl->is_false(a)) {
+        for (expr* a : m_asms) 
+            if (mdl->is_false(a)) 
                 ++correction_set_size;
-            }
-        }
+
         if (!m_csmodel.get() || correction_set_size < m_correction_set_size) {
             m_csmodel = mdl;
             m_correction_set_size = correction_set_size;
@@ -810,22 +809,22 @@ public:
             return;
         }
 
-        if (!m_c.verify_model(m_index, mdl.get(), upper)) {
+        if (!m_c.verify_model(m_index, mdl.get(), upper)) 
             return;
-        }
 
+        unsigned num_assertions = s().get_num_assertions();
         m_model = mdl;
         m_c.model_updated(mdl.get());
 
         TRACE("opt", tout << "updated upper: " << upper << "\n";);
 
-        for (soft& s : m_soft) {
+        for (soft& s : m_soft) 
             s.set_value(m_model->is_true(s.s));
-        }
        
         verify_assignment();
 
-        m_upper = upper;
+        if (num_assertions == s().get_num_assertions())
+            m_upper = upper;
         
         trace();
 

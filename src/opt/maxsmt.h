@@ -103,6 +103,8 @@ namespace opt {
         };
 
         lbool find_mutexes(obj_map<expr, rational>& new_soft);
+
+        void reset_upper();
         
 
     protected:
@@ -153,6 +155,7 @@ namespace opt {
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
         void model_updated(model* mdl);
+        void reset_upper();
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();

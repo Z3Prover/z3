@@ -3818,6 +3818,8 @@ namespace sat {
     void solver::move_to_front(bool_var b) {
         if (b >= num_vars())
             return;
+        if (m_case_split_queue.empty())
+            return;
         bool_var next = m_case_split_queue.min_var();
         auto next_act = m_activity[next];
         set_activity(b, next_act + 1);

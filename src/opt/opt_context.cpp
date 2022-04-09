@@ -195,13 +195,22 @@ namespace opt {
     }
 
     void context::add_hard_constraint(expr* f) {
-        if (m_calling_on_model) 
+        if (m_calling_on_model) {
             get_solver().assert_expr(f);
+            for (auto const& [k, v] : m_maxsmts)
+                v->reset_upper();
+            for (unsigned i = 0; i < num_objectives(); ++i) {
+                auto const& o = m_scoped_state.m_objectives[i]; 
+                if (o.m_type != O_MAXSMT)
+                    m_optsmt.update_upper(o.m_index, inf_eps::infinity());
+            }
+        }
         else {
             m_scoped_state.add(f);
             clear_state();
         }
     }
+    
 
     void context::add_hard_constraint(expr* f, expr* t) {
         if (m_calling_on_model) 
