@@ -2810,18 +2810,12 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
     }
     unsigned sz = get_bv_size(args[0]);
     // check if num_args > 2^sz
-    bool exact = true;
-    while (num_args > 1 && sz > 0) {
-        exact &= (num_args % 2) == 0;
-        num_args /= 2;
-        sz--;
-    }
-    
-    if (sz + exact < num_args) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    return BR_FAILED;
+    if (sz >= 32) 
+        return BR_FAILED;
+    if (num_args <= 1u << sz)
+        return BR_FAILED;
+    result = m().mk_false();
+    return BR_DONE;     
 }
 
 br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {

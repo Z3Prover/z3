@@ -217,12 +217,10 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if (k == OP_DISTINCT && num > 0) {
-                if (m_bv_rw.is_bv(args[0])) {
-                    st = m_bv_rw.mk_distinct(num, args, result);
-                    if (st != BR_FAILED)
-                        return st;
-                }
+            if (k == OP_DISTINCT && num > 0 && m_bv_rw.is_bv(args[0])) {
+               st = m_bv_rw.mk_distinct(num, args, result);
+               if (st != BR_FAILED)
+                    return st;
             }
 
             return m_b_rw.mk_app_core(f, num, args, result);
