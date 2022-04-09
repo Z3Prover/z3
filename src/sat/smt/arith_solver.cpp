@@ -549,13 +549,14 @@ namespace arith {
         found_compatible = false;
         for (; it != end; ++it) {
             api_bound* a2 = *it;
-            if (a1 == a2) continue;
-            if (a2->get_bound_kind() != kind) continue;
+            if (a1 == a2)
+                continue;
+            if (a2->get_bound_kind() != kind)
+                continue;
             rational const& k2(a2->get_value());
             found_compatible = true;
-            if (k1 < k2) {
+            if (k1 < k2) 
                 return it;
-            }
         }
         return end;
     }
