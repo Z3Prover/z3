@@ -2803,6 +2803,21 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     return BR_FAILED;
 }
 
+br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_ref & result) {
+    if (num_args <= 1) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    unsigned sz = get_bv_size(args[0]);
+    // check if num_args > 2^sz
+    if (sz >= 32) 
+        return BR_FAILED;
+    if (num_args <= 1u << sz)
+        return BR_FAILED;
+    result = m().mk_false();
+    return BR_DONE;     
+}
+
 br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {
     SASSERT(num == 2);
     unsigned bv_sz;
