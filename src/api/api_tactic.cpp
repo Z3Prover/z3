@@ -331,8 +331,8 @@ extern "C" {
         if (idx >= mk_c(c)->num_tactics()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
-        }
-        return mk_c(c)->get_tactic(idx)->get_name().bare_str();
+        }        
+        return mk_c(c)->mk_external_string(mk_c(c)->get_tactic(idx)->get_name().str().c_str());
         Z3_CATCH_RETURN("");
     }
 
@@ -352,7 +352,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
-        return mk_c(c)->get_probe(idx)->get_name().bare_str();
+        return mk_c(c)->mk_external_string(mk_c(c)->get_probe(idx)->get_name().str().c_str());
         Z3_CATCH_RETURN("");
     }
 

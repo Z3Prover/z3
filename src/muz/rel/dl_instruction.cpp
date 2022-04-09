@@ -213,10 +213,10 @@ namespace datalog {
             return true;
         }
         void make_annotations(execution_context & ctx) override {
-            ctx.set_register_annotation(m_reg, m_pred->get_name().bare_str());
+            ctx.set_register_annotation(m_reg, m_pred->get_name().str().c_str());
         }
         std::ostream& display_head_impl(execution_context const& ctx, std::ostream & out) const override {
-            const char * rel_name = m_pred->get_name().bare_str();
+            auto rel_name = m_pred->get_name();            
             if (m_store) {
                 return out << "store " << m_reg << " into " << rel_name;
             }
@@ -378,7 +378,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                                             "trying to perform unsupported join operation on relations of kinds %s and %s",
-                                            r1.get_plugin().get_name().bare_str(), r2.get_plugin().get_name().bare_str());
+                                            r1.get_plugin().get_name().str().c_str(), r2.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r1, r2, fn);
             }
@@ -441,7 +441,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_equal operation on a relation of kind %s",
-                        r.get_plugin().get_name().bare_str());
+                        r.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r, fn);
             }
@@ -490,7 +490,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_identical operation on a relation of kind %s",
-                        r.get_plugin().get_name().bare_str());
+                        r.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r, fn);
             }
@@ -537,7 +537,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_interpreted operation on a relation of kind %s",
-                        r.get_plugin().get_name().bare_str());
+                        r.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r, fn);
             }
@@ -594,7 +594,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_interpreted_and_project operation on a relation of kind %s",
-                        reg.get_plugin().get_name().bare_str());
+                        reg.get_plugin().get_name().str().c_str());
                 }
                 store_fn(reg, fn);
             }
@@ -837,7 +837,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                                             "trying to perform unsupported join-project operation on relations of kinds %s and %s",
-                        r1.get_plugin().get_name().bare_str(), r2.get_plugin().get_name().bare_str());
+                        r1.get_plugin().get_name().str().c_str(), r2.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r1, r2, fn);
             }
@@ -910,7 +910,7 @@ namespace datalog {
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported select_equal_and_project operation on a relation of kind %s",
-                        r.get_plugin().get_name().bare_str());
+                        r.get_plugin().get_name().str().c_str());
                 }
                 store_fn(r, fn);
             }
@@ -1076,7 +1076,7 @@ namespace datalog {
             return true;
         }
         std::ostream& display_head_impl(execution_context const& ctx, std::ostream & out) const override {
-            return out << "mark_saturated " << m_pred->get_name().bare_str();
+            return out << "mark_saturated " << m_pred->get_name();
         }
         void make_annotations(execution_context & ctx) override {
         }

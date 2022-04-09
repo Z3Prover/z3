@@ -355,7 +355,7 @@ extern "C" {
             return mk_c(c)->mk_external_string(buffer.str());
         }
         else {
-            return mk_c(c)->mk_external_string(_s.bare_str());
+            return mk_c(c)->mk_external_string(_s.str());
         }
         Z3_CATCH_RETURN("");
     }

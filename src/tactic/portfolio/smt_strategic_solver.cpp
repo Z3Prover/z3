@@ -143,10 +143,9 @@ public:
         tactic_ref t;
         if (tp.default_tactic() != symbol::null &&
             !tp.default_tactic().is_numerical() && 
-            tp.default_tactic().bare_str() && 
-            tp.default_tactic().bare_str()[0]) {
+            tp.default_tactic().str()[0]) {
             cmd_context ctx(false, &m, l);
-            std::istringstream is(tp.default_tactic().bare_str());
+            std::istringstream is(tp.default_tactic().str());
             char const* file_name = "";
             sexpr_ref se = parse_sexpr(ctx, is, p, file_name);
             if (se) {

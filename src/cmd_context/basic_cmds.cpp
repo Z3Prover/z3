@@ -58,7 +58,7 @@ public:
         cmd * c = ctx.find_cmd(s);
         if (c == nullptr) {
             std::string err_msg("unknown command '");
-            err_msg = err_msg + s.bare_str() + "'";
+            err_msg = err_msg + s.str() + "'";
             throw cmd_exception(std::move(err_msg));
         }
         m_cmds.push_back(s);
