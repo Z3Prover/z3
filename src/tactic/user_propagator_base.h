@@ -17,13 +17,13 @@ namespace user_propagator {
         virtual ~context_obj() = default;
     };
     
-    typedef std::function<void(void*, callback*)> final_eh_t;
-    typedef std::function<void(void*, callback*, expr*, expr*)> fixed_eh_t;
-    typedef std::function<void(void*, callback*, expr*, expr*)> eq_eh_t;
+    typedef std::function<void(void*, callback*)>                    final_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)>      fixed_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)>      eq_eh_t;
     typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
-    typedef std::function<void(void*)>                 push_eh_t;
-    typedef std::function<void(void*,unsigned)>        pop_eh_t;
-    typedef std::function<void(void*, callback*, expr*)> created_eh_t;
+    typedef std::function<void(void*, callback*)>                    push_eh_t;
+    typedef std::function<void(void*, callback*, unsigned)>          pop_eh_t;
+    typedef std::function<void(void*, callback*, expr*)>             created_eh_t;
 
 
     class plugin : public decl_plugin {

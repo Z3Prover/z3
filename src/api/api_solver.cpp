@@ -883,8 +883,8 @@ extern "C" {
         Z3_TRY;
         RESET_ERROR_CODE();
         init_solver(c, s);
-        user_propagator::push_eh_t _push = push_eh;
-        user_propagator::pop_eh_t _pop = pop_eh;
+        user_propagator::push_eh_t _push = (void(*)(void*,user_propagator::callback*)) push_eh;
+        user_propagator::pop_eh_t _pop = (void(*)(void*,user_propagator::callback*,unsigned)) pop_eh;
         user_propagator::fresh_eh_t _fresh = [=](void * user_ctx, ast_manager& m, user_propagator::context_obj*& _ctx) {
             ast_context_params params;
             params.set_foreign_manager(&m);

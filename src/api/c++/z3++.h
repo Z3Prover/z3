@@ -3964,18 +3964,23 @@ namespace z3 {
             }
         };
 
-        static void push_eh(void* p) {
+        static void push_eh(void* _p, Z3_solver_callback cb) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
             static_cast<user_propagator_base*>(p)->push();
         }
 
-        static void pop_eh(void* p, unsigned num_scopes) {
-            static_cast<user_propagator_base*>(p)->pop(num_scopes);
+        static void pop_eh(void* _p, Z3_solver_callback cb, unsigned num_scopes) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            static_cast<user_propagator_base*>(_p)->pop(num_scopes);
         }
 
-        static void* fresh_eh(void* p, Z3_context ctx) {
+        static void* fresh_eh(void* _p, Z3_context ctx) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             context* c = new context(ctx);
-            static_cast<user_propagator_base*>(p)->subcontexts.push_back(c);
-            return static_cast<user_propagator_base*>(p)->fresh(*c);
+            p->subcontexts.push_back(c);
+            return p->fresh(*c);
         }
 
         static void fixed_eh(void* _p, Z3_solver_callback cb, Z3_ast _var, Z3_ast _value) {
