@@ -25,6 +25,7 @@ using namespace smt;
 theory_user_propagator::theory_user_propagator(context& ctx):
     theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name())),
     m_var2expr(ctx.get_manager()),
+    m_push_popping(false),
     m_to_add(ctx.get_manager())
 {}
 
@@ -38,7 +39,7 @@ void theory_user_propagator::force_push() {
         theory::push_scope_eh();
         m_prop_lim.push_back(m_prop.size());
         m_to_add_lim.push_back(m_to_add.size());
-        m_push_eh(m_user_context);
+        m_push_eh(m_user_context, this);
     }
 }
 
@@ -122,7 +123,8 @@ final_check_status theory_user_propagator::final_check_eh() {
     if (!(bool)m_final_eh)
         return FC_DONE;
     force_push();
-    unsigned sz = m_prop.size();
+    unsigned sz1 = m_prop.size();
+    unsigned sz2 = m_expr2var.size();
     try {
         m_final_eh(m_user_context, this);
     }
@@ -130,7 +132,8 @@ final_check_status theory_user_propagator::final_check_eh() {
       throw default_exception("Exception thrown in \"final\"-callback");
     }
     propagate();
-    bool done = (sz == m_prop.size()) && !ctx.inconsistent();
+    // check if it became inconsistent or something new was propagated/registered
+    bool done = !can_propagate() && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
 }
 
@@ -169,11 +172,11 @@ void theory_user_propagator::pop_scope_eh(unsigned num_scopes) {
     old_sz = m_to_add_lim.size() - num_scopes;
     m_to_add.shrink(m_to_add_lim[old_sz]);
     m_to_add_lim.shrink(old_sz);
-    m_pop_eh(m_user_context, num_scopes);
+    m_pop_eh(m_user_context, this, num_scopes);
 }
 
 bool theory_user_propagator::can_propagate() {
-    return m_qhead < m_prop.size() || !m_to_add.empty();
+    return m_qhead < m_prop.size() || m_to_add_qhead < m_to_add.size();
 }
 
 void theory_user_propagator::propagate_consequence(prop_info const& prop) {

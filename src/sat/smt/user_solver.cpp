@@ -88,7 +88,7 @@ namespace user_solver {
     void solver::push_core() {
         th_euf_solver::push_core();
         m_prop_lim.push_back(m_prop.size());
-        m_push_eh(m_user_context);
+        m_push_eh(m_user_context, this);
     }
 
     void solver::pop_core(unsigned num_scopes) {
@@ -96,7 +96,7 @@ namespace user_solver {
         unsigned old_sz = m_prop_lim.size() - num_scopes;
         m_prop.shrink(m_prop_lim[old_sz]);
         m_prop_lim.shrink(old_sz);
-        m_pop_eh(m_user_context, num_scopes);
+        m_pop_eh(m_user_context, this, num_scopes);
     }
 
     void solver::propagate_consequence(prop_info const& prop) {
