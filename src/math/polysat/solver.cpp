@@ -157,9 +157,6 @@ namespace polysat {
         add_clause(c_eq, ult(r, b), false);
         add_clause(~c_eq, eq(q + 1), false);
 
-        // force decisions on whether b == 0
-        m_bvars.track_var(c_eq.blit());
-
         return std::tuple<pdd, pdd>(q, r);
     }
 
@@ -479,10 +476,7 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        if (!m_free_pvars.empty()) 
-            pdecide(m_free_pvars.next_var());
-        else 
-            bdecide(m_bvars.next_var());
+        pdecide(m_free_pvars.next_var());
     }
 
     void solver::pdecide(pvar v) {
@@ -537,13 +531,6 @@ namespace polysat {
             push_level();
         assign_core(v, val, j);
     }   
-
-    void solver::bdecide(sat::bool_var b) {
-        sat::literal lit(b);
-        m_bvars.decide(lit, m_level);
-        m_trail.push_back(trail_instr_t::assign_bool_i);
-        m_search.push_boolean(lit);
-    }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
         if (j.is_decision()) 

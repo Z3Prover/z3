@@ -32,22 +32,19 @@ namespace polysat {
         svector<lbool>          m_value;    // current value (indexed by literal)
         unsigned_vector         m_level;    // level of assignment (indexed by variable)
         dependency_vector       m_deps;     // dependencies of external asserts
-        bool_vector             m_tracked;  // is the variable tracked
-        unsigned_vector         m_activity; //
         svector<kind_t>         m_kind;     // decision or propagation?
         // Clause associated with the assignment (indexed by variable):
         // - for propagations: the reason (or NULL for eval'd literals)
         // - for decisions: the lemma (or NULL for externally asserted literals)
         ptr_vector<clause>      m_clause;
 
-        var_queue                   m_free_vars;  // free Boolean variables
         vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
 
         void assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep = null_dependency);
 
     public:
 
-        bool_var_manager(): m_free_vars(m_activity) {}
+        bool_var_manager() {}
 
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
@@ -78,19 +75,10 @@ namespace polysat {
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_clause[var]; }
        
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }
-        unsigned_vector& activity() { return m_activity; }
-        bool can_decide() const { return !m_free_vars.empty(); }
-        sat::bool_var next_var() { return m_free_vars.next_var(); }
-        void track_var(sat::literal lit) { m_tracked.setx(lit.var(), true, false);  m_free_vars.mk_var_eh(lit.var()); }
-
-        // TODO connect activity updates with solver
-        void inc_activity(sat::literal lit) { m_activity[lit.var()]++; }
-        void dec_activity(sat::literal lit) { m_activity[lit.var()] /= 2; }
 
         /// Set the given literal to true
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
         void decide(sat::literal lit, unsigned lvl, clause& lemma);
-        void decide(sat::literal lit, unsigned lvl);
         void eval(sat::literal lit, unsigned lvl);
         void assumption(sat::literal lit, unsigned lvl, dependency dep);
         void unassign(sat::literal lit);

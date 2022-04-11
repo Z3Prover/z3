@@ -28,7 +28,6 @@ namespace polysat {
             m_clause.push_back(nullptr);
             m_watch.push_back({});
             m_watch.push_back({});
-            m_activity.push_back(0);
         }
         else {
             var = m_unused.back();
@@ -54,8 +53,6 @@ namespace polysat {
         m_deps[var] = null_dependency;
         m_watch[lit.index()].reset();
         m_watch[(~lit).index()].reset();
-        if (m_tracked.get(var, false))
-            m_free_vars.del_var_eh(var);
         // TODO: this is disabled for now, since re-using variables for different constraints may be confusing during debugging. Should be enabled later.
         // m_unused.push_back(var);
     }
@@ -69,12 +66,6 @@ namespace polysat {
     void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause& lemma) {
         LOG("Decide literal " << lit << " @ " << lvl);
         assign(kind_t::decision, lit, lvl, &lemma);
-        SASSERT(is_decision(lit));
-    }
-
-    void bool_var_manager::decide(sat::literal lit, unsigned lvl) {
-        LOG("Decide literal " << lit << " @ " << lvl);
-        assign(kind_t::decision, lit, lvl, nullptr);
         SASSERT(is_decision(lit));
     }
 
@@ -99,8 +90,6 @@ namespace polysat {
         m_kind[lit.var()] = k;
         m_clause[lit.var()] = reason;
         m_deps[lit.var()] = dep;
-        if (m_tracked.get(lit.var(), false))
-            m_free_vars.del_var_eh(lit.var());
     }
 
     void bool_var_manager::unassign(sat::literal lit) {
@@ -111,8 +100,6 @@ namespace polysat {
         m_kind[lit.var()] = kind_t::unassigned;
         m_clause[lit.var()] = nullptr;
         m_deps[lit.var()] = null_dependency;
-        if (m_tracked.get(lit.var(), false))
-            m_free_vars.unassign_var_eh(lit.var());
     }
 
     std::ostream& bool_var_manager::display(std::ostream& out) const {
