@@ -312,6 +312,7 @@ namespace euf {
             }
         }
         else if (m.is_distinct(e)) {
+            // TODO - add lazy case for large values of sz.
             expr_ref_vector eqs(m);
             unsigned sz = n->num_args();
             for (unsigned i = 0; i < sz; ++i) {
