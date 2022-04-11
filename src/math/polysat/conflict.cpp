@@ -60,10 +60,16 @@ namespace polysat {
         return out;
     }
 
+    bool conflict::empty() const {
+        return m_literals.empty()
+            && m_vars.empty()
+            && m_bail_vars.empty()
+            && m_conflict_var == null_var;
+    }
+
     void conflict::reset() {
         for (auto c : *this)
             unset_mark(c);
-        m_constraints.reset();
         m_literals.reset();
         m_vars.reset();
         m_bail_vars.reset();
@@ -135,19 +141,15 @@ namespace polysat {
     void conflict::insert(signed_constraint c) {
         if (c.is_always_true())
             return;        
-        if (c->is_marked())
+        if (is_marked(c))
             return;
         LOG("inserting: " << c);
         SASSERT(!c->vars().empty());
         set_mark(c);
-        if (c->has_bvar())
-            insert_literal(c.blit());
-        else
-            m_constraints.push_back(c);
+        m_literals.insert(c.blit().index());
     }
 
     void conflict::propagate(signed_constraint c) {
-        cm().ensure_bvar(c.get());
         switch (c.bvalue(s)) {
         case l_undef:
             s.assign_eval(c.blit());
@@ -175,13 +177,11 @@ namespace polysat {
      * Ensure that c is assigned and justified
      */
     void conflict::insert(signed_constraint c, vector<signed_constraint> const& premises) {
-        keep(c);
-
+        // keep(c);
         clause_builder c_lemma(s);
         for (auto premise : premises) {
             LOG_H3("premise: " << premise);
-            keep(premise);
-            SASSERT(premise->has_bvar());
+            // keep(premise);
             SASSERT(premise.bvalue(s) != l_false);         
             c_lemma.push(~premise.blit());
         }
@@ -194,12 +194,8 @@ namespace polysat {
     }
 
     void conflict::remove(signed_constraint c) {
-        SASSERT(!c->has_bvar() || std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
         unset_mark(c);       
-        if (c->has_bvar())             
-            remove_literal(c.blit());        
-        else
-            m_constraints.erase(c);
+        m_literals.remove(c.blit().index());
     }
 
     void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises) {
@@ -207,12 +203,12 @@ namespace polysat {
         insert(c_new, c_new_premises);
     }
 
+    bool conflict::contains(signed_constraint c) const {
+        return m_literals.contains(c.blit().index());
+    }
 
-    bool conflict::contains(signed_constraint c) {
-        if (c->has_bvar())
-            return m_literals.contains(c.blit().index());
-        else
-            return m_constraints.contains(c);
+    bool conflict::contains(sat::literal lit) const {
+        return m_literals.contains(lit.index());
     }
 
     void conflict::set_bailout() {
@@ -228,14 +224,12 @@ namespace polysat {
 
         SASSERT(lit != sat::null_literal);
         SASSERT(~lit != sat::null_literal);
-        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c){ return !c->has_bvar(); }));
-        SASSERT(contains_literal(lit));
+        SASSERT(contains(lit));
         SASSERT(std::count(cl.begin(), cl.end(), lit) > 0);
-        SASSERT(!contains_literal(~lit));
+        SASSERT(!contains(~lit));
         SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
-        remove_literal(lit);        
-        unset_mark(s.lit2cnstr(lit));         
+        remove(s.lit2cnstr(lit));
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
                 insert(s.lit2cnstr(~lit2));
@@ -247,9 +241,8 @@ namespace polysat {
 
         SASSERT(lit != sat::null_literal);
         SASSERT(~lit != sat::null_literal);
-        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c){ return !c->has_bvar(); }));
-        SASSERT(contains_literal(lit));
-        SASSERT(!contains_literal(~lit));
+        SASSERT(contains(lit));
+        SASSERT(!contains(~lit));
 
         signed_constraint c = s.lit2cnstr(lit);
         bool has_decision = false;
@@ -260,34 +253,18 @@ namespace polysat {
         if (!has_decision) {
             remove(c);
             for (pvar v : c->vars()) 
-                if (s.is_assigned(v)) 
+                if (s.is_assigned(v)) {
+                    // TODO: 'lit' was propagated at level 'lvl'; can we here ignore variables above that?
+                    SASSERT(s.get_level(v) <= lvl);
                     m_vars.insert(v);            
+                }
         }
     }
 
-    /** 
-     * If the constraint c is a temporary constraint derived by core saturation, 
-     * insert it (and recursively, its premises) into \Gamma 
-     */
-    void conflict::keep(signed_constraint c) {
-        if (c->has_bvar())
-            return;
-        LOG_H3("keeping: " << c);
-        remove(c);
-        cm().ensure_bvar(c.get());
-        insert(c);        
-    }
-
     clause_builder conflict::build_lemma() {
-        // SASSERT(std::all_of(m_vars.begin(), m_vars.end(), [&](pvar v) { return s.is_assigned(v); }));
-        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c) { return !c->has_bvar(); }));
-
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
         clause_builder lemma(s);
-
-        while (!m_constraints.empty()) 
-            keep(m_constraints.back());
 
         for (auto c : *this)
             minimize_vars(c);
@@ -297,7 +274,6 @@ namespace polysat {
 
         for (unsigned v : m_vars) {
             auto eq = s.eq(s.var(v), s.get_value(v));
-            cm().ensure_bvar(eq.get());
             if (eq.bvalue(s) == l_undef) 
                 s.assign_eval(eq.blit());            
             lemma.push(~eq);
@@ -410,50 +386,27 @@ namespace polysat {
     }
 
     void conflict::set_mark(signed_constraint c) {
-        if (c->is_marked())
-            return;
-        c->set_mark();
-        if (c->has_bvar())
-            set_bmark(c->bvar());    
-    }
-
-    /**
-     * unset marking on the constraint, but keep variable dependencies.
-     */
-    void conflict::unset_mark(signed_constraint c) {
-        if (!c->is_marked())
-            return;
-        c->unset_mark();
-        if (c->has_bvar())
-            unset_bmark(c->bvar());
-    }
-
-    void conflict::set_bmark(sat::bool_var b) {
+        sat::bool_var b = c->bvar();
         if (b >= m_bvar2mark.size())
             m_bvar2mark.resize(b + 1);
         SASSERT(!m_bvar2mark[b]);
         m_bvar2mark[b] = true;
     }
 
-    void conflict::unset_bmark(sat::bool_var b) {
+    /**
+     * unset marking on the constraint, but keep variable dependencies.
+     */
+    void conflict::unset_mark(signed_constraint c) {
+        sat::bool_var b = c->bvar();
         SASSERT(m_bvar2mark[b]);
         m_bvar2mark[b] = false;
     }
 
-    bool conflict::is_bmarked(sat::bool_var b) const {
+    bool conflict::is_marked(signed_constraint c) const {
+        return is_marked(c->bvar());
+    }
+
+    bool conflict::is_marked(sat::bool_var b) const {
         return m_bvar2mark.get(b, false);
     }
-
-    bool conflict::contains_literal(sat::literal lit) const {
-        return m_literals.contains(lit.to_uint());
-    }
-
-    void conflict::insert_literal(sat::literal lit) {
-        m_literals.insert(lit.to_uint());
-    }
-
-    void conflict::remove_literal(sat::literal lit) {
-        m_literals.remove(lit.to_uint());
-    }
-
 }

@@ -151,6 +151,8 @@ namespace polysat {
             return c2;
         }
         else {
+            SASSERT(!c1->has_bvar());
+            ensure_bvar(c1);
             m_constraint_table.insert(c1);
             store(c1);
             return c1;

@@ -48,6 +48,8 @@ namespace polysat {
         return false; 
     }
 
-    void simplify::operator()() {}
+    void simplify::operator()() {
+      (void)s; // silence warning
+    }
 
 }

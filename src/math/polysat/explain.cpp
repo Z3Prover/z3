@@ -61,8 +61,6 @@ namespace polysat {
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
-            if (!c->has_bvar())
-                s.m_constraints.ensure_bvar(c.get());
 
             switch (c.bvalue(s)) {
             case l_false:

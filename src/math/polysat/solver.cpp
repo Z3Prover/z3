@@ -186,7 +186,6 @@ namespace polysat {
         SASSERT(c);
         if (is_conflict())
             return;  // no need to do anything if we already have a conflict at base level
-        m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
         switch (m_bvars.value(lit)) {
@@ -624,7 +623,7 @@ namespace polysat {
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
                 sat::bool_var const var = lit.var();
-                if (!m_conflict.is_bmarked(var))
+                if (!m_conflict.is_marked(var))
                     continue;
 
                 LOG_H2("Working on " << search_item_pp(m_search, item));
@@ -639,8 +638,10 @@ namespace polysat {
                 }
                 else if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve(lit, *m_bvars.reason(lit));
-                else
+                else {
+                    SASSERT(m_bvars.is_value_propagation(var));
                     m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
+                }
             }
         }
         // here we build conflict clause if it has free variables.
@@ -938,7 +939,6 @@ namespace polysat {
             signed_constraint c = cs[i];
             if (c.is_always_false())
                 continue;
-            m_constraints.ensure_bvar(c.get());
             cb.push(c);
         }
         clause_ref clause = cb.build();
@@ -1114,7 +1114,7 @@ namespace polysat {
     pdd solver::subst(assignment_t const& sub, pdd const& p) const {
         unsigned sz = p.manager().power_of_2();
         pdd s = p.manager().mk_val(1);
-        for (auto const [var, val] : sub) 
+        for (auto const& [var, val] : sub)
             if (size(var) == sz)
                 s = p.manager().subst_add(s, var, val);
         return p.subst_val(s);

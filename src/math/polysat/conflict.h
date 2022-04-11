@@ -85,7 +85,7 @@ namespace polysat {
     /** Conflict state, represented as core (~negation of clause). */
     class conflict {
         solver& s;
-        signed_constraints m_constraints;   // new constraints used as premises
+        // signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
         uint_set m_bail_vars;
@@ -95,16 +95,9 @@ namespace polysat {
         pvar m_conflict_var = null_var;
 
         bool_vector m_bvar2mark;                  // mark of Boolean variables
-        void set_bmark(sat::bool_var b);
-        void unset_bmark(sat::bool_var b);
 
         void set_mark(signed_constraint c);
         void unset_mark(signed_constraint c);
-        void unset_bmark(signed_constraint c);
-
-        bool contains_literal(sat::literal lit) const;
-        void insert_literal(sat::literal lit);
-        void remove_literal(sat::literal lit);
 
         void minimize_vars(signed_constraint c);
 
@@ -126,14 +119,12 @@ namespace polysat {
 
         void set_bailout();
 
-        bool empty() const {
-            return m_constraints.empty() && m_vars.empty() && m_literals.empty() && m_conflict_var == null_var;
-        }
-
+        bool empty() const;
         void reset();
 
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
-        bool is_bmarked(sat::bool_var b) const;
+        bool is_marked(signed_constraint c) const;
+        bool is_marked(sat::bool_var b) const;
 
         /** conflict because the constraint c is false under current variable assignment */
         void set(signed_constraint c);
@@ -149,9 +140,8 @@ namespace polysat {
         void remove(signed_constraint c);
         void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises);
 
-        void keep(signed_constraint c);
-
-        bool contains(signed_constraint c);
+        bool contains(signed_constraint c) const;
+        bool contains(sat::literal lit) const;
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.
@@ -187,23 +177,20 @@ namespace polysat {
     class conflict_iterator {
         friend class conflict;
 
-        using it1_t = signed_constraints::const_iterator;
-        using it2_t = indexed_uint_set::iterator;
+        using inner_t = indexed_uint_set::iterator;
 
         constraint_manager* m_cm;
-        it1_t m_it1;
-        it1_t m_end1;
-        it2_t m_it2;
+        inner_t m_inner;
 
-        conflict_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
-            m_cm(&cm), m_it1(it1), m_end1(end1), m_it2(it2) {}
+        conflict_iterator(constraint_manager& cm, inner_t inner):
+            m_cm(&cm), m_inner(inner) {}
 
-        static conflict_iterator begin(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
-            return {cm, cs.begin(), cs.end(), lits.begin()};
+        static conflict_iterator begin(constraint_manager& cm, indexed_uint_set const& lits) {
+            return {cm, lits.begin()};
         }
 
-        static conflict_iterator end(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
-            return {cm, cs.end(), cs.end(), lits.end()};
+        static conflict_iterator end(constraint_manager& cm, indexed_uint_set const& lits) {
+            return {cm, lits.end()};
         }
 
     public:
@@ -214,28 +201,22 @@ namespace polysat {
         using iterator_category = std::input_iterator_tag;
 
         conflict_iterator& operator++() {
-            if (m_it1 != m_end1)
-                ++m_it1;
-            else
-                ++m_it2;
+            ++m_inner;
             return *this;
         }
 
         signed_constraint operator*() const {
-            if (m_it1 != m_end1)
-                return *m_it1;
-            else
-                return m_cm->lookup(sat::to_literal(*m_it2));
+            return m_cm->lookup(sat::to_literal(*m_inner));
         }
 
         bool operator==(conflict_iterator const& other) const {
-            return m_it1 == other.m_it1 && m_it2 == other.m_it2;
+            return m_inner == other.m_inner;
         }
 
         bool operator!=(conflict_iterator const& other) const { return !operator==(other); }
     };
 
 
-    inline conflict::const_iterator conflict::begin() const { return conflict_iterator::begin(cm(), m_constraints, m_literals); }
-    inline conflict::const_iterator conflict::end() const { return conflict_iterator::end(cm(), m_constraints, m_literals); }
+    inline conflict::const_iterator conflict::begin() const { return conflict_iterator::begin(cm(), m_literals); }
+    inline conflict::const_iterator conflict::end() const { return conflict_iterator::end(cm(), m_literals); }
 }

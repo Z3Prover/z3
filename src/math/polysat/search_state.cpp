@@ -50,7 +50,6 @@ namespace polysat {
     void search_state::push_assignment(pvar p, rational const& r) {
         m_items.push_back(search_item::assignment(p));
         m_assignment.push_back({p, r});
-        auto& m = s.var2pdd(p);
         unsigned sz = s.size(p);
         pdd& s = assignment(sz);
         m_subst_trail.push_back(s);

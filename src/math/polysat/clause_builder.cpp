@@ -77,8 +77,6 @@ namespace polysat {
     void clause_builder::push_new(signed_constraint c) {
         if (c.is_always_false())  // filter out trivial constraints such as "4 < 2" (may come in from forbidden intervals)
             return;
-        if (!c->has_bvar())
-            m_solver->m_constraints.ensure_bvar(c.get());
         push(c);
     }
 }

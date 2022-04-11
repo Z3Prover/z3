@@ -74,13 +74,12 @@ namespace polysat {
 
         void register_clause(clause* cl, solver& s);
 
+        void ensure_bvar(constraint* c);
+        void erase_bvar(constraint* c);
+
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
-
-        void ensure_bvar(constraint* c);
-        void erase_bvar(constraint* c);
-        // sat::literal get_or_assign_blit(signed_constraint& c);
 
         void store(clause* cl, solver& s, bool value_propagate);
 
@@ -146,11 +145,9 @@ namespace polysat {
         friend class smul_fl_constraint;
         friend class op_constraint;
 
-        // constraint_manager* m_manager;
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
-        bool                m_is_marked = false;
         bool                m_is_active = false;
         /** The boolean variable associated to this constraint, if any.
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
@@ -159,7 +156,6 @@ namespace polysat {
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
-        
 
     public:
         virtual ~constraint() {}
@@ -199,7 +195,7 @@ namespace polysat {
         unsigned var(unsigned idx) const { return m_vars[idx]; }
         bool contains_var(pvar v) const { return m_vars.contains(v); }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
-        sat::bool_var bvar() const { return m_bvar; }
+        sat::bool_var bvar() const { SASSERT(has_bvar()); return m_bvar; }
         std::string bvar2string() const;
         unsigned level(solver& s) const;
 
@@ -207,10 +203,6 @@ namespace polysat {
         void unset_external() { m_external_sign = l_undef; }
         bool is_external() const { return m_external_sign != l_undef; }
         bool external_sign() const { SASSERT(is_external()); return m_external_sign == l_true; }
-
-        void set_mark() { m_is_marked = true; }
-        void unset_mark() { m_is_marked = false; }
-        bool is_marked() const { return m_is_marked; }
 
         bool is_active() const { return m_is_active; }
         void set_active(bool f) { m_is_active = f; }
