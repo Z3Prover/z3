@@ -35,7 +35,7 @@ namespace opt {
 
     class maxsmt_solver {
     protected:
-        adjust_value m_adjust_value;
+        adjust_value* m_adjust_value = nullptr;
     public:        
         virtual ~maxsmt_solver() {}
         virtual lbool operator()() = 0;
@@ -45,7 +45,7 @@ namespace opt {
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void get_model(model_ref& mdl, svector<symbol>& labels) = 0;
         virtual void updt_params(params_ref& p) = 0;
-        void set_adjust_value(adjust_value& adj) { m_adjust_value = adj; }
+        void set_adjust_value(adjust_value& adj) { m_adjust_value = &adj; }
 
     };
 
@@ -128,7 +128,7 @@ namespace opt {
         expr_ref_vector  m_answer;
         rational         m_lower;
         rational         m_upper;
-        adjust_value     m_adjust_value;
+        adjust_value*    m_adjust_value = nullptr;
         model_ref        m_model;
         svector<symbol>  m_labels;
         params_ref       m_params;

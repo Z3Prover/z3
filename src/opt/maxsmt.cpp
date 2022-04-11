@@ -91,12 +91,15 @@ namespace opt {
                 m_upper += s.weight;
         }
 
+        return true;
+
         preprocess pp(s());
         rational lower(0);
         bool r = pp(m_soft, lower);
 
+
         if (lower != 0)
-            m_adjust_value.set_offset(lower + m_adjust_value.get_offset());
+            m_adjust_value->set_offset(lower + m_adjust_value->get_offset());
         
         TRACE("opt", 
               tout << "upper: " << m_upper << " assignments: ";
@@ -166,8 +169,8 @@ namespace opt {
 
     void maxsmt_solver_base::trace_bounds(char const * solver) {
         IF_VERBOSE(1, 
-                   rational l = m_adjust_value(m_lower);
-                   rational u = m_adjust_value(m_upper);
+                   rational l = (*m_adjust_value)(m_lower);
+                   rational u = (*m_adjust_value)(m_upper);
                    if (l > u) std::swap(l, u);
                    verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);                
     }
@@ -206,7 +209,7 @@ namespace opt {
 
         if (m_msolver) {
             m_msolver->updt_params(m_params);
-            m_msolver->set_adjust_value(m_adjust_value);
+            m_msolver->set_adjust_value(*m_adjust_value);
             is_sat = l_undef;
             try {
                 is_sat = (*m_msolver)();
@@ -231,9 +234,9 @@ namespace opt {
     }
 
     void maxsmt::set_adjust_value(adjust_value& adj) { 
-        m_adjust_value = adj; 
+        m_adjust_value = &adj; 
         if (m_msolver) {
-            m_msolver->set_adjust_value(m_adjust_value);
+            m_msolver->set_adjust_value(adj);            
         }
     }
 
@@ -265,7 +268,7 @@ namespace opt {
             rational q = m_msolver->get_lower();
             if (q > r) r = q;
         }
-        return m_adjust_value(r);
+        return (*m_adjust_value)(r);
     }
 
     rational maxsmt::get_upper() const {
@@ -274,7 +277,7 @@ namespace opt {
             rational q = m_msolver->get_upper();
             if (q < r) r = q; 
         }
-        return m_adjust_value(r);
+        return (*m_adjust_value)(r);
     }
 
     void maxsmt::update_lower(rational const& r) {
