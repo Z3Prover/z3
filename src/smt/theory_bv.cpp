@@ -1841,7 +1841,7 @@ namespace smt {
         auto& bits = m_bits[v];
         unsigned sz = bits.size();
 
-        for (unsigned i = start_bit; start_bit < sz; ++i) {
+        for (unsigned i = start_bit; i < sz; ++i) {
             if (ctx.get_assignment(bits[i].var()) != l_undef)
                 return bits[i].var();
         }
