@@ -1819,49 +1819,38 @@ namespace smt {
         st.update("bv->core eq", m_stats.m_num_th2core_eq);
         st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
     }
-    
-    svector<theory_bv::var_enode_pos> theory_bv::get_enodes(bool_var v) const {
+
+    theory_bv::var_enode_pos theory_bv::get_bv_with_theory(bool_var v, theory_id id) const {
         atom* a      = get_bv2a(v);
         svector<var_enode_pos> vec;
         if (!a->is_bit())
-            return vec;
+            return var_enode_pos(nullptr, UINT32_MAX);
         bit_atom * b = static_cast<bit_atom*>(a);
         var_pos_occ * curr = b->m_occs;
         while (curr) {
-            vec.push_back(var_enode_pos(get_enode(curr->m_var), curr->m_idx));
+            enode* n = get_enode(curr->m_var);
+            if (n->get_th_var(id) != null_theory_var)
+                return var_enode_pos(n, curr->m_idx);
             curr = curr->m_next;
         }
-        return vec;
+        return var_enode_pos(nullptr, UINT32_MAX);
     }
 
-    bool_var theory_bv::get_unassigned(theory_var v) const {
-        SASSERT(v < m_bits.size());
-        literal_vector const & bits = m_bits[v];
+    bool_var theory_bv::get_first_unassigned(unsigned start_bit, enode* n) const {
+        theory_var v = n->get_th_var(get_family_id());
+        auto& bits = m_bits[v];
         unsigned sz = bits.size();
-        for (unsigned i = 0; i < sz; i++) {
-            literal bit = bits[i];
-            lbool val = ctx.get_assignment(bit);
-            if (val == l_undef)
-                return bit.var();
+
+        for (unsigned i = start_bit; start_bit < sz; ++i) {
+            if (ctx.get_assignment(bits[i].var()) != l_undef)
+                return bits[i].var();
         }
+        for (unsigned i = 0; i < start_bit; ++i) {
+            if (ctx.get_assignment(bits[i].var()) != l_undef)
+                return bits[i].var();
+        }
+
         return null_bool_var;
-    }
-    
-    bool_var theory_bv::get_bit(theory_var v, unsigned idx) const {
-        if (idx >= m_bits[v].size()) 
-            return null_bool_var;
-        return m_bits[v][idx].var();
-    }
-    
-    unsigned theory_bv::get_index(theory_var var, bool_var v) const {
-        literal_vector const & bits = m_bits[v];
-        unsigned sz = bits.size();
-        for (unsigned i = 0; i < sz; i++) {
-            if (bits[i].var() == v)
-                return i;
-        } 
-        SASSERT(false);
-        return 0;
     }
 
     bool theory_bv::check_assignment(theory_var v) {

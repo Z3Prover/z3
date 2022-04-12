@@ -1134,10 +1134,10 @@ namespace smt {
 
         enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args);
 
+        bool guess(bool_var var, lbool phase);
+
     protected:
         bool decide();
-        
-        bool guess(bool_var var, lbool phase);
 
         void update_phase_cache_counter();
 

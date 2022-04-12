@@ -17,6 +17,7 @@ Author:
 
 
 #include "ast/ast_pp.h"
+#include "smt/theory_bv.h"
 #include "smt/theory_user_propagator.h"
 #include "smt/smt_context.h"
 
@@ -155,10 +156,71 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
      }
 }
 
-void theory_user_propagator::decide(enode*& var, unsigned& bit, lbool& is_pos) {
-    expr* e = var2expr(var->get_th_var(get_family_id()));
-    m_decide_eh(m_user_context, this, e, bit, is_pos);
-    var = ctx.get_enode(e);
+void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
+
+    const bool_var_data& d = ctx.get_bdata(var);
+
+    if (!d.is_theory_atom())
+        return;
+
+    theory* th = ctx.get_theory(d.get_theory());
+
+    bv_util bv(m);
+    enode* original_enode = nullptr;
+    unsigned original_bit = 0;
+
+    if (d.is_enode() && th->get_family_id() == get_family_id()) {
+        // variable is just a registered expression
+        original_enode = ctx.bool_var2enode(var);
+    }
+    else if (th->get_family_id() == bv.get_fid()) {
+        // it might be a registered bit-vector
+        auto registered_bv = ((theory_bv*)th)->get_bv_with_theory(var, get_family_id());
+        if (!registered_bv.first)
+            // there is no registered bv associated with the bit
+            return;
+        original_enode = registered_bv.first;
+        original_bit = registered_bv.second;
+    }
+    else
+        return;
+
+    // call the registered callback
+    unsigned new_bit = original_bit;
+    lbool phase = is_pos ? l_true : l_false;
+
+    expr* e = var2expr(original_enode->get_th_var(get_family_id()));
+    m_decide_eh(m_user_context, this, e, new_bit, phase);
+    enode* new_enode = ctx.get_enode(e);
+
+    // check if the callback changed something
+    if (original_enode == new_enode && (new_enode->is_bool() || original_bit == new_bit)) {
+        if (phase != l_undef)
+            // it only affected the truth value
+            is_pos = phase == l_true;
+        return;
+    }
+
+    bool_var old_var = var;
+    if (new_enode->is_bool()) {
+        // expression was set to a boolean
+        bool_var new_var = ctx.enode2bool_var(new_enode);
+        if (ctx.get_assignment(new_var) == l_undef) {
+            var = new_var;
+        }
+    }
+    else {
+        // expression was set to a bit-vector
+        auto th_bv = (theory_bv*)ctx.get_theory(bv.get_fid());
+        bool_var new_var = th_bv->get_first_unassigned(new_bit, new_enode);
+
+        if (new_var != null_bool_var) {
+            var = new_var;
+        }
+    }
+
+    // in case the callback did not decide on a truth value -> let Z3 decide
+    is_pos = ctx.guess(var, phase);
 }
 
 void theory_user_propagator::push_scope_eh() {    

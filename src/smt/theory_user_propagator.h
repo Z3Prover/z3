@@ -131,7 +131,7 @@ namespace smt {
         void register_cb(expr* e) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
-        void decide(enode*& var, unsigned& bit, lbool& is_pos);
+        void decide(bool_var& var, bool& is_pos);
 
         theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app* atom, bool gate_ctx) override;
