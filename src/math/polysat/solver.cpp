@@ -20,6 +20,7 @@ Author:
 #include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/variable_elimination.h"
+#include "math/polysat/polysat_params.hpp"
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
@@ -48,16 +49,18 @@ namespace polysat {
     }
 
     void solver::updt_params(params_ref const& p) {
+        polysat_params pp(p);
         m_params.append(p);
-        m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
-        m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
+        m_config.m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
+        m_config.m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
+        m_config.m_log_conflicts = pp.log_conflicts();
     }
 
     bool solver::should_search() {
         return 
             m_lim.inc() && 
-            (m_stats.m_num_conflicts < m_max_conflicts) &&
-            (m_stats.m_num_decisions < m_max_decisions);
+            (m_stats.m_num_conflicts < get_config().m_max_conflicts) &&
+            (m_stats.m_num_decisions < get_config().m_max_decisions);
     }
    
     lbool solver::check_sat() {         
@@ -86,7 +89,7 @@ namespace polysat {
     lbool solver::unit_propagate() {
         return l_undef;
         // disabled to allow debugging unsoundness for watched literals
-        flet<uint64_t> _max_d(m_max_conflicts, m_stats.m_num_conflicts + 2);
+        flet<uint64_t> _max_d(m_config.m_max_conflicts, m_stats.m_num_conflicts + 2);
         return check_sat();
     }
 

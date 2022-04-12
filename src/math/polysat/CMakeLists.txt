@@ -28,4 +28,6 @@ z3_add_component(polysat
     simplex
     interval
     bigfix
+ PYG_FILES
+    polysat_params.pyg
 )

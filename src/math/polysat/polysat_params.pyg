@@ -1,0 +1,6 @@
+def_module_params('polysat', 
+                  description='polysat solver',
+                  export=True,
+                  params=(('log_conflicts', BOOL, True, "log conflicts"),
+                          ))         
+                

@@ -39,6 +39,12 @@ Author:
 
 namespace polysat {
 
+    struct config {
+        uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
+        uint64_t                 m_max_decisions = std::numeric_limits<uint64_t>::max();
+        bool                     m_log_conflicts = false;
+    };
+
     class solver {
 
         struct stats {
@@ -94,9 +100,7 @@ namespace polysat {
         var_queue                m_free_pvars;  // free poly vars
         stats                    m_stats;
 
-        uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
-        uint64_t                 m_max_decisions = std::numeric_limits<uint64_t>::max();
-
+        config                   m_config;
         // Per constraint state
         constraint_manager       m_constraints;
 
@@ -401,6 +405,8 @@ namespace polysat {
         params_ref const & params() const { return m_params;  }
 
         void updt_params(params_ref const& p);
+
+        config const& get_config() const { return m_config; }
 
     };  // class solver
 
