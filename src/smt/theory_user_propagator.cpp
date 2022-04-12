@@ -135,7 +135,7 @@ final_check_status theory_user_propagator::final_check_eh() {
     }
     propagate();
     // check if it became inconsistent or something new was propagated/registered
-    bool done = !can_propagate() && !ctx.inconsistent();
+    bool done = (sz1 == m_prop.size()) && (sz2 == m_expr2var.size()) && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
 }
 
