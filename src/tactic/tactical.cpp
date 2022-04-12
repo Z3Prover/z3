@@ -204,6 +204,10 @@ public:
         m_t2->user_propagate_register_created(created_eh);
     }
 
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        m_t2->user_propagate_register_decide(decide_eh);
+    }
+
 };
 
 tactic * and_then(tactic * t1, tactic * t2) {

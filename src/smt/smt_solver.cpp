@@ -244,6 +244,10 @@ namespace {
             m_context.user_propagate_register_created(c);
         }
 
+        void user_propagate_register_decide(user_propagator::decide_eh_t& c) override {
+            m_context.user_propagate_register_decide(c);
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "ast/ast.h"
+#include "util/lbool.h"
 
 namespace user_propagator {
 
@@ -17,14 +18,14 @@ namespace user_propagator {
         virtual ~context_obj() = default;
     };
     
-    typedef std::function<void(void*, callback*)>                    final_eh_t;
-    typedef std::function<void(void*, callback*, expr*, expr*)>      fixed_eh_t;
-    typedef std::function<void(void*, callback*, expr*, expr*)>      eq_eh_t;
-    typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
-    typedef std::function<void(void*, callback*)>                    push_eh_t;
-    typedef std::function<void(void*, callback*, unsigned)>          pop_eh_t;
-    typedef std::function<void(void*, callback*, expr*)>             created_eh_t;
-
+    typedef std::function<void(void*, callback*)>                            final_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)>              fixed_eh_t;
+    typedef std::function<void(void*, callback*, expr*, expr*)>              eq_eh_t;
+    typedef std::function<void*(void*, ast_manager&, context_obj*&)>         fresh_eh_t;
+    typedef std::function<void(void*, callback*)>                            push_eh_t;
+    typedef std::function<void(void*, callback*, unsigned)>                  pop_eh_t;
+    typedef std::function<void(void*, callback*, expr*)>                     created_eh_t;
+    typedef std::function<void(void*, callback*, expr*&, unsigned&, lbool&)> decide_eh_t;
 
     class plugin : public decl_plugin {
     public:
@@ -82,6 +83,10 @@ namespace user_propagator {
         }
 
         virtual void user_propagate_register_created(created_eh_t& r) {
+            throw default_exception("user-propagators are only supported on the SMT solver");
+        }
+
+        virtual void user_propagate_register_decide(decide_eh_t& r) {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 

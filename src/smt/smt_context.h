@@ -1136,6 +1136,8 @@ namespace smt {
 
     protected:
         bool decide();
+        
+        bool guess(bool_var var, lbool phase);
 
         void update_phase_cache_counter();
 
@@ -1738,7 +1740,15 @@ namespace smt {
             m_user_propagator->register_created(r);
         }
 
+        void user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_decide(r);
+        }
+
         bool watches_fixed(enode* n) const;
+
+        bool decide_user_interference(bool_var& var, bool& is_pos);
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
 

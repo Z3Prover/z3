@@ -284,4 +284,8 @@ namespace smt {
         m_imp->m_kernel.user_propagate_register_created(r);
     }
 
+    void kernel::user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+        m_imp->m_kernel.user_propagate_register_decide(r);
+    }
+
 };
