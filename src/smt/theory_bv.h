@@ -287,10 +287,8 @@ namespace smt {
         bool get_fixed_value(app* x, numeral & result) const;
         bool is_fixed_propagated(theory_var v, expr_ref& val, literal_vector& explain) override;
 
-        svector<var_enode_pos> get_enodes(bool_var v) const;
-        bool_var get_unassigned(theory_var v) const;
-        bool_var get_bit(theory_var v, unsigned idx) const;
-        unsigned get_index(theory_var var, bool_var v) const;
+        var_enode_pos get_bv_with_theory(bool_var v, theory_id id) const;
+        bool_var get_first_unassigned(unsigned start_bit, enode* n) const;
 
         bool check_assignment(theory_var v);
         bool check_invariant();

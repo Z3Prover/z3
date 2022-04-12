@@ -1767,6 +1767,70 @@ namespace smt {
     }
 
     /**
+       \brief Returns a truth value for the given variable
+    */
+    bool context::guess(bool_var var, lbool phase) {
+        if (is_quantifier(m_bool_var2expr[var])) {
+            // Overriding any decision on how to assign the quantifier.
+            // assigning a quantifier to false is equivalent to make it irrelevant.
+            phase = l_false;
+        }
+        literal l(var, false);
+
+        if (phase != l_undef)
+            return phase == l_true;
+
+        bool_var_data & d = m_bdata[var];
+        if (d.try_true_first())
+            return true;
+        switch (m_fparams.m_phase_selection) {
+        case PS_THEORY:
+            if (m_phase_cache_on && d.m_phase_available) {
+                return m_bdata[var].m_phase;
+            }
+            if (!m_phase_cache_on && d.is_theory_atom()) {
+                theory * th = m_theories.get_plugin(d.get_theory());
+                lbool th_phase = th->get_phase(var);
+                if (th_phase != l_undef) {
+                    return th_phase == l_true;
+                }
+            }
+            if (track_occs()) {
+                if (m_lit_occs[l.index()] == 0) {
+                    return false;
+                }
+                if (m_lit_occs[(~l).index()] == 0) {
+                    return true;
+                }
+            }
+            return m_phase_default;
+        case PS_CACHING:
+        case PS_CACHING_CONSERVATIVE:
+        case PS_CACHING_CONSERVATIVE2:
+            if (m_phase_cache_on && d.m_phase_available) {
+                TRACE("phase_selection", tout << "using cached value, is_pos: " << m_bdata[var].m_phase << ", var: p" << var << "\n";);
+                return m_bdata[var].m_phase;
+            }
+            else {
+                TRACE("phase_selection", tout << "setting to false\n";);
+                return m_phase_default;
+            }
+        case PS_ALWAYS_FALSE:
+            return false;
+        case PS_ALWAYS_TRUE:
+            return true;
+        case PS_RANDOM:
+            return m_random() % 2 == 0;
+        case PS_OCCURRENCE: {
+            return m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
+        }
+        default:
+            UNREACHABLE();
+            return false;
+        }
+    }
+
+    /**
        \brief Execute next case split, return false if there are no
        more case splits to be performed.
     */
@@ -1822,70 +1886,6 @@ namespace smt {
         TRACE("decide", tout << "case split " << l << "\n" << "activity: " << get_activity(var) << "\n";);
         assign(l, b_justification::mk_axiom(), true);
         return true;
-    }
-    
-    /**
-       \brief Returns a truth value for the given variable
-    */
-    bool context::guess(bool_var var, lbool phase) {
-        if (is_quantifier(m_bool_var2expr[var])) {
-            // Overriding any decision on how to assign the quantifier.
-            // assigning a quantifier to false is equivalent to make it irrelevant.
-            phase = l_false;
-        }
-        literal l(var, false);
-    
-        if (phase != l_undef)
-            return phase == l_true;
-        
-        bool_var_data & d = m_bdata[var];
-        if (d.try_true_first())
-            return true;
-        switch (m_fparams.m_phase_selection) {
-        case PS_THEORY: 
-            if (m_phase_cache_on && d.m_phase_available) {
-                return m_bdata[var].m_phase;
-            }
-            if (!m_phase_cache_on && d.is_theory_atom()) {
-                theory * th = m_theories.get_plugin(d.get_theory());
-                lbool th_phase = th->get_phase(var);
-                if (th_phase != l_undef) {
-                    return th_phase == l_true;
-                }
-            }
-            if (track_occs()) {
-                if (m_lit_occs[l.index()] == 0) {
-                    return false;
-                }
-                if (m_lit_occs[(~l).index()] == 0) {
-                    return true;
-                }
-            }
-            return m_phase_default;
-        case PS_CACHING:
-        case PS_CACHING_CONSERVATIVE:
-        case PS_CACHING_CONSERVATIVE2:
-            if (m_phase_cache_on && d.m_phase_available) {
-                TRACE("phase_selection", tout << "using cached value, is_pos: " << m_bdata[var].m_phase << ", var: p" << var << "\n";);
-                return m_bdata[var].m_phase;
-            }
-            else {
-                TRACE("phase_selection", tout << "setting to false\n";);
-                return m_phase_default;
-            }
-        case PS_ALWAYS_FALSE:
-            return false;
-        case PS_ALWAYS_TRUE:
-            return true;
-        case PS_RANDOM:
-            return m_random() % 2 == 0;
-        case PS_OCCURRENCE: {
-            return m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
-        }
-        default:
-            UNREACHABLE();
-            return false;
-        }
     }
     
     /**
@@ -2907,67 +2907,9 @@ namespace smt {
     bool context::decide_user_interference(bool_var& var, bool& is_pos) {
         if (!m_user_propagator || !m_user_propagator->has_decide())
             return false;
-        
-        const bool_var_data& d = get_bdata(var);
-        if (!d.is_theory_atom())
-            return false;
-        
-        theory* th = m_theories.get_plugin(d.get_theory());
-        bv_util bv(m);
-        enode* old_enode = nullptr;
-        unsigned old_bit = 0;
-        if (d.is_enode() && th->get_family_id() == m_user_propagator->get_family_id()) {
-            old_enode = bool_var2enode(var);
-        } else if (th->get_family_id() == bv.get_fid()) {
-            svector<theory_bv::var_enode_pos> occurrences = ((theory_bv*)th)->get_enodes(var);
-            for (const auto& occurrence : occurrences) {
-                if (occurrence.first->get_th_var(m_user_propagator->get_family_id()) == null_theory_var)
-                    continue;
-                old_enode = occurrence.first;
-                old_bit = occurrence.second;
-            }
-            if (!old_enode)
-                return false;
-        } else
-            return false;
-        
-        unsigned new_bit = old_bit;
-        enode* new_enode = old_enode;
-        lbool phase = is_pos ? l_true : l_false;
-        m_user_propagator->decide(new_enode, new_bit, phase);
-        if (old_enode == new_enode && (new_enode->is_bool() || old_bit == new_bit)) {
-            if (phase != l_undef)
-                is_pos = phase == l_true;
-            return false;
-        }
-        bool changed = false;
-        bool_var old_var = var;
-        if (new_enode->is_bool()) {
-            bool_var new_var = enode2bool_var(new_enode);
-            if (get_assignment(new_var) == l_undef) {
-                var = new_var;
-                changed = new_var != old_var;
-            }
-        } else {
-            bv_util bv(m);
-            theory_var v = new_enode->get_th_var(bv.get_fid());
-            theory_bv* th = (theory_bv*)m_theories.get_plugin(bv.get_fid());
-            bool_var new_var = th->get_bit(v, new_bit);
-            if (new_var != null_bool_var && get_assignment(new_var) == l_undef) {
-                var = new_var;
-                changed = new_var != old_var;
-            }
-            else {
-                new_var = th->get_unassigned(v);
-                if (new_var != null_bool_var) {
-                    var = new_var;
-                    changed = new_var != old_var;
-                }
-            }
-        }
-        if (changed) 
-            is_pos = guess(var, phase);
-        return changed;
+        bool_var old = var;
+        m_user_propagator->decide(var, is_pos);
+        return old != var;
     }
 
     void context::assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain) {
@@ -3106,7 +3048,8 @@ namespace smt {
                     }
                 }
             }
-        } else {
+        }
+        else {
             literal_vector new_case_split;
             for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
