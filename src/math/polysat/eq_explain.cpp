@@ -25,7 +25,6 @@ namespace polysat {
      * a << (K - az - 1) = 0 or v << az = 0
      * 
      */
-    
     bool eq_explain::explain_zero(pvar v, pdd & a, pdd & b, signed_constraint c, conflict& core) {
         pdd bv = s.subst(b);
         if (!bv.is_zero())
@@ -40,6 +39,7 @@ namespace polysat {
         core.propagate(s.eq(b));
         core.propagate(~s.eq(a.shl(K - az - 1)));
         core.propagate(~s.eq(b.shl(az)));
+        core.log_inference("explain_zero");
         return true;
     }
 

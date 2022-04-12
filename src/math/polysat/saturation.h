@@ -43,8 +43,8 @@ namespace polysat {
         void push_omega(pdd const& x, pdd const& y);
         void push_omega_bisect(pdd const& x, rational x_max, pdd const& y, rational y_max);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
-        bool propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c);
-        bool propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool strict, pdd const& lhs, pdd const& rhs);
+        bool propagate(char const* inf_name, conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c);
+        bool propagate(char const* inf_name, conflict& core, inequality const& crit1, inequality const& crit2, bool strict, pdd const& lhs, pdd const& rhs);
 
         bool try_ugt_x(pvar v, conflict& core, inequality const& c);
 

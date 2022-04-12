@@ -25,12 +25,12 @@ namespace polysat {
             pvar const v = item.var();
             auto const& j = s.m_justification[v];
             out << "v" << std::setw(3) << std::left << v << " := ";
-            out << std::setw(30) << std::left;
-            if (value(item.var(), r)) {
-                SASSERT_EQ(r, s.m_value[v]);
-                out << r;
-            } else
-                out << "*";
+            out << std::setw(30) << std::left << s.m_value[v];
+            // if (value(item.var(), r)) {
+            //     SASSERT_EQ(r, s.m_value[v]);
+            //     out << r;
+            // } else
+            //     out << "*";
             out << " @" << j.level();
             switch (j.kind()) {
             case justification_k::decision:

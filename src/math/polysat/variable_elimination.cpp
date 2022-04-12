@@ -24,6 +24,7 @@ namespace polysat {
             if (!c->contains_var(v) && c.is_currently_false(s)) {
                 core.reset();
                 core.set(c);
+                core.log_inference("ve_reduction");
                 return true;
             }                
         }

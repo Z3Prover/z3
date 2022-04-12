@@ -649,6 +649,7 @@ namespace polysat {
                 break;
             }
         }
+        core.log_inference("forbidden intervals");
         return true;
     }
 

@@ -31,17 +31,118 @@ Notes:
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
+#include <fstream>
 
 namespace polysat {
 
-    conflict::conflict(solver& s):s(s) {
+    class inference_logger {
+        uint_set m_used_constraints;
+        uint_set m_used_vars;
+        scoped_ptr<std::ostream> m_out = nullptr;
+        unsigned m_conflicts = 0;
+
+        std::ostream& out() {
+            SASSERT(m_out);
+            return *m_out;
+        }
+
+        std::ostream& out_indent() { return out() << "    "; }
+
+        std::string hline() const { return std::string(70, '-'); }
+
+    public:
+        void begin_conflict() {
+            m_used_constraints.reset();
+            m_used_vars.reset();
+            if (!m_out)
+                m_out = alloc(std::ofstream, "conflicts.txt");
+            else
+                out() << "\n\n\n\n\n" << hline() << "\n" << hline() << "\n" << hline() << "\n\n\n\n\n";
+            out() << "CONFLICT #" << ++m_conflicts << "\n";
+        }
+
+        void log_inference(conflict const& core, inference const* inf) {
+            out() << hline() << "\n";
+            if (inf)
+                out() << *inf << "\n";
+            if (core.conflict_var() != null_var) {
+                out_indent() << "Conflict var: " << core.conflict_var() << "\n";
+                m_used_vars.insert(core.conflict_var());
+            }
+            for (auto const& c : core) {
+                out_indent() << c.blit() << ": " << c << '\n';
+                m_used_constraints.insert(c.blit().index());
+            }
+            for (auto v : core.vars()) {
+                out_indent() << "v" << v << "\n";
+                m_used_vars.insert(v);
+            }
+            for (auto v : core.bail_vars()) {
+                out_indent() << "v" << v << " (bail)\n";
+                m_used_vars.insert(v);
+            }
+            out().flush();
+        }
+
+        void log_lemma(clause_builder const& cb) {
+            out() << hline() << "\nLemma:";
+            for (auto const& lit : cb)
+                out() << " " << lit;
+            out() << "\n";
+            out().flush();
+        }
+
+        void log_gamma(search_state const& m_search) {
+            out() << "\n" << hline() << "\n\n";
+            out() << "Search state (part):\n";
+            for (auto const& item : m_search)
+                if (is_relevant(item))
+                    out_indent() << search_item_pp(m_search, item, true) << "\n";
+            // TODO: log viable
+            out().flush();
+        }
+
+        bool is_relevant(search_item const& item) const {
+            switch (item.kind()) {
+            case search_item_k::assignment:
+                return m_used_vars.contains(item.var());
+            case search_item_k::boolean:
+                return m_used_constraints.contains(item.lit().index());
+            }
+            UNREACHABLE();
+            return false;
+        }
+    };
+
+    conflict::conflict(solver& s): s(s) {
         ex_engines.push_back(alloc(ex_polynomial_superposition, s));
         ex_engines.push_back(alloc(eq_explain, s));
         ve_engines.push_back(alloc(ve_reduction));
         inf_engines.push_back(alloc(inf_saturate, s));
+        // TODO: how to set this on the CLI? "polysat.log_conflicts=true" doesn't seem to work although z3 accepts it
+        if (true || s.get_config().m_log_conflicts)
+            m_logger = alloc(inference_logger);
     }
 
     conflict::~conflict() {}
+
+    void conflict::begin_conflict() {
+        if (m_logger) {
+            m_logger->begin_conflict();
+            // log initial conflict state
+            m_logger->log_inference(*this, nullptr);
+        }
+    }
+
+    void conflict::log_inference(inference const& inf) {
+        if (m_logger)
+            m_logger->log_inference(*this, &inf);
+    }
+
+    void conflict::log_gamma() {
+        if (m_logger)
+            m_logger->log_gamma(s.m_search);
+    }
 
     constraint_manager& conflict::cm() const { return s.m_constraints; }
 
@@ -176,6 +277,7 @@ namespace polysat {
      * NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
      * Ensure that c is assigned and justified
      */
+    // TODO: rename this; it pushes onto \Gamma and doesn't insert into the core
     void conflict::insert(signed_constraint c, vector<signed_constraint> const& premises) {
         // keep(c);
         clause_builder c_lemma(s);
@@ -217,6 +319,15 @@ namespace polysat {
         s.m_stats.m_num_bailouts++;
     }
 
+    struct inference_resolve : public inference {
+        sat::literal m_lit;
+        clause const& m_clause;
+        inference_resolve(sat::literal lit, clause const& cl) : m_lit(lit), m_clause(cl) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Resolve upon " << m_lit << " with " << m_clause;
+        }
+    };
+
     void conflict::resolve(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -233,7 +344,21 @@ namespace polysat {
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
                 insert(s.lit2cnstr(~lit2));
+        log_inference(inference_resolve(lit, cl));
     }
+
+    struct inference_resolve_with_assignment : public inference {
+        solver& s;
+        sat::literal lit;
+        signed_constraint c;
+        inference_resolve_with_assignment(solver& s, sat::literal lit, signed_constraint c) : s(s), lit(lit), c(c) {}
+        std::ostream& display(std::ostream& out) const override {
+            out << "Resolve upon " << lit << " with assignment:";
+            for (pvar v : c->vars())
+                out << " " << assignment_pp(s, v, s.get_value(v), true);
+            return out;
+        }
+    };
 
     void conflict::resolve_with_assignment(sat::literal lit, unsigned lvl) {
         // The reason for lit is conceptually:
@@ -259,6 +384,7 @@ namespace polysat {
                     m_vars.insert(v);            
                 }
         }
+        log_inference(inference_resolve_with_assignment(s, lit, c));
     }
 
     clause_builder conflict::build_lemma() {
@@ -279,6 +405,9 @@ namespace polysat {
             lemma.push(~eq);
         }        
         s.decay_activity();
+
+        if (m_logger)
+            m_logger->log_lemma(lemma);
 
         return lemma;
     }
@@ -309,9 +438,19 @@ namespace polysat {
         m_vars.reset();
         for (auto const& [v, val] : a)
             m_vars.insert(v);
+        log_inference("minimize vars");
         LOG("reduced " << m_vars);
     }
 
+
+    struct inference_resolve_value : public inference {
+        solver& s;
+        pvar v;
+        inference_resolve_value(solver& s, pvar v) : s(s), v(v) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Value resolution with " << assignment_pp(s, v, s.get_value(v), true);
+        }
+    };
 
     bool conflict::resolve_value(pvar v) {
         // NOTE:
@@ -353,6 +492,7 @@ namespace polysat {
     bailout:
         if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);
+        log_inference(inference_resolve_value(s, v));
         return false;
     }
 

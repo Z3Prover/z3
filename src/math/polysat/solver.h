@@ -421,8 +421,9 @@ namespace polysat {
         solver const& s;
         pvar var;
         rational const& val;
+        bool with_justification;
     public:
-        assignment_pp(solver const& s, pvar var, rational const& val): s(s), var(var), val(val) {}
+        assignment_pp(solver const& s, pvar var, rational const& val, bool with_justification = false): s(s), var(var), val(val), with_justification(with_justification) {}
         std::ostream& display(std::ostream& out) const;
     };
 

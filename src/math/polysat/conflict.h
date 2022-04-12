@@ -81,6 +81,22 @@ namespace polysat {
     class inference_engine;
     class variable_elimination_engine;
     class conflict_iterator;
+    class inference_logger;
+
+    class inference {
+    public:
+        virtual ~inference() {}
+        virtual std::ostream& display(std::ostream& out) const = 0;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, inference const& i) { return i.display(out); }
+
+    class inference_named : public inference {
+        char const* m_name;
+    public:
+        inference_named(char const* name) : m_name(name) { SASSERT(name); }
+        std::ostream& display(std::ostream& out) const override { return out << m_name; }
+    };
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict {
@@ -89,6 +105,8 @@ namespace polysat {
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
         uint_set m_bail_vars;
+
+        scoped_ptr<inference_logger> m_logger;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
@@ -112,6 +130,14 @@ namespace polysat {
     public:
         conflict(solver& s);
         ~conflict();
+
+        /// Begin next conflict
+        void begin_conflict();
+        /// Log inference at the current state.
+        void log_inference(inference const& inf);
+        void log_inference(char const* name) { log_inference(inference_named(name)); }
+        /// Log relevant part of search state.
+        void log_gamma();
 
         pvar conflict_var() const { return m_conflict_var; }
 
@@ -167,6 +193,9 @@ namespace polysat {
         using const_iterator = conflict_iterator;
         const_iterator begin() const;
         const_iterator end() const;
+
+        uint_set const& vars() const { return m_vars; }
+        uint_set const& bail_vars() const { return m_bail_vars; }
 
         std::ostream& display(std::ostream& out) const;
     };

@@ -69,6 +69,7 @@ namespace polysat {
                 core.insert(c1);
                 core.insert(c2);
                 core.insert(~c);
+                core.log_inference("superposition 1");
                 return l_true;
             case l_undef:
                 // Ensure that c is assigned and justified                    
@@ -79,6 +80,7 @@ namespace polysat {
                 // gets created, c is assigned to false by evaluation propagation
                 // It should have been assigned true by unit propagation.
                 core.replace(c2, c, premises);
+                core.log_inference("superposition 2");
                 SASSERT_EQ(l_true, c.bvalue(s));  // TODO: currently violated, check this!
                 SASSERT(c.is_currently_false(s));
                 break;
@@ -90,6 +92,7 @@ namespace polysat {
             // c alone (+ variables) is now enough to represent the conflict.
             core.reset();
             core.set(c);
+            core.log_inference("superposition 3");
             return c->contains_var(v) ? l_undef : l_true;
         }
         return l_false;
@@ -171,7 +174,7 @@ namespace polysat {
                 vector<signed_constraint> premises;
                 premises.push_back(c);
                 premises.push_back(eq);
-                core.insert(c2, premises);
+                core.insert(c2, premises);  // TODO: insert but then we reset? ... (this call does not insert into the core)
             }
             //    core.keep(c2);  // adds propagation of c to the search stack
             core.reset();
@@ -182,9 +185,11 @@ namespace polysat {
                 core.insert(eq);
                 core.insert(c);
                 core.insert(~c2);
+                core.log_inference("superposition 4");
                 return true;
             }
             core.set(c2);
+            core.log_inference("superposition 5");
             return true;
         }
         return false;

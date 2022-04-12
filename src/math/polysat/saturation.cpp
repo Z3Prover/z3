@@ -61,7 +61,7 @@ namespace polysat {
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
     * The lemmas outlined in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint& c) {
+    bool inf_saturate::propagate(char const* inf_name, conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint& c) {
 
         auto crit1 = _crit1.as_signed_constraint();
         auto crit2 = _crit2.as_signed_constraint();
@@ -90,13 +90,14 @@ namespace polysat {
         if (c.bvalue(s) != l_false)
             core.insert_vars(c);
         core.insert(~c);       
+        core.log_inference(inf_name);
         LOG("Core " << core);
         return true;        
     }
 
-    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs) {
+    bool inf_saturate::propagate(char const* inf_name, conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
-        return propagate(core, crit1, crit2, c);
+        return propagate(inf_name, core, crit1, crit2, c);
     }
 
     /// Add premises for Ω*(x, y)
@@ -297,7 +298,7 @@ namespace polysat {
         if (!xy_l_xz.is_strict)
             m_new_constraints.push_back(~s.eq(x));
         push_omega(x, y);
-        return propagate(core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict, y, z);
+        return propagate("ugt_x", core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict, y, z);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -311,7 +312,7 @@ namespace polysat {
         pdd const& z_prime = le_y.lhs;
         m_new_constraints.reset();
         push_omega(x, y);
-        return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
+        return propagate("ugt_y", core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& yx_l_zx) {
@@ -369,7 +370,7 @@ namespace polysat {
             return false;
         m_new_constraints.reset();       
         push_omega(a, z);
-        return propagate(core, y_l_ax, x_l_z, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
+        return propagate("y_l_ax_and_x_l_z", core, y_l_ax, x_l_z, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
     }
 
 
@@ -405,7 +406,7 @@ namespace polysat {
         m_new_constraints.reset();
         push_omega(x, y_prime);
         // yx <= y'x
-        return propagate(core, yx_l_zx, z_l_y, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x);
+        return propagate("ugt_z", core, yx_l_zx, z_l_y, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x);
     }
 
     // [x] p(x) <= q(x) where value(p) > value(q)
@@ -456,7 +457,7 @@ namespace polysat {
                 return false;
             m_new_constraints.push_back(d);
             auto conseq = s.ult(r_val, c.rhs);
-            return propagate(core, c, c, conseq);
+            return propagate("tangent (strict)", core, c, c, conseq);
         }
         else {
             auto d = s.ule(c.rhs, r_val);
@@ -464,7 +465,7 @@ namespace polysat {
                 return false;
             m_new_constraints.push_back(d);
             auto conseq = s.ule(c.lhs, r_val);
-            return propagate(core, c, c, conseq);
+            return propagate("tangent (non-strict)", core, c, c, conseq);
         }
     }
 

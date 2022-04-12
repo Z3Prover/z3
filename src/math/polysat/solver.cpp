@@ -566,10 +566,12 @@ namespace polysat {
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
-        
+        m_conflict.begin_conflict();
+
         if (m_conflict.conflict_var() != null_var) {
             pvar v = m_conflict.conflict_var();
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
+            // TODO: use unsat core from m_viable_fallback if the conflict is from there
             VERIFY(m_viable.resolve(v, m_conflict));
             // TBD: saturate resulting conflict to get better lemmas.
             LOG("try-eliminate v" << v);
@@ -600,6 +602,7 @@ namespace polysat {
                 inc_activity(v);
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
+                    m_conflict.log_gamma();
                     revert_decision(v);
                     return;
                 }
@@ -620,6 +623,7 @@ namespace polysat {
                 if (m_bvars.is_assumption(var))
                     continue;
                 else if (m_bvars.is_decision(var)) {
+                    m_conflict.log_gamma();
                     revert_bool_decision(lit);
                     return;
                 }
@@ -631,8 +635,7 @@ namespace polysat {
                 }
             }
         }
-        // here we build conflict clause if it has free variables.
-        // the last decision is reverted.
+        m_conflict.log_gamma();
         report_unsat();
     }
 
@@ -1030,9 +1033,12 @@ namespace polysat {
         out << "v" << var << " := ";
         rational const& p = rational::power_of_two(s.size(var));
         if (val > mod(-val, p))
-            return out << -mod(-val, p);
+            out << -mod(-val, p);
         else 
-            return out << val;
+            out << val;
+        if (with_justification)
+            out << " (" << s.m_justification[var] << ")";
+        return out;
     }
     
 
