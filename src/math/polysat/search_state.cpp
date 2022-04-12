@@ -14,8 +14,71 @@ Author:
 
 #include "math/polysat/search_state.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/log.h"
 
 namespace polysat {
+
+    std::ostream& search_state::display_verbose(search_item const& item, std::ostream& out) const {
+        switch (item.kind()) {
+        case search_item_k::assignment: {
+            rational r;
+            pvar const v = item.var();
+            auto const& j = s.m_justification[v];
+            out << "v" << std::setw(3) << std::left << v << " := ";
+            out << std::setw(30) << std::left;
+            if (value(item.var(), r)) {
+                SASSERT_EQ(r, s.m_value[v]);
+                out << r;
+            } else
+                out << "*";
+            out << " @" << j.level();
+            switch (j.kind()) {
+            case justification_k::decision:
+                return out << " by decision";
+            case justification_k::propagation:
+                return out << " by " << viable::var_pp(s.m_viable, v);
+            case justification_k::unassigned:
+                return out << " unassigned";
+            }
+        }
+        case search_item_k::boolean: {
+            sat::literal const lit = item.lit();
+            out << rpad(4, lit);
+            out << ": " << rpad(32, s.lit2cnstr(lit));
+            out << " @" << s.m_bvars.level(lit);
+            if (s.m_bvars.is_assumption(lit))
+                out << " assumption";
+            else if (s.m_bvars.is_decision(lit)) {
+                clause* lemma = s.m_bvars.lemma(lit.var());
+                out << " decision on lemma: " << show_deref(lemma);
+                for (auto l2 : *lemma) {
+                    out << "\n\t" << rpad(4, l2) << ": " << rpad(16, s.lit2cnstr(l2)) << "   " << bool_justification_pp(s.m_bvars, l2);
+                }
+            }
+            else if (s.m_bvars.is_bool_propagation(lit)) {
+                clause* reason = s.m_bvars.reason(lit);
+                out << " bool propagation " << show_deref(reason);
+                for (auto l2 : *reason) {
+                    out << "\n\t" << rpad(4, l2) << ": " << rpad(16, s.lit2cnstr(l2)) << "   " << bool_justification_pp(s.m_bvars, l2);
+                }
+            }
+            else {
+                SASSERT(s.m_bvars.is_value_propagation(lit));
+                out << " evaluated";
+            }
+            return out;
+        }
+        }
+        UNREACHABLE();
+        return out;
+    }
+
+    std::ostream& search_state::display_verbose(std::ostream& out) const {
+        out << "Search state:\n";
+        for (auto const& item : m_items)
+            display_verbose(item, out) << "\n";
+        return out;
+    }
 
     std::ostream& search_state::display(search_item const& item, std::ostream& out) const {
         rational r;

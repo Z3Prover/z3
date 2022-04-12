@@ -562,10 +562,8 @@ namespace polysat {
     void solver::resolve_conflict() {        
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
-        LOG("Search state: " << m_search);
-        LOG("Assignment: " << assignments_pp(*this));
-        for (pvar v = 0; v < m_justification.size(); ++v)
-            LOG("v" << v << " " << viable::var_pp(m_viable, v));
+        m_conflict.begin_conflict();
+        LOG(search_state_pp(m_search, true));
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
