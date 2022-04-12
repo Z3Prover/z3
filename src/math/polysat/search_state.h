@@ -83,18 +83,28 @@ namespace polysat {
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display(search_item const& item, std::ostream& out) const;
-        
+        std::ostream& display_verbose(std::ostream& out) const;
+        std::ostream& display_verbose(search_item const& item, std::ostream& out) const;
+    };
+
+    struct search_state_pp {
+        search_state const& s;
+        bool verbose;
+        search_state_pp(search_state const& s, bool verbose = false) : s(s), verbose(verbose) {}
     };
 
     struct search_item_pp {
         search_state const& s;
         search_item const& i;
-        search_item_pp(search_state const& s, search_item const& i) : s(s), i(i) {}
+        bool verbose;
+        search_item_pp(search_state const& s, search_item const& i, bool verbose = false) : s(s), i(i), verbose(verbose) {}
     };
 
     inline std::ostream& operator<<(std::ostream& out, search_state const& s) { return s.display(out); }
 
-    inline std::ostream& operator<<(std::ostream& out, search_item_pp const& p) { return p.s.display(p.i, out); }
+    inline std::ostream& operator<<(std::ostream& out, search_state_pp const& p) { return p.verbose ? p.s.display_verbose(out) : p.s.display(out); }
+
+    inline std::ostream& operator<<(std::ostream& out, search_item_pp const& p) { return p.verbose ? p.s.display_verbose(p.i, out) : p.s.display(p.i, out); }
 
     // Go backwards over the search_state.
     // If new entries are added during processing an item, they will be queued for processing next after the current item.
