@@ -531,7 +531,6 @@ namespace smt {
         return true;
     }
 
-
     bool theory_bv::get_fixed_value(theory_var v, numeral & result)  const {
         result.reset();
         unsigned i = 0;
@@ -1819,6 +1818,50 @@ namespace smt {
         st.update("bv bit2core", m_stats.m_num_bit2core);
         st.update("bv->core eq", m_stats.m_num_th2core_eq);
         st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
+    }
+    
+    svector<theory_bv::var_enode_pos> theory_bv::get_enodes(bool_var v) const {
+        atom* a      = get_bv2a(v);
+        svector<var_enode_pos> vec;
+        if (!a->is_bit())
+            return vec;
+        bit_atom * b = static_cast<bit_atom*>(a);
+        var_pos_occ * curr = b->m_occs;
+        while (curr) {
+            vec.push_back(var_enode_pos(get_enode(curr->m_var), curr->m_idx));
+            curr = curr->m_next;
+        }
+        return vec;
+    }
+
+    bool_var theory_bv::get_unassigned(theory_var v) const {
+        SASSERT(v < m_bits.size());
+        literal_vector const & bits = m_bits[v];
+        unsigned sz = bits.size();
+        for (unsigned i = 0; i < sz; i++) {
+            literal bit = bits[i];
+            lbool val = ctx.get_assignment(bit);
+            if (val == l_undef)
+                return bit.var();
+        }
+        return null_bool_var;
+    }
+    
+    bool_var theory_bv::get_bit(theory_var v, unsigned idx) const {
+        if (idx >= m_bits[v].size()) 
+            return null_bool_var;
+        return m_bits[v][idx].var();
+    }
+    
+    unsigned theory_bv::get_index(theory_var var, bool_var v) const {
+        literal_vector const & bits = m_bits[v];
+        unsigned sz = bits.size();
+        for (unsigned i = 0; i < sz; i++) {
+            if (bits[i].var() == v)
+                return i;
+        } 
+        SASSERT(false);
+        return 0;
     }
 
     bool theory_bv::check_assignment(theory_var v) {

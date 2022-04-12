@@ -116,6 +116,7 @@ theory * theory_user_propagator::mk_fresh(context * new_ctx) {
     if ((bool)m_eq_eh) th->register_eq(m_eq_eh);
     if ((bool)m_diseq_eh) th->register_diseq(m_diseq_eh);
     if ((bool)m_created_eh) th->register_created(m_created_eh);
+    if ((bool)m_decide_eh) th->register_decide(m_decide_eh);
     return th;
 }
 
@@ -152,6 +153,12 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
      catch (...) {
         throw default_exception("Exception thrown in \"fixed\"-callback");
      }
+}
+
+void theory_user_propagator::decide(enode*& var, unsigned& bit, lbool& is_pos) {
+    expr* e = var2expr(var->get_th_var(get_family_id()));
+    m_decide_eh(m_user_context, this, e, bit, is_pos);
+    var = ctx.get_enode(e);
 }
 
 void theory_user_propagator::push_scope_eh() {    
