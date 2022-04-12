@@ -129,10 +129,10 @@ private:
     typedef ptr_vector<expr> exprs;
 
 public:
-    maxres(maxsat_context& c, unsigned index, 
-           weights_t& ws, expr_ref_vector const& soft, 
+    maxres(maxsat_context& c, unsigned index,
+           vector<soft>& soft,
            strategy_t st):
-        maxsmt_solver_base(c, ws, soft),
+        maxsmt_solver_base(c, soft),
         m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
         m_new_core(m),
@@ -875,17 +875,10 @@ public:
     }
 
     lbool init_local() {
-        m_lower.reset();
         m_trail.reset();
         lbool is_sat = l_true;
-        obj_map<expr, rational> new_soft;
-        is_sat = find_mutexes(new_soft);
-        if (is_sat != l_true) {
-            return is_sat;
-        }
-        for (auto const& kv : new_soft) {
-            add_soft(kv.m_key, kv.m_value);
-        }
+        for (auto const& [e, w, t] : m_soft)
+            add_soft(e, w);
         m_max_upper = m_upper;
         m_found_feasible_optimum = false;
         m_last_index = 0;
@@ -953,12 +946,12 @@ public:
 };
 
 opt::maxsmt_solver_base* opt::mk_maxres(
-    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, id, ws, soft, maxres::s_primal);
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
-    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, id, ws, soft, maxres::s_primal_dual);
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_dual);
 }
 

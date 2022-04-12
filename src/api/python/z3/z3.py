@@ -11237,12 +11237,16 @@ def ensure_prop_closures():
         _prop_closures = PropClosures()
 
 
-def user_prop_push(ctx):
-    _prop_closures.get(ctx).push()
+def user_prop_push(ctx, cb):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    prop.push()
 
 
-def user_prop_pop(ctx, num_scopes):
-    _prop_closures.get(ctx).pop(num_scopes)
+def user_prop_pop(ctx, cb, num_scopes):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    pop(num_scopes)
 
 
 def user_prop_fresh(id, ctx):
