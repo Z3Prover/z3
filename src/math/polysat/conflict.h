@@ -136,8 +136,8 @@ namespace polysat {
         /// Log inference at the current state.
         void log_inference(inference const& inf);
         void log_inference(char const* name) { log_inference(inference_named(name)); }
-        /// Log relevant part of search state.
-        void log_gamma();
+        /// Log relevant part of search state and viable.
+        void end_conflict();
 
         pvar conflict_var() const { return m_conflict_var; }
 

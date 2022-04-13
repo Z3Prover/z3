@@ -171,9 +171,9 @@ namespace polysat {
         std::ostream& display(std::ostream& out, pvar v) const;
 
         struct var_pp {
-            viable& v;
+            viable const& v;
             pvar var;        
-            var_pp(viable& v, pvar var) : v(v), var(var) {}
+            var_pp(viable const& v, pvar var) : v(v), var(var) {}
         };
        
     };

@@ -92,13 +92,15 @@ namespace polysat {
             out().flush();
         }
 
-        void log_gamma(search_state const& m_search) {
+        void end_conflict(search_state const& search, viable const& v) {
             out() << "\n" << hline() << "\n\n";
             out() << "Search state (part):\n";
-            for (auto const& item : m_search)
+            for (auto const& item : search)
                 if (is_relevant(item))
-                    out_indent() << search_item_pp(m_search, item, true) << "\n";
-            // TODO: log viable
+                    out_indent() << search_item_pp(search, item, true) << "\n";
+            out() << hline() << "\nViable (part):\n";
+            for (pvar var : m_used_vars)
+                out_indent() << "v" << std::setw(3) << std::left << var << ": " << viable::var_pp(v, var) << "\n";
             out().flush();
         }
 
@@ -139,9 +141,9 @@ namespace polysat {
             m_logger->log_inference(*this, &inf);
     }
 
-    void conflict::log_gamma() {
+    void conflict::end_conflict() {
         if (m_logger)
-            m_logger->log_gamma(s.m_search);
+            m_logger->end_conflict(s.m_search, s.m_viable);
     }
 
     constraint_manager& conflict::cm() const { return s.m_constraints; }

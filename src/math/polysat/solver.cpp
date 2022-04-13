@@ -602,7 +602,7 @@ namespace polysat {
                 inc_activity(v);
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
-                    m_conflict.log_gamma();
+                    m_conflict.end_conflict();
                     revert_decision(v);
                     return;
                 }
@@ -623,7 +623,7 @@ namespace polysat {
                 if (m_bvars.is_assumption(var))
                     continue;
                 else if (m_bvars.is_decision(var)) {
-                    m_conflict.log_gamma();
+                    m_conflict.end_conflict();
                     revert_bool_decision(lit);
                     return;
                 }
@@ -635,7 +635,7 @@ namespace polysat {
                 }
             }
         }
-        m_conflict.log_gamma();
+        m_conflict.end_conflict();
         report_unsat();
     }
 

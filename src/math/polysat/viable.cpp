@@ -615,6 +615,15 @@ namespace polysat {
             return dd::find_t::multiple;
     }
 
+    struct inference_fi : public inference {
+        viable& v;
+        pvar var;
+        inference_fi(viable& v, pvar var) : v(v), var(var) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Forbidden intervals for v" << var << ": " << viable::var_pp(v, var);
+        }
+    };
+
     bool viable::resolve(pvar v, conflict& core) {
         if (has_viable(v))
             return false;
@@ -649,7 +658,7 @@ namespace polysat {
                 break;
             }
         }
-        core.log_inference("forbidden intervals");
+        core.log_inference(inference_fi(*this, v));
         return true;
     }
 
