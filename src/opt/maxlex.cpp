@@ -186,7 +186,7 @@ namespace opt {
     public:
 
         maxlex(maxsat_context& c, unsigned id, vector<soft>& s):
-            maxsmt_solver_base(c, s),
+            maxsmt_solver_base(c, s, id),
             m(c.get_manager()),
             m_c(c) {
             // ensure that soft constraints are sorted with largest soft constraints first.

@@ -95,7 +95,6 @@ private:
         expr_ref_vector const& soft() override { return i.m_asms; }
     };
 
-    unsigned         m_index;
     stats            m_stats;
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
@@ -132,8 +131,7 @@ public:
     maxres(maxsat_context& c, unsigned index,
            vector<soft>& soft,
            strategy_t st):
-        maxsmt_solver_base(c, soft),
-        m_index(index), 
+        maxsmt_solver_base(c, soft, index),
         m_B(m), m_asms(m), m_defs(m),
         m_new_core(m),
         m_mus(c.get_solver()),

@@ -1329,6 +1329,9 @@ extern "C" {
             }
         }
 
+        if (mk_c(c)->recfun().get_family_id() == _d->get_family_id())
+            return Z3_OP_RECURSIVE;
+
         return Z3_OP_UNINTERPRETED;
         Z3_CATCH_RETURN(Z3_OP_UNINTERPRETED);
     }

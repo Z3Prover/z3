@@ -36,8 +36,8 @@ namespace opt {
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
         ref<generic_model_converter> m_filter;
-        sortmax(maxsat_context& c, vector<soft>& s): 
-            maxsmt_solver_base(c, s), m_sort(*this), m_trail(m), m_fresh(m) {}
+        sortmax(maxsat_context& c, vector<soft>& s, unsigned index): 
+            maxsmt_solver_base(c, s, index), m_sort(*this), m_trail(m), m_fresh(m) {}
 
         ~sortmax() override {}
 
@@ -138,8 +138,8 @@ namespace opt {
     };
     
     
-    maxsmt_solver_base* mk_sortmax(maxsat_context& c, vector<soft>& s) {
-        return alloc(sortmax, c, s);
+    maxsmt_solver_base* mk_sortmax(maxsat_context& c, vector<soft>& s, unsigned index) {
+        return alloc(sortmax, c, s, index);
     }
 
 }

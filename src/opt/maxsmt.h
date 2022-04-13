@@ -34,8 +34,6 @@ namespace opt {
     class maxsat_context;
 
     class maxsmt_solver {
-    protected:
-        adjust_value* m_adjust_value = nullptr;
     public:        
         virtual ~maxsmt_solver() {}
         virtual lbool operator()() = 0;
@@ -45,7 +43,6 @@ namespace opt {
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void get_model(model_ref& mdl, svector<symbol>& labels) = 0;
         virtual void updt_params(params_ref& p) = 0;
-        void set_adjust_value(adjust_value& adj) { m_adjust_value = &adj; }
 
     };
 
@@ -67,7 +64,8 @@ namespace opt {
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
         ast_manager&     m;
-        maxsat_context&  m_c;        
+        maxsat_context&  m_c;
+        unsigned         m_index;
         vector<soft>&    m_soft;
         expr_ref_vector  m_assertions;
         expr_ref_vector  m_trail;
@@ -78,7 +76,7 @@ namespace opt {
         params_ref       m_params;           // config
 
     public:
-        maxsmt_solver_base(maxsat_context& c, vector<soft>& soft);
+        maxsmt_solver_base(maxsat_context& c, vector<soft>& soft, unsigned index);
         
         ~maxsmt_solver_base() override {}
         rational get_lower() const override { return m_lower; }
@@ -128,7 +126,6 @@ namespace opt {
         expr_ref_vector  m_answer;
         rational         m_lower;
         rational         m_upper;
-        adjust_value*    m_adjust_value = nullptr;
         model_ref        m_model;
         svector<symbol>  m_labels;
         params_ref       m_params;
@@ -137,7 +134,6 @@ namespace opt {
         lbool operator()();
         void updt_params(params_ref& p);
         void add(expr* f, rational const& w); 
-        void set_adjust_value(adjust_value& adj);
         unsigned size() const { return m_soft.size(); }
         expr* operator[](unsigned idx) const { return m_soft[idx].s; }
         rational weight(unsigned idx) const { return m_soft[idx].weight; }
