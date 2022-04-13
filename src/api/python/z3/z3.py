@@ -2279,6 +2279,9 @@ class ArithSortRef(SortRef):
         """
         return self.kind() == Z3_INT_SORT
 
+    def is_bool(self):
+        return False
+
     def subsort(self, other):
         """Return `True` if `self` is a subsort of `other`."""
         return self.is_int() and is_arith_sort(other) and other.is_real()
