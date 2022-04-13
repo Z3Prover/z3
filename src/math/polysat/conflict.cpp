@@ -57,7 +57,7 @@ namespace polysat {
             if (!m_out)
                 m_out = alloc(std::ofstream, "conflicts.txt");
             else
-                out() << "\n\n\n\n\n" << hline() << "\n" << hline() << "\n" << hline() << "\n\n\n\n\n";
+                out() << "\n\n\n\n\n\n\n\n\n\n\n\n";
             out() << "CONFLICT #" << ++m_conflicts << "\n";
         }
 
@@ -74,13 +74,15 @@ namespace polysat {
                 m_used_constraints.insert(c.blit().index());
             }
             for (auto v : core.vars()) {
-                out_indent() << "v" << v << "\n";
+                out_indent() << "v" << v << " := " << core.s.get_value(v) << "\n";
                 m_used_vars.insert(v);
             }
             for (auto v : core.bail_vars()) {
-                out_indent() << "v" << v << " (bail)\n";
+                out_indent() << "v" << v << " := " << core.s.get_value(v) << " (bail)\n";
                 m_used_vars.insert(v);
             }
+            if (core.is_bailout())
+                out_indent() << "(bailout)\n";
             out().flush();
         }
 
