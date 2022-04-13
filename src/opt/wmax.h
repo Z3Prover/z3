@@ -22,8 +22,8 @@ Notes:
 #include "opt/maxsmt.h"
 
 namespace opt {
-    maxsmt_solver_base* mk_wmax(maxsat_context& c, vector<soft>& s);
+    maxsmt_solver_base* mk_wmax(maxsat_context& c, vector<soft>& s, unsigned index);
 
-    maxsmt_solver_base* mk_sortmax(maxsat_context& c, vector<soft>& s);
+    maxsmt_solver_base* mk_sortmax(maxsat_context& c, vector<soft>& s, unsigned index);
 
 }

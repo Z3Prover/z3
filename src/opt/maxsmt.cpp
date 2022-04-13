@@ -35,10 +35,10 @@ Notes:
 
 namespace opt {
 
-    maxsmt_solver_base::maxsmt_solver_base(
-        maxsat_context& c, vector<soft>& s):
+    maxsmt_solver_base::maxsmt_solver_base(maxsat_context& c, vector<soft>& s, unsigned index):
         m(c.get_manager()), 
         m_c(c),
+        m_index(index),
         m_soft(s),
         m_assertions(m),
         m_trail(m) {
@@ -91,18 +91,17 @@ namespace opt {
                 m_upper += s.weight;
         }
 
-        return true;
+        // return true;
 
         preprocess pp(s());
         rational lower(0);
         bool r = pp(m_soft, lower);
 
-
-        if (lower != 0)
-            m_adjust_value->set_offset(lower + m_adjust_value->get_offset());
+        m_c.add_offset(m_index, lower);
+        m_upper -= lower;
         
         TRACE("opt", 
-              tout << "upper: " << m_upper << " assignments: ";
+              tout << "lower " << lower << " upper: " << m_upper << " assignments: ";
               for (soft& s : m_soft) tout << (s.is_true()?"T":"F");              
               tout << "\n";);
         return r;
@@ -169,8 +168,8 @@ namespace opt {
 
     void maxsmt_solver_base::trace_bounds(char const * solver) {
         IF_VERBOSE(1, 
-                   rational l = (*m_adjust_value)(m_lower);
-                   rational u = (*m_adjust_value)(m_upper);
+                   rational l = m_c.adjust(m_index, m_lower);
+                   rational u = m_c.adjust(m_index, m_upper);
                    if (l > u) std::swap(l, u);
                    verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);                
     }
@@ -196,10 +195,10 @@ namespace opt {
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_soft);
         }
         else if (maxsat_engine == symbol("wmax")) {
-            m_msolver = mk_wmax(m_c, m_soft);
+            m_msolver = mk_wmax(m_c, m_soft, m_index);
         }
         else if (maxsat_engine == symbol("sortmax")) {
-            m_msolver = mk_sortmax(m_c, m_soft);
+            m_msolver = mk_sortmax(m_c, m_soft, m_index);
         }
         else {
             auto str = maxsat_engine.str();
@@ -209,7 +208,6 @@ namespace opt {
 
         if (m_msolver) {
             m_msolver->updt_params(m_params);
-            m_msolver->set_adjust_value(*m_adjust_value);
             is_sat = l_undef;
             try {
                 is_sat = (*m_msolver)();
@@ -231,13 +229,6 @@ namespace opt {
         DEBUG_CODE(if (is_sat == l_true) verify_assignment(););
         
         return is_sat;
-    }
-
-    void maxsmt::set_adjust_value(adjust_value& adj) { 
-        m_adjust_value = &adj; 
-        if (m_msolver) {
-            m_msolver->set_adjust_value(adj);            
-        }
     }
 
     void maxsmt::reset_upper() {
@@ -268,7 +259,7 @@ namespace opt {
             rational q = m_msolver->get_lower();
             if (q > r) r = q;
         }
-        return (*m_adjust_value)(r);
+        return m_c.adjust(m_index, r);
     }
 
     rational maxsmt::get_upper() const {
@@ -277,7 +268,7 @@ namespace opt {
             rational q = m_msolver->get_upper();
             if (q < r) r = q; 
         }
-        return (*m_adjust_value)(r);
+        return m_c.adjust(m_index, r);
     }
 
     void maxsmt::update_lower(rational const& r) {
@@ -370,6 +361,7 @@ namespace opt {
         model_ref  m_model;
         ref<generic_model_converter> m_fm; 
         symbol m_maxsat_engine;
+        vector<rational> m_offsets;
     public:
         solver_maxsat_context(params_ref& p, solver* s, model * m): 
             m_params(p), 
@@ -394,6 +386,14 @@ namespace opt {
         bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; };
         void set_model(model_ref& _m) override { m_model = _m; }
         void model_updated(model* mdl) override { } // no-op
+        rational adjust(unsigned id, rational const& r) override {
+            m_offsets.reserve(id+1);
+            return r + m_offsets[id];
+        }
+        void add_offset(unsigned id, rational const& r) override {
+            m_offsets.reserve(id+1);
+            m_offsets[id] += r;
+        }
     };
 
     lbool maxsmt_wrapper::operator()(vector<std::pair<expr*,rational>>& soft) {

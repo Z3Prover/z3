@@ -398,7 +398,7 @@ namespace opt {
     }
 
     void context::set_model(model_ref& m) { 
-        m_model = m; 
+        m_model = m;
         opt_params optp(m_params);
         if (optp.dump_models() && m) {
             model_ref md = m->copy();
@@ -930,7 +930,8 @@ namespace opt {
     bool context::is_maxsat(expr* fml, expr_ref_vector& terms, 
                             vector<rational>& weights, rational& offset, 
                             bool& neg, symbol& id, expr_ref& orig_term, unsigned& index) {
-        if (!is_app(fml)) return false;
+        if (!is_app(fml))
+            return false;
         neg = false;
         orig_term = nullptr;
         index = 0;
@@ -1105,8 +1106,7 @@ namespace opt {
                 obj.m_weights.append(weights);
                 obj.m_adjust_value.set_offset(offset);
                 obj.m_adjust_value.set_negate(neg);
-                m_maxsmts.find(id)->set_adjust_value(obj.m_adjust_value);
-                TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";
+                TRACE("opt", tout << "maxsat: " << neg << " " << id << " offset: " << offset << "\n";
                       tout << terms << "\n";);
             }
             else if (is_maximize(fml, tr, orig_term, index)) {
@@ -1158,7 +1158,14 @@ namespace opt {
 #endif
     }
 
+    rational context::adjust(unsigned id, rational const& v) {
+        return m_objectives[id].m_adjust_value(v);
+    }
 
+    void context::add_offset(unsigned id, rational const& o) {
+        m_objectives[id].m_adjust_value.add_offset(o);
+    }
+    
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
@@ -1341,24 +1348,21 @@ namespace opt {
                 break;
             }
             case O_MAXSMT: {
-                bool ok = true;
-                for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
+                for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
                     val = (*m_model)(obj.m_terms[j]);
                     TRACE("opt", tout << mk_pp(obj.m_terms[j], m) << " " << val << "\n";);
-                    if (!m.is_true(val)) {
+                    if (!m.is_true(val)) 
                         r += obj.m_weights[j];
-                    }
                 }
-                if (ok) {
-                    maxsmt& ms = *m_maxsmts.find(obj.m_id);
-                    if (is_lower) {
-                        ms.update_upper(r);
-                        TRACE("opt", tout << "update upper from " << r << " to " << ms.get_upper() << "\n";);                        
-                    }
-                    else {
-                        ms.update_lower(r);
-                        TRACE("opt", tout << "update lower from " << r << " to " << ms.get_lower() << "\n";);                        
-                    }
+
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                if (is_lower) {
+                    ms.update_upper(r);
+                    TRACE("opt", tout << "update upper from " << r << " to " << ms.get_upper() << "\n";);           
+                }
+                else {
+                    ms.update_lower(r);
+                    TRACE("opt", tout << "update lower from " << r << " to " << ms.get_lower() << "\n";);           
                 }
                 break;
             }

@@ -44,8 +44,8 @@ namespace opt {
         }
 
     public:
-        wmax(maxsat_context& c, vector<soft>& s): 
-            maxsmt_solver_base(c, s),
+        wmax(maxsat_context& c, vector<soft>& s, unsigned index): 
+            maxsmt_solver_base(c, s, index),
             m_trail(m),
             m_defs(m) {}
 
@@ -304,8 +304,8 @@ namespace opt {
                 
     };
 
-    maxsmt_solver_base* mk_wmax(maxsat_context& c, vector<soft> & s) {
-        return alloc(wmax, c, s);
+    maxsmt_solver_base* mk_wmax(maxsat_context& c, vector<soft> & s, unsigned index) {
+        return alloc(wmax, c, s, index);
     }
 
 }
