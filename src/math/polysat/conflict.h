@@ -106,6 +106,7 @@ namespace polysat {
         uint_set m_vars;                    // variable assignments used as premises
         uint_set m_bail_vars;
 
+        friend class inference_logger;
         scoped_ptr<inference_logger> m_logger;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.

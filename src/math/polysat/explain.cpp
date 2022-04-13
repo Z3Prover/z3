@@ -143,6 +143,17 @@ namespace polysat {
         }
     }
 
+    struct inference_sup : public inference {
+        const char* name;
+        pvar var;
+        signed_constraint reduced;
+        signed_constraint reducer;
+        inference_sup(const char* name, pvar var, signed_constraint reduced, signed_constraint reducer) : name(name), var(var), reduced(reduced), reducer(reducer) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Superposition " << name << ", reduced v" << var << " in   " << reduced << "   by   " << reducer;
+        }
+    };
+
     bool ex_polynomial_superposition::reduce_by(pvar v, signed_constraint eq, conflict& core) {
         pdd p = eq.eq();
         LOG("using v" << v << " " << eq);
@@ -189,7 +200,7 @@ namespace polysat {
                 return true;
             }
             core.set(c2);
-            core.log_inference("superposition 5");
+            core.log_inference(inference_sup("5", v, c, eq));
             return true;
         }
         return false;
