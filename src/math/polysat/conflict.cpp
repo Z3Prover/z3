@@ -472,9 +472,14 @@ namespace polysat {
         if (is_bailout())
             goto bailout;
         
-        if (j.is_propagation()) 
+        if (j.is_propagation()) {
             for (auto const& c : s.m_viable.get_constraints(v)) 
                 propagate(c);
+            for (auto const& i : s.m_viable.units(v)) {
+                propagate(s.eq(i.lo(), i.lo_val()));
+                propagate(s.eq(i.hi(), i.hi_val()));                   
+            }                
+        }
 
         LOG("try-explain v" << v);
         if (try_explain(v))

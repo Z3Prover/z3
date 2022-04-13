@@ -168,6 +168,43 @@ namespace polysat {
             return constraints(*this, v); 
         }
 
+        class int_iterator {
+            entry* curr = nullptr;
+            bool visited = false;
+        public:
+            int_iterator(entry* curr, bool visited) :
+                curr(curr), visited(visited || !curr) {}
+            int_iterator& operator++() {
+                visited = true;
+                curr = curr->next();
+                return *this;
+            }
+
+            eval_interval const& operator*() { 
+                return curr->interval;                
+            }
+
+            bool operator==(int_iterator const& other) const {
+                return visited == other.visited && curr == other.curr;
+            }
+
+            bool operator!=(int_iterator const& other) const {
+                return !(*this == other);
+            }
+
+        };
+
+        class intervals {
+            viable const& v;
+            pvar var;
+        public:
+            intervals(viable const& v, pvar var): v(v), var(var) {}
+            int_iterator begin() const { return int_iterator(v.m_units[var], false); }
+            int_iterator end() const { return int_iterator(v.m_units[var], true); }
+        };
+
+        intervals units(pvar v) { return intervals(*this, v); }
+
         std::ostream& display(std::ostream& out, pvar v) const;
 
         struct var_pp {
