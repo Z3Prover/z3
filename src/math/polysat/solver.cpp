@@ -572,17 +572,8 @@ namespace polysat {
             pvar v = m_conflict.conflict_var();
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             // TODO: use unsat core from m_viable_fallback if the conflict is from there
+            // TODO: we could try simpler backtracking loop if we get a lemma from forbidden intervals
             VERIFY(m_viable.resolve(v, m_conflict));
-            // TBD: saturate resulting conflict to get better lemmas.
-            LOG("try-eliminate v" << v);
-            if (m_conflict.try_explain(v))
-                ;
-            else if (m_conflict.try_eliminate(v))
-                ;
-            else
-                m_conflict.try_saturate(v);
-            
-            LOG("end-try-eliminate v");
         }
         
         search_iterator search_it(m_search);
