@@ -432,9 +432,13 @@ namespace euf {
             check_for_user_propagator();
             m_user_propagator->register_diseq(diseq_eh);
         }
-        void user_propagate_register_created(user_propagator::created_eh_t& ceh) {
+        void user_propagate_register_created(user_propagator::created_eh_t& created_eh) {
             check_for_user_propagator();
-            m_user_propagator->register_created(ceh);
+            m_user_propagator->register_created(created_eh);
+        }
+        void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_decide(decide_eh);
         }
         void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();

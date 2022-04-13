@@ -334,7 +334,7 @@ public:
         if (m_eq_eh)      m_ctx->user_propagate_register_eq(m_eq_eh);
         if (m_diseq_eh)   m_ctx->user_propagate_register_diseq(m_diseq_eh);
         if (m_created_eh) m_ctx->user_propagate_register_created(m_created_eh);
-        if (m_decide_eh) m_ctx->user_propagate_register_decide(m_decide_eh);
+        if (m_decide_eh)  m_ctx->user_propagate_register_decide(m_decide_eh);
 
         for (expr* v : m_vars) 
             m_ctx->user_propagate_register_expr(v);
@@ -348,6 +348,7 @@ public:
         m_eq_eh = nullptr;
         m_diseq_eh = nullptr;
         m_created_eh = nullptr;
+        m_decide_eh = nullptr;
     }
 
     void user_propagate_init(
@@ -378,12 +379,16 @@ public:
         m_diseq_eh = diseq_eh;
     }
 
-    void user_propagate_register_expr(expr* e) override {
-        m_vars.push_back(e);
-    }
-
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_created_eh = created_eh;
+    }
+    
+    void user_propagate_register_decide(user_propagator::decide_eh_t & decide_eh) override {
+        m_decide_eh = decide_eh;
+    }
+    
+    void user_propagate_register_expr(expr* e) override {
+        m_vars.push_back(e);
     }
 };
 

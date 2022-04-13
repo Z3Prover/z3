@@ -99,7 +99,8 @@ public:
         m_num_scopes(0),
         m_unknown("no reason given"),
         m_internalized_converted(false), 
-        m_internalized_fmls(m) {
+        m_internalized_fmls(m),
+        m_vars(m) {
         updt_params(p);
         m_mcs.push_back(nullptr);
         init_preprocess();
@@ -658,39 +659,113 @@ public:
         auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
         return ext;
     }
+    
+    void* m_user_ctx = nullptr;
+    user_propagator::push_eh_t  m_push_eh;
+    user_propagator::pop_eh_t   m_pop_eh;
+    user_propagator::fresh_eh_t m_fresh_eh;
+    user_propagator::fixed_eh_t m_fixed_eh;
+    user_propagator::final_eh_t m_final_eh;
+    user_propagator::eq_eh_t    m_eq_eh;
+    user_propagator::eq_eh_t    m_diseq_eh;
+    user_propagator::created_eh_t m_created_eh;
+    user_propagator::decide_eh_t m_decide_eh;
+    expr_ref_vector              m_vars;
+    
+    
+    void user_propagate_delay_init() {
+        euf::solver* euf = ensure_euf();
+        if (!euf || !m_user_ctx)
+            return;
+        euf->user_propagate_init(m_user_ctx, m_push_eh, m_pop_eh, m_fresh_eh);
+        if (m_fixed_eh)   euf->user_propagate_register_fixed(m_fixed_eh);
+        if (m_final_eh)   euf->user_propagate_register_final(m_final_eh);
+        if (m_eq_eh)      euf->user_propagate_register_eq(m_eq_eh);
+        if (m_diseq_eh)   euf->user_propagate_register_diseq(m_diseq_eh);
+        if (m_created_eh) euf->user_propagate_register_created(m_created_eh);
+        if (m_decide_eh)  euf->user_propagate_register_decide(m_decide_eh);
+    
+        for (expr* v : m_vars) 
+            euf->user_propagate_register_expr(v);
+    }
+    
+    void user_propagate_clear() override {
+        m_user_ctx = nullptr;
+        m_vars.reset();
+        m_fixed_eh = nullptr;
+        m_final_eh = nullptr;
+        m_eq_eh = nullptr;
+        m_diseq_eh = nullptr;
+        m_created_eh = nullptr;
+        m_decide_eh = nullptr;
+    }
 
     void user_propagate_init(
         void*                ctx, 
         user_propagator::push_eh_t&   push_eh,
         user_propagator::pop_eh_t&    pop_eh,
         user_propagator::fresh_eh_t&  fresh_eh) override {
-        ensure_euf()->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+        user_propagate_clear();
+        if (ensure_euf())
+            ensure_euf()->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+        else {
+            m_user_ctx = ctx;
+            m_push_eh = push_eh;
+            m_pop_eh = pop_eh;
+            m_fresh_eh = fresh_eh;            
+        }
+            
     }
-        
+    
     void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) override {
-        ensure_euf()->user_propagate_register_fixed(fixed_eh);
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_fixed(fixed_eh);
+        else
+            m_fixed_eh = fixed_eh;
     }
     
     void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override {
-        ensure_euf()->user_propagate_register_final(final_eh);
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_final(final_eh);
+        else
+            m_final_eh = final_eh;
     }
     
     void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override {
-        ensure_euf()->user_propagate_register_eq(eq_eh);
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_eq(eq_eh);
+        else
+            m_eq_eh = eq_eh;
     }
     
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
-        ensure_euf()->user_propagate_register_diseq(diseq_eh);
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_diseq(diseq_eh);
+        else
+            m_diseq_eh = diseq_eh;
     }
     
-    void user_propagate_register_expr(expr* e) override { 
-        ensure_euf()->user_propagate_register_expr(e);
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_created(created_eh);
+        else
+            m_created_eh = created_eh;
     }
-
-    void user_propagate_register_created(user_propagator::created_eh_t& r) override {
-        ensure_euf()->user_propagate_register_created(r);
+    
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_decide(decide_eh);
+        else
+            m_decide_eh = decide_eh;
     }
-
+    
+    void user_propagate_register_expr(expr* e) override {
+        if (ensure_euf())
+            ensure_euf()->user_propagate_register_expr(e);
+        else
+            m_vars.push_back(e);
+    }
+    
 
 private:
 
@@ -754,6 +829,7 @@ private:
             set_reason_unknown(strm.str());
             return l_undef;
         }
+        user_propagate_delay_init();
         return l_true;
     }
 

@@ -56,7 +56,7 @@ namespace user_solver {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        void*                  m_user_context;
+        void*                           m_user_context;
         user_propagator::push_eh_t      m_push_eh;
         user_propagator::pop_eh_t       m_pop_eh;
         user_propagator::fresh_eh_t     m_fresh_eh;
@@ -65,6 +65,7 @@ namespace user_solver {
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
         user_propagator::created_eh_t   m_created_eh;
+        user_propagator::decide_eh_t    m_decide_eh;
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
         vector<prop_info>      m_prop;
@@ -94,7 +95,7 @@ namespace user_solver {
         void propagate_consequence(prop_info const& prop);
         void propagate_new_fixed(prop_info const& prop);
 
-	void validate_propagation();
+	    void validate_propagation();
 
         bool visit(expr* e) override;
         bool visited(expr* e) override;
@@ -126,8 +127,10 @@ namespace user_solver {
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
         void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
+        void register_decide(user_propagator::decide_eh_t& decide_eh) { m_decide_eh = decide_eh; }
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
+        bool has_decide() const { return (bool)m_decide_eh; }
 
         void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;

@@ -4025,6 +4025,7 @@ namespace z3 {
         
         user_propagator_base(solver* s): s(s), c(nullptr) {
             Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
+            s->ctx().check_error();
         }
 
         virtual void push() = 0;
