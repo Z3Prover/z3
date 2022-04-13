@@ -154,16 +154,10 @@ def _copy_bins():
 
     _clean_bins()
 
-    python_dir = None
-    if RELEASE_DIR is not None:
-        python_dir = os.path.join(RELEASE_DIR, 'bin', 'python')
-    elif SRC_DIR == SRC_DIR_LOCAL:
-        python_dir = os.path.join(SRC_DIR, 'src', 'api', 'python')
-    if python_dir is not None:
-        py_z3_build_dir = os.path.join(BUILD_DIR, 'python', 'z3')
-        root_z3_dir = os.path.join(ROOT_DIR, 'z3')
-        shutil.copy(os.path.join(py_z3_build_dir, 'z3core.py'), root_z3_dir)
-        shutil.copy(os.path.join(py_z3_build_dir, 'z3consts.py'), root_z3_dir)
+    py_z3_build_dir = os.path.join(BUILD_DIR, 'python', 'z3')
+    root_z3_dir = os.path.join(ROOT_DIR, 'z3')
+    shutil.copy(os.path.join(py_z3_build_dir, 'z3core.py'), root_z3_dir)
+    shutil.copy(os.path.join(py_z3_build_dir, 'z3consts.py'), root_z3_dir)
 
     # STEP 2: Copy the shared library, the executable and the headers
 
