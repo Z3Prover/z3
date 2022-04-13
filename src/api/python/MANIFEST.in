@@ -5,3 +5,4 @@ recursive-include core *.cmake
 recursive-include core/src *
 recursive-include core/cmake *
 recursive-include core/scripts *
+include pyproject.toml
