@@ -4192,17 +4192,19 @@ namespace sat {
             m_ext->find_mutexes(_lits, mutexes);
         }
         unsigned_vector ps;
-        for (literal lit : _lits) {
+        for (literal lit : _lits) 
             ps.push_back(lit.index());
-        }
         mc.cliques(ps, _mutexes);
+        vector<vector<literal_vector>> sorted;
         for (auto const& mux : _mutexes) {
             literal_vector clique;
-            for (auto const& idx : mux) {
+            sorted.reserve(mux.size() + 1);
+            for (auto const& idx : mux) 
                 clique.push_back(to_literal(idx));
-            }
-            mutexes.push_back(clique);
+            sorted[mux.size()].push_back(clique);
         }
+        for (unsigned i = sorted.size(); i-- > 0; ) 
+            mutexes.append(sorted[i]);
         return l_true;
     }
 
