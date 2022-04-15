@@ -208,8 +208,8 @@ namespace {
             m_context.get_levels(vars, depth);
         }
 
-        expr_ref_vector get_trail() override {
-            return m_context.get_trail();
+        expr_ref_vector get_trail(unsigned max_level) override {
+            return m_context.get_trail(max_level);
         }
 
         void user_propagate_init(

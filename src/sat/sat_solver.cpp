@@ -4194,7 +4194,7 @@ namespace sat {
         unsigned_vector ps;
         for (literal lit : _lits) 
             ps.push_back(lit.index());
-        mc.cliques(ps, _mutexes);
+        mc.cliques2(ps, _mutexes);
         vector<vector<literal_vector>> sorted;
         for (auto const& mux : _mutexes) {
             literal_vector clique;

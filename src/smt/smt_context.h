@@ -1667,7 +1667,7 @@ namespace smt {
 
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
 
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         void get_model(model_ref & m);
 

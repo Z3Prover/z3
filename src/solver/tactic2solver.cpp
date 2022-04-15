@@ -134,7 +134,7 @@ public:
         throw default_exception("cannot retrieve depth from solvers created using tactics");
     }
 
-    expr_ref_vector get_trail() override {
+    expr_ref_vector get_trail(unsigned max_level) override {
         throw default_exception("cannot retrieve trail from solvers created using tactics");
     }
 };

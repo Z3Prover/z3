@@ -248,7 +248,7 @@ namespace smt {
         /**
            \brief retrieve trail of assignment stack.
         */
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         /**
            \brief (For debubbing purposes) Prints the state of the kernel
