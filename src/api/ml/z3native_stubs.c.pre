@@ -294,7 +294,8 @@ static struct custom_operations Z3_ast_plus_custom_ops = {
   Z3_ast_compare_ext
 };
 
-MK_CTX_OF(ast, 16) // let's say 16 bytes per ast
+// FUDGE
+MK_CTX_OF(ast, 8) // let's say 16 bytes per ast
 
 #define MK_PLUS_OBJ_NO_REF(X, USED)                                \
   typedef struct {                                                      \
@@ -410,25 +411,26 @@ MK_CTX_OF(ast, 16) // let's say 16 bytes per ast
                                                                         \
   MK_CTX_OF(X, USED)
 
-MK_PLUS_OBJ_NO_REF(symbol, 32)
-MK_PLUS_OBJ_NO_REF(constructor, 32)
-MK_PLUS_OBJ_NO_REF(constructor_list, 32)
-MK_PLUS_OBJ_NO_REF(rcf_num, 32)
-MK_PLUS_OBJ(params, 128)
-MK_PLUS_OBJ(param_descrs, 128)
-MK_PLUS_OBJ(model, 512)
-MK_PLUS_OBJ(func_interp, 128)
-MK_PLUS_OBJ(func_entry, 128)
-MK_PLUS_OBJ(goal, 128)
-MK_PLUS_OBJ(tactic, 128)
-MK_PLUS_OBJ(probe, 128)
-MK_PLUS_OBJ(apply_result, 128)
-MK_PLUS_OBJ(solver, 20 * 1000 * 1000) // pretend a solver is 20MB
-MK_PLUS_OBJ(stats, 128)
-MK_PLUS_OBJ(ast_map, 1024 * 2)
-MK_PLUS_OBJ(ast_vector, 128)
-MK_PLUS_OBJ(fixedpoint, 20 * 1000 * 1000)
-MK_PLUS_OBJ(optimize, 20 * 1000 * 1000)
+// FUDGE
+MK_PLUS_OBJ_NO_REF(symbol, 16)
+MK_PLUS_OBJ_NO_REF(constructor, 16)
+MK_PLUS_OBJ_NO_REF(constructor_list, 16)
+MK_PLUS_OBJ_NO_REF(rcf_num, 16)
+MK_PLUS_OBJ(params, 64)
+MK_PLUS_OBJ(param_descrs, 64)
+MK_PLUS_OBJ(model, 64)
+MK_PLUS_OBJ(func_interp, 32)
+MK_PLUS_OBJ(func_entry, 32)
+MK_PLUS_OBJ(goal, 64)
+MK_PLUS_OBJ(tactic, 64)
+MK_PLUS_OBJ(probe, 64)
+MK_PLUS_OBJ(apply_result, 32)
+MK_PLUS_OBJ(solver, 20 * 1000)
+MK_PLUS_OBJ(stats, 32)
+MK_PLUS_OBJ(ast_map, 32)
+MK_PLUS_OBJ(ast_vector, 32)
+MK_PLUS_OBJ(fixedpoint, 20 * 1000)
+MK_PLUS_OBJ(optimize, 20 * 1000)
 
 #ifdef __cplusplus
 extern "C" {
