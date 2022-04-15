@@ -21,7 +21,7 @@ Notes:
 #include "util/vector.h"
 #include "util/uint_set.h"
 #include "util/heap.h"
-
+#include "util/map.h"
 
 template<class T>
 class max_cliques : public T {
