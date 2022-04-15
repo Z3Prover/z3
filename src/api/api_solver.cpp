@@ -975,6 +975,14 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        user_propagator::decide_eh_t c = (void(*)(void*, user_propagator::callback*, expr*&, unsigned&, lbool&))decide_eh;
+        to_solver_ref(s)->user_propagate_register_decide(c);
+        Z3_CATCH;
+    }
+
     Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range) {
         Z3_TRY;
         LOG_Z3_solver_propagate_declare(c, name, n, domain, range);

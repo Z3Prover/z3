@@ -322,6 +322,7 @@ public:
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
     user_propagator::created_eh_t m_created_eh;
+    user_propagator::decide_eh_t m_decide_eh;
    
 
     void user_propagate_delay_init() {
@@ -333,6 +334,7 @@ public:
         if (m_eq_eh)      m_ctx->user_propagate_register_eq(m_eq_eh);
         if (m_diseq_eh)   m_ctx->user_propagate_register_diseq(m_diseq_eh);
         if (m_created_eh) m_ctx->user_propagate_register_created(m_created_eh);
+        if (m_decide_eh) m_ctx->user_propagate_register_decide(m_decide_eh);
 
         for (expr* v : m_vars) 
             m_ctx->user_propagate_register_expr(v);

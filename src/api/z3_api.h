@@ -1444,6 +1444,7 @@ Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_ast s, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
+Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast&, unsigned&, Z3_lbool&));
 
 
 /**
@@ -6758,6 +6759,14 @@ extern "C" {
     * The registered function appears at the top level and is created using \ref Z3_propagate_solver_declare.
     */
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh);
+    
+    /**
+    * \brief register a callback when a the solver decides to split on a registered expression 
+    * The callback may set passed expression to another registered expression which will be selected instead.
+    * In case the expression is a bitvector the bit to split on is determined by the bit argument and the 
+    * truth-value to try first is given by is_pos
+    */
+    void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
     /**
         Create uninterpreted function declaration for the user propagator.
