@@ -164,7 +164,14 @@ public:
                     next.push_back(n);
             std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
             for (unsigned x : next) {
-                if (std::all_of(am1.begin(), am1.end(), [&](unsigned y) { return conns[x].contains(y); }))
+                bool all = true;
+                for (unsigned y : am1) {
+                    if (!conns[x].contains(y)) {
+                        all = false;
+                        break;
+                    }
+                }
+                if (all)
                     am1.insert(x);
             }
             am1.insert(v);
