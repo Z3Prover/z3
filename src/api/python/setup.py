@@ -187,14 +187,16 @@ def _copy_bins():
     # This hack lets z3 installed libs link on M1 macs; it is a hack, not a proper fix
     # @TODO: Linked issue: https://github.com/Z3Prover/z3/issues/5926
     major_minor = '.'.join(_z3_version().split('.')[:2])
+    link_name = None
     if BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
-        return # TODO: When windows VMs work on M1, fill this in
+        pass # TODO: When windows VMs work on M1, fill this in
     elif BUILD_PLATFORM in ('darwin', 'osx'):
         split = LIBRARY_FILE.split('.')
         link_name = split[0] + '.' + major_minor + '.' + split[1]
     else:
         link_name = LIBRARY_FILE + '.' + major_minor
-    os.symlink(LIBRARY_FILE, os.path.join(LIBS_DIR, link_name), True)
+    if link_name:
+        os.symlink(LIBRARY_FILE, os.path.join(LIBS_DIR, link_name), True)
 
 def _copy_sources():
     """
