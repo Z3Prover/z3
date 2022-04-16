@@ -191,6 +191,12 @@ namespace opt {
         else if (m_soft.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_soft);            
         }
+        else if (maxsat_engine == symbol("maxres-bin")) {            
+            m_msolver = mk_maxres_binary(m_c, m_index, m_soft);
+        }
+        else if (maxsat_engine == symbol("maxres-bin-delay")) {            
+            m_msolver = mk_maxres_binary_delay(m_c, m_index, m_soft);
+        }
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_soft);
         }

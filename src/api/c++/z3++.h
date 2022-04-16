@@ -4012,12 +4012,13 @@ namespace z3 {
             p->m_created_eh(e);
         }
         
-        static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast& _val, unsigned& bit, Z3_lbool& is_pos) {
+        static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* bit, Z3_lbool* is_pos) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            expr val(p->ctx(), _val);
-            p->m_decide_eh(val, bit, is_pos);
-            _val = val;
+            expr val(p->ctx(), *_val);
+            p->m_decide_eh(val, *bit, *is_pos);
+            // TBD: life time of val is within the scope of this callback.
+            *_val = val;
         }
         
     public:

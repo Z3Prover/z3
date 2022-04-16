@@ -72,7 +72,9 @@ class maxres : public maxsmt_solver_base {
 public:
     enum strategy_t {
         s_primal,
-        s_primal_dual
+        s_primal_dual,
+        s_primal_binary,
+        s_primal_binary_delay
     };
 private:
     struct stats {
@@ -156,6 +158,12 @@ public:
             break;
         case s_primal_dual:
             m_trace_id = "pd-maxres";
+            break;
+        case s_primal_binary:
+            m_trace_id = "maxres-bin";
+            break;
+        case s_primal_binary_delay:
+            m_trace_id = "maxres-bin-delay";
             break;
         }        
     }
@@ -357,6 +365,8 @@ public:
         m_defs.reset();
         switch(m_st) {
         case s_primal:
+        case s_primal_binary:
+        case s_primal_binary_delay:
             return mus_solver();
         case s_primal_dual:
             return primal_dual_solver();
@@ -532,8 +542,18 @@ public:
         expr_ref fml(m);
         SASSERT(!core.empty());
         TRACE("opt", display_vec(tout << "minimized core: ", core););
-        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););        
-        max_resolve(core, w);
+        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
+        switch (m_st) {
+        case strategy_t::s_primal_binary:
+            bin_max_resolve(core, w);
+            break;
+        case strategy_t::s_primal_binary_delay:
+            bin_delay_max_resolve(core, w);
+            break;
+        default:
+            max_resolve(core, w);
+            break;
+        }
         fml = mk_not(m, mk_and(m, core.size(), core.data()));
         add(fml);
         // save small cores such that lex-combinations of maxres can reuse these cores.
@@ -700,12 +720,11 @@ public:
         }
     }
 
-#if 1
 
     void bin_max_resolve(exprs const& _core, rational const& w) {
         expr_ref_vector core(m, _core.size(), _core.data());
         expr_ref fml(m), cls(m);
-        for (unsigned i = 0; i + 1 < core.size(); ++i) {
+        for (unsigned i = 0; i + 1 < core.size(); i += 2) {
             expr* a = core.get(i);
             expr* b = core.get(i + 1);
             expr* u = mk_fresh_bool("u");
@@ -728,36 +747,39 @@ public:
         s().assert_expr(m.mk_not(core.back()));
     }
 
-#endif
-
-#if 0
 
     struct unfold_record {
         ptr_vector<expr> ws;
         rational weight;
     };
 
-    void bin_delay_max_resolve(exprs const& _core, rational const& w) {
-        expr_ref_vector core(m, _core.size(), _core.data()), us(m), partial(m);
+    obj_map<expr, unfold_record> m_unfold;
+    rational m_unfold_upper;
+
+    void bin_delay_max_resolve(exprs const& _core, rational const& weight) {
+        expr_ref_vector core(m, _core.size(), _core.data()), partial(m);
         expr_ref fml(m), cls(m);
         for (expr* c : core) {
-            unfold_record ws;
-            if (!m_unfold.find(c, ws))
+            unfold_record r;
+            if (!m_unfold.find(c, r))
                 continue;
-            for (expr* f : ws.ws)
-                new_assumption(f, ws.weight);
+            IF_VERBOSE(2, verbose_stream() << "to unfold " << mk_pp(c, m) << "\n");
+            for (expr* f : r.ws) {
+                IF_VERBOSE(2, verbose_stream() << "unfold " << mk_pp(f, m) << "\n");
+                new_assumption(f, r.weight);
+            }
+            m_unfold_upper -= r.weight * rational(r.ws.size() - 1);
+            m_unfold.remove(c);
         }
-        if (core.size() <= 1)
-            return;
         
-        for (expr* core)
+        for (expr* _ : core)
             partial.push_back(nullptr);
             
         for (unsigned i = 0; i + 1 < core.size(); ++i) {
             expr* a = core.get(i);
             expr* b = core.get(i + 1);
-            expr_ref u = mk_fresh_bool("u");
-            expr_ref v = mk_fresh_bool("v");
+            expr* u = mk_fresh_bool("u");
+            expr* v = mk_fresh_bool("v");
             // u = a or b
             // v = a and b
             cls = m.mk_or(a, b);
@@ -770,22 +792,28 @@ public:
             add(fml);
             update_model(v, cls);
             m_defs.push_back(fml);
-            us.push_back(u);
             core.push_back(v);
 
+            // w = u and w1 and w2
             unfold_record r;
             r.ws.push_back(u);
             if (partial.get(i))
-                r.ws.push_back(partia.get(i));
+                r.ws.push_back(partial.get(i));
             if (partial.get(i + 1))
-                r.ws.push_back(partia.get(i + 1));            
-            partial.push_back(m.mk_and(r.ws));            
-            m_unfold.insert(partial.back(), r);
+                r.ws.push_back(partial.get(i + 1));
+            m_trail.append(r.ws.size(), r.ws.data());
+            w = mk_fresh_bool("w");
+            cls = m.mk_and(r.ws);
+            fml = m.mk_implies(w, cls);
+            partial.push_back(w);                       
+            add(fml);
+            update_model(w, cls);
+            m_defs.push_back(fml);
+            m_unfold.insert(w, r);
         }
-        expr_ref u = mk_and(us);
-        new_assumption(u, w);
+        new_assumption(w, weight);
+        s().assert_expr(m.mk_not(core.back()));
     }
-#endif
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(exprs const& cs, rational const& w) {
@@ -866,7 +894,7 @@ public:
     }
 
     rational cost(model& mdl) {
-        rational upper(0);
+        rational upper = m_unfold_upper;
         for (soft& s : m_soft) 
             if (!mdl.is_true(s.s)) 
                 upper += s.weight;                    
@@ -971,6 +999,8 @@ public:
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;
+        m_unfold.reset();
+        m_unfold_upper = 0;
         return l_true;
     }
 
@@ -1034,6 +1064,16 @@ public:
 opt::maxsmt_solver_base* opt::mk_maxres(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
     return alloc(maxres, c, id, soft, maxres::s_primal);
+}
+
+opt::maxsmt_solver_base* opt::mk_maxres_binary(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_binary);
+}
+
+opt::maxsmt_solver_base* opt::mk_maxres_binary_delay(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_binary_delay);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
