@@ -2098,9 +2098,9 @@ namespace smtfd {
             m_fd_sat_solver->get_levels(vars, depth);
         }
         
-        expr_ref_vector get_trail() override {
+        expr_ref_vector get_trail(unsigned max_level) override {
             init();
-            return m_fd_sat_solver->get_trail();
+            return m_fd_sat_solver->get_trail(max_level);
         }
         
         unsigned get_num_assertions() const override {

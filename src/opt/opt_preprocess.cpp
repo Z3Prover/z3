@@ -23,10 +23,9 @@ Author:
 
 namespace opt {
 
-    bool preprocess::find_mutexes(vector<soft>& softs, rational& lower) {
-        expr_ref_vector fmls(m);
+    obj_map<expr, rational> preprocess::soft2map(vector<soft> const& softs, expr_ref_vector& fmls) {
         obj_map<expr, rational> new_soft;
-        for (soft& sf : softs) {
+        for (soft const& sf : softs) {
             m_trail.push_back(sf.s);
             if (new_soft.contains(sf.s))
                 new_soft[sf.s] += sf.weight;
@@ -34,6 +33,12 @@ namespace opt {
                 new_soft.insert(sf.s, sf.weight);
             fmls.push_back(sf.s);
         }
+        return new_soft;
+    }
+
+    bool preprocess::find_mutexes(vector<soft>& softs, rational& lower) {
+        expr_ref_vector fmls(m);
+        obj_map<expr, rational> new_soft = soft2map(softs, fmls);
         vector<expr_ref_vector> mutexes;
         lbool is_sat = s.find_mutexes(fmls, mutexes);
         if (is_sat == l_false)
@@ -97,6 +102,8 @@ namespace opt {
     preprocess::preprocess(solver& s):  m(s.get_manager()), s(s), m_trail(m) {}
     
     bool preprocess::operator()(vector<soft>& soft, rational& lower) {
-        return find_mutexes(soft, lower);
+        if (!find_mutexes(soft, lower))
+            return false;
+        return true;
     }
 };

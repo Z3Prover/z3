@@ -390,7 +390,7 @@ public:
         }
     }
 
-    expr_ref_vector get_trail() override {
+    expr_ref_vector get_trail(unsigned max_level) override {
         expr_ref_vector result(m);
         unsigned sz = m_solver.trail_size();
         expr_ref_vector lit2expr(m);
@@ -398,7 +398,11 @@ public:
         m_map.mk_inv(lit2expr);
         for (unsigned i = 0; i < sz; ++i) {
             sat::literal lit = m_solver.trail_literal(i);
-            result.push_back(lit2expr[lit.index()].get());
+            if (m_solver.lvl(lit) > max_level)
+                continue;
+            expr_ref e(lit2expr.get(lit.index()), m);
+            if (e)
+                result.push_back(e);
         }
         return result;
     }

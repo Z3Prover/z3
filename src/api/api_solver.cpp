@@ -564,7 +564,7 @@ extern "C" {
         init_solver(c, s);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        expr_ref_vector trail = to_solver_ref(s)->get_trail();
+        expr_ref_vector trail = to_solver_ref(s)->get_trail(UINT_MAX);
         for (expr* f : trail) {
             v->m_ast_vector.push_back(f);
         }

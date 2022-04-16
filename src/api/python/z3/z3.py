@@ -6594,6 +6594,19 @@ class ModelRef(Z3PPObject):
         """Update the interpretation of a constant"""
         if is_expr(x):
             x = x.decl()
+        if is_func_decl(x) and x.arity() != 0 and isinstance(value, FuncInterp):
+            fi1 = value.f
+            fi2 = Z3_add_func_interp(x.ctx_ref(), self.model, x.ast, value.else_value().ast);
+            fi2 = FuncInterp(fi2, x.ctx)
+            for i in range(value.num_entries()):
+                e = value.entry(i)
+                n = Z3_func_entry_get_num_args(x.ctx_ref(), e.entry)
+                v = AstVector()
+                for j in range(n):
+                    v.push(entry.arg_value(j))                    
+                val = Z3_func_entry_get_value(x.ctx_ref(), e.entry)
+                Z3_func_interp_add_entry(x.ctx_ref(), fi2.f, v.vector, val)
+            return
         if not is_func_decl(x) or x.arity() != 0:
             raise Z3Exception("Expecting 0-ary function or constant expression")
         value = _py2expr(value)

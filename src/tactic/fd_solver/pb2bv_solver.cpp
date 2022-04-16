@@ -105,8 +105,8 @@ public:
         m_solver->get_levels(vars, depth);
     }
 
-    expr_ref_vector get_trail() override {
-        return m_solver->get_trail();
+    expr_ref_vector get_trail(unsigned max_level) override {
+        return m_solver->get_trail(max_level);
     }
 
     model_converter* external_model_converter() const{

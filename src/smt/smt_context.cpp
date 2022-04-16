@@ -4619,9 +4619,15 @@ namespace smt {
         }
     }
 
-    expr_ref_vector context::get_trail() {        
+    expr_ref_vector context::get_trail(unsigned max_level) {        
         expr_ref_vector result(get_manager());
-        get_assignments(result);
+        for (literal lit : m_assigned_literals) {
+            if (get_assign_level(lit) > max_level + m_base_lvl)
+                continue;
+            expr_ref e(m);
+            literal2expr(lit, e);
+            result.push_back(std::move(e));
+        }
         return result;
     }
 
@@ -4629,15 +4635,10 @@ namespace smt {
         expr_mark visited;
         for (expr* fml : result)
             visited.mark(fml);
-        for (literal lit : m_assigned_literals) {
-            if (get_assign_level(lit) > m_base_lvl)
-                break;
-            expr_ref e(m);
-            literal2expr(lit, e);
-            if (visited.is_marked(e))
-                continue;
-            result.push_back(std::move(e));
-        }
+        expr_ref_vector trail = get_trail(0);
+        for (expr* t : trail) 
+            if (!visited.is_marked(t))
+                result.push_back(t);
     }
 
 
