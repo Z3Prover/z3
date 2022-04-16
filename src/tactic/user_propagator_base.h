@@ -25,7 +25,7 @@ namespace user_propagator {
     typedef std::function<void(void*, callback*)>                            push_eh_t;
     typedef std::function<void(void*, callback*, unsigned)>                  pop_eh_t;
     typedef std::function<void(void*, callback*, expr*)>                     created_eh_t;
-    typedef std::function<void(void*, callback*, expr*&, unsigned&, lbool&)> decide_eh_t;
+    typedef std::function<void(void*, callback*, expr**, unsigned*, lbool*)> decide_eh_t;
 
     class plugin : public decl_plugin {
     public:

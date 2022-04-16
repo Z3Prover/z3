@@ -700,7 +700,7 @@ public:
         }
     }
 
-#if 0
+#if 1
 
     void bin_max_resolve(exprs const& _core, rational const& w) {
         expr_ref_vector core(m, _core.size(), _core.data());
@@ -708,8 +708,8 @@ public:
         for (unsigned i = 0; i + 1 < core.size(); ++i) {
             expr* a = core.get(i);
             expr* b = core.get(i + 1);
-            expr_ref u = mk_fresh_bool("u");
-            expr_ref v = mk_fresh_bool("v");
+            expr* u = mk_fresh_bool("u");
+            expr* v = mk_fresh_bool("v");
             // u = a or b
             // v = a and b
             cls = m.mk_or(a, b);
@@ -725,7 +725,12 @@ public:
             new_assumption(u, w);
             core.push_back(v);
         }
+        s().assert_expr(m.mk_not(core.back()));
     }
+
+#endif
+
+#if 0
 
     struct unfold_record {
         ptr_vector<expr> ws;
