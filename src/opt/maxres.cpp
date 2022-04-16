@@ -629,9 +629,8 @@ public:
         if (core.empty()) return rational(0);
         // find the minimal weight:
         rational w = get_weight(core[0]);
-        for (unsigned i = 1; i < core.size(); ++i) {
+        for (unsigned i = 1; i < core.size(); ++i) 
             w = std::min(w, get_weight(core[i]));
-        }
         return w;
     }
 
@@ -721,7 +720,7 @@ public:
     }
 
 
-    void bin_max_resolve(exprs const& _core, rational const& w) {
+    void bin_max_resolve(exprs const& _core, rational w) {
         expr_ref_vector core(m, _core.size(), _core.data());
         expr_ref fml(m), cls(m);
         for (unsigned i = 0; i + 1 < core.size(); i += 2) {
@@ -756,7 +755,7 @@ public:
     obj_map<expr, unfold_record> m_unfold;
     rational m_unfold_upper;
 
-    void bin_delay_max_resolve(exprs const& _core, rational const& weight) {
+    void bin_delay_max_resolve(exprs const& _core, rational weight) {
         expr_ref_vector core(m, _core.size(), _core.data()), partial(m);
         expr_ref fml(m), cls(m);
         for (expr* c : core) {
@@ -805,6 +804,7 @@ public:
             if (partial.get(i + 1))
                 r.ws.push_back(partial.get(i + 1));
             m_trail.append(r.ws.size(), r.ws.data());
+            r.weight = weight;
             if (r.ws.size() == 1) 
                 w = u;
             else {
