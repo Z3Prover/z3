@@ -40,6 +40,7 @@ class smt_tactic : public tactic {
     ast_manager&                 m;
     smt_params                   m_params;
     params_ref                   m_params_ref;
+    expr_ref_vector              m_vars;
     statistics                   m_stats;
     smt::kernel*                 m_ctx = nullptr;
     symbol                       m_logic;
@@ -321,141 +322,22 @@ public:
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
     user_propagator::created_eh_t m_created_eh;
-
-    expr_ref_vector             m_vars;
-    unsigned_vector             m_var2internal;
-    unsigned_vector             m_internal2var;
-    unsigned_vector             m_limit;    
+    user_propagator::decide_eh_t m_decide_eh;
    
-
-    user_propagator::push_eh_t  i_push_eh;
-    user_propagator::pop_eh_t   i_pop_eh;
-    user_propagator::fixed_eh_t i_fixed_eh;
-    user_propagator::final_eh_t i_final_eh;
-    user_propagator::eq_eh_t    i_eq_eh;
-    user_propagator::eq_eh_t    i_diseq_eh;
-    user_propagator::created_eh_t i_created_eh;
-
-
-    struct callback : public user_propagator::callback {
-        smt_tactic* t = nullptr;
-        user_propagator::callback* cb = nullptr;
-        unsigned_vector fixed, lhs, rhs;
-        void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) override {
-            fixed.reset();
-            lhs.reset();
-            rhs.reset();
-            for (unsigned i = 0; i < num_fixed; ++i)
-                fixed.push_back(t->m_var2internal[fixed_ids[i]]);
-            for (unsigned i = 0; i < num_eqs; ++i) {
-                lhs.push_back(t->m_var2internal[eq_lhs[i]]);
-                rhs.push_back(t->m_var2internal[eq_rhs[i]]);
-            }
-            cb->propagate_cb(num_fixed, fixed.data(), num_eqs, lhs.data(), rhs.data(), conseq);
-        }
-
-        unsigned register_cb(expr* e) override {
-            unsigned j = t->m_vars.size();
-            t->m_vars.push_back(e);
-            unsigned i = cb->register_cb(e);
-            t->m_var2internal.setx(j, i, 0);
-            t->m_internal2var.setx(i, j, 0);
-            return j;
-        }
-    };
-
-    callback i_cb;
-
-    void init_i_fixed_eh() {
-        if (!m_fixed_eh)
-            return;
-        i_fixed_eh = [this](void* ctx, user_propagator::callback* cb, unsigned id, expr* value) {
-            i_cb.t = this;
-            i_cb.cb = cb;
-            m_fixed_eh(ctx, &i_cb, m_internal2var[id], value);
-        };
-        m_ctx->user_propagate_register_fixed(i_fixed_eh);
-    }
-
-    void init_i_final_eh() {
-        if (!m_final_eh)
-            return;
-        i_final_eh = [this](void* ctx, user_propagator::callback* cb) {
-            i_cb.t = this;
-            i_cb.cb = cb;
-            m_final_eh(ctx, &i_cb);
-        };
-        m_ctx->user_propagate_register_final(i_final_eh);
-    }
-
-    void init_i_eq_eh() {
-        if (!m_eq_eh)
-            return;
-        i_eq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
-            i_cb.t = this;
-            i_cb.cb = cb;
-            m_eq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
-        };
-        m_ctx->user_propagate_register_eq(i_eq_eh);
-    }
-
-    void init_i_diseq_eh() {
-        if (!m_diseq_eh)
-            return;
-        i_diseq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
-            i_cb.t = this;
-            i_cb.cb = cb;
-            m_diseq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
-        };
-        m_ctx->user_propagate_register_diseq(i_diseq_eh);
-    }
-
-    void init_i_created_eh() {
-        if (!m_created_eh)
-            return;
-        i_created_eh = [this](void* ctx, user_propagator::callback* cb, expr* e, unsigned i) {
-            unsigned j = m_vars.size();
-            m_vars.push_back(e);
-            m_internal2var.setx(i, j, 0);
-            m_var2internal.setx(j, i, 0);
-            m_created_eh(ctx, cb, e, j);
-        };
-        m_ctx->user_propagate_register_created(i_created_eh);
-    }
-
-    void init_i_push_pop() {
-        i_push_eh = [this](void* ctx) {
-            m_limit.push_back(m_vars.size());
-            m_push_eh(ctx);
-        };
-        i_pop_eh = [this](void* ctx, unsigned n) {
-            unsigned old_sz = m_limit.size() - n;
-            unsigned num_vars = m_limit[old_sz];            
-            m_vars.shrink(num_vars);            
-            m_limit.shrink(old_sz);
-            m_pop_eh(ctx, n);            
-        };
-    }
-
 
     void user_propagate_delay_init() {
         if (!m_user_ctx)
             return;
-        init_i_push_pop();
-        m_ctx->user_propagate_init(m_user_ctx, i_push_eh, i_pop_eh, m_fresh_eh);
-        init_i_fixed_eh();
-        init_i_final_eh();
-        init_i_eq_eh();
-        init_i_diseq_eh();
-        init_i_created_eh();
+        m_ctx->user_propagate_init(m_user_ctx, m_push_eh, m_pop_eh, m_fresh_eh);
+        if (m_fixed_eh)   m_ctx->user_propagate_register_fixed(m_fixed_eh);
+        if (m_final_eh)   m_ctx->user_propagate_register_final(m_final_eh);
+        if (m_eq_eh)      m_ctx->user_propagate_register_eq(m_eq_eh);
+        if (m_diseq_eh)   m_ctx->user_propagate_register_diseq(m_diseq_eh);
+        if (m_created_eh) m_ctx->user_propagate_register_created(m_created_eh);
+        if (m_decide_eh) m_ctx->user_propagate_register_decide(m_decide_eh);
 
-        unsigned i = 0;
-        for (expr* v : m_vars) {
-            unsigned j = m_ctx->user_propagate_register_expr(v);
-            m_var2internal.setx(i, j, 0);
-            m_internal2var.setx(j, i, 0);
-            ++i;
-        }    
+        for (expr* v : m_vars) 
+            m_ctx->user_propagate_register_expr(v);
     }
 
     void user_propagate_clear() override {
@@ -496,9 +378,8 @@ public:
         m_diseq_eh = diseq_eh;
     }
 
-    unsigned user_propagate_register_expr(expr* e) override {
+    void user_propagate_register_expr(expr* e) override {
         m_vars.push_back(e);
-        return m_vars.size() - 1;
     }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {

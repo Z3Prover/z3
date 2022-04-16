@@ -27,6 +27,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_translation.h"
 #include "util/z3_version.h"
 
@@ -233,8 +234,7 @@ std::ostream& operator<<(std::ostream& out, sort_size const & ss) {
 // -----------------------------------
 std::ostream & operator<<(std::ostream & out, sort_info const & info) {
     operator<<(out, static_cast<decl_info const&>(info));
-    out << " :size " << info.get_num_elements();
-    return out;
+    return out << " :size " << info.get_num_elements();
 }
 
 // -----------------------------------
@@ -1758,13 +1758,13 @@ ast * ast_manager::register_node_core(ast * n) {
     switch (n->get_kind()) {
     case AST_SORT:
         if (to_sort(n)->m_info != nullptr) {
-            to_sort(n)->m_info = alloc(sort_info, *(to_sort(n)->get_info()));
+            to_sort(n)->m_info = alloc(sort_info, std::move(*(to_sort(n)->get_info())));
             to_sort(n)->m_info->init_eh(*this);
         }
         break;
     case AST_FUNC_DECL:
         if (to_func_decl(n)->m_info != nullptr) {
-            to_func_decl(n)->m_info = alloc(func_decl_info, *(to_func_decl(n)->get_info()));
+            to_func_decl(n)->m_info = alloc(func_decl_info, std::move(*(to_func_decl(n)->get_info())));
             to_func_decl(n)->m_info->init_eh(*this);
         }
         inc_array_ref(to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
@@ -1992,7 +1992,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
         return s;
     }
     decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.data(), s->private_parameters());
-    sort_info sinfo(dinfo, s->get_num_elements());
+    sort_info sinfo(std::move(dinfo), s->get_num_elements());
     return mk_sort(s->get_name(), &sinfo);
 }
 
@@ -2131,12 +2131,17 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 expr* ast_manager::coerce_to(expr* e, sort* s) {
     sort* se = e->get_sort();
     if (s != se && s->get_family_id() == arith_family_id && se->get_family_id() == arith_family_id) {
-        if (s->get_decl_kind() == REAL_SORT) {
+        if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
-        }
-        else {
-            return mk_app(arith_family_id, OP_TO_INT, e);        
-        }
+        else 
+            return mk_app(arith_family_id, OP_TO_INT, e);                
+    }
+    if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
+        arith_util au(*this);
+        if (s->get_decl_kind() == REAL_SORT) 
+            return mk_ite(e, au.mk_real(1), au.mk_real(0));
+        else 
+            return mk_ite(e, au.mk_int(1), au.mk_int(0));
     }
     else {
         return e;
@@ -2231,7 +2236,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
                << ") passed to function " << mk_pp(decl, *this);
-        throw ast_exception(buffer.str());
+        throw ast_exception(std::move(buffer).str());
     }
     app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {

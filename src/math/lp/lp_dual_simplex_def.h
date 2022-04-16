@@ -217,14 +217,14 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_
         m_can_enter_basis[j] = true;
         this->set_scaled_cost(j);
         this->m_lower_bounds[j] = numeric_traits<T>::zero();
-        this->m_upper_bounds[j] =numeric_traits<T>::one();
+        this->m_upper_bounds[j] = numeric_traits<T>::one();
         break;
     }
     case column_type::free_column: {
         m_can_enter_basis[j] = true;
         this->set_scaled_cost(j);
-        this->m_upper_bounds[j] = free_bound;
-        this->m_lower_bounds[j] =  -free_bound;
+        this->m_upper_bounds[j] =  free_bound;
+        this->m_lower_bounds[j] = -free_bound;
         break;
     }
     case column_type::boxed:

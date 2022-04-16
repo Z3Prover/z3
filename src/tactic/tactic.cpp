@@ -52,6 +52,7 @@ struct tactic_report::imp {
                    << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
                    << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
                    << ")" << std::endl);
+        IF_VERBOSE(20, m_goal.display(verbose_stream() << m_id << "\n"));
         SASSERT(m_goal.is_well_formed());
     }
 };

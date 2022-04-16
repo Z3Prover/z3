@@ -225,6 +225,11 @@ namespace recfun {
         m_vars.append(n_vars, vars);
         m_rhs = rhs;
 
+        if (!is_macro)
+            for (expr* e : subterms::all(m_rhs))
+                if (is_lambda(e))
+                    throw default_exception("recursive definitions with lambdas are not supported");
+        
         expr_ref_vector conditions(m);
 
         // is the function a macro (unconditional body)?
@@ -233,6 +238,8 @@ namespace recfun {
             add_case(name, 0, conditions, rhs);
             return;
         }
+
+
         
         // analyze control flow of `rhs`, accumulating guards and
         // rebuilding a `ite`-free RHS on the fly for each path in `rhs`.

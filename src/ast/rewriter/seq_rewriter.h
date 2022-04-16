@@ -322,6 +322,7 @@ class seq_rewriter {
     bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
     bool min_length(expr_ref_vector const& es, unsigned& len);
     bool min_length(expr* e, unsigned& len);
+    bool min_length(unsigned sz, expr* const* es, unsigned& len);
     bool max_length(expr* e, rational& len);
     lbool eq_length(expr* x, expr* y);
     expr* concat_non_empty(expr_ref_vector& es);

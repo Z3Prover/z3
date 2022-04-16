@@ -315,6 +315,17 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast r, unsigned n) {
+        Z3_TRY;
+        LOG_Z3_mk_re_power(c, r, n);
+        RESET_ERROR_CODE();
+        app* a = mk_c(c)->sutil().re.mk_power(to_expr(r), n);
+        mk_c(c)->save_ast_trail(a);
+        RETURN_Z3(of_ast(a));        
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
     MK_UNARY(Z3_mk_re_plus, mk_c(c)->get_seq_fid(), OP_RE_PLUS, SKIP);
     MK_UNARY(Z3_mk_re_star, mk_c(c)->get_seq_fid(), OP_RE_STAR, SKIP);
     MK_UNARY(Z3_mk_re_option, mk_c(c)->get_seq_fid(), OP_RE_OPTION, SKIP);

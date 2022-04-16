@@ -254,6 +254,8 @@ namespace smt {
         app_ref n_is_con(m.mk_app(rec, own), m);
         ctx.internalize(n_is_con, false);
         literal lits[2] = { ~is_con, literal(ctx.get_bool_var(n_is_con)) };
+        ctx.mark_as_relevant(lits[0]);
+        ctx.mark_as_relevant(lits[1]);
         std::function<literal_vector(void)> fn = [&]() { return literal_vector(2, lits); };
         scoped_trace_stream _st(*this, fn);
         ctx.mk_th_axiom(get_id(), 2, lits);
@@ -297,7 +299,7 @@ namespace smt {
         TRACE("datatype", tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(term->get_arg(i), has_quantifiers(term));
+            ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term));
         // the internalization of the arguments may trigger the internalization of term.
         if (ctx.e_internalized(term))
             return true;

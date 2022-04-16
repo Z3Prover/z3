@@ -21,6 +21,7 @@ Notes:
 #include "tactic/model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 
 /**
@@ -40,9 +41,7 @@ struct bit_blaster_model_converter : public model_converter {
         obj_map<func_decl, expr*> const & const2bits, 
         ptr_vector<func_decl> const& newbits):
         m_vars(m), m_bits(m), m_newbits(m) {
-        for (auto const& kv : const2bits) {
-            func_decl * v = kv.m_key;
-            expr * bits   = kv.m_value;
+        for (auto const& [v, bits] : const2bits) {
             SASSERT(!TO_BOOL || is_app_of(bits, m.get_family_id("bv"), OP_MKBV));
             SASSERT(TO_BOOL  || is_app_of(bits, m.get_family_id("bv"), OP_CONCAT));
             m_vars.push_back(v);
@@ -70,7 +69,7 @@ struct bit_blaster_model_converter : public model_converter {
                 bits.insert(to_app(bit)->get_decl());
             }
         }
-        TRACE("blaster_mc",
+        TRACE("model_converter",
               tout << "bits that should not be included in the model:\n";
               for (func_decl* f : bits) {
                   tout << f->get_name() << " ";
@@ -85,14 +84,14 @@ struct bit_blaster_model_converter : public model_converter {
             func_decl * f = old_model->get_constant(i);
             if (bits.contains(f))
                 continue;
-            TRACE("blaster_mc", tout << "non-bit: " << f->get_name() << "\n";);
+            TRACE("model_converter", tout << "non-bit: " << f->get_name() << "\n";);
             expr * fi     = old_model->get_const_interp(f);
             new_model->register_decl(f, fi);
         }
-        TRACE("blaster_mc", tout << "after copy non bits:\n"; model_pp(tout, *new_model););
+        TRACE("model_converter", tout << "after copy non bits:\n"; model_pp(tout, *new_model););
         new_model->copy_func_interps(*old_model);
         new_model->copy_usort_interps(*old_model);
-        TRACE("blaster_mc", tout << "after copying functions and sorts:\n"; model_pp(tout, *new_model););
+        TRACE("model_converter", tout << "after copying functions and sorts:\n"; model_pp(tout, *new_model););
     }
     
     void mk_bvs(model * old_model, model * new_model) {
@@ -121,7 +120,9 @@ struct bit_blaster_model_converter : public model_converter {
                     SASSERT(is_uninterp_const(bit));
                     func_decl * bit_decl = to_app(bit)->get_decl();
                     expr * bit_val = old_model->get_const_interp(bit_decl);
-                    if (bit_val != nullptr && m().is_true(bit_val))
+                    if (bit_val && !m().is_true(bit_val) && !m().is_false(bit_val)) 
+                        goto bail;
+                    if (bit_val && m().is_true(bit_val))
                         val++;
                 }
             }
@@ -136,11 +137,27 @@ struct bit_blaster_model_converter : public model_converter {
                     func_decl * bit_decl = to_app(bit)->get_decl();
                     expr * bit_val = old_model->get_const_interp(bit_decl);
                     // remark: if old_model does not assign bit_val, then assume it is false.
-                    if (bit_val != nullptr && !util.is_zero(bit_val))
+                    if (bit_val && !util.is_one(bit_val) && !util.is_zero(bit_val))
+                        goto bail;
+                    if (bit_val && util.is_one(bit_val))
                         val++;
                 }
             }
-            new_val = util.mk_numeral(val, bv_sz);
+            new_val = util.mk_numeral(val, bv_sz);            
+            new_model->register_decl(m_vars.get(i), new_val);
+            continue;
+        bail:
+            expr_ref_vector vals(m());
+            for (expr* bit : *to_app(bs)) {
+                func_decl * bit_decl = to_app(bit)->get_decl();
+                expr * bit_val = old_model->get_const_interp(bit_decl);
+                SASSERT(bit_val);
+                vals.push_back(bit_val);
+            }
+            if (TO_BOOL) 
+                new_val = util.mk_bv(vals.size(), vals.data());
+            else 
+                new_val = util.mk_concat(vals);
             new_model->register_decl(m_vars.get(i), new_val);
         }
     }

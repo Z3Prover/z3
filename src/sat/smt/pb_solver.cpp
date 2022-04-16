@@ -21,6 +21,7 @@ Author:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/sat_simplifier_params.hpp"
+#include "sat/sat_scc.h"
 
 namespace pb {
 
@@ -69,7 +70,7 @@ namespace pb {
         SASSERT(s().at_base_lvl());
         if (p.lit() != sat::null_literal && value(p.lit()) == l_false) {
             TRACE("ba", tout << "pb: flip sign " << p << "\n";);
-            IF_VERBOSE(1, verbose_stream() << "sign is flipped " << p << "\n";);
+            IF_VERBOSE(2, verbose_stream() << "sign is flipped " << p << "\n";);
             return;
         }
         bool nullify = p.lit() != sat::null_literal && value(p.lit()) == l_true;
@@ -109,22 +110,21 @@ namespace pb {
             }
         }
         else if (true_val >= p.k()) {
-            if (p.lit() != sat::null_literal) {
-                IF_VERBOSE(100, display(verbose_stream() << "assign true literal ", p, true););
+            IF_VERBOSE(100, display(verbose_stream() << "assign true literal ", p, true););
+            if (p.lit() != sat::null_literal) 
                 s().assign_scoped(p.lit());
-            }        
-            remove_constraint(p, "is true");
+            else 
+                remove_constraint(p, "is true");
         }
         else if (slack + true_val < p.k()) {
             if (p.lit() != sat::null_literal) {
-                IF_VERBOSE(100, display(verbose_stream() << "assign false literal ", p, true););
+                IF_VERBOSE(3, display(verbose_stream() << "assign false literal ", p, true););
                 s().assign_scoped(~p.lit());
             }
             else {
-                IF_VERBOSE(1, verbose_stream() << "unsat during simplification\n";);
+                IF_VERBOSE(1, verbose_stream() << "unsat during simplification\n");
                 s().set_conflict(sat::justification(0));
             }
-            remove_constraint(p, "is false");
         }
         else if (slack + true_val == p.k()) {
             literal_vector lits(p.literals());    
@@ -132,14 +132,16 @@ namespace pb {
             remove_constraint(p, "is tight");
         }
         else {
+
             unsigned sz = p.size();
             clear_watch(p);
             unsigned j = 0;
             for (unsigned i = 0; i < sz; ++i) {
                 literal l = p.get_lit(i);
                 if (value(l) == l_undef) {
-                    if (i != j) p.swap(i, j);
-                    ++j;
+                    if (i != j)
+                        p.swap(i, j);
+                    ++j;                    
                 }
             }
             sz = j;
@@ -167,6 +169,7 @@ namespace pb {
             _bad_id = 11111111;
             SASSERT(p.well_formed());
             m_simplify_change = true;
+
         }
     }
 
@@ -1422,7 +1425,7 @@ namespace pb {
             c->watch_literal(*this, ~lit);
         }     
         if (!c->well_formed()) 
-            std::cout << *c << "\n";
+            IF_VERBOSE(0, verbose_stream() << *c << "\n");
         VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
             std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
@@ -1457,7 +1460,7 @@ namespace pb {
             return nullptr;
         }
         rational weight(0);
-        for (auto const [w, l] : wlits)
+        for (auto const &[w, l] : wlits)
             weight += w;
         if (weight < k) {
             if (lit == sat::null_literal)
@@ -2035,7 +2038,7 @@ namespace pb {
         m_constraint_to_reinit.shrink(sz);        
     }
 
-    void solver::simplify() {        
+    void solver::simplify() {
         if (!s().at_base_lvl()) 
             s().pop_to_base_level();
         if (s().inconsistent())
@@ -2192,7 +2195,7 @@ namespace pb {
         }
     }
 
-    bool solver::set_root(literal l, literal r) { 
+    bool solver::set_root(literal l, literal r) {
         if (s().is_assumption(l.var())) 
             return false;
         reserve_roots();
@@ -2205,17 +2208,18 @@ namespace pb {
     }
 
     void solver::flush_roots() {
-        if (m_roots.empty()) return;
+        if (m_roots.empty())
+            return;
         reserve_roots();
-        // validate();
+        DEBUG_CODE(validate(););
         m_constraint_removed = false;
         for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) 
             flush_roots(*m_constraints[i]);
         for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) 
             flush_roots(*m_learned[i]);
         cleanup_constraints();
-        // validate();
-        // validate_eliminated();
+        DEBUG_CODE(validate(););
+        DEBUG_CODE(validate_eliminated(););
     }
 
     void solver::validate_eliminated() {
@@ -2633,6 +2637,10 @@ namespace pb {
      *       add ~root(~l) to c, k <- k + 1
      */ 
     void solver::unit_strengthen() {
+        return;
+
+        // TODO - this is unsound exposed by 4_21_21_-1.txt
+
         sat::big big(s().m_rand);
         big.init(s(), true);
         for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) 
@@ -2642,7 +2650,8 @@ namespace pb {
     }
 
     void solver::unit_strengthen(sat::big& big, constraint& p) {
-        if (p.lit() != sat::null_literal) return;
+        if (p.lit() != sat::null_literal) 
+            return;
         unsigned sz = p.size();
         for (unsigned i = 0; i < sz; ++i) {
             literal u = p.get_lit(i);
@@ -2690,8 +2699,8 @@ namespace pb {
                     }
                 }
                 ++m_stats.m_num_big_strengthenings;
+                constraint* c = add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 p.set_removed();
-                add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 return;
             }
         }
@@ -2764,7 +2773,7 @@ namespace pb {
         ptr_vector<constraint>::iterator it2 = it;
         ptr_vector<constraint>::iterator end = cs.end();
         for (; it != end; ++it) {
-            constraint& c = *(*it);
+            constraint& c = *(*it);            
             if (c.was_removed()) {
                 clear_watch(c);
                 c.nullify_tracking_literal(*this);
@@ -3133,32 +3142,35 @@ namespace pb {
     void solver::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
         sat::literal_set slits(lits);
         bool change = false;
+        
         for (constraint* cp : m_constraints) {
-            if (!cp->is_card()) continue;
+            if (!cp->is_card()) 
+                continue;
+            if (cp->lit() != sat::null_literal)
+                continue;
             card const& c = cp->to_card();
-            if (c.size() == c.k() + 1) {
-                literal_vector mux;
-                for (literal lit : c) {
-                    if (slits.contains(~lit)) {
-                        mux.push_back(~lit);
-                    }
-                }
-                if (mux.size() <= 1) {
-                    continue;
-                }
+            if (c.size() != c.k() + 1) 
+                continue;
 
-                for (literal m : mux) {
-                    slits.remove(m);
-                }
-                change = true;
-                mutexes.push_back(mux);
-            }
+            literal_vector mux;
+            for (literal lit : c) 
+                if (slits.contains(~lit)) 
+                    mux.push_back(~lit);
+
+            if (mux.size() <= 1) 
+                continue;
+            
+            for (literal m : mux) 
+                slits.remove(m);
+
+            change = true;
+            mutexes.push_back(mux);            
         }        
-        if (!change) return;
+        if (!change) 
+            return;
         lits.reset();
-        for (literal l : slits) {
+        for (literal l : slits) 
             lits.push_back(l);
-        }
     }
 
     void solver::display(std::ostream& out, ineq const& ineq, bool values) const {
@@ -3224,9 +3236,6 @@ namespace pb {
                            display(verbose_stream(), p, true););
                 return false;                
             }
-            // if (value(alit) == l_true && lvl(l) == lvl(alit)) {
-            // std::cout << "same level " << alit << " " << l << "\n";
-            // }
         }
         // the sum of elements not in r or alit add up to less than k.
         unsigned sum = 0;
@@ -3421,19 +3430,11 @@ namespace pb {
                 ++num_max_level;
             }
         }
-        if (m_overflow) {
+        if (m_overflow) 
             return nullptr;
-        }
 
-        if (slack >= k) {
-#if 0
-            return active2constraint();
-            active2pb(m_A);
-            std::cout << "not asserting\n";
-            display(std::cout, m_A, true);
-#endif
+        if (slack >= k) 
             return nullptr;
-        }
 
         // produce asserting cardinality constraint
         literal_vector lits;

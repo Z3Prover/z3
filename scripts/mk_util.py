@@ -69,6 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_HURD=False
 IS_OSX=False
+IS_ARCH_ARM64=False
 IS_FREEBSD=False
 IS_NETBSD=False
 IS_OPENBSD=False
@@ -114,6 +115,7 @@ ALWAYS_DYNAMIC_BASE=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+FPMATH_ENABLED=getenv("FPMATH_ENABLED", "True")
 
 
 def check_output(cmd):
@@ -277,7 +279,13 @@ def test_gmp(cc):
 
 
 def test_fpmath(cc):
-    global FPMATH_FLAGS
+    global FPMATH_FLAGS, IS_ARCH_ARM64, IS_OSX
+    if FPMATH_ENABLED == "False":
+        FPMATH_FLAGS=""
+        return "Disabled"
+    if IS_ARCH_ARM64 and IS_OSX:
+        FPMATH_FLAGS = ""
+        return "Disabled-ARM64"
     if is_verbose():
         print("Testing floating point support...")
     t = TempFile('tstsse.cpp')
@@ -616,8 +624,12 @@ elif os.name == 'posix':
             LINUX_X64=True
         else:
             LINUX_X64=False
-            
 
+            
+if os.name == 'posix' and os.uname()[4] == 'arm64':
+    IS_ARCH_ARM64 = True
+
+            
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
     print("This script generates the Makefile for the Z3 theorem prover.")
@@ -640,6 +652,7 @@ def display_help(exit_code):
         print("  -x, --x64                     create 64 binary when using Visual Studio.")
     else:
         print("  --x86                         force 32-bit x86 build on x64 systems.")
+    print("  --arm64=<bool>                    forcearm64 bit build  on/off (supported for Darwin).")
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
@@ -682,11 +695,11 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
-    global GUARD_CF, ALWAYS_DYNAMIC_BASE
+    global GUARD_CF, ALWAYS_DYNAMIC_BASE, IS_ARCH_ARM64
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
-                                               'b:df:sxhmcvtnp:gj',
-                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
+                                               'b:df:sxa:hmcvtnp:gj',
+                                               ['build=', 'debug', 'silent', 'x64', 'arm64=', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
@@ -709,6 +722,8 @@ def parse_options():
             VS_X64 = True
         elif opt in ('--x86'):
             LINUX_X64=False
+        elif opt in ('--arm64'):
+            IS_ARCH_ARM64 = arg in ('true','on','True','TRUE')
         elif opt in ('-h', '--help'):
             display_help(0)
         elif opt in ('-m', '--makefiles'):
@@ -1678,6 +1693,7 @@ class DotNetDLLComponent(Component):
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
+    <LangVersion>8.0</LangVersion>
     <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
     <DebugType>portable</DebugType>
     <AssemblyName>Microsoft.Z3</AssemblyName>
@@ -1995,7 +2011,7 @@ class MLComponent(Component):
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
 
-            stubs_install_path = '$$(%s printconf path)/stublibs' % OCAMLFIND
+            stubs_install_path = '$$(%s printconf destdir)/stublibs' % OCAMLFIND
             if not STATIC_LIB:
                 loadpath = '-ccopt -L' + stubs_install_path
                 dllpath = '-dllpath ' + stubs_install_path
@@ -2076,7 +2092,7 @@ class MLComponent(Component):
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxa'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxs'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'dllz3ml'))))
-            if is_windows() or is_cygwin_mingw():
+            if is_windows() or is_cygwin_mingw() or is_msys2():
                 out.write('.dll')
             else:
                 out.write('.so') # .so also on OSX!
@@ -2426,7 +2442,7 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
-    global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
+    global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED, IS_ARCH_ARM64
     if IS_WINDOWS:
         CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++17'
         config.write(
@@ -2624,13 +2640,18 @@ def mk_config():
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
-        if is_cygwin_mingw():
+        if is_cygwin_mingw() or is_msys2():
             # when cross-compiling with MinGW, we need to statically link its standard libraries
             # and to make it create an import library.
             SLIBEXTRAFLAGS = '%s -static-libgcc -static-libstdc++ -Wl,--out-implib,libz3.dll.a' % SLIBEXTRAFLAGS
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
+        if IS_OSX and IS_ARCH_ARM64:
+            print("Setting arm64")
+            CXXFLAGS = '%s -arch arm64' % CXXFLAGS
+            LDFLAGS = '%s -arch arm64' % LDFLAGS
+            SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
 
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)

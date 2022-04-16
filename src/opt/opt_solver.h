@@ -48,6 +48,7 @@ namespace opt {
         void set_offset(rational const& o) { m_offset = o; }
         void set_negate(bool neg) { m_negate = neg; }
         rational const& get_offset() const { return m_offset; }
+        void add_offset(rational const& o) { if (m_negate) m_offset -= o; else m_offset += o; }
         bool get_negate() { return m_negate; }
         inf_eps operator()(inf_eps const& r) const {
             inf_eps result = r;
@@ -107,7 +108,7 @@ namespace opt {
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
-        expr_ref_vector get_trail() override { return m_context.get_trail(); }
+        expr_ref_vector get_trail(unsigned max_level) override { return m_context.get_trail(max_level); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
         void set_phase(expr* e) override { m_context.set_phase(e); }
         phase* get_phase() override { return m_context.get_phase(); }

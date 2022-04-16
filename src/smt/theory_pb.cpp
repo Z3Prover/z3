@@ -1881,12 +1881,13 @@ namespace smt {
                 inc_coeff(conseq, offset);
                 clause& cls = *js.get_clause();
                 justification* cjs = cls.get_justification();
-                if (cjs && !is_proof_justification(*cjs)) {
-                    TRACE("pb", tout << "skipping justification for clause over: " << conseq << " " 
-                          << typeid(*cjs).name() << "\n";);
+                unsigned num_lits = cls.get_num_literals();
+                if (cjs && typeid(smt::unit_resolution_justification) == typeid(*cjs))
+                    ;
+                else if (cjs && !is_proof_justification(*cjs)) {                    
+                    TRACE("pb", tout << "not processing justification over: " << conseq << " " << typeid(*cjs).name() << "\n";);
                     break;
                 }
-                unsigned num_lits = cls.get_num_literals();
                 if (cls.get_literal(0) == conseq) {
                    process_antecedent(cls.get_literal(1), offset);
                 }

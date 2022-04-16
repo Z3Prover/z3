@@ -2107,6 +2107,26 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Check if the string s1 is lexicographically strictly less than s2.
+     */
+
+    public BoolExpr MkStringLt(SeqSort<CharSort> s1, SeqSort<CharSort> s2) 
+    {
+        checkContextMatch(s1, s2);
+        return new BoolExpr(this, Native.mkStrLt(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Check if the string s1 is lexicographically less or equal to s2.
+     */
+    public BoolExpr MkStringLe(SeqSort<CharSort> s1, SeqSort<CharSort> s2)
+    {
+        checkContextMatch(s1, s2);
+        return new BoolExpr(this, Native.mkStrLe(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+
+    /**
      * Retrieve sequence of length one at index.
      */
     public <R extends Sort> SeqExpr<R> mkAt(Expr<SeqSort<R>> s, Expr<IntSort> index)
@@ -2178,6 +2198,14 @@ public class Context implements AutoCloseable {
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));
+    }
+
+    /**
+     * Create power regular expression.
+     */
+    public <R extends Sort> ReExpr<R> mkPower(Expr<ReSort<R>> re, int n)
+    {
+        return (ReExpr<R>) Expr.create(this, Native.mkRePower(nCtx(), re.getNativeObject(), n));
     }
 
     /**
@@ -4038,6 +4066,37 @@ public class Context implements AutoCloseable {
         return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
 
+    /**
+     * Creates or a linear order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public <R extends Sort> FuncDecl<BoolSort> mkLinearOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkLinearOrder(
+                        nCtx(),
+                        sort.getNativeObject(),
+                        index
+                )
+        );
+    }
+
+    /**
+     * Creates or a partial order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkPartialOrder(
+                    nCtx(),
+                    sort.getNativeObject(),
+                    index
+                )
+        );
+    }
 
     /**
      * Wraps an AST.

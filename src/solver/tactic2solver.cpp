@@ -108,12 +108,16 @@ public:
         m_tactic->user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned user_propagate_register_expr(expr* e) override {
-        return m_tactic->user_propagate_register_expr(e);
+    void user_propagate_register_expr(expr* e) override {
+        m_tactic->user_propagate_register_expr(e);
     }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_tactic->user_propagate_register_created(created_eh);
+    }
+
+    void user_propagate_register_decide(user_propagator::decide_eh_t& created_eh) override {
+        m_tactic->user_propagate_register_decide(created_eh);
     }
 
     void user_propagate_clear() override {
@@ -134,7 +138,7 @@ public:
         throw default_exception("cannot retrieve depth from solvers created using tactics");
     }
 
-    expr_ref_vector get_trail() override {
+    expr_ref_vector get_trail(unsigned max_level) override {
         throw default_exception("cannot retrieve trail from solvers created using tactics");
     }
 };

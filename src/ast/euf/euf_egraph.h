@@ -226,12 +226,8 @@ namespace euf {
         void erase_from_table(enode* p);
 
         template <typename T>
-        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {
-            if (j.is_external())
-                justifications.push_back(j.ext<T>());
-            else if (j.is_congruence()) 
-                push_congruence(a, b, j.is_commutative());
-        }
+        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j);
+
         template <typename T>
         void explain_todo(ptr_vector<T>& justifications);
 
@@ -295,7 +291,7 @@ namespace euf {
         void add_th_var(enode* n, theory_var v, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
-        void set_value(enode* n, lbool value);
+        void set_value(enode* n, lbool value, justification j);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
         void set_relevant(enode* n);
         void set_default_relevant(bool b) { m_default_relevant = b; }

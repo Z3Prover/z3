@@ -12,8 +12,6 @@ Z3 is used in many applications such as: software/hardware verification and test
 constraint solving, analysis of hybrid systems, security, biology (in silico analysis),
 and geometrical problems.
 
-Several online tutorials for Z3Py are available at:
-http://rise4fun.com/Z3Py/tutorial/guide
 
 Please send feedback, comments and/or corrections on the Issue tracker for
 https://github.com/Z3prover/z3.git. Your comments are very valuable.
@@ -102,9 +100,6 @@ def get_version():
 
 def get_full_version():
     return Z3_get_full_version()
-
-# We use _z3_assert instead of the assert command because we want to
-# produce nice error messages in Z3Py at rise4fun.com
 
 
 def _z3_assert(cond, msg):
@@ -1771,7 +1766,7 @@ def Xor(a, b, ctx=None):
     >>> Xor(p, q)
     Xor(p, q)
     >>> simplify(Xor(p, q))
-    Not(p) == q
+    Not(p == q)
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a, b], ctx))
     s = BoolSort(ctx)
@@ -2015,8 +2010,7 @@ class QuantifierRef(BoolRef):
         """
         if z3_debug():
             _z3_assert(self.is_lambda(), "quantifier should be a lambda expression")
-        arg = self.sort().domain().cast(arg)
-        return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
+        return _array_select(self, arg)
 
     def weight(self):
         """Return the weight annotation of `self`.
@@ -2284,6 +2278,9 @@ class ArithSortRef(SortRef):
         False
         """
         return self.kind() == Z3_INT_SORT
+
+    def is_bool(self):
+        return False
 
     def subsort(self, other):
         """Return `True` if `self` is a subsort of `other`."""
@@ -4496,6 +4493,11 @@ class ArraySortRef(SortRef):
         """
         return _to_sort_ref(Z3_get_array_sort_domain(self.ctx_ref(), self.ast), self.ctx)
 
+    def domain_n(self, i):
+        """Return the domain of the array sort `self`.
+        """
+        return _to_sort_ref(Z3_get_array_sort_domain_n(self.ctx_ref(), self.ast, i), self.ctx)
+    
     def range(self):
         """Return the range of the array sort `self`.
 
@@ -4527,6 +4529,10 @@ class ArrayRef(ExprRef):
         """
         return self.sort().domain()
 
+    def domain_n(self, i):
+        """Shorthand for self.sort().domain_n(i)`."""
+        return self.sort().domain_n(i)
+
     def range(self):
         """Shorthand for `self.sort().range()`.
 
@@ -4546,13 +4552,21 @@ class ArrayRef(ExprRef):
         >>> a[i].sexpr()
         '(select a i)'
         """
-        arg = self.domain().cast(arg)
-        return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
+        return _array_select(self, arg)
 
     def default(self):
         return _to_expr_ref(Z3_mk_array_default(self.ctx_ref(), self.as_ast()), self.ctx)
 
 
+def _array_select(ar, arg):
+    if isinstance(arg, tuple):
+        args = [ar.domain_n(i).cast(arg[i]) for i in range(len(arg))]
+        _args, sz = _to_ast_array(args)
+        return _to_expr_ref(Z3_mk_select_n(ar.ctx_ref(), ar.as_ast(), sz, _args), ar.ctx)
+    arg = ar.domain().cast(arg)
+    return _to_expr_ref(Z3_mk_select(ar.ctx_ref(), ar.as_ast(), arg.as_ast()), ar.ctx)
+
+    
 def is_array_sort(a):
     return Z3_get_sort_kind(a.ctx.ref(), Z3_get_sort(a.ctx.ref(), a.ast)) == Z3_ARRAY_SORT
 
@@ -4679,7 +4693,7 @@ def ArraySort(*sig):
     return ArraySortRef(Z3_mk_array_sort_n(ctx.ref(), arity, dom, r.ast), ctx)
 
 
-def Array(name, dom, rng):
+def Array(name, *sorts):
     """Return an array constant named `name` with the given domain and range sorts.
 
     >>> a = Array('a', IntSort(), IntSort())
@@ -4688,12 +4702,12 @@ def Array(name, dom, rng):
     >>> a[0]
     a[0]
     """
-    s = ArraySort(dom, rng)
+    s = ArraySort(sorts)
     ctx = s.ctx
     return ArrayRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), s.ast), ctx)
 
 
-def Update(a, i, v):
+def Update(a, *args):
     """Return a Z3 store array expression.
 
     >>> a    = Array('a', IntSort(), IntSort())
@@ -4709,10 +4723,20 @@ def Update(a, i, v):
     """
     if z3_debug():
         _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
-    i = a.sort().domain().cast(i)
-    v = a.sort().range().cast(v)
+    args = _get_args(args)
     ctx = a.ctx
-    return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
+    if len(args) <= 1:
+        raise Z3Exception("array update requires index and value arguments")
+    if len(args) == 2:
+        i = args[0]
+        v = args[1]
+        i = a.sort().domain().cast(i)
+        v = a.sort().range().cast(v)
+        return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
+    v = a.sort().range().cast(args[-1])
+    idxs = [a.sort().domain_n(i).cast(args[i]) for i in range(len(args)-1)]
+    _args, sz = _to_ast_array(idxs)
+    return _to_expr_ref(Z3_mk_store_n(ctx.ref(), a.as_ast(), sz, _args, v.as_ast()), ctx)
 
 
 def Default(a):
@@ -4726,7 +4750,7 @@ def Default(a):
     return a.default()
 
 
-def Store(a, i, v):
+def Store(a, *args):
     """Return a Z3 store array expression.
 
     >>> a    = Array('a', IntSort(), IntSort())
@@ -4740,10 +4764,10 @@ def Store(a, i, v):
     >>> prove(Implies(i != j, s[j] == a[j]))
     proved
     """
-    return Update(a, i, v)
+    return Update(a, args)
 
 
-def Select(a, i):
+def Select(a, *args):
     """Return a Z3 select array expression.
 
     >>> a = Array('a', IntSort(), IntSort())
@@ -4753,9 +4777,10 @@ def Select(a, i):
     >>> eq(Select(a, i), a[i])
     True
     """
+    args = _get_args(args)
     if z3_debug():
         _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
-    return a[i]
+    return a[args]
 
 
 def Map(f, *args):
@@ -6569,6 +6594,19 @@ class ModelRef(Z3PPObject):
         """Update the interpretation of a constant"""
         if is_expr(x):
             x = x.decl()
+        if is_func_decl(x) and x.arity() != 0 and isinstance(value, FuncInterp):
+            fi1 = value.f
+            fi2 = Z3_add_func_interp(x.ctx_ref(), self.model, x.ast, value.else_value().ast);
+            fi2 = FuncInterp(fi2, x.ctx)
+            for i in range(value.num_entries()):
+                e = value.entry(i)
+                n = Z3_func_entry_get_num_args(x.ctx_ref(), e.entry)
+                v = AstVector()
+                for j in range(n):
+                    v.push(entry.arg_value(j))                    
+                val = Z3_func_entry_get_value(x.ctx_ref(), e.entry)
+                Z3_func_interp_add_entry(x.ctx_ref(), fi2.f, v.vector, val)
+            return
         if not is_func_decl(x) or x.arity() != 0:
             raise Z3Exception("Expecting 0-ary function or constant expression")
         value = _py2expr(value)
@@ -8856,7 +8894,7 @@ def _pb_args_coeffs(args, default_ctx=None):
     for i in range(len(coeffs)):
         _z3_check_cint_overflow(coeffs[i], "coefficient")
         _coeffs[i] = coeffs[i]
-    return ctx, sz, _args, _coeffs
+    return ctx, sz, _args, _coeffs, args
 
 
 def PbLe(args, k):
@@ -8866,7 +8904,7 @@ def PbLe(args, k):
     >>> f = PbLe(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pble(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
@@ -8877,7 +8915,7 @@ def PbGe(args, k):
     >>> f = PbGe(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
@@ -8888,7 +8926,7 @@ def PbEq(args, k, ctx=None):
     >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
     """
     _z3_check_cint_overflow(k, "k")
-    ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
+    ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
@@ -8982,7 +9020,7 @@ def prove(claim, show=False, **keywords):
 
 
 def _solve_html(*args, **keywords):
-    """Version of function `solve` used in RiSE4Fun."""
+    """Version of function `solve` that renders HTML output."""
     show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
@@ -9006,7 +9044,7 @@ def _solve_html(*args, **keywords):
 
 
 def _solve_using_html(s, *args, **keywords):
-    """Version of function `solve_using` used in RiSE4Fun."""
+    """Version of function `solve_using` that renders HTML."""
     show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
@@ -9031,7 +9069,7 @@ def _solve_using_html(s, *args, **keywords):
 
 
 def _prove_html(claim, show=False, **keywords):
-    """Version of function `prove` used in RiSE4Fun."""
+    """Version of function `prove` that renders HTML."""
     if z3_debug():
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()
@@ -11215,12 +11253,16 @@ def ensure_prop_closures():
         _prop_closures = PropClosures()
 
 
-def user_prop_push(ctx):
-    _prop_closures.get(ctx).push()
+def user_prop_push(ctx, cb):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    prop.push()
 
 
-def user_prop_pop(ctx, num_scopes):
-    _prop_closures.get(ctx).pop(num_scopes)
+def user_prop_pop(ctx, cb, num_scopes):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    pop(num_scopes)
 
 
 def user_prop_fresh(id, ctx):
@@ -11230,13 +11272,18 @@ def user_prop_fresh(id, ctx):
     _prop_closures.set(new_prop.id, new_prop)
     return ctypes.c_void_p(new_prop.id)
 
+def to_Ast(ptr,):
+    ast = Ast(ptr)
+    super(ctypes.c_void_p, ast).__init__(ptr)
+    return ast
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx()))
+    id = _to_expr_ref(to_Ast(id), prop.ctx())
+    value = _to_expr_ref(to_Ast(value), prop.ctx())
+    prop.fixed(id, value)
     prop.cb = None
-
 
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
@@ -11244,17 +11291,19 @@ def user_prop_final(ctx, cb):
     prop.final()
     prop.cb = None
 
-
 def user_prop_eq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
+    x = _to_expr_ref(to_Ast(x), prop.ctx())
+    y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.eq(x, y)
     prop.cb = None
-
 
 def user_prop_diseq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
+    x = _to_expr_ref(to_Ast(x), prop.ctx())
+    y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.diseq(x, y)
     prop.cb = None
 
@@ -11352,24 +11401,18 @@ class UserPropagateBase:
     def add(self, e):
         assert self.solver
         assert not self._ctx
-        return Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
 
     #
     # Propagation can only be invoked as during a fixed or final callback.
     #
     def propagate(self, e, ids, eqs=[]):
-        num_fixed = len(ids)
-        _ids = (ctypes.c_uint * num_fixed)()
-        for i in range(num_fixed):
-            _ids[i] = ids[i]
+        _ids, num_fixed = _to_ast_array(ids)
         num_eqs = len(eqs)
-        _lhs = (ctypes.c_uint * num_eqs)()
-        _rhs = (ctypes.c_uint * num_eqs)()
-        for i in range(num_eqs):
-            _lhs[i] = eqs[i][0]
-            _rhs[i] = eqs[i][1]
+        _lhs, _num_lhs = _to_ast_array([x for x, y in eqs])
+        _rhs, _num_rhs = _to_ast_array([y for x, y in eqs])
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
-    def conflict(self, ids):
-        self.propagate(BoolVal(False, self.ctx()), ids, eqs=[])
+    def conflict(self, deps):
+        self.propagate(BoolVal(False, self.ctx()), deps, eqs=[])

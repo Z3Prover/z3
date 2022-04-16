@@ -76,56 +76,45 @@ static void thread_func(scoped_timer_state *s) {
 }
 
 
-struct scoped_timer::imp {
-private:
-    scoped_timer_state *s;
+scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
+    if (ms == 0 || ms == UINT_MAX)
+        return;
 
-public:
-    imp(unsigned ms, event_handler * eh) {
-        workers.lock();
-        bool new_worker = false;
-        if (available_workers.empty()) {
-            workers.unlock();
-            s = new scoped_timer_state;
-            new_worker = true;
-            ++num_workers;
-        } 
-        else {
-            s = available_workers.back();
-            available_workers.pop_back();
-            workers.unlock();
-        }
-        s->ms = ms;
-        s->eh = eh;
-        s->m_mutex.lock();
-        s->work = WORKING;
-        if (new_worker) {
-            s->m_thread = std::thread(thread_func, s);
-        } 
-        else {
-            s->cv.notify_one();
-        }
+    workers.lock();
+    bool new_worker = false;
+    if (available_workers.empty()) {
+        workers.unlock();
+        s = new scoped_timer_state;
+        new_worker = true;
+        ++num_workers;
     }
-
-    ~imp() {
-        s->m_mutex.unlock();
-        while (s->work == WORKING)
-            std::this_thread::yield();
-        workers.lock();
-        available_workers.push_back(s);
+    else {
+        s = available_workers.back();
+        available_workers.pop_back();
         workers.unlock();
     }
-};
-
-scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
-    if (ms != UINT_MAX && ms != 0)
-        m_imp = alloc(imp, ms, eh);
-    else
-        m_imp = nullptr;
+    s->ms = ms;
+    s->eh = eh;
+    s->m_mutex.lock();
+    s->work = WORKING;
+    if (new_worker) {
+        s->m_thread = std::thread(thread_func, s);
+    }
+    else {
+        s->cv.notify_one();
+    }
 }
     
 scoped_timer::~scoped_timer() {
-    dealloc(m_imp);
+    if (!s)
+        return;
+
+    s->m_mutex.unlock();
+    while (s->work == WORKING)
+        std::this_thread::yield();
+    workers.lock();
+    available_workers.push_back(s);
+    workers.unlock();
 }
 
 void scoped_timer::initialize() {

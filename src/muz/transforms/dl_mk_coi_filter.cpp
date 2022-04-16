@@ -118,7 +118,7 @@ namespace datalog {
     }
 
     rule_set * mk_coi_filter::top_down(rule_set const & source) {
-        func_decl_set pruned_preds;
+        func_decl_set pruned_preds, seen;
         dataflow_engine<reachability_info> engine(source.get_manager(), source);
         engine.run_top_down();
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
@@ -126,37 +126,51 @@ namespace datalog {
 
         for (rule * r : source) {
             func_decl * pred = r->get_decl();
-            if (engine.get_fact(pred).is_reachable()) {
-                res->add_rule(r);
-            } 
+            bool should_keep = false;
+            if (seen.contains(pred))
+                continue;
+            seen.insert(pred);
+            if (engine.get_fact(pred).is_reachable())
+                should_keep = true;
             else if (m_context.get_model_converter()) {
-                pruned_preds.insert(pred);
+                for (rule* pr : source.get_predicate_rules(pred)) 
+                    for (unsigned i = 0; i < pr->get_uninterpreted_tail_size(); ++i)
+                        if (pr->get_tail(i)->get_decl() != pred)
+                            // don't try to eliminate across predicates
+                            return nullptr;
             }
+            else 
+                continue;
+
+            if (should_keep)
+                for (rule* pr : source.get_predicate_rules(pred))
+                    res->add_rule(pr);
+            else 
+                pruned_preds.insert(pred);
         }
 
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
             res = nullptr;
         }
-        if (res && m_context.get_model_converter()) {
-            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
-            for (func_decl* f : pruned_preds) {
+        if (res && m_context.get_model_converter() && !pruned_preds.empty()) {
+            auto* mc0 = alloc(generic_model_converter, m, "dl_coi");
+            horn_subsume_model_converter hmc(m);
+
+            for (func_decl* f : pruned_preds) {                
                 const rule_vector& rules = source.get_predicate_rules(f);
                 expr_ref_vector fmls(m);
-                for (rule * r : rules) {
-                    app* head = r->get_head();
-                    expr_ref_vector conj(m);
-                    for (unsigned j = 0; j < head->get_num_args(); ++j) {
-                        expr* arg = head->get_arg(j);
-                        if (!is_var(arg)) {
-                            conj.push_back(m.mk_eq(m.mk_var(j, arg->get_sort()), arg));
-                        }
-                    }
-                    fmls.push_back(mk_and(conj));
+                for (rule* r : rules) {
+                    expr_ref_vector constraints(m);
+                    expr_ref body_res(m);
+                    func_decl_ref pred(m);
+                    for (unsigned i = r->get_uninterpreted_tail_size(); i < r->get_tail_size(); ++i)
+                        constraints.push_back(r->get_tail(i));
+                    expr_ref body = mk_and(constraints);
+                    VERIFY(hmc.mk_horn(r->get_head(), body, pred, body_res));
+                    fmls.push_back(body_res);
                 }
-                expr_ref fml(m);
-                fml = m.mk_or(fmls.size(), fmls.data());
-                mc0->add(f, fml);
+                mc0->add(f, mk_or(fmls));
             }
             m_context.add_model_converter(mc0);
         }

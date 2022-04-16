@@ -216,7 +216,7 @@ int zstring::indexofu(zstring const& other, unsigned offset) const {
 int zstring::last_indexof(zstring const& other) const {
     if (other.length() == 0) return length();
     if (other.length() > length()) return -1;
-    for (unsigned last = length() - other.length(); last-- > 0; ) {
+    for (unsigned last = length() - other.length() + 1; last-- > 0; ) {
         bool suffix = true;
         for (unsigned j = 0; suffix && j < other.length(); ++j) {
             suffix = m_buffer[last + j] == other[j];

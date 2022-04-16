@@ -210,19 +210,35 @@ bool rule_properties::check_accessor(app* n) {
     SASSERT(m_dt.is_datatype(s));
     if (m_dt.get_datatype_constructors(s)->size() <= 1)
         return true;
-
     
     func_decl* f = n->get_decl();
-    func_decl * c = m_dt.get_accessor_constructor(f);
+    func_decl* c = m_dt.get_accessor_constructor(f);
     unsigned ut_size = m_rule->get_uninterpreted_tail_size();
     unsigned t_size  = m_rule->get_tail_size();
+    ptr_vector<func_decl> ctors;
 
+    // add recognizer constructor to ctors
+    auto add_recognizer = [&](expr* r) {
+        if (!m_dt.is_recognizer(r))
+            return;
+        if (n->get_arg(0) != to_app(r)->get_arg(0))
+            return;
+        auto* c2 = m_dt.get_recognizer_constructor(to_app(r)->get_decl());
+        if (c == c2)
+            return;
+        ctors.push_back(c2);
+    };
+    auto add_not_recognizer = [&](expr* r) {
+        if (m.is_not(r, r))
+            add_recognizer(r);
+    };
+
+    // t is a recognizer for n
     auto is_recognizer_base = [&](expr* t) {
         return m_dt.is_recognizer(t) &&
             to_app(t)->get_arg(0) == n->get_arg(0) &&
             m_dt.get_recognizer_constructor(to_app(t)->get_decl()) == c;
     };
-    
     auto is_recognizer = [&](expr* t) {
         if (m.is_and(t))
             for (expr* arg : *to_app(t))
@@ -231,43 +247,78 @@ bool rule_properties::check_accessor(app* n) {
         return is_recognizer_base(t);
     };
 
-    
-    for (unsigned i = ut_size; i < t_size; ++i)
-        if (is_recognizer(m_rule->get_tail(i)))
+    for (unsigned i = ut_size; i < t_size; ++i) {
+        auto* tail = m_rule->get_tail(i);
+        if (is_recognizer(tail))
             return true;
-
+        add_not_recognizer(tail);
+    }
 
     // create parent use list for every sub-expression in the rule
     obj_map<expr, ptr_vector<expr>> use_list;
     for (unsigned i = ut_size; i < t_size; ++i) {
         app* t = m_rule->get_tail(i);
         use_list.insert_if_not_there(t, ptr_vector<expr>()).push_back(nullptr); // add marker for top-level expression.
-        for (expr* sub : subterms::all(expr_ref(t, m))) 
+        for (expr* sub : subterms::all(expr_ref(t, m)))
             if (is_app(sub)) 
                 for (expr* arg : *to_app(sub))
                     use_list.insert_if_not_there(arg, ptr_vector<expr>()).push_back(sub);
     }
 
-    // walk parents of n to check that each path is guarded by a recognizer.
-    ptr_vector<expr> todo;
-    todo.push_back(n);
-    for (unsigned i = 0; i < todo.size(); ++i) {
-        expr* e = todo[i];
+    // walk parents of n depth first to check that each path is guarded by a recognizer.
+    vector<std::tuple<expr *, unsigned int, bool>> todo;
+    todo.push_back({n, ctors.size(), false});
+    while(!todo.empty()) {
+        auto [e, ctors_size, visited] = todo.back();
+        if (visited) {
+            todo.pop_back();
+            while (ctors.size() > ctors_size) ctors.pop_back();
+            continue;
+        }
+        std::get<2>(todo.back()) = true; // set visited
+
         if (!use_list.contains(e))
             return false;
         for (expr* parent : use_list[e]) {
-            if (!parent)
-                return false; // top-level expressions are not guarded
-            if (is_recognizer(parent)) 
+            if (!parent) { // top-level expression
+                // check if n is an unguarded "else" branch
+                ptr_vector<func_decl> diff;
+                for (auto* dtc : *m_dt.get_datatype_constructors(s))
+                    if (!ctors.contains(dtc))
+                        diff.push_back(dtc);
+                // the only unguarded constructor for s is c:
+                // all the others are guarded and we are in an "else" branch so the accessor is safe
+                if (diff.size() == 1 && diff[0] == c)
+                    continue;
+                return false; // the accessor is not safe
+            }
+            if (is_recognizer(parent))
                 continue;
-            if (m.is_ite(parent) && to_app(parent)->get_arg(1) == e && is_recognizer(to_app(parent)->get_arg(0))) 
-                continue;
-            todo.push_back(parent);                
+
+            expr *cnd, *thn, *els;
+            if (m.is_ite(parent, cnd, thn, els)) {
+                if (thn == e) {
+                    if (is_recognizer(cnd) && els != e)
+                        continue; // e is guarded
+                }
+                add_recognizer(cnd);
+            }
+            if (m.is_and(parent))
+                for (expr* arg : *to_app(parent))
+                    add_not_recognizer(arg);
+            if (m.is_or(parent))
+                for (expr* arg : *to_app(parent)) {
+                    add_recognizer(arg);
+                    // if one branch is not(recognizer) then the accessor is safe
+                    if (m.is_not(arg, arg) && is_recognizer(arg))
+                        goto _continue;
+                }
+            todo.push_back({parent, ctors.size(), false});
+        _continue:;
         }
     }
-    
+
     return true;
-    
 }
 
 void rule_properties::operator()(app* n) {

@@ -242,6 +242,7 @@ expr_ref_vector solver::get_units() {
     ast_manager& m = get_manager();
     expr_ref_vector fmls(m), result(m), tmp(m);
     get_assertions(fmls);
+    get_units_core(fmls);
     obj_map<expr, bool> units;
     for (expr* f : fmls) {
         if (m.is_not(f, f) && is_literal(m, f)) {

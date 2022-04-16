@@ -65,7 +65,8 @@ class solve_eqs_tactic : public tactic {
             m_a_util(m),
             m_num_steps(0),
             m_num_eliminated_vars(0),
-            m_marked_candidates(m) {
+            m_marked_candidates(m),
+            m_var_trail(m) {
             updt_params(p);
             if (m_r == nullptr)
                 m_r = mk_default_expr_replacer(m, true);
@@ -524,7 +525,14 @@ class solve_eqs_tactic : public tactic {
             }
         }
 
+        expr_mark m_compatible_tried;
+        expr_ref_vector m_var_trail;
+
         bool is_compatible(goal const& g, unsigned idx, vector<nnf_context> const & path, expr* v, expr* eq) {
+            if (m_compatible_tried.is_marked(v))
+                return false;
+            m_compatible_tried.mark(v);
+            m_var_trail.push_back(v);
             expr_mark occ;
             svector<lbool> cache;
             mark_occurs(occ, g, v);
@@ -649,7 +657,7 @@ class solve_eqs_tactic : public tactic {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     pr = nullptr;
                     expr* arg = args.get(i), *lhs = nullptr, *rhs = nullptr;
-                    if (m().is_eq(arg, lhs, rhs)) {                         
+                    if (m().is_eq(arg, lhs, rhs) && !m().is_bool(lhs)) {                
                         if (trivial_solve1(lhs, rhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
                             insert_solution(g, idx, arg, var, def, pr);
                         }

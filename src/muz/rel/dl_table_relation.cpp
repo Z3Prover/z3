@@ -33,7 +33,7 @@ namespace datalog {
     // -----------------------------------
 
     symbol table_relation_plugin::create_plugin_name(const table_plugin &p) {
-        std::string name = std::string("tr_") + p.get_name().bare_str();
+        std::string name = std::string("tr_") + p.get_name().str();
         return symbol(name.c_str());
     }
 

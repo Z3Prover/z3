@@ -240,12 +240,16 @@ namespace smt {
     bool theory_array::internalize_term_core(app * n) {
         TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
         unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(n->get_arg(i), false);
-        if (ctx.e_internalized(n)) {
+        for (expr* arg : *n)
+            ctx.internalize(arg, false);
+        // force merge-tf by re-internalizing expression.
+        for (expr* arg : *n)
+            if (m.is_bool(arg))
+                ctx.internalize(arg, false);
+        if (ctx.e_internalized(n)) 
             return false;
-        }
-        enode * e        = ctx.mk_enode(n, false, false, true);
+
+        enode * e = ctx.mk_enode(n, false, false, true);
         if (!is_attached_to_var(e))
             mk_var(e);
 

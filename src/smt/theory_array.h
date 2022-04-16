@@ -28,7 +28,7 @@ namespace smt {
         unsigned   m_num_axiom1, m_num_axiom2a, m_num_axiom2b, m_num_extensionality, m_num_eq_splits;
         unsigned   m_num_map_axiom, m_num_default_map_axiom;
         unsigned   m_num_select_const_axiom, m_num_default_store_axiom, m_num_default_const_axiom, m_num_default_as_array_axiom;
-        unsigned   m_num_select_as_array_axiom;
+        unsigned   m_num_select_as_array_axiom, m_num_default_lambda_axiom;
         void reset() { memset(this, 0, sizeof(theory_array_stats)); }
         theory_array_stats() { reset(); }
     };

@@ -64,7 +64,7 @@ namespace datalog {
     }
 
     symbol finite_product_relation_plugin::get_name(relation_plugin & inner_plugin) {
-        std::string str = std::string("fpr_")+inner_plugin.get_name().bare_str();
+        std::string str = std::string("fpr_")+inner_plugin.get_name().str();
         return symbol(str.c_str());
     }
 

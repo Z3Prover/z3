@@ -936,22 +936,13 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
 }
 
 /*
-*  In general constructs substring(t,0,|t|-1) but if t = substring(s,0,k) then simplifies to substring(s,0,k-1) 
-*  This method assumes that |t| > 0, thus, if t = substring(s,0,k) then k > 0 so substring(s,0,k-1) is correct.
+*  In general constructs substring(t,0,|t|-1) 
+*  Incorrect comment: "but if t = substring(s,0,k) then simplifies to substring(s,0,k-1). 
+*     This method assumes that |t| > 0, thus, if t = substring(s,0,k) then k > 0 so substring(s,0,k-1) is correct."
+*  No: if k > |s| then substring(s,0,k) = substring(s,0,k-1)
 */
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
-    expr_ref result(m());
-    expr* s, * j, * k;
-    rational v;
-    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, v) && v.is_zero()) {
-        expr_ref_vector k_min_1(m());
-        k_min_1.push_back(k);
-        k_min_1.push_back(minus_one());
-        result = str().mk_substr(s, j, m_autil.mk_add_simplify(k_min_1));
-    }
-    else
-        result = str().mk_substr(t, zero(), m_autil.mk_sub(str().mk_length(t), one()));
-    return result;
+    return expr_ref(str().mk_substr(t, zero(), m_autil.mk_sub(str().mk_length(t), one())), m());
 }
 
 /*
@@ -3128,8 +3119,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         expr_ref range(m());
         expr_ref psi(m().mk_false(), m());
         if (str().is_unit_string(r1, c1) && str().is_unit_string(r2, c2)) {
-            SASSERT(u().is_char(c1));
-            SASSERT(u().is_char(c2));
+            // SASSERT(u().is_char(c1));
+            // SASSERT(u().is_char(c2));
             // case: c1 <= e <= c2
             range = simplify_path(e, m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
             psi = simplify_path(e, m().mk_and(path, range));
@@ -5531,44 +5522,37 @@ lbool seq_rewriter::eq_length(expr* x, expr* y) {
     maximal length (the sequence is bounded).
 */
 
-bool seq_rewriter::min_length(expr* e, unsigned& len) {
+bool seq_rewriter::min_length(unsigned sz, expr* const* ss, unsigned& len) {
+    ptr_buffer<expr> es;
+    for (unsigned i = 0; i < sz; ++i)
+        es.push_back(ss[i]);
     zstring s;
     len = 0;
-    if (str().is_unit(e)) {
-        len = 1;
-        return true;
+    bool bounded = true;
+    while (!es.empty()) {
+        expr* e = es.back();
+        es.pop_back();
+        if (str().is_unit(e)) 
+            len += 1;
+        else if (str().is_empty(e)) 
+            continue;
+        else if (str().is_string(e, s)) 
+            len += s.length();
+        else if (str().is_concat(e)) 
+            for (expr* arg : *to_app(e))
+                es.push_back(arg);
+        else
+            bounded = false;
     }
-    else if (str().is_empty(e)) {
-        len = 0;
-        return true;
-    }
-    else if (str().is_string(e, s)) {
-        len = s.length();
-        return true;
-    }
-    else if (str().is_concat(e)) {
-        unsigned min_l = 0;
-        bool bounded = true;
-        for (expr* arg : *to_app(e)) {
-            if (!min_length(arg, min_l))
-                bounded = false;
-            len += min_l;
-        }
-        return bounded;
-    }
-    return false;
+    return bounded;
+}
+
+bool seq_rewriter::min_length(expr* e, unsigned& len) {
+    return min_length(1, &e, len);
 }
 
 bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
-    unsigned min_l = 0;
-    bool bounded = true;
-    len = 0;
-    for (expr* arg : es) {
-        if (!min_length(arg, min_l))
-            bounded = false;
-        len += min_l;
-    }
-    return bounded;
+    return min_length(es.size(), es.data(), len);
 }
 
 bool seq_rewriter::max_length(expr* e, rational& len) {

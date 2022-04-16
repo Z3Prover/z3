@@ -154,16 +154,10 @@ def _copy_bins():
 
     _clean_bins()
 
-    python_dir = None
-    if RELEASE_DIR is not None:
-        python_dir = os.path.join(RELEASE_DIR, 'bin', 'python')
-    elif SRC_DIR == SRC_DIR_LOCAL:
-        python_dir = os.path.join(SRC_DIR, 'src', 'api', 'python')
-    if python_dir is not None:
-        py_z3_build_dir = os.path.join(BUILD_DIR, 'python', 'z3')
-        root_z3_dir = os.path.join(ROOT_DIR, 'z3')
-        shutil.copy(os.path.join(py_z3_build_dir, 'z3core.py'), root_z3_dir)
-        shutil.copy(os.path.join(py_z3_build_dir, 'z3consts.py'), root_z3_dir)
+    py_z3_build_dir = os.path.join(BUILD_DIR, 'python', 'z3')
+    root_z3_dir = os.path.join(ROOT_DIR, 'z3')
+    shutil.copy(os.path.join(py_z3_build_dir, 'z3core.py'), root_z3_dir)
+    shutil.copy(os.path.join(py_z3_build_dir, 'z3consts.py'), root_z3_dir)
 
     # STEP 2: Copy the shared library, the executable and the headers
 
@@ -183,6 +177,20 @@ def _copy_bins():
             if not fname.endswith('.h'):
                 continue
             shutil.copy(os.path.join(header_dir, fname), os.path.join(HEADERS_DIR, fname))
+
+    # This hack lets z3 installed libs link on M1 macs; it is a hack, not a proper fix
+    # @TODO: Linked issue: https://github.com/Z3Prover/z3/issues/5926
+    major_minor = '.'.join(_z3_version().split('.')[:2])
+    link_name = None
+    if BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
+        pass # TODO: When windows VMs work on M1, fill this in
+    elif BUILD_PLATFORM in ('darwin', 'osx'):
+        split = LIBRARY_FILE.split('.')
+        link_name = split[0] + '.' + major_minor + '.' + split[1]
+    else:
+        link_name = LIBRARY_FILE + '.' + major_minor
+    if link_name:
+        os.symlink(LIBRARY_FILE, os.path.join(LIBS_DIR, link_name), True)
 
 def _copy_sources():
     """
@@ -281,6 +289,8 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
                 osver = '.'.join(osver.split('.')[:2])
             if arch == 'x64':
                 plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
+            elif arch == 'arm64':
+                plat_name ='macosx_%s_arm64' % osver.replace('.', '_')
             else:
                 raise Exception(f"idk how os {distos} {osver} works. what goes here?")
         else:
@@ -290,7 +300,6 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
     sys.argv.insert(idx, '--plat-name')
     sys.argv.insert(idx + 1, plat_name)
     sys.argv.insert(idx + 2, '--universal')   # supports py2+py3. if --plat-name is not specified this will also mean that the package can be installed on any machine regardless of architecture, so watch out!
-
 
 setup(
     name='z3-solver',

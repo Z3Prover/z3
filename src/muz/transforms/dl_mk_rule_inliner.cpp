@@ -44,6 +44,11 @@ Subsumption transformation (remove rule):
        P(x) := P(x) or (exists y . Q(y) & phi(x,y))
 
 
+For plan_inlining:
+ TODO: order of rule inlining would affect model converter?
+ so shouldn't model converter process inlined rules in a specific (topopologial) order?
+
+
 --*/
 
 
@@ -377,18 +382,15 @@ namespace datalog {
         return something_forbidden;
     }
 
-    void mk_rule_inliner::plan_inlining(rule_set const & orig)
-    {
+    void mk_rule_inliner::plan_inlining(rule_set const & orig) {
         count_pred_occurrences(orig);
 
         scoped_ptr<rule_set> candidate_inlined_set = create_allowed_rule_set(orig);
-        while (forbid_preds_from_cycles(*candidate_inlined_set)) {
+        while (forbid_preds_from_cycles(*candidate_inlined_set)) 
             candidate_inlined_set = create_allowed_rule_set(orig);
-        }
 
-        if (forbid_multiple_multipliers(orig, *candidate_inlined_set)) {
+        if (forbid_multiple_multipliers(orig, *candidate_inlined_set)) 
             candidate_inlined_set = create_allowed_rule_set(orig);
-        }
 
         TRACE("dl", tout<<"rules to be inlined:\n" << (*candidate_inlined_set); );
 
@@ -402,16 +404,13 @@ namespace datalog {
         for (rule_stratifier::item_set * stratum : comps) {
             SASSERT(stratum->size() == 1);
             func_decl * pred = *stratum->begin();
-            for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) {
+            for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) 
                 transform_rule(orig, r, m_inlined_rules);
-            }
         }
-
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
+            for (rule * r : m_inlined_rules) 
+                datalog::del_rule(m_mc, *r, l_undef);
 
-        for (rule * r : m_inlined_rules) {
-            datalog::del_rule(m_mc, *r, false);
-        }
     }
 
     bool mk_rule_inliner::transform_rule(rule_set const& orig, rule * r0, rule_set& tgt) {
@@ -437,20 +436,19 @@ namespace datalog {
                 tgt.add_rule(r);
                 continue;
             }
+
             modified = true;
 
             func_decl * pred = r->get_decl(i);
             const rule_vector& pred_rules = m_inlined_rules.get_predicate_rules(pred);
             for (rule * inl_rule : pred_rules) {
                 rule_ref inl_result(m_rm);
-                if (try_to_inline_rule(*r.get(), *inl_rule, i, inl_result)) {
+                if (try_to_inline_rule(*r.get(), *inl_rule, i, inl_result)) 
                     todo.push_back(inl_result);
-                }
             }
         }
-        if (modified) {
-            datalog::del_rule(m_mc, *r0, true);
-        }
+        if (modified) 
+            datalog::del_rule(m_mc, *r0, l_undef);
 
         return modified;
     }
@@ -473,7 +471,7 @@ namespace datalog {
         if (something_done && m_mc) {
             for (rule* r : orig) {
                 if (inlining_allowed(orig, r->get_decl())) {
-                    datalog::del_rule(m_mc, *r, true);
+                    datalog::del_rule(m_mc, *r, l_undef);
                 }
             }
         }
@@ -558,7 +556,7 @@ namespace datalog {
                 // nothing unifies with the tail atom, therefore the rule is unsatisfiable
                 // (we can say this because relation pred doesn't have any ground facts either)
                 res = nullptr;
-                datalog::del_rule(m_mc, *r, false);
+                datalog::del_rule(m_mc, *r, l_false);
                 return true;
             }
             if (!is_oriented_rewriter(inlining_candidate, strat)) {
@@ -568,7 +566,7 @@ namespace datalog {
                 goto process_next_tail;
             }
             if (!try_to_inline_rule(*r, *inlining_candidate, ti, res)) {
-                datalog::del_rule(m_mc, *r, false);
+                datalog::del_rule(m_mc, *r, l_false);
                 res = nullptr;
             }
             return true;
@@ -768,7 +766,7 @@ namespace datalog {
                     break;
                 }
 
-                rule* r2 = acc[j].get();
+                rule* r2 = acc.get(j);
 
                 // check that the head of r2 only unifies with this single body position.
                 TRACE("dl", output_predicate(m_context, r2->get_head(), tout << "unify head: "); tout << "\n";);
@@ -801,7 +799,7 @@ namespace datalog {
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
                     valid.set(j, false);
-                    datalog::del_rule(m_mc, *r2, true);
+                    datalog::del_rule(m_mc, *r2, l_undef);
                     del_rule(r2, j);
                 }
 

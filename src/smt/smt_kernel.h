@@ -202,6 +202,12 @@ namespace smt {
            \brief Return the set of formulas assigned by the kernel.
         */
         void get_assignments(expr_ref_vector & result);
+
+
+        /**
+           \brief Return units assigned by the kernel.
+        */
+        void get_units(expr_ref_vector& result);
         
         /**
            \brief Return the set of relevant labels in the last check command.
@@ -242,7 +248,7 @@ namespace smt {
         /**
            \brief retrieve trail of assignment stack.
         */
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         /**
            \brief (For debubbing purposes) Prints the state of the kernel
@@ -301,9 +307,11 @@ namespace smt {
         
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh);
 
-        unsigned user_propagate_register_expr(expr* e);
+        void user_propagate_register_expr(expr* e);
         
         void user_propagate_register_created(user_propagator::created_eh_t& r);
+
+        void user_propagate_register_decide(user_propagator::decide_eh_t& r);
 
         /**
            \brief Return a reference to smt::context.

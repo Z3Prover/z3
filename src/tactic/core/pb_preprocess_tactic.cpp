@@ -119,42 +119,38 @@ public:
         }
 
         generic_model_converter* pp = alloc(generic_model_converter, m, "pb-preprocess");
-        g->add(pp);
 
         g->inc_depth();        
         result.push_back(g.get());       
         while (simplify(g, *pp));
+        g->add(pp);
+
         // decompose(g);
     }
 
     bool simplify(goal_ref const& g, generic_model_converter& mc) {
         reset();
         normalize(g);
-        if (g->inconsistent()) {
+        if (g->inconsistent()) 
             return false;
-        }
-        for (unsigned i = 0; i < g->size(); ++i) {
-            process_vars(i, g);
-        }
-        
-        if (m_ge.empty()) {
+
+        for (unsigned i = 0; i < g->size(); ++i) 
+            process_vars(i, g);        
+
+        if (m_ge.empty()) 
             return false;
-        }
         
-        for (unsigned i = 0; i < m_ge.size(); ++i) {
+        for (unsigned i = 0; i < m_ge.size(); ++i)
             if (!classify_vars(i, to_app(g->form(m_ge[i]))))
                 return false;
-        }
         
         declassifier dcl(m_vars);
         expr_mark visited;        
-        for (unsigned i = 0; !m_vars.empty() && i < m_other.size(); ++i) {
+        for (unsigned i = 0; !m_vars.empty() && i < m_other.size(); ++i) 
             for_each_expr(dcl, visited, g->form(m_other[i]));
-        }
         
-        if (m_vars.empty()) {
+        if (m_vars.empty()) 
             return false;
-        }
         
         // display_annotation(tout, g);
         m_progress = false;
@@ -172,24 +168,23 @@ public:
                 replace(r.pos, e, m.mk_true(), g);
                 set_value(mc, e, true);
             }
-            if (g->inconsistent()) return false;
+            if (g->inconsistent()) 
+                return false;
             ++it;
             it = next_resolvent(it);
         }        
         // now resolve clauses.
         it = next_resolvent(m_vars.begin());
-        while (it != m_vars.end()) {
-            
+        while (it != m_vars.end()) {            
             app * e = it->m_key;
             SASSERT(is_uninterp_const(e));
             rec const& r = it->m_value;
-            if (r.pos.size() == 1 && !r.neg.empty()) {
+            if (r.pos.size() == 1 && !r.neg.empty()) 
                 resolve(mc, r.pos[0], r.neg, e, true, g);
-            }
-            else if (r.neg.size() == 1 && !r.pos.empty()) {
+            else if (r.neg.size() == 1 && !r.pos.empty()) 
                 resolve(mc, r.neg[0], r.pos, e, false, g);                
-            }
-            if (g->inconsistent()) return false;
+            if (g->inconsistent()) 
+                return false;
             ++it;
             it = next_resolvent(it);
         }
@@ -201,20 +196,29 @@ public:
             vector<rational> coeffs1, coeffs2;        
             rational k1, k2;
             expr* fml = g->form(m_ge[i]);
-            if (!to_ge(fml, args1, coeffs1, k1)) continue;
-            if (args1.empty()) continue;
+            if (!to_ge(fml, args1, coeffs1, k1)) 
+                continue;
+            if (args1.empty()) 
+                continue;
             expr* arg = args1.get(0);
             bool neg = m.is_not(arg, arg);
-            if (!is_uninterp_const(arg)) continue;
-            if (!m_vars.contains(to_app(arg))) continue;
+            if (!is_uninterp_const(arg)) 
+                continue;
+            if (!m_vars.contains(to_app(arg))) 
+                continue;
             rec const& r = m_vars.find(to_app(arg));
             unsigned_vector const& pos = neg?r.neg:r.pos;
             for (unsigned j = 0; j < pos.size(); ++j) {
                 unsigned k = pos[j];
-                if (k == m_ge[i]) continue;
-                if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
+                if (k == m_ge[i]) 
+                    continue;
+                coeffs2.reset();
+                args2.reset();
+                if (!to_ge(g->form(k), args2, coeffs2, k2)) 
+                    continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
-                    IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
+                    IF_VERBOSE(3, verbose_stream() << "subsumes " << mk_pp(fml, m) << "\n");
+                    IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n");
                     g->update(k, m.mk_true(), nullptr, m.mk_join(g->dep(m_ge[i]), g->dep(k)));
                     m_progress = true;
                 }
@@ -417,12 +421,10 @@ private:
             m_trail.push_back(e);
             m_vars.insert(e, rec());
         }
-        if (pos) {
+        if (pos) 
             m_vars.find(e).pos.push_back(i);
-        }
-        else {
+        else 
             m_vars.find(e).neg.push_back(i);
-        }
     }
 
     bool pure_args(app* a) const {
@@ -631,16 +633,19 @@ private:
                   vector<rational> const& coeffs1, rational const& k1, 
                   expr_ref_vector const& args2, 
                   vector<rational> const& coeffs2, rational const& k2) {
-        if (k2 > k1) return false;
+        if (k2 > k1) 
+            return false;
         for (unsigned i = 0; i < args1.size(); ++i) {
             bool found = false;
             for (unsigned j = 0; !found && j < args2.size(); ++j) {
                 if (args1[i] == args2[j]) {
-                    if (coeffs1[i] > coeffs2[j]) return false;
+                    if (coeffs1[i] > coeffs2[j]) 
+                        return false;
                     found = true;
                 }
             }
-            if (!found) return false;
+            if (!found) 
+                return false;
         }
         return true;
     }

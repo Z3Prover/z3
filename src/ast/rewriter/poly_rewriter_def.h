@@ -979,9 +979,8 @@ expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
 
 template<typename Config>
 bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
-    if (!m_hoist_ite) { 
+    if (!m_hoist_ite)  
         return false;
-    }
     obj_hashtable<expr> shared;
     ptr_buffer<expr> adds;
     expr_ref_vector bs(m()), pinned(m());

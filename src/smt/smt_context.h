@@ -773,6 +773,7 @@ namespace smt {
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
 
+        bool m_has_lambda = false;
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
@@ -1132,6 +1133,8 @@ namespace smt {
         bool is_ext_diseq(enode * n1, enode * n2, unsigned depth);
 
         enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args);
+
+        bool guess(bool_var var, lbool phase);
 
     protected:
         bool decide();
@@ -1575,7 +1578,7 @@ namespace smt {
 
         void log_stats();
 
-        void copy_user_propagator(context& src);
+        void copy_user_propagator(context& src, bool copy_registered);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
@@ -1666,7 +1669,7 @@ namespace smt {
 
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
 
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         void get_model(model_ref & m);
 
@@ -1689,6 +1692,8 @@ namespace smt {
         //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
 
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
+
+        void get_units(expr_ref_vector& result);
 
         /*
          * user-propagator
@@ -1723,10 +1728,10 @@ namespace smt {
             m_user_propagator->register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register_expr(expr* e) {
+        void user_propagate_register_expr(expr* e) {
             if (!m_user_propagator) 
                 throw default_exception("user propagator must be initialized");
-            return m_user_propagator->add_expr(e);
+            m_user_propagator->add_expr(e, true);
         }
 
         void user_propagate_register_created(user_propagator::created_eh_t& r) {
@@ -1735,7 +1740,15 @@ namespace smt {
             m_user_propagator->register_created(r);
         }
 
+        void user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_decide(r);
+        }
+
         bool watches_fixed(enode* n) const;
+
+        bool decide_user_interference(bool_var& var, bool& is_pos);
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
 

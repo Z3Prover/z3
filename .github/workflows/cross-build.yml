@@ -1,0 +1,30 @@
+name: RISC V and PowerPC 64
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ubuntu:jammy
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ aarch64, riscv64, powerpc64 ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install cross build tools
+      run:  apt update && apt install -y ninja-build cmake python3 g++-11-${{ matrix.arch }}-linux-gnu
+      env:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Configure CMake and build
+      run: |
+          mkdir build && cd build
+          cmake -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-11 ../
+          make -j$(nproc)

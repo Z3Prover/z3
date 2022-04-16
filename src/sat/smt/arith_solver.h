@@ -419,6 +419,7 @@ namespace arith {
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
+
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;
@@ -426,6 +427,8 @@ namespace arith {
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
+        void simplify() override {}
+        void init_search() override {}
 
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;

@@ -19,6 +19,7 @@ Notes:
 
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_util.h"
 #include "tactic/goal.h"
 #include "sat/smt/atom2bool_var.h"
 
@@ -27,7 +28,7 @@ void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
         sat::literal l(static_cast<sat::bool_var>(kv.m_value), false);
         lit2expr.set(l.index(), kv.m_key);
         l.neg();
-        lit2expr.set(l.index(), m().mk_not(kv.m_key));
+        lit2expr.set(l.index(), mk_not(m(), kv.m_key));
     }
 }
 
@@ -40,12 +41,12 @@ void atom2bool_var::mk_var_inv(expr_ref_vector & var2expr) const {
 
 sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
     unsigned idx = m_id2map.get(n->get_id(), UINT_MAX);
-    if (idx == UINT_MAX) {
+    if (idx == UINT_MAX) 
         return sat::null_bool_var;
-    }
-    else {
+    else if (idx >= m_mapping.size())
+        return sat::null_bool_var;
+    else 
         return m_mapping[idx].m_value;
-    }
 }
 
 struct collect_boolean_interface_proc {

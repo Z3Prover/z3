@@ -41,9 +41,13 @@ namespace sat {
         void reduce_tr();
         unsigned reduce_tr(bool learned);
 
+
     public:
 
         scc(solver & s, params_ref const & p);
+
+        bool extract_roots(literal_vector& roots, bool_var_vector& lits);
+
         unsigned operator()();
 
         void updt_params(params_ref const & p);

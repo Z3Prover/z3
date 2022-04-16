@@ -958,8 +958,8 @@ namespace smt {
                 fi->insert_entry(args.data(), result);
             }
 
-            parameter p[1] = { parameter(f) };
-            return m.mk_app(m_fid, OP_AS_ARRAY, 1, p); 
+            parameter p(f);
+            return m.mk_app(m_fid, OP_AS_ARRAY, 1, &p);
         }
     };
 

@@ -281,14 +281,19 @@ namespace datalog {
         return get_max_var(has_var);
     }
 
-    void del_rule(horn_subsume_model_converter* mc, rule& r, bool unreachable) {
+    void del_rule(horn_subsume_model_converter* mc, rule& r, lbool unreachable) {
         if (mc) {
             ast_manager& m = mc->get_manager();
             expr_ref_vector body(m);
-            if (unreachable) {
+            TRACE("dl", tout << "unreachable: " << unreachable << " " << r.get_decl()->get_name() << "\n");
+            switch (unreachable) {
+            case l_true:
+                body.push_back(m.mk_true());
+                break;
+            case l_false:
                 body.push_back(m.mk_false());
-            }
-            else {
+                break;
+            default:
                 for (unsigned i = 0; i < r.get_tail_size(); ++i) {
                     if (r.is_neg_tail(i)) {
                         body.push_back(m.mk_not(r.get_tail(i)));
@@ -297,11 +302,12 @@ namespace datalog {
                         body.push_back(r.get_tail(i));
                     }
                 }
+                break;
             }
-            TRACE("dl_dr", 
+            TRACE("dl", 
                   tout << mk_pp(r.get_head(), m) << " :- \n";
                   for (unsigned i = 0; i < body.size(); ++i) {
-                      tout << mk_pp(body[i].get(), m) << "\n";
+                      tout << mk_pp(body.get(i), m) << "\n";
                   });
                       
             mc->insert(r.get_head(), body.size(), body.data());

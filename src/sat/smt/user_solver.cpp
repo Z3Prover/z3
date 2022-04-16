@@ -28,31 +28,33 @@ namespace user_solver {
         dealloc(m_api_context);
     }
 
-    unsigned solver::add_expr(expr* e) {
+    void solver::add_expr(expr* e) {
         force_push();
         ctx.internalize(e, false);
         euf::enode* n = expr2enode(e);
         if (is_attached_to_var(n))
-            return n->get_th_var(get_id());
+            return;
         euf::theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
         expr_ref r(m);
         sat::literal_vector explain;
         if (ctx.is_fixed(n, r, explain))
-            m_prop.push_back(prop_info(explain, v, r));
-        return v;
+            m_prop.push_back(prop_info(explain, v, r));        
     }
 
     void solver::propagate_cb(
-        unsigned num_fixed, unsigned const* fixed_ids,
-        unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs,
+        unsigned num_fixed, expr* const* fixed_ids,
+        unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs,
         expr* conseq) {
-        m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
+        m_fixed_ids.reset();
+        for (unsigned i = 0; i < num_fixed; ++i)
+            m_fixed_ids.push_back(get_th_var(fixed_ids[i]));
+        m_prop.push_back(prop_info(num_fixed, m_fixed_ids.data(), num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
         DEBUG_CODE(validate_propagation(););
     }
 
-    unsigned solver::register_cb(expr* e) {
-        return add_expr(e);
+    void solver::register_cb(expr* e) {
+        add_expr(e);
     }
 
     sat::check_result solver::check() {
@@ -68,7 +70,7 @@ namespace user_solver {
             return;
         force_push();
         m_id2justification.setx(v, sat::literal_vector(num_lits, jlits), sat::literal_vector());
-        m_fixed_eh(m_user_context, this, v, value);
+        m_fixed_eh(m_user_context, this, var2expr(v), value);
     }
 
     void solver::asserted(sat::literal lit) {
@@ -80,13 +82,13 @@ namespace user_solver {
         sat::literal_vector lits;
         lits.push_back(lit);
         m_id2justification.setx(v, lits, sat::literal_vector());
-        m_fixed_eh(m_user_context, this, v, lit.sign() ? m.mk_false() : m.mk_true());
+        m_fixed_eh(m_user_context, this, var2expr(v), lit.sign() ? m.mk_false() : m.mk_true());
     }
 
     void solver::push_core() {
         th_euf_solver::push_core();
         m_prop_lim.push_back(m_prop.size());
-        m_push_eh(m_user_context);
+        m_push_eh(m_user_context, this);
     }
 
     void solver::pop_core(unsigned num_scopes) {
@@ -94,7 +96,7 @@ namespace user_solver {
         unsigned old_sz = m_prop_lim.size() - num_scopes;
         m_prop.shrink(m_prop_lim[old_sz]);
         m_prop_lim.shrink(old_sz);
-        m_pop_eh(m_user_context, num_scopes);
+        m_pop_eh(m_user_context, this, num_scopes);
     }
 
     void solver::propagate_consequence(prop_info const& prop) {
@@ -141,9 +143,9 @@ namespace user_solver {
         auto& j = justification::from_index(idx);
         auto const& prop = m_prop[j.m_propagation_index];
         for (unsigned id : prop.m_ids)
-            r.append(m_id2justification[id]);
+            r.append(m_id2justification[id]);        
         for (auto const& p : prop.m_eqs)
-            ctx.add_antecedent(var2enode(p.first), var2enode(p.second));
+            ctx.add_antecedent(expr2enode(p.first), expr2enode(p.second));
     }
 
     /*
@@ -156,7 +158,7 @@ namespace user_solver {
             for (auto lit: m_id2justification[id])
                 VERIFY(s().value(lit) == l_true);
         for (auto const& p : prop.m_eqs)
-            VERIFY(var2enode(p.first)->get_root() == var2enode(p.second)->get_root());
+            VERIFY(expr2enode(p.first)->get_root() == expr2enode(p.second)->get_root());
     }
 
     std::ostream& solver::display(std::ostream& out) const {
@@ -171,7 +173,7 @@ namespace user_solver {
         for (unsigned id : prop.m_ids)
             out << id << ": " << m_id2justification[id];
         for (auto const& p : prop.m_eqs)
-            out << "v" << p.first << " == v" << p.second << " ";
+            out << "v" << mk_pp(p.first, m) << " == v" << mk_pp(p.second, m) << " ";
         return out;
     }
 
@@ -224,9 +226,9 @@ namespace user_solver {
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n) 
             n = mk_enode(e, false);        
-        auto v = add_expr(e);
+        add_expr(e);
         if (m_created_eh)
-            m_created_eh(m_user_context, this, e, v);
+            m_created_eh(m_user_context, this, e);
         return true;
     }
 

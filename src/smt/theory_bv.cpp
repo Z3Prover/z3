@@ -224,8 +224,6 @@ namespace smt {
     };
 
     void theory_bv::add_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx) {
-        if (!params().m_bv_eq_axioms)
-            return;
         m_prop_diseqs.push_back(bv_diseq(v1, v2, idx));
         ctx.push_trail(push_back_vector<svector<bv_diseq>>(m_prop_diseqs));
     }
@@ -532,7 +530,6 @@ namespace smt {
         }
         return true;
     }
-
 
     bool theory_bv::get_fixed_value(theory_var v, numeral & result)  const {
         result.reset();
@@ -997,7 +994,9 @@ namespace smt {
         process_args(n);                          
         expr_ref_vector arg1_bits(m), arg2_bits(m);
         get_arg_bits(n, 0, arg1_bits);                                                  
-        get_arg_bits(n, 1, arg2_bits);                                                  
+        get_arg_bits(n, 1, arg2_bits);
+        if (ctx.b_internalized(n))
+            return;
         expr_ref le(m);
         if (Signed)
             m_bb.mk_sle(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
@@ -1321,6 +1320,7 @@ namespace smt {
         else {
             ctx.assign(consequent, mk_bit_eq_justification(v1, v2, consequent, antecedent));
             if (params().m_bv_eq_axioms) {
+
                 literal_vector lits;
                 lits.push_back(~consequent);
                 lits.push_back(antecedent);
@@ -1343,7 +1343,7 @@ namespace smt {
                     ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 }
             }
-     
+        
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
             // REMARK: bit_eq_justification is marked as a theory_bv justification.
@@ -1818,6 +1818,39 @@ namespace smt {
         st.update("bv bit2core", m_stats.m_num_bit2core);
         st.update("bv->core eq", m_stats.m_num_th2core_eq);
         st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
+    }
+
+    theory_bv::var_enode_pos theory_bv::get_bv_with_theory(bool_var v, theory_id id) const {
+        atom* a      = get_bv2a(v);
+        svector<var_enode_pos> vec;
+        if (!a->is_bit())
+            return var_enode_pos(nullptr, UINT32_MAX);
+        bit_atom * b = static_cast<bit_atom*>(a);
+        var_pos_occ * curr = b->m_occs;
+        while (curr) {
+            enode* n = get_enode(curr->m_var);
+            if (n->get_th_var(id) != null_theory_var)
+                return var_enode_pos(n, curr->m_idx);
+            curr = curr->m_next;
+        }
+        return var_enode_pos(nullptr, UINT32_MAX);
+    }
+
+    bool_var theory_bv::get_first_unassigned(unsigned start_bit, enode* n) const {
+        theory_var v = n->get_th_var(get_family_id());
+        auto& bits = m_bits[v];
+        unsigned sz = bits.size();
+
+        for (unsigned i = start_bit; i < sz; ++i) {
+            if (ctx.get_assignment(bits[i].var()) != l_undef)
+                return bits[i].var();
+        }
+        for (unsigned i = 0; i < start_bit; ++i) {
+            if (ctx.get_assignment(bits[i].var()) != l_undef)
+                return bits[i].var();
+        }
+
+        return null_bool_var;
     }
 
     bool theory_bv::check_assignment(theory_var v) {

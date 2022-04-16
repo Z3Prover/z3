@@ -177,6 +177,10 @@ namespace smt {
     void kernel::get_assignments(expr_ref_vector & result) {
         m_imp->m_kernel.get_assignments(result);
     }
+
+    void kernel::get_units(expr_ref_vector & result) {
+        m_imp->m_kernel.get_units(result);
+    }    
         
     void kernel::get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
         m_imp->m_kernel.get_relevant_labels(cnstr, result);
@@ -244,8 +248,8 @@ namespace smt {
         m_imp->m_kernel.get_levels(vars, depth);
     }
 
-    expr_ref_vector kernel::get_trail() {
-        return m_imp->m_kernel.get_trail();
+    expr_ref_vector kernel::get_trail(unsigned max_level) {
+        return m_imp->m_kernel.get_trail(max_level);
     }
 
     void kernel::user_propagate_init(
@@ -272,12 +276,16 @@ namespace smt {
         m_imp->m_kernel.user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned kernel::user_propagate_register_expr(expr* e) {
-        return m_imp->m_kernel.user_propagate_register_expr(e);
+    void kernel::user_propagate_register_expr(expr* e) {
+        m_imp->m_kernel.user_propagate_register_expr(e);
     }        
 
     void kernel::user_propagate_register_created(user_propagator::created_eh_t& r) {
         m_imp->m_kernel.user_propagate_register_created(r);
+    }
+
+    void kernel::user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+        m_imp->m_kernel.user_propagate_register_decide(r);
     }
 
 };

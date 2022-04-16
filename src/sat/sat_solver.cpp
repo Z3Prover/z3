@@ -2968,11 +2968,9 @@ namespace sat {
             }
             break;
         case PS_SAT_CACHING:
-            if (m_search_state == s_sat) {
-                for (unsigned i = 0; i < m_phase.size(); ++i) {
-                    m_phase[i] = m_best_phase[i];
-                }
-            }
+            if (m_search_state == s_sat) 
+                for (unsigned i = 0; i < m_phase.size(); ++i) 
+                    m_phase[i] = m_best_phase[i];                            
             break;
         case PS_RANDOM:
             for (auto& p : m_phase) p = (m_rand() % 2) == 0;
@@ -3823,6 +3821,8 @@ namespace sat {
     void solver::move_to_front(bool_var b) {
         if (b >= num_vars())
             return;
+        if (m_case_split_queue.empty())
+            return;
         bool_var next = m_case_split_queue.min_var();
         auto next_act = m_activity[next];
         set_activity(b, next_act + 1);
@@ -4177,7 +4177,7 @@ namespace sat {
     lbool solver::find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes) {
         max_cliques<neg_literal> mc;
         m_user_bin_clauses.reset();
-        m_binary_clause_graph.reset();
+        // m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true, false);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
         for (auto const& b : m_user_bin_clauses) {
@@ -4192,20 +4192,22 @@ namespace sat {
         vector<unsigned_vector> _mutexes;
         literal_vector _lits(lits);
         if (m_ext) {
-            // m_ext->find_mutexes(_lits, mutexes);
+            m_ext->find_mutexes(_lits, mutexes);
         }
         unsigned_vector ps;
-        for (literal lit : _lits) {
+        for (literal lit : _lits) 
             ps.push_back(lit.index());
-        }
-        mc.cliques(ps, _mutexes);
+        mc.cliques2(ps, _mutexes);
+        vector<vector<literal_vector>> sorted;
         for (auto const& mux : _mutexes) {
             literal_vector clique;
-            for (auto const& idx : mux) {
+            sorted.reserve(mux.size() + 1);
+            for (auto const& idx : mux) 
                 clique.push_back(to_literal(idx));
-            }
-            mutexes.push_back(clique);
+            sorted[mux.size()].push_back(clique);
         }
+        for (unsigned i = sorted.size(); i-- > 0; ) 
+            mutexes.append(sorted[i]);
         return l_true;
     }
 

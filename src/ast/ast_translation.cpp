@@ -170,12 +170,20 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
         new_fi.set_injective(fi->is_injective());
         new_fi.set_skolem(fi->is_skolem()); 
         new_fi.set_idempotent(fi->is_idempotent());
+        new_fi.set_lambda(fi->is_lambda());
 
         new_f = m_to_manager.mk_func_decl(f->get_name(),
                                           f->get_arity(),
                                           new_domain,
                                           new_range,
                                           new_fi);
+
+        if (new_fi.is_lambda()) {
+            quantifier* q = from().is_lambda_def(f);
+            ast_translation tr(from(), to());
+            quantifier* new_q = tr(q);
+            to().add_lambda_def(new_f, new_q);
+        }
     }
     TRACE("ast_translation", 
           tout << f->get_name() << " "; if (fi) tout << *fi; tout << "\n";

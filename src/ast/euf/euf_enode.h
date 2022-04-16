@@ -63,6 +63,7 @@ namespace euf {
         enode*        m_cg     = nullptr;
         th_var_list   m_th_vars;
         justification m_justification;
+        justification m_lit_justification;
         unsigned      m_num_args = 0;
         signed char   m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
         approx_set    m_lbls;
@@ -133,6 +134,7 @@ namespace euf {
         void del_th_var(theory_id id) { m_th_vars.del_var(id); }   
         void set_merge_enabled(bool m) { m_merge_enabled = m; }
         void set_value(lbool v) { m_value = v; }
+        void set_justification(justification j) { m_justification = j; }
         void set_is_equality() { m_is_equality = true;  }
         void set_bool_var(sat::bool_var v) { m_bool_var = v; }
 

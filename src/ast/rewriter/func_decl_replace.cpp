@@ -23,7 +23,8 @@ Revision History:
 
 expr_ref func_decl_replace::operator()(expr* e) {
     m_todo.push_back(e);
-    
+    m_refs.push_back(e);
+
     while (!m_todo.empty()) {
         expr* a = m_todo.back(), *b;
         if (m_cache.contains(a)) {

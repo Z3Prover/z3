@@ -36,34 +36,27 @@ namespace opt {
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
         ref<generic_model_converter> m_filter;
-        sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
+        sortmax(maxsat_context& c, vector<soft>& s, unsigned index): 
+            maxsmt_solver_base(c, s, index), m_sort(*this), m_trail(m), m_fresh(m) {}
 
         ~sortmax() override {}
 
         lbool operator()() override {
-            obj_map<expr, rational> soft;            
-            if (!init()) {
-                return l_false;
-            }
-            lbool is_sat = find_mutexes(soft);
-            if (is_sat != l_true) {
-                return is_sat;
-            }
+            if (!init()) 
+                return l_undef;
+
+            lbool is_sat = l_true;
             m_filter = alloc(generic_model_converter, m, "sortmax");
-            rational offset = m_lower;
-            m_upper = offset;
             expr_ref_vector in(m);
             expr_ref tmp(m);
             ptr_vector<expr> out;
-            obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
-            for (; it != end; ++it) {
-                if (!it->m_value.is_unsigned()) {
+            for (auto const & [e, w, t] : m_soft) {
+                if (!w.is_unsigned()) {
                     throw default_exception("sortmax can only handle unsigned weights. Use a different heuristic.");
                 }
-                unsigned n = it->m_value.get_unsigned();
+                unsigned n = w.get_unsigned();
                 while (n > 0) {
-                    in.push_back(it->m_key);
+                    in.push_back(e);
                     --n;
                 }
             }
@@ -71,18 +64,14 @@ namespace opt {
 
             // initialize sorting network outputs using the initial assignment.
             unsigned first = 0;
-            it = soft.begin();
-            for (; it != end; ++it) {
-                if (m_model->is_true(it->m_key)) {
-                    unsigned n = it->m_value.get_unsigned();
+            for (auto const & [e, w, t] : m_soft) {
+                if (t == l_true) {
+                    unsigned n = w.get_unsigned();
                     while (n > 0) {
                         s().assert_expr(out[first]);
                         ++first;
                         --n;
                     }
-                }
-                else {
-                    m_upper += it->m_value;
                 }
             }
             while (l_true == is_sat && first < out.size() && m_lower < m_upper) {
@@ -149,8 +138,8 @@ namespace opt {
     };
     
     
-    maxsmt_solver_base* mk_sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
-        return alloc(sortmax, c, ws, soft);
+    maxsmt_solver_base* mk_sortmax(maxsat_context& c, vector<soft>& s, unsigned index) {
+        return alloc(sortmax, c, s, index);
     }
 
 }

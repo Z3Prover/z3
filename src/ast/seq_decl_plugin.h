@@ -502,6 +502,7 @@ public:
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
+        app* mk_power(expr* r, unsigned n);
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
         expr* mk_loop_proper(expr* r, unsigned lo, unsigned hi);

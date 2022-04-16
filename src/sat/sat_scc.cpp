@@ -67,15 +67,8 @@ namespace sat {
         }
     };
 
-    unsigned scc::operator()() {
-        if (m_solver.m_inconsistent)
-            return 0;
-        if (!m_scc)
-            return 0;
-        CASSERT("scc_bug", m_solver.check_invariant());
-        report rpt(*this);
-        TRACE("scc", m_solver.display(tout););
-        TRACE("scc_details", m_solver.display_watches(tout););
+    bool scc::extract_roots(literal_vector& roots, bool_var_vector& to_elim) {
+        literal_vector lits;
         unsigned_vector index;
         unsigned_vector lowlink;
         unsigned_vector s;
@@ -84,11 +77,9 @@ namespace sat {
         index.resize(num_lits, UINT_MAX);
         lowlink.resize(num_lits, UINT_MAX);
         in_s.resize(num_lits, false);
-        literal_vector roots, lits;
         roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
         svector<frame>   frames;
-        bool_var_vector  to_elim;
         
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
             if (index[l_idx] != UINT_MAX)
@@ -182,7 +173,7 @@ namespace sat {
                             j--;
                             if (to_literal(l2_idx) == ~l) {
                                 m_solver.set_conflict();
-                                return 0;
+                                return false;
                             }
                             if (m_solver.is_external(to_literal(l2_idx).var())) {
                                 r = to_literal(l2_idx);
@@ -226,6 +217,23 @@ namespace sat {
                 roots[i] = literal(i, false);
             }
         }
+        return true;
+    }
+
+
+    unsigned scc::operator()() {
+        if (m_solver.m_inconsistent)
+            return 0;
+        if (!m_scc)
+            return 0;
+        CASSERT("scc_bug", m_solver.check_invariant());
+        report rpt(*this);
+        TRACE("scc", m_solver.display(tout););
+        TRACE("scc_details", m_solver.display_watches(tout););
+        literal_vector roots;
+        bool_var_vector to_elim;
+        if (!extract_roots(roots, to_elim))
+            return 0;
         TRACE("scc", for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }
               tout << "to_elim: "; for (unsigned v : to_elim) tout << v << " "; tout << "\n";);
         m_num_elim += to_elim.size();
@@ -234,9 +242,8 @@ namespace sat {
         TRACE("scc_detail", m_solver.display(tout););
         CASSERT("scc_bug", m_solver.check_invariant());
 
-        if (m_scc_tr) {
+        if (m_scc_tr) 
             reduce_tr();
-        }
         TRACE("scc_detail", m_solver.display(tout););
         return to_elim.size();
     }

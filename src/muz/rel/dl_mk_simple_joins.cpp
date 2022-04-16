@@ -370,7 +370,7 @@ namespace datalog {
             rule * one_parent = inf.m_rules.back();
 
             func_decl* parent_head = one_parent->get_decl();
-            const char * one_parent_name = parent_head->get_name().bare_str();
+            std::string one_parent_name = parent_head->get_name().str();
             std::string parent_name;
             if (inf.m_rules.size() > 1) {
                 parent_name = one_parent_name + std::string("_and_") + to_string(inf.m_rules.size()-1);

@@ -10,6 +10,10 @@ Version 4.8.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.8.15
+==============
+ - elaborate user propagator API. Change id based scheme to expressions
+ - includes a Web Assembly ffi API thanks to Kevin Gibbons
 
 Version 4.8.14
 ==============

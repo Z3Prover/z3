@@ -1893,7 +1893,8 @@ namespace q {
         }
 
         void recycle_enode_vector(enode_vector * v) {
-            m_pool.recycle(v);
+            if (v)
+                m_pool.recycle(v);
         }
 
         void update_max_generation(enode * n, enode * prev) {
@@ -2197,8 +2198,10 @@ namespace q {
             if (curr->num_args() == expected_num_args && ctx.is_relevant(curr))
                 break;
         }
-        if (bp.m_it == bp.m_end)
+        if (bp.m_it == bp.m_end) {
+            recycle_enode_vector(bp.m_to_recycle);
             return nullptr;
+        }
         m_top++;
         update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);

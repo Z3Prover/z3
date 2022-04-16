@@ -184,6 +184,8 @@ namespace q {
         for (euf::enode* n : ctx.get_egraph().enodes_of(f)) {
             expr* t = n->get_arg(idx)->get_expr();
             values.push_back(mdl(t));
+            if (!m.is_value(values.back())) 
+                return expr_ref(m.mk_var(idx, srt), m);
             md->v2t.insert(values.back(), t);
             md->t2v.insert(t, values.back());
         }
@@ -299,6 +301,10 @@ namespace q {
         auto term = [&](unsigned j) {
             return md->v2t[md->values[j]];
         };
+        
+        for (unsigned j = 0; j < sz; ++j)
+            std::cout << mk_pp(md->values[j], m) << "\n";
+
 
         expr* arg = t->get_arg(i);
 

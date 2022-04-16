@@ -190,9 +190,9 @@ public:
         m_t2->user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned user_propagate_register_expr(expr* e) override {
+    void user_propagate_register_expr(expr* e) override {
         m_t1->user_propagate_register_expr(e);
-        return m_t2->user_propagate_register_expr(e);
+        m_t2->user_propagate_register_expr(e);
     }
 
     void user_propagate_clear() override {
@@ -202,6 +202,10 @@ public:
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_t2->user_propagate_register_created(created_eh);
+    }
+
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        m_t2->user_propagate_register_decide(decide_eh);
     }
 
 };
@@ -334,6 +338,9 @@ public:
                     return;
                 }
                 catch (tactic_exception &) {
+                    result.reset();
+                }
+                catch (rewriter_exception&) {
                     result.reset();
                 }
                 catch (z3_error & ex) {
@@ -848,7 +855,7 @@ public:
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
-    unsigned user_propagate_register_expr(expr* e) override { return m_t->user_propagate_register_expr(e); }
+    void user_propagate_register_expr(expr* e) override { m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
 
 protected:
@@ -1019,7 +1026,6 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         cancel_eh<reslimit> eh(in->m().limit());
         { 
-            // Warning: scoped_timer is not thread safe in Linux.
             scoped_timer timer(m_timeout, &eh);
             m_t->operator()(in, result);            
         }

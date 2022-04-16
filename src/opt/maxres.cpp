@@ -72,7 +72,9 @@ class maxres : public maxsmt_solver_base {
 public:
     enum strategy_t {
         s_primal,
-        s_primal_dual
+        s_primal_dual,
+        s_primal_binary,
+        s_primal_binary_delay
     };
 private:
     struct stats {
@@ -95,7 +97,6 @@ private:
         expr_ref_vector const& soft() override { return i.m_asms; }
     };
 
-    unsigned         m_index;
     stats            m_stats;
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
@@ -129,11 +130,10 @@ private:
     typedef ptr_vector<expr> exprs;
 
 public:
-    maxres(maxsat_context& c, unsigned index, 
-           weights_t& ws, expr_ref_vector const& soft, 
+    maxres(maxsat_context& c, unsigned index,
+           vector<soft>& soft,
            strategy_t st):
-        maxsmt_solver_base(c, ws, soft),
-        m_index(index), 
+        maxsmt_solver_base(c, soft, index),
         m_B(m), m_asms(m), m_defs(m),
         m_new_core(m),
         m_mus(c.get_solver()),
@@ -158,6 +158,12 @@ public:
             break;
         case s_primal_dual:
             m_trace_id = "pd-maxres";
+            break;
+        case s_primal_binary:
+            m_trace_id = "maxres-bin";
+            break;
+        case s_primal_binary_delay:
+            m_trace_id = "maxres-bin-delay";
             break;
         }        
     }
@@ -359,6 +365,8 @@ public:
         m_defs.reset();
         switch(m_st) {
         case s_primal:
+        case s_primal_binary:
+        case s_primal_binary_delay:
             return mus_solver();
         case s_primal_dual:
             return primal_dual_solver();
@@ -534,8 +542,18 @@ public:
         expr_ref fml(m);
         SASSERT(!core.empty());
         TRACE("opt", display_vec(tout << "minimized core: ", core););
-        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););        
-        max_resolve(core, w);
+        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
+        switch (m_st) {
+        case strategy_t::s_primal_binary:
+            bin_max_resolve(core, w);
+            break;
+        case strategy_t::s_primal_binary_delay:
+            bin_delay_max_resolve(core, w);
+            break;
+        default:
+            max_resolve(core, w);
+            break;
+        }
         fml = mk_not(m, mk_and(m, core.size(), core.data()));
         add(fml);
         // save small cores such that lex-combinations of maxres can reuse these cores.
@@ -651,6 +669,7 @@ public:
         }
     }
 
+
     void max_resolve(exprs const& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
@@ -699,6 +718,107 @@ public:
             add(fml);
             m_defs.push_back(fml);
         }
+    }
+
+
+    void bin_max_resolve(exprs const& _core, rational const& w) {
+        expr_ref_vector core(m, _core.size(), _core.data());
+        expr_ref fml(m), cls(m);
+        for (unsigned i = 0; i + 1 < core.size(); i += 2) {
+            expr* a = core.get(i);
+            expr* b = core.get(i + 1);
+            expr* u = mk_fresh_bool("u");
+            expr* v = mk_fresh_bool("v");
+            // u = a or b
+            // v = a and b
+            cls = m.mk_or(a, b);
+            fml = m.mk_implies(u, cls);
+            add(fml);
+            update_model(u, cls);
+            m_defs.push_back(fml);
+            cls = m.mk_and(a, b);
+            fml = m.mk_implies(v, cls);
+            add(fml);
+            update_model(v, cls);
+            m_defs.push_back(fml);
+            new_assumption(u, w);
+            core.push_back(v);
+        }
+        s().assert_expr(m.mk_not(core.back()));
+    }
+
+
+    struct unfold_record {
+        ptr_vector<expr> ws;
+        rational weight;
+    };
+
+    obj_map<expr, unfold_record> m_unfold;
+    rational m_unfold_upper;
+
+    void bin_delay_max_resolve(exprs const& _core, rational const& weight) {
+        expr_ref_vector core(m, _core.size(), _core.data()), partial(m);
+        expr_ref fml(m), cls(m);
+        for (expr* c : core) {
+            unfold_record r;
+            if (!m_unfold.find(c, r))
+                continue;
+            IF_VERBOSE(2, verbose_stream() << "to unfold " << mk_pp(c, m) << "\n");
+            for (expr* f : r.ws) {
+                IF_VERBOSE(2, verbose_stream() << "unfold " << mk_pp(f, m) << "\n");
+                new_assumption(f, r.weight);
+            }
+            m_unfold_upper -= r.weight * rational(r.ws.size() - 1);
+            m_unfold.remove(c);
+        }
+        
+        for (expr* _ : core)
+            partial.push_back(nullptr);
+
+        std::cout << "Core size " << core.size() << "\n";
+
+        if (core.size() > 2)
+            m_unfold_upper += rational(core.size()-2)*weight;
+        
+        expr* w = nullptr;
+        for (unsigned i = 0; i + 1 < core.size(); i += 2) {
+            expr* a = core.get(i);
+            expr* b = core.get(i + 1);
+            expr* u = mk_fresh_bool("u");
+            expr* v = mk_fresh_bool("v");
+            // u = a or b
+            // v = a and b
+            cls = m.mk_or(a, b);
+            fml = m.mk_implies(u, cls);
+            add(fml);
+            update_model(u, cls);
+            m_defs.push_back(fml);
+            cls = m.mk_and(a, b);
+            fml = m.mk_implies(v, cls);
+            add(fml);
+            update_model(v, cls);
+            m_defs.push_back(fml);
+            core.push_back(v);
+
+            // w = u and w1 and w2
+            unfold_record r;
+            r.ws.push_back(u);
+            if (partial.get(i))
+                r.ws.push_back(partial.get(i));
+            if (partial.get(i + 1))
+                r.ws.push_back(partial.get(i + 1));
+            m_trail.append(r.ws.size(), r.ws.data());
+            w = mk_fresh_bool("w");
+            cls = m.mk_and(r.ws);
+            fml = m.mk_implies(w, cls);
+            partial.push_back(w);                       
+            add(fml);
+            update_model(w, cls);
+            m_defs.push_back(fml);
+            m_unfold.insert(w, r);
+        }
+        new_assumption(w, weight);
+        s().assert_expr(m.mk_not(core.back()));
     }
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
@@ -780,7 +900,7 @@ public:
     }
 
     rational cost(model& mdl) {
-        rational upper(0);
+        rational upper = m_unfold_upper;
         for (soft& s : m_soft) 
             if (!mdl.is_true(s.s)) 
                 upper += s.weight;                    
@@ -791,11 +911,10 @@ public:
         improve_model(mdl);
         mdl->set_model_completion(true);
         unsigned correction_set_size = 0;
-        for (expr* a : m_asms) {
-            if (mdl->is_false(a)) {
+        for (expr* a : m_asms) 
+            if (mdl->is_false(a)) 
                 ++correction_set_size;
-            }
-        }
+
         if (!m_csmodel.get() || correction_set_size < m_correction_set_size) {
             m_csmodel = mdl;
             m_correction_set_size = correction_set_size;
@@ -810,22 +929,22 @@ public:
             return;
         }
 
-        if (!m_c.verify_model(m_index, mdl.get(), upper)) {
+        if (!m_c.verify_model(m_index, mdl.get(), upper)) 
             return;
-        }
 
+        unsigned num_assertions = s().get_num_assertions();
         m_model = mdl;
         m_c.model_updated(mdl.get());
 
         TRACE("opt", tout << "updated upper: " << upper << "\n";);
 
-        for (soft& s : m_soft) {
+        for (soft& s : m_soft) 
             s.set_value(m_model->is_true(s.s));
-        }
        
         verify_assignment();
 
-        m_upper = upper;
+        if (num_assertions == s().get_num_assertions())
+            m_upper = upper;
         
         trace();
 
@@ -876,23 +995,18 @@ public:
     }
 
     lbool init_local() {
-        m_lower.reset();
         m_trail.reset();
         lbool is_sat = l_true;
-        obj_map<expr, rational> new_soft;
-        is_sat = find_mutexes(new_soft);
-        if (is_sat != l_true) {
-            return is_sat;
-        }
-        for (auto const& kv : new_soft) {
-            add_soft(kv.m_key, kv.m_value);
-        }
+        for (auto const& [e, w, t] : m_soft)
+            add_soft(e, w);
         m_max_upper = m_upper;
         m_found_feasible_optimum = false;
         m_last_index = 0;
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;
+        m_unfold.reset();
+        m_unfold_upper = 0;
         return l_true;
     }
 
@@ -954,12 +1068,22 @@ public:
 };
 
 opt::maxsmt_solver_base* opt::mk_maxres(
-    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, id, ws, soft, maxres::s_primal);
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal);
+}
+
+opt::maxsmt_solver_base* opt::mk_maxres_binary(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_binary);
+}
+
+opt::maxsmt_solver_base* opt::mk_maxres_binary_delay(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_binary_delay);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
-    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, id, ws, soft, maxres::s_primal_dual);
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxres, c, id, soft, maxres::s_primal_dual);
 }
 

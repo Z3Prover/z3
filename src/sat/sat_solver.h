@@ -374,7 +374,7 @@ namespace sat {
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
         void set_phase(literal l) override { if (l.var() < num_vars()) m_best_phase[l.var()] = m_phase[l.var()] = !l.sign(); }
-        bool_var get_phase(bool_var b) { return m_phase.get(b, false); }
+        bool get_phase(bool_var b) { return m_phase.get(b, false); }
         void move_to_front(bool_var b);
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
@@ -755,7 +755,7 @@ namespace sat {
 
         u_map<index_set>       m_antecedents;
         literal_vector         m_todo_antecedents;
-        vector<literal_vector> m_binary_clause_graph;
+        // vector<literal_vector> m_binary_clause_graph;
 
         bool extract_assumptions(literal lit, index_set& s);
         

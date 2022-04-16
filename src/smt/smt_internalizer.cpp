@@ -375,7 +375,6 @@ namespace smt {
         }
         else {
             SASSERT(is_app(n));
-            SASSERT(!gate_ctx);
             internalize_term(to_app(n));
         }
     }
@@ -605,6 +604,8 @@ namespace smt {
         bool_var bv = get_bool_var(fa);
         assign(literal(bv, false), nullptr);
         mark_as_relevant(bv);
+        push_trail(value_trail<bool>(m_has_lambda));
+        m_has_lambda = true;
     }
 
     /**

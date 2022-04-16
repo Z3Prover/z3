@@ -157,7 +157,7 @@ namespace datalog {
             //IF_VERBOSE(3, m_context.display_smt2(0,0,verbose_stream()););
 
             if (m_context.print_aig().is_non_empty_string()) {
-                const char *filename = m_context.print_aig().bare_str();
+                std::string filename = m_context.print_aig().str();
                 aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
                 std::ofstream strm(filename, std::ios_base::binary);
                 aig(strm);

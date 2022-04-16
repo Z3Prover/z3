@@ -556,7 +556,7 @@ namespace array {
             bool has_default = false;
             for (euf::enode* p : euf::enode_parents(n))
                 has_default |= a.is_default(p->get_expr());
-            if (has_default)
+            if (!has_default)
                 propagate_parent_default(v);      
         }
 
