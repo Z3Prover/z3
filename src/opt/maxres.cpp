@@ -763,19 +763,16 @@ public:
             unfold_record r;
             if (!m_unfold.find(c, r))
                 continue;
-            IF_VERBOSE(2, verbose_stream() << "to unfold " << mk_pp(c, m) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "to unfold " << mk_pp(c, m) << " unfold size " << m_unfold.size() << " core " << core.size() << "\n");
             for (expr* f : r.ws) {
-                IF_VERBOSE(2, verbose_stream() << "unfold " << mk_pp(f, m) << "\n");
+                IF_VERBOSE(1, verbose_stream() << "unfold " << mk_pp(f, m) << "\n");
                 new_assumption(f, r.weight);
             }
             m_unfold_upper -= r.weight * rational(r.ws.size() - 1);
             m_unfold.remove(c);
         }
-        
-        for (expr* _ : core)
-            partial.push_back(nullptr);
 
-        std::cout << "Core size " << core.size() << "\n";
+        partial.resize(core.size(), nullptr);
 
         if (core.size() > 2)
             m_unfold_upper += rational(core.size()-2)*weight;
@@ -808,16 +805,21 @@ public:
             if (partial.get(i + 1))
                 r.ws.push_back(partial.get(i + 1));
             m_trail.append(r.ws.size(), r.ws.data());
-            w = mk_fresh_bool("w");
-            cls = m.mk_and(r.ws);
-            fml = m.mk_implies(w, cls);
-            partial.push_back(w);                       
-            add(fml);
-            update_model(w, cls);
-            m_defs.push_back(fml);
-            m_unfold.insert(w, r);
+            if (r.ws.size() == 1) 
+                w = u;
+            else {
+                w = mk_fresh_bool("w");
+                cls = m.mk_and(r.ws);
+                fml = m.mk_implies(w, cls);
+                add(fml);
+                update_model(w, cls);
+                m_defs.push_back(fml);
+                m_unfold.insert(w, r);
+            }
+            partial.push_back(w);
         }
-        new_assumption(w, weight);
+        if (w) 
+            new_assumption(w, weight);
         s().assert_expr(m.mk_not(core.back()));
     }
 
