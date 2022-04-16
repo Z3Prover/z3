@@ -649,6 +649,7 @@ public:
         }
     }
 
+
     void max_resolve(exprs const& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
@@ -698,6 +699,88 @@ public:
             m_defs.push_back(fml);
         }
     }
+
+#if 0
+
+    void bin_max_resolve(exprs const& _core, rational const& w) {
+        expr_ref_vector core(m, _core.size(), _core.data());
+        expr_ref fml(m), cls(m);
+        for (unsigned i = 0; i + 1 < core.size(); ++i) {
+            expr* a = core.get(i);
+            expr* b = core.get(i + 1);
+            expr_ref u = mk_fresh_bool("u");
+            expr_ref v = mk_fresh_bool("v");
+            // u = a or b
+            // v = a and b
+            cls = m.mk_or(a, b);
+            fml = m.mk_implies(u, cls);
+            add(fml);
+            update_model(u, cls);
+            m_defs.push_back(fml);
+            cls = m.mk_and(a, b);
+            fml = m.mk_implies(v, cls);
+            add(fml);
+            update_model(v, cls);
+            m_defs.push_back(fml);
+            new_assumption(u, w);
+            core.push_back(v);
+        }
+    }
+
+    struct unfold_record {
+        ptr_vector<expr> ws;
+        rational weight;
+    };
+
+    void bin_delay_max_resolve(exprs const& _core, rational const& w) {
+        expr_ref_vector core(m, _core.size(), _core.data()), us(m), partial(m);
+        expr_ref fml(m), cls(m);
+        for (expr* c : core) {
+            unfold_record ws;
+            if (!m_unfold.find(c, ws))
+                continue;
+            for (expr* f : ws.ws)
+                new_assumption(f, ws.weight);
+        }
+        if (core.size() <= 1)
+            return;
+        
+        for (expr* core)
+            partial.push_back(nullptr);
+            
+        for (unsigned i = 0; i + 1 < core.size(); ++i) {
+            expr* a = core.get(i);
+            expr* b = core.get(i + 1);
+            expr_ref u = mk_fresh_bool("u");
+            expr_ref v = mk_fresh_bool("v");
+            // u = a or b
+            // v = a and b
+            cls = m.mk_or(a, b);
+            fml = m.mk_implies(u, cls);
+            add(fml);
+            update_model(u, cls);
+            m_defs.push_back(fml);
+            cls = m.mk_and(a, b);
+            fml = m.mk_implies(v, cls);
+            add(fml);
+            update_model(v, cls);
+            m_defs.push_back(fml);
+            us.push_back(u);
+            core.push_back(v);
+
+            unfold_record r;
+            r.ws.push_back(u);
+            if (partial.get(i))
+                r.ws.push_back(partia.get(i));
+            if (partial.get(i + 1))
+                r.ws.push_back(partia.get(i + 1));            
+            partial.push_back(m.mk_and(r.ws));            
+            m_unfold.insert(partial.back(), r);
+        }
+        expr_ref u = mk_and(us);
+        new_assumption(u, w);
+    }
+#endif
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(exprs const& cs, rational const& w) {

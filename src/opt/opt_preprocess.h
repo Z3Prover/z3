@@ -28,8 +28,10 @@ namespace opt {
         solver&          s;
         expr_ref_vector  m_trail;
 
+        expr_ref_vector propagate(expr* f, lbool& is_sat);
         obj_map<expr, rational> soft2map(vector<soft> const& softs, expr_ref_vector& fmls);
         bool find_mutexes(vector<soft>& softs, rational& lower);
+        bool prop_mutexes(vector<soft>& softs, rational& lower);
         void process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft, rational& lower);
 
     public:

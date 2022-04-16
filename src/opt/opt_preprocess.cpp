@@ -20,8 +20,92 @@ Author:
 #pragma once
 
 #include "opt/opt_preprocess.h"
+#include "util/max_cliques.h"
 
 namespace opt {
+
+    expr_ref_vector preprocess::propagate(expr* f, lbool& is_sat) {
+        expr_ref_vector asms(m);
+        asms.push_back(f);
+        is_sat = s.check_sat(asms);
+        return s.get_trail(1);
+    }
+
+    bool preprocess::prop_mutexes(vector<soft>& softs, rational& lower) {
+        expr_ref_vector fmls(m);
+        obj_map<expr, rational> new_soft = soft2map(softs, fmls);
+
+        params_ref p;
+        p.set_uint("max_conflicts", 1);
+        s.updt_params(p);
+
+        obj_hashtable<expr> pfmls, nfmls;
+        for (expr* f : fmls)
+            if (m.is_not(f, f))
+                nfmls.insert(f);
+            else
+                pfmls.insert(f);
+        
+        u_map<expr*> ids;
+        unsigned_vector ps;
+        for (expr* f : fmls) {
+            ids.insert(f->get_id(), f);
+            ps.push_back(f->get_id());
+        }
+
+        u_map<uint_set> conns;
+
+        for (expr* f : fmls) {
+            lbool is_sat;
+            expr_ref_vector trail = propagate(f, is_sat);
+            if (is_sat == l_false) {
+                rational w = new_soft[f];
+                lower += w;
+                s.assert_expr(m.mk_not(f));
+                new_soft.remove(f);
+                continue;
+            }
+                
+            expr_ref_vector mux(m);
+            for (expr* g : trail) {
+                if (m.is_not(g, g)) {
+                    if (pfmls.contains(g))
+                        mux.push_back(g);
+                }
+                else if (nfmls.contains(g))
+                    mux.push_back(m.mk_not(g));
+            }
+            uint_set reach;
+            for (expr* g : mux)
+                reach.insert(g->get_id());
+            conns.insert(f->get_id(), reach);
+        }
+        
+        p.set_uint("max_conflicts", UINT_MAX);
+        s.updt_params(p);
+
+        struct neg_literal {
+            unsigned negate(unsigned id) {
+                throw default_exception("unexpected call");
+            }
+        };
+        max_cliques<neg_literal> mc;
+        vector<unsigned_vector> mutexes;
+        mc.cliques(ps, conns, mutexes);
+
+        for (auto& mux : mutexes) {
+            expr_ref_vector _mux(m);
+            for (auto p : mux)
+                _mux.push_back(ids[p]);
+            process_mutex(_mux, new_soft, lower);
+        }
+
+        softs.reset();
+        for (auto const& [k, v] : new_soft)
+            softs.push_back(soft(expr_ref(k, m), v, false));
+        m_trail.reset();
+        return true;        
+    }
 
     obj_map<expr, rational> preprocess::soft2map(vector<soft> const& softs, expr_ref_vector& fmls) {
         obj_map<expr, rational> new_soft;
@@ -103,6 +187,8 @@ namespace opt {
     
     bool preprocess::operator()(vector<soft>& soft, rational& lower) {
         if (!find_mutexes(soft, lower))
+            return false;
+        if (false && !prop_mutexes(soft, lower))
             return false;
         return true;
     }

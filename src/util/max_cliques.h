@@ -83,6 +83,29 @@ class max_cliques : public T {
         m_next.reserve(max);
         m_tc.reserve(m_next.size());
     }
+
+    struct compare_degree {
+        u_map<uint_set>& conns;
+        compare_degree(u_map<uint_set>& conns): conns(conns) {}
+        bool operator()(unsigned x, unsigned y) const {
+            return conns[x].num_elems() < conns[y].num_elems();
+        }
+    };
+
+
+    void init(unsigned_vector const& ps, u_map<uint_set>& conns) {
+
+        uint_set vars;
+        
+        for (unsigned p : ps) 
+            vars.insert(p);
+        
+        for (unsigned v : ps) {
+            uint_set reach;
+            get_reachable(v, vars, reach);
+            conns.insert(v, reach);
+        }
+    }
     
 public:
     void add_edge(unsigned src, unsigned dst) {
@@ -92,7 +115,7 @@ public:
         m_next[dst].push_back(src);
     }
 
-    void cliques(unsigned_vector const& ps, vector<unsigned_vector>& cliques) {     
+    void cliques1(unsigned_vector const& ps, vector<unsigned_vector>& cliques) {     
         init(ps);
         unsigned_vector clique;
         uint_set vars;
@@ -124,35 +147,29 @@ public:
         }        
     }
 
-
     // better quality cliques
-    void cliques2(unsigned_vector const& ps, vector<unsigned_vector>& cliques) {     
-
-        uint_set all_vars, todo;
+    void cliques2(unsigned_vector const& ps, vector<unsigned_vector>& cs) {     
         u_map<uint_set> conns;
-
         init(ps);
+        // compute connections using TC of implication graph
+        init(ps, conns);
+        cliques(ps, conns, cs);
+    }
 
-        struct compare_degree {
-            u_map<uint_set>& conns;
-            compare_degree(u_map<uint_set>& conns): conns(conns) {}
-            bool operator()(unsigned x, unsigned y) const {
-                return conns[x].num_elems() < conns[y].num_elems();
-            }
-        };
+    // cliques after connections are computed.
+    void cliques(unsigned_vector const& ps, u_map<uint_set>& conns, vector<unsigned_vector>& cliques) {
+
+        unsigned maxp = 1;
+        for (unsigned p : ps)
+            maxp = std::max(p, maxp);
+        
+        uint_set todo;
         compare_degree lt(conns);
-        heap<compare_degree> heap(m_next.size(), lt);
+        heap<compare_degree> heap(maxp + 1, lt);
 
-        for (unsigned p : ps) {
-            all_vars.insert(p);
+        for (unsigned p : ps) {           
             todo.insert(p);
-        }
-
-        for (unsigned v : ps) {
-            uint_set reach;
-            get_reachable(v, all_vars, reach);
-            conns.insert(v, reach);
-            heap.insert(v);
+            heap.insert(p);
         }
 
         while (!todo.empty()) {
