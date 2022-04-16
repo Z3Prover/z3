@@ -774,8 +774,14 @@ public:
         
         for (expr* _ : core)
             partial.push_back(nullptr);
-            
-        for (unsigned i = 0; i + 1 < core.size(); ++i) {
+
+        std::cout << "Core size " << core.size() << "\n";
+
+        if (core.size() > 2)
+            m_unfold_upper += rational(core.size()-2)*weight;
+        
+        expr* w = nullptr;
+        for (unsigned i = 0; i + 1 < core.size(); i += 2) {
             expr* a = core.get(i);
             expr* b = core.get(i + 1);
             expr* u = mk_fresh_bool("u");
