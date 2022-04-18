@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
    
-    MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    Maxcore (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
 
 Author:
 
@@ -20,6 +20,8 @@ Notes:
 #pragma once
 
 namespace opt {
+
+    maxsmt_solver_base* mk_rc2(maxsat_context& c, unsigned id, vector<soft>& soft);
 
     maxsmt_solver_base* mk_maxres(maxsat_context& c, unsigned id, vector<soft>& soft);
 

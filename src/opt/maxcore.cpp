@@ -3,14 +3,17 @@ Copyright (c) 2014 Microsoft Corporation
 
 Module Name:
 
-    maxsres.cpp
+    maxcore.cpp
 
 Abstract:
    
-    MaxRes (weighted) max-sat algorithms:
+    Core based (weighted) max-sat algorithms:
 
-    - mus:     max-sat algorithm by Nina and Bacchus, AAAI 2014.
-    - mus-mss: based on dual refinement of bounds.
+    - mu:        max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    - mus-mss:   based on dual refinement of bounds.
+    - binary
+    - binary-delay
+
 
     MaxRes is a core-guided approach to maxsat.
     MusMssMaxRes extends the core-guided approach by
@@ -64,17 +67,18 @@ Notes:
 #include "opt/opt_params.hpp"
 #include "opt/opt_lns.h"
 #include "opt/maxsmt.h"
-#include "opt/maxres.h"
+#include "opt/maxcore.h"
 
 using namespace opt;
 
-class maxres : public maxsmt_solver_base {
+class maxcore : public maxsmt_solver_base {
 public:
     enum strategy_t {
         s_primal,
         s_primal_dual,
         s_primal_binary,
-        s_primal_binary_delay
+        s_primal_binary_delay,
+        s_rc2        
     };
 private:
     struct stats {
@@ -86,10 +90,10 @@ private:
         }
     };
 
-    struct lns_maxres : public lns_context {
-        maxres& i;
-        lns_maxres(maxres& i) :i(i) {}
-        ~lns_maxres() override {}
+    struct lns_maxcore : public lns_context {
+        maxcore& i;
+        lns_maxcore(maxcore& i) :i(i) {}
+        ~lns_maxcore() override {}
         void update_model(model_ref& mdl) override { i.update_assignment(mdl); }
         void relax_cores(vector<expr_ref_vector> const& cores) override { i.relax_cores(cores); }
         rational cost(model& mdl) override { return i.cost(mdl); }
@@ -108,7 +112,7 @@ private:
     strategy_t       m_st;
     rational         m_max_upper;    
     model_ref        m_csmodel;
-    lns_maxres       m_lnsctx;
+    lns_maxcore      m_lnsctx;
     lns              m_lns;
     unsigned         m_correction_set_size;
     bool             m_found_feasible_optimum;
@@ -130,7 +134,7 @@ private:
     typedef ptr_vector<expr> exprs;
 
 public:
-    maxres(maxsat_context& c, unsigned index,
+    maxcore(maxsat_context& c, unsigned index,
            vector<soft>& soft,
            strategy_t st):
         maxsmt_solver_base(c, soft, index),
@@ -168,7 +172,7 @@ public:
         }        
     }
 
-    ~maxres() override {}
+    ~maxcore() override {}
 
     bool is_literal(expr* l) {
         return 
@@ -375,8 +379,8 @@ public:
     }
 
     void collect_statistics(statistics& st) const override {
-        st.update("maxres-cores", m_stats.m_num_cores);
-        st.update("maxres-correction-sets", m_stats.m_num_cs);
+        st.update("maxsat-cores", m_stats.m_num_cores);
+        st.update("maxsat-correction-sets", m_stats.m_num_cs);
     }
 
     struct weighted_core {
@@ -456,8 +460,8 @@ public:
     }
 
     struct compare_asm {
-        maxres& mr;
-        compare_asm(maxres& mr):mr(mr) {}
+        maxcore& mr;
+        compare_asm(maxcore& mr):mr(mr) {}
         bool operator()(expr* a, expr* b) const {
             rational w1 = mr.get_weight(a);
             rational w2 = mr.get_weight(b);
@@ -549,6 +553,9 @@ public:
             break;
         case strategy_t::s_primal_binary_delay:
             bin_delay_max_resolve(core, w);
+            break;
+        case strategy_t::s_rc2:
+            max_resolve_rc2(core, w);
             break;
         default:
             max_resolve(core, w);
@@ -747,6 +754,7 @@ public:
     }
 
 
+    // binary - with delayed unfolding of new soft clauses.
     struct unfold_record {
         ptr_vector<expr> ws;
         rational weight;
@@ -822,6 +830,63 @@ public:
             new_assumption(w, weight);
         s().assert_expr(m.mk_not(core.back()));
     }
+
+    // rc2, using cardinality constraints
+
+    // create and cache at-most k constraints
+    struct bound_info {
+        ptr_vector<expr> es;
+        unsigned         k = 0;
+        rational         weight;
+        bound_info() {}
+        bound_info(ptr_vector<expr> const& es, unsigned k, rational const& weight):
+            es(es), k(k), weight(weight) {}
+        bound_info(expr_ref_vector const& es, unsigned k, rational const& weight):
+            es(es.size(), es.data()), k(k), weight(weight) {}
+    };
+    
+    obj_map<expr, expr*>      m_at_mostk;
+    obj_map<expr, bound_info> m_bounds;
+
+    expr* mk_atmost(expr_ref_vector const& es, unsigned bound, rational const& weight) {
+        pb_util pb(m);
+        expr_ref am(pb.mk_at_most_k(es, bound), m);
+        expr* r = nullptr;
+        if (m_at_mostk.find(am, r))
+            return r;
+        r = mk_fresh_bool("r");
+        m_trail.push_back(am);
+        bound_info b(es, bound, weight);
+        m_at_mostk.insert(am, r);
+        m_bounds.insert(r, b);
+        expr_ref fml(m);
+        fml = m.mk_implies(r, am);
+        add(fml);
+        m_defs.push_back(fml);
+        update_model(r, am);
+        return r;
+    }
+
+    void max_resolve_rc2(exprs const& core, rational weight) {
+        expr_ref_vector ncore(m);
+        for (expr* f : core) {
+            bound_info b;
+            if (!m_bounds.find(f, b))
+                continue;
+            m_bounds.remove(f);
+            if (b.k + 1 >= b.es.size())
+                continue;
+            expr_ref_vector es(m, b.es.size(), b.es.data());
+            expr* amk = mk_atmost(es, b.k + 1, b.weight);
+            new_assumption(amk, b.weight);
+            ncore.push_back(mk_not(m, f));
+            m_unfold_upper -= b.weight;
+        }
+        m_unfold_upper += rational(core.size() - 1) * weight;
+        expr* am = mk_atmost(ncore, 1, weight);
+        new_assumption(am, weight);
+    }
+    
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(exprs const& cs, rational const& w) {
@@ -1009,6 +1074,8 @@ public:
         m_correction_set_size = 0;
         m_unfold.reset();
         m_unfold_upper = 0;
+        m_at_mostk.reset();
+        m_bounds.reset();
         return l_true;
     }
 
@@ -1016,8 +1083,7 @@ public:
         if (m_found_feasible_optimum) {
             add(m_defs);
             add(m_asms);
-            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n";);
-
+            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n");
         }
         // else: there is only a single assignment to these soft constraints.
     }
@@ -1071,21 +1137,27 @@ public:
 
 opt::maxsmt_solver_base* opt::mk_maxres(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxres, c, id, soft, maxres::s_primal);
+    return alloc(maxcore, c, id, soft, maxcore::s_primal);
+}
+
+opt::maxsmt_solver_base* opt::mk_rc2(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxcore, c, id, soft, maxcore::s_rc2);
 }
 
 opt::maxsmt_solver_base* opt::mk_maxres_binary(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxres, c, id, soft, maxres::s_primal_binary);
+    return alloc(maxcore, c, id, soft, maxcore::s_primal_binary);
 }
 
 opt::maxsmt_solver_base* opt::mk_maxres_binary_delay(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxres, c, id, soft, maxres::s_primal_binary_delay);
+    return alloc(maxcore, c, id, soft, maxcore::s_primal_binary_delay);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxres, c, id, soft, maxres::s_primal_dual);
+    return alloc(maxcore, c, id, soft, maxcore::s_primal_dual);
 }
+
 

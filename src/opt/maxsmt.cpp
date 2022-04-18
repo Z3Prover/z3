@@ -23,7 +23,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/pb_decl_plugin.h"
 #include "opt/maxsmt.h"
-#include "opt/maxres.h"
+#include "opt/maxcore.h"
 #include "opt/maxlex.h"
 #include "opt/wmax.h"
 #include "opt/opt_params.hpp"
@@ -193,6 +193,9 @@ namespace opt {
         }
         else if (maxsat_engine == symbol("maxres-bin")) {            
             m_msolver = mk_maxres_binary(m_c, m_index, m_soft);
+        }
+        else if (maxsat_engine == symbol("rc2")) {            
+            m_msolver = mk_rc2(m_c, m_index, m_soft);
         }
         else if (maxsat_engine == symbol("maxres-bin-delay")) {            
             m_msolver = mk_maxres_binary_delay(m_c, m_index, m_soft);
