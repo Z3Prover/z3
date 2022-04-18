@@ -882,9 +882,11 @@ public:
             ncore.push_back(mk_not(m, f));
             m_unfold_upper -= b.weight;
         }
-        m_unfold_upper += rational(core.size() - 1) * weight;
-        expr* am = mk_atmost(ncore, 1, weight);
-        new_assumption(am, weight);
+        if (core.size() > 1) {
+            m_unfold_upper += rational(core.size() - 2) * weight;
+            expr* am = mk_atmost(ncore, 1, weight);
+            new_assumption(am, weight);
+        }
     }
     
 
