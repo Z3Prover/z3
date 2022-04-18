@@ -612,7 +612,7 @@ namespace smt {
             }
         }
         vector<unsigned_vector> _mutexes;
-        mc.cliques(ps, _mutexes);
+        mc.cliques2(ps, _mutexes);
         for (auto const& mux : _mutexes) {
             expr_ref_vector lits(m);
             for (unsigned idx : mux) {

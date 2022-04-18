@@ -190,7 +190,7 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
     lbool phase = is_pos ? l_true : l_false;
 
     expr* e = var2expr(original_enode->get_th_var(get_family_id()));
-    m_decide_eh(m_user_context, this, e, new_bit, phase);
+    m_decide_eh(m_user_context, this, &e, &new_bit, &phase);
     enode* new_enode = ctx.get_enode(e);
 
     // check if the callback changed something

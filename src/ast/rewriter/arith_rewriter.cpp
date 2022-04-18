@@ -700,7 +700,30 @@ br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
     else if (m_arith_lhs || is_arith_term(arg1) || is_arith_term(arg2)) {
         st = mk_le_ge_eq_core(arg1, arg2, EQ, result);
     }
+
+    if (st == BR_FAILED && mk_eq_mod(arg1, arg2, result)) 
+        st = BR_REWRITE2;
     return st;
+}
+
+bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
+    expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
+    rational p, k, l;
+    // match k*u mod p = l, where k, p, l are integers
+    if (m_util.is_mod(arg1, x, y) && m_util.is_numeral(y, p) &&
+        m_util.is_mul(x, z, u) && m_util.is_numeral(z, k) &&
+        m_util.is_numeral(arg2, l) && 0 <= l && l < p) {
+        // a*p + k*b = g
+        rational a, b;
+        rational g = gcd(p, k, a, b);
+        if (g == 1) {
+            expr_ref nb(m_util.mk_numeral(b, true), m());
+            result = m().mk_eq(m_util.mk_mod(u, y),
+                               m_util.mk_mod(m_util.mk_mul(nb, arg2), y));
+            return true;            
+        }
+    }
+    return false;
 }
 
 expr_ref arith_rewriter::neg_monomial(expr* e) const {
