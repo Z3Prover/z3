@@ -190,10 +190,11 @@ void asserted_formulas::push_scope() {
 }
 
 void asserted_formulas::push_scope_core() {
+    std::cout << "push\n";
     reduce();
     commit();
     SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.limit().is_canceled());
-    TRACE("asserted_formulas_scopes", tout << "before push: " << m_scopes.size() << "\n";);
+    TRACE("asserted_formulas_scopes", tout << "before push: " << m_scopes.size() << "\n");
     m_scoped_substitution.push();
     m_scopes.push_back(scope());
     scope & s = m_scopes.back();
@@ -205,7 +206,7 @@ void asserted_formulas::push_scope_core() {
     m_bv_sharing.push_scope();
     m_macro_manager.push_scope();
     commit();
-    TRACE("asserted_formulas_scopes", tout << "after push: " << m_scopes.size() << "\n";);
+    TRACE("asserted_formulas_scopes", tout << "after push: " << m_scopes.size() << "\n");
 }
 
 void asserted_formulas::force_push() {
@@ -260,6 +261,7 @@ bool asserted_formulas::check_well_sorted() const {
 }
 
 void asserted_formulas::reduce() {
+    std::cout << "reduce\n";
     if (inconsistent())
         return;
     if (canceled())

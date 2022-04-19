@@ -669,8 +669,11 @@ namespace q {
         if (m_inst_queue.lazy_propagate())
             return true;
         for (unsigned i = 0; i < m_clauses.size(); ++i)
-            if (m_clauses[i]->m_bindings)
+            if (m_clauses[i]->m_bindings) {
                 IF_VERBOSE(0, verbose_stream() << "missed propagation " << i << "\n");
+                TRACE("q", display(tout));
+                break;
+            }
         
         TRACE("q", tout << "no more propagation\n";);
         return false;

@@ -169,6 +169,12 @@ public:
         case s_primal_binary_delay:
             m_trace_id = "maxres-bin-delay";
             break;
+        case s_rc2:
+            m_trace_id = "rc2";
+            break;
+        default:
+            UNREACHABLE();
+            break;
         }        
     }
 
@@ -371,6 +377,7 @@ public:
         case s_primal:
         case s_primal_binary:
         case s_primal_binary_delay:
+        case s_rc2:
             return mus_solver();
         case s_primal_dual:
             return primal_dual_solver();
