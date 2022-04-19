@@ -350,6 +350,8 @@ namespace smt {
        - gate_ctx is true if the expression is in the context of a logical gate.
     */
     void context::internalize(expr * n, bool gate_ctx) {
+        if (memory::above_high_watermark())
+            throw default_exception("resource limit exceeded during internalization");
         internalize_deep(n);
         internalize_rec(n, gate_ctx);
     }
