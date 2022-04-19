@@ -273,8 +273,6 @@ namespace recfun {
                     } 
                     else if (is_app(e)) {
                         // explore arguments
-                        for (expr * arg : *to_app(e)) {
-                            if (contains_ite(u, arg)) {
                         for (expr * arg : *to_app(e)) 
                             if (contains_ite(u, arg)) 
                                 stack.push_back(arg);
