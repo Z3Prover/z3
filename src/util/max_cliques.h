@@ -181,7 +181,7 @@ public:
                     next.push_back(n);
             std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
             for (unsigned x : next) {
-                bool all = true;
+                bool all = heap.contains(x);
                 for (unsigned y : am1) {
                     if (!conns[x].contains(y)) {
                         all = false;
@@ -190,15 +190,18 @@ public:
                 }
                 if (all)
                     am1.insert(x);
-            }
+            }            
             am1.insert(v);
+
             for (unsigned x : am1) {
                 todo.remove(x);
                 for (unsigned y : conns[x]) {
                     conns[y].remove(x);
-                    heap.decreased(y);
+                    if (heap.contains(y))
+                        heap.decreased(y);
                 }
             }
+            
             for (unsigned x : am1) 
                 heap.erase(x);
                 
