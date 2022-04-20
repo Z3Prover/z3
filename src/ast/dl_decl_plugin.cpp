@@ -700,16 +700,8 @@ namespace datalog {
     }
 
     bool dl_decl_util::is_numeral_ext(expr* e, uint64_t& v) const {
-        if (is_numeral(e, v)) {
+        if (is_numeral(e, v)) 
             return true;
-        }
-        rational val;
-        unsigned bv_size = 0;
-        if (bv().is_numeral(e, val, bv_size) && bv_size < 64) {
-            SASSERT(val.is_uint64());
-            v = val.get_uint64();
-            return true;
-        }
         if (m.is_true(e)) {
             v = 1;
             return true;
@@ -718,16 +710,43 @@ namespace datalog {
             v = 0;
             return true;
         }
+
+        rational val;
+        unsigned bv_size = 0;
+        if (bv().is_numeral(e, val, bv_size) && bv_size < 64) {
+            SASSERT(val.is_uint64());
+            v = val.get_uint64();
+            return true;
+        }
+
+        datatype::util dt(m);
+        if (dt.is_enum_sort(e->get_sort()) && dt.is_constructor(e)) {
+            auto& cs = *dt.get_datatype_constructors(e->get_sort());
+            v = 0;
+            for (func_decl* f : cs) {
+                if (f == to_app(e)->get_decl())
+                    return true;
+                ++v;
+            }
+        }
         return false;
     }
 
     bool dl_decl_util::is_numeral_ext(expr* c) const {
-        if (is_numeral(c)) return true;
+        if (is_numeral(c))
+            return true;
         rational val;
         unsigned bv_size = 0;        
-        if (arith().is_numeral(c, val) && val.is_uint64()) return true;
-        if (bv().is_numeral(c, val, bv_size) && bv_size < 64) return true;
-        return m.is_true(c) || m.is_false(c);
+        if (arith().is_numeral(c, val) && val.is_uint64())
+            return true;
+        if (bv().is_numeral(c, val, bv_size) && bv_size < 64)
+            return true;
+        if (m.is_true(c) || m.is_false(c))
+            return true;
+        datatype::util dt(m);
+        if (dt.is_enum_sort(c->get_sort()) && dt.is_constructor(c))
+            return true;
+        return false;
     }
 
     sort* dl_decl_util::mk_sort(const symbol& name, uint64_t  domain_size) {

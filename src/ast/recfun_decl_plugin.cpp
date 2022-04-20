@@ -79,13 +79,15 @@ namespace recfun {
     }
 
     // does `e` contain any `ite` construct?
+    // subject to the then/else branch using a recursive call,
+    // but the guard does not.
     bool def::contains_ite(util& u, expr * e) {
         struct ite_find_p : public i_expr_pred {
             ast_manager & m;
             def& d;
             util& u;
             ite_find_p(ast_manager & m, def& d, util& u) : m(m), d(d), u(u) {}
-            bool operator()(expr * e) override { return m.is_ite(e) && d.contains_def(u, e); }
+            bool operator()(expr * e) override { return m.is_ite(e) && !d.contains_def(u, to_app(e)->get_arg(0)) && d.contains_def(u, e); }
         };
         // ignore ites under quantifiers.
         // this is redundant as the code
@@ -271,11 +273,9 @@ namespace recfun {
                     } 
                     else if (is_app(e)) {
                         // explore arguments
-                        for (expr * arg : *to_app(e)) {
-                            if (contains_ite(u, arg)) {
+                        for (expr * arg : *to_app(e)) 
+                            if (contains_ite(u, arg)) 
                                 stack.push_back(arg);
-                            }
-                        }
                     } 
                 }
             }
