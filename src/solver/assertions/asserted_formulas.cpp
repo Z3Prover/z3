@@ -190,7 +190,6 @@ void asserted_formulas::push_scope() {
 }
 
 void asserted_formulas::push_scope_core() {
-    std::cout << "push\n";
     reduce();
     commit();
     SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.limit().is_canceled());
@@ -261,7 +260,6 @@ bool asserted_formulas::check_well_sorted() const {
 }
 
 void asserted_formulas::reduce() {
-    std::cout << "reduce\n";
     if (inconsistent())
         return;
     if (canceled())
