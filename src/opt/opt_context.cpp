@@ -703,25 +703,25 @@ namespace opt {
 
     void context::update_solver() {
         sat_params p(m_params);
-        if (p.euf())
+        if (!p.euf() && (!m_enable_sat || !probe_fd())) 
             return;
-        if (!p.euf()) {
-            if (!m_enable_sat || !probe_fd()) {
-                return;
-            }
-            if (m_maxsat_engine != symbol("maxres") &&
-                m_maxsat_engine != symbol("pd-maxres") &&
-                m_maxsat_engine != symbol("bcd2") &&
-                m_maxsat_engine != symbol("sls")) {
-                return;
-            }
-            if (opt_params(m_params).priority() == symbol("pareto")) {
-                return;
-            }
-            if (m.proofs_enabled()) {
-                return;
-            }
+
+        if (m_maxsat_engine != symbol("maxres") &&
+            m_maxsat_engine != symbol("rc2") &&
+            m_maxsat_engine != symbol("maxres-bin") &&
+            m_maxsat_engine != symbol("maxres-bin-delay") &&
+            m_maxsat_engine != symbol("pd-maxres") &&
+            m_maxsat_engine != symbol("bcd2") &&
+            m_maxsat_engine != symbol("sls")) {
+            return;
         }
+        
+        if (opt_params(m_params).priority() == symbol("pareto")) 
+            return;
+        
+        if (m.proofs_enabled()) 
+            return;
+        
         m_params.set_bool("minimize_core_partial", true);
         m_params.set_bool("minimize_core", true);
         m_sat_solver = mk_inc_sat_solver(m, m_params);

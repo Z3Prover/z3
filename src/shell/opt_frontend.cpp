@@ -33,9 +33,14 @@ static void display_model(std::ostream& out) {
         return;
     model_ref mdl;
     g_opt->get_model(mdl);
-    if (mdl) {
-        model_smt2_pp(out, g_opt->get_manager(), *mdl, 0); 
-    }
+    if (mdl) 
+        model_smt2_pp(out, g_opt->get_manager(), *mdl, 0);
+}
+
+static void display_objective() {
+    if (!g_opt)
+        return;
+    std::ostream& out = std::cout;
     for (unsigned h : g_handles) {
         expr_ref lo = g_opt->get_lower(h);
         expr_ref hi = g_opt->get_upper(h);
@@ -48,14 +53,12 @@ static void display_model(std::ostream& out) {
     }
 }
 
-static void display_model() {
-    if (g_display_model)
+
+static void display_model() {    
+    if (g_display_model) 
         display_model(std::cout);
 }
 
-static void display_results() {
-    IF_VERBOSE(1, display_model(verbose_stream()));
-}
 
 static void display_statistics() {
     lock_guard lock(*display_stats_mux);
@@ -66,8 +69,6 @@ static void display_statistics() {
         double end_time = static_cast<double>(clock());
         std::cout << "time:                " << (end_time - g_start_time)/CLOCKS_PER_SEC << " secs\n";
     }    
-
-    display_results();
 }
 
 static void STD_CALL on_ctrl_c(int) {
@@ -136,6 +137,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
     }
     display_statistics();
     display_model();
+    display_objective();
     g_opt = nullptr;
     return 0;
 }

@@ -859,7 +859,7 @@ public:
         pb_util pb(m);
         expr_ref am(pb.mk_at_most_k(es, bound), m);
         expr* r = nullptr;
-        if (m_at_mostk.find(am, r))
+        if (m_at_mostk.find(am, r)) 
             return r;
         r = mk_fresh_bool("r");
         m_trail.push_back(am);
@@ -877,6 +877,7 @@ public:
     void max_resolve_rc2(exprs const& core, rational weight) {
         expr_ref_vector ncore(m);
         for (expr* f : core) {
+            ncore.push_back(mk_not(m, f));
             bound_info b;
             if (!m_bounds.find(f, b))
                 continue;
@@ -886,7 +887,6 @@ public:
             expr_ref_vector es(m, b.es.size(), b.es.data());
             expr* amk = mk_atmost(es, b.k + 1, b.weight);
             new_assumption(amk, b.weight);
-            ncore.push_back(mk_not(m, f));
             m_unfold_upper -= b.weight;
         }
         if (core.size() > 1) {
