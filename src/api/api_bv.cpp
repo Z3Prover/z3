@@ -102,6 +102,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     MK_BV_PUNARY(Z3_mk_sign_ext, OP_SIGN_EXT);
     MK_BV_PUNARY(Z3_mk_zero_ext, OP_ZERO_EXT);
     MK_BV_PUNARY(Z3_mk_repeat,   OP_REPEAT);
+    MK_BV_PUNARY(Z3_mk_bit2bool,   OP_BIT2BOOL);
     MK_BV_PUNARY(Z3_mk_rotate_left, OP_ROTATE_LEFT);
     MK_BV_PUNARY(Z3_mk_rotate_right, OP_ROTATE_RIGHT);
     MK_BV_PUNARY(Z3_mk_int2bv, OP_INT2BV);

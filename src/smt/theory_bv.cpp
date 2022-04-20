@@ -1842,11 +1842,11 @@ namespace smt {
         unsigned sz = bits.size();
 
         for (unsigned i = start_bit; i < sz; ++i) {
-            if (ctx.get_assignment(bits[i].var()) != l_undef)
+            if (ctx.get_assignment(bits[i].var()) == l_undef)
                 return bits[i].var();
         }
         for (unsigned i = 0; i < start_bit; ++i) {
-            if (ctx.get_assignment(bits[i].var()) != l_undef)
+            if (ctx.get_assignment(bits[i].var()) == l_undef)
                 return bits[i].var();
         }
 
