@@ -6771,7 +6771,7 @@ extern "C" {
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh);
     
     /**
-       \brief register a callback when a the solver decides to split on a registered expression 
+       \brief register a callback when the solver decides to split on a registered expression.
        The callback may set the passed expression to another registered expression which will be selected instead.
        In case the expression is a bitvector the bit to split on is determined by the bit argument and the 
        truth-value to try first is given by is_pos. In case the truth value is undefined the solver will decide.
