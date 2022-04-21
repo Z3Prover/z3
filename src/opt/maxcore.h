@@ -27,8 +27,6 @@ namespace opt {
 
     maxsmt_solver_base* mk_maxres_binary(maxsat_context& c, unsigned id, vector<soft>& soft);
 
-    maxsmt_solver_base* mk_maxres_binary_delay(maxsat_context& c, unsigned id, vector<soft>& soft);
-
     maxsmt_solver_base* mk_primal_dual_maxres(maxsat_context& c, unsigned id, vector<soft>& soft);
 
 };

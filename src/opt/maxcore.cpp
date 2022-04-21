@@ -558,9 +558,6 @@ public:
         case strategy_t::s_primal_binary:
             bin_max_resolve(core, w);
             break;
-        case strategy_t::s_primal_binary_delay:
-            bin_delay_max_resolve(core, w);
-            break;
         case strategy_t::s_rc2:
             max_resolve_rc2(core, w);
             break;
@@ -761,82 +758,7 @@ public:
     }
 
 
-    // binary - with delayed unfolding of new soft clauses.
-    struct unfold_record {
-        ptr_vector<expr> ws;
-        rational weight;
-    };
 
-    obj_map<expr, unfold_record> m_unfold;
-    rational m_unfold_upper;
-
-    void bin_delay_max_resolve(exprs const& _core, rational weight) {
-        expr_ref_vector core(m, _core.size(), _core.data()), partial(m);
-        expr_ref fml(m), cls(m);
-        for (expr* c : core) {
-            unfold_record r;
-            if (!m_unfold.find(c, r))
-                continue;
-            IF_VERBOSE(1, verbose_stream() << "to unfold " << mk_pp(c, m) << " unfold size " << m_unfold.size() << " core " << core.size() << "\n");
-            for (expr* f : r.ws) {
-                IF_VERBOSE(1, verbose_stream() << "unfold " << mk_pp(f, m) << "\n");
-                new_assumption(f, r.weight);
-            }
-            m_unfold_upper -= r.weight * rational(r.ws.size() - 1);
-            m_unfold.remove(c);
-        }
-
-        partial.resize(core.size(), nullptr);
-
-        if (core.size() > 2)
-            m_unfold_upper += rational(core.size()-2)*weight;
-        
-        expr* w = nullptr;
-        for (unsigned i = 0; i + 1 < core.size(); i += 2) {
-            expr* a = core.get(i);
-            expr* b = core.get(i + 1);
-            expr* u = mk_fresh_bool("u");
-            expr* v = mk_fresh_bool("v");
-            // u = a or b
-            // v = a and b
-            cls = m.mk_or(a, b);
-            fml = m.mk_implies(u, cls);
-            add(fml);
-            update_model(u, cls);
-            m_defs.push_back(fml);
-            cls = m.mk_and(a, b);
-            fml = m.mk_implies(v, cls);
-            add(fml);
-            update_model(v, cls);
-            m_defs.push_back(fml);
-            core.push_back(v);
-
-            // w = u and w1 and w2
-            unfold_record r;
-            r.ws.push_back(u);
-            if (partial.get(i))
-                r.ws.push_back(partial.get(i));
-            if (partial.get(i + 1))
-                r.ws.push_back(partial.get(i + 1));
-            m_trail.append(r.ws.size(), r.ws.data());
-            r.weight = weight;
-            if (r.ws.size() == 1) 
-                w = u;
-            else {
-                w = mk_fresh_bool("w");
-                cls = m.mk_and(r.ws);
-                fml = m.mk_implies(w, cls);
-                add(fml);
-                update_model(w, cls);
-                m_defs.push_back(fml);
-                m_unfold.insert(w, r);
-            }
-            partial.push_back(w);
-        }
-        if (w) 
-            new_assumption(w, weight);
-        s().assert_expr(m.mk_not(core.back()));
-    }
 
     // rc2, using cardinality constraints
 
@@ -854,6 +776,7 @@ public:
     
     obj_map<expr, expr*>      m_at_mostk;
     obj_map<expr, bound_info> m_bounds;
+    rational                  m_unfold_upper;
 
     expr* mk_atmost(expr_ref_vector const& es, unsigned bound, rational const& weight) {
         pb_util pb(m);
@@ -1081,7 +1004,6 @@ public:
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;
-        m_unfold.reset();
         m_unfold_upper = 0;
         m_at_mostk.reset();
         m_bounds.reset();
@@ -1159,10 +1081,6 @@ opt::maxsmt_solver_base* opt::mk_maxres_binary(
     return alloc(maxcore, c, id, soft, maxcore::s_primal_binary);
 }
 
-opt::maxsmt_solver_base* opt::mk_maxres_binary_delay(
-    maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxcore, c, id, soft, maxcore::s_primal_binary_delay);
-}
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
     maxsat_context& c, unsigned id, vector<soft>& soft) {

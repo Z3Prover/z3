@@ -197,9 +197,6 @@ namespace opt {
         else if (maxsat_engine == symbol("rc2")) {            
             m_msolver = mk_rc2(m_c, m_index, m_soft);
         }
-        else if (maxsat_engine == symbol("maxres-bin-delay")) {            
-            m_msolver = mk_maxres_binary_delay(m_c, m_index, m_soft);
-        }
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_soft);
         }
