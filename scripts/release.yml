@@ -43,6 +43,36 @@ stages:
         artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - job: MacBuildArm64
+    displayName: "macOS Build"
+    pool:
+      vmImage: "macOS-latest"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --nojava --arch=arm64
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'macOSBuildArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+
   - job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
@@ -429,6 +459,11 @@ stages:
       inputs:
         artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOSArm64 Build'
+      inputs:
+        artifact: 'macOSBuildArm64'
+        path: $(Agent.TempDirectory)	
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
