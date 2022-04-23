@@ -9,6 +9,8 @@ Z3 itself is distributed as a wasm artifact as part of this package. You can fin
 
 This requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.
 
+The Emscripten worker model will spawn multiple instances of `z3-built.js` for long-running operations. If you are using a bundler like Webpack, Emscripten can no longer reference `z3-built.js` - that file will be merged with the rest of your codebase. To fix this, you need to host the unmodified file separately, and set `Module['mainScriptUrlOrBlob']` to the URL of this file. If you don't do this, your bundle `main.js` will be used in all workers, which will undoubtedly fail and cause weird issues.
+
 Other than the differences below, the bindings can be used exactly as you'd use the C library. Because this is a wrapper around a C library, most of the values you'll use are just numbers representing pointers. For this reason you are strongly encouraged to make use of the TypeScript types to differentiate among the different kinds of value.
 
 The module exports an `init` function, is an async function which initializes the library and returns `{ em, Z3 }` - `em` contains the underlying emscripten module, which you can use to e.g. kill stray threads, and `Z3` contains the actual bindings. The other module exports are the enums defined in the Z3 API.
