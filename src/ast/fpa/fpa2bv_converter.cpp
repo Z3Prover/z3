@@ -95,7 +95,16 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
-    if (m_util.is_fp(t) && m_util.is_fp(f)) {
+    expr* c2 = nullptr, *t2 = nullptr, *f2 = nullptr;
+    if (m.is_ite(t, c2, t2, f2)) {
+        mk_ite(c2, t2, f2, result);
+        mk_ite(c, result, f, result);        
+    }
+    else if (m.is_ite(f, c2, t2, f2)) {
+        mk_ite(c2, t2, f2, result);
+        mk_ite(c, t, result, result);        
+    }    
+    else if (m_util.is_fp(t) && m_util.is_fp(f)) {
         expr_ref t_sgn(m), t_sig(m), t_exp(m);
         expr_ref f_sgn(m), f_sig(m), f_exp(m);
         split_fp(t, t_sgn, t_exp, t_sig);
@@ -115,8 +124,11 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
         m_simp.mk_ite(c, to_app(t)->get_arg(0), to_app(f)->get_arg(0), result);
         result = m_util.mk_bv2rm(result);
     }
-    else
+    else {
+        std::cout << mk_pp(t, m) << " " << mk_pp(f, m) << "\n";
         UNREACHABLE();
+
+    }
 }
 
 void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
