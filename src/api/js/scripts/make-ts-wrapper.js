@@ -422,9 +422,9 @@ export async function init(initModule: any) {
         return ctx;
       },
       ${functions
-       .map(wrapFunction)
-       .filter(f => f != null)
-       .join(',\n')}
+        .map(wrapFunction)
+        .filter(f => f != null)
+        .join(',\n')}
 
     }
   };

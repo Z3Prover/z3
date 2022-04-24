@@ -56,7 +56,6 @@ import { init, Z3_error_code } from './build/node-wrapper';
   }
   console.log('confirming error messages work:', Z3.get_error_msg(ctx, Z3.get_error_code(ctx)));
 
-
   Z3.dec_ref(ctx, strAst);
   Z3.del_context(ctx);
 
