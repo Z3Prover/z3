@@ -121,7 +121,6 @@ for (let file of files) {
       throw new Error(`extra text in parameter list ${JSON.stringify(text)}`);
     }
 
-      
     if (name in defApis) {
       throw new Error(`multiple defApi calls for ${name}`);
     }
@@ -132,11 +131,11 @@ for (let file of files) {
     types[match.groups.type] = match.groups.type;
   }
 
-    // we don't have to pre-populate the types map with closure types
-    // use the Z3_DECLARE_CLOSURE to identify closure types
-    // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
-    //   types[match.groups.type] = match.groups.type
-    // }
+  // we don't have to pre-populate the types map with closure types
+  // use the Z3_DECLARE_CLOSURE to identify closure types
+  // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
+  //   types[match.groups.type] = match.groups.type
+  // }
 
   // parse enum declarations
   for (let idx = 0; idx < contents.length; ) {
