@@ -51,11 +51,14 @@ void wrapper(Args&&... args) {
       MAIN_THREAD_ASYNC_EM_ASM({
         resolve_async($0);
       }, result);
+    } catch (std::exception& e) {
+      MAIN_THREAD_ASYNC_EM_ASM({
+        reject_async(new Error(UTF8ToString($0)));
+      }, e.what());
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
         reject_async('failed with unknown exception');
       });
-      throw;
     }
   });
   t.detach();
@@ -69,14 +72,44 @@ void wrapper_str(Args&&... args) {
       MAIN_THREAD_ASYNC_EM_ASM({
         resolve_async(UTF8ToString($0));
       }, result);
+    } catch (std::exception& e) {
+      MAIN_THREAD_ASYNC_EM_ASM({
+        reject_async(new Error(UTF8ToString($0)));
+      }, e.what());
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async('failed with unknown exception');
+        reject_async(new Error('failed with unknown exception'));
       });
-      throw;
     }
   });
   t.detach();
+}
+
+
+
+class Z3Exception : public std::exception {
+public:
+  const std::string m_msg;
+  Z3Exception(const std::string& msg) : m_msg(msg) {}
+  virtual const char* what() const throw () {
+    return m_msg.c_str();
+  }
+};
+
+void throwy_error_handler(Z3_context ctx, Z3_error_code c) {
+  throw Z3Exception(Z3_get_error_msg(ctx, c));
+}
+
+void noop_error_handler(Z3_context ctx, Z3_error_code c) {
+  // pass
+}
+
+extern "C" void set_throwy_error_handler(Z3_context ctx) {
+  Z3_set_error_handler(ctx, throwy_error_handler);
+}
+
+extern "C" void set_noop_error_handler(Z3_context ctx) {
+  Z3_set_error_handler(ctx, noop_error_handler);
 }
 
 ${wrappers.join('\n\n')}`);
