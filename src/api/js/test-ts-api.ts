@@ -16,8 +16,8 @@ import type {
   Z3_func_decl,
   Z3_func_interp,
   Z3_func_entry,
-} from './build/wrapper';
-import { init, Z3_lbool, Z3_ast_kind, Z3_sort_kind, Z3_symbol_kind } from './build/wrapper';
+} from './build/node-wrapper';
+import { init, Z3_lbool, Z3_ast_kind, Z3_sort_kind, Z3_symbol_kind } from './build/node-wrapper';
 
 // @ts-ignore we're not going to bother with types for this
 import { sprintf } from 'sprintf-js';

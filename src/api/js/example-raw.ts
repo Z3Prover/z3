@@ -1,4 +1,4 @@
-import { init, Z3_error_code } from './build/wrapper';
+import { init, Z3_error_code } from './build/node-wrapper';
 
 // demonstrates use of the raw API
 

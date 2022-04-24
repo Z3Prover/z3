@@ -6,13 +6,13 @@
   "engines": {
     "node": ">=16"
   },
-  "main": "build/wrapper.js",
-  "types": "build/wrapper.d.ts",
+  "main": "build/node-wrapper.js",
+  "types": "build/node-wrapper.d.ts",
   "files": [
     "build/*.{js,d.ts,wasm}"
   ],
   "scripts": {
-    "build-ts": "mkdir -p build && node scripts/make-ts-wrapper.js > build/wrapper.ts && tsc",
+    "build-ts": "mkdir -p build && rm -rf build/*.ts && cp src/node-wrapper.ts build && node scripts/make-ts-wrapper.js > build/wrapper.ts && tsc",
     "build-wasm": "mkdir -p build && node scripts/make-cc-wrapper.js > build/async-fns.cc && ./build-wasm.sh",
     "format": "prettier --write --single-quote --arrow-parens avoid --print-width 120 --trailing-comma all '{,src/,scripts/}*.{js,ts}'",
     "test": "node test-ts-api.js"
