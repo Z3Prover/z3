@@ -335,8 +335,8 @@ namespace euf {
                 continue;
             if (!tt && !mdl.is_true(e))
                 continue;
-            IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
             CTRACE("euf", first, display_validation_failure(tout, mdl, n););
+            IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
             (void)first;
             first = false;
             exit(1);

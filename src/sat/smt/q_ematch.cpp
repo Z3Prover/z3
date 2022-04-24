@@ -341,7 +341,6 @@ namespace q {
             return false;
         if (ctx.s().inconsistent())
             return true;
-        TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
         m_evidence.reset();
         lbool ev = m_eval(binding, c, idx, m_evidence);
@@ -614,12 +613,13 @@ namespace q {
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
         bool propagated = flush_prop_queue();
-        if (m_qhead >= m_clause_queue.size())
+        if (!flush && m_qhead >= m_clause_queue.size())
             return m_inst_queue.propagate() || propagated;
         ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
-        for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
-            unsigned idx = m_clause_queue[m_qhead];
+        unsigned qhead = flush ? 0 : m_qhead;
+        for (; qhead < m_clause_queue.size() && m.inc(); ++qhead) {
+            unsigned idx = m_clause_queue[qhead];
             clause& c = *m_clauses[idx];
             binding* b = c.m_bindings;
             if (!b)
@@ -645,6 +645,7 @@ namespace q {
             }
             to_remove.reset();
         }
+        m_qhead = std::max(m_qhead, qhead);
         m_clause_in_queue.reset();
         m_node_in_queue.reset();
         m_in_queue_set = true;
@@ -662,7 +663,7 @@ namespace q {
         if (propagate(false))
             return true;        
         for (unsigned i = 0; i < m_clauses.size(); ++i)
-            if (m_clauses[i]->m_bindings)
+            if (m_clauses[i]->m_bindings) 
                 insert_clause_in_queue(i);
         if (propagate(true))
             return true;
@@ -671,7 +672,7 @@ namespace q {
         for (unsigned i = 0; i < m_clauses.size(); ++i)
             if (m_clauses[i]->m_bindings) {
                 IF_VERBOSE(0, verbose_stream() << "missed propagation " << i << "\n");
-                TRACE("q", display(tout));
+                TRACE("q", display(tout << "missed propagation\n"));
                 break;
             }
         
