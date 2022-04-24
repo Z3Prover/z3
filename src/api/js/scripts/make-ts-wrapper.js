@@ -19,6 +19,8 @@ let makePointerType = t =>
 // or up to 3 out int64s
 const BYTES_TO_ALLOCATE_FOR_OUT_PARAMS = 24;
 
+const CUSTOM_IMPLEMENTATIONS = ['Z3_mk_context', 'Z3_mk_context_rc'];
+
 function toEmType(type) {
   if (type in primitiveTypes) {
     type = primitiveTypes[type];
@@ -70,6 +72,10 @@ function toEm(p) {
 
 let isInParam = p => ['in', 'in_array'].includes(p.kind);
 function wrapFunction(fn) {
+  if (CUSTOM_IMPLEMENTATIONS.includes(fn.name)) {
+    return null;
+  }
+
   let inParams = fn.params.filter(isInParam);
   let outParams = fn.params.map((p, idx) => ({ ...p, idx })).filter(p => !isInParam(p));
 
@@ -318,9 +324,6 @@ function wrapFunction(fn) {
     `.trim();
   }
 
-  if (isAsync) {
-  }
-
   // prettier-ignore
   let invocation = `Mod.ccall('${isAsync ? 'async_' : ''}${fn.name}', '${cReturnType}', ${JSON.stringify(ctypes)}, [${args.map(toEm).join(', ')}])`;
 
@@ -410,10 +413,21 @@ export async function init() {
   return {
     em: Mod,
     Z3: {
-     ${functions
+      mk_context: function(c: Z3_config): Z3_context {
+        let ctx = Mod._Z3_mk_context(c);
+        Mod._set_noop_error_handler(ctx);
+        return ctx;
+      },
+      mk_context_rc: function(c: Z3_config): Z3_context {
+        let ctx = Mod._Z3_mk_context_rc(c);
+        Mod._set_noop_error_handler(ctx);
+        return ctx;
+      },
+      ${functions
        .map(wrapFunction)
        .filter(f => f != null)
        .join(',\n')}
+
     }
   };
 }
