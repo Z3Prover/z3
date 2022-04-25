@@ -640,14 +640,13 @@ namespace q {
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
         bool propagated = flush_prop_queue();
-        if (!flush && m_qhead >= m_clause_queue.size())
-            return m_inst_queue.propagate() || propagated;
-
         if (flush) {
             for (auto* c : m_clauses)
                 propagate(*c, flush, propagated);
         }
         else {
+            if (m_qhead >= m_clause_queue.size())
+                return m_inst_queue.propagate() || propagated;
             ctx.push(value_trail<unsigned>(m_qhead));
             for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
                 unsigned idx = m_clause_queue[m_qhead];
