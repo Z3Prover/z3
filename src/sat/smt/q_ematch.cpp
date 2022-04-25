@@ -610,42 +610,51 @@ namespace q {
         return ctx.get_config().m_ematching && propagate(false);
     }
 
+    void ematch::propagate(clause& c, bool flush, bool& propagated) {
+        ptr_buffer<binding> to_remove;
+        binding* b = c.m_bindings;
+        if (!b)
+            return;
+
+        do {                
+            if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
+                to_remove.push_back(b);
+            else if (flush) {
+                instantiate(*b);
+                to_remove.push_back(b);
+                propagated = true;
+            }
+            b = b->next();
+        } 
+        while (b != c.m_bindings);
+        
+        for (auto* b : to_remove) {
+            SASSERT(binding::contains(c.m_bindings, b));
+            binding::remove_from(c.m_bindings, b);
+            binding::detach(b);
+            ctx.push(insert_binding(ctx, c, b));
+        }
+    }
+
+
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
         bool propagated = flush_prop_queue();
         if (!flush && m_qhead >= m_clause_queue.size())
             return m_inst_queue.propagate() || propagated;
-        ctx.push(value_trail<unsigned>(m_qhead));
-        ptr_buffer<binding> to_remove;
-        unsigned qhead = flush ? 0 : m_qhead;
-        for (; qhead < m_clause_queue.size() && m.inc(); ++qhead) {
-            unsigned idx = m_clause_queue[qhead];
-            clause& c = *m_clauses[idx];
-            binding* b = c.m_bindings;
-            if (!b)
-                continue;
 
-            do {                
-                if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
-                    to_remove.push_back(b);
-                else if (flush) {
-                    instantiate(*b);
-                    to_remove.push_back(b);
-                    propagated = true;
-                }
-                b = b->next();
-            } 
-            while (b != c.m_bindings);
-
-            for (auto* b : to_remove) {
-                SASSERT(binding::contains(c.m_bindings, b));
-                binding::remove_from(c.m_bindings, b);
-                binding::detach(b);
-                ctx.push(insert_binding(ctx, c, b));
-            }
-            to_remove.reset();
+        if (flush) {
+            for (auto* c : m_clauses)
+                propagate(*c, flush, propagated);
         }
-        m_qhead = std::max(m_qhead, qhead);
+        else {
+            ctx.push(value_trail<unsigned>(m_qhead));
+            for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
+                unsigned idx = m_clause_queue[m_qhead];
+                clause& c = *m_clauses[idx];
+                propagate(c, flush, propagated);
+            }
+        }
         m_clause_in_queue.reset();
         m_node_in_queue.reset();
         m_in_queue_set = true;
