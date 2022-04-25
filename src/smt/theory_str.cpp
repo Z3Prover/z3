@@ -1100,6 +1100,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate CharAt axiom for " << mk_pp(expr, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref ts0(mk_str_var("ch_ts0"), m);
         expr_ref ts1(mk_str_var("ch_ts1"), m);
         expr_ref ts2(mk_str_var("ch_ts2"), m);
@@ -1134,6 +1135,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate prefixof axiom for " << mk_pp(expr, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref ts0(mk_str_var("p_ts0"), m);
         expr_ref ts1(mk_str_var("p_ts1"), m);
 
@@ -1170,6 +1172,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate suffixof axiom for " << mk_pp(expr, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref ts0(mk_str_var("s_ts0"), m);
         expr_ref ts1(mk_str_var("s_ts1"), m);
 
@@ -1235,6 +1238,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate Contains axiom for " << mk_pp(ex, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref ts0(mk_str_var("c_ts0"), m);
         expr_ref ts1(mk_str_var("c_ts1"), m);
 
@@ -1287,6 +1291,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref x1(mk_str_var("i_x1"), m);
         expr_ref x2(mk_str_var("i_x2"), m);
 
@@ -1305,6 +1310,7 @@ namespace smt {
         //     args[0]  = x3 . x4
         //  /\ |x3| = |x1| + |args[1]| - 1
         //  /\ ! contains(x3, args[1])
+        // change subvaribale names to solve some invalide model problems
         expr_ref x3(mk_str_var("i_x3"), m);
         expr_ref x4(mk_str_var("i_x4"), m);
         expr_ref tmpLen(m_autil.mk_add(ex, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
@@ -1501,6 +1507,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate LastIndexof axiom for " << mk_pp(expr, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref x1(mk_str_var("li_x1"), m);
         expr_ref x2(mk_str_var("li_x2"), m);
         expr_ref indexAst(mk_int_var("index"), m);
@@ -1532,6 +1539,7 @@ namespace smt {
 
         if (!canSkip) {
             // args[0]  = x3 . x4 /\ |x3| = |x1| + 1 /\ ! contains(x4, args[1])
+            // change subvaribale names to solve some invalide model problems
             expr_ref x3(mk_str_var("li_x3"), m);
             expr_ref x4(mk_str_var("li_x4"), m);
             expr_ref tmpLen(m_autil.mk_add(indexAst, mk_int(1)), m);
@@ -1690,6 +1698,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate Replace axiom for " << mk_pp(ex, m) << std::endl;);
 
+        // change subvaribale names to solve some invalide model problems
         expr_ref x1(mk_str_var("rp_x1"), m);
         expr_ref x2(mk_str_var("rp_x2"), m);
         expr_ref i1(mk_int_var("i1"), m);
@@ -1714,6 +1723,7 @@ namespace smt {
         //  i1 = |x1|
         thenItems.push_back(ctx.mk_eq_atom(i1, mk_strlen(x1)));
         //  args[0]  = x3 . x4 /\ |x3| = |x1| + |args[1]| - 1 /\ ! contains(x3, args[1])
+        // change subvaribale names to solve some invalide model problems
         expr_ref x3(mk_str_var("rp_x3"), m);
         expr_ref x4(mk_str_var("rp_x4"), m);
         expr_ref tmpLen(m_autil.mk_add(i1, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
@@ -3245,6 +3255,7 @@ namespace smt {
 
                 if (!overlapAssumptionUsed) {
                     overlapAssumptionUsed = true;
+                    // add context dependent formula overlap predicate and relate it to the global overlap predicate
                     sort * s = get_manager().mk_bool_sort();
                     expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                     assert_implication(ax_l, new_OverlapAssumption_term);
@@ -3306,6 +3317,7 @@ namespace smt {
 
                 if (!overlapAssumptionUsed) {
                     overlapAssumptionUsed = true;
+                    // add context dependent formula overlap predicate and relate it to the global overlap predicate
                     sort * s = get_manager().mk_bool_sort();
                     expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                     assert_implication(ax_l, new_OverlapAssumption_term);
@@ -3361,6 +3373,7 @@ namespace smt {
 
                 if (!overlapAssumptionUsed) {
                     overlapAssumptionUsed = true;
+                    // add context dependent formula overlap predicate and relate it to the global overlap predicate
                     sort * s = get_manager().mk_bool_sort();
                     expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                     arrangement_disjunction.push_back(new_OverlapAssumption_term);
@@ -3409,6 +3422,7 @@ namespace smt {
 
                 if (!overlapAssumptionUsed) {
                     overlapAssumptionUsed = true;
+                    // add context dependent formula overlap predicate and relate it to the global overlap predicate
                     sort * s = get_manager().mk_bool_sort();
                     expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                     arrangement_disjunction.push_back(new_OverlapAssumption_term);
@@ -3653,6 +3667,7 @@ namespace smt {
 
                     if (!overlapAssumptionUsed) {
                         overlapAssumptionUsed = true;
+                        // add context dependent formula overlap predicate and relate it to the global overlap predicate
                         sort * s = get_manager().mk_bool_sort();
                         expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                         assert_implication(ax_l, new_OverlapAssumption_term);
@@ -3757,6 +3772,7 @@ namespace smt {
 
                     if (!overlapAssumptionUsed) {
                         overlapAssumptionUsed = true;
+                        // add context dependent formula overlap predicate and relate it to the global overlap predicate
                         sort * s = get_manager().mk_bool_sort();
                         expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                         arrangement_disjunction.push_back(new_OverlapAssumption_term);
@@ -4055,6 +4071,7 @@ namespace smt {
 
                     if (!overlapAssumptionUsed) {
                         overlapAssumptionUsed = true;
+                        // add context dependent formula overlap predicate and relate it to the global overlap predicate
                         sort * s = get_manager().mk_bool_sort();
                         expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                         assert_implication(ax_l, new_OverlapAssumption_term);
@@ -4137,6 +4154,7 @@ namespace smt {
 
                     if (!overlapAssumptionUsed) {
                         overlapAssumptionUsed = true;
+                        // add context dependent formula overlap predicate and relate it to the global overlap predicate
                         sort * s = get_manager().mk_bool_sort();
                         expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                         arrangement_disjunction.push_back(new_OverlapAssumption_term);
@@ -4537,6 +4555,7 @@ namespace smt {
 
             // only add the overlap assumption one time
             if (!overlapAssumptionUsed) {
+                // add context dependent formula overlap predicate and relate it to the global overlap predicate
                 sort * s = get_manager().mk_bool_sort();
                 expr_ref new_OverlapAssumption_term = expr_ref(mk_fresh_const(newOverlapStr, s), get_manager());
                 arrangement_disjunction.push_back(new_OverlapAssumption_term);
@@ -4808,6 +4827,7 @@ namespace smt {
             //} else if (getNodeType(t, node) == my_Z3_Func) {
         } else if (is_app(node)) {
             app * func_app = to_app(node);
+            // the following check is only valid when the operator is string concatenate
             if (u.str.is_concat(func_app)) {
               unsigned int argCount = func_app->get_num_args();
               for (unsigned int i = 0; i < argCount; i++) {
