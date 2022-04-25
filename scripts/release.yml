@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.16'
+  ReleaseVersion: '4.8.17'
 
 stages:
 
