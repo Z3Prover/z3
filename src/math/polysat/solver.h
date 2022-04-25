@@ -72,6 +72,7 @@ namespace polysat {
         friend class restart;
         friend class explainer;
         friend class inference_engine;
+        friend class inference_logger;
         friend class forbidden_intervals;
         friend class linear_solver;
         friend class viable;
@@ -203,7 +204,7 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void resolve_bool(sat::literal lit);
+        void backtrack_fi();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
 

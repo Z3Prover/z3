@@ -559,7 +559,7 @@ namespace polysat {
     /**
      * Conflict resolution.
      */
-    void solver::resolve_conflict() {        
+    void solver::resolve_conflict() {
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
         LOG(search_state_pp(m_search, true));
@@ -572,8 +572,9 @@ namespace polysat {
             pvar v = m_conflict.conflict_var();
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             // TODO: use unsat core from m_viable_fallback if the conflict is from there
-            // TODO: we could try simpler backtracking loop if we get a lemma from forbidden intervals
             VERIFY(m_viable.resolve(v, m_conflict));
+            backtrack_fi();
+            return;
         }
         
         search_iterator search_it(m_search);
@@ -623,6 +624,74 @@ namespace polysat {
                 else {
                     SASSERT(m_bvars.is_value_propagation(var));
                     m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
+                }
+            }
+        }
+        m_conflict.end_conflict();
+        report_unsat();
+    }
+
+    /**
+     * Simpler backracking for forbidden interval lemmas:
+     * since forbidden intervals already gives us a lemma where the conflict variable has been eliminated,
+     * we can backtrack to the last relevant decision and learn this lemma.
+     */
+    void solver::backtrack_fi() {
+        uint_set relevant_vars;
+        search_iterator search_it(m_search);
+        while (search_it.next()) {
+            auto& item = *search_it;
+            search_it.set_resolved();
+            if (item.is_assignment()) {
+                // Resolve over variable assignment
+                pvar v = item.var();
+                if (!m_conflict.pvar_occurs_in_constraints(v) && !relevant_vars.contains(v)) {
+                    m_search.pop_assignment();
+                    continue;
+                }
+                LOG_H2("Working on " << search_item_pp(m_search, item));
+                LOG(m_justification[v]);
+                LOG("Conflict: " << m_conflict);
+                inc_activity(v);
+                justification& j = m_justification[v];
+                if (j.level() > base_level() && j.is_decision()) {
+                    m_conflict.end_conflict();
+                    revert_decision(v);
+                    return;
+                }
+                SASSERT(j.is_propagation());
+                // If a variable was propagated:
+                // we don't really care about the constraints in this case, but just about the variables it depends on
+                for (auto const& c : m_viable.get_constraints(v))
+                    for (pvar v : c->vars()) {
+                        relevant_vars.insert(v);
+                        m_conflict.log_var(v);
+                    }
+                m_search.pop_assignment();
+            }
+            else {
+                // Resolve over boolean literal
+                SASSERT(item.is_boolean());
+                sat::literal const lit = item.lit();
+                sat::bool_var const var = lit.var();
+                if (!m_conflict.is_marked(var))
+                    continue;
+                LOG_H2("Working on " << search_item_pp(m_search, item));
+                LOG(bool_justification_pp(m_bvars, lit));
+                LOG("Literal " << lit << " is " << lit2cnstr(lit));
+                LOG("Conflict: " << m_conflict);
+                if (m_bvars.is_assumption(var))
+                    continue;
+                else if (m_bvars.is_decision(var)) {
+                    m_conflict.end_conflict();
+                    revert_bool_decision(lit);
+                    return;
+                }
+                else if (m_bvars.is_bool_propagation(var))
+                    m_conflict.resolve(lit, *m_bvars.reason(lit));
+                else {
+                    SASSERT(m_bvars.is_value_propagation(var));
+                    continue;
                 }
             }
         }
@@ -706,8 +775,6 @@ namespace polysat {
 
     void solver::decide_on_lemma(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
-        IF_LOGGING(m_viable.log());
-        LOG("Boolean assignment: " << m_bvars);
 
         // To make a guess, we need to find an unassigned literal that is not false in the current model.
 
@@ -717,6 +784,7 @@ namespace polysat {
         for (sat::literal lit : lemma) {
             switch (m_bvars.value(lit)) {
             case l_true:
+                LOG("Already satisfied because literal " << lit << " is true");
                 return;
             case l_false:
                 break;

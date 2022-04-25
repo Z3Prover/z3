@@ -41,6 +41,8 @@ namespace polysat {
         scoped_ptr<std::ostream> m_out = nullptr;
         unsigned m_conflicts = 0;
 
+        friend class conflict;
+
         std::ostream& out() {
             SASSERT(m_out);
             return *m_out;
@@ -52,13 +54,15 @@ namespace polysat {
 
     public:
         void begin_conflict() {
+            ++m_conflicts;
+            LOG("Begin CONFLICT #" << m_conflicts);
             m_used_constraints.reset();
             m_used_vars.reset();
             if (!m_out)
                 m_out = alloc(std::ofstream, "conflicts.txt");
             else
                 out() << "\n\n\n\n\n\n\n\n\n\n\n\n";
-            out() << "CONFLICT #" << ++m_conflicts << "\n";
+            out() << "CONFLICT #" << m_conflicts << "\n";
         }
 
         void log_inference(conflict const& core, inference const* inf) {
@@ -72,6 +76,8 @@ namespace polysat {
             for (auto const& c : core) {
                 out_indent() << c.blit() << ": " << c << '\n';
                 m_used_constraints.insert(c.blit().index());
+                for (pvar v : c->vars())
+                    m_used_vars.insert(v);
             }
             for (auto v : core.vars()) {
                 out_indent() << "v" << v << " := " << core.s.get_value(v) << "\n";
@@ -86,12 +92,17 @@ namespace polysat {
             out().flush();
         }
 
-        void log_lemma(clause_builder const& cb) {
+        void log_lemma(solver const& s, clause_builder const& cb) {
             out() << hline() << "\nLemma:";
             for (auto const& lit : cb)
                 out() << " " << lit;
             out() << "\n";
+            for (auto const& lit : cb)
+                out_indent() << lit << ": " << s.lit2cnstr(lit) << '\n';
             out().flush();
+
+            // if (m_conflicts == 9)
+            //     std::exit(0);
         }
 
         void end_conflict(search_state const& search, viable const& v) {
@@ -104,6 +115,7 @@ namespace polysat {
             for (pvar var : m_used_vars)
                 out_indent() << "v" << std::setw(3) << std::left << var << ": " << viable::var_pp(v, var) << "\n";
             out().flush();
+            LOG("End CONFLICT #" << m_conflicts);
         }
 
         bool is_relevant(search_item const& item) const {
@@ -117,6 +129,11 @@ namespace polysat {
             return false;
         }
     };
+
+    void conflict::log_var(pvar v) {
+        if (m_logger)
+            m_logger->m_used_vars.insert(v);
+    }
 
     conflict::conflict(solver& s): s(s) {
         ex_engines.push_back(alloc(ex_polynomial_superposition, s));
@@ -177,6 +194,7 @@ namespace polysat {
             unset_mark(c);
         m_literals.reset();
         m_vars.reset();
+        m_var_occurrences.reset();
         m_bail_vars.reset();
         m_conflict_var = null_var;
         m_bailout = false;
@@ -252,6 +270,11 @@ namespace polysat {
         SASSERT(!c->vars().empty());
         set_mark(c);
         m_literals.insert(c.blit().index());
+        for (pvar v : c->vars()) {
+            if (v >= m_var_occurrences.size())
+                m_var_occurrences.resize(v + 1, 0);
+            m_var_occurrences[v]++;
+        }
     }
 
     void conflict::propagate(signed_constraint c) {
@@ -302,6 +325,10 @@ namespace polysat {
     void conflict::remove(signed_constraint c) {
         unset_mark(c);       
         m_literals.remove(c.blit().index());
+        for (pvar v : c->vars()) {
+            if (v < m_var_occurrences.size())
+                m_var_occurrences[v]--;
+        }
     }
 
     void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises) {
@@ -314,6 +341,7 @@ namespace polysat {
     }
 
     bool conflict::contains(sat::literal lit) const {
+        SASSERT(lit != sat::null_literal);
         return m_literals.contains(lit.index());
     }
 
@@ -337,8 +365,6 @@ namespace polysat {
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
-        SASSERT(lit != sat::null_literal);
-        SASSERT(~lit != sat::null_literal);
         SASSERT(contains(lit));
         SASSERT(std::count(cl.begin(), cl.end(), lit) > 0);
         SASSERT(!contains(~lit));
@@ -368,8 +394,6 @@ namespace polysat {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
-        SASSERT(lit != sat::null_literal);
-        SASSERT(~lit != sat::null_literal);
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
 
@@ -411,7 +435,7 @@ namespace polysat {
         s.decay_activity();
 
         if (m_logger)
-            m_logger->log_lemma(lemma);
+            m_logger->log_lemma(s, lemma);
 
         return lemma;
     }

@@ -101,8 +101,8 @@ namespace polysat {
     /** Conflict state, represented as core (~negation of clause). */
     class conflict {
         solver& s;
-        // signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
+        unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
         uint_set m_vars;                    // variable assignments used as premises
         uint_set m_bail_vars;
 
@@ -137,6 +137,7 @@ namespace polysat {
         /// Log inference at the current state.
         void log_inference(inference const& inf);
         void log_inference(char const* name) { log_inference(inference_named(name)); }
+        void log_var(pvar v);
         /// Log relevant part of search state and viable.
         void end_conflict();
 
@@ -148,6 +149,8 @@ namespace polysat {
 
         bool empty() const;
         void reset();
+
+        bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
 
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool is_marked(signed_constraint c) const;

@@ -176,7 +176,7 @@ namespace polysat {
     }
 
     bool ule_constraint::is_currently_true(solver& s, assignment_t const& sub, bool is_positive) const { 
-        return false; 
+        return is_currently_false(s, sub, !is_positive);
     }
 
     bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {

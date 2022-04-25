@@ -150,7 +150,9 @@ namespace polysat {
         signed_constraint reducer;
         inference_sup(const char* name, pvar var, signed_constraint reduced, signed_constraint reducer) : name(name), var(var), reduced(reduced), reducer(reducer) {}
         std::ostream& display(std::ostream& out) const override {
-            return out << "Superposition " << name << ", reduced v" << var << " in   " << reduced << "   by   " << reducer;
+            return out << "Superposition " << name << ", reduced v" << var
+                << " in " << reduced.blit() << ": " << reduced
+                << " by " << reducer.blit() << ": " << reducer;
         }
     };
 
