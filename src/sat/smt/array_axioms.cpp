@@ -629,12 +629,14 @@ namespace array {
             euf::enode * n = var2enode(i);            
             if (!is_array(n)) 
                 continue;
+            CTRACE("array", !ctx.is_relevant(n), tout << "not relevant: " << ctx.bpp(n) << "\n");
             if (!ctx.is_relevant(n))
                 continue;
             euf::enode * r = n->get_root();
             if (r->is_marked1()) 
                 continue;            
-            // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
+            // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529
+            CTRACE("array", !ctx.is_shared(r) && !is_shared_arg(r), tout << "not shared: " << ctx.bpp(r) << "\n");
             if (ctx.is_shared(r) || is_shared_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));           
             r->mark1();
@@ -654,6 +656,8 @@ namespace array {
                     if (r == n->get_arg(i)->get_root())
                         return true;
             if (a.is_const(e))
+                return true;
+            if (a.is_ext(e))
                 return true;
         }
             
