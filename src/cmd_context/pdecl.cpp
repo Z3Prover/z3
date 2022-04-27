@@ -493,18 +493,16 @@ void pconstructor_decl::finalize(pdecl_manager & m) {
 }
 
 bool pconstructor_decl::has_missing_refs(symbol & missing) const {
-    for (paccessor_decl* a : m_accessors) {
+    for (paccessor_decl* a : m_accessors) 
         if (a->has_missing_refs(missing))
             return true;
-    }
     return false;
 }
 
 bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    for (paccessor_decl* a : m_accessors) {
+    for (paccessor_decl* a : m_accessors) 
         if (!a->fix_missing_refs(symbol2idx, missing))
             return false;
-    }
     return true;
 }
 
@@ -561,18 +559,16 @@ bool pdatatype_decl::has_duplicate_accessors(symbol & duplicated) const {
 
 
 bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    for (auto c : m_constructors) {
+    for (auto c : m_constructors) 
         if (!c->fix_missing_refs(symbol2idx, missing))
             return false;
-    }
     return true;
 }
 
 datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     ptr_buffer<constructor_decl> cs;
-    for (auto c : m_constructors) {
+    for (auto c : m_constructors) 
         cs.push_back(c->instantiate_decl(m, n, s));
-    }
     datatype_util util(m.m());
     return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data());
 }
@@ -647,10 +643,8 @@ bool pdatatype_decl::commit(pdecl_manager& m) {
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, ps.data(), sorts);
     m.notify_mk_datatype(m_name);
-    if (is_ok && m_num_params == 0) {
+    if (is_ok && m_num_params == 0) 
         m.notify_new_dt(sorts.get(0), this);        
-    }
-
     return is_ok;
 }
 
