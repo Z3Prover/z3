@@ -370,9 +370,9 @@ extern "C" {
         LOG_Z3_mk_datatype_sort(c, name);
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
-        datatype_util data_util(m);
-        parameter param(name);
-        sort * s = m.mk_sort(util.get_family_id(), DATATYPE_SORT, 1, &param);
+        datatype_util adt_util(m);
+        parameter p(to_symbol(name));
+        sort * s = m.mk_sort(adt_util.get_family_id(), DATATYPE_SORT, 1, &p);
         mk_c(c)->save_ast_trail(s);
         RETURN_Z3(of_sort(s));
         Z3_CATCH_RETURN(nullptr);
