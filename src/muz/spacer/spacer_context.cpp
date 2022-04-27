@@ -2286,7 +2286,6 @@ context::context(fp_params const& params, ast_manager& m) :
     m_expanded_lvl(0),
     m_global_gen(nullptr),
     m_expand_bnd_gen(nullptr),
-    m_json_marshaller(this),
     m_trace_stream(nullptr) {
 
     params_ref p;
@@ -3052,9 +3051,7 @@ lbool context::solve_core (unsigned from_lvl)
         if (check_reachability()) { return l_true; }
 
         if (lvl > 0 && m_use_propagate)
-            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
-
-        dump_json();
+            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
 
         if (is_inductive()){
             return l_false;
@@ -3371,16 +3368,6 @@ bool context::is_reachable(pob &n)
 
     // recurse on the new proof obligation
     return next ? is_reachable(*next) : true;
-}
-
-void context::dump_json()
-{
-    if (m_params.spacer_print_json().is_non_empty_string()) {
-        std::ofstream of;
-        of.open(m_params.spacer_print_json().bare_str());
-        m_json_marshaller.marshal(of);
-        of.close();
-    }
 }
 
 void context::predecessor_eh()
@@ -4263,8 +4250,6 @@ void context::add_constraint (expr *c, unsigned level)
 }
 
 void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
-    if (m_params.spacer_print_json().is_non_empty_string())
-        m_json_marshaller.register_lemma(lem);
     bool handle=false;
     for (unsigned i = 0; i < m_callbacks.size(); i++) {
         handle|=m_callbacks[i]->new_lemma();
@@ -4286,10 +4271,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
     }
 }
 
-void context::new_pob_eh(pob *p) {
-    if (m_params.spacer_print_json().is_non_empty_string())
-        m_json_marshaller.register_pob(p);
-}
+void context::new_pob_eh(pob *p) { }
 
 bool context::is_inductive() {
     // check that inductive level (F infinity) of the query predicate

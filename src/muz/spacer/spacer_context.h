@@ -28,7 +28,6 @@ Notes:
 #include <queue>
 
 #include "muz/spacer/spacer_cluster.h"
-#include "muz/spacer/spacer_json.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
 #include "muz/spacer/spacer_sem_matcher.h"
@@ -774,8 +773,6 @@ class pob {
     // lemmas created to block this pob (at any time, not necessarily active)
     ptr_vector<lemma> m_lemmas;
 
-    // depth -> watch
-    std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
     // clang-format on
     // clang-format off
@@ -907,15 +904,10 @@ public:
     void get_skolems(app_ref_vector &v);
 
     void on_expand() {
-        m_expand_watches[m_depth].start();
         if (m_parent.get()) { m_parent.get()->on_expand(); }
     }
     void off_expand() {
-        m_expand_watches[m_depth].stop();
         if (m_parent.get()) { m_parent.get()->off_expand(); }
-    }
-    double get_expand_time(unsigned depth) {
-        return m_expand_watches[depth].get_seconds();
     }
 
     void inc_ref() { ++m_ref_count; }
@@ -1215,7 +1207,6 @@ class context {
     unsigned             m_restart_initial_threshold;
     unsigned             m_blast_term_ite_inflation;
     scoped_ptr_vector<spacer_callback> m_callbacks;
-    json_marshaller      m_json_marshaller;
     std::fstream*        m_trace_stream;
     // clang-format on
     // clang-format off
@@ -1275,8 +1266,6 @@ class context {
     void checkpoint();
 
     void simplify_formulas();
-
-    void dump_json();
 
     void predecessor_eh();
 

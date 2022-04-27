@@ -27,7 +27,6 @@ z3_add_component(spacer
   spacer_expand_bnd_generalizer.cpp
   spacer_cluster.cpp
   spacer_callback.cpp
-  spacer_json.cpp
   spacer_iuc_proof.cpp
   spacer_mbc.cpp
   spacer_pdr.cpp
