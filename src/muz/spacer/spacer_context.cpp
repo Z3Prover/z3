@@ -1204,6 +1204,7 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
     for (auto* s : summary) {
         if (!is_quantifier(s) && !mdl.is_true(s)) {
             TRACE("spacer", tout << "Summary not true in the model: " << mk_pp(s, m) << "\n";);
+            return expr_ref(m);
         }
     }
     
