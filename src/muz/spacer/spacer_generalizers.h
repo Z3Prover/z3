@@ -21,6 +21,7 @@ Revision History:
 
 #include "ast/arith_decl_plugin.h"
 #include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_expand_bnd_generalizer.h"
 
 namespace spacer {
 
