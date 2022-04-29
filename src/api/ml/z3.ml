@@ -916,6 +916,12 @@ struct
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
+    
+  let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
+    Z3native.mk_datatype_sort ctx name
+    
+  let mk_sort_ref_s (ctx: context) (name: string) =
+    mk_sort_ref ctx (Symbol.mk_string ctx name)
 
   let mk_sorts (ctx:context) (names:Symbol.symbol list) (c:Constructor.constructor list list) =
     let n = List.length names in
@@ -1260,7 +1266,9 @@ struct
   let mk_seq_replace = Z3native.mk_seq_replace
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
+  let mk_seq_nth = Z3native.mk_seq_nth
   let mk_seq_index = Z3native.mk_seq_index
+  let mk_seq_last_index = Z3native.mk_seq_last_index
   let mk_str_to_int = Z3native.mk_str_to_int
   let mk_str_le = Z3native.mk_str_le
   let mk_str_lt = Z3native.mk_str_lt
