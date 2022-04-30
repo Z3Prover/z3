@@ -22,21 +22,23 @@ Notes:
 
 #pragma once
 
-#include <queue>
-#include <fstream>
 #include <algorithm>
+#include <fstream>
+#include <queue>
 
-#include "util/scoped_ptr_vector.h"
+#include "muz/spacer/spacer_cluster.h"
+#include "muz/spacer/spacer_json.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
-#include "muz/spacer/spacer_json.h"
+#include "muz/spacer/spacer_sem_matcher.h"
+#include "util/scoped_ptr_vector.h"
 
 #include "muz/base/fp_params.hpp"
 
 namespace datalog {
     class rule_set;
     class context;
-};
+}; // namespace datalog
 
 namespace spacer {
 
@@ -46,6 +48,8 @@ class pred_transformer;
 class derivation;
 class pob_queue;
 class context;
+class lemma_cluster;
+class lemma_cluster_finder;
 
 typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
 typedef obj_map<func_decl, pred_transformer*> decl2rel;
@@ -58,6 +62,10 @@ typedef sref_buffer<pob> pob_ref_buffer;
 class reach_fact;
 typedef ref<reach_fact> reach_fact_ref;
 typedef sref_vector<reach_fact> reach_fact_ref_vector;
+
+class lemma;
+using lemma_ref = ref<lemma>;
+using lemma_ref_vector = sref_vector<lemma>;
 
 class reach_fact {
     unsigned m_ref_count;
@@ -74,45 +82,43 @@ class reach_fact {
     bool m_init;
 
 public:
-    reach_fact (ast_manager &m, const datalog::rule &rule,
-                expr* fact, const ptr_vector<app> &aux_vars,
-                bool init = false) :
-        m_ref_count (0), m_fact (fact, m), m_aux_vars (aux_vars),
-        m_rule(rule), m_tag(m), m_init (init) {}
-    reach_fact (ast_manager &m, const datalog::rule &rule,
-                expr* fact, bool init = false) :
-        m_ref_count (0), m_fact (fact, m), m_rule(rule), m_tag(m), m_init (init) {}
+    reach_fact(ast_manager &m, const datalog::rule &rule, expr *fact,
+               const ptr_vector<app> &aux_vars, bool init = false)
+        : m_ref_count(0), m_fact(fact, m), m_aux_vars(aux_vars), m_rule(rule),
+          m_tag(m), m_init(init) {}
+    reach_fact(ast_manager &m, const datalog::rule &rule, expr *fact,
+               bool init = false)
+        : m_ref_count(0), m_fact(fact, m), m_rule(rule), m_tag(m),
+          m_init(init) {}
 
     bool is_init () {return m_init;}
     const datalog::rule& get_rule () {return m_rule;}
 
     void add_justification (reach_fact *f) {m_justification.push_back (f);}
-    const reach_fact_ref_vector& get_justifications () {return m_justification;}
+    const reach_fact_ref_vector &get_justifications() {
+        return m_justification;
+    }
 
     expr *get () {return m_fact.get ();}
     const ptr_vector<app> &aux_vars () {return m_aux_vars;}
 
-    app* tag() const {SASSERT(m_tag); return m_tag;}
+    app *tag() const {
+        SASSERT(m_tag);
+        return m_tag;
+    }
     void set_tag(app* tag) {m_tag = tag;}
 
     void inc_ref () {++m_ref_count;}
-    void dec_ref ()
-        {
+    void dec_ref() {
             SASSERT (m_ref_count > 0);
             --m_ref_count;
             if(m_ref_count == 0) { dealloc(this); }
         }
 };
 
-
-class lemma;
-typedef ref<lemma> lemma_ref;
-typedef sref_vector<lemma> lemma_ref_vector;
-
-typedef pob pob;
-
 // a lemma
 class lemma {
+    // clang-format off
     unsigned m_ref_count;
 
     ast_manager &m;
@@ -129,9 +135,11 @@ class lemma {
     unsigned m_external:1;    // external lemma from another solver
     unsigned m_blocked:1;     // blocked by CTP
     unsigned m_background:1;  // background assumed fact
+    // clang-format on
 
     void mk_expr_core();
     void mk_cube_core();
+
 public:
     lemma(ast_manager &manager, expr * fml, unsigned lvl);
     lemma(pob_ref const &p);
@@ -195,8 +203,6 @@ struct lemma_lt_proc {
     }
 };
 
-
-
 //
 // Predicate transformer state.
 // A predicate transformer corresponds to the
@@ -206,12 +212,15 @@ struct lemma_lt_proc {
 class pred_transformer {
 
     struct stats {
-        unsigned m_num_propagations; // num of times lemma is pushed higher
-        unsigned m_num_invariants; // num of infty lemmas found
-        unsigned m_num_ctp_blocked; // num of time ctp blocked lemma pushing
-        unsigned m_num_is_invariant; // num of times lemmas are pushed
-        unsigned m_num_lemma_level_jump; // lemma learned at higher level than expected
+        // clang-format off
+        unsigned m_num_propagations;     // num of times lemma is pushed higher
+        unsigned m_num_invariants;       // num of infty lemmas found
+        unsigned m_num_ctp_blocked;      // num of time ctp blocked lemma pushing
+        unsigned m_num_is_invariant;     // num of times lemmas are pushed
+        unsigned m_num_lemma_level_jump; // lemma learned at higher level than
+                                         // expected
         unsigned m_num_reach_queries;
+        // clang-format on
 
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
@@ -221,6 +230,7 @@ class pred_transformer {
 #include "muz/spacer/spacer_legacy_frames.h"
     class frames {
     private:
+        // clang-format off
         pred_transformer &m_pt;            // parent pred_transformer
         lemma_ref_vector m_pinned_lemmas;  // all created lemmas
         lemma_ref_vector m_lemmas;         // active lemmas
@@ -229,17 +239,16 @@ class pred_transformer {
 
         bool m_sorted;                     // true if m_lemmas is sorted by m_lt
         lemma_lt_proc m_lt;                // sort order for m_lemmas
+        // clang-format on
 
         void sort ();
 
     public:
-        frames (pred_transformer &pt) : m_pt (pt),
-                                        m_size(0), m_sorted (true) {}
+        frames(pred_transformer &pt) : m_pt(pt), m_size(0), m_sorted(true) {}
         void simplify_formulas ();
 
         pred_transformer& pt() const {return m_pt;}
         const lemma_ref_vector &lemmas() const {return m_lemmas;}
-
 
         void get_frame_lemmas (unsigned level, expr_ref_vector &out) const {
             for (auto &lemma : m_lemmas) {
@@ -256,11 +265,17 @@ class pred_transformer {
                 }
             }
             if (with_bg) {
-                for (auto &lemma : m_bg_invs)
-                    out.push_back(lemma->get_expr());
+                for (auto &lemma : m_bg_invs) out.push_back(lemma->get_expr());
             }
         }
 
+        void get_frame_all_lemmas(lemma_ref_vector &out,
+                                  bool with_bg = false) const {
+            for (auto &lemma : m_lemmas) { out.push_back(lemma); }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs) out.push_back(lemma);
+            }
+        }
         const lemma_ref_vector& get_bg_invs() const {return m_bg_invs;}
         unsigned size() const {return m_size;}
         unsigned lemma_size() const {return m_lemmas.size ();}
@@ -269,9 +284,9 @@ class pred_transformer {
         void add_frame() {m_size++;}
         void inherit_frames (frames &other) {
             for (auto &other_lemma : other.m_lemmas) {
-                lemma_ref new_lemma = alloc(lemma, m_pt.get_ast_manager(),
-                                            other_lemma->get_expr(),
-                                            other_lemma->level());
+                lemma_ref new_lemma =
+                    alloc(lemma, m_pt.get_ast_manager(),
+                          other_lemma->get_expr(), other_lemma->level());
                 new_lemma->add_binding(other_lemma->get_bindings());
                 add_lemma(new_lemma.get());
             }
@@ -308,13 +323,13 @@ class pred_transformer {
 
         // a store
         pob_ref_vector m_pinned;
+
     public:
         pob_manager(pred_transformer &pt) : m_pt(pt) {}
-        pob* mk_pob(pob *parent, unsigned level, unsigned depth,
-                    expr *post, app_ref_vector const &b);
+        pob *mk_pob(pob *parent, unsigned level, unsigned depth, expr *post,
+                    app_ref_vector const &b);
 
-        pob* mk_pob(pob *parent, unsigned level, unsigned depth,
-                    expr *post) {
+        pob *mk_pob(pob *parent, unsigned level, unsigned depth, expr *post) {
             app_ref_vector b(m_pt.get_ast_manager());
             return mk_pob (parent, level, depth, post, b);
         }
@@ -324,28 +339,41 @@ class pred_transformer {
     };
 
     class pt_rule {
+        // clang-format off
         const datalog::rule &m_rule;
         expr_ref m_trans;        // ground version of m_rule
         ptr_vector<app> m_auxs;  // auxiliary variables in m_trans
         app_ref_vector m_reps;   // map from fv in m_rule to ground constants
         app_ref m_tag;           // a unique tag for the rule
+        // clang-format on
 
     public:
-        pt_rule(ast_manager &m, const datalog::rule &r) :
-            m_rule(r), m_trans(m), m_reps(m), m_tag(m) {}
+        pt_rule(ast_manager &m, const datalog::rule &r)
+            : m_rule(r), m_trans(m), m_reps(m), m_tag(m) {}
 
         const datalog::rule &rule() const {return m_rule;}
 
-        void set_tag(expr *tag) {SASSERT(is_app(tag)); set_tag(to_app(tag));}
+        void set_tag(expr *tag) {
+            SASSERT(is_app(tag));
+            set_tag(to_app(tag));
+        }
         void set_tag(app* tag) {m_tag = tag;}
         app* tag() const {return m_tag;}
         ptr_vector<app> &auxs() {return m_auxs;}
-        void set_auxs(ptr_vector<app> &v) {m_auxs.reset(); m_auxs.append(v);}
-        void set_reps(app_ref_vector &v) {m_reps.reset(); m_reps.append(v);}
+        void set_auxs(ptr_vector<app> &v) {
+            m_auxs.reset();
+            m_auxs.append(v);
+        }
+        void set_reps(app_ref_vector &v) {
+            m_reps.reset();
+            m_reps.append(v);
+        }
 
         void set_trans(expr_ref &v) {m_trans=v;}
         expr* trans() const {return m_trans;}
-        bool is_init() const {return m_rule.get_uninterpreted_tail_size() == 0;}
+        bool is_init() const {
+            return m_rule.get_uninterpreted_tail_size() == 0;
+        }
     };
 
     class pt_rules {
@@ -354,8 +382,11 @@ class pred_transformer {
         typedef rule2ptrule::iterator iterator;
         rule2ptrule m_rules;
         tag2ptrule m_tags;
+
     public:
-        ~pt_rules() {for (auto &kv : m_rules) {dealloc(kv.m_value);}}
+        ~pt_rules() {
+            for (auto &kv : m_rules) { dealloc(kv.m_value); }
+        }
 
         bool find_by_rule(const datalog::rule &r, pt_rule* &ptr) {
             return m_rules.find(&r, ptr);
@@ -377,9 +408,73 @@ class pred_transformer {
         bool empty() {return m_rules.empty();}
         iterator begin() {return m_rules.begin();}
         iterator end() {return m_rules.end();}
-
     };
 
+    /// Clusters of lemmas
+    class cluster_db {
+        sref_vector<lemma_cluster> m_clusters;
+        unsigned m_max_cluster_size;
+
+      public:
+        cluster_db() : m_max_cluster_size(0) {}
+        unsigned get_max_cluster_size() const { return m_max_cluster_size; }
+
+        /// Return the smallest cluster than can contain \p lemma
+        lemma_cluster *can_contain(const lemma_ref &lemma) {
+            unsigned sz = UINT_MAX;
+            lemma_cluster *res = nullptr;
+            for (auto *c : m_clusters) {
+                if (c->get_gas() > 0 && c->get_size() < sz &&
+                    c->can_contain(lemma)) {
+                    res = c;
+                    sz = res->get_size();
+                }
+            }
+            return res;
+        }
+
+        bool contains(const lemma_ref &lemma) {
+            for (auto *c : m_clusters) {
+                if (c->contains(lemma)) { return true; }
+            }
+            return false;
+        }
+
+        /// The number of clusters with pattern \p pattern
+        unsigned clstr_count(const expr_ref &pattern) {
+            unsigned count = 0;
+            for (auto c : m_clusters) {
+                if (c->get_pattern() == pattern) count++;
+            }
+            return count;
+        }
+
+        lemma_cluster *mk_cluster(const expr_ref &pattern) {
+            m_clusters.push_back(alloc(lemma_cluster, pattern));
+            return m_clusters.back();
+        }
+
+        /// Return the smallest cluster containing \p lemma
+        lemma_cluster *get_cluster(const lemma_ref &lemma) {
+            unsigned sz = UINT_MAX;
+            lemma_cluster *res = nullptr;
+            for (auto *c : m_clusters) {
+                if (c->get_size() < sz && c->contains(lemma)) {
+                    res = c;
+                    sz = res->get_size();
+                }
+            }
+            return res;
+        }
+
+        lemma_cluster *get_cluster(const expr *pattern) {
+            for (lemma_cluster *lc : m_clusters) {
+                if (lc->get_pattern().get() == pattern) return lc;
+            }
+            return nullptr;
+        }
+    };
+    // clang-format off
     manager&                     pm;                // spacer::manager
     ast_manager&                 m;                 // ast_manager
     context&                     ctx;               // spacer::context
@@ -408,6 +503,8 @@ class pred_transformer {
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
     bool                         m_has_quantified_frame; // True when a quantified lemma is in the frame
+    cluster_db                   m_cluster_db;
+    // clang-format on
 
     void init_sig();
     app_ref mk_extend_lit();
@@ -426,14 +523,17 @@ class pred_transformer {
 
     void simplify_formulas(tactic& tac, expr_ref_vector& fmls);
 
-    void add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r);
+    void add_premises(decl2rel const &pts, unsigned lvl, datalog::rule &rule,
+                      expr_ref_vector &r);
 
     app_ref mk_fresh_rf_tag ();
 
     // get tagged formulae of all of the background invariants for all of the
     // predecessors of the current transformer
     void get_pred_bg_invs(expr_ref_vector &out);
-    const lemma_ref_vector &get_bg_invs() const {return m_frames.get_bg_invs();}
+    const lemma_ref_vector &get_bg_invs() const {
+        return m_frames.get_bg_invs();
+    }
 
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
@@ -446,10 +546,13 @@ public:
         }
         return nullptr;
     }
-    void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
+    void find_predecessors(datalog::rule const &r,
+                           ptr_vector<func_decl> &predicates) const;
 
     void add_rule(datalog::rule* r) {m_rules.push_back(r);}
-    void add_use(pred_transformer* pt) {if (!m_use.contains(pt)) {m_use.insert(pt);}}
+    void add_use(pred_transformer *pt) {
+        if (!m_use.contains(pt)) { m_use.insert(pt); }
+    }
     void initialize(decl2rel const& pts);
 
     func_decl* head() const {return m_head;}
@@ -482,9 +585,8 @@ public:
     /// \brief Collects all the reachable facts used in mdl
     void get_all_used_rf(model &mdl, unsigned oidx, reach_fact_ref_vector& res);
     void get_all_used_rf(model &mdl, reach_fact_ref_vector &res);
-    expr_ref get_origin_summary(model &mdl,
-                                unsigned level, unsigned oidx, bool must,
-                                const ptr_vector<app> **aux);
+    expr_ref get_origin_summary(model &mdl, unsigned level, unsigned oidx,
+                                bool must, const ptr_vector<app> **aux);
 
     bool is_ctp_blocked(lemma *lem);
     const datalog::rule *find_rule(model &mdl);
@@ -516,32 +618,30 @@ public:
     reach_fact* get_last_rf () const { return m_reach_facts.back (); }
     expr* get_last_rf_tag () const;
 
-    pob* mk_pob(pob *parent, unsigned level, unsigned depth,
-                expr *post, app_ref_vector const &b){
+    pob *mk_pob(pob *parent, unsigned level, unsigned depth, expr *post,
+                app_ref_vector const &b) {
         return m_pobs.mk_pob(parent, level, depth, post, b);
     }
     pob* find_pob(pob *parent, expr *post) {
         return m_pobs.find_pob(parent, post);
     }
 
-    pob* mk_pob(pob *parent, unsigned level, unsigned depth,
-                expr *post) {
+    pob *mk_pob(pob *parent, unsigned level, unsigned depth, expr *post) {
         return m_pobs.mk_pob(parent, level, depth, post);
     }
 
     lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
                        unsigned& uses_level, bool& is_concrete,
-                       datalog::rule const*& r,
-                       bool_vector& reach_pred_used,
+                       datalog::rule const *&r, bool_vector &reach_pred_used,
                        unsigned& num_reuse_reach);
-    bool is_invariant(unsigned level, lemma* lem,
-                      unsigned& solver_level,
+    bool is_invariant(unsigned level, lemma *lem, unsigned &solver_level,
                       expr_ref_vector* core = nullptr);
 
-    bool is_invariant(unsigned level, expr* lem,
-                      unsigned& solver_level, expr_ref_vector* core = nullptr) {
+    bool is_invariant(unsigned level, expr *lem, unsigned &solver_level,
+                      expr_ref_vector *core = nullptr) {
         // XXX only needed for legacy_frames to compile
-        UNREACHABLE(); return false;
+        UNREACHABLE();
+        return false;
     }
 
     bool check_inductive(unsigned level, expr_ref_vector& state,
@@ -559,15 +659,17 @@ public:
 
     void inherit_lemmas(pred_transformer& other);
 
-    void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars,
-                          bool is_init);
+    void ground_free_vars(expr *e, app_ref_vector &vars,
+                          ptr_vector<app> &aux_vars, bool is_init);
 
     /// \brief Adds a given expression to the set of initial rules
     app* extend_initial (expr *e);
 
-    /// \brief Returns true if the obligation is already blocked by current lemmas
+    /// \brief Returns true if the obligation is already blocked by current
+    /// lemmas
     bool is_blocked (pob &n, unsigned &uses_level);
-    /// \brief Returns true if the obligation is already blocked by current quantified lemmas
+    /// \brief Returns true if the obligation is already blocked by current
+    /// quantified lemmas
     bool is_qblocked (pob &n);
 
     /// \brief interface to Model Based Projection
@@ -577,19 +679,48 @@ public:
     void updt_solver(prop_solver *solver);
 
     void updt_solver_with_lemmas(prop_solver *solver,
-                                 const pred_transformer &pt,
-                                 app *rule_tag, unsigned pos);
-    void update_solver_with_rfs(prop_solver *solver,
-                              const pred_transformer &pt,
+                                 const pred_transformer &pt, app *rule_tag,
+                                 unsigned pos);
+    // exposing ACTIVE lemmas (alternatively, one can expose `m_pinned_lemmas`
+    // for ALL lemmas)
+    void get_all_lemmas(lemma_ref_vector &out, bool with_bg = false) const {
+        m_frames.get_frame_all_lemmas(out, with_bg);
+    }
+    void update_solver_with_rfs(prop_solver *solver, const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
-};
+    lemma_cluster *mk_cluster(const expr_ref &pattern) {
+        return m_cluster_db.mk_cluster(pattern);
+    }
 
+    // Checks whether \p lemma is in any existing cluster
+    bool clstr_contains(const lemma_ref &lemma) {
+        return m_cluster_db.contains(lemma);
+    }
+
+    /// The number of clusters with pattern \p pattern
+    unsigned clstr_count(const expr_ref & pattern) {
+        return m_cluster_db.clstr_count(pattern);
+    }
+
+    /// Checks whether \p lemma matches any cluster
+    lemma_cluster *clstr_match(const lemma_ref &lemma) {
+        lemma_cluster *res = m_cluster_db.get_cluster(lemma);
+        if (!res) res = m_cluster_db.can_contain(lemma);
+        return res;
+    }
+
+    /// Returns a cluster with pattern \p pattern
+    lemma_cluster *get_cluster(const expr *pattern) {
+        return m_cluster_db.get_cluster(pattern);
+    }
+};
 
 /**
  * A proof obligation.
  */
 class pob {
+    // clang-format off
     // TBD: remove this
     friend class context;
     unsigned m_ref_count;
@@ -610,7 +741,8 @@ class pob {
 
     /// whether a concrete answer to the post is found
     unsigned                m_open:1;
-    /// whether to use farkas generalizer to construct a lemma blocking this node
+    /// whether to use farkas generalizer to construct a lemma blocking this
+    /// node
     unsigned                m_use_farkas:1;
     /// true if this pob is in pob_queue
     unsigned                m_in_queue:1;
@@ -628,12 +760,15 @@ class pob {
     // depth -> watch
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
+  // clang-format on
 
 public:
-    pob (pob* parent, pred_transformer& pt,
-         unsigned level, unsigned depth=0, bool add_to_parent=true);
+    pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth = 0,
+        bool add_to_parent = true);
 
-    ~pob() {if (m_parent) { m_parent->erase_child(*this); }}
+    ~pob() {
+        if (m_parent) { m_parent->erase_child(*this); }
+    }
 
     // TBD: move into constructor and make private
     void set_post(expr *post, app_ref_vector const &binding);
@@ -645,7 +780,9 @@ public:
 
     void inc_level () {
         SASSERT(!is_in_queue());
-        m_level++; m_depth++;reset_weakness();
+        m_level++;
+        m_depth++;
+        reset_weakness();
     }
 
     void inherit(pob const &p);
@@ -705,7 +842,9 @@ public:
         m_expand_watches[m_depth].stop();
         if (m_parent.get()){m_parent.get()->off_expand();}
     }
-    double get_expand_time(unsigned depth) { return m_expand_watches[depth].get_seconds();}
+    double get_expand_time(unsigned depth) {
+        return m_expand_watches[depth].get_seconds();
+    }
 
     void inc_ref () {++m_ref_count;}
     void dec_ref () {
@@ -714,9 +853,9 @@ public:
     }
 
     std::ostream &display(std::ostream &out, bool full = false) const;
-    class on_expand_event
-    {
+    class on_expand_event {
         pob &m_p;
+
     public:
         on_expand_event(pob &p) : m_p(p) {m_p.on_expand();}
         ~on_expand_event() {m_p.off_expand();}
@@ -767,7 +906,7 @@ class derivation {
                          const ptr_vector<app> *aux_vars = nullptr);
     };
 
-
+    // clang-format off
     /// parent model node
     pob&                         m_parent;
 
@@ -782,16 +921,19 @@ class derivation {
     expr_ref                            m_trans;
     //  implicitly existentially quantified variables in m_trans
     app_ref_vector                      m_evars;
+    // clang-format on
+
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
     pob* create_next_child (model &mdl);
     /// existentially quantify vars and skolemize the result
     void exist_skolemize(expr *fml, app_ref_vector &vars, expr_ref &res);
+
 public:
-    derivation (pob& parent, datalog::rule const& rule,
-                expr *trans, app_ref_vector const &evars);
-    void add_premise (pred_transformer &pt, unsigned oidx,
-                      expr * summary, bool must, const ptr_vector<app> *aux_vars = nullptr);
+    derivation(pob &parent, datalog::rule const &rule, expr *trans,
+               app_ref_vector const &evars);
+    void add_premise(pred_transformer &pt, unsigned oidx, expr *summary,
+                     bool must, const ptr_vector<app> *aux_vars = nullptr);
 
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises
@@ -810,10 +952,10 @@ public:
     pred_transformer &pt() const {return m_parent.pt();}
 };
 
-
 class pob_queue {
 
-    typedef std::priority_queue<pob*, std::vector<pob*>, pob_gt_proc> pob_queue_ty;
+    typedef std::priority_queue<pob *, std::vector<pob *>, pob_gt_proc>
+        pob_queue_ty;
     pob_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
@@ -848,13 +990,13 @@ public:
     size_t size() const {return m_data.size();}
 };
 
-
 /**
  * Generalizers (strengthens) a lemma
  */
 class lemma_generalizer {
 protected:
     context& m_ctx;
+
 public:
     lemma_generalizer(context& ctx): m_ctx(ctx) {}
     virtual ~lemma_generalizer() = default;
@@ -862,7 +1004,6 @@ public:
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}
 };
-
 
 class spacer_callback {
 protected:
@@ -890,7 +1031,6 @@ public:
     virtual inline bool propagate() { return false; }
 
     virtual void propagate_eh() {}
-
 };
 
 // order in which children are processed
@@ -917,6 +1057,7 @@ class context {
         void reset() { memset(this, 0, sizeof(*this)); }
     };
 
+    // clang-format off
     // stat watches
     stopwatch m_solve_watch;
     stopwatch m_propagate_watch;
@@ -925,7 +1066,7 @@ class context {
     stopwatch m_create_children_watch;
     stopwatch m_init_rules_watch;
 
-    fp_params const&    m_params;
+    fp_params const&     m_params;
     ast_manager&         m;
     datalog::context*    m_context;
     manager              m_pm;
@@ -934,7 +1075,6 @@ class context {
     scoped_ptr<solver_pool> m_pool0;
     scoped_ptr<solver_pool> m_pool1;
     scoped_ptr<solver_pool> m_pool2;
-
 
     random_gen           m_random;
     spacer_children_order m_children_order;
@@ -985,14 +1125,13 @@ class context {
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
     std::fstream*        m_trace_stream;
+    // clang-format on
 
     // Solve using gpdr strategy
     lbool gpdr_solve_core();
     bool gpdr_check_reachability(unsigned lvl, model_search &ms);
-    bool gpdr_create_split_children(pob &n, const datalog::rule &r,
-                                    expr *trans,
-                                    model &mdl,
-                                    pob_ref_buffer &out);
+    bool gpdr_create_split_children(pob &n, const datalog::rule &r, expr *trans,
+                                    model &mdl, pob_ref_buffer &out);
 
     // progress logging
     void log_enter_level(unsigned lvl);
@@ -1008,8 +1147,7 @@ class context {
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
-    bool create_children(pob& n, const datalog::rule &r,
-                         model &mdl,
+    bool create_children(pob &n, const datalog::rule &r, model &mdl,
                          const bool_vector& reach_pred_used,
                          pob_ref_buffer &out);
 
@@ -1027,7 +1165,6 @@ class context {
     void get_level_property(unsigned lvl, expr_ref_vector& res,
                             vector<relation_info> & rs,
                             bool with_bg = false) const;
-
 
     // Initialization
     void init_lemma_generalizers();
@@ -1056,12 +1193,12 @@ class context {
 
 public:
     /**
-       Initial values of predicates are stored in corresponding relations in dctx.
-       We check whether there is some reachable state of the relation checked_relation.
+       Initial values of predicates are stored in corresponding relations in
+       dctx. We check whether there is some reachable state of the relation
+       checked_relation.
     */
     context(fp_params const&  params, ast_manager& m);
     ~context();
-
 
     const fp_params &get_params() const { return m_params; }
     bool use_eq_prop() const {return m_use_eq_prop;}
@@ -1075,7 +1212,9 @@ public:
     bool simplify_pob() const {return m_simplify_pob;}
     bool use_ctp() const {return m_use_ctp;}
     bool use_inc_clause() const {return m_use_inc_clause;}
-    unsigned blast_term_ite_inflation() const {return m_blast_term_ite_inflation;}
+    unsigned blast_term_ite_inflation() const {
+        return m_blast_term_ite_inflation;
+    }
     bool elim_aux() const {return m_elim_aux;}
     bool reach_dnf() const {return m_reach_dnf;}
     bool use_bg_invs() const {return m_use_bg_invs;}
@@ -1084,16 +1223,18 @@ public:
     manager&          get_manager() {return m_pm;}
     const manager &   get_manager() const {return m_pm;}
     decl2rel const&   get_pred_transformers() const {return m_rels;}
-    pred_transformer& get_pred_transformer(func_decl* p) const {return *m_rels.find(p);}
+    pred_transformer &get_pred_transformer(func_decl *p) const {
+        return *m_rels.find(p);
+    }
 
     datalog::context& get_datalog_context() const {
-        SASSERT(m_context); return *m_context;
+        SASSERT(m_context);
+        return *m_context;
     }
 
     void update_rules(datalog::rule_set& rules);
     lbool solve(unsigned from_lvl = 0);
     lbool solve_from_lvl (unsigned from_lvl);
-
 
     expr_ref          get_answer();
     /**
@@ -1136,7 +1277,6 @@ public:
 
     bool is_inductive();
 
-
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer
     solver* mk_solver0() {return m_pool0->mk_solver();}
@@ -1145,5 +1285,5 @@ public:
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
-}
+} // namespace spacer
 
