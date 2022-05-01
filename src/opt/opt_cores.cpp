@@ -381,6 +381,7 @@ namespace opt {
         scoped_update _upd1(*this, "max_conflicts", UINT_MAX, m_max_conflicts);
         m_cores.reset();
         m_weight.reset();
+        m_best_cost = -1;
         for (expr* s : ctx.soft())
             m_weight.insert(s, ctx.weight(s));
 
