@@ -520,16 +520,14 @@ public:
     
     unsigned max_core_size(vector<exprs> const& cores) {
         unsigned result = 0;
-        for (auto const& c : cores) {
+        for (auto const& c : cores) 
             result = std::max(c.size(), result);
-        }
         return result;
     }
 
     void process_unsat(vector<weighted_core> const& cores) {
-        for (auto const & c : cores) {
+        for (auto const & c : cores) 
             process_unsat(c.m_core, c.m_weight);
-        }
         improve_model(m_model);
     }
 
@@ -573,7 +571,8 @@ public:
             --m_correction_set_size;
         }
         trace();
-        if (m_c.num_objectives() == 1 && m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
+        bool no_hidden_soft = (m_st == s_primal_dual || m_st == s_primal || m_st == s_primal_binary);
+        if (no_hidden_soft && m_c.num_objectives() == 1 && m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
             exprs cs;
             get_current_correction_set(m_csmodel.get(), cs);
             m_correction_set_size = cs.size();
@@ -601,25 +600,21 @@ public:
         else {
             w = m_mus.get_best_model(mdl);
         }
-        if (mdl.get() && w < m_upper) {
+        if (mdl.get() && w < m_upper) 
             update_assignment(mdl);
-        }
         return nullptr != mdl.get();
     }
 
     lbool minimize_core(expr_ref_vector& core) {
-        if (core.empty()) {
+        if (core.empty()) 
             return l_true;
-        }
-        if (m_c.sat_enabled()) {
+        if (m_c.sat_enabled()) 
             return l_true;
-        }
         m_mus.reset();
         m_mus.add_soft(core.size(), core.data());
         lbool is_sat = m_mus.get_mus(m_new_core);
-        if (is_sat != l_true) {
+        if (is_sat != l_true) 
             return is_sat;
-        }
         core.reset();
         core.append(m_new_core);
         return l_true;
@@ -667,9 +662,8 @@ public:
     }
 
     void display(std::ostream& out) {
-        for (expr * a : m_asms) {
+        for (expr * a : m_asms) 
             out << mk_pp(a, m) << " : " << get_weight(a) << "\n";
-        }
     }
 
 
