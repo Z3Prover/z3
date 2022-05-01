@@ -370,7 +370,6 @@ namespace opt {
     }
 
     void cores::updt_params(params_ref& _p) {
-        std::cout << _p << "\n";
         opt_params p(_p);
         m_hill_climb =         p.maxres_hill_climb();
         m_max_num_cores =      p.maxres_max_num_cores();
