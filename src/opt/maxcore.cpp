@@ -11,8 +11,8 @@ Abstract:
 
     - mu:        max-sat algorithm by Nina and Bacchus, AAAI 2014.
     - mus-mss:   based on dual refinement of bounds.
-    - binary
-    - binary-delay
+    - binary:    binary versino of maxres
+    - rc2:       implementaion of rc2 heuristic using cardinality constraints
 
 
     MaxRes is a core-guided approach to maxsat.
@@ -66,6 +66,7 @@ Notes:
 #include "opt/opt_context.h"
 #include "opt/opt_params.hpp"
 #include "opt/opt_lns.h"
+#include "opt/opt_cores.h"
 #include "opt/maxsmt.h"
 #include "opt/maxcore.h"
 
@@ -119,7 +120,6 @@ private:
     bool             m_hill_climb;             // prefer large weight soft clauses for cores
     unsigned         m_last_index;             // last index used during hill-climbing
     bool             m_add_upper_bound_block;  // restrict upper bound with constraint
-    unsigned         m_max_num_cores;          // max number of cores per round.
     unsigned         m_max_core_size;          // max core size per round.
     bool             m_maximize_assignment;    // maximize assignment to find MCS
     unsigned         m_max_correction_set_size;// maximal set of correction set that is tolerated.
@@ -127,9 +127,9 @@ private:
                                                // this option is disabled if SAT core is used.
     bool             m_pivot_on_cs;            // prefer smaller correction set to core.
     bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
-    bool             m_enable_lns { false };   // enable LNS improvements
-    unsigned         m_lns_conflicts { 1000 }; // number of conflicts used for LNS improvement
-    
+    bool             m_enable_lns = false;     // enable LNS improvements
+    unsigned         m_lns_conflicts = 1000;   // number of conflicts used for LNS improvement
+    bool             m_enable_core_rotate = false; 
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
@@ -148,7 +148,6 @@ public:
         m_correction_set_size(0),
         m_found_feasible_optimum(false),
         m_hill_climb(true),
-        m_last_index(0),
         m_add_upper_bound_block(false),
         m_max_num_cores(UINT_MAX),
         m_max_core_size(3),
@@ -323,17 +322,15 @@ public:
                Give preference to cores that have large minimal values.
             */
             sort_assumptions(asms);              
-            m_last_index = 0;
+            unsigned last_index = 0;
             unsigned index = 0;
-            bool first = index > 0;
             SASSERT(index < asms.size() || asms.empty());
             IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " asms: " << asms.size() << "\n";);
             while (index < asms.size() && is_sat == l_true) {
-                while (!first && asms.size() > 20*(index - m_last_index) && index < asms.size()) {
+                while (asms.size() > 20*(index - last_index) && index < asms.size()) {
                     index = next_index(asms, index);
                 }
-                first = false;
-                m_last_index = index;
+                last_index = index;
                 is_sat = check_sat(index, asms.data());
             }            
         }
@@ -390,13 +387,6 @@ public:
         st.update("maxsat-correction-sets", m_stats.m_num_cs);
     }
 
-    struct weighted_core {
-        exprs    m_core;
-        rational m_weight;
-        weighted_core(exprs const& c, rational const& w):
-            m_core(c), m_weight(w) {}
-    };
-
     lbool get_cores(vector<weighted_core>& cores) {
         // assume m_s is unsat.
         lbool is_sat = l_false;
@@ -434,8 +424,8 @@ public:
             remove_soft(core, m_asms);
             split_core(core);  
 
-            if (core.size()  >= m_max_core_size) break;
-            if (cores.size() >= m_max_num_cores) break;
+            if (core.size() >= m_max_core_size)
+                break;
 
             is_sat = check_sat_hill_climb(m_asms);            
         }
@@ -511,6 +501,9 @@ public:
     }
 
     lbool process_unsat() {
+        if (m_enable_core_rotate) 
+            return core_rotate();
+
         vector<weighted_core> cores;
         lbool is_sat = get_cores(cores);
         if (is_sat != l_true) {
@@ -525,6 +518,21 @@ public:
         }
     }
 
+    lbool core_rotate() {
+        cores find_cores(s(), m_lnsctx);
+        find_cores.updt_params(m_params);
+        vector<weighted_core> const& cores = find_cores();
+        for (auto const & [core, w] : cores) {
+            if (core.empty())
+                return l_false;
+            remove_soft(core, m_asms);
+            split_core(core);
+            process_unsat(core, w);
+        }
+        return l_true;
+    }
+
+    
     unsigned max_core_size(vector<exprs> const& cores) {
         unsigned result = 0;
         for (auto const& c : cores) {
@@ -980,7 +988,6 @@ public:
         opt_params p(_p);
         m_hill_climb =              p.maxres_hill_climb();
         m_add_upper_bound_block =   p.maxres_add_upper_bound_block();
-        m_max_num_cores =           p.maxres_max_num_cores();
         m_max_core_size =           p.maxres_max_core_size();
         m_maximize_assignment =     p.maxres_maximize_assignment();
         m_max_correction_set_size = p.maxres_max_correction_set_size();
@@ -988,6 +995,7 @@ public:
         m_wmax =                    p.maxres_wmax();
         m_dump_benchmarks =         p.dump_benchmarks();
         m_enable_lns =              p.enable_lns(); 
+        m_enable_core_rotate =      p.enable_core_rotate(); 
         m_lns_conflicts =           p.lns_conflicts();
 	if (m_c.num_objectives() > 1)
 	  m_add_upper_bound_block = false;
@@ -1000,7 +1008,6 @@ public:
             add_soft(e, w);
         m_max_upper = m_upper;
         m_found_feasible_optimum = false;
-        m_last_index = 0;
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;

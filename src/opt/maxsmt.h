@@ -31,6 +31,13 @@ namespace opt {
 
     typedef vector<rational> const weights_t;
 
+    struct weighted_core {
+        ptr_vector<expr>  m_core;
+        rational          m_weight;
+        weighted_core(ptr_vector<expr> const& c, rational const& w):
+            m_core(c), m_weight(w) {}
+    };
+
     class maxsat_context;
 
     class maxsmt_solver {
