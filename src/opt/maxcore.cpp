@@ -78,7 +78,6 @@ public:
         s_primal,
         s_primal_dual,
         s_primal_binary,
-        s_primal_binary_delay,
         s_rc2        
     };
 private:
@@ -115,21 +114,20 @@ private:
     model_ref        m_csmodel;
     lns_maxcore      m_lnsctx;
     lns              m_lns;
-    unsigned         m_correction_set_size;
-    bool             m_found_feasible_optimum;
-    bool             m_hill_climb;             // prefer large weight soft clauses for cores
-    unsigned         m_last_index;             // last index used during hill-climbing
-    bool             m_add_upper_bound_block;  // restrict upper bound with constraint
-    unsigned         m_max_core_size;          // max core size per round.
-    bool             m_maximize_assignment;    // maximize assignment to find MCS
-    unsigned         m_max_correction_set_size;// maximal set of correction set that is tolerated.
-    bool             m_wmax;                   // Block upper bound using wmax
-                                               // this option is disabled if SAT core is used.
-    bool             m_pivot_on_cs;            // prefer smaller correction set to core.
-    bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
-    bool             m_enable_lns = false;     // enable LNS improvements
-    unsigned         m_lns_conflicts = 1000;   // number of conflicts used for LNS improvement
-    bool             m_enable_core_rotate = false; 
+    unsigned         m_correction_set_size = 0;
+    bool             m_found_feasible_optimum = false;
+    bool             m_hill_climb = true;              // prefer large weight soft clauses for cores
+    bool             m_add_upper_bound_block = false;  // restrict upper bound with constraint
+    unsigned         m_max_core_size = 3;              // max core size per round.
+    bool             m_maximize_assignment = false;    // maximize assignment to find MCS
+    unsigned         m_max_correction_set_size = 3;    // maximal set of correction set that is tolerated.
+    bool             m_wmax = false;                   // Block upper bound using wmax
+                                                       // this option is disabled if SAT core is used.
+    bool             m_pivot_on_cs = true;             // prefer smaller correction set to core.
+    bool             m_dump_benchmarks;                // display benchmarks (into wcnf format)
+    bool             m_enable_lns = false;             // enable LNS improvements
+    unsigned         m_lns_conflicts = 1000;           // number of conflicts used for LNS improvement
+    bool             m_enable_core_rotate = false;     // enable core rotation
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
@@ -144,16 +142,7 @@ public:
         m_trail(m),
         m_st(st),
         m_lnsctx(*this),
-        m_lns(s(), m_lnsctx),
-        m_correction_set_size(0),
-        m_found_feasible_optimum(false),
-        m_hill_climb(true),
-        m_add_upper_bound_block(false),
-        m_max_num_cores(UINT_MAX),
-        m_max_core_size(3),
-        m_maximize_assignment(false),
-        m_max_correction_set_size(3),
-        m_pivot_on_cs(true)       
+        m_lns(s(), m_lnsctx)
     {
         switch(st) {
         case s_primal:
@@ -164,9 +153,6 @@ public:
             break;
         case s_primal_binary:
             m_trace_id = "maxres-bin";
-            break;
-        case s_primal_binary_delay:
-            m_trace_id = "maxres-bin-delay";
             break;
         case s_rc2:
             m_trace_id = "rc2";
@@ -373,7 +359,6 @@ public:
         switch(m_st) {
         case s_primal:
         case s_primal_binary:
-        case s_primal_binary_delay:
         case s_rc2:
             return mus_solver();
         case s_primal_dual:
