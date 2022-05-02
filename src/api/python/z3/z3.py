@@ -11284,7 +11284,7 @@ def user_prop_push(ctx, cb):
 def user_prop_pop(ctx, cb, num_scopes):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    pop(num_scopes)
+    prop.pop(num_scopes)
 
 
 def user_prop_fresh(id, ctx):
