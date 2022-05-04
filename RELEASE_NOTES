@@ -10,6 +10,14 @@ Version 4.8.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.8.17
+==============
+ - fix breaking bug in python interface for user propagator pop
+ - integrate fixes to z3str3
+ - initial support for nested algebraic datatypes with sequences
+ - initiate map/fold operators on sequences - full integration for next releases
+ - initiate maxdiff/mindiff on arrays - full integration for next releases
+ 
 Version 4.8.16
 ==============
  - initial support for Darwin Arm64 (for M1, M2, .. users) thanks to zwimer and Anja Petkovi'c
