@@ -140,6 +140,9 @@ class seq_decl_plugin : public decl_plugin {
     bool             m_has_seq;
     char_decl_plugin* m_char_plugin { nullptr };
 
+
+    void add_map_sig();
+
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
     void match_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);

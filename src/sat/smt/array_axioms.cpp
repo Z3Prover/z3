@@ -68,6 +68,8 @@ namespace array {
             return assert_extensionality(r.n->get_expr(), r.select->get_expr());
         case axiom_record::kind_t::is_diff:
             return assert_diff(r.n->get_app());
+        case axiom_record::kind_t::is_diffselect:
+            return assert_diff_select(r.n->get_app(), r.select->get_app());
         case axiom_record::kind_t::is_congruence:
             return assert_congruent_axiom(r.n->get_expr(), r.select->get_expr());
         default:
@@ -294,7 +296,7 @@ namespace array {
      * a = c and a[i] != b[i] => i <= md(b, c) or default(b) != default(c)
      * where ai = a[i], md = md(b, c)
      */
-    bool solver::assert_diff_select(app* ai, app* md) {
+    bool solver::assert_diff_select(app* md, app* ai) {
         SASSERT(a.is_select(ai));
         SASSERT(ai->get_num_args() == 2);
         expr* A = ai->get_arg(0);
@@ -303,7 +305,7 @@ namespace array {
         expr* C = md->get_arg(1); 
         literal eq_default = eq_internalize(a.mk_default(B), a.mk_default(C));
         arith_util autil(m);
-        literal ineq = mk_literal(autil.mk_le(i, md));
+        literal ineq = mk_literal(a.is_maxdiff(md) ? autil.mk_le(i, md) : autil.mk_le(md, i));
         bool is_new = false;
         if (ctx.get_enode(A)->get_root() == ctx.get_enode(B)->get_root()) {
             literal eq_ab = eq_internalize(A, B);
@@ -713,6 +715,27 @@ namespace array {
             
         return false;
     }
+
+    bool solver::add_diff_select_axioms() {
+        bool added = false;
+        
+        auto add_diff_select = [&](euf::enode* md, euf::enode* a) {
+            var_data const& d = get_var_data(find(get_th_var(a)));
+            for (euf::enode* select : d.m_parent_selects) {
+                if (assert_diff_select(md->get_app(), select->get_app()))
+                    added = true;
+            }
+        };
+        for (euf::enode* md : m_minmaxdiffs) {
+            euf::enode* a = md->get_arg(0);
+            euf::enode* b = md->get_arg(1);
+            add_diff_select(md, a);
+            add_diff_select(md, b);
+        }
+        return added;
+    }
+
+
 
 }
 

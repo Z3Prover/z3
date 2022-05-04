@@ -118,6 +118,8 @@ namespace array {
         case OP_ARRAY_MINDIFF:
         case OP_ARRAY_MAXDIFF:
             push_axiom(diff_axiom(n));
+            m_minmaxdiffs.push_back(n);
+            ctx.push(push_back_vector(m_minmaxdiffs));
             break;
         case OP_ARRAY_DEFAULT:
             add_parent_default(find(n->get_arg(0)), n);

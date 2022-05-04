@@ -147,9 +147,9 @@ namespace array {
         axiom_record::eq      m_eq;
         axiom_table_t         m_axioms;
         svector<axiom_record> m_axiom_trail;
-        unsigned              m_qhead { 0 };
-        unsigned              m_delay_qhead { 0 };
-        bool                  m_enable_delay { true };
+        unsigned              m_qhead = 0;
+        unsigned              m_delay_qhead = 0;
+        bool                  m_enable_delay = true;
         struct reset_new;
         void push_axiom(axiom_record const& r);
         bool propagate_axiom(unsigned idx);
@@ -166,7 +166,8 @@ namespace array {
         axiom_record extensionality_axiom(euf::enode* x, euf::enode* y) { return axiom_record(axiom_record::kind_t::is_extensionality, x, y); }
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
         axiom_record diff_axiom(euf::enode* md) { return axiom_record(axiom_record::kind_t::is_diff, md); }
-        axiom_record diff_select_axiom(euf::enode* ai, euf::enode* md) { return axiom_record(axiom_record::kind_t::is_diffselect, ai, md); }
+        euf::enode_vector m_minmaxdiffs;
+        axiom_record diff_select_axiom(euf::enode* md, euf::enode* ai) { return axiom_record(axiom_record::kind_t::is_diffselect, md, ai); }
 
         scoped_ptr<sat::constraint_base> m_constraint;
 
@@ -187,6 +188,7 @@ namespace array {
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
         bool add_as_array_eqs(euf::enode* n);
+        bool add_diff_select_axioms();
         expr_ref apply_map(app* map, unsigned n, expr* const* args);
         bool is_map_combinator(expr* e) const;
 
