@@ -1061,6 +1061,15 @@ sig
       if the corresponding sort reference is 0, then the value in sort_refs should be an index
       referring to one of the recursive datatypes that is declared. *)
   val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
+  
+  (* Create a forward reference to a recursive datatype being declared.
+     The forward reference can be used in a nested occurrence: the range of an array
+     or as element sort of a sequence. The forward reference should only be used when
+     used in an accessor for a recursive datatype that gets declared. *)
+  val mk_sort_ref : context -> Symbol.symbol -> Sort.sort
+  
+  (* [mk_sort_ref_s ctx s] is [mk_sort_ref ctx (Symbol.mk_string ctx s)] *)
+  val mk_sort_ref_s : context -> string -> Sort.sort
 
   (** Create a new datatype sort. *)
   val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> Sort.sort
@@ -1858,7 +1867,7 @@ sig
 
   (** create regular expression sorts over sequences of the argument sort *)   
   val mk_re_sort : context -> Sort.sort -> Sort.sort
-
+  
   (** test if sort is a regular expression sort *)
   val is_re_sort : context -> Sort.sort -> bool
 
@@ -1906,10 +1915,17 @@ sig
 
   (** length of a sequence *)
   val mk_seq_length : context -> Expr.expr -> Expr.expr  
+  
+  (** [mk_seq_nth ctx s index] retrieves from [s] the element at position [index]. 
+      The function is under-specified if the index is out of bounds. *)
+  val mk_seq_nth : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** index of the first occurrence of the second argument in the first *)
   val mk_seq_index : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr 
 
+  (** [mk_seq_last_index ctx s substr] occurence of [substr] in the sequence [s] *)
+  val mk_seq_last_index : context -> Expr.expr -> Expr.expr -> Expr.expr
+  
   (** retrieve integer expression encoded in string *)
   val mk_str_to_int : context -> Expr.expr -> Expr.expr
 
