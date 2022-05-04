@@ -20,6 +20,7 @@ Notes:
 
 --*/
 
+// clang-format off
 
 #include <sstream>
 #include <iomanip>
