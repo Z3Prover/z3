@@ -51,6 +51,7 @@ class pob_queue;
 class context;
 class lemma_cluster;
 class lemma_cluster_finder;
+class lemma_global_generalizer;
 
 typedef obj_map<datalog::rule const, app_ref_vector *> rule2inst;
 typedef obj_map<func_decl, pred_transformer *> decl2rel;
@@ -636,12 +637,12 @@ class pred_transformer {
         return m_pobs.mk_pob(parent, level, depth, post);
     }
 
-    lbool is_reachable(pob &n, expr_ref_vector *core, model_ref *model,
-                       unsigned &uses_level, bool &is_concrete,
+    lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
+                       unsigned& uses_level, bool& is_concrete,
                        datalog::rule const *&r, bool_vector &reach_pred_used,
-                       unsigned &num_reuse_reach);
+                       unsigned& num_reuse_reach, bool use_iuc = true);
     bool is_invariant(unsigned level, lemma *lem, unsigned &solver_level,
-                      expr_ref_vector *core = nullptr);
+                      expr_ref_vector* core = nullptr);
 
     bool is_invariant(unsigned level, expr *lem, unsigned &solver_level,
                       expr_ref_vector *core = nullptr) {
@@ -673,7 +674,7 @@ class pred_transformer {
 
     /// \brief Returns true if the obligation is already blocked by current
     /// lemmas
-    bool is_blocked(pob &n, unsigned &uses_level);
+    bool is_blocked(pob &n, unsigned &uses_level, model_ref *model = nullptr);
     /// \brief Returns true if the obligation is already blocked by current
     /// quantified lemmas
     bool is_qblocked(pob &n);
@@ -752,6 +753,16 @@ class pob {
     unsigned                m_use_farkas:1;
     /// true if this pob is in pob_queue
     unsigned                m_in_queue:1;
+    // true if this pob is a conjecture
+    unsigned                m_is_conjecture:1;
+    // should do local generalizations on pob
+    unsigned                m_enable_local_gen:1;
+    // should concretize cube
+    unsigned                m_enable_concretize:1;
+    // is a subsume pob
+    unsigned                m_is_subsume:1;
+    // should apply expand bnd generalization on pob
+    unsigned                m_enable_expand_bnd_gen:1;
 
     unsigned                m_weakness;
     /// derivation representing the position of this node in the parent's rule
@@ -769,7 +780,24 @@ class pob {
     // clang-format on
     // clang-format off
 
-  public:
+    // pattern with which conjecture was created
+    expr_ref_vector m_conjecture_pat;
+
+    // pattern identified for one of its lemmas
+    expr_ref m_concretize_pat;
+
+    // a post that subsumes all lemmas that block this pob
+    expr_ref_vector m_subsume_post;
+
+    // bindings for subsume post
+    app_ref_vector m_subsume_bindings;
+
+    // level at which may pob is to be added
+    unsigned m_may_lvl;
+
+   // gas decides how much time is spent in blocking this (may) pob
+    unsigned m_gas;
+public:
     pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth = 0,
         bool add_to_parent = true);
 
@@ -781,11 +809,24 @@ class pob {
     void set_post(expr *post, app_ref_vector const &binding);
     void set_post(expr *post);
 
+    void set_subsume_pob(const expr_ref_vector &expr) {
+        m_may_lvl = 0;
+        m_subsume_post.reset();
+        m_subsume_post.append(expr);
+    }
+    void set_subsume_bindings(app_ref_vector& vars) {
+        m_subsume_bindings.reset();
+        m_subsume_bindings.append(vars);
+    }
+    void set_may_pob_lvl(unsigned l) { m_may_lvl = l; }
+    unsigned get_may_pob_lvl() { return m_may_lvl; }
+    expr_ref_vector const &get_subsume_pob() const { return m_subsume_post; }
+    app_ref_vector const &get_subsume_bindings() const { return m_subsume_bindings; }
     unsigned weakness() { return m_weakness; }
     void bump_weakness() { m_weakness++; }
     void reset_weakness() { m_weakness = 0; }
 
-    void inc_level() {
+    void inc_level () {
         SASSERT(!is_in_queue());
         m_level++;
         m_depth++;
@@ -795,17 +836,41 @@ class pob {
     void inherit(pob const &p);
     void set_derivation(derivation *d) { m_derivation = d; }
     bool has_derivation() const { return (bool)m_derivation; }
-    derivation &get_derivation() const { return *m_derivation.get(); }
-    void reset_derivation() { set_derivation(nullptr); }
+    derivation &get_derivation() const { return *m_derivation.get (); }
+    void reset_derivation() { set_derivation (nullptr); }
     /// detaches derivation from the node without deallocating
-    derivation *detach_derivation() { return m_derivation.detach(); }
+    derivation* detach_derivation() { return m_derivation.detach (); }
 
-    pob *parent() const { return m_parent.get(); }
+    pob* parent() const { return m_parent.get (); }
 
-    pred_transformer &pt() const { return m_pt; }
-    ast_manager &get_ast_manager() const { return m_pt.get_ast_manager(); }
-    manager &get_manager() const { return m_pt.get_manager(); }
-    context &get_context() const { return m_pt.get_context(); }
+    bool is_conjecture() const { return m_is_conjecture; }
+    void set_conjecture(bool v = true) { m_is_conjecture = v; }
+
+    void disable_expand_bnd_gen() { m_enable_expand_bnd_gen = false; }
+    bool is_expand_bnd_enabled() { return m_enable_expand_bnd_gen; }
+    void set_expand_bnd(bool v = true) { m_enable_expand_bnd_gen = v; }
+    void set_concretize_pattern(const expr_ref &pattern) { m_concretize_pat = pattern; }
+    const expr_ref &get_concretize_pattern() const { return m_concretize_pat; }
+    const expr_ref_vector &get_conjecture_pattern() const { return m_conjecture_pat; }
+    void set_conjecture_pattern(const expr_ref_vector &pattern) {
+        m_conjecture_pat.reset();
+        m_conjecture_pat.append(pattern);
+    }
+    bool is_subsume() const { return m_is_subsume; }
+    void set_subsume(bool v = true) { m_is_subsume = v; }
+    bool is_may_pob() const { return is_subsume() || is_conjecture(); }
+    unsigned get_gas() const { return m_gas; }
+    void set_gas(unsigned n) { m_gas = n; }
+
+    bool is_local_gen_enabled() const { return m_enable_local_gen; }
+    void disable_local_gen() { m_enable_local_gen = false; }
+    void get_post_simplified(expr_ref_vector &res);
+    bool is_concretize_enabled() const { return m_enable_concretize && m_gas > 0; }
+    void set_concretize(bool v = true) { m_enable_concretize = v; }
+    pred_transformer& pt() const { return m_pt; }
+    ast_manager& get_ast_manager() const { return m_pt.get_ast_manager(); }
+    manager& get_manager() const { return m_pt.get_manager(); }
+    context& get_context() const { return m_pt.get_context(); }
 
     unsigned level() const { return m_level; }
     unsigned depth() const { return m_depth; }
@@ -1061,6 +1126,15 @@ class context {
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
+        unsigned m_num_conj;
+        unsigned m_num_conj_success;
+        unsigned m_num_conj_failed;
+        unsigned m_num_subsume_pobs;
+        unsigned m_num_subsume_pob_reachable;
+        unsigned m_num_subsume_pob_blckd;
+        unsigned m_num_concretize;
+        unsigned m_num_pob_ofg;
+        unsigned m_non_local_gen;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };
@@ -1094,6 +1168,9 @@ class context {
     unsigned             m_inductive_lvl;
     unsigned             m_expanded_lvl;
     ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
+    lemma_global_generalizer *m_global_gen;
+    lemma_generalizer    *m_expand_bnd_gen;
+    lemma_cluster_finder *m_lmma_cluster;
     stats                m_stats;
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;
@@ -1126,6 +1203,13 @@ class context {
     bool                 m_simplify_formulas_post;
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
+    bool                 m_global;
+    bool                 m_expand_bnd;
+    bool                 m_gg_conjecture;
+    bool                 m_gg_subsume;
+    bool                 m_gg_use_sage;
+    bool                 m_gg_concretize;
+    bool                 m_use_iuc;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
@@ -1227,6 +1311,7 @@ class context {
     bool elim_aux() const { return m_elim_aux; }
     bool reach_dnf() const { return m_reach_dnf; }
     bool use_bg_invs() const { return m_use_bg_invs; }
+    bool do_subsume() const { return m_gg_subsume; }
 
     ast_manager &get_ast_manager() const { return m; }
     manager &get_manager() { return m_pm; }
@@ -1285,6 +1370,10 @@ class context {
     void new_pob_eh(pob *p);
 
     bool is_inductive();
+
+    bool use_sage() { return m_gg_use_sage; }
+    // close all parents of may pob when gas runs out
+    void close_all_may_parents(pob_ref node);
 
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer

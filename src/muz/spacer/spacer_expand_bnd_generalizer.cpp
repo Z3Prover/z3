@@ -108,7 +108,7 @@ lemma_expand_bnd_generalizer::lemma_expand_bnd_generalizer(context &ctx)
 
 void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-    if (!lemma->get_pob()->expand_bnd()) return;
+    if (!lemma->get_pob()->is_expand_bnd_enabled()) return;
 
     expr_ref_vector cube(lemma->get_cube());
 
@@ -159,7 +159,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     // Currently, we allow for only one round of expand bound per lemma
     // Mark lemma as already expanded so that it is not generalized in this way
     // again
-    lemma->get_pob()->stop_expand_bnd();
+    lemma->get_pob()->disable_expand_bnd_gen();
 }
 
 /// Check whether \p candidate is a possible generalization for \p lemma.
