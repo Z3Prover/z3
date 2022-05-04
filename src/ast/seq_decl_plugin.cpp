@@ -185,13 +185,10 @@ void seq_decl_plugin::init() {
     array_util autil(m);
     m_init = true;
     sort* A = m.mk_uninterpreted_sort(symbol(0u));
-    sort* B = m.mk_uninterpreted_sort(symbol(1u));
     sort* strT = m_string;
     parameter paramA(A);
-    parameter paramB(B);
     parameter paramS(strT);
     sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
-    sort* seqB = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramB);
     parameter paramSA(seqA);
     sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramSA);
     sort* reT  = m.mk_sort(m_family_id, RE_SORT, 1, &paramS);

@@ -535,7 +535,7 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             m_manager->raise_exception("min/maxdiff don't take two arrays of same sort and with integer index");
         sort* idx = get_array_domain(domain[0], 0);
         arith_util arith(*m_manager);
-        if (!arith.is_int(domain[0]))
+        if (!arith.is_int(idx))
             m_manager->raise_exception("min/maxdiff take integer index domain");
         return m_manager->mk_func_decl(k == OP_ARRAY_MAXDIFF ? symbol("maxdiff") : symbol("mindiff"), 
                                        arity, domain, arith.mk_int(), func_decl_info(m_family_id, k));
@@ -601,11 +601,8 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
         op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
 
-#if 0
-// not exposed
         op_names.push_back(builtin_name("mindiff", OP_ARRAY_MINDIFF));
         op_names.push_back(builtin_name("maxdiff", OP_ARRAY_MAXDIFF));
-#endif
 
 #if 0
         op_names.push_back(builtin_name("set-has-size", OP_SET_HAS_SIZE));
