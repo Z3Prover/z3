@@ -673,6 +673,22 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 3);
         st = mk_seq_replace_all(args[0], args[1], args[2], result);
         break;
+    case OP_SEQ_MAP:
+        SASSERT(num_args == 2);
+        st = mk_seq_map(args[0], args[1], result);
+        break;
+    case OP_SEQ_MAPI:
+        SASSERT(num_args == 3);
+        st = mk_seq_mapi(args[0], args[1], args[2], result);
+        break;
+    case OP_SEQ_FOLDL:
+        SASSERT(num_args == 3);
+        st = mk_seq_foldl(args[0], args[1], args[2], result);
+        break;
+    case OP_SEQ_FOLDLI:
+        SASSERT(num_args == 4);
+        st = mk_seq_foldli(args[0], args[1], args[2], args[3], result);
+        break;
     case OP_SEQ_REPLACE_RE:
         SASSERT(num_args == 3);
         st = mk_seq_replace_re(args[0], args[1], args[2], result);
@@ -850,6 +866,14 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = str().mk_length(x);
         return BR_REWRITE1;
     }
+    if (str().is_map(a, x, y)) {
+        result = str().mk_length(y);
+        return BR_REWRITE1;
+    } 
+    if (str().is_mapi(a, x, y, z)) {
+        result = str().mk_length(z);
+        return BR_REWRITE1;
+    } 
 #if 0
     expr* s = nullptr, *offset = nullptr, *length = nullptr;
     if (str().is_extract(a, s, offset, length)) {
@@ -1640,6 +1664,13 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE1;
     }
 
+    expr* f, *s;
+    if (str().is_map(a, f, s)) {
+        expr* args[2] = { f, str().mk_nth_i(s, b) };
+        result = array_util(m()).mk_select(2, args);
+        return BR_REWRITE1;
+    }
+
     expr_ref_vector as(m());
     str().get_concat_units(a, as);
 
@@ -2005,6 +2036,96 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
 
     //TODO: the case when a is a unit or concatenation of units while b is a string 
     //or the other way around -- if that situation is possible at all -- is similar to the above
+    return BR_FAILED;
+}
+
+/**
+   rewrites for map(f, s):
+
+   map(f, []) = []
+   map(f, [x]) = [f(x)]
+   map(f, s + t) = map(f, s) + map(f, t)
+   len(map(f, s)) = len(s)
+   nth_i(map(f,s), i) = f(nth_i(s, i))
+
+ */
+br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
+    if (str().is_empty(seqA)) {
+        result = str().mk_empty(get_array_range(f->get_sort()));
+        return BR_DONE;
+    }
+    expr* a, *s1, *s2;
+    if (str().is_unit(seqA, a)) {
+        array_util array(m());
+        expr* args[2] = { f, a };
+        result = str().mk_unit(array.mk_select(2, args));
+        return BR_REWRITE2;
+    }
+    if (str().is_concat(seqA, s1, s2)) {
+        result = str().mk_concat(str().mk_map(f, s1), str().mk_map(f, s2));
+        return BR_REWRITE2;
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& result) {
+    if (str().is_empty(seqA)) {
+        result = str().mk_empty(get_array_range(f->get_sort()));
+        return BR_DONE;
+    }
+    expr* a, *s1, *s2;
+    if (str().is_unit(seqA, a)) {
+        array_util array(m());
+        expr* args[3] = { f, i, a };
+        result = str().mk_unit(array.mk_select(3, args));
+        return BR_REWRITE2;
+    }
+    if (str().is_concat(seqA, s1, s2)) {
+        expr_ref j(m_autil.mk_add(i, str().mk_length(s1)), m());
+        result = str().mk_concat(str().mk_mapi(f, i, s1), str().mk_mapi(f, j, s2));
+        return BR_REWRITE2;
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& result) {
+    if (str().is_empty(seqA)) {
+        result = b;
+        return BR_DONE;
+    }
+    expr* a, *s1, *s2;
+    if (str().is_unit(seqA, a)) {
+        array_util array(m());
+        expr* args[3] = { f, b, a };
+        result = array.mk_select(3, args);
+        return BR_REWRITE1;
+    }
+    if (str().is_concat(seqA, s1, s2)) {
+        result = str().mk_foldl(f, b, s1);
+        result = str().mk_foldl(f, result, s2);
+        return BR_REWRITE3;
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, expr_ref& result) {
+    if (str().is_empty(seqA)) {
+        result = b;
+        return BR_DONE;
+    }
+    expr* a, *s1, *s2;
+    if (str().is_unit(seqA, a)) {
+        array_util array(m());
+        expr* args[4] = { f, i, b, a };
+        result = array.mk_select(4, args);
+        return BR_REWRITE1;
+    }
+    if (str().is_concat(seqA, s1, s2)) {
+        expr_ref j(m_autil.mk_add(i, str().mk_length(s1)), m());
+        result = str().mk_foldli(f, i, b, s1);
+        result = str().mk_foldli(f, j, result, s2);
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 

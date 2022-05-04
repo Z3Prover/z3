@@ -272,6 +272,8 @@ public:
     func_decl * mk_array_ext(sort* domain, unsigned i);
 
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }
+    sort * mk_array_sort(sort* a, sort* b, sort* range) { sort* dom[2] = { a, b }; return mk_array_sort(2, dom, range); }
+    sort * mk_array_sort(sort* a, sort* b, sort* c, sort* range) { sort* dom[3] = { a, b, c}; return mk_array_sort(3, dom, range); }
 
     sort * mk_array_sort(unsigned arity, sort* const* domain, sort* range);
 

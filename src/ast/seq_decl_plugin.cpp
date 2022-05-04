@@ -182,18 +182,26 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
 void seq_decl_plugin::init() {
     if (m_init) return;
     ast_manager& m = *m_manager;
+    array_util autil(m);
     m_init = true;
     sort* A = m.mk_uninterpreted_sort(symbol(0u));
+    sort* B = m.mk_uninterpreted_sort(symbol(1u));
     sort* strT = m_string;
     parameter paramA(A);
+    parameter paramB(B);
     parameter paramS(strT);
     sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
+    sort* seqB = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramB);
     parameter paramSA(seqA);
     sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramSA);
     sort* reT  = m.mk_sort(m_family_id, RE_SORT, 1, &paramS);
     sort* boolT = m.mk_bool_sort();
     sort* intT  = arith_util(m).mk_int();
-    sort* predA = array_util(m).mk_array_sort(A, boolT);
+    sort* predA = autil.mk_array_sort(A, boolT);
+    sort* arrAB = autil.mk_array_sort(A, B);
+    sort* arrIAB = autil.mk_array_sort(intT, A, B);
+    sort* arrBAB = autil.mk_array_sort(B, A, B);
+    sort* arrIBAB = autil.mk_array_sort(intT, B, A, B);
     sort* seqAseqAseqA[3] = { seqA, seqA, seqA };
     sort* seqAreAseqA[3] = { seqA, reA, seqA };
     sort* seqAseqA[2] = { seqA, seqA };
@@ -209,6 +217,11 @@ void seq_decl_plugin::init() {
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
+    sort* arrABseqA[2] = { arrAB, seqA };
+    sort* arrIABintTseqA[3] = { arrIAB, intT, seqA };
+    sort* arrBAB_BseqA[3] = { arrBAB, B,seqA };
+    sort* arrIBABintTBseqA[4] = { arrIBAB, intT, B, seqA };
+
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -226,6 +239,10 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_NTH_I]     = alloc(psig, m, "seq.nth_i",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_NTH_U]     = alloc(psig, m, "seq.nth_u",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
+    m_sigs[OP_SEQ_MAP]       = alloc(psig, m, "seq.map",      2, 2, arrABseqA, seqB);
+    m_sigs[OP_SEQ_MAPI]      = alloc(psig, m, "seq.mapi",     2, 3, arrIABintTseqA, seqB);
+    m_sigs[OP_SEQ_FOLDL]     = alloc(psig, m, "seq.fold_left",    2, 3, arrBAB_BseqA, B);
+    m_sigs[OP_SEQ_FOLDLI]    = alloc(psig, m, "seq.fold_leftli",   2, 4, arrIBABintTBseqA, B);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
     m_sigs[OP_RE_OPTION]     = alloc(psig, m, "re.opt",       1, 1, &reA, reA);
@@ -581,6 +598,12 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRCTN);
     case _OP_STRING_STRCTN:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_CONTAINS);
+
+    case OP_SEQ_MAP:
+    case OP_SEQ_MAPI:
+    case OP_SEQ_FOLDL:
+    case OP_SEQ_FOLDLI:
+        return mk_str_fun(k, arity, domain, range, k);
 
     case OP_SEQ_TO_RE:
         m_has_re = true;

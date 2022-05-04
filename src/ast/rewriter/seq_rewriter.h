@@ -256,6 +256,10 @@ class seq_rewriter {
     br_status mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_map(expr* f, expr* s, expr_ref& result);
+    br_status mk_seq_mapi(expr* f, expr* i, expr* s, expr_ref& result);
+    br_status mk_seq_foldl(expr* f, expr* b, expr* s, expr_ref& result);
+    br_status mk_seq_foldli(expr* f, expr* i, expr* b, expr* s, expr_ref& result);
     br_status mk_str_units(func_decl* f, expr_ref& result);
     br_status mk_str_itos(expr* a, expr_ref& result);
     br_status mk_str_stoi(expr* a, expr_ref& result);
