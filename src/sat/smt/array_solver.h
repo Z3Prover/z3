@@ -83,6 +83,8 @@ namespace array {
                 is_store,
                 is_select,
                 is_extensionality,
+                is_diff,
+                is_diffselect,
                 is_default,
                 is_congruence
             };
@@ -163,6 +165,8 @@ namespace array {
         axiom_record store_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_store, n); }
         axiom_record extensionality_axiom(euf::enode* x, euf::enode* y) { return axiom_record(axiom_record::kind_t::is_extensionality, x, y); }
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
+        axiom_record diff_axiom(euf::enode* md) { return axiom_record(axiom_record::kind_t::is_diff, md); }
+        axiom_record diff_select_axiom(euf::enode* ai, euf::enode* md) { return axiom_record(axiom_record::kind_t::is_diffselect, ai, md); }
 
         scoped_ptr<sat::constraint_base> m_constraint;
 
@@ -175,6 +179,8 @@ namespace array {
         bool assert_select_map_axiom(app* select, app* map);
         bool assert_select_lambda_axiom(app* select, expr* lambda);
         bool assert_extensionality(expr* e1, expr* e2);
+        bool assert_diff(expr* md);
+        bool assert_diff_select(app* ai, app* md);
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);
         bool assert_default_store_axiom(app* store);

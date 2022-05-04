@@ -99,7 +99,8 @@ namespace array {
     }
 
     void solver::internalize_eh(euf::enode* n) {
-        switch (n->get_decl()->get_decl_kind()) {
+        auto k = n->get_decl()->get_decl_kind();
+        switch (k) {
         case OP_STORE:          
             ctx.push_vec(get_var_data(find(n)).m_lambdas, n);
             push_axiom(store_axiom(n));
@@ -113,6 +114,10 @@ namespace array {
         case OP_ARRAY_EXT:
             SASSERT(is_array(n->get_arg(0)));
             push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
+            break;
+        case OP_ARRAY_MINDIFF:
+        case OP_ARRAY_MAXDIFF:
+            push_axiom(diff_axiom(n));
             break;
         case OP_ARRAY_DEFAULT:
             add_parent_default(find(n->get_arg(0)), n);
@@ -168,6 +173,10 @@ namespace array {
             propagate_parent_default(find(n));
             break;
         case OP_ARRAY_EXT:
+            break;
+        case OP_ARRAY_MINDIFF:
+        case OP_ARRAY_MAXDIFF:
+            // todo
             break;
         case OP_ARRAY_DEFAULT:
             set_prop_upward(find(n->get_arg(0)));
