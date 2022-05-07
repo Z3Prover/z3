@@ -288,7 +288,7 @@ namespace sat {
         inline clause_allocator& cls_allocator() { return m_cls_allocator[m_cls_allocator_idx]; }
         inline clause_allocator const& cls_allocator() const { return m_cls_allocator[m_cls_allocator_idx]; }
         inline clause * alloc_clause(unsigned num_lits, literal const * lits, bool learned) { return cls_allocator().mk_clause(num_lits, lits, learned); }
-        inline void     dealloc_clause(clause* c) { cls_allocator().del_clause(c); }
+        inline void dealloc_clause(clause* c) { cls_allocator().del_clause(c); }
         struct cmp_activity;
         void defrag_clauses();
         bool should_defrag();

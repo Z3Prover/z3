@@ -42,6 +42,7 @@ IN_ARRAY    = 3
 OUT_ARRAY   = 4
 INOUT_ARRAY = 5
 OUT_MANAGED_ARRAY  = 6
+FN_PTR = 7
 
 # Primitive Types
 VOID       = 0
@@ -61,10 +62,15 @@ FLOAT      = 13
 CHAR       = 14
 CHAR_PTR   = 15
 
+FIRST_FN_ID = 50
+
 FIRST_OBJ_ID = 100
 
 def is_obj(ty):
     return ty >= FIRST_OBJ_ID
+
+def is_fn(ty):
+    return FIRST_FN_ID <= ty and ty < FIRST_OBJ_ID
 
 Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
              FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'bool', SYMBOL : 'Z3_symbol',
@@ -88,9 +94,12 @@ Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string' }
 
+Closures = []
+
 class APITypes:
     def __init__(self):
         self.next_type_id = FIRST_OBJ_ID
+        self.next_fntype_id = FIRST_FN_ID
 
     def def_Type(self, var, c_type, py_type):
         """Process type definitions of the form def_Type(var, c_type, py_type)
@@ -103,23 +112,41 @@ class APITypes:
         Type2Str[id] = c_type
         Type2PyStr[id] = py_type
         self.next_type_id += 1
+
         
     def def_Types(self, api_files):
+        global Closures
         pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
+        pat2 = re.compile("Z3_DECLARE_CLOSURE\((.*),(.*), \((.*)\)\)")
         for api_file in api_files:
             with open(api_file, 'r') as api:
                 for line in api:
                     m = pat1.match(line)
                     if m:
                         self.def_Type(m.group(1), m.group(2), m.group(3))
+                        continue
+                    m = pat2.match(line)
+                    if m:
+                        self.fun_Type(m.group(1))
+                        Closures += [(m.group(1), m.group(2), m.group(3))]
+                        continue
         #
         # Populate object type entries in dotnet and ML bindings.
         # 
         for k in Type2Str:
             v = Type2Str[k]
-            if is_obj(k):
+            if is_obj(k) or is_fn(k):
                 Type2Dotnet[k] = v
                 Type2ML[k] = v.lower()
+
+    def fun_Type(self, var):
+        """Process function type definitions"""
+        id = self.next_fntype_id
+        exec('%s = %s' % (var, id), globals())
+        Type2Str[id] = var
+        Type2PyStr[id] = var
+        self.next_fntype_id += 1
+
 
 def type2str(ty):
     global Type2Str
@@ -146,6 +173,9 @@ def _in(ty):
 
 def _in_array(sz, ty):
     return (IN_ARRAY, ty, sz)
+
+def _fnptr(ty):
+    return (FN_PTR, ty)
 
 def _out(ty):
     return (OUT, ty)
@@ -180,7 +210,7 @@ def param_array_size_pos(p):
 def param2str(p):
     if param_kind(p) == IN_ARRAY:
         return "%s const *" % type2str(param_type(p))
-    elif param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY:
+    elif param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == FN_PTR:
         return "%s*" % type2str(param_type(p))
     elif param_kind(p) == OUT:
         return "%s*" % type2str(param_type(p))
@@ -374,11 +404,20 @@ def mk_dotnet(dotnet):
         v = Type2Str[k]
         if is_obj(k):
             dotnet.write('    using %s = System.IntPtr;\n' % v)
+
+    dotnet.write('       using voidp = System.IntPtr;\n')
     dotnet.write('\n')
     dotnet.write('    public class Native\n')
     dotnet.write('    {\n\n')
-    dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
-    dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
+
+    for name, ret, sig in Closures:
+        sig = sig.replace("void*","voidp").replace("unsigned","uint")
+        ret = ret.replace("void*","voidp").replace("unsigned","uint")
+        if "*" in sig or "*" in ret:
+            continue
+        dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
+        dotnet.write(f"        public delegate {ret} {name}({sig});\n")
+    
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
@@ -1070,6 +1109,9 @@ def def_API(name, result, params):
             log_c.write(" }\n")
             log_c.write("  Ap(%s);\n" % sz_e)
             exe_c.write("reinterpret_cast<%s**>(in.get_obj_array(%s))" % (tstr, i))
+        elif kind == FN_PTR:
+            log_c.write("  P(a%s);\n" % i)
+            exe_c.write("reinterpret_cast<%s>(in.get_obj(%s))" % (param2str(p), i))
         else:
             error ("unsupported parameter for %s, %s" % (name, p))
         i = i + 1

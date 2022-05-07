@@ -1190,6 +1190,10 @@ namespace arith {
     }
 
     void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params) {
+        std::cout << "assign: ";
+        for (auto const& p : params)
+            std::cout << p << " ";
+        std::cout << "\n";
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core)

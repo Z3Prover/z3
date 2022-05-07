@@ -1444,7 +1444,7 @@ Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_ast s, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
-Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast*, unsigned*, Z3_lbool*));
+Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast* t, unsigned* idx, Z3_lbool* phase));
 
 
 /**
@@ -6733,6 +6733,8 @@ extern "C" {
        \param push_eh - a callback invoked when scopes are pushed
        \param pop_eh - a callback invoked when scopes are poped
        \param fresh_eh - a solver may spawn new solvers internally. This callback is used to produce a fresh user_context to be associated with fresh solvers. 
+
+       def_API('Z3_solver_propagate_init', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _fnptr(Z3_push_eh), _fnptr(Z3_pop_eh), _fnptr(Z3_fresh_eh)))
      */
 
     void Z3_API Z3_solver_propagate_init(
@@ -6748,6 +6750,8 @@ extern "C" {
        The supported expression types are
        - Booleans
        - Bit-vectors
+
+       def_API('Z3_solver_propagate_fixed', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_fixed_eh)))
      */
 
     void Z3_API Z3_solver_propagate_fixed(Z3_context c, Z3_solver s, Z3_fixed_eh fixed_eh);
@@ -6764,22 +6768,30 @@ extern "C" {
        The callback context can only be accessed (for propagation and for dynamically registering expressions) within a callback. 
        If the callback context gets used for propagation or conflicts, those propagations take effect and
        may trigger new decision variables to be set.
+
+       def_API('Z3_solver_propagate_final', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_final_eh)))
      */
     void Z3_API Z3_solver_propagate_final(Z3_context c, Z3_solver s, Z3_final_eh final_eh);
     
     /**
        \brief register a callback on expression equalities.
+
+       def_API('Z3_solver_propagate_eq', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_eq_eh)))
     */
     void Z3_API Z3_solver_propagate_eq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
 
     /**
        \brief register a callback on expression dis-equalities.
+
+       def_API('Z3_solver_propagate_diseq', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_eq_eh)))
     */
     void Z3_API Z3_solver_propagate_diseq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
 
     /**
        \brief register a callback when a new expression with a registered function is used by the solver 
        The registered function appears at the top level and is created using \ref Z3_propagate_solver_declare.
+
+       def_API('Z3_solver_propagate_created', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_created_eh)))
     */
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh);
     
@@ -6788,6 +6800,7 @@ extern "C" {
        The callback may set the passed expression to another registered expression which will be selected instead.
        In case the expression is a bitvector the bit to split on is determined by the bit argument and the 
        truth-value to try first is given by is_pos. In case the truth value is undefined the solver will decide.
+
     */
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
