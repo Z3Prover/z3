@@ -102,9 +102,8 @@ for (let file of files) {
         break;
       }
       let kind = match.groups.kind;
-      if (kind == 'fnptr') kind = 'in_array'
       if (kind === 'inout_array') kind = 'in_array'; // https://github.com/Z3Prover/z3/discussions/5761
-      if (kind === 'in' || kind === 'out') {
+      if (kind === 'in' || kind === 'out' || kind == 'fnptr') {
         ({ text, match } = expect(text, /^[A-Za-z0-9_]+/));
         parsedParams.push({ kind, type: match[0] });
       } else {
