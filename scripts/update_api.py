@@ -520,14 +520,14 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
 
 def type2java(ty):
     global Type2Java
-    if (ty >= FIRST_OBJ_ID):
+    if (ty >= FIRST_FN_ID):
         return 'long'
     else:
         return Type2Java[ty]
 
 def type2javaw(ty):
     global Type2JavaW
-    if (ty >= FIRST_OBJ_ID):
+    if (ty >= FIRST_FN_ID):
         return 'jlong'
     else:
         return Type2JavaW[ty]
@@ -552,6 +552,8 @@ def param2java(p):
             return "UIntArrayPtr"
         else:
             return "ObjArrayPtr"
+    elif k == FN_PTR:
+        return "LongPtr"
     else:
         return type2java(param_type(p))
 
