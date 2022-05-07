@@ -60,7 +60,7 @@ namespace Microsoft.Z3
 	EqEh    diseq_eh;
 
 
-	unsafe static void _push(voidp ctx, Z3_solver_callback cb) {
+	static void _push(voidp ctx, Z3_solver_callback cb) {
 	   var gch = GCHandle.FromIntPtr(ctx);
 	   var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
@@ -74,13 +74,13 @@ namespace Microsoft.Z3
 	   prop.Pop(num_scopes);
 	}
 	
-	unsafe static voidp _fresh(voidp ctx, Z3_context new_context) {
+	static voidp _fresh(voidp ctx, Z3_context new_context) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   throw new Z3Exception("fresh is NYI");
 	}
 
-	unsafe static void _fixed(voidp ctx, Z3_solver_callback cb, Z3_ast _term, Z3_ast _value) {
+	static void _fixed(voidp ctx, Z3_solver_callback cb, Z3_ast _term, Z3_ast _value) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   var term = Expr.Create(prop.solver.Context, _term);
@@ -89,14 +89,14 @@ namespace Microsoft.Z3
 	   prop.fixed_eh(term, value);
 	}
 
-	unsafe static void _final(voidp ctx, Z3_solver_callback cb) {
+	static void _final(voidp ctx, Z3_solver_callback cb) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
 	   prop.final_eh();	
 	}
 
-	unsafe static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
+	static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   var s = Expr.Create(prop.solver.Context, a);
@@ -105,7 +105,7 @@ namespace Microsoft.Z3
 	   prop.eq_eh(s, t);
 	}
 
-	unsafe static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
+	static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   var s = Expr.Create(prop.solver.Context, a);
