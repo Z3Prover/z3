@@ -86,7 +86,7 @@ for (let file of files) {
   let apiLines = contents.split('\n').filter(l => /def_API|extra_API/.test(l));
   for (let line of apiLines) {
     let match = line.match(
-      /^\s*(?<def>def_API|extra_API) *\(\s*'(?<name>[A-Za-z0-9_]+)'\s*,\s*(?<ret>[A-Za-z0-9_]+)\s*,\s*\((?<params>((_in|_out|_in_array|_out_array|_inout_array)\([^)]+\)\s*,?\s*)*)\)\s*\)\s*$/,
+			   /^\s*(?<def>def_API|extra_API) *\(\s*'(?<name>[A-Za-z0-9_]+)'\s*,\s*(?<ret>[A-Za-z0-9_]+)\s*,\s*\((?<params>((_in|_out|_in_array|_out_array|_fnptr|_inout_array)\([^)]+\)\s*,?\s*)*)\)\s*\)\s*$/,
     );
     if (match == null) {
       throw new Error(`failed to match def_API call ${JSON.stringify(line)}`);
@@ -97,11 +97,12 @@ for (let file of files) {
     let parsedParams = [];
     while (true) {
       text = eatWs(text);
-      ({ text, match } = eat(text, /^_(?<kind>in|out|in_array|out_array|inout_array)\(/));
+      ({ text, match } = eat(text, /^_(?<kind>in|out|in_array|out_array|inout_array|fnptr)\(/));
       if (match == null) {
         break;
       }
       let kind = match.groups.kind;
+      if (kind == 'fnptr') kind = 'in_array'
       if (kind === 'inout_array') kind = 'in_array'; // https://github.com/Z3Prover/z3/discussions/5761
       if (kind === 'in' || kind === 'out') {
         ({ text, match } = expect(text, /^[A-Za-z0-9_]+/));
