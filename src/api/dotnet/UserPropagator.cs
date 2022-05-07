@@ -67,7 +67,7 @@ namespace Microsoft.Z3
 	   prop.Push();
 	}
 	
-	unsafe static void _pop(voidp ctx, Z3_solver_callback cb, uint num_scopes) {
+	static void _pop(voidp ctx, Z3_solver_callback cb, uint num_scopes) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
