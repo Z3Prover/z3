@@ -209,11 +209,13 @@ def param_array_size_pos(p):
 
 def param2str(p):
     if param_kind(p) == IN_ARRAY:
-        return "%s const *" % type2str(param_type(p))
-    elif param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == FN_PTR:
-        return "%s*" % type2str(param_type(p))
+        return f"{type2str(param_type(p))} const *" 
+    elif param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY:
+        return f"{type2str(param_type(p))}*" 
     elif param_kind(p) == OUT:
-        return "%s*" % type2str(param_type(p))
+        return f"{type2str(param_type(p))}*" 
+    elif param_kind(p) == FN_PTR:
+        return f"{type2str(param_type(p))}*"
     else:
         return type2str(param_type(p))
 
@@ -1112,7 +1114,7 @@ def def_API(name, result, params):
             log_c.write("  Ap(%s);\n" % sz_e)
             exe_c.write("reinterpret_cast<%s**>(in.get_obj_array(%s))" % (tstr, i))
         elif kind == FN_PTR:
-            log_c.write("  P(a%s);\n" % i)
+            log_c.write("//  P(a%s);\n" % i)
             exe_c.write("reinterpret_cast<%s>(in.get_obj(%s))" % (param2str(p), i))
         else:
             error ("unsupported parameter for %s, %s" % (name, p))
