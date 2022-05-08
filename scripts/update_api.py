@@ -1346,6 +1346,7 @@ z3_ml_overrides = frozenset([
 z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_init',
     'Z3_solver_propagate_fixed',
+    'Z3_solver_propagate_final',
     'Z3_solver_propagate_eq',
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created'
