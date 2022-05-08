@@ -105,6 +105,7 @@ public:
         get_opt(ctx, m_opt).add_soft_constraint(m_formula, weight, id);
         ctx.print_success();
         reset(ctx);
+        reset_params();
     }
 
     void finalize(cmd_context & ctx) override {

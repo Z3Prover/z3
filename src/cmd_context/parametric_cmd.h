@@ -34,6 +34,7 @@ public:
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & d) = 0;
     param_descrs const & pdescrs(cmd_context & ctx) const;
     params_ref const & ps() const { return m_params; }
+    void reset_params() { m_params.reset(); }
     virtual char const * get_main_descr() const = 0;
     char const * get_descr(cmd_context & ctx) const override;
     unsigned get_arity() const override { return VAR_ARITY; }
