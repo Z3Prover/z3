@@ -1332,6 +1332,25 @@ def ml_alloc_and_store(t, lhs, rhs):
         alloc_str = '%s = caml_alloc_custom(&%s, sizeof(%s), 0, 1); ' % (lhs, pops, pts)
         return alloc_str + ml_set_wrap(t, lhs, rhs)
 
+
+z3_long_funs = frozenset([
+    'Z3_solver_check',
+    'Z3_solver_check_assumptions',
+    'Z3_simplify',
+    'Z3_simplify_ex',
+    ])
+
+z3_ml_overrides = frozenset([
+    'Z3_mk_config'])
+
+z3_ml_callbacks = frozenset([
+    'Z3_solver_propagate_init',
+    'Z3_solver_propagate_fixed',
+    'Z3_solver_propagate_eq',
+    'Z3_solver_propagate_diseq',
+    'Z3_solver_propagate_created'
+    ])
+
 def mk_ml(ml_src_dir, ml_output_dir):
     global Type2Str
     ml_nativef  = os.path.join(ml_output_dir, 'z3native.ml')
@@ -1345,6 +1364,8 @@ def mk_ml(ml_src_dir, ml_output_dir):
 
     ml_native.write('\n')
     for name, result, params in _dotnet_decls:
+        if name in z3_ml_callbacks:
+            continue
         ml_native.write('external %s : ' % ml_method_name(name))
         ip = inparams(params)
         op = outparams(params)
@@ -1389,22 +1410,6 @@ def mk_ml(ml_src_dir, ml_output_dir):
 
     mk_z3native_stubs_c(ml_src_dir, ml_output_dir)
 
-z3_long_funs = frozenset([
-    'Z3_solver_check',
-    'Z3_solver_check_assumptions',
-    'Z3_simplify',
-    'Z3_simplify_ex',
-    ])
-
-z3_ml_overrides = frozenset([
-    'Z3_mk_config',
-    'Z3_solver_propagate_init',
-    'Z3_solver_propagate_fixed',
-    'Z3_solver_propagate_eq',
-    'Z3_solver_propagate_diseq',
-    'Z3_solver_propagate_created'
-    ])
-
 def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
@@ -1418,6 +1423,8 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     for name, result, params in _dotnet_decls:
 
         if name in z3_ml_overrides:
+            continue
+        if name in z3_ml_callbacks:
             continue
 
         ip = inparams(params)
