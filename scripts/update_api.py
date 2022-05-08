@@ -418,7 +418,7 @@ def mk_dotnet(dotnet):
         if "*" in sig or "*" in ret:
             continue
         dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
-        dotnet.write(f"        public delegate {ret} {name}({sig});\n")
+        dotnet.write('        public delegate %s %s(%s);\n' % (ret,name,sig))
     
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
