@@ -209,13 +209,13 @@ def param_array_size_pos(p):
 
 def param2str(p):
     if param_kind(p) == IN_ARRAY:
-        return f"{type2str(param_type(p))} const *" 
+        return "%s const *" % (type2str(param_type(p)))
     elif param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY:
-        return f"{type2str(param_type(p))}*" 
+        return "%s*" % (type2str(param_type(p))) 
     elif param_kind(p) == OUT:
-        return f"{type2str(param_type(p))}*" 
+        return "%s*" % (type2str(param_type(p))) 
     elif param_kind(p) == FN_PTR:
-        return f"{type2str(param_type(p))}*"
+        return "%s*" % (type2str(param_type(p))) 
     else:
         return type2str(param_type(p))
 
