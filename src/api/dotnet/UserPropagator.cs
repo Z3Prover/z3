@@ -87,14 +87,14 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
            var ctx = new Context(new_context);
            var prop1 = prop.Fresh(ctx);
-           return GCHandle.ToIntPtr(GCHandle.Alloc(prop1));
+           return GCHandle.ToIntPtr(prop1.gch);
 	}
 
 	static void _fixed(voidp ctx, Z3_solver_callback cb, Z3_ast _term, Z3_ast _value) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   using var term = Expr.Create(prop.solver.Context, _term);
-	   using var value = Expr.Create(prop.solver.Context, _value);
+	   using var term = Expr.Create(prop.ctx, _term);
+	   using var value = Expr.Create(prop.ctx, _value);
 	   prop.callback = cb;
 	   prop.fixed_eh(term, value);
            prop.callback = IntPtr.Zero;
@@ -111,8 +111,8 @@ namespace Microsoft.Z3
 	static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   using var s = Expr.Create(prop.solver.Context, a);
-	   using var t = Expr.Create(prop.solver.Context, b);
+	   using var s = Expr.Create(prop.ctx, a);
+	   using var t = Expr.Create(prop.ctx, b);
 	   prop.callback = cb;
 	   prop.eq_eh(s, t);
            prop.callback = IntPtr.Zero;
@@ -121,8 +121,8 @@ namespace Microsoft.Z3
 	static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   using var s = Expr.Create(prop.solver.Context, a);
-	   using var t = Expr.Create(prop.solver.Context, b);
+	   using var s = Expr.Create(prop.ctx, a);
+	   using var t = Expr.Create(prop.ctx, b);
 	   prop.callback = cb;
 	   prop.diseq_eh(s, t);
            prop.callback = IntPtr.Zero;
@@ -131,7 +131,7 @@ namespace Microsoft.Z3
 	static void _created(voidp ctx, Z3_solver_callback cb, Z3_ast a) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   using var t = Expr.Create(prop.solver.Context, a);
+	   using var t = Expr.Create(prop.ctx, a);
 	   prop.callback = cb;
 	   prop.created_eh(t);
            prop.callback = IntPtr.Zero;
@@ -152,9 +152,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Propagator constructor from a context. It is used from inside of Fresh.
         /// </summary>        
-        public UserPropagator(Context ctx)
+        public UserPropagator(Context _ctx)
 	{
-	    this.ctx = ctx;
+	    gch = GCHandle.Alloc(this);
+            solver = null;
+	    ctx = _ctx;
 	}
 
         /// <summary>
@@ -164,6 +166,8 @@ namespace Microsoft.Z3
 	{
             if (gch != null)
                 gch.Free();
+            if (solver == null)
+                ctx.Dispose();
  	}
 
         /// <summary>
