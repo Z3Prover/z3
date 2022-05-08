@@ -1397,7 +1397,12 @@ z3_long_funs = frozenset([
     ])
 
 z3_ml_overrides = frozenset([
-    'Z3_mk_config'
+    'Z3_mk_config',
+    'Z3_solver_propagate_init',
+    'Z3_solver_propagate_fixed',
+    'Z3_solver_propagate_eq',
+    'Z3_solver_propagate_diseq',
+    'Z3_solver_propagate_created'
     ])
 
 def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
