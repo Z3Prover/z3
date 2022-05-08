@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tactic for QF_LRI
+    Tactic for QF_LIA
 
 Author:
 
