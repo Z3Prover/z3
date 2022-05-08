@@ -15,7 +15,7 @@ Author:
     
 Notes:
 
-// Todo: fresh, created, declare user function, register_cb, decide, 
+// Todo: decide, 
 
 --*/
 
@@ -50,14 +50,20 @@ namespace Microsoft.Z3
         /// </summary>                
 	public delegate void EqEh(Expr term, Expr value);
 
+        /// <summary>
+        /// Delegate type for when a new term using a registered function symbol is created internally
+        /// </summary>                
+	public delegate void CreatedEh(Expr term);
 
 	Solver solver;
+	Context  ctx;
 	GCHandle gch;
-	Z3_solver_callback callback;
+	Z3_solver_callback callback = IntPtr.Zero;
 	FixedEh fixed_eh;
 	Action  final_eh;
 	EqEh    eq_eh;
 	EqEh    diseq_eh;
+	CreatedEh created_eh;
 
 
 	static void _push(voidp ctx, Z3_solver_callback cb) {
@@ -65,6 +71,7 @@ namespace Microsoft.Z3
 	   var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
 	   prop.Push();
+           prop.callback = IntPtr.Zero;
 	}
 	
 	static void _pop(voidp ctx, Z3_solver_callback cb, uint num_scopes) {
@@ -72,21 +79,25 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
 	   prop.Pop(num_scopes);
+           prop.callback = IntPtr.Zero;
 	}
 	
-	static voidp _fresh(voidp ctx, Z3_context new_context) {
-	   var gch = GCHandle.FromIntPtr(ctx);
+	static voidp _fresh(voidp _ctx, Z3_context new_context) {
+	   var gch = GCHandle.FromIntPtr(_ctx);
            var prop = (UserPropagator)gch.Target;
-	   throw new Z3Exception("fresh is NYI");
+           var ctx = new Context(new_context);
+           var prop1 = prop.Fresh(ctx);
+           return GCHandle.ToIntPtr(GCHandle.Alloc(prop1));
 	}
 
 	static void _fixed(voidp ctx, Z3_solver_callback cb, Z3_ast _term, Z3_ast _value) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   var term = Expr.Create(prop.solver.Context, _term);
-	   var value = Expr.Create(prop.solver.Context, _value);
+	   using var term = Expr.Create(prop.solver.Context, _term);
+	   using var value = Expr.Create(prop.solver.Context, _value);
 	   prop.callback = cb;
 	   prop.fixed_eh(term, value);
+           prop.callback = IntPtr.Zero;
 	}
 
 	static void _final(voidp ctx, Z3_solver_callback cb) {
@@ -94,24 +105,36 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
 	   prop.callback = cb;
 	   prop.final_eh();	
+           prop.callback = IntPtr.Zero;
 	}
 
 	static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   var s = Expr.Create(prop.solver.Context, a);
-	   var t = Expr.Create(prop.solver.Context, b);
+	   using var s = Expr.Create(prop.solver.Context, a);
+	   using var t = Expr.Create(prop.solver.Context, b);
 	   prop.callback = cb;
 	   prop.eq_eh(s, t);
+           prop.callback = IntPtr.Zero;
 	}
 
 	static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   var s = Expr.Create(prop.solver.Context, a);
-	   var t = Expr.Create(prop.solver.Context, b);
+	   using var s = Expr.Create(prop.solver.Context, a);
+	   using var t = Expr.Create(prop.solver.Context, b);
 	   prop.callback = cb;
 	   prop.diseq_eh(s, t);
+           prop.callback = IntPtr.Zero;
+	}
+
+	static void _created(voidp ctx, Z3_solver_callback cb, Z3_ast a) {
+	   var gch = GCHandle.FromIntPtr(ctx);
+           var prop = (UserPropagator)gch.Target;
+	   using var t = Expr.Create(prop.solver.Context, a);
+	   prop.callback = cb;
+	   prop.created_eh(t);
+           prop.callback = IntPtr.Zero;
 	}
 
         /// <summary>
@@ -121,8 +144,17 @@ namespace Microsoft.Z3
 	{
 	    gch = GCHandle.Alloc(this);
 	    solver = s;
+	    ctx = solver.Context;
 	    var cb = GCHandle.ToIntPtr(gch);
-	    Native.Z3_solver_propagate_init(solver.Context.nCtx, solver.NativeObject, cb, _push, _pop, _fresh);
+	    Native.Z3_solver_propagate_init(ctx.nCtx, solver.NativeObject, cb, _push, _pop, _fresh);
+	}
+
+        /// <summary>
+        /// Propagator constructor from a context. It is used from inside of Fresh.
+        /// </summary>        
+        public UserPropagator(Context ctx)
+	{
+	    this.ctx = ctx;
 	}
 
         /// <summary>
@@ -130,7 +162,8 @@ namespace Microsoft.Z3
         /// </summary>            
 	~UserPropagator()
 	{
-            gch.Free();
+            if (gch != null)
+                gch.Free();
  	}
 
         /// <summary>
@@ -152,7 +185,7 @@ namespace Microsoft.Z3
         /// Declare combination of assigned expressions a conflict
 	/// </summary>
 	void Conflict(params Expr[] terms) {
-	     Propagate(terms, solver.Context.MkFalse());
+	     Propagate(terms, ctx.MkFalse());
         }
 
         /// <summary>
@@ -160,7 +193,7 @@ namespace Microsoft.Z3
 	/// </summary>
         void Propagate(Expr[] terms, Expr conseq) {
 	     var nTerms = Z3Object.ArrayToNative(terms);
-	     Native.Z3_solver_propagate_consequence(solver.Context.nCtx, this.callback, (uint)nTerms.Length, nTerms, 0u, null, null, conseq.NativeObject);
+	     Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, 0u, null, null, conseq.NativeObject);
         }
 
 
@@ -172,7 +205,8 @@ namespace Microsoft.Z3
 	    set
 	    {
 	       this.fixed_eh = value;
-	       Native.Z3_solver_propagate_fixed(solver.Context.nCtx, solver.NativeObject, _fixed);
+               if (solver != null)
+                   Native.Z3_solver_propagate_fixed(ctx.nCtx, solver.NativeObject, _fixed);
 	    }
 	}
 
@@ -184,7 +218,8 @@ namespace Microsoft.Z3
 	    set
 	    {
 	       this.final_eh = value;
-	       Native.Z3_solver_propagate_final(solver.Context.nCtx, solver.NativeObject, _final);
+               if (solver != null)
+ 	          Native.Z3_solver_propagate_final(ctx.nCtx, solver.NativeObject, _final);
             }
         }
 
@@ -196,7 +231,8 @@ namespace Microsoft.Z3
            set
 	   {
  	      this.eq_eh = value;
-	      Native.Z3_solver_propagate_eq(solver.Context.nCtx, solver.NativeObject, _eq);
+              if (solver != null)
+  	         Native.Z3_solver_propagate_eq(ctx.nCtx, solver.NativeObject, _eq);
 	   }
         }
 
@@ -208,7 +244,21 @@ namespace Microsoft.Z3
            set
 	   {
  	      this.diseq_eh = value;
-	      Native.Z3_solver_propagate_diseq(solver.Context.nCtx, solver.NativeObject, _diseq);
+              if (solver != null)
+                 Native.Z3_solver_propagate_diseq(ctx.nCtx, solver.NativeObject, _diseq);
+	   }
+        }
+
+        /// <summary>
+        /// Set created callback
+	/// </summary>
+	public CreatedEh Created
+	{
+           set
+	   {
+ 	      this.created_eh = value;
+              if (solver != null)
+                  Native.Z3_solver_propagate_created(ctx.nCtx, solver.NativeObject, _created);
 	   }
         }
 
@@ -216,7 +266,12 @@ namespace Microsoft.Z3
         /// Track assignments to a term
 	/// </summary>
         public void Register(Expr term) {
-            Native.Z3_solver_propagate_register(solver.Context.nCtx, solver.NativeObject, term.NativeObject);
+            if (this.callback != IntPtr.Zero) {
+               Native.Z3_solver_propagate_register_cb(ctx.nCtx, callback, term.NativeObject);
+            }
+            else {
+               Native.Z3_solver_propagate_register(ctx.nCtx, solver.NativeObject, term.NativeObject);
+            }
         }	
     }
 }
