@@ -281,8 +281,8 @@ namespace array {
      * a = b or default(a) != default(b) or a[md(a,b)] != b[md(a,b)]
      */
     bool solver::assert_diff(expr* md) {
-        expr* x, *y;
-        SASSERT(a.is_maxdiff(md, x, y) || a.is_mindiff(md, x, y));
+        expr* x = nullptr, *y = nullptr;
+        VERIFY(a.is_maxdiff(md, x, y) || a.is_mindiff(md, x, y));
         expr* args1[2] = { x, md };
         expr* args2[2] = { y, md };
         literal eq = eq_internalize(x, y);

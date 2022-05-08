@@ -2699,7 +2699,7 @@ namespace pb {
                     }
                 }
                 ++m_stats.m_num_big_strengthenings;
-                constraint* c = add_pb_ge(sat::null_literal, wlits, b, p.learned());
+                add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 p.set_removed();
                 return;
             }

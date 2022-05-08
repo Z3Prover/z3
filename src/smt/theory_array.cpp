@@ -239,7 +239,6 @@ namespace smt {
     // 
     bool theory_array::internalize_term_core(app * n) {
         TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
-        unsigned num_args = n->get_num_args();
         for (expr* arg : *n)
             ctx.internalize(arg, false);
         // force merge-tf by re-internalizing expression.
