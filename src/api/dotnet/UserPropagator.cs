@@ -55,6 +55,14 @@ namespace Microsoft.Z3
         /// </summary>                
 	public delegate void CreatedEh(Expr term);
 
+        /// <summary>
+        /// Delegate type for callback into solver's branching
+	/// <param name="term">A bit-vector or Boolean used for branching</param>
+	/// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
+	/// <param name="phase">Set phase to -1 (false) or 1 (true) to override solver's phase</param>
+	/// </summary>                
+	public delegate void DecideEh(ref Expr term, ref uint idx, ref int phase);
+
 	Solver solver;
 	Context  ctx;
 	GCHandle gch;
@@ -64,6 +72,7 @@ namespace Microsoft.Z3
 	EqEh    eq_eh;
 	EqEh    diseq_eh;
 	CreatedEh created_eh;
+	DecideEh  decide_eh;
 
 
 	static void _push(voidp ctx, Z3_solver_callback cb) {
@@ -135,6 +144,20 @@ namespace Microsoft.Z3
 	   prop.callback = cb;
 	   prop.created_eh(t);
            prop.callback = IntPtr.Zero;
+	}
+
+	static void _decide(voidp ctx, Z3_solver_callback cb, ref Z3_ast a, ref uint idx, ref int phase) {
+	   var gch = GCHandle.FromIntPtr(ctx);
+           var prop = (UserPropagator)gch.Target;
+	   var t = Expr.Create(prop.ctx, a);
+	   var u = t;
+	   prop.callback = cb;
+	   prop.decide_eh(ref t, ref idx, ref phase);
+           prop.callback = IntPtr.Zero;
+	   if (u != t) {
+	       a = t.NativeObject;
+	   }
+	   t.Dispose();
 	}
 
         /// <summary>
@@ -263,6 +286,19 @@ namespace Microsoft.Z3
  	      this.created_eh = value;
               if (solver != null)
                   Native.Z3_solver_propagate_created(ctx.nCtx, solver.NativeObject, _created);
+	   }
+        }
+
+        /// <summary>
+        /// Set decision callback
+	/// </summary>
+	public DecideEh Decide
+	{
+           set
+	   {
+ 	      this.decide_eh = value;
+              if (solver != null)
+                  Native.Z3_solver_propagate_decide(ctx.nCtx, solver.NativeObject, _decide);
 	   }
         }
 

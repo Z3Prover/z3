@@ -6801,6 +6801,7 @@ extern "C" {
        In case the expression is a bitvector the bit to split on is determined by the bit argument and the 
        truth-value to try first is given by is_pos. In case the truth value is undefined the solver will decide.
 
+       def_API('Z3_solver_propagate_decide', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_decide_eh)))
     */
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
