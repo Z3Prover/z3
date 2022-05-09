@@ -255,7 +255,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, "bounds"); 
+            assign(lit, m_core, m_eqs, bounds_pragma()); 
         }
 
         if (should_refine_bounds() && first)

@@ -18,6 +18,7 @@ Notes:
 --*/
 
 #include "math/simplex/simplex.h"
+#include "math/simplex/sparse_matrix_ops.h"
 #include "math/simplex/sparse_matrix_def.h"
 #include "math/simplex/simplex_def.h"
 #include "util/rational.h"
@@ -36,6 +37,9 @@ namespace simplex {
         }
     }
 
+    void gauss_jordan(sparse_matrix<mpq_ext>& M) {
+        sparse_matrix_ops::gauss_jordan(M);
+    }
 
     void ensure_rational_solution(simplex<mpq_ext>& S) {
         rational delta(1);

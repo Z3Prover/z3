@@ -79,4 +79,17 @@ namespace arith {
         lp().settings().stats().collect_statistics(st);
         if (m_nla) m_nla->collect_statistics(st);
     }
+
+    char const* solver::bounds_pragma() {
+        if (!ctx.use_drat())
+            return nullptr;
+        m_bounds_pragma.clear();
+        m_bounds_pragma += "bounds ";
+        for (sat::literal c : m_core) {
+            if (c.sign()) m_bounds_pragma += "-";
+            m_bounds_pragma += std::to_string(c.var());
+            m_bounds_pragma += " ";
+        }
+        return m_bounds_pragma.c_str();
+    }
 }

@@ -419,6 +419,9 @@ namespace arith {
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
+        std::string m_bounds_pragma;
+        char const* bounds_pragma();
+
 
     public:
         solver(euf::solver& ctx, theory_id id);

@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #define R rational
 typedef simplex::simplex<simplex::mpz_ext> Simplex;
 typedef simplex::sparse_matrix<simplex::mpz_ext> sparse_matrix;
+typedef simplex::sparse_matrix<simplex::mpq_ext> qmatrix;
 
 static vector<R> vec(int i, int j) {
     vector<R> nv;
@@ -24,11 +25,11 @@ static vector<R> vec(int i, int j) {
     return nv;
 }
 
-// static vector<R> vec(int i, int j, int k) {
-//     vector<R> nv = vec(i, j);
-//     nv.push_back(R(k));
-//     return nv;
-// }
+static vector<R> vec(int i, int j, int k) {
+     vector<R> nv = vec(i, j);
+     nv.push_back(R(k));
+     return nv;
+}
 
 // static vector<R> vec(int i, int j, int k, int l) {
 //     vector<R> nv = vec(i, j, k);
@@ -131,6 +132,25 @@ static void test4() {
     feas(S);
 }
 
+static void add(qmatrix& m, vector<R> const& v) {
+    m.ensure_var(v.size());
+    auto r = m.mk_row();
+    for (unsigned u = 0; u < v.size(); ++u)
+        m.add_var(r, v[u].to_mpq(), u);
+}
+
+static void test5() {
+    unsynch_mpq_manager m;
+    qmatrix M(m);
+    add(M, vec(1, 2, 3));
+    add(M, vec(2, 2, 4));    
+    M.display(std::cout);
+    gauss_jordan(M);
+    std::cout << "after\n";
+    M.display(std::cout);
+
+}
+
 void tst_simplex() {
     reslimit rl; Simplex S(rl);
 
@@ -166,4 +186,5 @@ void tst_simplex() {
     test2();
     test3();
     test4();
+    test5();
 }
