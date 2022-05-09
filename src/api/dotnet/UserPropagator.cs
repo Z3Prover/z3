@@ -153,10 +153,8 @@ namespace Microsoft.Z3
 	   prop.callback = cb;
 	   prop.decide_eh(ref t, ref idx, ref phase);
            prop.callback = IntPtr.Zero;
-	   if (u != t) {
+	   if (u != t) 
 	       a = t.NativeObject;
-	   }
-	   t.Dispose();
 	}
 
         /// <summary>
@@ -203,9 +201,9 @@ namespace Microsoft.Z3
 	public virtual void Pop(uint n) { throw new Z3Exception("Pop method should be overwritten"); } 
 
         /// <summary>
-        /// Virtual method for fresh. It must be overwritten by inherited class.
+        /// Virtual method for fresh. It can be overwritten by inherited class.
 	/// </summary>
-	public virtual UserPropagator Fresh(Context ctx) { throw new Z3Exception("Fresh method should be overwritten"); }
+	public virtual UserPropagator Fresh(Context ctx) { return new UserPropagator(ctx); }
 
         /// <summary>
         /// Declare combination of assigned expressions a conflict
