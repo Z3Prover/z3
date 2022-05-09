@@ -329,12 +329,26 @@ void to_real(expr_ref &fml) {
 namespace spacer {
 lemma_global_generalizer::subsumer::subsumer(ast_manager &a_m, bool use_sage,
                                              bool ground_pob)
-    : m(a_m), m_arith(m), m_bv(m), m_cvx_cls(m, use_sage), m_dim_frsh_cnsts(m),
-      m_dim_vars(m), m_ground_pob(ground_pob) {
+    : m(a_m), m_arith(m), m_bv(m), m_tags(m), m_used_tags(0),
+      m_cvx_cls(m, use_sage), m_dim_frsh_cnsts(m), m_dim_vars(m),
+      m_ground_pob(ground_pob) {
     scoped_ptr<solver_factory> factory(
         mk_smt_strategic_solver_factory(symbol::null));
     m_solver = (*factory)(m, params_ref::get_empty(), false, true, false,
                           symbol::null);
+}
+
+app *lemma_global_generalizer::subsumer::mk_fresh_tag() {
+    if (m_used_tags == m_tags.size()) {
+        auto *bool_sort = m.mk_bool_sort();
+        // -- create 4 new tags
+        m_tags.push_back(m.mk_fresh_const(symbol("t"), bool_sort));
+        m_tags.push_back(m.mk_fresh_const(symbol("t"), bool_sort));
+        m_tags.push_back(m.mk_fresh_const(symbol("t"), bool_sort));
+        m_tags.push_back(m.mk_fresh_const(symbol("t"), bool_sort));
+    }
+
+    return m_tags.get(m_used_tags++);
 }
 
 lemma_global_generalizer::lemma_global_generalizer(context &ctx)
@@ -474,7 +488,7 @@ bool lemma_global_generalizer::subsumer::maxsat_with_model(
     expr_ref_buffer tags(m);
     lbool res;
     if (is_ground(soft)) {
-        tags.push_back(m.mk_fresh_const("get_mdl_assump", m.mk_bool_sort()));
+        tags.push_back(mk_fresh_tag());
         m_solver->assert_expr(m.mk_implies(tags.back(), soft));
     }
 
@@ -511,6 +525,9 @@ bool lemma_global_generalizer::subsumer::is_handled(const lemma_cluster &lc) {
 }
 
 void lemma_global_generalizer::subsumer::setup(const lemma_cluster &lc) {
+
+    m_used_tags = 0;
+
     unsigned n_vars = get_num_vars(lc.get_pattern());
     m_cvx_cls.reset(n_vars);
 
@@ -670,8 +687,7 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
     expr_ref_vector tags(m), tagged_a(m);
     std::string tag_prefix = "o";
     for (auto *lit : a) {
-        // AG: use local constants instead of global mk_fresh_const
-        tags.push_back(m.mk_fresh_const(symbol(tag_prefix), m.mk_bool_sort()));
+        tags.push_back(mk_fresh_tag());
         tagged_a.push_back(m.mk_implies(tags.back(), lit));
     }
 
@@ -892,7 +908,8 @@ pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
         pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
                                      mk_and(new_post), n.get_binding());
 
-        TRACE("concretize", tout << "pob:\n" << mk_pp(n.post(), m)
+        TRACE("concretize", tout << "pob:\n"
+                                 << mk_pp(n.post(), m)
                                  << " is concretized into:\n"
                                  << mk_pp(new_pob->post(), m) << "\n";);
         return new_pob;

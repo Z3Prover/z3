@@ -50,6 +50,11 @@ class lemma_global_generalizer : public lemma_generalizer {
         arith_util m_arith;
         bv_util m_bv;
 
+        // boolean variables used as local tags
+        app_ref_vector m_tags;
+        // number of tags currently used
+        unsigned m_used_tags;
+
         // convex closure interface
         convex_closure m_cvx_cls;
 
@@ -65,6 +70,9 @@ class lemma_global_generalizer : public lemma_generalizer {
         // Local solver to get model for computing mbp and to check whether
         // cvx_cls  ==> mbp
         ref<solver> m_solver;
+
+        /// Return a fresh boolean variable
+        app *mk_fresh_tag();
 
         /// Prepare internal state for computing subsumption
         void setup(const lemma_cluster &lc);
@@ -163,7 +171,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Done by dropping literal \p lit from
     /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for
     /// the conjecture pob returns true if conjecture is set
-    bool do_conjecture(pob_ref &n, const expr_ref &lit, unsigned lvl, unsigned gas);
+    bool do_conjecture(pob_ref &n, const expr_ref &lit, unsigned lvl,
+                       unsigned gas);
 
     /// Enable/disable subsume rule
     bool m_do_subsume;
