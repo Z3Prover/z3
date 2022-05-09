@@ -250,6 +250,16 @@ class clean(_clean):
 #try: os.makedirs(os.path.join(ROOT_DIR, 'build'))
 #except OSError: pass
 
+# platform.freedesktop_os_release was added in 3.10
+os_id = ''
+if hasattr(platform, 'freedesktop_os_release'):
+    try:
+        osr = platform.freedesktop_os_release()
+        print(osr)
+        os_id = osr['ID']
+    except OSError:
+        pass
+
 if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
     if RELEASE_DIR is None:
         name = get_platform()
@@ -271,13 +281,20 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         # extract the architecture of the release from the directory name
         arch = RELEASE_METADATA[1]
         distos = RELEASE_METADATA[2]
-        if distos in ('debian', 'ubuntu') or 'linux' in distos:
-            raise Exception("Linux binary distributions must be built on centos to conform to PEP 513")
+        if distos in ('debian', 'ubuntu'):
+            raise Exception(
+                "Linux binary distributions must be built on centos to conform to PEP 513 or alpine if targetting musl"
+            )
         elif distos == 'glibc':
             if arch == 'x64':
                 plat_name = 'manylinux1_x86_64'
             else:
                 plat_name = 'manylinux1_i686'
+        elif distos == 'linux' and os_id == 'alpine':
+            if arch == 'x64':
+                plat_name = 'musllinux_1_1_x86_64'
+            else:
+                plat_name = 'musllinux_1_1_i686'
         elif distos == 'win':
             if arch == 'x64':
                 plat_name = 'win_amd64'
