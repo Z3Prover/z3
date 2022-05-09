@@ -37,8 +37,8 @@ namespace simplex {
         }
     }
 
-    void gauss_jordan(sparse_matrix<mpq_ext>& M) {
-        sparse_matrix_ops::gauss_jordan(M);
+    void kernel(sparse_matrix<mpq_ext>& M, vector<vector<mpq>>& K) {
+        sparse_matrix_ops::kernel(M, K);
     }
 
     void ensure_rational_solution(simplex<mpq_ext>& S) {

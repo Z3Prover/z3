@@ -201,6 +201,6 @@ namespace simplex {
 
     void ensure_rational_solution(simplex<mpq_ext>& s);
 
-    void gauss_jordan(sparse_matrix<mpq_ext>& s);
+    void kernel(sparse_matrix<mpq_ext>& s, vector<vector<mpq>>& K);
 };
 
