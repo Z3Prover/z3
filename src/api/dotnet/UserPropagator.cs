@@ -73,21 +73,30 @@ namespace Microsoft.Z3
 	CreatedEh created_eh;
 	DecideEh  decide_eh;
 
+	void Callback(Action fn, Z3_solver_callback cb) {
+	    this.callback = cb;
+	    try {	    
+	        fn();
+	    }
+	    catch {
+	        // TBD: add debug log or exception handler		
+	    }
+	    finally {
+	       this.callback = IntPtr.Zero;
+	    }
+	}
+
 
 	static void _push(voidp ctx, Z3_solver_callback cb) {
 	   var gch = GCHandle.FromIntPtr(ctx);
 	   var prop = (UserPropagator)gch.Target;
-	   prop.callback = cb;
-	   prop.Push();
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.Push(), cb);
 	}
 	
 	static void _pop(voidp ctx, Z3_solver_callback cb, uint num_scopes) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   prop.callback = cb;
-	   prop.Pop(num_scopes);
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.Pop(num_scopes), cb);
 	}
 	
 	static voidp _fresh(voidp _ctx, Z3_context new_context) {
@@ -103,17 +112,13 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
 	   using var term = Expr.Create(prop.ctx, _term);
 	   using var value = Expr.Create(prop.ctx, _value);
-	   prop.callback = cb;
-	   prop.fixed_eh(term, value);
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.fixed_eh(term, value), cb);
 	}
 
 	static void _final(voidp ctx, Z3_solver_callback cb) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
-	   prop.callback = cb;
-	   prop.final_eh();	
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.final_eh(), cb);
 	}
 
 	static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
@@ -121,9 +126,7 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
 	   using var s = Expr.Create(prop.ctx, a);
 	   using var t = Expr.Create(prop.ctx, b);
-	   prop.callback = cb;
-	   prop.eq_eh(s, t);
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.eq_eh(s, t), cb);
 	}
 
 	static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
@@ -131,18 +134,14 @@ namespace Microsoft.Z3
            var prop = (UserPropagator)gch.Target;
 	   using var s = Expr.Create(prop.ctx, a);
 	   using var t = Expr.Create(prop.ctx, b);
-	   prop.callback = cb;
-	   prop.diseq_eh(s, t);
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.diseq_eh(s, t), cb);
 	}
 
 	static void _created(voidp ctx, Z3_solver_callback cb, Z3_ast a) {
 	   var gch = GCHandle.FromIntPtr(ctx);
            var prop = (UserPropagator)gch.Target;
 	   using var t = Expr.Create(prop.ctx, a);
-	   prop.callback = cb;
-	   prop.created_eh(t);
-           prop.callback = IntPtr.Zero;
+	   prop.Callback(() => prop.created_eh(t), cb);
 	}
 
 	static void _decide(voidp ctx, Z3_solver_callback cb, ref Z3_ast a, ref uint idx, ref int phase) {
@@ -152,7 +151,7 @@ namespace Microsoft.Z3
 	   var u = t;
 	   prop.callback = cb;
 	   prop.decide_eh(ref t, ref idx, ref phase);
-           prop.callback = IntPtr.Zero;
+	   prop.callback = IntPtr.Zero;
 	   if (u != t) 
 	       a = t.NativeObject;
 	}

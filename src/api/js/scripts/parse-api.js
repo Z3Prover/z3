@@ -54,7 +54,8 @@ let types = {
   Z3_fixed_eh: 'Z3_fixed_eh',
   Z3_eq_eh: 'Z3_eq_eh',
   Z3_final_eh: 'Z3_final_eh',
-  Z3_created_eh: 'Z3_created_eh',
+    Z3_created_eh: 'Z3_created_eh',
+    Z3_decide_eh: 'Z3_decide_eh'
 };
 
 let defApis = Object.create(null);
