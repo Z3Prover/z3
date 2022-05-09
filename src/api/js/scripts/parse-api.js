@@ -44,16 +44,16 @@ let optTypes = {
 
 // parse type declarations
 let types = {
-  __proto__: null,
+    __proto__: null,
 
-  // these are function types I can't be bothered to parse
-  Z3_error_handler: 'Z3_error_handler',
-  Z3_push_eh: 'Z3_push_eh',
-  Z3_pop_eh: 'Z3_pop_eh',
-  Z3_fresh_eh: 'Z3_fresh_eh',
-  Z3_fixed_eh: 'Z3_fixed_eh',
-  Z3_eq_eh: 'Z3_eq_eh',
-  Z3_final_eh: 'Z3_final_eh',
+    // these are function types I can't be bothered to parse
+    Z3_error_handler: 'Z3_error_handler',
+    Z3_push_eh: 'Z3_push_eh',
+    Z3_pop_eh: 'Z3_pop_eh',
+    Z3_fresh_eh: 'Z3_fresh_eh',
+    Z3_fixed_eh: 'Z3_fixed_eh',
+    Z3_eq_eh: 'Z3_eq_eh',
+    Z3_final_eh: 'Z3_final_eh',
     Z3_created_eh: 'Z3_created_eh',
     Z3_decide_eh: 'Z3_decide_eh'
 };
@@ -82,6 +82,12 @@ for (let file of files) {
   for (let { groups } of typeMatches) {
     pytypes[groups.name] = groups.cname;
   }
+
+  // we don't have to pre-populate the types map with closure types
+  // use the Z3_DECLARE_CLOSURE to identify closure types
+  // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
+  //   types[match.groups.type] = match.groups.type
+  // }
 
   // we filter first to ensure our regex isn't too strict
   let apiLines = contents.split('\n').filter(l => /def_API|extra_API/.test(l));
@@ -132,11 +138,6 @@ for (let file of files) {
     types[match.groups.type] = match.groups.type;
   }
 
-  // we don't have to pre-populate the types map with closure types
-  // use the Z3_DECLARE_CLOSURE to identify closure types
-  // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
-  //   types[match.groups.type] = match.groups.type
-  // }
 
   // parse enum declarations
   for (let idx = 0; idx < contents.length; ) {
