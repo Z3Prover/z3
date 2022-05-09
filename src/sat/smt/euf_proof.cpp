@@ -166,7 +166,7 @@ namespace euf {
             lits.push_back(jst.lit_consequent());
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
-        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
+        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
     }
 
     void solver::drat_eq_def(literal lit, expr* eq) {

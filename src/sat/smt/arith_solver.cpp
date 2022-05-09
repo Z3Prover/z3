@@ -194,11 +194,8 @@ namespace arith {
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
-        m_params.push_back(parameter(m_farkas));
-        m_params.push_back(parameter(rational(1)));
-        m_params.push_back(parameter(rational(1)));
         TRACE("arith", tout << lit2 << " <- " << m_core << "\n";);
-        assign(lit2, m_core, m_eqs, m_params);
+        assign(lit2, m_core, m_eqs, "farkas 1 1");
         ++m_stats.m_bounds_propagations;
     }
 
@@ -239,13 +236,11 @@ namespace arith {
         bool first = true;
         for (unsigned i = 0; i < bounds.size(); ++i) {
             api_bound* b = bounds[i];
-            if (s().value(b->get_lit()) != l_undef) {
+            if (s().value(b->get_lit()) != l_undef) 
                 continue;
-            }
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
-            if (lit == sat::null_literal) {
+            if (lit == sat::null_literal) 
                 continue;
-            }
             TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
 
             lp().settings().stats().m_num_of_implied_bounds++;
@@ -260,7 +255,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, m_params);
+            assign(lit, m_core, m_eqs, "bounds"); 
         }
 
         if (should_refine_bounds() && first)
@@ -297,7 +292,7 @@ namespace arith {
 
 
     void solver::consume(rational const& v, lp::constraint_index j) {
-        set_evidence(j, m_core, m_eqs);
+        set_evidence(j);
         m_explanation.add_pair(j, v);
     }
 
@@ -318,7 +313,7 @@ namespace arith {
             return false;
         reset_evidence();
         for (auto ev : e)
-            set_evidence(ev.ci(), m_core, m_eqs);
+            set_evidence(ev.ci());
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
         ctx.propagate(n1, n2, jst->to_index());
         return true;
@@ -375,7 +370,7 @@ namespace arith {
         reset_evidence();
         m_explanation.clear();
         lp().explain_implied_bound(be, m_bp);
-        assign(bound, m_core, m_eqs, m_params);
+        assign(bound, m_core, m_eqs, nullptr);
     }
 
 
@@ -748,10 +743,10 @@ namespace arith {
 
         ++m_stats.m_fixed_eqs;
         reset_evidence();
-        set_evidence(ci1, m_core, m_eqs);
-        set_evidence(ci2, m_core, m_eqs);
-        set_evidence(ci3, m_core, m_eqs);
-        set_evidence(ci4, m_core, m_eqs);
+        set_evidence(ci1);
+        set_evidence(ci2);
+        set_evidence(ci3);
+        set_evidence(ci4);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
@@ -1161,13 +1156,13 @@ namespace arith {
             // m_explanation implies term <= k
             reset_evidence();
             for (auto ev : m_explanation)
-                set_evidence(ev.ci(), m_core, m_eqs);
+                set_evidence(ev.ci());
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, m_params);
+            assign(lit, m_core, m_eqs, nullptr);
             lia_check = l_false;
             break;
         }
@@ -1189,20 +1184,16 @@ namespace arith {
         return lia_check;
     }
 
-    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params) {
-        std::cout << "assign: ";
-        for (auto const& p : params)
-            std::cout << p << " ";
-        std::cout << "\n";
+    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, char const* pma) {        
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core)
                 m_core2.push_back(~c);
             m_core2.push_back(lit);
-            add_clause(m_core2);
+            add_clause(m_core2, pma);
         }
         else {
-            auto* jst = euf::th_explain::propagate(*this, core, eqs, lit);
+            auto* jst = euf::th_explain::propagate(*this, core, eqs, lit, pma);
             ctx.propagate(lit, jst->to_index());
         }
     }
@@ -1225,7 +1216,7 @@ namespace arith {
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         for (auto ev : m_explanation)
-            set_evidence(ev.ci(), m_core, m_eqs);
+            set_evidence(ev.ci());
         TRACE("arith",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
             for (literal c : m_core) tout << literal2expr(c) << "\n";
@@ -1247,7 +1238,7 @@ namespace arith {
         return lp().get_status() == lp::lp_status::INFEASIBLE;
     }
 
-    void solver::set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
+    void solver::set_evidence(lp::constraint_index idx) {
         if (idx == UINT_MAX) {
             return;
         }
@@ -1255,7 +1246,7 @@ namespace arith {
         case inequality_source: {
             literal lit = m_inequalities[idx];
             SASSERT(lit != sat::null_literal);
-            core.push_back(lit);
+            m_core.push_back(lit);
             break;
         }
         case equality_source:

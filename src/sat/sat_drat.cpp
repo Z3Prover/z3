@@ -137,6 +137,14 @@ namespace sat {
             }
         }
         buffer[len++] = '0';
+        if (st.get_pragma()) {
+            buffer[len++] = ' ';
+            buffer[len++] = 'p';
+            buffer[len++] = ' ';
+            char const* ps = st.get_pragma();
+            while (*ps) 
+                buffer[len++] = *ps++;
+        }
         buffer[len++] = '\n';
         m_out->write(buffer, len);
 
