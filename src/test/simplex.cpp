@@ -145,7 +145,7 @@ static void test5() {
     add(M, vec(1, 2, 3));
     add(M, vec(2, 2, 4));    
     M.display(std::cout);
-    vector<vector<mpq>> K;
+    vector<vector<rational>> K;
     kernel(M, K);
     std::cout << "after\n";
     M.display(std::cout);

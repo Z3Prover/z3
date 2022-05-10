@@ -37,7 +37,7 @@ namespace simplex {
         }
     }
 
-    void kernel(sparse_matrix<mpq_ext>& M, vector<vector<mpq>>& K) {
+    void kernel(sparse_matrix<mpq_ext>& M, vector<vector<rational>>& K) {
         sparse_matrix_ops::kernel(M, K);
     }
 
