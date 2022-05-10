@@ -221,13 +221,13 @@ namespace simplex {
             friend class sparse_matrix;
             unsigned             m_curr;
             column const&        m_col;
-            vector<_row> const&  m_rows;
+            vector<_row>&        m_rows;
             void move_to_used() {
                 while (m_curr < m_col.num_entries() && m_col.m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
             }
-            col_iterator(column const& c, vector<_row> const& r, bool begin): 
+            col_iterator(column const& c, vector<_row>& r, bool begin): 
                 m_curr(0), m_col(c), m_rows(r) {
                 ++m_col.m_refs;
                 if (begin) {
@@ -245,21 +245,21 @@ namespace simplex {
             row get_row() const { 
                 return row(m_col.m_entries[m_curr].m_row_id); 
             }
-            row_entry const& get_row_entry() const {
+            row_entry& get_row_entry() {
                 col_entry const& c = m_col.m_entries[m_curr];
                 int row_id = c.m_row_id;
                 return m_rows[row_id].m_entries[c.m_row_idx];
             }
 
-            std::pair<row, row_entry const*> operator*() { return std::make_pair(get_row(), &get_row_entry()); }
+            std::pair<row, row_entry*> operator*() { return std::make_pair(get_row(), &get_row_entry()); }
             col_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
             col_iterator operator++(int) { col_iterator tmp = *this; ++*this; return tmp; }
             bool operator==(col_iterator const & it) const { return m_curr == it.m_curr; }
             bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; }           
         };
 
-        col_iterator col_begin(int v) const { return col_iterator(m_columns[v], m_rows, true); }
-        col_iterator col_end(int v) const { return col_iterator(m_columns[v], m_rows, false); }
+        col_iterator col_begin(int v) { return col_iterator(m_columns[v], m_rows, true); }
+        col_iterator col_end(int v) { return col_iterator(m_columns[v], m_rows, false); }
 
         class var_rows {
             friend class sparse_matrix;
@@ -305,6 +305,13 @@ namespace simplex {
 
 
         all_rows get_rows() { return all_rows(*this); }
+
+        numeral& get_coeff(row r, unsigned v) {
+            for (auto & [coeff, u] : get_row(r)) 
+                if (u == v) 
+                    return coeff;
+            throw default_exception("variable not in row");
+        }
         
 
         void display(std::ostream& out);

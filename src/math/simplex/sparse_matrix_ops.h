@@ -27,7 +27,7 @@ namespace simplex {
     public:
         static void kernel(sparse_matrix<mpq_ext>& M, vector<vector<rational>>& K) {
             mpq_ext::numeral coeff;
-            rational D1, D2;
+            rational D;
             vector<unsigned> d, c;
             unsigned m = M.num_vars();
             auto& mgr = M.get_manager();
@@ -45,27 +45,26 @@ namespace simplex {
                         continue;
                     d.back() = v + 1;
                     c[v] = row.id() + 1;
-                    D1 = rational(-1) / coeff1;
+                    D = rational(-1) / coeff1;
                     mgr.set(coeff1, mpq(-1));
                     // eliminate v from other rows.
-                    for (auto const& [row2, row_entry2] : M.get_rows(v)) {
-                        if (row.id() >= row2.id() || row_entry2->m_coeff == 0)
+                    for (auto& [row2, row_entry2] : M.get_rows(v)) {
+                        if (row.id() >= row2.id())
                             continue;
-                        for (auto& [coeff2, w] : M.get_row(row2)) {
-                            if (v == w)
-                                mgr.set(coeff2, (D1*coeff2).to_mpq());
-                        }                        
+                        mpq & m_js = row_entry2->m_coeff;
+                        mgr.set(m_js, (D * m_js).to_mpq());
                     }
-                    
-                    for (auto& [coeff2, w] : M.get_row(row)) {
+                    for (auto& [m_ik, w] : M.get_row(row)) {
                         if (v == w)
                             continue;
-                        D2 = coeff2;
-                        mgr.set(coeff2, mpq(0));
-                        for (auto const& [row2, row_entry2] : M.get_rows(w)) {
-                            if (row.id() >= row2.id() || row_entry2->m_coeff == 0 || row_entry2->m_var == v)
+                        D = m_ik;
+                        mgr.set(m_ik, mpq(0));
+                        for (auto& [row2, row_entry2] : M.get_rows(w)) {
+                            if (row.id() >= row2.id())
                                 continue;
-                            // mgr.set(row_entry2->m_coeff, row_entry2->m_coeff + D2*row2[v]);
+                            auto& m_js = M.get_coeff(row2, v);
+                            auto & m_is = row_entry2->m_coeff;
+                            mgr.set(m_is, (m_is + D * m_js).to_mpq());
                         }
                     }
                     break;
@@ -79,8 +78,15 @@ namespace simplex {
                 if (d[k] != 0)
                     continue;
                 K.push_back(vector<rational>());
-                for (unsigned i = 0; i < d.size(); ++i) {                    
-                    // K.back().push_back(d[i] > 0 ? M[d[i]-1][k] : (i == k) ? 1 : 0);
+                for (unsigned i = 0; i < d.size(); ++i) {
+                    if (d[i] > 0) {
+                        // row r = row(i);
+                        // K.back().push_back(M[d[i]-1][k]);
+                    }
+                    else if (i == k)
+                        K.back().push_back(rational(1));
+                    else
+                        K.back().push_back(rational(0));
                 }
             }
 
