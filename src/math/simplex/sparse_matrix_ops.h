@@ -33,22 +33,26 @@ namespace simplex {
             auto& mgr = M.get_manager();
             for (unsigned v = 0; v < m; ++v)
                 c.push_back(0);
-            
+
+            unsigned nullity = 0, rank = 0;
             for (auto const& row : M.get_rows()) {
                 // scan for non-zero variable in row
                 bool found = false;
                 d.push_back(0);
+                ++nullity;
                 for (auto& [coeff1, v] : M.get_row(row)) {
                     if (mpq_manager<false>::is_zero(coeff1))
                         continue;
                     if (c[v] != 0)
                         continue;
+                    --nullity;
+                    ++rank;
                     d.back() = v + 1;
                     c[v] = row.id() + 1;
                     D = rational(-1) / coeff1;
                     mgr.set(coeff1, mpq(-1));
                     // eliminate v from other rows.
-                    for (auto& [row2, row_entry2] : M.get_rows(v)) {
+                    for (auto [row2, row_entry2] : M.get_rows(v)) {
                         if (row.id() >= row2.id())
                             continue;
                         mpq & m_js = row_entry2->m_coeff;
@@ -59,7 +63,7 @@ namespace simplex {
                             continue;
                         D = m_ik;
                         mgr.set(m_ik, mpq(0));
-                        for (auto& [row2, row_entry2] : M.get_rows(w)) {
+                        for (auto [row2, row_entry2] : M.get_rows(w)) {
                             if (row.id() >= row2.id())
                                 continue;
                             auto& m_js = M.get_coeff(row2, v);
@@ -72,6 +76,13 @@ namespace simplex {
             }
 
             mgr.del(coeff);
+
+            std::cout << "nullity " << nullity << "\n";
+            std::cout << "rank " << rank << "\n";
+            unsigned_vector pivots(rank, 0u);
+            unsigned_vector nonpivots(nullity, 0u);
+
+            
 
             // TODO: extract kernel using d
             for (unsigned k = 0; k < d.size(); ++k) {
