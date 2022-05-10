@@ -136,6 +136,7 @@ namespace simplex {
         svector<int>            m_var_pos;          // temporary map from variables to positions in row
         unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
         stats                   m_stats;
+        scoped_numeral          m_zero;
 
         bool well_formed_row(unsigned row_id) const;
         bool well_formed_column(unsigned column_id) const;
@@ -144,7 +145,7 @@ namespace simplex {
 
     public:
 
-        sparse_matrix(manager& _m): m(_m) {}
+        sparse_matrix(manager& _m): m(_m), m_zero(m) {}
         ~sparse_matrix();
         void reset();
         
@@ -216,6 +217,7 @@ namespace simplex {
         unsigned column_size(var_t v) const { return m_columns[v].size(); }
 
         unsigned num_vars() const { return m_columns.size(); }
+        unsigned num_rows() const { return m_rows.size(); }
 
         class col_iterator {
             friend class sparse_matrix;
@@ -306,11 +308,11 @@ namespace simplex {
 
         all_rows get_rows() { return all_rows(*this); }
 
-        numeral& get_coeff(row r, unsigned v) {
+        numeral const& get_coeff(row r, unsigned v) {
             for (auto & [coeff, u] : get_row(r)) 
                 if (u == v) 
                     return coeff;
-            throw default_exception("variable not in row");
+            return m_zero;
         }
         
 
