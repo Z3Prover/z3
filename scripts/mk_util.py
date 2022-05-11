@@ -2599,6 +2599,7 @@ def mk_config():
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
             CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_NETBSD_'
