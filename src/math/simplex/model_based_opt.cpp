@@ -489,6 +489,8 @@ namespace opt {
         if (m_type == t_mod)
             return *this;
         rational D(abs(m_coeff));
+        if (D == 0)
+            D = 1;
         for (auto const& [id, coeff] : m_vars)
             if (coeff != 0)
                 D = lcm(D, abs(coeff));
