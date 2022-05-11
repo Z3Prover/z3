@@ -490,7 +490,7 @@ namespace opt {
             return *this;
         rational D(abs(m_coeff));
         for (auto const& [id, coeff] : m_vars)
-            D = lcm(D, coeff);
+            D = lcm(D, abs(coeff));
         if (D == 1)
             return *this;
         SASSERT(D > 0);
