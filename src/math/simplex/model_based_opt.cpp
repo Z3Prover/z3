@@ -485,6 +485,21 @@ namespace opt {
         }
     }
 
+    model_based_opt::row& model_based_opt::row::normalize() {
+        if (m_type == t_mod)
+            return *this;
+        rational D(abs(m_coeff));
+        for (auto const& [id, coeff] : m_vars)
+            D = lcm(D, coeff);
+        if (D == 1)
+            return *this;
+        SASSERT(D > 0);
+        for (auto & [id, coeff] : m_vars)
+            coeff *= D;
+        m_coeff *= D;
+        return *this;
+    }
+
     // 
     // Let
     //   row1: t1 + a1*x <= 0
@@ -923,9 +938,9 @@ namespace opt {
     }
 
     void model_based_opt::get_live_rows(vector<row>& rows) {
-        for (row const& r : m_rows) {
+        for (row & r : m_rows) {
             if (r.m_alive) {
-                rows.push_back(r);
+                rows.push_back(r.normalize());
             }
         }
     }
