@@ -101,6 +101,7 @@ namespace api {
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);
+        std::cout << "alloc\n";
     }
 
 
@@ -113,6 +114,7 @@ namespace api {
         }
         if (m_params.owns_manager())
             m_manager.detach();
+        std::cout << "dealloc " << memory::get_allocation_size() << "\n";
     }
 
     context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
