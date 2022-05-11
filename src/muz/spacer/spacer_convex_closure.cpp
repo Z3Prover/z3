@@ -63,10 +63,10 @@ namespace spacer {
 void convex_closure::reset(unsigned n_cols) {
     m_kernel.reset();
     m_data.reset(n_cols);
-    m_dim_vars.reset();
+    m_col_vars.reset();
     m_dim = n_cols;
-    m_dim_vars.reserve(m_dim);
-    m_new_vars.reset();
+    m_col_vars.reserve(m_dim);
+    m_alphas.reset();
     m_bv_sz = 0;
     m_enable_syntactic_cc = true;
 }
@@ -102,21 +102,20 @@ unsigned convex_closure::reduce_dim() {
 
 // For row \p row in m_kernel, construct the equality:
 //
-// row * m_dim_vars = 0
+// row * m_col_vars = 0
 //
-// In the equality, exactly one variable from  m_dim_vars is on the lhs
-void convex_closure::generate_equality_for_row(const vector<rational> &row,
-                                               expr_ref &out) {
+// In the equality, exactly one variable from  m_col_vars is on the lhs
+void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
     // contains the right hand side of an equality
     expr_ref_buffer rhs(m);
     // index of first non zero element in row
     int pv = -1;
     // are we constructing rhs or lhs
     bool is_lhs = true;
-    // coefficient of m_dim_vars[pv]
+    // coefficient of m_col_vars[pv]
     rational coeff(1);
 
-    // the elements in row are the coefficients of m_dim_vars
+    // the elements in row are the coefficients of m_col_vars
     // some elements should go to the rhs, in which case the signs are
     // changed
     for (unsigned j = 0, sz = row.size(); j < sz; j++) {
@@ -134,18 +133,19 @@ void convex_closure::generate_equality_for_row(const vector<rational> &row,
         } else {
             expr_ref prod(m);
             if (j != row.size() - 1) {
-                prod = m_dim_vars.get(j);
+                prod = m_col_vars.get(j);
                 mul_by_rat(prod, -1 * val * m_lcm);
             } else {
-                if (m_arith.is_int(m_dim_vars.get(pv))) {
-                    prod = m_arith.mk_int(-1 * val);
-                } else if (m_arith.is_real(m_dim_vars.get(pv))) {
-                    prod = m_arith.mk_real(-1 * val);
-                } else if (m_bv.is_bv(m_dim_vars.get(pv))) {
+                auto *col_v = m_col_vars.get(pv);
+                if (m_arith.is_int_real(col_v)) {
+                    prod = m_arith.mk_numeral(-1 * val, m_arith.is_int(col_v));
+                } else if (m_bv.is_bv(col_v)) {
                     prod = m_bv.mk_numeral(-1 * val, m_bv_sz);
+                } else {
+                    SASSERT(false);
                 }
             }
-            SASSERT(prod.get());
+            SASSERT(prod);
             rhs.push_back(prod);
         }
     }
@@ -155,33 +155,33 @@ void convex_closure::generate_equality_for_row(const vector<rational> &row,
 
     if (rhs.size() == 0) {
         expr_ref _rhs(m);
-        if (m_arith.is_int(m_dim_vars.get(pv)))
-            _rhs = m_arith.mk_int(rational::zero());
-        else if (m_arith.is_real(m_dim_vars.get(pv)))
-            _rhs = m_arith.mk_real(rational::zero());
-        else if (m_bv.is_bv(m_dim_vars.get(pv)))
+        auto *col_var = m_col_vars.get(pv);
+        if (m_arith.is_int_real(col_var))
+            _rhs =
+                m_arith.mk_numeral(rational::zero(), m_arith.is_int(col_var));
+        else if (m_bv.is_bv(col_var))
             _rhs = m_bv.mk_numeral(rational::zero(), m_bv_sz);
-        out = m_arith.mk_eq(m_dim_vars.get(pv), _rhs);
+        out = m_arith.mk_eq(col_var, _rhs);
         return;
     }
 
     out = m_is_arith ? m_arith.mk_add(rhs.size(), rhs.data())
                      : mk_bvadd(m, rhs.size(), rhs.data());
     expr_ref pv_var(m);
-    pv_var = m_dim_vars.get(pv);
+    pv_var = m_col_vars.get(pv);
     mul_by_rat(pv_var, coeff * m_lcm);
 
     out = m.mk_eq(pv_var, out);
-    TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars.get(pv), m)
+    TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_col_vars.get(pv), m)
                           << " into " << out << "\n";);
 }
 
 /// Generates linear equalities implied by m_data
 ///
-/// the linear equalities are m_kernel * m_dim_vars = 0 (where * is matrix
-/// multiplication) the new equalities are stored in m_dim_vars for each row [0,
+/// the linear equalities are m_kernel * m_col_vars = 0 (where * is matrix
+/// multiplication) the new equalities are stored in m_col_vars for each row [0,
 /// 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 = -1*m_lcm*v3 + -1*1 is
-/// constructed and stored at index 1 of m_dim_vars
+/// constructed and stored at index 1 of m_col_vars
 void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
     // assume kernel has been computed already
     const spacer_matrix &kern = m_kernel.get_kernel();
@@ -190,50 +190,69 @@ void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
     expr_ref eq(m);
     for (unsigned i = kern.num_rows(); i > 0; i--) {
         auto &row = kern.get_row(i - 1);
-        generate_equality_for_row(row, eq);
+        mk_row_eq(row, eq);
         out.push_back(eq);
     }
 }
 
-/// Construct the equality ((m_new_vars . m_data[*][i]) = m_dim_vars[i])
+/// Construct the equality ((m_alphas . m_data[*][i]) = m_col_vars[i])
 ///
 /// Where . is the dot product,  m_data[*][i] is
 /// the ith column of m_data. Add the result to res_vec.
-void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &out) {
+void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
+    SASSERT(m_is_arith);
+
     expr_ref_buffer sum(m);
-    expr_ref prod(m), v(m);
-    for (unsigned j = 0, sz = m_new_vars.size(); j < sz; j++) {
-        prod = m_new_vars.get(j);
-        mul_by_rat(prod, m_data.get(j, i));
-        sum.push_back(prod);
+    for (unsigned row = 0, sz = m_alphas.size(); row < sz; row++) {
+        expr_ref alpha(m);
+        auto n = m_data.get(row, col);
+        if (n.is_zero()) {
+            ; // noop
+        } else {
+            alpha = m_alphas.get(row);
+            if (!n.is_one()) {
+                alpha = m_arith.mk_mul(
+                    m_arith.mk_numeral(n, false /* is_int */), alpha);
+            }
+        }
+        if (alpha) sum.push_back(alpha);
     }
-    v = m_arith.mk_to_real(m_dim_vars.get(i));
-    mul_by_rat(v, m_lcm);
-    if (m_is_arith)
-        out.push_back(m.mk_eq(m_arith.mk_add(sum.size(), sum.data()), v));
-    else
-        out.push_back(m.mk_eq(mk_bvadd(m, sum.size(), sum.data()), v));
+    SASSERT(!sum.empty());
+    expr_ref s(m);
+    if (sum.size() == 1) {
+        s = sum[0];
+    } else if (sum.size() > 1) {
+        s = m_arith.mk_add(sum.size(), sum.data());
+    }
+
+    expr_ref v(m);
+    expr *vi = m_col_vars.get(col);
+    v = m_arith.is_int(vi) ? m_arith.mk_to_real(vi) : vi;
+    if (!m_lcm.is_one()) {
+        v = m_arith.mk_mul(m_arith.mk_numeral(m_lcm, false /* is_int */), v);
+    }
+
+    out.push_back(m.mk_eq(s, v));
 }
 
 void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
-    for (unsigned i = 0; i < m_data.num_rows(); i++) {
-        var *v = m.mk_var(i + dims(), m_arith.mk_real());
-        m_new_vars.push_back(v);
+    sort_ref real_sort(m_arith.mk_real(), m);
+    for (unsigned row = 0; row < m_data.num_rows(); row++) {
+        m_alphas.push_back(m.mk_var(dims() + row, real_sort));
     }
 
+    expr_ref zero(m_arith.mk_real(rational::zero()), m);
     // forall j :: m_new_vars[j] >= 0
-    for (auto v : m_new_vars) {
-        out.push_back(m_arith.mk_ge(v, m_arith.mk_real(rational::zero())));
-    }
+    for (auto v : m_alphas) { out.push_back(m_arith.mk_ge(v, zero)); }
 
-    for (unsigned i = 0, sz = m_dim_vars.size(); i < sz; i++) {
-        if (is_var(m_dim_vars.get(i))) add_sum_cnstr(i, out);
+    for (unsigned k = 0, sz = m_col_vars.size(); k < sz; k++) {
+        if (is_var(m_col_vars.get(k))) mk_col_sum(k, out);
     }
 
     //(\Sum j . m_new_vars[j]) = 1
     out.push_back(m.mk_eq(
-        m_arith.mk_add(m_new_vars.size(),
-                       reinterpret_cast<expr *const *>(m_new_vars.data())),
+        m_arith.mk_add(m_alphas.size(),
+                       reinterpret_cast<expr *const *>(m_alphas.data())),
         m_arith.mk_real(rational::one())));
 }
 
@@ -242,8 +261,8 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
 // corresponding d
 // TODO: find the largest divisor, not the smallest.
 // TODO: improve efficiency
-bool convex_closure::compute_div_constraint(const vector<rational> &data,
-                                            rational &m, rational &d) {
+bool convex_closure::generate_div_constraint(const vector<rational> &data,
+                                             rational &m, rational &d) {
     TRACE("cvx_dbg_verb", {
         tout << "computing div constraints for ";
         for (rational r : data) tout << r << " ";
@@ -282,7 +301,7 @@ bool convex_closure::closure(expr_ref_vector &out) {
     unsigned red_dim = reduce_dim();
 
     // store dim var before rewrite
-    expr_ref var(m_dim_vars.get(0), m);
+    expr_ref var(m_col_vars.get(0), m);
     if (red_dim < dims()) {
         m_st.m_num_reductions++;
         generate_implied_equalities(out);
@@ -296,7 +315,7 @@ bool convex_closure::closure(expr_ref_vector &out) {
         // there is no alternative to syntactic convex closure right now
         // syntactic convex closure does not support BV
         if (m_enable_syntactic_cc) {
-            SASSERT(m_new_vars.size() == 0);
+            SASSERT(m_alphas.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syntactic_convex_closure(out);
         } else {
@@ -350,12 +369,12 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
     rational cr, off;
     // add div constraints for all variables.
     for (unsigned j = 0; j < m_data.num_cols(); j++) {
-        auto *v = m_dim_vars.get(j);
+        auto *v = m_col_vars.get(j);
         if (is_var(v) && (m_arith.is_int(v) || m_bv.is_bv(v))) {
             data.reset();
             m_data.get_col(j, data);
             std::sort(data.begin(), data.end(), gt_proc);
-            if (compute_div_constraint(data, cr, off)) {
+            if (generate_div_constraint(data, cr, off)) {
                 res = v;
                 mul_by_rat(res, m_lcm);
                 if (m_is_arith) {

@@ -378,7 +378,7 @@ void lemma_global_generalizer::subsumer::add_dim_vars(const lemma_cluster &lc) {
         // create a variable for jth dimension, and register with convex closure
         var *var = m.mk_var(v.first, sort);
         m_dim_vars[j] = var;
-        m_cvx_cls.set_dimension(j, var);
+        m_cvx_cls.set_col_var(j, var);
 
         // create a fresh skolem constant for the jth variable
         m_dim_frsh_cnsts[j] = m.mk_fresh_const("mrg_cvx", sort);
