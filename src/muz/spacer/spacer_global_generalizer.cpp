@@ -553,8 +553,9 @@ void lemma_global_generalizer::subsumer::setup(const lemma_cluster &lc) {
 
 /// Add variables introduced by cvx_cls to the list of variables
 void lemma_global_generalizer::subsumer::add_cvx_cls_vars() {
-    for (auto v : m_cvx_cls.get_new_vars()) {
-        m_dim_vars.push_back(v);
+    for (auto v : m_cvx_cls.get_alphas()) {
+        SASSERT(is_var(v));
+        m_dim_vars.push_back(to_var(v));
         m_dim_frsh_cnsts.push_back(
             m.mk_fresh_const("mrg_syn_cvx", v->get_sort()));
     }
@@ -896,8 +897,7 @@ void lemma_global_generalizer::subsumer::ground_free_vars(expr *pat,
 void lemma_global_generalizer::subsumer::to_real_cnsts() {
     for (unsigned i = 0, sz = m_dim_frsh_cnsts.size(); i < sz; i++) {
         auto *c = m_dim_frsh_cnsts.get(i);
-        if (m_arith.is_real(c)) continue;
-        m_dim_frsh_cnsts.set(i, m_arith.mk_to_real(c));
+        if (!m_arith.is_real(c)) m_dim_frsh_cnsts.set(i, m_arith.mk_to_real(c));
     }
 }
 

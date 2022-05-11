@@ -65,7 +65,7 @@ class convex_closure {
 
     // Variables naming columns in `m_data`
     // \p m_col_vars[k] is a var for column \p k
-    var_ref_vector m_col_vars;
+    expr_ref_vector m_col_vars;
 
     // Kernel of \p m_data
     // Set at the end of computation
@@ -73,7 +73,7 @@ class convex_closure {
 
     // Free variables introduced by syntactic convex closure
     // These variables are always of sort Real
-    var_ref_vector m_alphas;
+    expr_ref_vector m_alphas;
 
     // m_lcm is a hack to allow convex_closure computation of rational matrices
     // as well. Let A be a real matrix. m_lcm is the lcm of all denominators in
@@ -147,7 +147,7 @@ class convex_closure {
     }
 
     /// \brief Name dimension \p i with a variable \p v.
-    void set_col_var(unsigned i, var *v) {
+    void set_col_var(unsigned i, expr *v) {
         SASSERT(i < dims());
         SASSERT(m_col_vars[i] == nullptr);
         m_col_vars[i] = v;
@@ -157,7 +157,7 @@ class convex_closure {
     unsigned dims() const { return m_dim; }
 
     /// \brief Return variables introduced by the syntactic convex closure
-    const var_ref_vector &get_new_vars() const { return m_alphas; }
+    const expr_ref_vector &get_alphas() const { return m_alphas; }
 
     /// \brief Add a one-dimensional point to convex closure
     void push_back(rational x) {
