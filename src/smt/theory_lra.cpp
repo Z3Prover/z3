@@ -1539,6 +1539,8 @@ public:
                 return FC_CONTINUE;
             case l_undef:
                 TRACE("arith", tout << "check-lia giveup\n";);
+                if (ctx().get_fparams().m_arith_ignore_int)
+                    return FC_GIVEUP;
                 st = FC_CONTINUE;
                 break;
             }
@@ -1866,7 +1868,11 @@ public:
             return l_undef;
         }
         lbool lia_check = l_undef;
-        switch (m_lia->check(&m_explanation)) {
+        auto cr = m_lia->check(&m_explanation);
+        if (cr != lp::lia_move::sat && ctx().get_fparams().m_arith_ignore_int) 
+            return l_undef;
+
+        switch (cr) {
         case lp::lia_move::sat:
             lia_check = l_true;
             break;
@@ -1896,6 +1902,8 @@ public:
             break;
         }
         case lp::lia_move::cut: {
+            if (ctx().get_fparams().m_arith_ignore_int) 
+                return l_undef;
             TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k

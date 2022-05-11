@@ -1014,6 +1014,9 @@ namespace arith {
             return sat::check_result::CR_CONTINUE;
         case l_undef:
             TRACE("arith", tout << "check-lia giveup\n";);
+            if (ctx.get_config().m_arith_ignore_int) 
+                return sat::check_result::CR_GIVEUP;
+            
             st = sat::check_result::CR_CONTINUE;
             break;
         }
@@ -1127,7 +1130,11 @@ namespace arith {
         if (!check_idiv_bounds())
             return l_false;
 
-        switch (m_lia->check(&m_explanation)) {
+        auto cr = m_lia->check(&m_explanation);
+        if (cr != lp::lia_move::sat && ctx.get_config().m_arith_ignore_int) 
+            return l_undef;
+
+        switch (cr) {
         case lp::lia_move::sat:
             lia_check = l_true;
             break;
