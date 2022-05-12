@@ -20,21 +20,22 @@ Revision History:
 #pragma once
 
 #include "util/top_sort.h"
+#include "util/lim_vector.h"
 #include "ast/ast.h"
 #include "ast/datatype_decl_plugin.h"
 
 class decl_collector {
     ast_manager &         m_manager;
-    ptr_vector<sort>      m_sorts;
-    ptr_vector<func_decl> m_decls;
+    lim_svector<sort*>      m_sorts;
+    lim_svector<func_decl*> m_decls;
+    lim_svector<func_decl*> m_rec_decls;
     ast_mark              m_visited;
     ast_ref_vector        m_trail;
     unsigned_vector       m_trail_lim;
-    unsigned_vector       m_sorts_lim;
-    unsigned_vector       m_decls_lim;
     family_id             m_basic_fid;
     family_id             m_dt_fid;
     datatype_util         m_dt_util;
+    family_id             m_rec_fid;
     ptr_vector<ast>       m_todo;
 
     void visit_sort(sort* n);
@@ -64,7 +65,8 @@ public:
     unsigned get_num_sorts() const { return m_sorts.size(); }
     unsigned get_num_decls() const { return m_decls.size(); }
     
-    ptr_vector<sort> const& get_sorts() const { return m_sorts; }
-    ptr_vector<func_decl> const& get_func_decls() const { return m_decls; }
+    lim_svector<sort*> const& get_sorts() const { return m_sorts; }
+    lim_svector<func_decl*> const& get_func_decls() const { return m_decls; }
+    lim_svector<func_decl*> const& get_rec_decls() const { return m_rec_decls; }
 };
 

@@ -20,23 +20,24 @@ Revision History:
 
 #pragma once
 // add to value the stack semantics
-#include <stack>
+#include "util/vector.h"
 template <typename T> class stacked_value {
     T m_value;    
-    std::stack<T> m_stack;
+    vector<T> m_stack;
 public:
 
 
     void push() {
-        m_stack.push(m_value);
+        m_stack.push_back(m_value);
     }
 
-    void clear() {
-        m_stack.clear();
+    void clear(T const& m) {
+        pop(m_stack.size());
+        m_value = m;
     }
     
     unsigned stack_size() const {
-        return static_cast<unsigned>(m_stack.size());
+        return m_stack.size();
     }
 
     void pop() {
@@ -46,8 +47,8 @@ public:
         while (k-- > 0) {
             if (m_stack.empty())
                 return;
-            m_value = m_stack.top();
-            m_stack.pop();
+            m_value = m_stack.back();
+            m_stack.pop_back();
         }
     }
 
