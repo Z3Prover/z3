@@ -430,8 +430,8 @@ void lemma_global_generalizer::subsumer::mk_col_names(const lemma_cluster &lc) {
 
     m_col_names.reserve(sub.get_num_bindings());
     for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
-        // get var id
-        sub.get_binding(j, v, r);
+        // get var id (sub is in reverse order)
+        sub.get_binding(sz - 1 - j, v, r);
         auto *sort = r.get_expr()->get_sort();
 
         if (!m_col_names.get(j) || m_col_names.get(j)->get_sort() != sort) {
@@ -471,7 +471,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
         }
 
         for (unsigned j = 0; j < n_vars; j++) {
-            sub.get_binding(j, v, r);
+            sub.get_binding(n_vars - 1 - j, v, r);
             if (is_numeral(r.get_expr(), num)) {
                 m_col_lcm[j] = lcm(m_col_lcm.get(j), abs(denominator(num)));
             }
@@ -494,7 +494,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
 
         const substitution &sub = lemma.get_sub();
         for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
-            sub.get_binding(j, v, r);
+            sub.get_binding(sz - 1 - j, v, r);
             VERIFY(is_numeral(r.get_expr(), num));
             row.push_back(m_col_lcm.get(j) * num);
         }

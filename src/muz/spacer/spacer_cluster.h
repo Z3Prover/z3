@@ -47,6 +47,8 @@ class lemma_cluster {
         // a lemma
         lemma_ref m_lemma;
         // a substitution such that for some pattern, \p m_lemma is an instance
+        // substitution is stored in std_order for quantifiers (i.e., reverse of
+        // expected)
         substitution m_sub;
 
       public:
