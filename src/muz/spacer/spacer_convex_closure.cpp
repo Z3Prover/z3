@@ -203,7 +203,7 @@ void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
     SASSERT(!has_bv());
 
     expr_ref_buffer sum(m);
-    for (unsigned row = 0, sz = m_alphas.size(); row < sz; row++) {
+    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; row++) {
         expr_ref alpha(m);
         auto n = m_data.get(row, col);
         if (n.is_zero()) {
@@ -233,13 +233,16 @@ void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
 
 void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
     sort_ref real_sort(m_arith.mk_real(), m);
-    for (unsigned row = 0; row < m_data.num_rows(); row++) {
-        m_alphas.push_back(m.mk_fresh_const("alpha!!scc", real_sort));
-    }
-
     expr_ref zero(m_arith.mk_real(rational::zero()), m);
-    // forall j :: m_new_vars[j] >= 0
-    for (auto v : m_alphas) { out.push_back(m_arith.mk_ge(v, zero)); }
+
+    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; row++) {
+        if (row >= m_alphas.size()) {
+            m_alphas.push_back(m.mk_fresh_const("a!cc", real_sort));
+        }
+        SASSERT(row < m_alphas.size());
+        // forall j :: alpha_j >= 0
+        out.push_back(m_arith.mk_ge(m_alphas.get(row), zero));
+    }
 
     for (unsigned k = 0, sz = m_col_vars.size(); k < sz; k++) {
         if (m_col_vars.get(k)) mk_col_sum(k, out);
@@ -247,7 +250,7 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
 
     //(\Sum j . m_new_vars[j]) = 1
     out.push_back(m.mk_eq(
-        m_arith.mk_add(m_alphas.size(),
+        m_arith.mk_add(m_data.num_rows(),
                        reinterpret_cast<expr *const *>(m_alphas.data())),
         m_arith.mk_real(rational::one())));
 }
@@ -308,7 +311,6 @@ bool convex_closure::compute() {
         return false;
     } else if (rank > 1) {
         if (m_enable_implicit) {
-            SASSERT(m_alphas.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syntactic_convex_closure(m_implicit_cc);
         } else {
@@ -345,7 +347,6 @@ bool convex_closure::closure(expr_ref_vector &out) {
         // there is no alternative to syntactic convex closure right now
         // syntactic convex closure does not support BV
         if (m_enable_implicit) {
-            SASSERT(m_alphas.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syntactic_convex_closure(out);
         } else {
