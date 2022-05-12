@@ -51,11 +51,8 @@ class convex_closure {
     // size of all bit vectors in m_col_vars
     unsigned m_bv_sz;
 
-    // Compute syntactic convex closure
-    bool m_enable_syntactic_cc;
-
-    // true if \p m_col_vars are arithmetic sort (i.e., Real or Int)
-    bool m_is_arith;
+    // Enable computation of implicit syntactic convex closure
+    bool m_enable_implicit;
 
     // number of columns in \p m_data
     unsigned m_dim;
@@ -116,15 +113,19 @@ class convex_closure {
     bool generate_div_constraint(const vector<rational> &data, rational &m,
                                  rational &d);
 
-    /// Constructs a formula \p var ~ bnd, where  ~ = is_le ? <= : >=
-    expr *mk_ineq(expr_ref var, rational bnd, bool is_le);
+    /// Constructs a formula \p var ~ n , where  ~ = is_le ? <= : >=
+    expr *mk_le_ge(expr* var, rational n, bool is_le);
+
+    /// Returns (v % d == r)
+    expr *mk_mod_eq(expr *v, rational d, rational r);
+
+    bool has_bv() { return m_bv_sz > 0; }
 
   public:
     convex_closure(ast_manager &manager, bool use_sage)
-        : m(manager), m_arith(m), m_bv(m), m_bv_sz(0),
-          m_enable_syntactic_cc(true), m_is_arith(true), m_dim(0), m_data(0, 0),
-          m_col_vars(m), m_kernel(m_data), m_alphas(m), m_implicit_cc(m),
-          m_explicit_cc(m) {
+        : m(manager), m_arith(m), m_bv(m), m_bv_sz(0), m_enable_implicit(true),
+          m_dim(0), m_data(0, 0), m_col_vars(m), m_kernel(m_data), m_alphas(m),
+          m_implicit_cc(m), m_explicit_cc(m) {
 
         if (use_sage) m_kernel.set_plugin(mk_sage_plugin());
     }
@@ -139,9 +140,8 @@ class convex_closure {
     /// Disables syntactic convex closure as a side-effect
     void set_bv(unsigned sz) {
         SASSERT(sz > 0);
-        m_is_arith = false;
         m_bv_sz = sz;
-        m_enable_syntactic_cc = false;
+        m_enable_implicit = false;
     }
 
     /// \brief Name dimension \p i with a variable \p v.

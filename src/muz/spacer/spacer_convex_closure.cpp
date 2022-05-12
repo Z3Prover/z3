@@ -68,7 +68,7 @@ void convex_closure::reset(unsigned n_cols) {
     m_col_vars.reserve(m_dim);
     m_alphas.reset();
     m_bv_sz = 0;
-    m_enable_syntactic_cc = true;
+    m_enable_implicit = true;
 }
 
 void convex_closure::collect_statistics(statistics &st) const {
@@ -165,8 +165,8 @@ void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
         return;
     }
 
-    out = m_is_arith ? m_arith.mk_add(rhs.size(), rhs.data())
-                     : mk_bvadd(m, rhs.size(), rhs.data());
+    out = !has_bv() ? m_arith.mk_add(rhs.size(), rhs.data())
+                    : mk_bvadd(m, rhs.size(), rhs.data());
     expr_ref pv_var(m);
     pv_var = m_col_vars.get(pv);
     mul_by_rat(pv_var, coeff);
@@ -200,7 +200,7 @@ void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
 /// Where . is the dot product,  m_data[*][i] is
 /// the ith column of m_data. Add the result to res_vec.
 void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
-    SASSERT(m_is_arith);
+    SASSERT(!has_bv());
 
     expr_ref_buffer sum(m);
     for (unsigned row = 0, sz = m_alphas.size(); row < sz; row++) {
@@ -307,7 +307,7 @@ bool convex_closure::compute() {
         // AG: Is this possible?
         return false;
     } else if (rank > 1) {
-        if (m_enable_syntactic_cc) {
+        if (m_enable_implicit) {
             SASSERT(m_alphas.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syntactic_convex_closure(m_implicit_cc);
@@ -344,7 +344,7 @@ bool convex_closure::closure(expr_ref_vector &out) {
     if (red_dim > 1) {
         // there is no alternative to syntactic convex closure right now
         // syntactic convex closure does not support BV
-        if (m_enable_syntactic_cc) {
+        if (m_enable_implicit) {
             SASSERT(m_alphas.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syntactic_convex_closure(out);
@@ -364,20 +364,25 @@ bool convex_closure::closure(expr_ref_vector &out) {
 }
 
 // construct the formula result_var <= bnd or result_var >= bnd
-expr *convex_closure::mk_ineq(expr_ref result_var, rational bnd, bool is_le) {
-    if (m_is_arith) {
-        // The resulting expr is of sort Real if result_var is of sort Real.
-        // Otherwise, the resulting expr is of sort Int
-        if (is_le) return m_arith.mk_le(result_var, m_arith.mk_int(bnd));
-        return m_arith.mk_ge(result_var, m_arith.mk_int(bnd));
+expr *convex_closure::mk_le_ge(expr *v, rational n, bool is_le) {
+    if (m_arith.is_int_real(v)) {
+        expr *en = m_arith.mk_numeral(n, m_arith.is_int(v));
+        return is_le ? m_arith.mk_le(v, en) : m_arith.mk_ge(v, en);
+    } else if (m_bv.is_bv(v)) {
+        expr *en = m_bv.mk_numeral(n, m_bv.get_bv_size(v->get_sort()));
+        return is_le ? m_bv.mk_ule(v, en) : m_bv.mk_ule(en, v);
+    } else {
+        UNREACHABLE();
     }
-    // TODO figure out whether we need signed versions or unsigned versions.
-    if (is_le) return m_bv.mk_ule(result_var, m_bv.mk_numeral(bnd, m_bv_sz));
-    return m_bv.mk_ule(m_bv.mk_numeral(bnd, m_bv_sz), result_var);
+
+    return nullptr;
 }
 
 void convex_closure::do_1dim_convex_closure(const expr_ref &var,
                                             expr_ref_vector &out) {
+
+    // XXX assumes that var corresponds to col 0
+
     // The convex closure over one dimension is just a bound
     vector<rational> data;
     m_data.get_col(0, data);
@@ -390,9 +395,9 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
     expr_ref res(m);
     res = var;
     // upper-bound
-    out.push_back(mk_ineq(res, data[0], true));
+    out.push_back(mk_le_ge(res, data[0], true));
     // lower-bound
-    out.push_back(mk_ineq(res, data.back(), false));
+    out.push_back(mk_le_ge(res, data.back(), false));
 
     // -- compute divisibility constraints
     rational cr, off;
@@ -404,19 +409,23 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
             m_data.get_col(j, data);
             std::sort(data.begin(), data.end(), gt_proc);
             if (generate_div_constraint(data, cr, off)) {
-                res = v;
-                if (m_is_arith) {
-                    res = m.mk_eq(m_arith.mk_mod(res, m_arith.mk_int(cr)),
-                                  m_arith.mk_int(off));
-                } else {
-                    res = m.mk_eq(
-                        m_bv.mk_bv_urem(res, m_bv.mk_numeral(cr, m_bv_sz)),
-                        m_bv.mk_numeral(off, m_bv_sz));
-                }
-                out.push_back(res);
+                out.push_back(mk_mod_eq(v, cr, off));
             }
         }
     }
+}
+
+expr *convex_closure::mk_mod_eq(expr *v, rational d, rational r) {
+    expr *res = nullptr;
+    if (!m_arith.is_int(v)) {
+        res = m.mk_eq(m_arith.mk_mod(v, m_arith.mk_int(d)), m_arith.mk_int(r));
+    } else if (m_bv.is_bv(v)) {
+        res = m.mk_eq(m_bv.mk_bv_urem(v, m_bv.mk_numeral(d, m_bv_sz)),
+                      m_bv.mk_numeral(r, m_bv_sz));
+    } else {
+        UNREACHABLE();
+    }
+    return res;
 }
 
 } // namespace spacer
