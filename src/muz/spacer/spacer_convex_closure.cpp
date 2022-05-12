@@ -134,7 +134,7 @@ void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
             expr_ref prod(m);
             if (j != row.size() - 1) {
                 prod = m_col_vars.get(j);
-                mul_by_rat(prod, -1 * val * m_lcm);
+                mul_by_rat(prod, -1 * val);
             } else {
                 auto *col_v = m_col_vars.get(pv);
                 if (m_arith.is_int_real(col_v)) {
@@ -169,7 +169,7 @@ void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
                      : mk_bvadd(m, rhs.size(), rhs.data());
     expr_ref pv_var(m);
     pv_var = m_col_vars.get(pv);
-    mul_by_rat(pv_var, coeff * m_lcm);
+    mul_by_rat(pv_var, coeff);
 
     out = m.mk_eq(pv_var, out);
     TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_col_vars.get(pv), m)
@@ -180,7 +180,7 @@ void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
 ///
 /// the linear equalities are m_kernel * m_col_vars = 0 (where * is matrix
 /// multiplication) the new equalities are stored in m_col_vars for each row [0,
-/// 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 = -1*m_lcm*v3 + -1*1 is
+/// 1, 0, 1 , 1] in m_kernel, the equality v1 = -1*v3 + -1*1 is
 /// constructed and stored at index 1 of m_col_vars
 void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
     // assume kernel has been computed already
@@ -228,17 +228,13 @@ void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
     expr_ref v(m);
     expr *vi = m_col_vars.get(col);
     v = m_arith.is_int(vi) ? m_arith.mk_to_real(vi) : vi;
-    if (!m_lcm.is_one()) {
-        v = m_arith.mk_mul(m_arith.mk_numeral(m_lcm, false /* is_int */), v);
-    }
-
     out.push_back(m.mk_eq(s, v));
 }
 
 void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
     sort_ref real_sort(m_arith.mk_real(), m);
     for (unsigned row = 0; row < m_data.num_rows(); row++) {
-        m_alphas.push_back(m.mk_var(dims() + row, real_sort));
+        m_alphas.push_back(m.mk_fresh_const("alpha!!scc", real_sort));
     }
 
     expr_ref zero(m_arith.mk_real(rational::zero()), m);
@@ -246,7 +242,7 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
     for (auto v : m_alphas) { out.push_back(m_arith.mk_ge(v, zero)); }
 
     for (unsigned k = 0, sz = m_col_vars.size(); k < sz; k++) {
-        if (is_var(m_col_vars.get(k))) mk_col_sum(k, out);
+        if (m_col_vars.get(k)) mk_col_sum(k, out);
     }
 
     //(\Sum j . m_new_vars[j]) = 1
@@ -291,6 +287,40 @@ bool convex_closure::generate_div_constraint(const vector<rational> &data,
     return true;
 }
 
+bool convex_closure::compute() {
+    scoped_watch _w_(m_st.watch);
+    SASSERT(is_int_matrix(m_data));
+
+    unsigned rank = reduce_dim();
+    // store dim var before rewrite
+    expr_ref var(m_col_vars.get(0), m);
+    if (rank < dims()) {
+        m_st.m_num_reductions++;
+        generate_implied_equalities(m_explicit_cc);
+        TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
+                              << mk_and(m_explicit_cc) << "\n";);
+    }
+
+    m_st.m_max_dim = std::max(m_st.m_max_dim, rank);
+
+    if (rank == 0) {
+        // AG: Is this possible?
+        return false;
+    } else if (rank > 1) {
+        if (m_enable_syntactic_cc) {
+            SASSERT(m_alphas.size() == 0);
+            TRACE("subsume", tout << "Computing syntactic convex closure\n";);
+            syntactic_convex_closure(m_implicit_cc);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    SASSERT(rank == 1);
+    do_1dim_convex_closure(var, m_explicit_cc);
+    return true;
+}
 /// Compute the convex closure of points in m_data
 ///
 /// Returns true if the convex closure is syntactic
@@ -309,7 +339,7 @@ bool convex_closure::closure(expr_ref_vector &out) {
                               << mk_and(out) << "\n";);
     }
 
-    if (red_dim > m_st.m_max_dim) m_st.m_max_dim = red_dim;
+    m_st.m_max_dim = std::max(m_st.m_max_dim, red_dim);
 
     if (red_dim > 1) {
         // there is no alternative to syntactic convex closure right now
@@ -359,7 +389,6 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
     // -- compute LB <= var <= UB
     expr_ref res(m);
     res = var;
-    mul_by_rat(res, m_lcm);
     // upper-bound
     out.push_back(mk_ineq(res, data[0], true));
     // lower-bound
@@ -370,13 +399,12 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
     // add div constraints for all variables.
     for (unsigned j = 0; j < m_data.num_cols(); j++) {
         auto *v = m_col_vars.get(j);
-        if (is_var(v) && (m_arith.is_int(v) || m_bv.is_bv(v))) {
+        if (v && (m_arith.is_int(v) || m_bv.is_bv(v))) {
             data.reset();
             m_data.get_col(j, data);
             std::sort(data.begin(), data.end(), gt_proc);
             if (generate_div_constraint(data, cr, off)) {
                 res = v;
-                mul_by_rat(res, m_lcm);
                 if (m_is_arith) {
                     res = m.mk_eq(m_arith.mk_mod(res, m_arith.mk_int(cr)),
                                   m_arith.mk_int(off));

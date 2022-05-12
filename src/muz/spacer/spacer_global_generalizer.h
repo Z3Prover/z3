@@ -55,14 +55,9 @@ class lemma_global_generalizer : public lemma_generalizer {
         // number of tags currently used
         unsigned m_used_tags;
 
-        // convex closure interface
-        convex_closure m_cvx_cls;
-
         // save fresh constants for mbp
-        app_ref_vector m_dim_frsh_cnsts;
-
-        // save vars from cluster pattern
-        var_ref_vector m_dim_vars;
+        app_ref_vector m_col_names;
+        vector<rational> m_col_lcm;
 
         // create pob without free vars
         bool m_ground_pob;
@@ -74,8 +69,7 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// Return a fresh boolean variable
         app *mk_fresh_tag();
 
-        /// Prepare internal state for computing subsumption
-        void setup(const lemma_cluster &lc);
+        void reset();
 
         /// Returns false if subsumption is not supported for given cluster
         bool is_handled(const lemma_cluster &lc);
@@ -86,20 +80,16 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// Skolemize m_dim_frsh_cnsts in \p f
         ///
         /// \p cnsts is appended with ground terms from \p mdl
-        void skolemize(expr_ref &f, const model_ref &mdl,
-                       app_ref_vector &cnsts);
+        void skolemize_for_quic3(expr_ref &f, const model_ref &mdl,
+                                 app_ref_vector &cnsts);
 
         /// Create new vars to compute convex cls
-        void add_dim_vars(const lemma_cluster &lc);
+        void mk_col_names(const lemma_cluster &lc);
 
         /// Coerce LIA constants in \p m_dim_frsh_cnsts to LRA constants
         void to_real_cnsts();
 
-        /// Populate \p m_cvx_cls
-        ///
-        /// 1. Collect all substitutions in the cluster \p lc
-        /// 2. Convert all substitutions to integer numerals
-        void populate_cvx_cls(const lemma_cluster &lc);
+        void setup_cvx_closure(convex_closure &cc, const lemma_cluster &lc);
 
         /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p out
         void ground_free_vars(expr *fml, expr_ref &out);
@@ -111,6 +101,10 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// be satisfied by \p mdl
         bool maxsat_with_model(const expr_ref &hard, const expr_ref &soft,
                                model_ref &out_model);
+
+        bool find_model(const expr_ref_vector &cc,
+                        const expr_ref_vector &alphas, expr *bg,
+                        model_ref &out_model);
 
         /// Eliminate m_dim_frsh_cnsts from \p cvx_cls
         ///
@@ -124,6 +118,15 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// Add variables introduced by m_cvx_cls to the list of variables to be
         /// eliminated
         void add_cvx_cls_vars();
+
+        bool is_numeral(const expr *e, rational &n) {
+            return m_arith.is_numeral(e, n) || m_bv.is_numeral(e, n);
+        }
+
+        expr *mk_rat_mul(rational n, expr *v) {
+            if (n.is_one()) return v;
+            return m_arith.mk_mul(m_arith.mk_numeral(n, m_arith.is_int(v)), v);
+        }
 
       public:
         subsumer(ast_manager &m, bool use_sage, bool ground_pob);

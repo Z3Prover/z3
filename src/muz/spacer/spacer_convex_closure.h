@@ -75,11 +75,8 @@ class convex_closure {
     // These variables are always of sort Real
     expr_ref_vector m_alphas;
 
-    // m_lcm is a hack to allow convex_closure computation of rational matrices
-    // as well. Let A be a real matrix. m_lcm is the lcm of all denominators in
-    // A m_data = m_lcm * A, is always an integer matrix
-    // TODO: m_lcm should be maintained by the client
-    rational m_lcm;
+    expr_ref_vector m_implicit_cc;
+    expr_ref_vector m_explicit_cc;
 
     /// Reduces dimension of \p m_data and returns its rank
     unsigned reduce_dim();
@@ -126,7 +123,8 @@ class convex_closure {
     convex_closure(ast_manager &manager, bool use_sage)
         : m(manager), m_arith(m), m_bv(m), m_bv_sz(0),
           m_enable_syntactic_cc(true), m_is_arith(true), m_dim(0), m_data(0, 0),
-          m_col_vars(m), m_kernel(m_data), m_alphas(m) {
+          m_col_vars(m), m_kernel(m_data), m_alphas(m), m_implicit_cc(m),
+          m_explicit_cc(m) {
 
         if (use_sage) m_kernel.set_plugin(mk_sage_plugin());
     }
@@ -149,18 +147,15 @@ class convex_closure {
     /// \brief Name dimension \p i with a variable \p v.
     void set_col_var(unsigned i, expr *v) {
         SASSERT(i < dims());
-        SASSERT(m_col_vars[i] == nullptr);
+        SASSERT(m_col_vars.get(i) == nullptr);
         m_col_vars[i] = v;
     }
 
     /// \brief Return number of dimensions of each point
     unsigned dims() const { return m_dim; }
 
-    /// \brief Return variables introduced by the syntactic convex closure
-    const expr_ref_vector &get_alphas() const { return m_alphas; }
-
     /// \brief Add a one-dimensional point to convex closure
-    void push_back(rational x) {
+    void add_row(rational x) {
         SASSERT(dims() == 1);
         vector<rational> row;
         row.reserve(1, x);
@@ -168,7 +163,7 @@ class convex_closure {
     }
 
     /// \brief Add a two-dimensional point to convex closure
-    void push_back(rational x, rational y) {
+    void add_row(rational x, rational y) {
         SASSERT(dims() == 2);
         vector<rational> row;
         row.reserve(2);
@@ -178,7 +173,7 @@ class convex_closure {
     }
 
     /// \brief Add an n-dimensional point to convex closure
-    void push_back(const vector<rational> &point) {
+    void add_row(const vector<rational> &point) {
         SASSERT(point.size() == dims());
         m_data.add_row(point);
     };
@@ -189,10 +184,33 @@ class convex_closure {
     /// Returns false if \p out is an over-approximation
     bool closure(expr_ref_vector &out);
 
+    bool operator()(expr_ref_vector &out) { return this->closure(out); }
+
+    bool operator()() { return this->compute(); }
+    bool compute();
+    bool has_implicit() { return !m_implicit_cc.empty(); }
+    bool has_explicit() { return !m_explicit_cc.empty(); }
+
+    /// Returns the implicit component of convex closure (if available)
+    ///
+    /// Implicit component contains constants from get_alphas() that are
+    /// implicitly existentially quantified
+    const expr_ref_vector &get_implicit() { return m_implicit_cc; }
+
+    /// \brief Return implicit constants in implicit convex closure
+    const expr_ref_vector &get_alphas() const { return m_alphas; }
+
+    /// Returns the explicit component of convex closure (if available)
+    ///
+    /// The explicit component is in term of column variables
+    const expr_ref_vector &get_explicit() { return m_explicit_cc; }
+
+    /// Returns constants used to name columns
+    ///
+    /// Explicit convex closure is in terms of these variables
+    const expr_ref_vector &get_col_vars() { return m_col_vars; }
+
     void collect_statistics(statistics &st) const;
     void reset_statistics() { m_st.reset(); }
-
-    /// Set the least common multiple of \p m_data
-    void set_lcm(rational l) { m_lcm = l; }
 };
 } // namespace spacer
