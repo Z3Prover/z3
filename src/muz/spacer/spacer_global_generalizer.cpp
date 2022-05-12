@@ -87,6 +87,7 @@ class to_real_stripper {
         bool res = true;
         expr_ref e(m);
         for (unsigned i = 0, sz = vec.size(); res && i < sz; ++i) {
+            e = vec.get(i);
             res = this->operator()(e, depth);
             if (res) { vec[i] = e; }
         }
@@ -555,11 +556,12 @@ bool lemma_global_generalizer::subsumer::find_model(
     solver::scoped_push _sp(*m_solver);
     if (bg) m_solver->assert_expr(bg);
 
+    // -- assert syntactic convex closure constraints
+    m_solver->assert_expr(cc);
+
     // if there are alphas, we have syntactic convex closure
     if (!alphas.empty()) {
         SASSERT(alphas.size() >= 2);
-        // -- assert syntactic convex closure constraints
-        m_solver->assert_expr(cc);
 
         // try to get an interior point in convex closure that also satisfies bg
         {
@@ -586,6 +588,8 @@ bool lemma_global_generalizer::subsumer::find_model(
         m_solver->get_model(out_model);
         return true;
     }
+
+    UNREACHABLE();
 
     // something went wrong and there is no model, even though one was expected
     return false;
@@ -700,18 +704,22 @@ bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
     // vec = [implicit_cc]
     // store full cc, this is what we want to over-approximate explicitly
     vec.append(explicit_cc.size(), explicit_cc.data());
-    vec.push_back(grounded);
+    flatten_and(grounded, vec);
     // vec = [implicit_cc(alpha_j, v_i), explicit_cc(v_i), phi(v_i)]
     expr_ref full_cc(mk_and(vec), m);
 
-    // conj is the result of mbp, ensure it has no to_real() conversions
-    to_real_stripper stripper(m);
     vec.reset();
-    flatten_and(conj, vec);
-    stripper(vec);
+    if (conj) {
+        // if explicit version of implicit cc was successfully computed
+        // conj is it, but need to ensure it has no to_real()
+        to_real_stripper stripper(m);
+        flatten_and(conj, vec);
+        stripper(vec);
+    }
+    vec.append(explicit_cc.size(), explicit_cc.data());
 
-    // vec is [cc(v_i), phi(v_i)], and we need to eliminate v_i from it
-    vec.push_back(grounded);
+    flatten_and(grounded, vec);
+    // here vec is [cc(v_i), phi(v_i)], and we need to eliminate v_i from it
 
     vars.reset();
     vars.append(m_col_names.size(),
@@ -997,7 +1005,11 @@ void lemma_global_generalizer::subsumer::ground_free_vars(expr *pat,
                                                           expr_ref &out) {
     SASSERT(!is_ground(pat));
     var_subst vs(m, false);
-    out = vs(pat, m_col_names.size(),
+    // m_col_names might be bigger since it contains previously used constants
+    // relying on the fact that m_col_lcm was just set. Better to compute free
+    // vars of pat
+    SASSERT(m_col_lcm.size() <= m_col_names.size());
+    out = vs(pat, m_col_lcm.size(),
              reinterpret_cast<expr *const *>(m_col_names.data()));
     SASSERT(is_ground(out));
 }
