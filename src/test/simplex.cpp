@@ -157,6 +157,22 @@ static void test5() {
 
 }
 
+static void test6() {
+  unsynch_mpq_manager m;
+  qmatrix M(m);
+  add(M, vec(-1, 2, 1));
+  add(M, vec(0, 1, 1));
+  M.display(std::cout);
+  vector<vector<rational>> K;
+  kernel(M, K);
+  std::cout << "Kernel:\n";
+  for (auto const &v : K)
+    std::cout << v << "\n";
+  std::cout << "matrix after\n";
+  M.display(std::cout);
+
+}
+
 void tst_simplex() {
     reslimit rl; Simplex S(rl);
 
@@ -193,4 +209,5 @@ void tst_simplex() {
     test3();
     test4();
     test5();
+    test6();
 }
