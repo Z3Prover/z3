@@ -149,7 +149,7 @@ static void test5() {
     add(M, vec(0, 0, 0, 0, 0, 0));
     M.display(std::cout);
     vector<vector<rational>> K;
-    kernel(M, K);
+    kernel_ffe(M, K);
     std::cout << "after\n";
     for (auto const& v : K)
         std::cout << v << "\n";
@@ -164,13 +164,30 @@ static void test6() {
   add(M, vec(0, 1, 1));
   M.display(std::cout);
   vector<vector<rational>> K;
-  kernel(M, K);
+  kernel_ffe(M, K);
   std::cout << "Kernel:\n";
   for (auto const &v : K)
     std::cout << v << "\n";
   std::cout << "matrix after\n";
   M.display(std::cout);
 
+}
+
+static void test7() {
+  unsynch_mpq_manager m;
+  qmatrix M(m);
+  add(M, vec(1, 2, 3, 4, 10));
+  add(M, vec(2, 2, 3, 4, 11));
+  add(M, vec(3, 3, 3, 4, 13));
+  add(M, vec(9, 8, 7, 6, 30));
+  M.display(std::cout);
+  vector<vector<rational>> K;
+  kernel_ffe(M, K);
+  std::cout << "Kernel:\n";
+  for (auto const &v : K)
+    std::cout << v << "\n";
+  std::cout << "matrix after\n";
+  M.display(std::cout);
 }
 
 void tst_simplex() {
@@ -210,4 +227,5 @@ void tst_simplex() {
     test4();
     test5();
     test6();
+    test7();
 }
