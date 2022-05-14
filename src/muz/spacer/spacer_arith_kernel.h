@@ -88,8 +88,6 @@ class spacer_arith_kernel {
     }
 };
 
-/// \brief Kernel computation using Sage package
-spacer_arith_kernel::plugin *mk_sage_plugin();
 spacer_arith_kernel::plugin *mk_simplex_kernel_plugin();
 
 } // namespace spacer
