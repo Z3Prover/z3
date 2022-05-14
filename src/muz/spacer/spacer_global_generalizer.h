@@ -86,9 +86,6 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// Create new vars to compute convex cls
         void mk_col_names(const lemma_cluster &lc);
 
-        /// Coerce LIA constants in \p m_dim_frsh_cnsts to LRA constants
-        void to_real_cnsts();
-
         void setup_cvx_closure(convex_closure &cc, const lemma_cluster &lc);
 
         /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p out
@@ -97,27 +94,9 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// Weaken \p a such that (and a) overapproximates \p b
         bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
-        /// \p a is a hard constraint and \p b is a soft constraint that have to
-        /// be satisfied by \p mdl
-        bool maxsat_with_model(const expr_ref &hard, const expr_ref &soft,
-                               model_ref &out_model);
-
         bool find_model(const expr_ref_vector &cc,
                         const expr_ref_vector &alphas, expr *bg,
                         model_ref &out_model);
-
-        /// Eliminate m_dim_frsh_cnsts from \p cvx_cls
-        ///
-        /// Uses \p lc to get a model for mbp.
-        /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
-        /// all vars that could not be eliminated are skolemized and added to \p
-        /// bindings
-        bool eliminate_vars(expr_ref &cvx_cls, const lemma_cluster &lc,
-                            bool mlir, app_ref_vector &bindings);
-
-        /// Add variables introduced by m_cvx_cls to the list of variables to be
-        /// eliminated
-        void add_cvx_cls_vars();
 
         bool is_numeral(const expr *e, rational &n) {
             return m_arith.is_numeral(e, n) || m_bv.is_numeral(e, n);

@@ -95,29 +95,6 @@ class to_real_stripper {
     }
 };
 
-struct compute_lcm_proc {
-    ast_manager &m;
-    arith_util m_arith;
-    rational m_val;
-    compute_lcm_proc(ast_manager &a_m) : m(a_m), m_arith(m), m_val(1) {}
-    void operator()(expr *n) const {}
-    void operator()(app *n) {
-        rational val;
-        if (m_arith.is_numeral(n, val)) {
-            m_val = lcm(denominator(abs(val)), m_val);
-        }
-    }
-};
-
-/// Check whether there are Real constants in \p c
-bool contains_reals(const app_ref_vector &c) {
-    arith_util m_arith(c.get_manager());
-    for (auto *f : c) {
-        if (m_arith.is_real(f)) return true;
-    }
-    return false;
-}
-
 // Check whether \p sub contains a mapping to a bv_numeral.
 // return bv_size of the bv_numeral in the first such mapping.
 bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
@@ -148,233 +125,6 @@ bool all_same_sz(ast_manager &m, const substitution &sub, unsigned sz) {
     return true;
 }
 
-/// Check whether there is an equivalent of function \p f in LRA
-bool has_lra_equiv(const expr_ref &f) {
-    ast_manager &m = f.m();
-    arith_util a(m);
-
-    // uninterpreted constants do not have arguments. So equivalent function
-    // exists.
-    if (is_uninterp_const(f)) return true;
-    return is_app(f) &&
-           to_app(f)->get_decl()->get_family_id() == a.get_family_id();
-}
-
-/// Get lcm of all the denominators of all the rational values in e
-rational compute_lcm(expr *e, ast_manager &m) {
-    compute_lcm_proc g(m);
-    for_each_expr(g, e);
-    TRACE("subsume_verb",
-          tout << "lcm of " << mk_pp(e, m) << " is " << g.m_val << "\n";);
-    return g.m_val;
-}
-
-// clang-format off
-/// Removes all occurrences of (to_real t) from \p fml where t is a constant
-///
-/// Applies the following rewrites upto depth \p depth
-/// v:Real                                                        --> mk_int(v) where v is a real value
-/// (to_real v:Int)                                               --> v
-/// (to_int v)                                                    --> (strip_to_real v)
-/// (store A (to_int (to_real i0)) ... (to_int (to_real iN)) k)   --> (store A i0 ... iN
-///                                                                      (strip_to_real k))
-/// (select A (to_int (to_real i0)) ... (to_int (to_real iN)))    --> (select A i0 ... iN)
-/// (op (to_real a0) ... (to_real aN))                            --> (op a0 ... aN) where op is an
-///                                                                    arithmetic operation
-/// on all other formulas, do nothing
-/// NOTE: cannot use a rewriter since we change the sort of fml
-// clang-format on
-void strip_to_real(expr_ref &fml, unsigned depth = 3) {
-    ast_manager &m = fml.get_manager();
-    arith_util arith(m);
-    rational r;
-
-    if (arith.is_numeral(fml, r)) {
-        SASSERT(denominator(r).is_one());
-        fml = arith.mk_int(r);
-        return;
-    }
-
-    if (depth == 0) { return; }
-
-    if (arith.is_to_real(fml)) {
-        fml = to_app(fml)->get_arg(0);
-        return;
-    }
-    if (arith.is_to_int(fml) && arith.is_to_real(to_app(fml)->get_arg(0))) {
-        expr *arg = to_app(fml)->get_arg(0);
-        fml = to_app(arg)->get_arg(0);
-        return;
-    }
-
-    if (!is_app(fml)) return;
-
-    app *f_app = to_app(fml);
-    expr_ref_buffer new_args(m);
-    expr_ref child(m);
-    for (unsigned i = 0, sz = f_app->get_num_args(); i < sz; i++) {
-        child = f_app->get_arg(i);
-        strip_to_real(child, depth - 1);
-        new_args.push_back(child);
-    }
-    fml = m.mk_app(f_app->get_family_id(), f_app->get_decl_kind(),
-                   new_args.size(), new_args.data());
-    return;
-}
-
-/// Coerces a rational inequality to a semantically equivalent inequality with
-/// integer coefficients
-///
-/// Works on arithmetic (in)equalities
-/// if fml contains a mod, fml is not normalized
-/// otherwise, lcm of fml is computed and lcm * fml is computed
-void to_int_term(expr_ref &fml) {
-    ast_manager &m = fml.get_manager();
-    arith_util arith(m);
-
-    if (!(arith.is_arith_expr(fml) || m.is_eq(fml))) return;
-    if (!contains_real(fml)) return;
-
-    app *fml_app = to_app(fml);
-    SASSERT(fml_app->get_num_args() == 2);
-    expr_ref lhs(fml_app->get_arg(0), m);
-    expr_ref rhs(fml_app->get_arg(1), m);
-
-    // mod not supported
-    SASSERT(!contains_mod(fml));
-
-    rational lcm = compute_lcm(fml, m);
-    SASSERT(lcm != rational::zero());
-
-    mul_by_rat(lhs, lcm);
-    mul_by_rat(rhs, lcm);
-
-    strip_to_real(lhs);
-    strip_to_real(rhs);
-    fml =
-        m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(), lhs, rhs);
-}
-
-/// Convert all fractional constants in \p fml to integers
-void to_int(expr_ref &fml) {
-    ast_manager &m = fml.get_manager();
-    arith_util arith(m);
-    expr_ref_vector fml_vec(m), new_fml(m);
-    expr_ref new_lit(m);
-
-    flatten_and(fml, fml_vec);
-    for (auto *lit : fml_vec) {
-        new_lit = lit;
-        to_int_term(new_lit);
-        new_fml.push_back(new_lit);
-    }
-    fml = mk_and(new_fml);
-}
-
-// clang-format off
-/// Wrap integer uninterpreted constants in expression \p fml with (to_real)
-///
-/// only supports arithmetic expressions
-/// Applies the following rewrite rules upto depth \p depth
-/// (to_real_term c)                                           --> (c:Real) where c is a numeral
-/// (to_real_term i:Int)                                       --> (to_real i) where i is a constant/var
-/// (to_real_term (select A i0:Int ... iN:Int))                --> (select A (to_int (to_real i0)) ...
-///                                                                          (to_int (to_real iN)))
-/// (to_real_term (store A i0:Int ... iN:Int k))               --> (store A (to_int (to_real i0)) ...
-///                                                                         (to_int (to_real iN))
-///                                                                         (to_real_term k))
-/// (to_real_term (op (a0:Int) ... (aN:Int)))                  --> (op (to_real a0) ... (to_real aN))
-///                                                                where op is
-///                                                                an arithmetic
-///                                                                operation
-/// on all other formulas, do nothing
-/// NOTE: cannot use a rewriter since we change the sort of fml
-// clang-format on
-static void to_real_term(expr_ref &fml, unsigned depth = 3) {
-    ast_manager &m = fml.get_manager();
-    arith_util arith(m);
-    datatype_util datatype(m);
-    if (!arith.is_int_real(fml)) return;
-    rational r;
-    if (arith.is_numeral(fml, r)) {
-        fml = arith.mk_real(r);
-        return;
-    }
-    if (is_uninterp_const(fml)) {
-        if (arith.is_int(fml)) fml = arith.mk_to_real(fml);
-        return;
-    }
-    if (arith.is_to_real(fml)) {
-        expr *arg = to_app(fml)->get_arg(0);
-        if (arith.is_numeral(arg, r)) fml = arith.mk_real(r);
-        return;
-    }
-
-    if (is_uninterp(fml)) return;
-    if (depth == 0) return;
-    SASSERT(is_app(fml));
-    app *fml_app = to_app(fml);
-    expr *const *args = fml_app->get_args();
-    unsigned num_args = fml_app->get_num_args();
-    expr_ref_buffer new_args(m);
-    expr_ref child(m);
-
-    if (!has_lra_equiv(fml)) {
-        new_args.push_back(args[0]);
-        for (unsigned i = 1; i < num_args; i++) {
-            child = args[i];
-            to_real_term(child, depth - 1);
-            if (arith.is_int(args[i])) child = arith.mk_to_int(child);
-            SASSERT(args[i]->get_sort() == child->get_sort());
-            new_args.push_back(child);
-        }
-        fml = m.mk_app(fml_app->get_decl(), new_args);
-    } else {
-        for (unsigned i = 0; i < num_args; i++) {
-            child = args[i];
-            to_real_term(child, depth - 1);
-            new_args.push_back(child);
-        }
-        // The mk_app method selects the function sort based on the sort of
-        // new_args
-        fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
-                       new_args.size(), new_args.data());
-    }
-    return;
-}
-
-/// Wrap integer uninterpreted constants in conjunction \p fml with
-/// (to_real)
-void to_real(expr_ref &fml) {
-    ast_manager &m = fml.get_manager();
-
-    // cannot use an expr_ref_buffer since flatten_and operates on
-    // expr_ref_vector
-    expr_ref_vector fml_vec(m), new_fml(m);
-    flatten_and(fml, fml_vec);
-
-    expr_ref_buffer new_args(m);
-    expr_ref kid(m), new_f(m);
-    for (auto *lit : fml_vec) {
-        new_args.reset();
-        app *lit_app = to_app(lit);
-        for (auto *arg : *lit_app) {
-            kid = arg;
-            to_real_term(kid);
-            new_args.push_back(kid);
-        }
-        // Uninterpreted functions cannot be created using the mk_app api that
-        // is being used.
-        if (is_uninterp(lit)) new_f = lit;
-        // use this api to change sorts in domain of f
-        else
-            new_f = m.mk_app(lit_app->get_family_id(), lit_app->get_decl_kind(),
-                             new_args.size(), new_args.data());
-        new_fml.push_back(new_f);
-    }
-    fml = mk_and(new_fml);
-}
-
 } // namespace
 
 namespace spacer {
@@ -402,8 +152,7 @@ app *lemma_global_generalizer::subsumer::mk_fresh_tag() {
 
 lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()),
-      m_subsumer(m, ctx.use_ground_pob()),
-      m_do_subsume(ctx.do_subsume()) {}
+      m_subsumer(m, ctx.use_ground_pob()), m_do_subsume(ctx.do_subsume()) {}
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
@@ -585,41 +334,6 @@ bool lemma_global_generalizer::subsumer::find_model(
     return false;
 }
 
-///\p hard is a hard constraint and \p soft is a soft constraint that have
-/// to be
-/// satisfied by mdl
-bool lemma_global_generalizer::subsumer::maxsat_with_model(
-    const expr_ref &hard, const expr_ref &soft, model_ref &out_model) {
-    TRACE("subsume_verb",
-          tout << "maxsat with model " << hard << " " << soft << "\n";);
-    SASSERT(is_ground(hard));
-
-    solver::scoped_push _sp(*m_solver);
-    m_solver->assert_expr(hard);
-
-    expr_ref_buffer tags(m);
-    lbool res;
-    if (is_ground(soft)) {
-        tags.push_back(mk_fresh_tag());
-        m_solver->assert_expr(m.mk_implies(tags.back(), soft));
-    }
-
-    res = m_solver->check_sat(tags.size(), tags.data());
-
-    // best-effort -- flip one of the soft constraints
-    // in the current use, this is guaranteed to be sat
-    if (res != l_true && !tags.empty()) {
-        unsigned sz = tags.size();
-        tags.set(sz - 1, m.mk_not(tags[sz - 1]));
-        res = m_solver->check_sat(tags.size(), tags.data());
-    }
-
-    if (res != l_true) { return false; }
-
-    m_solver->get_model(out_model);
-    return true;
-}
-
 /// Returns false if subsumption is not supported for \p lc
 bool lemma_global_generalizer::subsumer::is_handled(const lemma_cluster &lc) {
     // check whether all substitutions are to bv_numerals
@@ -723,68 +437,6 @@ bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
     // at the end, new_post must over-approximate the implicit convex closure
     flatten_and(conj, new_post);
     return over_approximate(new_post, full_cc);
-}
-
-/// Eliminate m_dim_frsh_cnsts from \p cvx_cls
-///
-/// Uses \p lc to get a model for mbp.
-/// \p mlir indicates whether \p cvx_cls contains both ints and reals.
-/// all vars that could not be eliminated are skolemized and added to \p
-/// bindings
-bool lemma_global_generalizer::subsumer::eliminate_vars(
-    expr_ref &cvx_pattern, const lemma_cluster &lc, bool mlir,
-    app_ref_vector &out_bindings) {
-    if (mlir) {
-        // coerce to real
-        to_real(cvx_pattern);
-        // coerce skolem constants to real
-        to_real_cnsts();
-
-        TRACE("subsume_verb",
-              tout << "To real produced " << cvx_pattern << "\n";);
-    }
-
-    // Get a model to guide MBP. Attempt to get a model that does not satisfy
-    // any of the cubes in the cluster
-
-    model_ref mdl;
-    expr_ref neg_cubes(m);
-    lc.get_conj_lemmas(neg_cubes);
-    if (!maxsat_with_model(cvx_pattern, neg_cubes, mdl)) {
-        TRACE("subsume",
-              tout << "Convex closure is unsat " << cvx_pattern << "\n";);
-        return false;
-    }
-
-    SASSERT(mdl.get() != nullptr);
-    TRACE("subsume", tout << "calling mbp with " << cvx_pattern << " and\n"
-                          << *mdl << "\n";);
-
-    // MBP to eliminate existentially quantified variables
-    qe_project(m, m_col_names, cvx_pattern, *mdl.get(), true, true,
-               !m_ground_pob);
-
-    TRACE("subsume", tout << "Pattern after mbp of computing cvx cls: "
-                          << cvx_pattern << "\n";);
-
-    if (!m_ground_pob && contains_reals(m_col_names)) {
-        TRACE("subsume", tout << "Could not eliminate non-integer variables\n"
-                              << m_col_names << "\n";);
-        return false;
-    }
-
-    SASSERT(!m_ground_pob || m_col_names.empty());
-
-    if (mlir) { to_int(cvx_pattern); }
-
-    // If not all variables have been eliminated, skolemize and add bindings
-    // This creates quantified proof obligation that will be handled by QUIC3
-    if (!m_col_names.empty()) {
-        SASSERT(!m_ground_pob);
-        skolemize_for_quic3(cvx_pattern, mdl, out_bindings);
-    }
-
-    return true;
 }
 
 /// Find a weakening of \p a such that \p b ==> a
@@ -1002,15 +654,6 @@ void lemma_global_generalizer::subsumer::ground_free_vars(expr *pat,
     out = vs(pat, m_col_lcm.size(),
              reinterpret_cast<expr *const *>(m_col_names.data()));
     SASSERT(is_ground(out));
-}
-
-// convert all LIA constants in m_dim_frsh_cnsts to LRA constants using
-// to_real
-void lemma_global_generalizer::subsumer::to_real_cnsts() {
-    for (unsigned i = 0, sz = m_col_names.size(); i < sz; i++) {
-        auto *c = m_col_names.get(i);
-        if (!m_arith.is_real(c)) m_col_names.set(i, m_arith.mk_to_real(c));
-    }
 }
 
 pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
