@@ -63,6 +63,7 @@ class convex_closure {
     // Variables naming columns in `m_data`
     // \p m_col_vars[k] is a var for column \p k
     expr_ref_vector m_col_vars;
+    vector<bool> m_dead_cols;
 
     // Kernel of \p m_data
     // Set at the end of computation
@@ -76,7 +77,7 @@ class convex_closure {
     expr_ref_vector m_explicit_cc;
 
     /// Reduces dimension of \p m_data and returns its rank
-    unsigned reduce_dim();
+    unsigned reduce();
 
     /// Constructs an equality corresponding to a given row in the kernel
     ///
@@ -85,50 +86,46 @@ class convex_closure {
     /// where row is a row vector and m_col_vars is a column vector.
     /// However, the equality is put in a form so that exactly one variable from
     /// \p m_col_vars is on the LHS
-    void mk_row_eq(const vector<rational> &row, expr_ref &out);
+    void kernel_row2eq(const vector<rational> &row, expr_ref &out);
 
     /// Construct all linear equations implied by points in \p m_data
     /// This is defined by \p m_kernel * m_col_vars = 0
-    void generate_implied_equalities(expr_ref_vector &out);
+    void kernel2fmls(expr_ref_vector &out);
 
     /// Compute syntactic convex closure of \p m_data
-    void syntactic_convex_closure(expr_ref_vector &out);
+    void cc2fmls(expr_ref_vector &out);
 
     /// Construct the equality ((m_alphas . m_data[*][k]) = m_col_vars[k])
     ///
     /// \p m_data[*][k] is the kth column of m_data
     /// The equality is added to \p out.
-    void mk_col_sum(unsigned k, expr_ref_vector &out);
+    void cc_col2eq(unsigned k, expr_ref_vector &out);
 
     /// Compute one dimensional convex closure over \p var
     ///
     /// \p var is the dimension over  which convex closure is computed
     /// Result is stored in \p out
-    void do_1dim_convex_closure(const expr_ref &var, expr_ref_vector &out);
+    void cc_1dim(const expr_ref &var, expr_ref_vector &out);
 
     /// Computes div constraint implied by a set of data points
     ///
     /// Finds the largest numbers \p m, \p d such that \p m_data[i] mod m = d
     /// Returns true if successful
-    bool generate_div_constraint(const vector<rational> &data, rational &m,
-                                 rational &d);
+    bool infer_div_pred(const vector<rational> &data, rational &m, rational &d);
 
     /// Constructs a formula \p var ~ n , where  ~ = is_le ? <= : >=
-    expr *mk_le_ge(expr* var, rational n, bool is_le);
+    expr *mk_le_ge(expr *var, rational n, bool is_le);
 
-    /// Returns (v % d == r)
-    expr *mk_mod_eq(expr *v, rational d, rational r);
+    expr *mk_add(const expr_ref_buffer &vec);
+    expr *mk_numeral(const rational &n, bool is_int);
+
+    /// Returns equality (v = r mod d)
+    expr *mk_eq_mod(expr *v, rational d, rational r);
 
     bool has_bv() { return m_bv_sz > 0; }
 
   public:
-    convex_closure(ast_manager &manager, bool use_sage)
-        : m(manager), m_arith(m), m_bv(m), m_bv_sz(0), m_enable_implicit(true),
-          m_dim(0), m_data(0, 0), m_col_vars(m), m_kernel(m_data), m_alphas(m),
-          m_implicit_cc(m), m_explicit_cc(m) {
-
-        if (use_sage) m_kernel.set_plugin(mk_sage_plugin());
-    }
+    convex_closure(ast_manager &_m);
 
     /// Resets all data points
     ///
@@ -154,37 +151,11 @@ class convex_closure {
     /// \brief Return number of dimensions of each point
     unsigned dims() const { return m_dim; }
 
-    /// \brief Add a one-dimensional point to convex closure
-    void add_row(rational x) {
-        SASSERT(dims() == 1);
-        vector<rational> row;
-        row.reserve(1, x);
-        m_data.add_row(row);
-    }
-
-    /// \brief Add a two-dimensional point to convex closure
-    void add_row(rational x, rational y) {
-        SASSERT(dims() == 2);
-        vector<rational> row;
-        row.reserve(2);
-        row[0] = x;
-        row[1] = y;
-        m_data.add_row(row);
-    }
-
     /// \brief Add an n-dimensional point to convex closure
     void add_row(const vector<rational> &point) {
         SASSERT(point.size() == dims());
         m_data.add_row(point);
     };
-
-    /// \brief Compute convex closure of the current set of points
-    ///
-    /// Returns true if successful and \p out is an exact convex closure
-    /// Returns false if \p out is an over-approximation
-    bool closure(expr_ref_vector &out);
-
-    bool operator()(expr_ref_vector &out) { return this->closure(out); }
 
     bool operator()() { return this->compute(); }
     bool compute();

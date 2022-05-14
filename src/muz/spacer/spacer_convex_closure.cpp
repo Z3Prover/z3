@@ -19,6 +19,7 @@ Notes:
 --*/
 
 #include "muz/spacer/spacer_convex_closure.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace {
 bool is_int_matrix(const spacer::spacer_matrix &matrix) {
@@ -46,26 +47,34 @@ bool is_congruent_mod(const vector<rational> &data, rational m) {
     return true;
 }
 
-app *mk_bvadd(ast_manager &m, unsigned num, expr *const *args) {
+app *mk_bvadd(bv_util &bv, unsigned num, expr *const *args) {
     if (num == 0) return nullptr;
     if (num == 1) return is_app(args[0]) ? to_app(args[0]) : nullptr;
 
-    bv_util bv(m);
     if (num == 2) { return bv.mk_bv_add(args[0], args[1]); }
 
     /// XXX no mk_bv_add for n-ary bv_add
-    return m.mk_app(bv.get_fid(), OP_BADD, num, args);
+    return bv.get_manager().mk_app(bv.get_fid(), OP_BADD, num, args);
 }
 } // namespace
 
 namespace spacer {
 
+convex_closure::convex_closure(ast_manager &_m)
+    : m(_m), m_arith(m), m_bv(m), m_bv_sz(0), m_enable_implicit(true), m_dim(0),
+      m_data(0, 0), m_col_vars(m), m_kernel(m_data), m_alphas(m),
+      m_implicit_cc(m), m_explicit_cc(m) {
+
+    m_kernel.set_plugin(mk_simplex_kernel_plugin());
+}
 void convex_closure::reset(unsigned n_cols) {
-    m_kernel.reset();
-    m_data.reset(n_cols);
-    m_col_vars.reset();
     m_dim = n_cols;
+    m_kernel.reset();
+    m_data.reset(m_dim);
+    m_col_vars.reset();
     m_col_vars.reserve(m_dim);
+    m_dead_cols.reset();
+    m_dead_cols.reserve(m_dim, false);
     m_alphas.reset();
     m_bv_sz = 0;
     m_enable_implicit = true;
@@ -81,7 +90,7 @@ void convex_closure::collect_statistics(statistics &st) const {
 
 // call m_kernel to reduce dimensions of m_data
 // return the rank of m_data
-unsigned convex_closure::reduce_dim() {
+unsigned convex_closure::reduce() {
     if (m_dim <= 1) return m_dim;
 
     bool has_kernel = m_kernel.compute_kernel();
@@ -97,6 +106,11 @@ unsigned convex_closure::reduce_dim() {
     SASSERT(ker.num_cols() == m_dim + 1);
     // m_dim - ker.num_rows() is the number of variables that have no linear
     // dependencies
+
+    for (auto v : m_kernel.get_basic_vars())
+        // XXX sometimes a constant can be basic, need to find a way to
+        // switch it to var
+        if (v < m_dead_cols.size()) m_dead_cols[v] = true;
     return m_dim - ker.num_rows();
 }
 
@@ -105,84 +119,45 @@ unsigned convex_closure::reduce_dim() {
 // row * m_col_vars = 0
 //
 // In the equality, exactly one variable from  m_col_vars is on the lhs
-void convex_closure::mk_row_eq(const vector<rational> &row, expr_ref &out) {
-    // contains the right hand side of an equality
-    expr_ref_buffer rhs(m);
-    // index of first non zero element in row
-    int pv = -1;
-    // are we constructing rhs or lhs
-    bool is_lhs = true;
-    // coefficient of m_col_vars[pv]
-    rational coeff(1);
+void convex_closure::kernel_row2eq(const vector<rational> &row, expr_ref &out) {
+    expr_ref_buffer lhs(m);
+    expr_ref e1(m);
 
-    // the elements in row are the coefficients of m_col_vars
-    // some elements should go to the rhs, in which case the signs are
-    // changed
-    for (unsigned j = 0, sz = row.size(); j < sz; j++) {
-        rational val = row.get(j);
-        SASSERT(val.is_int());
-        if (val.is_zero()) continue;
-        if (is_lhs) {
-            // Cannot re-write the last element
-            if (j == row.size() - 1) continue;
-            SASSERT(pv == -1);
-            pv = j;
-            is_lhs = false;
-            // In integer echelon form, the pivot need not be 1
-            coeff = val;
+    bool is_int = false;
+    for (unsigned i = 0, sz = row.size(); i < sz; ++i) {
+        rational val_i = row.get(i);
+        if (val_i.is_zero()) continue;
+        SASSERT(val_i.is_int());
+
+        if (i < sz - 1) {
+            e1 = m_col_vars.get(i);
+            is_int |= m_arith.is_int(e1);
+            mul_by_rat(e1, val_i);
         } else {
-            expr_ref prod(m);
-            if (j != row.size() - 1) {
-                prod = m_col_vars.get(j);
-                mul_by_rat(prod, -1 * val);
-            } else {
-                auto *col_v = m_col_vars.get(pv);
-                if (m_arith.is_int_real(col_v)) {
-                    prod = m_arith.mk_numeral(-1 * val, m_arith.is_int(col_v));
-                } else if (m_bv.is_bv(col_v)) {
-                    prod = m_bv.mk_numeral(-1 * val, m_bv_sz);
-                } else {
-                    SASSERT(false);
-                }
-            }
-            SASSERT(prod);
-            rhs.push_back(prod);
+            e1 = mk_numeral(rational::one(), is_int);
         }
+        lhs.push_back(e1);
     }
 
-    // make sure that there is a non-zero entry
-    SASSERT(pv != -1);
+    e1 = !has_bv() ? mk_add(lhs) : mk_bvadd(m_bv, lhs.size(), lhs.data());
+    e1 = m.mk_eq(e1, mk_numeral(rational::zero(), is_int));
 
-    if (rhs.size() == 0) {
-        expr_ref _rhs(m);
-        auto *col_var = m_col_vars.get(pv);
-        if (m_arith.is_int_real(col_var))
-            _rhs =
-                m_arith.mk_numeral(rational::zero(), m_arith.is_int(col_var));
-        else if (m_bv.is_bv(col_var))
-            _rhs = m_bv.mk_numeral(rational::zero(), m_bv_sz);
-        out = m_arith.mk_eq(col_var, _rhs);
-        return;
-    }
-
-    out = !has_bv() ? m_arith.mk_add(rhs.size(), rhs.data())
-                    : mk_bvadd(m, rhs.size(), rhs.data());
-    expr_ref pv_var(m);
-    pv_var = m_col_vars.get(pv);
-    mul_by_rat(pv_var, coeff);
-
-    out = m.mk_eq(pv_var, out);
-    TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_col_vars.get(pv), m)
-                          << " into " << out << "\n";);
+    // revisit this simplification step, it is here only to prevent/simplify
+    // formula construction everywhere else
+    params_ref params;
+    params.set_bool("som", true);
+    params.set_bool("flat", true);
+    th_rewriter rw(m, params);
+    rw(e1, out);
 }
 
 /// Generates linear equalities implied by m_data
 ///
 /// the linear equalities are m_kernel * m_col_vars = 0 (where * is matrix
-/// multiplication) the new equalities are stored in m_col_vars for each row [0,
-/// 1, 0, 1 , 1] in m_kernel, the equality v1 = -1*v3 + -1*1 is
+/// multiplication) the new equalities are stored in m_col_vars for each row
+/// [0, 1, 0, 1 , 1] in m_kernel, the equality v1 = -1*v3 + -1*1 is
 /// constructed and stored at index 1 of m_col_vars
-void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
+void convex_closure::kernel2fmls(expr_ref_vector &out) {
     // assume kernel has been computed already
     const spacer_matrix &kern = m_kernel.get_kernel();
     SASSERT(kern.num_rows() > 0);
@@ -190,16 +165,36 @@ void convex_closure::generate_implied_equalities(expr_ref_vector &out) {
     expr_ref eq(m);
     for (unsigned i = kern.num_rows(); i > 0; i--) {
         auto &row = kern.get_row(i - 1);
-        mk_row_eq(row, eq);
+        kernel_row2eq(row, eq);
         out.push_back(eq);
     }
+}
+
+expr *convex_closure::mk_add(const expr_ref_buffer &vec) {
+    SASSERT(!vec.empty());
+    expr_ref s(m);
+    if (vec.size() == 1) {
+        return vec[0];
+    } else if (vec.size() > 1) {
+        return m_arith.mk_add(vec.size(), vec.data());
+    }
+
+    UNREACHABLE();
+    return nullptr;
+}
+
+expr *convex_closure::mk_numeral(const rational &n, bool is_int) {
+    if (!has_bv())
+        return m_arith.mk_numeral(n, is_int);
+    else
+        return m_bv.mk_numeral(n, m_bv_sz);
 }
 
 /// Construct the equality ((m_alphas . m_data[*][i]) = m_col_vars[i])
 ///
 /// Where . is the dot product,  m_data[*][i] is
 /// the ith column of m_data. Add the result to res_vec.
-void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
+void convex_closure::cc_col2eq(unsigned col, expr_ref_vector &out) {
     SASSERT(!has_bv());
 
     expr_ref_buffer sum(m);
@@ -219,11 +214,7 @@ void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
     }
     SASSERT(!sum.empty());
     expr_ref s(m);
-    if (sum.size() == 1) {
-        s = sum[0];
-    } else if (sum.size() > 1) {
-        s = m_arith.mk_add(sum.size(), sum.data());
-    }
+    s = mk_add(sum);
 
     expr_ref v(m);
     expr *vi = m_col_vars.get(col);
@@ -231,7 +222,7 @@ void convex_closure::mk_col_sum(unsigned col, expr_ref_vector &out) {
     out.push_back(m.mk_eq(s, v));
 }
 
-void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
+void convex_closure::cc2fmls(expr_ref_vector &out) {
     sort_ref real_sort(m_arith.mk_real(), m);
     expr_ref zero(m_arith.mk_real(rational::zero()), m);
 
@@ -245,7 +236,7 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
     }
 
     for (unsigned k = 0, sz = m_col_vars.size(); k < sz; k++) {
-        if (m_col_vars.get(k)) mk_col_sum(k, out);
+        if (m_col_vars.get(k) && !m_dead_cols[k]) cc_col2eq(k, out);
     }
 
     //(\Sum j . m_new_vars[j]) = 1
@@ -260,8 +251,8 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
 // corresponding d
 // TODO: find the largest divisor, not the smallest.
 // TODO: improve efficiency
-bool convex_closure::generate_div_constraint(const vector<rational> &data,
-                                             rational &m, rational &d) {
+bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
+                                    rational &d) {
     TRACE("cvx_dbg_verb", {
         tout << "computing div constraints for ";
         for (rational r : data) tout << r << " ";
@@ -294,12 +285,12 @@ bool convex_closure::compute() {
     scoped_watch _w_(m_st.watch);
     SASSERT(is_int_matrix(m_data));
 
-    unsigned rank = reduce_dim();
+    unsigned rank = reduce();
     // store dim var before rewrite
     expr_ref var(m_col_vars.get(0), m);
     if (rank < dims()) {
         m_st.m_num_reductions++;
-        generate_implied_equalities(m_explicit_cc);
+        kernel2fmls(m_explicit_cc);
         TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
                               << mk_and(m_explicit_cc) << "\n";);
     }
@@ -312,7 +303,7 @@ bool convex_closure::compute() {
     } else if (rank > 1) {
         if (m_enable_implicit) {
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-            syntactic_convex_closure(m_implicit_cc);
+            cc2fmls(m_implicit_cc);
         } else {
             return false;
         }
@@ -320,48 +311,8 @@ bool convex_closure::compute() {
     }
 
     SASSERT(rank == 1);
-    do_1dim_convex_closure(var, m_explicit_cc);
+    cc_1dim(var, m_explicit_cc);
     return true;
-}
-/// Compute the convex closure of points in m_data
-///
-/// Returns true if the convex closure is syntactic
-bool convex_closure::closure(expr_ref_vector &out) {
-    scoped_watch _w_(m_st.watch);
-    SASSERT(is_int_matrix(m_data));
-
-    unsigned red_dim = reduce_dim();
-
-    // store dim var before rewrite
-    expr_ref var(m_col_vars.get(0), m);
-    if (red_dim < dims()) {
-        m_st.m_num_reductions++;
-        generate_implied_equalities(out);
-        TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
-                              << mk_and(out) << "\n";);
-    }
-
-    m_st.m_max_dim = std::max(m_st.m_max_dim, red_dim);
-
-    if (red_dim > 1) {
-        // there is no alternative to syntactic convex closure right now
-        // syntactic convex closure does not support BV
-        if (m_enable_implicit) {
-            TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-            syntactic_convex_closure(out);
-        } else {
-            out.reset();
-            return false;
-        }
-        return true;
-    }
-
-    // zero dimensional convex closure
-    if (red_dim == 0) { return false; }
-
-    SASSERT(red_dim == 1);
-    do_1dim_convex_closure(var, out);
-    return false;
 }
 
 // construct the formula result_var <= bnd or result_var >= bnd
@@ -379,8 +330,7 @@ expr *convex_closure::mk_le_ge(expr *v, rational n, bool is_le) {
     return nullptr;
 }
 
-void convex_closure::do_1dim_convex_closure(const expr_ref &var,
-                                            expr_ref_vector &out) {
+void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
 
     // XXX assumes that var corresponds to col 0
 
@@ -409,14 +359,14 @@ void convex_closure::do_1dim_convex_closure(const expr_ref &var,
             data.reset();
             m_data.get_col(j, data);
             std::sort(data.begin(), data.end(), gt_proc);
-            if (generate_div_constraint(data, cr, off)) {
-                out.push_back(mk_mod_eq(v, cr, off));
+            if (infer_div_pred(data, cr, off)) {
+                out.push_back(mk_eq_mod(v, cr, off));
             }
         }
     }
 }
 
-expr *convex_closure::mk_mod_eq(expr *v, rational d, rational r) {
+expr *convex_closure::mk_eq_mod(expr *v, rational d, rational r) {
     expr *res = nullptr;
     if (!m_arith.is_int(v)) {
         res = m.mk_eq(m_arith.mk_mod(v, m_arith.mk_int(d)), m_arith.mk_int(r));

@@ -32,7 +32,8 @@ class spacer_arith_kernel {
       public:
         virtual ~plugin() {}
         virtual bool compute_kernel(const spacer_matrix &in_matrix,
-                                    spacer_matrix &out_kernel) = 0;
+                                    spacer_matrix &out_kernel,
+                                    vector<unsigned> &basics) = 0;
         virtual void collect_statistics(statistics &st) const = 0;
         virtual void reset_statistics() = 0;
         virtual void reset() = 0;
@@ -51,6 +52,8 @@ class spacer_arith_kernel {
 
     /// Output matrix representing the kernel
     spacer_matrix m_kernel;
+    /// columns in the kernel that correspond to basic vars
+    vector<unsigned> m_basic_vars;
 
     scoped_ptr<plugin> m_plugin;
 
@@ -68,6 +71,7 @@ class spacer_arith_kernel {
     bool operator()() { return compute_kernel(); }
 
     const spacer_matrix &get_kernel() const { return m_kernel; }
+    const vector<unsigned> &get_basic_vars() const { return m_basic_vars; }
 
     void reset() {
         m_kernel = spacer_matrix(0, 0);
@@ -86,5 +90,6 @@ class spacer_arith_kernel {
 
 /// \brief Kernel computation using Sage package
 spacer_arith_kernel::plugin *mk_sage_plugin();
+spacer_arith_kernel::plugin *mk_simplex_kernel_plugin();
 
 } // namespace spacer

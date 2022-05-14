@@ -192,7 +192,8 @@ class sage_arith_kernel_plugin : public spacer_arith_kernel::plugin {
 
     scoped_ptr<Sage> m_sage;
     bool compute_kernel(const spacer_matrix &in_matrix,
-                        spacer_matrix &out_kernel) override;
+                        spacer_matrix &out_kernel,
+                        vector<unsigned> &basics) override;
     std::string matrix_to_string(const spacer_matrix &matrix) const;
 
   public:
@@ -225,7 +226,8 @@ sage_arith_kernel_plugin::matrix_to_string(const spacer_matrix &matrix) const {
 }
 
 bool sage_arith_kernel_plugin::compute_kernel(const spacer_matrix &in_matrix,
-                                              spacer_matrix &out_kernel) {
+                                              spacer_matrix &out_kernel,
+                                              vector<unsigned> &basics) {
     scoped_watch _w_(m_st.watch);
 
     char temp_name[] = "/tmp/spacersage.XXXXXX";
