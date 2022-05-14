@@ -129,7 +129,7 @@ class lemma_global_generalizer : public lemma_generalizer {
         }
 
       public:
-        subsumer(ast_manager &m, bool use_sage, bool ground_pob);
+        subsumer(ast_manager &m, bool ground_pob);
 
         void collect_statistics(statistics &st) const;
 

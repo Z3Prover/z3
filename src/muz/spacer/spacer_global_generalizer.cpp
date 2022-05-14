@@ -118,15 +118,6 @@ bool contains_reals(const app_ref_vector &c) {
     return false;
 }
 
-// Check whether there are Int constants in \p c
-bool contains_ints(const app_ref_vector &c) {
-    arith_util m_arith(c.get_manager());
-    for (auto *f : c) {
-        if (m_arith.is_int(f)) return true;
-    }
-    return false;
-}
-
 // Check whether \p sub contains a mapping to a bv_numeral.
 // return bv_size of the bv_numeral in the first such mapping.
 bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
@@ -387,8 +378,7 @@ void to_real(expr_ref &fml) {
 } // namespace
 
 namespace spacer {
-lemma_global_generalizer::subsumer::subsumer(ast_manager &a_m, bool use_sage,
-                                             bool ground_pob)
+lemma_global_generalizer::subsumer::subsumer(ast_manager &a_m, bool ground_pob)
     : m(a_m), m_arith(m), m_bv(m), m_tags(m), m_used_tags(0), m_col_names(m),
       m_ground_pob(ground_pob) {
     scoped_ptr<solver_factory> factory(
@@ -412,7 +402,7 @@ app *lemma_global_generalizer::subsumer::mk_fresh_tag() {
 
 lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()),
-      m_subsumer(m, ctx.use_sage(), ctx.use_ground_pob()),
+      m_subsumer(m, ctx.use_ground_pob()),
       m_do_subsume(ctx.do_subsume()) {}
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
@@ -656,7 +646,7 @@ bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
                                                  app_ref_vector &bindings) {
     if (!is_handled(lc)) return false;
 
-    convex_closure cvx_closure(m, false);
+    convex_closure cvx_closure(m);
 
     reset();
     setup_cvx_closure(cvx_closure, lc);
