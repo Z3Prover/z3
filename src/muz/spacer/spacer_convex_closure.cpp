@@ -134,7 +134,7 @@ void convex_closure::kernel_row2eq(const vector<rational> &row, expr_ref &out) {
             is_int |= m_arith.is_int(e1);
             mul_by_rat(e1, val_i);
         } else {
-            e1 = mk_numeral(rational::one(), is_int);
+            e1 = mk_numeral(val_i, is_int);
         }
         lhs.push_back(e1);
     }
