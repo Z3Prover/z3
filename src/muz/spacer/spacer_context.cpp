@@ -2367,7 +2367,6 @@ void context::updt_params() {
     m_expand_bnd = m_params.spacer_expand_bnd();
     m_gg_conjecture = m_params.spacer_gg_conjecture();
     m_gg_subsume = m_params.spacer_gg_subsume();
-    m_gg_use_sage = m_params.spacer_gg_use_sage();
     m_gg_concretize = m_params.spacer_gg_concretize();
 
     m_use_iuc = m_params.spacer_use_iuc();

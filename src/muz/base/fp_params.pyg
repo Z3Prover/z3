@@ -184,7 +184,6 @@ def_module_params('fp',
                           ('spacer.gg.concretize', BOOL, True, 'Enable global guidance concretize'),
                           ('spacer.gg.conjecture', BOOL, True, 'Enable global guidance conjecture'),
                           ('spacer.gg.subsume', BOOL, True, 'Enable global guidance subsume'),
-                          ('spacer.gg.use_sage', BOOL, False, '(Debug) Use SAGE for kernel computation in gg.subsume'),
                           ('spacer.use_iuc', BOOL, True, 'Enable Interpolating Unsat Core(IUC) for lemma generalization'),
                           ('spacer.expand_bnd', BOOL, False, 'Enable expand-bound lemma generalization'),
                           ))

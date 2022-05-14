@@ -1199,7 +1199,6 @@ class context {
     bool                 m_expand_bnd;
     bool                 m_gg_conjecture;
     bool                 m_gg_subsume;
-    bool                 m_gg_use_sage;
     bool                 m_gg_concretize;
     bool                 m_use_iuc;
     unsigned             m_push_pob_max_depth;
@@ -1360,7 +1359,6 @@ class context {
 
     bool is_inductive();
 
-    bool use_sage() { return m_gg_use_sage; }
     // close all parents of may pob when gas runs out
     void close_all_may_parents(pob_ref node);
 
