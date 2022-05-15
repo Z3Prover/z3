@@ -1914,9 +1914,8 @@ public:
         return mk_fresh_const(prefix.c_str(), s, skolem);        
     }
 
-    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) { 
-        auto str = prefix.str();
-        return mk_fresh_const(str.c_str(), s, skolem);
+    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) {
+        return mk_const(mk_fresh_func_decl(prefix, symbol::null, 0, nullptr, s, skolem));
     }
 
     symbol mk_fresh_var_name(char const * prefix = nullptr);
