@@ -207,7 +207,7 @@ extern "C" {
         if (!smt_logics::supported_logic(to_symbol(logic))) {
             std::ostringstream strm;
             strm << "logic '" << to_symbol(logic) << "' is not recognized";
-            throw default_exception(strm.str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, strm.str());
             RETURN_Z3(nullptr);
         }
         else {
@@ -412,9 +412,8 @@ extern "C" {
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s) {
         Z3_TRY;
         LOG_Z3_solver_dec_ref(c, s);
-        RESET_ERROR_CODE();
-        if (s)
-            to_solver(s)->dec_ref();
+        if (s) 
+            to_solver(s)->dec_ref();        
         Z3_CATCH;
     }
 

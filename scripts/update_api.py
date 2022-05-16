@@ -308,6 +308,13 @@ def display_args_to_z3(params):
 
 NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
+Unchecked = frozenset([ 'Z3_dec_ref', 'Z3_params_dec_ref', 'Z3_model_dec_ref',
+                        'Z3_func_interp_dec_ref', 'Z3_func_entry_dec_ref',
+                        'Z3_goal_dec_ref', 'Z3_tactic_dec_ref', 'Z3_probe_dec_ref',
+                        'Z3_fixedpoint_dec_ref', 'Z3_param_descrs_dec_ref',
+                        'Z3_ast_vector_dec_ref', 'Z3_ast_map_dec_ref', 
+                        'Z3_apply_result_dec_ref', 'Z3_solver_dec_ref',
+                        'Z3_stats_dec_ref', 'Z3_optimize_dec_ref'])
 
 def mk_py_wrappers():
     core_py.write("""
@@ -377,7 +384,7 @@ def mk_py_wrapper_single(sig, decode_string=True):
     core_py.write("  %s_elems.f(" % lval)
     display_args_to_z3(params)
     core_py.write(")\n")
-    if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+    if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped and not name in Unchecked:
         core_py.write("  _elems.Check(a0)\n")
     if result == STRING and decode_string:
         core_py.write("  return _to_pystr(r)\n")
@@ -498,7 +505,7 @@ def mk_dotnet_wrappers(dotnet):
                 dotnet.write("            if (r == IntPtr.Zero)\n")
                 dotnet.write("                throw new Z3Exception(\"Object allocation failed.\");\n")
             else:
-                if len(params) > 0 and param_type(params[0]) == CONTEXT:
+                if len(params) > 0 and param_type(params[0]) == CONTEXT and name not in Unchecked:
                     dotnet.write("            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);\n")
                     dotnet.write("            if (err != Z3_error_code.Z3_OK)\n")
                     dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg(a0, (uint)err)));\n")
@@ -671,7 +678,7 @@ def mk_java(java_dir, package_name):
                 java_native.write("      if (res == 0)\n")
                 java_native.write("          throw new Z3Exception(\"Object allocation failed.\");\n")
             else:
-                if len(params) > 0 and param_type(params[0]) == CONTEXT:
+                if len(params) > 0 and param_type(params[0]) == CONTEXT and name not in Unchecked:
                     java_native.write('      Z3_error_code err = Z3_error_code.fromInt(INTERNALgetErrorCode(a0));\n')
                     java_native.write('      if (err != Z3_error_code.Z3_OK)\n')
                     java_native.write('          throw new Z3Exception(INTERNALgetErrorMsg(a0, err.toInt()));\n')
@@ -1494,7 +1501,7 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
         # determine if the function has a context as parameter.
         have_context = (len(params) > 0) and (param_type(params[0]) == CONTEXT)
 
-        if have_context and name not in Unwrapped:
+        if have_context and name not in Unwrapped and name not in Unchecked:
             ml_wrapper.write('  Z3_error_code ec;\n')
 
         if result != VOID:
@@ -1620,7 +1627,7 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
         if release_caml_gc:
             ml_wrapper.write('\n  caml_acquire_runtime_system();\n')
 
-        if have_context and name not in Unwrapped:
+        if have_context and name not in Unwrapped and name not in Unchecked:
             ml_wrapper.write('  ec = Z3_get_error_code(ctx_p->ctx);\n')
             ml_wrapper.write('  if (ec != Z3_OK) {\n')
             ml_wrapper.write('    const char * msg = Z3_get_error_msg(ctx_p->ctx, ec);\n')
