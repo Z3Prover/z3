@@ -11330,13 +11330,13 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.cb = None
 
 
-_user_prop_push = push_eh_type(user_prop_push)
-_user_prop_pop = pop_eh_type(user_prop_pop)
-_user_prop_fresh = fresh_eh_type(user_prop_fresh)
-_user_prop_fixed = fixed_eh_type(user_prop_fixed)
-_user_prop_final = final_eh_type(user_prop_final)
-_user_prop_eq = eq_eh_type(user_prop_eq)
-_user_prop_diseq = eq_eh_type(user_prop_diseq)
+_user_prop_push = Z3_push_eh(user_prop_push)
+_user_prop_pop = Z3_pop_eh(user_prop_pop)
+_user_prop_fresh = Z3_fresh_eh(user_prop_fresh)
+_user_prop_fixed = Z3_fixed_eh(user_prop_fixed)
+_user_prop_final = Z3_final_eh(user_prop_final)
+_user_prop_eq = Z3_eq_eh(user_prop_eq)
+_user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 
 
 class UserPropagateBase:
