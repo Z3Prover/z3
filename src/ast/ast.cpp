@@ -1672,9 +1672,8 @@ void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
 }
 
 quantifier* ast_manager::is_lambda_def(func_decl* f) {
-    if (f->get_info() && f->get_info()->is_lambda()) {
+    if (f->get_info() && f->get_info()->is_lambda()) 
         return m_lambda_defs[f];
-    }
     return nullptr;
 }
 
