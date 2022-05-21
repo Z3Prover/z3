@@ -510,6 +510,7 @@ public:
         for (auto const & [core, w] : cores) {
             if (core.empty())
                 return l_false;
+            ++m_stats.m_num_cores;
             remove_soft(core, m_asms);
             split_core(core);
             process_unsat(core, w);

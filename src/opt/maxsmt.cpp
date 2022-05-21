@@ -342,15 +342,13 @@ namespace opt {
 
     void maxsmt::updt_params(params_ref& p) {
         m_params.append(p);
-        if (m_msolver) {
+        if (m_msolver) 
             m_msolver->updt_params(p);
-        }
     }
 
     void maxsmt::collect_statistics(statistics& st) const {
-        if (m_msolver) {
+        if (m_msolver) 
             m_msolver->collect_statistics(st);
-        }
     }
 
     solver& maxsmt::s() {

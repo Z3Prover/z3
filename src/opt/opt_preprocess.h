@@ -34,6 +34,8 @@ namespace opt {
         bool prop_mutexes(vector<soft>& softs, rational& lower);
         void process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft, rational& lower);
 
+        obj_map<expr, rational> dualize(obj_map<expr, rational> const& soft, expr_ref_vector& fmls);
+
     public:
         preprocess(solver& s);
         bool operator()(vector<soft>& soft, rational& lower);

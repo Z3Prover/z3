@@ -15,6 +15,19 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2022-04-11
 
+
+Notes:
+
+   maxsat x, y, z, u . x + y + z <= 1 and F 
+=>
+   maxsst x or y or z, u . x + y + z <= 1 and F
+   lower bound increased by 2
+
+   maxsat x, y, z, u . x + y + z >= 2 and F 
+=>
+   maxsst x and y and z, u . x + y + z >= 2 and F
+   lower bound decreased by 2
+
 --*/
 
 #pragma once
@@ -113,10 +126,25 @@ namespace opt {
             m_trail.push_back(sf.s);
             if (new_soft.contains(sf.s))
                 new_soft[sf.s] += sf.weight;
-            else
+            else {
                 new_soft.insert(sf.s, sf.weight);
-            fmls.push_back(sf.s);
+                fmls.push_back(sf.s);
+            }
         }
+        return new_soft;
+    }
+
+    obj_map<expr, rational> preprocess::dualize(obj_map<expr, rational> const& soft, expr_ref_vector& fmls) {
+        obj_map<expr, rational> new_soft;
+        for (auto const& [k, v] : soft) {
+            expr* nk = mk_not(m, k);
+            m_trail.push_back(nk);
+            new_soft.insert(nk, v);
+        }
+        unsigned i = 0;
+        for (expr* f : fmls)
+            fmls[i++] = mk_not(m, f);
+
         return new_soft;
     }
 
@@ -131,6 +159,24 @@ namespace opt {
             return false;
         for (auto& mux : mutexes) 
             process_mutex(mux, new_soft, lower);
+
+
+        if (mutexes.empty())
+        {
+            obj_map<expr, rational> dual_soft = dualize(new_soft, fmls);
+            mutexes.reset();
+            lbool is_sat = s.find_mutexes(fmls, mutexes);
+            if (is_sat == l_false)
+                return true;
+            if (is_sat == l_undef)
+                return false;
+            rational llower(0);
+            for (auto& mux : mutexes) 
+                process_mutex(mux, dual_soft, llower);
+            if (dual_soft.size() != new_soft.size())
+                new_soft = dualize(dual_soft, fmls);
+        }
+        
         softs.reset();
         for (auto const& [k, v] : new_soft)
             softs.push_back(soft(expr_ref(k, m), v, false));
@@ -175,13 +221,14 @@ namespace opt {
             weight = w - weight;
             lower += weight*rational(i);
             IF_VERBOSE(1, verbose_stream() << "(opt.maxsat mutex size: " << i + 1 << " weight: " << weight << ")\n";);
-            sum2 += weight*rational(i+1);
+            sum2 += weight * rational(i + 1);
             new_soft.insert(soft, weight);
             for (; i > 0 && weights[i-1] == w; --i) {} 
             weight = w;
         }        
         SASSERT(sum1 == sum2);        
     }
+
 
     preprocess::preprocess(solver& s):  m(s.get_manager()), s(s), m_trail(m) {}
     
