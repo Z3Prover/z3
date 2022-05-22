@@ -78,6 +78,8 @@ namespace opt {
                 new_soft.remove(f);
                 continue;
             }
+            if (!m.inc())
+                return false;
                 
             expr_ref_vector mux(m);
             for (expr* g : trail) {
@@ -160,9 +162,7 @@ namespace opt {
         for (auto& mux : mutexes) 
             process_mutex(mux, new_soft, lower);
 
-
-        if (mutexes.empty())
-        {
+        if (mutexes.empty()) {
             obj_map<expr, rational> dual_soft = dualize(new_soft, fmls);
             mutexes.reset();
             lbool is_sat = s.find_mutexes(fmls, mutexes);

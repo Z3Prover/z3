@@ -324,10 +324,11 @@ class seq_rewriter {
     bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
-    bool min_length(expr_ref_vector const& es, unsigned& len);
-    bool min_length(expr* e, unsigned& len);
-    bool min_length(unsigned sz, expr* const* es, unsigned& len);
-    bool max_length(expr* e, rational& len);
+    std::pair<bool, unsigned> min_length(expr_ref_vector const& es);
+    std::pair<bool, unsigned> min_length(expr* e);
+    std::pair<bool, unsigned> min_length(unsigned sz, expr* const* es);
+    std::pair<bool, rational> max_length(expr* e);
+    bool max_length(expr* e, rational& len) { auto ml = max_length(e); len = ml.second; return ml.first; }
     lbool eq_length(expr* x, expr* y);
     expr* concat_non_empty(expr_ref_vector& es);
     bool reduce_by_char(expr_ref& r, expr* ch, unsigned depth);
