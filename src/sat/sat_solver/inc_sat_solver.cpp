@@ -792,7 +792,6 @@ private:
             m_is_cnf &= is_literal(get_assumption(i));
 
         if (m_is_cnf) {
-            //            std::cout << "assumptions " << sz << " " << get_num_assumptions() << " " << m_fmls_head << " " <<  m_fmls.size() << "\n";
             expr_ref_vector fmls(m);
             fmls.append(sz, asms);
             for (unsigned i = 0; i < get_num_assumptions(); ++i)
@@ -923,18 +922,19 @@ private:
     }
 
     bool is_clause(expr* fml) {
-        if (is_literal(fml)) {
+        if (get_depth(fml) > 4)
+            return false;
+
+        if (is_literal(fml)) 
+            return true;
+        
+        if (m.is_or(fml) || m.is_and(fml) || m.is_implies(fml) || m.is_not(fml) || m.is_iff(fml)) {
+            for (expr* n : *to_app(fml)) 
+                if (!is_clause(n)) 
+                    return false;                            
             return true;
         }
-        if (!m.is_or(fml)) {
-            return false;
-        }
-        for (expr* n : *to_app(fml)) {
-            if (!is_literal(n)) {
-                return false;
-            }
-        }
-        return true;
+        return false;
     }
 
     lbool internalize_formulas() {
@@ -944,7 +944,6 @@ private:
         lbool res;
         
         if (m_is_cnf) {
-            std::cout << "cnf\n";
             res = internalize_goal(m_fmls.size() - m_fmls_head, m_fmls.data() + m_fmls_head);
         }
         else {
