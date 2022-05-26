@@ -1,27 +1,47 @@
 {
   "name": "z3-solver",
-  "keywords": ["Z3", "theorem", "prover", "solver", "satisfiability", "smt", "satisfiability modulo theories"],
+  "keywords": [
+    "Z3",
+    "theorem",
+    "prover",
+    "solver",
+    "satisfiability",
+    "smt",
+    "satisfiability modulo theories"
+  ],
   "homepage": "https://github.com/Z3Prover/z3/tree/master/src/api/js",
   "repository": "github:Z3Prover/z3",
   "engines": {
     "node": ">=16"
   },
-  "main": "build/node-wrapper.js",
-  "types": "build/node-wrapper.d.ts",
+  "browser": "build/browser.js",
+  "main": "build/node.js",
+  "types": "build/node.d.ts",
   "files": [
     "build/*.{js,d.ts,wasm}"
   ],
   "scripts": {
-    "build-ts": "mkdir -p build && rm -rf build/*.ts && cp src/node-wrapper.ts build && node scripts/make-ts-wrapper.js > build/wrapper.ts && tsc",
-    "build-wasm": "mkdir -p build && node scripts/make-cc-wrapper.js > build/async-fns.cc && ./build-wasm.sh",
-    "format": "prettier --write --single-quote --arrow-parens avoid --print-width 120 --trailing-comma all '{,src/,scripts/}*.{js,ts}'",
+    "build:clean": "run-s clean build",
+    "build": "run-p -l build:ts build:wasm",
+    "build:ts": "run-s -l build:ts:generate build:ts:tsc",
+    "build:ts:tsc": "tsc --pretty",
+    "build:ts:generate": "ts-node scripts/make-ts-wrapper.ts src/low-level/wrapper.__GENERATED__.ts src/low-level/types.__GENERATED__.ts",
+    "build:wasm": "ts-node ./scripts/build-wasm.ts",
+    "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
+    "lint": "prettier -c '{,src/,scripts/,examples}*.{js,ts}'",
+    "format": "prettier --write '{,src/,scripts/}*.{js,ts}'",
     "test": "node test-ts-api.js"
   },
   "devDependencies": {
     "@types/node": "^17.0.8",
+    "@types/prettier": "^2.6.1",
+    "npm-run-all": "^4.1.5",
     "prettier": "^2.5.1",
+    "rimraf": "^3.0.2",
     "sprintf-js": "^1.1.2",
+    "ts-node": "^10.8.0",
     "typescript": "^4.5.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {}
 }
