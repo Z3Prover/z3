@@ -630,6 +630,24 @@ bool array_decl_plugin::is_fully_interp(sort * s) const {
     return m_manager->is_fully_interp(get_array_range(s));
 }
 
+bool array_decl_plugin::is_value(app * _e) const {
+    expr* e = _e;
+    array_util u(*m_manager);
+    while (true) {
+        if (u.is_const(e, e))
+            return m_manager->is_value(e);
+        if (u.is_store(e)) {            
+            for (unsigned i = 1; i < to_app(e)->get_num_args(); ++i)
+                if (!m_manager->is_value(to_app(e)->get_arg(i)))
+                    return false;
+            e = to_app(e)->get_arg(0);
+            continue;
+        }
+        return false;
+    }
+}
+
+
 func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
     return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
@@ -704,3 +722,4 @@ func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {
     parameter p(i);
     return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }
+

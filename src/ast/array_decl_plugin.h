@@ -137,6 +137,9 @@ class array_decl_plugin : public decl_plugin {
     expr * get_some_value(sort * s) override;
 
     bool is_fully_interp(sort * s) const override;
+
+    bool is_value(app * e) const override;
+
 };
 
 class array_recognizers {
