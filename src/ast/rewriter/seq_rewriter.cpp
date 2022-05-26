@@ -5665,8 +5665,8 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
 
     if (sz == 0)
         return { bounded, len };
-    expr* c, *th, *el;
     auto visit = [&](expr* e) {
+        expr* c, *th, *el;
         if (cache.contains(e))
             return true;
         if (str().is_unit(e)) {
@@ -5706,8 +5706,7 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
             if (!cache.find(el, r2))
                 sub.push_back(el);
             if (subsz != sub.size())
-                return false;
-            
+                return false;            
             cache.insert(e, { r1.first && r2.first && r1.second == r2.second, std::min(r1.second, r2.second)});
             return true;
         }
@@ -5717,6 +5716,7 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
         }
     };
     while (!es.empty()) {
+        expr* c, *th, *el;
         expr* e = es.back();
         es.pop_back();
         if (str().is_unit(e)) 
@@ -5898,6 +5898,7 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
 
     auto [bounded1, len1] = min_length(ls);
     auto [bounded2, len2] = min_length(rs);
+
     if (bounded1 && len1 < len2) 
         return false;
     if (bounded2 && len2 < len1) 
@@ -5915,7 +5916,7 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
         eqs.push_back(concat_non_empty(ls), concat_non_empty(rs));
         ls.reset(); 
         rs.reset();
-    }    
+    }
     return true;
 }
 
