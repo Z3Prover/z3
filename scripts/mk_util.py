@@ -233,7 +233,7 @@ def exec_cmd(cmd):
     null = open(os.devnull, 'wb')
     try:
         return subprocess.call(cmd, stdout=null, stderr=null)
-    except Exception as err:
+    except:
         # Failed to create process
         return 1
     finally:

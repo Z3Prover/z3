@@ -1,5 +1,5 @@
 import process from 'process';
-import { init, Z3_error_code } from '../../build/node-wrapper';
+import { init, Z3_error_code } from '../../build/node';
 
 // demonstrates use of the raw API
 
