@@ -21,20 +21,6 @@ export type SortToExpr<S> = S extends BoolSortRef ? BoolRef : S extends SortRef 
 
 export class Z3AssertionError extends Error {}
 
-export type ContextOptions = {
-  proof: boolean;
-  debug_ref_count: boolean;
-  trace: boolean;
-  trace_file_name: string;
-  timeout: number;
-  well_sorted_check: boolean;
-  auto_config: boolean;
-  model: boolean;
-  model_validate: boolean;
-  unsat_core: boolean;
-  encoding: 'unicode' | 'bmp' | 'ascii';
-};
-
 export interface Context {
   readonly __typename: 'Context';
 
@@ -214,7 +200,7 @@ export type Z3HighLevel = {
   getParam(name: string): string | null;
 
   // Operations that require context
-  createContext(contextOptions?: Partial<ContextOptions>): Z3WithContext;
+  createContext(contextOptions?: Record<string, any>): Z3WithContext;
 };
 
 type Z3WithContext = {

@@ -4,6 +4,8 @@
 //               be cumbersome for the end user
 // TODO(ritave): Coerce primitives to expressions
 // TODO(ritave): Verify that the contexts match
+// TODO(ritave): Add typing for Context Options
+//               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
 import {
   Z3Core,
   Z3_ast,
@@ -29,7 +31,6 @@ import {
   BoolRef,
   BoolSortRef,
   Context,
-  ContextOptions,
   ExprRef,
   FuncDeclRef,
   PatternRef,
@@ -90,7 +91,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     return Z3.global_param_get(name);
   }
 
-  function createContext(contextOptions: Partial<ContextOptions> = {}) {
+  function createContext(contextOptions: Record<string, any> = {}) {
     // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
     //               Don't capture `this`
     const cleanup = new FinalizationRegistry<() => void>(callback => callback());
@@ -100,7 +101,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       readonly ptr: Z3_context;
 
-      constructor(params: Partial<ContextOptions>) {
+      constructor(params: Record<string, any>) {
         params = params ?? {};
         const cfg = Z3.mk_config();
         Object.entries(params).forEach(([key, value]) => Z3.set_param_value(cfg, key, value.toString()));
