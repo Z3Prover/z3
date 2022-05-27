@@ -1685,6 +1685,14 @@ extern "C" {
     */
     void Z3_API Z3_update_param_value(Z3_context c, Z3_string param_id, Z3_string param_value);
 
+
+    /**
+       \brief Retrieve description of global parameters.
+
+       def_API('Z3_get_global_param_descrs', PARAM_DESCRS, (_in(CONTEXT),))
+    */
+    Z3_param_descrs Z3_API Z3_get_global_param_descrs(Z3_context c);
+
     /**
        \brief Interrupt the execution of a Z3 procedure.
        This procedure can be used to interrupt: solvers, simplifiers and tactics.

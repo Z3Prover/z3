@@ -459,6 +459,7 @@ namespace z3 {
         }
         ~param_descrs() { Z3_param_descrs_dec_ref(ctx(), m_descrs); }
         static param_descrs simplify_param_descrs(context& c) { return param_descrs(c, Z3_simplify_get_param_descrs(c)); }
+        static param_descrs global_param_descrs(context& c) { return param_descrs(c, Z3_get_global_param_descrs(c)); }
 
         unsigned size() { return Z3_param_descrs_size(ctx(), m_descrs); }
         symbol name(unsigned i) { return symbol(ctx(), Z3_param_descrs_get_name(ctx(), m_descrs, i)); }

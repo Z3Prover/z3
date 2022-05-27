@@ -225,6 +225,10 @@ class Context:
         """
         Z3_interrupt(self.ref())
 
+    def param_descrs(self):
+        """Return the global parameter description set."""
+        return ParamDescrsRef(Z3_get_global_param_descrs(self.ref()), self)
+        
 
 # Global Z3 context
 _main_ctx = None
