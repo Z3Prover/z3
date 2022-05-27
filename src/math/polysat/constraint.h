@@ -149,6 +149,7 @@ namespace polysat {
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
         bool                m_is_active = false;
+        bool                m_is_pwatched = false;
         /** The boolean variable associated to this constraint, if any.
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
@@ -206,6 +207,9 @@ namespace polysat {
 
         bool is_active() const { return m_is_active; }
         void set_active(bool f) { m_is_active = f; }
+
+        bool is_pwatched() const { return m_is_pwatched; }
+        void set_pwatched(bool f) { m_is_pwatched = f; }
 
         /// Assuming the constraint is univariate under the current assignment of 's',
         /// adds the constraint to the univariate solver 'us'.
@@ -297,4 +301,15 @@ namespace polysat {
             }
         };
     };
+
+    class constraint_pp {
+        constraint const* c;
+        lbool status;
+    public:
+        constraint_pp(constraint const* c, lbool status): c(c), status(status) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, constraint_pp const& p) { return p.display(out); }
+
 }

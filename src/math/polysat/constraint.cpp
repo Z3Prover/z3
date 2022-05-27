@@ -339,4 +339,11 @@ namespace polysat {
     lbool signed_constraint::bvalue(solver& s) const {
         return get()->has_bvar() ? s.m_bvars.value(blit()) : l_undef;
     }
+
+    std::ostream& constraint_pp::display(std::ostream& out) const {
+        if (c)
+            return c->display(out, status);
+        else
+            return out << "<null>";
+    }
 }

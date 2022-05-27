@@ -18,6 +18,7 @@ namespace polysat {
 
     enum class trail_instr_t { 
         qhead_i,
+        pwatch_i,
         add_var_i,
         inc_level_i,
         viable_add_i,

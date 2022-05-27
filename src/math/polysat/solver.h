@@ -108,7 +108,7 @@ namespace polysat {
         // Per variable information
         vector<rational>         m_value;         // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<signed_constraints> m_pwatch;      // watch list datastructure into constraints.
+        vector<constraints>      m_pwatch;        // watch list datastructure into constraints.
 #ifndef NDEBUG
         std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is being propagated
         bool                     m_propagating = false;  // set to true during propagation
@@ -128,7 +128,7 @@ namespace polysat {
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
-        unsigned_vector          m_cjust_trail;
+        constraints              m_pwatch_trail;
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
@@ -179,13 +179,13 @@ namespace polysat {
 
         void propagate(sat::literal lit);
         void propagate(pvar v);
-        bool propagate(pvar v, signed_constraint c);
+        bool propagate(pvar v, constraint* c);
         void propagate(pvar v, rational const& val, signed_constraint c);
         bool propagate(sat::literal lit, clause& cl);
-        void erase_watch(pvar v, signed_constraint c);
-        void erase_watch(signed_constraint c);
-        void add_watch(signed_constraint c);
-        void add_watch(signed_constraint c, pvar v);
+        void add_pwatch(constraint* c);
+        void add_pwatch(constraint* c, pvar v);
+        void erase_pwatch(pvar v, constraint* c);
+        void erase_pwatch(constraint* c);
 
         void set_conflict(signed_constraint c) { m_conflict.set(c); }
         void set_conflict(clause& cl) { m_conflict.set(cl); }

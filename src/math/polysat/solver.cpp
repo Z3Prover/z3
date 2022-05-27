@@ -226,15 +226,14 @@ namespace polysat {
 #endif
         push_qhead();
         while (can_propagate()) {
-            if (is_conflict())
-                return;
             auto const& item = m_search[m_qhead++];
             if (item.is_assignment())
                 propagate(item.var());
             else
                 propagate(item.lit());
         }
-        linear_propagate();
+        if (!is_conflict())
+            linear_propagate();
         SASSERT(wlist_invariant());
         SASSERT(assignment_invariant());
     }
@@ -277,8 +276,9 @@ namespace polysat {
         DEBUG_CODE(m_locked_wlist = std::nullopt;);
     }
 
-    bool solver::propagate(pvar v, signed_constraint c) {
-        LOG_H3("Propagate " << m_vars[v] << " in " << c);
+    /** Return true if a new watch was found; or false to keep the existing one. */
+    bool solver::propagate(pvar v, constraint* c) {
+        LOG_H3("Propagate " << m_vars[v] << " in " << constraint_pp(c, m_bvars.value(c->bvar())));
         SASSERT(is_assigned(v));
         SASSERT(!c->vars().empty());
         unsigned idx = 0;
@@ -289,19 +289,48 @@ namespace polysat {
         for (unsigned i = c->vars().size(); i-- > 2; ) {
             unsigned other_v = c->vars()[i];
             if (!is_assigned(other_v)) {
-                add_watch(c, other_v);
+                add_pwatch(c, other_v);
                 std::swap(c->vars()[idx], c->vars()[i]);
-                if (!is_assigned(c->var(1 - idx)))
+                // if (!is_assigned(c->var(1 - idx)))  // TODO: why this check? if the other watch is already assigned (because e.g. all other variables have been propagated from other constraints first), then we end up with 3 watches on c
                     return true;
             }
         }
-        // at most one variable remains unassigned.
-        if (c->vars().size() >= 2) {
-            unsigned other_v = c->var(1 - idx);
-            if (!is_assigned(other_v))
-                m_viable_fallback.push_constraint(other_v, c);
+
+        // TODO: aren't we visiting many constraints twice here?
+        //  first, when one variable is unassigned -> intersect viable with constraint
+        //  second, when all variables are assigned -> check if there's a conflict.
+        // maybe not really a problem.
+
+        // at most one poly variable remains unassigned.
+        if (m_bvars.is_assigned(c->bvar())) {
+            // constraint is active, propagate it
+            SASSERT(c->is_active());
+            signed_constraint sc(c, m_bvars.value(c->bvar()) == l_true);
+            if (c->vars().size() >= 2) {
+                unsigned other_v = c->var(1 - idx);
+                if (!is_assigned(other_v))
+                    m_viable_fallback.push_constraint(other_v, sc);
+            }
+            sc.narrow(*this, false);
+        } else {
+            // constraint is not yet active, try to evaluate it
+            SASSERT(!c->is_active());
+            if (c->vars().size() >= 2) {
+                unsigned other_v = c->var(1 - idx);
+                if (!is_assigned(other_v)) {
+                    // wait for the remaining variable to be assigned (might not be necessary in all cases)
+                    return false;
+                }
+            }
+            // Evaluate constraint
+            signed_constraint sc(c, true);
+            if (sc.is_currently_true(*this))
+                assign_eval(sc.blit());
+            else {
+                SASSERT(sc.is_currently_false(*this));
+                assign_eval(~sc.blit());
+            }
         }
-        c.narrow(*this, false);
         return false;
     }
 
@@ -338,6 +367,7 @@ namespace polysat {
     }
 
     void solver::propagate(pvar v, rational const& val, signed_constraint c) {
+        // this looks weird... mixing propagation and conflict with c? also, the conflict should not be c but the whole of viable+c.
         LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
         if (m_viable.is_viable(v, val)) {
             m_free_pvars.del_var_eh(v);
@@ -372,6 +402,12 @@ namespace polysat {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
                 pop_qhead();
+                break;
+            }
+            case trail_instr_t::pwatch_i: {
+                constraint* c = m_pwatch_trail.back();
+                erase_pwatch(c);
+                m_pwatch_trail.pop_back();
                 break;
             }
             case trail_instr_t::add_var_i: {
@@ -433,38 +469,46 @@ namespace polysat {
         }
     }
 
-    void solver::add_watch(signed_constraint c) {
+    void solver::add_pwatch(constraint* c) {
         SASSERT(c);
+        if (c->is_pwatched())
+            return;
         auto& vars = c->vars();
         unsigned i = 0, j = 0, sz = vars.size();
         for (; i < sz && j < 2; ++i)
             if (!is_assigned(vars[i]))
                 std::swap(vars[i], vars[j++]);
         if (vars.size() > 0)
-            add_watch(c, vars[0]);
+            add_pwatch(c, vars[0]);
         if (vars.size() > 1)
-            add_watch(c, vars[1]);
+            add_pwatch(c, vars[1]);
+        c->set_pwatched(true);
+        m_pwatch_trail.push_back(c);
+        m_trail.push_back(trail_instr_t::pwatch_i);
     }
 
-    void solver::add_watch(signed_constraint c, pvar v) {
-        SASSERT(c);
+    void solver::add_pwatch(constraint* c, pvar v) {
         // SASSERT(m_locked_wlist != v);  // appending doesn't interfere with propagation, so it should be fine
-        LOG("Watching v" << v << " in constraint " << c);
+        LOG("Watching v" << v << " in constraint " << show_deref(c));
         m_pwatch[v].push_back(c);
     }
 
-    void solver::erase_watch(signed_constraint c) {
+    void solver::erase_pwatch(constraint* c) {
+        if (!c->is_pwatched())
+            return;
         auto const& vars = c->vars();
         if (vars.size() > 0)
-            erase_watch(vars[0], c);
+            erase_pwatch(vars[0], c);
         if (vars.size() > 1)
-            erase_watch(vars[1], c);
+            erase_pwatch(vars[1], c);
+        c->set_pwatched(false);
     }
 
-    void solver::erase_watch(pvar v, signed_constraint c) {
+    void solver::erase_pwatch(pvar v, constraint* c) {
         if (v == null_var)
             return;
         SASSERT(m_locked_wlist != v);
+        LOG("Unwatching v" << v << " in constraint " << show_deref(c));
         auto& wlist = m_pwatch[v];
         unsigned sz = wlist.size();
         for (unsigned i = 0; i < sz; ++i) {
@@ -941,7 +985,7 @@ namespace polysat {
         SASSERT(m_bvars.value(c.blit()) == l_true);
         SASSERT(!c->is_active());
         c->set_active(true);
-        add_watch(c);
+        add_pwatch(c.get());
         if (c->vars().size() == 1)
             m_viable_fallback.push_constraint(c->var(0), c);
         c.narrow(*this, true);
@@ -954,7 +998,6 @@ namespace polysat {
     void solver::deactivate_constraint(signed_constraint c) {
         LOG("Deactivating constraint: " << c.blit());
         c->set_active(false);
-        erase_watch(c);
     }
 
     void solver::backjump(unsigned new_level) {
@@ -977,9 +1020,22 @@ namespace polysat {
         for (sat::literal lit : clause) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
             // SASSERT(m_bvars.value(lit) != l_true);
+            // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
+            if (m_bvars.value(lit) == l_true) {
+                // in this case the clause is useless
+                LOG("   Clause is already true, skippping...");
+                return;
+            }
         }
         SASSERT(!clause.empty());
         m_constraints.store(&clause, *this, true);
+
+        if (!clause.is_redundant()) {
+            // for (at least) non-redundant clauses, we also need to watch the constraints
+            // so we can discover when the clause should propagate
+            for (sat::literal lit : clause)
+                add_pwatch(m_constraints.lookup(lit.var()));
+        }
     }
 
     void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {
@@ -1125,6 +1181,12 @@ namespace polysat {
      * Check that two variables of each constraint are watched.
      */
     bool solver::wlist_invariant() {
+        for (pvar v = 0; v < m_value.size(); ++v) {
+            std::stringstream s;
+            for (constraint* c : m_pwatch[v])
+                s << " " << c->bvar();
+            LOG("Watch for v" << v << ": " << s.str());
+        }
         // Skip boolean variables that aren't active yet
         uint_set skip;
         for (unsigned i = m_qhead; i < m_search.size(); ++i)
@@ -1143,7 +1205,7 @@ namespace polysat {
             int64_t num_watches = 0;
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
-                auto n = std::count(wlist.begin(), wlist.end(), sc);
+                auto n = std::count(wlist.begin(), wlist.end(), c);
                 if (n > 1)
                     std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist
@@ -1151,7 +1213,7 @@ namespace polysat {
             }
             unsigned expected_watches = std::min(2u, c->vars().size());
             if (num_watches != expected_watches)
-                LOG("wrong number of watches: " << sc << "   vars: " << sc->vars());
+                LOG("wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
             SASSERT_EQ(num_watches, expected_watches);
         }
         return true;
