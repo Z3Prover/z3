@@ -30,11 +30,12 @@
     "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
     "lint": "prettier -c '{,src/,scripts/,examples}*.{js,ts}'",
     "format": "prettier --write '{,src/,scripts/}*.{js,ts}'",
-    "test": "node test-ts-api.js"
+    "test": "ts-node --transpileOnly examples/low-level/test-ts-api.ts"
   },
   "devDependencies": {
     "@types/node": "^17.0.8",
     "@types/prettier": "^2.6.1",
+    "@types/sprintf-js": "^1.1.2",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.5.1",
     "rimraf": "^3.0.2",

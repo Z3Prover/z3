@@ -1003,7 +1003,7 @@ function allSatisfy<T>(collection: Iterable<T>, premise: (arg: T) => boolean): b
     if (result === undefined) {
       result = premise(arg);
     } else {
-      result &&= premise(arg);
+      result = result && premise(arg);
     }
   }
   return result;
