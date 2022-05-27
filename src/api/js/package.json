@@ -21,28 +21,32 @@
     "build/*.{js,d.ts,wasm}"
   ],
   "scripts": {
-    "build:clean": "run-s clean build",
-    "build": "run-p -l build:ts build:wasm",
     "build:ts": "run-s -l build:ts:generate build:ts:tsc",
-    "build:ts:tsc": "tsc --pretty",
-    "build:ts:generate": "ts-node scripts/make-ts-wrapper.ts src/low-level/wrapper.__GENERATED__.ts src/low-level/types.__GENERATED__.ts",
-    "build:wasm": "ts-node ./scripts/build-wasm.ts",
+    "build:ts:tsc": "tsc --pretty --project tsconfig.build.json ",
+    "build:ts:generate": "ts-node --transpileOnly scripts/make-ts-wrapper.ts src/low-level/wrapper.__GENERATED__.ts src/low-level/types.__GENERATED__.ts",
+    "build:wasm": "ts-node --transpileOnly ./scripts/build-wasm.ts",
     "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
     "lint": "prettier -c '{,src/,scripts/,examples}*.{js,ts}'",
     "format": "prettier --write '{,src/,scripts/}*.{js,ts}'",
-    "test": "ts-node --transpileOnly examples/low-level/test-ts-api.ts"
+    "test": "jest"
   },
+  "contributors": [
+    "Kevin Gibbons <bakkot@gmail.com>",
+    "Olaf Tomalka <olaf@tomalka.me>"
+  ],
   "devDependencies": {
+    "@types/jest": "^27.5.1",
     "@types/node": "^17.0.8",
     "@types/prettier": "^2.6.1",
     "@types/sprintf-js": "^1.1.2",
+    "jest": "^28.1.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.5.1",
     "rimraf": "^3.0.2",
     "sprintf-js": "^1.1.2",
+    "ts-jest": "^28.0.3",
     "ts-node": "^10.8.0",
     "typescript": "^4.5.4"
   },
-  "license": "MIT",
-  "dependencies": {}
+  "license": "MIT"
 }

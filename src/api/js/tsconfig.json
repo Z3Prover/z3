@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "outDir": "build/",
     "allowJs": true,
-    "checkJs": true
+    "checkJs": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

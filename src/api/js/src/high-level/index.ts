@@ -1,2 +1,2 @@
-export * from './high-level.js';
-export * from './types.js';
+export * from './high-level';
+export * from './types';

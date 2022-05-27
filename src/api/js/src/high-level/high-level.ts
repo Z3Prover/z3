@@ -6,6 +6,7 @@
 // TODO(ritave): Verify that the contexts match
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
+// TODO(ritave): Add an error handler
 import {
   Z3Core,
   Z3_ast,
@@ -16,29 +17,45 @@ import {
   Z3_context,
   Z3_decl_kind,
   Z3_func_decl,
+  Z3_func_interp,
+  Z3_lbool,
+  Z3_model,
   Z3_parameter_kind,
   Z3_pattern,
   Z3_probe,
+  Z3_solver,
   Z3_sort,
+  Z3_sort_kind,
   Z3_symbol,
   Z3_symbol_kind,
   Z3_tactic,
 } from '../low-level';
 import {
   AnyAst,
+  AnyExpr,
+  ArithRef,
+  ArithSortRef,
   AstRef,
   AstVector,
   BoolRef,
   BoolSortRef,
+  CheckSatResult,
+  CoercibleToExpr,
+  CoercibleToExprMap,
   Context,
   ExprRef,
   FuncDeclRef,
+  FuncInterp,
   PatternRef,
   Probe,
+  sat,
   SortRef,
-  SortToExpr,
+  SortToExprMap,
   Tactic,
+  unknown,
+  unsat,
   Z3AssertionError,
+  Z3Error,
   Z3HighLevel,
 } from './types';
 
@@ -76,7 +93,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   function setParam(params: Record<string, any>): void;
   function setParam(key: string | Record<string, any>, value?: any) {
     if (typeof key === 'string') {
-      Z3.global_param_set(key, value.to_string());
+      Z3.global_param_set(key, value.toString());
     } else {
       assert(value === undefined, "Can't provide a Record and second parameter to set_param at the same time");
       Object.entries(key).forEach(([key, value]) => setParam(key, value));
@@ -143,8 +160,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       switch (Z3.get_ast_kind(ctx.ptr, ast)) {
         case Z3_ast_kind.Z3_SORT_AST:
           return _toSort(ast as Z3_sort);
+        case Z3_ast_kind.Z3_FUNC_DECL_AST:
+          return new FuncDeclRefImpl(ast as Z3_func_decl);
         default:
-          throw new Error('Not implemented');
+          return _toExpr(ast);
       }
     }
 
@@ -155,12 +174,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function _toExpr(ast: Z3_ast) {
+    function _toExpr(ast: Z3_ast): BoolRef | ArithRef | ExprRef {
       const kind = Z3.get_ast_kind(ctx.ptr, ast);
-      switch (kind) {
+      if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
+        assert(false);
+      }
+      const sortKind = Z3.get_sort_kind(ctx.ptr, Z3.get_sort(ctx.ptr, ast));
+      switch (sortKind) {
+        case Z3_sort_kind.Z3_BOOL_SORT:
+          return new BoolRefImpl(ast);
+        case Z3_sort_kind.Z3_INT_SORT:
+          return new ArithRefImpl(ast);
         default:
           return new ExprRefImpl(ast);
       }
+    }
+
+    function _flattenArgs<T extends AstRef = AnyAst>(args: (T | AstVector<T>)[]): T[] {
+      const result: T[] = [];
+      for (const arg of args) {
+        if (isAstVector(arg)) {
+          result.push(...arg.values());
+        } else {
+          result.push(arg);
+        }
+      }
+      return result;
     }
 
     function _toProbe(p: Probe | Z3_probe): Probe {
@@ -258,6 +297,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isAppOf(obj, Z3_decl_kind.Z3_OP_DISTINCT);
     }
 
+    function isArith(obj: unknown): obj is ArithRef {
+      return obj instanceof ArithRefImpl;
+    }
+
+    function isInt(obj: unknown): obj is ArithRef {
+      return isArith(obj) && isIntSort(obj.sort());
+    }
+
+    function isIntSort(obj: unknown): obj is ArithSortRef {
+      return isSort(obj) && obj.kind() === Z3_sort_kind.Z3_INT_SORT;
+    }
+
     function isProbe(obj: unknown): obj is Probe {
       return obj instanceof ProbeImpl;
     }
@@ -268,6 +319,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isPattern(obj: unknown): obj is PatternRef {
       return obj instanceof PatternRefImpl;
+    }
+
+    function isAstVector(obj: unknown): obj is AstVector<AnyAst> {
+      return obj instanceof AstVectorImpl;
     }
 
     /*
@@ -297,6 +352,41 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return Z3.get_index_value(obj.ctx.ptr, obj.ast);
     }
 
+    function getValue(obj: BoolRef): boolean | null;
+    function getValue(obj: ArithRef): number | bigint | null;
+    function getValue(obj: ExprRef): boolean | number | bigint | null;
+    function getValue(obj: ExprRef): boolean | number | bigint | null {
+      if (isBool(obj)) {
+        if (isTrue(obj)) {
+          return true;
+        } else if (isFalse(obj)) {
+          return false;
+        }
+        return null;
+      } else if (isInt(obj)) {
+        if (Z3.get_ast_kind(ctx.ptr, obj.ast) == Z3_ast_kind.Z3_NUMERAL_AST) {
+          return BigInt(Z3.get_numeral_string(ctx.ptr, obj.ast));
+        }
+        return null;
+      }
+      assert(false);
+    }
+
+    function from(primitive: boolean): BoolRef;
+    function from(primitive: number | bigint): ArithRef;
+    function from(expr: ExprRef): ExprRef;
+    function from(value: CoercibleToExpr): BoolRef | ArithRef | ExprRef;
+    function from(value: CoercibleToExpr): BoolRef | ArithRef | ExprRef {
+      if ((typeof value === 'number' && Number.isSafeInteger(value)) || typeof value === 'bigint') {
+        return IntVal(value);
+      } else if (typeof value === 'boolean') {
+        return BoolVal(value);
+      } else if (isExpr(value)) {
+        return value;
+      }
+      assert(false);
+    }
+
     class AstRefImpl<Ptr> {
       declare readonly __typename: 'AstRef' | 'FuncDeclRef' | SortRef['__typename'] | ExprRef['__typename'];
 
@@ -314,7 +404,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       get ast(): Z3_ast {
-        assert((this.ptr as any).__typename === 'Z3_ast');
+        //assert((this.ptr as any).__typename === 'Z3_ast', String(this.ptr));
         return this.ptr as any as Z3_ast;
       }
 
@@ -339,8 +429,242 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    /*
+    class ParamsRef {
+      readonly ptr: Z3_params;
+
+      constructor() {
+        const myPtr = Z3.mk_params(ctx.ptr);
+
+        this.ptr = myPtr;
+
+        Z3.params_inc_ref(ctx.ptr, myPtr);
+        cleanup.register(this, () => Z3.params_dec_ref(ctx.ptr, myPtr));
+      }
+
+      set(key: string, value: boolean | string) {
+        const keySymbol = _toSymbol(key);
+        if (typeof value === 'boolean') {
+          Z3.params_set_bool(ctx.ptr, this.ptr, keySymbol, value);
+        } else if (typeof value === 'string') {
+          const valueSymbol = _toSymbol(key);
+          Z3.params_set_symbol(ctx.ptr, this.ptr, keySymbol, valueSymbol);
+        }
+      }
+
+      setUInt(key: string, value: number) {
+        assert(value >= 0);
+        const keySymbol = _toSymbol(key);
+        Z3.params_set_uint(ctx.ptr, this.ptr, keySymbol, value);
+      }
+      setFloat(key: string, value: number) {
+        const keySymbol = _toSymbol(key);
+        Z3.params_set_double(ctx.ptr, this.ptr, keySymbol, value);
+      }
+    }
+    */
+
+    class SolverImpl {
+      declare readonly __typename: 'Solver';
+
+      readonly ptr: Z3_solver;
+      readonly ctx = ctx;
+
+      constructor(ptr?: Z3_solver) {
+        const myPtr = ptr ?? Z3.mk_solver(ctx.ptr);
+
+        this.ptr = myPtr;
+
+        Z3.solver_inc_ref(ctx.ptr, myPtr);
+        cleanup.register(this, () => Z3.solver_dec_ref(ctx.ptr, myPtr));
+      }
+
+      push() {
+        Z3.solver_push(ctx.ptr, this.ptr);
+      }
+      pop(num: number = 1) {
+        Z3.solver_pop(ctx.ptr, this.ptr, num);
+      }
+      numScopes() {
+        return Z3.solver_get_num_scopes(ctx.ptr, this.ptr);
+      }
+      reset() {
+        Z3.solver_reset(ctx.ptr, this.ptr);
+      }
+      add(...exprs: (BoolRef | AstVector<BoolRef>)[]) {
+        _flattenArgs(exprs).forEach(expr => Z3.solver_assert(ctx.ptr, this.ptr, expr.ast));
+      }
+      addAndTrack(expr: BoolRef, constant: BoolRef | string) {
+        if (typeof constant === 'string') {
+          constant = Bool(constant);
+        }
+        assert(isConst(constant), 'Provided expression that is not a constant to addAndTrack');
+        Z3.solver_assert_and_track(ctx.ptr, this.ptr, expr.ast, constant.ast);
+      }
+
+      async check(...exprs: (BoolRef | AstVector<BoolRef>)[]): Promise<CheckSatResult> {
+        const assumptions = _flattenArgs(exprs).map(expr => expr.ast);
+        const result = await Z3.solver_check_assumptions(ctx.ptr, this.ptr, assumptions);
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return unsat;
+          case Z3_lbool.Z3_L_TRUE:
+            return sat;
+          case Z3_lbool.Z3_L_UNDEF:
+            return unknown;
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      model() {
+        return new ModelImpl(Z3.solver_get_model(ctx.ptr, this.ptr));
+      }
+    }
+
+    class ModelImpl {
+      declare readonly __typename: 'Model';
+
+      readonly ctx = ctx;
+      readonly ptr: Z3_model;
+
+      constructor(ptr?: Z3_model) {
+        const myPtr = ptr ?? Z3.mk_model(ctx.ptr);
+        this.ptr = myPtr;
+
+        Z3.model_inc_ref(ctx.ptr, myPtr);
+        cleanup.register(this, () => Z3.model_dec_ref(ctx.ptr, myPtr));
+      }
+
+      get length() {
+        return Z3.model_get_num_consts(ctx.ptr, this.ptr) + Z3.model_get_num_funcs(ctx.ptr, this.ptr);
+      }
+
+      [Symbol.iterator](): Iterator<FuncDeclRef> {
+        return this.values();
+      }
+
+      *entries(): IterableIterator<[number, FuncDeclRef]> {
+        const length = this.length;
+        for (let i = 0; i < length; i++) {
+          yield [i, this.get(i)];
+        }
+      }
+
+      *keys(): IterableIterator<number> {
+        for (const [key] of this.entries()) {
+          yield key;
+        }
+      }
+
+      *values(): IterableIterator<FuncDeclRef> {
+        for (const [, value] of this.entries()) {
+          yield value;
+        }
+      }
+
+      sexpr() {
+        return Z3.model_to_string(ctx.ptr, this.ptr);
+      }
+
+      eval(expr: BoolRef, modelCompletion?: boolean): BoolRef;
+      eval(expr: ArithRef, modelCompletion?: boolean): ArithRef;
+      eval(expr: ExprRef, modelCompletion: boolean = false) {
+        const r = Z3.model_eval(ctx.ptr, this.ptr, expr.ast, modelCompletion);
+        if (r === null) {
+          throw new Z3Error('Failed to evaluatio expression in the model');
+        }
+        return _toExpr(r);
+      }
+
+      get(i: number): FuncDeclRef;
+      get(from: number, to: number): FuncDeclRef[];
+      get(declaration: FuncDeclRef): FuncInterp;
+      get(constant: ExprRef): ExprRef;
+      get(sort: SortRef): AstVector<AnyExpr>;
+      get(
+        i: number | FuncDeclRef | ExprRef | SortRef,
+        to?: number,
+      ): FuncDeclRef | FuncInterp | ExprRef | AstVector<AnyAst> | FuncDeclRef[] {
+        assert(to === undefined || typeof i === 'number');
+        if (typeof i === 'number') {
+          const length = this.length;
+
+          if (i >= length) {
+            throw new RangeError();
+          }
+
+          if (to === undefined) {
+            const numConsts = Z3.model_get_num_consts(ctx.ptr, this.ptr);
+            if (i < numConsts) {
+              return new FuncDeclRefImpl(Z3.model_get_const_decl(ctx.ptr, this.ptr, i));
+            } else {
+              return new FuncDeclRefImpl(Z3.model_get_func_decl(ctx.ptr, this.ptr, i - numConsts));
+            }
+          }
+
+          if (to < 0) {
+            to += length;
+          }
+          if (to >= length) {
+            throw new RangeError();
+          }
+          const result = [];
+          for (let j = i; j < to; j++) {
+            result.push(this.get(j));
+          }
+          return result;
+        } else if (isFuncDecl(i) || isConst(i)) {
+          const result = this.getInterp(i);
+          assert(result !== null);
+          return result;
+        } else if (isSort(i)) {
+          return this.getUniverse(i);
+        }
+        assert(false, 'Number, declaration or constant expected');
+      }
+
+      private getInterp(expr: FuncDeclRef | ExprRef): ExprRef | FuncInterp | null {
+        assert(isFuncDecl(expr) || isConst(expr), 'Declaration expected');
+        if (isConst(expr)) {
+          expr = expr.decl();
+        }
+        if (expr.arity() === 0) {
+          const result = Z3.model_get_const_interp(ctx.ptr, this.ptr, expr.ptr);
+          if (result === null) {
+            return null;
+          }
+          return _toExpr(result);
+        } else {
+          const interp = Z3.model_get_func_interp(ctx.ptr, this.ptr, expr.ptr);
+          if (interp === null) {
+            return null;
+          }
+          return new FuncInterpImpl(interp);
+        }
+      }
+
+      private getUniverse(sort: SortRef): AstVector<AnyAst> {
+        return new AstVectorImpl(Z3.model_get_sort_universe(ctx.ptr, this.ptr, sort.ptr));
+      }
+    }
+
+    class FuncInterpImpl {
+      declare readonly __typename: 'FuncInterp';
+
+      readonly ctx = ctx;
+      readonly ptr: Z3_func_interp;
+
+      constructor(ptr: Z3_func_interp) {
+        this.ptr = ptr;
+
+        Z3.func_interp_inc_ref(ctx.ptr, ptr);
+        cleanup.register(this, () => Z3.func_interp_dec_ref(ctx.ptr, ptr));
+      }
+    }
+
     class SortRefImpl extends AstRefImpl<Z3_sort> {
-      declare readonly __typename: 'SortRef' | BoolSortRef['__typename'];
+      declare readonly __typename: 'SortRef' | BoolSortRef['__typename'] | ArithSortRef['__typename'];
 
       get ast(): Z3_ast {
         return Z3.sort_to_ast(ctx.ptr, this.ptr);
@@ -355,7 +679,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       cast(expr: ExprRef): ExprRef {
-        assert(expr.eqIdentity(expr.sort()), 'Sort mismatch');
+        assert(expr.sort().eqIdentity(expr.sort()), 'Sort mismatch');
         return expr;
       }
 
@@ -447,21 +771,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     class ExprRefImpl<Ptr> extends AstRefImpl<Ptr> {
-      declare readonly __typename: 'ExprRef' | BoolRef['__typename'] | PatternRef['__typename'];
+      declare readonly __typename:
+        | 'ExprRef'
+        | BoolRef['__typename']
+        | PatternRef['__typename']
+        | ArithRef['__typename'];
 
       sort() {
         return _toSort(Z3.get_sort(this.ctx.ptr, this.ast));
       }
 
-      eq(other: ExprRef) {
-        return new BoolRefImpl(Z3.mk_eq(this.ctx.ptr, this.ast, other.ast));
+      eq(other: CoercibleToExpr): BoolRef {
+        return new BoolRefImpl(Z3.mk_eq(this.ctx.ptr, this.ast, from(other).ast));
       }
 
-      neq(other: ExprRef) {
+      neq(other: CoercibleToExpr): BoolRef {
         return new BoolRefImpl(
           Z3.mk_distinct(
             this.ctx.ptr,
-            [this, other].map(expr => expr.ast),
+            [this, other].map(expr => from(expr).ast),
           ),
         );
       }
@@ -502,9 +830,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class BoolSortRefImpl extends SortRefImpl {
       declare readonly __typename: 'BoolSortRef';
 
-      cast(other: ExprRef) {
+      cast(other: BoolRef | boolean): BoolRef;
+      cast(other: CoercibleToExpr): never;
+      cast(other: CoercibleToExpr | BoolRef) {
+        if (typeof other === 'boolean') {
+          other = BoolVal(other);
+        }
+        assert(isExpr(other), 'true, false or Z3 Boolean expression expected.');
         assert(this.eqIdentity(other.sort()), 'Value cannot be converted into a Z3 Boolean value');
-        assert(other instanceof BoolRefImpl);
         return other;
       }
 
@@ -573,7 +906,81 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ArithSortRefImpl extends SortRefImpl {}
+    class ArithSortRefImpl extends SortRefImpl {
+      declare readonly __typename: 'ArithSortRef';
+
+      cast(other: number | bigint | ArithRef | BoolRef): ArithRef;
+      cast(other: CoercibleToExpr): never;
+      cast(other: CoercibleToExpr): ArithRef {
+        if (typeof other === 'number' || typeof other === 'bigint') {
+          assert(isInt(this));
+          return IntVal(other);
+        } else if (isArith(other)) {
+          return other;
+        } else if (isBool(other)) {
+          return If(other, 1, 0);
+        }
+        assert(false, 'number, bigint, boolean, or Z3 Bool / Arith expect');
+      }
+    }
+
+    class ArithRefImpl extends ExprRefImpl<Z3_ast> {
+      declare readonly __typename: 'ArithRef';
+
+      add(other: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_add(ctx.ptr, [this.ast, this.coerce(other).ast]));
+      }
+
+      mul(other: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_mul(ctx.ptr, [this.ast, this.coerce(other).ast]));
+      }
+
+      sub(other: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_sub(ctx.ptr, [this.ast, this.coerce(other).ast]));
+      }
+
+      pow(exponent: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_power(ctx.ptr, this.ast, this.coerce(exponent).ast));
+      }
+
+      div(other: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_div(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      mod(other: ArithRef | number | bigint) {
+        return new ArithRefImpl(Z3.mk_mod(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      neg() {
+        return new ArithRefImpl(Z3.mk_unary_minus(ctx.ptr, this.ast));
+      }
+
+      le(other: ArithRef | number | bigint) {
+        return new BoolRefImpl(Z3.mk_le(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      lt(other: ArithRef | number | bigint) {
+        return new BoolRefImpl(Z3.mk_lt(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      gt(other: ArithRef | number | bigint) {
+        return new BoolRefImpl(Z3.mk_gt(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      ge(other: ArithRef | number | bigint) {
+        return new BoolRefImpl(Z3.mk_ge(ctx.ptr, this.ast, this.coerce(other).ast));
+      }
+
+      private coerce(value: number | bigint | ArithRef): ArithRef {
+        assert(isInt(this), 'Reals not implemented yet');
+        if (isArith(value)) {
+          assert(isInt(this) === isInt(value));
+          return value;
+        }
+        assert(typeof value === 'bigint' || Number.isSafeInteger(value), 'Provided number is not integer');
+        return IntVal(value);
+      }
+    }
 
     class AstVectorImpl<Item extends AstRef = AnyAst> {
       declare readonly __typename: 'AstVector';
@@ -740,48 +1147,53 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function If(condition: Probe, onTrue: Tactic, onFalse: Tactic): Tactic;
-    function If<OnTrueRef extends ExprRef = ExprRef, OnFalseRef extends ExprRef = ExprRef>(
+    function If<OnTrueRef extends CoercibleToExpr = ExprRef, OnFalseRef extends CoercibleToExpr = ExprRef>(
       condition: BoolRef,
       onTrue: OnTrueRef,
       onFalse: OnFalseRef,
-    ): OnTrueRef | OnFalseRef;
-    function If(condition: BoolRef | Probe, onTrue: ExprRef | Tactic, onFalse: ExprRef | Tactic): ExprRef | Tactic {
+    ): CoercibleToExprMap<OnTrueRef | OnFalseRef>;
+    function If(
+      condition: BoolRef | Probe,
+      onTrue: CoercibleToExpr | Tactic,
+      onFalse: CoercibleToExpr | Tactic,
+    ): ExprRef | Tactic {
       if (isProbe(condition) && isTactic(onTrue) && isTactic(onFalse)) {
         return Cond(condition, onTrue, onFalse);
       }
-      assert(isExpr(condition) && isExpr(onTrue) && isExpr(onFalse), 'Mixed expressions and goals');
+      assert(!isProbe(condition) && !isTactic(onTrue) && !isTactic(onFalse), 'Mixed expressions and goals');
+      onTrue = from(onTrue);
+      onFalse = from(onFalse);
       return _toExpr(Z3.mk_ite(ctx.ptr, condition.ptr, onTrue.ast, onFalse.ast));
     }
 
-    function Distinct(...exprs: BoolRef[]): BoolRef {
+    function Distinct(...exprs: ExprRef[]): BoolRef {
       assert(exprs.length > 0, "Can't make Distinct ouf of nothing");
 
-      const ctx = exprs[0].ctx;
       return new BoolRefImpl(
         Z3.mk_distinct(
           ctx.ptr,
-          exprs.map(expr => expr.ptr),
+          exprs.map(expr => expr.ast),
         ),
       );
     }
 
-    function Const<S extends SortRef>(name: string, sort: S): SortToExpr<S> {
-      return _toExpr(Z3.mk_const(ctx.ptr, _toSymbol(name), sort.ptr)) as SortToExpr<S>;
+    function Const<S extends SortRef>(name: string, sort: S): SortToExprMap<S> {
+      return _toExpr(Z3.mk_const(ctx.ptr, _toSymbol(name), sort.ptr)) as SortToExprMap<S>;
     }
 
-    function Consts<S extends SortRef>(names: string | string[], sort: S): SortToExpr<S>[] {
+    function Consts<S extends SortRef>(names: string | string[], sort: S): SortToExprMap<S>[] {
       if (typeof names === 'string') {
         names = names.split(' ');
       }
       return names.map(name => Const(name, sort));
     }
 
-    function FreshConst<S extends SortRef>(sort: S, prefix: string = 'c'): SortToExpr<S> {
-      return _toExpr(Z3.mk_fresh_const(sort.ctx.ptr, prefix, sort.ptr)) as SortToExpr<S>;
+    function FreshConst<S extends SortRef>(sort: S, prefix: string = 'c'): SortToExprMap<S> {
+      return _toExpr(Z3.mk_fresh_const(sort.ctx.ptr, prefix, sort.ptr)) as SortToExprMap<S>;
     }
 
-    function Var<S extends SortRef>(idx: number, sort: S): SortToExpr<S> {
-      return _toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExpr<S>;
+    function Var<S extends SortRef>(idx: number, sort: S): SortToExprMap<S> {
+      return _toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExprMap<S>;
     }
 
     function BoolSort() {
@@ -820,6 +1232,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function Implies(a: BoolRef, b: BoolRef) {
       return new BoolRefImpl(Z3.mk_implies(ctx.ptr, a.ptr, b.ptr));
+    }
+
+    function Eq(a: ExprRef, b: ExprRef) {
+      return a.eq(b);
     }
 
     function Xor(a: BoolRef, b: BoolRef) {
@@ -881,6 +1297,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    function IntSort() {
+      return new ArithSortRefImpl(Z3.mk_int_sort(ctx.ptr));
+    }
+
+    function Int(name: string | number) {
+      return new ArithRefImpl(Z3.mk_const(ctx.ptr, _toSymbol(name), IntSort().ptr));
+    }
+
+    function IntVal(value: number | bigint) {
+      assert(typeof value === 'bigint' || Number.isSafeInteger(value));
+      return new ArithRefImpl(Z3.mk_numeral(ctx.ptr, value.toString(), IntSort().ptr));
+    }
+
     function Cond(probe: Probe, onTrue: Tactic, onFalse: Tactic): Tactic {
       return new TacticImpl(Z3.tactic_cond(ctx.ptr, probe.probe, onTrue.ptr, onFalse.ptr));
     }
@@ -908,9 +1337,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isNot,
       isEq,
       isDistinct,
+      isArith,
+      isInt,
+      isIntSort,
       isProbe,
       isTactic,
       isPattern,
+      isAstVector,
       /*
       isQuantifier,
       isForAll,
@@ -919,8 +1352,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       */
       eqIdentity,
       getVarIndex,
+      getValue,
+      from,
 
       // Classes
+      Solver: SolverImpl,
+      Model: ModelImpl,
       AstVector: AstVectorImpl,
       AstMap: AstMapImpl,
       Tactic: TacticImpl,
@@ -944,10 +1381,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       BoolVector,
       FreshBool,
       Implies,
+      Eq,
       Xor,
       Not,
       And,
       Or,
+      IntSort,
+      Int,
+      IntVal,
     };
   }
 
