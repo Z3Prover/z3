@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { init, killThreads } from '../jest';
-import { ArithRef, sat, unsat, Z3HighLevel } from './types';
+import { ArithRef, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
 
 describe('high-level', () => {
   let api: { em: any } & Z3HighLevel;
@@ -55,6 +55,29 @@ describe('high-level', () => {
     expect(await solver.check()).toStrictEqual(sat);
 
     const model = solver.model();
+  });
+
+  it('allows for context names', () => {
+    const c1 = api.createContext();
+    const c2 = api.createContext();
+    const c3 = api.createContext('foo');
+    const c4 = api.createContext('bar');
+
+    // Unnamed contexts doesn't do type checking during compile time.
+    // We need to check for different context dynamically
+    expect(() => c1.Or(c2.IntVal(5).eq(2))).toThrowError(Z3AssertionError);
+
+    // On the other hand, this won't compile due to automatic generics
+    // c3.Or(c4.IntVal(5).eq(2))
+
+    const allUniqueNames = new Set([c1, c2, c3, c4].map(c => c.context.name)).size === 4;
+    expect(allUniqueNames).toStrictEqual(true);
+
+    // On other hand, we can create a context with the same name. It needs to be checked run-time
+    const c5 = api.createContext('foo');
+
+    // Even with same name, they should be different contexts
+    expect(() => c5.And(c3.BoolVal(true))).toThrow(Z3AssertionError);
   });
 
   describe('booleans', () => {

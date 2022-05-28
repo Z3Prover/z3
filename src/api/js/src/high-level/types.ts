@@ -16,22 +16,27 @@ import {
   Z3_tactic,
 } from '../low-level';
 
-export type AnySort = SortRef | BoolSortRef;
-export type AnyExpr = ExprRef | BoolRef | PatternRef | QuantifierRef | LambdaRef<AnySort>;
-export type AnyAst = AnyExpr | AnySort | AstRef | FuncDeclRef;
+export type AnySort<Name extends string = string> = SortRef<Name> | BoolSortRef<Name>;
+export type AnyExpr<Name extends string = string> =
+  | ExprRef<Name>
+  | BoolRef<Name>
+  | PatternRef<Name>
+  | QuantifierRef<Name>
+  | LambdaRef<Name>;
+export type AnyAst<Name extends string = string> = AnyExpr<Name> | AnySort<Name> | AstRef<Name> | FuncDeclRef<Name>;
 
-export type SortToExprMap<S> = S extends BoolSortRef
-  ? BoolRef
+export type SortToExprMap<S, Name extends string = string> = S extends BoolSortRef
+  ? BoolRef<Name>
   : S extends SortRef
-  ? ExprRef
+  ? ExprRef<Name>
   : S extends ArithSortRef
-  ? ArithRef
+  ? ArithRef<Name>
   : never;
 
-export type CoercibleToExprMap<S> = S extends bigint | number
-  ? ArithRef
+export type CoercibleToExprMap<S, Name extends string = string> = S extends bigint | number
+  ? ArithRef<Name>
   : S extends boolean
-  ? BoolRef
+  ? BoolRef<Name>
   : S extends ExprRef
   ? S
   : never;
@@ -44,35 +49,36 @@ export const unsat = Symbol("Solver didn't find a solution");
 export const unknown = Symbol("Solver couldn't reason about the assumptions");
 export type CheckSatResult = typeof sat | typeof unsat | typeof unknown;
 
-export interface Context {
+export interface Context<Name extends string = string> {
   readonly __typename: 'Context';
 
   readonly ptr: Z3_context;
+  readonly name: Name;
 
   interrupt(): void;
 }
 
-export interface AstRef<Ptr = unknown> {
+export interface AstRef<Name extends string = string, Ptr = unknown> {
   readonly __typename: 'AstRef' | SortRef['__typename'] | FuncDeclRef['__typename'] | ExprRef['__typename'];
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Ptr;
   get ast(): Z3_ast;
   get id(): number;
 
-  eqIdentity(other: AstRef): boolean;
-  neqIdentity(other: AstRef): boolean;
+  eqIdentity(other: AstRef<Name>): boolean;
+  neqIdentity(other: AstRef<Name>): boolean;
   sexpr(): string;
   hash(): number;
 }
 
-export interface SolverCtor {
-  new (): Solver;
+export interface SolverCtor<Name extends string> {
+  new (): Solver<Name>;
 }
-export interface Solver {
+export interface Solver<Name extends string = string> {
   readonly __typename: 'Solver';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_solver;
 
   /* TODO(ritave): Decide on how to discern between integer and float paramaters
@@ -83,67 +89,68 @@ export interface Solver {
   pop(num?: number): void;
   numScopes(): number;
   reset(): void;
-  add(...exprs: (BoolRef | AstVector<BoolRef>)[]): void;
-  addAndTrack(expr: BoolRef, constant: BoolRef | string): void;
-  check(...exprs: (BoolRef | AstVector<BoolRef>)[]): Promise<CheckSatResult>;
+  add(...exprs: (BoolRef<Name> | AstVector<BoolRef<Name>, Name>)[]): void;
+  addAndTrack(expr: BoolRef<Name>, constant: BoolRef<Name> | string): void;
+  check(...exprs: (BoolRef<Name> | AstVector<BoolRef<Name>, Name>)[]): Promise<CheckSatResult>;
   model(): Model;
 }
 
-export interface ModelCtor {
-  new (): Model;
+export interface ModelCtor<Name extends string> {
+  new (): Model<Name>;
 }
-export interface Model extends Iterable<FuncDeclRef> {
+export interface Model<Name extends string = string> extends Iterable<FuncDeclRef<Name>> {
   readonly __typename: 'Model';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_model;
 
   get length(): number;
 
-  entries(): IterableIterator<[number, FuncDeclRef]>;
+  entries(): IterableIterator<[number, FuncDeclRef<Name>]>;
   keys(): IterableIterator<number>;
-  values(): IterableIterator<FuncDeclRef>;
+  values(): IterableIterator<FuncDeclRef<Name>>;
   sexpr(): string;
-  eval(expr: BoolRef, modelCompletion?: boolean): BoolRef;
-  eval(expr: ArithRef, modelCompletion?: boolean): ArithRef;
-  eval(expr: ExprRef, modelCompletion?: boolean): ExprRef;
-  get(i: number): FuncDeclRef;
-  get(declaration: FuncDeclRef): FuncInterp;
-  get(constant: ExprRef): ExprRef;
-  get(sort: SortRef): AstVector<AnyExpr>;
+  eval(expr: BoolRef<Name>, modelCompletion?: boolean): BoolRef<Name>;
+  eval(expr: ArithRef<Name>, modelCompletion?: boolean): ArithRef<Name>;
+  eval(expr: ExprRef<Name>, modelCompletion?: boolean): ExprRef<Name>;
+  get(i: number): FuncDeclRef<Name>;
+  get(declaration: FuncDeclRef<Name>): FuncInterp<Name>;
+  get(constant: ExprRef<Name>): ExprRef<Name>;
+  get(sort: SortRef<Name>): AstVector<AnyExpr<Name>, Name>;
 }
 
-export interface SortRef extends AstRef<Z3_sort> {
+export interface SortRef<Name extends string = string> extends AstRef<Name, Z3_sort> {
   readonly __typename: 'SortRef' | BoolSortRef['__typename'] | ArithSortRef['__typename'];
 
   kind(): Z3_sort_kind;
-  subsort(other: SortRef): boolean;
+  subsort(other: SortRef<Name>): boolean;
   cast(expr: CoercibleToExpr): ExprRef;
   name(): string | number;
-  eqIdentity(other: SortRef): boolean;
-  neqIdentity(other: SortRef): boolean;
+  eqIdentity(other: SortRef<Name>): boolean;
+  neqIdentity(other: SortRef<Name>): boolean;
 }
 
-export interface FuncInterp {
+export interface FuncInterp<Name extends string = string> {
   readonly __typename: 'FuncInterp';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_func_interp;
 }
 
-export interface FuncDeclRef extends AstRef<Z3_func_decl> {
+export interface FuncDeclRef<Name extends string = string> extends AstRef<Name, Z3_func_decl> {
   readonly __typename: 'FuncDeclRef';
 
   name(): string | number;
   arity(): number;
-  domain(i: number): SortRef;
-  range(): SortRef;
+  domain(i: number): SortRef<Name>;
+  range(): SortRef<Name>;
   kind(): Z3_decl_kind;
-  params(): (number | string | Z3_symbol | SortRef | ExprRef | FuncDeclRef)[];
-  call(...args: ExprRef[]): AnyExpr;
+  params(): (number | string | Z3_symbol | SortRef<Name> | ExprRef<Name> | FuncDeclRef<Name>)[];
+  call(...args: ExprRef<Name>[]): AnyExpr<Name>;
 }
 
-export interface ExprRef<Sort extends SortRef = AnySort, Ptr = unknown> extends AstRef<Ptr> {
+export interface ExprRef<Name extends string = string, Sort extends SortRef<Name> = AnySort<Name>, Ptr = unknown>
+  extends AstRef<Name, Ptr> {
   readonly __typename:
     | 'ExprRef'
     | BoolRef['__typename']
@@ -153,101 +160,102 @@ export interface ExprRef<Sort extends SortRef = AnySort, Ptr = unknown> extends 
     | ArithRef['__typename'];
 
   sort(): Sort;
-  eq(other: CoercibleToExpr): BoolRef;
-  neq(other: CoercibleToExpr): BoolRef;
-  params(): ReturnType<FuncDeclRef['params']>;
-  decl(): FuncDeclRef;
+  eq(other: CoercibleToExpr): BoolRef<Name>;
+  neq(other: CoercibleToExpr): BoolRef<Name>;
+  params(): ReturnType<FuncDeclRef<Name>['params']>;
+  decl(): FuncDeclRef<Name>;
   numArgs(): number;
-  arg(i: number): AnyExpr;
-  children(): AnyExpr[];
+  arg(i: number): AnyExpr<Name>;
+  children(): AnyExpr<Name>[];
 }
 
-export interface BoolSortRef extends SortRef {
+export interface BoolSortRef<Name extends string = string> extends SortRef<Name> {
   readonly __typename: 'BoolSortRef';
 
-  cast(expr: BoolRef | boolean): BoolRef;
-  cast(expr: CoercibleToExpr): never;
+  cast(expr: BoolRef<Name> | boolean): BoolRef<Name>;
+  cast(expr: CoercibleToExpr<Name>): never;
 }
 
-export interface BoolRef extends ExprRef<BoolSortRef, Z3_ast> {
+export interface BoolRef<Name extends string = string> extends ExprRef<Name, BoolSortRef<Name>, Z3_ast> {
   readonly __typename: 'BoolRef';
 
-  sort(): BoolSortRef;
-  mul(other: BoolRef | boolean): BoolRef;
+  sort(): BoolSortRef<Name>;
+  mul(other: BoolRef | boolean): BoolRef<Name>;
 }
 
-export interface PatternRef extends ExprRef<SortRef, Z3_pattern> {
+export interface PatternRef<Name extends string = string> extends ExprRef<Name, SortRef<Name>, Z3_pattern> {
   readonly __typename: 'PatternRef';
 }
 
-export interface QuantifierRef extends ExprRef<BoolSortRef, Z3_ast> {
+export interface QuantifierRef<Name extends string = string> extends ExprRef<Name, BoolSortRef<Name>, Z3_ast> {
   readonly __typename: 'QuantifierRef';
 
   weight(): number;
   numPatterns(): number;
-  pattern(i: number): PatternRef;
+  pattern(i: number): PatternRef<Name>;
   numNoPatterns(): number;
-  noPattern(i: number): AnyExpr;
-  body(): AnyExpr;
+  noPattern(i: number): AnyExpr<Name>;
+  body(): AnyExpr<Name>;
   varName(i: number): string | number;
-  varSort(i: number): AnySort;
-  children(): [AnyExpr];
+  varSort(i: number): AnySort<Name>;
+  children(): [AnyExpr<Name>];
 }
 
-export interface LambdaRef<Sort extends SortRef = AnySort> extends ExprRef<Sort, Z3_ast> {
+export interface LambdaRef<Name extends string = string, Sort extends SortRef<Name> = AnySort<Name>>
+  extends ExprRef<Name, Sort, Z3_ast> {
   readonly __typename: 'LambdaRef';
 
-  get(expr: ExprRef): ExprRef;
-  body(): AnyExpr;
+  get(expr: ExprRef<Name>): ExprRef<Name>;
+  body(): AnyExpr<Name>;
 }
 
-export interface ArithSortRef extends SortRef {
+export interface ArithSortRef<Name extends string = string> extends SortRef<Name> {
   readonly __typename: 'ArithSortRef';
 
-  cast(other: number | bigint | ArithRef | BoolRef): ArithRef;
-  cast(other: CoercibleToExpr): never;
+  cast(other: number | bigint | ArithRef<Name> | BoolRef<Name>): ArithRef<Name>;
+  cast(other: CoercibleToExpr<Name>): never;
 }
 
-export interface ArithRef extends ExprRef {
+export interface ArithRef<Name extends string = string> extends ExprRef<Name> {
   readonly __typename: 'ArithRef';
 
-  add(other: ArithRef | number | bigint): ArithRef;
-  mul(other: ArithRef | number | bigint): ArithRef;
-  sub(other: ArithRef | number | bigint): ArithRef;
-  pow(exponent: ArithRef | number | bigint): ArithRef;
-  div(other: ArithRef | number | bigint): ArithRef;
-  mod(other: ArithRef | number | bigint): ArithRef;
-  neg(): ArithRef;
-  le(other: ArithRef | number | bigint): BoolRef;
-  lt(other: ArithRef | number | bigint): BoolRef;
-  gt(other: ArithRef | number | bigint): BoolRef;
-  ge(other: ArithRef | number | bigint): BoolRef;
+  add(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  mul(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  sub(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  pow(exponent: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  div(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  mod(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  neg(): ArithRef<Name>;
+  le(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
+  lt(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
+  gt(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
+  ge(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
 }
 
-export interface Probe {
+export interface Probe<Name extends string = string> {
   readonly __typename: 'Probe';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly probe: Z3_probe;
 }
 
-export interface TacticCtor {
-  new (name: string): Tactic;
+export interface TacticCtor<Name extends string> {
+  new (name: string): Tactic<Name>;
 }
-export interface Tactic {
+export interface Tactic<Name extends string = string> {
   readonly __typename: 'Tactic';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_tactic;
 }
 
-export interface AstVectorCtor {
-  new <Item extends AstRef = AnyAst>(): AstVector<Item>;
+export interface AstVectorCtor<Name extends string> {
+  new <Item extends AstRef<Name> = AnyAst<Name>>(): AstVector<Item, Name>;
 }
-export interface AstVector<Item extends AstRef = AnyAst> extends Iterable<Item> {
+export interface AstVector<Item extends AstRef = AnyAst, Name extends string = string> extends Iterable<Item> {
   readonly __typename: 'AstVector';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_ast_vector;
   get length(): number;
 
@@ -263,17 +271,17 @@ export interface AstVector<Item extends AstRef = AnyAst> extends Iterable<Item> 
   sexpr(): string;
 }
 
-export interface AstMapCtor {
-  new <Key extends AstRef = AnyAst, Value extends AstRef = AnyAst>(): AstMap<Key, Value>;
+export interface AstMapCtor<Name extends string> {
+  new <Key extends AstRef = AnyAst, Value extends AstRef = AnyAst>(): AstMap<Key, Value, Name>;
 }
-export interface AstMap<Key extends AstRef = AnyAst, Value extends AstRef = AnyAst> {
+export interface AstMap<Key extends AstRef = AnyAst, Value extends AstRef = AnyAst, Name extends string = string> {
   readonly __typename: 'AstMap';
 
-  readonly ctx: Context;
+  readonly ctx: Context<Name>;
   readonly ptr: Z3_ast_map;
 }
 
-export type CoercibleToExpr = number | bigint | boolean | ExprRef;
+export type CoercibleToExpr<Name extends string = string> = number | bigint | boolean | ExprRef<Name>;
 
 type QuantifierOptions = {
   qid: string;
@@ -302,100 +310,102 @@ export type Z3HighLevel = {
   getParam(name: string): string | null;
 
   // Operations that require context
-  createContext(contextOptions?: Record<string, any>): Z3WithContext;
+  createContext(): Z3WithContext<string>;
+  createContext(contextOptions: Record<string, any>): Z3WithContext<string>;
+  createContext<Name extends string>(name: Name, contextOptions?: Record<string, any>): Z3WithContext<Name>;
 };
 
-type Z3WithContext = {
+type Z3WithContext<Name extends string> = {
   // Constants
   context: Context;
 
   // Functions
-  isContext(obj: unknown): obj is Context;
-  isAst(obj: unknown): obj is AstRef;
-  isSort(obj: unknown): obj is SortRef;
-  isFuncDecl(obj: unknown): obj is FuncDeclRef;
-  isApp(obj: unknown): obj is ExprRef;
-  isConst(obj: unknown): obj is ExprRef;
-  isExpr(obj: unknown): obj is ExprRef;
-  isVar(obj: unknown): obj is ExprRef;
+  isContext(obj: unknown): obj is Context<Name>;
+  isAst(obj: unknown): obj is AstRef<Name>;
+  isSort(obj: unknown): obj is SortRef<Name>;
+  isFuncDecl(obj: unknown): obj is FuncDeclRef<Name>;
+  isApp(obj: unknown): obj is ExprRef<Name>;
+  isConst(obj: unknown): obj is ExprRef<Name>;
+  isExpr(obj: unknown): obj is ExprRef<Name>;
+  isVar(obj: unknown): obj is ExprRef<Name>;
   isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
-  isBool(obj: unknown): obj is BoolRef;
-  isTrue(obj: unknown): obj is BoolRef;
-  isFalse(obj: unknown): obj is BoolRef;
-  isAnd(obj: unknown): obj is BoolRef;
-  isOr(obj: unknown): obj is BoolRef;
-  isImplies(obj: unknown): obj is BoolRef;
-  isNot(obj: unknown): obj is BoolRef;
-  isEq(obj: unknown): obj is BoolRef;
-  isDistinct(obj: unknown): obj is BoolRef;
-  isArith(obj: unknown): obj is ArithRef;
-  isInt(obj: unknown): obj is ArithRef;
-  isIntSort(obj: unknown): obj is ArithSortRef;
-  isProbe(obj: unknown): obj is Probe;
-  isTactic(obj: unknown): obj is Tactic;
-  isPattern(obj: unknown): obj is PatternRef;
-  isAstVector(obj: unknown): obj is AstVector<AnyAst>;
+  isBool(obj: unknown): obj is BoolRef<Name>;
+  isTrue(obj: unknown): obj is BoolRef<Name>;
+  isFalse(obj: unknown): obj is BoolRef<Name>;
+  isAnd(obj: unknown): obj is BoolRef<Name>;
+  isOr(obj: unknown): obj is BoolRef<Name>;
+  isImplies(obj: unknown): obj is BoolRef<Name>;
+  isNot(obj: unknown): obj is BoolRef<Name>;
+  isEq(obj: unknown): obj is BoolRef<Name>;
+  isDistinct(obj: unknown): obj is BoolRef<Name>;
+  isArith(obj: unknown): obj is ArithRef<Name>;
+  isInt(obj: unknown): obj is ArithRef<Name>;
+  isIntSort(obj: unknown): obj is ArithSortRef<Name>;
+  isProbe(obj: unknown): obj is Probe<Name>;
+  isTactic(obj: unknown): obj is Tactic<Name>;
+  isPattern(obj: unknown): obj is PatternRef<Name>;
+  isAstVector(obj: unknown): obj is AstVector<AnyAst<Name>, Name>;
   /*
   isQuantifier(obj: unknown): obj is QuantifierRef;
   isForAll(obj: unknown): obj is QuantifierRef;
   isExists(obj: unknown): obj is QuantifierRef;
   isLambda(obj: unknown): obj is LambdaRef<AnySort>;
   */
-  eqIdentity(a: AstRef, b: AstRef): boolean;
-  getVarIndex(obj: ExprRef): number;
-  getValue(obj: BoolRef): boolean | null;
-  getValue(obj: ArithRef): number | bigint | null;
-  getValue(obj: ExprRef): boolean | number | bigint | null;
-  from(primitive: boolean): BoolRef;
-  from(primitive: number | bigint): ArithRef;
-  from(expr: ExprRef): ExprRef;
+  eqIdentity(a: AstRef<Name>, b: AstRef<Name>): boolean;
+  getVarIndex(obj: ExprRef<Name>): number;
+  getValue(obj: BoolRef<Name>): boolean | null;
+  getValue(obj: ArithRef<Name>): number | bigint | null;
+  getValue(obj: ExprRef<Name>): boolean | number | bigint | null;
+  from(primitive: boolean): BoolRef<Name>;
+  from(primitive: number | bigint): ArithRef<Name>;
+  from(expr: ExprRef<Name>): ExprRef<Name>;
 
   // Classes
-  Solver: SolverCtor;
-  Model: ModelCtor;
-  AstVector: AstVectorCtor;
-  AstMap: AstMapCtor;
-  Tactic: TacticCtor;
+  Solver: SolverCtor<Name>;
+  Model: ModelCtor<Name>;
+  AstVector: AstVectorCtor<Name>;
+  AstMap: AstMapCtor<Name>;
+  Tactic: TacticCtor<Name>;
 
   // Operations
-  DeclareSort(name: string | number): SortRef;
-  Function(name: string, ...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef;
-  FreshFunction(...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef;
-  RecFunction(name: string, ...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef;
-  RecAddDefinition(f: FuncDeclRef, args: ExprRef[], body: ExprRef): void;
-  If(condition: Probe, onTrue: Tactic, onFalse: Tactic): Tactic;
-  If<OnTrueRef extends CoercibleToExpr = ExprRef, OnFalseRef extends CoercibleToExpr = ExprRef>(
-    condition: BoolRef,
+  DeclareSort(name: string | number): SortRef<Name>;
+  Function(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  FreshFunction(...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  RecFunction(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  RecAddDefinition(f: FuncDeclRef<Name>, args: ExprRef<Name>[], body: ExprRef<Name>): void;
+  If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
+  If<OnTrueRef extends CoercibleToExpr<Name> = ExprRef<Name>, OnFalseRef extends CoercibleToExpr<Name> = ExprRef<Name>>(
+    condition: BoolRef<Name>,
     onTrue: OnTrueRef,
     onFalse: OnFalseRef,
-  ): CoercibleToExprMap<OnTrueRef | OnFalseRef>;
-  Distinct(...args: ExprRef[]): BoolRef;
-  Const<S extends SortRef>(name: string, sort: S): SortToExprMap<S>;
-  Consts<S extends SortRef>(name: string | string[], sort: S): SortToExprMap<S>[];
-  FreshConst<S extends SortRef>(sort: S, prefix?: string): SortToExprMap<S>;
-  Var<S extends SortRef>(idx: number, sort: S): SortToExprMap<S>;
-  BoolSort(): BoolSortRef;
-  BoolVal(value: boolean): BoolRef;
-  Bool(name: string): BoolRef;
-  Bools(names: string | string[]): BoolRef[];
-  BoolVector(prefix: string, count: number): BoolRef[];
-  FreshBool(prefix?: string): BoolRef;
-  Implies(a: BoolRef, b: BoolRef): BoolRef;
-  Eq(a: ExprRef, b: ExprRef): BoolRef;
-  Xor(a: BoolRef, b: BoolRef): BoolRef;
-  Not(a: Probe): Probe;
-  Not(a: BoolRef): BoolRef;
-  And(): BoolRef;
-  And(vector: AstVector<BoolRef>): BoolRef;
-  And(...args: BoolRef[]): BoolRef;
-  And(...args: Probe[]): Probe;
-  Or(): BoolRef;
-  Or(vector: AstVector<BoolRef>): BoolRef;
-  Or(...args: BoolRef[]): BoolRef;
-  Or(...args: Probe[]): Probe;
-  IntSort(): ArithSortRef;
-  Int(name: string | number): ArithRef;
-  IntVal(value: bigint | number): ArithRef;
+  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
+  Distinct(...args: ExprRef<Name>[]): BoolRef<Name>;
+  Const<S extends SortRef<Name>>(name: string, sort: S): SortToExprMap<S, Name>;
+  Consts<S extends SortRef<Name>>(name: string | string[], sort: S): SortToExprMap<S, Name>[];
+  FreshConst<S extends SortRef<Name>>(sort: S, prefix?: string): SortToExprMap<S, Name>;
+  Var<S extends SortRef<Name>>(idx: number, sort: S): SortToExprMap<S, Name>;
+  BoolSort(): BoolSortRef<Name>;
+  BoolVal(value: boolean): BoolRef<Name>;
+  Bool(name: string): BoolRef<Name>;
+  Bools(names: string | string[]): BoolRef<Name>[];
+  BoolVector(prefix: string, count: number): BoolRef<Name>[];
+  FreshBool(prefix?: string): BoolRef<Name>;
+  Implies(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
+  Eq(a: ExprRef<Name>, b: ExprRef<Name>): BoolRef<Name>;
+  Xor(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
+  Not(a: Probe<Name>): Probe<Name>;
+  Not(a: BoolRef<Name>): BoolRef<Name>;
+  And(): BoolRef<Name>;
+  And(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
+  And(...args: BoolRef<Name>[]): BoolRef<Name>;
+  And(...args: Probe<Name>[]): Probe<Name>;
+  Or(): BoolRef<Name>;
+  Or(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
+  Or(...args: BoolRef<Name>[]): BoolRef<Name>;
+  Or(...args: Probe<Name>[]): Probe<Name>;
+  IntSort(): ArithSortRef<Name>;
+  Int(name: string | number): ArithRef<Name>;
+  IntVal(value: bigint | number): ArithRef<Name>;
   /*
   MultiPattern(...args: [ExprRef, ...ExprRef[]]): PatternRef;
   ForAll(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;

@@ -3,7 +3,6 @@
 //               We could use templated string literals Solver<'contextName'> but that would
 //               be cumbersome for the end user
 // TODO(ritave): Coerce primitives to expressions
-// TODO(ritave): Verify that the contexts match
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
 // TODO(ritave): Add an error handler
@@ -108,15 +107,22 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     return Z3.global_param_get(name);
   }
 
-  function createContext(contextOptions: Record<string, any> = {}) {
+  function createContext(name?: string | Record<string, any>, options: Record<string, any> = {}) {
     // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
     //               Don't capture `this`
     const cleanup = new FinalizationRegistry<() => void>(callback => callback());
+    const contextName = typeof name === 'string' ? name : `context_${nextId()}`;
+    const contextOptions = typeof name === 'object' ? name : options;
+
+    function assertContext(...ctxs: Context[]) {
+      ctxs.forEach(other => assert(ctx === other, 'Context mismatch'));
+    }
 
     class ContextImpl {
       declare readonly __typename: 'Context';
 
       readonly ptr: Z3_context;
+      readonly name: string = contextName;
 
       constructor(params: Record<string, any>) {
         params = params ?? {};
@@ -222,19 +228,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isContext(obj: unknown): obj is ContextImpl {
-      return obj instanceof ContextImpl;
+      const r = obj instanceof ContextImpl;
+      r && assertContext(obj);
+      return r;
     }
 
     function isAst(obj: unknown): obj is AstRef {
-      return obj instanceof AstRefImpl;
+      const r = obj instanceof AstRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isSort(obj: unknown): obj is SortRef {
-      return obj instanceof SortRefImpl;
+      const r = obj instanceof SortRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isFuncDecl(obj: unknown): obj is FuncDeclRef {
-      return obj instanceof FuncDeclRefImpl;
+      const r = obj instanceof FuncDeclRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isApp(obj: unknown): obj is ExprRef {
@@ -250,7 +264,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isExpr(obj: unknown): obj is ExprRef {
-      return obj instanceof ExprRefImpl;
+      const r = obj instanceof ExprRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isVar(obj: unknown): obj is ExprRef {
@@ -262,7 +278,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isBool(obj: unknown): obj is BoolRef {
-      return obj instanceof BoolRefImpl;
+      const r = obj instanceof BoolRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isTrue(obj: unknown): obj is BoolRef {
@@ -298,7 +316,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isArith(obj: unknown): obj is ArithRef {
-      return obj instanceof ArithRefImpl;
+      const r = obj instanceof ArithRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isInt(obj: unknown): obj is ArithRef {
@@ -310,19 +330,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isProbe(obj: unknown): obj is Probe {
-      return obj instanceof ProbeImpl;
+      const r = obj instanceof ProbeImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isTactic(obj: unknown): obj is Tactic {
-      return obj instanceof TacticImpl;
+      const r = obj instanceof TacticImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isPattern(obj: unknown): obj is PatternRef {
-      return obj instanceof PatternRefImpl;
+      const r = obj instanceof PatternRefImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     function isAstVector(obj: unknown): obj is AstVector<AnyAst> {
-      return obj instanceof AstVectorImpl;
+      const r = obj instanceof AstVectorImpl;
+      r && assertContext(obj.ctx);
+      return r;
     }
 
     /*
@@ -413,10 +441,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       eqIdentity(other: AstRef) {
+        assertContext(other.ctx);
         return Z3.is_eq_ast(this.ctx.ptr, this.ast, other.ast);
       }
 
       neqIdentity(other: AstRef) {
+        assertContext(other.ctx);
         return !this.eqIdentity(other);
       }
 
@@ -492,7 +522,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         Z3.solver_reset(ctx.ptr, this.ptr);
       }
       add(...exprs: (BoolRef | AstVector<BoolRef>)[]) {
-        _flattenArgs(exprs).forEach(expr => Z3.solver_assert(ctx.ptr, this.ptr, expr.ast));
+        _flattenArgs(exprs).forEach(expr => {
+          assertContext(expr.ctx);
+          Z3.solver_assert(ctx.ptr, this.ptr, expr.ast);
+        });
       }
       addAndTrack(expr: BoolRef, constant: BoolRef | string) {
         if (typeof constant === 'string') {
@@ -503,7 +536,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       async check(...exprs: (BoolRef | AstVector<BoolRef>)[]): Promise<CheckSatResult> {
-        const assumptions = _flattenArgs(exprs).map(expr => expr.ast);
+        const assumptions = _flattenArgs(exprs).map(expr => {
+          assertContext(expr.ctx);
+          return expr.ast;
+        });
         const result = await Z3.solver_check_assumptions(ctx.ptr, this.ptr, assumptions);
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
@@ -570,6 +606,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       eval(expr: BoolRef, modelCompletion?: boolean): BoolRef;
       eval(expr: ArithRef, modelCompletion?: boolean): ArithRef;
       eval(expr: ExprRef, modelCompletion: boolean = false) {
+        assertContext(expr.ctx);
         const r = Z3.model_eval(ctx.ptr, this.ptr, expr.ast, modelCompletion);
         if (r === null) {
           throw new Z3Error('Failed to evaluatio expression in the model');
@@ -645,6 +682,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       private getUniverse(sort: SortRef): AstVector<AnyAst> {
+        assertContext(sort.ctx);
         return new AstVectorImpl(Z3.model_get_sort_universe(ctx.ptr, this.ptr, sort.ptr));
       }
     }
@@ -675,10 +713,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       subsort(other: SortRef) {
+        assertContext(other.ctx);
         return false;
       }
 
       cast(expr: ExprRef): ExprRef {
+        assertContext(expr.ctx);
         assert(expr.sort().eqIdentity(expr.sort()), 'Sort mismatch');
         return expr;
       }
@@ -688,6 +728,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       eqIdentity(other: SortRef) {
+        assertContext(other.ctx);
         return Z3.is_eq_sort(this.ctx.ptr, this.ptr, other.ptr);
       }
 
@@ -764,7 +805,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           Z3.mk_app(
             this.ctx.ptr,
             this.ptr,
-            args.map((arg, i) => this.domain(i).cast(arg).ast),
+            args.map((arg, i) => {
+              assertContext(arg.ctx);
+              return this.domain(i).cast(arg).ast;
+            }),
           ),
         );
       }
@@ -842,15 +886,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       subsort(other: SortRef) {
+        assertContext(other.ctx);
         return other instanceof ArithSortRefImpl;
-      }
-
-      isInt(): true {
-        return true;
-      }
-
-      isBool(): true {
-        return true;
       }
     }
 
@@ -861,6 +898,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolSortRefImpl(Z3.get_sort(this.ctx.ptr, this.ast));
       }
       mul(other: BoolRef) {
+        assertContext(other.ctx);
         return If(this, other, BoolVal(false));
       }
     }
@@ -1055,6 +1093,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       set(i: number, v: Item): void {
+        assertContext(v.ctx);
         if (i >= this.length) {
           throw new RangeError();
         }
@@ -1062,6 +1101,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       push(v: Item): void {
+        assertContext(v.ctx);
         Z3.ast_vector_push(this.ctx.ptr, this.ptr, v.ast);
       }
 
@@ -1070,6 +1110,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       has(v: Item): boolean {
+        assertContext(v.ctx);
         for (const item of this.values()) {
           if (item.eqIdentity(v)) {
             return true;
@@ -1107,8 +1148,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function Function(name: string, ...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef {
       const arity = signature.length - 1;
       const rng = signature[arity];
+      assertContext(rng.ctx);
       const dom = [];
       for (let i = 0; i < arity; i++) {
+        assertContext(signature[i].ctx);
         dom.push(signature[i].ptr);
       }
       const ctx = rng.ctx;
@@ -1118,8 +1161,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function FreshFunction(...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef {
       const arity = signature.length - 1;
       const rng = signature[arity];
+      assertContext(rng.ctx);
       const dom = [];
       for (let i = 0; i < arity; i++) {
+        assertContext(signature[i].ctx);
         dom.push(signature[i].ptr);
       }
       const ctx = rng.ctx;
@@ -1129,8 +1174,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function RecFunction(name: string, ...signature: [SortRef, SortRef, ...SortRef[]]): FuncDeclRef {
       const arity = signature.length - 1;
       const rng = signature[arity];
+      assertContext(rng.ctx);
       const dom = [];
       for (let i = 0; i < arity; i++) {
+        assertContext(signature[i].ctx);
         dom.push(signature[i].ptr);
       }
       const ctx = rng.ctx;
@@ -1138,6 +1185,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function RecAddDefinition(f: FuncDeclRef, args: ExprRef[], body: ExprRef) {
+      assertContext(f.ctx, ...args.map(arg => arg.ctx), body.ctx);
       Z3.add_rec_def(
         body.ctx.ptr,
         f.ptr,
@@ -1172,16 +1220,21 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new BoolRefImpl(
         Z3.mk_distinct(
           ctx.ptr,
-          exprs.map(expr => expr.ast),
+          exprs.map(expr => {
+            assertContext(expr.ctx);
+            return expr.ast;
+          }),
         ),
       );
     }
 
     function Const<S extends SortRef>(name: string, sort: S): SortToExprMap<S> {
+      assertContext(sort.ctx);
       return _toExpr(Z3.mk_const(ctx.ptr, _toSymbol(name), sort.ptr)) as SortToExprMap<S>;
     }
 
     function Consts<S extends SortRef>(names: string | string[], sort: S): SortToExprMap<S>[] {
+      assertContext(sort.ctx);
       if (typeof names === 'string') {
         names = names.split(' ');
       }
@@ -1189,10 +1242,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function FreshConst<S extends SortRef>(sort: S, prefix: string = 'c'): SortToExprMap<S> {
+      assertContext(sort.ctx);
       return _toExpr(Z3.mk_fresh_const(sort.ctx.ptr, prefix, sort.ptr)) as SortToExprMap<S>;
     }
 
     function Var<S extends SortRef>(idx: number, sort: S): SortToExprMap<S> {
+      assertContext(sort.ctx);
       return _toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExprMap<S>;
     }
 
@@ -1231,20 +1286,24 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function Implies(a: BoolRef, b: BoolRef) {
+      assertContext(a.ctx, b.ctx);
       return new BoolRefImpl(Z3.mk_implies(ctx.ptr, a.ptr, b.ptr));
     }
 
     function Eq(a: ExprRef, b: ExprRef) {
+      assertContext(a.ctx, b.ctx);
       return a.eq(b);
     }
 
     function Xor(a: BoolRef, b: BoolRef) {
+      assertContext(a.ctx, b.ctx);
       return new BoolRefImpl(Z3.mk_xor(ctx.ptr, a.ptr, b.ptr));
     }
 
     function Not(a: Probe): Probe;
     function Not(a: BoolRef): BoolRef;
     function Not(a: BoolRef | Probe): BoolRef | Probe {
+      assertContext(a.ctx);
       if (isProbe(a)) {
         return new ProbeImpl(Z3.probe_not(ctx.ptr, a.probe));
       }
@@ -1265,6 +1324,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (allProbes) {
         return _probeNary(Z3.probe_and, args as [Probe, ...Probe[]]);
       } else {
+        assertContext(...args.map(arg => arg.ctx));
         return new BoolRefImpl(
           Z3.mk_and(
             ctx.ptr,
@@ -1288,6 +1348,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (all_probes) {
         return _probeNary(Z3.probe_or, args as [Probe, ...Probe[]]);
       } else {
+        assertContext(...args.map(arg => arg.ctx));
         return new BoolRefImpl(
           Z3.mk_or(
             ctx.ptr,
@@ -1311,6 +1372,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function Cond(probe: Probe, onTrue: Tactic, onFalse: Tactic): Tactic {
+      assertContext(probe.ctx, onTrue.ctx, onFalse.ctx);
       return new TacticImpl(Z3.tactic_cond(ctx.ptr, probe.probe, onTrue.ptr, onFalse.ptr));
     }
 
@@ -1404,7 +1466,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     resetParams,
     getParam,
 
-    createContext,
+    createContext: createContext as Z3HighLevel['createContext'],
   };
 }
 
@@ -1449,4 +1511,10 @@ function allSatisfy<T>(collection: Iterable<T>, premise: (arg: T) => boolean): b
     }
   }
   return result;
+}
+
+let _lastId = -1;
+function nextId() {
+  _lastId += 1;
+  return _lastId;
 }
