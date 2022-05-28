@@ -29,7 +29,7 @@ describe('high-level', () => {
   });
 
   it('proves x = y implies g(x) = g(y)', async () => {
-    const { Solver, Int, IntSort, Function, Implies, Not } = api.createContext();
+    const { Solver, Int, IntSort, Function, Implies, Not } = api.createContext('main');
     const solver = new Solver();
 
     const sort = IntSort();
@@ -43,7 +43,7 @@ describe('high-level', () => {
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
-    const { Solver, Int, IntSort, Function, Implies, Not } = api.createContext();
+    const { Solver, Int, IntSort, Function, Implies, Not } = api.createContext('main');
     const solver = new Solver();
 
     const sort = IntSort();
@@ -57,32 +57,29 @@ describe('high-level', () => {
     const model = solver.model();
   });
 
-  it('allows for context names', () => {
-    const c1 = api.createContext();
-    const c2 = api.createContext();
+  it('checks that Context matches', () => {
+    const c1 = api.createContext('context');
+    const c2 = api.createContext('context');
     const c3 = api.createContext('foo');
     const c4 = api.createContext('bar');
 
-    // Unnamed contexts doesn't do type checking during compile time.
+    // Contexts with the same name don't do type checking during compile time.
     // We need to check for different context dynamically
     expect(() => c1.Or(c2.IntVal(5).eq(2))).toThrowError(Z3AssertionError);
 
     // On the other hand, this won't compile due to automatic generics
-    // c3.Or(c4.IntVal(5).eq(2))
+    // @ts-expect-error
+    expect(() => c3.Or(c4.IntVal(5).eq(2))).toThrowError(Z3AssertionError);
 
-    const allUniqueNames = new Set([c1, c2, c3, c4].map(c => c.context.name)).size === 4;
-    expect(allUniqueNames).toStrictEqual(true);
+    const allUniqueContexes = new Set([c1, c2, c3, c4].map(c => c.context)).size === 4;
+    expect(allUniqueContexes).toStrictEqual(true);
 
-    // On other hand, we can create a context with the same name. It needs to be checked run-time
-    const c5 = api.createContext('foo');
-
-    // Even with same name, they should be different contexts
-    expect(() => c5.And(c3.BoolVal(true))).toThrow(Z3AssertionError);
+    expect(() => c1.Or(c1.IntVal(5).eq(2))).not.toThrowError();
   });
 
   describe('booleans', () => {
     it("proves De Morgan's Law", async () => {
-      const { Solver, Bool, Not, And, Eq, Or } = api.createContext();
+      const { Solver, Bool, Not, And, Eq, Or } = api.createContext('main');
 
       const solver = new Solver();
 
@@ -98,7 +95,7 @@ describe('high-level', () => {
 
   describe('ints', () => {
     it('finds a model', async () => {
-      const { Solver, Int, getValue } = api.createContext();
+      const { Solver, Int, getValue } = api.createContext('main');
       const solver = new Solver();
       const x = Int('x');
       const y = Int('y');
@@ -163,7 +160,7 @@ describe('high-level', () => {
       `);
 
       const { createContext } = api;
-      const { Solver, Int, Distinct, getValue, isInt } = createContext();
+      const { Solver, Int, Distinct, getValue, isInt } = createContext('main');
 
       const cells: ArithRef[][] = [];
       // 9x9 matrix of integer variables
@@ -246,7 +243,7 @@ describe('high-level', () => {
 
   describe('solver', () => {
     it('can use push and pop', async () => {
-      const { Solver, Int } = api.createContext();
+      const { Solver, Int } = api.createContext('main');
       const solver = new Solver();
       const x = Int('x');
 
@@ -269,7 +266,7 @@ describe('high-level', () => {
 
   describe('astvector', () => {
     it('can use basic methods', async () => {
-      const { Solver, AstVector, Int } = api.createContext();
+      const { Solver, AstVector, Int } = api.createContext('main');
       const solver = new Solver();
 
       const vector = new AstVector<ArithRef>();

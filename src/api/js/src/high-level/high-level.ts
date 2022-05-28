@@ -6,6 +6,8 @@
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
 // TODO(ritave): Add an error handler
+// TODO(ritave): Add support for building faster floats without support for Safari
+// TODO(ritave): Update readme
 import {
   Z3Core,
   Z3_ast,
@@ -107,12 +109,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     return Z3.global_param_get(name);
   }
 
-  function createContext(name?: string | Record<string, any>, options: Record<string, any> = {}) {
+  function createContext(name: string, options: Record<string, any> = {}) {
     // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
     //               Don't capture `this`
     const cleanup = new FinalizationRegistry<() => void>(callback => callback());
-    const contextName = typeof name === 'string' ? name : `context_${nextId()}`;
-    const contextOptions = typeof name === 'object' ? name : options;
 
     function assertContext(...ctxs: Context[]) {
       ctxs.forEach(other => assert(ctx === other, 'Context mismatch'));
@@ -122,7 +122,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare readonly __typename: 'Context';
 
       readonly ptr: Z3_context;
-      readonly name: string = contextName;
+      readonly name = name;
 
       constructor(params: Record<string, any>) {
         params = params ?? {};
@@ -141,7 +141,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    const ctx = new ContextImpl(contextOptions);
+    const ctx = new ContextImpl(options);
 
     function _toSymbol(s: string | number) {
       if (typeof s === 'number') {
@@ -597,6 +597,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         for (const [, value] of this.entries()) {
           yield value;
         }
+      }
+
+      decls() {
+        return [...this.values()];
       }
 
       sexpr() {
@@ -1195,7 +1199,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function If(condition: Probe, onTrue: Tactic, onFalse: Tactic): Tactic;
-    function If<OnTrueRef extends CoercibleToExpr = ExprRef, OnFalseRef extends CoercibleToExpr = ExprRef>(
+    function If<OnTrueRef extends CoercibleToExpr, OnFalseRef extends CoercibleToExpr>(
       condition: BoolRef,
       onTrue: OnTrueRef,
       onFalse: OnFalseRef,
