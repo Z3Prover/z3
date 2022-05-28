@@ -86,23 +86,11 @@ stages:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: LinuxBuilds
-    strategy:
-      matrix:
-        manyLinux:
-          name: ManyLinux
-          image: "quay.io/pypa/manylinux2010_x86_64:latest"
-          python: "/opt/python/cp37-cp37m/bin/python"
-        muslLinux:
-          name: MuslLinux
-          image: "quay.io/pypa/musllinux_1_1_x86_64:latest"
-          python: "/opt/python/cp310-cp310/bin/python"
-      maxParallel: 2
+  - job: LinuxBuild
     variables:
-      python: $(python)
-      name: $(name)
-      image: $(image)      
-    displayName: "$(name) build"
+      python: "/opt/python/cp37-cp37m/bin/python"
+      image: "quay.io/pypa/manylinux2010_x86_64:latest"      
+    displayName: "ManyLinux build"
     pool:
       vmImage: "Ubuntu-18.04"
     container: $(image)
@@ -408,11 +396,11 @@ stages:
       inputs:
         artifactName: 'Manylinux'
         targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download MuslLinux Build'
-      inputs:
-        artifact: 'MuslLinuxBuild'
-        path: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download MuslLinux Build'
+#      inputs:
+#        artifact: 'MuslLinuxBuild'
+#        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Mac'
