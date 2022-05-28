@@ -64,6 +64,7 @@ namespace dimacs {
         std::string     m_name;
         unsigned_vector m_args;
         std::string     m_pragma;
+        sat::proof_hint m_hint;
     };
 
     struct drat_pp {

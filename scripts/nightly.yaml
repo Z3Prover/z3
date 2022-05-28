@@ -100,7 +100,7 @@ stages:
     displayName: "$(name) build"
     pool:
       vmImage: "Ubuntu-18.04"
-    container: $(image)
+      container: $(image)
     variables:
       python: $(python)
     steps:

@@ -102,11 +102,13 @@ namespace sat {
     };
 
     struct proof_hint {
-        hint_type                                   m_ty;
+        hint_type                                        m_ty = hint_type::null_h;
         vector<std::pair<rational, literal>>             m_literals;
         vector<std::tuple<rational, unsigned, unsigned>> m_eqs;
+        void reset() { m_ty = hint_type::null_h; m_literals.reset(); m_eqs.reset(); }
         std::string to_string() const;
-        static proof_hint from_string(char const* s);
+        void from_string(char const* s);
+        void from_string(std::string const& s) { from_string(s.c_str()); }
     };
 
     class status {

@@ -932,11 +932,12 @@ namespace sat {
         return ous.str();
     }
 
-    proof_hint proof_hint::from_string(char const* s) {
-        proof_hint h;
+    void proof_hint::from_string(char const* s) {
+        proof_hint& h = *this;
+        h.reset();
         h.m_ty = hint_type::null_h;
         if (!s)
-            return h;
+            return;
         auto ws = [&]() {
             while (*s == ' ' || *s == '\n' || *s == '\t')
                 ++s;
@@ -999,14 +1000,14 @@ namespace sat {
 
         ws();
         if (!parse_type())
-            return h;
+            return;
         ws();
         while (*s) {
             if (!parse_coeff_literal())
-                return h;
+                return;
             ws();            
         }
-        return h;
+        return;
     }
 
 }
