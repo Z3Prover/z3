@@ -33,7 +33,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_split_concat_eq = p.split_concat_eq();
     m_bvnot_simpl = p.bv_not_simpl();
     m_bv_sort_ac = p.bv_sort_ac();
-    m_mkbv2num = _p.get_bool("mkbv2num", false);
     m_extract_prop = p.bv_extract_prop();
     m_ite2id = p.bv_ite2id();
     m_le_extra = p.bv_le_extra();
@@ -49,9 +48,6 @@ void bv_rewriter::updt_params(params_ref const & p) {
 void bv_rewriter::get_param_descrs(param_descrs & r) {
     poly_rewriter<bv_rewriter_core>::get_param_descrs(r);
     bv_rewriter_params::collect_param_descrs(r);
-#ifndef _EXTERNAL_RELEASE
-    r.insert("mkbv2num", CPK_BOOL, "(default: false) convert (mkbv [true/false]*) into a numeral");
-#endif
 }
 
 br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -2723,23 +2719,6 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
 
 br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & result) {
-    if (m_mkbv2num) {
-        unsigned i;
-        for (i = 0; i < num; i++)
-            if (!m().is_true(args[i]) && !m().is_false(args[i]))
-                return BR_FAILED;
-        numeral val;
-        numeral two(2);
-        i = num;
-        while (i > 0) {
-            --i;
-            val *= two;
-            if (m().is_true(args[i]))
-                val++;
-        }
-        result = mk_numeral(val, num);
-        return BR_DONE;
-    }
     return BR_FAILED;
 }
 

@@ -11,7 +11,6 @@ import getopt
 import pydoc
 import sys
 import subprocess
-import shutil
 
 ML_ENABLED=False
 MLD_ENABLED=False
