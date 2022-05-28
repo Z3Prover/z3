@@ -132,10 +132,12 @@ def cleanup_API(inf, outf):
     pat1  = re.compile(".*def_API.*")
     pat2  = re.compile(".*extra_API.*")
     pat3  = re.compile(r".*def_Type\(.*")
+    pat4  = re.compile("Z3_DECLARE_CLOSURE.*")
+    pat5  = re.compile("DEFINE_TYPE.*")
     _inf  = open(inf, 'r')
     _outf = open(outf, 'w')
     for line in _inf:
-        if not pat1.match(line) and not pat2.match(line) and not pat3.match(line):
+        if not pat1.match(line) and not pat2.match(line) and not pat3.match(line) and not pat4.match(line) and not pat5.match(line):
             _outf.write(line)
 
 def configure_file(template_file_path, output_file_path, substitutions):
