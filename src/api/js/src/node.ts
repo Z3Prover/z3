@@ -1,5 +1,5 @@
 // @ts-ignore no-implicit-any
-import initModule = require('./z3-built.js');
+import initModule = require('./z3-built');
 
 import { createApi, Z3HighLevel } from './high-level';
 import { init as initWrapper, Z3LowLevel } from './low-level';

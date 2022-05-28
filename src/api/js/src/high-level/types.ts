@@ -17,12 +17,7 @@ import {
 } from '../low-level';
 
 export type AnySort<Name extends string = any> = SortRef<Name> | BoolSortRef<Name>;
-export type AnyExpr<Name extends string = any> =
-  | ExprRef<Name>
-  | BoolRef<Name>
-  | PatternRef<Name>
-  | QuantifierRef<Name>
-  | LambdaRef<Name>;
+export type AnyExpr<Name extends string = any> = ExprRef<Name> | BoolRef<Name> | PatternRef<Name> | QuantifierRef<Name>;
 export type AnyAst<Name extends string = any> = AnyExpr<Name> | AnySort<Name> | AstRef<Name> | FuncDeclRef<Name>;
 
 export type SortToExprMap<S, Name extends string = any> = S extends BoolSortRef
@@ -49,13 +44,127 @@ export const unsat = Symbol("Solver didn't find a solution");
 export const unknown = Symbol("Solver couldn't reason about the assumptions");
 export type CheckSatResult = typeof sat | typeof unsat | typeof unknown;
 
+export interface ContextCtor {
+  new <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
+}
 export interface Context<Name extends string = any> {
   readonly __typename: 'Context';
 
   readonly ptr: Z3_context;
   readonly name: Name;
 
+  ///////////////
+  // Functions //
+  ///////////////
   interrupt(): void;
+  isAst(obj: unknown): obj is AstRef<Name>;
+  isSort(obj: unknown): obj is SortRef<Name>;
+  isFuncDecl(obj: unknown): obj is FuncDeclRef<Name>;
+  isApp(obj: unknown): obj is ExprRef<Name>;
+  isConst(obj: unknown): obj is ExprRef<Name>;
+  isExpr(obj: unknown): obj is ExprRef<Name>;
+  isVar(obj: unknown): obj is ExprRef<Name>;
+  isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
+  isBool(obj: unknown): obj is BoolRef<Name>;
+  isTrue(obj: unknown): obj is BoolRef<Name>;
+  isFalse(obj: unknown): obj is BoolRef<Name>;
+  isAnd(obj: unknown): obj is BoolRef<Name>;
+  isOr(obj: unknown): obj is BoolRef<Name>;
+  isImplies(obj: unknown): obj is BoolRef<Name>;
+  isNot(obj: unknown): obj is BoolRef<Name>;
+  isEq(obj: unknown): obj is BoolRef<Name>;
+  isDistinct(obj: unknown): obj is BoolRef<Name>;
+  isArith(obj: unknown): obj is ArithRef<Name>;
+  isInt(obj: unknown): obj is ArithRef<Name>;
+  isIntSort(obj: unknown): obj is ArithSortRef<Name>;
+  isProbe(obj: unknown): obj is Probe<Name>;
+  isTactic(obj: unknown): obj is Tactic<Name>;
+  isPattern(obj: unknown): obj is PatternRef<Name>;
+  isAstVector(obj: unknown): obj is AstVector<AnyAst<Name>, Name>;
+  /*
+  isQuantifier(obj: unknown): obj is QuantifierRef;
+  isForAll(obj: unknown): obj is QuantifierRef;
+  isExists(obj: unknown): obj is QuantifierRef;
+  isLambda(obj: unknown): obj is LambdaRef<AnySort>;
+  */
+  eqIdentity(a: AstRef<Name>, b: AstRef<Name>): boolean;
+  getVarIndex(obj: ExprRef<Name>): number;
+  getValue(obj: BoolRef<Name>): boolean | null;
+  getValue(obj: ArithRef<Name>): number | bigint | null;
+  getValue(obj: ExprRef<Name>): boolean | number | bigint | null;
+  from(primitive: boolean): BoolRef<Name>;
+  from(primitive: number | bigint): ArithRef<Name>;
+  from(expr: ExprRef<Name>): ExprRef<Name>;
+  from(expr: CoercibleToExpr<Name>): AnyExpr<Name>;
+
+  /////////////
+  // Classes //
+  /////////////
+  readonly Solver: new () => Solver<Name>;
+  readonly Model: new () => Model<Name>;
+  readonly AstVector: new <Item extends AstRef<Name> = AnyAst<Name>>() => AstVector<Item, Name>;
+  readonly AstMap: new <Key extends AstRef = AnyAst, Value extends AstRef = AnyAst>() => AstMap<Key, Value, Name>;
+  readonly Tactic: new (name: string) => Tactic<Name>;
+
+  ////////////////
+  // Operations //
+  ////////////////
+  DeclareSort(name: string | number): SortRef<Name>;
+  Function(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  FreshFunction(...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  RecFunction(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
+  RecAddDefinition(f: FuncDeclRef<Name>, args: ExprRef<Name>[], body: ExprRef<Name>): void;
+  If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
+  If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
+    condition: BoolRef<Name>,
+    onTrue: OnTrueRef,
+    onFalse: OnFalseRef,
+  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
+  Distinct(...args: ExprRef<Name>[]): BoolRef<Name>;
+  Const<S extends SortRef<Name>>(name: string, sort: S): SortToExprMap<S, Name>;
+  Consts<S extends SortRef<Name>>(name: string | string[], sort: S): SortToExprMap<S, Name>[];
+  FreshConst<S extends SortRef<Name>>(sort: S, prefix?: string): SortToExprMap<S, Name>;
+  Var<S extends SortRef<Name>>(idx: number, sort: S): SortToExprMap<S, Name>;
+  BoolSort(): BoolSortRef<Name>;
+  BoolVal(value: boolean): BoolRef<Name>;
+  Bool(name: string): BoolRef<Name>;
+  Bools(names: string | string[]): BoolRef<Name>[];
+  BoolVector(prefix: string, count: number): BoolRef<Name>[];
+  FreshBool(prefix?: string): BoolRef<Name>;
+  Implies(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
+  Eq(a: ExprRef<Name>, b: ExprRef<Name>): BoolRef<Name>;
+  Xor(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
+  Not(a: Probe<Name>): Probe<Name>;
+  Not(a: BoolRef<Name>): BoolRef<Name>;
+  And(): BoolRef<Name>;
+  And(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
+  And(...args: BoolRef<Name>[]): BoolRef<Name>;
+  And(...args: Probe<Name>[]): Probe<Name>;
+  Or(): BoolRef<Name>;
+  Or(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
+  Or(...args: BoolRef<Name>[]): BoolRef<Name>;
+  Or(...args: Probe<Name>[]): Probe<Name>;
+  IntSort(): ArithSortRef<Name>;
+  IntVal(value: bigint | number): ArithRef<Name>;
+  Int(name: string | number): ArithRef<Name>;
+  //Ints(names: string | string[]): ArithRef<Name>[];
+  //IntVector(prefix: string, count: number): ArithRef<Name>[];
+  //FreshInt(prefix?: string): ArithRef<Name>;
+  //RealSort(): ArithSortRef<Name>;
+  //RealVal(value: number | string): ArithRef<Name>;
+  //Real(name: string | number): ArithRef<Name>;
+  //Reals(names: string | string[]): ArithRef<Name>;
+  //RealVector(prefix: string, count: number): ArithRef<Name>[];
+  //FreshReal(prefix?: string): ArithRef<Name>;
+  //ToReal(expr: ArithRef<Name>): ArithRef<Name>;
+  //ToInt(expr: ArithRef<Name>): ArithRef<Name>;
+  //IsInt(expr: ArithRef<Name>): ArithRef<Name>;
+  /*
+  MultiPattern(...args: [ExprRef, ...ExprRef[]]): PatternRef;
+  ForAll(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
+  Exists(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
+  Lambda<Sort extends SortRef>(vars: ExprRef | ExprRef[], body: ExprRef<Sort>): LambdaRef<Sort>;
+  */
 }
 
 export interface AstRef<Name extends string = any, Ptr = unknown> {
@@ -237,7 +346,7 @@ export interface Probe<Name extends string = any> {
   readonly __typename: 'Probe';
 
   readonly ctx: Context<Name>;
-  readonly probe: Z3_probe;
+  readonly ptr: Z3_probe;
 }
 
 export interface TacticCtor<Name extends string> {
@@ -309,118 +418,7 @@ export type Z3HighLevel = {
   setParam(key: Record<string, any>): void;
   resetParams(): void;
   getParam(name: string): string | null;
+  isContext(obj: unknown): obj is Context;
 
-  // Operations that require context
-  createContext<Name extends string>(name: Name, contextOptions?: Record<string, any>): Z3WithContext<Name>;
-};
-
-export type Z3WithContext<Name extends string = any> = {
-  // Constants
-  context: Context;
-
-  // Functions
-  isContext(obj: unknown): obj is Context<Name>;
-  isAst(obj: unknown): obj is AstRef<Name>;
-  isSort(obj: unknown): obj is SortRef<Name>;
-  isFuncDecl(obj: unknown): obj is FuncDeclRef<Name>;
-  isApp(obj: unknown): obj is ExprRef<Name>;
-  isConst(obj: unknown): obj is ExprRef<Name>;
-  isExpr(obj: unknown): obj is ExprRef<Name>;
-  isVar(obj: unknown): obj is ExprRef<Name>;
-  isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
-  isBool(obj: unknown): obj is BoolRef<Name>;
-  isTrue(obj: unknown): obj is BoolRef<Name>;
-  isFalse(obj: unknown): obj is BoolRef<Name>;
-  isAnd(obj: unknown): obj is BoolRef<Name>;
-  isOr(obj: unknown): obj is BoolRef<Name>;
-  isImplies(obj: unknown): obj is BoolRef<Name>;
-  isNot(obj: unknown): obj is BoolRef<Name>;
-  isEq(obj: unknown): obj is BoolRef<Name>;
-  isDistinct(obj: unknown): obj is BoolRef<Name>;
-  isArith(obj: unknown): obj is ArithRef<Name>;
-  isInt(obj: unknown): obj is ArithRef<Name>;
-  isIntSort(obj: unknown): obj is ArithSortRef<Name>;
-  isProbe(obj: unknown): obj is Probe<Name>;
-  isTactic(obj: unknown): obj is Tactic<Name>;
-  isPattern(obj: unknown): obj is PatternRef<Name>;
-  isAstVector(obj: unknown): obj is AstVector<AnyAst<Name>, Name>;
-  /*
-  isQuantifier(obj: unknown): obj is QuantifierRef;
-  isForAll(obj: unknown): obj is QuantifierRef;
-  isExists(obj: unknown): obj is QuantifierRef;
-  isLambda(obj: unknown): obj is LambdaRef<AnySort>;
-  */
-  eqIdentity(a: AstRef<Name>, b: AstRef<Name>): boolean;
-  getVarIndex(obj: ExprRef<Name>): number;
-  getValue(obj: BoolRef<Name>): boolean | null;
-  getValue(obj: ArithRef<Name>): number | bigint | null;
-  getValue(obj: ExprRef<Name>): boolean | number | bigint | null;
-  from(primitive: boolean): BoolRef<Name>;
-  from(primitive: number | bigint): ArithRef<Name>;
-  from(expr: ExprRef<Name>): ExprRef<Name>;
-
-  // Classes
-  Solver: SolverCtor<Name>;
-  Model: ModelCtor<Name>;
-  AstVector: AstVectorCtor<Name>;
-  AstMap: AstMapCtor<Name>;
-  Tactic: TacticCtor<Name>;
-
-  // Operations
-  DeclareSort(name: string | number): SortRef<Name>;
-  Function(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
-  FreshFunction(...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
-  RecFunction(name: string, ...signature: [SortRef<Name>, SortRef<Name>, ...SortRef<Name>[]]): FuncDeclRef<Name>;
-  RecAddDefinition(f: FuncDeclRef<Name>, args: ExprRef<Name>[], body: ExprRef<Name>): void;
-  If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
-  If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
-    condition: BoolRef<Name>,
-    onTrue: OnTrueRef,
-    onFalse: OnFalseRef,
-  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
-  Distinct(...args: ExprRef<Name>[]): BoolRef<Name>;
-  Const<S extends SortRef<Name>>(name: string, sort: S): SortToExprMap<S, Name>;
-  Consts<S extends SortRef<Name>>(name: string | string[], sort: S): SortToExprMap<S, Name>[];
-  FreshConst<S extends SortRef<Name>>(sort: S, prefix?: string): SortToExprMap<S, Name>;
-  Var<S extends SortRef<Name>>(idx: number, sort: S): SortToExprMap<S, Name>;
-  BoolSort(): BoolSortRef<Name>;
-  BoolVal(value: boolean): BoolRef<Name>;
-  Bool(name: string): BoolRef<Name>;
-  Bools(names: string | string[]): BoolRef<Name>[];
-  BoolVector(prefix: string, count: number): BoolRef<Name>[];
-  FreshBool(prefix?: string): BoolRef<Name>;
-  Implies(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
-  Eq(a: ExprRef<Name>, b: ExprRef<Name>): BoolRef<Name>;
-  Xor(a: BoolRef<Name>, b: BoolRef<Name>): BoolRef<Name>;
-  Not(a: Probe<Name>): Probe<Name>;
-  Not(a: BoolRef<Name>): BoolRef<Name>;
-  And(): BoolRef<Name>;
-  And(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
-  And(...args: BoolRef<Name>[]): BoolRef<Name>;
-  And(...args: Probe<Name>[]): Probe<Name>;
-  Or(): BoolRef<Name>;
-  Or(vector: AstVector<BoolRef<Name>, Name>): BoolRef<Name>;
-  Or(...args: BoolRef<Name>[]): BoolRef<Name>;
-  Or(...args: Probe<Name>[]): Probe<Name>;
-  IntSort(): ArithSortRef<Name>;
-  IntVal(value: bigint | number): ArithRef<Name>;
-  Int(name: string | number): ArithRef<Name>;
-  Ints(names: string | string[]): ArithRef<Name>[];
-  IntVector(prefix: string, count: number): ArithRef<Name>[];
-  FreshInt(prefix?: string): ArithRef<Name>;
-  RealSort(): ArithSortRef<Name>;
-  RealVal(value: number | string): ArithRef<Name>;
-  Real(name: string | number): ArithRef<Name>;
-  Reals(names: string | string[]): ArithRef<Name>;
-  RealVector(prefix: string, count: number): ArithRef<Name>[];
-  FreshReal(prefix?: string): ArithRef<Name>;
-  ToReal(expr: ArithRef<Name>): ArithRef<Name>;
-  ToInt(expr: ArithRef<Name>): ArithRef<Name>;
-  IsInt(expr: ArithRef<Name>): ArithRef<Name>;
-  /*
-  MultiPattern(...args: [ExprRef, ...ExprRef[]]): PatternRef;
-  ForAll(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
-  Exists(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
-  Lambda<Sort extends SortRef>(vars: ExprRef | ExprRef[], body: ExprRef<Sort>): LambdaRef<Sort>;
-  */
+  Context: ContextCtor;
 };
