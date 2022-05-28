@@ -28,6 +28,7 @@ Revision History:
 #include "util/stopwatch.h"
 #include "util/symbol.h"
 #include "util/sat_literal.h"
+#include "util/rational.h"
 
 class params_ref;
 class reslimit;
@@ -93,29 +94,44 @@ namespace sat {
 
     };
 
+    enum class hint_type {
+        null_h,
+        farkas_h,
+        bound_h,
+        cut_h
+    };
+
+    struct proof_hint {
+        hint_type                                   m_ty;
+        vector<std::pair<rational, literal>>             m_literals;
+        vector<std::tuple<rational, unsigned, unsigned>> m_eqs;
+        std::string to_string() const;
+        static proof_hint from_string(char const* s);
+    };
+
     class status {
     public:
         enum class st { input, asserted, redundant, deleted };
         st m_st;
         int m_orig;
-        char const* m_pragma;
+        const proof_hint* m_hint;
     public:
-        status(st s, int o, char const* ps = nullptr) : m_st(s), m_orig(o), m_pragma(ps) {};
-        status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_pragma(s.m_pragma) {}
-        status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); std::swap(m_pragma, s.m_pragma); }
+        status(st s, int o, proof_hint const* ps = nullptr) : m_st(s), m_orig(o), m_hint(ps) {};
+        status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_hint(s.m_hint) {}
+        status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); std::swap(m_hint, s.m_hint); }
         status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; return *this; }
         static status redundant() { return status(status::st::redundant, -1); }
         static status asserted() { return status(status::st::asserted, -1); }
         static status deleted() { return status(status::st::deleted, -1); }
         static status input() { return status(status::st::input, -1); }
 
-        static status th(bool redundant, int id, char const* ps = nullptr) { return status(redundant ? st::redundant : st::asserted, id, ps); }
+        static status th(bool redundant, int id, proof_hint const* ps = nullptr) { return status(redundant ? st::redundant : st::asserted, id, ps); }
 
         bool is_input() const { return st::input == m_st; }
         bool is_redundant() const { return st::redundant == m_st; }
         bool is_asserted() const { return st::asserted == m_st; }
         bool is_deleted() const { return st::deleted == m_st; }
-        char const* get_pragma() const { return m_pragma; }
+        proof_hint const* get_hint() const { return m_hint; }
 
         bool is_sat() const { return -1 == m_orig; }
         int  get_th() const { return m_orig;  }

@@ -95,6 +95,7 @@ namespace sat {
     inline bool operator!=(literal const & l1, literal const & l2) { return l1.m_val != l2.m_val; }
 
     inline std::ostream & operator<<(std::ostream & out, sat::literal l) { if (l == sat::null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
+    
 
 
     typedef svector<literal> literal_vector;
@@ -191,4 +192,12 @@ namespace sat {
         return out << mk_lits_pp(ls.size(), ls.data());
     }
 
+};
+
+namespace std {
+
+    inline std::string to_string(sat::literal l) {
+        if (l.sign()) return "-" + to_string(l.var());
+        return to_string(l.var());
+    }
 };

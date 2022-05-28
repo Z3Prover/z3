@@ -414,13 +414,14 @@ namespace arith {
         void set_conflict();
         void set_conflict_or_lemma(literal_vector const& core, bool is_conflict);
         void set_evidence(lp::constraint_index idx);
-        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, char const* pma);
+        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, sat::proof_hint const* pma);
 
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
-        std::string m_bounds_pragma;
-        char const* bounds_pragma();
+        sat::proof_hint m_bounds_pragma;
+        sat::proof_hint m_farkas2;
+        sat::proof_hint const* explain(sat::hint_type ty);
 
 
     public:

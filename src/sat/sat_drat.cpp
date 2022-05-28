@@ -19,8 +19,10 @@ Author:
 Notes:
 
 --*/
-#include "sat_solver.h"
-#include "sat_drat.h"
+
+#include "util/rational.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_drat.h"
 
 
 namespace sat {
@@ -137,13 +139,13 @@ namespace sat {
             }
         }
         buffer[len++] = '0';
-        if (st.get_pragma()) {
+        if (st.get_hint()) {
             buffer[len++] = ' ';
             buffer[len++] = 'p';
             buffer[len++] = ' ';
-            char const* ps = st.get_pragma();
-            while (*ps) 
-                buffer[len++] = *ps++;
+            auto* ps = st.get_hint();
+            for (auto ch : ps->to_string())
+                buffer[len++] = ch;
         }
         buffer[len++] = '\n';
         m_out->write(buffer, len);
@@ -905,6 +907,106 @@ namespace sat {
         if (!st.is_sat())
             out << " " << p.th(st.get_th());
         return out;
-    }    
+    }
+
+
+    std::string proof_hint::to_string() const {
+        std::ostringstream ous;
+        switch (m_ty) {
+        case hint_type::null_h:
+            return std::string();
+        case hint_type::farkas_h:
+            ous << "farkas ";
+            break;
+        case hint_type::bound_h:
+            ous << "bound ";
+            break;
+        case hint_type::cut_h:
+            ous << "cut ";
+            break;
+        }
+        for (auto const& [q, l] : m_literals)
+            ous << rational(q) << " * " << l << " ";
+        for (auto const& [q, a, b] : m_eqs)
+            ous << rational(q) << " = " << a << " " << b << " ";
+        return ous.str();
+    }
+
+    proof_hint proof_hint::from_string(char const* s) {
+        proof_hint h;
+        h.m_ty = hint_type::null_h;
+        if (!s)
+            return h;
+        auto ws = [&]() {
+            while (*s == ' ' || *s == '\n' || *s == '\t')
+                ++s;
+        };
+
+        auto parse_type = [&]() {
+            if (0 == strncmp(s, "farkas", 6)) {
+                h.m_ty = hint_type::farkas_h;
+                s += 6;
+                return true;
+            }
+            if (0 == strncmp(s, "bound", 5)) {
+                h.m_ty = hint_type::bound_h;
+                s += 5;
+                return true;
+            }
+            return false;
+        };
+
+        sbuffer<char> buff;
+        auto parse_coeff = [&]() {
+            buff.reset();
+            while (*s && *s != ' ') {
+                buff.push_back(*s);
+                ++s;
+            }
+            buff.push_back(0);
+            return rational(buff.data());
+        };
+
+        auto parse_literal = [&]() {
+            rational r = parse_coeff();
+            if (!r.is_int())
+                return sat::null_literal;
+            if (r < 0)
+                return sat::literal((-r).get_unsigned(), true);
+            return sat::literal(r.get_unsigned(), false);
+        };
+        auto parse_coeff_literal = [&]() {
+            rational coeff = parse_coeff();
+            ws();
+            if (*s == '*') {
+                ++s;
+                ws();
+                sat::literal lit = parse_literal();
+                h.m_literals.push_back(std::make_pair(coeff, lit));
+                return true;
+            }
+            if (*s == '=') {
+                ++s;
+                ws();
+                unsigned a = parse_coeff().get_unsigned();
+                ws();
+                unsigned b = parse_coeff().get_unsigned();
+                h.m_eqs.push_back(std::make_tuple(coeff, a, b));
+                return true;
+            }
+            return false;
+        };
+
+        ws();
+        if (!parse_type())
+            return h;
+        ws();
+        while (*s) {
+            if (!parse_coeff_literal())
+                return h;
+            ws();            
+        }
+        return h;
+    }
 
 }

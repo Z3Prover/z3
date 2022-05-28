@@ -80,16 +80,38 @@ namespace arith {
         if (m_nla) m_nla->collect_statistics(st);
     }
 
-    char const* solver::bounds_pragma() {
+    /**
+     * Assumption:
+     * A bound literal ax <= b is explained by a set of weighted literals
+     * r1*(a1*x <= b1) + .... + r_k*(a_k*x <= b_k), where r_i > 0
+     * such that there is a r >= 1
+     * (r1*a1+..+r_k*a_k) = r*a, (r1*b1+..+r_k*b_k) <= r*b
+     */
+    sat::proof_hint const* solver::explain(sat::hint_type ty) {
         if (!ctx.use_drat())
             return nullptr;
-        m_bounds_pragma.clear();
-        m_bounds_pragma += "bounds ";
-        for (sat::literal c : m_core) {
-            if (c.sign()) m_bounds_pragma += "-";
-            m_bounds_pragma += std::to_string(c.var());
-            m_bounds_pragma += " ";
+        m_bounds_pragma.m_ty = ty;
+        m_bounds_pragma.m_literals.reset();
+        m_bounds_pragma.m_eqs.reset();
+        for (auto ev : m_explanation) {
+            auto idx = ev.ci();
+            if (UINT_MAX == idx)
+                continue;
+            switch (m_constraint_sources[idx]) {
+            case inequality_source: {
+                literal lit = m_inequalities[idx];
+                m_bounds_pragma.m_literals.push_back({ev.coeff(), lit});
+                break;                
+            }
+            case equality_source: {
+                auto [u, v] = m_equalities[idx];
+                m_bounds_pragma.m_eqs.push_back({ev.coeff(), u->get_expr_id(), v->get_expr_id()});
+                break;
+            }
+            default:
+                break;
+            }
         }
-        return m_bounds_pragma.c_str();
+        return &m_bounds_pragma;
     }
 }
