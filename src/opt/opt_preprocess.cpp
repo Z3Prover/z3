@@ -30,7 +30,6 @@ Notes:
 
 --*/
 
-#pragma once
 
 #include "opt/opt_preprocess.h"
 #include "util/max_cliques.h"
