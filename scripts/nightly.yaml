@@ -97,10 +97,11 @@ stages:
           name: MuslLinux
           image: "quay.io/pypa/musllinux_1_1_x86_64:latest"
           python: "/opt/python/cp310-cp310/bin/python"
+      maxParallel: 2
     displayName: "$(name) build"
     pool:
       vmImage: "Ubuntu-18.04"
-      container: $(image)
+    container: $(image)
     variables:
       python: $(python)
     steps:
