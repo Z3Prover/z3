@@ -309,9 +309,9 @@ namespace simplex {
         all_rows get_rows() { return all_rows(*this); }
 
         numeral const& get_coeff(row r, unsigned v) {
-            for (auto & [coeff, u] : get_row(r)) 
-                if (u == v) 
-                    return coeff;
+            for (auto & row : get_row(r)) 
+                if (row.m_var == v) 
+                    return row.m_coeff;
             return m_zero;
         }
         
