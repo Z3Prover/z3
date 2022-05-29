@@ -86,10 +86,10 @@ stages:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: LinuxBuild
+  - job: ManyLinuxBuild
     variables:
       python: "/opt/python/cp37-cp37m/bin/python"
-      name: Linux
+      name: ManyLinux
     displayName: "ManyLinux build"
     pool:
       vmImage: "Ubuntu-18.04"
