@@ -946,6 +946,11 @@ namespace sat {
                 s += 6;
                 return true;
             }
+            if (0 == strncmp(s, "cut", 3)) {
+                h.m_ty = hint_type::cut_h;
+                s += 3;
+                return true;
+            }
             return false;
         };
 
@@ -999,7 +1004,6 @@ namespace sat {
                 return;
             ws();            
         }
-        return;
     }
 
 }

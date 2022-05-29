@@ -201,7 +201,7 @@ namespace arith {
         if (ctx.use_drat()) {
             ph = &m_farkas2;
             m_farkas2.m_literals[0] = std::make_pair(rational(1), lit1);
-            m_farkas2.m_literals[1] = std::make_pair(rational(1), lit2);
+            m_farkas2.m_literals[1] = std::make_pair(rational(1), ~lit2);
         }
         assign(lit2, m_core, m_eqs, ph); 
         ++m_stats.m_bounds_propagations;

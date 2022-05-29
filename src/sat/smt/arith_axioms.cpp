@@ -238,8 +238,8 @@ namespace arith {
             sat::proof_hint* bound_params = nullptr;
             if (ctx.use_drat()) {
                 bound_params = &m_farkas2;
-                m_farkas2.m_literals[0] = std::make_pair(rational(1), l1);
-                m_farkas2.m_literals[1] = std::make_pair(rational(1), l2);
+                m_farkas2.m_literals[0] = std::make_pair(rational(1), ~l1);
+                m_farkas2.m_literals[1] = std::make_pair(rational(1), ~l2);
             }
             add_clause(l1, l2, bound_params);            
         };
