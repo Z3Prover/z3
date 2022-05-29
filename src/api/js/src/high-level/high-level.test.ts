@@ -55,14 +55,21 @@ async function* allSolutions<Name extends string>(...assertions: BoolRef<Name>[]
   }
 }
 
+async function prove(conjecture: BoolRef): Promise<void> {
+  const solver = new conjecture.ctx.Solver();
+  const { Not } = solver.ctx;
+  solver.add(Not(conjecture));
+  expect(await solver.check()).toStrictEqual(unsat);
+}
+
 describe('high-level', () => {
   let api: { em: any } & Z3HighLevel;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     api = await init();
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await killThreads(api.em);
   });
 
@@ -106,8 +113,6 @@ describe('high-level', () => {
     const conjecture = Implies(x.eq(y), g.call(g.call(x)).eq(g.call(y)));
     solver.add(Not(conjecture));
     expect(await solver.check()).toStrictEqual(sat);
-
-    const model = solver.model();
   });
 
   it('checks that Context matches', () => {
@@ -132,17 +137,12 @@ describe('high-level', () => {
 
   describe('booleans', () => {
     it("proves De Morgan's Law", async () => {
-      const { Solver, Bool, Not, And, Eq, Or } = new api.Context('main');
-
-      const solver = new Solver();
-
+      const { Bool, Not, And, Eq, Or } = new api.Context('main');
       const [x, y] = [Bool('x'), Bool('y')];
 
       const conjecture = Eq(Not(And(x, y)), Or(Not(x), Not(y)));
 
-      // Negating the conjecture to force the solver to find any solution
-      // disproving De Morgan's Law
-      expect(await solver.check(Not(conjecture))).toStrictEqual(unsat);
+      await prove(conjecture);
     });
   });
 
@@ -290,6 +290,20 @@ describe('high-level', () => {
         result.push(row);
       }
       expect(JSON.stringify(result)).toStrictEqual(JSON.stringify(EXPECTED));
+    });
+  });
+
+  describe('reals', () => {
+    it('can work with numerals', async () => {
+      const { RealVal, And } = new api.Context('main');
+      const n1 = RealVal('1/2');
+      const n2 = RealVal('0.5');
+      const n3 = RealVal(0.5);
+      await prove(And(n1.eq(n2), n1.eq(n3)));
+
+      const n4 = RealVal('-1/3');
+      const n5 = RealVal('-0.3333333333333333333333333333333333');
+      await prove(n4.neq(n5));
     });
   });
 

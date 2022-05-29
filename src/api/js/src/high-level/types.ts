@@ -16,16 +16,21 @@ import {
   Z3_tactic,
 } from '../low-level';
 
-export type AnySort<Name extends string = any> = SortRef<Name> | BoolSortRef<Name>;
-export type AnyExpr<Name extends string = any> = ExprRef<Name> | BoolRef<Name> | PatternRef<Name> | QuantifierRef<Name>;
+export type AnySort<Name extends string = any> = SortRef<Name> | BoolSortRef<Name> | ArithSortRef<Name>;
+export type AnyExpr<Name extends string = any> =
+  | ExprRef<Name>
+  | BoolRef<Name>
+  | PatternRef<Name>
+  | QuantifierRef<Name>
+  | ArithRef<Name>;
 export type AnyAst<Name extends string = any> = AnyExpr<Name> | AnySort<Name> | AstRef<Name> | FuncDeclRef<Name>;
 
 export type SortToExprMap<S, Name extends string = any> = S extends BoolSortRef
   ? BoolRef<Name>
-  : S extends SortRef
-  ? ExprRef<Name>
   : S extends ArithSortRef
   ? ArithRef<Name>
+  : S extends SortRef
+  ? ExprRef<Name>
   : never;
 
 export type CoercibleToExprMap<S, Name extends string = any> = S extends bigint | number
@@ -60,23 +65,26 @@ export interface Context<Name extends string = any> {
   isAst(obj: unknown): obj is AstRef<Name>;
   isSort(obj: unknown): obj is SortRef<Name>;
   isFuncDecl(obj: unknown): obj is FuncDeclRef<Name>;
-  isApp(obj: unknown): obj is ExprRef<Name>;
-  isConst(obj: unknown): obj is ExprRef<Name>;
+  isApp(obj: unknown): boolean;
+  isConst(obj: unknown): boolean;
   isExpr(obj: unknown): obj is ExprRef<Name>;
-  isVar(obj: unknown): obj is ExprRef<Name>;
+  isVar(obj: unknown): boolean;
   isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
   isBool(obj: unknown): obj is BoolRef<Name>;
-  isTrue(obj: unknown): obj is BoolRef<Name>;
-  isFalse(obj: unknown): obj is BoolRef<Name>;
-  isAnd(obj: unknown): obj is BoolRef<Name>;
-  isOr(obj: unknown): obj is BoolRef<Name>;
-  isImplies(obj: unknown): obj is BoolRef<Name>;
-  isNot(obj: unknown): obj is BoolRef<Name>;
-  isEq(obj: unknown): obj is BoolRef<Name>;
-  isDistinct(obj: unknown): obj is BoolRef<Name>;
+  isTrue(obj: unknown): boolean;
+  isFalse(obj: unknown): boolean;
+  isAnd(obj: unknown): boolean;
+  isOr(obj: unknown): boolean;
+  isImplies(obj: unknown): boolean;
+  isNot(obj: unknown): boolean;
+  isEq(obj: unknown): boolean;
+  isDistinct(obj: unknown): boolean;
   isArith(obj: unknown): obj is ArithRef<Name>;
-  isInt(obj: unknown): obj is ArithRef<Name>;
-  isIntSort(obj: unknown): obj is ArithSortRef<Name>;
+  isArithSort(obj: unknown): obj is ArithSortRef<Name>;
+  isInt(obj: unknown): boolean;
+  isIntSort(obj: unknown): boolean;
+  isReal(obj: unknown): boolean;
+  isRealSort(obj: unknown): boolean;
   isProbe(obj: unknown): obj is Probe<Name>;
   isTactic(obj: unknown): obj is Tactic<Name>;
   isPattern(obj: unknown): obj is PatternRef<Name>;
@@ -145,20 +153,22 @@ export interface Context<Name extends string = any> {
   Or(...args: BoolRef<Name>[]): BoolRef<Name>;
   Or(...args: Probe<Name>[]): Probe<Name>;
   IntSort(): ArithSortRef<Name>;
-  IntVal(value: bigint | number): ArithRef<Name>;
+  IntVal(value: bigint | number | string): ArithRef<Name>;
   Int(name: string | number): ArithRef<Name>;
-  //Ints(names: string | string[]): ArithRef<Name>[];
-  //IntVector(prefix: string, count: number): ArithRef<Name>[];
-  //FreshInt(prefix?: string): ArithRef<Name>;
-  //RealSort(): ArithSortRef<Name>;
-  //RealVal(value: number | string): ArithRef<Name>;
-  //Real(name: string | number): ArithRef<Name>;
-  //Reals(names: string | string[]): ArithRef<Name>;
-  //RealVector(prefix: string, count: number): ArithRef<Name>[];
-  //FreshReal(prefix?: string): ArithRef<Name>;
-  //ToReal(expr: ArithRef<Name>): ArithRef<Name>;
-  //ToInt(expr: ArithRef<Name>): ArithRef<Name>;
-  //IsInt(expr: ArithRef<Name>): ArithRef<Name>;
+  Ints(names: string | string[]): ArithRef<Name>[];
+  IntVector(prefix: string, count: number): ArithRef<Name>[];
+  FreshInt(prefix?: string): ArithRef<Name>;
+  RealSort(): ArithSortRef<Name>;
+  RealVal(value: number | string | bigint): ArithRef<Name>;
+  Real(name: string | number): ArithRef<Name>;
+  Reals(names: string | string[]): ArithRef<Name>[];
+  RealVector(prefix: string, count: number): ArithRef<Name>[];
+  FreshReal(prefix?: string): ArithRef<Name>;
+  ToReal(expr: ArithRef<Name>): ArithRef<Name>;
+  ToInt(expr: ArithRef<Name>): ArithRef<Name>;
+  IsInt(expr: ArithRef<Name>): BoolRef<Name>;
+  Sqrt(a: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  Cbrt(a: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
   /*
   MultiPattern(...args: [ExprRef, ...ExprRef[]]): PatternRef;
   ForAll(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
@@ -293,7 +303,6 @@ export interface BoolSortRef<Name extends string = any> extends SortRef<Name> {
 export interface BoolRef<Name extends string = any> extends ExprRef<Name, BoolSortRef<Name>, Z3_ast> {
   readonly __typename: 'BoolRef';
 
-  sort(): BoolSortRef<Name>;
   mul(other: BoolRef | boolean): BoolRef<Name>;
 }
 
@@ -330,20 +339,20 @@ export interface ArithSortRef<Name extends string = any> extends SortRef<Name> {
   cast(other: CoercibleToExpr<Name>): never;
 }
 
-export interface ArithRef<Name extends string = any> extends ExprRef<Name> {
+export interface ArithRef<Name extends string = any> extends ExprRef<Name, ArithSortRef<Name>, Z3_ast> {
   readonly __typename: 'ArithRef';
 
-  add(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
-  mul(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
-  sub(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
-  pow(exponent: ArithRef<Name> | number | bigint): ArithRef<Name>;
-  div(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
-  mod(other: ArithRef<Name> | number | bigint): ArithRef<Name>;
+  add(other: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  mul(other: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  sub(other: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  pow(exponent: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  div(other: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
+  mod(other: ArithRef<Name> | number | bigint | string): ArithRef<Name>;
   neg(): ArithRef<Name>;
-  le(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
-  lt(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
-  gt(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
-  ge(other: ArithRef<Name> | number | bigint): BoolRef<Name>;
+  le(other: ArithRef<Name> | number | bigint | string): BoolRef<Name>;
+  lt(other: ArithRef<Name> | number | bigint | string): BoolRef<Name>;
+  gt(other: ArithRef<Name> | number | bigint | string): BoolRef<Name>;
+  ge(other: ArithRef<Name> | number | bigint | string): BoolRef<Name>;
 }
 
 export interface Probe<Name extends string = any> {
