@@ -115,7 +115,6 @@ static void read_clause(Buffer & in, std::ostream& err, sat::literal_vector & li
 template<typename Buffer>
 static void read_pragma(Buffer & in, std::ostream& err, std::string& p, sat::proof_hint& h) {
     skip_whitespace(in);
-    h.reset();
     if (*in != 'p')
         return;
     ++in;
@@ -307,6 +306,7 @@ namespace dimacs {
         loop:
             skip_whitespace(in);
             m_record.m_pragma.clear();
+            m_record.m_hint.reset();
             switch (*in) {
             case EOF:
                 return false;                

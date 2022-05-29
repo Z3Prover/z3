@@ -160,21 +160,24 @@ public:
         // m_drat.add(lits, st);
     }
 
-    void validate_hint(sat::literal_vector const& lits, sat::proof_hint const& hint) {
-        return; // remove when testing this
+    void validate_hint(expr_ref_vector const& exprs, sat::literal_vector const& lits, sat::proof_hint const& hint) {
+        // return; // remove when testing this
         proof_checker pc(m);
         arith_util autil(m);
         switch (hint.m_ty) {
         case sat::hint_type::null_h:
             break;
-        case sat::hint_type::bound_h: {
-            // TODO: combine bound_h and farkas_h into a single rule
-            // TODO: use proof_checker.cpp check_arith_proof to check farkas claim
+        case sat::hint_type::cut_h:
+        case sat::hint_type::farkas_h: {
             expr_ref sum(m);
             bool is_strict = false;
             vector<rational> coeffs;
             rational lc(1);
             for (auto const& [coeff, lit] : hint.m_literals) {
+                coeffs.push_back(coeff);
+                lc = lcm(lc, denominator(coeff)); 
+            }
+            for (auto const& [coeff, a, b]: hint.m_eqs) {
                 coeffs.push_back(coeff);
                 lc = lcm(lc, denominator(coeff)); 
             }
@@ -186,13 +189,25 @@ public:
             for (auto const& [coeff, lit] : hint.m_literals) {
                 app_ref e(to_app(m_b2e[lit.var()]), m);
                 if (!pc.check_arith_literal(!lit.sign(), e, coeffs[i], sum, is_strict)) {
-                    std::cout << "Failed checking hint " << e << "\n";
+                    std::cout << "p failed checking hint " << e << "\n";
                     return;
                 }                    
                 ++i;
             }
+            for (auto const& [coeff, a, b]: hint.m_eqs) {
+                expr* x = exprs[a];
+                expr* y = exprs[b];
+                coeffs.push_back(coeff);
+                app_ref e(m.mk_eq(x, y), m);
+                if (!pc.check_arith_literal(true, e, coeffs[i], sum, is_strict)) {
+                    std::cout << "p failed checking hint " << e << "\n";
+                    return;
+                }
+                ++i;
+            }
+
             if (!sum.get()) {
-                std::cout << "no summation\n";
+                std::cout << "p no summation\n";
                 return;
             }
 
@@ -204,16 +219,14 @@ public:
             th_rewriter rw(m);
             rw(sum);
             if (!m.is_false(sum)) {
-                std::cout << "Lemma not simplified " << sum << "\n";
+                std::cout << "p hint not verified " << sum << "\n";
                 return;
             }
+            std::cout << "p hint verified\n";
             break;
         }
-        case sat::hint_type::farkas_h:
-            std::cout << "FARKAS\n";
-            break;
-        case sat::hint_type::cut_h:
-            std::cout << "CUT\n";
+        default:
+            UNREACHABLE();
             break;
         }
     }
@@ -405,7 +418,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause:
             checker.add(r.m_lits, r.m_status);
-            checker.validate_hint(r.m_lits, r.m_hint);
+            checker.validate_hint(exprs, r.m_lits, r.m_hint);
             if (drat_checker.inconsistent()) {
                 std::cout << "inconsistent\n";
                 return;

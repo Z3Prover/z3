@@ -81,13 +81,14 @@ namespace arith {
     }
 
     /**
-     * Assumption:
+     * It may be necessary to use the following assumption when checking Farkas claims
+     * generated from bounds propagation:
      * A bound literal ax <= b is explained by a set of weighted literals
      * r1*(a1*x <= b1) + .... + r_k*(a_k*x <= b_k), where r_i > 0
      * such that there is a r >= 1
      * (r1*a1+..+r_k*a_k) = r*a, (r1*b1+..+r_k*b_k) <= r*b
      */
-    sat::proof_hint const* solver::explain(sat::hint_type ty) {
+    sat::proof_hint const* solver::explain(sat::hint_type ty, sat::literal lit) {
         if (!ctx.use_drat())
             return nullptr;
         m_bounds_pragma.m_ty = ty;
@@ -105,6 +106,8 @@ namespace arith {
             }
             case equality_source: {
                 auto [u, v] = m_equalities[idx];
+                ctx.drat_log_expr(u->get_expr());
+                ctx.drat_log_expr(v->get_expr());
                 m_bounds_pragma.m_eqs.push_back({ev.coeff(), u->get_expr_id(), v->get_expr_id()});
                 break;
             }
@@ -112,6 +115,8 @@ namespace arith {
                 break;
             }
         }
+        if (lit != sat::null_literal)
+            m_bounds_pragma.m_literals.push_back({rational(1), ~lit});
         return &m_bounds_pragma;
     }
 }

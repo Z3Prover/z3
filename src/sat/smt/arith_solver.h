@@ -421,7 +421,7 @@ namespace arith {
 
         sat::proof_hint m_bounds_pragma;
         sat::proof_hint m_farkas2;
-        sat::proof_hint const* explain(sat::hint_type ty);
+        sat::proof_hint const* explain(sat::hint_type ty, sat::literal lit = sat::null_literal);
 
 
     public:

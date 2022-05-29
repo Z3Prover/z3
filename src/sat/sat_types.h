@@ -97,7 +97,6 @@ namespace sat {
     enum class hint_type {
         null_h,
         farkas_h,
-        bound_h,
         cut_h
     };
 

@@ -263,7 +263,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h));
+            assign(lit, m_core, m_eqs, explain(sat::hint_type::farkas_h, lit));
         }
 
         if (should_refine_bounds() && first)
@@ -378,7 +378,7 @@ namespace arith {
         reset_evidence();
         m_explanation.clear();
         lp().explain_implied_bound(be, m_bp);
-        assign(bound, m_core, m_eqs, explain(sat::hint_type::bound_h));
+        assign(bound, m_core, m_eqs, explain(sat::hint_type::farkas_h, bound));
     }
 
 
@@ -1177,7 +1177,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::cut_h));
+            assign(lit, m_core, m_eqs, explain(sat::hint_type::cut_h, lit));
             lia_check = l_false;
             break;
         }
