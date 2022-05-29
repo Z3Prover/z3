@@ -15,6 +15,8 @@ Copyright (c) 2020 Microsoft Corporation
 #include "shell/drat_frontend.h"
 #include "parsers/smt2/smt2parser.h"
 #include "cmd_context/cmd_context.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class smt_checker {
     ast_manager& m;
@@ -156,7 +158,65 @@ public:
         else if (!st.is_sat() && !st.is_deleted()) 
             check_clause(lits);        
         // m_drat.add(lits, st);
-    }    
+    }
+
+    void validate_hint(sat::literal_vector const& lits, sat::proof_hint const& hint) {
+        return; // remove when testing this
+        proof_checker pc(m);
+        arith_util autil(m);
+        switch (hint.m_ty) {
+        case sat::hint_type::null_h:
+            break;
+        case sat::hint_type::bound_h: {
+            // TODO: combine bound_h and farkas_h into a single rule
+            // TODO: use proof_checker.cpp check_arith_proof to check farkas claim
+            expr_ref sum(m);
+            bool is_strict = false;
+            vector<rational> coeffs;
+            rational lc(1);
+            for (auto const& [coeff, lit] : hint.m_literals) {
+                coeffs.push_back(coeff);
+                lc = lcm(lc, denominator(coeff)); 
+            }
+            if (!lc.is_one())
+                for (auto& coeff : coeffs)
+                    coeff *= lc;
+            
+            unsigned i = 0;            
+            for (auto const& [coeff, lit] : hint.m_literals) {
+                app_ref e(to_app(m_b2e[lit.var()]), m);
+                if (!pc.check_arith_literal(!lit.sign(), e, coeffs[i], sum, is_strict)) {
+                    std::cout << "Failed checking hint " << e << "\n";
+                    return;
+                }                    
+                ++i;
+            }
+            if (!sum.get()) {
+                std::cout << "no summation\n";
+                return;
+            }
+
+            if (is_strict) 
+                sum = autil.mk_lt(sum, autil.mk_numeral(rational(0), sum->get_sort()));
+            else 
+                sum = autil.mk_le(sum, autil.mk_numeral(rational(0), sum->get_sort()));
+            
+            th_rewriter rw(m);
+            rw(sum);
+            if (!m.is_false(sum)) {
+                std::cout << "Lemma not simplified " << sum << "\n";
+                return;
+            }
+            break;
+        }
+        case sat::hint_type::farkas_h:
+            std::cout << "FARKAS\n";
+            break;
+        case sat::hint_type::cut_h:
+            std::cout << "CUT\n";
+            break;
+        }
+    }
 
     /**
     * Add an assertion from the source file
@@ -345,6 +405,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause:
             checker.add(r.m_lits, r.m_status);
+            checker.validate_hint(r.m_lits, r.m_hint);
             if (drat_checker.inconsistent()) {
                 std::cout << "inconsistent\n";
                 return;
