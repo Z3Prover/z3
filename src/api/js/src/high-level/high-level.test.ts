@@ -1,6 +1,59 @@
 import assert from 'assert';
+import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
-import { ArithRef, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
+import { ArithRef, BoolRef, Model, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
+
+/**
+ * Generate all possible solutions from given assumptions.
+ *
+ * **NOTE**: The set of solutions might be infinite.
+ * Always ensure to limit amount generated, either by knowing that the
+ * solution space is constrainted, or by taking only a specified
+ * amount of solutions
+ * ```typescript
+ * import { sliceAsync } from 'iter-tools';
+ * // ...
+ * for await (const model of sliceAsync(10, solver.solutions())) {
+ *   console.log(model.sexpr());
+ * }
+ * ```
+ * @see http://theory.stanford.edu/~nikolaj/programmingz3.html#sec-blocking-evaluations
+ * @returns Models with solutions. Nothing if no constants provided
+ */
+// TODO(ritave): Use faster solution https://stackoverflow.com/a/70656700
+// TODO(ritave): Move to high-level.ts
+async function* allSolutions<Name extends string>(...assertions: BoolRef<Name>[]): AsyncIterable<Model<Name>> {
+  if (assertions.length === 0) {
+    return;
+  }
+
+  const { Or } = assertions[0].ctx;
+  const solver = new assertions[0].ctx.Solver();
+  solver.add(...assertions);
+
+  while ((await solver.check()) === sat) {
+    const model = solver.model();
+    const decls = model.decls();
+    if (decls.length === 0) {
+      return;
+    }
+    yield model;
+
+    solver.add(
+      Or(
+        ...decls
+          // TODO(ritave): Assert on arity > 0
+          .filter(decl => decl.arity() === 0)
+          .map(decl => {
+            const term = decl.call();
+            // TODO(ritave): Assert not an array / uinterpeted sort
+            const value = model.eval(term, true);
+            return term.neq(value);
+          }),
+      ),
+    );
+  }
+}
 
 describe('high-level', () => {
   let api: { em: any } & Z3HighLevel;
@@ -240,7 +293,7 @@ describe('high-level', () => {
     });
   });
 
-  describe('solver', () => {
+  describe('Solver', () => {
     it('can use push and pop', async () => {
       const { Solver, Int } = new api.Context('main');
       const solver = new Solver();
@@ -261,9 +314,31 @@ describe('high-level', () => {
       expect(solver.numScopes()).toStrictEqual(0);
       expect(await solver.check()).toStrictEqual(sat);
     });
+
+    it('can find multiple solutions', async () => {
+      const { Int, getValue } = new api.Context('main');
+
+      const x = Int('x');
+
+      const solutions = await asyncToArray(allSolutions(x.ge(1), x.le(5)));
+      expect(solutions.length).toStrictEqual(5);
+      const results = solutions
+        .map(solution => getValue(solution.eval(x)))
+        .sort((a, b) => {
+          assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
+          if (a < b) {
+            return -1;
+          } else if (a == b) {
+            return 0;
+          } else {
+            return 1;
+          }
+        });
+      expect(results).toStrictEqual([1n, 2n, 3n, 4n, 5n]);
+    });
   });
 
-  describe('astvector', () => {
+  describe('AstVector', () => {
     it('can use basic methods', async () => {
       const { Solver, AstVector, Int } = new api.Context('main');
       const solver = new Solver();

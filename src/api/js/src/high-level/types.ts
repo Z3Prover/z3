@@ -172,7 +172,9 @@ export interface AstRef<Name extends string = any, Ptr = unknown> {
 
   readonly ctx: Context<Name>;
   readonly ptr: Ptr;
+  /** @virtual */
   get ast(): Z3_ast;
+  /** @virtual */
   get id(): number;
 
   eqIdentity(other: AstRef<Name>): boolean;
@@ -200,6 +202,7 @@ export interface Solver<Name extends string = any> {
   reset(): void;
   add(...exprs: (BoolRef<Name> | AstVector<BoolRef<Name>, Name>)[]): void;
   addAndTrack(expr: BoolRef<Name>, constant: BoolRef<Name> | string): void;
+  assertions(): AstVector<BoolRef<Name>, Name>;
   check(...exprs: (BoolRef<Name> | AstVector<BoolRef<Name>, Name>)[]): Promise<CheckSatResult>;
   model(): Model<Name>;
 }
@@ -224,7 +227,8 @@ export interface Model<Name extends string = any> extends Iterable<FuncDeclRef<N
   eval(expr: ArithRef<Name>, modelCompletion?: boolean): ArithRef<Name>;
   eval(expr: ExprRef<Name>, modelCompletion?: boolean): ExprRef<Name>;
   get(i: number): FuncDeclRef<Name>;
-  get(declaration: FuncDeclRef<Name>): FuncInterp<Name>;
+  get(from: number, to: number): FuncDeclRef[];
+  get(declaration: FuncDeclRef<Name>): FuncInterp<Name> | ExprRef<Name>;
   get(constant: ExprRef<Name>): ExprRef<Name>;
   get(sort: SortRef<Name>): AstVector<AnyExpr<Name>, Name>;
 }
@@ -270,8 +274,8 @@ export interface ExprRef<Name extends string = any, Sort extends SortRef<Name> =
     | ArithRef['__typename'];
 
   sort(): Sort;
-  eq(other: CoercibleToExpr): BoolRef<Name>;
-  neq(other: CoercibleToExpr): BoolRef<Name>;
+  eq(other: CoercibleToExpr<Name>): BoolRef<Name>;
+  neq(other: CoercibleToExpr<Name>): BoolRef<Name>;
   params(): ReturnType<FuncDeclRef<Name>['params']>;
   decl(): FuncDeclRef<Name>;
   numArgs(): number;

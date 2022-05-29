@@ -9,6 +9,8 @@
 // TODO(ritave): Add support for building faster floats without support for Safari
 // TODO(ritave): Update PUBLISHED_README.md
 // TODO(ritave): Use Z3_DECLARE_CLOSURE macro to generate code https://github.com/Z3Prover/z3/pull/6048#discussion_r884155462
+// TODO(ritave): Add pretty printing
+// TODO(ritave): Make Z3 multi-threaded
 import {
   Z3Core,
   Z3_ast,
@@ -836,6 +838,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Z3.solver_assert_and_track(this.ctx.ptr, this.ptr, expr.ast, constant.ast);
     }
 
+    assertions(): AstVector<BoolRef> {
+      return new AstVectorImpl(this.ctx, Z3.solver_get_assertions(this.ctx.ptr, this.ptr));
+    }
+
     async check(...exprs: (BoolRef | AstVector<BoolRef>)[]): Promise<CheckSatResult> {
       const assumptions = this.ctx._flattenArgs(exprs).map(expr => {
         this.ctx._assertContext(expr);
@@ -915,7 +921,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     get(i: number): FuncDeclRef;
     get(from: number, to: number): FuncDeclRef[];
-    get(declaration: FuncDeclRef): FuncInterp;
+    get(declaration: FuncDeclRef): FuncInterp | ExprRef;
     get(constant: ExprRef): ExprRef;
     get(sort: SortRef): AstVector<AnyExpr>;
     get(
