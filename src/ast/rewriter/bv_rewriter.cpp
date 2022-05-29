@@ -2719,6 +2719,23 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
 
 br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & result) {
+    if (m_mkbv2num) {
+        unsigned i;
+        for (i = 0; i < num; i++)
+            if (!m().is_true(args[i]) && !m().is_false(args[i]))
+                return BR_FAILED;
+        numeral val;
+        numeral two(2);
+        i = num;
+        while (i > 0) {
+            --i;
+            val *= two;
+            if (m().is_true(args[i]))
+                val++;
+        }
+        result = mk_numeral(val, num);
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
