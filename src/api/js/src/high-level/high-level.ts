@@ -12,6 +12,9 @@
 // TODO(ritave): Add pretty printing
 // TODO(ritave): Make Z3 multi-threaded
 // TODO(ritave): Use a mutex (see async-mutex package) to guard async calls instead of throwing
+// TODO(ritave): If a test times out, jest kills it, and the global state of Z3 is left in an unexpected state.
+//               This occurs specifically during longer check(). Afterwards, all next tests will fail to run
+//               thinking the previous call was not finished. Find a way to stop exection and clean up the global state
 import {
   Z3Core,
   Z3_ast,

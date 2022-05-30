@@ -296,7 +296,7 @@ describe('high-level', () => {
         result.push(row);
       }
       expect(JSON.stringify(result)).toStrictEqual(JSON.stringify(EXPECTED));
-    }, 20000);
+    }, 120_000);
   });
 
   describe('reals', () => {
