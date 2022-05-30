@@ -8803,6 +8803,27 @@ def substitute_vars(t, *m):
         _to[i] = m[i].as_ast()
     return _to_expr_ref(Z3_substitute_vars(t.ctx.ref(), t.as_ast(), num, _to), t.ctx)
 
+def substitute_funs(t, *m):
+    """Apply subistitution m on t, m is a list of pairs of a function and expression (from, to)
+    Every occurrence in to of the function from is replaced with the expression to.
+    The expression to can have free variables, that refer to the arguments of from.
+    For examples, see 
+    """
+    if isinstance(m, tuple):
+        m1 = _get_args(m)
+        if isinstance(m1, list) and all(isinstance(p, tuple) for p in m1):
+            m = m1
+    if z3_debug():
+        _z3_assert(is_expr(t), "Z3 expression expected")
+        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, funcion pairs expected.")
+    num = len(m)
+    _from = (FuncDecl * num)()
+    _to = (Ast * num)()
+    for i in range(num):
+        _from[i] = m[i][0].as_func_decl()
+        _to[i] = m[i][1].as_ast()
+    return _to_expr_ref(Z3_substitute_funs(t.ctx.ref(), t.as_ast(), num, _from, _to), t.ctx)
+
 
 def Sum(*args):
     """Create the sum of the Z3 expressions.

@@ -5293,6 +5293,20 @@ extern "C" {
                                      Z3_ast const to[]);
 
     /**
+       \brief Substitute funcions in \c from with new expressions in \c to.
+
+       The expressions in \c to can have free variables. The free variable in \c to at index 0
+       refers to the first argument of \c from, the free variable at index 1 corresponds to the second argument.
+
+       def_API('Z3_substitute_funs', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, FUNC_DECL), _in_array(2, AST)))
+    */
+    Z3_ast Z3_API Z3_substitute_funs(Z3_context c,
+                                     Z3_ast a,
+                                     unsigned num_funs,
+                                     Z3_func_decl const from[],
+                                     Z3_ast const to[]);
+
+    /**
        \brief Translate/Copy the AST \c a from context \c source to context \c target.
        AST \c a must have been created using context \c source.
        \pre source != target
