@@ -220,7 +220,7 @@ namespace euf {
         unsigned       m_num_eqs;        
         sat::literal*  m_literals;
         enode_pair*    m_eqs;
-        char*          m_pragma;
+        char*          m_pragma = nullptr;
         static size_t get_obj_size(unsigned num_lits, unsigned num_eqs, sat::proof_hint const* pma);
         th_explain(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& eq, sat::proof_hint const* pma = nullptr);
         static th_explain* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y, sat::proof_hint const* pma = nullptr);

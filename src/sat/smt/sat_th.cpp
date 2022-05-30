@@ -244,8 +244,9 @@ namespace euf {
         m_eqs = reinterpret_cast<enode_pair*>(base_ptr);
         for (i = 0; i < n_eqs; ++i)
             m_eqs[i] = eqs[i];
-        base_ptr += sizeof(enode_pair) * n_eqs;            
+        base_ptr += sizeof(enode_pair) * n_eqs;        
         m_pragma = reinterpret_cast<char*>(base_ptr);
+        i = 0;
         if (pma) {
             std::string s = pma->to_string();
             for (i = 0; s[i]; ++i)
