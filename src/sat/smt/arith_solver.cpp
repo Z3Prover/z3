@@ -232,14 +232,13 @@ namespace arith {
         if (v == euf::null_theory_var)
             return;
 
-        TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
-
         reserve_bounds(v);
 
-        if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
-            TRACE("arith", tout << "return\n";);
+        if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) 
             return;
-        }
+
+        TRACE("arith", tout << "lp bound v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
+
         lp_bounds const& bounds = m_bounds[v];
         bool first = true;
         for (unsigned i = 0; i < bounds.size(); ++i) {
@@ -249,7 +248,7 @@ namespace arith {
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
             if (lit == sat::null_literal) 
                 continue;
-            TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
+            TRACE("arith", tout << "lp bound " << lit << " bound: " << *b << " first: " << first << "\n";);
 
             lp().settings().stats().m_num_of_implied_bounds++;
             if (first) {
@@ -263,7 +262,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::farkas_h, lit));
+            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
         }
 
         if (should_refine_bounds() && first)

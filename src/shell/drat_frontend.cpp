@@ -160,7 +160,7 @@ public:
         // m_drat.add(lits, st);
     }
 
-    void validate_hint(expr_ref_vector const& exprs, sat::literal_vector const& lits, sat::proof_hint const& hint) {
+    bool validate_hint(expr_ref_vector const& exprs, sat::literal_vector const& lits, sat::proof_hint const& hint) {
         // return; // remove when testing this
         proof_checker pc(m);
         arith_util autil(m);
@@ -168,16 +168,18 @@ public:
         case sat::hint_type::null_h:
             break;
         case sat::hint_type::cut_h:
+        case sat::hint_type::bound_h:
         case sat::hint_type::farkas_h: {
-            expr_ref sum(m);
+            expr_ref sum(m), last_sum(m);
             bool is_strict = false;
             vector<rational> coeffs;
             rational lc(1);
-            for (auto const& [coeff, lit] : hint.m_literals) {
+            for (auto const& [coeff, a, b]: hint.m_eqs) {
                 coeffs.push_back(coeff);
                 lc = lcm(lc, denominator(coeff)); 
             }
-            for (auto const& [coeff, a, b]: hint.m_eqs) {
+
+            for (auto const& [coeff, lit] : hint.m_literals) {
                 coeffs.push_back(coeff);
                 lc = lcm(lc, denominator(coeff)); 
             }
@@ -185,15 +187,7 @@ public:
                 for (auto& coeff : coeffs)
                     coeff *= lc;
             
-            unsigned i = 0;            
-            for (auto const& [coeff, lit] : hint.m_literals) {
-                app_ref e(to_app(m_b2e[lit.var()]), m);
-                if (!pc.check_arith_literal(!lit.sign(), e, coeffs[i], sum, is_strict)) {
-                    std::cout << "p failed checking hint " << e << "\n";
-                    return;
-                }                    
-                ++i;
-            }
+            unsigned i = 0;
             for (auto const& [coeff, a, b]: hint.m_eqs) {
                 expr* x = exprs[a];
                 expr* y = exprs[b];
@@ -201,14 +195,41 @@ public:
                 app_ref e(m.mk_eq(x, y), m);
                 if (!pc.check_arith_literal(true, e, coeffs[i], sum, is_strict)) {
                     std::cout << "p failed checking hint " << e << "\n";
-                    return;
+                    return false;
                 }
+                ++i;
+            }
+
+            for (auto const& [coeff, lit] : hint.m_literals) {
+                last_sum = sum;
+                app_ref e(to_app(m_b2e[lit.var()]), m);
+                if (!pc.check_arith_literal(!lit.sign(), e, coeffs[i], sum, is_strict)) {
+                    std::cout << "p failed checking hint " << e << "\n";
+                    return false;
+                }                    
                 ++i;
             }
 
             if (!sum.get()) {
                 std::cout << "p no summation\n";
-                return;
+                return false;
+            }
+
+            th_rewriter rw(m);
+            if (sat::hint_type::bound_h == hint.m_ty) {
+                rw(last_sum);
+                sum = last_sum;
+                auto const& [coeff, lit] = hint.m_literals.back();
+                rational last_coeff = coeff, r;
+                expr* x, *y, *z;
+                if (autil.is_add(sum)) {                    
+                    x = to_app(sum)->get_arg(1);
+                    if (autil.is_mul(x, y, z) && autil.is_numeral(y, r)) {
+                        last_coeff = r;
+                    }
+                }
+                app_ref e(to_app(m_b2e[lit.var()]), m);
+                VERIFY(pc.check_arith_literal(!lit.sign(), e, last_coeff, sum, is_strict));                
             }
 
             if (is_strict) 
@@ -216,11 +237,29 @@ public:
             else 
                 sum = autil.mk_le(sum, autil.mk_numeral(rational(0), sum->get_sort()));
             
-            th_rewriter rw(m);
             rw(sum);
             if (!m.is_false(sum)) {
+                // check hint:
                 std::cout << "p hint not verified " << sum << "\n";
-                return;
+                auto const& [coeff, lit] = hint.m_literals.back();
+                expr_ref sum1(m);
+                bool is_strict1 = false;
+                app_ref e(to_app(m_b2e[lit.var()]), m);
+                rational coeffb = coeffs.back();
+                VERIFY(pc.check_arith_literal(!lit.sign(), e, coeffb, sum1, is_strict1));
+                std::cout << last_sum << " => ~" << sum1 << "\n";
+                for (auto const& [coeff, a, b]: hint.m_eqs) {
+                    expr* x = exprs[a];
+                    expr* y = exprs[b];
+                    app_ref e(m.mk_eq(x, y), m);
+                    std::cout << e << "\n";
+                }
+                for (auto const& [coeff, lit] : hint.m_literals) {
+                    app_ref e(to_app(m_b2e[lit.var()]), m);
+                    if (lit.sign()) e = m.mk_not(e);
+                    std::cout << e << "\n";
+                }
+                return false;
             }
             std::cout << "p hint verified\n";
             break;
@@ -229,6 +268,7 @@ public:
             UNREACHABLE();
             break;
         }
+        return true;
     }
 
     /**

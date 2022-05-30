@@ -94,7 +94,9 @@ namespace arith {
         m_bounds_pragma.m_ty = ty;
         m_bounds_pragma.m_literals.reset();
         m_bounds_pragma.m_eqs.reset();
-        for (auto ev : m_explanation) {
+        unsigned i = 0;
+        for (auto const & ev : m_explanation) {
+            ++i;
             auto idx = ev.ci();
             if (UINT_MAX == idx)
                 continue;

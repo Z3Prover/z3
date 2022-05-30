@@ -73,13 +73,14 @@ public:
     };
     class iterator {
         bool      m_run_on_vector;
+        mpq       m_one = one_of_type<mpq>();
         pair_vec::const_iterator    m_vi;
         ci_set::iterator            m_ci;
     public:
         cimpq operator*() const {
             return m_run_on_vector?
                 cimpq( m_vi->first, m_vi->second) :
-                cimpq( *m_ci, one_of_type<mpq>()); 
+                cimpq( *m_ci, m_one); 
         }        
         iterator operator++() {
             if (m_run_on_vector)

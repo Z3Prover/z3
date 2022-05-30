@@ -918,6 +918,9 @@ namespace sat {
         case hint_type::farkas_h:
             ous << "farkas ";
             break;
+        case hint_type::bound_h:
+            ous << "bound ";
+            break;
         case hint_type::cut_h:
             ous << "cut ";
             break;
@@ -944,6 +947,11 @@ namespace sat {
             if (0 == strncmp(s, "farkas", 6)) {
                 h.m_ty = hint_type::farkas_h;
                 s += 6;
+                return true;
+            }
+            if (0 == strncmp(s, "bound", 5)) {
+                h.m_ty = hint_type::bound_h;
+                s += 5;
                 return true;
             }
             if (0 == strncmp(s, "cut", 3)) {
