@@ -418,7 +418,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     // Classes //
     /////////////
     readonly AstRef: new <Ptr>(ptr: Ptr) => AstRef<any, Ptr>;
-    readonly Solver: new () => Solver;
+    readonly Solver: new (logic?: string) => Solver;
     readonly Model: new (ptr?: Z3_model) => Model;
     readonly FuncInterp: new (ptr: Z3_func_interp) => FuncInterp;
     readonly SortRef: new (ptr: Z3_sort) => SortRef;
@@ -942,9 +942,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   class SolverImpl {
     declare readonly __typename: Solver['__typename'];
 
-    constructor(readonly ctx: ContextImpl, readonly ptr: Z3_solver = Z3.mk_solver(ctx.ptr)) {
-      Z3.solver_inc_ref(ctx.ptr, ptr);
-      cleanup.register(this, () => Z3.solver_dec_ref(ctx.ptr, ptr));
+    readonly ptr: Z3_solver;
+
+    constructor(readonly ctx: ContextImpl, ptr: Z3_solver | string = Z3.mk_solver(ctx.ptr)) {
+      let myPtr: Z3_solver;
+      if (typeof ptr === 'string') {
+        myPtr = Z3.mk_solver_for_logic(ctx.ptr, ctx._toSymbol(ptr));
+      } else {
+        myPtr = ptr;
+      }
+      this.ptr = myPtr;
+      Z3.solver_inc_ref(ctx.ptr, myPtr);
+      cleanup.register(this, () => Z3.solver_dec_ref(ctx.ptr, myPtr));
     }
 
     push() {

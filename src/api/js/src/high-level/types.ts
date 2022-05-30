@@ -123,7 +123,7 @@ export interface Context<Name extends string = any> {
   /////////////
   // Classes //
   /////////////
-  readonly Solver: new () => Solver<Name>;
+  readonly Solver: new (logic?: string) => Solver<Name>;
   readonly Model: new () => Model<Name>;
   readonly AstVector: new <Item extends AstRef<Name> = AnyAst<Name>>() => AstVector<Item, Name>;
   readonly AstMap: new <Key extends AstRef = AnyAst, Value extends AstRef = AnyAst>() => AstMap<Key, Value, Name>;
