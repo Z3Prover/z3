@@ -148,7 +148,7 @@ describe('high-level', () => {
 
   describe('ints', () => {
     it('finds a model', async () => {
-      const { Solver, Int, getValue } = new api.Context('main');
+      const { Solver, Int, isIntVal } = new api.Context('main');
       const solver = new Solver();
       const x = Int('x');
       const y = Int('y');
@@ -164,14 +164,20 @@ describe('high-level', () => {
       for (const decl of model) {
         expect(decl.arity()).toStrictEqual(0);
       }
-      const xValue = getValue(model.get(x));
-      const yValue = getValue(model.get(y));
+      const xValueExpr = model.get(x);
+      const yValueExpr = model.get(y);
+      assert(isIntVal(xValueExpr));
+      assert(isIntVal(yValueExpr));
+      const xValue = xValueExpr.value;
+      const yValue = yValueExpr.value;
       assert(typeof xValue === 'bigint');
       assert(typeof yValue === 'bigint');
       expect(xValue).toBeGreaterThanOrEqual(1n);
       expect(yValue).toBeLessThanOrEqual(xValue + 3n);
     });
 
+    // TODO(ritave): After changes made since last commit (a332187c746c23450860deb210d94e6e042dd424),
+    //               this test takes twice as long (from 5s to 10s). Figure out why
     it('solves sudoku', async () => {
       function toSudoku(data: string): (number | null)[][] {
         const cells: (number | null)[][] = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null));
@@ -212,7 +218,7 @@ describe('high-level', () => {
         541972386
       `);
 
-      const { Solver, Int, Distinct, getValue, isInt } = new api.Context('main');
+      const { Solver, Int, Distinct, isIntVal } = new api.Context('main');
 
       const cells: ArithRef[][] = [];
       // 9x9 matrix of integer variables
@@ -279,8 +285,8 @@ describe('high-level', () => {
         let row = [];
         for (let j = 0; j < 9; j++) {
           const cell = model.eval(cells[i][j]);
-          expect(isInt(cell)).toStrictEqual(true);
-          const value = getValue(cell);
+          assert(isIntVal(cell));
+          const value = cell.value;
           assert(typeof value === 'bigint');
           expect(value).toBeGreaterThanOrEqual(0n);
           expect(value).toBeLessThanOrEqual(9n);
@@ -290,7 +296,7 @@ describe('high-level', () => {
         result.push(row);
       }
       expect(JSON.stringify(result)).toStrictEqual(JSON.stringify(EXPECTED));
-    });
+    }, 20000);
   });
 
   describe('reals', () => {
@@ -330,14 +336,18 @@ describe('high-level', () => {
     });
 
     it('can find multiple solutions', async () => {
-      const { Int, getValue } = new api.Context('main');
+      const { Int, isIntVal } = new api.Context('main');
 
       const x = Int('x');
 
       const solutions = await asyncToArray(allSolutions(x.ge(1), x.le(5)));
       expect(solutions.length).toStrictEqual(5);
       const results = solutions
-        .map(solution => getValue(solution.eval(x)))
+        .map(solution => {
+          const expr = solution.eval(x);
+          assert(isIntVal(expr));
+          return expr.value;
+        })
         .sort((a, b) => {
           assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
           if (a < b) {

@@ -11,6 +11,7 @@
 // TODO(ritave): Use Z3_DECLARE_CLOSURE macro to generate code https://github.com/Z3Prover/z3/pull/6048#discussion_r884155462
 // TODO(ritave): Add pretty printing
 // TODO(ritave): Make Z3 multi-threaded
+// TODO(ritave): Use a mutex (see async-mutex package) to guard async calls instead of throwing
 import {
   Z3Core,
   Z3_ast,
@@ -46,6 +47,7 @@ import {
   BoolRef,
   BoolSortRef,
   CheckSatResult,
+  CoercibleRational,
   CoercibleToExpr,
   CoercibleToExprMap,
   Context,
@@ -53,9 +55,11 @@ import {
   ExprRef,
   FuncDeclRef,
   FuncInterp,
+  IntNumRef,
   Model,
   PatternRef,
   Probe,
+  RatNumRef,
   sat,
   Solver,
   SortRef,
@@ -67,6 +71,27 @@ import {
   Z3HighLevel,
 } from './types';
 import { allSatisfy, assert, assertExhaustive, autoBind } from './utils';
+
+const FALLBACK_PRECISION = 17;
+
+function isCoercibleRational(obj: any): obj is CoercibleRational {
+  // prettier-ignore
+  const r = (
+    (obj !== null &&
+      (typeof obj === 'object' || typeof obj === 'function')) &&
+    (obj.numerator !== null &&
+      (typeof obj.numerator === 'number' || typeof obj.numerator === 'bigint')) &&
+    (obj.denominator !== null &&
+      (typeof obj.denominator === 'number' || typeof obj.denominator === 'bigint'))
+  );
+  r &&
+    assert(
+      (typeof obj.numerator !== 'number' || Number.isSafeInteger(obj.numerator)) &&
+        (typeof obj.denominator !== 'number' || Number.isSafeInteger(obj.denominator)),
+      'Fraction numerator and denominator must be integers',
+    );
+  return r;
+}
 
 export function createApi(Z3: Z3Core): Z3HighLevel {
   // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
@@ -156,6 +181,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       this.Tactic = TacticImpl.bind(TacticImpl, this);
       this.ArithSortRef = ArithSortRefImpl.bind(ArithSortRefImpl, this);
       this.ArithRef = ArithRefImpl.bind(ArithRefImpl, this);
+      this.IntNumRef = IntNumRefImpl.bind(IntNumRefImpl, this);
+      this.RatNumRef = RatNumRefImpl.bind(RatNumRefImpl, this);
       this.AstVector = AstVectorImpl.bind(AstVectorImpl, this) as any;
       this.AstMap = AstMapImpl.bind(AstMapImpl, this) as any;
 
@@ -294,12 +321,24 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return this.isArith(obj) && this.isIntSort(obj.sort());
     }
 
+    isIntVal(obj: unknown): obj is IntNumRef {
+      const r = obj instanceof IntNumRefImpl;
+      r && this._assertContext(obj);
+      return r;
+    }
+
     isIntSort(obj: unknown): boolean {
       return this.isSort(obj) && obj.kind() === Z3_sort_kind.Z3_INT_SORT;
     }
 
     isReal(obj: unknown): boolean {
       return this.isArith(obj) && this.isRealSort(obj.sort());
+    }
+
+    isRealVal(obj: unknown): obj is RatNumRef {
+      const r = obj instanceof RatNumRefImpl;
+      r && this._assertContext(obj);
+      return r;
     }
 
     isRealSort(obj: unknown): boolean {
@@ -357,35 +396,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return Z3.get_index_value(this.ptr, obj.ast);
     }
 
-    getValue(obj: BoolRef): boolean | null;
-    getValue(obj: ArithRef): number | bigint | null;
-    getValue(obj: ExprRef): boolean | number | bigint | null;
-    getValue(obj: ExprRef): number | bigint | boolean | null {
-      if (this.isBool(obj)) {
-        if (this.isTrue(obj)) {
-          return true;
-        } else if (this.isFalse(obj)) {
-          return false;
-        }
-        return null;
-      } else if (this.isInt(obj)) {
-        if (Z3.get_ast_kind(this.ptr, obj.ast) == Z3_ast_kind.Z3_NUMERAL_AST) {
-          return BigInt(Z3.get_numeral_string(this.ptr, obj.ast));
-        }
-        return null;
-      }
-      assert(false);
-    }
-
     from(primitive: boolean): BoolRef;
-    from(primitive: number | bigint): ArithRef;
-    from(expr: ExprRef): ExprRef;
+    from(primitive: number | CoercibleRational): RatNumRef;
+    from(primitive: bigint): IntNumRef;
+    from<T extends ExprRef>(expr: T): T;
     from(expr: CoercibleToExpr): AnyExpr;
-    from(value: CoercibleToExpr): BoolRef | ArithRef | ExprRef {
-      if ((typeof value === 'number' && Number.isSafeInteger(value)) || typeof value === 'bigint') {
-        return this.IntVal(value);
-      } else if (typeof value === 'boolean') {
+    from(value: CoercibleToExpr): AnyExpr {
+      if (typeof value === 'boolean') {
         return this.BoolVal(value);
+      } else if (typeof value === 'number' || isCoercibleRational(value)) {
+        return this.RealVal(value);
+      } else if (typeof value === 'bigint') {
+        return this.IntVal(value);
       } else if (this.isExpr(value)) {
         return value;
       }
@@ -409,6 +431,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     readonly Tactic: new (name: string | Z3_tactic) => Tactic;
     readonly ArithSortRef: new (ptr: Z3_sort) => ArithSortRef;
     readonly ArithRef: new (ptr: Z3_ast) => ArithRef;
+    readonly IntNumRef: new (ptr: Z3_ast) => IntNumRef;
+    readonly RatNumRef: new (ptr: Z3_ast) => RatNumRef;
     readonly AstVector: new <Item extends AstRef<any, unknown> = AnyAst<any>>(ptr?: Z3_ast_vector) => AstVector<Item>;
     readonly AstMap: new <Key extends AstRef = AnyAst, Value extends AstRef = AnyAst>(ptr?: Z3_ast_map) => AstMap<
       Key,
@@ -639,9 +663,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new this.ArithSortRef(Z3.mk_int_sort(this.ptr));
     }
 
-    IntVal(value: number | bigint | string): ArithRef {
+    IntVal(value: number | bigint | string): IntNumRef {
       assert(typeof value === 'bigint' || typeof value === 'string' || Number.isSafeInteger(value));
-      return new this.ArithRef(Z3.mk_numeral(this.ptr, value.toString(), this.IntSort().ptr));
+      return new this.IntNumRef(Z3.mk_numeral(this.ptr, value.toString(), this.IntSort().ptr));
     }
 
     Int(name: string | number): ArithRef {
@@ -671,8 +695,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new this.ArithSortRef(Z3.mk_real_sort(this.ptr));
     }
 
-    RealVal(value: number | bigint | string): ArithRef {
-      return new this.ArithRef(Z3.mk_numeral(this.ptr, value.toString(), this.RealSort().ptr));
+    RealVal(value: number | bigint | string | CoercibleRational): RatNumRef {
+      if (isCoercibleRational(value)) {
+        value = `${value.numerator}/${value.denominator}`;
+      }
+      return new this.RatNumRef(Z3.mk_numeral(this.ptr, value.toString(), this.RealSort().ptr));
     }
 
     Real(name: string | number): ArithRef {
@@ -784,7 +811,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    _toExpr(ast: Z3_ast): AnyExpr {
+    _toExpr(ast: Z3_ast): BoolRef | IntNumRef | RatNumRef | ArithRef | ExprRef {
       const kind = Z3.get_ast_kind(this.ptr, ast);
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
         assert(false);
@@ -794,6 +821,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         case Z3_sort_kind.Z3_BOOL_SORT:
           return new this.BoolRef(ast);
         case Z3_sort_kind.Z3_INT_SORT:
+          if (kind === Z3_ast_kind.Z3_NUMERAL_AST) {
+            return new this.IntNumRef(ast);
+          }
+          return new this.ArithRef(ast);
+        case Z3_sort_kind.Z3_REAL_SORT:
+          if (kind === Z3_ast_kind.Z3_NUMERAL_AST) {
+            return new this.RatNumRef(ast);
+          }
           return new this.ArithRef(ast);
         default:
           return new this.ExprRef(ast);
@@ -1335,79 +1370,135 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   class ArithSortRefImpl extends SortRefImpl {
     declare readonly __typename: ArithSortRef['__typename'];
 
-    cast(other: number | bigint | ArithRef | BoolRef): ArithRef;
+    cast(other: bigint | number): IntNumRef | RatNumRef;
+    cast(other: CoercibleRational | RatNumRef): RatNumRef;
+    cast(other: IntNumRef): IntNumRef;
+    cast(other: BoolRef | ArithRef): ArithRef;
     cast(other: CoercibleToExpr): never;
-    cast(other: CoercibleToExpr): ArithRef {
-      if (typeof other === 'number' || typeof other === 'bigint') {
-        assert(this.ctx.isInt(this));
-        // @ts-ignore
-        return this.IntVal(other);
-      } else if (this.ctx.isArith(other)) {
-        return other;
-      } else if (this.ctx.isBool(other)) {
-        return this.ctx.If(other, 1, 0);
+    cast(other: CoercibleToExpr): ArithRef | RatNumRef | IntNumRef {
+      const { If, isExpr, isArith, isBool, isIntSort, isRealSort, ToReal, IntVal, RealVal } = this.ctx;
+      const sortTypeStr = isIntSort(this) ? 'IntSort' : 'RealSort';
+      if (isExpr(other)) {
+        const otherS = other.sort();
+        if (isArith(other)) {
+          if (this.eqIdentity(otherS)) {
+            return other;
+          } else if (isIntSort(otherS) && isRealSort(this)) {
+            return this.ctx.ToReal(other);
+          }
+          assert(false, "Can't cast Real to IntSort without loss");
+        } else if (isBool(other)) {
+          if (isIntSort(this)) {
+            return If(other, 1, 0);
+          } else {
+            return ToReal(If(other, 1, 0));
+          }
+        }
+        assert(false, `Can't cast expression to ${sortTypeStr}`);
+      } else {
+        if (typeof other !== 'boolean') {
+          if (isIntSort(this)) {
+            assert(!isCoercibleRational(other), "Can't cast fraction to IntSort");
+            return IntVal(other);
+          }
+          return RealVal(other);
+        }
+        assert(false, `Can't cast primitive to ${sortTypeStr}`);
       }
-      assert(false, 'number, bigint, boolean, or Z3 Bool / Arith expect');
     }
   }
 
   class ArithRefImpl extends ExprRefImpl<Z3_ast, ArithSortRef> {
     declare readonly __typename: ArithRef['__typename'];
 
-    add(other: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_add(this.ctx.ptr, [this.ast, this.coerce(other).ast]));
+    add(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_add(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
     }
 
-    mul(other: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_mul(this.ctx.ptr, [this.ast, this.coerce(other).ast]));
+    mul(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_mul(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
     }
 
-    sub(other: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_sub(this.ctx.ptr, [this.ast, this.coerce(other).ast]));
+    sub(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_sub(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
     }
 
-    pow(exponent: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_power(this.ctx.ptr, this.ast, this.coerce(exponent).ast));
+    pow(exponent: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_power(this.ctx.ptr, this.ast, this.sort().cast(exponent).ast));
     }
 
-    div(other: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_div(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    div(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_div(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
     }
 
-    mod(other: ArithRef | number | bigint | string) {
-      return new this.ctx.ArithRef(Z3.mk_mod(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    mod(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.ArithRef(Z3.mk_mod(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
     }
 
     neg() {
       return new this.ctx.ArithRef(Z3.mk_unary_minus(this.ctx.ptr, this.ast));
     }
 
-    le(other: ArithRef | number | bigint | string) {
-      return new this.ctx.BoolRef(Z3.mk_le(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    le(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.BoolRef(Z3.mk_le(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
     }
 
-    lt(other: ArithRef | number | bigint | string) {
-      return new this.ctx.BoolRef(Z3.mk_lt(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    lt(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.BoolRef(Z3.mk_lt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
     }
 
-    gt(other: ArithRef | number | bigint | string) {
-      return new this.ctx.BoolRef(Z3.mk_gt(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    gt(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.BoolRef(Z3.mk_gt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
     }
 
-    ge(other: ArithRef | number | bigint | string) {
-      return new this.ctx.BoolRef(Z3.mk_ge(this.ctx.ptr, this.ast, this.coerce(other).ast));
+    ge(other: ArithRef | number | bigint | string | CoercibleRational) {
+      return new this.ctx.BoolRef(Z3.mk_ge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+  }
+
+  class IntNumRefImpl extends ArithRefImpl {
+    declare readonly __typename: IntNumRef['__typename'];
+
+    get value() {
+      return BigInt(this.asString());
     }
 
-    private coerce(value: number | bigint | string | ArithRef): ArithRef {
-      if (this.ctx.isArith(value)) {
-        assert(this.ctx.isInt(this) === this.ctx.isInt(value));
-        return value;
-      }
-      if (this.ctx.isInt(this)) {
-        return this.ctx.IntVal(value);
-      } else {
-        return this.ctx.RealVal(value);
-      }
+    asString() {
+      return Z3.get_numeral_string(this.ctx.ptr, this.ast);
+    }
+
+    asBinary() {
+      return Z3.get_numeral_binary_string(this.ctx.ptr, this.ast);
+    }
+  }
+
+  class RatNumRefImpl extends ArithRefImpl {
+    declare readonly __typename: RatNumRef['__typename'];
+
+    get value() {
+      return { numerator: this.numerator().value, denominator: this.denominator().value };
+    }
+
+    numerator() {
+      return new this.ctx.IntNumRef(Z3.get_numerator(this.ctx.ptr, this.ast));
+    }
+
+    denominator() {
+      return new this.ctx.IntNumRef(Z3.get_denominator(this.ctx.ptr, this.ast));
+    }
+
+    asNumber() {
+      const { numerator, denominator } = this.value;
+      const div = numerator / denominator;
+      return Number(div) + Number(numerator - div * denominator) / Number(denominator);
+    }
+
+    asDecimal(prec: number = Number.parseInt(getParam('precision') ?? FALLBACK_PRECISION.toString())) {
+      return Z3.get_numeral_decimal_string(this.ctx.ptr, this.ast, prec);
+    }
+
+    asString() {
+      return Z3.get_numeral_string(this.ctx.ptr, this.ast);
     }
   }
 

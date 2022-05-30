@@ -15,10 +15,10 @@ export async function init(): Promise<Z3HighLevel & Z3LowLevel> {
   return { ...lowLevel, ...highLevel };
 }
 
-export function delay(ms: number): Promise<void> & { cancel(): void };
-export function delay(ms: number, result: Error): Promise<never> & { cancel(): void };
-export function delay<T>(ms: number, result: T): Promise<T> & { cancel(): void };
-export function delay<T>(ms: number, result?: T | Error): Promise<T | void> & { cancel(): void } {
+function delay(ms: number): Promise<void> & { cancel(): void };
+function delay(ms: number, result: Error): Promise<never> & { cancel(): void };
+function delay<T>(ms: number, result: T): Promise<T> & { cancel(): void };
+function delay<T>(ms: number, result?: T | Error): Promise<T | void> & { cancel(): void } {
   let handle: any;
   const promise = new Promise<void | T>(
     (resolve, reject) =>
@@ -34,24 +34,29 @@ export function delay<T>(ms: number, result?: T | Error): Promise<T | void> & { 
   return { ...promise, cancel: () => clearTimeout(handle) };
 }
 
+function spinlock(premise: () => boolean, pollMs: number = 100): Promise<void> & { cancel(): void } {
+  let handle: any;
+  const promise = new Promise<void>(resolve => {
+    handle = setInterval(() => {
+      if (premise()) {
+        clearTimeout(handle);
+        resolve();
+      }
+    }, 100);
+  });
+  return { ...promise, cancel: () => clearInterval(handle) };
+}
+
 export function killThreads(em: any): Promise<void> {
   em.PThread.terminateAllThreads();
 
   // Create a spinlock to wait for threads to return
   // TODO(ritave): Threads should be killed automatically, or there should be a better way to wait for them
-  let spinlockHandle: any;
-  const spinLockPromise = new Promise<void>(resolve => {
-    spinlockHandle = setInterval(() => {
-      if (em.PThread.unusedWorkers.length === 0 && em.PThread.runningWorkers.length === 0) {
-        resolve();
-      }
-    }, 100);
-  });
-
+  const spinlockPromise = spinlock(() => !em.PThread.unusedWorkers.length && !em.PThread.runningWorkers.length);
   const delayPromise = delay(5000, new Error('Waiting for threads to be killed timed out'));
 
-  return Promise.race([spinLockPromise, delayPromise]).finally(() => {
-    clearInterval(spinlockHandle);
+  return Promise.race([spinlockPromise, delayPromise]).finally(() => {
+    spinlockPromise.cancel();
     delayPromise.cancel();
   });
 }
