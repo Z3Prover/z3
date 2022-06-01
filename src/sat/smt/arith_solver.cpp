@@ -321,7 +321,7 @@ namespace arith {
         reset_evidence();
         for (auto ev : e)
             set_evidence(ev.ci());
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2); // TODO add equality explanation
         ctx.propagate(n1, n2, jst->to_index());
         return true;
     }
@@ -756,7 +756,7 @@ namespace arith {
         set_evidence(ci4);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y); // TODO add equality explanation
         ctx.propagate(x, y, jst->to_index());
     }
 

@@ -1952,7 +1952,7 @@ namespace {
                     m_args[i] = m_registers[pc->m_iregs[i]]->get_root();
                 SASSERT(n != 0);
                 do {
-                    if (n->get_decl() == f) {
+                    if (n->get_decl() == f && n->get_num_args() == num_args) {
                         unsigned i = 0;
                         for (; i < num_args; i++) {
                             if (n->get_arg(i)->get_root() != m_args[i])
