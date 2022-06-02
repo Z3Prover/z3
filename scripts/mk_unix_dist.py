@@ -28,6 +28,7 @@ JAVA_ENABLED=True
 GIT_HASH=False
 PYTHON_ENABLED=True
 MAKEJOBS=getenv("MAKEJOBS", '8')
+OS_VERSION=None
 
 def set_verbose(flag):
     global VERBOSE
@@ -58,13 +59,14 @@ def display_help():
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
     print("  --arch=<arch>                 set architecture (to arm64) to force arm64 build")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
+    print("  -os=<os>                      set OS version.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, OS_VERSION
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -103,6 +105,8 @@ def parse_options():
                 mk_util.IS_ARCH_ARM64 = True
             else:
                 raise MKException("Invalid architecture directive '%s'. Legal directives: arm64" % arg)
+        else if opt == '--os':
+            OS_VERSION = arg
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -154,6 +158,8 @@ def mk_z3():
             return 1
 
 def get_os_name():
+    if OS_VERSION is not None:
+        return OS_VERSION
     import platform
     basic = os.uname()[0].lower()
     if basic == 'linux':
