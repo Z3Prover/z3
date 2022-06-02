@@ -27,7 +27,7 @@ stages:
   - job: MacArm64
     displayName: "Mac ARM64 Build"
     pool:
-      vmImage: "macOS-12"
+      vmImage: "macOS-latest"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --nojava --os=osx-11.0
     - script: git clone https://github.com/z3prover/z3test z3test
