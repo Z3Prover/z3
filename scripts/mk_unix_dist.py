@@ -105,7 +105,7 @@ def parse_options():
                 mk_util.IS_ARCH_ARM64 = True
             else:
                 raise MKException("Invalid architecture directive '%s'. Legal directives: arm64" % arg)
-        else if opt == '--os':
+        elif opt == '--os':
             OS_VERSION = arg
         else:
             raise MKException("Invalid command line option '%s'" % opt)
