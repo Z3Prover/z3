@@ -28,7 +28,7 @@ JAVA_ENABLED=True
 GIT_HASH=False
 PYTHON_ENABLED=True
 MAKEJOBS=getenv("MAKEJOBS", '8')
-OS_VERSION=None
+OS_NAME=None
 
 def set_verbose(flag):
     global VERBOSE
@@ -66,7 +66,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, OS_VERSION
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, OS_NAME
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -107,7 +107,7 @@ def parse_options():
             else:
                 raise MKException("Invalid architecture directive '%s'. Legal directives: arm64" % arg)
         elif opt == '--os':
-            OS_VERSION = arg
+            OS_NAME = arg
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -159,8 +159,8 @@ def mk_z3():
             return 1
 
 def get_os_name():
-    if OS_VERSION is not None:
-        return OS_VERSION
+    if OS_NAME is not None:
+        return OS_NAME
     import platform
     basic = os.uname()[0].lower()
     if basic == 'linux':
