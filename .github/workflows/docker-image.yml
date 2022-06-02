@@ -5,6 +5,9 @@ on:
     - cron: "0 1 * * 0" # every Sunday at 1 am
   workflow_dispatch: # on button click
 
+permissions:
+  contents: read
+
 jobs:
   push_to_registry:
     name: Push Docker image to GitHub Docker registry
