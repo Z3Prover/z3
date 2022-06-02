@@ -7,6 +7,9 @@ on:
 env:
   BUILD_TYPE: Debug
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
