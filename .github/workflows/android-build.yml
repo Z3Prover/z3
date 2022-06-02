@@ -29,7 +29,7 @@ jobs:
         tar -cvf z3-build-${{ matrix.android-abi }}.tar *.jar *.so
         
     - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: android-build-${{ matrix.android-abi }}
         path: build/z3-build-${{ matrix.android-abi }}.tar
