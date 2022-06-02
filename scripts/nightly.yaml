@@ -104,26 +104,27 @@ stages:
         artifactName: '$(name)Build'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: MuslLinuxBuild
-    condition: eq(0,1)
-    variables:
-      python: "/opt/python/cp310-cp310/bin/python"
-      name: MuslLinux
-    displayName: "MuslLinux build"
-    pool:
-      vmImage: "Ubuntu-18.04"
-    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
-    steps:
-    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: '$(name)Build'
-        targetPath: $(Build.ArtifactStagingDirectory)
+#  - job: MuslLinuxBuild
+#    condition: eq(0,1)
+#    variables:
+#      python: "/opt/python/cp310-cp310/bin/python"
+#      name: MuslLinux
+#    displayName: "MuslLinux build"
+#    pool:
+#      vmImage: "Ubuntu-18.04"
+#    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
+#    steps:
+#    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+#    - script: git clone https://github.com/z3prover/z3test z3test
+#    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+#    - task: PublishPipelineArtifact@0
+#      inputs:
+#        artifactName: '$(name)Build'
+#        targetPath: $(Build.ArtifactStagingDirectory)
 
-- job: Windows32
+
+  - job: Windows32
     displayName: "Windows 32-bit build"
     pool:
       vmImage: "windows-latest"
