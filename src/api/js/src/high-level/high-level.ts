@@ -1294,16 +1294,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   class BoolImpl extends ExprImpl<Z3_ast, BoolSort> implements Bool {
     declare readonly __typename: Bool['__typename'];
 
-    not() {
+    not(): Bool {
       return this.ctx.Not(this);
     }
-    and(other: Bool | boolean) {
+    and(other: Bool | boolean): Bool {
       return this.ctx.And(this, other);
     }
-    or(other: Bool | boolean) {
+    or(other: Bool | boolean): Bool {
       return this.ctx.Or(this, other);
     }
-    xor(other: Bool | boolean) {
+    xor(other: Bool | boolean): Bool {
       return this.ctx.Xor(this, other);
     }
   }

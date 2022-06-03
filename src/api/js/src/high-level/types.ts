@@ -16,7 +16,11 @@ import {
   Z3_tactic,
 } from '../low-level';
 
-export type AnySort<Name extends string = any> = Sort<Name> | BoolSort<Name> | ArithSort<Name> | BitVecSort<Name>;
+export type AnySort<Name extends string = any> =
+  | Sort<Name>
+  | BoolSort<Name>
+  | ArithSort<Name>
+  | BitVecSort<number, Name>;
 export type AnyExpr<Name extends string = any> =
   | Expr<Name>
   | Bool<Name>
