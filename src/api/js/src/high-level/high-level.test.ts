@@ -1,7 +1,7 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
-import { ArithRef, BoolRef, Model, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
+import { Arith, Bool, Model, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -22,7 +22,7 @@ import { ArithRef, BoolRef, Model, sat, unsat, Z3AssertionError, Z3HighLevel } f
  */
 // TODO(ritave): Use faster solution https://stackoverflow.com/a/70656700
 // TODO(ritave): Move to high-level.ts
-async function* allSolutions<Name extends string>(...assertions: BoolRef<Name>[]): AsyncIterable<Model<Name>> {
+async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): AsyncIterable<Model<Name>> {
   if (assertions.length === 0) {
     return;
   }
@@ -55,7 +55,7 @@ async function* allSolutions<Name extends string>(...assertions: BoolRef<Name>[]
   }
 }
 
-async function prove(conjecture: BoolRef): Promise<void> {
+async function prove(conjecture: Bool): Promise<void> {
   const solver = new conjecture.ctx.Solver();
   const { Not } = solver.ctx;
   solver.add(Not(conjecture));
@@ -89,13 +89,13 @@ describe('high-level', () => {
   });
 
   it('proves x = y implies g(x) = g(y)', async () => {
-    const { Solver, Int, IntSort, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
     const solver = new Solver();
 
-    const sort = IntSort();
-    const x = Int('x');
-    const y = Int('y');
-    const g = Function('g', sort, sort);
+    const sort = Int.sort();
+    const x = Int.const('x');
+    const y = Int.const('y');
+    const g = Function.declare('g', sort, sort);
 
     const conjecture = Implies(x.eq(y), g.call(x).eq(g.call(y)));
     solver.add(Not(conjecture));
@@ -103,13 +103,13 @@ describe('high-level', () => {
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
-    const { Solver, Int, IntSort, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
     const solver = new Solver();
 
-    const sort = IntSort();
-    const x = Int('x');
-    const y = Int('y');
-    const g = Function('g', sort, sort);
+    const sort = Int.sort();
+    const x = Int.const('x');
+    const y = Int.const('y');
+    const g = Function.declare('g', sort, sort);
     const conjecture = Implies(x.eq(y), g.call(g.call(x)).eq(g.call(y)));
     solver.add(Not(conjecture));
     expect(await solver.check()).toStrictEqual(sat);
@@ -123,22 +123,22 @@ describe('high-level', () => {
 
     // Contexts with the same name don't do type checking during compile time.
     // We need to check for different context dynamically
-    expect(() => c1.Or(c2.IntVal(5).eq(2))).toThrowError(Z3AssertionError);
+    expect(() => c1.Or(c2.Int.val(5).eq(2))).toThrowError(Z3AssertionError);
 
     // On the other hand, this won't compile due to automatic generics
     // @ts-expect-error
-    expect(() => c3.Or(c4.IntVal(5).eq(2))).toThrowError(Z3AssertionError);
+    expect(() => c3.Or(c4.Int.val(5).eq(2))).toThrowError(Z3AssertionError);
 
     const allUniqueContexes = new Set([c1, c2, c3, c4]).size === 4;
     expect(allUniqueContexes).toStrictEqual(true);
 
-    expect(() => c1.Or(c1.IntVal(5).eq(2))).not.toThrowError();
+    expect(() => c1.Or(c1.Int.val(5).eq(2))).not.toThrowError();
   });
 
   describe('booleans', () => {
     it("proves De Morgan's Law", async () => {
       const { Bool, Not, And, Eq, Or } = new api.Context('main');
-      const [x, y] = [Bool('x'), Bool('y')];
+      const [x, y] = [Bool.const('x'), Bool.const('y')];
 
       const conjecture = Eq(Not(And(x, y)), Or(Not(x), Not(y)));
 
@@ -150,8 +150,8 @@ describe('high-level', () => {
     it('finds a model', async () => {
       const { Solver, Int, isIntVal } = new api.Context('main');
       const solver = new Solver();
-      const x = Int('x');
-      const y = Int('y');
+      const x = Int.const('x');
+      const y = Int.const('y');
 
       solver.add(x.ge(1)); // x >= 1
       solver.add(y.lt(x.add(3))); // y < x + 3
@@ -220,12 +220,12 @@ describe('high-level', () => {
 
       const { Solver, Int, Distinct, isIntVal } = new api.Context('main');
 
-      const cells: ArithRef[][] = [];
+      const cells: Arith[][] = [];
       // 9x9 matrix of integer variables
       for (let i = 0; i < 9; i++) {
         const row = [];
         for (let j = 0; j < 9; j++) {
-          row.push(Int(`x_${i}_${j}`));
+          row.push(Int.const(`x_${i}_${j}`));
         }
         cells.push(row);
       }
@@ -301,14 +301,14 @@ describe('high-level', () => {
 
   describe('reals', () => {
     it('can work with numerals', async () => {
-      const { RealVal, And } = new api.Context('main');
-      const n1 = RealVal('1/2');
-      const n2 = RealVal('0.5');
-      const n3 = RealVal(0.5);
+      const { Real, And } = new api.Context('main');
+      const n1 = Real.val('1/2');
+      const n2 = Real.val('0.5');
+      const n3 = Real.val(0.5);
       await prove(And(n1.eq(n2), n1.eq(n3)));
 
-      const n4 = RealVal('-1/3');
-      const n5 = RealVal('-0.3333333333333333333333333333333333');
+      const n4 = Real.val('-1/3');
+      const n5 = Real.val('-0.3333333333333333333333333333333333');
       await prove(n4.neq(n5));
     });
   });
@@ -317,7 +317,7 @@ describe('high-level', () => {
     it('can use push and pop', async () => {
       const { Solver, Int } = new api.Context('main');
       const solver = new Solver();
-      const x = Int('x');
+      const x = Int.const('x');
 
       solver.add(x.gt(0));
 
@@ -338,7 +338,7 @@ describe('high-level', () => {
     it('can find multiple solutions', async () => {
       const { Int, isIntVal } = new api.Context('main');
 
-      const x = Int('x');
+      const x = Int.const('x');
 
       const solutions = await asyncToArray(allSolutions(x.ge(1), x.le(5)));
       expect(solutions.length).toStrictEqual(5);
@@ -367,9 +367,9 @@ describe('high-level', () => {
       const { Solver, AstVector, Int } = new api.Context('main');
       const solver = new Solver();
 
-      const vector = new AstVector<ArithRef>();
+      const vector = new AstVector<Arith>();
       for (let i = 0; i < 5; i++) {
-        vector.push(Int(i));
+        vector.push(Int.const(`int__${i}`));
       }
 
       const length = vector.length;

@@ -34,7 +34,7 @@ function delay<T>(ms: number, result?: T | Error): Promise<T | void> & { cancel(
   return { ...promise, cancel: () => clearTimeout(handle) };
 }
 
-function spinlock(premise: () => boolean, pollMs: number = 100): Promise<void> & { cancel(): void } {
+function waitWhile(premise: () => boolean, pollMs: number = 100): Promise<void> & { cancel(): void } {
   let handle: any;
   const promise = new Promise<void>(resolve => {
     handle = setInterval(() => {
@@ -42,7 +42,7 @@ function spinlock(premise: () => boolean, pollMs: number = 100): Promise<void> &
         clearTimeout(handle);
         resolve();
       }
-    }, 100);
+    }, pollMs);
   });
   return { ...promise, cancel: () => clearInterval(handle) };
 }
@@ -50,13 +50,13 @@ function spinlock(premise: () => boolean, pollMs: number = 100): Promise<void> &
 export function killThreads(em: any): Promise<void> {
   em.PThread.terminateAllThreads();
 
-  // Create a spinlock to wait for threads to return
+  // Create a polling lock to wait for threads to return
   // TODO(ritave): Threads should be killed automatically, or there should be a better way to wait for them
-  const spinlockPromise = spinlock(() => !em.PThread.unusedWorkers.length && !em.PThread.runningWorkers.length);
+  const lockPromise = waitWhile(() => !em.PThread.unusedWorkers.length && !em.PThread.runningWorkers.length);
   const delayPromise = delay(5000, new Error('Waiting for threads to be killed timed out'));
 
-  return Promise.race([spinlockPromise, delayPromise]).finally(() => {
-    spinlockPromise.cancel();
+  return Promise.race([lockPromise, delayPromise]).finally(() => {
+    lockPromise.cancel();
     delayPromise.cancel();
   });
 }
