@@ -166,6 +166,7 @@ public:
         // return; // remove when testing this
         arith_util autil(m);
         arith::proof_checker achecker(m);
+        proof_checker pc(m);
         switch (hint.m_ty) {
         case sat::hint_type::null_h:
             break;
@@ -178,6 +179,7 @@ public:
                 expr* y = exprs[b];
                 achecker.add_eq(x, y);
             }
+            
             unsigned sz = hint.m_literals.size();
             for (unsigned i = 0; i < sz; ++i) {
                 auto const& [coeff, lit] = hint.m_literals[i];
@@ -195,9 +197,29 @@ public:
                 }
             }
 
+            // achecker.display(std::cout << "checking\n");
             bool ok = achecker.check();
 
             if (!ok) {
+                rational lc(1);
+                for (auto const& [coeff, lit] : hint.m_literals) 
+                    lc = lcm(lc, denominator(coeff));
+                bool is_strict = false;
+                expr_ref sum(m);
+                for (auto const& [coeff, lit] : hint.m_literals) {
+                    app_ref e(to_app(m_b2e[lit.var()]), m);
+                    VERIFY(pc.check_arith_literal(!lit.sign(), e, coeff*lc, sum, is_strict));
+                    std::cout << "sum: " << sum << "\n";
+                }
+                sort* s = sum->get_sort();
+                if (is_strict) 
+                    sum = autil.mk_lt(sum, autil.mk_numeral(rational(0), s));
+                else 
+                    sum = autil.mk_le(sum, autil.mk_numeral(rational(0), s));
+                th_rewriter rw(m);
+                rw(sum);
+                std::cout << "sum: " << sum << "\n";
+                
                 for (auto const& [coeff, a, b]: hint.m_eqs) {
                     expr* x = exprs[a];
                     expr* y = exprs[b];
@@ -209,6 +231,8 @@ public:
                     if (lit.sign()) e = m.mk_not(e);
                     std::cout << e << "\n";
                 }
+                achecker.display(std::cout);
+                std::cout << "p hint not verified\n";
                 return false;
             }
 
