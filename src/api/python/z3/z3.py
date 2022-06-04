@@ -9210,7 +9210,7 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
 
 
 # Global default rounding mode
-_dflt_rounding_mode = Z3_OP_FPA_RM_TOWARD_ZERO
+_dflt_rounding_mode = Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN
 _dflt_fpsort_ebits = 11
 _dflt_fpsort_sbits = 53
 
