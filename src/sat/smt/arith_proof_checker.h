@@ -96,6 +96,31 @@ namespace arith {
             mul(dst, x);
             add(dst, src, y);
         }
+
+        void cut(row& r) {
+            if (r.m_coeffs.empty())
+                return;
+            auto const& [v, coeff] = *r.m_coeffs.begin();
+            if (!a.is_int(v))
+                return;
+            rational lc = denominator(r.m_coeff);
+            for (auto const& [v, coeff] : r.m_coeffs)
+                lc = lcm(lc, denominator(coeff));
+            if (lc != 1) {
+                r.m_coeff *= lc;
+                for (auto & [v, coeff] : r.m_coeffs)
+                    coeff *= lc;
+            }
+            rational g(0);
+            for (auto const& [v, coeff] : r.m_coeffs)
+                g = gcd(coeff, g);
+            if (g == 1)
+                return;
+            rational m = mod(r.m_coeff, g);
+            if (m == 0)
+                return;
+            r.m_coeff += g - m;
+        }
         
         /**
          * \brief populate m_coeffs, m_coeff based on mul*e 
@@ -205,6 +230,7 @@ namespace arith {
             if (m_ineq.m_coeffs.empty() ||
                 m_conseq.m_coeffs.empty())
                 return false;
+            cut(m_ineq);
             auto const& [v, coeff1] = *m_ineq.m_coeffs.begin();
             rational coeff2;
             if (!m_conseq.m_coeffs.find(v, coeff2))

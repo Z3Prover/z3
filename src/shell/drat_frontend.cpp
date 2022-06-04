@@ -151,13 +151,13 @@ public:
         m_input_solver = mk_smt_solver(m, m_params, symbol());
     }
 
-    void add(sat::literal_vector const& lits, sat::status const& st) {
+    void add(sat::literal_vector const& lits, sat::status const& st, bool validated) {
         for (sat::literal lit : lits)
             while (lit.var() >= m_drat.get_solver().num_vars())
                 m_drat.get_solver().mk_var(true);
         if (st.is_input() && m_check_inputs)
             check_assertion_redundant(lits);
-        else if (!st.is_sat() && !st.is_deleted()) 
+        else if (!st.is_sat() && !st.is_deleted() && !validated) 
             check_clause(lits);        
         // m_drat.add(lits, st);
     }
@@ -184,7 +184,7 @@ public:
             for (unsigned i = 0; i < sz; ++i) {
                 auto const& [coeff, lit] = hint.m_literals[i];
                 app_ref e(to_app(m_b2e[lit.var()]), m);
-                if (i + 1 == sz && sat::hint_type::bound_h == hint.m_ty) {
+                if (i + 1 == sz && (sat::hint_type::bound_h == hint.m_ty || sat::hint_type::cut_h == hint.m_ty)) {
                     if (!achecker.add_conseq(coeff, e, lit.sign())) {
                         std::cout << "p failed checking hint " << e << "\n";
                         return false;
@@ -432,14 +432,15 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         std::cout << dimacs::drat_pp(r, write_theory); 
         std::cout.flush();
         switch (r.m_tag) {
-        case dimacs::drat_record::tag_t::is_clause:
-            checker.add(r.m_lits, r.m_status);
-            checker.validate_hint(exprs, r.m_lits, r.m_hint);
+        case dimacs::drat_record::tag_t::is_clause: {
+            bool validated = checker.validate_hint(exprs, r.m_lits, r.m_hint);
+            checker.add(r.m_lits, r.m_status, validated);
             if (drat_checker.inconsistent()) {
                 std::cout << "inconsistent\n";
                 return;
             }            
             break;
+        }
         case dimacs::drat_record::tag_t::is_node: {
             expr_ref e(m);
             args.reset();
