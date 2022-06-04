@@ -307,7 +307,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     isInt(obj: unknown): boolean {
-      return this.isArith(obj) && this.isIntSort(obj.sort());
+      return this.isArith(obj) && this.isIntSort(obj.sort);
     }
 
     isIntVal(obj: unknown): obj is IntNum {
@@ -321,7 +321,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     isReal(obj: unknown): boolean {
-      return this.isArith(obj) && this.isRealSort(obj.sort());
+      return this.isArith(obj) && this.isRealSort(obj.sort);
     }
 
     isRealVal(obj: unknown): obj is RatNum {
@@ -1141,7 +1141,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     cast(expr: Expr): Expr {
       this.ctx._assertContext(expr);
-      assert(expr.sort().eqIdentity(expr.sort()), 'Sort mismatch');
+      assert(expr.sort.eqIdentity(expr.sort), 'Sort mismatch');
       return expr;
     }
 
@@ -1239,7 +1239,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   class ExprImpl<Ptr, S extends Sort = AnySort> extends AstImpl<Ptr> implements Expr {
     declare readonly __typename: Expr['__typename'];
 
-    sort(): S {
+    get sort(): S {
       return this.ctx._toSort(Z3.get_sort(this.ctx.ptr, this.ast)) as S;
     }
 
@@ -1300,7 +1300,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         other = this.ctx.Bool.val(other);
       }
       assert(this.ctx.isExpr(other), 'true, false or Z3 Boolean expression expected.');
-      assert(this.eqIdentity(other.sort()), 'Value cannot be converted into a Z3 Boolean value');
+      assert(this.eqIdentity(other.sort), 'Value cannot be converted into a Z3 Boolean value');
       return other;
     }
 
@@ -1365,7 +1365,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       const { If, isExpr, isArith, isBool, isIntSort, isRealSort, ToReal, Int, Real } = this.ctx;
       const sortTypeStr = isIntSort(this) ? 'IntSort' : 'RealSort';
       if (isExpr(other)) {
-        const otherS = other.sort();
+        const otherS = other.sort;
         if (isArith(other)) {
           if (this.eqIdentity(otherS)) {
             return other;
@@ -1398,27 +1398,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     declare readonly __typename: Arith['__typename'];
 
     add(other: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_add(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
+      return new ArithImpl(this.ctx, Z3.mk_add(this.ctx.ptr, [this.ast, this.sort.cast(other).ast]));
     }
 
     mul(other: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_mul(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
+      return new ArithImpl(this.ctx, Z3.mk_mul(this.ctx.ptr, [this.ast, this.sort.cast(other).ast]));
     }
 
     sub(other: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_sub(this.ctx.ptr, [this.ast, this.sort().cast(other).ast]));
+      return new ArithImpl(this.ctx, Z3.mk_sub(this.ctx.ptr, [this.ast, this.sort.cast(other).ast]));
     }
 
     pow(exponent: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_power(this.ctx.ptr, this.ast, this.sort().cast(exponent).ast));
+      return new ArithImpl(this.ctx, Z3.mk_power(this.ctx.ptr, this.ast, this.sort.cast(exponent).ast));
     }
 
     div(other: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_div(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new ArithImpl(this.ctx, Z3.mk_div(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     mod(other: Arith | number | bigint | string | CoercibleRational) {
-      return new ArithImpl(this.ctx, Z3.mk_mod(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new ArithImpl(this.ctx, Z3.mk_mod(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     neg() {
@@ -1426,19 +1426,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     le(other: Arith | number | bigint | string | CoercibleRational) {
-      return new BoolImpl(this.ctx, Z3.mk_le(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_le(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     lt(other: Arith | number | bigint | string | CoercibleRational) {
-      return new BoolImpl(this.ctx, Z3.mk_lt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_lt(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     gt(other: Arith | number | bigint | string | CoercibleRational) {
-      return new BoolImpl(this.ctx, Z3.mk_gt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_gt(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     ge(other: Arith | number | bigint | string | CoercibleRational) {
-      return new BoolImpl(this.ctx, Z3.mk_ge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_ge(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
   }
 
@@ -1515,66 +1515,66 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     declare readonly __typename: BitVec['__typename'];
 
     get size() {
-      return this.sort().size;
+      return this.sort.size;
     }
 
     add(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvadd(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvadd(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     mul(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvmul(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvmul(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     sub(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvsub(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvsub(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     sdiv(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvsdiv(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvsdiv(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     udiv(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvudiv(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvudiv(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     smod(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvsmod(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvsmod(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     urem(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvurem(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvurem(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     srem(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvsrem(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvsrem(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     neg(): BitVec {
       return new BitVecImpl(this.ctx, Z3.mk_bvneg(this.ctx.ptr, this.ast));
     }
 
     or(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvor(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     and(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvand(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvand(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     nand(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvnand(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvnand(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     xor(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvxor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvxor(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     xnor(other: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvxnor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvxnor(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     shr(count: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvashr(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvashr(this.ctx.ptr, this.ast, this.sort.cast(count).ast));
     }
     lshr(count: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvlshr(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvlshr(this.ctx.ptr, this.ast, this.sort.cast(count).ast));
     }
     shl(count: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_bvshl(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_bvshl(this.ctx.ptr, this.ast, this.sort.cast(count).ast));
     }
     rotateRight(count: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_right(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_right(this.ctx.ptr, this.ast, this.sort.cast(count).ast));
     }
     rotateLeft(count: CoercibleToBitVec): BitVec {
-      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_left(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_left(this.ctx.ptr, this.ast, this.sort.cast(count).ast));
     }
     not(): BitVec {
       return new BitVecImpl(this.ctx, Z3.mk_bvnot(this.ctx.ptr, this.ast));
@@ -1594,28 +1594,28 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     sle(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvsle(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvsle(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     ule(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvule(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvule(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     slt(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvslt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvslt(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     ult(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvult(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvult(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     sge(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvsge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvsge(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     uge(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvuge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvuge(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     sgt(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvsgt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvsgt(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     ugt(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvugt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvugt(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
 
     redAnd(): BitVec {
@@ -1628,32 +1628,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     addNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
       return new BoolImpl(
         this.ctx,
-        Z3.mk_bvadd_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+        Z3.mk_bvadd_no_overflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast, isSigned),
       );
     }
     addNoUnderflow(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvadd_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvadd_no_underflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     subNoOverflow(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvsub_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvsub_no_overflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     subNoUndeflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
       return new BoolImpl(
         this.ctx,
-        Z3.mk_bvsub_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+        Z3.mk_bvsub_no_underflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast, isSigned),
       );
     }
     sdivNoOverflow(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvsdiv_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvsdiv_no_overflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     mulNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
       return new BoolImpl(
         this.ctx,
-        Z3.mk_bvmul_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+        Z3.mk_bvmul_no_overflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast, isSigned),
       );
     }
     mulNoUndeflow(other: CoercibleToBitVec): Bool {
-      return new BoolImpl(this.ctx, Z3.mk_bvmul_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+      return new BoolImpl(this.ctx, Z3.mk_bvmul_no_underflow(this.ctx.ptr, this.ast, this.sort.cast(other).ast));
     }
     negNoOverflow(): Bool {
       return new BoolImpl(this.ctx, Z3.mk_bvneg_no_overflow(this.ctx.ptr, this.ast));

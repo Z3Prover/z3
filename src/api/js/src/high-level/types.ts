@@ -247,7 +247,9 @@ export interface Sort<Name extends string = any> extends Ast<Name, Z3_sort> {
   readonly __typename: 'Sort' | BoolSort['__typename'] | ArithSort['__typename'] | BitVecSort['__typename'];
 
   kind(): Z3_sort_kind;
+  /** @virtual */
   subsort(other: Sort<Name>): boolean;
+  /** @virtual */
   cast(expr: CoercibleToExpr<Name>): Expr<Name>;
   name(): string | number;
 }
@@ -284,7 +286,8 @@ export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<
   extends Ast<Name, Ptr> {
   readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'];
 
-  sort(): S;
+  get sort(): S;
+
   eq(other: CoercibleToExpr<Name>): Bool<Name>;
   neq(other: CoercibleToExpr<Name>): Bool<Name>;
   params(): ReturnType<FuncDecl<Name>['params']>;
