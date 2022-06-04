@@ -2667,7 +2667,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
     unsigned sbits = m_util.get_sbits(s);
 
     if (m_bv_util.is_numeral(bv_rm) && m_util.au().is_numeral(x)) {
-        rational tmp_rat; unsigned sz;
+        rational tmp_rat;
+        unsigned sz;
         m_bv_util.is_numeral(to_expr(bv_rm), tmp_rat, sz);
         SASSERT(tmp_rat.is_int32());
         SASSERT(sz == 3);
@@ -2751,9 +2752,9 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             mk_bias(unbiased_exp, exp);
             v4 = m_util.mk_fp(sgn, exp, sig);
 
-            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
-            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
-            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tz)) ? 1 : 0, 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_tz), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tz), ebits);
             mk_bias(unbiased_exp, exp);
 
             result = m_util.mk_fp(sgn, exp, sig);
