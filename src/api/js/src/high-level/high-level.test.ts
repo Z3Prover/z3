@@ -62,6 +62,13 @@ async function prove(conjecture: Bool): Promise<void> {
   expect(await solver.check()).toStrictEqual(unsat);
 }
 
+async function solve(conjecture: Bool): Promise<Model> {
+  const solver = new conjecture.ctx.Solver();
+  solver.add(conjecture);
+  expect(await solver.check()).toStrictEqual(sat);
+  return solver.model();
+}
+
 describe('high-level', () => {
   let api: { em: any } & Z3HighLevel;
 
@@ -310,6 +317,66 @@ describe('high-level', () => {
       const n4 = Real.val('-1/3');
       const n5 = Real.val('-0.3333333333333333333333333333333333');
       await prove(n4.neq(n5));
+    });
+
+    it('can do non-linear arithmetic', async () => {
+      api.setParam('pp.decimal', true);
+      api.setParam('pp.decimal_precision', 20);
+      const { Real, Solver, isReal, isRealVal } = new api.Context('main');
+      const x = Real.const('x');
+      const y = Real.const('y');
+      const z = Real.const('z');
+
+      const solver = new Solver();
+      solver.add(x.mul(x).add(y.mul(y)).eq(1)); // x^2 + y^2 == 1
+      solver.add(x.mul(x).mul(x).add(z.mul(z).mul(z)).lt('1/2')); // x^3 + z^3 < 1/2
+
+      expect(await solver.check()).toStrictEqual(sat);
+      const model = solver.model();
+
+      expect(isRealVal(model.get(x))).toStrictEqual(true);
+      // solution of y is a polynomial
+      // https://stackoverflow.com/a/69740906
+      expect(isReal(model.get(y))).toStrictEqual(true);
+      expect(isRealVal(model.get(z))).toStrictEqual(true);
+    });
+  });
+
+  describe('bitvectors', () => {
+    it('can do simple proofs', async () => {
+      const { BitVec, Concat, Implies, isBitVecVal } = new api.Context('main');
+
+      const x = BitVec.const('x', 32);
+
+      const sSol = (await solve(x.sub(10).sle(0).eq(x.sle(10)))).get(x); // signed:   (x - 10 <= 0) == (x <= 10)
+      const uSol = (await solve(x.sub(10).ule(0).eq(x.ule(10)))).get(x); // unsigned: (x - 10 <= 0) == (x <= 10)
+
+      assert(isBitVecVal(sSol) && isBitVecVal(uSol));
+      let v = sSol.asSignedValue();
+      expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
+      v = uSol.value;
+      expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
+
+      const y = BitVec.const('y', 32);
+
+      await prove(Implies(Concat(x, y).eq(Concat(y, x)), x.eq(y)));
+    });
+
+    it('finds x and y such that: x ^ y - 103 == x * y', async () => {
+      const { BitVec, isBitVecVal } = new api.Context('main');
+
+      const x = BitVec.const('x', 32);
+      const y = BitVec.const('y', 32);
+
+      const model = await solve(x.xor(y).sub(103).eq(x.mul(y)));
+      const xSol = model.get(x);
+      const ySol = model.get(y);
+      assert(isBitVecVal(xSol) && isBitVecVal(ySol));
+      const xv = xSol.asSignedValue();
+      const yv = ySol.asSignedValue();
+
+      // this solutions wraps around so we need to check using modulo
+      expect((xv ^ yv) - 103n === (xv * yv) % 2n ** 32n).toStrictEqual(true);
     });
   });
 

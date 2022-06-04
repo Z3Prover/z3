@@ -29,7 +29,6 @@ import {
   Z3_lbool,
   Z3_model,
   Z3_parameter_kind,
-  Z3_pattern,
   Z3_probe,
   Z3_solver,
   Z3_sort,
@@ -49,10 +48,14 @@ import {
   AstMapCtor,
   AstVector,
   AstVectorCtor,
+  BitVec,
+  BitVecNum,
+  BitVecSort,
   Bool,
   BoolSort,
   CheckSatResult,
   CoercibleRational,
+  CoercibleToBitVec,
   CoercibleToExpr,
   CoercibleToExprMap,
   Context,
@@ -63,7 +66,6 @@ import {
   FuncInterp,
   IntNum,
   Model,
-  Pattern,
   Probe,
   RatNum,
   sat,
@@ -332,6 +334,24 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return this.isSort(obj) && obj.kind() === Z3_sort_kind.Z3_REAL_SORT;
     }
 
+    isBitVecSort(obj: unknown): obj is BitVecSort {
+      const r = obj instanceof BitVecSortImpl;
+      r && this._assertContext(obj);
+      return r;
+    }
+
+    isBitVec(obj: unknown): obj is BitVec {
+      const r = obj instanceof BitVecImpl;
+      r && this._assertContext(obj);
+      return r;
+    }
+
+    isBitVecVal(obj: unknown): obj is BitVecNum {
+      const r = obj instanceof BitVecNumImpl;
+      r && this._assertContext(obj);
+      return r;
+    }
+
     isProbe(obj: unknown): obj is Probe {
       const r = obj instanceof ProbeImpl;
       r && this._assertContext(obj);
@@ -344,35 +364,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return r;
     }
 
-    isPattern(obj: unknown): obj is Pattern {
-      const r = obj instanceof PatternImpl;
-      r && this._assertContext(obj);
-      return r;
-    }
-
     isAstVector(obj: unknown): obj is AstVector {
       const r = obj instanceof AstVectorImpl;
       r && this._assertContext(obj);
       return r;
     }
-
-    /*
-      function isQuantifier(obj: unknown): obj is QuantifierRef {
-        return obj instanceof QuantifierRefImpl;
-      }
-
-      function isForAll(obj: unknown): obj is QuantifierRef<BoolSortRef> {
-        return isQuantifier(obj) && Z3.is_quantifier_forall(ctx.ptr, obj.ast);
-      }
-
-      function isExists(obj: unknown): obj is QuantifierRef<BoolSortRef> {
-        return isQuantifier(obj) && Z3.is_quantifier_exists(ctx.ptr, obj.ast);
-      }
-
-      function isLambda(obj: unknown): obj is LambdaRef<AnySort> {
-        return obj instanceof LambdaRefImpl;
-      }
-      */
 
     eqIdentity(a: Ast, b: Ast): boolean {
       return a.eqIdentity(b);
@@ -537,6 +533,37 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           value = `${value.numerator}/${value.denominator}`;
         }
         return new RatNumImpl(this, Z3.mk_numeral(this.ptr, value.toString(), this.Real.sort().ptr));
+      },
+    };
+    readonly BitVec = {
+      sort: (bits: number): BitVecSort<any> => {
+        assert(Number.isSafeInteger(bits), 'number of bits must be an integer');
+        return new BitVecSortImpl(this, Z3.mk_bv_sort(this.ptr, bits));
+      },
+
+      const: (name: string, bits: number | BitVecSort): BitVec<any> =>
+        new BitVecImpl(
+          this,
+          Z3.mk_const(this.ptr, this._toSymbol(name), this.isBitVecSort(bits) ? bits.ptr : this.BitVec.sort(bits).ptr),
+        ),
+
+      consts: (names: string | string[], bits: number | BitVecSort): BitVec<any>[] => {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => this.BitVec.const(name, bits));
+      },
+
+      val: (value: bigint | number | boolean, bits: number | BitVecSort): BitVecNum<any> => {
+        if (value === true) {
+          return this.BitVec.val(1, bits);
+        } else if (value === false) {
+          return this.BitVec.val(0, bits);
+        }
+        return new BitVecNumImpl(
+          this,
+          Z3.mk_numeral(this.ptr, value.toString(), this.isBitVecSort(bits) ? bits.ptr : this.BitVec.sort(bits).ptr),
+        );
       },
     };
 
@@ -714,6 +741,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return a.pow('1/3');
     }
 
+    BV2Int(a: BitVec, isSigned: boolean): Arith {
+      this._assertContext(a);
+      return new ArithImpl(this, Z3.mk_bv2int(this.ptr, a.ast, isSigned));
+    }
+
+    Int2BV(a: Arith | bigint | number, bits: number): BitVec<any> {
+      if (this.isArith(a)) {
+        assert(this.isInt(a), 'parameter must be an integer');
+      } else {
+        a = this.Int.val(a);
+      }
+      return new BitVecImpl(this, Z3.mk_int2bv(this.ptr, bits, a.ast));
+    }
+
+    Concat(...bitvecs: BitVec[]): BitVec {
+      this._assertContext(...bitvecs);
+      return bitvecs.reduce((prev, curr) => new BitVecImpl(this, Z3.mk_concat(this.ptr, prev.ast, curr.ast)));
+    }
+
     Cond(probe: Probe, onTrue: Tactic, onFalse: Tactic): Tactic {
       this._assertContext(probe, onTrue, onFalse);
       return new this.Tactic(Z3.tactic_cond(this.ptr, probe.ptr, onTrue.ptr, onFalse.ptr));
@@ -761,8 +807,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       switch (Z3.get_sort_kind(this.ptr, ast)) {
         case Z3_sort_kind.Z3_BOOL_SORT:
           return new BoolSortImpl(this, ast);
-        case Z3_sort_kind.Z3_INT_SORT || Z3_sort_kind.Z3_REAL_SORT:
+        case Z3_sort_kind.Z3_INT_SORT:
+        case Z3_sort_kind.Z3_REAL_SORT:
           return new ArithSortImpl(this, ast);
+        case Z3_sort_kind.Z3_BV_SORT:
+          return new BitVecSortImpl(this, ast);
         default:
           return new SortImpl(this, ast);
       }
@@ -787,6 +836,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             return new RatNumImpl(this, ast);
           }
           return new ArithImpl(this, ast);
+        case Z3_sort_kind.Z3_BV_SORT:
+          if (kind === Z3_ast_kind.Z3_NUMERAL_AST) {
+            return new BitVecNumImpl(this, ast);
+          }
+          return new BitVecImpl(this, ast);
         default:
           return new ExprImpl(this, ast);
       }
@@ -824,7 +878,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class AstImpl<Ptr> {
+  class AstImpl<Ptr> implements Ast {
     declare readonly __typename: Ast['__typename'];
 
     constructor(readonly ctx: ContextImpl, readonly ptr: Ptr) {
@@ -861,42 +915,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  /*
-  class ParamsRef {
-    readonly ptr: Z3_params;
-
-    constructor() {
-      const myPtr = Z3.mk_params(ctx.ptr);
-
-      this.ptr = myPtr;
-
-      Z3.params_inc_ref(ctx.ptr, myPtr);
-      cleanup.register(this, () => Z3.params_dec_ref(ctx.ptr, myPtr));
-    }
-
-    set(key: string, value: boolean | string) {
-      const keySymbol = _toSymbol(key);
-      if (typeof value === 'boolean') {
-        Z3.params_set_bool(ctx.ptr, this.ptr, keySymbol, value);
-      } else if (typeof value === 'string') {
-        const valueSymbol = _toSymbol(key);
-        Z3.params_set_symbol(ctx.ptr, this.ptr, keySymbol, valueSymbol);
-      }
-    }
-
-    setUInt(key: string, value: number) {
-      assert(value >= 0);
-      const keySymbol = _toSymbol(key);
-      Z3.params_set_uint(ctx.ptr, this.ptr, keySymbol, value);
-    }
-    setFloat(key: string, value: number) {
-      const keySymbol = _toSymbol(key);
-      Z3.params_set_double(ctx.ptr, this.ptr, keySymbol, value);
-    }
-  }
-  */
-
-  class SolverImpl {
+  class SolverImpl implements Solver {
     declare readonly __typename: Solver['__typename'];
 
     readonly ptr: Z3_solver;
@@ -966,7 +985,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class ModelImpl {
+  class ModelImpl implements Model {
     declare readonly __typename: Model['__typename'];
 
     constructor(readonly ctx: ContextImpl, readonly ptr: Z3_model = Z3.mk_model(ctx.ptr)) {
@@ -1095,7 +1114,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class FuncInterpImpl {
+  class FuncInterpImpl implements FuncInterp {
     declare readonly __typename: FuncInterp['__typename'];
 
     constructor(readonly ctx: Context, readonly ptr: Z3_func_interp) {
@@ -1104,7 +1123,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class SortImpl extends AstImpl<Z3_sort> {
+  class SortImpl extends AstImpl<Z3_sort> implements Sort {
     declare readonly __typename: Sort['__typename'];
 
     get ast(): Z3_ast {
@@ -1140,7 +1159,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class FuncDeclImpl extends AstImpl<Z3_func_decl> {
+  class FuncDeclImpl extends AstImpl<Z3_func_decl> implements FuncDecl {
     declare readonly __typename: FuncDecl['__typename'];
 
     get ast() {
@@ -1217,7 +1236,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class ExprImpl<Ptr, S extends Sort = AnySort> extends AstImpl<Ptr> {
+  class ExprImpl<Ptr, S extends Sort = AnySort> extends AstImpl<Ptr> implements Expr {
     declare readonly __typename: Expr['__typename'];
 
     sort(): S {
@@ -1271,7 +1290,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class BoolSortImpl extends SortImpl {
+  class BoolSortImpl extends SortImpl implements BoolSort {
     declare readonly __typename: BoolSort['__typename'];
 
     cast(other: Bool | boolean): Bool;
@@ -1308,21 +1327,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class PatternImpl extends ExprImpl<Z3_pattern> {
-    declare readonly __typename: Pattern['__typename'];
-
-    get ast() {
-      return Z3.pattern_to_ast(this.ctx.ptr, this.ptr);
-    }
-  }
-
-  class ProbeImpl {
+  class ProbeImpl implements Probe {
     declare readonly __typename: Probe['__typename'];
 
     constructor(readonly ctx: ContextImpl, readonly ptr: Z3_probe) {}
   }
 
-  class TacticImpl {
+  class TacticImpl implements Tactic {
     declare readonly __typename: Tactic['__typename'];
 
     readonly ptr: Z3_tactic;
@@ -1342,7 +1353,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class ArithSortImpl extends SortImpl {
+  class ArithSortImpl extends SortImpl implements ArithSort {
     declare readonly __typename: ArithSort['__typename'];
 
     cast(other: bigint | number): IntNum | RatNum;
@@ -1383,7 +1394,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class ArithImpl extends ExprImpl<Z3_ast, ArithSort> {
+  class ArithImpl extends ExprImpl<Z3_ast, ArithSort> implements Arith {
     declare readonly __typename: Arith['__typename'];
 
     add(other: Arith | number | bigint | string | CoercibleRational) {
@@ -1431,7 +1442,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class IntNumImpl extends ArithImpl {
+  class IntNumImpl extends ArithImpl implements IntNum {
     declare readonly __typename: IntNum['__typename'];
 
     get value() {
@@ -1447,7 +1458,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class RatNumImpl extends ArithImpl {
+  class RatNumImpl extends ArithImpl implements RatNum {
     declare readonly __typename: RatNum['__typename'];
 
     get value() {
@@ -1474,6 +1485,203 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     asString() {
       return Z3.get_numeral_string(this.ctx.ptr, this.ast);
+    }
+  }
+
+  class BitVecSortImpl extends SortImpl implements BitVecSort {
+    declare readonly __typename: BitVecSort['__typename'];
+
+    get size() {
+      return Z3.get_bv_sort_size(this.ctx.ptr, this.ptr);
+    }
+
+    subsort(other: Sort<any>): boolean {
+      return this.ctx.isBitVecSort(other) && this.size < other.size;
+    }
+
+    cast(other: CoercibleToBitVec): BitVec;
+    cast(other: CoercibleToExpr): Expr;
+    cast(other: CoercibleToExpr): Expr {
+      if (this.ctx.isExpr(other)) {
+        this.ctx._assertContext(other);
+        return other;
+      }
+      assert(!isCoercibleRational(other), "Can't convert rational to BitVec");
+      return this.ctx.BitVec.val(other, this.size);
+    }
+  }
+
+  class BitVecImpl extends ExprImpl<Z3_ast, BitVecSortImpl> implements BitVec {
+    declare readonly __typename: BitVec['__typename'];
+
+    get size() {
+      return this.sort().size;
+    }
+
+    add(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvadd(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    mul(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvmul(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    sub(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvsub(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    sdiv(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvsdiv(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    udiv(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvudiv(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    smod(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvsmod(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    urem(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvurem(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    srem(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvsrem(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    neg(): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvneg(this.ctx.ptr, this.ast));
+    }
+
+    or(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    and(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvand(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    nand(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvnand(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    xor(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvxor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    xnor(other: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvxnor(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    shr(count: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvashr(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+    }
+    lshr(count: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvlshr(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+    }
+    shl(count: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvshl(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+    }
+    rotateRight(count: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_right(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+    }
+    rotateLeft(count: CoercibleToBitVec): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_ext_rotate_left(this.ctx.ptr, this.ast, this.sort().cast(count).ast));
+    }
+    not(): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvnot(this.ctx.ptr, this.ast));
+    }
+
+    extract(high: number, low: number): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_extract(this.ctx.ptr, high, low, this.ast));
+    }
+    signExt(count: number): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_sign_ext(this.ctx.ptr, count, this.ast));
+    }
+    zeroExt(count: number): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_zero_ext(this.ctx.ptr, count, this.ast));
+    }
+    repeat(count: number): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_repeat(this.ctx.ptr, count, this.ast));
+    }
+
+    sle(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvsle(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    ule(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvule(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    slt(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvslt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    ult(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvult(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    sge(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvsge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    uge(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvuge(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    sgt(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvsgt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    ugt(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvugt(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+
+    redAnd(): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvredand(this.ctx.ptr, this.ast));
+    }
+    redOr(): BitVec {
+      return new BitVecImpl(this.ctx, Z3.mk_bvredor(this.ctx.ptr, this.ast));
+    }
+
+    addNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      return new BoolImpl(
+        this.ctx,
+        Z3.mk_bvadd_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+      );
+    }
+    addNoUnderflow(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvadd_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    subNoOverflow(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvsub_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    subNoUndeflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      return new BoolImpl(
+        this.ctx,
+        Z3.mk_bvsub_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+      );
+    }
+    sdivNoOverflow(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvsdiv_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    mulNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      return new BoolImpl(
+        this.ctx,
+        Z3.mk_bvmul_no_overflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast, isSigned),
+      );
+    }
+    mulNoUndeflow(other: CoercibleToBitVec): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvmul_no_underflow(this.ctx.ptr, this.ast, this.sort().cast(other).ast));
+    }
+    negNoOverflow(): Bool {
+      return new BoolImpl(this.ctx, Z3.mk_bvneg_no_overflow(this.ctx.ptr, this.ast));
+    }
+  }
+
+  class BitVecNumImpl extends BitVecImpl implements BitVecNum {
+    declare readonly __typename: BitVecNum['__typename'];
+    get value() {
+      return BigInt(this.asString());
+    }
+
+    asSignedValue() {
+      let val = this.value;
+      const size = BigInt(this.size);
+      if (val >= 2n ** (size - 1n)) {
+        val = val - 2n ** size;
+      }
+      if (val < (-2n) ** (size - 1n)) {
+        val = val + 2n ** size;
+      }
+      return val;
+    }
+    asString() {
+      return Z3.get_numeral_string(this.ctx.ptr, this.ast);
+    }
+    asBinaryString() {
+      return Z3.get_numeral_binary_string(this.ctx.ptr, this.ast);
     }
   }
 
@@ -1573,14 +1781,58 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
   }
 
-  class AstMapImpl<Key extends Ast = AnyAst, Value extends Ast = AnyAst> {
+  class AstMapImpl<Key extends AnyAst = AnyAst, Value extends AnyAst = AnyAst> implements AstMap<Key, Value> {
     declare readonly __typename: AstMap['__typename'];
 
-    constructor(readonly ctx: Context, readonly ptr: Z3_ast_map = Z3.mk_ast_map(ctx.ptr)) {
+    constructor(readonly ctx: ContextImpl, readonly ptr: Z3_ast_map = Z3.mk_ast_map(ctx.ptr)) {
       Z3.ast_map_inc_ref(ctx.ptr, ptr);
       cleanup.register(this, () => Z3.ast_map_dec_ref(ctx.ptr, ptr));
     }
+
+    [Symbol.iterator](): Iterator<[Key, Value]> {
+      return this.entries();
+    }
+
+    get size(): number {
+      return Z3.ast_map_size(this.ctx.ptr, this.ptr);
+    }
+
+    *entries(): IterableIterator<[Key, Value]> {
+      for (const key of this.keys()) {
+        yield [key, this.get(key)];
+      }
+    }
+
+    keys(): AstVector<Key> {
+      return new AstVectorImpl(this.ctx, Z3.ast_map_keys(this.ctx.ptr, this.ptr));
+    }
+
+    *values(): IterableIterator<Value> {
+      for (const [_, value] of this.entries()) {
+        yield value;
+      }
+    }
+    get(key: Key): Value {
+      return this.ctx._toAst(Z3.ast_map_find(this.ctx.ptr, this.ptr, key.ast)) as Value;
+    }
+
+    set(key: Key, value: Value): void {
+      Z3.ast_map_insert(this.ctx.ptr, this.ptr, key.ast, value.ast);
+    }
+
+    delete(key: Key): void {
+      Z3.ast_map_erase(this.ctx.ptr, this.ptr, key.ast);
+    }
+
+    clear(): void {
+      Z3.ast_map_reset(this.ctx.ptr, this.ptr);
+    }
+
+    has(key: Key): boolean {
+      return Z3.ast_map_contains(this.ctx.ptr, this.ptr, key.ast);
+    }
   }
+
   return {
     enableTrace,
     disableTrace,

@@ -7,7 +7,6 @@ import {
   Z3_func_decl,
   Z3_func_interp,
   Z3_model,
-  Z3_pattern,
   Z3_probe,
   Z3_solver,
   Z3_sort,
@@ -24,12 +23,11 @@ export type AnySort<Name extends string = any> =
 export type AnyExpr<Name extends string = any> =
   | Expr<Name>
   | Bool<Name>
-  | Pattern<Name>
-  | Quantifier<Name>
   | Arith<Name>
   | IntNum<Name>
   | RatNum<Name>
-  | BitVec<number, Name>;
+  | BitVec<number, Name>
+  | BitVecNum<number, Name>;
 export type AnyAst<Name extends string = any> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = any> = S extends BoolSort
@@ -102,16 +100,12 @@ export interface Context<Name extends string = any> {
   isReal(obj: unknown): boolean;
   isRealVal(obj: unknown): obj is RatNum<Name>;
   isRealSort(obj: unknown): boolean;
+  isBitVecSort(obj: unknown): obj is BitVecSort<number, Name>;
+  isBitVec(obj: unknown): obj is BitVec<number, Name>;
+  isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
   isProbe(obj: unknown): obj is Probe<Name>;
   isTactic(obj: unknown): obj is Tactic<Name>;
-  isPattern(obj: unknown): obj is Pattern<Name>;
   isAstVector(obj: unknown): obj is AstVector<AnyAst<Name>, Name>;
-  /*
-  isQuantifier(obj: unknown): obj is QuantifierRef;
-  isForAll(obj: unknown): obj is QuantifierRef;
-  isExists(obj: unknown): obj is QuantifierRef;
-  isLambda(obj: unknown): obj is LambdaRef<AnySort>;
-  */
   eqIdentity(a: Ast<Name>, b: Ast<Name>): boolean;
   getVarIndex(obj: Expr<Name>): number;
   from(primitive: boolean): Bool<Name>;
@@ -138,6 +132,7 @@ export interface Context<Name extends string = any> {
   readonly Bool: BoolStatics<Name>;
   readonly Int: IntStatics<Name>;
   readonly Real: RealStatics<Name>;
+  readonly BitVec: BitVecStatics<Name>;
 
   ////////////////
   // Operations //
@@ -173,16 +168,14 @@ export interface Context<Name extends string = any> {
   IsInt(expr: Arith<Name>): Bool<Name>;
   Sqrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
   Cbrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
-  /*
-  MultiPattern(...args: [ExprRef, ...ExprRef[]]): PatternRef;
-  ForAll(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
-  Exists(vars: ExprRef | ExprRef[], body: ExprRef, options?: QuantifierOptions): QuantifierRef;
-  Lambda<Sort extends SortRef>(vars: ExprRef | ExprRef[], body: ExprRef<Sort>): LambdaRef<Sort>;
-  */
+  // Bit Vectors
+  BV2Int(a: BitVec<number, Name>, isSigned: boolean): Arith<Name>;
+  Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name>;
+  Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
 }
 
 export interface Ast<Name extends string = any, Ptr = unknown> {
-  readonly __typename: 'AstRef' | Sort['__typename'] | FuncDecl['__typename'] | Expr['__typename'];
+  readonly __typename: 'Ast' | Sort['__typename'] | FuncDecl['__typename'] | Expr['__typename'];
 
   readonly ctx: Context<Name>;
   readonly ptr: Ptr;
@@ -251,7 +244,7 @@ export interface SortStatics<Name extends string> {
   declare(name: string): Sort<Name>;
 }
 export interface Sort<Name extends string = any> extends Ast<Name, Z3_sort> {
-  readonly __typename: 'SortRef' | BoolSort['__typename'] | ArithSort['__typename'] | BitVecSort['__typename'];
+  readonly __typename: 'Sort' | BoolSort['__typename'] | ArithSort['__typename'] | BitVecSort['__typename'];
 
   kind(): Z3_sort_kind;
   subsort(other: Sort<Name>): boolean;
@@ -276,7 +269,7 @@ export interface RecFuncStatics<Name extends string> {
   addDefinition(f: FuncDecl<Name>, args: Expr<Name>[], body: Expr<Name>): void;
 }
 export interface FuncDecl<Name extends string = any> extends Ast<Name, Z3_func_decl> {
-  readonly __typename: 'FuncDeclRef';
+  readonly __typename: 'FuncDecl';
 
   name(): string | number;
   arity(): number;
@@ -289,14 +282,7 @@ export interface FuncDecl<Name extends string = any> extends Ast<Name, Z3_func_d
 
 export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
-  readonly __typename:
-    | 'ExprRef'
-    | Bool['__typename']
-    | Pattern['__typename']
-    | Quantifier['__typename']
-    | Lambda['__typename']
-    | Arith['__typename']
-    | BitVec['__typename'];
+  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'];
 
   sort(): S;
   eq(other: CoercibleToExpr<Name>): Bool<Name>;
@@ -309,7 +295,7 @@ export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<
 }
 
 export interface BoolSort<Name extends string = any> extends Sort<Name> {
-  readonly __typename: 'BoolSortRef';
+  readonly __typename: 'BoolSort';
 
   cast(expr: Bool<Name> | boolean): Bool<Name>;
   cast(expr: CoercibleToExpr<Name>): never;
@@ -326,7 +312,7 @@ export interface BoolStatics<Name extends string = any> {
   val(value: boolean): Bool<Name>;
 }
 export interface Bool<Name extends string = any> extends Expr<Name, BoolSort<Name>, Z3_ast> {
-  readonly __typename: 'BoolRef';
+  readonly __typename: 'Bool';
 
   not(): Bool<Name>;
   and(other: Bool<Name> | boolean): Bool<Name>;
@@ -334,33 +320,8 @@ export interface Bool<Name extends string = any> extends Expr<Name, BoolSort<Nam
   xor(other: Bool<Name> | boolean): Bool<Name>;
 }
 
-export interface Pattern<Name extends string = any> extends Expr<Name, Sort<Name>, Z3_pattern> {
-  readonly __typename: 'PatternRef';
-}
-
-export interface Quantifier<Name extends string = any> extends Expr<Name, BoolSort<Name>, Z3_ast> {
-  readonly __typename: 'QuantifierRef';
-
-  weight(): number;
-  numPatterns(): number;
-  pattern(i: number): Pattern<Name>;
-  numNoPatterns(): number;
-  noPattern(i: number): AnyExpr<Name>;
-  body(): AnyExpr<Name>;
-  varName(i: number): string | number;
-  varSort(i: number): AnySort<Name>;
-  children(): [AnyExpr<Name>];
-}
-
-export interface Lambda<Name extends string = any, S extends Sort<Name> = AnySort<Name>> extends Expr<Name, S, Z3_ast> {
-  readonly __typename: 'LambdaRef';
-
-  get(expr: Expr<Name>): Expr<Name>;
-  body(): AnyExpr<Name>;
-}
-
 export interface ArithSort<Name extends string = any> extends Sort<Name> {
-  readonly __typename: 'ArithSortRef';
+  readonly __typename: 'ArithSort';
 
   cast(other: bigint | number | string): IntNum<Name> | RatNum<Name>;
   cast(other: CoercibleRational | RatNum<Name>): RatNum<Name>;
@@ -390,7 +351,7 @@ export interface RealStatics<Name extends string> {
   val(value: number | string | bigint | CoercibleRational): RatNum<Name>;
 }
 export interface Arith<Name extends string = any> extends Expr<Name, ArithSort<Name>, Z3_ast> {
-  readonly __typename: 'ArithRef' | IntNum['__typename'] | RatNum['__typename'];
+  readonly __typename: 'Arith' | IntNum['__typename'] | RatNum['__typename'];
 
   add(other: Arith<Name> | number | bigint | string): Arith<Name>;
   mul(other: Arith<Name> | number | bigint | string): Arith<Name>;
@@ -406,7 +367,7 @@ export interface Arith<Name extends string = any> extends Expr<Name, ArithSort<N
 }
 
 export interface IntNum<Name extends string = any> extends Arith<Name> {
-  readonly __typename: 'IntNumRef';
+  readonly __typename: 'IntNum';
 
   get value(): bigint;
   asString(): string;
@@ -414,7 +375,7 @@ export interface IntNum<Name extends string = any> extends Arith<Name> {
 }
 
 export interface RatNum<Name extends string = any> extends Arith<Name> {
-  readonly __typename: 'RatNumRef';
+  readonly __typename: 'RatNum';
 
   get value(): { numerator: bigint; denominator: bigint };
   numerator(): IntNum<Name>;
@@ -424,48 +385,95 @@ export interface RatNum<Name extends string = any> extends Arith<Name> {
   asString(): string;
 }
 
-export interface BitVecSort<Size extends number = number, Name extends string = any> extends Sort<Name> {
-  readonly __typename: 'BitVecSortRef';
+export interface BitVecSort<Bits extends number = number, Name extends string = any> extends Sort<Name> {
+  readonly __typename: 'BitVecSort';
 
-  get size(): Size;
+  get size(): Bits;
 
-  cast(other: number | bigint): BitVec<Size, Name>;
+  cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
   cast(other: CoercibleToExpr<Name>): Expr<Name>;
 }
 
-type CoercibleToBitVec<Size extends number = number, Name extends string = any> = bigint | number | BitVec<Size, Name>;
-export interface BitVec<Size extends number = number, Name extends string = any>
-  extends Expr<Name, BitVecSort<Size, Name>, Z3_ast> {
-  readonly __typename: 'BitVecRef';
+export type CoercibleToBitVec<Bits extends number = number, Name extends string = any> =
+  | bigint
+  | number
+  | BitVec<Bits, Name>;
+export interface BitVecStatics<Name extends string> {
+  sort<Bits extends number = number>(bits: Bits): BitVecSort<Bits, Name>;
 
-  get size(): Size;
+  const<Bits extends number = number>(name: string, bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name>;
+  consts<Bits extends number = number>(
+    names: string | string[],
+    bits: Bits | BitVecSort<Bits, Name>,
+  ): BitVec<Bits, Name>[];
 
-  add(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  mul(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  sub(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  sdiv(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  udiv(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  smod(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  urem(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  srem(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  neg(): BitVec<Size, Name>;
+  val<Bits extends number = number>(
+    value: bigint | number | boolean,
+    bits: Bits | BitVecSort<Bits, Name>,
+  ): BitVecNum<Bits, Name>;
+}
+export interface BitVec<Bits extends number = number, Name extends string = any>
+  extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
+  readonly __typename: 'BitVec' | BitVecNum['__typename'];
 
-  or(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  and(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  xor(other: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  shr(count: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  lshr(count: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  shl(count: CoercibleToBitVec<Size, Name>): BitVec<Size, Name>;
-  not(): BitVec<Size, Name>;
+  get size(): Bits;
 
-  sle(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  ule(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  slt(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  ult(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  sge(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  uge(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  sgt(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
-  ugt(other: CoercibleToBitVec<Size, Name>): Bool<Name>;
+  add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  sdiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  udiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  smod(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  urem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  srem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  neg(): BitVec<Bits, Name>;
+
+  or(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  and(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  nand(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  xor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  xnor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  shr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  lshr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  shl(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+  rotateRight(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
+  rotateLeft(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
+  not(): BitVec<Bits, Name>;
+
+  extract(high: number, low: number): BitVec<number, Name>;
+  signExt(count: number): BitVec<number, Name>;
+  zeroExt(count: number): BitVec<number, Name>;
+  repeat(count: number): BitVec<number, Name>;
+
+  sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  redAnd(): BitVec<number, Name>;
+  redOr(): BitVec<number, Name>;
+
+  addNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+  addNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+  sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+  mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  negNoOverflow(): Bool<Name>;
+}
+
+export interface BitVecNum<Bits extends number = number, Name extends string = any> extends BitVec<Bits, Name> {
+  readonly __typename: 'BitVecNum';
+
+  get value(): bigint;
+  asSignedValue(): bigint;
+  asString(): string;
+  asBinaryString(): string;
 }
 
 export interface Probe<Name extends string = any> {
@@ -510,19 +518,23 @@ export interface AstVector<Item extends Ast<Name> = AnyAst, Name extends string 
 export interface AstMapCtor<Name extends string> {
   new <Key extends Ast = AnyAst, Value extends Ast = AnyAst>(): AstMap<Key, Value, Name>;
 }
-export interface AstMap<Key extends Ast<Name> = AnyAst, Value extends Ast = AnyAst, Name extends string = any> {
+export interface AstMap<Key extends Ast<Name> = AnyAst, Value extends Ast = AnyAst, Name extends string = any>
+  extends Iterable<[Key, Value]> {
   readonly __typename: 'AstMap';
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_ast_map;
-}
+  get size(): number;
 
-type QuantifierOptions = {
-  qid: string;
-  skid: string;
-  patterns: Pattern[];
-  noPatterns: Expr[];
-};
+  entries(): IterableIterator<[Key, Value]>;
+  keys(): AstVector<Key, Name>;
+  values(): IterableIterator<Value>;
+  get(key: Key): Value | undefined;
+  set(key: Key, value: Value): void;
+  delete(key: Key): void;
+  clear(): void;
+  has(key: Key): boolean;
+}
 
 export type Z3HighLevel = {
   // Global functions
