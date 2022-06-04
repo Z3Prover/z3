@@ -83,12 +83,14 @@ enum fpa_op_kind {
     OP_FPA_TO_UBV,
     OP_FPA_TO_SBV,
     OP_FPA_TO_REAL,
+    OP_FPA_TO_REAL_I,
 
     OP_FPA_TO_SBV_I,
     OP_FPA_TO_UBV_I,
 
     /* Extensions */
     OP_FPA_TO_IEEE_BV,
+    OP_FPA_TO_IEEE_BV_I,
 
     OP_FPA_BVWRAP,
     OP_FPA_BV2RM,
@@ -353,11 +355,13 @@ public:
     bool is_bv2rm(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BV2RM); }
     bool is_to_ubv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_UBV); }
     bool is_to_sbv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_SBV); }
+    bool is_to_real(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_REAL); }
 
     bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BVWRAP; }
     bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BV2RM; }
     bool is_to_ubv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV; }
     bool is_to_sbv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV; }
+    bool is_to_real(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_REAL; }
     bool is_to_ieee_bv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_IEEE_BV; }
 
     bool contains_floats(ast * a);

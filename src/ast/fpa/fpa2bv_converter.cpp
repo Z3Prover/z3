@@ -52,7 +52,6 @@ fpa2bv_converter::~fpa2bv_converter() {
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
     if (is_float(a) && is_float(b)) {
 
-
         TRACE("fpa2bv", tout << "mk_eq a=" << mk_ismt2_pp(a, m) << std::endl;
                         tout << "mk_eq b=" << mk_ismt2_pp(b, m) << std::endl;);
 
@@ -98,12 +97,12 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
     expr* c2 = nullptr, *t2 = nullptr, *f2 = nullptr;
     if (m.is_ite(t, c2, t2, f2)) {
         mk_ite(c2, t2, f2, result);
-        mk_ite(c, result, f, result);        
+        mk_ite(c, result, f, result);
     }
     else if (m.is_ite(f, c2, t2, f2)) {
         mk_ite(c2, t2, f2, result);
-        mk_ite(c, t, result, result);        
-    }    
+        mk_ite(c, t, result, result);
+    }
     else if (m_util.is_fp(t) && m_util.is_fp(f)) {
         expr_ref t_sgn(m), t_sig(m), t_exp(m);
         expr_ref f_sgn(m), f_sig(m), f_exp(m);
@@ -3261,6 +3260,12 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
     SASSERT(is_well_sorted(m, result));
 }
 
+void fpa2bv_converter::mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
+{
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_IEEE_BV, 0, nullptr, num, args), m);
+    mk_to_bv(f, num, args, true, result);
+}
+
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
     TRACE("fpa2bv_to_bv", for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
@@ -3491,6 +3496,11 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
     }
 }
 
+void fpa2bv_converter::mk_to_real_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_REAL, 0, nullptr, num, args), m);
+    mk_to_real(f, num, args, result);
+}
+
 void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
     SASSERT(m_bv_util.get_bv_size(args[0]) == 1);
@@ -3499,7 +3509,6 @@ void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, e
     result = m_util.mk_fp(args[0], args[1], args[2]);
     TRACE("fpa2bv_mk_fp", tout << "mk_fp result = " << mk_ismt2_pp(result, m) << std::endl;);
 }
-
 
 void fpa2bv_converter::split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const {
     expr* e_sgn = nullptr, *e_exp = nullptr, *e_sig = nullptr;

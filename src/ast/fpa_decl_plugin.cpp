@@ -784,12 +784,14 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_TO_SBV_I:
         return mk_to_sbv(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_REAL:
+    case OP_FPA_TO_REAL_I:
         return mk_to_real(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_FP:
         return mk_to_fp(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_FP_UNSIGNED:
         return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_IEEE_BV:
+    case OP_FPA_TO_IEEE_BV_I:
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
 
     case OP_FPA_BVWRAP:
@@ -857,6 +859,7 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp.to_ubv_I", OP_FPA_TO_UBV_I));
     op_names.push_back(builtin_name("fp.to_sbv_I", OP_FPA_TO_SBV_I));
     op_names.push_back(builtin_name("fp.to_real", OP_FPA_TO_REAL));
+    op_names.push_back(builtin_name("fp.to_real_I", OP_FPA_TO_REAL_I));
 
     op_names.push_back(builtin_name("to_fp", OP_FPA_TO_FP));
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FPA_TO_FP_UNSIGNED));
@@ -864,6 +867,7 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     /* Extensions */
     op_names.push_back(builtin_name("to_ieee_bv", OP_FPA_TO_IEEE_BV));
     op_names.push_back(builtin_name("fp.to_ieee_bv", OP_FPA_TO_IEEE_BV));
+    op_names.push_back(builtin_name("fp.to_ieee_bv_I", OP_FPA_TO_IEEE_BV_I));
 }
 
 void fpa_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
@@ -1074,7 +1078,8 @@ bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* cons
     if (f->get_family_id() != ffid)
         return false;
 
-    if (is_decl_of(f, ffid, OP_FPA_TO_IEEE_BV)) {
+    if (is_decl_of(f, ffid, OP_FPA_TO_IEEE_BV) ||
+        is_decl_of(f, ffid, OP_FPA_TO_IEEE_BV_I)) {
         SASSERT(n == 1);
         expr* x = args[0];
         return is_nan(x);
@@ -1101,7 +1106,8 @@ bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* cons
         else
             return mpqm.is_neg(r) || mpqm.bitsize(r) > bv_sz;
     }
-    else if (is_decl_of(f, ffid, OP_FPA_TO_REAL)) {
+    else if (is_decl_of(f, ffid, OP_FPA_TO_REAL) ||
+             is_decl_of(f, ffid, OP_FPA_TO_REAL_I)) {
         SASSERT(n == 1);
         expr* x = args[0];
         return is_nan(x) || is_inf(x);
