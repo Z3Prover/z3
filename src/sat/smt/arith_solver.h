@@ -423,7 +423,7 @@ namespace arith {
         sat::proof_hint m_farkas2;
         sat::proof_hint const* explain(sat::hint_type ty, sat::literal lit = sat::null_literal);
         sat::proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
-        void add_assumptions();
+        void explain_assumptions();
 
 
     public:

@@ -80,7 +80,7 @@ namespace arith {
         if (m_nla) m_nla->collect_statistics(st);
     }
 
-    void solver::add_assumptions() {
+    void solver::explain_assumptions() {
         m_arith_hint.reset();
         unsigned i = 0;
         for (auto const & ev : m_explanation) {
@@ -119,7 +119,7 @@ namespace arith {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.m_ty = ty;
-        add_assumptions();
+        explain_assumptions();
         if (lit != sat::null_literal)
             m_arith_hint.m_literals.push_back({rational(1), ~lit});
         return &m_arith_hint;
@@ -129,7 +129,7 @@ namespace arith {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.m_ty = sat::hint_type::implied_eq_h;
-        add_assumptions();
+        explain_assumptions();
         m_arith_hint.m_diseqs.push_back({a->get_expr_id(), b->get_expr_id()});
         return &m_arith_hint;
     }
