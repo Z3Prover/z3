@@ -40,6 +40,8 @@ namespace arith {
         row m_ineq;
         row m_conseq;
         vector<row> m_eqs;
+        vector<row> m_ineqs;
+        vector<row> m_diseqs;
         
         void add(row& r, expr* v, rational const& coeff) {
             rational coeff1;
@@ -241,6 +243,26 @@ namespace arith {
             return false;
         }
 
+        //
+        // checking disequalities is TBD.
+        // it has to select only a subset of bounds to justify each inequality.
+        // example
+        // c <= x <= c, c <= y <= c => x = y
+        // for the proof of x <= y use the inequalities x <= c <= y
+        // for the proof of y <= x use the inequalities y <= c <= x
+        // example
+        // x <= y, y <= z, z <= u, u <= x => x = z
+        // for the proof of x <= z use the inequalities x <= y, y <= z
+        // for the proof of z <= x use the inequalities z <= u, u <= x
+        // 
+        // so when m_diseqs is non-empty we can't just add inequalities with Farkas coefficients
+        // into m_ineq, since coefficients of the usable subset vanish.
+        // 
+
+        bool check_diseq() {
+            return false;
+        }
+
         std::ostream& display_row(std::ostream& out, row const& r) {
             bool first = true;
             for (auto const& [v, coeff] : r.m_coeffs) {
@@ -270,6 +292,11 @@ namespace arith {
                 out << " <= 0\n";
         }
 
+        row& fresh(vector<row>& rows) {
+            rows.push_back(row());
+            return rows.back();
+        }
+
         
     public:
         proof_checker(ast_manager& m): m(m), a(m) {}
@@ -278,10 +305,14 @@ namespace arith {
             m_ineq.reset();
             m_conseq.reset();
             m_eqs.reset();
+            m_ineqs.reset();
+            m_diseqs.reset();
             m_strict = false;
         }
         
         bool add_ineq(rational const& coeff, expr* e, bool sign) {
+            if (!m_diseqs.empty())
+                return add_literal(fresh(m_ineqs), abs(coeff), e, sign);
             return add_literal(m_ineq, abs(coeff), e, sign);
         }
         
@@ -290,14 +321,21 @@ namespace arith {
         }
         
         void add_eq(expr* a, expr* b) {
-            m_eqs.push_back(row());
-            row& r = m_eqs.back();
+            row& r = fresh(m_eqs);
             linearize(r, rational(1), a);
             linearize(r, rational(-1), b);
         }
+
+        void add_diseq(expr* a, expr* b) {
+            row& r = fresh(m_diseqs);
+            linearize(r, rational(1), a);
+            linearize(r, rational(-1), b);            
+        }
         
         bool check() {
-            if (!m_conseq.m_coeffs.empty())
+            if (!m_diseqs.empty())
+                return check_diseq();
+            else if (!m_conseq.m_coeffs.empty())
                 return check_bound();
             else
                 return check_farkas();

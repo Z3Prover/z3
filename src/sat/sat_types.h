@@ -98,14 +98,15 @@ namespace sat {
         null_h,
         farkas_h,
         bound_h,
-        cut_h
+        implied_eq_h,    
     };
 
     struct proof_hint {
-        hint_type                                        m_ty = hint_type::null_h;
-        vector<std::pair<rational, literal>>             m_literals;
-        vector<std::tuple<rational, unsigned, unsigned>> m_eqs;
-        void reset() { m_ty = hint_type::null_h; m_literals.reset(); m_eqs.reset(); }
+        hint_type                              m_ty = hint_type::null_h;
+        vector<std::pair<rational, literal>>   m_literals;
+        vector<std::pair<unsigned, unsigned>>  m_eqs;
+        vector<std::pair<unsigned, unsigned>>  m_diseqs;
+        void reset() { m_ty = hint_type::null_h; m_literals.reset(); m_eqs.reset(); m_diseqs.reset(); }
         std::string to_string() const;
         void from_string(char const* s);
         void from_string(std::string const& s) { from_string(s.c_str()); }

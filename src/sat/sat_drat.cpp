@@ -921,14 +921,19 @@ namespace sat {
         case hint_type::bound_h:
             ous << "bound ";
             break;
-        case hint_type::cut_h:
-            ous << "cut ";
+        case hint_type::implied_eq_h:
+            ous << "implied_eq ";
+            break;
+        default:
+            UNREACHABLE();
             break;
         }
         for (auto const& [q, l] : m_literals)
             ous << rational(q) << " * " << l << " ";
-        for (auto const& [q, a, b] : m_eqs)
-            ous << rational(q) << " = " << a << " " << b << " ";
+        for (auto const& [a, b] : m_eqs)
+            ous << " = " << a << " " << b << " ";
+        for (auto const& [a, b] : m_diseqs)
+            ous << " != " << a << " " << b << " ";
         return ous.str();
     }
 
@@ -954,9 +959,9 @@ namespace sat {
                 s += 5;
                 return true;
             }
-            if (0 == strncmp(s, "cut", 3)) {
-                h.m_ty = hint_type::cut_h;
-                s += 3;
+            if (0 == strncmp(s, "implied_eq", 10)) {
+                h.m_ty = hint_type::implied_eq_h;
+                s += 10;
                 return true;
             }
             return false;
@@ -982,6 +987,24 @@ namespace sat {
             return sat::literal(r.get_unsigned(), false);
         };
         auto parse_coeff_literal = [&]() {
+            if (*s == '=') {
+                ++s;
+                ws();
+                unsigned a = parse_coeff().get_unsigned();
+                ws();
+                unsigned b = parse_coeff().get_unsigned();
+                h.m_eqs.push_back(std::make_pair(a, b));
+                return true;
+            }
+            if (*s == '!' && *(s + 1) == '=') {
+                s += 2;
+                ws();
+                unsigned a = parse_coeff().get_unsigned();
+                ws();
+                unsigned b = parse_coeff().get_unsigned();
+                h.m_diseqs.push_back(std::make_pair(a, b));
+                return true;
+            }
             rational coeff = parse_coeff();
             ws();
             if (*s == '*') {
@@ -989,15 +1012,6 @@ namespace sat {
                 ws();
                 sat::literal lit = parse_literal();
                 h.m_literals.push_back(std::make_pair(coeff, lit));
-                return true;
-            }
-            if (*s == '=') {
-                ++s;
-                ws();
-                unsigned a = parse_coeff().get_unsigned();
-                ws();
-                unsigned b = parse_coeff().get_unsigned();
-                h.m_eqs.push_back(std::make_tuple(coeff, a, b));
                 return true;
             }
             return false;

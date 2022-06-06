@@ -321,7 +321,8 @@ namespace arith {
         reset_evidence();
         for (auto ev : e)
             set_evidence(ev.ci());
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2); // TODO add equality explanation
+        auto* ex = explain_implied_eq(n1, n2);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2, ex); 
         ctx.propagate(n1, n2, jst->to_index());
         return true;
     }
@@ -756,7 +757,8 @@ namespace arith {
         set_evidence(ci4);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y); // TODO add equality explanation
+        auto* ex = explain_implied_eq(x, y);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y, ex);
         ctx.propagate(x, y, jst->to_index());
     }
 
@@ -1176,7 +1178,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::cut_h, lit));
+            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
             lia_check = l_false;
             break;
         }

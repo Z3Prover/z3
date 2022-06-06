@@ -419,9 +419,11 @@ namespace arith {
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
-        sat::proof_hint m_bounds_pragma;
+        sat::proof_hint m_arith_hint;
         sat::proof_hint m_farkas2;
         sat::proof_hint const* explain(sat::hint_type ty, sat::literal lit = sat::null_literal);
+        sat::proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
+        void add_assumptions();
 
 
     public:

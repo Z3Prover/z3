@@ -53,7 +53,8 @@ public:
         if (e.m_vector.empty()) {
             for (constraint_index j : e.m_set)
                 push_back(j);
-        } else {
+        } 
+        else {
             for (const auto & p : e.m_vector) {
                 add_pair(p.first, p.second);
             }
@@ -71,6 +72,7 @@ public:
         constraint_index ci() const { return m_var; }
         const mpq &coeff() const { return m_coeff; }
     };
+
     class iterator {
         bool      m_run_on_vector;
         mpq       m_one = one_of_type<mpq>();

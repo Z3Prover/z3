@@ -170,21 +170,26 @@ public:
         switch (hint.m_ty) {
         case sat::hint_type::null_h:
             break;
-        case sat::hint_type::cut_h:
         case sat::hint_type::bound_h:
-        case sat::hint_type::farkas_h: {
+        case sat::hint_type::farkas_h: 
+        case sat::hint_type::implied_eq_h: {
             achecker.reset();
-            for (auto const& [coeff, a, b]: hint.m_eqs) {
+            for (auto const& [a, b]: hint.m_eqs) {
                 expr* x = exprs[a];
                 expr* y = exprs[b];
                 achecker.add_eq(x, y);
+            }
+            for (auto const& [a, b]: hint.m_diseqs) {
+                expr* x = exprs[a];
+                expr* y = exprs[b];
+                achecker.add_diseq(x, y);
             }
             
             unsigned sz = hint.m_literals.size();
             for (unsigned i = 0; i < sz; ++i) {
                 auto const& [coeff, lit] = hint.m_literals[i];
                 app_ref e(to_app(m_b2e[lit.var()]), m);
-                if (i + 1 == sz && (sat::hint_type::bound_h == hint.m_ty || sat::hint_type::cut_h == hint.m_ty)) {
+                if (i + 1 == sz && sat::hint_type::bound_h == hint.m_ty) {
                     if (!achecker.add_conseq(coeff, e, lit.sign())) {
                         std::cout << "p failed checking hint " << e << "\n";
                         return false;
@@ -220,10 +225,16 @@ public:
                 rw(sum);
                 std::cout << "sum: " << sum << "\n";
                 
-                for (auto const& [coeff, a, b]: hint.m_eqs) {
+                for (auto const& [a, b]: hint.m_eqs) {
                     expr* x = exprs[a];
                     expr* y = exprs[b];
                     app_ref e(m.mk_eq(x, y), m);
+                    std::cout << e << "\n";
+                }
+                for (auto const& [a, b]: hint.m_diseqs) {
+                    expr* x = exprs[a];
+                    expr* y = exprs[b];
+                    app_ref e(m.mk_not(m.mk_eq(x, y)), m);
                     std::cout << e << "\n";
                 }
                 for (auto const& [coeff, lit] : hint.m_literals) {
