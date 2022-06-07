@@ -23,12 +23,16 @@ Notes:
 /*
  * Add or overwrite value in model.
  */
-void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
+void model_converter::display_add(std::ostream& out, smt2_pp_environment& env, ast_manager& m, func_decl* f, expr* e) {
     VERIFY(e);
-    smt2_pp_environment_dbg env(m);
-    smt2_pp_environment* _env = m_env ? m_env : &env;
     VERIFY(f->get_range() == e->get_sort());
-    ast_smt2_pp(out, f, e, *_env, params_ref(), 0, "model-add") << "\n";
+    ast_smt2_pp(out, f, e, env, params_ref(), 0, "model-add") << "\n";
+}
+
+void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
+    smt2_pp_environment_dbg dbgenv(m);
+    smt2_pp_environment& env = m_env ? *m_env : dbgenv;
+    display_add(out, env, m, f, e);
 }
 
 /*
@@ -57,14 +61,22 @@ void model_converter::display_add(std::ostream& out, ast_manager& m) {
     // default printer for converter that adds entries
     model_ref mdl = alloc(model, m);
     (*this)(mdl);
-    for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
-        func_decl* f = mdl->get_constant(i);
-        display_add(out, m, f, mdl->get_const_interp(f));
+    smt2_pp_environment_dbg dbgenv(m);
+    smt2_pp_environment& env = m_env ? *m_env : dbgenv;
+    display_add(out, env, *mdl);
+}
+
+void model_converter::display_add(std::ostream& out, smt2_pp_environment& env, model& mdl) {
+
+    ast_manager& m = mdl.get_manager();
+    for (unsigned i = 0, sz = mdl.get_num_constants(); i < sz; ++i) {
+        func_decl* f = mdl.get_constant(i);
+        display_add(out, env, m, f, mdl.get_const_interp(f));
     }
-    for (unsigned i = 0, sz = mdl->get_num_functions(); i < sz; ++i) {
-        func_decl* f = mdl->get_function(i);
-        func_interp* fi = mdl->get_func_interp(f);
-        display_add(out, m, f, fi->get_interp());
+    for (unsigned i = 0, sz = mdl.get_num_functions(); i < sz; ++i) {
+        func_decl* f = mdl.get_function(i);
+        func_interp* fi = mdl.get_func_interp(f);
+        display_add(out, env, m, f, fi->get_interp());
     }
 }
 
@@ -153,9 +165,10 @@ public:
     }
     
     void display(std::ostream & out) override {
-        out << "(rmodel->model-converter-wrapper\n";
-        model_v2_pp(out, *m_model);
-        out << ")\n";
+        ast_manager& m = m_model->get_manager();
+        smt2_pp_environment_dbg dbgenv(m);
+        smt2_pp_environment& env = m_env ? *m_env : dbgenv;
+        model_converter::display_add(out, env, *m_model);
     }    
     
     model_converter * translate(ast_translation & translator) override {
