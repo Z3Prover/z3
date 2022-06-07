@@ -1466,7 +1466,10 @@ namespace algebraic_numbers {
                 qm().add(il, nbv, il);
                 qm().add(iu, nbv, iu);
                 // (il, iu) is an isolating refinable (rational) interval for the new polynomial.
-                upm().convert_q2bq_interval(m_add_tmp.size(), m_add_tmp.data(), il, iu, bqm(), l, u);
+                if (!upm().convert_q2bq_interval(m_add_tmp.size(), m_add_tmp.data(), il, iu, bqm(), l, u)) {
+                    TRACE("algebraic", tout << "conversion failed\n");
+                }
+                    
             }
             TRACE("algebraic",
                   upm().display(tout, m_add_tmp.size(), m_add_tmp.data());
@@ -1576,7 +1579,9 @@ namespace algebraic_numbers {
                 if (is_neg)
                     qm().swap(il, iu);
                 // (il, iu) is an isolating refinable (rational) interval for the new polynomial.
-                upm().convert_q2bq_interval(mulp.size(), mulp.data(), il, iu, bqm(), l, u);
+                if (!upm().convert_q2bq_interval(mulp.size(), mulp.data(), il, iu, bqm(), l, u)) {
+                    TRACE("algebraic", tout << "conversion failed\n");
+                }
             }
             TRACE("algebraic",
                   upm().display(tout, mulp.size(), mulp.data());
@@ -1690,7 +1695,10 @@ namespace algebraic_numbers {
                 qm().swap(inv_lower, inv_upper);
                 TRACE("algebraic_bug", tout << "inv new_bounds: " << qm().to_string(inv_lower) << ", " << qm().to_string(inv_upper) << "\n";);
                 // convert isolating interval back as a binary rational bound
-                upm().convert_q2bq_interval(cell_a->m_p_sz, cell_a->m_p, inv_lower, inv_upper, bqm(), lower(cell_a), upper(cell_a));
+                if (!upm().convert_q2bq_interval(cell_a->m_p_sz, cell_a->m_p, inv_lower, inv_upper, bqm(), lower(cell_a), upper(cell_a))) {
+                    TRACE("algebraic_bug", tout << "root isolation failed\n");                    
+                    throw algebraic_exception("inversion of algebraic number failed");
+                }
                 TRACE("algebraic_bug", tout << "after inv: "; display_root(tout, a); tout << "\n"; display_interval(tout, a); tout << "\n";);
                 update_sign_lower(cell_a);
                 SASSERT(acell_inv(*cell_a));       
