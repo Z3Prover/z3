@@ -104,7 +104,7 @@ namespace q {
 
     public:
         unsigned char operator()(func_decl * lbl) {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             if (lbl_id >= m_lbl2hash.size())
                 m_lbl2hash.resize(lbl_id + 1, -1);
             if (m_lbl2hash[lbl_id] == -1) {
@@ -2868,7 +2868,7 @@ namespace q {
             SASSERT(first_idx < mp->get_num_args());
             app * p           = to_app(mp->get_arg(first_idx));
             func_decl * lbl   = p->get_decl();
-            unsigned lbl_id   = lbl->get_decl_id();
+            unsigned lbl_id   = lbl->get_small_id();
             m_trees.reserve(lbl_id+1, nullptr);
             if (m_trees[lbl_id] == nullptr) {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
@@ -2898,7 +2898,7 @@ namespace q {
         }
 
         code_tree * get_code_tree_for(func_decl * lbl) const {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             if (lbl_id < m_trees.size())
                 return m_trees[lbl_id];
             else
@@ -3112,11 +3112,11 @@ namespace q {
         }
 
         bool is_plbl(func_decl * lbl) const {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             return lbl_id < m_is_plbl.size() && m_is_plbl[lbl_id];
         }
         bool is_clbl(func_decl * lbl) const {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             return lbl_id < m_is_clbl.size() && m_is_clbl[lbl_id];
         }
 
@@ -3129,7 +3129,7 @@ namespace q {
         }
 
         void update_clbls(func_decl * lbl) {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             m_is_clbl.reserve(lbl_id+1, false);
             TRACE("trigger_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
@@ -3169,7 +3169,7 @@ namespace q {
         }
 
         void update_plbls(func_decl * lbl) {
-            unsigned lbl_id = lbl->get_decl_id();
+            unsigned lbl_id = lbl->get_small_id();
             m_is_plbl.reserve(lbl_id+1, false);
             TRACE("trigger_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
                   tout << "mam: " << this << "\n";);
@@ -3698,7 +3698,7 @@ namespace q {
                 app *        p     = to_app(mp->get_arg(0));
                 func_decl *  lbl   = p->get_decl();
                 if (!m_egraph.enodes_of(lbl).empty()) {
-                    unsigned lbl_id = lbl->get_decl_id();
+                    unsigned lbl_id = lbl->get_small_id();
                     m_tmp_trees.reserve(lbl_id+1, 0);
                     if (m_tmp_trees[lbl_id] == 0) {
                         m_tmp_trees[lbl_id] = m_compiler.mk_tree(qa, mp, 0, false);
@@ -3711,7 +3711,7 @@ namespace q {
             }
 
             for (func_decl * lbl : m_tmp_trees_to_delete) {
-                unsigned    lbl_id   = lbl->get_decl_id();
+                unsigned    lbl_id   = lbl->get_small_id();
                 code_tree * tmp_tree = m_tmp_trees[lbl_id];
                 SASSERT(tmp_tree != 0);
                 SASSERT(!m_egraph.enodes_of(lbl).empty());
@@ -3843,7 +3843,7 @@ namespace q {
                 unsigned h      = m_lbl_hasher(lbl);
                 TRACE("trigger_bug", tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
                       << ", is_plbl(lbl): " << is_plbl(lbl) << ", h: " << h << "\n";
-                      tout << "lbl_id: " << lbl->get_decl_id() << "\n";);
+                      tout << "lbl_id: " << lbl->get_small_id() << "\n";);
                 if (is_clbl(lbl))
                     update_lbls(n, h);
                 if (is_plbl(lbl))

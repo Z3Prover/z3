@@ -531,22 +531,22 @@ namespace smt {
         }
 
         unsigned get_num_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].size() : 0;
         }
 
         enode_vector const& enodes_of(func_decl const * d) const {
-            unsigned id = d->get_decl_id();
+            unsigned id = d->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id] : m_empty_vector;
         }
 
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
         }
 
         enode_vector::const_iterator end_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
 

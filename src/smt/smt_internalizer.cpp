@@ -1010,7 +1010,7 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_decl_id();
+                unsigned decl_id = n->get_decl()->get_small_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
@@ -1054,7 +1054,7 @@ namespace smt {
             m_cg_table.erase(e);
         }
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_decl_id();
+            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();

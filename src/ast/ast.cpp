@@ -498,9 +498,9 @@ bool compare_nodes(ast const * n1, ast const * n2) {
 
 template<typename T>
 inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_value) {
-    if (size == 0)
-        return init_value;
     switch (size) {
+    case 0:
+        return init_value;
     case 1:
         return combine_hash(array[0]->hash(), init_value);
     case 2:
@@ -993,7 +993,7 @@ sort * basic_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
 }
 
 func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache) {
-    unsigned id = s->get_decl_id();
+    unsigned id = s->get_small_id();
     force_ptr_array_size(cache, id + 1);
     if (cache[id] == 0) {
         sort * domain[2] = { s, s};
@@ -1009,7 +1009,7 @@ func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, s
 }
 
 func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
-    unsigned id = s->get_decl_id();
+    unsigned id = s->get_small_id();
     force_ptr_array_size(m_ite_decls, id + 1);
     if (m_ite_decls[id] == 0) {
         sort * domain[3] = { m_bool_sort, s, s};

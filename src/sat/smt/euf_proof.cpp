@@ -104,7 +104,7 @@ namespace euf {
         std::ostringstream strm;
         smt2_pp_environment_dbg env(m);
         ast_smt2_pp(strm, f, env);
-        get_drat().def_begin('f', f->get_decl_id(), strm.str());
+        get_drat().def_begin('f', f->get_small_id(), strm.str());
         get_drat().def_end();
     }
 

@@ -476,7 +476,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition, 
                 // noop
             }
             else if (f->is_skolem() && can_inline_def(ts, f, force_inline) && (fi = get_func_interp(f)) && 
-                     fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
+                     fi->get_interp() && (!ts.find(f, pid) || pid != current_partition)) {
                 var_subst vs(m, false);
                 new_t = vs(fi->get_interp(), args.size(), args.data());
             }

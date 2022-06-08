@@ -171,7 +171,7 @@ namespace smt {
         unsigned get_expr_id() const { return m_owner->get_id(); }
 
         func_decl * get_decl() const { return m_owner->get_decl(); }
-        unsigned get_decl_id() const { return m_owner->get_decl()->get_decl_id(); }
+        unsigned get_decl_id() const { return m_owner->get_decl()->get_small_id(); }
 
         sort* get_sort() const { return m_owner->get_sort(); }
 
