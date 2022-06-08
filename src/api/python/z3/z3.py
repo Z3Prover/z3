@@ -209,7 +209,8 @@ class Context:
         Z3_del_config(conf)
 
     def __del__(self):
-        Z3_del_context(self.ctx)
+        if Z3_del_context is not None:
+            Z3_del_context(self.ctx)
         self.ctx = None
         self.eh = None
 
@@ -346,7 +347,7 @@ class AstRef(Z3PPObject):
         Z3_inc_ref(self.ctx.ref(), self.as_ast())
 
     def __del__(self):
-        if self.ctx.ref() is not None and self.ast is not None:
+        if self.ctx.ref() is not None and self.ast is not None and Z3_dec_ref is not None:
             Z3_dec_ref(self.ctx.ref(), self.as_ast())
             self.ast = None
 
@@ -5128,7 +5129,7 @@ class ScopedConstructor:
         self.ctx = ctx
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_del_constructor is not None:
             Z3_del_constructor(self.ctx.ref(), self.c)
 
 
@@ -5140,7 +5141,7 @@ class ScopedConstructorList:
         self.ctx = ctx
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_del_constructor_list is not None:
             Z3_del_constructor_list(self.ctx.ref(), self.c)
 
 
@@ -5420,7 +5421,7 @@ class ParamsRef:
         return ParamsRef(self.ctx, self.params)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_params_dec_ref is not None:
             Z3_params_dec_ref(self.ctx.ref(), self.params)
 
     def set(self, name, val):
@@ -5485,7 +5486,7 @@ class ParamDescrsRef:
         return ParamsDescrsRef(self.descr, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_param_descrs_dec_ref is not None:
             Z3_param_descrs_dec_ref(self.ctx.ref(), self.descr)
 
     def size(self):
@@ -5548,7 +5549,7 @@ class Goal(Z3PPObject):
         Z3_goal_inc_ref(self.ctx.ref(), self.goal)
 
     def __del__(self):
-        if self.goal is not None and self.ctx.ref() is not None:
+        if self.goal is not None and self.ctx.ref() is not None and Z3_goal_dec_ref is not None:
             Z3_goal_dec_ref(self.ctx.ref(), self.goal)
 
     def depth(self):
@@ -5852,7 +5853,7 @@ class AstVector(Z3PPObject):
         Z3_ast_vector_inc_ref(self.ctx.ref(), self.vector)
 
     def __del__(self):
-        if self.vector is not None and self.ctx.ref() is not None:
+        if self.vector is not None and self.ctx.ref() is not None and Z3_ast_vector_dec_ref is not None:
             Z3_ast_vector_dec_ref(self.ctx.ref(), self.vector)
 
     def __len__(self):
@@ -6015,7 +6016,7 @@ class AstMap:
         return AstMap(self.map, self.ctx)
 
     def __del__(self):
-        if self.map is not None and self.ctx.ref() is not None:
+        if self.map is not None and self.ctx.ref() is not None and Z3_ast_map_dec_ref is not None:
             Z3_ast_map_dec_ref(self.ctx.ref(), self.map)
 
     def __len__(self):
@@ -6134,7 +6135,7 @@ class FuncEntry:
         return FuncEntry(self.entry, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_func_entry_dec_ref is not None:
             Z3_func_entry_dec_ref(self.ctx.ref(), self.entry)
 
     def num_args(self):
@@ -6241,7 +6242,7 @@ class FuncInterp(Z3PPObject):
             Z3_func_interp_inc_ref(self.ctx.ref(), self.f)
 
     def __del__(self):
-        if self.f is not None and self.ctx.ref() is not None:
+        if self.f is not None and self.ctx.ref() is not None and Z3_func_interp_dec_ref is not None:
             Z3_func_interp_dec_ref(self.ctx.ref(), self.f)
 
     def else_value(self):
@@ -6359,7 +6360,7 @@ class ModelRef(Z3PPObject):
         Z3_model_inc_ref(self.ctx.ref(), self.model)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_model_dec_ref is not None:
             Z3_model_dec_ref(self.ctx.ref(), self.model)
 
     def __repr__(self):
@@ -6688,7 +6689,7 @@ class Statistics:
         return Statistics(self.stats, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_stats_dec_ref is not None:
             Z3_stats_dec_ref(self.ctx.ref(), self.stats)
 
     def __repr__(self):
@@ -6881,7 +6882,7 @@ class Solver(Z3PPObject):
             self.set("smtlib2_log", logFile)
 
     def __del__(self):
-        if self.solver is not None and self.ctx.ref() is not None:
+        if self.solver is not None and self.ctx.ref() is not None and Z3_solver_dec_ref is not None:
             Z3_solver_dec_ref(self.ctx.ref(), self.solver)
 
     def set(self, *args, **keys):
@@ -7404,7 +7405,7 @@ class Fixedpoint(Z3PPObject):
         return FixedPoint(self.fixedpoint, self.ctx)
 
     def __del__(self):
-        if self.fixedpoint is not None and self.ctx.ref() is not None:
+        if self.fixedpoint is not None and self.ctx.ref() is not None and Z3_fixedpoint_dec_ref is not None:
             Z3_fixedpoint_dec_ref(self.ctx.ref(), self.fixedpoint)
 
     def set(self, *args, **keys):
@@ -7827,7 +7828,7 @@ class Optimize(Z3PPObject):
         return Optimize(self.optimize, self.ctx)
 
     def __del__(self):
-        if self.optimize is not None and self.ctx.ref() is not None:
+        if self.optimize is not None and self.ctx.ref() is not None and Z3_optimize_dec_ref is not None:
             Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
         if self._on_models_id is not None:
             del _on_models[self._on_models_id]
@@ -8052,7 +8053,7 @@ class ApplyResult(Z3PPObject):
         return ApplyResult(self.result, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_apply_result_dec_ref is not None:
             Z3_apply_result_dec_ref(self.ctx.ref(), self.result)
 
     def __len__(self):
@@ -8157,7 +8158,7 @@ class Tactic:
         return Tactic(self.tactic, self.ctx)
 
     def __del__(self):
-        if self.tactic is not None and self.ctx.ref() is not None:
+        if self.tactic is not None and self.ctx.ref() is not None and Z3_tactic_dec_ref is not None:
             Z3_tactic_dec_ref(self.ctx.ref(), self.tactic)
 
     def solver(self, logFile=None):
@@ -8468,7 +8469,7 @@ class Probe:
         return Probe(self.probe, self.ctx)
 
     def __del__(self):
-        if self.probe is not None and self.ctx.ref() is not None:
+        if self.probe is not None and self.ctx.ref() is not None and Z3_probe_dec_ref is not None:
             Z3_probe_dec_ref(self.ctx.ref(), self.probe)
 
     def __lt__(self, other):
