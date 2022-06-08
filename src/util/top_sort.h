@@ -44,7 +44,7 @@ class top_sort {
 
 
     bool contains_partition(T* f) const {
-        return m_partition_id.get(f->get_small_id()) != UINT_MAX;
+        return m_partition_id.get(f->get_small_id(), UINT_MAX) != UINT_MAX;
     }
 
 
