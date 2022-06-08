@@ -183,22 +183,21 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
         }
     }
     
-    if (!th && v == null_theory_var)
+    if (v == null_theory_var && !th)
+        return;
+
+    if (v == null_theory_var && th->get_family_id() != bv.get_fid())
         return;
 
     if (v == null_theory_var) {
-        if (th->get_family_id() == bv.get_fid()) {
-            // it is not a registered boolean value but it is a bitvector
-            auto registered_bv = ((theory_bv*)th)->get_bv_with_theory(var, get_family_id());
-            if (!registered_bv.first)
-                // there is no registered bv associated with the bit
-                return;
-            original_enode = registered_bv.first;
-            original_bit = registered_bv.second;
-            v = original_enode->get_th_var(get_family_id());
-        }
-        else
+        // it is not a registered boolean value but it is a bitvector
+        auto registered_bv = ((theory_bv*)th)->get_bv_with_theory(var, get_family_id());
+        if (!registered_bv.first)
+            // there is no registered bv associated with the bit
             return;
+        original_enode = registered_bv.first;
+        original_bit = registered_bv.second;
+        v = original_enode->get_th_var(get_family_id());
     }
 
     // call the registered callback
@@ -228,10 +227,8 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
         // expression was set to a bit-vector
         auto th_bv = (theory_bv*)ctx.get_theory(bv.get_fid());
         bool_var new_var = th_bv->get_first_unassigned(new_bit, new_enode);
-
-        if (new_var != null_bool_var) {
+        if (new_var != null_bool_var) 
             var = new_var;
-        }
     }
 
     // in case the callback did not decide on a truth value -> let Z3 decide
