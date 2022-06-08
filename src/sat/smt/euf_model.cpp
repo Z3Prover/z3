@@ -135,6 +135,7 @@ namespace euf {
                       for (auto* n : *v)
                           tout << "   " << bpp(n) << "\n";
                   }
+              }
               );
     }
 
