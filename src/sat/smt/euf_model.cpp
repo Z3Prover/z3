@@ -128,10 +128,11 @@ namespace euf {
             n->unmark1();
         
         TRACE("model",
-              for (auto const& d : deps.deps()) 
-                  if (d.m_value) {
-                      tout << bpp(d.m_key) << ":\n";
-                      for (auto* n : *d.m_value)
+              for (auto * t : deps.deps()) {
+                  auto* v = deps.get_dep(t);
+                  if (v) {
+                      tout << bpp(t) << ":\n";
+                      for (auto* n : *v)
                           tout << "   " << bpp(n) << "\n";
                   }
               );

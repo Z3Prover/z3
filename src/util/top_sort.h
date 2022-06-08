@@ -41,7 +41,6 @@ class top_sort {
 
     static T_set*  add_tag(T_set* t) { return TAG(T_set*, t, 1); }
     static T_set*  del_tag(T_set* t) { return UNTAG(T_set*, t); }
-    T_set*         get_dep(T* t) const { return del_tag(m_deps.get(t->get_small_id())); }
 
 
     bool contains_partition(T* f) const {
@@ -108,6 +107,8 @@ public:
         m_dep_keys.push_back(t);
     }
 
+    ptr_vector<T> const& deps() { return m_dep_keys; }
+
     void add(T* t, T* s) {
         T_set* tb = get_dep(t); 
         if (!tb) {
@@ -124,6 +125,9 @@ public:
     bool find(T* t, unsigned& p) const { p = m_partition_id.get(t->get_small_id(), UINT_MAX); return p != UINT_MAX; }
 
     bool contains_dep(T* t) const { return m_deps.get(t->get_small_id(), nullptr) != nullptr; }
+
+    T_set*         get_dep(T* t) const { return del_tag(m_deps.get(t->get_small_id(), nullptr)); }
+
 
     bool is_singleton_partition(T* f) const {
         unsigned pid = m_partition_id(f);
