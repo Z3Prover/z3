@@ -811,6 +811,7 @@ public:
         m_subsume_post.reset();
         m_subsume_post.append(expr);
     }
+    void reset_subsume_post() { m_subsume_post.reset(); }
     void set_subsume_bindings(app_ref_vector& vars) {
         m_subsume_bindings.reset();
         m_subsume_bindings.append(vars);
@@ -853,6 +854,7 @@ public:
         m_conjecture_pat.reset();
         m_conjecture_pat.append(pattern);
     }
+    void reset_conjecture_pattern() { m_conjecture_pat.reset() ; }
     bool is_subsume() const { return m_is_subsume; }
     void set_subsume(bool v = true) { m_is_subsume = v; }
     bool is_may_pob() const { return is_subsume() || is_conjecture(); }
