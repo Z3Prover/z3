@@ -305,8 +305,8 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     lemma_cluster *clstr = pt.clstr_match(lemma);
     if (clstr && clstr->get_size() <= MAX_CLUSTER_SIZE) {
         TRACE("cluster_stats_verb", {
-            tout << "Trying to add lemma " << lemma->get_cube()
-                 << " to an existing cluster ";
+            tout << "Trying to add lemma\n" << lemma->get_cube()
+                 << " to an existing cluster\n";
             for (auto lem : clstr->get_lemmas())
                 tout << lem.get_lemma()->get_cube() << "\n";
         });
