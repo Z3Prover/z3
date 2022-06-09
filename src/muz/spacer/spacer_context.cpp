@@ -3685,9 +3685,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             n.get_post_simplified(pob_cube);
 
             lemma_pob = alloc(class lemma, nref, pob_cube, n.level());
-            TRACE("global", tout << " stopped local gen on pob "
-                                 << mk_pp(n.post(), m) << " with id "
-                                 << n.post()->get_id() << "\n lemma learned "
+            TRACE("global", tout << "Disabled local gen on pob (id: "
+                                 << n.post()->get_id() << ")\n"
+                                 << mk_pp(n.post(), m) << "\n"
+                                 << "Lemma:\n"
                                  << mk_and(lemma_pob->get_cube()) << "\n";);
             if (m_global_gen) (*m_global_gen)(lemma_pob);
             if (m_expand_bnd_gen) (*m_expand_bnd_gen)(lemma_pob);
@@ -3709,14 +3710,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                    << (is_infty_level(lemma_pob->level()) ? "(inductive)" : "")
                    << mk_pp(lemma_pob->get_expr(), m) << "\n";);
 
-        bool v = n.pt().add_lemma(lemma_pob.get());
-        if (v) {
+        bool is_new = n.pt().add_lemma(lemma_pob.get());
+        if (is_new) {
             if (m_global) m_lmma_cluster->cluster(lemma_pob);
             m_stats.m_num_lemmas++;
         }
 
         // Optionally update the node to be the negation of the lemma
-        if (v && m_use_lemma_as_pob) {
+        if (is_new && m_use_lemma_as_pob) {
             expr_ref c(m);
             c = mk_and(lemma_pob->get_cube());
             // check that the post condition is different
