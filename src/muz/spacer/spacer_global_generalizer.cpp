@@ -519,14 +519,14 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
     expr_ref_vector conj(m);
     bool is_filtered = filter_out_lit(fml_vec, lit, conj);
     if (!is_filtered) {
-      // -- try using the corresponding lemma instead
-      conj.reset();
-      n_post = mk_and(lemma->get_cube());
-      normalize_order(n_post, n_post);
-      fml_vec.reset();
-      fml_vec.push_back(n_post);
-      flatten_and(fml_vec);
-      is_filtered = filter_out_lit(fml_vec, lit, conj);
+        // -- try using the corresponding lemma instead
+        conj.reset();
+        n_post = mk_and(lemma->get_cube());
+        normalize_order(n_post, n_post);
+        fml_vec.reset();
+        fml_vec.push_back(n_post);
+        flatten_and(fml_vec);
+        is_filtered = filter_out_lit(fml_vec, lit, conj);
     }
 
     SASSERT(0 < gas && gas < UINT_MAX);
