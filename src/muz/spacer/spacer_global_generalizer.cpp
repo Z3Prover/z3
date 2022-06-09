@@ -691,27 +691,39 @@ pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
 pob *lemma_global_generalizer::mk_subsume_pob(pob &n) {
     if (n.get_subsume_pob().empty() || n.get_gas() <= 0) return nullptr;
 
+    pob *root = n.parent();
+    while (root->parent()) root = root->parent();
+
     expr_ref post = mk_and(n.get_subsume_pob());
-    pob *f = n.pt().find_pob(n.parent(), post);
-    if (f && f->is_in_queue()) return nullptr;
+    pob *f = n.pt().find_pob(root, post);
+    if (f && f->is_in_queue()) {
+        n.reset_subsume_post();
+        return nullptr;
+    }
 
     auto level = n.get_may_pob_lvl();
-    f = n.pt().mk_pob(n.parent(), level, n.depth(), post,
-                      n.get_subsume_bindings());
+    f = n.pt().mk_pob(root, level, n.depth(), post, n.get_subsume_bindings());
     f->set_subsume();
+
+    n.reset_subsume_post();
     return f;
 }
 
 pob *lemma_global_generalizer::mk_conjecture_pob(pob &n) {
     if (n.get_conjecture_pattern().empty() || n.get_gas() <= 0) return nullptr;
 
+    pob *root = n.parent();
+    while (root->parent()) root = root->parent();
+
     expr_ref post = mk_and(n.get_conjecture_pattern());
-    pob *f = n.pt().find_pob(n.parent(), post);
+    pob *f = n.pt().find_pob(root, post);
     if (f && f->is_in_queue()) return nullptr;
 
+
     auto level = n.get_may_pob_lvl();
-    f = n.pt().mk_pob(n.parent(), level, n.depth(), post, {m});
+    f = n.pt().mk_pob(root, level, n.depth(), post, {m});
     f->set_conjecture();
+    n.reset_conjecture_pattern();
     return f;
 }
 
