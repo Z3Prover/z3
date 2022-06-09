@@ -62,10 +62,10 @@ namespace sat {
 
     class drat {
         struct stats {
-            unsigned m_num_drup { 0 };
-            unsigned m_num_drat { 0 };
-            unsigned m_num_add { 0 };
-            unsigned m_num_del { 0 };
+            unsigned m_num_drup = 0;
+            unsigned m_num_drat = 0;
+            unsigned m_num_add = 0;
+            unsigned m_num_del = 0;
         };
         struct watched_clause {
             clause* m_clause;
@@ -77,16 +77,19 @@ namespace sat {
         typedef svector<unsigned> watch;
         solver& s;
         clause_allocator        m_alloc;
-        std::ostream*           m_out;
-        std::ostream*           m_bout;
-        ptr_vector<clause>      m_proof;
-        svector<status>         m_status;        
+        std::ostream*           m_out = nullptr;
+        std::ostream*           m_bout = nullptr;
+        svector<std::pair<clause&, status>> m_proof;
         literal_vector          m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
         vector<std::string>     m_theory;
-        bool                    m_inconsistent;
-        bool                    m_check_unsat, m_check_sat, m_check, m_activity;
+        bool                    m_inconsistent = false;
+        bool                    m_check_unsat = false;
+        bool                    m_check_sat = false;
+        bool                    m_check = false;
+        bool                    m_activity = false;
+        bool                    m_trim = false;
         stats                   m_stats;
 
         void dump_activity();
@@ -114,6 +117,10 @@ namespace sat {
         void display(std::ostream& out) const;
         void validate_propagation() const;
         bool match(unsigned n, literal const* lits, clause const& c) const;
+
+        clause& mk_clause(clause& c);
+        clause& mk_clause(unsigned n, literal const* lits, bool is_learned);
+
 
     public:
 
