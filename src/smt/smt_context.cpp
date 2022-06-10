@@ -3743,7 +3743,7 @@ namespace smt {
         if (status == l_false) {
             return false;
         }
-        if (status == l_true && !m_qmanager->has_quantifiers() && !m_has_lambda) {
+        if (status == l_true && !m_qmanager->has_quantifiers() && m_lambdas.empty()) {
             return false;
         }
         if (status == l_true && m_qmanager->has_quantifiers()) {
@@ -3766,7 +3766,7 @@ namespace smt {
                 break;
             }
         }
-        if (status == l_true && m_has_lambda) {
+        if (status == l_true && !m_lambdas.empty()) {
             m_last_search_failure = LAMBDAS;
             status = l_undef;
             return false;
@@ -4010,7 +4010,7 @@ namespace smt {
         TRACE("final_check_step", tout << "RESULT final_check: " << result << "\n";);
         if (result == FC_GIVEUP && f != OK)
             m_last_search_failure = f;
-        if (result == FC_DONE && m_has_lambda) {
+        if (result == FC_DONE && !m_lambdas.empty()) {
             m_last_search_failure = LAMBDAS;
             result = FC_GIVEUP;
         }

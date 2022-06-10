@@ -773,7 +773,7 @@ namespace smt {
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
 
-        bool m_has_lambda = false;
+        obj_hashtable<quantifier> m_lambdas, m_non_lambdas;
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
@@ -783,6 +783,9 @@ namespace smt {
         friend class set_enode_flag_trail;
 
     public:
+
+        void add_non_lambda(quantifier* q);
+        
         void set_enode_flag(bool_var v, bool is_new_var);
 
     protected:

@@ -606,8 +606,21 @@ namespace smt {
         bool_var bv = get_bool_var(fa);
         assign(literal(bv, false), nullptr);
         mark_as_relevant(bv);
-        push_trail(value_trail<bool>(m_has_lambda));
-        m_has_lambda = true;
+        if (m_non_lambdas.contains(q))
+            return;
+        push_trail(insert_obj_trail<quantifier>(m_lambdas, q));
+        m_lambdas.insert(q);
+    }
+
+    void context::add_non_lambda(quantifier* q) {
+        if (m_non_lambdas.contains(q))
+            return;
+        m_non_lambdas.insert(q);
+        push_trail(insert_obj_trail<quantifier>(m_lambdas, q));
+        if (m_lambdas.contains(q)) {
+            m_lambdas.remove(q);
+            push_trail(remove_obj_trail<quantifier>(m_lambdas, q));
+        }
     }
 
     /**

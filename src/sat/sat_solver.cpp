@@ -600,9 +600,8 @@ namespace sat {
         else {
             m_clauses.push_back(r);
         }
-        if (m_config.m_drat) {
+        if (m_config.m_drat) 
             m_drat.add(*r, st);
-        }
         for (literal l : *r) {
             m_touched[l.var()] = m_touch_index;
         }

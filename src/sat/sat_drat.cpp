@@ -214,7 +214,10 @@ namespace sat {
             return;
         
         if (m_check_unsat) 
-            assign_propagate(l);        
+            assign_propagate(l);
+
+        if (m_trim)
+            append(mk_clause(1, &l, st.is_redundant()), st);
 
         m_units.push_back(l);
     }
@@ -307,11 +310,15 @@ namespace sat {
                 }
             }
         }
+
+        if (!m_check_unsat)
+            return;
+
         switch (num_watch) {
         case 0:
             m_inconsistent = true;
             break;
-        case 1:
+        case 1:            
             assign_propagate(l1);
             break;
         default: {
@@ -553,12 +560,10 @@ namespace sat {
         for (unsigned i = m_proof.size(); i-- > 0; ) {
             auto const & [c, st] = m_proof[i];
             if (match(n, lits, c)) {
-                if (st.is_deleted()) {
+                if (st.is_deleted()) 
                     num_del++;
-                }
-                else {
+                else 
                     num_add++;
-                }
             }
         }
         return num_add > num_del;
@@ -596,8 +601,8 @@ namespace sat {
                 continue;
             unsigned num_true = 0;
             unsigned num_undef = 0;
-            for (unsigned j = 0; j < c.size(); ++j) {
-                switch (value(c[j])) {
+            for (literal lit : c) {
+                switch (value(lit)) {
                 case l_true: num_true++; break;
                 case l_undef: num_undef++; break;
                 default: break;
@@ -651,6 +656,8 @@ namespace sat {
     }
 
     void drat::assign_propagate(literal l) {
+        if (!m_check_unsat)
+            return;
         unsigned num_units = m_units.size();
         assign(l);
         for (unsigned i = num_units; !m_inconsistent && i < m_units.size(); ++i) 

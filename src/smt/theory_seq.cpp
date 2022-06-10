@@ -1455,7 +1455,9 @@ bool theory_seq::internalize_term(app* term) {
     if (ctx.e_internalized(term)) {
         mk_var(ctx.get_enode(term));
         return true;
-    }    
+    }
+
+    suppress_lambda(term);
 
     if (m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
@@ -1489,6 +1491,23 @@ bool theory_seq::internalize_term(app* term) {
     
     return true;
 }
+
+void theory_seq::suppress_lambda(app* term) {
+    if (!m_util.str.is_map(term) && !m_util.str.is_mapi(term) &&
+        !m_util.str.is_foldl(term) && !m_util.str.is_foldli(term))
+        return;
+    
+    expr* fn = to_app(term)->get_arg(0);
+    quantifier* q = nullptr;
+    if (is_lambda(fn)) 
+        q = to_quantifier(fn);
+    else if (is_app(fn))
+        q = m.is_lambda_def(to_app(fn)->get_decl());
+
+    if (q) 
+        ctx.add_non_lambda(q);
+}
+
 
 void theory_seq::add_length(expr* l) {
     expr* e = nullptr;
