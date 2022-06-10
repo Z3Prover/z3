@@ -73,6 +73,7 @@ class simplex_arith_kernel_plugin : public spacer_arith_kernel::plugin {
         out.reset(kern.num_vars());
         vector<rational> vec;
         for (auto row : kern.get_rows()) {
+            vec.reset();
             vec.reserve(kern.num_vars(), rational(0));
             for (auto &[coeff, v] : kern.get_row(row)) {
                 vec[v] = rational(coeff);
