@@ -68,10 +68,8 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_open(true), m_use_farkas(true), m_in_queue(false), m_is_conjecture(false),
       m_enable_local_gen(true), m_enable_concretize(false), m_is_subsume(false),
       m_enable_expand_bnd_gen(false), m_weakness(0), m_blocked_lvl(0),
-      m_conjecture_pat(m_pt.get_ast_manager()),
       m_concretize_pat(m_pt.get_ast_manager()),
-      m_subsume_post(m_pt.get_ast_manager()),
-      m_subsume_bindings(m_pt.get_ast_manager()), m_gas(0) {
+      m_gas(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -110,9 +108,18 @@ void pob::inherit(pob const &p) {
     m_depth = p.m_depth;
     m_open = p.m_open;
     m_use_farkas = p.m_use_farkas;
+
+    m_is_conjecture = p.m_is_conjecture;
+    m_enable_local_gen = p.m_enable_local_gen;
+    m_enable_concretize = p.m_enable_concretize;
+    m_is_subsume = p.m_is_subsume;
+    m_enable_expand_bnd_gen = p.m_enable_expand_bnd_gen;
+
     m_weakness = p.m_weakness;
 
     m_derivation = nullptr;
+
+    m_gas = p.m_gas;
 }
 
 void pob::close () {

@@ -777,49 +777,37 @@ class pob {
     // clang-format on
     // clang-format off
 
-    // pattern with which conjecture was created
-    expr_ref_vector m_conjecture_pat;
-
     // pattern identified for one of its lemmas
     expr_ref m_concretize_pat;
 
-    // a post that subsumes all lemmas that block this pob
-    expr_ref_vector m_subsume_post;
-
-    // bindings for subsume post
-    app_ref_vector m_subsume_bindings;
-
-    // level at which may pob is to be added
-    unsigned m_may_lvl;
-
    // gas decides how much time is spent in blocking this (may) pob
     unsigned m_gas;
+
+    // additional data used by global (and other) generalizations
+    scoped_ptr<pob> m_data;
 public:
     pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth = 0,
         bool add_to_parent = true);
+
+    // no copy constructor
+    pob(const pob&) = delete;
+    // no move constructor
+    pob(pob &&) = delete;
 
     ~pob() {
         if (m_parent) { m_parent->erase_child(*this); }
     }
 
+
+    void set_data(pob* v) { m_data = v; }
+    void reset_data() { set_data(nullptr); }
+    pob* get_data() { return m_data.get(); }
+    bool has_data() { return m_data; }
+
     // TBD: move into constructor and make private
     void set_post(expr *post, app_ref_vector const &binding);
     void set_post(expr *post);
 
-    void set_subsume_pob(const expr_ref_vector &expr) {
-        m_may_lvl = 0;
-        m_subsume_post.reset();
-        m_subsume_post.append(expr);
-    }
-    void reset_subsume_post() { m_subsume_post.reset(); }
-    void set_subsume_bindings(app_ref_vector& vars) {
-        m_subsume_bindings.reset();
-        m_subsume_bindings.append(vars);
-    }
-    void set_may_pob_lvl(unsigned l) { m_may_lvl = l; }
-    unsigned get_may_pob_lvl() { return m_may_lvl; }
-    expr_ref_vector const &get_subsume_pob() const { return m_subsume_post; }
-    app_ref_vector const &get_subsume_bindings() const { return m_subsume_bindings; }
     unsigned weakness() { return m_weakness; }
     void bump_weakness() { m_weakness++; }
     void reset_weakness() { m_weakness = 0; }
@@ -849,12 +837,6 @@ public:
     void set_expand_bnd(bool v = true) { m_enable_expand_bnd_gen = v; }
     void set_concretize_pattern(const expr_ref &pattern) { m_concretize_pat = pattern; }
     const expr_ref &get_concretize_pattern() const { return m_concretize_pat; }
-    const expr_ref_vector &get_conjecture_pattern() const { return m_conjecture_pat; }
-    void set_conjecture_pattern(const expr_ref_vector &pattern) {
-        m_conjecture_pat.reset();
-        m_conjecture_pat.append(pattern);
-    }
-    void reset_conjecture_pattern() { m_conjecture_pat.reset() ; }
     bool is_subsume() const { return m_is_subsume; }
     void set_subsume(bool v = true) { m_is_subsume = v; }
     bool is_may_pob() const { return is_subsume() || is_conjecture(); }

@@ -548,14 +548,23 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
         return false;
     }
 
-    // There is enough gas to conjecture on pob
-    n->set_conjecture_pattern(conj);
+    pob *root = n->parent();
+    while (root->parent()) root = root->parent();
+    scoped_ptr<pob> new_pob = alloc(pob, root, n->pt(), lvl, n->depth(), false);
+    if (!new_pob) return false;
+
+    new_pob->set_post(mk_and(conj));
+    new_pob->set_conjecture();
+
+    // -- register with current pob
+    n->set_data(new_pob.detach());
+
+    // -- update properties of the current pob itself
     n->set_expand_bnd();
-    n->set_may_pob_lvl(lvl);
     n->set_gas(gas);
     n->disable_local_gen();
-    TRACE("global", tout << "set conjecture " << conj << " at level "
-                         << n->get_may_pob_lvl() << "\n";);
+    TRACE("global", tout << "set conjecture " << n->get_data()->post()
+                         << " at level " << n->get_data()->level() << "\n";);
     return true;
 }
 
@@ -635,26 +644,34 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
 
     if (!m_do_subsume) return;
     // -- new pob that is blocked by generalized lemma
-    expr_ref_vector new_pob(m);
+    expr_ref_vector new_post(m);
     // -- bindings for free variables of new_pob
     // -- subsumer might introduce extra free variables
     app_ref_vector bindings(lemma->get_bindings());
 
-    if (m_subsumer.subsume(lc, new_pob, bindings)) {
-        pob->set_subsume_pob(new_pob);
-        pob->set_subsume_bindings(bindings);
-        pob->set_may_pob_lvl(cluster->get_min_lvl());
+    if (m_subsumer.subsume(lc, new_post, bindings)) {
+        class pob *root = pob->parent();
+        while (root->parent()) root = root->parent();
+        scoped_ptr<class pob> new_pob =
+            alloc(class pob, root, pob->pt(), cluster->get_min_lvl(),
+                  pob->depth(), false);
+        if (!new_pob) return;
+
+        new_pob->set_post(mk_and(new_post), bindings);
+        new_pob->set_subsume();
+        pob->set_data(new_pob.detach());
+
+        // -- update properties of the pob itself
         pob->set_gas(cluster->get_pob_gas() + 1);
         pob->set_expand_bnd();
-        TRACE("global", tout << "Create subsume pob at level "
-                             << cluster->get_min_lvl() << "\n"
-                             << mk_and(new_pob) << "\n";);
-        // -- stop local generalization
-        // -- maybe not the best choice in general. Helped with one instance
-        // on
-        // -- our benchmarks
+        // Stop local generalization. Perhaps not the best choice in general.
+        // Helped with one instance on our benchmarks
         pob->disable_local_gen();
         cluster->dec_gas();
+
+        TRACE("global", tout << "Create subsume pob at level "
+                             << cluster->get_min_lvl() << "\n"
+                             << mk_and(new_post) << "\n";);
     }
 }
 
@@ -689,41 +706,41 @@ pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
 }
 
 pob *lemma_global_generalizer::mk_subsume_pob(pob &n) {
-    if (n.get_subsume_pob().empty() || n.get_gas() <= 0) return nullptr;
+    if (!(n.get_gas() >= 0 && n.has_data() && n.get_data()->is_subsume()))
+        return nullptr;
 
-    pob *root = n.parent();
-    while (root->parent()) root = root->parent();
+    pob *data = n.get_data();
 
-    expr_ref post = mk_and(n.get_subsume_pob());
-    pob *f = n.pt().find_pob(root, post);
+    pob *f = n.pt().find_pob(data->parent(), data->post());
     if (f && f->is_in_queue()) {
-        n.reset_subsume_post();
+        n.reset_data();
         return nullptr;
     }
 
-    auto level = n.get_may_pob_lvl();
-    f = n.pt().mk_pob(root, level, n.depth(), post, n.get_subsume_bindings());
+    f = n.pt().mk_pob(data->parent(), data->level(), data->depth(),
+                      data->post(), n.get_binding());
     f->set_subsume();
+    f->inherit(*data);
 
-    n.reset_subsume_post();
+    n.reset_data();
     return f;
 }
 
 pob *lemma_global_generalizer::mk_conjecture_pob(pob &n) {
-    if (n.get_conjecture_pattern().empty() || n.get_gas() <= 0) return nullptr;
+    if (!(n.has_data() && n.get_data()->is_conjecture() && n.get_gas() > 0))
+        return nullptr;
 
-    pob *root = n.parent();
-    while (root->parent()) root = root->parent();
-
-    expr_ref post = mk_and(n.get_conjecture_pattern());
-    pob *f = n.pt().find_pob(root, post);
+    pob *data = n.get_data();
+    pob *f = n.pt().find_pob(data->parent(), data->post());
     if (f && f->is_in_queue()) return nullptr;
 
+    f = n.pt().mk_pob(data->parent(), data->level(), data->depth(),
+                      data->post(), {m});
 
-    auto level = n.get_may_pob_lvl();
-    f = n.pt().mk_pob(root, level, n.depth(), post, {m});
-    f->set_conjecture();
-    n.reset_conjecture_pattern();
+    // inherit all metadata from new_pob
+    f->inherit(*data);
+
+    n.reset_data();
     return f;
 }
 
