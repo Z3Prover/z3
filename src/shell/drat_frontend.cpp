@@ -77,11 +77,12 @@ class smt_checker {
         auto const& units = m_drat.units();
 #if 0
         for (unsigned i = m_units.size(); i < units.size(); ++i) {
-            sat::literal lit = units[i];            
+            sat::literal lit = units[i].first;            
             m_lemma_solver->assert_expr(lit2expr(lit));
         }
 #endif
-        m_units.append(units.size() - m_units.size(), units.data() + m_units.size());
+        for (unsigned i = m_units.size(); i < units.size(); ++i)
+            m_units.push_back(units[i].first);
     }
 
     void check_assertion_redundant(sat::literal_vector const& input) {

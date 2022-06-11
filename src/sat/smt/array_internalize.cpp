@@ -247,6 +247,14 @@ namespace array {
         return false;
     }
 
+    bool solver::is_beta_redex(euf::enode* p, euf::enode* n) const {
+        if (a.is_select(p->get_expr()))
+            return p->get_arg(0)->get_root() == n->get_root();
+        if (a.is_map(p->get_expr()))
+            return true;
+        return false;
+    }
+
     func_decl_ref_vector const& solver::sort2diff(sort* s) {
         func_decl_ref_vector* result = nullptr;
         if (m_sort2diff.find(s, result))

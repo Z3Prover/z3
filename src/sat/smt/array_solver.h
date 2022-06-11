@@ -299,6 +299,7 @@ namespace array {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override;
+        bool is_beta_redex(euf::enode* p, euf::enode* n) const override;
         bool enable_self_propagate() const override { return true; }
         void relevant_eh(euf::enode* n) override;
         bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_array(n->get_sort()); }

@@ -80,7 +80,7 @@ namespace sat {
         std::ostream*           m_out = nullptr;
         std::ostream*           m_bout = nullptr;
         svector<std::pair<clause&, status>> m_proof;
-        literal_vector          m_units;
+        svector<std::pair<literal, clause*>> m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
         vector<std::string>     m_theory;
@@ -172,9 +172,12 @@ namespace sat {
         void collect_statistics(statistics& st) const;
 
         bool inconsistent() const { return m_inconsistent; }
-        literal_vector const& units() { return m_units; }
+        svector<std::pair<literal, clause*>> const& units() { return m_units; }
         bool is_drup(unsigned n, literal const* c, literal_vector& units);
         solver& get_solver() { return s; }
+
+        svector<std::pair<clause&, status>> trim();
+        
     };
 
 }

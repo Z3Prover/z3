@@ -209,17 +209,17 @@ namespace sat {
         IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
         if (st.is_redundant() && st.is_sat()) 
             verify(1, &l);
-        
+
+        if (m_trim)
+            m_proof.push_back({mk_clause(1, &l, st.is_redundant()), st});
+
         if (st.is_deleted()) 
             return;
         
-        if (m_check_unsat) 
+        if (m_check_unsat) {
             assign_propagate(l);
-
-        if (m_trim)
-            append(mk_clause(1, &l, st.is_redundant()), st);
-
-        m_units.push_back(l);
+            m_units.push_back({l, nullptr});
+        }
     }
 
     void drat::append(literal l1, literal l2, status st) {
@@ -230,8 +230,8 @@ namespace sat {
 
         IF_VERBOSE(20, trace(verbose_stream(), 2, lits, st););
         if (st.is_deleted()) {
-            // noop
-            // don't record binary as deleted.
+            if (m_trim)
+                m_proof.push_back({mk_clause(2, lits, true), st});
         }
         else {
             if (st.is_redundant() && st.is_sat()) 
@@ -367,9 +367,10 @@ namespace sat {
         }
 
         for (unsigned i = num_units; i < m_units.size(); ++i) 
-            m_assignment[m_units[i].var()] = l_undef;
-        
-        units.append(m_units.size() - num_units, m_units.data() + num_units);
+            m_assignment[m_units[i].first.var()] = l_undef;
+
+        for (unsigned i = num_units; i < m_units.size(); ++i)
+            units.push_back(m_units[i].first);
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
         m_inconsistent = false;
@@ -387,63 +388,12 @@ namespace sat {
         
         DEBUG_CODE(if (!m_inconsistent) validate_propagation(););        
         DEBUG_CODE(
-            for (literal u : m_units) 
+            for (auto const& [u,c] : m_units) 
                 SASSERT(m_assignment[u.var()] != l_undef);
             );
 
-#if 0
-        if (!m_inconsistent) {
-            literal_vector lits(n, c);
-            IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
-            for (unsigned v = 0; v < m_assignment.size(); ++v) {
-                lbool val = m_assignment[v];
-                if (val != l_undef) {
-                    IF_VERBOSE(0, verbose_stream() << literal(v, false) << " |-> " << val << "\n");
-                }
-            }
-            for (clause* cp : s.m_clauses) {
-                clause& cl = *cp;
-                bool found = false;
-                for (literal l : cl) {
-                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
-                }
-            }
-            for (clause* cp : s.m_learned) {
-                clause& cl = *cp;
-                bool found = false;
-                for (literal l : cl) {
-                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
-                }
-            }
-            svector<sat::solver::bin_clause> bin;
-            s.collect_bin_clauses(bin, true);
-            for (auto& b : bin) {
-                bool found = false;
-                if (m_assignment[b.first.var()] != (b.first.sign() ? l_true : l_false)) found = true;
-                if (m_assignment[b.second.var()] != (b.second.sign() ? l_true : l_false)) found = true;
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Bin clause is false under assignment: " << b.first << " " << b.second << "\n");
-                }
-            }
-            IF_VERBOSE(0, s.display(verbose_stream()));
-            exit(0);
-        }
-#endif
-
         for (unsigned i = num_units; i < m_units.size(); ++i) 
-            m_assignment[m_units[i].var()] = l_undef;
+            m_assignment[m_units[i].first.var()] = l_undef;
         
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
@@ -540,7 +490,10 @@ namespace sat {
         }
         switch (j.get_kind()) {
         case justification::NONE:
-            return m_units.contains(c);
+            for (auto const& [u, j] : m_units)
+                if (u == c)
+                    return true;
+            return false;
         case justification::BINARY:
             return contains(c, j.get_literal());
         case justification::TERNARY:
@@ -588,7 +541,11 @@ namespace sat {
     }
 
     void drat::display(std::ostream& out) const {
-        out << "units: " << m_units << "\n";
+        
+        out << "units: ";
+        for (auto const& [u, c] : m_units)
+            out << u << " ";
+        out << "\n";
         for (unsigned i = 0; i < m_assignment.size(); ++i) {
             lbool v = value(literal(i, false));
             if (v != l_undef)
@@ -650,7 +607,7 @@ namespace sat {
             break;
         case l_undef:
             m_assignment.setx(l.var(), new_value, l_undef);
-            m_units.push_back(l);
+            m_units.push_back({l, nullptr});
             break;
         }
     }
@@ -661,7 +618,7 @@ namespace sat {
         unsigned num_units = m_units.size();
         assign(l);
         for (unsigned i = num_units; !m_inconsistent && i < m_units.size(); ++i) 
-            propagate(m_units[i]);        
+            propagate(m_units[i].first);        
     }
 
     void drat::propagate(literal l) {
@@ -843,6 +800,21 @@ namespace sat {
         if (m_check) append(mk_clause(c.size(), c.begin(), true), status::deleted());        
     }
 
+    //
+    // placeholder for trim function.
+    // 1. forward pass replaying propositional proof, populate trail stack.
+    // 2. backward pass to prune.
+    // 
+    svector<std::pair<clause&, status>> drat::trim() {
+        SASSERT(m_units.empty());
+        svector<std::pair<clause&, status>> proof;
+        for (auto const& [c, st] : m_proof)
+            if (!st.is_deleted())
+                proof.push_back({c,st});
+        return proof;
+    }
+
+
     void drat::check_model(model const& m) {
     }
 
@@ -1014,4 +986,56 @@ namespace sat {
     }
 #endif
 
+
+#if 0
+        if (!m_inconsistent) {
+            literal_vector lits(n, c);
+            IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
+            for (unsigned v = 0; v < m_assignment.size(); ++v) {
+                lbool val = m_assignment[v];
+                if (val != l_undef) {
+                    IF_VERBOSE(0, verbose_stream() << literal(v, false) << " |-> " << val << "\n");
+                }
+            }
+            for (clause* cp : s.m_clauses) {
+                clause& cl = *cp;
+                bool found = false;
+                for (literal l : cl) {
+                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
+                }
+            }
+            for (clause* cp : s.m_learned) {
+                clause& cl = *cp;
+                bool found = false;
+                for (literal l : cl) {
+                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
+                }
+            }
+            svector<sat::solver::bin_clause> bin;
+            s.collect_bin_clauses(bin, true);
+            for (auto& b : bin) {
+                bool found = false;
+                if (m_assignment[b.first.var()] != (b.first.sign() ? l_true : l_false)) found = true;
+                if (m_assignment[b.second.var()] != (b.second.sign() ? l_true : l_false)) found = true;
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Bin clause is false under assignment: " << b.first << " " << b.second << "\n");
+                }
+            }
+            IF_VERBOSE(0, s.display(verbose_stream()));
+            exit(0);
+        }
+#endif
+    
 }

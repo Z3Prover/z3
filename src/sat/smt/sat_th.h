@@ -127,6 +127,13 @@ namespace euf {
         */
         virtual bool is_shared(theory_var v) const { return false; }
 
+
+        /**
+           \brief Determine if argument n of parent p is a beta redex position
+         */
+
+        virtual bool is_beta_redex(euf::enode* p, euf::enode* n) const { return false; }
+
         sat::status status() const { return sat::status::th(m_is_redundant, get_id()); }
 
     };
