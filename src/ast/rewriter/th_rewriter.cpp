@@ -37,6 +37,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
+#include "ast/for_each_expr.h"
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
@@ -60,6 +61,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     expr_substitution * m_subst = nullptr;
     unsigned long long  m_max_memory; // in bytes
     bool                m_new_subst = false;
+    expr_fast_mark1     m_visited;
+    expr_mark           m_marks;
+    bool                m_new_mark = false;
     unsigned            m_max_steps = UINT_MAX;
     bool                m_pull_cheap_ite = true;
     bool                m_flat = true;
@@ -692,10 +696,42 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return result;
     }
 
+    /**
+     * Apply substitution on pattern expressions.
+     * It happens only very rarely that this operation has an effect.
+     * To avoid expensive calls to expr_safe_replace we check with a pre-filter
+     * whether the substitution possibly could apply.
+     */
+
     void apply_subst(ptr_buffer<expr>& patterns) {
         if (!m_subst)
             return;
         if (patterns.empty())
+            return;
+        if (m_subst->sub().empty())
+            return;
+        if (m_new_mark) {
+            m_marks.reset();
+            for (auto const& [k, v] : m_subst->sub())
+                m_marks.mark(k);
+            m_new_mark = false;
+        }
+        struct has_mark {
+            expr_mark& m_marks;
+            bool found = false;
+            has_mark(expr_mark& m) : m_marks(m) {}
+            void operator()(quantifier* q) {
+                found = true;
+            }
+            void operator()(expr* e) {
+                found |= m_marks.is_marked(e);
+            }            
+        };
+        has_mark has_mark(m_marks);
+        for (expr* p : patterns)
+            quick_for_each_expr(has_mark, m_visited, p);
+        m_visited.reset();
+        if (!has_mark.found)
             return;
         if (m_new_subst) {
             m_rep.reset();
@@ -822,6 +858,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         reset();
         m_subst = s;
         m_new_subst = true;
+        m_new_mark = true;
     }
 
     void reset() {
