@@ -3737,15 +3737,12 @@ namespace smt {
 
         reset_model();
 
-        if (m_last_search_failure != OK) {
+        if (m_last_search_failure != OK) 
             return false;
-        }
-        if (status == l_false) {
+        if (status == l_false) 
             return false;
-        }
-        if (status == l_true && !m_qmanager->has_quantifiers() && m_lambdas.empty()) {
+        if (status == l_true && !m_qmanager->has_quantifiers() && !has_lambda()) 
             return false;
-        }
         if (status == l_true && m_qmanager->has_quantifiers()) {
             // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
             mk_proto_model();
@@ -3766,7 +3763,7 @@ namespace smt {
                 break;
             }
         }
-        if (status == l_true && !m_lambdas.empty()) {
+        if (status == l_true && has_lambda()) {
             m_last_search_failure = LAMBDAS;
             status = l_undef;
             return false;
@@ -4010,7 +4007,7 @@ namespace smt {
         TRACE("final_check_step", tout << "RESULT final_check: " << result << "\n";);
         if (result == FC_GIVEUP && f != OK)
             m_last_search_failure = f;
-        if (result == FC_DONE && !m_lambdas.empty()) {
+        if (result == FC_DONE && has_lambda()) {
             m_last_search_failure = LAMBDAS;
             result = FC_GIVEUP;
         }
@@ -4468,9 +4465,8 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n)) {
+            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
                 return true;
-            }
 
             // the variable is shared if the equivalence class of n
             // contains a parent application.
@@ -4482,6 +4478,8 @@ namespace smt {
                 app* p = parent->get_expr();
                 family_id fid = p->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
+                    if (is_beta_redex(parent, n))
+                        continue;
                     TRACE("is_shared", tout << enode_pp(n, *this) 
                           << "\nis shared because of:\n" 
                           << enode_pp(parent, *this) << "\n";);
@@ -4520,6 +4518,12 @@ namespace smt {
         default:
             return true;
         }
+    }
+
+    bool context::is_beta_redex(enode* p, enode* n) const {
+        family_id th_id = p->get_expr()->get_family_id();
+        theory * th = get_theory(th_id);
+        return th && th->is_beta_redex(p, n);
     }
 
     bool context::get_value(enode * n, expr_ref & value) {

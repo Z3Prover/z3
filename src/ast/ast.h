@@ -1618,7 +1618,7 @@ public:
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
     quantifier* is_lambda_def(func_decl* f);
-    
+    quantifier* is_lambda_def(app* e) { return is_lambda_def(e->get_decl()); }
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }
 

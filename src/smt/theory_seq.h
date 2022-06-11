@@ -388,7 +388,6 @@ namespace smt {
         bool internalize_atom(app* atom, bool) override;
         bool internalize_term(app*) override;
         void internalize_eq_eh(app * atom, bool_var v) override;
-        void suppress_lambda(app* term);
         void new_eq_eh(theory_var, theory_var) override;
         void new_diseq_eh(theory_var, theory_var) override;
         void assign_eh(bool_var v, bool is_true) override;
@@ -413,6 +412,7 @@ namespace smt {
         void finalize_model(model_generator & mg) override;
         void init_search_eh() override;
         void validate_model(model& mdl) override;
+        bool is_beta_redex(enode* p, enode* n) const override;
 
         void init_model(expr_ref_vector const& es);
         app* get_ite_value(expr* a);

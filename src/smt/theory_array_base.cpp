@@ -473,6 +473,15 @@ namespace smt {
         return false;
     }
 
+    bool theory_array_base::is_beta_redex(enode* p, enode* n) const {
+        if (is_select(p))
+            return p->get_arg(0)->get_root() == n->get_root();
+        if (is_map(p))
+            return true;
+        return false;
+    }
+
+
     bool theory_array_base::is_select_arg(enode* r) {
         for (enode* n : r->get_parents()) 
             if (is_select(n)) 

@@ -321,6 +321,13 @@ namespace smt {
         virtual bool is_shared(theory_var v) const {
             return false;
         }
+
+        /**
+           \brief Determine if node \c n under parent \c p is in a beta redex position.
+        */
+        virtual bool is_beta_redex(enode* p, enode* n) const {
+            return false;
+        }
     
         /**
            \brief Return true if the theory has something to propagate

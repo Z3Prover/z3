@@ -1457,8 +1457,6 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
 
-    suppress_lambda(term);
-
     if (m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
@@ -1486,26 +1484,18 @@ bool theory_seq::internalize_term(app* term) {
     mk_var(e);
     if (!ctx.relevancy()) {
         relevant_eh(term);
-    }
-
-    
+    }    
     return true;
 }
 
-void theory_seq::suppress_lambda(app* term) {
+bool theory_seq::is_beta_redex(enode* p, enode* n) const {
+    expr* term = p->get_expr();
     if (!m_util.str.is_map(term) && !m_util.str.is_mapi(term) &&
         !m_util.str.is_foldl(term) && !m_util.str.is_foldli(term))
-        return;
-    
-    expr* fn = to_app(term)->get_arg(0);
-    quantifier* q = nullptr;
-    if (is_lambda(fn)) 
-        q = to_quantifier(fn);
-    else if (is_app(fn))
-        q = m.is_lambda_def(to_app(fn)->get_decl());
-
-    if (q) 
-        ctx.add_non_lambda(q);
+        return false;
+    if (p->get_arg(0)->get_root() == n->get_root())
+        return true;
+    return false;
 }
 
 
@@ -3292,7 +3282,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         k_min *= 2;
         if (m_util.is_seq(s_min))
             k_min = std::max(m_util.str.min_length(s_min), k_min);
-        IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-length " << mk_pp(s_min, m) << " " << k_min << ")\n");
+        IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-length " << mk_bounded_pp(s_min, m, 3) << " " << k_min << ")\n");
         add_length_limit(s_min, k_min, false);
         return true;
     }
