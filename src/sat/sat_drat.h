@@ -105,9 +105,9 @@ namespace sat {
         status get_status(bool learned) const;
 
         void declare(literal l);
-        void assign(literal l);
+        void assign(literal l, clause* c);
         void propagate(literal l);
-        void assign_propagate(literal l);
+        void assign_propagate(literal l, clause* c);
         void del_watch(clause& c, literal l);
         bool is_drup(unsigned n, literal const* c);
         bool is_drat(unsigned n, literal const* c);

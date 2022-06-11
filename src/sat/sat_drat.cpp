@@ -217,7 +217,7 @@ namespace sat {
             return;
         
         if (m_check_unsat) {
-            assign_propagate(l);
+            assign_propagate(l, nullptr);
             m_units.push_back({l, nullptr});
         }
     }
@@ -249,9 +249,9 @@ namespace sat {
             if (value(l1) == l_false && value(l2) == l_false) 
                 m_inconsistent = true;            
             else if (value(l1) == l_false) 
-                assign_propagate(l2);            
+                assign_propagate(l2, &c);            
             else if (value(l2) == l_false) 
-                assign_propagate(l1);            
+                assign_propagate(l1, &c);            
         }
     }
 
@@ -319,7 +319,7 @@ namespace sat {
             m_inconsistent = true;
             break;
         case 1:            
-            assign_propagate(l1);
+            assign_propagate(l1, &c);
             break;
         default: {
             SASSERT(num_watch == 2);
@@ -363,7 +363,7 @@ namespace sat {
         unsigned num_units = m_units.size();
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {
             declare(c[i]);
-            assign_propagate(~c[i]);
+            assign_propagate(~c[i], nullptr);
         }
 
         for (unsigned i = num_units; i < m_units.size(); ++i) 
@@ -384,7 +384,7 @@ namespace sat {
             return false;
         unsigned num_units = m_units.size();
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) 
-            assign_propagate(~c[i]);
+            assign_propagate(~c[i], nullptr);
         
         DEBUG_CODE(if (!m_inconsistent) validate_propagation(););        
         DEBUG_CODE(
@@ -595,7 +595,7 @@ namespace sat {
         return val == l_undef || !l.sign() ? val : ~val;
     }
 
-    void drat::assign(literal l) {
+    void drat::assign(literal l, clause* c) {
         lbool new_value = l.sign() ? l_false : l_true;
         lbool old_value = value(l);
         //        TRACE("sat_drat", tout << "assign " << l << " := " << new_value << " from " << old_value << "\n";);
@@ -607,16 +607,16 @@ namespace sat {
             break;
         case l_undef:
             m_assignment.setx(l.var(), new_value, l_undef);
-            m_units.push_back({l, nullptr});
+            m_units.push_back({l, c});
             break;
         }
     }
 
-    void drat::assign_propagate(literal l) {
+    void drat::assign_propagate(literal l, clause* c) {
         if (!m_check_unsat)
             return;
         unsigned num_units = m_units.size();
-        assign(l);
+        assign(l, c);
         for (unsigned i = num_units; !m_inconsistent && i < m_units.size(); ++i) 
             propagate(m_units[i].first);        
     }
@@ -661,7 +661,7 @@ namespace sat {
                 else {
                     *it2 = *it;
                     it2++;
-                    assign(wc.m_l1);
+                    assign(wc.m_l1, &c);
                 }
             }
         }

@@ -974,7 +974,7 @@ namespace smt {
         /**
            \brief A monomial is 'pure' if does not have a numeric coefficient.
         */
-        bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && (to_app(m)->get_num_args() > 2 || !m_util.is_numeral(to_app(m)->get_arg(0))); }
+        bool is_pure_monomial(expr * m) const;
         bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_expr()); }
         void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
         void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
