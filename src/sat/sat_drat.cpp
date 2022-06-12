@@ -802,7 +802,7 @@ namespace sat {
 
     //
     // placeholder for trim function.
-    // 1. forward pass replaying propositional proof, populate trail stack.
+    // 1. trail contains justification for the empty clause.
     // 2. backward pass to prune.
     // 
     svector<std::pair<clause&, status>> drat::trim() {
