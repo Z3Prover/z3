@@ -8773,8 +8773,12 @@ def substitute(t, *m):
             m = m1
     if z3_debug():
         _z3_assert(is_expr(t), "Z3 expression expected")
-        _z3_assert(all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) and p[0].sort().eq(
-            p[1].sort()) for p in m]), "Z3 invalid substitution, expression pairs expected.")
+        _z3_assert(
+            all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) for p in m]),
+            "Z3 invalid substitution, expression pairs expected.")
+        _z3_assert(
+            all([p[0].sort().eq(p[1].sort()) for p in m]),
+            'Z3 invalid substitution, mismatching "from" and "to" sorts.')
     num = len(m)
     _from = (Ast * num)()
     _to = (Ast * num)()
