@@ -1,7 +1,3 @@
-// TODO(ritave): Research whether we can use type system to discern between classes
-//               from other contexts.
-//               We could use templated string literals Solver<'contextName'> but that would
-//               be cumbersome for the end user
 // TODO(ritave): Coerce primitives to expressions
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
@@ -15,6 +11,7 @@
 // TODO(ritave): If a test times out, jest kills it, and the global state of Z3 is left in an unexpected state.
 //               This occurs specifically during longer check(). Afterwards, all next tests will fail to run
 //               thinking the previous call was not finished. Find a way to stop execution and clean up the global state
+import { Mutex } from 'async-mutex';
 import {
   Z3Core,
   Z3_ast,
@@ -81,6 +78,8 @@ import {
 import { allSatisfy, assert, assertExhaustive, autoBind } from './utils';
 
 const FALLBACK_PRECISION = 17;
+
+const asyncMutex = new Mutex();
 
 function isCoercibleRational(obj: any): obj is CoercibleRational {
   // prettier-ignore
@@ -210,6 +209,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     ///////////////
     interrupt(): void {
       Z3.interrupt(this.ptr);
+    }
+
+    isModel(obj: unknown): obj is Model {
+      const r = obj instanceof ModelImpl;
+      r && this._assertContext(obj);
+      return r;
     }
 
     isAst(obj: unknown): obj is Ast {
@@ -395,6 +400,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return value;
       }
       assert(false);
+    }
+
+    async solve(...assertions: Bool[]): Promise<Model | typeof unsat | typeof unknown> {
+      const solver = new this.Solver();
+      solver.add(...assertions);
+      const result = await solver.check();
+      if (result === sat) {
+        return solver.model();
+      }
+      return result;
     }
 
     /////////////
@@ -967,7 +982,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ctx._assertContext(expr);
         return expr.ast;
       });
-      const result = await Z3.solver_check_assumptions(this.ctx.ptr, this.ptr, assumptions);
+      const result = await asyncMutex.runExclusive(() =>
+        Z3.solver_check_assumptions(this.ctx.ptr, this.ptr, assumptions),
+      );
       switch (result) {
         case Z3_lbool.Z3_L_FALSE:
           return unsat;
@@ -1830,6 +1847,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     has(key: Key): boolean {
       return Z3.ast_map_contains(this.ctx.ptr, this.ptr, key.ast);
+    }
+
+    sexpr(): string {
+      return Z3.ast_map_to_string(this.ctx.ptr, this.ptr);
     }
   }
 

@@ -90,3 +90,4 @@ examples/**/obj
 CMakeSettings.json
 # Editor temp files
 *.swp
+.DS_Store

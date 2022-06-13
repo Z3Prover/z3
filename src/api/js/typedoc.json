@@ -1,0 +1,8 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/node.ts"],
+  "out": "../../../doc/api/html/js",
+  "exclude": ["./src/low-level/**/*"],
+  "readme": "./PUBLISHED_README.md",
+  "categorizeByGroup": false
+}

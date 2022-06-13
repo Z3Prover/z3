@@ -17,6 +17,7 @@ const SWAP_OPTS: SpawnOptions = {
     ...process.env,
     CXXFLAGS: '-pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0',
     LDFLAGS: '-s WASM_BIGINT -s -pthread -s USE_PTHREADS=1',
+    FPMATH_ENABLED: 'False', // Until Safari supports WASM SSE, we have to disable fast FP support
     // TODO(ritave): Setting EM_CACHE breaks compiling on M1 MacBook
     //EM_CACHE: path.join(os.homedir(), '.emscripten/'),
   },
