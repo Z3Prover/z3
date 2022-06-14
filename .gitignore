@@ -66,6 +66,7 @@ src/api/python/z3/z3consts.py
 src/api/python/z3/z3core.py
 src/ast/pattern/database.h
 src/util/version.h
+src/util/z3_version.h
 src/api/java/Native.cpp
 src/api/java/Native.java
 src/api/java/enumerations/*.java
@@ -76,11 +77,8 @@ src/api/ml/z3native.mli
 src/api/ml/z3enums.mli
 src/api/ml/z3.mllib
 src/api/js/node_modules/
-src/api/js/*.js
 src/api/js/build/
-src/api/js/**/*.d.ts
-!src/api/js/scripts/*.js
-!src/api/js/src/*.js
+src/api/js/**/*.__GENERATED__.*
 debug/*
 
 out/**
@@ -92,3 +90,4 @@ examples/**/obj
 CMakeSettings.json
 # Editor temp files
 *.swp
+.DS_Store

@@ -1,4 +1,5 @@
 // this wrapper works with async-fns to provide promise-based off-thread versions of some functions
+// It's prepended directly by emscripten to the resulting z3-built.js
 
 let capability = null;
 function resolve_async(val) {

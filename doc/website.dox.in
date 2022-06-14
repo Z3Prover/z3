@@ -1,13 +1,13 @@
 /**
    \mainpage An Efficient Theorem Prover
-    
+
    Z3 is a high-performance theorem prover being developed at <a class="el"
-   href="http://research.microsoft.com">Microsoft Research</a>. 
-   
+   href="http://research.microsoft.com">Microsoft Research</a>.
+
    <b>The Z3 website is at <a class="el" href="http://github.com/z3prover">http://github.com/z3prover</a>.</b>
 
    This website hosts the automatically generated documentation for the Z3 APIs.
 
    - \ref @C_API@
-   - \ref @CPP_API@ @DOTNET_API@ @JAVA_API@ @PYTHON_API@ @OCAML_API@
+   - \ref @CPP_API@ @DOTNET_API@ @JAVA_API@ @PYTHON_API@ @OCAML_API@ @JS_API@
 */
