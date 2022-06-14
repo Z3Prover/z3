@@ -1,13 +1,10 @@
-// TODO(ritave): Coerce primitives to expressions
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
 // TODO(ritave): Add an error handler
 // TODO(ritave): Add support for building faster floats without support for Safari
-// TODO(ritave): Update PUBLISHED_README.md
 // TODO(ritave): Use Z3_DECLARE_CLOSURE macro to generate code https://github.com/Z3Prover/z3/pull/6048#discussion_r884155462
 // TODO(ritave): Add pretty printing
 // TODO(ritave): Make Z3 multi-threaded
-// TODO(ritave): Use a mutex (see async-mutex package) to guard async calls instead of throwing
 // TODO(ritave): If a test times out, jest kills it, and the global state of Z3 is left in an unexpected state.
 //               This occurs specifically during longer check(). Afterwards, all next tests will fail to run
 //               thinking the previous call was not finished. Find a way to stop execution and clean up the global state
