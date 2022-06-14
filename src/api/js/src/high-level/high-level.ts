@@ -587,11 +587,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     ////////////////
     If(condition: Probe, onTrue: Tactic, onFalse: Tactic): Tactic;
     If<OnTrueRef extends CoercibleToExpr, OnFalseRef extends CoercibleToExpr>(
-      condition: Bool,
+      condition: Bool | boolean,
       onTrue: OnTrueRef,
       onFalse: OnFalseRef,
     ): CoercibleToExprMap<OnTrueRef | OnFalseRef>;
-    If(condition: Bool | Probe, onTrue: CoercibleToExpr | Tactic, onFalse: CoercibleToExpr | Tactic): Expr | Tactic {
+    If(
+      condition: Bool | Probe | boolean,
+      onTrue: CoercibleToExpr | Tactic,
+      onFalse: CoercibleToExpr | Tactic,
+    ): Expr | Tactic {
       if (this.isProbe(condition) && this.isTactic(onTrue) && this.isTactic(onFalse)) {
         return this.Cond(condition, onTrue, onFalse);
       }
@@ -599,12 +603,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         !this.isProbe(condition) && !this.isTactic(onTrue) && !this.isTactic(onFalse),
         'Mixed expressions and goals',
       );
+      if (typeof condition === 'boolean') {
+        condition = this.Bool.val(condition);
+      }
       onTrue = this.from(onTrue);
       onFalse = this.from(onFalse);
       return this._toExpr(Z3.mk_ite(this.ptr, condition.ptr, onTrue.ast, onFalse.ast));
     }
 
-    Distinct(...exprs: Expr[]): Bool {
+    Distinct(...exprs: CoercibleToExpr[]): Bool {
       assert(exprs.length > 0, "Can't make Distinct ouf of nothing");
 
       return new BoolImpl(
@@ -612,6 +619,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         Z3.mk_distinct(
           this.ptr,
           exprs.map(expr => {
+            expr = this.from(expr);
             this._assertContext(expr);
             return expr.ast;
           }),
@@ -642,12 +650,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return this._toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExprMap<S>;
     }
 
-    Implies(a: Bool, b: Bool): Bool {
+    Implies(a: Bool | boolean, b: Bool | boolean): Bool {
+      a = this.from(a) as Bool;
+      b = this.from(b) as Bool;
       this._assertContext(a, b);
       return new BoolImpl(this, Z3.mk_implies(this.ptr, a.ptr, b.ptr));
     }
 
-    Eq(a: Expr, b: Expr): Bool {
+    Eq(a: CoercibleToExpr, b: CoercibleToExpr): Bool {
+      a = this.from(a);
+      b = this.from(b);
       this._assertContext(a, b);
       return a.eq(b);
     }
@@ -686,7 +698,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (allProbes) {
         return this._probeNary(Z3.probe_and, args as [Probe, ...Probe[]]);
       } else {
-        args = args.map(this.from) as Bool[];
+        args = args.map(this.from.bind(this)) as Bool[];
         this._assertContext(...(args as Bool[]));
         return new BoolImpl(
           this,
@@ -712,7 +724,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (allProbes) {
         return this._probeNary(Z3.probe_or, args as [Probe, ...Probe[]]);
       } else {
-        args = args.map(this.from) as Bool[];
+        args = args.map(this.from.bind(this)) as Bool[];
         this._assertContext(...(args as Bool[]));
         return new BoolImpl(
           this,
@@ -724,32 +736,39 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    ToReal(expr: Arith): Arith {
+    ToReal(expr: Arith | bigint): Arith {
+      expr = this.from(expr) as Arith;
       this._assertContext(expr);
       assert(this.isInt(expr), 'Int expression expected');
       return new ArithImpl(this, Z3.mk_int2real(this.ptr, expr.ast));
     }
 
-    ToInt(expr: Arith): Arith {
+    ToInt(expr: Arith | number | CoercibleRational | string): Arith {
+      if (!this.isExpr(expr)) {
+        expr = this.Real.val(expr);
+      }
       this._assertContext(expr);
       assert(this.isReal(expr), 'Real expression expected');
       return new ArithImpl(this, Z3.mk_real2int(this.ptr, expr.ast));
     }
 
-    IsInt(expr: Arith): Bool {
+    IsInt(expr: Arith | number | CoercibleRational | string): Bool {
+      if (!this.isExpr(expr)) {
+        expr = this.Real.val(expr);
+      }
       this._assertContext(expr);
       assert(this.isReal(expr), 'Real expression expected');
       return new BoolImpl(this, Z3.mk_is_int(this.ptr, expr.ast));
     }
 
-    Sqrt(a: Arith | number | bigint | string): Arith {
+    Sqrt(a: Arith | number | bigint | string | CoercibleRational): Arith {
       if (!this.isExpr(a)) {
         a = this.Real.val(a);
       }
       return a.pow('1/2');
     }
 
-    Cbrt(a: Arith | number | bigint | string): Arith {
+    Cbrt(a: Arith | number | bigint | string | CoercibleRational): Arith {
       if (!this.isExpr(a)) {
         a = this.Real.val(a);
       }
@@ -765,6 +784,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (this.isArith(a)) {
         assert(this.isInt(a), 'parameter must be an integer');
       } else {
+        assert(typeof a !== 'number' || Number.isSafeInteger(a), 'parameter must not have decimal places');
         a = this.Int.val(a);
       }
       return new BitVecImpl(this, Z3.mk_int2bv(this.ptr, bits, a.ast));
@@ -1238,14 +1258,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return result;
     }
 
-    call(...args: Expr[]) {
+    call(...args: CoercibleToExpr[]) {
       assert(args.length === this.arity(), `Incorrect number of arguments to ${this}`);
       return this.ctx._toExpr(
         Z3.mk_app(
           this.ctx.ptr,
           this.ptr,
           args.map((arg, i) => {
-            this.ctx._assertContext(arg);
             return this.domain(i).cast(arg).ast;
           }),
         ),

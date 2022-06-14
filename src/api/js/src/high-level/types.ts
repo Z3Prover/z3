@@ -290,16 +290,16 @@ export interface Context<Name extends string = any> {
   If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
   /** @category Operations */
   If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
-    condition: Bool<Name>,
+    condition: Bool<Name> | boolean,
     onTrue: OnTrueRef,
     onFalse: OnFalseRef,
   ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
   /** @category Operations */
-  Distinct(...args: Expr<Name>[]): Bool<Name>;
+  Distinct(...args: CoercibleToExpr<Name>[]): Bool<Name>;
   /** @category Operations */
-  Implies(a: Bool<Name>, b: Bool<Name>): Bool<Name>;
+  Implies(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
   /** @category Operations */
-  Eq(a: Expr<Name>, b: Expr<Name>): Bool<Name>;
+  Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name>;
   /** @category Operations */
   Xor(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
   /** @category Operations */
@@ -324,9 +324,9 @@ export interface Context<Name extends string = any> {
   Or(...args: Probe<Name>[]): Probe<Name>;
   // Arithmetic
   /** @category Operations */
-  ToReal(expr: Arith<Name>): Arith<Name>;
+  ToReal(expr: Arith<Name> | bigint): Arith<Name>;
   /** @category Operations */
-  ToInt(expr: Arith<Name>): Arith<Name>;
+  ToInt(expr: Arith<Name> | number | CoercibleRational | string): Arith<Name>;
   /**
    * Create an IsInt Z3 predicate
    *
@@ -338,7 +338,7 @@ export interface Context<Name extends string = any> {
    * // unsat
    * ```
    * @category Operations */
-  IsInt(expr: Arith<Name>): Bool<Name>;
+  IsInt(expr: Arith<Name> | number | CoercibleRational | string): Bool<Name>;
   /**
    * Returns a Z3 expression representing square root of a
    *
@@ -399,7 +399,7 @@ export interface Solver<Name extends string = any> {
   readonly ctx: Context<Name>;
   readonly ptr: Z3_solver;
 
-  /* TODO(ritave): Decide on how to discern between integer and float paramaters
+  /* TODO(ritave): Decide on how to discern between integer and float parameters
   set(key: string, value: any): void;
   set(params: Record<string, any>): void;
   */
@@ -526,7 +526,7 @@ export interface FuncDecl<Name extends string = any> extends Ast<Name, Z3_func_d
   range(): Sort<Name>;
   kind(): Z3_decl_kind;
   params(): (number | string | Z3_symbol | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
-  call(...args: Expr<Name>[]): AnyExpr<Name>;
+  call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
 }
 
 export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
