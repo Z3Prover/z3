@@ -294,9 +294,9 @@ void func_interp::compress() {
         m().dec_ref(m_else);
         m_else = new_else;
     }
-    else
+    //else
 #endif
-        if (!m_entries.empty() && is_identity()) {
+    if (!m_entries.empty() && is_identity()) {
         for (func_entry * curr : m_entries) {
             curr->deallocate(m(), m_arity);
         }
