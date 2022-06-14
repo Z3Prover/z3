@@ -87,8 +87,10 @@ class top_sort {
 public:
 
     virtual ~top_sort() {
-        for (auto * t : m_dep_keys)
+        for (auto * t : m_dep_keys) {
             dealloc(get_dep(t));
+            m_deps[t->get_small_id()] = nullptr;
+        }
     }
 
     void topological_sort() {
@@ -102,9 +104,12 @@ public:
         m_dfs_num.reset();        
     }
 
-    void insert(T* t, T_set* s) {        
+    void insert(T* t, T_set* s) {
+        if (contains_dep(t)) 
+            dealloc(get_dep(t));
+        else 
+            m_dep_keys.push_back(t);
         m_deps.setx(t->get_small_id(), add_tag(s), nullptr);
-        m_dep_keys.push_back(t);
     }
 
     ptr_vector<T> const& deps() { return m_dep_keys; }
@@ -126,7 +131,7 @@ public:
 
     bool contains_dep(T* t) const { return m_deps.get(t->get_small_id(), nullptr) != nullptr; }
 
-    T_set*         get_dep(T* t) const { return del_tag(m_deps.get(t->get_small_id(), nullptr)); }
+    T_set* get_dep(T* t) const { return del_tag(m_deps.get(t->get_small_id(), nullptr)); }
 
 
     bool is_singleton_partition(T* f) const {
