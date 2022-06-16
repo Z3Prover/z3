@@ -368,7 +368,7 @@ void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
 
 expr *convex_closure::mk_eq_mod(expr *v, rational d, rational r) {
     expr *res = nullptr;
-    if (!m_arith.is_int(v)) {
+    if (m_arith.is_int(v)) {
         res = m.mk_eq(m_arith.mk_mod(v, m_arith.mk_int(d)), m_arith.mk_int(r));
     } else if (m_bv.is_bv(v)) {
         res = m.mk_eq(m_bv.mk_bv_urem(v, m_bv.mk_numeral(d, m_bv_sz)),
