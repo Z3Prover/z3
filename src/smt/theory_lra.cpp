@@ -3159,11 +3159,15 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
-        TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
-        for (auto ev : m_explanation) {
+        TRACE("arith",
+              tout << "lemma scope: " << ctx().get_scope_level();
+              for (auto const& p : m_params) tout << " " << p;
+              tout << "\n";
+              display_evidence(tout, m_explanation);
+              display(tout << "is-conflict: " << is_conflict << "\n"););
+        for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
-        }
+        
         // SASSERT(validate_conflict(m_core, m_eqs));
         dump_conflict(m_core, m_eqs);
         if (is_conflict) {
