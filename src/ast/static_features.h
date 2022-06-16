@@ -59,13 +59,7 @@ struct static_features {
     unsigned                 m_sum_clause_size;
     unsigned                 m_num_nested_formulas; //
     unsigned                 m_num_bool_exprs;      // 
-    unsigned                 m_num_bool_constants;  //
-    unsigned                 m_num_formula_trees;
-    unsigned                 m_max_formula_depth;
-    unsigned                 m_sum_formula_depth;
-    unsigned                 m_num_or_and_trees;
-    unsigned                 m_max_or_and_tree_depth;
-    unsigned                 m_sum_or_and_tree_depth;
+    unsigned                 m_num_bool_constants;  //    
     unsigned                 m_num_ite_trees;
     unsigned                 m_max_ite_tree_depth;
     unsigned                 m_sum_ite_tree_depth;
@@ -179,12 +173,9 @@ struct static_features {
     void process_root(expr * e);
     unsigned get_depth(expr const * e) const { return m_expr2depth.get(e->get_id(), 1); }
     void set_depth(expr const * e, unsigned d) { m_expr2depth.setx(e->get_id(), d, 1); }
-    unsigned get_or_and_depth(expr const * e) const { unsigned d = 0; m_expr2or_and_depth.find(e->get_id(), d); return d; }
-    void set_or_and_depth(expr const * e, unsigned d) { m_expr2or_and_depth.insert(e->get_id(), d); }
+    
     unsigned get_ite_depth(expr const * e) const { unsigned d = 0; m_expr2ite_depth.find(e->get_id(), d); return d; }
     void set_ite_depth(expr const * e, unsigned d) { m_expr2ite_depth.insert(e->get_id(), d); }
-    unsigned get_form_depth(expr const * e) const { unsigned d = 0; m_expr2formula_depth.find(e->get_id(), d); return d; }
-    void set_form_depth(expr const * e, unsigned d) { m_expr2formula_depth.insert(e->get_id(), d); }
     static_features(ast_manager & m);
     void reset();
     void flush_cache();
