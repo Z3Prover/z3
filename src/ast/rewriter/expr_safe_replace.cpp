@@ -27,6 +27,7 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
     SASSERT(src->get_sort() == dst->get_sort());
     m_src.push_back(src);
     m_dst.push_back(dst);
+    m_cache.clear();
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
@@ -45,13 +46,15 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         return;
     }
 
-    for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
-        m_cache.emplace(m_src.get(i), m_dst.get(i));
+    if (m_cache.empty()) {
+        for (unsigned i = 0, e = m_src.size(); i < e; ++i) 
+            m_cache.emplace(m_src.get(i), m_dst.get(i));
     }
-
+    
     m_todo.push_back(e);
     expr* a, *b;
-    
+
+    m_refs.push_back(e);
     while (!m_todo.empty()) {
         a = m_todo.back();
         auto &cached = m_cache[a];
@@ -166,10 +169,12 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         }        
     }
     res = m_cache.at(e);
-    m_cache.clear();
+    if (m_refs.size() > 1 << 20) {
+        m_cache.clear();
+        m_refs.reset();
+    }
     m_todo.reset();
     m_args.reset();
-    m_refs.reset();    
 }
 
 void expr_safe_replace::reset() {
