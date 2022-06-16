@@ -780,7 +780,7 @@ class pob {
     // pattern identified for one of its lemmas
     expr_ref m_concretize_pat;
 
-   // gas decides how much time is spent in blocking this (may) pob
+    // gas decides how much time is spent in blocking this (may) pob
     unsigned m_gas;
 
     // additional data used by global (and other) generalizations
@@ -798,7 +798,6 @@ public:
         if (m_parent) { m_parent->erase_child(*this); }
     }
 
-
     void set_data(pob* v) { m_data = v; }
     void reset_data() { set_data(nullptr); }
     pob* get_data() { return m_data.get(); }
@@ -812,7 +811,7 @@ public:
     void bump_weakness() { m_weakness++; }
     void reset_weakness() { m_weakness = 0; }
 
-    void inc_level () {
+    void inc_level() {
         SASSERT(!is_in_queue());
         m_level++;
         m_depth++;
