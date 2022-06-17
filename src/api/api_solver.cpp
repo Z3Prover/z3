@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include<thread>
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"

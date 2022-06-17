@@ -20,6 +20,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/ast_smt2_pp.h"
+#include <ostream>
 
 class ast_printer {
 public:
@@ -46,8 +47,8 @@ class ast_printer_context : public ast_printer {
 public:
     ~ast_printer_context() override {}
     virtual ast_manager & get_ast_manager() = 0;
-    virtual std::ostream & regular_stream() { return std::cout; }
-    virtual std::ostream & diagnostic_stream() { return std::cerr; }
+    virtual std::ostream & regular_stream();
+    virtual std::ostream & diagnostic_stream();
 };
 
 

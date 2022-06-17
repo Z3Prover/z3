@@ -51,6 +51,7 @@ Notes:
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
+#include <iostream>
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {

@@ -368,7 +368,6 @@ br_status bv2real_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr *
           tout << "\n";);
     
     if (u().memory_exceeded()) {
-        std::cout << "tactic exception\n";
         throw tactic_exception("bv2real-memory exceeded");
     }
     if(f->get_family_id() == m_arith.get_family_id()) {

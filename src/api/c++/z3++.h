@@ -21,7 +21,7 @@ Notes:
 #pragma once
 
 #include<cassert>
-#include<iostream>
+#include<ostream>
 #include<string>
 #include<sstream>
 #include<memory>

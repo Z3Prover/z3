@@ -75,8 +75,7 @@ namespace sat {
                 IF_VERBOSE(0, 
                            verbose_stream() << "not validated: " << clause << "\n";
                            s.display(verbose_stream()););
-                std::string line;
-                std::getline(std::cin, line);                
+                UNREACHABLE();
             }
         }
     };

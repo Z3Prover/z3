@@ -30,6 +30,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_translation.h"
 #include "util/z3_version.h"
+#include <iostream>
 
 
 // -----------------------------------

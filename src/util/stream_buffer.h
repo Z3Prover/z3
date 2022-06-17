@@ -20,7 +20,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<istream>
 
 class stream_buffer {
     std::istream & m_stream;
@@ -40,5 +40,3 @@ public:
         m_val = m_stream.get();
     }
 };
-
-

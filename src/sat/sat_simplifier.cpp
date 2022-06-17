@@ -1831,8 +1831,8 @@ namespace sat {
             if (not_l == l2)
                 continue;
             if ((~l2).index() >= m_visited.size()) {
-                s.display(std::cout << l2 << " " << s.num_vars() << " " << m_visited.size() << "\n");
-                exit(0);
+                //s.display(std::cout << l2 << " " << s.num_vars() << " " << m_visited.size() << "\n");
+                UNREACHABLE();
             }
             if (m_visited[(~l2).index()]) {
                 res = false;

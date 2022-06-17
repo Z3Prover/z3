@@ -93,6 +93,7 @@ namespace bv {
         } while (curr != v);
 
         zero_one_bits const& _bits = m_zero_one_bits[v];
+#if 0
         if (_bits.size() != num_bits) {
             std::cout << "v" << v << " " << _bits.size() << " " << num_bits << "\n";
             std::cout << "true: " << mk_true() << "\n";
@@ -102,6 +103,7 @@ namespace bv {
             }
             while (curr != v);
         }
+#endif
         SASSERT(_bits.size() == num_bits);
         VERIFY(_bits.size() == num_bits);
         bool_vector already_found;

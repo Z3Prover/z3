@@ -162,7 +162,7 @@ expr_ref bv2fpa_converter::convert_bv2rm(expr * bv_rm) {
         }
     }
     else {
-        std::cout << expr_ref(bv_rm, m) << " not converted\n";
+        //std::cout << expr_ref(bv_rm, m) << " not converted\n";
     }
 
     return res;

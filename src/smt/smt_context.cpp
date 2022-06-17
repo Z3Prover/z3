@@ -42,6 +42,7 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_arith_value.h"
+#include <iostream>
 
 namespace smt {
 
@@ -3943,8 +3944,7 @@ namespace smt {
         if (m_fparams.m_model_on_final_check) {
             mk_proto_model();
             model_pp(std::cout, *m_proto_model);
-            std::cout << "END_OF_MODEL\n";
-            std::cout.flush();
+            std::cout << "END_OF_MODEL" << std::endl;
         }
 
         m_stats.m_num_final_checks++;

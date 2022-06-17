@@ -1771,7 +1771,6 @@ def write_log_h_preamble(log_h):
 
 def write_log_c_preamble(log_c):
   log_c.write('// Automatically generated file\n')
-  log_c.write('#include<iostream>\n')
   log_c.write('#include\"api/z3.h\"\n')
   log_c.write('#include\"api/api_log_macros.h\"\n')
   log_c.write('#include\"api/z3_logger.h\"\n')

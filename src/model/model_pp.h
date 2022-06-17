@@ -19,7 +19,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 class model_core;
 
 void model_pp(std::ostream & out, model_core const & m);

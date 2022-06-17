@@ -33,7 +33,7 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include <string>
 #include "math/lp/numeric_pair.h"
-#include <iostream>
+#include <ostream>
 #include <fstream>
 #include "math/lp/row_eta_matrix.h"
 #include "math/lp/square_dense_submatrix.h"

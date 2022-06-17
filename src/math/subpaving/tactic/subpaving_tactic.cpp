@@ -26,6 +26,7 @@ Revision History:
 #include "util/mpff.h"
 #include "util/mpfx.h"
 #include "util/f2n.h"
+#include <iostream>
 
 class subpaving_tactic : public tactic {
 

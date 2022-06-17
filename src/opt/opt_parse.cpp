@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "opt/opt_context.h"
 #include "opt/opt_parse.h"
-
+#include <iostream>
 
 class opt_stream_buffer {
     std::istream & m_stream;

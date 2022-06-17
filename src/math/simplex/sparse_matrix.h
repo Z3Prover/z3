@@ -281,7 +281,7 @@ namespace simplex {
             vector<_row> const& m_rows;
             void move_to_next() {
                 while (m_curr < m_rows.size() && m_rows[m_curr].size() == 0) {
-                    std::cout << "size is 0 for " << m_curr << "\n";
+                    //std::cout << "size is 0 for " << m_curr << "\n";
                     ++m_curr;
                 }
             }

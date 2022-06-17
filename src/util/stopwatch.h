@@ -21,7 +21,7 @@ Revision History:
 
 #include "util/debug.h"
 #include <chrono>
-#include <iostream>
+#include <ostream>
 #include<iomanip>
 
 
