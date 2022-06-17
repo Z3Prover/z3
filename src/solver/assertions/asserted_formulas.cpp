@@ -726,6 +726,7 @@ unsigned asserted_formulas::get_total_size() const {
 
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(asserted_formulas & f) {
     f.display(std::cout);
 }

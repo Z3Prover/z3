@@ -445,8 +445,6 @@ void static_features::post_process(expr * e, bool form_ctx, bool or_and_ctx, boo
     }
 
     unsigned depth = 0;
-    unsigned form_depth = 0;
-    unsigned or_and_depth = 0;
     unsigned ite_depth = 0;
 
     auto [form_ctx_new, or_and_ctx_new, ite_ctx_new] = new_ctx(e);
@@ -533,8 +531,6 @@ void static_features::process_root(expr * e) {
         if (num_args == 2)
             m_num_bin_clauses++;
         unsigned depth = 0;
-        unsigned form_depth = 0;
-        unsigned or_and_depth = 0;
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg = to_app(e)->get_arg(i);
             if (m.is_not(arg))
