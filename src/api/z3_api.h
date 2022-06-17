@@ -4871,7 +4871,7 @@ extern "C" {
     /**
        \brief Return \c Z3_L_TRUE if \c a is true, \c Z3_L_FALSE if it is false, and \c Z3_L_UNDEF otherwise.
 
-       def_API('Z3_get_bool_value', INT, (_in(CONTEXT), _in(AST)))
+       def_API('Z3_get_bool_value', LBOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_lbool Z3_API Z3_get_bool_value(Z3_context c, Z3_ast a);
 
@@ -6828,6 +6828,13 @@ extern "C" {
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
     /**
+        Sets the next expression to split on
+     
+      def_API('Z3_solver_next_split', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST), _in(UINT), _in(LBOOL)))
+    */
+    void Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase);
+    
+    /**
         Create uninterpreted function declaration for the user propagator.
         When expressions using the function are created by the solver invoke a callback
         to \ref \Z3_solver_progate_created with arguments
@@ -6885,7 +6892,7 @@ extern "C" {
 
        \sa Z3_solver_check_assumptions
 
-       def_API('Z3_solver_check', INT, (_in(CONTEXT), _in(SOLVER)))
+       def_API('Z3_solver_check', LBOOL, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_lbool Z3_API Z3_solver_check(Z3_context c, Z3_solver s);
 
@@ -6898,7 +6905,7 @@ extern "C" {
 
        \sa Z3_solver_check
 
-       def_API('Z3_solver_check_assumptions', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST)))
+       def_API('Z3_solver_check_assumptions', LBOOL, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST)))
     */
     Z3_lbool Z3_API Z3_solver_check_assumptions(Z3_context c, Z3_solver s,
                                                 unsigned num_assumptions, Z3_ast const assumptions[]);
@@ -6919,7 +6926,7 @@ extern "C" {
        A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
        The function return \c Z3_L_FALSE if the current assertions are not satisfiable.
 
-       def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
+       def_API('Z3_get_implied_equalities', LBOOL, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
     Z3_lbool Z3_API Z3_get_implied_equalities(Z3_context c,
                                               Z3_solver  s,
@@ -6930,7 +6937,7 @@ extern "C" {
     /**
        \brief retrieve consequences from solver that determine values of the supplied function symbols.
 
-       def_API('Z3_solver_get_consequences', INT, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR), _in(AST_VECTOR)))
+       def_API('Z3_solver_get_consequences', LBOOL, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR), _in(AST_VECTOR)))
      */
 
     Z3_lbool Z3_API Z3_solver_get_consequences(Z3_context c,
