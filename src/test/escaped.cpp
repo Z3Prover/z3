@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "util/util.h"
+#include <iostream>
 
 void tst_escaped() {
     std::cout << "[" << escaped("\"hello\"\"world\"\n\n") << "]\n";

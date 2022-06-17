@@ -13,6 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/stopwatch.h"
 #include "ast/reg_decl_plugins.h"
 #include "muz/rel/dl_relation_manager.h"
+#include <iostream>
 
 using namespace datalog;
 

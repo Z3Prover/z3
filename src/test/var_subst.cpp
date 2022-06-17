@@ -23,6 +23,7 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/reg_decl_plugins.h"
+#include <iostream>
 
 namespace find_q {
     struct proc {

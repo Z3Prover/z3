@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include <iostream>
 
 void tst_substitution()
 {

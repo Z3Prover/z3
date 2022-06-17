@@ -24,6 +24,7 @@ Notes:
 #include "nlsat/nlsat_explain.h"
 #include "math/polynomial/polynomial_cache.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
                                      nlsat::interval_set_ref const & s2,

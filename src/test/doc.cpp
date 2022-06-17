@@ -17,7 +17,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
-
+#include <iostream>
 
 static void tst_doc1(unsigned n) {
     doc_manager m(n);

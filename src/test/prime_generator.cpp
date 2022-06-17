@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "util/mpz.h"
 #include "util/prime_generator.h"
+#include <iostream>
 
 void tst_prime_generator() {
     unsynch_mpz_manager m;

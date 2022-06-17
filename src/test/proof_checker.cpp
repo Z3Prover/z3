@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_ll_pp.h"
+#include <iostream>
 
 void tst_checker1() {
     ast_manager m(PGM_ENABLED);

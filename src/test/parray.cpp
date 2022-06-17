@@ -19,6 +19,7 @@ Revision History:
 #include "util/parray.h"
 #include "util/small_object_allocator.h"
 #include "ast/ast.h"
+#include <iostream>
 
 template<bool PRESERVE_ROOTS>
 struct int_parray_config {

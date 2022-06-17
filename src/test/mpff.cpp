@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include <sstream>
 #include <cstring>
+#include <iostream>
 #include "util/mpff.h"
 #include "util/mpz.h"
 #include "util/mpq.h"

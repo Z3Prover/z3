@@ -1,6 +1,7 @@
 #include "math/simplex/model_based_opt.h"
 #include "util/util.h"
 #include "util/uint_set.h"
+#include <iostream>
 
 typedef opt::model_based_opt::var var;
 

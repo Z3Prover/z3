@@ -11,6 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/vector.h"
 #include "util/rational.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 #define R rational
 typedef simplex::simplex<simplex::mpz_ext> Simplex;

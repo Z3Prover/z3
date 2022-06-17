@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/total_order.h"
 #include "util/timeit.h"
+#include <iostream>
 
 static void tst1() {
     uint_total_order to;
