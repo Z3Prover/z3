@@ -22,6 +22,7 @@ Revision History:
 #include "smt/smt_literal.h"
 #include "util/util.h"
 #include "util/debug.h"
+#include <iostream>
 
 struct diff_logic_ext {
     typedef rational numeral;
