@@ -1664,10 +1664,9 @@ namespace sat {
     
     bool solver::guess(bool_var next) {
         lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
-        bool phase = lphase == l_true;
-        
+
         if (lphase != l_undef)
-            return phase;
+            return lphase == l_true;
         switch (m_config.m_phase) {
             case PS_ALWAYS_TRUE:
                 return true;
@@ -1678,9 +1677,8 @@ namespace sat {
             case PS_FROZEN:
                 return m_best_phase[next];
             case PS_SAT_CACHING:
-                if (m_search_state == s_unsat) {
-                    phase = m_phase[next];
-                }
+                if (m_search_state == s_unsat)
+                    return m_phase[next];
                 return m_best_phase[next];
             case PS_RANDOM:
                 return (m_rand() % 2) == 0;
@@ -1695,7 +1693,7 @@ namespace sat {
         lbool phase = l_undef;
         bool is_pos;
         bool used_queue = false;
-        if (!m_ext || m_ext->get_case_split(next, phase)) {
+        if (!m_ext || !m_ext->get_case_split(next, phase)) {
             used_queue = true;
             next = next_var();
             if (next == null_bool_var)
@@ -1705,18 +1703,20 @@ namespace sat {
         m_stats.m_decision++;
         
         if (phase == l_undef)
-            is_pos = guess(next);
+            phase = guess(next) ? l_true: l_false;
         
-        phase = is_pos ? l_true: l_false;
         literal next_lit(next, false);
         
         if (m_ext && m_ext->decide(next, phase)) {
             if (used_queue)
                 m_case_split_queue.unassign_var_eh(next);
             next_lit = literal(next, false);
-            if (phase == l_undef)
-                is_pos = guess(next);
         }
+        
+        if (phase == l_undef)
+            is_pos = guess(next);
+        else
+            is_pos = phase == l_true;
         
         if (!is_pos)
             next_lit.neg();
