@@ -81,13 +81,13 @@ Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', 
 Type2PyStr = { VOID_PTR : 'ctypes.c_void_p', INT : 'ctypes.c_int', UINT : 'ctypes.c_uint', INT64 : 'ctypes.c_longlong',
                UINT64 : 'ctypes.c_ulonglong', DOUBLE : 'ctypes.c_double', FLOAT : 'ctypes.c_float',
                STRING : 'ctypes.c_char_p', STRING_PTR : 'ctypes.POINTER(ctypes.c_char_p)', BOOL : 'ctypes.c_bool', SYMBOL : 'Symbol',
-               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint', CHAR : 'ctypes.c_char', CHAR_PTR: 'ctypes.POINTER(ctypes.c_char)', LBOOL : 'ctypes.c_uint'
+               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint', CHAR : 'ctypes.c_char', CHAR_PTR: 'ctypes.POINTER(ctypes.c_char)', LBOOL : 'ctypes.c_int'
                }
 
 # Mapping to .NET types
 Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', INT64 : 'Int64', UINT64 : 'UInt64', DOUBLE : 'double',
                 FLOAT : 'float', STRING : 'string', STRING_PTR : 'byte**', BOOL : 'byte', SYMBOL : 'IntPtr',
-                PRINT_MODE : 'uint', ERROR_CODE : 'uint', CHAR : 'char', CHAR_PTR : 'IntPtr', LBOOL : 'uint' }
+                PRINT_MODE : 'uint', ERROR_CODE : 'uint', CHAR : 'char', CHAR_PTR : 'IntPtr', LBOOL : 'int' }
 
 
 # Mapping to ML types
@@ -1025,7 +1025,10 @@ def def_API(name, result, params):
             elif ty == VOID_PTR:
                 log_c.write("  P(0);\n")
                 exe_c.write("in.get_obj_addr(%s)" % i)
-            elif ty == PRINT_MODE or ty == ERROR_CODE or ty == LBOOL:
+            elif ty == LBOOL:
+                log_c.write("  I(static_cast<signed>(a%s));\n" % i)
+                exe_c.write("static_cast<%s>(in.get_int(%s))" % (type2str(ty), i))
+            elif ty == PRINT_MODE or ty == ERROR_CODE:
                 log_c.write("  U(static_cast<unsigned>(a%s));\n" % i)
                 exe_c.write("static_cast<%s>(in.get_uint(%s))" % (type2str(ty), i))
             else:

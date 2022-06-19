@@ -98,7 +98,7 @@ namespace user_solver {
         void propagate_consequence(prop_info const& prop);
         void propagate_new_fixed(prop_info const& prop);
 
-	    void validate_propagation();
+        void validate_propagation();
 
         bool visit(expr* e) override;
         bool visited(expr* e) override;
