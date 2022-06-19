@@ -9,10 +9,12 @@ Abstract:
 
     Core based (weighted) max-sat algorithms:
 
-    - mu:        max-sat algorithm by Nina and Bacchus, AAAI 2014.
-    - mus-mss:   based on dual refinement of bounds.
-    - binary:    binary versino of maxres
-    - rc2:       implementaion of rc2 heuristic using cardinality constraints
+    - mu:         max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    - mus-mss:    based on dual refinement of bounds.
+    - binary:     binary version of maxres
+    - rc2:        implementaion of rc2 heuristic using cardinality constraints
+    - rc2-binary: hybrid of rc2 and binary maxres. Perform one step of binary maxres. 
+                  If there are more than 16 soft constraints create a cardinality constraint.
 
 
     MaxRes is a core-guided approach to maxsat.
@@ -78,7 +80,8 @@ public:
         s_primal,
         s_primal_dual,
         s_primal_binary,
-        s_rc2
+        s_rc2,
+        s_primal_binary_rc2
     };
 private:
     struct stats {
@@ -156,6 +159,9 @@ public:
             break;
         case s_rc2:
             m_trace_id = "rc2";
+            break;
+        case s_primal_binary_rc2:
+            m_trace_id = "rc2bin";
             break;
         default:
             UNREACHABLE();
@@ -360,6 +366,7 @@ public:
         case s_primal:
         case s_primal_binary:
         case s_rc2:
+        case s_primal_binary_rc2:
             return mus_solver();
         case s_primal_dual:
             return primal_dual_solver();
@@ -553,6 +560,9 @@ public:
         case strategy_t::s_rc2:
             max_resolve_rc2(core, w);
             break;
+        case strategy_t::s_primal_binary_rc2:
+            max_resolve_rc2bin(core, w);
+            break;
         default:
             max_resolve(core, w);
             break;
@@ -717,10 +727,9 @@ public:
             m_defs.push_back(fml);
         }
     }
-
-
-    void bin_max_resolve(exprs const& _core, rational w) {
-        expr_ref_vector core(m, _core.size(), _core.data());
+    
+    void bin_resolve(exprs const& _core, rational weight, expr_ref_vector& us) {
+        expr_ref_vector core(m, _core.size(), _core.data()), fmls(m);
         expr_ref fml(m), cls(m);
         for (unsigned i = 0; i + 1 < core.size(); i += 2) {
             expr* a = core.get(i);
@@ -739,13 +748,19 @@ public:
             add(fml);
             update_model(v, cls);
             m_defs.push_back(fml);
-            new_assumption(u, w);
+            us.push_back(u);
             core.push_back(v);
         }
-        s().assert_expr(m.mk_not(core.back()));
+        s().assert_expr(m.mk_not(core.back()));        
     }
 
-
+    void bin_max_resolve(exprs const& _core, rational w) {
+        expr_ref_vector core(m, _core.size(), _core.data()), us(m);
+        expr_ref fml(m), cls(m);
+        bin_resolve(_core, w, us);
+        for (expr* u : us)
+            new_assumption(u, w);
+    }
 
 
     // rc2, using cardinality constraints
@@ -785,10 +800,8 @@ public:
         return r;
     }
 
-    void max_resolve_rc2(exprs const& core, rational weight) {
-        expr_ref_vector ncore(m);
+    void weaken_bounds(exprs const& core) {
         for (expr* f : core) {
-            ncore.push_back(mk_not(m, f));
             bound_info b;
             if (!m_bounds.find(f, b))
                 continue;
@@ -800,11 +813,45 @@ public:
             new_assumption(amk, b.weight);
             m_unfold_upper -= b.weight;
         }
+    }
+
+    void max_resolve_rc2(exprs const& core, rational weight) {
+        expr_ref_vector ncore(m);
+        for (expr* f : core) 
+            ncore.push_back(mk_not(m, f));
+
+        weaken_bounds(core);
+
         if (core.size() > 1) {
             m_unfold_upper += rational(core.size() - 2) * weight;
             expr* am = mk_atmost(ncore, 1, weight);
             new_assumption(am, weight);
         }
+    }
+
+    /** 
+     * \brief hybrid of rc2 and binary resolution.
+     * Create us := u1, .., u_n, where core has size n + 1
+     * If the core is of size at most 16 just use us as soft constraints
+     * Otherwise introduce a single soft constraint, the conjunction of us.
+     */
+
+    void max_resolve_rc2bin(exprs const& core, rational weight) {
+        weaken_bounds(core);
+        expr_ref_vector us(m);
+        bin_resolve(core, weight, us);        
+        if (us.size() <= 15) {
+            for (auto* u : us)
+                new_assumption(u, weight);
+        }
+        else if (us.size() > 15) {
+            expr_ref_vector ncore(m);
+            for (expr* f : us) 
+                ncore.push_back(mk_not(m, f));
+            m_unfold_upper += rational(us.size() - 1) * weight;
+            expr* am = mk_atmost(ncore, 0, weight);
+            new_assumption(am, weight);
+        }            
     }
 
 
@@ -1060,6 +1107,11 @@ opt::maxsmt_solver_base* opt::mk_maxres(
 opt::maxsmt_solver_base* opt::mk_rc2(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
     return alloc(maxcore, c, id, soft, maxcore::s_rc2);
+}
+
+opt::maxsmt_solver_base* opt::mk_rc2bin(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxcore, c, id, soft, maxcore::s_primal_binary_rc2);
 }
 
 opt::maxsmt_solver_base* opt::mk_maxres_binary(

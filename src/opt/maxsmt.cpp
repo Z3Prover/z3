@@ -185,27 +185,22 @@ namespace opt {
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
-        if (optp.maxlex_enable() && is_maxlex(m_soft)) {
+        if (optp.maxlex_enable() && is_maxlex(m_soft)) 
             m_msolver = mk_maxlex(m_c, m_index, m_soft);            
-        }
-        else if (m_soft.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
+        else if (m_soft.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null)             
             m_msolver = mk_maxres(m_c, m_index, m_soft);            
-        }
-        else if (maxsat_engine == symbol("maxres-bin")) {            
+        else if (maxsat_engine == symbol("maxres-bin"))             
             m_msolver = mk_maxres_binary(m_c, m_index, m_soft);
-        }
-        else if (maxsat_engine == symbol("rc2")) {            
+        else if (maxsat_engine == symbol("rc2"))             
             m_msolver = mk_rc2(m_c, m_index, m_soft);
-        }
-        else if (maxsat_engine == symbol("pd-maxres")) {            
+        else if (maxsat_engine == symbol("rc2bin"))             
+            m_msolver = mk_rc2bin(m_c, m_index, m_soft);
+        else if (maxsat_engine == symbol("pd-maxres"))             
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_soft);
-        }
-        else if (maxsat_engine == symbol("wmax")) {
+        else if (maxsat_engine == symbol("wmax")) 
             m_msolver = mk_wmax(m_c, m_soft, m_index);
-        }
-        else if (maxsat_engine == symbol("sortmax")) {
+        else if (maxsat_engine == symbol("sortmax")) 
             m_msolver = mk_sortmax(m_c, m_soft, m_index);
-        }
         else {
             auto str = maxsat_engine.str();
             warning_msg("solver %s is not recognized, using default 'maxres'", str.c_str());
