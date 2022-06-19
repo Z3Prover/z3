@@ -1848,23 +1848,29 @@ namespace smt {
             }
         }
         bool_var var;
-        lbool phase = l_undef;
-        m_case_split_queue->next_case_split(var, phase);
+        bool is_pos;
+        bool used_queue = false;
+        
+        if (!has_split_candidate(var, is_pos)) {
+            lbool phase = l_undef;
+            m_case_split_queue->next_case_split(var, phase);
+            used_queue = true;
+            if (var == null_bool_var)
+                return false;
 
-        if (var == null_bool_var) {
-            return false;
+            TRACE_CODE({
+                static unsigned counter = 0;
+                counter++;
+                if (counter % 100 == 0) {
+                    TRACE("activity_profile",
+                          for (unsigned i=0; i<get_num_bool_vars(); i++) {
+                              tout << get_activity(i) << " ";
+                          }
+                          tout << "\n";);
+                }});
+        
+            is_pos = guess(var, phase);
         }
-
-        TRACE_CODE({
-            static unsigned counter = 0;
-            counter++;
-            if (counter % 100 == 0) {
-                TRACE("activity_profile",
-                      for (unsigned i=0; i<get_num_bool_vars(); i++) {
-                          tout << get_activity(i) << " ";
-                      }
-                      tout << "\n";);
-            }});
 
         m_stats.m_num_decisions++;
 
@@ -1873,13 +1879,13 @@ namespace smt {
 
         TRACE("decide_detail", tout << mk_pp(bool_var2expr(var), m) << "\n";);
         
-        bool is_pos = guess(var, phase);
         literal l(var, false);
 
         bool_var original_choice = var;
 
         if (decide_user_interference(var, is_pos)) {
-            m_case_split_queue->unassign_var_eh(original_choice);
+            if (used_queue)
+                m_case_split_queue->unassign_var_eh(original_choice);
             l = literal(var, false);
         }
 
@@ -2905,8 +2911,14 @@ namespace smt {
         return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
     }
 
+    bool context::has_split_candidate(bool_var& var, bool& is_pos) {
+        if (!m_user_propagator)
+            return false;
+        return m_user_propagator->get_case_split(var, is_pos);
+    }
+    
     bool context::decide_user_interference(bool_var& var, bool& is_pos) {
-        if (!m_user_propagator || !m_user_propagator->has_decide())
+        if (!m_user_propagator)
             return false;
         bool_var old = var;
         m_user_propagator->decide(var, is_pos);

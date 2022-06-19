@@ -981,6 +981,14 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase) {
+        Z3_TRY;
+        LOG_Z3_solver_next_split(c, cb, t, idx, phase);
+        RESET_ERROR_CODE();
+        reinterpret_cast<user_propagator::callback*>(cb)->next_split_cb(to_expr(t), idx, (lbool)phase);
+        Z3_CATCH;
+    }
+
     Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range) {
         Z3_TRY;
         LOG_Z3_solver_propagate_declare(c, name, n, domain, range);

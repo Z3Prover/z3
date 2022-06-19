@@ -1661,49 +1661,66 @@ namespace sat {
 
         return null_bool_var;
     }
-
-    bool solver::decide() {
-        bool_var next = next_var();
-        if (next == null_bool_var)
-            return false;
-        push();
-        m_stats.m_decision++;
+    
+    bool solver::guess(bool_var next) {
         lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
-        bool phase = lphase == l_true;
 
-        if (lphase == l_undef) {
-            switch (m_config.m_phase) {
+        if (lphase != l_undef)
+            return lphase == l_true;
+        switch (m_config.m_phase) {
             case PS_ALWAYS_TRUE:
-                phase = true;
-                break;
+                return true;
             case PS_ALWAYS_FALSE:
-                phase = false;
-                break;
+                return false;
             case PS_BASIC_CACHING:
-                phase = m_phase[next];
-                break;
+                return m_phase[next];
             case PS_FROZEN:
-                phase = m_best_phase[next];
-                break;
+                return m_best_phase[next];
             case PS_SAT_CACHING:
-                if (m_search_state == s_unsat) {
-                    phase = m_phase[next];
-                }
-                else {
-                    phase = m_best_phase[next];
-                }
-                break;
+                if (m_search_state == s_unsat)
+                    return m_phase[next];
+                return m_best_phase[next];
             case PS_RANDOM:
-                phase = (m_rand() % 2) == 0;
-                break;
+                return (m_rand() % 2) == 0;
             default:
                 UNREACHABLE();
-                phase = false;
-                break;
-            }
+                return false;
         }
+    }
 
-        literal next_lit(next, !phase);
+    bool solver::decide() {
+        bool_var next;
+        lbool phase = l_undef;
+        bool is_pos;
+        bool used_queue = false;
+        if (!m_ext || !m_ext->get_case_split(next, phase)) {
+            used_queue = true;
+            next = next_var();
+            if (next == null_bool_var)
+                return false;
+        }
+        push();
+        m_stats.m_decision++;
+        
+        if (phase == l_undef)
+            phase = guess(next) ? l_true: l_false;
+        
+        literal next_lit(next, false);
+        
+        if (m_ext && m_ext->decide(next, phase)) {
+            if (used_queue)
+                m_case_split_queue.unassign_var_eh(next);
+            next_lit = literal(next, false);
+        }
+        
+        if (phase == l_undef)
+            is_pos = guess(next);
+        else
+            is_pos = phase == l_true;
+        
+        if (!is_pos)
+            next_lit.neg();
+        
         TRACE("sat_decide", tout << scope_lvl() << ": next-case-split: " << next_lit << "\n";);
         assign_scoped(next_lit);
         return true;

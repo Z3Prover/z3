@@ -102,6 +102,17 @@ void theory_user_propagator::register_cb(expr* e) {
         add_expr(e, true);
 }
 
+void theory_user_propagator::next_split_cb(expr* e, unsigned idx, lbool phase) {
+    if (e == nullptr) { // clear
+        m_next_split_expr = nullptr;
+        return;
+    }
+    ensure_enode(e);
+    m_next_split_expr = e;
+    m_next_split_idx = idx;
+    m_next_split_phase = phase;
+}
+
 theory * theory_user_propagator::mk_fresh(context * new_ctx) {
     auto* th = alloc(theory_user_propagator, *new_ctx);
     void* ctx;
@@ -156,8 +167,24 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
      }
 }
 
-void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
+bool_var theory_user_propagator::enode_to_bool(enode* n, unsigned bit) {
+    if (n->is_bool()) {
+        // expression is a boolean
+        bool_var new_var = ctx.enode2bool_var(n);
+        if (ctx.get_assignment(new_var) == l_undef)
+            return new_var;
+        return null_bool_var;
+    }
+    // expression is a bit-vector
+    bv_util bv(m);
+    auto th_bv = (theory_bv*)ctx.get_theory(bv.get_fid());
+    return th_bv->get_first_unassigned(bit, n);
+}
 
+void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
+    if (!m_decide_eh)
+        return;
+    
     const bool_var_data& d = ctx.get_bdata(var);
     
     if (!d.is_enode() && !d.is_theory_atom()) 
@@ -216,23 +243,26 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
         return;
     }
 
-    if (new_enode->is_bool()) {
-        // expression was set to a boolean
-        bool_var new_var = ctx.enode2bool_var(new_enode);
-        if (ctx.get_assignment(new_var) == l_undef) {
-            var = new_var;
-        }
-    }
-    else {
-        // expression was set to a bit-vector
-        auto th_bv = (theory_bv*)ctx.get_theory(bv.get_fid());
-        bool_var new_var = th_bv->get_first_unassigned(new_bit, new_enode);
-        if (new_var != null_bool_var) 
-            var = new_var;
-    }
+    // get unassigned variable from enode
+    var = enode_to_bool(new_enode, new_bit);
 
     // in case the callback did not decide on a truth value -> let Z3 decide
     is_pos = ctx.guess(var, phase);
+}
+
+bool theory_user_propagator::get_case_split(bool_var& var, bool& is_pos){
+    if (!m_next_split_expr)
+        return false;
+    enode* n = ctx.get_enode(m_next_split_expr);
+    
+    var = enode_to_bool(n, m_next_split_idx);
+    
+    if (var == null_bool_var)
+        return false;
+    
+    is_pos = ctx.guess(var, m_next_split_phase);
+    m_next_split_expr = nullptr;
+    return true;
 }
 
 void theory_user_propagator::push_scope_eh() {    

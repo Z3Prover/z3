@@ -541,6 +541,7 @@ namespace sat {
         unsigned m_next_simplify { 0 };
         bool     m_simplify_enabled { true };
         bool     m_restart_enabled { true };
+        bool guess(bool_var next);
         bool decide();
         bool_var next_var();
         lbool bounded_search();

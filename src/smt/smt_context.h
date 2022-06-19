@@ -1754,6 +1754,8 @@ namespace smt {
 
         bool watches_fixed(enode* n) const;
 
+        bool has_split_candidate(bool_var& var, bool& is_pos);
+        
         bool decide_user_interference(bool_var& var, bool& is_pos);
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
