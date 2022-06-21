@@ -424,7 +424,7 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     // After SMT-COMP, I should find all offending modules.
     // For now, I will just simplify the numeral here.
     rational v = parameters[0].get_rational();
-    parameter p0(mod(v, rational::power_of_two(bv_size)));
+    parameter p0(mod2k(v, bv_size));
     parameter ps[2] = { std::move(p0), parameters[1] };
     sort * bv = get_bv_sort(bv_size);
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
@@ -642,7 +642,7 @@ void bv_decl_plugin::get_offset_term(app * a, expr * & t, rational & offset) con
         offset = decl->get_parameter(0).get_rational();
         sz     = decl->get_parameter(1).get_int();
         t      = a->get_arg(1);
-        offset = mod(offset, rational::power_of_two(sz));
+        offset = mod2k(offset, sz);
     }
     else {
         t      = a;
@@ -755,9 +755,9 @@ expr * bv_decl_plugin::get_some_value(sort * s) {
 }
 
 rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_signed) const {
-    rational r = mod(val, rational::power_of_two(bv_size));
+    rational r = mod2k(val, bv_size);
     SASSERT(!r.is_neg());
-    if (is_signed) {
+    if (is_signed) {        
         if (r >= rational::power_of_two(bv_size - 1)) {
             r -= rational::power_of_two(bv_size);
         }

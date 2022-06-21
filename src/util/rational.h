@@ -232,9 +232,15 @@ public:
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);
         return r;
     }
-
+    
     friend inline void mod(rational const & r1, rational const & r2, rational & r) {
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);
+    }
+
+    friend inline rational mod2k(rational const & a, unsigned k) {
+        if (a.is_nonneg() && a.is_int() && a.bitsize() <= k) 
+            return a;
+        return mod(a, power_of_two(k));
     }
 
     friend inline rational operator%(rational const & r1, rational const & r2) {
