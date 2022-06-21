@@ -96,7 +96,7 @@ describe('high-level', () => {
   });
 
   it('proves x = y implies g(x) = g(y)', async () => {
-    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = api.Context('main');
     const solver = new Solver();
 
     const sort = Int.sort();
@@ -110,7 +110,7 @@ describe('high-level', () => {
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
-    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = api.Context('main');
     const solver = new Solver();
 
     const sort = Int.sort();
@@ -123,10 +123,10 @@ describe('high-level', () => {
   });
 
   it('checks that Context matches', () => {
-    const c1 = new api.Context('context');
-    const c2 = new api.Context('context');
-    const c3 = new api.Context('foo');
-    const c4 = new api.Context('bar');
+    const c1 = api.Context('context');
+    const c2 = api.Context('context');
+    const c3 = api.Context('foo');
+    const c4 = api.Context('bar');
 
     // Contexts with the same name don't do type checking during compile time.
     // We need to check for different context dynamically
@@ -144,7 +144,7 @@ describe('high-level', () => {
 
   describe('booleans', () => {
     it("proves De Morgan's Law", async () => {
-      const { Bool, Not, And, Eq, Or } = new api.Context('main');
+      const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
 
       const conjecture = Eq(Not(And(x, y)), Or(Not(x), Not(y)));
@@ -155,7 +155,7 @@ describe('high-level', () => {
 
   describe('ints', () => {
     it('finds a model', async () => {
-      const { Solver, Int, isIntVal } = new api.Context('main');
+      const { Solver, Int, isIntVal } = api.Context('main');
       const solver = new Solver();
       const x = Int.const('x');
       const y = Int.const('y');
@@ -225,7 +225,7 @@ describe('high-level', () => {
         541972386
       `);
 
-      const { Solver, Int, Distinct, isIntVal } = new api.Context('main');
+      const { Solver, Int, Distinct, isIntVal } = api.Context('main');
 
       const cells: Arith[][] = [];
       // 9x9 matrix of integer variables
@@ -308,7 +308,7 @@ describe('high-level', () => {
 
   describe('reals', () => {
     it('can work with numerals', async () => {
-      const { Real, And } = new api.Context('main');
+      const { Real, And } = api.Context('main');
       const n1 = Real.val('1/2');
       const n2 = Real.val('0.5');
       const n3 = Real.val(0.5);
@@ -322,7 +322,7 @@ describe('high-level', () => {
     it('can do non-linear arithmetic', async () => {
       api.setParam('pp.decimal', true);
       api.setParam('pp.decimal_precision', 20);
-      const { Real, Solver, isReal, isRealVal } = new api.Context('main');
+      const { Real, Solver, isReal, isRealVal } = api.Context('main');
       const x = Real.const('x');
       const y = Real.const('y');
       const z = Real.const('z');
@@ -344,7 +344,7 @@ describe('high-level', () => {
 
   describe('bitvectors', () => {
     it('can do simple proofs', async () => {
-      const { BitVec, Concat, Implies, isBitVecVal } = new api.Context('main');
+      const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
 
       const x = BitVec.const('x', 32);
 
@@ -363,7 +363,7 @@ describe('high-level', () => {
     });
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
-      const { BitVec, isBitVecVal } = new api.Context('main');
+      const { BitVec, isBitVecVal } = api.Context('main');
 
       const x = BitVec.const('x', 32);
       const y = BitVec.const('y', 32);
@@ -382,7 +382,7 @@ describe('high-level', () => {
 
   describe('Solver', () => {
     it('can use push and pop', async () => {
-      const { Solver, Int } = new api.Context('main');
+      const { Solver, Int } = api.Context('main');
       const solver = new Solver();
       const x = Int.const('x');
 
@@ -403,7 +403,7 @@ describe('high-level', () => {
     });
 
     it('can find multiple solutions', async () => {
-      const { Int, isIntVal } = new api.Context('main');
+      const { Int, isIntVal } = api.Context('main');
 
       const x = Int.const('x');
 
@@ -431,7 +431,7 @@ describe('high-level', () => {
 
   describe('AstVector', () => {
     it('can use basic methods', async () => {
-      const { Solver, AstVector, Int } = new api.Context('main');
+      const { Solver, AstVector, Int } = api.Context('main');
       const solver = new Solver();
 
       const vector = new AstVector<Arith>();

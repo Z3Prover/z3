@@ -101,13 +101,10 @@ export type CheckSatResult = typeof sat | typeof unsat | typeof unknown;
 
 /** @hidden */
 export interface ContextCtor {
-  new <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
+  <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
 }
 
 export interface Context<Name extends string = any> {
-  /** @hidden */
-  readonly __typename: 'Context';
-
   /** @hidden */
   readonly ptr: Z3_context;
   /**
@@ -1118,11 +1115,6 @@ export interface Z3HighLevel {
    * Returns a global Z3 parameter
    */
   getParam(name: string): string | null;
-
-  /**
-   * Returns whether the given object is a {@link Context}
-   */
-  isContext(obj: unknown): obj is Context;
 
   /**
    * Use this to create new contexts
