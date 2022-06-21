@@ -176,10 +176,15 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         case l_false: {
             expr* arg0 = args[0];
             expr* arg1 = to_app(arg0)->get_arg(0);
+#if 0
+            IF_VERBOSE(0, verbose_stream() << mk_pp(arg0, m()) << "\n");
             while (m_util.is_store(arg1) && compare_args<true>(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false) {
+                IF_VERBOSE(0, verbose_stream() << "diff: " << mk_pp(arg1, m()) << "\n");
+
                 arg0 = arg1;
                 arg1 = to_app(arg0)->get_arg(0);
             }
+#endif
             
             // select(store(a, I, v), J) --> select(a, J) if I != J
             ptr_buffer<expr> new_args;

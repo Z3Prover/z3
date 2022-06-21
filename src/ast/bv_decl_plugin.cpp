@@ -651,9 +651,9 @@ void bv_decl_plugin::get_offset_term(app * a, expr * & t, rational & offset) con
 }
 
 bool bv_decl_plugin::are_distinct(app * a, app * b) const {
-    if (is_value(a) && is_value(b))
-        return a != b;
-#if 1
+    if (decl_plugin::are_distinct(a, b))
+        return true;
+    
     // Check for a + k1 != a + k2   when k1 != k2
     rational a_offset;
     expr *   a_term;
@@ -668,8 +668,7 @@ bool bv_decl_plugin::are_distinct(app * a, app * b) const {
           tout << "b: " << b_offset << " + " << mk_ismt2_pp(b_term, *m_manager) << "\n";);
     if (a_term == b_term && a_offset != b_offset)
         return true;
-#endif
-    return decl_plugin::are_distinct(a, b);
+    return false;    
 }
 
 void bv_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
