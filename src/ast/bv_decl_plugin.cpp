@@ -423,7 +423,8 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     // This cannot be enforced now, since some Z3 modules try to generate these invalid numerals.
     // After SMT-COMP, I should find all offending modules.
     // For now, I will just simplify the numeral here.
-    parameter p0(mod(parameters[0].get_rational(), rational::power_of_two(bv_size)));
+    rational v = parameters[0].get_rational();
+    parameter p0(mod(v, rational::power_of_two(bv_size)));
     parameter ps[2] = { std::move(p0), parameters[1] };
     sort * bv = get_bv_sort(bv_size);
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
@@ -645,11 +646,13 @@ void bv_decl_plugin::get_offset_term(app * a, expr * & t, rational & offset) con
     }
     else {
         t      = a;
-        offset = rational(0);
+        offset.reset();
     }
 }
 
 bool bv_decl_plugin::are_distinct(app * a, app * b) const {
+    if (is_value(a) && is_value(b))
+        return a != b;
 #if 1
     // Check for a + k1 != a + k2   when k1 != k2
     rational a_offset;
