@@ -894,16 +894,36 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_result_stack.pop_back();
     }
 
+    struct scoped_reset {
+        imp& i;
+        scoped_reset(imp& i) :i(i) {}
+        ~scoped_reset() {
+            i.m_interface_vars.reset();
+            i.m_app2lit.reset();
+            i.m_lit2app.reset();
+        }
+    };
+    
+    void operator()(unsigned n, expr* const* fmls) {
+        scoped_reset _reset(*this);
+        // collect_boolean_interface(g, m_interface_vars);
+        for (unsigned i = 0; i < n; ++i) 
+            process(fmls[i]);
+    }
+
+    void assumptions(unsigned n, expr* const* fmls) {
+        scoped_reset _reset(*this);
+        // collect_boolean_interface(g, m_interface_vars);
+        for (unsigned i = 0; i < n; ++i) {
+            expr* f = fmls[i];
+            expr* f1 = f;
+            bool sign = m.is_not(f, f1);
+            insert_dep(f, f1, sign);
+        }
+    }
+
+
     void operator()(goal const & g) {
-        struct scoped_reset {
-            imp& i;
-            scoped_reset(imp& i) :i(i) {}
-            ~scoped_reset() {
-                i.m_interface_vars.reset();
-                i.m_app2lit.reset();
-                i.m_lit2app.reset();
-            }
-        };
         scoped_reset _reset(*this);
         collect_boolean_interface(g, m_interface_vars);
         unsigned size = g.size();
@@ -1002,15 +1022,29 @@ void goal2sat::collect_param_descrs(param_descrs & r) {
     r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
 }
 
-
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+void goal2sat::init(ast_manager& m, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external) {
     if (!m_imp) {
-        m_imp = alloc(imp, g.m(), p, t, m, dep2asm, default_external);
+        m_imp = alloc(imp, m, p, t, map, dep2asm, default_external);
         for (unsigned i = 0; i < m_scopes; ++i)
             m_imp->user_push();
     }
+}
+
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+    init(g.m(), p, t, m, dep2asm, default_external);
     (*m_imp)(g);    
 }
+
+void goal2sat::operator()(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external) {
+    init(m, p, t, map, dep2asm, default_external);
+    (*m_imp)(n, fmls);
+}
+
+void goal2sat::assumptions(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external) {
+    init(m, p, t, map, dep2asm, default_external);
+    m_imp->assumptions(n, fmls);
+}
+
 
 void goal2sat::get_interpreted_funs(func_decl_ref_vector& funs) {
     if (m_imp) 

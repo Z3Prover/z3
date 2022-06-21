@@ -54,7 +54,7 @@ namespace array {
         euf::enode* d = get_default(v);
         if (d)
             dep.add(n, d);
-        if (!dep.deps().contains(n))
+        if (!dep.contains_dep(n))
             dep.insert(n, nullptr);
         return true;
     }

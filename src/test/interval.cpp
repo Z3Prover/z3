@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast.h"
 #include "util/debug.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 template class interval_manager<im_default_config>;
 typedef im_default_config::interval interval;

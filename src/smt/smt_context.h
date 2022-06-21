@@ -531,22 +531,22 @@ namespace smt {
         }
 
         unsigned get_num_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].size() : 0;
         }
 
         enode_vector const& enodes_of(func_decl const * d) const {
-            unsigned id = d->get_decl_id();
+            unsigned id = d->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id] : m_empty_vector;
         }
 
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
         }
 
         enode_vector::const_iterator end_enodes_of(func_decl const * decl) const {
-            unsigned id = decl->get_decl_id();
+            unsigned id = decl->get_small_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
 
@@ -773,7 +773,12 @@ namespace smt {
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
 
-        bool m_has_lambda = false;
+        obj_map<enode, quantifier*> m_lambdas;
+
+        bool has_lambda();
+
+        bool is_beta_redex(enode* p, enode* n) const;
+
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
@@ -783,6 +788,7 @@ namespace smt {
         friend class set_enode_flag_trail;
 
     public:
+        
         void set_enode_flag(bool_var v, bool is_new_var);
 
     protected:
@@ -1133,6 +1139,8 @@ namespace smt {
         bool is_ext_diseq(enode * n1, enode * n2, unsigned depth);
 
         enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args);
+
+        bool guess(bool_var var, lbool phase);
 
     protected:
         bool decide();
@@ -1667,7 +1675,7 @@ namespace smt {
 
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
 
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         void get_model(model_ref & m);
 
@@ -1738,7 +1746,17 @@ namespace smt {
             m_user_propagator->register_created(r);
         }
 
+        void user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_decide(r);
+        }
+
         bool watches_fixed(enode* n) const;
+
+        bool has_split_candidate(bool_var& var, bool& is_pos);
+        
+        bool decide_user_interference(bool_var& var, bool& is_pos);
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
 

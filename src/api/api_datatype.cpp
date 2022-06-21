@@ -365,6 +365,20 @@ extern "C" {
         Z3_CATCH;
     }
 
+    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name) {
+        Z3_TRY;
+        LOG_Z3_mk_datatype_sort(c, name);
+        RESET_ERROR_CODE();
+        ast_manager& m = mk_c(c)->m();
+        datatype_util adt_util(m);
+        parameter p(to_symbol(name));
+        sort * s = m.mk_sort(adt_util.get_family_id(), DATATYPE_SORT, 1, &p);
+        mk_c(c)->save_ast_trail(s);
+        RETURN_Z3(of_sort(s));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
     void Z3_API Z3_mk_datatypes(Z3_context c,
                                 unsigned num_sorts,
                                 Z3_symbol const sort_names[],

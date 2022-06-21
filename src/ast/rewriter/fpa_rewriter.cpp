@@ -93,7 +93,9 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_TO_UBV_I:   SASSERT(num_args == 2); st = mk_to_ubv(f, args[0], args[1], result); break;
     case OP_FPA_TO_SBV_I:   SASSERT(num_args == 2); st = mk_to_sbv(f, args[0], args[1], result); break;
     case OP_FPA_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(f, args[0], result); break;
+    case OP_FPA_TO_IEEE_BV_I: SASSERT(num_args == 1); st = mk_to_ieee_bv(f, args[0], result); break;
     case OP_FPA_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
+    case OP_FPA_TO_REAL_I:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
 
     case OP_FPA_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
     case OP_FPA_BV2RM: SASSERT(num_args == 1); st = mk_bv2rm(args[0], result); break;

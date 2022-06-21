@@ -27,9 +27,8 @@ void ast_pp_util::collect(expr* e) {
 }
 
 void ast_pp_util::collect(unsigned n, expr* const* es) {
-    for (unsigned i = 0; i < n; ++i) {
+    for (unsigned i = 0; i < n; ++i) 
         coll.visit(es[i]);
-    }
 }
 
 void ast_pp_util::collect(expr_ref_vector const& es) {
@@ -38,31 +37,31 @@ void ast_pp_util::collect(expr_ref_vector const& es) {
 
 void ast_pp_util::display_decls(std::ostream& out) {
     ast_smt_pp pp(m);
-    bool first = m_num_decls == 0;
-    coll.order_deps(m_num_sorts);
+    coll.order_deps(m_sorts);
     unsigned n = coll.get_num_sorts();
     ast_mark seen;
-    for (unsigned i = m_num_sorts; i < n; ++i) 
+    for (unsigned i = m_sorts; i < n; ++i) 
         pp.display_sort_decl(out, coll.get_sorts()[i], seen);
-    m_num_sorts = n;
+    m_sorts = n;
+    
     n = coll.get_num_decls();
-    for (unsigned i = m_num_decls; i < n; ++i) {
+    for (unsigned i = m_decls; i < n; ++i) {
         func_decl* f = coll.get_func_decls()[i];
-        if (f->get_family_id() == null_family_id && !m_removed.contains(f)) {
+        if (f->get_family_id() == null_family_id && !m_removed.contains(f)) 
             ast_smt2_pp(out, f, m_env) << "\n";
-        }
     }
-    m_num_decls = n;
-    if (first) {
-        vector<std::pair<func_decl*, expr*>> recfuns;
-        recfun::util u(m);
-        func_decl_ref_vector funs = u.get_rec_funs();
-        if (funs.empty()) return;
-        for (func_decl * f : funs) {
-            recfuns.push_back(std::make_pair(f, u.get_def(f).get_rhs()));
-        }
+    m_decls = n;
+    
+    n = coll.get_rec_decls().size();
+    vector<std::pair<func_decl*, expr*>> recfuns;
+    recfun::util u(m);
+    for (unsigned i = m_rec_decls; i < n; ++i) {
+        func_decl* f = coll.get_rec_decls()[i];
+        recfuns.push_back(std::make_pair(f, u.get_def(f).get_rhs()));
+    }
+    if (!recfuns.empty())
         ast_smt2_pp_recdefs(out, recfuns, m_env);
-    }
+    m_rec_decls = n;
 }
 
 void ast_pp_util::remove_decl(func_decl* f) {
@@ -116,14 +115,14 @@ void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls
 
 void ast_pp_util::push() {
     coll.push();
-    m_num_sorts_trail.push_back(m_num_sorts);
-    m_num_decls_trail.push_back(m_num_decls);
+    m_rec_decls.push();
+    m_decls.push();
+    m_sorts.push();
 }
 
 void ast_pp_util::pop(unsigned n) {
     coll.pop(n);
-    m_num_sorts = m_num_sorts_trail[m_num_sorts_trail.size() - n];
-    m_num_decls = m_num_decls_trail[m_num_decls_trail.size() - n];
-    m_num_sorts_trail.shrink(m_num_sorts_trail.size() - n);
-    m_num_decls_trail.shrink(m_num_decls_trail.size() - n);
+    m_rec_decls.pop(n);
+    m_decls.pop(n);
+    m_sorts.pop(n);
 }

@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "math/hilbert/heap_trie.h"
+#include <iostream>
 
 struct unsigned_le {
     static bool le(unsigned i, unsigned j) { return i <= j; }

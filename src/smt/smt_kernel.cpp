@@ -248,8 +248,8 @@ namespace smt {
         m_imp->m_kernel.get_levels(vars, depth);
     }
 
-    expr_ref_vector kernel::get_trail() {
-        return m_imp->m_kernel.get_trail();
+    expr_ref_vector kernel::get_trail(unsigned max_level) {
+        return m_imp->m_kernel.get_trail(max_level);
     }
 
     void kernel::user_propagate_init(
@@ -282,6 +282,10 @@ namespace smt {
 
     void kernel::user_propagate_register_created(user_propagator::created_eh_t& r) {
         m_imp->m_kernel.user_propagate_register_created(r);
+    }
+
+    void kernel::user_propagate_register_decide(user_propagator::decide_eh_t& r) {
+        m_imp->m_kernel.user_propagate_register_decide(r);
     }
 
 };

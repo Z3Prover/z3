@@ -121,6 +121,7 @@ namespace q {
         void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
 
         bool propagate(bool flush);
+        void propagate(clause& c, bool flush, bool& propagated);
 
         expr_ref_vector m_new_defs;
         proof_ref_vector m_new_proofs;

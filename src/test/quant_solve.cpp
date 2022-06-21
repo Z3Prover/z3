@@ -18,6 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "model/model_smt2_pp.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/var_subst.h"
+#include <iostream>
 
 static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::def_vector const& defs) {
     // verify:

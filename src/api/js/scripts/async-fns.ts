@@ -1,8 +1,6 @@
-'use strict';
-
 // things which you probably want to do off-thread
 // from https://github.com/Z3Prover/z3/issues/5746#issuecomment-1006289146
-module.exports = [
+export const asyncFuncs = [
   'Z3_eval_smtlib2_string',
   'Z3_simplify',
   'Z3_simplify_ex',

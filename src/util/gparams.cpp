@@ -534,6 +534,11 @@ public:
         d->display(out, 4, false);
     }
 
+    param_descrs const& get_global_param_descrs() {
+        lock_guard lock(*gparams_mux);
+        return get_param_descrs();
+    }
+
     void display_parameter(std::ostream & out, char const * name) {        
         std::string m, p;
         normalize(name, m, p);
@@ -622,6 +627,10 @@ params_ref const& gparams::get_ref() {
 void gparams::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {
     SASSERT(g_imp);
     g_imp->display(out, indent, smt2_style, include_descr);
+}
+
+param_descrs const& gparams::get_global_param_descrs() {
+    return g_imp->get_global_param_descrs();
 }
 
 void gparams::display_modules(std::ostream & out) {

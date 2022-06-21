@@ -312,6 +312,7 @@ namespace euf {
             }
         }
         else if (m.is_distinct(e)) {
+            // TODO - add lazy case for large values of sz.
             expr_ref_vector eqs(m);
             unsigned sz = n->num_args();
             for (unsigned i = 0; i < sz; ++i) {
@@ -357,6 +358,7 @@ namespace euf {
         for (auto const& p : euf::enode_th_vars(n)) {
             family_id id = p.get_id();
             if (m.get_basic_family_id() != id) {
+                
                 if (th_id != m.get_basic_family_id())
                     return true;
                 th_id = id;               
@@ -368,6 +370,8 @@ namespace euf {
         for (enode* parent : euf::enode_parents(n)) {
             app* p = to_app(parent->get_expr());
             family_id fid = p->get_family_id();
+            if (is_beta_redex(parent, n))
+                continue;
             if (fid != th_id && fid != m.get_basic_family_id())
                 return true;
         }
@@ -403,6 +407,13 @@ namespace euf {
             if (fid2solver(p.get_id())->is_shared(p.get_var()))
                 return true;
 
+        return false;
+    }
+
+    bool solver::is_beta_redex(enode* p, enode* n) const {
+        for (auto const& th : enode_th_vars(p))
+            if (fid2solver(th.get_id())->is_beta_redex(p, n))
+                return true;
         return false;
     }
 

@@ -55,7 +55,6 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool       m_mul2concat;
     bool       m_bit2bool;
     bool       m_blast_eq_value;
-    bool       m_mkbv2num;
     bool       m_ite2id;
     bool       m_split_concat_eq;
     bool       m_bv_sort_ac;
@@ -63,7 +62,8 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool       m_bvnot_simpl;
     bool       m_le_extra;
     bool       m_le2extract;
-
+    bool       m_mkbv2num = false;
+    
     bool is_zero_bit(expr * x, unsigned idx);
 
     br_status mk_ule(expr * a, expr * b, expr_ref & result);
@@ -180,7 +180,8 @@ public:
 
     bool is_urem_any(expr * e, expr * & dividend,  expr * & divisor);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
-    br_status mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resul);
+    br_status mk_ite_core(expr * c, expr * t, expr * e, expr_ref & result);
+    br_status mk_distinct(unsigned num_args, expr * const * args, expr_ref & result);
 
     bool hi_div0() const { return m_hi_div0; }
 

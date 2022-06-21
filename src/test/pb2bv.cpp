@@ -19,6 +19,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/fd_solver/fd_solver.h"
 #include "solver/solver.h"
 #include "ast/arith_decl_plugin.h"
+#include <iostream>
 
 static void test1() {
     ast_manager m;

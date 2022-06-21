@@ -6,7 +6,7 @@ Abstract: Pretty-printer for proofs in Graphviz format
 
 #pragma once
 
-#include <iostream>
+#include <ostream>
 #include "ast/ast_pp.h"
 
 class ast_pp_dot {

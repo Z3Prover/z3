@@ -208,8 +208,8 @@ namespace {
             m_context.get_levels(vars, depth);
         }
 
-        expr_ref_vector get_trail() override {
-            return m_context.get_trail();
+        expr_ref_vector get_trail(unsigned max_level) override {
+            return m_context.get_trail(max_level);
         }
 
         void user_propagate_init(
@@ -242,6 +242,10 @@ namespace {
 
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {
             m_context.user_propagate_register_created(c);
+        }
+
+        void user_propagate_register_decide(user_propagator::decide_eh_t& c) override {
+            m_context.user_propagate_register_decide(c);
         }
 
         struct scoped_minimize_core {

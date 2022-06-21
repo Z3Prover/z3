@@ -527,6 +527,19 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             return nullptr;
         }
         return mk_array_ext(arity, domain, parameters[0].get_int());
+    case OP_ARRAY_MAXDIFF:
+    case OP_ARRAY_MINDIFF: {
+        if (num_parameters != 0)
+            m_manager->raise_exception("min/maxdiff don't take any parameters");
+        if (arity != 2 || domain[0] != domain[1] || !is_array_sort(domain[0]) || 1 != get_array_arity(domain[0]))
+            m_manager->raise_exception("min/maxdiff don't take two arrays of same sort and with integer index");
+        sort* idx = get_array_domain(domain[0], 0);
+        arith_util arith(*m_manager);
+        if (!arith.is_int(idx))
+            m_manager->raise_exception("min/maxdiff take integer index domain");
+        return m_manager->mk_func_decl(k == OP_ARRAY_MAXDIFF ? symbol("maxdiff") : symbol("mindiff"), 
+                                       arity, domain, arith.mk_int(), func_decl_info(m_family_id, k));
+    }
     case OP_ARRAY_DEFAULT:
         return mk_default(arity, domain);
     case OP_SET_UNION:
@@ -587,6 +600,10 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
         op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
+
+        op_names.push_back(builtin_name("mindiff", OP_ARRAY_MINDIFF));
+        op_names.push_back(builtin_name("maxdiff", OP_ARRAY_MAXDIFF));
+
 #if 0
         op_names.push_back(builtin_name("set-has-size", OP_SET_HAS_SIZE));
         op_names.push_back(builtin_name("card", OP_SET_CARD));
@@ -612,6 +629,24 @@ bool array_decl_plugin::is_fully_interp(sort * s) const {
     }
     return m_manager->is_fully_interp(get_array_range(s));
 }
+
+bool array_decl_plugin::is_value(app * _e) const {
+    expr* e = _e;
+    array_util u(*m_manager);
+    while (true) {
+        if (u.is_const(e, e))
+            return m_manager->is_value(e);
+        if (u.is_store(e)) {            
+            for (unsigned i = 1; i < to_app(e)->get_num_args(); ++i)
+                if (!m_manager->is_value(to_app(e)->get_arg(i)))
+                    return false;
+            e = to_app(e)->get_arg(0);
+            continue;
+        }
+        return false;
+    }
+}
+
 
 func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
@@ -687,3 +722,4 @@ func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {
     parameter p(i);
     return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }
+

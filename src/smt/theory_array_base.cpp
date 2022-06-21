@@ -473,39 +473,21 @@ namespace smt {
         return false;
     }
 
-#if 0
-    void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
-        TRACE("array_shared", tout << "collecting shared vars...\n";);
-        ptr_buffer<enode> to_unmark;
-        unsigned num_vars = get_num_vars();
-        for (unsigned i = 0; i < num_vars; i++) {
-            enode * n = get_enode(i);
-            if (ctx.is_relevant(n) && ctx.is_shared(n)) {
-                enode * r = n->get_root();
-                if (!r->is_marked() && is_array_sort(r)) {
-                    TRACE("array_shared", tout << "new shared var: #" << r->get_expr_id() << "\n";);
-                    r->set_mark();
-                    to_unmark.push_back(r);
-                    theory_var r_th_var = r->get_var(get_id());
-                    SASSERT(r_th_var != null_theory_var);
-                    result.push_back(r_th_var);
-                }
-            }
-        }
-        unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
+    bool theory_array_base::is_beta_redex(enode* p, enode* n) const {
+        if (is_select(p))
+            return p->get_arg(0)->get_root() == n->get_root();
+        if (is_map(p))
+            return true;
+        return false;
     }
-#else
+
 
     bool theory_array_base::is_select_arg(enode* r) {
-        for (enode* n : r->get_parents()) {
-            if (is_select(n)) {
-                for (unsigned i = 1; i < n->get_num_args(); ++i) {
-                    if (r == n->get_arg(i)->get_root()) {
+        for (enode* n : r->get_parents()) 
+            if (is_select(n)) 
+                for (unsigned i = 1; i < n->get_num_args(); ++i) 
+                    if (r == n->get_arg(i)->get_root()) 
                         return true;
-                    }
-                }
-            }
-        }
         return false;
     }
 
@@ -536,7 +518,6 @@ namespace smt {
         TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(result.size(), (unsigned*)result.data())  << "\n";);
         unmark_enodes(to_unmark.size(), to_unmark.data());
     }
-#endif
 
     /**
        \brief Create interface variables for shared array variables.

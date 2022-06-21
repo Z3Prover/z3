@@ -1,9 +1,8 @@
-'use strict';
+import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 
-let fs = require('fs');
-let path = require('path');
-
-let files = [
+const files = [
   'z3_api.h',
   'z3_algebraic.h',
   'z3_ast_containers.h',
@@ -15,15 +14,15 @@ let files = [
   'z3_spacer.h',
 ];
 
-let aliases = {
+const aliases = {
   __proto__: null,
   Z3_bool: 'boolean',
   Z3_string: 'string',
   bool: 'boolean',
   signed: 'int',
-};
+} as unknown as Record<string, string>;
 
-let primitiveTypes = {
+const primitiveTypes = {
   __proto__: null,
   Z3_char_ptr: 'string',
   unsigned: 'number',
@@ -32,18 +31,18 @@ let primitiveTypes = {
   int64_t: 'bigint',
   double: 'number',
   float: 'number',
-};
+} as unknown as Record<string, string>;
 
-let optTypes = {
+const optTypes = {
   __proto__: null,
 
   Z3_sort_opt: 'Z3_sort',
   Z3_ast_opt: 'Z3_ast',
   Z3_func_interp_opt: 'Z3_func_interp',
-};
+} as unknown as Record<string, string>;
 
 // parse type declarations
-let types = {
+const types = {
   __proto__: null,
 
   // these are function types I can't be bothered to parse
@@ -55,11 +54,26 @@ let types = {
   Z3_eq_eh: 'Z3_eq_eh',
   Z3_final_eh: 'Z3_final_eh',
   Z3_created_eh: 'Z3_created_eh',
-};
+  Z3_decide_eh: 'Z3_decide_eh',
+} as unknown as Record<string, string>;
 
-let defApis = Object.create(null);
-let functions = [];
-let enums = Object.create(null);
+export type ApiParam = { kind: string; sizeIndex?: number; type: string };
+export type Api = { params: ApiParam[]; ret: string; extra: boolean };
+const defApis: Record<string, Api> = Object.create(null);
+export type FuncParam = {
+  type: string;
+  cType: string;
+  name: string;
+  isConst: boolean;
+  isPtr: boolean;
+  isArray: boolean;
+  nullable: boolean;
+  kind?: string;
+  sizeIndex?: number;
+};
+export type Func = { ret: string; cRet: string; name: string; params: FuncParam[]; nullableRet: boolean };
+const functions: Func[] = [];
+let enums: Record<string, Record<string, number>> = Object.create(null);
 for (let file of files) {
   let contents = fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8');
 
@@ -79,31 +93,40 @@ for (let file of files) {
     /def_Type\(\s*'(?<name>[A-Za-z0-9_]+)',\s*'(?<cname>[A-Za-z0-9_]+)',\s*'(?<pname>[A-Za-z0-9_]+)'\)/g,
   );
   for (let { groups } of typeMatches) {
+    assert(groups !== undefined);
     pytypes[groups.name] = groups.cname;
   }
+
+  // we don't have to pre-populate the types map with closure types
+  // use the Z3_DECLARE_CLOSURE to identify closure types
+  // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
+  //   types[match.groups.type] = match.groups.type
+  // }
 
   // we filter first to ensure our regex isn't too strict
   let apiLines = contents.split('\n').filter(l => /def_API|extra_API/.test(l));
   for (let line of apiLines) {
     let match = line.match(
-      /^\s*(?<def>def_API|extra_API) *\(\s*'(?<name>[A-Za-z0-9_]+)'\s*,\s*(?<ret>[A-Za-z0-9_]+)\s*,\s*\((?<params>((_in|_out|_in_array|_out_array|_inout_array)\([^)]+\)\s*,?\s*)*)\)\s*\)\s*$/,
+      /^\s*(?<def>def_API|extra_API) *\(\s*'(?<name>[A-Za-z0-9_]+)'\s*,\s*(?<ret>[A-Za-z0-9_]+)\s*,\s*\((?<params>((_in|_out|_in_array|_out_array|_fnptr|_inout_array)\([^)]+\)\s*,?\s*)*)\)\s*\)\s*$/,
     );
-    if (match == null) {
+    if (match === null) {
       throw new Error(`failed to match def_API call ${JSON.stringify(line)}`);
     }
+    assert(match.groups !== undefined);
     let { name, ret, def } = match.groups;
     let params = match.groups.params.trim();
     let text = params;
     let parsedParams = [];
     while (true) {
       text = eatWs(text);
-      ({ text, match } = eat(text, /^_(?<kind>in|out|in_array|out_array|inout_array)\(/));
+      ({ text, match } = eat(text, /^_(?<kind>in|out|in_array|out_array|inout_array|fnptr)\(/));
       if (match == null) {
         break;
       }
+      assert(match.groups !== undefined);
       let kind = match.groups.kind;
       if (kind === 'inout_array') kind = 'in_array'; // https://github.com/Z3Prover/z3/discussions/5761
-      if (kind === 'in' || kind === 'out') {
+      if (kind === 'in' || kind === 'out' || kind == 'fnptr') {
         ({ text, match } = expect(text, /^[A-Za-z0-9_]+/));
         parsedParams.push({ kind, type: match[0] });
       } else {
@@ -121,7 +144,6 @@ for (let file of files) {
       throw new Error(`extra text in parameter list ${JSON.stringify(text)}`);
     }
 
-      
     if (name in defApis) {
       throw new Error(`multiple defApi calls for ${name}`);
     }
@@ -129,14 +151,9 @@ for (let file of files) {
   }
 
   for (let match of contents.matchAll(/DEFINE_TYPE\((?<type>[A-Za-z0-9_]+)\)/g)) {
+    assert(match.groups !== undefined);
     types[match.groups.type] = match.groups.type;
   }
-
-    // we don't have to pre-populate the types map with closure types
-    // use the Z3_DECLARE_CLOSURE to identify closure types
-    // for (let match of contents.matchAll(/Z3_DECLARE_CLOSURE\((?<type>[A-Za-z0-9_]+),/g)) {
-    //   types[match.groups.type] = match.groups.type
-    // }
 
   // parse enum declarations
   for (let idx = 0; idx < contents.length; ) {
@@ -155,12 +172,13 @@ for (let file of files) {
     if (match === null) {
       throw new Error(`could not parse enum ${JSON.stringify(slice)}`);
     }
-    let vals = Object.create(null);
+    let vals: Record<string, number> = Object.create(null);
     let next = 0;
     while (true) {
       let blank = true;
       while (blank) {
         ({ match, text } = eat(text, /^\s*(\/\/[^\n]*\n)?/));
+        assert(match !== null);
         blank = match[0].length > 0;
       }
       ({ match, text } = eat(text, /^[A-Za-z0-9_]+/));
@@ -172,6 +190,7 @@ for (let file of files) {
 
       ({ match, text } = eat(text, /^= *(?<val>[^\n,\s]+)/));
       if (match !== null) {
+        assert(match.groups !== undefined);
         let parsedVal = Number(match.groups.val);
         if (Object.is(parsedVal, NaN)) {
           throw new Error('unknown value ' + match.groups.val);
@@ -221,12 +240,14 @@ for (let file of files) {
     if (match == null) {
       throw new Error(`failed to match c definition: ${JSON.stringify(slice)}`);
     }
+    assert(match.groups !== undefined);
+
     let { ret, name, params } = match.groups;
     let parsedParams = [];
 
     if (params.trim() !== 'void') {
       for (let param of params.split(',')) {
-        let paramType, paramName, isConst, isPtr, isArray;
+        let paramType: string, paramName: string, isConst: boolean, isPtr: boolean, isArray: boolean;
 
         let { match, text } = eat(param, /^\s*/);
         ({ match, text } = eat(text, /^[A-Za-z0-9_]+/));
@@ -302,7 +323,7 @@ for (let file of files) {
   }
 }
 
-function isKnownType(t) {
+function isKnownType(t: string) {
   return t in enums || t in types || t in primitiveTypes || ['string', 'boolean', 'void'].includes(t);
 }
 
@@ -339,19 +360,19 @@ for (let fn of functions) {
   }
 }
 
-function eat(str, regex) {
-  const match = str.match(regex);
-  if (match == null) {
+function eat(str: string, regex: string | RegExp) {
+  const match: RegExpMatchArray | null = str.match(regex);
+  if (match === null) {
     return { match, text: str };
   }
   return { match, text: str.substring(match[0].length) };
 }
 
-function eatWs(text) {
+function eatWs(text: string) {
   return eat(text, /^\s*/).text;
 }
 
-function expect(str, regex) {
+function expect(str: string, regex: string | RegExp) {
   let { text, match } = eat(str, regex);
   if (match === null) {
     throw new Error(`expected ${regex}, got ${JSON.stringify(text)}`);
@@ -359,4 +380,4 @@ function expect(str, regex) {
   return { text, match };
 }
 
-module.exports = { primitiveTypes, types, enums, functions };
+export { primitiveTypes, types, enums, functions };

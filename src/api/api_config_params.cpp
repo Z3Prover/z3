@@ -64,6 +64,17 @@ extern "C" {
         }
     }
 
+    Z3_param_descrs Z3_API Z3_get_global_param_descrs(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_get_global_param_descrs(c);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
+        mk_c(c)->save_object(d);
+        d->m_descrs = gparams::get_global_param_descrs();
+        auto r = of_param_descrs(d);
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_config Z3_API Z3_mk_config(void) {
         try {
             memory::initialize(UINT_MAX);

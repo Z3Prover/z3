@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
+#include <iostream>
 
 void tst_factor_rewriter() {
     ast_manager m;

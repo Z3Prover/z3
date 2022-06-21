@@ -33,7 +33,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_split_concat_eq = p.split_concat_eq();
     m_bvnot_simpl = p.bv_not_simpl();
     m_bv_sort_ac = p.bv_sort_ac();
-    m_mkbv2num = _p.get_bool("mkbv2num", false);
     m_extract_prop = p.bv_extract_prop();
     m_ite2id = p.bv_ite2id();
     m_le_extra = p.bv_le_extra();
@@ -49,9 +48,6 @@ void bv_rewriter::updt_params(params_ref const & p) {
 void bv_rewriter::get_param_descrs(param_descrs & r) {
     poly_rewriter<bv_rewriter_core>::get_param_descrs(r);
     bv_rewriter_params::collect_param_descrs(r);
-#ifndef _EXTERNAL_RELEASE
-    r.insert("mkbv2num", CPK_BOOL, "(default: false) convert (mkbv [true/false]*) into a numeral");
-#endif
 }
 
 br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -2801,6 +2797,21 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     }
     
     return BR_FAILED;
+}
+
+br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_ref & result) {
+    if (num_args <= 1) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    unsigned sz = get_bv_size(args[0]);
+    // check if num_args > 2^sz
+    if (sz >= 32) 
+        return BR_FAILED;
+    if (num_args <= 1u << sz)
+        return BR_FAILED;
+    result = m().mk_false();
+    return BR_DONE;     
 }
 
 br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {

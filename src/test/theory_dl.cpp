@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "smt/smt_context.h"
 #include "model/model_v2_pp.h"
+#include <iostream>
 
 void tst_theory_dl() {
     ast_manager m;

@@ -88,7 +88,7 @@ void Sy(Z3_symbol sym) {
         *g_z3_log << "# " << s.get_num();
     }
     else {
-        *g_z3_log << "$ |" << ll_escaped{s.bare_str()} << '|';
+        *g_z3_log << "$ |" << ll_escaped{s.str().c_str()} << '|';
     }
     *g_z3_log << std::endl;
 }

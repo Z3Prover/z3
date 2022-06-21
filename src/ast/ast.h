@@ -572,7 +572,7 @@ protected:
 
     decl(ast_kind k, symbol const & name, decl_info * info):ast(k), m_name(name), m_info(info) {}
 public:
-    unsigned get_decl_id() const { SASSERT(get_id() >= c_first_decl_id); return get_id() - c_first_decl_id; }
+    unsigned get_small_id() const { SASSERT(get_id() >= c_first_decl_id); return get_id() - c_first_decl_id; }
     symbol const & get_name() const { return m_name; }
     decl_info * get_info() const { return m_info; }
     family_id get_family_id() const { return m_info == nullptr ? null_family_id : m_info->get_family_id(); }
@@ -671,6 +671,9 @@ protected:
 public:
 
     sort* get_sort() const;
+
+    unsigned get_small_id() const { return get_id(); }
+    
 };
 
 // -----------------------------------
@@ -1615,7 +1618,7 @@ public:
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
     quantifier* is_lambda_def(func_decl* f);
-    
+    quantifier* is_lambda_def(app* e) { return is_lambda_def(e->get_decl()); }
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }
 
@@ -1914,9 +1917,8 @@ public:
         return mk_fresh_const(prefix.c_str(), s, skolem);        
     }
 
-    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) { 
-        auto str = prefix.str();
-        return mk_fresh_const(str.c_str(), s, skolem);
+    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) {
+        return mk_const(mk_fresh_func_decl(prefix, symbol::null, 0, nullptr, s, skolem));
     }
 
     symbol mk_fresh_var_name(char const * prefix = nullptr);
@@ -2574,7 +2576,7 @@ typedef ast_ref_fast_mark2   expr_ref_fast_mark2;
    when N is deleted.
 */
 class ast_mark {
-    struct decl2uint { unsigned operator()(decl const & d) const { return d.get_decl_id(); } };
+    struct decl2uint { unsigned operator()(decl const & d) const { return d.get_small_id(); } };
     obj_mark<expr>                        m_expr_marks;
     obj_mark<decl, bit_vector, decl2uint> m_decl_marks;
 public:

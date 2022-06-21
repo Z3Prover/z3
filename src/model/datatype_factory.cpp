@@ -166,7 +166,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         for (unsigned i = 0; i < num; i++) {
             sort * s_arg        = constructor->get_domain(i);
             if (!found_fresh_arg && 
-                !m_util.is_recursive_array(s_arg) && 
+                !m_util.is_recursive_nested(s_arg) && 
                 (!m_util.is_recursive(s) || !m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
                 expr * new_arg = m_model.get_fresh_value(s_arg);
                 if (new_arg != nullptr) {

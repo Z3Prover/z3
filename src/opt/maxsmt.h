@@ -31,11 +31,16 @@ namespace opt {
 
     typedef vector<rational> const weights_t;
 
+    struct weighted_core {
+        ptr_vector<expr>  m_core;
+        rational          m_weight;
+        weighted_core(ptr_vector<expr> const& c, rational const& w):
+            m_core(c), m_weight(w) {}
+    };
+
     class maxsat_context;
 
     class maxsmt_solver {
-    protected:
-        adjust_value m_adjust_value;
     public:        
         virtual ~maxsmt_solver() {}
         virtual lbool operator()() = 0;
@@ -45,28 +50,30 @@ namespace opt {
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void get_model(model_ref& mdl, svector<symbol>& labels) = 0;
         virtual void updt_params(params_ref& p) = 0;
-        void set_adjust_value(adjust_value& adj) { m_adjust_value = adj; }
 
     };
 
     // ---------------------------------------------
     // base class with common utilities used
     // by maxsmt solvers
-    // 
+    //
+
+    struct soft { 
+        expr_ref  s; 
+        rational  weight; 
+        lbool     value;
+        void set_value(bool t) { value = t?l_true:l_undef; }
+        void set_value(lbool t) { value = t; }
+        bool is_true() const { return value == l_true; }
+        soft(expr_ref const& s, rational const& w, bool t): s(s), weight(w), value(t?l_true:l_undef) {}
+    };
+
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
-        struct soft { 
-            expr_ref  s; 
-            rational  weight; 
-            lbool     value;
-            void set_value(bool t) { value = t?l_true:l_undef; }
-            void set_value(lbool t) { value = t; }
-            bool is_true() const { return value == l_true; }
-            soft(expr_ref const& s, rational const& w, bool t): s(s), weight(w), value(t?l_true:l_undef) {}
-        };
         ast_manager&     m;
-        maxsat_context&  m_c;        
-        vector<soft>     m_soft;
+        maxsat_context&  m_c;
+        unsigned         m_index;
+        vector<soft>&    m_soft;
         expr_ref_vector  m_assertions;
         expr_ref_vector  m_trail;
         rational         m_lower;
@@ -76,8 +83,8 @@ namespace opt {
         params_ref       m_params;           // config
 
     public:
-        maxsmt_solver_base(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft); 
-
+        maxsmt_solver_base(maxsat_context& c, vector<soft>& soft, unsigned index);
+        
         ~maxsmt_solver_base() override {}
         rational get_lower() const override { return m_lower; }
         rational get_upper() const override { return m_upper; }
@@ -102,15 +109,12 @@ namespace opt {
             smt::theory_wmaxsat& operator()();
         };
 
-        lbool find_mutexes(obj_map<expr, rational>& new_soft);
+        void reset_upper();
         
 
     protected:
         void enable_sls(bool force);
         void trace_bounds(char const* solver);
-
-        void process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft);
-
 
     };
 
@@ -124,13 +128,11 @@ namespace opt {
         maxsat_context&           m_c;
         unsigned                  m_index;
         scoped_ptr<maxsmt_solver_base> m_msolver;
-        expr_ref_vector  m_soft_constraints;
+        vector<soft>     m_soft;
         obj_map<expr, unsigned> m_soft_constraint_index;
         expr_ref_vector  m_answer;
-        vector<rational> m_weights;
         rational         m_lower;
         rational         m_upper;
-        adjust_value     m_adjust_value;
         model_ref        m_model;
         svector<symbol>  m_labels;
         params_ref       m_params;
@@ -139,10 +141,9 @@ namespace opt {
         lbool operator()();
         void updt_params(params_ref& p);
         void add(expr* f, rational const& w); 
-        void set_adjust_value(adjust_value& adj);
-        unsigned size() const { return m_soft_constraints.size(); }
-        expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
-        rational weight(unsigned idx) const { return m_weights[idx]; }
+        unsigned size() const { return m_soft.size(); }
+        expr* operator[](unsigned idx) const { return m_soft[idx].s; }
+        rational weight(unsigned idx) const { return m_soft[idx].weight; }
         void commit_assignment();
         rational get_lower() const;
         rational get_upper() const;        
@@ -153,6 +154,7 @@ namespace opt {
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
         void model_updated(model* mdl);
+        void reset_upper();
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();

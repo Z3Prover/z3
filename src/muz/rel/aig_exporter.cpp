@@ -108,13 +108,11 @@ namespace datalog {
                 rule *r = *II;
                 unsigned numqs = r->get_positive_tail_size();
                 if (numqs > 1) {
-                    std::cerr << "non-linear clauses not supported\n";
-                    exit(-1);
+                    throw default_exception("non-linear clauses not supported");
                 }
 
                 if (numqs != r->get_uninterpreted_tail_size()) {
-                    std::cerr << "negation of queries not supported\n";
-                    exit(-1);
+                    throw default_exception("negation of queries not supported");
                 }
 
                 exprs.reset();

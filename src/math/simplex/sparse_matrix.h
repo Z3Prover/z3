@@ -136,6 +136,7 @@ namespace simplex {
         svector<int>            m_var_pos;          // temporary map from variables to positions in row
         unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
         stats                   m_stats;
+        scoped_numeral          m_zero;
 
         bool well_formed_row(unsigned row_id) const;
         bool well_formed_column(unsigned column_id) const;
@@ -144,7 +145,7 @@ namespace simplex {
 
     public:
 
-        sparse_matrix(manager& _m): m(_m) {}
+        sparse_matrix(manager& _m): m(_m), m_zero(m) {}
         ~sparse_matrix();
         void reset();
         
@@ -201,19 +202,34 @@ namespace simplex {
         row_iterator row_begin(row const& r) { return row_iterator(m_rows[r.id()], true); }
         row_iterator row_end(row const& r) { return row_iterator(m_rows[r.id()], false); }
 
+        class row_vars {
+            friend class sparse_matrix;
+            sparse_matrix& s;
+            row r;
+            row_vars(sparse_matrix& s, row r): s(s), r(r) {}
+        public:
+            row_iterator begin() { return s.row_begin(r); }
+            row_iterator end() { return s.row_end(r); }
+        };
+
+        row_vars get_row(row r) { return row_vars(*this, r); }
+
         unsigned column_size(var_t v) const { return m_columns[v].size(); }
+
+        unsigned num_vars() const { return m_columns.size(); }
+        unsigned num_rows() const { return m_rows.size(); }
 
         class col_iterator {
             friend class sparse_matrix;
             unsigned             m_curr;
             column const&        m_col;
-            vector<_row> const&  m_rows;
+            vector<_row>&        m_rows;
             void move_to_used() {
                 while (m_curr < m_col.num_entries() && m_col.m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
             }
-            col_iterator(column const& c, vector<_row> const& r, bool begin): 
+            col_iterator(column const& c, vector<_row>& r, bool begin): 
                 m_curr(0), m_col(c), m_rows(r) {
                 ++m_col.m_refs;
                 if (begin) {
@@ -228,27 +244,83 @@ namespace simplex {
                 --m_col.m_refs;
             }
 
-            row get_row() { 
+            row get_row() const { 
                 return row(m_col.m_entries[m_curr].m_row_id); 
             }
-            row_entry const& get_row_entry() {
+            row_entry& get_row_entry() {
                 col_entry const& c = m_col.m_entries[m_curr];
                 int row_id = c.m_row_id;
                 return m_rows[row_id].m_entries[c.m_row_idx];
             }
-            
+
+            std::pair<row, row_entry*> operator*() { return std::make_pair(get_row(), &get_row_entry()); }
             col_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
             col_iterator operator++(int) { col_iterator tmp = *this; ++*this; return tmp; }
             bool operator==(col_iterator const & it) const { return m_curr == it.m_curr; }
             bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; }           
         };
 
-        col_iterator col_begin(int v) const { return col_iterator(m_columns[v], m_rows, true); }
-        col_iterator col_end(int v) const { return col_iterator(m_columns[v], m_rows, false); }
+        col_iterator col_begin(int v) { return col_iterator(m_columns[v], m_rows, true); }
+        col_iterator col_end(int v) { return col_iterator(m_columns[v], m_rows, false); }
+
+        class var_rows {
+            friend class sparse_matrix;
+            sparse_matrix& s;
+            int v;
+            var_rows(sparse_matrix& s, int v):s(s), v(v) {}
+        public:
+            col_iterator begin() { return s.col_begin(v); }
+            col_iterator end() { return s.col_end(v); }
+        };
+        
+        var_rows get_rows(int v) { return var_rows(*this, v); }
+
+        class all_row_iterator {
+            friend class sparse_matrix;
+            unsigned m_curr;
+            vector<_row> const& m_rows;
+            void move_to_next() {
+                while (m_curr < m_rows.size() && m_rows[m_curr].size() == 0) {
+                    //std::cout << "size is 0 for " << m_curr << "\n";
+                    ++m_curr;
+                }
+            }
+        public:
+            all_row_iterator(unsigned curr, vector<_row> const& rows): m_curr(curr), m_rows(rows) {
+                move_to_next();
+            }
+            row operator*() { return row(m_curr); }
+            all_row_iterator & operator++() { m_curr++; move_to_next(); return *this; }
+            all_row_iterator operator++(int) { all_row_iterator tmp = *this; ++*this; return tmp; }
+            bool operator==(all_row_iterator const& it) const { return m_curr == it.m_curr; }
+            bool operator!=(all_row_iterator const& it) const { return m_curr != it.m_curr; }
+        };
+        
+        class all_rows {
+            friend class sparse_matrix;
+            sparse_matrix& s;
+            all_rows(sparse_matrix& s): s(s) {}
+        public:
+            all_row_iterator begin() { return all_row_iterator(0, s.m_rows); }
+            all_row_iterator end() { return all_row_iterator(s.m_rows.size(), s.m_rows); }
+        };
+
+
+        all_rows get_rows() { return all_rows(*this); }
+
+        numeral const& get_coeff(row r, unsigned v) {
+            for (auto & row : get_row(r)) 
+                if (row.m_var == v) 
+                    return row.m_coeff;
+            return m_zero;
+        }
+        
 
         void display(std::ostream& out);
         void display_row(std::ostream& out, row const& r);
         bool well_formed() const;
+
+        manager& get_manager() { return m; }
 
         void collect_statistics(::statistics & st) const;
 

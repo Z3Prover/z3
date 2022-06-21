@@ -162,7 +162,7 @@ expr_ref bv2fpa_converter::convert_bv2rm(expr * bv_rm) {
         }
     }
     else {
-        std::cout << expr_ref(bv_rm, m) << " not converted\n";
+        //std::cout << expr_ref(bv_rm, m) << " not converted\n";
     }
 
     return res;
@@ -312,15 +312,27 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             }
         }
 
+        auto fid = m_fpa_util.get_family_id();
+        expr_ref_vector dom(m);
+        for (unsigned i = 0; i < f->get_arity(); ++i)
+            dom.push_back(m.mk_var(i, f->get_domain(i)));
+
         if (m_fpa_util.is_to_sbv(f) || m_fpa_util.is_to_ubv(f)) {
-            auto fid = m_fpa_util.get_family_id();
             auto k = m_fpa_util.is_to_sbv(f) ? OP_FPA_TO_SBV_I : OP_FPA_TO_UBV_I;
-            expr_ref_vector dom(m);
-            for (unsigned i = 0; i < f->get_arity(); ++i)
-                dom.push_back(m.mk_var(i, f->get_domain(i)));
             parameter param = f->get_parameter(0);
             func_decl_ref to_bv_i(m.mk_func_decl(fid, k, 1, &param, dom.size(), dom.data()), m);
             expr_ref else_value(m.mk_app(to_bv_i, dom.size(), dom.data()), m);
+            result->set_else(else_value);
+        }
+        else if (m_fpa_util.is_to_real(f)) {
+            expr_ref_vector dom(m);
+            func_decl_ref to_real_i(m.mk_func_decl(fid, OP_FPA_TO_REAL_I, 0, NULL, dom.size(), dom.data()), m);
+            expr_ref else_value(m.mk_app(to_real_i, dom.size(), dom.data()), m);
+            result->set_else(else_value);
+        }
+        else if (m_fpa_util.is_to_ieee_bv(f)) {
+            func_decl_ref to_ieee_bv_i(m.mk_func_decl(fid, OP_FPA_TO_IEEE_BV_I, 0, NULL, dom.size(), dom.data()), m);
+            expr_ref else_value(m.mk_app(to_ieee_bv_i, dom.size(), dom.data()), m);
             result->set_else(else_value);
         }
         else if (bv_fi->get_else()) {

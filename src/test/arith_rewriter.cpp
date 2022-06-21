@@ -10,7 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/th_rewriter.h"
 #include "model/model.h"
 #include "parsers/smt2/smt2parser.h"
-
+#include <iostream>
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);

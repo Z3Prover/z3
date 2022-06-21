@@ -197,6 +197,7 @@ namespace sat {
         m_drat            = (m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
+        m_drup_trim       = p.drup_trim();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.

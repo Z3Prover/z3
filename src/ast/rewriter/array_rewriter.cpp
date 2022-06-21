@@ -179,8 +179,21 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             result = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.data());
             return BR_REWRITE1;
         }
-        default:
-            if (m_blast_select_store || (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1)) {
+        default: {
+            auto are_values = [&]() {
+                for (unsigned i = 1; i < num_args; ++i) {
+                    if (!m().is_value(args[i]))
+                        return false;
+                    if (!m().is_value(to_app(args[0])->get_arg(i)))
+                        return false;
+                }
+                return true;
+            };
+            bool should_expand =
+                m_blast_select_store ||
+                are_values() ||
+                (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1);
+            if (should_expand) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
                 ptr_buffer<expr> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
@@ -202,6 +215,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 }
             }
             return BR_FAILED;
+        }
         }
     }
 

@@ -57,6 +57,8 @@ namespace opt {
         virtual smt::context& smt_context() = 0;    // access SMT context for SMT based MaxSMT solver (wmax requires SMT core)
         virtual unsigned num_objectives() = 0;
         virtual bool verify_model(unsigned id, model* mdl, rational const& v) = 0;
+        virtual rational adjust(unsigned id, rational const& v) = 0;
+        virtual void add_offset(unsigned id, rational const& o) = 0;
         virtual void set_model(model_ref& _m) = 0;
         virtual void model_updated(model* mdl) = 0;
     };
@@ -93,7 +95,7 @@ namespace opt {
             app_ref     m_term;          // for maximize, minimize term
             expr_ref_vector   m_terms;   // for maxsmt
             vector<rational>  m_weights; // for maxsmt
-            adjust_value  m_adjust_value;
+            adjust_value      m_adjust_value;
             symbol      m_id;            // for maxsmt
             unsigned    m_index;         // for maximize/minimize index
 
@@ -165,6 +167,7 @@ namespace opt {
         ast_manager&        m;
         on_model_t          m_on_model_ctx;
         std::function<void(on_model_t&, model_ref&)> m_on_model_eh;
+        bool                m_calling_on_model = false;
         arith_util          m_arith;
         bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
@@ -268,11 +271,14 @@ namespace opt {
         
         void model_updated(model* mdl) override;
 
+        rational adjust(unsigned id, rational const& v) override;
+
+        void add_offset(unsigned id, rational const& o) override;
+
         void register_on_model(on_model_t& ctx, std::function<void(on_model_t&, model_ref&)>& on_model) { 
             m_on_model_ctx = ctx; 
             m_on_model_eh  = on_model; 
         }
-
       
         void collect_timer_stats(statistics& st) const {
 	  if (m_time != 0) 

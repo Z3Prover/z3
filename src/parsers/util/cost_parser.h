@@ -26,7 +26,6 @@ class cost_parser : public simple_parser {
     var_ref_vector m_vars;
 public:
     cost_parser(ast_manager & m);
-    ~cost_parser() override {}
     expr * parse_int(rational const & r) override;
     expr * parse_float(rational const & r) override;
     unsigned add_var(symbol name);

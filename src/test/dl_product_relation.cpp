@@ -11,6 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/rel/dl_finite_product_relation.h"
 #include "muz/rel/dl_sparse_table.h"
 #include "muz/rel/rel_context.h"
+#include <iostream>
 
 namespace datalog {
 

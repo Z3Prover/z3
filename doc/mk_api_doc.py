@@ -11,15 +11,16 @@ import getopt
 import pydoc
 import sys
 import subprocess
-import shutil
 
 ML_ENABLED=False
 MLD_ENABLED=False
+JS_ENABLED=False
 BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
 OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
 Z3PY_PACKAGE_PATH='../src/api/python/z3'
+JS_API_PATH='../src/api/js'
 Z3PY_ENABLED=True
 DOTNET_ENABLED=True
 JAVA_ENABLED=True
@@ -29,8 +30,8 @@ SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
 
 def parse_options():
     global ML_ENABLED, MLD_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
-    global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED
-    global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS
+    global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED, JS_ENABLED
+    global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS, JS_API_PATH
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -46,6 +47,11 @@ def parse_options():
         action='store_true',
         default=False,
         help='Include ML/OCaml API documentation'
+    )
+    parser.add_argument('--js',
+        action='store_true',
+        default=False,
+        help='Include JS/TS API documentation'
     )
     parser.add_argument('--doxygen-executable',
         dest='doxygen_executable',
@@ -105,6 +111,7 @@ def parse_options():
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     MLD_ENABLED = pargs.mld
+    JS_ENABLED = pargs.js
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
     TEMP_DIR = pargs.temp_dir
@@ -133,10 +140,12 @@ def cleanup_API(inf, outf):
     pat1  = re.compile(".*def_API.*")
     pat2  = re.compile(".*extra_API.*")
     pat3  = re.compile(r".*def_Type\(.*")
+    pat4  = re.compile("Z3_DECLARE_CLOSURE.*")
+    pat5  = re.compile("DEFINE_TYPE.*")
     _inf  = open(inf, 'r')
     _outf = open(outf, 'w')
     for line in _inf:
-        if not pat1.match(line) and not pat2.match(line) and not pat3.match(line):
+        if not pat1.match(line) and not pat2.match(line) and not pat3.match(line) and not pat4.match(line) and not pat5.match(line):
             _outf.write(line)
 
 def configure_file(template_file_path, output_file_path, substitutions):
@@ -223,6 +232,10 @@ try:
         print("Java documentation disabled")
         doxygen_config_substitutions['JAVA_API_FILES'] = ''
         doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = ''
+    if JS_ENABLED:
+        print('Javascript documentation enabled')
+    else:
+        print('Javascript documentation disabled')
 
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file(
@@ -240,7 +253,7 @@ try:
             '{prefix}<a class="el" href="z3__api_8h.html">C API</a> '
             ).format(
                 prefix=bullet_point_prefix)
-    
+
     if Z3PY_ENABLED:
         print("Python documentation enabled")
         website_dox_substitutions['PYTHON_API'] = (
@@ -273,6 +286,13 @@ try:
                 prefix=bullet_point_prefix)
     else:
         website_dox_substitutions['OCAML_API'] = ''
+    if JS_ENABLED:
+        website_dox_substitutions['JS_API'] = (
+            '{prefix}<a class="el" href="js/index.html">Javascript/Typescript API</a>'
+            ).format(
+                prefix=bullet_point_prefix)
+    else:
+        website_dox_substitutions['JS_API'] = ''
     configure_file(
         doc_path('website.dox.in'),
         temp_path('website.dox'),
@@ -337,6 +357,18 @@ try:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")
+
+    if JS_ENABLED:
+        try:
+            subprocess.check_output(['npm', 'run', '--prefix=%s' % JS_API_PATH, 'check-engine'])
+        except subprocess.CalledProcessError as e:
+            print("ERROR: node version check failed.")
+            print(e.output)
+            exit(1)
+        if subprocess.call(['npm', 'run', '--prefix=%s' % JS_API_PATH, 'docs']) != 0:
+            print("ERROR: npm run docs failed.")
+            exit(1)
+        print("Generated Javascript documentation.")
 
     print("Documentation was successfully generated at subdirectory '{}'.".format(OUTPUT_DIRECTORY))
 except Exception:

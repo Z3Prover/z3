@@ -1,4 +1,5 @@
-import { init } from './build/wrapper';
+import process from 'process';
+import { init, Z3_error_code } from '../../build/node';
 
 // demonstrates use of the raw API
 
@@ -46,6 +47,15 @@ import { init } from './build/wrapper';
   let cell = Z3.mk_datatype(ctx, Z3.mk_string_symbol(ctx, 'cell'), [nil_con, cons_con]);
   console.log(Z3.query_constructor(ctx, nil_con, 0));
   console.log(Z3.query_constructor(ctx, cons_con, 2));
+
+  if (Z3.get_error_code(ctx) !== Z3_error_code.Z3_OK) {
+    throw new Error('something failed: ' + Z3.get_error_msg(ctx, Z3.get_error_code(ctx)));
+  }
+  await Z3.eval_smtlib2_string(ctx, '(simplify)');
+  if (Z3.get_error_code(ctx) === Z3_error_code.Z3_OK) {
+    throw new Error('expected call to eval_smtlib2_string with invalid argument to fail');
+  }
+  console.log('confirming error messages work:', Z3.get_error_msg(ctx, Z3.get_error_code(ctx)));
 
   Z3.dec_ref(ctx, strAst);
   Z3.del_context(ctx);

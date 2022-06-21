@@ -56,12 +56,6 @@ void static_features::reset() {
     m_num_nested_formulas                  = 0;
     m_num_bool_exprs                       = 0;
     m_num_bool_constants                   = 0;
-    m_num_formula_trees                    = 0;
-    m_max_formula_depth                    = 0;
-    m_sum_formula_depth                    = 0;
-    m_num_or_and_trees                     = 0;
-    m_max_or_and_tree_depth                = 0;
-    m_sum_or_and_tree_depth                = 0;
     m_num_ite_trees                        = 0;
     m_max_ite_tree_depth                   = 0;
     m_sum_ite_tree_depth                   = 0;
@@ -451,8 +445,6 @@ void static_features::post_process(expr * e, bool form_ctx, bool or_and_ctx, boo
     }
 
     unsigned depth = 0;
-    unsigned form_depth = 0;
-    unsigned or_and_depth = 0;
     unsigned ite_depth = 0;
 
     auto [form_ctx_new, or_and_ctx_new, ite_ctx_new] = new_ctx(e);
@@ -461,10 +453,6 @@ void static_features::post_process(expr * e, bool form_ctx, bool or_and_ctx, boo
         m.is_not(arg, arg);
         SASSERT(is_marked_post(arg));
         depth        = std::max(depth, get_depth(arg));
-        if (form_ctx_new)
-            form_depth   = std::max(form_depth, get_form_depth(arg));
-        if (or_and_ctx_new)
-            or_and_depth = std::max(or_and_depth, get_or_and_depth(arg));
         if (ite_ctx_new)
             ite_depth    = std::max(ite_depth, get_ite_depth(arg));
     }
@@ -473,27 +461,7 @@ void static_features::post_process(expr * e, bool form_ctx, bool or_and_ctx, boo
     set_depth(e, depth);
     if (depth > m_max_depth)
         m_max_depth = depth;
-
-    if (form_ctx_new) {
-        form_depth++;
-        if (!form_ctx) {
-            m_num_formula_trees++;
-            m_sum_formula_depth += form_depth;
-            if (form_depth > m_max_formula_depth)
-                m_max_formula_depth = form_depth;
-        }
-        set_form_depth(e, form_depth);
-    }
-    if (or_and_ctx_new) {
-        or_and_depth++;
-        if (!or_and_ctx) {
-            m_num_or_and_trees++;
-            m_sum_or_and_tree_depth += or_and_depth;
-            if (or_and_depth > m_max_or_and_tree_depth)
-                m_max_or_and_tree_depth = or_and_depth;
-        }
-        set_or_and_depth(e, or_and_depth);
-    }
+    
     if (ite_ctx_new) {
         ite_depth++;
         if (!ite_ctx) {
@@ -563,8 +531,6 @@ void static_features::process_root(expr * e) {
         if (num_args == 2)
             m_num_bin_clauses++;
         unsigned depth = 0;
-        unsigned form_depth = 0;
-        unsigned or_and_depth = 0;
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg = to_app(e)->get_arg(i);
             if (m.is_not(arg))
@@ -572,25 +538,11 @@ void static_features::process_root(expr * e) {
             add_process(arg, true, true, false);
             process_all();
             depth        = std::max(depth, get_depth(arg));
-            form_depth   = std::max(form_depth, get_form_depth(arg));
-            or_and_depth = std::max(or_and_depth, get_or_and_depth(arg));
         }
         depth++;
         set_depth(e, depth);
         if (depth > m_max_depth)
             m_max_depth = depth;
-        form_depth++;
-        m_num_formula_trees++;
-        m_sum_formula_depth += form_depth;
-        if (form_depth > m_max_formula_depth)
-            m_max_formula_depth = form_depth;
-        set_form_depth(e, form_depth);
-        or_and_depth++;
-        m_num_or_and_trees++;
-        m_sum_or_and_tree_depth += or_and_depth;
-        if (or_and_depth > m_max_or_and_tree_depth)
-            m_max_or_and_tree_depth = or_and_depth;
-        set_or_and_depth(e, or_and_depth);
         return;
     }
     if (!is_gate(e)) {
@@ -647,12 +599,6 @@ void static_features::display_primitive(std::ostream & out) const {
     out << "NUM_NESTED_FORMULAS " << m_num_nested_formulas << "\n";
     out << "NUM_BOOL_EXPRS " << m_num_bool_exprs << "\n";
     out << "NUM_BOOL_CONSTANTS " << m_num_bool_constants << "\n";
-    out << "NUM_FORMULA_TREES " << m_num_formula_trees << "\n"; 
-    out << "MAX_FORMULA_DEPTH " << m_max_formula_depth << "\n";
-    out << "SUM_FORMULA_DEPTH " << m_sum_formula_depth << "\n";
-    out << "NUM_OR_AND_TREES " << m_num_or_and_trees << "\n";
-    out << "MAX_OR_AND_TREE_DEPTH " << m_max_or_and_tree_depth << "\n";
-    out << "SUM_OR_AND_TREE_DEPTH " << m_sum_or_and_tree_depth << "\n";
     out << "NUM_ITE_TREES " << m_num_ite_trees << "\n";
     out << "MAX_ITE_TREE_DEPTH " << m_max_ite_tree_depth << "\n";
     out << "SUM_ITE_TREE_DEPTH " << m_sum_ite_tree_depth << "\n";
@@ -695,7 +641,6 @@ void static_features::display(std::ostream & out) const {
     out << "BEGIN_STATIC_FEATURES" << "\n";
     out << "CNF " << m_cnf << "\n";
     out << "MAX_DEPTH " << m_max_depth << "\n";
-    out << "MAX_OR_AND_TREE_DEPTH " << m_max_or_and_tree_depth << "\n";
     out << "MAX_ITE_TREE_DEPTH " << m_max_ite_tree_depth << "\n";
     out << "HAS_INT " << m_has_int << "\n";
     out << "HAS_REAL " << m_has_real << "\n";

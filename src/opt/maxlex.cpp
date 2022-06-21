@@ -26,15 +26,15 @@ Author:
 
 namespace opt {
 
-    bool is_maxlex(weights_t & _ws) {
-        vector<rational> ws(_ws);
-        std::sort(ws.begin(), ws.end());
+    bool is_maxlex(vector<soft> const & _ws) {
+        vector<soft> ws(_ws);
+        std::sort(ws.begin(), ws.end(), [&](soft const& s1, soft const& s2) { return s1.weight < s2.weight; });
         ws.reverse();
         rational sum(0);
-        for (rational const& w : ws) {
+        for (auto const& [e, w, t] : ws) {
             sum += w;
         }
-        for (rational const& w : ws) {
+        for (auto const& [e, w, t] : ws) {
             if (sum > w + w) return false;
             sum -= w;
         }
@@ -185,8 +185,8 @@ namespace opt {
 
     public:
 
-        maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& s):
-            maxsmt_solver_base(c, ws, s),
+        maxlex(maxsat_context& c, unsigned id, vector<soft>& s):
+            maxsmt_solver_base(c, s, id),
             m(c.get_manager()),
             m_c(c) {
             // ensure that soft constraints are sorted with largest soft constraints first.
@@ -210,8 +210,8 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& soft) {
-        return alloc(maxlex, c, id, ws, soft);
+    maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, vector<soft>& soft) {
+        return alloc(maxlex, c, id, soft);
     }
 
 }

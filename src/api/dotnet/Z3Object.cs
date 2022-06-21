@@ -113,7 +113,7 @@ namespace Microsoft.Z3
             return s.NativeObject;
         }
 
-        internal Context Context
+	public Context Context
         {
             get 
             {

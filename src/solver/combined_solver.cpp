@@ -311,11 +311,11 @@ public:
             m_solver2->get_levels(vars, depth);
     }
 
-    expr_ref_vector get_trail() override {
+    expr_ref_vector get_trail(unsigned max_level) override {
         if (m_use_solver1_results)
-            return m_solver1->get_trail();
+            return m_solver1->get_trail(max_level);
         else
-            return m_solver2->get_trail();
+            return m_solver2->get_trail(max_level);
     }
 
     proof * get_proof() override {

@@ -14,6 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/rel/dl_bound_relation.h"
 #include "muz/rel/dl_product_relation.h"
 #include "util/util.h"
+#include <iostream>
 
 namespace datalog {
 

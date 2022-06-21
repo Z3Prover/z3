@@ -176,7 +176,6 @@ namespace euf {
         void log_antecedents(literal l, literal_vector const& r);
         void log_justification(literal l, th_explain const& jst);
         void drat_log_decl(func_decl* f);
-        void drat_log_expr(expr* n);
         void drat_log_expr1(expr* n);
         ptr_vector<expr> m_drat_todo;
         obj_hashtable<ast> m_drat_asts;
@@ -345,6 +344,7 @@ namespace euf {
         sat::drat& get_drat() { return s().get_drat(); }
         void drat_bool_def(sat::bool_var v, expr* n);
         void drat_eq_def(sat::literal lit, expr* eq);
+        void drat_log_expr(expr* n);
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
@@ -371,6 +371,7 @@ namespace euf {
         th_rewriter& get_rewriter() { return m_rewriter; }
         void rewrite(expr_ref& e) { m_rewriter(e); }
         bool is_shared(euf::enode* n) const;
+        bool is_beta_redex(euf::enode* p, euf::enode* n) const;
         bool enable_ackerman_axioms(expr* n) const;
         bool is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain);
 

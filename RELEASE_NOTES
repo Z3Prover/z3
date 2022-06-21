@@ -10,6 +10,28 @@ Version 4.8.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.8.17
+==============
+ - fix breaking bug in python interface for user propagator pop
+ - integrate fixes to z3str3
+ - initial support for nested algebraic datatypes with sequences
+ - initiate map/fold operators on sequences - full integration for next releases
+ - initiate maxdiff/mindiff on arrays - full integration for next releases
+ 
+Version 4.8.16
+==============
+ - initial support for Darwin Arm64 (for M1, M2, .. users) thanks to zwimer and Anja Petkovi'c
+   Komel for updates.
+   Java is not yet supported, pypi native arm64 distributions are not yet supported.
+   cmake dependency added to enable users to build for not-yet-supported platforms directly;
+   specifically M1 seems to come up.
+ - added functionality to user propagator decisions. Thanks to Clemens Eisenhofer.
+ - added options for rc2 and maxres-bin to maxsat (note that there was no real difference measured
+   from maxres on MaxSAT unweighted so default option is unchanged)
+ - improved search for mutex constraints (at-most-1 constraints) among soft
+   constraints for maxsat derived from approach used in rc2 sample.
+ - multiple merges
+
 Version 4.8.15
 ==============
  - elaborate user propagator API. Change id based scheme to expressions

@@ -24,15 +24,14 @@ Notes:
 
 params_ref params_ref::g_empty_params_ref;
 
-std::string norm_param_name(char const * n) {
-    if (n == nullptr)
-        return "_";
+std::string norm_param_name(char const* n) {
     if (*n == ':')
         n++;
     std::string r = n;
     unsigned sz = static_cast<unsigned>(r.size());
     if (sz == 0)
         return "_";
+        
     for (unsigned i = 0; i < sz; i++) {
         char curr = r[i];
         if ('A' <= curr && curr <= 'Z')
@@ -44,6 +43,8 @@ std::string norm_param_name(char const * n) {
 }
 
 std::string norm_param_name(symbol const & n) {
+    if (n.is_null())
+        return "_";
     return norm_param_name(n.bare_str());
 }
 
@@ -156,8 +157,8 @@ struct param_descrs::imp {
         return m_names[idx];
     }
 
-    struct lt {
-        bool operator()(symbol const & s1, symbol const & s2) const { return strcmp(s1.bare_str(), s2.bare_str()) < 0; }
+    struct symlt {
+        bool operator()(symbol const & s1, symbol const & s2) const { return ::lt(s1, s2); }        
     };
 
     void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
@@ -165,13 +166,13 @@ struct param_descrs::imp {
         for (auto const& kv : m_info) {
             names.push_back(kv.m_key);
         }
-        std::sort(names.begin(), names.end(), lt());
+        std::sort(names.begin(), names.end(), symlt());
         for (symbol const& name : names) {
             for (unsigned i = 0; i < indent; i++) out << " ";
             if (smt2_style)
                 out << ':';
-            char const * s = name.bare_str();
-            unsigned n = static_cast<unsigned>(strlen(s));
+            std::string s = name.str();
+            unsigned n = static_cast<unsigned>(s.length());
             for (unsigned i = 0; i < n; i++) {
                 if (smt2_style && s[i] == '_')
                     out << '-';
@@ -1045,6 +1046,7 @@ void params::set_sym(char const * k, symbol const & v) {
 }
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(params_ref const & p) {
     std::cout << p << std::endl;
 }

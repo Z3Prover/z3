@@ -413,11 +413,17 @@ namespace arith {
         void get_infeasibility_explanation_and_set_conflict();
         void set_conflict();
         void set_conflict_or_lemma(literal_vector const& core, bool is_conflict);
-        void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs);
-        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params);
+        void set_evidence(lp::constraint_index idx);
+        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, sat::proof_hint const* pma);
 
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
+
+        sat::proof_hint m_arith_hint;
+        sat::proof_hint m_farkas2;
+        sat::proof_hint const* explain(sat::hint_type ty, sat::literal lit = sat::null_literal);
+        sat::proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
+        void explain_assumptions();
 
 
     public:

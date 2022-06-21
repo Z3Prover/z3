@@ -1341,13 +1341,13 @@ namespace Microsoft.Z3
 
         #region Tracing
         /// <summary>
-        /// Enable tracint to file
+        /// Enable trace to file
         /// </summary>
-        /// <param name="file"></param>
-        public void TraceToFile(string file)
+        /// <param name="tag">Tag to trace</param>
+        public static void EnableTrace(string tag)
         {
-            Debug.Assert(!string.IsNullOrEmpty(file));
-            Native.Z3_enable_trace(file);
+            Debug.Assert(!string.IsNullOrEmpty(tag));
+            Native.Z3_enable_trace(tag);
         }
 
         #endregion

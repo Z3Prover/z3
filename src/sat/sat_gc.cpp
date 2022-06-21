@@ -398,7 +398,6 @@ namespace sat {
             else 
                 m_learned[j++] = &c;            
         }
-        std::cout << "gc: " << to_gc.size() << " " << m_learned.size() << " -> " << j << "\n";
         SASSERT(m_learned.size() - j == to_gc.size());
         m_learned.shrink(j);
     }

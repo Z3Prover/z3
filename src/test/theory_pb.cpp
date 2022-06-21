@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "smt/theory_pb.h"
 #include "ast/rewriter/th_rewriter.h"
+#include <iostream>
 
 static unsigned populate_literals(unsigned k, smt::literal_vector& lits) {
     ENSURE(k < (1u << lits.size()));

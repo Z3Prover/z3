@@ -15,6 +15,10 @@ Copyright (c) 2020 Microsoft Corporation
 #include "shell/drat_frontend.h"
 #include "parsers/smt2/smt2parser.h"
 #include "cmd_context/cmd_context.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "sat/smt/arith_proof_checker.h"
+
 
 class smt_checker {
     ast_manager& m;
@@ -73,11 +77,12 @@ class smt_checker {
         auto const& units = m_drat.units();
 #if 0
         for (unsigned i = m_units.size(); i < units.size(); ++i) {
-            sat::literal lit = units[i];            
+            sat::literal lit = units[i].first;            
             m_lemma_solver->assert_expr(lit2expr(lit));
         }
 #endif
-        m_units.append(units.size() - m_units.size(), units.data() + m_units.size());
+        for (unsigned i = m_units.size(); i < units.size(); ++i)
+            m_units.push_back(units[i].first);
     }
 
     void check_assertion_redundant(sat::literal_vector const& input) {
@@ -147,16 +152,112 @@ public:
         m_input_solver = mk_smt_solver(m, m_params, symbol());
     }
 
-    void add(sat::literal_vector const& lits, sat::status const& st) {
+    void add(sat::literal_vector const& lits, sat::status const& st, bool validated) {
         for (sat::literal lit : lits)
             while (lit.var() >= m_drat.get_solver().num_vars())
                 m_drat.get_solver().mk_var(true);
         if (st.is_input() && m_check_inputs)
             check_assertion_redundant(lits);
-        else if (!st.is_sat() && !st.is_deleted()) 
+        else if (!st.is_sat() && !st.is_deleted() && !validated) 
             check_clause(lits);        
         // m_drat.add(lits, st);
-    }    
+    }
+
+    bool validate_hint(expr_ref_vector const& exprs, sat::literal_vector const& lits, sat::proof_hint const& hint) {
+        // return; // remove when testing this
+        arith_util autil(m);
+        arith::proof_checker achecker(m);
+        proof_checker pc(m);
+        switch (hint.m_ty) {
+        case sat::hint_type::null_h:
+            break;
+        case sat::hint_type::bound_h:
+        case sat::hint_type::farkas_h: 
+        case sat::hint_type::implied_eq_h: {
+            achecker.reset();
+            for (auto const& [a, b]: hint.m_eqs) {
+                expr* x = exprs[a];
+                expr* y = exprs[b];
+                achecker.add_eq(x, y);
+            }
+            for (auto const& [a, b]: hint.m_diseqs) {
+                expr* x = exprs[a];
+                expr* y = exprs[b];
+                achecker.add_diseq(x, y);
+            }
+            
+            unsigned sz = hint.m_literals.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                auto const& [coeff, lit] = hint.m_literals[i];
+                app_ref e(to_app(m_b2e[lit.var()]), m);
+                if (i + 1 == sz && sat::hint_type::bound_h == hint.m_ty) {
+                    if (!achecker.add_conseq(coeff, e, lit.sign())) {
+                        std::cout << "p failed checking hint " << e << "\n";
+                        return false;
+                    }
+                    
+                }
+                else if (!achecker.add_ineq(coeff, e, lit.sign())) {
+                    std::cout << "p failed checking hint " << e << "\n";
+                    return false;
+                }
+            }
+
+            // achecker.display(std::cout << "checking\n");
+            bool ok = achecker.check();
+
+            if (!ok) {
+                rational lc(1);
+                for (auto const& [coeff, lit] : hint.m_literals) 
+                    lc = lcm(lc, denominator(coeff));
+                bool is_strict = false;
+                expr_ref sum(m);
+                for (auto const& [coeff, lit] : hint.m_literals) {
+                    app_ref e(to_app(m_b2e[lit.var()]), m);
+                    VERIFY(pc.check_arith_literal(!lit.sign(), e, coeff*lc, sum, is_strict));
+                    std::cout << "sum: " << sum << "\n";
+                }
+                sort* s = sum->get_sort();
+                if (is_strict) 
+                    sum = autil.mk_lt(sum, autil.mk_numeral(rational(0), s));
+                else 
+                    sum = autil.mk_le(sum, autil.mk_numeral(rational(0), s));
+                th_rewriter rw(m);
+                rw(sum);
+                std::cout << "sum: " << sum << "\n";
+                
+                for (auto const& [a, b]: hint.m_eqs) {
+                    expr* x = exprs[a];
+                    expr* y = exprs[b];
+                    app_ref e(m.mk_eq(x, y), m);
+                    std::cout << e << "\n";
+                }
+                for (auto const& [a, b]: hint.m_diseqs) {
+                    expr* x = exprs[a];
+                    expr* y = exprs[b];
+                    app_ref e(m.mk_not(m.mk_eq(x, y)), m);
+                    std::cout << e << "\n";
+                }
+                for (auto const& [coeff, lit] : hint.m_literals) {
+                    app_ref e(to_app(m_b2e[lit.var()]), m);
+                    if (lit.sign()) e = m.mk_not(e);
+                    std::cout << e << "\n";
+                }
+                achecker.display(std::cout);
+                std::cout << "p hint not verified\n";
+                return false;
+            }
+
+           
+            std::cout << "p hint verified\n";
+            break;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+        return true;
+    }
 
     /**
     * Add an assertion from the source file
@@ -343,13 +444,15 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         std::cout << dimacs::drat_pp(r, write_theory); 
         std::cout.flush();
         switch (r.m_tag) {
-        case dimacs::drat_record::tag_t::is_clause:
-            checker.add(r.m_lits, r.m_status);
+        case dimacs::drat_record::tag_t::is_clause: {
+            bool validated = checker.validate_hint(exprs, r.m_lits, r.m_hint);
+            checker.add(r.m_lits, r.m_status, validated);
             if (drat_checker.inconsistent()) {
                 std::cout << "inconsistent\n";
                 return;
             }            
             break;
+        }
         case dimacs::drat_record::tag_t::is_node: {
             expr_ref e(m);
             args.reset();

@@ -30,6 +30,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_translation.h"
 #include "util/z3_version.h"
+#include <iostream>
 
 
 // -----------------------------------
@@ -498,9 +499,9 @@ bool compare_nodes(ast const * n1, ast const * n2) {
 
 template<typename T>
 inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_value) {
-    if (size == 0)
-        return init_value;
     switch (size) {
+    case 0:
+        return init_value;
     case 1:
         return combine_hash(array[0]->hash(), init_value);
     case 2:
@@ -993,7 +994,7 @@ sort * basic_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
 }
 
 func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache) {
-    unsigned id = s->get_decl_id();
+    unsigned id = s->get_small_id();
     force_ptr_array_size(cache, id + 1);
     if (cache[id] == 0) {
         sort * domain[2] = { s, s};
@@ -1009,7 +1010,7 @@ func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, s
 }
 
 func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
-    unsigned id = s->get_decl_id();
+    unsigned id = s->get_small_id();
     force_ptr_array_size(m_ite_decls, id + 1);
     if (m_ite_decls[id] == 0) {
         sort * domain[3] = { m_bool_sort, s, s};
@@ -1672,11 +1673,11 @@ void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
 }
 
 quantifier* ast_manager::is_lambda_def(func_decl* f) {
-    if (f->get_info() && f->get_info()->is_lambda()) {
+    if (f->get_info() && f->get_info()->is_lambda()) 
         return m_lambda_defs[f];
-    }
     return nullptr;
 }
+
 
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
@@ -2413,7 +2414,7 @@ bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
 
 static void trace_quant(std::ostream& strm, quantifier* q) {
     strm << (is_lambda(q) ? "[mk-lambda]" : "[mk-quant]")
-         << " #" << q->get_id() << " " << q->get_qid() << " " << q->get_num_decls();
+         << " #" << q->get_id() << " " << ensure_quote(q->get_qid()) << " " << q->get_num_decls();
     for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
         strm << " #" << q->get_pattern(i)->get_id();
     }

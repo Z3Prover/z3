@@ -624,11 +624,9 @@ template<typename Ext>
 bool theory_arith<Ext>::check_monomial_assignments() {
     bool computed_epsilon = false;
     for (theory_var v : m_nl_monomials) {
-        TRACE("non_linear", tout << "v" << v << " is relevant: " << ctx.is_relevant(get_enode(v)) << "\n";
-              tout << "check_monomial_assignments result: " << check_monomial_assignment(v, computed_epsilon) << "\n";
-              tout << "computed_epsilon: " << computed_epsilon << "\n";);
+        TRACE("non_linear", tout << "v" << v << " is relevant: " << ctx.is_relevant(get_enode(v)) << "\n");
         if (ctx.is_relevant(get_enode(v)) && !check_monomial_assignment(v, computed_epsilon)) {
-            TRACE("non_linear_failed", tout << "check_monomial_assignment failed for:\n" << mk_ismt2_pp(var2expr(v), get_manager()) << "\n";
+            TRACE("non_linear", tout << "check_monomial_assignment failed for:\n" << mk_ismt2_pp(var2expr(v), get_manager()) << "\n";
                   display_var(tout, v););                
             return false;
         }
@@ -1253,6 +1251,17 @@ bool theory_arith<Ext>::in_monovariate_monomials(buffer<coeff_expr> & p, expr * 
     return true;
 }
 
+
+template<typename Ext>
+bool theory_arith<Ext>::is_pure_monomial(expr* mon) const {
+    if (!m_util.is_mul(mon))
+        return false;
+    app* p = to_app(mon);
+    for (expr* arg : *p)
+        if (m_util.is_numeral(arg) || m_util.is_mul(arg))
+            return false;
+    return true;
+}
 
 /**
    \brief Display a nested form expression

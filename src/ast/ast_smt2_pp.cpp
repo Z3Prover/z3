@@ -47,18 +47,14 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len, bo
         len = static_cast<unsigned>(str.length());
         return mk_string(m, str);
     }
-    else if (s.is_numerical()) {
-        std::string str = s.str();
-        len = static_cast<unsigned>(str.length());
-        return mk_string(m, str);
-    }
-    else if (!s.bare_str()) {
+    else if (s.is_null()) {
         len = 4;
         return mk_string(m, "null");
     }
     else {
-        len = static_cast<unsigned>(strlen(s.bare_str()));
-        return mk_string(m, s.bare_str());
+        std::string str = s.str();
+        len = static_cast<unsigned>(str.length());
+        return mk_string(m, str);
     }
 }
 
@@ -1405,6 +1401,7 @@ std::ostream& operator<<(std::ostream& out, sort_ref_vector const&  e) {
 
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(expr const * n, ast_manager & m) {
     std::cout << mk_ismt2_pp(const_cast<expr*>(n), m) << std::endl;
 }

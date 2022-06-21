@@ -257,12 +257,14 @@ namespace datalog {
             }
             container[i-ofs] = container[i];
         }
+#if 0
         if (r_i != removed_col_cnt) {
             for (unsigned i = 0; i < removed_col_cnt; ++i) {
                 std::cout << removed_cols[i] << " ";
             }
             std::cout << " container size: " << n << "\n";
         }
+#endif
         SASSERT(r_i==removed_col_cnt);
         container.resize(n-removed_col_cnt);
     }

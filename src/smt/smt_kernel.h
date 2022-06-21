@@ -248,7 +248,7 @@ namespace smt {
         /**
            \brief retrieve trail of assignment stack.
         */
-        expr_ref_vector get_trail();
+        expr_ref_vector get_trail(unsigned max_level);
 
         /**
            \brief (For debubbing purposes) Prints the state of the kernel
@@ -310,6 +310,8 @@ namespace smt {
         void user_propagate_register_expr(expr* e);
         
         void user_propagate_register_created(user_propagator::created_eh_t& r);
+
+        void user_propagate_register_decide(user_propagator::decide_eh_t& r);
 
         /**
            \brief Return a reference to smt::context.

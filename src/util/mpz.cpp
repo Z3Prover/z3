@@ -2248,6 +2248,9 @@ template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
+    if (is_small(a) && a.m_val == INT_MIN)
+        return ::log2((unsigned)a.m_val);
+        
     if (is_small(a))
         return ::log2((unsigned)-a.m_val);
 #ifndef _MP_GMP

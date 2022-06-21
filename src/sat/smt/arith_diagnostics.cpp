@@ -79,4 +79,58 @@ namespace arith {
         lp().settings().stats().collect_statistics(st);
         if (m_nla) m_nla->collect_statistics(st);
     }
+
+    void solver::explain_assumptions() {
+        m_arith_hint.reset();
+        unsigned i = 0;
+        for (auto const & ev : m_explanation) {
+            ++i;
+            auto idx = ev.ci();
+            if (UINT_MAX == idx)
+                continue;
+            switch (m_constraint_sources[idx]) {
+            case inequality_source: {
+                literal lit = m_inequalities[idx];
+                m_arith_hint.m_literals.push_back({ev.coeff(), lit});
+                break;                
+            }
+            case equality_source: {
+                auto [u, v] = m_equalities[idx];
+                ctx.drat_log_expr(u->get_expr());
+                ctx.drat_log_expr(v->get_expr());
+                m_arith_hint.m_eqs.push_back({u->get_expr_id(), v->get_expr_id()});
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
+
+    /**
+     * It may be necessary to use the following assumption when checking Farkas claims
+     * generated from bounds propagation:
+     * A bound literal ax <= b is explained by a set of weighted literals
+     * r1*(a1*x <= b1) + .... + r_k*(a_k*x <= b_k), where r_i > 0
+     * such that there is a r >= 1
+     * (r1*a1+..+r_k*a_k) = r*a, (r1*b1+..+r_k*b_k) <= r*b
+     */
+    sat::proof_hint const* solver::explain(sat::hint_type ty, sat::literal lit) {
+        if (!ctx.use_drat())
+            return nullptr;
+        m_arith_hint.m_ty = ty;
+        explain_assumptions();
+        if (lit != sat::null_literal)
+            m_arith_hint.m_literals.push_back({rational(1), ~lit});
+        return &m_arith_hint;
+    }
+
+    sat::proof_hint const* solver::explain_implied_eq(euf::enode* a, euf::enode* b) {
+        if (!ctx.use_drat())
+            return nullptr;
+        m_arith_hint.m_ty = sat::hint_type::implied_eq_h;
+        explain_assumptions();
+        m_arith_hint.m_diseqs.push_back({a->get_expr_id(), b->get_expr_id()});
+        return &m_arith_hint;
+    }
 }

@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include<signal.h>
-#include<iostream>
 #include "util/scoped_ctrl_c.h"
 
 static scoped_ctrl_c * g_obj = nullptr;

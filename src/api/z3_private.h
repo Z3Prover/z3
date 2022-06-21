@@ -18,7 +18,6 @@ Notes:
 
 --*/
 
-#include<iostream>
 #include "util/rational.h"
 #include "api/z3_macros.h"
 

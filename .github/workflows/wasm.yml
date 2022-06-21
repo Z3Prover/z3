@@ -2,7 +2,7 @@ name: WebAssembly Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
 
 defaults:
@@ -18,25 +18,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: 'lts/*'
+          node-version: "lts/*"
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v11
         with:
           no-install: true
           version: ${{env.EM_VERSION}}
-          actions-cache-folder: 'emsdk-cache'
+          actions-cache-folder: "emsdk-cache"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build-ts
+        run: npm run build:ts
 
       - name: Build wasm
         run: |
@@ -45,7 +45,7 @@ jobs:
           source $(dirname $(which emsdk))/emsdk_env.sh
           which node
           which clang++
-          npm run build-wasm
+          npm run build:wasm
 
       - name: Test
         run: npm test

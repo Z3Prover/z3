@@ -393,6 +393,8 @@ protected:
     // does not introduce equalities when they weren't enforced.
     unsigned m_unused_id;
 
+    const char* newOverlapStr = "!!NewOverlapAssumption!!";
+
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 
@@ -492,7 +494,7 @@ protected:
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
-    
+
     stats m_stats;
 
 protected:
@@ -777,4 +779,3 @@ protected:
 };
 
 };
-

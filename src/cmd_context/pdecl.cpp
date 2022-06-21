@@ -156,8 +156,8 @@ public:
             return false;
         return m_sort == static_cast<psort_sort const *>(other)->m_sort;
     }
-    void display(std::ostream & out) const override {
-        out << m_sort->get_name();
+    std::ostream& display(std::ostream & out) const override {
+        return out << m_sort->get_name();
     }
 };
 
@@ -180,8 +180,8 @@ public:
             get_num_params() == other->get_num_params() && 
             m_idx == static_cast<psort_var const *>(other)->m_idx;
     }
-    void display(std::ostream & out) const override {
-        out << "s_" << m_idx;
+    std::ostream& display(std::ostream & out) const override {
+        return out << "s_" << m_idx;
     }
     unsigned idx() const { return m_idx; }
 };
@@ -254,7 +254,7 @@ public:
         }
         return true;
     }
-    void display(std::ostream & out) const override {
+    std::ostream& display(std::ostream & out) const override {
         if (m_args.empty()) {
             out << m_decl->get_name();
         }
@@ -267,6 +267,7 @@ public:
             }
             out << ")";
         }
+        return out;
     }
 };
 
@@ -342,12 +343,12 @@ void display_sort_args(std::ostream & out, unsigned num_params) {
         out << ") ";
 }
 
-void psort_user_decl::display(std::ostream & out) const {
+std::ostream& psort_user_decl::display(std::ostream & out) const {
     out << "(declare-sort " << m_name;
     display_sort_args(out, m_num_params);
     if (m_def)
         m_def->display(out);
-    out << ")";
+    return out << ")";
 }
 
 // -------------------
@@ -364,8 +365,8 @@ sort * psort_dt_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * 
     return m.instantiate_datatype(this, m_name, n, s);
 }
 
-void psort_dt_decl::display(std::ostream & out) const {
-    out << "(datatype-sort " << m_name << ")";
+std::ostream& psort_dt_decl::display(std::ostream & out) const {
+    return out << "(datatype-sort " << m_name << ")";
 }
 
 // -------------------
@@ -410,8 +411,8 @@ sort * psort_builtin_decl::instantiate(pdecl_manager & m, unsigned n, unsigned c
     }
 }
 
-void psort_builtin_decl::display(std::ostream & out) const {
-    out << "(declare-builtin-sort " << m_name << ")";
+std::ostream& psort_builtin_decl::display(std::ostream & out) const {
+    return out << "(declare-builtin-sort " << m_name << ")";
 }
 
 void ptype::display(std::ostream & out, pdatatype_decl const * const * dts) const {
@@ -492,18 +493,16 @@ void pconstructor_decl::finalize(pdecl_manager & m) {
 }
 
 bool pconstructor_decl::has_missing_refs(symbol & missing) const {
-    for (paccessor_decl* a : m_accessors) {
+    for (paccessor_decl* a : m_accessors) 
         if (a->has_missing_refs(missing))
             return true;
-    }
     return false;
 }
 
 bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    for (paccessor_decl* a : m_accessors) {
+    for (paccessor_decl* a : m_accessors) 
         if (!a->fix_missing_refs(symbol2idx, missing))
             return false;
-    }
     return true;
 }
 
@@ -560,18 +559,16 @@ bool pdatatype_decl::has_duplicate_accessors(symbol & duplicated) const {
 
 
 bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    for (auto c : m_constructors) {
+    for (auto c : m_constructors) 
         if (!c->fix_missing_refs(symbol2idx, missing))
             return false;
-    }
     return true;
 }
 
 datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     ptr_buffer<constructor_decl> cs;
-    for (auto c : m_constructors) {
+    for (auto c : m_constructors) 
         cs.push_back(c->instantiate_decl(m, n, s));
-    }
     datatype_util util(m.m());
     return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data());
 }
@@ -615,7 +612,7 @@ sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const *
 }
 
 
-void pdatatype_decl::display(std::ostream & out) const {
+std::ostream& pdatatype_decl::display(std::ostream & out) const {
     out << "(declare-datatype " << m_name;
     display_sort_args(out, m_num_params);
     bool first = true;
@@ -631,7 +628,7 @@ void pdatatype_decl::display(std::ostream & out) const {
         }
         first = false;
     }
-    out << ")";
+    return out << ")";
 }
 
 bool pdatatype_decl::commit(pdecl_manager& m) {
@@ -645,9 +642,9 @@ bool pdatatype_decl::commit(pdecl_manager& m) {
     datatype_decl * d_ptr = dts.m_buffer[0];
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, ps.data(), sorts);
-    if (is_ok && m_num_params == 0) {
+    m.notify_mk_datatype(m_name);
+    if (is_ok && m_num_params == 0) 
         m.notify_new_dt(sorts.get(0), this);        
-    }
     return is_ok;
 }
 
@@ -722,6 +719,7 @@ void pdecl_manager::notify_datatype(sort *r, psort_decl* p, unsigned n, sort* co
 
 void pdecl_manager::push() {
     m_notified_lim.push_back(m_notified_trail.size());
+    m_datatypes_lim.push_back(m_datatypes_trail.size());
 }
 
 void pdecl_manager::pop(unsigned n) {
@@ -732,6 +730,16 @@ void pdecl_manager::pop(unsigned n) {
     }
     m_notified_trail.shrink(new_sz);
     m_notified_lim.shrink(m_notified_lim.size() - n);
+    
+    new_sz = m_datatypes_lim[m_datatypes_lim.size() - n];
+    if (new_sz != m_datatypes_trail.size()) {
+        datatype_util util(m());
+        for (unsigned i = m_datatypes_trail.size(); i-- > new_sz; )
+            util.plugin().remove(m_datatypes_trail[i]);
+    }
+    m_datatypes_trail.shrink(new_sz);
+    m_datatypes_lim.shrink(m_datatypes_lim.size() - n);
+        
 }
 
 bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
@@ -751,15 +759,23 @@ bool pdatatypes_decl::commit(pdecl_manager& m) {
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(m_datatypes.size(), dts.m_buffer.data(), 0, nullptr, sorts);
     if (is_ok) {
+        for (pdatatype_decl* d : m_datatypes) {
+            m.notify_mk_datatype(d->get_name());
+        }
         for (unsigned i = 0; i < m_datatypes.size(); ++i) {
             pdatatype_decl* d = m_datatypes[i];
-            if (d->get_num_params() == 0) {
+            if (d->get_num_params() == 0) 
                 m.notify_new_dt(sorts.get(i), this);        
-            }
         }
     }
+    
     return is_ok;
 }
+
+void pdecl_manager::notify_mk_datatype(symbol const& name) {
+    m_datatypes_trail.push_back(name);
+}
+
 
 struct pdecl_manager::sort_info {
     psort_decl * m_decl;
@@ -985,16 +1001,19 @@ void pdecl_manager::del_decl_core(pdecl * p) {
 }
 
 void pdecl_manager::del_decl(pdecl * p) {
-    TRACE("pdecl_manager", tout << "del psort "; p->display(tout); tout << "\n";);   
+    TRACE("pdecl_manager", tout << "del psort "; p->display(tout); tout << "\n";);
     if (p->is_psort()) {
         psort * _p = static_cast<psort*>(p);
         if (_p->is_sort_wrapper()) {
-            m_sort2psort.erase(static_cast<psort_sort*>(_p)->get_sort());
+            sort* s = static_cast<psort_sort*>(_p)->get_sort();
+            m_sort2psort.erase(s);
         }
         else {
             m_table.erase(_p);
         }
+
     }
+
     del_decl_core(p);
 }
 

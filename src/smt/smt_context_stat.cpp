@@ -136,9 +136,9 @@ namespace smt {
     }
 
     void context::display_profile_res_sub(std::ostream & out) const {
-        display_var_occs_histogram(std::cerr);
-        display_num_min_occs(std::cerr);
-        std::cerr << "\n";
+        display_var_occs_histogram(out);
+        display_num_min_occs(out);
+        out << "\n";
     }
 
     void context::display_profile(std::ostream & out) const {

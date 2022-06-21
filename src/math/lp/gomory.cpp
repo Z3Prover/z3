@@ -82,7 +82,8 @@ class create_cut {
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
 #if SMALL_CUTS
         // if (numerator(new_a).is_big()) throw found_big(); 
-        if (numerator(new_a) > m_big_number) throw found_big(); 
+        if (numerator(new_a) > m_big_number)
+            throw found_big(); 
 #endif
     }
 
@@ -90,28 +91,24 @@ class create_cut {
         TRACE("gomory_cut_detail_real", tout << "j = " << j << ", a = " << a << ", m_k = " << m_k << "\n";);
         mpq new_a;
         if (at_lower(j)) {
-            if (a.is_pos()) {
+            if (a.is_pos()) 
                 // the delta is a (x - f) is positive it has to grow and fight m_one_minus_f
                 new_a = a / m_one_minus_f;
-            }
-            else {
+            else 
                 // the delta is negative and it works again m_f
                 new_a = - a / m_f;
-            }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;  
             m_ex->push_back(column_lower_bound_constraint(j));
         }
         else {
             lp_assert(at_upper(j));
-            if (a.is_pos()) {
+            if (a.is_pos()) 
                 // the delta is works again m_f
                 new_a =  - a / m_f; 
-            }
-            else {
+            else 
                 // the delta is positive works again m_one_minus_f
                 new_a =   a / m_one_minus_f; 
-            }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
             m_ex->push_back(column_upper_bound_constraint(j));
         }
@@ -121,7 +118,8 @@ class create_cut {
         
 #if SMALL_CUTS
         // if (numerator(new_a).is_big()) throw found_big(); 
-        if (numerator(new_a) > m_big_number) throw found_big(); 
+        if (numerator(new_a) > m_big_number)
+            throw found_big(); 
 #endif
     }
 
@@ -146,13 +144,15 @@ class create_cut {
                 if (!m_k.is_int())
                     m_k = ceil(m_k);
                 m_t.add_monomial(mpq(1), v);
-            } else {
+            }
+            else {
                 m_k /= -a;
                 if (!m_k.is_int())
                     m_k = ceil(m_k);
                 m_t.add_monomial(-mpq(1), v);
             }
-        } else {
+        }
+        else {
             m_lcm_den = lcm(m_lcm_den, denominator(m_k));
             lp_assert(m_lcm_den.is_pos());
             TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
@@ -176,14 +176,12 @@ class create_cut {
     }
 
     std::ostream& dump_coeff_val(std::ostream & out, const mpq & a) const {
-        if (a.is_int()) {
+        if (a.is_int()) 
             out << a;
-        } 
         else if ( a >= zero_of_type<mpq>())
             out << "(/ " << numerator(a) << " " << denominator(a) << ")";
-        else {
-            out << "(- ( / " <<   numerator(-a) << " " << denominator(-a) << "))";
-        }
+        else 
+            out << "(- (/ " <<   numerator(-a) << " " << denominator(-a) << "))";
         return out;
     }
     
@@ -197,12 +195,10 @@ class create_cut {
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
         mpq lc(1);
-        for (const auto& p : m_row) {
+        for (const auto& p : m_row) 
             lc = lcm(lc, denominator(p.coeff())); 
-        }        
-        for (const auto& p : m_row) {
+        for (const auto& p : m_row) 
             dump_coeff_val(out << " (* ", p.coeff()*lc) << " " << var_name(p.var()) << ")";
-        }
         return out;
     }
     
@@ -218,9 +214,8 @@ class create_cut {
     
     void dump_declarations(std::ostream& out) const {
         // for a column j the var name is vj
-        for (const auto & p : m_row) {
+        for (const auto & p : m_row) 
             dump_declaration(out, p.var());
-        }
         for (lar_term::ival p : m_t) {
             auto t = lia.lra.column2tv(p.column());
             if (t.is_term()) {
@@ -239,12 +234,11 @@ class create_cut {
     void dump_explanations(std::ostream& out) const {
         for (const auto & p : m_row) {            
             unsigned j = p.var();
-            if (j == m_inf_col || (!is_real(j) && p.coeff().is_int())) {
+            if (j == m_inf_col || (!is_real(j) && p.coeff().is_int())) 
                 continue;
-            }
-            else if (at_lower(j)) {
+            else if (at_lower(j)) 
                 dump_lower_bound_expl(out, j);
-            } else {
+            else {
                 lp_assert(at_upper(j));
                 dump_upper_bound_expl(out, j);
             }
@@ -252,9 +246,8 @@ class create_cut {
     }
 
     std::ostream& dump_term_coefficients(std::ostream & out) const {
-        for (lar_term::ival p : m_t) {
+        for (lar_term::ival p : m_t) 
             dump_coeff(out, p);
-        }
         return out;
     }
     
@@ -281,9 +274,8 @@ class create_cut {
 public:
     void dump(std::ostream& out) {
         out << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, out); out << std::endl;
-        for (auto & p : m_row) {
+        for (auto & p : m_row) 
             lia.lra.print_column_info(p.var(), out);
-        }
         out << "inf_col = " << m_inf_col << std::endl;
     }
 
@@ -304,7 +296,8 @@ public:
         m_abs_max = 0;
         for (const auto & p : m_row) {
             mpq t = abs(ceil(p.coeff()));
-            if (t > m_abs_max) m_abs_max = t;
+            if (t > m_abs_max)
+                m_abs_max = t;
         }
         m_big_number = m_abs_max.expt(2);
 #endif
@@ -324,9 +317,8 @@ public:
                     m_ex->push_back(column_upper_bound_constraint(j));
                     continue;
                 }
-                if (is_real(j)) {  
+                if (is_real(j))   
                     real_case_in_gomory_cut(- p.coeff(), j);
-                } 
                 else if (!p.coeff().is_int()) {
                     some_int_columns = true;
                     m_fj = fractional_part(-p.coeff());
@@ -411,7 +403,8 @@ int gomory::find_basic_var() {
 lia_move gomory::operator()() {
     lra.move_non_basic_columns_to_bounds(true);
     int j = find_basic_var();
-    if (j == -1) return lia_move::undef;
+    if (j == -1)
+        return lia_move::undef;
     unsigned r = lia.row_of_basic_column(j);
     const row_strip<mpq>& row = lra.get_row(r);
     SASSERT(lra.row_is_correct(r));

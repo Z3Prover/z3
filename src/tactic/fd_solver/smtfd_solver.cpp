@@ -1756,14 +1756,14 @@ namespace smtfd {
                     expr_ref val0 = (*m_model)(a);
                     expr_ref val1 = (*m_model)(abs(a));
                     if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
-                        std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+                        //std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                         found_bad = true;
                     }
                 }
                 if (found_bad) {
-                    std::cout << "core: " << core << "\n";
-                    std::cout << *m_model.get() << "\n";
-                    exit(0);
+                    //std::cout << "core: " << core << "\n";
+                    //std::cout << *m_model.get() << "\n";
+                    UNREACHABLE();
                 });
 
             if (!has_q) {
@@ -2098,9 +2098,9 @@ namespace smtfd {
             m_fd_sat_solver->get_levels(vars, depth);
         }
         
-        expr_ref_vector get_trail() override {
+        expr_ref_vector get_trail(unsigned max_level) override {
             init();
-            return m_fd_sat_solver->get_trail();
+            return m_fd_sat_solver->get_trail(max_level);
         }
         
         unsigned get_num_assertions() const override {

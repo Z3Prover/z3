@@ -70,12 +70,12 @@ public:
     proof_checker(ast_manager& m);
     void set_dump_lemmas(char const * logic = "AUFLIA") { m_dump_lemmas = true; m_logic = logic; } 
     bool check(proof* p, expr_ref_vector& side_conditions);
+    bool check_arith_literal(bool is_pos, app* lit, rational const& coeff, expr_ref& sum, bool& is_strict);
 private:
     bool check1(proof* p, expr_ref_vector& side_conditions);
     bool check1_basic(proof* p, expr_ref_vector& side_conditions);
     bool check1_spc(proof* p, expr_ref_vector& side_conditions);
     bool check_arith_proof(proof* p);
-    bool check_arith_literal(bool is_pos, app* lit, rational const& coeff, expr_ref& sum, bool& is_strict);
     bool match_fact(proof const* p, expr*& fact) const;
     void add_premise(proof* p);
     bool match_proof(proof const* p) const;

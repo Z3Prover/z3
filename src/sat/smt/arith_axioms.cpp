@@ -234,44 +234,54 @@ namespace arith {
         if (k1 == k2 && kind1 == kind2) return;
         SASSERT(k1 != k2 || kind1 != kind2);
 
+        auto bin_clause = [&](sat::literal l1, sat::literal l2) {
+            sat::proof_hint* bound_params = nullptr;
+            if (ctx.use_drat()) {
+                bound_params = &m_farkas2;
+                m_farkas2.m_literals[0] = std::make_pair(rational(1), ~l1);
+                m_farkas2.m_literals[1] = std::make_pair(rational(1), ~l2);
+            }
+            add_clause(l1, l2, bound_params);            
+        };
+        
         if (kind1 == lp_api::lower_t) {
             if (kind2 == lp_api::lower_t) {
                 if (k2 <= k1)
-                    add_clause(~l1, l2);
+                    bin_clause(~l1, l2);
                 else
-                    add_clause(l1, ~l2);
+                    bin_clause(l1, ~l2);
             }
             else if (k1 <= k2)
                 // k1 <= k2, k1 <= x or x <= k2
-                add_clause(l1, l2);
+                bin_clause(l1, l2);
             else {
                 // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
-                add_clause(~l1, ~l2);
+                bin_clause(~l1, ~l2);
                 if (v_is_int && k1 == k2 + rational(1))
                     // k1 <= x or x <= k1-1
-                    add_clause(l1, l2);
+                    bin_clause(l1, l2);
             }
         }
         else if (kind2 == lp_api::lower_t) {
             if (k1 >= k2)
                 // k1 >= lo_inf, k1 >= x or lo_inf <= x
-                add_clause(l1, l2);
+                bin_clause(l1, l2);
             else {
                 // k1 < k2, k2 <= x => ~(x <= k1)
-                add_clause(~l1, ~l2);
+                bin_clause(~l1, ~l2);
                 if (v_is_int && k1 == k2 - rational(1))
                     // x <= k1 or k1+l <= x
-                    add_clause(l1, l2);
+                    bin_clause(l1, l2);
             }
         }
         else {
             // kind1 == A_UPPER, kind2 == A_UPPER
             if (k1 >= k2)
                 // k1 >= k2, x <= k2 => x <= k1
-                add_clause(l1, ~l2);
+                bin_clause(l1, ~l2);
             else
                 // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
-                add_clause(~l1, l2);
+                bin_clause(~l1, l2);
         }
     }
 
@@ -498,8 +508,8 @@ namespace arith {
         if (x->get_root() == y->get_root())
             return;
         reset_evidence();
-        set_evidence(ci1, m_core, m_eqs);
-        set_evidence(ci2, m_core, m_eqs);
+        set_evidence(ci1);
+        set_evidence(ci2);
         ++m_stats.m_fixed_eqs;
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
         ctx.propagate(x, y, jst->to_index());

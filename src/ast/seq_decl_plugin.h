@@ -55,7 +55,11 @@ enum seq_op_kind {
     OP_SEQ_REPLACE_RE_ALL, // Seq -> RegEx -> Seq -> Seq
     OP_SEQ_REPLACE_RE,     // Seq -> RegEx -> Seq -> Seq
     OP_SEQ_REPLACE_ALL,    // Seq -> Seq -> Seq -> Seq
-
+    OP_SEQ_MAP,            // Array[A,B] -> Seq[A] -> Seq[B]
+    OP_SEQ_MAPI,           // Array[Int,A,B] -> Int -> Seq[A] -> Seq[B]
+    OP_SEQ_FOLDL,          // Array[B,A,B] -> B -> Seq[A] -> B
+    OP_SEQ_FOLDLI,         // Array[Int,B,A,B] -> Int -> B -> Seq[A] -> B
+ 
     OP_RE_PLUS,
     OP_RE_STAR,
     OP_RE_OPTION,
@@ -135,6 +139,9 @@ class seq_decl_plugin : public decl_plugin {
     bool             m_has_re;
     bool             m_has_seq;
     char_decl_plugin* m_char_plugin { nullptr };
+
+
+    void add_map_sig();
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -296,6 +303,10 @@ public:
         app* mk_nth_i(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_I, 2, es); }
         app* mk_nth_u(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_U, 2, es); }
         app* mk_nth_c(expr* s, unsigned i) const;
+        app* mk_map(expr* f, expr* s) const { expr* es[2] = { f, s }; return m.mk_app(m_fid, OP_SEQ_MAP, 2, es); }
+        app* mk_mapi(expr* f, expr* i, expr* s) const { expr* es[3] = { f, i, s }; return m.mk_app(m_fid, OP_SEQ_MAPI, 3, es); }
+        app* mk_foldl(expr* f, expr* b, expr* s) const { expr* es[3] = { f, b, s }; return m.mk_app(m_fid, OP_SEQ_FOLDL, 3, es); }
+        app* mk_foldli(expr* f, expr* i, expr* b, expr* s) const { expr* es[4] = { f, i, b, s }; return m.mk_app(m_fid, OP_SEQ_FOLDLI, 4, es); }
 
         app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
@@ -333,6 +344,10 @@ public:
         }
         bool is_concat(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
         bool is_length(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }
+        bool is_map(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_MAP); }
+        bool is_mapi(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_MAPI); }
+        bool is_foldl(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_FOLDL); }
+        bool is_foldli(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_FOLDLI); }
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
@@ -384,6 +399,9 @@ public:
         MATCH_BINARY(is_nth_u);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
+        MATCH_BINARY(is_map);
+        MATCH_TERNARY(is_mapi);
+        MATCH_TERNARY(is_foldl);
         MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
         MATCH_TERNARY(is_replace_re);

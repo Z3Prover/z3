@@ -272,12 +272,14 @@ namespace smt {
             std::cout << smt << "\n";
             std::cout << tns << "\n";
 #endif
+#if 0
             if (tns == sz1) {
                 std::cout << "SEEN " << tms << "\n";
             }
             if (tns == sz2) {
                 std::cout << "SEEN " << smt << "\n";                
             }
+#endif
             ctx().push_trail(value_trail<bool>(i1.m_is_leaf, false));
             ctx().push_trail(value_trail<bool>(i2.m_is_leaf, false));
             expr_ref k1(m), k2(m), k3(m);

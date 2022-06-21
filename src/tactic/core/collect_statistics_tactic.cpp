@@ -29,6 +29,7 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "util/stats.h"
+#include <iostream>
 
 #include "tactic/core/collect_statistics_tactic.h"
 

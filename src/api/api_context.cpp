@@ -113,6 +113,7 @@ namespace api {
         }
         if (m_params.owns_manager())
             m_manager.detach();
+
     }
 
     context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
@@ -371,8 +372,9 @@ extern "C" {
     void Z3_API Z3_dec_ref(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_dec_ref(c, a);
-        RESET_ERROR_CODE();
         if (a && to_ast(a)->get_ref_count() == 0) {
+            // the error is unchecked (but should not happen) in GC'ed wrappers
+            RESET_ERROR_CODE();
             SET_ERROR_CODE(Z3_DEC_REF_ERROR, nullptr);
             return;
         }

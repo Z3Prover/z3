@@ -333,6 +333,11 @@ namespace recfun {
         return found;
     }
 
+    bool solver::is_beta_redex(euf::enode* p, euf::enode* n) const {
+        return is_defined(p) || is_case_pred(p);
+    }
+
+
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         if (n->num_args() == 0)
             dep.insert(n, nullptr);

@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #pragma once
-#include<iostream>
+#include<ostream>
 #include<stdarg.h>
 
 void send_warnings_to_stdout(bool flag);

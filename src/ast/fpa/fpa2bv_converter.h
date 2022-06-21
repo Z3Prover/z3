@@ -136,6 +136,7 @@ public:
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
     void mk_to_fp_real_int(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
@@ -145,6 +146,7 @@ public:
     void mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_real_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
@@ -245,6 +247,6 @@ class fpa2bv_converter_wrapped : public fpa2bv_converter {
 
     expr* bv2rm_value(expr* b);
     expr* bv2fpa_value(sort* s, expr* a, expr* b = nullptr, expr* c = nullptr);
-    
+
 };
 

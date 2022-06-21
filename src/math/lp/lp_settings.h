@@ -24,6 +24,7 @@ Revision History:
 #include <algorithm>
 #include <limits>
 #include <iomanip>
+#include <iostream>
 #include <cstring>
 #include "util/stopwatch.h"
 #include "util/statistics.h"

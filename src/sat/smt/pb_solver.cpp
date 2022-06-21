@@ -1624,7 +1624,7 @@ namespace pb {
             CTRACE("ba", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
             
             if (_debug_conflict) {
-                std::cout << "coeff " << coeff << "\n";
+                IF_VERBOSE(0, verbose_stream() << "coeff " << coeff << "\n";);
             }
 
             SASSERT(coeff > 0);
@@ -2256,7 +2256,7 @@ namespace pb {
         SASSERT(c.lit() == sat::null_literal || c.is_watched(*this, c.lit()));
 
         // pre-condition is that the literals, except c.lit(), in c are unwatched.
-        if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
+        //if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
         m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
             ++m_weights[l.index()];
@@ -2699,7 +2699,7 @@ namespace pb {
                     }
                 }
                 ++m_stats.m_num_big_strengthenings;
-                constraint* c = add_pb_ge(sat::null_literal, wlits, b, p.learned());
+                add_pb_ge(sat::null_literal, wlits, b, p.learned());
                 p.set_removed();
                 return;
             }

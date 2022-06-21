@@ -37,6 +37,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
+#include "ast/for_each_expr.h"
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
@@ -60,7 +61,10 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     expr_substitution * m_subst = nullptr;
     unsigned long long  m_max_memory; // in bytes
     bool                m_new_subst = false;
-    unsigned            m_max_steps = UINT_MAX;    
+    expr_fast_mark1     m_visited;
+    expr_mark           m_marks;
+    bool                m_new_mark = false;
+    unsigned            m_max_steps = UINT_MAX;
     bool                m_pull_cheap_ite = true;
     bool                m_flat = true;
     bool                m_cache_all = false;
@@ -180,7 +184,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 // theory dispatch for =
                 SASSERT(num == 2);
                 family_id s_fid = args[0]->get_sort()->get_family_id();
-                if (s_fid == m_a_rw.get_fid()) 
+                if (s_fid == m_a_rw.get_fid())
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_bv_rw.get_fid())
                     st = m_bv_rw.mk_eq_core(args[0], args[1], result);
@@ -193,10 +197,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 if (st != BR_FAILED)
-                    return st;     
-            }
-            if (k == OP_EQ) {
-                SASSERT(num == 2);
+                    return st;
                 st = apply_tamagotchi(args[0], args[1], result);
                 if (st != BR_FAILED)
                     return st;
@@ -210,14 +211,19 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     return st;
             }
             if ((k == OP_AND || k == OP_OR) && m_seq_rw.u().has_re()) {
-                st = m_seq_rw.mk_bool_app(f, num, args, result); 
+                st = m_seq_rw.mk_bool_app(f, num, args, result);
                 if (st != BR_FAILED)
                     return st;
             }
-            if (k == OP_EQ && m_seq_rw.u().has_seq() && is_app(args[0]) && 
+            if (k == OP_EQ && m_seq_rw.u().has_seq() && is_app(args[0]) &&
                 to_app(args[0])->get_family_id() == m_seq_rw.get_fid()) {
                 st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 if (st != BR_FAILED)
+                    return st;
+            }
+            if (k == OP_DISTINCT && num > 0 && m_bv_rw.is_bv(args[0])) {
+               st = m_bv_rw.mk_distinct(num, args, result);
+               if (st != BR_FAILED)
                     return st;
             }
 
@@ -250,7 +256,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (fid == m_seq_rw.get_fid())
             return m_seq_rw.mk_app_core(f, num, args, result);
         if (fid == m_char_rw.get_fid())
-            return m_char_rw.mk_app_core(f, num, args, result);        
+            return m_char_rw.mk_app_core(f, num, args, result);
         if (fid == m_rec_rw.get_fid())
             return m_rec_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
@@ -690,10 +696,42 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return result;
     }
 
+    /**
+     * Apply substitution on pattern expressions.
+     * It happens only very rarely that this operation has an effect.
+     * To avoid expensive calls to expr_safe_replace we check with a pre-filter
+     * whether the substitution possibly could apply.
+     */
+
     void apply_subst(ptr_buffer<expr>& patterns) {
         if (!m_subst)
             return;
         if (patterns.empty())
+            return;
+        if (m_subst->sub().empty())
+            return;
+        if (m_new_mark) {
+            m_marks.reset();
+            for (auto const& [k, v] : m_subst->sub())
+                m_marks.mark(k);
+            m_new_mark = false;
+        }
+        struct has_mark {
+            expr_mark& m_marks;
+            bool found = false;
+            has_mark(expr_mark& m) : m_marks(m) {}
+            void operator()(quantifier* q) {
+                found = true;
+            }
+            void operator()(expr* e) {
+                found |= m_marks.is_marked(e);
+            }            
+        };
+        has_mark has_mark(m_marks);
+        for (expr* p : patterns)
+            quick_for_each_expr(has_mark, m_visited, p);
+        m_visited.reset();
+        if (!has_mark.found)
             return;
         if (m_new_subst) {
             m_rep.reset();
@@ -820,6 +858,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         reset();
         m_subst = s;
         m_new_subst = true;
+        m_new_mark = true;
     }
 
     void reset() {

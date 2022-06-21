@@ -30,7 +30,7 @@ namespace euf {
         m_nodes.push_back(n);
         m_exprs.push_back(f);
         if (is_app(f) && num_args > 0) {
-           unsigned id = to_app(f)->get_decl()->get_decl_id();
+           unsigned id = to_app(f)->get_decl()->get_small_id();
            m_decl2enodes.reserve(id+1);
            m_decl2enodes[id].push_back(n);
         }
@@ -60,7 +60,7 @@ namespace euf {
 
 
     enode_vector const& egraph::enodes_of(func_decl* f) {
-        unsigned id = f->get_decl_id();
+        unsigned id = f->get_small_id();
         if (id < m_decl2enodes.size())
             return m_decl2enodes[id];
         return m_empty_enodes;
@@ -341,7 +341,7 @@ namespace euf {
             m_expr2enode[e->get_id()] = nullptr;
             n->~enode();
             if (is_app(e) && n->num_args() > 0)
-               m_decl2enodes[to_app(e)->get_decl()->get_decl_id()].pop_back();
+               m_decl2enodes[to_app(e)->get_decl()->get_small_id()].pop_back();
             m_nodes.pop_back();
             m_exprs.pop_back();
         };

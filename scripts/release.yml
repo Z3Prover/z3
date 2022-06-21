@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.16'
+  ReleaseVersion: '4.8.18'
 
 stages:
 
@@ -42,6 +42,28 @@ stages:
       inputs:
         artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: MacBuildArm64
+    displayName: "macOS Build"
+    pool:
+      vmImage: "macOS-latest"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --nojava --arch=arm64 --os=osx-11.0
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'macOSBuildArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
 
   - job: UbuntuBuild
     displayName: "Ubuntu build"
@@ -107,13 +129,23 @@ stages:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: ManyLinuxBuild
-    displayName: "ManyLinux build"
+  - job: LinuxBuilds
+    strategy:
+      matrix:
+        manyLinux:
+          name: ManyLinux
+          image: "quay.io/pypa/manylinux2010_x86_64:latest"
+          python: "/opt/python/cp37-cp37m/bin/python"
+        muslLinux:
+          name: MuslLinux
+          image: "quay.io/pypa/musllinux_1_1_x86_64:latest"
+          python: "/opt/python/cp310-cp310/bin/python"
+    displayName: "$(name) build"
     pool:
       vmImage: "ubuntu-latest"
-    container: "quay.io/pypa/manylinux2010_x86_64:latest"
+    container: $(image)
     variables:
-      python: "/opt/python/cp37-cp37m/bin/python"
+      python: $(python)
     steps:
     - task: PythonScript@0
       displayName: Build
@@ -138,7 +170,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxBuild'
+        artifactName: '$(name)Build'
         targetPath: $(Build.ArtifactStagingDirectory)
   
   - template: build-win-signed.yml
@@ -379,6 +411,11 @@ stages:
         artifact: 'ManyLinuxBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download MuslLinux Build'
+      inputs:
+        artifact: 'MuslLinuxBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
         artifact: 'WindowsBuild-x86'
@@ -389,14 +426,18 @@ stages:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
-    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*glibc*.zip
+    - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
+    - script: cd $(Agent.TempDirectory); mkdir libc-bin; cd libc-bin; unzip ../*glibc*.zip    
+    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
     - script: python3 -m pip install --user -U setuptools wheel
     - script: cd src/api/python; python3 setup.py sdist
     # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
     - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/musl-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - task: PublishPipelineArtifact@0
@@ -429,6 +470,11 @@ stages:
       inputs:
         artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOSArm64 Build'
+      inputs:
+        artifact: 'macOSBuildArm64'
+        path: $(Agent.TempDirectory)	
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:

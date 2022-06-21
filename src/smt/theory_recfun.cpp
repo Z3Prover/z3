@@ -467,6 +467,15 @@ namespace smt {
         return found;
     }
 
+    /**
+     * n is an argument of p, if p is a function definition or case predicate,
+     * then there is no reason for the solver to enforce that equality on n is 
+     * fully determined. It is a beta-redex with respect to expanding p.
+     */
+    bool theory_recfun::is_beta_redex(enode* p, enode* n) const {
+        return is_defined(p) || is_case_pred(p);
+    }
+
     void theory_recfun::display(std::ostream & out) const {
         out << "recfun\n";
         out << "disabled guards:\n" << m_disabled_guards << "\n";

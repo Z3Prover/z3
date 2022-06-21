@@ -53,7 +53,6 @@ extern "C" {
     void Z3_API Z3_model_dec_ref(Z3_context c, Z3_model m) {
         Z3_TRY;
         LOG_Z3_model_dec_ref(c, m);
-        RESET_ERROR_CODE();
         if (m) {
             to_model(m)->dec_ref();
         }

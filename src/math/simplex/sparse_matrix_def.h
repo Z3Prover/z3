@@ -299,6 +299,8 @@ namespace simplex {
 
     template<typename Ext>
     void sparse_matrix<Ext>::add_var(row dst, numeral const& n, var_t v) {
+        if (m.is_zero(n))
+            return;
         _row& r   = m_rows[dst.id()];
         column& c = m_columns[v];
         unsigned r_idx;
@@ -317,6 +319,9 @@ namespace simplex {
     */
     template<typename Ext>
     void sparse_matrix<Ext>::add(row row1, numeral const& n, row row2) {
+
+        if (m.is_zero(n))
+            return;
         m_stats.m_add_rows++;
         _row & r1 = m_rows[row1.id()];
         

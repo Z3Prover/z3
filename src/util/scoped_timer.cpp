@@ -51,10 +51,9 @@ static atomic<unsigned> num_workers(0);
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
-        s->cv.wait(workers, [=]{ return s->work > IDLE; });
+        s->cv.wait(workers, [=]{ return s->work != IDLE; });
         workers.unlock();
 
-        // exiting..
         if (s->work == EXITING)
             return;
 
@@ -87,16 +86,17 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
         s = new scoped_timer_state;
         new_worker = true;
         ++num_workers;
+        s->work = WORKING;
     }
     else {
         s = available_workers.back();
         available_workers.pop_back();
+        s->work = WORKING;
         workers.unlock();
     }
     s->ms = ms;
     s->eh = eh;
     s->m_mutex.lock();
-    s->work = WORKING;
     if (new_worker) {
         s->m_thread = std::thread(thread_func, s);
     }

@@ -1883,6 +1883,7 @@ namespace nlsat {
 };
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(nlsat::explain::imp & ex, unsigned num, nlsat::literal const * ls) {
     ex.display(std::cout, num, ls);
 }

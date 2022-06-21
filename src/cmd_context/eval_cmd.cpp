@@ -57,6 +57,8 @@ public:
 
     void execute(cmd_context & ctx) override {
         model_ref md;
+        if (ctx.ignore_check())
+            return;
         if (!ctx.is_model_available(md))
             throw cmd_exception("model is not available");
         if (!m_target)

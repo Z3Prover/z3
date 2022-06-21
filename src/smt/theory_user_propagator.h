@@ -56,7 +56,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        void*                  m_user_context = nullptr;
+        void*                           m_user_context = nullptr;
         user_propagator::push_eh_t      m_push_eh;
         user_propagator::pop_eh_t       m_pop_eh;
         user_propagator::fresh_eh_t     m_fresh_eh;
@@ -65,6 +65,7 @@ namespace smt {
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
         user_propagator::created_eh_t   m_created_eh;
+        user_propagator::decide_eh_t    m_decide_eh;
 
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
@@ -82,6 +83,9 @@ namespace smt {
         expr_ref_vector        m_to_add;
         unsigned_vector        m_to_add_lim;
         unsigned               m_to_add_qhead = 0;
+        expr*                  m_next_split_expr = nullptr;
+        unsigned               m_next_split_idx;
+        lbool                  m_next_split_phase;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
@@ -94,6 +98,8 @@ namespace smt {
 
         void propagate_consequence(prop_info const& prop);
         void propagate_new_fixed(prop_info const& prop);
+        
+        bool_var enode_to_bool(enode* n, unsigned bit);
 
     public:
         theory_user_propagator(context& ctx);
@@ -121,13 +127,17 @@ namespace smt {
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
         void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
+        void register_decide(user_propagator::decide_eh_t& decide_eh) { m_decide_eh = decide_eh; }
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
         
         void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
+        void next_split_cb(expr* e, unsigned idx, lbool phase) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
+        void decide(bool_var& var, bool& is_pos);
+        bool get_case_split(bool_var& var, bool& is_pos);
 
         theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app* atom, bool gate_ctx) override;
@@ -150,5 +160,5 @@ namespace smt {
         bool can_propagate() override;
         void propagate() override; 
         void display(std::ostream& out) const override {}
-    };
+};
 };

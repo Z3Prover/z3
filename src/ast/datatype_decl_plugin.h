@@ -207,14 +207,14 @@ namespace datatype {
             unsigned                 m_id_counter;
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
-            mutable bool             m_has_nested_arrays;
+            mutable bool             m_has_nested_rec;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
             void log_axiom_definitions(symbol const& s, sort * new_sort);
 
         public:
-            plugin(): m_id_counter(0), m_class_id(0), m_has_nested_arrays(false) {}
+            plugin(): m_id_counter(0), m_class_id(0), m_has_nested_rec(false) {}
             ~plugin() override;
 
             void finalize() override;
@@ -254,7 +254,7 @@ namespace datatype {
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
 
-            bool has_nested_arrays() const { return m_has_nested_arrays; }
+            bool has_nested_rec() const { return m_has_nested_rec; }
 
         private:
             bool is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const;
@@ -334,7 +334,7 @@ namespace datatype {
         bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
-        bool is_recursive_array(sort * ty);
+        bool is_recursive_nested(sort * ty);
         bool is_constructor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_recognizer(func_decl * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_recognizer0(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_RECOGNISER); }
@@ -365,7 +365,7 @@ namespace datatype {
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         func_decl * get_update_accessor(func_decl * update) const;
-        bool has_nested_arrays() const { return plugin().has_nested_arrays(); }
+        bool has_nested_rec() const { return plugin().has_nested_rec(); }
         family_id get_family_id() const { return fid(); }
         decl::plugin& plugin() const;
         bool are_siblings(sort * s1, sort * s2);

@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include<iostream>
 #include<sstream>
 #include<limits>
 #include "ast/arith_decl_plugin.h"

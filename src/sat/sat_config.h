@@ -179,6 +179,7 @@ namespace sat {
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
+        bool               m_drup_trim;
         bool               m_drat_activity;
         
         bool               m_card_solver;

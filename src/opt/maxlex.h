@@ -21,9 +21,9 @@ Notes:
 
 namespace opt {
 
-    bool is_maxlex(weights_t & ws);
+    bool is_maxlex(vector<soft> const & ws);
 
-    maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, vector<soft>& soft);
 
 
 };

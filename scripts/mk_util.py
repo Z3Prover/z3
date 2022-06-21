@@ -69,6 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_HURD=False
 IS_OSX=False
+IS_ARCH_ARM64=False
 IS_FREEBSD=False
 IS_NETBSD=False
 IS_OPENBSD=False
@@ -245,10 +246,13 @@ def rmf(fname):
 
 def exec_compiler_cmd(cmd):
     r = exec_cmd(cmd)
-    if is_windows() or is_cygwin_mingw() or is_cygwin() or is_msys2():
-        rmf('a.exe')
-    else:
-        rmf('a.out')
+    # Windows
+    rmf('a.exe')
+    # Unix
+    rmf('a.out')
+    # Emscripten
+    rmf('a.wasm')
+    rmf('a.worker.js')
     return r
 
 def test_cxx_compiler(cc):
@@ -278,10 +282,13 @@ def test_gmp(cc):
 
 
 def test_fpmath(cc):
-    global FPMATH_FLAGS
+    global FPMATH_FLAGS, IS_ARCH_ARM64, IS_OSX
     if FPMATH_ENABLED == "False":
         FPMATH_FLAGS=""
         return "Disabled"
+    if IS_ARCH_ARM64 and IS_OSX:
+        FPMATH_FLAGS = ""
+        return "Disabled-ARM64"
     if is_verbose():
         print("Testing floating point support...")
     t = TempFile('tstsse.cpp')
@@ -289,6 +296,10 @@ def test_fpmath(cc):
     t.commit()
     # -Werror is needed because some versions of clang warn about unrecognized
     # -m flags.
+    # TODO(ritave): Safari doesn't allow SIMD WebAssembly extension, add a flag to build script
+    if exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-msse -msse2 -msimd128']) == 0:
+        FPMATH_FLAGS='-msse -msse2 -msimd128'
+        return 'SSE2-EMSCRIPTEN'
     if exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
         FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
         return "SSE2-GCC"
@@ -495,7 +506,7 @@ def find_ml_lib():
 
 def is64():
     global LINUX_X64
-    if is_sunos() and sys.version_info.major < 3: 
+    if is_sunos() and sys.version_info.major < 3:
         return LINUX_X64
     else:
         return LINUX_X64 and sys.maxsize >= 2**32
@@ -620,7 +631,11 @@ elif os.name == 'posix':
             LINUX_X64=True
         else:
             LINUX_X64=False
-            
+
+
+if os.name == 'posix' and os.uname()[4] == 'arm64':
+    IS_ARCH_ARM64 = True
+
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -644,6 +659,7 @@ def display_help(exit_code):
         print("  -x, --x64                     create 64 binary when using Visual Studio.")
     else:
         print("  --x86                         force 32-bit x86 build on x64 systems.")
+    print("  --arm64=<bool>                    forcearm64 bit build  on/off (supported for Darwin).")
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
@@ -686,11 +702,11 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
-    global GUARD_CF, ALWAYS_DYNAMIC_BASE
+    global GUARD_CF, ALWAYS_DYNAMIC_BASE, IS_ARCH_ARM64
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
-                                               'b:df:sxhmcvtnp:gj',
-                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
+                                               'b:df:sxa:hmcvtnp:gj',
+                                               ['build=', 'debug', 'silent', 'x64', 'arm64=', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
@@ -713,6 +729,8 @@ def parse_options():
             VS_X64 = True
         elif opt in ('--x86'):
             LINUX_X64=False
+        elif opt in ('--arm64'):
+            IS_ARCH_ARM64 = arg in ('true','on','True','TRUE')
         elif opt in ('-h', '--help'):
             display_help(0)
         elif opt in ('-m', '--makefiles'):
@@ -781,7 +799,7 @@ def extract_c_includes(fname):
     linenum = 1
     for line in f:
         m1 = std_inc_pat.match(line)
-        if m1: 
+        if m1:
             root_file_name = m1.group(1)
             slash_pos =  root_file_name.rfind('/')
             if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
@@ -1639,7 +1657,7 @@ def set_key_file(self):
        else:
            print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
            self.key_file = None
-    
+
 
 # build for dotnet core
 class DotNetDLLComponent(Component):
@@ -1653,7 +1671,7 @@ class DotNetDLLComponent(Component):
         self.assembly_info_dir = assembly_info_dir
         self.key_file = default_key_file
 
-    
+
     def mk_makefile(self, out):
         if not is_dotnet_core_enabled():
             return
@@ -1669,7 +1687,7 @@ class DotNetDLLComponent(Component):
             out.write(' ')
             out.write(cs_file)
         out.write('\n')
-        
+
         set_key_file(self)
         key = ""
         if not self.key_file is None:
@@ -1713,7 +1731,7 @@ class DotNetDLLComponent(Component):
             ous.write(core_csproj_str)
 
         dotnetCmdLine = [DOTNET, "build", csproj]
-        
+
         dotnetCmdLine.extend(['-c'])
         if DEBUG_MODE:
             dotnetCmdLine.extend(['Debug'])
@@ -1722,19 +1740,19 @@ class DotNetDLLComponent(Component):
 
         path = os.path.join(os.path.abspath(BUILD_DIR), ".")
         dotnetCmdLine.extend(['-o', "\"%s\"" % path])
-            
+
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
-        out.write('\n')        
+        out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
 
     def main_component(self):
         return is_dotnet_core_enabled()
-    
+
     def has_assembly_info(self):
         # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
         return False
 
-    
+
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_core_enabled():
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
@@ -2027,7 +2045,7 @@ class MLComponent(Component):
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
             if IS_OSX:
                 out.write('\tinstall_name_tool -id %s/libz3.dylib libz3.dylib\n' % (stubs_install_path))
-                out.write('\tinstall_name_tool -change libz3.dylib %s/libz3.dylib api/ml/dllz3ml.so\n' % (stubs_install_path))                
+                out.write('\tinstall_name_tool -change libz3.dylib %s/libz3.dylib api/ml/dllz3ml.so\n' % (stubs_install_path))
             out.write('\n')
 
             if IS_WINDOWS:
@@ -2431,7 +2449,7 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
-    global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
+    global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED, IS_ARCH_ARM64
     if IS_WINDOWS:
         CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++17'
         config.write(
@@ -2588,6 +2606,7 @@ def mk_config():
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
             CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_NETBSD_'
@@ -2621,7 +2640,7 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            if sysname == 'Linux':
+            if sysname == 'Linux' or sysname == 'FreeBSD':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:
             CXXFLAGS     = '%s -m32' % CXXFLAGS
@@ -2636,6 +2655,11 @@ def mk_config():
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
+        if IS_OSX and IS_ARCH_ARM64:
+            print("Setting arm64")
+            CXXFLAGS = '%s -arch arm64' % CXXFLAGS
+            LDFLAGS = '%s -arch arm64' % LDFLAGS
+            SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
 
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
@@ -3003,10 +3027,12 @@ def mk_bindings(api_files):
         if is_dotnet_core_enabled():
           dotnet_output_dir = os.path.join(BUILD_DIR, 'dotnet')
           mk_dir(dotnet_output_dir)
+        java_input_dir = None
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
           java_output_dir = get_component('java').src_dir
+          java_input_dir = get_component('java').src_dir
           java_package_name = get_component('java').package_name
         ml_output_dir = None
         if is_ml_enabled():
@@ -3017,7 +3043,8 @@ def mk_bindings(api_files):
           api_output_dir=get_component('api').src_dir,
           z3py_output_dir=get_z3py_dir(),
           dotnet_output_dir=dotnet_output_dir,
-          java_output_dir=java_output_dir,
+          java_input_dir=java_input_dir,
+          java_output_dir=java_output_dir,                                  
           java_package_name=java_package_name,
           ml_output_dir=ml_output_dir,
           ml_src_dir=ml_output_dir
@@ -3100,7 +3127,7 @@ def get_platform_toolset_str():
     if len(tokens) < 2:
         return default
     else:
-        if tokens[0] == "15": 
+        if tokens[0] == "15":
             # Visual Studio 2017 reports 15.* but the PlatformToolsetVersion is 141
             return "v141"
         else:

@@ -142,6 +142,7 @@ namespace smt {
         // 
         // --------------------------------------------------
         bool is_shared(theory_var v) const override;
+        bool is_beta_redex(enode* p, enode* n) const override;
         void collect_shared_vars(sbuffer<theory_var> & result);
         unsigned mk_interface_eqs();
 

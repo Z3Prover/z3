@@ -56,24 +56,28 @@ namespace user_solver {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        void*                  m_user_context;
-        user_propagator::push_eh_t      m_push_eh;
-        user_propagator::pop_eh_t       m_pop_eh;
-        user_propagator::fresh_eh_t     m_fresh_eh;
-        user_propagator::final_eh_t     m_final_eh;
-        user_propagator::fixed_eh_t     m_fixed_eh;
-        user_propagator::eq_eh_t        m_eq_eh;
-        user_propagator::eq_eh_t        m_diseq_eh;
-        user_propagator::created_eh_t   m_created_eh;
+        void*                           m_user_context;
+        user_propagator::push_eh_t      m_push_eh = nullptr;
+        user_propagator::pop_eh_t       m_pop_eh = nullptr;
+        user_propagator::fresh_eh_t     m_fresh_eh = nullptr;
+        user_propagator::final_eh_t     m_final_eh = nullptr;
+        user_propagator::fixed_eh_t     m_fixed_eh = nullptr;
+        user_propagator::eq_eh_t        m_eq_eh = nullptr;
+        user_propagator::eq_eh_t        m_diseq_eh = nullptr;
+        user_propagator::created_eh_t   m_created_eh = nullptr;
+        user_propagator::decide_eh_t    m_decide_eh = nullptr;
         user_propagator::context_obj*   m_api_context = nullptr;
-        unsigned               m_qhead = 0;
-        vector<prop_info>      m_prop;
-        unsigned_vector        m_prop_lim;
-        vector<sat::literal_vector> m_id2justification;
-        sat::literal_vector         m_lits;
-        euf::enode_pair_vector      m_eqs;
-        unsigned_vector             m_fixed_ids;
-        stats                  m_stats;
+        unsigned                        m_qhead = 0;
+        vector<prop_info>               m_prop;
+        unsigned_vector                 m_prop_lim;
+        vector<sat::literal_vector>     m_id2justification;
+        sat::literal_vector             m_lits;
+        euf::enode_pair_vector          m_eqs;
+        unsigned_vector                 m_fixed_ids;
+        stats                           m_stats;
+        expr*                           m_next_split_expr = nullptr;
+        unsigned                        m_next_split_idx;
+        lbool                           m_next_split_phase;
 
         struct justification {
             unsigned m_propagation_index { 0 };
@@ -94,7 +98,7 @@ namespace user_solver {
         void propagate_consequence(prop_info const& prop);
         void propagate_new_fixed(prop_info const& prop);
 
-	void validate_propagation();
+        void validate_propagation();
 
         bool visit(expr* e) override;
         bool visited(expr* e) override;
@@ -126,14 +130,19 @@ namespace user_solver {
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
         void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
+        void register_decide(user_propagator::decide_eh_t& decide_eh) { m_decide_eh = decide_eh; }
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
         void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
+        void next_split_cb(expr* e, unsigned idx, lbool phase) override;
 
         void new_fixed_eh(euf::theory_var v, expr* value, unsigned num_lits, sat::literal const* jlits);
 
+        bool decide(sat::bool_var& var, lbool& phase) override;
+        bool get_case_split(sat::bool_var& var, lbool &phase) override;
+        
         void asserted(sat::literal lit) override;
         sat::check_result check() override;
         void push_core() override;

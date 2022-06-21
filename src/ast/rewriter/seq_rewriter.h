@@ -256,6 +256,10 @@ class seq_rewriter {
     br_status mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_map(expr* f, expr* s, expr_ref& result);
+    br_status mk_seq_mapi(expr* f, expr* i, expr* s, expr_ref& result);
+    br_status mk_seq_foldl(expr* f, expr* b, expr* s, expr_ref& result);
+    br_status mk_seq_foldli(expr* f, expr* i, expr* b, expr* s, expr_ref& result);
     br_status mk_str_units(func_decl* f, expr_ref& result);
     br_status mk_str_itos(expr* a, expr_ref& result);
     br_status mk_str_stoi(expr* a, expr_ref& result);
@@ -318,12 +322,14 @@ class seq_rewriter {
     bool reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool has_var(expr_ref_vector const& es);
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
-    bool min_length(expr_ref_vector const& es, unsigned& len);
-    bool min_length(expr* e, unsigned& len);
-    bool min_length(unsigned sz, expr* const* es, unsigned& len);
-    bool max_length(expr* e, rational& len);
+    std::pair<bool, unsigned> min_length(expr_ref_vector const& es);
+    std::pair<bool, unsigned> min_length(expr* e);
+    std::pair<bool, unsigned> min_length(unsigned sz, expr* const* es);
+    std::pair<bool, rational> max_length(expr* e);
+    bool max_length(expr* e, rational& len) { auto ml = max_length(e); len = ml.second; return ml.first; }
     lbool eq_length(expr* x, expr* y);
     expr* concat_non_empty(expr_ref_vector& es);
     bool reduce_by_char(expr_ref& r, expr* ch, unsigned depth);

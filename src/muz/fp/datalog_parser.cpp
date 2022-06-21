@@ -777,6 +777,7 @@ protected:
     // Sym ::= String | NUM | Var
     // 
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
+        std::string td1_(td);
         symbol td1(td);
         expr_ref v1(m), v2(m);
         sort* s = nullptr;
@@ -793,12 +794,12 @@ protected:
 
         if (tok1 == TK_ID) {
             expr* _v1 = nullptr;
-            m_vars.find(td1.bare_str(), _v1);
+            m_vars.find(td1_, _v1);
             v1 = _v1;
         }
         if (tok3 == TK_ID) {
             expr* _v2 = nullptr;
-            m_vars.find(td2.bare_str(), _v2);
+            m_vars.find(td, _v2);
             v2 = _v2;
         }
         if (!v1 && !v2) {
@@ -950,18 +951,19 @@ protected:
             break;
         }
         case TK_ID: {
-            symbol data (m_lexer->get_token_data());
-            if (is_var(data.bare_str())) {
+            char const* d = m_lexer->get_token_data();
+            symbol data (d);
+            if (is_var(d)) {
                 unsigned idx = 0;
                 expr* v = nullptr;
-                if (!m_vars.find(data.bare_str(), v)) {
+                if (!m_vars.find(d, v)) {
                     idx = m_num_vars++;
                     v = m.mk_var(idx, s);
-                    m_vars.insert(data.bare_str(), v);
+                    m_vars.insert(d, v);
                 }
                 else if (s != v->get_sort()) {
                     throw default_exception(default_exception::fmt(), "sort: %s expected, but got: %s\n",
-                        s->get_name().bare_str(), v->get_sort()->get_name().bare_str());
+                                            s->get_name().str().c_str(), v->get_sort()->get_name().str().c_str());
                 }
                 args.push_back(v);
             }
@@ -1075,21 +1077,21 @@ protected:
     }
 
     sort * register_finite_sort(symbol name, uint64_t domain_size, context::sort_kind k) {
-        if(m_sort_dict.contains(name.bare_str())) {
-            throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
+        if(m_sort_dict.contains(name.str().c_str())) {
+            throw default_exception(default_exception::fmt(), "sort %s already declared", name.str().c_str());
         }
         sort * s = m_decl_util.mk_sort(name, domain_size);
         m_context.register_finite_sort(s, k);
-        m_sort_dict.insert(name.bare_str(), s);
+        m_sort_dict.insert(name.str(), s);
         return s;
     }
 
     sort * register_int_sort(symbol name) {
-        if(m_sort_dict.contains(name.bare_str())) {
-            throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
+        if(m_sort_dict.contains(name.str().c_str())) {
+            throw default_exception(default_exception::fmt(), "sort %s already declared", name.str().c_str());
         }
         sort * s = m_arith.mk_int();
-        m_sort_dict.insert(name.bare_str(), s);
+        m_sort_dict.insert(name.str(), s);
         return s;
     }
 
@@ -1105,8 +1107,8 @@ protected:
         app * res;
         if(m_arith.is_int(s)) {
             uint64_t val;
-            if (!string_to_uint64(name.bare_str(), val)) {
-                throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.bare_str());
+            if (!string_to_uint64(name.str().c_str(), val)) {
+                throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.str().c_str());
             }
             res = m_arith.mk_numeral(rational(val, rational::ui64()), s);
         }
@@ -1288,7 +1290,7 @@ private:
         uint64_set & sort_content = *e->get_data().m_value;
         if(!sort_content.contains(num)) {
             warning_msg("symbol number %I64u on line %d in file %s does not belong to sort %s", 
-                num, m_current_line, m_current_file.c_str(), s->get_name().bare_str());
+                        num, m_current_line, m_current_file.c_str(), s->get_name().str().c_str());
             return false;
         }
         if(!m_use_map_names) {
@@ -1366,7 +1368,7 @@ private:
         func_decl * pred = m_context.try_get_predicate_decl(predicate_name);
         if(!pred) {
             throw default_exception(default_exception::fmt(), "tuple file %s for undeclared predicate %s", 
-                m_current_file.c_str(), predicate_name.bare_str());
+                                    m_current_file.c_str(), predicate_name.str().c_str());
         }
         unsigned pred_arity = pred->get_arity();
         sort * const * arg_sorts = pred->get_domain();
@@ -1531,9 +1533,9 @@ private:
             
             if(m_use_map_names) {
                 auto const & value = m_number_names.insert_if_not_there(num, el_name);
-                if (value!=el_name) {
+                if (value != el_name) {
                     warning_msg("mismatch of number names on line %d in file %s. old: \"%s\" new: \"%s\"", 
-                        m_current_line, fname.c_str(), value.bare_str(), el_name.bare_str());
+                                m_current_line, fname.c_str(), value.str().c_str(), el_name.str().c_str());
                 }
             }
         }

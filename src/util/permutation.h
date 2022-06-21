@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include "util/vector.h"
 
 class permutation {

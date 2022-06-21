@@ -548,7 +548,7 @@ bool core::var_is_fixed(lpvar j) const {
 
 bool core::var_is_free(lpvar j) const {
     return m_lar_solver.column_is_free(j);
-}
+}
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
     m_lar_solver.print_term_as_indices(in.term(), out);
@@ -1654,13 +1654,40 @@ void core::run_grobner() {
     }
     if (conflict) {
         IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
+        return;
     }
-    else {
-        if (quota > 1)
-            quota--;
-        IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << quota <<  "\n");
-        IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+
+#if 0
+    bool propagated = false;
+    for (auto eq : m_pdd_grobner.equations()) {
+        auto const& p = eq->poly();
+        if (p.is_offset()) {
+            lpvar v = p.var();
+            if (m_lar_solver.column_has_lower_bound(v) &&
+                m_lar_solver.column_has_upper_bound(v))
+                continue;
+            rational fixed_val = -p.lo().val();
+            lp::explanation ex;
+            u_dependency_manager dm;
+            vector<unsigned, false> lv;
+            dm.linearize(eq->dep(), lv);
+            for (unsigned ci : lv)
+                ex.push_back(ci);
+            new_lemma lemma(*this, "pdd-eq");
+            lemma &= ex;
+            lemma |= ineq(v, llc::EQ, fixed_val);
+            propagated = true;
+        }
     }
+    if (propagated) 
+        return;
+#endif
+
+    if (quota > 1)
+        quota--;
+    IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << quota <<  "\n");
+    IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+    
 }
 
 void core::configure_grobner() {
