@@ -350,6 +350,8 @@ export interface Context<Name extends string = 'main'> {
   Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name>;
   /** @category Operations */
   Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
+  /** @category Operations */
+  Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {

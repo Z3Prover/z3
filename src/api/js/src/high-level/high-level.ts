@@ -1945,7 +1945,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       BV2Int,
       Int2BV,
       Concat,
-      // Cond, // TODO
+      Cond,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;
