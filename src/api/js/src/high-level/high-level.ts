@@ -462,7 +462,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function from(primitive: boolean): Bool<Name>;
-    function from(primitive: number | CoercibleRational): RatNum<Name>;
+    function from(primitive: number): IntNum<Name> | RatNum<Name>;
+    function from(primitive: CoercibleRational): RatNum<Name>;
     function from(primitive: bigint): IntNum<Name>;
     function from<T extends Expr<Name>>(expr: T): T;
     function from(expr: CoercibleToExpr<Name>): AnyExpr<Name>;
