@@ -62,13 +62,10 @@ import {
   Model,
   Probe,
   RatNum,
-  sat,
   Solver,
   Sort,
   SortToExprMap,
   Tactic,
-  unknown,
-  unsat,
   Z3Error,
   Z3HighLevel,
 } from './types';
@@ -469,11 +466,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       assert(false);
     }
 
-    async function solve(...assertions: Bool<Name>[]): Promise<Model<Name> | typeof unsat | typeof unknown> {
+    async function solve(...assertions: Bool<Name>[]): Promise<Model<Name> | 'unsat' | 'unknown'> {
       const solver = new ctx.Solver();
       solver.add(...assertions);
       const result = await solver.check();
-      if (result === sat) {
+      if (result === 'sat') {
         return solver.model();
       }
       return result;
@@ -955,11 +952,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         );
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
-            return unsat;
+            return 'unsat';
           case Z3_lbool.Z3_L_TRUE:
-            return sat;
+            return 'sat';
           case Z3_lbool.Z3_L_UNDEF:
-            return unknown;
+            return 'unknown';
           default:
             assertExhaustive(result);
         }

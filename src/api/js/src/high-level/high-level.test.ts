@@ -1,7 +1,7 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
-import { Arith, Bool, Model, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
+import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -31,7 +31,7 @@ async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): 
   const solver = new assertions[0].ctx.Solver();
   solver.add(...assertions);
 
-  while ((await solver.check()) === sat) {
+  while ((await solver.check()) === 'sat') {
     const model = solver.model();
     const decls = model.decls();
     if (decls.length === 0) {
@@ -59,13 +59,13 @@ async function prove(conjecture: Bool): Promise<void> {
   const solver = new conjecture.ctx.Solver();
   const { Not } = solver.ctx;
   solver.add(Not(conjecture));
-  expect(await solver.check()).toStrictEqual(unsat);
+  expect(await solver.check()).toStrictEqual('unsat');
 }
 
 async function solve(conjecture: Bool): Promise<Model> {
   const solver = new conjecture.ctx.Solver();
   solver.add(conjecture);
-  expect(await solver.check()).toStrictEqual(sat);
+  expect(await solver.check()).toStrictEqual('sat');
   return solver.model();
 }
 
@@ -106,7 +106,7 @@ describe('high-level', () => {
 
     const conjecture = Implies(x.eq(y), g.call(x).eq(g.call(y)));
     solver.add(Not(conjecture));
-    expect(await solver.check()).toStrictEqual(unsat);
+    expect(await solver.check()).toStrictEqual('unsat');
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
@@ -119,7 +119,7 @@ describe('high-level', () => {
     const g = Function.declare('g', sort, sort);
     const conjecture = Implies(x.eq(y), g.call(g.call(x)).eq(g.call(y)));
     solver.add(Not(conjecture));
-    expect(await solver.check()).toStrictEqual(sat);
+    expect(await solver.check()).toStrictEqual('sat');
   });
 
   it('checks that Context matches', () => {
@@ -163,7 +163,7 @@ describe('high-level', () => {
       solver.add(x.ge(1)); // x >= 1
       solver.add(y.lt(x.add(3))); // y < x + 3
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       const model = solver.model();
       expect(model.length).toStrictEqual(2);
@@ -284,7 +284,7 @@ describe('high-level', () => {
         }
       }
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       const model = solver.model();
       const result = [];
@@ -331,7 +331,7 @@ describe('high-level', () => {
       solver.add(x.mul(x).add(y.mul(y)).eq(1)); // x^2 + y^2 == 1
       solver.add(x.mul(x).mul(x).add(z.mul(z).mul(z)).lt('1/2')); // x^3 + z^3 < 1/2
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
       const model = solver.model();
 
       expect(isRealVal(model.get(x))).toStrictEqual(true);
@@ -388,18 +388,18 @@ describe('high-level', () => {
 
       solver.add(x.gt(0));
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       solver.push();
       solver.add(x.lt(0));
 
       expect(solver.numScopes()).toStrictEqual(1);
-      expect(await solver.check()).toStrictEqual(unsat);
+      expect(await solver.check()).toStrictEqual('unsat');
 
       solver.pop();
 
       expect(solver.numScopes()).toStrictEqual(0);
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
     });
 
     it('can find multiple solutions', async () => {
@@ -444,7 +444,7 @@ describe('high-level', () => {
         solver.add(vector.get(i).gt(1));
       }
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
     });
   });
 });

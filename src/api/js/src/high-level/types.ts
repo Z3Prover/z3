@@ -81,23 +81,8 @@ export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | bo
 export class Z3Error extends Error {}
 export class Z3AssertionError extends Z3Error {}
 
-/**
- * Returned by {@link Solver.check} when Z3 could find a solution
- * @category Global
- */
-export const sat = Symbol('Solver found a solution');
-/**
- * Returned by {@link Solver.check} when Z3 couldn't find a solution
- * @category Global
- */
-export const unsat = Symbol("Solver didn't find a solution");
-/**
- * Returned by {@link Solver.check} when Z3 couldn't reason about the assumptions
- * @category Global
- */
-export const unknown = Symbol("Solver couldn't reason about the assumptions");
 /** @category Global */
-export type CheckSatResult = typeof sat | typeof unsat | typeof unknown;
+export type CheckSatResult = 'sat' | 'unsat' | 'unknown';
 
 /** @hidden */
 export interface ContextCtor {
@@ -229,7 +214,7 @@ export interface Context<Name extends string = 'main'> {
    *
    * @see {@link Solver}
    * @category Functions */
-  solve(...assertions: Bool<Name>[]): Promise<Model<Name> | typeof unsat | typeof unknown>;
+  solve(...assertions: Bool<Name>[]): Promise<Model<Name> | 'unsat' | 'unknown'>;
 
   /////////////
   // Classes //
