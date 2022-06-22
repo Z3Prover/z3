@@ -184,9 +184,13 @@ export interface Context<Name extends string = 'main'> {
    * @category Functions */
   from(primitive: boolean): Bool<Name>;
   /**
-   * Coerce a number or rational into a Real expression
+   * Coerce a number to an Int or Real expression (integral numbers become Ints)
    * @category Functions */
-  from(primitive: number | CoercibleRational): RatNum<Name>;
+  from(primitive: number): IntNum<Name> | RatNum<Name>;
+  /**
+   * Coerce a rational into a Real expression
+   * @category Functions */
+  from(primitive: CoercibleRational): RatNum<Name>;
   /**
    * Coerce a big number into a Integer expression
    * @category Functions */
