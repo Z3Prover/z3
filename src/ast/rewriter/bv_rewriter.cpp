@@ -1736,7 +1736,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         unsigned low = 0;
         unsigned i = 0;
         while (i < sz) {
-            while (i < sz && mod(v1, two).is_one()) {
+            while (i < sz && v1.is_odd()) {
                 i++;
                 div(v1, two, v1);
             }
@@ -1745,7 +1745,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
                 exs.push_back(m_util.mk_numeral(rational::power_of_two(num_sz) - numeral(1), num_sz));
                 low = i;
             }
-            while (i < sz && mod(v1, two).is_zero()) {
+            while (i < sz && v1.is_even()) {
                 i++;
                 div(v1, two, v1);
             }

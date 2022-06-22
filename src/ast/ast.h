@@ -272,6 +272,7 @@ public:
 
     family_id get_family_id() const { return m_family_id; }
     decl_kind get_decl_kind() const { return m_kind; }
+    bool is_decl_of(family_id fid, decl_kind k) const { return m_family_id == fid && k == m_kind; }
     unsigned get_num_parameters() const { return m_parameters.size(); }
     parameter const & get_parameter(unsigned idx) const { return m_parameters[idx]; }
     parameter const * get_parameters() const { return m_parameters.begin(); }
@@ -577,6 +578,7 @@ public:
     decl_info * get_info() const { return m_info; }
     family_id get_family_id() const { return m_info == nullptr ? null_family_id : m_info->get_family_id(); }
     decl_kind get_decl_kind() const { return m_info == nullptr ? null_decl_kind : m_info->get_decl_kind(); }
+    bool is_decl_of(family_id fid, decl_kind k) const { return m_info && m_info->is_decl_of(fid, k); }
     unsigned get_num_parameters() const { return m_info == nullptr ? 0 : m_info->get_num_parameters(); }
     parameter const & get_parameter(unsigned idx) const { return m_info->get_parameter(idx); }
     parameter const * get_parameters() const { return m_info == nullptr ? nullptr : m_info->get_parameters(); }
@@ -718,7 +720,7 @@ public:
     unsigned get_num_parameters() const { return get_decl()->get_num_parameters(); }
     parameter const& get_parameter(unsigned idx) const { return get_decl()->get_parameter(idx); }
     parameter const* get_parameters() const { return get_decl()->get_parameters(); }
-    bool is_app_of(family_id fid, decl_kind k) const { return get_family_id() == fid && get_decl_kind() == k; }
+    bool is_app_of(family_id fid, decl_kind k) const { return m_decl->is_decl_of(fid, k); }
     unsigned get_num_args() const { return m_num_args; }
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
     expr * const * get_args() const { return m_args; }

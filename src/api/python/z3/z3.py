@@ -6470,7 +6470,25 @@ class ModelRef(Z3PPObject):
                     return None
                 r = _to_expr_ref(_r, self.ctx)
                 if is_as_array(r):
-                    return self.get_interp(get_as_array_func(r))
+                    fi = self.get_interp(get_as_array_func(r))
+                    if fi is None:
+                        return fi                    
+                    e = fi.else_value()
+                    if e is None:
+                        return fi
+                    if fi.arity() != 1:
+                        return fi
+                    srt = decl.range()
+                    dom =  srt.domain()
+                    e = K(dom, e)
+                    i = 0
+                    sz = fi.num_entries()
+                    n = fi.arity()
+                    while i < sz:
+                        fe = fi.entry(i)
+                        e = Store(e, fe.arg_value(0), fe.value())
+                        i += 1
+                    return e
                 else:
                     return r
             else:
