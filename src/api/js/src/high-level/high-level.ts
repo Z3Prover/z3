@@ -159,7 +159,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     Z3.set_ast_print_mode(contextPtr, Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
     Z3.del_config(cfg);
 
-    function _assertContext(...ctxs: (Context | { ctx: Context })[]) {
+    function _assertContext(...ctxs: (Context<Name> | { ctx: Context<Name> })[]) {
       ctxs.forEach(other => assert('ctx' in other ? ctx === other.ctx : ctx === other, 'Context mismatch'));
     }
 
@@ -186,7 +186,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function _toAst(ast: Z3_ast): AnyAst {
+    function _toAst(ast: Z3_ast): AnyAst<Name> {
       switch (Z3.get_ast_kind(contextPtr, ast)) {
         case Z3_ast_kind.Z3_SORT_AST:
           return _toSort(ast as Z3_sort);
@@ -197,7 +197,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function _toSort(ast: Z3_sort): AnySort {
+    function _toSort(ast: Z3_sort): AnySort<Name> {
       switch (Z3.get_sort_kind(contextPtr, ast)) {
         case Z3_sort_kind.Z3_BOOL_SORT:
           return new BoolSortImpl(ast);
@@ -211,7 +211,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function _toExpr(ast: Z3_ast): Bool | IntNum | RatNum | Arith | Expr {
+    function _toExpr(ast: Z3_ast): Bool<Name> | IntNum<Name> | RatNum<Name> | Arith<Name> | Expr<Name> {
       const kind = Z3.get_ast_kind(contextPtr, ast);
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
         assert(false);
@@ -240,7 +240,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function _flattenArgs<T extends AnyAst = AnyAst>(args: (T | AstVector<T>)[]): T[] {
+    function _flattenArgs<T extends AnyAst<Name> = AnyAst<Name>>(args: (T | AstVector<Name, T>)[]): T[] {
       const result: T[] = [];
       for (const arg of args) {
         if (isAstVector(arg)) {
@@ -252,7 +252,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return result;
     }
 
-    function _toProbe(p: Probe | Z3_probe): Probe {
+    function _toProbe(p: Probe<Name> | Z3_probe): Probe<Name> {
       if (isProbe(p)) {
         return p;
       }
@@ -261,7 +261,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function _probeNary(
       f: (ctx: Z3_context, left: Z3_probe, right: Z3_probe) => Z3_probe,
-      args: [Probe | Z3_probe, ...(Probe | Z3_probe)[]],
+      args: [Probe<Name> | Z3_probe, ...(Probe<Name> | Z3_probe)[]],
     ) {
       assert(args.length > 0, 'At least one argument expected');
       let r = _toProbe(args[0]);
@@ -278,25 +278,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Z3.interrupt(contextPtr);
     }
 
-    function isModel(obj: unknown): obj is Model {
+    function isModel(obj: unknown): obj is Model<Name> {
       const r = obj instanceof ModelImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isAst(obj: unknown): obj is Ast {
+    function isAst(obj: unknown): obj is Ast<Name> {
       const r = obj instanceof AstImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isSort(obj: unknown): obj is Sort {
+    function isSort(obj: unknown): obj is Sort<Name> {
       const r = obj instanceof SortImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isFuncDecl(obj: unknown): obj is FuncDecl {
+    function isFuncDecl(obj: unknown): obj is FuncDecl<Name> {
       const r = obj instanceof FuncDeclImpl;
       r && _assertContext(obj);
       return r;
@@ -314,7 +314,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isExpr(obj) && isApp(obj) && obj.numArgs() === 0;
     }
 
-    function isExpr(obj: unknown): obj is Expr {
+    function isExpr(obj: unknown): obj is Expr<Name> {
       const r = obj instanceof ExprImpl;
       r && _assertContext(obj);
       return r;
@@ -328,7 +328,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isExpr(obj) && isApp(obj) && obj.decl().kind() === kind;
     }
 
-    function isBool(obj: unknown): obj is Bool {
+    function isBool(obj: unknown): obj is Bool<Name> {
       const r = obj instanceof BoolImpl;
       r && _assertContext(obj);
       return r;
@@ -366,13 +366,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isAppOf(obj, Z3_decl_kind.Z3_OP_DISTINCT);
     }
 
-    function isArith(obj: unknown): obj is Arith {
+    function isArith(obj: unknown): obj is Arith<Name> {
       const r = obj instanceof ArithImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isArithSort(obj: unknown): obj is ArithSort {
+    function isArithSort(obj: unknown): obj is ArithSort<Name> {
       const r = obj instanceof ArithSortImpl;
       r && _assertContext(obj);
       return r;
@@ -382,7 +382,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isArith(obj) && isIntSort(obj.sort);
     }
 
-    function isIntVal(obj: unknown): obj is IntNum {
+    function isIntVal(obj: unknown): obj is IntNum<Name> {
       const r = obj instanceof IntNumImpl;
       r && _assertContext(obj);
       return r;
@@ -396,7 +396,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isArith(obj) && isRealSort(obj.sort);
     }
 
-    function isRealVal(obj: unknown): obj is RatNum {
+    function isRealVal(obj: unknown): obj is RatNum<Name> {
       const r = obj instanceof RatNumImpl;
       r && _assertContext(obj);
       return r;
@@ -406,57 +406,57 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isSort(obj) && obj.kind() === Z3_sort_kind.Z3_REAL_SORT;
     }
 
-    function isBitVecSort(obj: unknown): obj is BitVecSort {
+    function isBitVecSort(obj: unknown): obj is BitVecSort<number, Name> {
       const r = obj instanceof BitVecSortImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isBitVec(obj: unknown): obj is BitVec {
+    function isBitVec(obj: unknown): obj is BitVec<number, Name> {
       const r = obj instanceof BitVecImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isBitVecVal(obj: unknown): obj is BitVecNum {
+    function isBitVecVal(obj: unknown): obj is BitVecNum<number, Name> {
       const r = obj instanceof BitVecNumImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isProbe(obj: unknown): obj is Probe {
+    function isProbe(obj: unknown): obj is Probe<Name> {
       const r = obj instanceof ProbeImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isTactic(obj: unknown): obj is Tactic {
+    function isTactic(obj: unknown): obj is Tactic<Name> {
       const r = obj instanceof TacticImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isAstVector(obj: unknown): obj is AstVector {
+    function isAstVector(obj: unknown): obj is AstVector<Name> {
       const r = obj instanceof AstVectorImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function eqIdentity(a: Ast, b: Ast): boolean {
+    function eqIdentity(a: Ast<Name>, b: Ast<Name>): boolean {
       return a.eqIdentity(b);
     }
 
-    function getVarIndex(obj: Expr): number {
+    function getVarIndex(obj: Expr<Name>): number {
       assert(isVar(obj), 'Z3 bound variable expected');
       return Z3.get_index_value(contextPtr, obj.ast);
     }
 
-    function from(primitive: boolean): Bool;
-    function from(primitive: number | CoercibleRational): RatNum;
-    function from(primitive: bigint): IntNum;
-    function from<T extends Expr>(expr: T): T;
-    function from(expr: CoercibleToExpr): AnyExpr;
-    function from(value: CoercibleToExpr): AnyExpr {
+    function from(primitive: boolean): Bool<Name>;
+    function from(primitive: number | CoercibleRational): RatNum<Name>;
+    function from(primitive: bigint): IntNum<Name>;
+    function from<T extends Expr<Name>>(expr: T): T;
+    function from(expr: CoercibleToExpr<Name>): AnyExpr<Name>;
+    function from(value: CoercibleToExpr<Name>): AnyExpr<Name> {
       if (typeof value === 'boolean') {
         return Bool.val(value);
       } else if (typeof value === 'number' || isCoercibleRational(value)) {
@@ -469,7 +469,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       assert(false);
     }
 
-    async function solve(...assertions: Bool[]): Promise<Model | typeof unsat | typeof unknown> {
+    async function solve(...assertions: Bool<Name>[]): Promise<Model<Name> | typeof unsat | typeof unknown> {
       const solver = new ctx.Solver();
       solver.add(...assertions);
       const result = await solver.check();
@@ -486,7 +486,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare: (name: string) => new SortImpl(Z3.mk_uninterpreted_sort(contextPtr, _toSymbol(name))),
     };
     const Function = {
-      declare: (name: string, ...signature: FuncDeclSignature<any>) => {
+      declare: (name: string, ...signature: FuncDeclSignature<Name>) => {
         const arity = signature.length - 1;
         const rng = signature[arity];
         _assertContext(rng);
@@ -497,7 +497,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
         return new FuncDeclImpl(Z3.mk_func_decl(contextPtr, _toSymbol(name), dom, rng.ptr));
       },
-      fresh: (...signature: FuncDeclSignature<any>) => {
+      fresh: (...signature: FuncDeclSignature<Name>) => {
         const arity = signature.length - 1;
         const rng = signature[arity];
         _assertContext(rng);
@@ -510,7 +510,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
     };
     const RecFunc = {
-      declare: (name: string, ...signature: FuncDeclSignature<any>) => {
+      declare: (name: string, ...signature: FuncDeclSignature<Name>) => {
         const arity = signature.length - 1;
         const rng = signature[arity];
         _assertContext(rng);
@@ -522,7 +522,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new FuncDeclImpl(Z3.mk_rec_func_decl(contextPtr, _toSymbol(name), dom, rng.ptr));
       },
 
-      addDefinition: (f: FuncDecl, args: Expr[], body: Expr) => {
+      addDefinition: (f: FuncDecl<Name>, args: Expr<Name>[], body: Expr<Name>) => {
         _assertContext(f, ...args, body);
         Z3.add_rec_def(
           contextPtr,
@@ -609,28 +609,34 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
     };
     const BitVec = {
-      sort: (bits: number): BitVecSort<any> => {
+      sort<Bits extends number>(bits: Bits): BitVecSort<Bits, Name> {
         assert(Number.isSafeInteger(bits), 'number of bits must be an integer');
         return new BitVecSortImpl(Z3.mk_bv_sort(contextPtr, bits));
       },
 
-      const: (name: string, bits: number | BitVecSort): BitVec<any> =>
-        new BitVecImpl(Z3.mk_const(contextPtr, _toSymbol(name), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr)),
+      const<Bits extends number>(name: string, bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(
+          Z3.mk_const(contextPtr, _toSymbol(name), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr),
+        );
+      },
 
-      consts: (names: string | string[], bits: number | BitVecSort): BitVec<any>[] => {
+      consts<Bits extends number>(names: string | string[], bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name>[] {
         if (typeof names === 'string') {
           names = names.split(' ');
         }
         return names.map(name => BitVec.const(name, bits));
       },
 
-      val: (value: bigint | number | boolean, bits: number | BitVecSort): BitVecNum<any> => {
+      val<Bits extends number>(
+        value: bigint | number | boolean,
+        bits: Bits | BitVecSort<Bits, Name>,
+      ): BitVecNum<Bits, Name> {
         if (value === true) {
           return BitVec.val(1, bits);
         } else if (value === false) {
           return BitVec.val(0, bits);
         }
-        return new BitVecNumImpl(
+        return new BitVecNumImpl<Bits>(
           Z3.mk_numeral(contextPtr, value.toString(), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr),
         );
       },
@@ -639,17 +645,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     ////////////////
     // Operations //
     ////////////////
-    function If(condition: Probe, onTrue: Tactic, onFalse: Tactic): Tactic;
-    function If<OnTrueRef extends CoercibleToExpr, OnFalseRef extends CoercibleToExpr>(
-      condition: Bool | boolean,
+    function If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
+    function If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
+      condition: Bool<Name> | boolean,
       onTrue: OnTrueRef,
       onFalse: OnFalseRef,
-    ): CoercibleToExprMap<OnTrueRef | OnFalseRef>;
+    ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
     function If(
-      condition: Bool | Probe | boolean,
-      onTrue: CoercibleToExpr | Tactic,
-      onFalse: CoercibleToExpr | Tactic,
-    ): Expr | Tactic {
+      condition: Bool<Name> | Probe<Name> | boolean,
+      onTrue: CoercibleToExpr<Name> | Tactic<Name>,
+      onFalse: CoercibleToExpr<Name> | Tactic<Name>,
+    ): Expr<Name> | Tactic<Name> {
       if (isProbe(condition) && isTactic(onTrue) && isTactic(onFalse)) {
         return Cond(condition, onTrue, onFalse);
       }
@@ -662,7 +668,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(Z3.mk_ite(contextPtr, condition.ptr, onTrue.ast, onFalse.ast));
     }
 
-    function Distinct(...exprs: CoercibleToExpr[]): Bool {
+    function Distinct(...exprs: CoercibleToExpr<Name>[]): Bool<Name> {
       assert(exprs.length > 0, "Can't make Distinct ouf of nothing");
 
       return new BoolImpl(
@@ -677,12 +683,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       );
     }
 
-    function Const<S extends Sort>(name: string, sort: S): SortToExprMap<S> {
+    function Const<S extends Sort<Name>>(name: string, sort: S): SortToExprMap<S, Name> {
       _assertContext(sort);
-      return _toExpr(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr)) as SortToExprMap<S>;
+      return _toExpr(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr)) as SortToExprMap<S, Name>;
     }
 
-    function Consts<S extends Sort>(names: string | string[], sort: S): SortToExprMap<S>[] {
+    function Consts<S extends Sort<Name>>(names: string | string[], sort: S): SortToExprMap<S, Name>[] {
       _assertContext(sort);
       if (typeof names === 'string') {
         names = names.split(' ');
@@ -690,40 +696,40 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return names.map(name => Const(name, sort));
     }
 
-    function FreshConst<S extends Sort>(sort: S, prefix: string = 'c'): SortToExprMap<S> {
+    function FreshConst<S extends Sort<Name>>(sort: S, prefix: string = 'c'): SortToExprMap<S, Name> {
       _assertContext(sort);
-      return _toExpr(Z3.mk_fresh_const(sort.ctx.ptr, prefix, sort.ptr)) as SortToExprMap<S>;
+      return _toExpr(Z3.mk_fresh_const(sort.ctx.ptr, prefix, sort.ptr)) as SortToExprMap<S, Name>;
     }
 
-    function Var<S extends Sort>(idx: number, sort: S): SortToExprMap<S> {
+    function Var<S extends Sort<Name>>(idx: number, sort: S): SortToExprMap<S, Name> {
       _assertContext(sort);
-      return _toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExprMap<S>;
+      return _toExpr(Z3.mk_bound(sort.ctx.ptr, idx, sort.ptr)) as SortToExprMap<S, Name>;
     }
 
-    function Implies(a: Bool | boolean, b: Bool | boolean): Bool {
-      a = from(a) as Bool;
-      b = from(b) as Bool;
+    function Implies(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name> {
+      a = from(a) as Bool<Name>;
+      b = from(b) as Bool<Name>;
       _assertContext(a, b);
       return new BoolImpl(Z3.mk_implies(contextPtr, a.ptr, b.ptr));
     }
 
-    function Eq(a: CoercibleToExpr, b: CoercibleToExpr): Bool {
+    function Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name> {
       a = from(a);
       b = from(b);
       _assertContext(a, b);
       return a.eq(b);
     }
 
-    function Xor(a: Bool | boolean, b: Bool | boolean): Bool {
-      a = from(a) as Bool;
-      b = from(b) as Bool;
+    function Xor(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name> {
+      a = from(a) as Bool<Name>;
+      b = from(b) as Bool<Name>;
       _assertContext(a, b);
       return new BoolImpl(Z3.mk_xor(contextPtr, a.ptr, b.ptr));
     }
 
-    function Not(a: Probe): Probe;
-    function Not(a: Bool | boolean): Bool;
-    function Not(a: Bool | boolean | Probe): Bool | Probe {
+    function Not(a: Probe<Name>): Probe<Name>;
+    function Not(a: Bool<Name> | boolean): Bool<Name>;
+    function Not(a: Bool<Name> | boolean | Probe<Name>): Bool<Name> | Probe<Name> {
       if (typeof a === 'boolean') {
         a = from(a);
       }
@@ -734,11 +740,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new BoolImpl(Z3.mk_not(contextPtr, a.ptr));
     }
 
-    function And(): Bool;
-    function And(vector: AstVector<Bool>): Bool;
-    function And(...args: (Bool | boolean)[]): Bool;
-    function And(...args: Probe[]): Probe;
-    function And(...args: (AstVector<Bool> | Probe | Bool | boolean)[]): Bool | Probe {
+    function And(): Bool<Name>;
+    function And(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
+    function And(...args: (Bool<Name> | boolean)[]): Bool<Name>;
+    function And(...args: Probe<Name>[]): Probe<Name>;
+    function And(
+      ...args: (AstVector<Name, Bool<Name>> | Probe<Name> | Bool<Name> | boolean)[]
+    ): Bool<Name> | Probe<Name> {
       if (args.length == 1 && args[0] instanceof ctx.AstVector) {
         args = [...args[0].values()];
         assert(allSatisfy(args, isBool) ?? true, 'AstVector containing not bools');
@@ -746,24 +754,26 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       const allProbes = allSatisfy(args, isProbe) ?? false;
       if (allProbes) {
-        return _probeNary(Z3.probe_and, args as [Probe, ...Probe[]]);
+        return _probeNary(Z3.probe_and, args as [Probe<Name>, ...Probe<Name>[]]);
       } else {
-        args = args.map(from) as Bool[];
-        _assertContext(...(args as Bool[]));
+        args = args.map(from) as Bool<Name>[];
+        _assertContext(...(args as Bool<Name>[]));
         return new BoolImpl(
           Z3.mk_and(
             contextPtr,
-            args.map(arg => (arg as Bool).ptr),
+            args.map(arg => (arg as Bool<Name>).ptr),
           ),
         );
       }
     }
 
-    function Or(): Bool;
-    function Or(vector: AstVector<Bool>): Bool;
-    function Or(...args: (Bool | boolean)[]): Bool;
-    function Or(...args: Probe[]): Probe;
-    function Or(...args: (AstVector<Bool> | Probe | Bool | boolean)[]): Bool | Probe {
+    function Or(): Bool<Name>;
+    function Or(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
+    function Or(...args: (Bool<Name> | boolean)[]): Bool<Name>;
+    function Or(...args: Probe<Name>[]): Probe<Name>;
+    function Or(
+      ...args: (AstVector<Name, Bool<Name>> | Probe<Name> | Bool<Name> | boolean)[]
+    ): Bool<Name> | Probe<Name> {
       if (args.length == 1 && args[0] instanceof ctx.AstVector) {
         args = [...args[0].values()];
         assert(allSatisfy(args, isBool) ?? true, 'AstVector containing not bools');
@@ -771,27 +781,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       const allProbes = allSatisfy(args, isProbe) ?? false;
       if (allProbes) {
-        return _probeNary(Z3.probe_or, args as [Probe, ...Probe[]]);
+        return _probeNary(Z3.probe_or, args as [Probe<Name>, ...Probe<Name>[]]);
       } else {
-        args = args.map(from) as Bool[];
-        _assertContext(...(args as Bool[]));
+        args = args.map(from) as Bool<Name>[];
+        _assertContext(...(args as Bool<Name>[]));
         return new BoolImpl(
           Z3.mk_or(
             contextPtr,
-            args.map(arg => (arg as Bool).ptr),
+            args.map(arg => (arg as Bool<Name>).ptr),
           ),
         );
       }
     }
 
-    function ToReal(expr: Arith | bigint): Arith {
-      expr = from(expr) as Arith;
+    function ToReal(expr: Arith<Name> | bigint): Arith<Name> {
+      expr = from(expr) as Arith<Name>;
       _assertContext(expr);
       assert(isInt(expr), 'Int expression expected');
       return new ArithImpl(Z3.mk_int2real(contextPtr, expr.ast));
     }
 
-    function ToInt(expr: Arith | number | CoercibleRational | string): Arith {
+    function ToInt(expr: Arith<Name> | number | CoercibleRational | string): Arith<Name> {
       if (!isExpr(expr)) {
         expr = Real.val(expr);
       }
@@ -800,7 +810,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new ArithImpl(Z3.mk_real2int(contextPtr, expr.ast));
     }
 
-    function IsInt(expr: Arith | number | CoercibleRational | string): Bool {
+    function IsInt(expr: Arith<Name> | number | CoercibleRational | string): Bool<Name> {
       if (!isExpr(expr)) {
         expr = Real.val(expr);
       }
@@ -809,48 +819,48 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new BoolImpl(Z3.mk_is_int(contextPtr, expr.ast));
     }
 
-    function Sqrt(a: Arith | number | bigint | string | CoercibleRational): Arith {
+    function Sqrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name> {
       if (!isExpr(a)) {
         a = Real.val(a);
       }
       return a.pow('1/2');
     }
 
-    function Cbrt(a: Arith | number | bigint | string | CoercibleRational): Arith {
+    function Cbrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name> {
       if (!isExpr(a)) {
         a = Real.val(a);
       }
       return a.pow('1/3');
     }
 
-    function BV2Int(a: BitVec, isSigned: boolean): Arith {
+    function BV2Int<Bits extends number>(a: BitVec<Bits, Name>, isSigned: boolean): Arith<Name> {
       _assertContext(a);
       return new ArithImpl(Z3.mk_bv2int(contextPtr, a.ast, isSigned));
     }
 
-    function Int2BV(a: Arith | bigint | number, bits: number): BitVec<any> {
+    function Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name> {
       if (isArith(a)) {
         assert(isInt(a), 'parameter must be an integer');
       } else {
         assert(typeof a !== 'number' || Number.isSafeInteger(a), 'parameter must not have decimal places');
         a = Int.val(a);
       }
-      return new BitVecImpl(Z3.mk_int2bv(contextPtr, bits, a.ast));
+      return new BitVecImpl<Bits>(Z3.mk_int2bv(contextPtr, bits, a.ast));
     }
 
-    function Concat(...bitvecs: BitVec[]): BitVec {
+    function Concat<Bits extends number>(...bitvecs: BitVec<Bits, Name>[]): BitVec<Bits, Name> {
       _assertContext(...bitvecs);
-      return bitvecs.reduce((prev, curr) => new BitVecImpl(Z3.mk_concat(contextPtr, prev.ast, curr.ast)));
+      return bitvecs.reduce((prev, curr) => new BitVecImpl<Bits>(Z3.mk_concat(contextPtr, prev.ast, curr.ast)));
     }
 
-    function Cond(probe: Probe, onTrue: Tactic, onFalse: Tactic): Tactic {
+    function Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name> {
       _assertContext(probe, onTrue, onFalse);
       return new TacticImpl(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr));
     }
 
-    class AstImpl<Ptr> implements Ast {
+    class AstImpl<Ptr> implements Ast<Name> {
       declare readonly __typename: Ast['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Ptr) {
         this.ctx = ctx;
@@ -861,19 +871,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       get ast(): Z3_ast {
-        return this.ptr as any as Z3_ast;
+        return this.ptr as unknown as Z3_ast;
       }
 
       get id() {
         return Z3.get_ast_id(contextPtr, this.ast);
       }
 
-      eqIdentity(other: Ast) {
+      eqIdentity(other: Ast<Name>) {
         _assertContext(other);
         return Z3.is_eq_ast(contextPtr, this.ast, other.ast);
       }
 
-      neqIdentity(other: Ast) {
+      neqIdentity(other: Ast<Name>) {
         _assertContext(other);
         return !this.eqIdentity(other);
       }
@@ -887,11 +897,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class SolverImpl implements Solver {
+    class SolverImpl implements Solver<Name> {
       declare readonly __typename: Solver['__typename'];
 
       readonly ptr: Z3_solver;
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
       constructor(ptr: Z3_solver | string = Z3.mk_solver(contextPtr)) {
         this.ctx = ctx;
         let myPtr: Z3_solver;
@@ -917,13 +927,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       reset() {
         Z3.solver_reset(contextPtr, this.ptr);
       }
-      add(...exprs: (Bool | AstVector<Bool>)[]) {
+      add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]) {
         _flattenArgs(exprs).forEach(expr => {
           _assertContext(expr);
           Z3.solver_assert(contextPtr, this.ptr, expr.ast);
         });
       }
-      addAndTrack(expr: Bool, constant: Bool | string) {
+      addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string) {
         if (typeof constant === 'string') {
           constant = Bool.const(constant);
         }
@@ -931,11 +941,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         Z3.solver_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast);
       }
 
-      assertions(): AstVector<Bool> {
+      assertions(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(Z3.solver_get_assertions(contextPtr, this.ptr));
       }
 
-      async check(...exprs: (Bool | AstVector<Bool>)[]): Promise<CheckSatResult> {
+      async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
         const assumptions = _flattenArgs(exprs).map(expr => {
           _assertContext(expr);
           return expr.ast;
@@ -960,9 +970,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ModelImpl implements Model {
+    class ModelImpl implements Model<Name> {
       declare readonly __typename: Model['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Z3_model = Z3.mk_model(contextPtr)) {
         this.ctx = ctx;
@@ -974,11 +984,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.model_get_num_consts(contextPtr, this.ptr) + Z3.model_get_num_funcs(contextPtr, this.ptr);
       }
 
-      [Symbol.iterator](): Iterator<FuncDecl> {
+      [Symbol.iterator](): Iterator<FuncDecl<Name>> {
         return this.values();
       }
 
-      *entries(): IterableIterator<[number, FuncDecl]> {
+      *entries(): IterableIterator<[number, FuncDecl<Name>]> {
         const length = this.length;
         for (let i = 0; i < length; i++) {
           yield [i, this.get(i)];
@@ -991,7 +1001,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
       }
 
-      *values(): IterableIterator<FuncDecl> {
+      *values(): IterableIterator<FuncDecl<Name>> {
         for (const [, value] of this.entries()) {
           yield value;
         }
@@ -1005,9 +1015,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.model_to_string(contextPtr, this.ptr);
       }
 
-      eval(expr: Bool, modelCompletion?: boolean): Bool;
-      eval(expr: Arith, modelCompletion?: boolean): Arith;
-      eval(expr: Expr, modelCompletion: boolean = false) {
+      eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
+      eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
+      eval(expr: Expr<Name>, modelCompletion: boolean = false) {
         _assertContext(expr);
         const r = Z3.model_eval(contextPtr, this.ptr, expr.ast, modelCompletion);
         if (r === null) {
@@ -1016,15 +1026,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return _toExpr(r);
       }
 
-      get(i: number): FuncDecl;
-      get(from: number, to: number): FuncDecl[];
-      get(declaration: FuncDecl): FuncInterp | Expr;
-      get(constant: Expr): Expr;
-      get(sort: Sort): AstVector<AnyExpr>;
+      get(i: number): FuncDecl<Name>;
+      get(from: number, to: number): FuncDecl<Name>[];
+      get(declaration: FuncDecl<Name>): FuncInterp<Name> | Expr<Name>;
+      get(constant: Expr<Name>): Expr<Name>;
+      get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
       get(
-        i: number | FuncDecl | Expr | Sort,
+        i: number | FuncDecl<Name> | Expr<Name> | Sort<Name>,
         to?: number,
-      ): FuncDecl | FuncInterp | Expr | AstVector<AnyAst> | FuncDecl[] {
+      ): FuncDecl<Name> | FuncInterp<Name> | Expr<Name> | AstVector<Name, AnyAst<Name>> | FuncDecl<Name>[] {
         assert(to === undefined || typeof i === 'number');
         if (typeof i === 'number') {
           const length = this.length;
@@ -1063,7 +1073,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         assert(false, 'Number, declaration or constant expected');
       }
 
-      private getInterp(expr: FuncDecl | Expr): Expr | FuncInterp | null {
+      private getInterp(expr: FuncDecl<Name> | Expr<Name>): Expr<Name> | FuncInterp<Name> | null {
         assert(isFuncDecl(expr) || isConst(expr), 'Declaration expected');
         if (isConst(expr)) {
           assert(isExpr(expr));
@@ -1085,15 +1095,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
       }
 
-      private getUniverse(sort: Sort): AstVector<AnyAst> {
+      private getUniverse(sort: Sort<Name>): AstVector<Name, AnyAst<Name>> {
         _assertContext(sort);
         return new AstVectorImpl(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr));
       }
     }
 
-    class FuncInterpImpl implements FuncInterp {
+    class FuncInterpImpl implements FuncInterp<Name> {
       declare readonly __typename: FuncInterp['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Z3_func_interp) {
         this.ctx = ctx;
@@ -1102,7 +1112,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class SortImpl extends AstImpl<Z3_sort> implements Sort {
+    class SortImpl extends AstImpl<Z3_sort> implements Sort<Name> {
       declare readonly __typename: Sort['__typename'];
 
       get ast(): Z3_ast {
@@ -1113,12 +1123,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.get_sort_kind(contextPtr, this.ptr);
       }
 
-      subsort(other: Sort) {
+      subsort(other: Sort<Name>) {
         _assertContext(other);
         return false;
       }
 
-      cast(expr: Expr): Expr {
+      cast(expr: Expr<Name>): Expr<Name> {
         _assertContext(expr);
         assert(expr.sort.eqIdentity(expr.sort), 'Sort mismatch');
         return expr;
@@ -1128,17 +1138,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return _fromSymbol(Z3.get_sort_name(contextPtr, this.ptr));
       }
 
-      eqIdentity(other: Sort) {
+      eqIdentity(other: Sort<Name>) {
         _assertContext(other);
         return Z3.is_eq_sort(contextPtr, this.ptr, other.ptr);
       }
 
-      neqIdentity(other: Sort) {
+      neqIdentity(other: Sort<Name>) {
         return !this.eqIdentity(other);
       }
     }
 
-    class FuncDeclImpl extends AstImpl<Z3_func_decl> implements FuncDecl {
+    class FuncDeclImpl extends AstImpl<Z3_func_decl> implements FuncDecl<Name> {
       declare readonly __typename: FuncDecl['__typename'];
 
       get ast() {
@@ -1166,7 +1176,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.get_decl_kind(contextPtr, this.ptr);
       }
 
-      params(): (number | string | Z3_symbol | Sort | Expr | FuncDecl)[] {
+      params(): (number | string | Z3_symbol | Sort<Name> | Expr<Name> | FuncDecl<Name>)[] {
         const n = Z3.get_decl_num_parameters(contextPtr, this.ptr);
         const result = [];
         for (let i = 0; i < n; i++) {
@@ -1200,7 +1210,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return result;
       }
 
-      call(...args: CoercibleToExpr[]) {
+      call(...args: CoercibleToExpr<Name>[]) {
         assert(args.length === this.arity(), `Incorrect number of arguments to ${this}`);
         return _toExpr(
           Z3.mk_app(
@@ -1214,18 +1224,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ExprImpl<Ptr, S extends Sort = AnySort> extends AstImpl<Ptr> implements Expr {
+    class ExprImpl<Ptr, S extends Sort<Name> = AnySort<Name>> extends AstImpl<Ptr> implements Expr<Name> {
       declare readonly __typename: Expr['__typename'];
 
       get sort(): S {
         return _toSort(Z3.get_sort(contextPtr, this.ast)) as S;
       }
 
-      eq(other: CoercibleToExpr): Bool {
+      eq(other: CoercibleToExpr<Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_eq(contextPtr, this.ast, from(other).ast));
       }
 
-      neq(other: CoercibleToExpr): Bool {
+      neq(other: CoercibleToExpr<Name>): Bool<Name> {
         return new BoolImpl(
           Z3.mk_distinct(
             contextPtr,
@@ -1238,7 +1248,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return this.decl().params();
       }
 
-      decl(): FuncDecl {
+      decl(): FuncDecl<Name> {
         assert(isApp(this), 'Z3 application expected');
         return new FuncDeclImpl(Z3.get_app_decl(contextPtr, Z3.to_app(contextPtr, this.ast)));
       }
@@ -1267,12 +1277,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class BoolSortImpl extends SortImpl implements BoolSort {
+    class BoolSortImpl extends SortImpl implements BoolSort<Name> {
       declare readonly __typename: BoolSort['__typename'];
 
-      cast(other: Bool | boolean): Bool;
-      cast(other: CoercibleToExpr): never;
-      cast(other: CoercibleToExpr | Bool) {
+      cast(other: Bool<Name> | boolean): Bool<Name>;
+      cast(other: CoercibleToExpr<Name>): never;
+      cast(other: CoercibleToExpr<Name> | Bool<Name>) {
         if (typeof other === 'boolean') {
           other = Bool.val(other);
         }
@@ -1281,43 +1291,43 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return other;
       }
 
-      subsort(other: Sort) {
+      subsort(other: Sort<Name>) {
         _assertContext(other.ctx);
         return other instanceof ArithSortImpl;
       }
     }
 
-    class BoolImpl extends ExprImpl<Z3_ast, BoolSort> implements Bool {
+    class BoolImpl extends ExprImpl<Z3_ast, BoolSort<Name>> implements Bool<Name> {
       declare readonly __typename: Bool['__typename'];
 
-      not(): Bool {
+      not(): Bool<Name> {
         return Not(this);
       }
-      and(other: Bool | boolean): Bool {
+      and(other: Bool<Name> | boolean): Bool<Name> {
         return And(this, other);
       }
-      or(other: Bool | boolean): Bool {
+      or(other: Bool<Name> | boolean): Bool<Name> {
         return Or(this, other);
       }
-      xor(other: Bool | boolean): Bool {
+      xor(other: Bool<Name> | boolean): Bool<Name> {
         return Xor(this, other);
       }
     }
 
-    class ProbeImpl implements Probe {
+    class ProbeImpl implements Probe<Name> {
       declare readonly __typename: Probe['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Z3_probe) {
         this.ctx = ctx;
       }
     }
 
-    class TacticImpl implements Tactic {
+    class TacticImpl implements Tactic<Name> {
       declare readonly __typename: Tactic['__typename'];
 
       readonly ptr: Z3_tactic;
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(tactic: string | Z3_tactic) {
         this.ctx = ctx;
@@ -1335,15 +1345,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ArithSortImpl extends SortImpl implements ArithSort {
+    class ArithSortImpl extends SortImpl implements ArithSort<Name> {
       declare readonly __typename: ArithSort['__typename'];
 
-      cast(other: bigint | number): IntNum | RatNum;
-      cast(other: CoercibleRational | RatNum): RatNum;
-      cast(other: IntNum): IntNum;
-      cast(other: Bool | Arith): Arith;
-      cast(other: CoercibleToExpr): never;
-      cast(other: CoercibleToExpr): Arith | RatNum | IntNum {
+      cast(other: bigint | number): IntNum<Name> | RatNum<Name>;
+      cast(other: CoercibleRational | RatNum<Name>): RatNum<Name>;
+      cast(other: IntNum<Name>): IntNum<Name>;
+      cast(other: Bool<Name> | Arith<Name>): Arith<Name>;
+      cast(other: CoercibleToExpr<Name>): never;
+      cast(other: CoercibleToExpr<Name>): Arith<Name> | RatNum<Name> | IntNum<Name> {
         const sortTypeStr = isIntSort(this) ? 'IntSort' : 'RealSort';
         if (isExpr(other)) {
           const otherS = other.sort;
@@ -1375,30 +1385,30 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ArithImpl extends ExprImpl<Z3_ast, ArithSort> implements Arith {
+    class ArithImpl extends ExprImpl<Z3_ast, ArithSort<Name>> implements Arith<Name> {
       declare readonly __typename: Arith['__typename'];
 
-      add(other: Arith | number | bigint | string | CoercibleRational) {
+      add(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_add(contextPtr, [this.ast, this.sort.cast(other).ast]));
       }
 
-      mul(other: Arith | number | bigint | string | CoercibleRational) {
+      mul(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_mul(contextPtr, [this.ast, this.sort.cast(other).ast]));
       }
 
-      sub(other: Arith | number | bigint | string | CoercibleRational) {
+      sub(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_sub(contextPtr, [this.ast, this.sort.cast(other).ast]));
       }
 
-      pow(exponent: Arith | number | bigint | string | CoercibleRational) {
+      pow(exponent: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_power(contextPtr, this.ast, this.sort.cast(exponent).ast));
       }
 
-      div(other: Arith | number | bigint | string | CoercibleRational) {
+      div(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_div(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
-      mod(other: Arith | number | bigint | string | CoercibleRational) {
+      mod(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new ArithImpl(Z3.mk_mod(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
@@ -1406,24 +1416,24 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ArithImpl(Z3.mk_unary_minus(contextPtr, this.ast));
       }
 
-      le(other: Arith | number | bigint | string | CoercibleRational) {
+      le(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new BoolImpl(Z3.mk_le(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
-      lt(other: Arith | number | bigint | string | CoercibleRational) {
+      lt(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new BoolImpl(Z3.mk_lt(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
-      gt(other: Arith | number | bigint | string | CoercibleRational) {
+      gt(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new BoolImpl(Z3.mk_gt(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
-      ge(other: Arith | number | bigint | string | CoercibleRational) {
+      ge(other: Arith<Name> | number | bigint | string | CoercibleRational) {
         return new BoolImpl(Z3.mk_ge(contextPtr, this.ast, this.sort.cast(other).ast));
       }
     }
 
-    class IntNumImpl extends ArithImpl implements IntNum {
+    class IntNumImpl extends ArithImpl implements IntNum<Name> {
       declare readonly __typename: IntNum['__typename'];
 
       get value() {
@@ -1439,7 +1449,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class RatNumImpl extends ArithImpl implements RatNum {
+    class RatNumImpl extends ArithImpl implements RatNum<Name> {
       declare readonly __typename: RatNum['__typename'];
 
       get value() {
@@ -1469,20 +1479,20 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class BitVecSortImpl extends SortImpl implements BitVecSort {
+    class BitVecSortImpl<Bits extends number> extends SortImpl implements BitVecSort<Bits, Name> {
       declare readonly __typename: BitVecSort['__typename'];
 
       get size() {
-        return Z3.get_bv_sort_size(contextPtr, this.ptr);
+        return Z3.get_bv_sort_size(contextPtr, this.ptr) as Bits;
       }
 
-      subsort(other: Sort<any>): boolean {
+      subsort(other: Sort<Name>): boolean {
         return isBitVecSort(other) && this.size < other.size;
       }
 
-      cast(other: CoercibleToBitVec): BitVec;
-      cast(other: CoercibleToExpr): Expr;
-      cast(other: CoercibleToExpr): Expr {
+      cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name> {
         if (isExpr(other)) {
           _assertContext(other);
           return other;
@@ -1492,147 +1502,147 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class BitVecImpl extends ExprImpl<Z3_ast, BitVecSortImpl> implements BitVec {
+    class BitVecImpl<Bits extends number> extends ExprImpl<Z3_ast, BitVecSortImpl<Bits>> implements BitVec<Bits, Name> {
       declare readonly __typename: BitVec['__typename'];
 
       get size() {
         return this.sort.size;
       }
 
-      add(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvadd(contextPtr, this.ast, this.sort.cast(other).ast));
+      add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvadd(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      mul(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvmul(contextPtr, this.ast, this.sort.cast(other).ast));
+      mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvmul(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      sub(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvsub(contextPtr, this.ast, this.sort.cast(other).ast));
+      sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvsub(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      sdiv(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvsdiv(contextPtr, this.ast, this.sort.cast(other).ast));
+      sdiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvsdiv(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      udiv(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvudiv(contextPtr, this.ast, this.sort.cast(other).ast));
+      udiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvudiv(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      smod(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvsmod(contextPtr, this.ast, this.sort.cast(other).ast));
+      smod(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvsmod(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      urem(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvurem(contextPtr, this.ast, this.sort.cast(other).ast));
+      urem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvurem(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      srem(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvsrem(contextPtr, this.ast, this.sort.cast(other).ast));
+      srem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvsrem(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      neg(): BitVec {
-        return new BitVecImpl(Z3.mk_bvneg(contextPtr, this.ast));
-      }
-
-      or(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvor(contextPtr, this.ast, this.sort.cast(other).ast));
-      }
-      and(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvand(contextPtr, this.ast, this.sort.cast(other).ast));
-      }
-      nand(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvnand(contextPtr, this.ast, this.sort.cast(other).ast));
-      }
-      xor(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvxor(contextPtr, this.ast, this.sort.cast(other).ast));
-      }
-      xnor(other: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvxnor(contextPtr, this.ast, this.sort.cast(other).ast));
-      }
-      shr(count: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvashr(contextPtr, this.ast, this.sort.cast(count).ast));
-      }
-      lshr(count: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvlshr(contextPtr, this.ast, this.sort.cast(count).ast));
-      }
-      shl(count: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_bvshl(contextPtr, this.ast, this.sort.cast(count).ast));
-      }
-      rotateRight(count: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_ext_rotate_right(contextPtr, this.ast, this.sort.cast(count).ast));
-      }
-      rotateLeft(count: CoercibleToBitVec): BitVec {
-        return new BitVecImpl(Z3.mk_ext_rotate_left(contextPtr, this.ast, this.sort.cast(count).ast));
-      }
-      not(): BitVec {
-        return new BitVecImpl(Z3.mk_bvnot(contextPtr, this.ast));
+      neg(): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvneg(contextPtr, this.ast));
       }
 
-      extract(high: number, low: number): BitVec {
-        return new BitVecImpl(Z3.mk_extract(contextPtr, high, low, this.ast));
+      or(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvor(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      signExt(count: number): BitVec {
-        return new BitVecImpl(Z3.mk_sign_ext(contextPtr, count, this.ast));
+      and(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvand(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      zeroExt(count: number): BitVec {
-        return new BitVecImpl(Z3.mk_zero_ext(contextPtr, count, this.ast));
+      nand(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvnand(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      repeat(count: number): BitVec {
-        return new BitVecImpl(Z3.mk_repeat(contextPtr, count, this.ast));
+      xor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvxor(contextPtr, this.ast, this.sort.cast(other).ast));
+      }
+      xnor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvxnor(contextPtr, this.ast, this.sort.cast(other).ast));
+      }
+      shr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvashr(contextPtr, this.ast, this.sort.cast(count).ast));
+      }
+      lshr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvlshr(contextPtr, this.ast, this.sort.cast(count).ast));
+      }
+      shl(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvshl(contextPtr, this.ast, this.sort.cast(count).ast));
+      }
+      rotateRight(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_ext_rotate_right(contextPtr, this.ast, this.sort.cast(count).ast));
+      }
+      rotateLeft(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_ext_rotate_left(contextPtr, this.ast, this.sort.cast(count).ast));
+      }
+      not(): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvnot(contextPtr, this.ast));
       }
 
-      sle(other: CoercibleToBitVec): Bool {
+      extract(high: number, low: number): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_extract(contextPtr, high, low, this.ast));
+      }
+      signExt(count: number): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_sign_ext(contextPtr, count, this.ast));
+      }
+      zeroExt(count: number): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_zero_ext(contextPtr, count, this.ast));
+      }
+      repeat(count: number): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_repeat(contextPtr, count, this.ast));
+      }
+
+      sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsle(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      ule(other: CoercibleToBitVec): Bool {
+      ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvule(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      slt(other: CoercibleToBitVec): Bool {
+      slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvslt(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      ult(other: CoercibleToBitVec): Bool {
+      ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvult(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      sge(other: CoercibleToBitVec): Bool {
+      sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsge(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      uge(other: CoercibleToBitVec): Bool {
+      uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvuge(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      sgt(other: CoercibleToBitVec): Bool {
+      sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsgt(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      ugt(other: CoercibleToBitVec): Bool {
+      ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvugt(contextPtr, this.ast, this.sort.cast(other).ast));
       }
 
-      redAnd(): BitVec {
-        return new BitVecImpl(Z3.mk_bvredand(contextPtr, this.ast));
+      redAnd(): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvredand(contextPtr, this.ast));
       }
-      redOr(): BitVec {
-        return new BitVecImpl(Z3.mk_bvredor(contextPtr, this.ast));
+      redOr(): BitVec<Bits, Name> {
+        return new BitVecImpl<Bits>(Z3.mk_bvredor(contextPtr, this.ast));
       }
 
-      addNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      addNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(Z3.mk_bvadd_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
       }
-      addNoUnderflow(other: CoercibleToBitVec): Bool {
+      addNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvadd_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      subNoOverflow(other: CoercibleToBitVec): Bool {
+      subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      subNoUndeflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
       }
-      sdivNoOverflow(other: CoercibleToBitVec): Bool {
+      sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvsdiv_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      mulNoOverflow(other: CoercibleToBitVec, isSigned: boolean): Bool {
+      mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
       }
-      mulNoUndeflow(other: CoercibleToBitVec): Bool {
+      mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast));
       }
-      negNoOverflow(): Bool {
+      negNoOverflow(): Bool<Name> {
         return new BoolImpl(Z3.mk_bvneg_no_overflow(contextPtr, this.ast));
       }
     }
 
-    class BitVecNumImpl extends BitVecImpl implements BitVecNum {
+    class BitVecNumImpl<Bits extends number> extends BitVecImpl<Bits> implements BitVecNum<Bits, Name> {
       declare readonly __typename: BitVecNum['__typename'];
       get value() {
         return BigInt(this.asString());
@@ -1659,7 +1669,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class AstVectorImpl<Item extends AnyAst<Name>> {
       declare readonly __typename: AstVector['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Z3_ast_vector = Z3.mk_ast_vector(contextPtr)) {
         this.ctx = ctx;
@@ -1755,9 +1765,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class AstMapImpl<Key extends AnyAst<Name>, Value extends AnyAst<Name>> implements AstMap<Key, Value> {
+    class AstMapImpl<Key extends AnyAst<Name>, Value extends AnyAst<Name>> implements AstMap<Name, Key, Value> {
       declare readonly __typename: AstMap['__typename'];
-      readonly ctx: Context;
+      readonly ctx: Context<Name>;
 
       constructor(readonly ptr: Z3_ast_map = Z3.mk_ast_map(contextPtr)) {
         this.ctx = ctx;
@@ -1779,7 +1789,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
       }
 
-      keys(): AstVector<Key> {
+      keys(): AstVector<Name, Key> {
         return new AstVectorImpl(Z3.ast_map_keys(contextPtr, this.ptr));
       }
 

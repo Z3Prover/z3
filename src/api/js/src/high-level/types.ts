@@ -16,13 +16,13 @@ import {
 } from '../low-level';
 
 /** @hidden */
-export type AnySort<Name extends string = any> =
+export type AnySort<Name extends string = 'main'> =
   | Sort<Name>
   | BoolSort<Name>
   | ArithSort<Name>
   | BitVecSort<number, Name>;
 /** @hidden */
-export type AnyExpr<Name extends string = any> =
+export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
   | Bool<Name>
   | Arith<Name>
@@ -31,10 +31,10 @@ export type AnyExpr<Name extends string = any> =
   | BitVec<number, Name>
   | BitVecNum<number, Name>;
 /** @hidden */
-export type AnyAst<Name extends string = any> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
+export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 /** @hidden */
-export type SortToExprMap<S extends AnySort<Name>, Name extends string = any> = S extends BoolSort
+export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> = S extends BoolSort
   ? Bool<Name>
   : S extends ArithSort<Name>
   ? Arith<Name>
@@ -45,7 +45,7 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = any> = 
   : never;
 
 /** @hidden */
-export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = any> = S extends bigint
+export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
   ? IntNum<Name>
   : S extends number | CoercibleRational
   ? RatNum<Name>
@@ -76,7 +76,7 @@ export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends str
 export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
 /** @hidden */
-export type CoercibleToExpr<Name extends string = any> = number | bigint | boolean | CoercibleRational | Expr<Name>;
+export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | boolean | CoercibleRational | Expr<Name>;
 
 export class Z3Error extends Error {}
 export class Z3AssertionError extends Z3Error {}
@@ -104,7 +104,7 @@ export interface ContextCtor {
   <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
 }
 
-export interface Context<Name extends string = any> {
+export interface Context<Name extends string = 'main'> {
   /** @hidden */
   readonly ptr: Z3_context;
   /**
@@ -187,7 +187,7 @@ export interface Context<Name extends string = any> {
   /** @category Functions */
   isTactic(obj: unknown): obj is Tactic<Name>;
   /** @category Functions */
-  isAstVector(obj: unknown): obj is AstVector<AnyAst<Name>, Name>;
+  isAstVector(obj: unknown): obj is AstVector<Name, AnyAst<Name>>;
   /**
    * Returns whether two Asts are the same thing
    * @category Functions */
@@ -229,7 +229,7 @@ export interface Context<Name extends string = any> {
    *
    * @see {@link Solver}
    * @category Functions */
-  solve(...assertions: Bool[]): Promise<Model | typeof unsat | typeof unknown>;
+  solve(...assertions: Bool<Name>[]): Promise<Model<Name> | typeof unsat | typeof unknown>;
 
   /////////////
   // Classes //
@@ -247,9 +247,9 @@ export interface Context<Name extends string = any> {
    */
   readonly Model: new () => Model<Name>;
   /** @category Classes */
-  readonly AstVector: new <Item extends Ast<Name> = AnyAst<Name>>() => AstVector<Item, Name>;
+  readonly AstVector: new <Item extends Ast<Name> = AnyAst<Name>>() => AstVector<Name, Item>;
   /** @category Classes */
-  readonly AstMap: new <Key extends Ast = AnyAst, Value extends Ast = AnyAst>() => AstMap<Key, Value, Name>;
+  readonly AstMap: new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>() => AstMap<Name, Key, Value>;
   /** @category Classes */
   readonly Tactic: new (name: string) => Tactic<Name>;
 
@@ -306,7 +306,7 @@ export interface Context<Name extends string = any> {
   /** @category Operations */
   And(): Bool<Name>;
   /** @category Operations */
-  And(vector: AstVector<Bool<Name>, Name>): Bool<Name>;
+  And(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
   /** @category Operations */
   And(...args: (Bool<Name> | boolean)[]): Bool<Name>;
   /** @category Operations */
@@ -314,7 +314,7 @@ export interface Context<Name extends string = any> {
   /** @category Operations */
   Or(): Bool<Name>;
   /** @category Operations */
-  Or(vector: AstVector<Bool<Name>, Name>): Bool<Name>;
+  Or(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
   /** @category Operations */
   Or(...args: (Bool<Name> | boolean)[]): Bool<Name>;
   /** @category Operations */
@@ -367,7 +367,7 @@ export interface Context<Name extends string = any> {
   Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
 }
 
-export interface Ast<Name extends string = any, Ptr = unknown> {
+export interface Ast<Name extends string = 'main', Ptr = unknown> {
   /** @hidden */
   readonly __typename: 'Ast' | Sort['__typename'] | FuncDecl['__typename'] | Expr['__typename'];
 
@@ -389,7 +389,7 @@ export interface Ast<Name extends string = any, Ptr = unknown> {
 export interface SolverCtor<Name extends string> {
   new (): Solver<Name>;
 }
-export interface Solver<Name extends string = any> {
+export interface Solver<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'Solver';
 
@@ -404,10 +404,10 @@ export interface Solver<Name extends string = any> {
   pop(num?: number): void;
   numScopes(): number;
   reset(): void;
-  add(...exprs: (Bool<Name> | AstVector<Bool<Name>, Name>)[]): void;
+  add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
-  assertions(): AstVector<Bool<Name>, Name>;
-  check(...exprs: (Bool<Name> | AstVector<Bool<Name>, Name>)[]): Promise<CheckSatResult>;
+  assertions(): AstVector<Name, Bool<Name>>;
+  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
   model(): Model<Name>;
 }
 
@@ -415,7 +415,7 @@ export interface Solver<Name extends string = any> {
 export interface ModelCtor<Name extends string> {
   new (): Model<Name>;
 }
-export interface Model<Name extends string = any> extends Iterable<FuncDecl<Name>> {
+export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<Name>> {
   /** @hidden */
   readonly __typename: 'Model';
 
@@ -433,10 +433,10 @@ export interface Model<Name extends string = any> extends Iterable<FuncDecl<Name
   eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
   eval(expr: Expr<Name>, modelCompletion?: boolean): Expr<Name>;
   get(i: number): FuncDecl<Name>;
-  get(from: number, to: number): FuncDecl[];
+  get(from: number, to: number): FuncDecl<Name>[];
   get(declaration: FuncDecl<Name>): FuncInterp<Name> | Expr<Name>;
   get(constant: Expr<Name>): Expr<Name>;
-  get(sort: Sort<Name>): AstVector<AnyExpr<Name>, Name>;
+  get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 }
 
 /**
@@ -458,7 +458,7 @@ export interface Model<Name extends string = any> extends Iterable<FuncDecl<Name
 export interface SortCreation<Name extends string> {
   declare(name: string): Sort<Name>;
 }
-export interface Sort<Name extends string = any> extends Ast<Name, Z3_sort> {
+export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
   /** @hidden */
   readonly __typename: 'Sort' | BoolSort['__typename'] | ArithSort['__typename'] | BitVecSort['__typename'];
 
@@ -473,7 +473,7 @@ export interface Sort<Name extends string = any> extends Ast<Name, Z3_sort> {
 /**
  * @category Functions
  */
-export interface FuncInterp<Name extends string = any> {
+export interface FuncInterp<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'FuncInterp';
 
@@ -513,7 +513,7 @@ export interface RecFuncCreation<Name extends string> {
 /**
  * @category Functions
  */
-export interface FuncDecl<Name extends string = any> extends Ast<Name, Z3_func_decl> {
+export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_func_decl> {
   /** @hidden */
   readonly __typename: 'FuncDecl';
 
@@ -526,7 +526,7 @@ export interface FuncDecl<Name extends string = any> extends Ast<Name, Z3_func_d
   call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
 }
 
-export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
+export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
   /** @hidden */
   readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'];
@@ -543,7 +543,7 @@ export interface Expr<Name extends string = any, S extends Sort<Name> = AnySort<
 }
 
 /** @category Booleans */
-export interface BoolSort<Name extends string = any> extends Sort<Name> {
+export interface BoolSort<Name extends string = 'main'> extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'BoolSort';
 
@@ -551,7 +551,7 @@ export interface BoolSort<Name extends string = any> extends Sort<Name> {
   cast(expr: CoercibleToExpr<Name>): never;
 }
 /** @category Booleans */
-export interface BoolCreation<Name extends string = any> {
+export interface BoolCreation<Name extends string = 'main'> {
   sort(): BoolSort<Name>;
 
   const(name: string): Bool<Name>;
@@ -562,7 +562,7 @@ export interface BoolCreation<Name extends string = any> {
   val(value: boolean): Bool<Name>;
 }
 /** @category Booleans */
-export interface Bool<Name extends string = any> extends Expr<Name, BoolSort<Name>, Z3_ast> {
+export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'Bool';
 
@@ -576,7 +576,7 @@ export interface Bool<Name extends string = any> extends Expr<Name, BoolSort<Nam
  * A Sort that represents Integers or Real numbers
  * @category Arithmetic
  */
-export interface ArithSort<Name extends string = any> extends Sort<Name> {
+export interface ArithSort<Name extends string = 'main'> extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'ArithSort';
 
@@ -612,7 +612,7 @@ export interface RealCreation<Name extends string> {
  * Represents Integer or Real number expression
  * @category Arithmetic
  */
-export interface Arith<Name extends string = any> extends Expr<Name, ArithSort<Name>, Z3_ast> {
+export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSort<Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'Arith' | IntNum['__typename'] | RatNum['__typename'];
 
@@ -680,7 +680,7 @@ export interface Arith<Name extends string = any> extends Expr<Name, ArithSort<N
  * A constant Integer value expression
  * @category Arithmetic
  */
-export interface IntNum<Name extends string = any> extends Arith<Name> {
+export interface IntNum<Name extends string = 'main'> extends Arith<Name> {
   /** @hidden */
   readonly __typename: 'IntNum';
 
@@ -704,7 +704,7 @@ export interface IntNum<Name extends string = any> extends Arith<Name> {
  * ```
  * @category Arithmetic
  */
-export interface RatNum<Name extends string = any> extends Arith<Name> {
+export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
   /** @hidden */
   readonly __typename: 'RatNum';
 
@@ -722,7 +722,7 @@ export interface RatNum<Name extends string = any> extends Arith<Name> {
  * @typeParam Bits - A number representing amount of bits for this sort
  * @category Bit Vectors
  */
-export interface BitVecSort<Bits extends number = number, Name extends string = any> extends Sort<Name> {
+export interface BitVecSort<Bits extends number = number, Name extends string = 'main'> extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'BitVecSort';
 
@@ -743,7 +743,7 @@ export interface BitVecSort<Bits extends number = number, Name extends string = 
 }
 
 /** @hidden */
-export type CoercibleToBitVec<Bits extends number = number, Name extends string = any> =
+export type CoercibleToBitVec<Bits extends number = number, Name extends string = 'main'> =
   | bigint
   | number
   | BitVec<Bits, Name>;
@@ -766,7 +766,7 @@ export interface BitVecCreation<Name extends string> {
  * Represents Bit Vector expression
  * @category Bit Vectors
  */
-export interface BitVec<Bits extends number = number, Name extends string = any>
+export interface BitVec<Bits extends number = number, Name extends string = 'main'>
   extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'BitVec' | BitVecNum['__typename'];
@@ -956,7 +956,7 @@ export interface BitVec<Bits extends number = number, Name extends string = any>
  * Represents Bit Vector constant value
  * @category Bit Vectors
  */
-export interface BitVecNum<Bits extends number = number, Name extends string = any> extends BitVec<Bits, Name> {
+export interface BitVecNum<Bits extends number = number, Name extends string = 'main'> extends BitVec<Bits, Name> {
   /** @hidden */
   readonly __typename: 'BitVecNum';
 
@@ -966,7 +966,7 @@ export interface BitVecNum<Bits extends number = number, Name extends string = a
   asBinaryString(): string;
 }
 
-export interface Probe<Name extends string = any> {
+export interface Probe<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'Probe';
 
@@ -978,7 +978,7 @@ export interface Probe<Name extends string = any> {
 export interface TacticCtor<Name extends string> {
   new (name: string): Tactic<Name>;
 }
-export interface Tactic<Name extends string = any> {
+export interface Tactic<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'Tactic';
 
@@ -988,7 +988,7 @@ export interface Tactic<Name extends string = any> {
 
 /** @hidden */
 export interface AstVectorCtor<Name extends string> {
-  new <Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Item, Name>;
+  new <Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Name, Item>;
 }
 /**
  * Stores multiple {@link Ast} objects
@@ -1006,7 +1006,7 @@ export interface AstVectorCtor<Name extends string> {
  * // [2, x]
  * ```
  */
-export interface AstVector<Item extends Ast<Name> = AnyAst, Name extends string = any> extends Iterable<Item> {
+export interface AstVector<Name extends string = 'main', Item extends Ast<Name> = AnyAst<Name>> extends Iterable<Item> {
   /** @hidden */
   readonly __typename: 'AstVector';
 
@@ -1028,7 +1028,7 @@ export interface AstVector<Item extends Ast<Name> = AnyAst, Name extends string 
 
 /** @hidden */
 export interface AstMapCtor<Name extends string> {
-  new <Key extends Ast = AnyAst, Value extends Ast = AnyAst>(): AstMap<Key, Value, Name>;
+  new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>(): AstMap<Name, Key, Value>;
 }
 /**
  * Stores a mapping between different {@link Ast} objects
@@ -1051,7 +1051,7 @@ export interface AstMapCtor<Name extends string> {
  * // 0
  * ```
  */
-export interface AstMap<Key extends Ast<Name> = AnyAst, Value extends Ast = AnyAst, Name extends string = any>
+export interface AstMap<Name extends string = 'main', Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>
   extends Iterable<[Key, Value]> {
   /** @hidden */
   readonly __typename: 'AstMap';
@@ -1061,7 +1061,7 @@ export interface AstMap<Key extends Ast<Name> = AnyAst, Value extends Ast = AnyA
   get size(): number;
 
   entries(): IterableIterator<[Key, Value]>;
-  keys(): AstVector<Key, Name>;
+  keys(): AstVector<Name, Key>;
   values(): IterableIterator<Value>;
   get(key: Key): Value | undefined;
   set(key: Key, value: Value): void;
