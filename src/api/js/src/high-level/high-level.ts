@@ -456,7 +456,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function from(value: CoercibleToExpr<Name>): AnyExpr<Name> {
       if (typeof value === 'boolean') {
         return Bool.val(value);
-      } else if (typeof value === 'number' || isCoercibleRational(value)) {
+      } else if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+          throw new Error(`cannot represent infinity/NaN (got ${value})`);
+        }
+        if (Math.floor(value) === value) {
+          return Int.val(value);
+        }
+        return Real.val(value);
+      } else if (isCoercibleRational(value)) {
         return Real.val(value);
       } else if (typeof value === 'bigint') {
         return Int.val(value);
