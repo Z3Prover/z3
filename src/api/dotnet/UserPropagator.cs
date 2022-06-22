@@ -302,7 +302,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Set the next decision
 	/// </summary>
-	public void NextSplit(Expr e, uint idx, Z3_lbool phase)
+	public void NextSplit(Expr e, uint idx, int phase)
 	{
            Native.Z3_solver_next_split(ctx.nCtx, this.callback, e.NativeObject, idx, phase);
 	}
