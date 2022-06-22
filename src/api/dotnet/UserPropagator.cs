@@ -298,6 +298,15 @@ namespace Microsoft.Z3
 	   }
         }
 
+       
+        /// <summary>
+        /// Set the next decision
+	/// </summary>
+	public void NextSplit(Expr e, uint idx, Z3_lbool phase)
+	{
+           Native.Z3_solver_next_split(ctx.nCtx, this.callback, e.NativeObject, idx, phase);
+	}
+
         /// <summary>
         /// Track assignments to a term
 	/// </summary>
