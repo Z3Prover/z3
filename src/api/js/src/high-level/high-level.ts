@@ -18,6 +18,7 @@ import {
   Z3_ast_vector,
   Z3_context,
   Z3_decl_kind,
+  Z3_error_code,
   Z3_func_decl,
   Z3_func_interp,
   Z3_lbool,
@@ -150,9 +151,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   function createContext<Name extends string>(name: Name, options?: Record<string, any>): Context<Name> {
     const cfg = Z3.mk_config();
     if (options != null) {
-      Object.entries(options).forEach(([key, value]) => Z3.set_param_value(cfg, key, value.toString()));
+      Object.entries(options).forEach(([key, value]) => check(Z3.set_param_value(cfg, key, value.toString())));
     }
-    const contextPtr = Z3.mk_context_rc(cfg); // TODO rename
+    const contextPtr = Z3.mk_context_rc(cfg);
     Z3.set_ast_print_mode(contextPtr, Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
     Z3.del_config(cfg);
 
@@ -160,19 +161,31 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ctxs.forEach(other => assert('ctx' in other ? ctx === other.ctx : ctx === other, 'Context mismatch'));
     }
 
+    // call this after every nontrivial call to the underlying API
+    function throwIfError() {
+      if (Z3.get_error_code(contextPtr) !== Z3_error_code.Z3_OK) {
+        throw new Error(Z3.get_error_msg(ctx.ptr, Z3.get_error_code(ctx.ptr)));
+      }
+    }
+
+    function check<T>(val: T) {
+      throwIfError();
+      return val;
+    }
+
     /////////////
     // Private //
     /////////////
     function _toSymbol(s: string | number) {
       if (typeof s === 'number') {
-        return Z3.mk_int_symbol(contextPtr, s);
+        return check(Z3.mk_int_symbol(contextPtr, s));
       } else {
-        return Z3.mk_string_symbol(contextPtr, s);
+        return check(Z3.mk_string_symbol(contextPtr, s));
       }
     }
 
     function _fromSymbol(sym: Z3_symbol) {
-      const kind = Z3.get_symbol_kind(contextPtr, sym);
+      const kind = check(Z3.get_symbol_kind(contextPtr, sym));
       switch (kind) {
         case Z3_symbol_kind.Z3_INT_SYMBOL:
           return Z3.get_symbol_int(contextPtr, sym);
@@ -184,7 +197,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function _toAst(ast: Z3_ast): AnyAst<Name> {
-      switch (Z3.get_ast_kind(contextPtr, ast)) {
+      switch (check(Z3.get_ast_kind(contextPtr, ast))) {
         case Z3_ast_kind.Z3_SORT_AST:
           return _toSort(ast as Z3_sort);
         case Z3_ast_kind.Z3_FUNC_DECL_AST:
@@ -195,7 +208,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function _toSort(ast: Z3_sort): AnySort<Name> {
-      switch (Z3.get_sort_kind(contextPtr, ast)) {
+      switch (check(Z3.get_sort_kind(contextPtr, ast))) {
         case Z3_sort_kind.Z3_BOOL_SORT:
           return new BoolSortImpl(ast);
         case Z3_sort_kind.Z3_INT_SORT:
@@ -209,11 +222,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function _toExpr(ast: Z3_ast): Bool<Name> | IntNum<Name> | RatNum<Name> | Arith<Name> | Expr<Name> {
-      const kind = Z3.get_ast_kind(contextPtr, ast);
+      const kind = check(Z3.get_ast_kind(contextPtr, ast));
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
         assert(false);
       }
-      const sortKind = Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast));
+      const sortKind = check(Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast)));
       switch (sortKind) {
         case Z3_sort_kind.Z3_BOOL_SORT:
           return new BoolImpl(ast);
@@ -263,7 +276,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       assert(args.length > 0, 'At least one argument expected');
       let r = _toProbe(args[0]);
       for (let i = 1; i < args.length; i++) {
-        r = new ProbeImpl(f(contextPtr, r.ptr, _toProbe(args[i]).ptr));
+        r = new ProbeImpl(check(f(contextPtr, r.ptr, _toProbe(args[i]).ptr)));
       }
       return r;
     }
@@ -272,7 +285,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     // Functions //
     ///////////////
     function interrupt(): void {
-      Z3.interrupt(contextPtr);
+      check(Z3.interrupt(contextPtr));
     }
 
     function isModel(obj: unknown): obj is Model<Name> {
@@ -303,7 +316,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (!isExpr(obj)) {
         return false;
       }
-      const kind = Z3.get_ast_kind(contextPtr, obj.ast);
+      const kind = check(Z3.get_ast_kind(contextPtr, obj.ast));
       return kind === Z3_ast_kind.Z3_NUMERAL_AST || kind === Z3_ast_kind.Z3_APP_AST;
     }
 
@@ -318,7 +331,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isVar(obj: unknown): boolean {
-      return isExpr(obj) && Z3.get_ast_kind(contextPtr, obj.ast) === Z3_ast_kind.Z3_VAR_AST;
+      return isExpr(obj) && check(Z3.get_ast_kind(contextPtr, obj.ast)) === Z3_ast_kind.Z3_VAR_AST;
     }
 
     function isAppOf(obj: unknown, kind: Z3_decl_kind): boolean {
@@ -529,11 +542,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       addDefinition: (f: FuncDecl<Name>, args: Expr<Name>[], body: Expr<Name>) => {
         _assertContext(f, ...args, body);
-        Z3.add_rec_def(
-          contextPtr,
-          f.ptr,
-          args.map(arg => arg.ast),
-          body.ast,
+        check(
+          Z3.add_rec_def(
+            contextPtr,
+            f.ptr,
+            args.map(arg => arg.ast),
+            body.ast,
+          ),
         );
       },
     };
@@ -584,13 +599,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       val: (value: number | bigint | string) => {
         assert(typeof value === 'bigint' || typeof value === 'string' || Number.isSafeInteger(value));
-        return new IntNumImpl(Z3.mk_numeral(contextPtr, value.toString(), Int.sort().ptr));
+        return new IntNumImpl(check(Z3.mk_numeral(contextPtr, value.toString(), Int.sort().ptr)));
       },
     };
     const Real = {
       sort: () => new ArithSortImpl(Z3.mk_real_sort(contextPtr)),
 
-      const: (name: string) => new ArithImpl(Z3.mk_const(contextPtr, _toSymbol(name), Real.sort().ptr)),
+      const: (name: string) => new ArithImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), Real.sort().ptr))),
       consts: (names: string | string[]) => {
         if (typeof names === 'string') {
           names = names.split(' ');
@@ -621,7 +636,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       const<Bits extends number>(name: string, bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name> {
         return new BitVecImpl<Bits>(
-          Z3.mk_const(contextPtr, _toSymbol(name), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr),
+          check(Z3.mk_const(contextPtr, _toSymbol(name), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr)),
         );
       },
 
@@ -642,7 +657,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return BitVec.val(0, bits);
         }
         return new BitVecNumImpl<Bits>(
-          Z3.mk_numeral(contextPtr, value.toString(), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr),
+          check(Z3.mk_numeral(contextPtr, value.toString(), isBitVecSort(bits) ? bits.ptr : BitVec.sort(bits).ptr)),
         );
       },
     };
@@ -670,27 +685,29 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
       onTrue = from(onTrue);
       onFalse = from(onFalse);
-      return _toExpr(Z3.mk_ite(contextPtr, condition.ptr, onTrue.ast, onFalse.ast));
+      return _toExpr(check(Z3.mk_ite(contextPtr, condition.ptr, onTrue.ast, onFalse.ast)));
     }
 
     function Distinct(...exprs: CoercibleToExpr<Name>[]): Bool<Name> {
       assert(exprs.length > 0, "Can't make Distinct ouf of nothing");
 
       return new BoolImpl(
-        Z3.mk_distinct(
-          contextPtr,
-          exprs.map(expr => {
-            expr = from(expr);
-            _assertContext(expr);
-            return expr.ast;
-          }),
+        check(
+          Z3.mk_distinct(
+            contextPtr,
+            exprs.map(expr => {
+              expr = from(expr);
+              _assertContext(expr);
+              return expr.ast;
+            }),
+          ),
         ),
       );
     }
 
     function Const<S extends Sort<Name>>(name: string, sort: S): SortToExprMap<S, Name> {
       _assertContext(sort);
-      return _toExpr(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr)) as SortToExprMap<S, Name>;
+      return _toExpr(check(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr))) as SortToExprMap<S, Name>;
     }
 
     function Consts<S extends Sort<Name>>(names: string | string[], sort: S): SortToExprMap<S, Name>[] {
@@ -715,7 +732,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       a = from(a) as Bool<Name>;
       b = from(b) as Bool<Name>;
       _assertContext(a, b);
-      return new BoolImpl(Z3.mk_implies(contextPtr, a.ptr, b.ptr));
+      return new BoolImpl(check(Z3.mk_implies(contextPtr, a.ptr, b.ptr)));
     }
 
     function Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name> {
@@ -729,7 +746,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       a = from(a) as Bool<Name>;
       b = from(b) as Bool<Name>;
       _assertContext(a, b);
-      return new BoolImpl(Z3.mk_xor(contextPtr, a.ptr, b.ptr));
+      return new BoolImpl(check(Z3.mk_xor(contextPtr, a.ptr, b.ptr)));
     }
 
     function Not(a: Probe<Name>): Probe<Name>;
@@ -740,9 +757,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
       _assertContext(a);
       if (isProbe(a)) {
-        return new ProbeImpl(Z3.probe_not(contextPtr, a.ptr));
+        return new ProbeImpl(check(Z3.probe_not(contextPtr, a.ptr)));
       }
-      return new BoolImpl(Z3.mk_not(contextPtr, a.ptr));
+      return new BoolImpl(check(Z3.mk_not(contextPtr, a.ptr)));
     }
 
     function And(): Bool<Name>;
@@ -761,12 +778,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (allProbes) {
         return _probeNary(Z3.probe_and, args as [Probe<Name>, ...Probe<Name>[]]);
       } else {
-        args = args.map(from) as Bool<Name>[];
-        _assertContext(...(args as Bool<Name>[]));
+        const castArgs = args.map(from) as Bool<Name>[];
+        _assertContext(...castArgs);
         return new BoolImpl(
-          Z3.mk_and(
-            contextPtr,
-            args.map(arg => (arg as Bool<Name>).ptr),
+          check(
+            Z3.mk_and(
+              contextPtr,
+              castArgs.map(arg => arg.ptr),
+            ),
           ),
         );
       }
@@ -788,12 +807,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       if (allProbes) {
         return _probeNary(Z3.probe_or, args as [Probe<Name>, ...Probe<Name>[]]);
       } else {
-        args = args.map(from) as Bool<Name>[];
-        _assertContext(...(args as Bool<Name>[]));
+        const castArgs = args.map(from) as Bool<Name>[];
+        _assertContext(...castArgs);
         return new BoolImpl(
-          Z3.mk_or(
-            contextPtr,
-            args.map(arg => (arg as Bool<Name>).ptr),
+          check(
+            Z3.mk_or(
+              contextPtr,
+              castArgs.map(arg => arg.ptr),
+            ),
           ),
         );
       }
@@ -803,7 +824,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       expr = from(expr) as Arith<Name>;
       _assertContext(expr);
       assert(isInt(expr), 'Int expression expected');
-      return new ArithImpl(Z3.mk_int2real(contextPtr, expr.ast));
+      return new ArithImpl(check(Z3.mk_int2real(contextPtr, expr.ast)));
     }
 
     function ToInt(expr: Arith<Name> | number | CoercibleRational | string): Arith<Name> {
@@ -812,7 +833,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
       _assertContext(expr);
       assert(isReal(expr), 'Real expression expected');
-      return new ArithImpl(Z3.mk_real2int(contextPtr, expr.ast));
+      return new ArithImpl(check(Z3.mk_real2int(contextPtr, expr.ast)));
     }
 
     function IsInt(expr: Arith<Name> | number | CoercibleRational | string): Bool<Name> {
@@ -821,7 +842,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
       _assertContext(expr);
       assert(isReal(expr), 'Real expression expected');
-      return new BoolImpl(Z3.mk_is_int(contextPtr, expr.ast));
+      return new BoolImpl(check(Z3.mk_is_int(contextPtr, expr.ast)));
     }
 
     function Sqrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name> {
@@ -840,7 +861,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function BV2Int<Bits extends number>(a: BitVec<Bits, Name>, isSigned: boolean): Arith<Name> {
       _assertContext(a);
-      return new ArithImpl(Z3.mk_bv2int(contextPtr, a.ast, isSigned));
+      return new ArithImpl(check(Z3.mk_bv2int(contextPtr, a.ast, isSigned)));
     }
 
     function Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name> {
@@ -850,17 +871,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         assert(typeof a !== 'number' || Number.isSafeInteger(a), 'parameter must not have decimal places');
         a = Int.val(a);
       }
-      return new BitVecImpl<Bits>(Z3.mk_int2bv(contextPtr, bits, a.ast));
+      return new BitVecImpl<Bits>(check(Z3.mk_int2bv(contextPtr, bits, a.ast)));
     }
 
     function Concat<Bits extends number>(...bitvecs: BitVec<Bits, Name>[]): BitVec<Bits, Name> {
       _assertContext(...bitvecs);
-      return bitvecs.reduce((prev, curr) => new BitVecImpl<Bits>(Z3.mk_concat(contextPtr, prev.ast, curr.ast)));
+      return bitvecs.reduce((prev, curr) => new BitVecImpl<Bits>(check(Z3.mk_concat(contextPtr, prev.ast, curr.ast))));
     }
 
     function Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name> {
       _assertContext(probe, onTrue, onFalse);
-      return new TacticImpl(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr));
+      return new TacticImpl(check(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr)));
     }
 
     class AstImpl<Ptr> implements Ast<Name> {
@@ -885,7 +906,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       eqIdentity(other: Ast<Name>) {
         _assertContext(other);
-        return Z3.is_eq_ast(contextPtr, this.ast, other.ast);
+        return check(Z3.is_eq_ast(contextPtr, this.ast, other.ast));
       }
 
       neqIdentity(other: Ast<Name>) {
@@ -902,8 +923,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       toString() {
-        let str = Z3.ast_to_string(ctx.ptr, this.ast);
-        return str;
+        return this.sexpr();
       }
     }
 
@@ -916,7 +936,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ctx = ctx;
         let myPtr: Z3_solver;
         if (typeof ptr === 'string') {
-          myPtr = Z3.mk_solver_for_logic(contextPtr, _toSymbol(ptr));
+          myPtr = check(Z3.mk_solver_for_logic(contextPtr, _toSymbol(ptr)));
         } else {
           myPtr = ptr;
         }
@@ -940,7 +960,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]) {
         _flattenArgs(exprs).forEach(expr => {
           _assertContext(expr);
-          Z3.solver_assert(contextPtr, this.ptr, expr.ast);
+          check(Z3.solver_assert(contextPtr, this.ptr, expr.ast));
         });
       }
       addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string) {
@@ -948,11 +968,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           constant = Bool.const(constant);
         }
         assert(isConst(constant), 'Provided expression that is not a constant to addAndTrack');
-        Z3.solver_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast);
+        check(Z3.solver_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast));
       }
 
       assertions(): AstVector<Name, Bool<Name>> {
-        return new AstVectorImpl(Z3.solver_get_assertions(contextPtr, this.ptr));
+        return new AstVectorImpl(check(Z3.solver_get_assertions(contextPtr, this.ptr)));
       }
 
       async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
@@ -961,7 +981,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return expr.ast;
         });
         const result = await asyncMutex.runExclusive(() =>
-          Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions),
+          check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)),
         );
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
@@ -976,11 +996,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       model() {
-        return new ModelImpl(Z3.solver_get_model(contextPtr, this.ptr));
+        return new ModelImpl(check(Z3.solver_get_model(contextPtr, this.ptr)));
       }
 
       toString() {
-        return Z3.solver_to_string(contextPtr, this.ptr);
+        return check(Z3.solver_to_string(contextPtr, this.ptr));
       }
     }
 
@@ -1026,14 +1046,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       sexpr() {
-        return Z3.model_to_string(contextPtr, this.ptr);
+        return check(Z3.model_to_string(contextPtr, this.ptr));
       }
 
       eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
       eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
       eval(expr: Expr<Name>, modelCompletion: boolean = false) {
         _assertContext(expr);
-        const r = Z3.model_eval(contextPtr, this.ptr, expr.ast, modelCompletion);
+        const r = check(Z3.model_eval(contextPtr, this.ptr, expr.ast, modelCompletion));
         if (r === null) {
           throw new Z3Error('Failed to evaluatio expression in the model');
         }
@@ -1054,15 +1074,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           const length = this.length;
 
           if (i >= length) {
-            throw new RangeError();
+            throw new RangeError(`expected index ${i} to be less than length ${length}`);
           }
 
           if (to === undefined) {
-            const numConsts = Z3.model_get_num_consts(contextPtr, this.ptr);
+            const numConsts = check(Z3.model_get_num_consts(contextPtr, this.ptr));
             if (i < numConsts) {
-              return new FuncDeclImpl(Z3.model_get_const_decl(contextPtr, this.ptr, i));
+              return new FuncDeclImpl(check(Z3.model_get_const_decl(contextPtr, this.ptr, i)));
             } else {
-              return new FuncDeclImpl(Z3.model_get_func_decl(contextPtr, this.ptr, i - numConsts));
+              return new FuncDeclImpl(check(Z3.model_get_func_decl(contextPtr, this.ptr, i - numConsts)));
             }
           }
 
@@ -1095,13 +1115,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
         assert(isFuncDecl(expr));
         if (expr.arity() === 0) {
-          const result = Z3.model_get_const_interp(contextPtr, this.ptr, expr.ptr);
+          const result = check(Z3.model_get_const_interp(contextPtr, this.ptr, expr.ptr));
           if (result === null) {
             return null;
           }
           return _toExpr(result);
         } else {
-          const interp = Z3.model_get_func_interp(contextPtr, this.ptr, expr.ptr);
+          const interp = check(Z3.model_get_func_interp(contextPtr, this.ptr, expr.ptr));
           if (interp === null) {
             return null;
           }
@@ -1111,7 +1131,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       private getUniverse(sort: Sort<Name>): AstVector<Name, AnyAst<Name>> {
         _assertContext(sort);
-        return new AstVectorImpl(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr));
+        return new AstVectorImpl(check(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr)));
       }
     }
 
@@ -1154,7 +1174,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       eqIdentity(other: Sort<Name>) {
         _assertContext(other);
-        return Z3.is_eq_sort(contextPtr, this.ptr, other.ptr);
+        return check(Z3.is_eq_sort(contextPtr, this.ptr, other.ptr));
       }
 
       neqIdentity(other: Sort<Name>) {
@@ -1194,28 +1214,28 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const n = Z3.get_decl_num_parameters(contextPtr, this.ptr);
         const result = [];
         for (let i = 0; i < n; i++) {
-          const kind = Z3.get_decl_parameter_kind(contextPtr, this.ptr, i);
+          const kind = check(Z3.get_decl_parameter_kind(contextPtr, this.ptr, i));
           switch (kind) {
             case Z3_parameter_kind.Z3_PARAMETER_INT:
-              result.push(Z3.get_decl_int_parameter(contextPtr, this.ptr, i));
+              result.push(check(Z3.get_decl_int_parameter(contextPtr, this.ptr, i)));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_DOUBLE:
-              result.push(Z3.get_decl_double_parameter(contextPtr, this.ptr, i));
+              result.push(check(Z3.get_decl_double_parameter(contextPtr, this.ptr, i)));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_RATIONAL:
-              result.push(Z3.get_decl_rational_parameter(contextPtr, this.ptr, i));
+              result.push(check(Z3.get_decl_rational_parameter(contextPtr, this.ptr, i)));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_SYMBOL:
-              result.push(Z3.get_decl_symbol_parameter(contextPtr, this.ptr, i));
+              result.push(check(Z3.get_decl_symbol_parameter(contextPtr, this.ptr, i)));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_SORT:
-              result.push(new SortImpl(Z3.get_decl_sort_parameter(contextPtr, this.ptr, i)));
+              result.push(new SortImpl(check(Z3.get_decl_sort_parameter(contextPtr, this.ptr, i))));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_AST:
-              result.push(new ExprImpl(Z3.get_decl_ast_parameter(contextPtr, this.ptr, i)));
+              result.push(new ExprImpl(check(Z3.get_decl_ast_parameter(contextPtr, this.ptr, i))));
               break;
             case Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL:
-              result.push(new FuncDeclImpl(Z3.get_decl_func_decl_parameter(contextPtr, this.ptr, i)));
+              result.push(new FuncDeclImpl(check(Z3.get_decl_func_decl_parameter(contextPtr, this.ptr, i))));
               break;
             default:
               assertExhaustive(kind);
@@ -1227,13 +1247,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       call(...args: CoercibleToExpr<Name>[]) {
         assert(args.length === this.arity(), `Incorrect number of arguments to ${this}`);
         return _toExpr(
-          Z3.mk_app(
+          check(Z3.mk_app(
             contextPtr,
             this.ptr,
             args.map((arg, i) => {
               return this.domain(i).cast(arg).ast;
             }),
-          ),
+          )),
         );
       }
     }
@@ -1246,15 +1266,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       eq(other: CoercibleToExpr<Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_eq(contextPtr, this.ast, from(other).ast));
+        return new BoolImpl(check(Z3.mk_eq(contextPtr, this.ast, from(other).ast)));
       }
 
       neq(other: CoercibleToExpr<Name>): Bool<Name> {
         return new BoolImpl(
-          Z3.mk_distinct(
+          check(Z3.mk_distinct(
             contextPtr,
             [this, other].map(expr => from(expr).ast),
-          ),
+          )),
         );
       }
 
@@ -1264,18 +1284,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       decl(): FuncDecl<Name> {
         assert(isApp(this), 'Z3 application expected');
-        return new FuncDeclImpl(Z3.get_app_decl(contextPtr, Z3.to_app(contextPtr, this.ast)));
+        return new FuncDeclImpl(check(Z3.get_app_decl(contextPtr, check(Z3.to_app(contextPtr, this.ast)))));
       }
 
       numArgs(): number {
         assert(isApp(this), 'Z3 applicaiton expected');
-        return Z3.get_app_num_args(contextPtr, Z3.to_app(contextPtr, this.ast));
+        return check(Z3.get_app_num_args(contextPtr, check(Z3.to_app(contextPtr, this.ast))));
       }
 
       arg(i: number): ReturnType<typeof _toExpr> {
         assert(isApp(this), 'Z3 applicaiton expected');
-        assert(i < this.numArgs(), 'Invalid argument index');
-        return _toExpr(Z3.get_app_arg(contextPtr, Z3.to_app(contextPtr, this.ast), i));
+        assert(i < this.numArgs(), `Invalid argument index - expected ${i} to be less than ${this.numArgs()}`);
+        return _toExpr(check(Z3.get_app_arg(contextPtr, check(Z3.to_app(contextPtr, this.ast)), i)));
       }
 
       children(): ReturnType<typeof _toExpr>[] {
@@ -1347,7 +1367,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ctx = ctx;
         let myPtr: Z3_tactic;
         if (typeof tactic === 'string') {
-          myPtr = Z3.mk_tactic(contextPtr, tactic);
+          myPtr = check(Z3.mk_tactic(contextPtr, tactic));
         } else {
           myPtr = tactic;
         }
@@ -1403,47 +1423,47 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare readonly __typename: Arith['__typename'];
 
       add(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_add(contextPtr, [this.ast, this.sort.cast(other).ast]));
+        return new ArithImpl(check(Z3.mk_add(contextPtr, [this.ast, this.sort.cast(other).ast])));
       }
 
       mul(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_mul(contextPtr, [this.ast, this.sort.cast(other).ast]));
+        return new ArithImpl(check(Z3.mk_mul(contextPtr, [this.ast, this.sort.cast(other).ast])));
       }
 
       sub(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_sub(contextPtr, [this.ast, this.sort.cast(other).ast]));
+        return new ArithImpl(check(Z3.mk_sub(contextPtr, [this.ast, this.sort.cast(other).ast])));
       }
 
       pow(exponent: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_power(contextPtr, this.ast, this.sort.cast(exponent).ast));
+        return new ArithImpl(check(Z3.mk_power(contextPtr, this.ast, this.sort.cast(exponent).ast)));
       }
 
       div(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_div(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new ArithImpl(check(Z3.mk_div(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       mod(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new ArithImpl(Z3.mk_mod(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new ArithImpl(check(Z3.mk_mod(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       neg() {
-        return new ArithImpl(Z3.mk_unary_minus(contextPtr, this.ast));
+        return new ArithImpl(check(Z3.mk_unary_minus(contextPtr, this.ast)));
       }
 
       le(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new BoolImpl(Z3.mk_le(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_le(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       lt(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new BoolImpl(Z3.mk_lt(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_lt(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       gt(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new BoolImpl(Z3.mk_gt(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_gt(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       ge(other: Arith<Name> | number | bigint | string | CoercibleRational) {
-        return new BoolImpl(Z3.mk_ge(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_ge(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
     }
 
@@ -1524,135 +1544,135 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvadd(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvadd(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvmul(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvmul(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvsub(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvsub(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       sdiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvsdiv(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvsdiv(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       udiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvudiv(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvudiv(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       smod(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvsmod(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvsmod(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       urem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvurem(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvurem(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       srem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvsrem(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvsrem(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       neg(): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvneg(contextPtr, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvneg(contextPtr, this.ast)));
       }
 
       or(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvor(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvor(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       and(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvand(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvand(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       nand(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvnand(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvnand(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       xor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvxor(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvxor(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       xnor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvxnor(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvxnor(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       shr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvashr(contextPtr, this.ast, this.sort.cast(count).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvashr(contextPtr, this.ast, this.sort.cast(count).ast)));
       }
       lshr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvlshr(contextPtr, this.ast, this.sort.cast(count).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvlshr(contextPtr, this.ast, this.sort.cast(count).ast)));
       }
       shl(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvshl(contextPtr, this.ast, this.sort.cast(count).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvshl(contextPtr, this.ast, this.sort.cast(count).ast)));
       }
       rotateRight(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_ext_rotate_right(contextPtr, this.ast, this.sort.cast(count).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_ext_rotate_right(contextPtr, this.ast, this.sort.cast(count).ast)));
       }
       rotateLeft(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_ext_rotate_left(contextPtr, this.ast, this.sort.cast(count).ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_ext_rotate_left(contextPtr, this.ast, this.sort.cast(count).ast)));
       }
       not(): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvnot(contextPtr, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvnot(contextPtr, this.ast)));
       }
 
       extract(high: number, low: number): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_extract(contextPtr, high, low, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_extract(contextPtr, high, low, this.ast)));
       }
       signExt(count: number): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_sign_ext(contextPtr, count, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_sign_ext(contextPtr, count, this.ast)));
       }
       zeroExt(count: number): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_zero_ext(contextPtr, count, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_zero_ext(contextPtr, count, this.ast)));
       }
       repeat(count: number): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_repeat(contextPtr, count, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_repeat(contextPtr, count, this.ast)));
       }
 
       sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsle(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvsle(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvule(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvule(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvslt(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvslt(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvult(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvult(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsge(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvsge(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvuge(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvuge(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsgt(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvsgt(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvugt(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvugt(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
       redAnd(): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvredand(contextPtr, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvredand(contextPtr, this.ast)));
       }
       redOr(): BitVec<Bits, Name> {
-        return new BitVecImpl<Bits>(Z3.mk_bvredor(contextPtr, this.ast));
+        return new BitVecImpl<Bits>(check(Z3.mk_bvredor(contextPtr, this.ast)));
       }
 
       addNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvadd_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
+        return new BoolImpl(check(Z3.mk_bvadd_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
       addNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvadd_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvadd_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
+        return new BoolImpl(check(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
       sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvsdiv_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvsdiv_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned));
+        return new BoolImpl(check(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
       mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast));
+        return new BoolImpl(check(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
       negNoOverflow(): Bool<Name> {
-        return new BoolImpl(Z3.mk_bvneg_no_overflow(contextPtr, this.ast));
+        return new BoolImpl(check(Z3.mk_bvneg_no_overflow(contextPtr, this.ast)));
       }
     }
 
@@ -1726,23 +1746,23 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           from += length;
         }
         if (from >= length) {
-          throw new RangeError();
+          throw new RangeError(`expected from index ${from} to be less than length ${length}`);
         }
 
         if (to === undefined) {
-          return _toAst(Z3.ast_vector_get(contextPtr, this.ptr, from)) as Item;
+          return _toAst(check(Z3.ast_vector_get(contextPtr, this.ptr, from))) as Item;
         }
 
         if (to < 0) {
           to += length;
         }
         if (to >= length) {
-          throw new RangeError();
+          throw new RangeError(`expected to index ${to} to be less than length ${length}`);
         }
 
         const result: Item[] = [];
         for (let i = from; i < to; i++) {
-          result.push(_toAst(Z3.ast_vector_get(contextPtr, this.ptr, i)) as Item);
+          result.push(_toAst(check(Z3.ast_vector_get(contextPtr, this.ptr, i))) as Item);
         }
         return result;
       }
@@ -1752,16 +1772,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         if (i >= this.length) {
           throw new RangeError();
         }
-        Z3.ast_vector_set(contextPtr, this.ptr, i, v.ast);
+        check(Z3.ast_vector_set(contextPtr, this.ptr, i, v.ast));
       }
 
       push(v: Item): void {
         _assertContext(v);
-        Z3.ast_vector_push(contextPtr, this.ptr, v.ast);
+        check(Z3.ast_vector_push(contextPtr, this.ptr, v.ast));
       }
 
       resize(size: number): void {
-        Z3.ast_vector_resize(contextPtr, this.ptr, size);
+        check(Z3.ast_vector_resize(contextPtr, this.ptr, size));
       }
 
       has(v: Item): boolean {
@@ -1775,7 +1795,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       sexpr(): string {
-        return Z3.ast_vector_to_string(contextPtr, this.ptr);
+        return check(Z3.ast_vector_to_string(contextPtr, this.ptr));
       }
     }
 
@@ -1813,27 +1833,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
       }
       get(key: Key): Value {
-        return _toAst(Z3.ast_map_find(contextPtr, this.ptr, key.ast)) as Value;
+        return _toAst(check(Z3.ast_map_find(contextPtr, this.ptr, key.ast))) as Value;
       }
 
       set(key: Key, value: Value): void {
-        Z3.ast_map_insert(contextPtr, this.ptr, key.ast, value.ast);
+        check(Z3.ast_map_insert(contextPtr, this.ptr, key.ast, value.ast));
       }
 
       delete(key: Key): void {
-        Z3.ast_map_erase(contextPtr, this.ptr, key.ast);
+        check(Z3.ast_map_erase(contextPtr, this.ptr, key.ast));
       }
 
       clear(): void {
-        Z3.ast_map_reset(contextPtr, this.ptr);
+        check(Z3.ast_map_reset(contextPtr, this.ptr));
       }
 
       has(key: Key): boolean {
-        return Z3.ast_map_contains(contextPtr, this.ptr, key.ast);
+        return check(Z3.ast_map_contains(contextPtr, this.ptr, key.ast));
       }
 
       sexpr(): string {
-        return Z3.ast_map_to_string(contextPtr, this.ptr);
+        return check(Z3.ast_map_to_string(contextPtr, this.ptr));
       }
     }
 
