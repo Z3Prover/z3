@@ -892,6 +892,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       hash() {
         return Z3.get_ast_hash(contextPtr, this.ast);
       }
+
+      toString() {
+        let str = Z3.ast_to_string(ctx.ptr, this.ast);
+        return str;
+      }
     }
 
     class SolverImpl implements Solver<Name> {
@@ -964,6 +969,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       model() {
         return new ModelImpl(Z3.solver_get_model(contextPtr, this.ptr));
+      }
+
+      toString() {
+        return Z3.solver_to_string(contextPtr, this.ptr);
       }
     }
 
