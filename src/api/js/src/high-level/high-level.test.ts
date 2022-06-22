@@ -1,7 +1,7 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
-import { Arith, Bool, Model, sat, unsat, Z3AssertionError, Z3HighLevel } from './types';
+import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -31,7 +31,7 @@ async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): 
   const solver = new assertions[0].ctx.Solver();
   solver.add(...assertions);
 
-  while ((await solver.check()) === sat) {
+  while ((await solver.check()) === 'sat') {
     const model = solver.model();
     const decls = model.decls();
     if (decls.length === 0) {
@@ -59,13 +59,13 @@ async function prove(conjecture: Bool): Promise<void> {
   const solver = new conjecture.ctx.Solver();
   const { Not } = solver.ctx;
   solver.add(Not(conjecture));
-  expect(await solver.check()).toStrictEqual(unsat);
+  expect(await solver.check()).toStrictEqual('unsat');
 }
 
 async function solve(conjecture: Bool): Promise<Model> {
   const solver = new conjecture.ctx.Solver();
   solver.add(conjecture);
-  expect(await solver.check()).toStrictEqual(sat);
+  expect(await solver.check()).toStrictEqual('sat');
   return solver.model();
 }
 
@@ -96,7 +96,7 @@ describe('high-level', () => {
   });
 
   it('proves x = y implies g(x) = g(y)', async () => {
-    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = api.Context('main');
     const solver = new Solver();
 
     const sort = Int.sort();
@@ -106,11 +106,11 @@ describe('high-level', () => {
 
     const conjecture = Implies(x.eq(y), g.call(x).eq(g.call(y)));
     solver.add(Not(conjecture));
-    expect(await solver.check()).toStrictEqual(unsat);
+    expect(await solver.check()).toStrictEqual('unsat');
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
-    const { Solver, Int, Function, Implies, Not } = new api.Context('main');
+    const { Solver, Int, Function, Implies, Not } = api.Context('main');
     const solver = new Solver();
 
     const sort = Int.sort();
@@ -119,14 +119,14 @@ describe('high-level', () => {
     const g = Function.declare('g', sort, sort);
     const conjecture = Implies(x.eq(y), g.call(g.call(x)).eq(g.call(y)));
     solver.add(Not(conjecture));
-    expect(await solver.check()).toStrictEqual(sat);
+    expect(await solver.check()).toStrictEqual('sat');
   });
 
   it('checks that Context matches', () => {
-    const c1 = new api.Context('context');
-    const c2 = new api.Context('context');
-    const c3 = new api.Context('foo');
-    const c4 = new api.Context('bar');
+    const c1 = api.Context('context');
+    const c2 = api.Context('context');
+    const c3 = api.Context('foo');
+    const c4 = api.Context('bar');
 
     // Contexts with the same name don't do type checking during compile time.
     // We need to check for different context dynamically
@@ -144,7 +144,7 @@ describe('high-level', () => {
 
   describe('booleans', () => {
     it("proves De Morgan's Law", async () => {
-      const { Bool, Not, And, Eq, Or } = new api.Context('main');
+      const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
 
       const conjecture = Eq(Not(And(x, y)), Or(Not(x), Not(y)));
@@ -155,7 +155,7 @@ describe('high-level', () => {
 
   describe('ints', () => {
     it('finds a model', async () => {
-      const { Solver, Int, isIntVal } = new api.Context('main');
+      const { Solver, Int, isIntVal } = api.Context('main');
       const solver = new Solver();
       const x = Int.const('x');
       const y = Int.const('y');
@@ -163,10 +163,10 @@ describe('high-level', () => {
       solver.add(x.ge(1)); // x >= 1
       solver.add(y.lt(x.add(3))); // y < x + 3
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       const model = solver.model();
-      expect(model.length).toStrictEqual(2);
+      expect(model.length()).toStrictEqual(2);
 
       for (const decl of model) {
         expect(decl.arity()).toStrictEqual(0);
@@ -175,8 +175,8 @@ describe('high-level', () => {
       const yValueExpr = model.get(y);
       assert(isIntVal(xValueExpr));
       assert(isIntVal(yValueExpr));
-      const xValue = xValueExpr.value;
-      const yValue = yValueExpr.value;
+      const xValue = xValueExpr.value();
+      const yValue = yValueExpr.value();
       assert(typeof xValue === 'bigint');
       assert(typeof yValue === 'bigint');
       expect(xValue).toBeGreaterThanOrEqual(1n);
@@ -225,7 +225,7 @@ describe('high-level', () => {
         541972386
       `);
 
-      const { Solver, Int, Distinct, isIntVal } = new api.Context('main');
+      const { Solver, Int, Distinct, isIntVal } = api.Context('main');
 
       const cells: Arith[][] = [];
       // 9x9 matrix of integer variables
@@ -284,7 +284,7 @@ describe('high-level', () => {
         }
       }
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       const model = solver.model();
       const result = [];
@@ -293,7 +293,7 @@ describe('high-level', () => {
         for (let j = 0; j < 9; j++) {
           const cell = model.eval(cells[i][j]);
           assert(isIntVal(cell));
-          const value = cell.value;
+          const value = cell.value();
           assert(typeof value === 'bigint');
           expect(value).toBeGreaterThanOrEqual(0n);
           expect(value).toBeLessThanOrEqual(9n);
@@ -308,7 +308,7 @@ describe('high-level', () => {
 
   describe('reals', () => {
     it('can work with numerals', async () => {
-      const { Real, And } = new api.Context('main');
+      const { Real, And } = api.Context('main');
       const n1 = Real.val('1/2');
       const n2 = Real.val('0.5');
       const n3 = Real.val(0.5);
@@ -322,7 +322,7 @@ describe('high-level', () => {
     it('can do non-linear arithmetic', async () => {
       api.setParam('pp.decimal', true);
       api.setParam('pp.decimal_precision', 20);
-      const { Real, Solver, isReal, isRealVal } = new api.Context('main');
+      const { Real, Solver, isReal, isRealVal } = api.Context('main');
       const x = Real.const('x');
       const y = Real.const('y');
       const z = Real.const('z');
@@ -331,7 +331,7 @@ describe('high-level', () => {
       solver.add(x.mul(x).add(y.mul(y)).eq(1)); // x^2 + y^2 == 1
       solver.add(x.mul(x).mul(x).add(z.mul(z).mul(z)).lt('1/2')); // x^3 + z^3 < 1/2
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
       const model = solver.model();
 
       expect(isRealVal(model.get(x))).toStrictEqual(true);
@@ -344,7 +344,7 @@ describe('high-level', () => {
 
   describe('bitvectors', () => {
     it('can do simple proofs', async () => {
-      const { BitVec, Concat, Implies, isBitVecVal } = new api.Context('main');
+      const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
 
       const x = BitVec.const('x', 32);
 
@@ -354,7 +354,7 @@ describe('high-level', () => {
       assert(isBitVecVal(sSol) && isBitVecVal(uSol));
       let v = sSol.asSignedValue();
       expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
-      v = uSol.value;
+      v = uSol.value();
       expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
 
       const y = BitVec.const('y', 32);
@@ -363,7 +363,7 @@ describe('high-level', () => {
     });
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
-      const { BitVec, isBitVecVal } = new api.Context('main');
+      const { BitVec, isBitVecVal } = api.Context('main');
 
       const x = BitVec.const('x', 32);
       const y = BitVec.const('y', 32);
@@ -382,28 +382,28 @@ describe('high-level', () => {
 
   describe('Solver', () => {
     it('can use push and pop', async () => {
-      const { Solver, Int } = new api.Context('main');
+      const { Solver, Int } = api.Context('main');
       const solver = new Solver();
       const x = Int.const('x');
 
       solver.add(x.gt(0));
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
 
       solver.push();
       solver.add(x.lt(0));
 
       expect(solver.numScopes()).toStrictEqual(1);
-      expect(await solver.check()).toStrictEqual(unsat);
+      expect(await solver.check()).toStrictEqual('unsat');
 
       solver.pop();
 
       expect(solver.numScopes()).toStrictEqual(0);
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
     });
 
     it('can find multiple solutions', async () => {
-      const { Int, isIntVal } = new api.Context('main');
+      const { Int, isIntVal } = api.Context('main');
 
       const x = Int.const('x');
 
@@ -413,7 +413,7 @@ describe('high-level', () => {
         .map(solution => {
           const expr = solution.eval(x);
           assert(isIntVal(expr));
-          return expr.value;
+          return expr.value();
         })
         .sort((a, b) => {
           assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
@@ -431,7 +431,7 @@ describe('high-level', () => {
 
   describe('AstVector', () => {
     it('can use basic methods', async () => {
-      const { Solver, AstVector, Int } = new api.Context('main');
+      const { Solver, AstVector, Int } = api.Context('main');
       const solver = new Solver();
 
       const vector = new AstVector<Arith>();
@@ -439,12 +439,12 @@ describe('high-level', () => {
         vector.push(Int.const(`int__${i}`));
       }
 
-      const length = vector.length;
+      const length = vector.length();
       for (let i = 0; i < length; i++) {
         solver.add(vector.get(i).gt(1));
       }
 
-      expect(await solver.check()).toStrictEqual(sat);
+      expect(await solver.check()).toStrictEqual('sat');
     });
   });
 });

@@ -1,5 +1,5 @@
 import { Z3AssertionError } from './types';
-import { allSatisfy, assert, assertExhaustive, autoBind } from './utils';
+import { allSatisfy, assert, assertExhaustive } from './utils';
 
 describe('allSatisfy', () => {
   it('returns null on empty array', () => {
@@ -53,28 +53,6 @@ describe('assertExhaustive', () => {
       default:
         expect(() => assertExhaustive(result)).toThrowError();
     }
-  });
-});
-
-describe('autoBind', () => {
-  class Binded {
-    readonly name = 'Richard';
-    constructor(shouldBind: boolean) {
-      if (shouldBind === true) {
-        autoBind(this);
-      }
-    }
-
-    test(): string {
-      return `Hello ${this.name}`;
-    }
-  }
-
-  it('binds this', () => {
-    const { test: withoutBind } = new Binded(false);
-    const { test: withBind } = new Binded(true);
-    expect(() => withoutBind()).toThrowError(TypeError);
-    expect(withBind()).toStrictEqual('Hello Richard');
   });
 });
 
