@@ -166,7 +166,7 @@ describe('high-level', () => {
       expect(await solver.check()).toStrictEqual('sat');
 
       const model = solver.model();
-      expect(model.length).toStrictEqual(2);
+      expect(model.length()).toStrictEqual(2);
 
       for (const decl of model) {
         expect(decl.arity()).toStrictEqual(0);
@@ -175,8 +175,8 @@ describe('high-level', () => {
       const yValueExpr = model.get(y);
       assert(isIntVal(xValueExpr));
       assert(isIntVal(yValueExpr));
-      const xValue = xValueExpr.value;
-      const yValue = yValueExpr.value;
+      const xValue = xValueExpr.value();
+      const yValue = yValueExpr.value();
       assert(typeof xValue === 'bigint');
       assert(typeof yValue === 'bigint');
       expect(xValue).toBeGreaterThanOrEqual(1n);
@@ -293,7 +293,7 @@ describe('high-level', () => {
         for (let j = 0; j < 9; j++) {
           const cell = model.eval(cells[i][j]);
           assert(isIntVal(cell));
-          const value = cell.value;
+          const value = cell.value();
           assert(typeof value === 'bigint');
           expect(value).toBeGreaterThanOrEqual(0n);
           expect(value).toBeLessThanOrEqual(9n);
@@ -354,7 +354,7 @@ describe('high-level', () => {
       assert(isBitVecVal(sSol) && isBitVecVal(uSol));
       let v = sSol.asSignedValue();
       expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
-      v = uSol.value;
+      v = uSol.value();
       expect(v - 10n <= 0n === v <= 10n).toStrictEqual(true);
 
       const y = BitVec.const('y', 32);
@@ -413,7 +413,7 @@ describe('high-level', () => {
         .map(solution => {
           const expr = solution.eval(x);
           assert(isIntVal(expr));
-          return expr.value;
+          return expr.value();
         })
         .sort((a, b) => {
           assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
@@ -439,7 +439,7 @@ describe('high-level', () => {
         vector.push(Int.const(`int__${i}`));
       }
 
-      const length = vector.length;
+      const length = vector.length();
       for (let i = 0; i < length; i++) {
         solver.add(vector.get(i).gt(1));
       }

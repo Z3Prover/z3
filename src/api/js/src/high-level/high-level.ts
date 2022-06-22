@@ -884,7 +884,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new TacticImpl(check(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr)));
     }
 
-    class AstImpl<Ptr> implements Ast<Name> {
+    class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
       declare readonly __typename: Ast['__typename'];
       readonly ctx: Context<Name>;
 
@@ -897,10 +897,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       get ast(): Z3_ast {
-        return this.ptr as unknown as Z3_ast;
+        return this.ptr;
       }
 
-      get id() {
+      id() {
         return Z3.get_ast_id(contextPtr, this.ast);
       }
 
@@ -1014,7 +1014,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr));
       }
 
-      get length() {
+      length() {
         return Z3.model_get_num_consts(contextPtr, this.ptr) + Z3.model_get_num_funcs(contextPtr, this.ptr);
       }
 
@@ -1023,7 +1023,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       *entries(): IterableIterator<[number, FuncDecl<Name>]> {
-        const length = this.length;
+        const length = this.length();
         for (let i = 0; i < length; i++) {
           yield [i, this.get(i)];
         }
@@ -1071,7 +1071,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): FuncDecl<Name> | FuncInterp<Name> | Expr<Name> | AstVector<Name, AnyAst<Name>> | FuncDecl<Name>[] {
         assert(to === undefined || typeof i === 'number');
         if (typeof i === 'number') {
-          const length = this.length;
+          const length = this.length();
 
           if (i >= length) {
             throw new RangeError(`expected index ${i} to be less than length ${length}`);
@@ -1090,7 +1090,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             to += length;
           }
           if (to >= length) {
-            throw new RangeError();
+            throw new RangeError(`expected index ${to} to be less than length ${length}`);
           }
           const result = [];
           for (let j = i; j < to; j++) {
@@ -1258,7 +1258,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ExprImpl<Ptr, S extends Sort<Name> = AnySort<Name>> extends AstImpl<Ptr> implements Expr<Name> {
+    class ExprImpl<Ptr extends Z3_ast, S extends Sort<Name> = AnySort<Name>> extends AstImpl<Ptr> implements Expr<Name> {
       declare readonly __typename: Expr['__typename'];
 
       get sort(): S {
@@ -1470,7 +1470,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class IntNumImpl extends ArithImpl implements IntNum<Name> {
       declare readonly __typename: IntNum['__typename'];
 
-      get value() {
+      value() {
         return BigInt(this.asString());
       }
 
@@ -1486,8 +1486,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class RatNumImpl extends ArithImpl implements RatNum<Name> {
       declare readonly __typename: RatNum['__typename'];
 
-      get value() {
-        return { numerator: this.numerator().value, denominator: this.denominator().value };
+      value() {
+        return { numerator: this.numerator().value(), denominator: this.denominator().value() };
       }
 
       numerator() {
@@ -1499,7 +1499,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       asNumber() {
-        const { numerator, denominator } = this.value;
+        const { numerator, denominator } = this.value();
         const div = numerator / denominator;
         return Number(div) + Number(numerator - div * denominator) / Number(denominator);
       }
@@ -1516,12 +1516,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class BitVecSortImpl<Bits extends number> extends SortImpl implements BitVecSort<Bits, Name> {
       declare readonly __typename: BitVecSort['__typename'];
 
-      get size() {
+      size() {
         return Z3.get_bv_sort_size(contextPtr, this.ptr) as Bits;
       }
 
       subsort(other: Sort<Name>): boolean {
-        return isBitVecSort(other) && this.size < other.size;
+        return isBitVecSort(other) && this.size() < other.size();
       }
 
       cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
@@ -1532,15 +1532,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return other;
         }
         assert(!isCoercibleRational(other), "Can't convert rational to BitVec");
-        return BitVec.val(other, this.size);
+        return BitVec.val(other, this.size());
       }
     }
 
     class BitVecImpl<Bits extends number> extends ExprImpl<Z3_ast, BitVecSortImpl<Bits>> implements BitVec<Bits, Name> {
       declare readonly __typename: BitVec['__typename'];
 
-      get size() {
-        return this.sort.size;
+      size() {
+        return this.sort.size();
       }
 
       add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
@@ -1678,13 +1678,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class BitVecNumImpl<Bits extends number> extends BitVecImpl<Bits> implements BitVecNum<Bits, Name> {
       declare readonly __typename: BitVecNum['__typename'];
-      get value() {
+      value() {
         return BigInt(this.asString());
       }
 
       asSignedValue() {
-        let val = this.value;
-        const size = BigInt(this.size);
+        let val = this.value();
+        const size = BigInt(this.size());
         if (val >= 2n ** (size - 1n)) {
           val = val - 2n ** size;
         }
@@ -1711,7 +1711,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         cleanup.register(this, () => Z3.ast_vector_dec_ref(contextPtr, ptr));
       }
 
-      get length(): number {
+      length(): number {
         return Z3.ast_vector_size(contextPtr, this.ptr);
       }
 
@@ -1720,7 +1720,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       *entries(): IterableIterator<[number, Item]> {
-        const length = this.length;
+        const length = this.length();
         for (let i = 0; i < length; i++) {
           yield [i, this.get(i)];
         }
@@ -1741,7 +1741,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       get(i: number): Item;
       get(from: number, to: number): Item[];
       get(from: number, to?: number): Item | Item[] {
-        const length = this.length;
+        const length = this.length();
         if (from < 0) {
           from += length;
         }
@@ -1769,8 +1769,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       set(i: number, v: Item): void {
         _assertContext(v);
-        if (i >= this.length) {
-          throw new RangeError();
+        if (i >= this.length()) {
+          throw new RangeError(`expected index ${i} to be less than length ${this.length()}`);
         }
         check(Z3.ast_vector_set(contextPtr, this.ptr, i, v.ast));
       }

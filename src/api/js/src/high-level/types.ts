@@ -364,7 +364,7 @@ export interface Ast<Name extends string = 'main', Ptr = unknown> {
   /** @virtual */
   get ast(): Z3_ast;
   /** @virtual */
-  get id(): number;
+  id(): number;
 
   eqIdentity(other: Ast<Name>): boolean;
   neqIdentity(other: Ast<Name>): boolean;
@@ -409,7 +409,7 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   readonly ctx: Context<Name>;
   readonly ptr: Z3_model;
 
-  get length(): number;
+  length(): number;
 
   entries(): IterableIterator<[number, FuncDecl<Name>]>;
   keys(): IterableIterator<number>;
@@ -671,7 +671,7 @@ export interface IntNum<Name extends string = 'main'> extends Arith<Name> {
   /** @hidden */
   readonly __typename: 'IntNum';
 
-  get value(): bigint;
+  value(): bigint;
   asString(): string;
   asBinary(): string;
 }
@@ -695,7 +695,7 @@ export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
   /** @hidden */
   readonly __typename: 'RatNum';
 
-  get value(): { numerator: bigint; denominator: bigint };
+  value(): { numerator: bigint; denominator: bigint };
   numerator(): IntNum<Name>;
   denominator(): IntNum<Name>;
   asNumber(): number;
@@ -723,7 +723,7 @@ export interface BitVecSort<Bits extends number = number, Name extends string = 
    * // 32
    * ```
    */
-  get size(): Bits;
+  size(): Bits;
 
   cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
   cast(other: CoercibleToExpr<Name>): Expr<Name>;
@@ -774,7 +774,7 @@ export interface BitVec<Bits extends number = number, Name extends string = 'mai
    * // 8
    * ```
    */
-  get size(): Bits;
+  size(): Bits;
 
   /** @category Arithmetic */
   add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
@@ -947,7 +947,7 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
   /** @hidden */
   readonly __typename: 'BitVecNum';
 
-  get value(): bigint;
+  value(): bigint;
   asSignedValue(): bigint;
   asString(): string;
   asBinaryString(): string;
@@ -999,7 +999,7 @@ export interface AstVector<Name extends string = 'main', Item extends Ast<Name> 
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_ast_vector;
-  get length(): number;
+  length(): number;
 
   entries(): IterableIterator<[number, Item]>;
   keys(): IterableIterator<number>;
