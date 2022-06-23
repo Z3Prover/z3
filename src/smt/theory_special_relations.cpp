@@ -36,7 +36,7 @@ namespace smt {
         if (!m_next) {
             sort* s = decl()->get_domain(0);
             sort* domain[2] = {s, s};
-            m_next = m.mk_fresh_func_decl("next", "", 2, domain, s);
+            m_next = m.mk_fresh_func_decl("specrel.next", "", 2, domain, s, false);
         }
         return m_next;
     }
