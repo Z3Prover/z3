@@ -128,6 +128,22 @@ namespace arith {
         }
         else {
 
+
+            expr_ref mone(a.mk_int(-1), m);
+            expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
+            literal eqz = mk_literal(m.mk_eq(q, zero));
+            literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
+            literal mod_lt_q = mk_literal(a.mk_lt(a.mk_sub(mod, abs_q), mone));
+            
+            // q = 0 or p = (p mod q) + q * (p div q)
+            // q = 0 or (p mod q) >= 0
+            // q = 0 or (p mod q) < abs(q)
+
+            add_clause(eqz, eq);
+            add_clause(eqz, mod_ge_0);
+            add_clause(eqz, mod_lt_q);
+
+#if 0
             /*literal div_ge_0   = */ mk_literal(a.mk_ge(div, zero));
             /*literal div_le_0   = */ mk_literal(a.mk_le(div, zero));
             /*literal p_ge_0     = */ mk_literal(a.mk_ge(p, zero));
@@ -139,6 +155,8 @@ namespace arith {
             // q <= 0 or (p mod q) >= 0
             // q <= 0 or (p mod q) <  q
             // q >= 0 or (p mod q) < -q
+
+
             literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
             literal q_le_0 = mk_literal(a.mk_le(q, zero));
 
@@ -148,6 +166,22 @@ namespace arith {
             add_clause(q_le_0, mod_ge_0);
             add_clause(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));
             add_clause(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));
+#endif
+            
+            if (a.is_zero(p)) {
+                add_clause(eqz, mk_literal(m.mk_eq(mod, zero)));
+                add_clause(eqz, mk_literal(m.mk_eq(div, zero)));
+            }
+            else if (!a.is_numeral(q)) {
+                // (or (= y 0)  (<= (* y (div x y)) x))
+                // (or (<= y 0) (>= (* (+ y  1)  (div x y)) x))
+                // (or (>= y 0) (>= (* (+ y -1)  (div x y)) x))
+                expr_ref one(a.mk_int(1), m);
+                add_clause(eqz, mk_literal(a.mk_le(a.mk_mul(q, div), p)));
+                add_clause(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_ge(a.mk_mul(a.mk_add(q,  one), div), q)));
+                add_clause(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_ge(a.mk_mul(a.mk_add(q, mone), div), q)));
+            }
+
 
         }
         if (get_config().m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
