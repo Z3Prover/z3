@@ -62,9 +62,12 @@ namespace Microsoft.Z3
 	/// </summary>                
 	public delegate void DecideEh(ref Expr term, ref uint idx, ref int phase);
 
-	Solver solver;
+        // access managed objects through a static array.
+	// thread safety is ignored for now.
+	static List<UserPropagator> propagators = new List<UserPropagator>();
+	int      id;
+	Solver   solver;
 	Context  ctx;
-	GCHandle gch;
 	Z3_solver_callback callback = IntPtr.Zero;
 	FixedEh fixed_eh;
 	Action  final_eh;
@@ -88,65 +91,56 @@ namespace Microsoft.Z3
 
 
 	static void _push(voidp ctx, Z3_solver_callback cb) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-	   var prop = (UserPropagator)gch.Target;
+	   var prop = propagators[ctx.ToInt32()];
 	   prop.Callback(() => prop.Push(), cb);
 	}
 	
 	static void _pop(voidp ctx, Z3_solver_callback cb, uint num_scopes) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+	   var prop = propagators[ctx.ToInt32()];
 	   prop.Callback(() => prop.Pop(num_scopes), cb);
 	}
 	
 	static voidp _fresh(voidp _ctx, Z3_context new_context) {
-	   var gch = GCHandle.FromIntPtr(_ctx);
-           var prop = (UserPropagator)gch.Target;
+	   var prop = propagators[_ctx.ToInt32()];
            var ctx = new Context(new_context);
-           var prop1 = prop.Fresh(ctx);
-           return GCHandle.ToIntPtr(prop1.gch);
+           var prop1 = prop.Fresh(prop.ctx);
+           return new IntPtr(prop1.id);
 	}
 
 	static void _fixed(voidp ctx, Z3_solver_callback cb, Z3_ast _term, Z3_ast _value) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   using var term = Expr.Create(prop.ctx, _term);
 	   using var value = Expr.Create(prop.ctx, _value);
 	   prop.Callback(() => prop.fixed_eh(term, value), cb);
 	}
 
 	static void _final(voidp ctx, Z3_solver_callback cb) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   prop.Callback(() => prop.final_eh(), cb);
 	}
 
 	static void _eq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   using var s = Expr.Create(prop.ctx, a);
 	   using var t = Expr.Create(prop.ctx, b);
 	   prop.Callback(() => prop.eq_eh(s, t), cb);
 	}
 
 	static void _diseq(voidp ctx, Z3_solver_callback cb, Z3_ast a, Z3_ast b) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   using var s = Expr.Create(prop.ctx, a);
 	   using var t = Expr.Create(prop.ctx, b);
 	   prop.Callback(() => prop.diseq_eh(s, t), cb);
 	}
 
 	static void _created(voidp ctx, Z3_solver_callback cb, Z3_ast a) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   using var t = Expr.Create(prop.ctx, a);
 	   prop.Callback(() => prop.created_eh(t), cb);
 	}
 
 	static void _decide(voidp ctx, Z3_solver_callback cb, ref Z3_ast a, ref uint idx, ref int phase) {
-	   var gch = GCHandle.FromIntPtr(ctx);
-           var prop = (UserPropagator)gch.Target;
+           var prop = propagators[ctx.ToInt32()];
 	   var t = Expr.Create(prop.ctx, a);
 	   var u = t;
 	   prop.callback = cb;
@@ -161,11 +155,11 @@ namespace Microsoft.Z3
         /// </summary>        
         public UserPropagator(Solver s)
 	{
-	    gch = GCHandle.Alloc(this, GCHandleType.Pinned);
+	    id = propagators.Count;
+	    propagators.Add(this);
 	    solver = s;
 	    ctx = solver.Context;
-	    var cb = GCHandle.ToIntPtr(gch);
-	    Native.Z3_solver_propagate_init(ctx.nCtx, solver.NativeObject, cb, _push, _pop, _fresh);
+	    Native.Z3_solver_propagate_init(ctx.nCtx, solver.NativeObject, new IntPtr(id), _push, _pop, _fresh);
 	}
 
         /// <summary>
@@ -173,7 +167,8 @@ namespace Microsoft.Z3
         /// </summary>        
         public UserPropagator(Context _ctx)
 	{
-	    gch = GCHandle.Alloc(this);
+	    id = propagators.Count;
+	    propagators.Add(this);
             solver = null;
 	    ctx = _ctx;
 	}
@@ -183,8 +178,7 @@ namespace Microsoft.Z3
         /// </summary>            
 	~UserPropagator()
 	{
-            if (gch != null)
-                gch.Free();
+            propagators[id] = null;
             if (solver == null)
                 ctx.Dispose();
  	}
