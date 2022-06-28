@@ -161,7 +161,7 @@ namespace Microsoft.Z3
         /// </summary>        
         public UserPropagator(Solver s)
 	{
-	    gch = GCHandle.Alloc(this);
+	    gch = GCHandle.Alloc(this, GCHandleType.Pinned);
 	    solver = s;
 	    ctx = solver.Context;
 	    var cb = GCHandle.ToIntPtr(gch);
