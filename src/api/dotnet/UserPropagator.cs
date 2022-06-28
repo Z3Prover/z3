@@ -207,16 +207,16 @@ namespace Microsoft.Z3
         /// <summary>
         /// Declare combination of assigned expressions a conflict
 	/// </summary>
-	void Conflict(params Expr[] terms) {
-	     Propagate(terms, ctx.MkFalse());
+        public void Conflict(params Expr[] terms) {
+             Propagate(terms, ctx.MkFalse());
         }
 
         /// <summary>
         /// Propagate consequence
 	/// </summary>
-        void Propagate(Expr[] terms, Expr conseq) {
-	     var nTerms = Z3Object.ArrayToNative(terms);
-	     Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, 0u, null, null, conseq.NativeObject);
+        public void Propagate(Expr[] terms, Expr conseq) {
+            var nTerms = Z3Object.ArrayToNative(terms);
+            Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, 0u, null, null, conseq.NativeObject);
         }
 
 
