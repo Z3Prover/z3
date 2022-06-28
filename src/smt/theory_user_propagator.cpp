@@ -20,6 +20,7 @@ Author:
 #include "smt/theory_bv.h"
 #include "smt/theory_user_propagator.h"
 #include "smt/smt_context.h"
+#include "ast/ast_ll_pp.h"
 
 using namespace smt;
 
@@ -49,6 +50,7 @@ void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     expr_ref r(m);
     expr* e = term;
     ctx.get_rewriter()(e, r);
+    TRACE("user_propagate", tout << "add " << mk_bounded_pp(e, m) << "\n");
     if (r != e) {
         r = m.mk_fresh_const("aux-expr", e->get_sort());
         expr_ref eq(m.mk_eq(r, e), m);
