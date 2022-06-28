@@ -596,12 +596,13 @@ namespace pb {
                 s().reset_mark(v);
                 --m_num_marks;
             }
-            if (idx == 0 && !_debug_conflict) {
+            if (idx == 0 && !_debug_conflict && m_num_marks > 0) {
                 _debug_conflict = true;
                 _debug_var2position.reserve(s().num_vars());
                 for (unsigned i = 0; i < lits.size(); ++i) {
                     _debug_var2position[lits[i].var()] = i;
                 }
+                IF_VERBOSE(0, verbose_stream() << "num marks: " << m_num_marks << "\n");
                 IF_VERBOSE(0, 
                            active2pb(m_A);
                            uint64_t c = 0;
@@ -617,20 +618,19 @@ namespace pb {
                     }
                 }
                 m_num_marks = 0;
-                resolve_conflict();                
+                resolve_conflict();
+                exit(0);
             }
             --idx;
         }
     }
 
     lbool solver::resolve_conflict() { 
-        if (0 == m_num_propagations_since_pop) {
+        if (0 == m_num_propagations_since_pop) 
             return l_undef;
-        }
 
-        if (s().m_config.m_pb_resolve == sat::PB_ROUNDING) {
+        if (s().m_config.m_pb_resolve == sat::PB_ROUNDING) 
             return resolve_conflict_rs();
-        }
        
         m_overflow = false;
         reset_coeffs();
