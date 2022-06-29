@@ -181,9 +181,11 @@ namespace polysat {
             return x.manager().max_value();
     }
 
-    // determine worst case upper bounds for x, y
-    // then extract premises for a non-worst-case bound.
     void inf_saturate::push_omega(pdd const& x, pdd const& y) {     
+        m_new_constraints.insert(~s.mul_ovfl(x, y));
+        /*
+        // determine worst case upper bounds for x, y
+        // then extract premises for a non-worst-case bound.
         auto& pddm = x.manager();
         rational x_max = max_value(x);
         rational y_max = max_value(y);
@@ -198,6 +200,7 @@ namespace polysat {
             for (auto const& c : s.m_viable.get_constraints(x.var()))
                 m_new_constraints.insert(c);            
         }
+        */
     }
 
     /*
