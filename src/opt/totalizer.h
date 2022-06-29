@@ -1,0 +1,44 @@
+/*++
+Copyright (c) 2022 Microsoft Corporation
+
+Module Name:
+
+    totalizer.h
+
+Abstract:
+   
+    Incremental totalizer for at least constraints
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2022-06-27
+
+--*/
+
+#pragma once
+#include "ast/ast.h"
+
+namespace opt {
+    
+    class totalizer {
+        struct node {
+            node* m_left = nullptr;
+            node* m_right = nullptr;
+            expr_ref_vector m_literals;
+            node(expr_ref_vector& l): m_literals(l) {}
+        };
+
+        ast_manager&            m;
+        expr_ref_vector         m_literals;
+        node*                   m_tree;
+        vector<expr_ref_vector> m_clauses;
+
+        void ensure_bound(node* n, unsigned k);
+
+    public:
+        totalizer(expr_ref_vector const& literals);
+        ~totalizer();
+        expr* at_least(unsigned k);
+        vector<expr_ref_vector>& clauses() { return m_clauses; }
+    };   
+}
