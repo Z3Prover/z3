@@ -133,7 +133,7 @@ namespace arith {
             expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
-            literal mod_lt_q = mk_literal(a.mk_lt(a.mk_sub(mod, abs_q), mone));
+            literal mod_lt_q = mk_literal(a.mk_le(a.mk_sub(mod, abs_q), mone));
             
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
