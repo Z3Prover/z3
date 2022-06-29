@@ -1,4 +1,4 @@
-﻿/*++
+/*++
 Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
@@ -72,7 +72,6 @@ namespace polysat {
         LOG("critical " << m_rule << " " << crit1);
         LOG("consequent " << c << " value: " << c.bvalue(s) << " is-false: " << c.is_currently_false(s) << " " << core.contains(~c));
 
-
         // ensure new core is a conflict
         if (!c.is_currently_false(s) && c.bvalue(s) != l_false)
             return false;
@@ -81,7 +80,20 @@ namespace polysat {
             return false;
 
         // avoid loops
-        if (core.contains(~c))
+        // NOTE:
+        // it is not enough to only check whether ~c is already in the core.
+        // One example had c: 0 != 0, so c was ignored when inserting it to the core.
+        // (But the side conditions in m_new_constraints were useful.)
+        bool inserting = false;
+        if (!c.is_always_false() && !core.contains(~c))
+            inserting = true;
+        else
+            for (auto d : m_new_constraints)
+                if (!d.is_always_true() && !core.contains(d)) {
+                    inserting = true;
+                    break;
+                }
+        if (!inserting)
             return false;
 
         core.reset();
