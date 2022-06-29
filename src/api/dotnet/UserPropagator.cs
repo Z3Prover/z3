@@ -61,7 +61,7 @@ namespace Microsoft.Z3
         /// <param name="phase">Set phase to -1 (false) or 1 (true) to override solver's phase</param>
         /// </summary>                
         public delegate void DecideEh(ref Expr term, ref uint idx, ref int phase);
-
+        
         // access managed objects through a static array.
         // thread safety is ignored for now.
         static List<UserPropagator> propagators = new List<UserPropagator>();
@@ -76,6 +76,17 @@ namespace Microsoft.Z3
         CreatedEh created_eh;
         DecideEh decide_eh;
 
+        Native.Z3_push_eh push_eh;
+        Native.Z3_pop_eh pop_eh;
+        Native.Z3_fresh_eh fresh_eh;
+
+        Native.Z3_fixed_eh fixed_wrapper;
+        Native.Z3_final_eh final_wrapper;
+        Native.Z3_eq_eh eq_wrapper;
+        Native.Z3_eq_eh diseq_wrapper;
+        Native.Z3_decide_eh decide_wrapper;
+        Native.Z3_created_eh created_wrapper;
+
         void Callback(Action fn, Z3_solver_callback cb)
         {
             this.callback = cb;
@@ -85,7 +96,7 @@ namespace Microsoft.Z3
             }
             catch
             {
-                // TBD: add debug log or exception handler		
+                // TBD: add debug log or exception handler
             }
             finally
             {
@@ -172,7 +183,10 @@ namespace Microsoft.Z3
             propagators.Add(this);
             solver = s;
             ctx = solver.Context;
-            Native.Z3_solver_propagate_init(ctx.nCtx, solver.NativeObject, new IntPtr(id), _push, _pop, _fresh);
+            push_eh = _push;
+            pop_eh = _pop;
+            fresh_eh = _fresh;
+            Native.Z3_solver_propagate_init(ctx.nCtx, solver.NativeObject, new IntPtr(id), push_eh, pop_eh, fresh_eh);
         }
 
         /// <summary>
@@ -244,9 +258,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.fixed_wrapper = _fixed;
                 this.fixed_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_fixed(ctx.nCtx, solver.NativeObject, _fixed);
+                    Native.Z3_solver_propagate_fixed(ctx.nCtx, solver.NativeObject, fixed_wrapper);
             }
         }
 
@@ -257,9 +272,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.final_wrapper = _final;
                 this.final_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_final(ctx.nCtx, solver.NativeObject, _final);
+                    Native.Z3_solver_propagate_final(ctx.nCtx, solver.NativeObject, final_wrapper);
             }
         }
 
@@ -270,9 +286,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.eq_wrapper = _eq;
                 this.eq_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_eq(ctx.nCtx, solver.NativeObject, _eq);
+                    Native.Z3_solver_propagate_eq(ctx.nCtx, solver.NativeObject, eq_wrapper);
             }
         }
 
@@ -283,9 +300,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.diseq_wrapper = _diseq;
                 this.diseq_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_diseq(ctx.nCtx, solver.NativeObject, _diseq);
+                    Native.Z3_solver_propagate_diseq(ctx.nCtx, solver.NativeObject, diseq_wrapper);
             }
         }
 
@@ -296,9 +314,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.created_wrapper = _created;
                 this.created_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_created(ctx.nCtx, solver.NativeObject, _created);
+                    Native.Z3_solver_propagate_created(ctx.nCtx, solver.NativeObject, created_wrapper);
             }
         }
 
@@ -309,9 +328,10 @@ namespace Microsoft.Z3
         {
             set
             {
+                this.decide_wrapper = _decide;
                 this.decide_eh = value;
                 if (solver != null)
-                    Native.Z3_solver_propagate_decide(ctx.nCtx, solver.NativeObject, _decide);
+                    Native.Z3_solver_propagate_decide(ctx.nCtx, solver.NativeObject, decide_wrapper);
             }
         }
 
