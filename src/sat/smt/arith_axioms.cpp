@@ -174,12 +174,7 @@ namespace arith {
             }
             else if (!a.is_numeral(q)) {
                 // (or (= y 0)  (<= (* y (div x y)) x))
-                // (or (<= y 0) (>= (* (+ y  1)  (div x y)) x))
-                // (or (>= y 0) (>= (* (+ y -1)  (div x y)) x))
-                expr_ref one(a.mk_int(1), m);
                 add_clause(eqz, mk_literal(a.mk_le(a.mk_mul(q, div), p)));
-                add_clause(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_ge(a.mk_mul(a.mk_add(q,  one), div), q)));
-                add_clause(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_ge(a.mk_mul(a.mk_add(q, mone), div), q)));
             }
 
 

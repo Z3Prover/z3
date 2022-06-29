@@ -584,27 +584,18 @@ namespace smt {
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
 
-            if (m_util.is_zero(dividend) && false) {
+            if (m_util.is_zero(dividend)) {
                 mk_axiom(eqz, m.mk_eq(div, zero));
                 mk_axiom(eqz, m.mk_eq(mod, zero));
             }
 
             // (or (= y 0)  (<= (* y (div x y)) x))
-            // (or (<= y 0) (>= (* (+ y  1)  (div x y)) x))
-            // (or (>= y 0) (>= (* (+ y -1)  (div x y)) x))
             else if (!m_util.is_numeral(divisor)) {
                 expr_ref div_ge(m), div_le(m), ge(m), le(m);
                 div_ge = m_util.mk_ge(m_util.mk_sub(dividend, m_util.mk_mul(divisor, div)), zero);
                 s(div_ge);                
                 mk_axiom(eqz, div_ge, false);
-                ge = m_util.mk_ge(divisor, zero);
-                le = m_util.mk_le(divisor, zero);
-                div_le = m_util.mk_le(m_util.mk_sub(dividend, m_util.mk_mul(m_util.mk_add(divisor, one), div)), zero);
-                s(div_le);
-                mk_axiom(le, div_le, false);
-                div_le = m_util.mk_le(m_util.mk_sub(dividend, m_util.mk_mul(m_util.mk_sub(divisor, one), div)), zero);
-                s(div_le);
-                mk_axiom(ge, div_le, false);
+                TRACE("arith", tout << eqz << " " << div_ge << "\n");
             }
 
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
