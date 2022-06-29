@@ -133,7 +133,7 @@ namespace polysat {
         ~conflict();
 
         /// Begin next conflict
-        void begin_conflict();
+        void begin_conflict(char const* text);
         /// Log inference at the current state.
         void log_inference(inference const& inf);
         void log_inference(char const* name) { log_inference(inference_named(name)); }

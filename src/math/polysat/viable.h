@@ -69,7 +69,7 @@ namespace polysat {
         ~viable();
 
         // declare and remove var
-        void push_var(unsigned sz);
+        void push_var(unsigned bit_width);
         void pop_var();
 
         // undo adding/removing of entries
@@ -223,7 +223,7 @@ namespace polysat {
         return v.v.display(out, v.var);
     }
 
-
+    // TODO: don't push on each constraint add/remove; but only when necessary
     class viable_fallback {
         solver& s;
 
@@ -236,7 +236,7 @@ namespace polysat {
         viable_fallback(solver& s);
 
         // declare and remove var
-        void push_var(unsigned sz);
+        void push_var(unsigned bit_width);
         void pop_var();
 
         // add/remove constraints stored in the fallback solver

@@ -53,16 +53,16 @@ namespace polysat {
         std::string hline() const { return std::string(70, '-'); }
 
     public:
-        void begin_conflict() {
+        void begin_conflict(char const* text) {
             ++m_conflicts;
-            LOG("Begin CONFLICT #" << m_conflicts);
+            LOG("Begin CONFLICT #" << m_conflicts << " (" << text << ")");
             m_used_constraints.reset();
             m_used_vars.reset();
             if (!m_out)
                 m_out = alloc(std::ofstream, "conflicts.txt");
             else
                 out() << "\n\n\n\n\n\n\n\n\n\n\n\n";
-            out() << "CONFLICT #" << m_conflicts << "\n";
+            out() << "CONFLICT #" << m_conflicts << " (" << text << ")" << "\n";
         }
 
         void log_inference(conflict const& core, inference const* inf) {
@@ -147,9 +147,9 @@ namespace polysat {
 
     conflict::~conflict() {}
 
-    void conflict::begin_conflict() {
+    void conflict::begin_conflict(char const* text) {
         if (m_logger) {
-            m_logger->begin_conflict();
+            m_logger->begin_conflict(text);
             // log initial conflict state
             m_logger->log_inference(*this, nullptr);
         }

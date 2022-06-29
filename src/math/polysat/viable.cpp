@@ -37,7 +37,7 @@ namespace polysat {
             dealloc(e);
     }
 
-    void viable::push_var(unsigned sz) {
+    void viable::push_var(unsigned bit_width) {
         m_units.push_back(nullptr);
         m_equal_lin.push_back(nullptr);
         m_diseq_lin.push_back(nullptr);
@@ -745,9 +745,9 @@ namespace polysat {
         m_usolver_factory = mk_univariate_bitblast_factory();
     }
 
-    void viable_fallback::push_var(unsigned sz) {
+    void viable_fallback::push_var(unsigned bit_width) {
         auto& mk_solver = *m_usolver_factory;
-        m_usolver.push_back(mk_solver(sz));
+        m_usolver.push_back(mk_solver(bit_width));
         m_constraints.push_back({});
     }
 

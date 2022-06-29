@@ -225,7 +225,7 @@ namespace polysat {
         }
     }
 
-    lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) const {
+    lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) {
         auto& m = p.manager();
 
         if (p.is_val() && q.is_val() && r.is_val())
@@ -289,7 +289,7 @@ namespace polysat {
         }
     }
 
-    lbool op_constraint::eval_and(pdd const& p, pdd const& q, pdd const& r) const {
+    lbool op_constraint::eval_and(pdd const& p, pdd const& q, pdd const& r) {
         if ((p.is_zero() || q.is_zero()) && r.is_zero())
             return l_true;
 

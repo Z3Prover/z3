@@ -17,6 +17,34 @@ Author:
 
 namespace polysat {
 
+    struct post_propagate2 : public inference {
+        const char* name;
+        signed_constraint conclusion;
+        signed_constraint premise1;
+        signed_constraint premise2;
+        post_propagate2(const char* name, signed_constraint conclusion, signed_constraint premise1, signed_constraint premise2)
+            : name(name), conclusion(conclusion), premise1(premise1), premise2(premise2) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Post-propagate (by " << name << "), "
+                << "conclusion " << conclusion.blit() << ": " << conclusion
+                << " from " << premise1.blit() << ": " << premise1
+                << " and " << premise2.blit() << ": " << premise2;
+        }
+    };
+
+    struct inference_sup : public inference {
+        const char* name;
+        pvar var;
+        signed_constraint reduced;
+        signed_constraint reducer;
+        inference_sup(const char* name, pvar var, signed_constraint reduced, signed_constraint reducer) : name(name), var(var), reduced(reduced), reducer(reducer) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Superposition (" << name << "), reduced v" << var
+                << " in " << reduced.blit() << ": " << reduced
+                << " by " << reducer.blit() << ": " << reducer;
+        }
+    };
+
     signed_constraint ex_polynomial_superposition::resolve1(pvar v, signed_constraint c1, signed_constraint c2) {
         // c1 is true, c2 is false
         SASSERT(c1.is_currently_true(s));
@@ -62,6 +90,7 @@ namespace polysat {
             if (!c)
                 continue;
 
+            char const* inf_name = "?";
             switch (c.bvalue(s)) {
             case l_false:
                 // new conflict state based on propagation and theory conflict
@@ -69,9 +98,10 @@ namespace polysat {
                 core.insert(c1);
                 core.insert(c2);
                 core.insert(~c);
-                core.log_inference("superposition 1");
+                core.log_inference(inference_sup("1", v, c2, c1));
                 return l_true;
             case l_undef:
+                SASSERT(premises.empty());
                 // Ensure that c is assigned and justified                    
                 premises.push_back(c1);
                 premises.push_back(c2);
@@ -80,8 +110,9 @@ namespace polysat {
                 // gets created, c is assigned to false by evaluation propagation
                 // It should have been assigned true by unit propagation.
                 core.replace(c2, c, premises);
-                core.log_inference("superposition 2");
-                SASSERT_EQ(l_true, c.bvalue(s));  // TODO: currently violated, check this!
+                core.log_inference(post_propagate2("superposition", c, c2, c1));
+                inf_name = "2";
+                SASSERT_EQ(l_true, c.bvalue(s));
                 SASSERT(c.is_currently_false(s));
                 break;
             default:
@@ -92,7 +123,7 @@ namespace polysat {
             // c alone (+ variables) is now enough to represent the conflict.
             core.reset();
             core.set(c);
-            core.log_inference("superposition 3");
+            core.log_inference(inference_sup(inf_name, v, c2, c1));
             return c->contains_var(v) ? l_undef : l_true;
         }
         return l_false;
@@ -142,19 +173,6 @@ namespace polysat {
             }
         }
     }
-
-    struct inference_sup : public inference {
-        const char* name;
-        pvar var;
-        signed_constraint reduced;
-        signed_constraint reducer;
-        inference_sup(const char* name, pvar var, signed_constraint reduced, signed_constraint reducer) : name(name), var(var), reduced(reduced), reducer(reducer) {}
-        std::ostream& display(std::ostream& out) const override {
-            return out << "Superposition " << name << ", reduced v" << var
-                << " in " << reduced.blit() << ": " << reduced
-                << " by " << reducer.blit() << ": " << reducer;
-        }
-    };
 
     bool ex_polynomial_superposition::reduce_by(pvar v, signed_constraint eq, conflict& core) {
         pdd p = eq.eq();

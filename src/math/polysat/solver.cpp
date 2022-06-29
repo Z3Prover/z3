@@ -610,9 +610,9 @@ namespace polysat {
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
-        m_conflict.begin_conflict();
 
         if (m_conflict.conflict_var() != null_var) {
+            m_conflict.begin_conflict("backtrack_fi");
             pvar v = m_conflict.conflict_var();
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             // TODO: use unsat core from m_viable_fallback if the conflict is from there
@@ -620,6 +620,7 @@ namespace polysat {
             backtrack_fi();
             return;
         }
+        m_conflict.begin_conflict("resolve_conflict");
         
         search_iterator search_it(m_search);
         while (search_it.next()) {
