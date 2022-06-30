@@ -705,6 +705,8 @@ namespace opt {
 
         if (m_maxsat_engine != symbol("maxres") &&
             m_maxsat_engine != symbol("rc2") &&
+            m_maxsat_engine != symbol("rc2tot") &&
+            m_maxsat_engine != symbol("rc2bin") &&
             m_maxsat_engine != symbol("maxres-bin") &&
             m_maxsat_engine != symbol("maxres-bin-delay") &&
             m_maxsat_engine != symbol("pd-maxres") &&

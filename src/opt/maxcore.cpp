@@ -13,6 +13,7 @@ Abstract:
     - mus-mss:    based on dual refinement of bounds.
     - binary:     binary version of maxres
     - rc2:        implementaion of rc2 heuristic using cardinality constraints
+    - rc2t:       implementaion of rc2 heuristic using totalizerx
     - rc2-binary: hybrid of rc2 and binary maxres. Perform one step of binary maxres. 
                   If there are more than 16 soft constraints create a cardinality constraint.
 
@@ -60,6 +61,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
+#include "ast/ast_smt_pp.h"
 #include "model/model_smt2_pp.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
@@ -71,6 +73,8 @@ Notes:
 #include "opt/opt_cores.h"
 #include "opt/maxsmt.h"
 #include "opt/maxcore.h"
+#include "opt/totalizer.h"
+#include <iostream>
 
 using namespace opt;
 
@@ -81,6 +85,7 @@ public:
         s_primal_dual,
         s_primal_binary,
         s_rc2,
+        s_rc2tot,
         s_primal_binary_rc2
     };
 private:
@@ -159,6 +164,9 @@ public:
             break;
         case s_rc2:
             m_trace_id = "rc2";
+            break;
+        case s_rc2tot:
+            m_trace_id = "rc2tot";
             break;
         case s_primal_binary_rc2:
             m_trace_id = "rc2bin";
@@ -366,6 +374,7 @@ public:
         case s_primal:
         case s_primal_binary:
         case s_rc2:
+        case s_rc2tot:
         case s_primal_binary_rc2:
             return mus_solver();
         case s_primal_dual:
@@ -558,6 +567,7 @@ public:
             bin_max_resolve(core, w);
             break;
         case strategy_t::s_rc2:
+        case strategy_t::s_rc2tot:
             max_resolve_rc2(core, w);
             break;
         case strategy_t::s_primal_binary_rc2:
@@ -780,8 +790,38 @@ public:
     obj_map<expr, expr*>      m_at_mostk;
     obj_map<expr, bound_info> m_bounds;
     rational                  m_unfold_upper;
+    obj_map<expr, totalizer*> m_totalizers;
+
+    expr* mk_atmost_tot(expr_ref_vector const& es, unsigned bound, rational const& weight) {
+        pb_util pb(m);
+        expr_ref am(pb.mk_at_most_k(es, 0), m);
+        totalizer* t = nullptr;        
+        if (!m_totalizers.find(am, t)) {
+            m_trail.push_back(am);
+            t = alloc(totalizer, es);
+            m_totalizers.insert(am, t);
+        }
+        expr* at_least = t->at_least(bound + 1);
+        am = m.mk_not(at_least);
+        m_trail.push_back(am);
+        expr_ref_vector& clauses = t->clauses();
+        for (auto & clause : clauses) {
+            add(clause);
+            m_defs.push_back(clause);
+        }
+        clauses.reset();
+        auto& defs = t->defs();
+        for (auto & [v, d] : defs) 
+            update_model(v, d);
+        defs.reset();
+        bound_info b(es, bound, weight);
+        m_bounds.insert(am, b);
+        return am;
+    }
 
     expr* mk_atmost(expr_ref_vector const& es, unsigned bound, rational const& weight) {
+        if (m_st == strategy_t::s_rc2tot)
+            return mk_atmost_tot(es, bound, weight);
         pb_util pb(m);
         expr_ref am(pb.mk_at_most_k(es, bound), m);
         expr* r = nullptr;
@@ -1040,6 +1080,9 @@ public:
         m_unfold_upper = 0;
         m_at_mostk.reset();
         m_bounds.reset();
+        for (auto& [k,t] : m_totalizers)
+            dealloc(t);
+        m_totalizers.reset();
         return l_true;
     }
 
@@ -1107,6 +1150,11 @@ opt::maxsmt_solver_base* opt::mk_maxres(
 opt::maxsmt_solver_base* opt::mk_rc2(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
     return alloc(maxcore, c, id, soft, maxcore::s_rc2);
+}
+
+opt::maxsmt_solver_base* opt::mk_rc2tot(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxcore, c, id, soft, maxcore::s_rc2tot);
 }
 
 opt::maxsmt_solver_base* opt::mk_rc2bin(

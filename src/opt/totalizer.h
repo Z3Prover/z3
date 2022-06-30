@@ -30,8 +30,9 @@ namespace opt {
 
         ast_manager&            m;
         expr_ref_vector         m_literals;
-        node*                   m_tree;
-        vector<expr_ref_vector> m_clauses;
+        node*                   m_tree = nullptr;
+        expr_ref_vector         m_clauses;
+        vector<std::pair<expr_ref, expr_ref>> m_defs;
 
         void ensure_bound(node* n, unsigned k);
 
@@ -39,6 +40,7 @@ namespace opt {
         totalizer(expr_ref_vector const& literals);
         ~totalizer();
         expr* at_least(unsigned k);
-        vector<expr_ref_vector>& clauses() { return m_clauses; }
+        expr_ref_vector& clauses() { return m_clauses; }
+        vector<std::pair<expr_ref, expr_ref>>& defs() { return m_defs; }
     };   
 }

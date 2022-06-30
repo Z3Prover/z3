@@ -17,9 +17,6 @@ void tst_totalizer() {
         expr* am = tot.at_least(i);
         std::cout << mk_pp(am, m) << "\n";        
     }
-    for (auto& clause : tot.clauses()) {
-        for (auto * l : clause)
-            std::cout << mk_pp(l, m) << " ";
-        std::cout << "\n";
-    }
+    for (auto& clause : tot.clauses()) 
+        std::cout << clause << "\n";
 }

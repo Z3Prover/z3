@@ -193,6 +193,8 @@ namespace opt {
             m_msolver = mk_maxres_binary(m_c, m_index, m_soft);
         else if (maxsat_engine == symbol("rc2"))             
             m_msolver = mk_rc2(m_c, m_index, m_soft);
+        else if (maxsat_engine == symbol("rc2tot"))             
+            m_msolver = mk_rc2tot(m_c, m_index, m_soft);
         else if (maxsat_engine == symbol("rc2bin"))             
             m_msolver = mk_rc2bin(m_c, m_index, m_soft);
         else if (maxsat_engine == symbol("pd-maxres"))             

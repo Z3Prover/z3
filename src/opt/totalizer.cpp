@@ -34,13 +34,15 @@ namespace opt {
         if (r)
             ensure_bound(r, k);
 
+        expr_ref c(m), def(m);
+        expr_ref_vector ors(m), clause(m);
         for (unsigned i = k; i > 0 && !lits.get(i - 1); --i) {
             if (l->m_literals.size() + r->m_literals.size() < i) {
                 lits[i - 1] = m.mk_false();
                 continue;
             }
 
-            expr* c = m.mk_fresh_const("c", m.mk_bool_sort());
+            c = m.mk_fresh_const("c", m.mk_bool_sort());
             lits[i - 1] = c;
 
             // >= 3
@@ -49,13 +51,15 @@ namespace opt {
             // l[1] & r[0] => >= 3
             // l[2] => >= 3
 
+            ors.reset();
+
             for (unsigned j1 = 0; j1 <= i; ++j1) {
                 unsigned j2 = i - j1;
                 if (j1 > l->m_literals.size())
                     continue;
                 if (j2 > r->m_literals.size())
                     continue;
-                expr_ref_vector clause(m);
+                clause.reset();
                 if (0 < j1) {
                     expr* a = l->m_literals.get(j1 - 1);
                     clause.push_back(mk_not(m, a));
@@ -66,16 +70,19 @@ namespace opt {
                 }
                 if (clause.empty())
                     continue;
+                ors.push_back(mk_or(clause));
                 clause.push_back(c);
-                m_clauses.push_back(clause);
+                m_clauses.push_back(mk_or(clause));
             }
+            def = mk_not(m, mk_and(ors));
+            m_defs.push_back(std::make_pair(c, def));            
         }
     }
 
     totalizer::totalizer(expr_ref_vector const& literals):
         m(literals.m()),
         m_literals(literals),
-        m_tree(nullptr) {
+        m_clauses(m) {
         ptr_vector<node> trees;
         for (expr* e : literals) {
             expr_ref_vector ls(m);
