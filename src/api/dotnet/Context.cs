@@ -4620,16 +4620,16 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Produces a term that represents the conversion of the floating-point term t into a
-        /// bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary,
+        /// bit-vector term of size sz in 2's complement format (signed when sign==true). If necessary,
         /// the result will be rounded according to rounding mode rm.
         /// </remarks>
         /// <param name="rm">RoundingMode term.</param>
         /// <param name="t">FloatingPoint term</param>
         /// <param name="sz">Size of the resulting bit-vector.</param>
-        /// <param name="signed">Indicates whether the result is a signed or unsigned bit-vector.</param>
-        public BitVecExpr MkFPToBV(FPRMExpr rm, FPExpr t, uint sz, bool signed)
+        /// <param name="sign">Indicates whether the result is a signed or unsigned bit-vector.</param>
+        public BitVecExpr MkFPToBV(FPRMExpr rm, FPExpr t, uint sz, bool sign)
         {
-            if (signed)
+            if (sign)
                 return new BitVecExpr(this, Native.Z3_mk_fpa_to_sbv(this.nCtx, rm.NativeObject, t.NativeObject, sz));
             else
                 return new BitVecExpr(this, Native.Z3_mk_fpa_to_ubv(this.nCtx, rm.NativeObject, t.NativeObject, sz));

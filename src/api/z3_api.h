@@ -6811,7 +6811,7 @@ extern "C" {
 
     /**
        \brief register a callback when a new expression with a registered function is used by the solver 
-       The registered function appears at the top level and is created using \ref Z3_propagate_solver_declare.
+       The registered function appears at the top level and is created using \ref Z3_solver_propagate_declare.
 
        def_API('Z3_solver_propagate_created', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_created_eh)))
     */
@@ -6837,7 +6837,7 @@ extern "C" {
     /**
         Create uninterpreted function declaration for the user propagator.
         When expressions using the function are created by the solver invoke a callback
-        to \ref \Z3_solver_progate_created with arguments
+        to \ref \Z3_solver_propagate_created with arguments
         1. context and callback solve
         2. declared_expr: expression using function that was used as the top-level symbol
         3. declared_id: a unique identifier (unique within the current scope) to track the expression.
