@@ -85,7 +85,6 @@ public:
         s_primal_dual,
         s_primal_binary,
         s_rc2,
-        s_rc2tot,
         s_primal_binary_rc2
     };
 private:
@@ -136,6 +135,7 @@ private:
     bool             m_enable_lns = false;             // enable LNS improvements
     unsigned         m_lns_conflicts = 1000;           // number of conflicts used for LNS improvement
     bool             m_enable_core_rotate = false;     // enable core rotation
+    bool             m_use_totalizer = true;           // use totalizer instead of cardinality encoding
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
@@ -165,9 +165,6 @@ public:
         case s_rc2:
             m_trace_id = "rc2";
             break;
-        case s_rc2tot:
-            m_trace_id = "rc2tot";
-            break;
         case s_primal_binary_rc2:
             m_trace_id = "rc2bin";
             break;
@@ -177,7 +174,10 @@ public:
         }
     }
 
-    ~maxcore() override {}
+    ~maxcore() override {
+        for (auto& [k,t] : m_totalizers)
+            dealloc(t);        
+    }
 
     bool is_literal(expr* l) {
         return
@@ -374,7 +374,6 @@ public:
         case s_primal:
         case s_primal_binary:
         case s_rc2:
-        case s_rc2tot:
         case s_primal_binary_rc2:
             return mus_solver();
         case s_primal_dual:
@@ -567,7 +566,6 @@ public:
             bin_max_resolve(core, w);
             break;
         case strategy_t::s_rc2:
-        case strategy_t::s_rc2tot:
             max_resolve_rc2(core, w);
             break;
         case strategy_t::s_primal_binary_rc2:
@@ -820,7 +818,7 @@ public:
     }
 
     expr* mk_atmost(expr_ref_vector const& es, unsigned bound, rational const& weight) {
-        if (m_st == strategy_t::s_rc2tot)
+        if (m_use_totalizer)
             return mk_atmost_tot(es, bound, weight);
         pb_util pb(m);
         expr_ref am(pb.mk_at_most_k(es, bound), m);
@@ -1064,6 +1062,7 @@ public:
         m_enable_lns =              p.enable_lns();
         m_enable_core_rotate =      p.enable_core_rotate();
         m_lns_conflicts =           p.lns_conflicts();
+        m_use_totalizer =           p.rc2_totalizer();
 	if (m_c.num_objectives() > 1)
 	  m_add_upper_bound_block = false;
     }
@@ -1152,10 +1151,6 @@ opt::maxsmt_solver_base* opt::mk_rc2(
     return alloc(maxcore, c, id, soft, maxcore::s_rc2);
 }
 
-opt::maxsmt_solver_base* opt::mk_rc2tot(
-    maxsat_context& c, unsigned id, vector<soft>& soft) {
-    return alloc(maxcore, c, id, soft, maxcore::s_rc2tot);
-}
 
 opt::maxsmt_solver_base* opt::mk_rc2bin(
     maxsat_context& c, unsigned id, vector<soft>& soft) {

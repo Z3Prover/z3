@@ -26,11 +26,17 @@ namespace opt {
             node* m_right = nullptr;
             expr_ref_vector m_literals;
             node(expr_ref_vector& l): m_literals(l) {}
+            ~node() {
+                dealloc(m_left);
+                dealloc(m_right);
+            }
+            unsigned size() const { return m_literals.size(); }
+            
         };
 
         ast_manager&            m;
         expr_ref_vector         m_literals;
-        node*                   m_tree = nullptr;
+        node*                   m_root = nullptr;
         expr_ref_vector         m_clauses;
         vector<std::pair<expr_ref, expr_ref>> m_defs;
 

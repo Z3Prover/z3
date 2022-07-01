@@ -37,7 +37,7 @@ namespace opt {
         expr_ref c(m), def(m);
         expr_ref_vector ors(m), clause(m);
         for (unsigned i = k; i > 0 && !lits.get(i - 1); --i) {
-            if (l->m_literals.size() + r->m_literals.size() < i) {
+            if (l->size() + r->size() < i) {
                 lits[i - 1] = m.mk_false();
                 continue;
             }
@@ -55,9 +55,9 @@ namespace opt {
 
             for (unsigned j1 = 0; j1 <= i; ++j1) {
                 unsigned j2 = i - j1;
-                if (j1 > l->m_literals.size())
+                if (j1 > l->size())
                     continue;
-                if (j2 > r->m_literals.size())
+                if (j2 > r->size())
                     continue;
                 clause.reset();
                 if (0 < j1) {
@@ -93,37 +93,27 @@ namespace opt {
             node* left = trees[i];
             node* right = trees[i + 1];
             expr_ref_vector ls(m);
-            ls.resize(left->m_literals.size() + right->m_literals.size());
+            ls.resize(left->size() + right->size());
             node* n = alloc(node, ls);
             n->m_left = left;
             n->m_right = right;
             trees.push_back(n);
         }
-        m_tree = trees.back();
+        m_root = trees.back();
     }
         
     totalizer::~totalizer() {
-        ptr_vector<node> trees;
-        trees.push_back(m_tree);
-        while (!trees.empty()) {
-            node* n = trees.back();
-            trees.pop_back();
-            if (n->m_left)
-                trees.push_back(n->m_left);
-            if (n->m_right)
-                trees.push_back(n->m_right);
-            dealloc(n);
-        }
+        dealloc(m_root);
     }
     
     expr* totalizer::at_least(unsigned k) {
         if (k == 0)
             return m.mk_true();
-        if  (m_tree->m_literals.size() < k)
+        if  (m_root->size() < k)
             return m.mk_false();
-        SASSERT(1 <= k && k <= m_tree->m_literals.size());
-        ensure_bound(m_tree, k);
-        return m_tree->m_literals.get(k - 1);
+        SASSERT(1 <= k && k <= m_root->size());
+        ensure_bound(m_root, k);
+        return m_root->m_literals.get(k - 1);
     }
     
 }
