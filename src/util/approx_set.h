@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #pragma once
-#include<iostream>
+#include<ostream>
 #include "util/debug.h"
 
 template<typename T> class approx_set_traits;

@@ -53,7 +53,8 @@ public:
         if (e.m_vector.empty()) {
             for (constraint_index j : e.m_set)
                 push_back(j);
-        } else {
+        } 
+        else {
             for (const auto & p : e.m_vector) {
                 add_pair(p.first, p.second);
             }
@@ -71,15 +72,17 @@ public:
         constraint_index ci() const { return m_var; }
         const mpq &coeff() const { return m_coeff; }
     };
+
     class iterator {
         bool      m_run_on_vector;
+        mpq       m_one = one_of_type<mpq>();
         pair_vec::const_iterator    m_vi;
         ci_set::iterator            m_ci;
     public:
         cimpq operator*() const {
             return m_run_on_vector?
                 cimpq( m_vi->first, m_vi->second) :
-                cimpq( *m_ci, one_of_type<mpq>()); 
+                cimpq( *m_ci, m_one); 
         }        
         iterator operator++() {
             if (m_run_on_vector)

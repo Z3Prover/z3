@@ -33,6 +33,7 @@ Notes:
 
 #include "math/simplex/sparse_matrix.h"
 #include "util/mpq_inf.h"
+#include "util/rational.h"
 #include "util/heap.h"
 #include "util/lbool.h"
 #include "util/uint_set.h"
@@ -200,5 +201,7 @@ namespace simplex {
     };
 
     void ensure_rational_solution(simplex<mpq_ext>& s);
+
+    void kernel(sparse_matrix<mpq_ext>& s, vector<vector<rational>>& K);
 };
 

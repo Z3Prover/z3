@@ -755,7 +755,7 @@ namespace mbp {
                 app* a = to_app(e);
                 func_decl* d = a->get_decl();
                 if (d->get_arity() == 0) continue;
-                unsigned id = d->get_decl_id();
+                unsigned id = d->get_small_id();
                 m_decl2terms.reserve(id+1);
                 if (m_decl2terms[id].empty()) m_decls.push_back(d);
                 m_decl2terms[id].push_back(t);
@@ -770,7 +770,7 @@ namespace mbp {
             // are distinct.
             //
             for (func_decl* d : m_decls) {
-                unsigned id = d->get_decl_id();
+                unsigned id = d->get_small_id();
                 ptr_vector<term> const& terms = m_decl2terms[id];
                 if (terms.size() <= 1) continue;
                 unsigned arity = d->get_arity();

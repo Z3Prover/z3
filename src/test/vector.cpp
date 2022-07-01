@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "util/vector.h"
+#include <iostream>
 
 static void tst1() {
     svector<int> v1;

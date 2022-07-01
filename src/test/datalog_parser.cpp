@@ -11,6 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/fp/dl_register_engine.h"
 #include "smt/params/smt_params.h"
 #include "ast/reg_decl_plugins.h"
+#include <iostream>
 
 using namespace datalog;
 

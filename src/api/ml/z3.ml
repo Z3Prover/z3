@@ -119,6 +119,7 @@ sig
   val get_ast_kind : ast -> Z3enums.ast_kind
   val is_expr : ast -> bool
   val is_app : ast -> bool
+  val is_numeral : ast -> bool
   val is_var : ast -> bool
   val is_quantifier : ast -> bool
   val is_sort : ast -> bool
@@ -191,6 +192,7 @@ end = struct
     | _ -> false
 
   let is_app (x:ast) = get_ast_kind x = APP_AST
+  let is_numeral (x:ast) = get_ast_kind x = NUMERAL_AST
   let is_var (x:ast) = get_ast_kind x = VAR_AST
   let is_quantifier (x:ast) = get_ast_kind x = QUANTIFIER_AST
   let is_sort (x:ast) = get_ast_kind x = SORT_AST
@@ -914,6 +916,12 @@ struct
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
+    
+  let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
+    Z3native.mk_datatype_sort ctx name
+    
+  let mk_sort_ref_s (ctx: context) (name: string) =
+    mk_sort_ref ctx (Symbol.mk_string ctx name)
 
   let mk_sorts (ctx:context) (names:Symbol.symbol list) (c:Constructor.constructor list list) =
     let n = List.length names in
@@ -1018,7 +1026,7 @@ struct
   let is_int (x:expr) =
     ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gc x) (Z3native.get_sort (Expr.gc x) x))) = INT_SORT)
 
-  let is_arithmetic_numeral (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_ANUM)
+  let is_arithmetic_numeral (x:expr) = (AST.is_numeral x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_ANUM)
   let is_le (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_LE)
   let is_ge (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_GE)
   let is_lt (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_LT)
@@ -1129,7 +1137,7 @@ struct
   let mk_sort (ctx:context) size = Z3native.mk_bv_sort ctx size
   let is_bv (x:expr) =
     ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gc x) (Z3native.get_sort (Expr.gc x) x))) = BV_SORT)
-  let is_bv_numeral (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_BNUM)
+  let is_bv_numeral (x:expr) = (AST.is_numeral x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_BNUM)
   let is_bv_bit1 (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_BIT1)
   let is_bv_bit0 (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_BIT0)
   let is_bv_uminus (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_BNEG)
@@ -1258,7 +1266,9 @@ struct
   let mk_seq_replace = Z3native.mk_seq_replace
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
+  let mk_seq_nth = Z3native.mk_seq_nth
   let mk_seq_index = Z3native.mk_seq_index
+  let mk_seq_last_index = Z3native.mk_seq_last_index
   let mk_str_to_int = Z3native.mk_str_to_int
   let mk_str_le = Z3native.mk_str_le
   let mk_str_lt = Z3native.mk_str_lt

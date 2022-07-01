@@ -33,7 +33,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_split_concat_eq = p.split_concat_eq();
     m_bvnot_simpl = p.bv_not_simpl();
     m_bv_sort_ac = p.bv_sort_ac();
-    m_mkbv2num = _p.get_bool("mkbv2num", false);
     m_extract_prop = p.bv_extract_prop();
     m_ite2id = p.bv_ite2id();
     m_le_extra = p.bv_le_extra();
@@ -49,9 +48,6 @@ void bv_rewriter::updt_params(params_ref const & p) {
 void bv_rewriter::get_param_descrs(param_descrs & r) {
     poly_rewriter<bv_rewriter_core>::get_param_descrs(r);
     bv_rewriter_params::collect_param_descrs(r);
-#ifndef _EXTERNAL_RELEASE
-    r.insert("mkbv2num", CPK_BOOL, "(default: false) convert (mkbv [true/false]*) into a numeral");
-#endif
 }
 
 br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -1740,7 +1736,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         unsigned low = 0;
         unsigned i = 0;
         while (i < sz) {
-            while (i < sz && mod(v1, two).is_one()) {
+            while (i < sz && v1.is_odd()) {
                 i++;
                 div(v1, two, v1);
             }
@@ -1749,7 +1745,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
                 exs.push_back(m_util.mk_numeral(rational::power_of_two(num_sz) - numeral(1), num_sz));
                 low = i;
             }
-            while (i < sz && mod(v1, two).is_zero()) {
+            while (i < sz && v1.is_even()) {
                 i++;
                 div(v1, two, v1);
             }

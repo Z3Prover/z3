@@ -19,6 +19,7 @@ Notes:
 #include "math/polynomial/upolynomial.h"
 #include "util/timeit.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 static void tst1() {
     reslimit rl;

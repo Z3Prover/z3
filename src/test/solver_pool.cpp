@@ -1,6 +1,7 @@
 #include "ast/reg_decl_plugins.h"
 #include "solver/solver_pool.h"
 #include "smt/smt_solver.h"
+#include <iostream>
 
 void tst_solver_pool() {
     ast_manager m;

@@ -1849,7 +1849,7 @@ std::string mpz_manager<SYNCH>::to_string(mpz const & a) const {
 template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
     if (is_small(a))
-        return a.m_val;
+        return ::abs(a.m_val);
 #ifndef _MP_GMP
     unsigned sz = size(a);
     if (sz == 1)
@@ -2255,6 +2255,9 @@ template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
+    if (is_small(a) && a.m_val == INT_MIN)
+        return ::log2((unsigned)a.m_val);
+        
     if (is_small(a))
         return ::log2((unsigned)-a.m_val);
 #ifndef _MP_GMP

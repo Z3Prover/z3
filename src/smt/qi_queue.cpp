@@ -232,6 +232,7 @@ namespace smt {
         expr_ref  s_instance(m);
         proof_ref pr(m);
         m_context.get_rewriter()(instance, s_instance, pr);
+
         TRACE("qi_queue_bug", tout << "new instance after simplification:\n" << s_instance << "\n";);
         if (m.is_true(s_instance)) {
             TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););

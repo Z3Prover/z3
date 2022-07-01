@@ -25,6 +25,8 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
+
+    using Z3_context = System.IntPtr;
     /// <summary>
     /// The main interaction with Z3 happens via the Context.
     /// </summary>
@@ -77,6 +79,23 @@ namespace Microsoft.Z3
                 InitContext();
             }
         }
+
+        /// <summary>
+        /// Internal Constructor. It is used from UserPropagator
+        /// </summary>
+        internal Context(Z3_context ctx)
+            : base()
+        {
+            lock (creation_lock)
+            {
+                is_external = true;
+                m_ctx = ctx;
+                InitContext();
+            }
+        }
+
+        bool is_external = false;
+
         #endregion
 
         #region Symbols
@@ -669,6 +688,16 @@ namespace Microsoft.Z3
             CheckContextMatch(range);
             return new FuncDecl(this, prefix, null, range);
         }
+
+	/// <summary>
+	/// Declare a function to be processed by the user propagator plugin.
+	/// </summary>               
+	public FuncDecl MkUserPropagatorFuncDecl(string name, Sort[] domain, Sort range) 
+	{
+             using var _name = MkSymbol(name);
+             var fn = Native.Z3_solver_propagate_declare(nCtx, _name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject);
+             return new FuncDecl(this, fn);
+	}
         #endregion
 
         #region Bound Variables
@@ -4978,11 +5007,14 @@ namespace Microsoft.Z3
                 m_n_err_handler = null;
                 IntPtr ctx = m_ctx;
                 m_ctx = IntPtr.Zero;
-                Native.Z3_del_context(ctx);
+                if (!is_external) 
+                   Native.Z3_del_context(ctx);
             }
             else
                 GC.ReRegisterForFinalize(this);
         }
+
+
         #endregion
     }
 }

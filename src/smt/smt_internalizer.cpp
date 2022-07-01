@@ -350,6 +350,8 @@ namespace smt {
        - gate_ctx is true if the expression is in the context of a logical gate.
     */
     void context::internalize(expr * n, bool gate_ctx) {
+        if (memory::above_high_watermark())
+            throw default_exception("resource limit exceeded during internalization");
         internalize_deep(n);
         internalize_rec(n, gate_ctx);
     }
@@ -576,20 +578,19 @@ namespace smt {
         m_qmanager->add(q, generation);
     }
 
+
     void context::internalize_lambda(quantifier * q) {
         TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
         SASSERT(is_lambda(q));
-        if (e_internalized(q)) {
+        if (e_internalized(q)) 
             return;
-        }
         app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
         vars.push_back(lam_name);
         unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) {
+        for (unsigned i = 0; i < sz; ++i) 
             vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
-        }
         array_util autil(m);
         lam_app = autil.mk_select(vars.size(), vars.data());
         eq = m.mk_eq(lam_app, q->get_expr());
@@ -597,15 +598,28 @@ namespace smt {
         expr * patterns[1] = { m.mk_pattern(lam_app) };
         fa = m.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m.lambda_def_qid(), symbol::null, 1, patterns);
         internalize_quantifier(fa, true);
-        if (!e_internalized(lam_name)) internalize_uninterpreted(lam_name);
-        m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
+        if (!e_internalized(lam_name)) 
+            internalize_uninterpreted(lam_name);
+        enode* lam_node = get_enode(lam_name);
+        push_trail(insert_obj_map<enode, quantifier*>(m_lambdas, lam_node));
+        m_lambdas.insert(lam_node, q);
+        m_app2enode.setx(q->get_id(), lam_node, nullptr);
         m_l_internalized_stack.push_back(q);
         m_trail_stack.push_back(&m_mk_lambda_trail);
         bool_var bv = get_bool_var(fa);
         assign(literal(bv, false), nullptr);
         mark_as_relevant(bv);
-        push_trail(value_trail<bool>(m_has_lambda));
-        m_has_lambda = true;
+    }
+
+    bool context::has_lambda() {
+        for (auto const & [n, q] : m_lambdas) {
+            if (n->get_class_size() != 1) 
+                return true;
+            for (enode* p : enode::parents(n)) 
+                if (!is_beta_redex(p, n)) 
+                    return true;
+        }
+        return false;
     }
 
     /**
@@ -1008,7 +1022,7 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_decl_id();
+                unsigned decl_id = n->get_decl()->get_small_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
@@ -1052,7 +1066,7 @@ namespace smt {
             m_cg_table.erase(e);
         }
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_decl_id();
+            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();

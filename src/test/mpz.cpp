@@ -21,6 +21,7 @@ Revision History:
 #include "util/rational.h"
 #include "util/timeit.h"
 #include "util/scoped_numeral.h"
+#include <iostream>
 
 static void tst1() {
     synch_mpz_manager m;

@@ -40,7 +40,7 @@ extern "C" {
         - \c Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
         - \c Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
 
-        def_API('Z3_fixedpoint_query_from_lvl', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(UINT)))
+        def_API('Z3_fixedpoint_query_from_lvl', LBOOL, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(UINT)))
     */
     Z3_lbool Z3_API Z3_fixedpoint_query_from_lvl (Z3_context c,Z3_fixedpoint d, Z3_ast query, unsigned lvl);
 

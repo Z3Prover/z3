@@ -99,6 +99,7 @@ namespace smt {
         bool can_propagate() override;
         void propagate() override;
         bool should_research(expr_ref_vector &) override;
+        bool is_beta_redex(enode* p, enode* n) const override;
 
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}

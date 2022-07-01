@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 
-#include <iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"

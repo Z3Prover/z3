@@ -10,7 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/ast_pp.h"
-
+#include <iostream>
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);

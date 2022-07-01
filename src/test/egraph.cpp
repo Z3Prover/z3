@@ -9,6 +9,7 @@ Copyright (c) 2020 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include <iostream>
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);

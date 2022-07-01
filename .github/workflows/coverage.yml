@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: "0 11 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +21,7 @@ jobs:
       COV_DETAILS_PATH: ${{github.workspace}}/cov-details
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Setup
       run: |
@@ -73,27 +76,27 @@ jobs:
     - name: Gather coverage
       run: |
         cd ${{github.workspace}}
-        gcovr --html coverage.html --gcov-executable "llvm-cov gcov" .
+        gcovr --html coverage.html --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" .
         cd -
 
     - name: Gather detailed coverage
       run: |
         cd ${{github.workspace}}
         mkdir cov-details
-        gcovr --html-details ${{env.COV_DETAILS_PATH}}/coverage.html --gcov-executable "llvm-cov gcov" -r `pwd`/src --object-directory `pwd`/build
+        gcovr --html-details ${{env.COV_DETAILS_PATH}}/coverage.html --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" -r `pwd`/src --object-directory `pwd`/build
         cd -
 
     - name: Get date
       id: date
       run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: coverage-${{steps.date.outputs.date}}
         path: ${{github.workspace}}/coverage.html
         retention-days: 4
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: coverage-details-${{steps.date.outputs.date}}
         path: ${{env.COV_DETAILS_PATH}}

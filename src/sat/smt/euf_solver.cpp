@@ -614,7 +614,7 @@ namespace euf {
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
             else 
-                lit = si.internalize(e, true);
+                lit = si.internalize(e, false);
             VERIFY(lit.var() == v);     
             if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
                 ptr_buffer<euf::enode> args;

@@ -78,6 +78,8 @@ namespace smt {
         unsigned            m_merge_tf:1;       //!< True if the enode should be merged with true/false when the associated boolean variable is assigned.
         unsigned            m_cgc_enabled:1;    //!< True if congruence closure is enabled for this enode.
         unsigned            m_iscope_lvl;       //!< When the enode was internalized
+        bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
+        signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         /*
           The following property is valid for m_parents
           
@@ -96,8 +98,6 @@ namespace smt {
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
         id_var_list<>       m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
-        bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
-        signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;
         enode *             m_args[0];          //!< Cached args
@@ -171,7 +171,7 @@ namespace smt {
         unsigned get_expr_id() const { return m_owner->get_id(); }
 
         func_decl * get_decl() const { return m_owner->get_decl(); }
-        unsigned get_decl_id() const { return m_owner->get_decl()->get_decl_id(); }
+        unsigned get_decl_id() const { return m_owner->get_decl()->get_small_id(); }
 
         sort* get_sort() const { return m_owner->get_sort(); }
 

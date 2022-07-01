@@ -1598,10 +1598,12 @@ namespace smt {
         lbool is_sat = k.check();
         validating = false;
         // std::cout << is_sat << "\n";
+#if 0
         if (is_sat == l_true) {
             std::cout << A << "\n";
             std::cout << B << "\n";
         }
+#endif
         SASSERT(is_sat != l_true);
         return true;
     }

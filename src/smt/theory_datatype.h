@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/union_find.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "model/datatype_factory.h"
 #include "smt/smt_theory.h"
@@ -46,6 +47,7 @@ namespace smt {
         
         datatype_util             m_util;
         array_util                m_autil;
+        seq_util                  m_sutil;
         ptr_vector<var_data>      m_var_data;
         th_union_find             m_find;
         trail_stack               m_trail_stack;
@@ -90,8 +92,9 @@ namespace smt {
         bool oc_cycle_free(enode * n) const { return n->get_root()->is_marked2(); }
 
         void oc_push_stack(enode * n);
-        ptr_vector<enode> m_array_args;
+        ptr_vector<enode> m_args, m_todo;
         ptr_vector<enode> const& get_array_args(enode* n);
+        ptr_vector<enode> const& get_seq_args(enode* n);
 
         // class for managing state of final_check
         class final_check_st {

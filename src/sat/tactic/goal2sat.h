@@ -34,15 +34,19 @@ Notes:
 #include "sat/smt/sat_internalizer.h"
 
 class goal2sat {
+public:
+    typedef obj_map<expr, sat::literal> dep2asm_map;
+private:
     struct imp;
     imp *  m_imp;
-    unsigned m_scopes { 0 };
+    unsigned m_scopes = 0;
+
+    void init(ast_manager& m, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external);
 
 public:
     goal2sat();
     ~goal2sat();
 
-    typedef obj_map<expr, sat::literal> dep2asm_map;
 
     static void collect_param_descrs(param_descrs & r);
 
@@ -59,6 +63,10 @@ public:
        an unsupported operator is found, or memory consumption limit is reached (set with param :max-memory).
     */
     void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
+
+    void operator()(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external = false);
+
+    void assumptions(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external = false);
 
     void get_interpreted_funs(func_decl_ref_vector& funs);
 

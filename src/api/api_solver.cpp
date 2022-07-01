@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include<thread>
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
@@ -207,7 +206,7 @@ extern "C" {
         if (!smt_logics::supported_logic(to_symbol(logic))) {
             std::ostringstream strm;
             strm << "logic '" << to_symbol(logic) << "' is not recognized";
-            throw default_exception(strm.str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, strm.str());
             RETURN_Z3(nullptr);
         }
         else {
@@ -412,9 +411,8 @@ extern "C" {
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s) {
         Z3_TRY;
         LOG_Z3_solver_dec_ref(c, s);
-        RESET_ERROR_CODE();
-        if (s)
-            to_solver(s)->dec_ref();
+        if (s) 
+            to_solver(s)->dec_ref();        
         Z3_CATCH;
     }
 
@@ -980,6 +978,14 @@ extern "C" {
         RESET_ERROR_CODE();
         user_propagator::decide_eh_t c = (void(*)(void*, user_propagator::callback*, expr**, unsigned*, lbool*))decide_eh;
         to_solver_ref(s)->user_propagate_register_decide(c);
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase) {
+        Z3_TRY;
+        LOG_Z3_solver_next_split(c, cb, t, idx, phase);
+        RESET_ERROR_CODE();
+        reinterpret_cast<user_propagator::callback*>(cb)->next_split_cb(to_expr(t), idx, (lbool)phase);
         Z3_CATCH;
     }
 

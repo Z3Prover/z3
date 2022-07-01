@@ -17,7 +17,6 @@ Notes:
 
 --*/
 
-#include <iostream>
 #include "ast/expr_map.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"

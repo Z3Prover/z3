@@ -1,6 +1,7 @@
 #include "util/debug.h"
 #include "util/trace.h"
 #include "util/zstring.h"
+#include <iostream>
 
 // Encode and check for roundtrip all printable ASCII characters.
 static void tst_ascii_roundtrip() {

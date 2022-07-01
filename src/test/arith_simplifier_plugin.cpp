@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "smt/arith_eq_solver.h"
 #include "smt/params/smt_params.h"
+#include <iostream>
 
 typedef rational numeral;
 typedef vector<numeral> row;

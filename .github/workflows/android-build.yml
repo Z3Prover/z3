@@ -7,6 +7,9 @@ on:
 env:
   BUILD_TYPE: Release
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +21,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Configure CMake and build
       run:  |
@@ -29,7 +32,7 @@ jobs:
         tar -cvf z3-build-${{ matrix.android-abi }}.tar *.jar *.so
         
     - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: android-build-${{ matrix.android-abi }}
         path: build/z3-build-${{ matrix.android-abi }}.tar

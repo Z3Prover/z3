@@ -275,7 +275,7 @@ namespace smt {
         else if (is_update_field(n)) {
             assert_update_field_axioms(n);
         }
-        else {
+        else if (m_util.is_datatype(n->get_sort())) {
             sort * s      = n->get_sort();
             if (m_util.get_datatype_num_constructors(s) == 1) {
                 func_decl * c = m_util.get_datatype_constructors(s)->get(0);
@@ -343,7 +343,7 @@ namespace smt {
                     }
                     arg = ctx.get_enode(def);       
                 }
-                if (!m_util.is_datatype(s))
+                if (!m_util.is_datatype(s) && !m_sutil.is_seq(s))
                     continue;
                 if (is_attached_to_var(arg))
                     continue;
@@ -393,7 +393,7 @@ namespace smt {
 
         if (!is_attached_to_var(n) &&
             (ctx.has_quantifiers() || 
-             (m_util.is_datatype(s) && m_util.has_nested_arrays()) || 
+             (m_util.is_datatype(s) && m_util.has_nested_rec()) || 
              (m_util.is_datatype(s) && !s->is_infinite()))) {
             mk_var(n);
         }
@@ -485,7 +485,10 @@ namespace smt {
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
-                if (m_util.is_recursive(node->get_sort()) && !oc_cycle_free(node) && occurs_check(node)) {
+                sort* s = node->get_sort();
+                if (!m_util.is_datatype(s))
+                    continue;
+                if (m_util.is_recursive(s) && !oc_cycle_free(node) && occurs_check(node)) {
                     // conflict was detected... 
                     // return...
                     return FC_CONTINUE;
@@ -541,6 +544,17 @@ namespace smt {
                     }
                 }
             }
+            sort* se = nullptr;
+            if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
+                for (enode* aarg : get_seq_args(arg)) {
+                    if (aarg->get_root() == child->get_root()) {
+                        if (aarg != child) {
+                            m_used_eqs.push_back(enode_pair(aarg, child));
+                        }
+                        found = true;
+                    }
+                }
+            }
         }
         VERIFY(found);
     }
@@ -587,6 +601,20 @@ namespace smt {
         }
         enode * parent = d->m_constructor;
         oc_mark_on_stack(parent);
+        auto process_arg = [&](enode* aarg) {
+            if (oc_cycle_free(aarg)) 
+                return false;                
+            if (oc_on_stack(aarg)) {
+                occurs_check_explain(parent, aarg);
+                return true;
+            }
+            if (m_util.is_datatype(aarg->get_sort())) {
+                m_parent.insert(aarg->get_root(), parent);
+                oc_push_stack(aarg);
+            }
+            return false;            
+        };
+        
         for (enode * arg : enode::args(parent)) {
             if (oc_cycle_free(arg)) {
                 continue;
@@ -598,39 +626,61 @@ namespace smt {
             }
             // explore `arg` (with parent)
             expr* earg = arg->get_expr();
-            sort* s = earg->get_sort();
+            sort* s = earg->get_sort(), *se = nullptr;
             if (m_util.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
             }
-            else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
-                    if (oc_cycle_free(aarg)) {
-                        continue;
-                    }
-                    if (oc_on_stack(aarg)) {
-                        occurs_check_explain(parent, aarg);
+            else if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
+                for (enode* sarg : get_seq_args(arg))
+                    if (process_arg(sarg))
                         return true;
-                    }
-                    if (m_util.is_datatype(aarg->get_sort())) {
-                        m_parent.insert(aarg->get_root(), parent);
-                        oc_push_stack(aarg);
-                    }
-                }
-            }            
+            }
+            else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                for (enode* aarg : get_array_args(arg)) 
+                    if (process_arg(aarg))
+                        return true;
+            }
         }
         return false;
     }
 
-    ptr_vector<enode> const& theory_datatype::get_array_args(enode* n) {
-        m_array_args.reset();
-        theory_array* th = dynamic_cast<theory_array*>(ctx.get_theory(m_autil.get_family_id()));
-        for (enode* p : th->parent_selects(n)) {
-            m_array_args.push_back(p);            
+    ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n) {
+        m_args.reset();
+        m_todo.reset();
+        auto add_todo = [&](enode* n) {
+            if (!n->is_marked()) {
+                n->set_mark();
+                m_todo.push_back(n);
+            }
+        };
+            
+        for (enode* sib : *n)
+            add_todo(sib);
+            
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode* n = m_todo[i];
+            expr* e = n->get_expr();
+            if (m_sutil.str.is_unit(e))
+                m_args.push_back(n->get_arg(0));
+            else if (m_sutil.str.is_concat(e)) 
+                for (expr* arg : *to_app(e)) 
+                    add_todo(ctx.get_enode(arg));
         }
+        for (enode* n : m_todo)
+            n->unset_mark();
+
+        return m_args;
+    }
+    
+    ptr_vector<enode> const& theory_datatype::get_array_args(enode* n) {
+        m_args.reset();
+        theory_array* th = dynamic_cast<theory_array*>(ctx.get_theory(m_autil.get_family_id()));
+        for (enode* p : th->parent_selects(n)) 
+            m_args.push_back(p);            
         app_ref def(m_autil.mk_default(n->get_expr()), m);
-        m_array_args.push_back(ctx.get_enode(def));
-        return m_array_args;
+        m_args.push_back(ctx.get_enode(def));
+        return m_args;
     }
 
     /**
@@ -653,18 +703,19 @@ namespace smt {
             enode * app = m_stack.back().second;
             m_stack.pop_back();
 
-            if (oc_cycle_free(app)) continue;
+            if (oc_cycle_free(app))
+                continue;
 
             TRACE("datatype", tout << "occurs check loop: " << enode_pp(app, ctx) << (op==ENTER?" enter":" exit")<< "\n";);
 
             switch (op) {
             case ENTER:
-              res = occurs_check_enter(app);
-              break;
+                res = occurs_check_enter(app);
+                break;
 
             case EXIT:
-              oc_mark_cycle_free(app);
-              break;
+                oc_mark_cycle_free(app);
+                break;
             }
         }
 
@@ -702,6 +753,7 @@ namespace smt {
         theory(ctx, ctx.get_manager().mk_family_id("datatype")),
         m_util(m),
         m_autil(m),
+        m_sutil(m),
         m_find(*this),
         m_trail_stack() {
     }

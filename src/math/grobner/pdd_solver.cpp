@@ -160,6 +160,9 @@ namespace dd {
         }
         while (simplified && !eq.poly().is_val());
 
+        if (eq.poly().is_unary() && eq.poly().hi().val() < 0)
+            eq = -eq.poly();
+
         TRACE("dd.solver", display(tout << "simplification result: ", eq););
     }
 

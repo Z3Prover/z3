@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/ast_printer.h"
 #include "ast/pp.h"
+#include <iostream>
 
 class simple_ast_printer_context : public ast_printer_context {
     ast_manager & m_manager;
@@ -51,3 +52,6 @@ public:
 ast_printer_context * mk_simple_ast_printer_context(ast_manager & m) {
     return alloc(simple_ast_printer_context, m);
 }
+
+std::ostream & ast_printer_context::regular_stream() { return std::cout; }
+std::ostream & ast_printer_context::diagnostic_stream() { return std::cerr; }

@@ -113,6 +113,29 @@ static void read_clause(Buffer & in, std::ostream& err, sat::literal_vector & li
 }
 
 template<typename Buffer>
+static void read_pragma(Buffer & in, std::ostream& err, std::string& p, sat::proof_hint& h) {
+    skip_whitespace(in);
+    if (*in != 'p')
+        return;
+    ++in;
+    while (*in == ' ')
+        ++in;
+    while (true) {
+        if (*in == EOF)
+            break;
+        if (*in == '\n') {
+            ++in;
+            break;
+        }
+        p.push_back(*in);
+        ++in;
+    }
+    if (!p.empty()) 
+        h.from_string(p);
+}
+
+
+template<typename Buffer>
 static bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solver) {
     sat::literal_vector lits;
     try {
@@ -156,7 +179,9 @@ namespace dimacs {
         sat::status_pp pp(r.m_status, p.th);
         switch (r.m_tag) {
         case drat_record::tag_t::is_clause:
-            return out << pp << " " << r.m_lits << " 0\n";
+            if (!r.m_pragma.empty()) 
+                return out << pp << " " << r.m_lits << " 0 p " << r.m_pragma << "\n";
+            return out << pp << " " << r.m_lits << " 0\n";            
         case drat_record::tag_t::is_node:
             return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         case drat_record::tag_t::is_sort:
@@ -280,6 +305,8 @@ namespace dimacs {
         try {
         loop:
             skip_whitespace(in);
+            m_record.m_pragma.clear();
+            m_record.m_hint.reset();
             switch (*in) {
             case EOF:
                 return false;                
@@ -304,6 +331,7 @@ namespace dimacs {
                 theory_id = read_theory_id();
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
+                read_pragma(in, err, m_record.m_pragma, m_record.m_hint);
                 m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::th(false, theory_id);
                 break;

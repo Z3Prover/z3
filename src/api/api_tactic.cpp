@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
@@ -73,7 +72,6 @@ extern "C" {
     void Z3_API Z3_tactic_dec_ref(Z3_context c, Z3_tactic t) {
         Z3_TRY;
         LOG_Z3_tactic_dec_ref(c, t);
-        RESET_ERROR_CODE();
         if (t)
             to_tactic(t)->dec_ref();
         Z3_CATCH;
@@ -104,7 +102,6 @@ extern "C" {
     void Z3_API Z3_probe_dec_ref(Z3_context c, Z3_probe p) {
         Z3_TRY;
         LOG_Z3_probe_dec_ref(c, p);
-        RESET_ERROR_CODE();
         if (p)
             to_probe(p)->dec_ref();
         Z3_CATCH;
@@ -477,7 +474,6 @@ extern "C" {
     void Z3_API Z3_apply_result_dec_ref(Z3_context c, Z3_apply_result r) {
         Z3_TRY;
         LOG_Z3_apply_result_dec_ref(c, r);
-        RESET_ERROR_CODE();
         if (r)
             to_apply_result(r)->dec_ref();
         Z3_CATCH;

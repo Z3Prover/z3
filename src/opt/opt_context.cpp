@@ -682,14 +682,11 @@ namespace opt {
 
     void context::init_solver() {
         setup_arith_solver();
+        m_sat_solver = nullptr;
         m_opt_solver = alloc(opt_solver, m, m_params, *m_fm);
         m_opt_solver->set_logic(m_logic);
         m_solver = m_opt_solver.get();
-        m_opt_solver->ensure_pb();
-    
-        //if (opt_params(m_params).priority() == symbol("pareto") ||
-        //    (opt_params(m_params).priority() == symbol("lex") && m_objectives.size() > 1)) {
-        //}        
+        m_opt_solver->ensure_pb();    
     }
 
     void context::setup_arith_solver() {
@@ -703,25 +700,27 @@ namespace opt {
 
     void context::update_solver() {
         sat_params p(m_params);
-        if (p.euf())
+        if (!p.euf() && (!m_enable_sat || !probe_fd())) 
             return;
-        if (!p.euf()) {
-            if (!m_enable_sat || !probe_fd()) {
-                return;
-            }
-            if (m_maxsat_engine != symbol("maxres") &&
-                m_maxsat_engine != symbol("pd-maxres") &&
-                m_maxsat_engine != symbol("bcd2") &&
-                m_maxsat_engine != symbol("sls")) {
-                return;
-            }
-            if (opt_params(m_params).priority() == symbol("pareto")) {
-                return;
-            }
-            if (m.proofs_enabled()) {
-                return;
-            }
+
+        if (m_maxsat_engine != symbol("maxres") &&
+            m_maxsat_engine != symbol("rc2") &&
+            m_maxsat_engine != symbol("rc2tot") &&
+            m_maxsat_engine != symbol("rc2bin") &&
+            m_maxsat_engine != symbol("maxres-bin") &&
+            m_maxsat_engine != symbol("maxres-bin-delay") &&
+            m_maxsat_engine != symbol("pd-maxres") &&
+            m_maxsat_engine != symbol("bcd2") &&
+            m_maxsat_engine != symbol("sls")) {
+            return;
         }
+        
+        if (opt_params(m_params).priority() == symbol("pareto")) 
+            return;
+        
+        if (m.proofs_enabled()) 
+            return;
+        
         m_params.set_bool("minimize_core_partial", true);
         m_params.set_bool("minimize_core", true);
         m_sat_solver = mk_inc_sat_solver(m, m_params);
@@ -1533,20 +1532,16 @@ namespace opt {
     }
 
     void context::collect_statistics(statistics& stats) const {
-        if (m_solver) {
+        if (m_solver) 
             m_solver->collect_statistics(stats);
-        }
-        if (m_simplify) {
-            m_simplify->collect_statistics(stats);
-        }
-        for (auto const& kv : m_maxsmts) {
+        if (m_simplify) 
+            m_simplify->collect_statistics(stats);        
+        for (auto const& kv : m_maxsmts) 
             kv.m_value->collect_statistics(stats);
-        }        
         get_memory_statistics(stats);
         get_rlimit_statistics(m.limit(), stats);
-        if (m_qmax) {
+        if (m_qmax) 
             m_qmax->collect_statistics(stats);
-        }
     }
 
     void context::collect_param_descrs(param_descrs & r) {

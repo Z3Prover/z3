@@ -1401,6 +1401,7 @@ std::ostream& operator<<(std::ostream& out, sort_ref_vector const&  e) {
 
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(expr const * n, ast_manager & m) {
     std::cout << mk_ismt2_pp(const_cast<expr*>(n), m) << std::endl;
 }

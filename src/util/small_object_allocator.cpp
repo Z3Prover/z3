@@ -24,6 +24,9 @@ Revision History:
 #include "util/util.h"
 #include "util/vector.h"
 #include<iomanip>
+#ifdef Z3DEBUG
+# include <iostream>
+#endif
 
 small_object_allocator::small_object_allocator(char const * id) {
     for (unsigned i = 0; i < NUM_SLOTS; i++) {

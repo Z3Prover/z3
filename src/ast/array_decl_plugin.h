@@ -45,6 +45,8 @@ enum array_op_kind {
     OP_ARRAY_EXT,
     OP_ARRAY_DEFAULT,
     OP_ARRAY_MAP,
+    OP_ARRAY_MAXDIFF,
+    OP_ARRAY_MINDIFF,
     OP_SET_UNION,
     OP_SET_INTERSECT,
     OP_SET_DIFFERENCE,
@@ -135,6 +137,9 @@ class array_decl_plugin : public decl_plugin {
     expr * get_some_value(sort * s) override;
 
     bool is_fully_interp(sort * s) const override;
+
+    bool is_value(app * e) const override;
+
 };
 
 class array_recognizers {
@@ -157,6 +162,8 @@ public:
     bool is_complement(expr* n) const { return is_app_of(n, m_fid, OP_SET_COMPLEMENT); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
+    bool is_maxdiff(expr const* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAXDIFF); }
+    bool is_mindiff(expr const* n) const { return is_app_of(n, m_fid, OP_ARRAY_MINDIFF); }
     bool is_set_has_size(expr* e) const { return is_app_of(e, m_fid, OP_SET_HAS_SIZE); }
     bool is_set_card(expr* e) const { return is_app_of(e, m_fid, OP_SET_CARD); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
@@ -182,6 +189,8 @@ public:
     bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 
     MATCH_BINARY(is_subset);
+    MATCH_BINARY(is_maxdiff);
+    MATCH_BINARY(is_mindiff);
 };
 
 class array_util : public array_recognizers {
@@ -272,6 +281,8 @@ public:
     func_decl * mk_array_ext(sort* domain, unsigned i);
 
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }
+    sort * mk_array_sort(sort* a, sort* b, sort* range) { sort* dom[2] = { a, b }; return mk_array_sort(2, dom, range); }
+    sort * mk_array_sort(sort* a, sort* b, sort* c, sort* range) { sort* dom[3] = { a, b, c}; return mk_array_sort(3, dom, range); }
 
     sort * mk_array_sort(unsigned arity, sort* const* domain, sort* range);
 

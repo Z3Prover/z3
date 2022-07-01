@@ -6,9 +6,11 @@
     "declaration": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "outDir": "build/",
+    "allowJs": true,
+    "checkJs": false
   },
-  "exclude": [
-    "src"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }

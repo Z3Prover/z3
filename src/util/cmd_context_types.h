@@ -18,6 +18,7 @@ Notes:
 
 #include "util/symbol.h"
 #include "util/z3_exception.h"
+#include <ostream>
 #include<sstream>
 class rational;
 class expr;

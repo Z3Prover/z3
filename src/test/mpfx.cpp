@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "util/mpfx.h"
+#include <iostream>
 
 static void tst1() {
     mpfx_manager m;

@@ -23,6 +23,7 @@ Notes:
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "params/array_rewriter_params.hpp"
+#include "util/util.h"
 
 void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);
@@ -161,7 +162,8 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
 
     return BR_FAILED;
 }
-        
+
+
 br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(num_args >= 2);
     if (m_util.is_store(args[0])) {
@@ -172,15 +174,33 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             result = to_app(args[0])->get_arg(num_args);
             return BR_DONE;
         case l_false: {
+            expr* arg0 = to_app(args[0])->get_arg(0);
+            while (m_util.is_store(arg0) && compare_args<true>(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false) {
+                arg0 = to_app(arg0)->get_arg(0);
+            }
+            
             // select(store(a, I, v), J) --> select(a, J) if I != J
             ptr_buffer<expr> new_args;
-            new_args.push_back(to_app(args[0])->get_arg(0));
+            new_args.push_back(arg0);
             new_args.append(num_args-1, args+1);
             result = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.data());
             return BR_REWRITE1;
         }
-        default:
-            if (m_blast_select_store || (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1)) {
+        default: {
+            auto are_values = [&]() {
+                for (unsigned i = 1; i < num_args; ++i) {
+                    if (!m().is_value(args[i]))
+                        return false;
+                    if (!m().is_value(to_app(args[0])->get_arg(i)))
+                        return false;
+                }
+                return true;
+            };
+            bool should_expand =
+                m_blast_select_store ||
+                are_values() ||
+                (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1);
+            if (should_expand) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
                 ptr_buffer<expr> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
@@ -202,6 +222,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 }
             }
             return BR_FAILED;
+        }
         }
     }
 

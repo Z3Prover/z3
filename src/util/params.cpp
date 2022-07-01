@@ -1046,6 +1046,7 @@ void params::set_sym(char const * k, symbol const & v) {
 }
 
 #ifdef Z3DEBUG
+#include <iostream>
 void pp(params_ref const & p) {
     std::cout << p << std::endl;
 }

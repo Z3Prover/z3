@@ -51,6 +51,7 @@ Notes:
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
+#include <iostream>
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -597,9 +598,8 @@ opt_wrapper* cmd_context::get_opt() {
 
 void cmd_context::set_opt(opt_wrapper* opt) {
     m_opt = opt;
-    for (unsigned i = 0; i < m_scopes.size(); ++i) {
+    for (unsigned i = 0; i < m_scopes.size(); ++i) 
         m_opt->push();
-    }
     m_opt->set_logic(m_logic);
 }
 
@@ -793,7 +793,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         TRACE("cmd_context", tout << "init manager " << m_logic << "\n";);
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
-        insert(pm().mk_plist_decl());
+        register_plist();
     }
     if (m_solver_factory) {
         mk_solver();

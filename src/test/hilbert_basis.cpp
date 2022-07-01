@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/rlimit.h"
 #include <signal.h>
 #include <time.h>
+#include <iostream>
 #include <sstream>
 
 static bool g_use_ordered_support = false;

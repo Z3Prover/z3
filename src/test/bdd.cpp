@@ -1,5 +1,6 @@
 #include "math/dd/dd_bdd.h"
 #include "math/dd/dd_fdd.h"
+#include <iostream>
 
 namespace dd {
 

@@ -574,7 +574,8 @@ namespace smt {
             lower       = m_util.mk_ge(mod, zero);
             upper       = m_util.mk_le(mod, abs_divisor);
             TRACE("div_axiom_bug",
-                  tout << "eqz:   " << eqz << " neq: " << eq << "\n";
+                  tout << "eqz:   " << eqz << "\n";
+                  tout << "neq:   " << eq << "\n";
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
@@ -583,14 +584,18 @@ namespace smt {
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
 
-            if (!m_util.is_numeral(divisor)) {
-                // (=> (> y 0) (<= (* y (div x y)) x))
-                // (=> (< y 0) ???)
-                expr_ref div_ge(m), div_non_pos(m);
+            if (m_util.is_zero(dividend)) {
+                mk_axiom(eqz, m.mk_eq(div, zero));
+                mk_axiom(eqz, m.mk_eq(mod, zero));
+            }
+
+            // (or (= y 0)  (<= (* y (div x y)) x))
+            else if (!m_util.is_numeral(divisor)) {
+                expr_ref div_ge(m), div_le(m), ge(m), le(m);
                 div_ge = m_util.mk_ge(m_util.mk_sub(dividend, m_util.mk_mul(divisor, div)), zero);
-                s(div_ge);
-                div_non_pos = m_util.mk_le(divisor, zero);
-                mk_axiom(div_non_pos, div_ge, false);
+                s(div_ge);                
+                mk_axiom(eqz, div_ge, false);
+                TRACE("arith", tout << eqz << " " << div_ge << "\n");
             }
 
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
@@ -3097,6 +3102,8 @@ namespace smt {
         m_stats.m_conflicts++;
         m_num_conflicts++;
         TRACE("arith_conflict",
+              if (proof_rule)
+                  tout << proof_rule << "\n";
               tout << "scope: " << ctx.get_scope_level() << "\n";
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);

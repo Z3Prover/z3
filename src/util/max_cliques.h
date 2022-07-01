@@ -38,9 +38,8 @@ class max_cliques : public T {
         m_todo.push_back(p);
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             p = m_todo[i];
-            if (m_seen1.contains(p)) {
-                continue;
-            }
+            if (m_seen1.contains(p)) 
+                continue;            
             m_seen1.insert(p);
             if (m_seen2.contains(p)) {
                 unsigned_vector const& tc = m_tc[p];
@@ -50,14 +49,12 @@ class max_cliques : public T {
             }
             else {
                 unsigned np = negate(p);
-                if (goal.contains(np)) {
-                    reachable.insert(np);
-                }
+                if (goal.contains(np)) 
+                    reachable.insert(np);                
                 m_todo.append(next(np));
             }
         }
-        for (unsigned i = m_todo.size(); i > 0; ) {
-            --i;
+        for (unsigned i = m_todo.size(); i-- > 0; ) {            
             p = m_todo[i];
             if (m_seen2.contains(p)) 
                 continue;
@@ -181,7 +178,7 @@ public:
                     next.push_back(n);
             std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
             for (unsigned x : next) {
-                bool all = true;
+                bool all = heap.contains(x);
                 for (unsigned y : am1) {
                     if (!conns[x].contains(y)) {
                         all = false;
@@ -190,15 +187,18 @@ public:
                 }
                 if (all)
                     am1.insert(x);
-            }
+            }            
             am1.insert(v);
+
             for (unsigned x : am1) {
                 todo.remove(x);
                 for (unsigned y : conns[x]) {
                     conns[y].remove(x);
-                    heap.decreased(y);
+                    if (heap.contains(y))
+                        heap.decreased(y);
                 }
             }
+            
             for (unsigned x : am1) 
                 heap.erase(x);
                 
@@ -206,9 +206,8 @@ public:
                 unsigned_vector mux;
                 for (unsigned x : am1)
                     mux.push_back(x);
-                if (mux.size() == 2 && mux[0] == negate(mux[1])) {
-                    continue;
-                }
+                if (mux.size() == 2 && mux[0] == negate(mux[1])) 
+                    continue;                
                 cliques.push_back(mux);
             }
         }

@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
@@ -52,7 +51,6 @@ extern "C" {
     void Z3_API Z3_goal_dec_ref(Z3_context c, Z3_goal g) {
         Z3_TRY;
         LOG_Z3_goal_dec_ref(c, g);
-        RESET_ERROR_CODE();
         if (g)
             to_goal(g)->dec_ref();
         Z3_CATCH;

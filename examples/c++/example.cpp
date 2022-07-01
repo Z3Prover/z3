@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
+#include <iostream>
 #include<vector>
 #include"z3++.h"
 
@@ -737,7 +738,7 @@ void tactic_example8() {
     try {
         t(g);
     }
-    catch (exception) {
+    catch (exception&) {
         std::cout << "tactic failed...\n";
     }
     std::cout << "trying again...\n";

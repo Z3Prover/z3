@@ -59,6 +59,7 @@ namespace opt {
             bool        m_alive;        // rows can be marked dead if they have been processed.
             void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
 
+            row& normalize();
             void neg() { for (var & v : m_vars) v.m_coeff.neg(); m_coeff.neg(); m_value.neg(); }
             rational get_coefficient(unsigned x) const;
         };

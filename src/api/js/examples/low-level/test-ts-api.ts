@@ -3,24 +3,24 @@
 // TypeScript can infer all of them.
 // They're just here so readers can see what types things are.
 
+// @ts-ignore we're not going to bother with types for this
+import process from 'process';
+import { sprintf } from 'sprintf-js';
 import type {
+  Z3_app,
+  Z3_ast,
+  Z3_ast_vector,
   Z3_config,
   Z3_context,
+  Z3_func_decl,
+  Z3_func_entry,
+  Z3_func_interp,
+  Z3_model,
   Z3_solver,
   Z3_sort,
-  Z3_ast,
-  Z3_app,
-  Z3_model,
   Z3_symbol,
-  Z3_ast_vector,
-  Z3_func_decl,
-  Z3_func_interp,
-  Z3_func_entry,
-} from './build/wrapper';
-import { init, Z3_lbool, Z3_ast_kind, Z3_sort_kind, Z3_symbol_kind } from './build/wrapper';
-
-// @ts-ignore we're not going to bother with types for this
-import { sprintf } from 'sprintf-js';
+} from '../../build/node';
+import { init, Z3_ast_kind, Z3_lbool, Z3_sort_kind, Z3_symbol_kind } from '../../build/node';
 
 let printf = (str: string, ...args: unknown[]) => console.log(sprintf(str.replace(/\n$/, ''), ...args));
 

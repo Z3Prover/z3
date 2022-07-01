@@ -93,8 +93,10 @@ namespace array {
                         validate_extensionality(n, k);
             }
             expr* x = nullptr, *y = nullptr;
+#if 0
             if (m.is_eq(n->get_expr(), x, y) && a.is_array(x))
                 std::cout << ctx.bpp(n) << " " << s().value(n->bool_var()) << "\n";
+#endif
             if (m.is_eq(n->get_expr(), x, y) && a.is_array(x) && s().value(n->bool_var()) == l_false)
                 validate_extensionality(expr2enode(x), expr2enode(y));
         }        

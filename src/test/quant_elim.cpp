@@ -11,7 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/lbool.h"
 #include <sstream>
 #include "ast/reg_decl_plugins.h"
-
+#include <iostream>
 
 #if 0
 static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char const* option) {

@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/warning.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
@@ -462,28 +463,27 @@ namespace datatype {
             }
             for (symbol const& s : m_def_block) {
                 def& d = *m_defs[s];
-                for (constructor* c : d) {
-                    for (accessor* a : *c) {
+                for (constructor* c : d) 
+                    for (accessor* a : *c) 
                         a->fix_range(sorts);
-                    }
-                }
             }
-            if (!u().is_well_founded(sorts.size(), sorts.data())) {
+            if (!u().is_well_founded(sorts.size(), sorts.data())) 
                 m_manager->raise_exception("datatype is not well-founded");
-            }
-            if (!u().is_covariant(sorts.size(), sorts.data())) {
+            if (!u().is_covariant(sorts.size(), sorts.data())) 
                 m_manager->raise_exception("datatype is not co-variant");
-            }
-
+ 
             array_util autil(m);
+            seq_util sutil(m);
+            sort* sr;
             for (sort* s : sorts) {
                 for (constructor const* c : get_def(s)) {
                     for (accessor const* a : *c) {
-                        if (autil.is_array(a->range())) {
-                            if (sorts.contains(get_array_range(a->range()))) {
-                                m_has_nested_arrays = true;
-                            }
-                        }                    
+                        if (autil.is_array(a->range()) && sorts.contains(get_array_range(a->range())))
+                            m_has_nested_rec = true;
+                        else if (sutil.is_seq(a->range(), sr) && sorts.contains(sr))
+                            m_has_nested_rec = true;
+                        else if (sutil.is_re(a->range(), sr) && sorts.contains(sr))
+                            m_has_nested_rec = true;
                     }
                 }
             }
@@ -1103,12 +1103,19 @@ namespace datatype {
         return r;
     }
 
-    bool util::is_recursive_array(sort* a) {
+    bool util::is_recursive_nested(sort* a) {
         array_util autil(m);
-        if (!autil.is_array(a))
-            return false;
-        a = autil.get_array_range_rec(a);                
-        return is_datatype(a) && is_recursive(a);
+        seq_util sutil(m);
+        sort* sr;
+        if (autil.is_array(a)) {
+            a = autil.get_array_range_rec(a);                
+            return is_datatype(a) && is_recursive(a);
+        }
+        if (sutil.is_seq(a, sr))
+            return is_datatype(sr) && is_recursive(sr);
+        if (sutil.is_re(a, sr))
+            return is_datatype(sr) && is_recursive(sr);
+        return false;
     }
 
     bool util::is_enum_sort(sort* s) {
@@ -1273,14 +1280,22 @@ namespace datatype {
     */
     bool util::are_siblings(sort * s1, sort * s2) {
         array_util autil(m);
-        s1 = autil.get_array_range_rec(s1);                
-        s2 = autil.get_array_range_rec(s2);                
-        if (!is_datatype(s1) || !is_datatype(s2)) {
+        seq_util sutil(m);
+        auto get_nested = [&](sort* s) {
+            while (true) {
+                if (autil.is_array(s))
+                    s = get_array_range(s);
+                else if (!sutil.is_seq(s, s))
+                    break;
+            }
+            return s;
+        };
+        s1 = get_nested(s1);
+        s2 = get_nested(s2);
+        if (!is_datatype(s1) || !is_datatype(s2)) 
             return s1 == s2;
-        }
-        else {
+        else 
             return get_def(s1).id() == get_def(s2).id();
-        }
     }
 
     unsigned util::get_datatype_num_constructors(sort * ty) {

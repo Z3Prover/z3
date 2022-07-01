@@ -20,6 +20,7 @@ Revision History:
 #include "util/mpq.h"
 #include "util/rational.h"
 #include "util/timeit.h"
+#include <iostream>
 
 static void tst0() {
     synch_mpq_manager m;

@@ -104,7 +104,7 @@ namespace euf {
         std::ostringstream strm;
         smt2_pp_environment_dbg env(m);
         ast_smt2_pp(strm, f, env);
-        get_drat().def_begin('f', f->get_decl_id(), strm.str());
+        get_drat().def_begin('f', f->get_small_id(), strm.str());
         get_drat().def_end();
     }
 
@@ -166,7 +166,7 @@ namespace euf {
             lits.push_back(jst.lit_consequent());
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
-        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
+        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
     }
 
     void solver::drat_eq_def(literal lit, expr* eq) {

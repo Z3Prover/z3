@@ -113,6 +113,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     Tactic.cs
     TupleSort.cs
     UninterpretedSort.cs
+    UserPropagator.cs
     Version.cs
     Z3Exception.cs
     Z3Object.cs

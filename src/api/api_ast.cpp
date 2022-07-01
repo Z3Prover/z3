@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
 #include "api/api_util.h"
@@ -870,6 +869,91 @@ extern "C" {
         subst(a, new_a);
         mk_c(c)->save_ast_trail(new_a);
         r = new_a.get();
+        RETURN_Z3(of_expr(r));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_substitute_funs(Z3_context c,
+                                     Z3_ast _a,
+                                     unsigned num_funs,
+                                     Z3_func_decl const _from[],
+                                     Z3_ast const _to[]) {
+        Z3_TRY;
+        LOG_Z3_substitute_funs(c, _a, num_funs, _from, _to);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        expr * a = to_expr(_a);
+        func_decl * const * from = to_func_decls(_from);
+        expr * const * to   = to_exprs(num_funs, _to);
+
+        expr * r = nullptr, *v, *w;
+        expr_ref_vector trail(m), args(m);
+        ptr_vector<expr> todo;
+        obj_map<func_decl, expr*> rep;
+        obj_map<expr, expr*> cache;
+
+        for (unsigned i = 0; i < num_funs; i++) {
+            if (from[i]->get_range() != to[i]->get_sort()) {
+                SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
+                RETURN_Z3(of_expr(nullptr));
+            }
+            rep.insert(from[i], to[i]);
+        }
+
+        var_subst subst(m, false);
+        todo.push_back(a);
+        while (!todo.empty()) {
+            r = todo.back();
+            if (cache.contains(r))
+                todo.pop_back();
+            else if (is_app(r)) {
+                args.reset();
+                unsigned sz = todo.size();
+                bool change = false;
+                for (expr* arg : *to_app(r)) {
+                    if (cache.find(arg, v)) {
+                        args.push_back(v);
+                        change |= v != arg;
+                    }
+                    else {
+                        todo.push_back(arg);
+                    }                    
+                }
+                if (todo.size() == sz) {
+                    if (rep.find(to_app(r)->get_decl(), w)) {
+                        expr_ref new_v = subst(w, args);
+                        v = new_v;
+                        trail.push_back(v);
+                    }
+                    else if (change) {
+                        v = m.mk_app(to_app(r)->get_decl(), args);
+                        trail.push_back(v);
+                    }
+                    else
+                        v = r;
+                    cache.insert(r, v);
+                    todo.pop_back();
+                }
+            }
+            else if (is_var(r)) {
+                cache.insert(r, r);
+                todo.pop_back();
+            }
+            else if (is_quantifier(r)) {
+                if (cache.find(to_quantifier(r)->get_expr(), v)) {
+                    v = m.update_quantifier(to_quantifier(r), v);
+                    trail.push_back(v);
+                    cache.insert(r, v);
+                    todo.pop_back();
+                }
+                else
+                    todo.push_back(to_quantifier(r)->get_expr());
+            }
+            else
+                UNREACHABLE();
+        }
+        r = cache[a];
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(nullptr);
     }

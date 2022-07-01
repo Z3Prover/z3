@@ -20,7 +20,7 @@ Revision History:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
-#include<iostream>
+#include<ostream>
 #include<climits>
 #include<limits>
 #include<stdint.h>

@@ -209,7 +209,8 @@ class Context:
         Z3_del_config(conf)
 
     def __del__(self):
-        Z3_del_context(self.ctx)
+        if Z3_del_context is not None:
+            Z3_del_context(self.ctx)
         self.ctx = None
         self.eh = None
 
@@ -225,6 +226,10 @@ class Context:
         """
         Z3_interrupt(self.ref())
 
+    def param_descrs(self):
+        """Return the global parameter description set."""
+        return ParamDescrsRef(Z3_get_global_param_descrs(self.ref()), self)
+        
 
 # Global Z3 context
 _main_ctx = None
@@ -342,7 +347,7 @@ class AstRef(Z3PPObject):
         Z3_inc_ref(self.ctx.ref(), self.as_ast())
 
     def __del__(self):
-        if self.ctx.ref() is not None and self.ast is not None:
+        if self.ctx.ref() is not None and self.ast is not None and Z3_dec_ref is not None:
             Z3_dec_ref(self.ctx.ref(), self.as_ast())
             self.ast = None
 
@@ -1101,6 +1106,28 @@ class ExprRef(AstRef):
         else:
             return []
 
+    def from_string(self, s):
+        pass
+
+    def serialize(self):
+        s = Solver()
+        f = Function('F', self.sort(), BoolSort(self.ctx))
+        s.add(f(self))
+        return s.sexpr()
+
+def deserialize(st):
+    """inverse function to the serialize method on ExprRef.
+    It is made available to make it easier for users to serialize expressions back and forth between
+    strings. Solvers can be serialized using the 'sexpr()' method.
+    """
+    s = Solver()
+    s.from_string(st)
+    if len(s.assertions()) != 1:
+        raise Z3Exception("single assertion expected")
+    fml = s.assertions()[0]
+    if fml.num_args() != 1:
+        raise Z3Exception("dummy function 'F' expected")
+    return fml.arg(0)
 
 def _to_expr_ref(a, ctx):
     if isinstance(a, Pattern):
@@ -5102,7 +5129,7 @@ class ScopedConstructor:
         self.ctx = ctx
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_del_constructor is not None:
             Z3_del_constructor(self.ctx.ref(), self.c)
 
 
@@ -5114,7 +5141,7 @@ class ScopedConstructorList:
         self.ctx = ctx
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_del_constructor_list is not None:
             Z3_del_constructor_list(self.ctx.ref(), self.c)
 
 
@@ -5394,7 +5421,7 @@ class ParamsRef:
         return ParamsRef(self.ctx, self.params)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_params_dec_ref is not None:
             Z3_params_dec_ref(self.ctx.ref(), self.params)
 
     def set(self, name, val):
@@ -5459,7 +5486,7 @@ class ParamDescrsRef:
         return ParamsDescrsRef(self.descr, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_param_descrs_dec_ref is not None:
             Z3_param_descrs_dec_ref(self.ctx.ref(), self.descr)
 
     def size(self):
@@ -5522,7 +5549,7 @@ class Goal(Z3PPObject):
         Z3_goal_inc_ref(self.ctx.ref(), self.goal)
 
     def __del__(self):
-        if self.goal is not None and self.ctx.ref() is not None:
+        if self.goal is not None and self.ctx.ref() is not None and Z3_goal_dec_ref is not None:
             Z3_goal_dec_ref(self.ctx.ref(), self.goal)
 
     def depth(self):
@@ -5826,7 +5853,7 @@ class AstVector(Z3PPObject):
         Z3_ast_vector_inc_ref(self.ctx.ref(), self.vector)
 
     def __del__(self):
-        if self.vector is not None and self.ctx.ref() is not None:
+        if self.vector is not None and self.ctx.ref() is not None and Z3_ast_vector_dec_ref is not None:
             Z3_ast_vector_dec_ref(self.ctx.ref(), self.vector)
 
     def __len__(self):
@@ -5989,7 +6016,7 @@ class AstMap:
         return AstMap(self.map, self.ctx)
 
     def __del__(self):
-        if self.map is not None and self.ctx.ref() is not None:
+        if self.map is not None and self.ctx.ref() is not None and Z3_ast_map_dec_ref is not None:
             Z3_ast_map_dec_ref(self.ctx.ref(), self.map)
 
     def __len__(self):
@@ -6108,7 +6135,7 @@ class FuncEntry:
         return FuncEntry(self.entry, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_func_entry_dec_ref is not None:
             Z3_func_entry_dec_ref(self.ctx.ref(), self.entry)
 
     def num_args(self):
@@ -6215,7 +6242,7 @@ class FuncInterp(Z3PPObject):
             Z3_func_interp_inc_ref(self.ctx.ref(), self.f)
 
     def __del__(self):
-        if self.f is not None and self.ctx.ref() is not None:
+        if self.f is not None and self.ctx.ref() is not None and Z3_func_interp_dec_ref is not None:
             Z3_func_interp_dec_ref(self.ctx.ref(), self.f)
 
     def else_value(self):
@@ -6333,7 +6360,7 @@ class ModelRef(Z3PPObject):
         Z3_model_inc_ref(self.ctx.ref(), self.model)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_model_dec_ref is not None:
             Z3_model_dec_ref(self.ctx.ref(), self.model)
 
     def __repr__(self):
@@ -6443,7 +6470,25 @@ class ModelRef(Z3PPObject):
                     return None
                 r = _to_expr_ref(_r, self.ctx)
                 if is_as_array(r):
-                    return self.get_interp(get_as_array_func(r))
+                    fi = self.get_interp(get_as_array_func(r))
+                    if fi is None:
+                        return fi                    
+                    e = fi.else_value()
+                    if e is None:
+                        return fi
+                    if fi.arity() != 1:
+                        return fi
+                    srt = decl.range()
+                    dom =  srt.domain()
+                    e = K(dom, e)
+                    i = 0
+                    sz = fi.num_entries()
+                    n = fi.arity()
+                    while i < sz:
+                        fe = fi.entry(i)
+                        e = Store(e, fe.arg_value(0), fe.value())
+                        i += 1
+                    return e
                 else:
                     return r
             else:
@@ -6662,7 +6707,7 @@ class Statistics:
         return Statistics(self.stats, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_stats_dec_ref is not None:
             Z3_stats_dec_ref(self.ctx.ref(), self.stats)
 
     def __repr__(self):
@@ -6855,7 +6900,7 @@ class Solver(Z3PPObject):
             self.set("smtlib2_log", logFile)
 
     def __del__(self):
-        if self.solver is not None and self.ctx.ref() is not None:
+        if self.solver is not None and self.ctx.ref() is not None and Z3_solver_dec_ref is not None:
             Z3_solver_dec_ref(self.ctx.ref(), self.solver)
 
     def set(self, *args, **keys):
@@ -7378,7 +7423,7 @@ class Fixedpoint(Z3PPObject):
         return FixedPoint(self.fixedpoint, self.ctx)
 
     def __del__(self):
-        if self.fixedpoint is not None and self.ctx.ref() is not None:
+        if self.fixedpoint is not None and self.ctx.ref() is not None and Z3_fixedpoint_dec_ref is not None:
             Z3_fixedpoint_dec_ref(self.ctx.ref(), self.fixedpoint)
 
     def set(self, *args, **keys):
@@ -7801,7 +7846,7 @@ class Optimize(Z3PPObject):
         return Optimize(self.optimize, self.ctx)
 
     def __del__(self):
-        if self.optimize is not None and self.ctx.ref() is not None:
+        if self.optimize is not None and self.ctx.ref() is not None and Z3_optimize_dec_ref is not None:
             Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
         if self._on_models_id is not None:
             del _on_models[self._on_models_id]
@@ -8026,7 +8071,7 @@ class ApplyResult(Z3PPObject):
         return ApplyResult(self.result, self.ctx)
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and Z3_apply_result_dec_ref is not None:
             Z3_apply_result_dec_ref(self.ctx.ref(), self.result)
 
     def __len__(self):
@@ -8131,7 +8176,7 @@ class Tactic:
         return Tactic(self.tactic, self.ctx)
 
     def __del__(self):
-        if self.tactic is not None and self.ctx.ref() is not None:
+        if self.tactic is not None and self.ctx.ref() is not None and Z3_tactic_dec_ref is not None:
             Z3_tactic_dec_ref(self.ctx.ref(), self.tactic)
 
     def solver(self, logFile=None):
@@ -8442,7 +8487,7 @@ class Probe:
         return Probe(self.probe, self.ctx)
 
     def __del__(self):
-        if self.probe is not None and self.ctx.ref() is not None:
+        if self.probe is not None and self.ctx.ref() is not None and Z3_probe_dec_ref is not None:
             Z3_probe_dec_ref(self.ctx.ref(), self.probe)
 
     def __lt__(self, other):
@@ -8746,8 +8791,12 @@ def substitute(t, *m):
             m = m1
     if z3_debug():
         _z3_assert(is_expr(t), "Z3 expression expected")
-        _z3_assert(all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) and p[0].sort().eq(
-            p[1].sort()) for p in m]), "Z3 invalid substitution, expression pairs expected.")
+        _z3_assert(
+            all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) for p in m]),
+            "Z3 invalid substitution, expression pairs expected.")
+        _z3_assert(
+            all([p[0].sort().eq(p[1].sort()) for p in m]),
+            'Z3 invalid substitution, mismatching "from" and "to" sorts.')
     num = len(m)
     _from = (Ast * num)()
     _to = (Ast * num)()
@@ -8776,6 +8825,27 @@ def substitute_vars(t, *m):
     for i in range(num):
         _to[i] = m[i].as_ast()
     return _to_expr_ref(Z3_substitute_vars(t.ctx.ref(), t.as_ast(), num, _to), t.ctx)
+
+def substitute_funs(t, *m):
+    """Apply subistitution m on t, m is a list of pairs of a function and expression (from, to)
+    Every occurrence in to of the function from is replaced with the expression to.
+    The expression to can have free variables, that refer to the arguments of from.
+    For examples, see 
+    """
+    if isinstance(m, tuple):
+        m1 = _get_args(m)
+        if isinstance(m1, list) and all(isinstance(p, tuple) for p in m1):
+            m = m1
+    if z3_debug():
+        _z3_assert(is_expr(t), "Z3 expression expected")
+        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, funcion pairs expected.")
+    num = len(m)
+    _from = (FuncDecl * num)()
+    _to = (Ast * num)()
+    for i in range(num):
+        _from[i] = m[i][0].as_func_decl()
+        _to[i] = m[i][1].as_ast()
+    return _to_expr_ref(Z3_substitute_funs(t.ctx.ref(), t.as_ast(), num, _from, _to), t.ctx)
 
 
 def Sum(*args):
@@ -9163,7 +9233,7 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
 
 
 # Global default rounding mode
-_dflt_rounding_mode = Z3_OP_FPA_RM_TOWARD_ZERO
+_dflt_rounding_mode = Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN
 _dflt_fpsort_ebits = 11
 _dflt_fpsort_sbits = 53
 
@@ -11262,7 +11332,7 @@ def user_prop_push(ctx, cb):
 def user_prop_pop(ctx, cb, num_scopes):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    pop(num_scopes)
+    prop.pop(num_scopes)
 
 
 def user_prop_fresh(id, ctx):
@@ -11308,13 +11378,13 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.cb = None
 
 
-_user_prop_push = push_eh_type(user_prop_push)
-_user_prop_pop = pop_eh_type(user_prop_pop)
-_user_prop_fresh = fresh_eh_type(user_prop_fresh)
-_user_prop_fixed = fixed_eh_type(user_prop_fixed)
-_user_prop_final = final_eh_type(user_prop_final)
-_user_prop_eq = eq_eh_type(user_prop_eq)
-_user_prop_diseq = eq_eh_type(user_prop_diseq)
+_user_prop_push = Z3_push_eh(user_prop_push)
+_user_prop_pop = Z3_pop_eh(user_prop_pop)
+_user_prop_fresh = Z3_fresh_eh(user_prop_fresh)
+_user_prop_fixed = Z3_fixed_eh(user_prop_fixed)
+_user_prop_final = Z3_final_eh(user_prop_final)
+_user_prop_eq = Z3_eq_eh(user_prop_eq)
+_user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 
 
 class UserPropagateBase:

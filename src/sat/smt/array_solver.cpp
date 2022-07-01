@@ -101,9 +101,14 @@ namespace array {
             else if (!turn[idx] && add_interface_equalities())
                 return sat::check_result::CR_CONTINUE;
         }
-        if (m_delay_qhead < m_axiom_trail.size()) 
+
+        if (add_diff_select_axioms())
             return sat::check_result::CR_CONTINUE;
             
+        if (m_delay_qhead < m_axiom_trail.size()) 
+            return sat::check_result::CR_CONTINUE;
+
+        
         // validate_check();
         return sat::check_result::CR_DONE;
     }

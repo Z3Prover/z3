@@ -19,7 +19,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include "util/debug.h"
     
 enum ext_numeral_kind { EN_MINUS_INFINITY, EN_NUMERAL, EN_PLUS_INFINITY };

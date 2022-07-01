@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "smt/old_interval.h"
+#include <iostream>
 
 static void tst1() {
     ext_numeral inf(true);

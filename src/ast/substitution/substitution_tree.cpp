@@ -137,10 +137,7 @@ void substitution_tree::reset_registers(unsigned old_size) {
 unsigned substitution_tree::get_compatibility_measure(svector<subst> const & sv) {
     unsigned old_size = m_todo.size();
     unsigned measure  = 0;
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
-    for (; it != end; ++it) {
-        subst const & s = *it;
+    for (subst const& s : sv) {
         unsigned ireg = s.first->get_idx();
         expr * out    = s.second;
         expr * in     = get_reg_value(ireg);
@@ -254,7 +251,7 @@ void substitution_tree::insert(expr * new_expr) {
     else {
         SASSERT(is_var(new_expr));
         sort * s    = to_var(new_expr)->get_sort();
-        unsigned id = s->get_decl_id();
+        unsigned id = s->get_small_id();
         if (id >= m_vars.size())
             m_vars.resize(id+1);
         if (m_vars[id] == 0)
@@ -274,7 +271,7 @@ void substitution_tree::insert(app * new_expr) {
     m_todo.push_back(0);
 
     func_decl * d = new_expr->get_decl();
-    unsigned id   = d->get_decl_id();
+    unsigned id   = d->get_small_id();
     
     if (id >= m_roots.size()) 
         m_roots.resize(id+1);
@@ -439,7 +436,7 @@ void substitution_tree::erase(expr * e) {
     else {
         SASSERT(is_var(e));
         sort * s = to_var(e)->get_sort();
-        unsigned id = s->get_decl_id();
+        unsigned id = s->get_small_id();
         if (id >= m_vars.size() || m_vars[id] == 0)
             return;
         var_ref_vector * v = m_vars[id];
@@ -453,7 +450,7 @@ void substitution_tree::erase(expr * e) {
 */
 void substitution_tree::erase(app * e) {
     func_decl * d = e->get_decl();
-    unsigned id   = d->get_decl_id();
+    unsigned id   = d->get_small_id();
     if (id >= m_roots.size() || !m_roots[id])
         return;
 
@@ -732,7 +729,7 @@ bool substitution_tree::visit_vars(expr * e, st_visitor & st) {
     if (m_vars.empty())
         return true; // continue
     sort * s      = e->get_sort();
-    unsigned s_id = s->get_decl_id();
+    unsigned s_id = s->get_small_id();
     if (s_id < m_vars.size()) {
         var_ref_vector * v = m_vars[s_id];
         if (v && !v->empty()) {
@@ -832,17 +829,14 @@ void substitution_tree::visit(expr * e, st_visitor & st, unsigned in_offset, uns
     if (visit_vars<Mode>(e, st)) {
         if (is_app(e)) {
             func_decl * d  = to_app(e)->get_decl();
-            unsigned id    = d->get_decl_id();
+            unsigned id    = d->get_small_id();
             node * r       = m_roots.get(id, 0);
             if (r)  
                 visit<Mode>(e, st, r);
         }
         else {
             SASSERT(is_var(e));
-            ptr_vector<node>::iterator it  = m_roots.begin();
-            ptr_vector<node>::iterator end = m_roots.end();
-            for (; it != end; ++it) {
-                node * r = *it;
+            for (node* r : m_roots) {
                 if (r != nullptr) {
                     var * v = r->m_subst[0].first;
                     if (v->get_sort() == to_var(e)->get_sort())
@@ -868,16 +862,11 @@ void substitution_tree::gen(expr * e, st_visitor & v, unsigned in_offset, unsign
 
 void substitution_tree::display(std::ostream & out) const {
     out << "substitution tree:\n";
-    ptr_vector<node>::const_iterator it  = m_roots.begin();
-    ptr_vector<node>::const_iterator end = m_roots.end();
-    for (; it != end; ++it)
-        if (*it)
-            display(out, *it, 0);
+    for (node* n : m_roots)
+        if (n)
+            display(out, n, 0);
     bool found_var = false;
-    ptr_vector<var_ref_vector>::const_iterator it2  = m_vars.begin();
-    ptr_vector<var_ref_vector>::const_iterator end2 = m_vars.end();
-    for (; it2 != end2; ++it2) {
-        var_ref_vector * v = *it2;
+    for (var_ref_vector* v : m_vars) {
         if (v == nullptr)
             continue; // m_vars may contain null pointers. See substitution_tree::insert.
         unsigned num = v->size();

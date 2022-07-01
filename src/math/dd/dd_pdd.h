@@ -413,7 +413,8 @@ namespace dd {
         bool is_var() const { return m.is_var(root); }
         /** Polynomial is of the form a * x + b for numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
-        bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 
+        bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
+        bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }
         bool is_univariate() const { return m.is_univariate(root); }

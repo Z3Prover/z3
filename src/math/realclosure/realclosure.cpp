@@ -29,6 +29,7 @@ Notes:
 #include "util/ref_vector.h"
 #include "util/ref_buffer.h"
 #include "util/common_msgs.h"
+#include <iostream>
 
 #ifndef REALCLOSURE_INI_BUFFER_SIZE
 #define REALCLOSURE_INI_BUFFER_SIZE 32

@@ -116,10 +116,13 @@ void grobner::reset() {
 }
 
 void grobner::display_var(std::ostream & out, expr * var) const {
+    out << "#" << var->get_id();
+#if 0
     if (is_app(var) && to_app(var)->get_num_args() > 0)
         out << mk_bounded_pp(var, m_manager);
     else
         out << mk_pp(var, m_manager);
+#endif    
 }
 
 void grobner::display_vars(std::ostream & out, unsigned num_vars, expr * const * vars) const {

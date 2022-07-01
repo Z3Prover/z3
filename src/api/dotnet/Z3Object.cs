@@ -113,7 +113,10 @@ namespace Microsoft.Z3
             return s.NativeObject;
         }
 
-        internal Context Context
+        /// <summary>
+        /// Access Context object 
+        /// </summary>
+	    public Context Context
         {
             get 
             {

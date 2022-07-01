@@ -18,8 +18,6 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
-
 namespace smt {
 
     struct statistics {

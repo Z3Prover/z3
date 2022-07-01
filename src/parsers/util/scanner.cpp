@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "parsers/util/scanner.h"
+#include <iostream>
 
 inline int scanner::read_char() {
     if (m_is_interactive) {
