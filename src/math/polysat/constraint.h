@@ -18,6 +18,7 @@ Author:
 #include "math/polysat/interval.h"
 #include "math/polysat/search_state.h"
 #include "math/polysat/univariate/univariate_solver.h"
+#include <iostream>
 
 namespace polysat {
 

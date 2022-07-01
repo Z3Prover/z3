@@ -226,7 +226,7 @@ namespace polysat {
 
         numeral base_coeff = 0;
         numeral value = 0;
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             if (v == base_var)
                 base_coeff = e.coeff();
@@ -281,11 +281,13 @@ namespace polysat {
         row r = base2row(v);
         numeral b = row2base_coeff(r);
         unsigned tz_b = m.trailing_zeros(b);
-        for (auto col : M.col_entries(v)) {
-            if (r.id() == col.get_row().id())
+        auto col_it = M.col_begin(v);
+        auto const col_end = M.col_end(v);
+        for (; col_it != col_end; ++col_it) {
+            if (r.id() == col_it.get_row().id())
                 continue;
             numeral value_v = value(v);
-            if (!eliminate_var(r, col, tz_b, value_v))
+            if (!eliminate_var(r, col_it, tz_b, value_v))
                 return false;
         }
         return true;
@@ -315,12 +317,12 @@ namespace polysat {
         else {
             unsigned tz = UINT_MAX;
             numeral coeff;
-            for (auto c : M.col_entries(var)) {
-                unsigned tzc = m.trailing_zeros(c.get_row_entry().coeff());
+            for (auto [r2, r2_entry] : M.get_col(var)) {
+                unsigned tzc = m.trailing_zeros(r2_entry->coeff());
                 if (tzc < tz) {
-                    r = c.get_row();
+                    r = r2;
                     tz = tzc;
-                    coeff = c.get_row_entry().coeff();
+                    coeff = r2_entry->coeff();
                     if (tz == 0)
                         break;
                 }
@@ -362,11 +364,10 @@ namespace polysat {
         // R.value += delta*v_coeff
         // s.value = - R.value / s_coeff
         // 
-        for (auto c : M.col_entries(v)) {
-            row r = c.get_row();
+        for (auto [r, r_entry] : M.get_col(v)) {
             row_info& ri = m_rows[r.id()];
             var_t s = ri.m_base;
-            ri.m_value += delta * c.get_row_entry().coeff();
+            ri.m_value += delta * r_entry->coeff();
             set_base_value(s);
             add_patch(s);
         }
@@ -432,7 +433,7 @@ namespace polysat {
         numeral delta_best = 0;
         bool best_in_bounds = false;
 
-        for (auto const& r : M.row_entries(r)) {
+        for (auto const& r : M.get_row(r)) {
             var_t y = r.var();
             numeral const& b = r.coeff();
             if (x == y)
@@ -497,7 +498,7 @@ namespace polysat {
         unsigned max = get_num_vars();
         var_t result = max;
         row r = base2row(x);
-        for (auto const& c : M.col_entries(r)) {
+        for (auto const& c : M.get_col(r)) {
             var_t y = c.var();
             if (x == y || y >= result)
                 continue;
@@ -710,8 +711,8 @@ namespace polysat {
         unsigned tz1 = m.trailing_zeros(b);
         if (tz1 == 0)
             return true;
-        for (auto col : M.col_entries(y)) {
-            numeral c = col.get_row_entry().coeff();
+        for (auto [_, r_entry] : M.get_col(y)) {
+            numeral c = r_entry->coeff();
             unsigned tz2 = m.trailing_zeros(c);
             if (tz1 > tz2)
                 return false;
@@ -739,7 +740,7 @@ namespace polysat {
         SASSERT(is_base(x));
         auto r = base2row(x);
         mod_interval<numeral> range(0, 1);
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             numeral const& c = e.coeff();
             range += m_vars[v] * c;
@@ -767,7 +768,7 @@ namespace polysat {
             return false;
         numeral fixed = 0;
         unsigned parity = UINT_MAX;
-        for (auto const& e : M.row_entries(row(r))) {
+        for (auto const& e : M.get_row(row(r))) {
             var_t v = e.var();
             auto c = e.coeff();
             if (is_fixed(v))
@@ -841,13 +842,15 @@ namespace polysat {
 
         unsigned tz_b = m.trailing_zeros(b);
 
-        for (auto const& col : M.col_entries(y)) {
-            row r_z = col.get_row();
+        auto col_it = M.col_begin(y);
+        auto const col_end = M.col_end(y);
+        for (; col_it != col_end; ++col_it) {
+            auto r_z = col_it.get_row();
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
             TRACE("fixplex", display_row(tout << "eliminate ", r_z, false) << "\n";);
-            VERIFY(eliminate_var(r_x, col, tz_b, old_value_y));
+            VERIFY(eliminate_var(r_x, col_it, tz_b, old_value_y));
             TRACE("fixplex", display_row(tout << "eliminated ", r_z, false) << "\n";);
             add_patch(row2base(r_z));
         }
@@ -904,7 +907,7 @@ namespace polysat {
         SASSERT(is_base(v));
         auto row = base2row(v);
         ptr_vector<u_dependency> todo;
-        for (auto const& e : M.row_entries(row)) {
+        for (auto const& e : M.get_row(row)) {
             var_t v = e.var();
             todo.push_back(m_vars[v].m_lo_dep);
             todo.push_back(m_vars[v].m_hi_dep);
@@ -926,8 +929,8 @@ namespace polysat {
     template<typename Ext>
     int fixplex<Ext>::get_num_non_free_dep_vars(var_t x_j, int best_so_far) {
         int result = is_non_free(x_j);
-        for (auto const& col : M.col_entries(x_j)) {
-            var_t s = row2base(col.get_row());
+        for (auto [r, _] : M.get_col(x_j)) {
+            var_t s = row2base(r);
             result += is_non_free(s);
             if (result > best_so_far)
                 return result;
@@ -1104,7 +1107,7 @@ namespace polysat {
         y = null_var;
         if (!row_is_integral(r))
             return false;
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             if (is_fixed(v))
                 continue;
@@ -1130,8 +1133,7 @@ namespace polysat {
             return;
         var_t z, u;
         numeral cz, cu;
-        for (auto c : M.col_entries(x)) {
-            auto r2 = c.get_row();
+        for (auto [r2, _] : M.get_col(x)) {
             if (r1.id() == r2.id())
                 continue;
             if (!is_offset_row(r2, cz, z, cu, u))
@@ -1299,7 +1301,7 @@ namespace polysat {
         mod_interval<numeral> range(0, 1);
         numeral free_c = 0;
         var_t free_v = null_var;
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             numeral const& c = e.coeff();
             if (is_free(v)) {
@@ -1320,7 +1322,7 @@ namespace polysat {
             SASSERT(in_bounds(free_v));
             return res;
         }
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             SASSERT(!is_free(v));
             auto range1 = range - m_vars[v] * e.coeff();
@@ -1406,7 +1408,7 @@ namespace polysat {
     template<typename Ext>
     u_dependency* fixplex<Ext>::row2dep(row const& r) {
         u_dependency* d = nullptr;
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             d = m_deps.mk_join(m_vars[v].m_lo_dep, d);
             d = m_deps.mk_join(m_vars[v].m_hi_dep, d);
@@ -1461,7 +1463,7 @@ namespace polysat {
     template<typename Ext>
     std::ostream& fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) const {
         out << r.id() << " := " << pp(row2value(r)) << " : ";
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             var_t v = e.var();
             if (e.coeff() != 1)
                 out << pp(e.coeff()) << " * ";
@@ -1502,7 +1504,7 @@ namespace polysat {
         VERIFY(m_vars[s].m_is_base);
         numeral sum = 0;
         numeral base_coeff = row2base_coeff(r);
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.get_row(r)) {
             sum += value(e.var()) * e.coeff();
             SASSERT(s != e.var() || base_coeff == e.coeff());
         }

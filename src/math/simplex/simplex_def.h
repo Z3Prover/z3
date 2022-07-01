@@ -76,13 +76,13 @@ namespace simplex {
         scoped_eps_numeral value(em), tmp(em);
         row_iterator it = M.row_begin(r), end = M.row_end(r);
         for (; it != end; ++it) {
-            var_t v = it->var();
+            var_t v = it->m_var;
             if (v == base_var) {
-                m.set(base_coeff, it->coeff());
+                m.set(base_coeff, it->m_coeff);
             }
             else {
                 SASSERT(!is_base(v));
-                em.mul(m_vars[v].m_value, it->coeff(), tmp);
+                em.mul(m_vars[v].m_value, it->m_coeff, tmp);
                 em.add(value, tmp, value);
             }
         }
@@ -97,8 +97,8 @@ namespace simplex {
               bool first = true;
               for (; it2 != end; ++it2) {
                   if (!first) tout << " + ";
-                  tout << "v" << it2->var() << " * ";
-                  m.display(tout, it2->coeff()); tout << " ";                  
+                  tout << "v" << it2->m_var << " * ";
+                  m.display(tout, it2->m_coeff); tout << " ";                  
                   first = false;
               }
               tout << "\n";
@@ -176,7 +176,7 @@ namespace simplex {
                 new_value = vi.m_value;
             }
             // need to move var such that old_base comes in bound.
-            update_and_pivot(old_base, var, re.coeff(), new_value);   
+            update_and_pivot(old_base, var, re.m_coeff, new_value);   
             SASSERT(is_base(var));
             SASSERT(m_vars[var].m_base2row == r.id());            
             SASSERT(!below_lower(old_base) && !above_upper(old_base));
@@ -285,10 +285,10 @@ namespace simplex {
     void simplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
         row_iterator it = M.row_begin(r), end = M.row_end(r);        
         for (; it != end; ++it) {
-            m.display(out, it->coeff());
-            out << "*v" << it->var() << " ";
+            m.display(out, it->m_coeff);
+            out << "*v" << it->m_var << " ";
             if (values) {
-                var_info const& vi = m_vars[it->var()];
+                var_info const& vi = m_vars[it->m_var];
                 out << em.to_string(vi.m_value);
                 out << " [";
                 if (vi.m_lower_valid) out << em.to_string(vi.m_lower); else out << "-oo";
@@ -405,7 +405,7 @@ namespace simplex {
         for (; it != end; ++it) {
             row r_k = it.get_row();
             if (r_k.id() != r_i) {
-                a_kj = it.get_row_entry().coeff();
+                a_kj = it.get_row_entry().m_coeff;
                 a_kj.neg();
                 M.mul(r_k, a_ij);
                 M.add(r_k, a_kj, row(r_i));
@@ -439,7 +439,7 @@ namespace simplex {
             var_t s = m_row2base[r.id()];
             var_info& si = m_vars[s];
             scoped_eps_numeral delta2(em);
-            numeral const& coeff = it.get_row_entry().coeff();
+            numeral const& coeff = it.get_row_entry().m_coeff;
             em.mul(delta,  coeff, delta2);
             em.div(delta2, si.m_base_coeff, delta2);
             delta2.neg();
@@ -555,9 +555,9 @@ namespace simplex {
         row_iterator it = M.row_begin(r), end = M.row_end(r);
     
         for (; it != end; ++it) {
-            var_t x_j       = it->var();          
+            var_t x_j       = it->m_var;          
             if (x_i == x_j) continue;
-            numeral const & a_ij = it->coeff();  
+            numeral const & a_ij = it->m_coeff;  
                                                                
             bool is_neg = is_below ? m.is_neg(a_ij) : m.is_pos(a_ij);
             bool is_pos = !is_neg;                                   
@@ -618,8 +618,8 @@ namespace simplex {
         row r(m_vars[x_i].m_base2row);
         row_iterator it = M.row_begin(r), end = M.row_end(r);
         for (; it != end; ++it) {
-            var_t x_j = it->var();    
-            numeral const & a_ij = it->coeff();                
+            var_t x_j = it->m_var;    
+            numeral const & a_ij = it->m_coeff;                
             bool is_neg = is_below ? m.is_neg(a_ij) : m.is_pos(a_ij);
             if (x_i != x_j && ((!is_neg && above_lower(x_j)) || (is_neg && below_upper(x_j)))) {
                 SASSERT(!is_base(x_j));
@@ -749,7 +749,7 @@ namespace simplex {
             //
             var_t s = m_row2base[it.get_row().id()];
             var_info& vs = m_vars[s];
-            numeral const& coeff = it.get_row_entry().coeff();
+            numeral const& coeff = it.get_row_entry().m_coeff;
             numeral const& base_coeff = vs.m_base_coeff;
             SASSERT(!m.is_zero(coeff));
             bool base_to_lower = (m.is_pos(coeff) != m.is_pos(base_coeff)) == to_lower;
@@ -801,9 +801,9 @@ namespace simplex {
         bool inc_y = false;
 
         for (; it != end; ++it) {
-            var_t x = it->var();          
+            var_t x = it->m_var;          
             if (x == v) continue; 
-            bool inc_x = m.is_pos(it->coeff()) == m.is_pos(m_vars[v].m_base_coeff);
+            bool inc_x = m.is_pos(it->m_coeff) == m.is_pos(m_vars[v].m_base_coeff);
             if ((inc_x && at_upper(x)) || (!inc_x && at_lower(x))) {
                 TRACE("simplex", tout << "v" << x << " pos: " << inc_x 
                       << " at upper: " << at_upper(x) 
@@ -867,7 +867,7 @@ namespace simplex {
             row r = it.get_row();
             var_t s = m_row2base[r.id()];
             var_info& vi = m_vars[s];
-            numeral const& a_ij = it.get_row_entry().coeff();
+            numeral const& a_ij = it.get_row_entry().m_coeff;
             numeral const& a_ii = vi.m_base_coeff;
             bool sign_eq = (m.is_pos(a_ii) == m.is_pos(a_ij));
             bool inc_s =  sign_eq != inc_x_j;
@@ -1013,9 +1013,9 @@ namespace simplex {
         row_iterator it = M.row_begin(r), end = M.row_end(r);
         scoped_eps_numeral sum(em), tmp(em);
         for (; it != end; ++it) {
-            em.mul(m_vars[it->var()].m_value, it->coeff(), tmp);
+            em.mul(m_vars[it->m_var].m_value, it->m_coeff, tmp);
             sum += tmp;
-            SASSERT(s != it->var() || m.eq(m_vars[s].m_base_coeff, it->coeff()));
+            SASSERT(s != it->m_var || m.eq(m_vars[s].m_base_coeff, it->m_coeff));
         }
         if (!em.is_zero(sum)) {
             IF_VERBOSE(0, M.display_row(verbose_stream(), r););

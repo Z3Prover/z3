@@ -32,19 +32,15 @@ namespace simplex {
         typedef typename Ext::manager manager;
         typedef unsigned var_t;
 
-
-        class row_entry {
-            friend class sparse_matrix;
+        struct row_entry {
             numeral         m_coeff;
             var_t           m_var;
-        public:
             row_entry(numeral && c, var_t v) : m_coeff(std::move(c)), m_var(v) {}
             inline numeral const& coeff() const { return m_coeff; }
             inline var_t var() const { return m_var; }
         };
 
     private:
-        struct column;
         
         struct stats {
             unsigned m_add_rows;
@@ -69,7 +65,7 @@ namespace simplex {
             };            
             _row_entry(numeral && c, var_t v) : row_entry(std::move(c), v), m_col_idx(0) {}
             _row_entry() : row_entry(numeral(), dead_id), m_col_idx(0) {}
-            bool is_dead() const { return row_entry::var() == dead_id; }
+            bool is_dead() const { return row_entry::m_var == dead_id; }
         };
 
         /**
@@ -87,7 +83,8 @@ namespace simplex {
             col_entry(): m_row_id(0), m_row_idx(0) {}            
             bool is_dead() const { return (unsigned) m_row_id == dead_id; }
         };
-    
+     
+        struct column;
 
         /**
            \brief A row contains a base variable and set of
@@ -111,30 +108,28 @@ namespace simplex {
             int get_idx_of(var_t v) const;
         };
         
-
         /**
-            \brief A column stores in which rows a variable occurs.
-            The column may have free/dead entries. The field m_first_free_idx
-            is a reference to the first free/dead entry.
+           \brief A column stores in which rows a variable occurs.
+           The column may have free/dead entries. The field m_first_free_idx
+           is a reference to the first free/dead entry.
         */
         struct column {
             svector<col_entry> m_entries;
-            unsigned           m_size;
+            unsigned           m_size; 
             int                m_first_free_idx;
             mutable unsigned   m_refs;
-
-            column() :m_size(0), m_first_free_idx(-1), m_refs(0) {}
+            
+            column():m_size(0), m_first_free_idx(-1), m_refs(0) {}
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
-            void compress(vector<_row>& rows);
-            void compress_if_needed(vector<_row>& rows);
+            void compress(vector<_row> & rows);
+            void compress_if_needed(vector<_row> & rows);
             //void compress_singleton(vector<_row> & rows, unsigned singleton_pos);
-            col_entry const* get_first_col_entry() const;
-            col_entry& add_col_entry(int& pos_idx);
+            col_entry const * get_first_col_entry() const;
+            col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
         };
-
 
         manager&                m;
         vector<_row>            m_rows;
@@ -209,17 +204,17 @@ namespace simplex {
         row_iterator row_begin(row const& r) { return row_iterator(m_rows[r.id()], true); }
         row_iterator row_end(row const& r) { return row_iterator(m_rows[r.id()], false); }
 
-        class row_vars {
+        class row_entries_t {
             friend class sparse_matrix;
             sparse_matrix& s;
             row r;
-            row_vars(sparse_matrix& s, row r): s(s), r(r) {}
+            row_entries_t(sparse_matrix& s, row r): s(s), r(r) {}
         public:
             row_iterator begin() { return s.row_begin(r); }
             row_iterator end() { return s.row_end(r); }
         };
 
-        row_vars get_row(row r) { return row_vars(*this, r); }
+        row_entries_t get_row(row r) { return row_entries_t(*this, r); }
 
         unsigned column_size(var_t v) const { return m_columns[v].size(); }
 
@@ -232,52 +227,56 @@ namespace simplex {
             column const&        m_col;
             vector<_row>&        m_rows;
             void move_to_used() {
-                while (m_curr < col().num_entries() && col().m_entries[m_curr].is_dead()) {
+                while (m_curr < m_col.num_entries() && m_col.m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
             }
             col_iterator(column const& c, vector<_row>& r, bool begin): 
                 m_curr(0), m_col(c), m_rows(r) {
                 ++m_col.m_refs;
-                if (begin)
+                if (begin) {
                     move_to_used();
-                else 
+                }
+                else {
                     m_curr = m_col.num_entries();
+                }
             }
-
         public:
-
             ~col_iterator() {
-                --col().m_refs;
-            }
-
-            col_iterator(col_iterator const& other): 
-                m_curr(other.m_curr),
-                m_var(other.m_var),
-                m_sm(other.m_sm) {
-                ++m_col.m_refs;
+                --m_col.m_refs;
             }
 
             row get_row() const { 
-                return row(m_col.m_entries[m_curr].m_row_id);
+                return row(m_col.m_entries[m_curr].m_row_id); 
             }
 
-            row_entry& get_row_entry() {
+            row_entry& get_row_entry() const {
                 col_entry const& c = m_col.m_entries[m_curr];
                 int row_id = c.m_row_id;
-                return m_sm.m_rows[row_id].m_entries[c.m_row_idx];
+                return m_rows[row_id].m_entries[c.m_row_idx];
             }
 
             std::pair<row, row_entry*> operator*() { return std::make_pair(get_row(), &get_row_entry()); }
             col_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
             col_iterator operator++(int) { col_iterator tmp = *this; ++*this; return tmp; }
             bool operator==(col_iterator const & it) const { return m_curr == it.m_curr; }
-            bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; } 
-            col_iterator& operator*() { return *this; }
+            bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; }           
         };
 
         col_iterator col_begin(int v) { return col_iterator(m_columns[v], m_rows, true); }
         col_iterator col_end(int v) { return col_iterator(m_columns[v], m_rows, false); }
+
+        class col_entries_t {
+            friend class sparse_matrix;
+            sparse_matrix& m;
+            int v;
+            col_entries_t(sparse_matrix& m, int v): m(m), v(v) {}
+        public:
+            col_iterator begin() { return m.col_begin(v); }
+            col_iterator end() { return m.col_end(v); }
+        };
+
+        col_entries_t get_col(int v) { return col_entries_t(*this, v); }
 
         class var_rows {
             friend class sparse_matrix;
@@ -330,9 +329,10 @@ namespace simplex {
                     return row.m_coeff;
             return m_zero;
         }
+        
 
         void display(std::ostream& out);
-        void display_row(std::ostream& out, row const& r) const;
+        void display_row(std::ostream& out, row const& r);
         bool well_formed() const;
 
         manager& get_manager() { return m; }
@@ -357,4 +357,4 @@ namespace simplex {
         typedef unsynch_mpq_inf_manager eps_manager;
     };
 
-}
+};
