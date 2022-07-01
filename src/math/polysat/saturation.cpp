@@ -73,6 +73,7 @@ namespace polysat {
         LOG("consequent " << c << " value: " << c.bvalue(s) << " is-false: " << c.is_currently_false(s) << " " << core.contains(~c));
 
         // ensure new core is a conflict
+        // TODO: don't we need to check the m_new_constraints too? or maybe that is implicit in the rules (should check it)
         if (!c.is_currently_false(s) && c.bvalue(s) != l_false)
             return false;
 
@@ -99,7 +100,7 @@ namespace polysat {
         core.reset();
         for (auto d : m_new_constraints)
             core.insert(d);
-        if (c.bvalue(s) != l_false)
+        if (c.bvalue(s) != l_false)  // conflict is due to the evaluation of c, so it depends on the variable values
             core.insert_vars(c);
         core.insert(~c);       
         core.log_inference(inf_name);

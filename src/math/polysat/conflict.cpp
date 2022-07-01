@@ -100,9 +100,6 @@ namespace polysat {
             for (auto const& lit : cb)
                 out_indent() << lit << ": " << s.lit2cnstr(lit) << '\n';
             out().flush();
-
-            // if (m_conflicts == 9)
-            //     std::exit(0);
         }
 
         void end_conflict(search_state const& search, viable const& v) {
@@ -197,7 +194,7 @@ namespace polysat {
         m_var_occurrences.reset();
         m_bail_vars.reset();
         m_conflict_var = null_var;
-        m_bailout = false;
+        m_kind = conflict_kind_t::ok;
         SASSERT(empty());        
     }
 
@@ -345,10 +342,16 @@ namespace polysat {
         return m_literals.contains(lit.index());
     }
 
-    void conflict::set_bailout() {
-        SASSERT(!is_bailout());
-        m_bailout = true;
+    void conflict::set_bailout_gave_up() {
+        SASSERT(m_kind == conflict_kind_t::ok);
+        m_kind = conflict_kind_t::bailout_gave_up;
         s.m_stats.m_num_bailouts++;
+    }
+
+    void conflict::set_bailout_lemma() {
+        SASSERT(m_kind == conflict_kind_t::ok);
+        m_kind = conflict_kind_t::bailout_lemma;
+        // s.m_stats.m_num_bailouts++;
     }
 
     struct inference_resolve : public inference {
@@ -487,6 +490,8 @@ namespace polysat {
 
         SASSERT(v != conflict_var());
 
+        bool has_saturated = false;
+
         auto const& j = s.m_justification[v];
 
         if (j.is_decision() && m_bail_vars.contains(v))
@@ -517,11 +522,20 @@ namespace polysat {
             // TODO: as a last resort, substitute v by m_value[v]?
             if (try_eliminate(v))
                 return true;
-            if (!try_saturate(v))
+            LOG("try-saturate v" << v);
+            if (try_saturate(v))
+                has_saturated = true;
+            else
                 break;
         }
         LOG("bailout v" << v);
-        set_bailout();
+        if (has_saturated) {
+            // NOTE: current saturation rules create valid lemmas that do not depend on the variable assignment
+            set_bailout_lemma();
+            return true;
+        }
+        else
+            set_bailout_gave_up();
     bailout:
         if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);

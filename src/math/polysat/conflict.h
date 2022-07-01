@@ -98,6 +98,12 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override { return out << m_name; }
     };
 
+    enum class conflict_kind_t {
+        ok,
+        bailout_gave_up,
+        bailout_lemma,
+    };
+
     /** Conflict state, represented as core (~negation of clause). */
     class conflict {
         solver& s;
@@ -106,12 +112,18 @@ namespace polysat {
         uint_set m_vars;                    // variable assignments used as premises
         uint_set m_bail_vars;
 
-        friend class inference_logger;
-        scoped_ptr<inference_logger> m_logger;
-
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
+
+        /** Whether we are in a bailout state.
+         * We enter a bailout state when we give up on proper conflict resolution,
+         * or want to learn a lemma without fine-grained backtracking.
+         */
+        conflict_kind_t m_kind = conflict_kind_t::ok;
+
+        friend class inference_logger;
+        scoped_ptr<inference_logger> m_logger;
 
         bool_vector m_bvar2mark;                  // mark of Boolean variables
 
@@ -119,9 +131,6 @@ namespace polysat {
         void unset_mark(signed_constraint c);
 
         void minimize_vars(signed_constraint c);
-
-        /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
-        bool m_bailout = false;
 
         constraint_manager& cm() const;
         scoped_ptr_vector<explainer> ex_engines;
@@ -143,9 +152,10 @@ namespace polysat {
 
         pvar conflict_var() const { return m_conflict_var; }
 
-        bool is_bailout() const { return m_bailout; }
-
-        void set_bailout();
+        bool is_bailout() const { return m_kind != conflict_kind_t::ok; }
+        bool is_bailout_lemma() const { return m_kind == conflict_kind_t::bailout_lemma; }
+        void set_bailout_gave_up();
+        void set_bailout_lemma();
 
         bool empty() const;
         void reset();

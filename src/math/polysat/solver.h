@@ -205,6 +205,7 @@ namespace polysat {
 
         void resolve_conflict();
         void backtrack_fi();
+        void backtrack_lemma();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
 

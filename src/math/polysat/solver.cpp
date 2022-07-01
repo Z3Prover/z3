@@ -27,8 +27,6 @@ Author:
 
 namespace polysat {
 
-
-
     solver::solver(reslimit& lim): 
         m_lim(lim),
         m_viable(*this),
@@ -92,7 +90,6 @@ namespace polysat {
         flet<uint64_t> _max_d(m_config.m_max_conflicts, m_stats.m_num_conflicts + 2);
         return check_sat();
     }
-
 
     dd::pdd_manager& solver::sz2pdd(unsigned sz) const {
         m_pdd.reserve(sz + 1);
@@ -643,6 +640,11 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
+                if (m_conflict.is_bailout_lemma()) {
+                    m_conflict.end_conflict();
+                    backtrack_lemma();
+                    return;
+                }
                 m_search.pop_assignment();
             }
             else {
@@ -677,7 +679,44 @@ namespace polysat {
     }
 
     /**
-     * Simpler backracking for forbidden interval lemmas:
+     * Simple backtracking for lemmas:
+     * jump to the level where the lemma can be (bool-)propagated,
+     * even without reverting the last decision.
+     */
+    void solver::backtrack_lemma() {
+        clause_ref lemma = m_conflict.build_lemma().build();
+        LOG_H2("backtrack_lemma: " << show_deref(lemma));
+        SASSERT(lemma);
+
+        // find second-highest level of the literals in the lemma
+        unsigned max_level = 0;  // could be simplified if we're sure that always max_level == m_level
+        unsigned jump_level = 0;
+        for (auto lit : *lemma) {
+            if (!m_bvars.is_assigned(lit))
+                continue;
+            unsigned lit_level = m_bvars.level(lit);
+            if (lit_level > max_level) {
+                jump_level = max_level;
+                max_level = lit_level;
+            } else if (max_level > lit_level && lit_level > jump_level) {
+                jump_level = lit_level;
+            }
+        }
+
+        jump_level = std::max(jump_level, base_level());
+
+        // LOG("current lvl: " << m_level);
+        // LOG("base level:  " << base_level());
+        // LOG("max_level:   " << max_level);
+        // LOG("jump_level:  " << jump_level);
+
+        m_conflict.reset();
+        backjump(jump_level);
+        learn_lemma(*lemma);
+    }
+
+    /**
+     * Simpler backtracking for forbidden interval lemmas:
      * since forbidden intervals already gives us a lemma where the conflict variable has been eliminated,
      * we can backtrack to the last relevant decision and learn this lemma.
      */
@@ -914,7 +953,7 @@ namespace polysat {
         LOG_H3("Reverting boolean decision: " << lit << " " << m_conflict);
         SASSERT(m_bvars.is_decision(var));
 
-        clause_builder reason_builder = m_conflict.build_lemma();        
+        clause_builder reason_builder = m_conflict.build_lemma();
 
         SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
         clause_ref reason = reason_builder.build();
