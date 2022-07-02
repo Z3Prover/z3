@@ -41,6 +41,7 @@ Notes:
 
 
 class non_parallel_tactic : public tactic {
+public:
     non_parallel_tactic(solver* s, params_ref const& p) {
     }
 
