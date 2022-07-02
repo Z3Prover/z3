@@ -37,19 +37,55 @@ br_status char_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
     case OP_CHAR_CONST:
         break;
     case OP_CHAR_LE:
+        st = mk_char_le(args[0], args[1], result);
         break;
     case OP_CHAR_TO_INT:
         st = mk_char_to_int(args[0], result);        
         break;
     case OP_CHAR_TO_BV:
+        st = mk_char_to_bv(args[0], result);
         break;
     case OP_CHAR_FROM_BV:
         st = mk_char_from_bv(args[0], result);
         break;
     case OP_CHAR_IS_DIGIT:
+        st = mk_char_is_digit(args[0], result);
         break;
     }
     return st;
+}
+
+br_status char_rewriter::mk_char_is_digit(expr* a, expr_ref& result) {
+    unsigned n;
+    if (!m_char->is_const_char(a, n))
+        return BR_FAILED;
+    result = m.mk_bool_val('0' <= n && n <= '9');
+    return BR_DONE;
+}
+
+br_status char_rewriter::mk_char_to_bv(expr* a, expr_ref& result) {
+    return BR_FAILED;
+}
+
+br_status char_rewriter::mk_char_le(expr* a, expr* b, expr_ref& result) {
+    unsigned na = 0, nb = 0;
+    if (m_char->is_const_char(a, na)) {
+        if (na == 0) {
+            result = m.mk_true();
+            return BR_DONE;
+        }
+    }
+    if (m_char->is_const_char(b, nb)) {
+        if (na != 0) {
+            result = m.mk_bool_val(na <= nb);
+            return BR_DONE;
+        }
+        if (nb == m_char->max_char()) {
+            result = m.mk_true();
+            return BR_DONE;
+        }
+    }
+    return BR_FAILED;
 }
 
 br_status char_rewriter::mk_char_from_bv(expr* e, expr_ref& result) {

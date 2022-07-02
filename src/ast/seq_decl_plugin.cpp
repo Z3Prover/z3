@@ -532,7 +532,12 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case _OP_STRING_FROM_CHAR: {
         if (!(num_parameters == 1 && parameters[0].is_int())) 
             m.raise_exception("character literal expects integer parameter");
-        zstring zs(parameters[0].get_int());        
+        int i = parameters[0].get_int();
+        if (i < 0)
+            m.raise_exception("character literal expects a non-negative integer parameter");
+        if (i > (int)m_char_plugin->max_char())
+            m.raise_exception("character literal is out of bounds");
+        zstring zs(i);        
         parameter p(zs);
         return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
     }
