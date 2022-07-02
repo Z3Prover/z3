@@ -538,22 +538,9 @@ public:
 cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
     m_logic(l),
-    m_interactive_mode(false),
-    m_global_decls(false),
     m_print_success(m_params.m_smtlib2_compliant),
-    m_random_seed(0),
-    m_produce_unsat_cores(false),
-    m_produce_unsat_assumptions(false),
-    m_produce_assignments(false),
-    m_status(UNKNOWN),
-    m_numeral_as_real(false),
-    m_ignore_check(false),
-    m_exit_on_error(false),
     m_manager(m),
     m_own_manager(m == nullptr),
-    m_manager_initialized(false),
-    m_pmanager(nullptr),
-    m_sexpr_manager(nullptr),
     m_regular("stdout", std::cout),
     m_diagnostic("stderr", std::cerr) {
     SASSERT(m != 0 || !has_manager());
@@ -626,13 +613,14 @@ void cmd_context::set_produce_models(bool f) {
 
 void cmd_context::set_produce_unsat_cores(bool f) {
     // can only be set before initialization
-    SASSERT(!has_manager());
+    SASSERT(!has_assertions());
     m_params.m_unsat_core |= f;
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    // can only be set before initialization
-    SASSERT(!has_manager());
+    SASSERT(!has_assertions());
+    if (has_manager()) 
+        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
     m_params.m_proof = f;
 }
 
