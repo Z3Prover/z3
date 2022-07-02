@@ -168,6 +168,16 @@ namespace Microsoft.Z3
         {
             return (Expr)base.Translate(ctx);
         }
+        
+        /// <summary>
+        /// Create a duplicate of expression. 
+        /// This feature is to allow extending the life-time of expressions that were passed down as arguments
+        /// by the user propagator callbacks. By default the life-time of arguments to callbacks is within the
+        /// callback only.
+        /// </summary>
+        public Expr Dup() {
+             return Expr.Create(Context, NativeObject);
+        }
 
         /// <summary>
         /// Returns a string representation of the expression.
