@@ -204,7 +204,7 @@ if (MSVC)
       ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     COMMENT "Generating \"${dll_module_exports_file}\""
-    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+    USES_TERMINAL
     VERBATIM
   )
   add_custom_target(libz3_extra_depends

@@ -29,7 +29,7 @@ add_custom_command(OUTPUT ${generated_files}
           # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
           "${PROJECT_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating ${generated_files}"
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
   VERBATIM
 )
 

@@ -69,7 +69,7 @@ add_custom_target(api_docs ${ALWAYS_BUILD_DOCS_ARG}
   DEPENDS
     ${DOC_EXTRA_DEPENDS}
   COMMENT "Generating documentation"
-  ${ADD_CUSTOM_TARGET_USES_TERMINAL_ARG}
+  USES_TERMINAL
 )
 
 # Remove generated documentation when running `clean` target.

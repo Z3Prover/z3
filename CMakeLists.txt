@@ -11,13 +11,6 @@ set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
 
 ################################################################################
-# Set various useful variables depending on CMake version
-################################################################################
-
-set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
-
-################################################################################
 # Message for polluted source tree sanity checks
 ################################################################################
 set(z3_polluted_tree_msg
@@ -482,7 +475,7 @@ add_custom_target(uninstall
   COMMAND
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   COMMENT "Uninstalling..."
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
   VERBATIM
 )
 
