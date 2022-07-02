@@ -20,6 +20,7 @@ DEFINE_TYPE(Z3_constructor);
 DEFINE_TYPE(Z3_constructor_list);
 DEFINE_TYPE(Z3_params);
 DEFINE_TYPE(Z3_param_descrs);
+DEFINE_TYPE(Z3_parser_context);
 DEFINE_TYPE(Z3_goal);
 DEFINE_TYPE(Z3_tactic);
 DEFINE_TYPE(Z3_probe);
@@ -58,6 +59,7 @@ DEFINE_TYPE(Z3_rcf_num);
    - \c Z3_constructor_list: list of constructors for a (recursive) datatype.
    - \c Z3_params: parameter set used to configure many components such as: simplifiers, tactics, solvers, etc.
    - \c Z3_param_descrs: provides a collection of parameter names, their types, default values and documentation strings. Solvers, tactics, and other objects accept different collection of parameters.
+   - \c Z3_parser_context: context for incrementally parsing strings. Declarations can be added incrementally to the parser state.
    - \c Z3_model: model for the constraints asserted into the logical context.
    - \c Z3_func_interp: interpretation of a function in a model.
    - \c Z3_func_entry: representation of the value of a \c Z3_func_interp at a particular point.
@@ -1413,6 +1415,7 @@ typedef enum
   def_Type('CONSTRUCTOR_LIST', 'Z3_constructor_list', 'ConstructorList')
   def_Type('SOLVER',           'Z3_solver',           'SolverObj')
   def_Type('SOLVER_CALLBACK',  'Z3_solver_callback',  'SolverCallbackObj')
+  def_Type('PARSER_CONTEXT',   'Z3_parser_context',   'ParserContextObj')
   def_Type('GOAL',             'Z3_goal',             'GoalObj')
   def_Type('TACTIC',           'Z3_tactic',           'TacticObj')
   def_Type('PARAMS',           'Z3_params',           'Params')
@@ -5826,6 +5829,55 @@ extern "C" {
     */
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+
+
+    /** 
+       \brief Create a parser context.
+
+       A parser context maintains state between calls to \c Z3_parser_context_parse_string
+       where the caller can pass in a set of SMTLIB2 commands.
+       It maintains all the declarations from previous calls together with 
+       of sorts and function declarations (including 0-ary) that are added directly to the context.
+
+       def_API('Z3_mk_parser_context', PARSER_CONTEXT, (_in(CONTEXT),))
+    */
+    Z3_parser_context Z3_API Z3_mk_parser_context(Z3_context c);
+
+    /**
+       \brief Increment the reference counter of the given \c Z3_parser_context object.
+
+       def_API('Z3_parser_context_inc_ref', VOID, (_in(CONTEXT), _in(PARSER_CONTEXT)))
+    */
+    void Z3_API Z3_parser_context_inc_ref(Z3_context c, Z3_parser_context pc);
+
+    /**
+       \brief Decrement the reference counter of the given \c Z3_parser_context object.
+
+       def_API('Z3_parser_context_dec_ref', VOID, (_in(CONTEXT), _in(PARSER_CONTEXT)))
+    */
+    void Z3_API Z3_parser_context_dec_ref(Z3_context c, Z3_parser_context pc);
+
+    /**
+       \brief Add a sort declaration.
+
+       def_API('Z3_parser_context_add_sort', VOID, (_in(CONTEXT), _in(PARSER_CONTEXT), _in(SORT)))
+     */
+    void Z3_API Z3_parser_context_add_sort(Z3_context c, Z3_parser_context pc, Z3_sort s);
+
+    /**
+       \brief Add a function declaration.
+
+       def_API('Z3_parser_context_add_decl', VOID, (_in(CONTEXT), _in(PARSER_CONTEXT), _in(FUNC_DECL)))
+     */
+    void Z3_API Z3_parser_context_add_decl(Z3_context c, Z3_parser_context pc, Z3_func_decl f);
+
+    /**
+       \brief Parse a string of SMTLIB2 commands. Return assertions.
+      
+       def_API('Z3_parser_context_from_string', AST_VECTOR, (_in(CONTEXT), _in(PARSER_CONTEXT), _in(STRING)))
+     */
+    Z3_ast_vector Z3_API Z3_parser_context_from_string(Z3_context c, Z3_parser_context pc, Z3_string s);
+
 
     /**@}*/
 

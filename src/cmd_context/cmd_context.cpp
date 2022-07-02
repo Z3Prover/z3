@@ -2203,22 +2203,25 @@ expr_ref_vector cmd_context::tracked_assertions() {
         for (unsigned i = 0; i < assertions().size(); ++i) {
             expr* an  = assertion_names()[i];
             expr* asr = assertions()[i];
-            if (an) {
+            if (an) 
                 result.push_back(m().mk_implies(an, asr));
-            }
-            else {
+            else 
                 result.push_back(asr);
-            }
         }
     }
     else {
-        for (expr * e : assertions()) {
+        for (expr * e : assertions()) 
             result.push_back(e);
-        }
     }
     return result;
 }
 
+void cmd_context::reset_tracked_assertions() {
+    m_assertion_names.reset();
+    for (expr* a : m_assertions)
+        m().dec_ref(a);
+    m_assertions.reset();
+}
 
 void cmd_context::display_assertions() {
     if (!m_interactive_mode)
@@ -2254,9 +2257,8 @@ format_ns::format * cmd_context::pp(sort * s) const {
 }
 
 cmd_context::pp_env & cmd_context::get_pp_env() const {
-    if (m_pp_env.get() == nullptr) {
+    if (m_pp_env.get() == nullptr) 
         const_cast<cmd_context*>(this)->m_pp_env = alloc(pp_env, *const_cast<cmd_context*>(this));
-    }
     return *(m_pp_env.get());
 }
 
@@ -2314,9 +2316,8 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
         out << "(set-logic " << logic << ")" << std::endl;
     // collect uninterpreted function declarations
     decl_collector decls(m());
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; i++) 
         decls.visit(assertions[i]);
-    }
 
     // TODO: display uninterpreted sort decls, and datatype decls.
 
@@ -2342,9 +2343,8 @@ void cmd_context::slow_progress_sample() {
     svector<symbol> labels;
     m_solver->get_labels(labels);
     regular_stream() << "(labels";
-    for (symbol const& s : labels) {
+    for (symbol const& s : labels) 
         regular_stream() << " " << s;
-    }
     regular_stream() << "))" << std::endl;
 }
 
