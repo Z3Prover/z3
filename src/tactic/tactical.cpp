@@ -429,7 +429,9 @@ public:
     char const* name() const override { return "par"; }
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         throw default_exception("par_tactical is unavailable in single threaded mode");
-    }   
+    }
+    tactic * translate(ast_manager & m) override { return nullptr; }
+    void cleanup() override {}
 };
 
 #ifdef SINGLE_THREAD
@@ -589,7 +591,9 @@ public:
     char const* name() const override { return "par_then"; }
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         throw default_exception("par_and_then is not available in single threaded mode");
-    }   
+    }
+    tactic * translate(ast_manager & m) override { return nullptr; }
+    void cleanup() override {}
 };
 
 

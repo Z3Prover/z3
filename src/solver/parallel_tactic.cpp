@@ -49,6 +49,9 @@ class non_parallel_tactic : public tactic {
     void operator()(const goal_ref & g,goal_ref_buffer & result) override {
         throw default_exception("parallel tactic is disabled in single threaded mode");
     }
+    tactic * translate(ast_manager & m) override { return nullptr; }
+    void cleanup() override {}
+
 };
 
 #ifdef SINGLE_THREAD
