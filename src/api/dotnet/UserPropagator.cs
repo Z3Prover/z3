@@ -41,6 +41,9 @@ namespace Microsoft.Z3
     {
         /// <summary>
         /// Delegate type for fixed callback
+        /// Note that the life-time of the term and value only applies within the scope of the callback.
+        /// That means the term and value cannot be stored in an array, dictionary or similar and accessed after the callback has returned.
+        /// Use the functionality Dup on expressions to create a duplicate copy that extends the lifetime.
         /// </summary>                
         public delegate void FixedEh(Expr term, Expr value);
 
