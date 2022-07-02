@@ -1885,7 +1885,7 @@ void test_out_dir(std::string out_dir) {
 
 void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
     // todo: make it system independent
-    size_t last_slash_pos = a.find_last_of("/");
+    size_t last_slash_pos = a.find_last_of('/');
     if (last_slash_pos >= a.size()) {
         std::cout << "cannot find file name in " << a << std::endl;
         throw;
