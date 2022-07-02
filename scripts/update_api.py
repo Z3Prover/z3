@@ -689,7 +689,7 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = package_name.replace('.', '_')
-    java_wrapperf.write("// Automatically generated file\n")
+    java_wrapper.write("// Automatically generated file\n")
     with open(java_src + "/NativeStatic.txt") as ins:
         for line in ins:
             java_wrapper.write(line)            
