@@ -39,10 +39,22 @@ Notes:
 #include "solver/parallel_tactic.h"
 #include "solver/parallel_params.hpp"
 
+
+class non_parallel_tactic : public tactic {
+    non_parallel_tactic(solver* s, params_ref const& p) {
+    }
+
+    char const* name() const override { return "parallel_tactic"; }
+
+    void operator()(const goal_ref & g,goal_ref_buffer & result) override {
+        throw default_exception("parallel tactic is disabled in single threaded mode");
+    }
+};
+
 #ifdef SINGLE_THREAD
 
 tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
-    throw default_exception("parallel tactic is disabled in single threaded mode");
+    return alloc(non_parallel_tactic, s, p);
 }
 
 #else
