@@ -94,7 +94,7 @@ namespace smt {
         void oc_push_stack(enode * n);
         ptr_vector<enode> m_args, m_todo;
         ptr_vector<enode> const& get_array_args(enode* n);
-        ptr_vector<enode> const& get_seq_args(enode* n);
+        ptr_vector<enode> const& get_seq_args(enode* n, enode*& sibling);
 
         // class for managing state of final_check
         class final_check_st {

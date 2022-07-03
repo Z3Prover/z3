@@ -375,6 +375,7 @@ public:
         bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
 
         bool is_len_sub(expr const* n, expr*& l, expr*& u, rational& k) const;
+        bool is_concat_of_units(expr* n) const;
 
         /*
         tests if s is a single character string(c) or a unit (c)

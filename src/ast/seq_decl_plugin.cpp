@@ -971,6 +971,22 @@ bool seq_util::str::is_len_sub(expr const* s, expr*& l, expr*& u, rational& k) c
         return false;
 }
 
+bool seq_util::str::is_concat_of_units(expr* s) const {
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (is_empty(e) || is_unit(e))
+            continue;
+        if (is_concat(e))
+            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        else
+            return false;
+    }
+    return true;
+}
+
 bool seq_util::str::is_unit_string(expr const* s, expr_ref& c) const {
     zstring z;
     expr* ch = nullptr;
