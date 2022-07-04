@@ -10,8 +10,8 @@ Version 4.9.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
-Version 4.9
-===========
+Version 4.9.0
+=============
 - API for incremental parsing of assertions.
   A description of the feature is given by example here: https://github.com/Z3Prover/z3/commit/815518dc026e900392bf0d08ed859e5ec42d1e43
   It also allows incrementality at the level of adding assertions to the 
@@ -19,10 +19,21 @@ Version 4.9
 - Fold/map for sequences:
   https://microsoft.github.io/rise4fun/docs/guide/Sequences#map-and-fold
   At this point these functions are only exposed over the SMTLIB2 interface (and not programmatic API)
+  maxdiff/mindiff on arrays are more likely to be deprecated
 - User Propagator: 
   - Add functions and callbacks for external control over branching
   - A functioning dotnet API for the User Propagator 
     https://github.com/Z3Prover/z3/blob/master/src/api/dotnet/UserPropagator.cs
+- Java Script API
+  - higher level object wrappers are available thanks to Gibbons and Tomalka
+- Totalizers and RC2
+  - The MaxSAT engine now allows to run RC2 with totalizer encoding.
+    Totalizers are on by default as preliminary tests suggest this solves already 10% more problems on
+    standard benchmarks. The option rc2.totalizer (which by default is true) is used to control whether to use
+    totalizer encoding or built-in cardinality constraints.
+    The default engine is still maxres, so you have to set opt.maxsat_engine=rc2 to
+    enable the rc2 option at this point. The engines maxres-bin and rc2bin are experimental should not be used
+    (they are inferior to default options). 
 
 Version 4.8.17
 ==============

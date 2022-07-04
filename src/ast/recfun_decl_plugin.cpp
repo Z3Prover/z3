@@ -67,6 +67,30 @@ namespace recfun {
         m_decl = m.mk_func_decl(s, arity, domain, range, info);
     }
 
+    def* def::copy(util& dst, ast_translation& tr) {
+        SASSERT(&dst.m() == &tr.to());
+        sort_ref_vector domain(tr.to());
+        sort_ref range(tr(m_range.get()), tr.to());
+        for (auto* s : m_domain)
+            domain.push_back(tr(s));
+        family_id fid = dst.get_family_id();
+        bool is_generated = m_decl->get_parameter(0).get_int() != 0;
+        def* r = alloc(def, tr.to(), fid, m_name, domain.size(), domain.data(), range, is_generated);
+        r->m_rhs = tr(m_rhs.get());
+        for (auto* v : m_vars)
+            r->m_vars.push_back(tr(v));
+        for (auto const& c1 : m_cases) {
+            r->m_cases.push_back(case_def(tr.to()));
+            auto& c2 = r->m_cases.back();
+            c2.m_pred = tr(c1.m_pred.get());
+            c2.m_guards = tr(c1.m_guards);
+            c2.m_rhs = tr(c1.m_rhs.get());
+            c2.m_def = r;
+            c2.m_immediate = c1.m_immediate;
+        }
+        return r;
+    }
+
     bool def::contains_def(util& u, expr * e) {
         struct def_find_p : public i_expr_pred {
             util& u;
@@ -413,6 +437,19 @@ namespace recfun {
             SASSERT(!m_defs.contains(d->get_decl()));
             m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
+        }
+
+        void plugin::inherit(decl_plugin* other, ast_translation& tr) {
+            for (auto [k, v] : static_cast<plugin*>(other)->m_defs) {
+                func_decl_ref f(tr(k), tr.to());
+                if (m_defs.contains(f))
+                    continue;
+                def* d = v->copy(u(), tr);
+                m_defs.insert(f, d);
+                for (case_def & c : d->get_cases())
+                    m_case_defs.insert(c.get_decl(), &c);
+                    
+            }
         }
 
         promise_def plugin::ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
