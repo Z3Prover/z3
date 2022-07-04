@@ -551,11 +551,12 @@ namespace smt {
                     if (aarg->get_root() == child->get_root()) {
                         if (aarg != child) 
                             m_used_eqs.push_back(enode_pair(aarg, child));
-                        if (sibling != arg)
-                            m_used_eqs.push_back(enode_pair(arg, sibling));
                         found = true;
                     }
                 }
+                if (sibling && sibling != arg)
+                    m_used_eqs.push_back(enode_pair(arg, sibling));
+
             }
         }
         VERIFY(found);
