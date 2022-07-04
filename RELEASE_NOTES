@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Version 4.8.next
+Version 4.9.next
 ================
 - Planned features
   - sat.euf 
@@ -10,6 +10,20 @@ Version 4.8.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.9
+===========
+- API for incremental parsing of assertions.
+  A description of the feature is given by example here: https://github.com/Z3Prover/z3/commit/815518dc026e900392bf0d08ed859e5ec42d1e43
+  It also allows incrementality at the level of adding assertions to the 
+  solver object. 
+- Fold/map for sequences:
+  https://microsoft.github.io/rise4fun/docs/guide/Sequences#map-and-fold
+  At this point these functions are only exposed over the SMTLIB2 interface (and not programmatic API)
+- User Propagator: 
+  - Add functions and callbacks for external control over branching
+  - A functioning dotnet API for the User Propagator 
+    https://github.com/Z3Prover/z3/blob/master/src/api/dotnet/UserPropagator.cs
+
 Version 4.8.17
 ==============
  - fix breaking bug in python interface for user propagator pop
@@ -17,6 +31,29 @@ Version 4.8.17
  - initial support for nested algebraic datatypes with sequences
  - initiate map/fold operators on sequences - full integration for next releases
  - initiate maxdiff/mindiff on arrays - full integration for next releases
+
+Examples:
+
+```
+(declare-sort Expr)
+(declare-sort Var)
+(declare-datatypes ((Stmt 0)) 
+  (((Assignment (lval Var) (rval Expr)) 
+    (If (cond Expr) (th Stmt) (el Stmt)) 
+    (Seq (stmts (Seq Stmt))))))
+
+(declare-const s Stmt)
+(declare-const t Stmt)
+
+(assert ((_ is Seq) t))
+(assert ((_ is Seq) s))
+(assert (= s (seq.nth (stmts t) 2)))
+(assert (>= (seq.len (stmts s)) 5))
+(check-sat)
+(get-model)
+(assert (= s (Seq (seq.unit s))))
+(check-sat)
+```
  
 Version 4.8.16
 ==============
