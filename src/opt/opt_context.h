@@ -194,11 +194,12 @@ namespace opt {
         func_decl_ref_vector         m_objective_refs;
         expr_ref_vector              m_core;
         tactic_ref                   m_simplify;
-        bool                         m_enable_sat { true } ;
-        bool                         m_enable_sls { false };
-        bool                         m_is_clausal { false };
-        bool                         m_pp_neat { true };
-        bool                         m_pp_wcnf { false };
+        bool                         m_enable_sat = true;
+        bool                         m_enable_sls = false;
+        bool                         m_is_clausal = false;
+        bool                         m_pp_neat = false;
+        bool                         m_pp_wcnf = false;
+        bool                         m_incremental = false;
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
         svector<symbol>              m_labels;
