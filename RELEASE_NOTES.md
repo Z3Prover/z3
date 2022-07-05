@@ -12,6 +12,8 @@ Version 4.9.next
 
 Version 4.9.0
 =============
+- Native M1 (Mac ARM64) binaries and pypi distribution.
+  - thanks to Isabel Garcia Contreras and Arie Gurfinkel for testing and fixes
 - API for incremental parsing of assertions.
   A description of the feature is given by example here: https://github.com/Z3Prover/z3/commit/815518dc026e900392bf0d08ed859e5ec42d1e43
   It also allows incrementality at the level of adding assertions to the 
@@ -25,7 +27,7 @@ Version 4.9.0
   - A functioning dotnet API for the User Propagator 
     https://github.com/Z3Prover/z3/blob/master/src/api/dotnet/UserPropagator.cs
 - Java Script API
-  - higher level object wrappers are available thanks to Gibbons and Tomalka
+  - higher level object wrappers are available thanks to Kevin Gibbons and Olaf Tomalka
 - Totalizers and RC2
   - The MaxSAT engine now allows to run RC2 with totalizer encoding.
     Totalizers are on by default as preliminary tests suggest this solves already 10% more problems on
@@ -1012,7 +1014,7 @@ The following bugs are fixed in this release:
 
 - Non-termination problem associated with option LOOKAHEAD=true.
   It gets set for QF_UF in auto-configuration mode.
-  Thanks to Pierre-Christophe BuÈ.
+  Thanks to Pierre-Christophe Bu√©.
 
 - Incorrect axioms created for injective functions.
   Thanks to Sascha Boehme.
@@ -1034,7 +1036,7 @@ Version 2.6
 ===========
 
 This release fixes a few bugs.
-Thanks to Marko K‰‰ramees for reporting a bug in the strong context simplifier and
+Thanks to Marko K√§√§ramees for reporting a bug in the strong context simplifier and
 to Josh Berdine. 
 
 This release also introduces some new preprocessing features:
@@ -1066,7 +1068,7 @@ This release introduces the following features:
   <tt>Z3_update_param_value</tt> in the C API. This is particularly useful
   for turning the strong context simplifier on and off.  
  
-It also fixes bugs reported by Enric RodrÌguez Carbonell, 
+It also fixes bugs reported by Enric Rodr√≠guez Carbonell, 
 Nuno Lopes, Josh Berdine, Ethan Jackson, Rob Quigley and 
 Lucas Cordeiro.
 
@@ -1133,7 +1135,7 @@ Version 2.1
 ===========
 
 This is a bug fix release.
-Many thanks to Robert Brummayer, Carine Pascal, FranÁois Remy, 
+Many thanks to Robert Brummayer, Carine Pascal, Fran√ßois Remy, 
 Rajesh K Karmani, Roberto Lublinerman and numerous others for their 
 feedback and bug reports.
 
