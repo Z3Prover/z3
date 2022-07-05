@@ -492,6 +492,7 @@ namespace smt {
     void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq, bool simplify_conseq) {
         th_rewriter & s  = ctx.get_rewriter();
         expr_ref s_ante(m), s_conseq(m);
+        expr_ref p_ante(ante, m), p_conseq(conseq, m); // pinned versions
         expr* s_conseq_n, * s_ante_n;
         bool negated;
 
