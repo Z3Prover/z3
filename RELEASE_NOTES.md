@@ -19,7 +19,7 @@ Version 4.9.0
   It also allows incrementality at the level of adding assertions to the 
   solver object. 
 - Fold/map for sequences:
-  https://microsoft.github.io/rise4fun/docs/guide/Sequences#map-and-fold
+  https://microsoft.github.io/z3guide/docs/guide/Sequences#map-and-fold
   At this point these functions are only exposed over the SMTLIB2 interface (and not programmatic API)
   maxdiff/mindiff on arrays are more likely to be deprecated
 - User Propagator: 
