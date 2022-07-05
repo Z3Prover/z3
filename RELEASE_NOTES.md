@@ -23,7 +23,7 @@ Version 4.9.0
   At this point these functions are only exposed over the SMTLIB2 interface (and not programmatic API)
   maxdiff/mindiff on arrays are more likely to be deprecated
 - User Propagator: 
-  - Add functions and callbacks for external control over branching
+  - Add functions and callbacks for external control over branching thanks to Clemens Eisenhofer
   - A functioning dotnet API for the User Propagator 
     https://github.com/Z3Prover/z3/blob/master/src/api/dotnet/UserPropagator.cs
 - Java Script API
