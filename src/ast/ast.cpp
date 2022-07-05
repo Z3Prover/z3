@@ -486,7 +486,8 @@ bool compare_nodes(ast const * n1, ast const * n2) {
             q1->get_expr()         == q2->get_expr() &&
             q1->get_weight()       == q2->get_weight() &&
             q1->get_num_patterns() == q2->get_num_patterns() &&
-            q1->get_qid() == q2->get_qid() && 
+            ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
+             (q1->get_qid() == q2->get_qid())) && 
             compare_arrays(q1->get_patterns(),
                            q2->get_patterns(),
                            q1->get_num_patterns()) &&
