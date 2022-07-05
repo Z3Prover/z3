@@ -35,7 +35,12 @@ Version 4.9.0
     totalizer encoding or built-in cardinality constraints.
     The default engine is still maxres, so you have to set opt.maxsat_engine=rc2 to
     enable the rc2 option at this point. The engines maxres-bin and rc2bin are experimental should not be used
-    (they are inferior to default options). 
+    (they are inferior to default options).
+- Incremental constraints during optimization set option opt.incremental = true
+  - The interface `Z3_optimize_register_model_eh` allows to monitor incremental results during optimization.
+    It is now possible to also add constraints to the optimization context during search.
+    You have to set the option opt.incremental=true to be able to add constraints. The option
+    disables some pre-processing functionality that removes variables from the constraints. 
 
 Version 4.8.17
 ==============
