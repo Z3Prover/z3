@@ -434,6 +434,7 @@ namespace bv {
         SASSERT(bv.is_int2bv(n));
         euf::enode* e = expr2enode(n);
         mk_bits(e->get_th_var(get_id()));
+        get_var(e->get_arg(0));
         assert_int2bv_axiom(n);
     }
 
