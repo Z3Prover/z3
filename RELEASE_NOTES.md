@@ -29,7 +29,7 @@ Version 4.9.0
 - Totalizers and RC2
   - The MaxSAT engine now allows to run RC2 with totalizer encoding.
     Totalizers are on by default as preliminary tests suggest this solves already 10% more problems on
-    standard benchmarks. The option rc2.totalizer (which by default is true) is used to control whether to use
+    standard benchmarks. The option opt.rc2.totalizer (which by default is true) is used to control whether to use
     totalizer encoding or built-in cardinality constraints.
     The default engine is still maxres, so you have to set opt.maxsat_engine=rc2 to
     enable the rc2 option at this point. The engines maxres-bin and rc2bin are experimental should not be used
