@@ -10,7 +10,7 @@ defaults:
     working-directory: src/api/js
 
 env:
-  EM_VERSION: 3.1.0
+  EM_VERSION: 3.1.15
 
 jobs:
   publish:
