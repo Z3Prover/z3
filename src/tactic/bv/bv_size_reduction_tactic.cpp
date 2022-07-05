@@ -115,12 +115,21 @@ public:
         auto match_bitmask = [&](expr* lhs, expr* rhs) {
             unsigned lo, hi;
             expr* arg;
-            if (m_util.is_numeral(rhs, val, bv_sz) && val.is_zero() && m_util.is_extract(lhs, lo, hi, arg) && lo > 0 && hi + 1 == m_util.get_bv_size(arg) && is_uninterp_const(arg) ) {
-                val = rational::power_of_two(lo - 1) -1 ;
-                update_unsigned_upper(to_app(arg), val);
-                return true;
-            }
-            return false;
+            if (!m_util.is_numeral(rhs, val, bv_sz))
+                return false;
+            if (!val.is_zero())
+                return false;
+            if (!m_util.is_extract(lhs, lo, hi, arg))
+                return false;
+            if (lo == 0)
+                return false;
+            if (hi + 1 != m_util.get_bv_size(arg))
+                return false;
+            if (!is_uninterp_const(arg))
+                return false;
+            val = rational::power_of_two(lo - 1) -1 ;
+            update_unsigned_upper(to_app(arg), val);
+            return true;
         };
             
         for (unsigned i = 0; i < sz; i++) {
