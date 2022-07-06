@@ -10,6 +10,10 @@ Version 4.9.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.9.1
+=============
+- Bugfix release to ensure npm package works
+
 Version 4.9.0
 =============
 - Native M1 (Mac ARM64) binaries and pypi distribution.
