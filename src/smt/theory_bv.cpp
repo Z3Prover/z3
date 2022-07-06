@@ -1497,32 +1497,24 @@ namespace smt {
         bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
         if (sz == 0) {
+            // int2bv(bv2int(x)) = x when int2bv(bv2int(x)) has same sort as x
             enode* n1 = get_enode(r1);
-            enode* int2bv = nullptr;
-            for (enode* sib : *n1) {
-                if (m_util.is_bv2int(sib->get_expr())) {
-                    int2bv = sib;
-                    break;
-                }
-            }
-            if (!int2bv)
-                return;
-            
-            for (enode* p : enode::parents(n1->get_root())) {
-                if (m_util.is_int2bv(p->get_expr())) {
-                    enode* int2bv_arg = int2bv->get_arg(0);
-                    if (p->get_root() != int2bv_arg->get_root()) {                        
+            for (enode* bv2int : *n1) {
+                if (!m_util.is_bv2int(bv2int->get_expr())) 
+                    continue;
+                enode* bv2int_arg = bv2int->get_arg(0);
+                for (enode* p : enode::parents(n1->get_root())) {
+                    if (m_util.is_int2bv(p->get_expr()) && p->get_root() != bv2int_arg->get_root() && p->get_sort() == bv2int_arg->get_sort()) {                        
                         enode_pair_vector eqs;
                         eqs.push_back({n1, p->get_arg(0) });
-                        eqs.push_back({n1, int2bv});
+                        eqs.push_back({n1, bv2int});
                         justification * js = ctx.mk_justification(
-                            ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), 0, nullptr, eqs.size(), eqs.data(), p, int2bv_arg));
-                        ctx.assign_eq(p, int2bv_arg, eq_justification(js));
+                            ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
+                        ctx.assign_eq(p, bv2int_arg, eq_justification(js));
                         break;
                     }                    
                 }
             }
-
         }
         do {
             // This outerloop is necessary to avoid missing propagation steps.

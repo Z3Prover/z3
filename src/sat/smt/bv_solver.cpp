@@ -211,30 +211,20 @@ namespace bv {
             return;
         }
         euf::enode* n1 = var2enode(eq.v1());
-        euf::enode* int2bv = nullptr;
-        for (euf::enode* sib : euf::enode_class(n1)) {
-            if (bv.is_bv2int(sib->get_expr())) {
-                int2bv = sib;
-                break;
-            }
-        }
-        if (!int2bv)
-            return;
-
-        for (euf::enode* p : euf::enode_parents(n1->get_root())) {
-            if (bv.is_int2bv(p->get_expr())) {
-                euf::enode* int2bv_arg = int2bv->get_arg(0);
-                if (p->get_root() != int2bv_arg->get_root()) {
+        for (euf::enode* bv2int : euf::enode_class(n1)) {
+            if (!bv.is_bv2int(bv2int->get_expr()))
+                continue;
+            euf::enode* bv2int_arg = bv2int->get_arg(0);
+            for (euf::enode* p : euf::enode_parents(n1->get_root())) {
+                if (bv.is_int2bv(p->get_expr()) && p->get_sort() == bv2int_arg->get_sort() && p->get_root() != bv2int_arg->get_root()) {
                     euf::enode_pair_vector eqs;
                     eqs.push_back({ n1, p->get_arg(0) });
-                    eqs.push_back({ n1, int2bv });
-                    ctx.propagate(p, int2bv_arg, euf::th_explain::propagate(*this, eqs, p, int2bv_arg));
+                    eqs.push_back({ n1, bv2int });
+                    ctx.propagate(p, bv2int_arg, euf::th_explain::propagate(*this, eqs, p, bv2int_arg));
                     break;
                 }
             }
         }
-
-
     }
 
     void solver::new_diseq_eh(euf::th_eq const& ne) {
