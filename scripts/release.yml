@@ -48,21 +48,14 @@ stages:
     pool:
       vmImage: "macOS-latest"
     steps:
-    - task: PythonScript@0
-      displayName: Build
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@1
       inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts/mk_unix_dist.py
-        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --nojava --arch=arm64 --os=osx-11.0
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'macOSBuildArm64'
+        artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
+      
 
 
   - job: UbuntuBuild
@@ -400,7 +393,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Arm64 Build'
       inputs:
-        artifact: 'MacOSBuildArm64'
+        artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package		
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Build'
@@ -465,7 +458,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOSArm64 Build'
       inputs:
-        artifact: 'macOSBuildArm64'
+        artifact: 'MacArm64'
         path: $(Agent.TempDirectory)	
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
