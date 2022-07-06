@@ -130,14 +130,14 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: LinuxBuilds
-    displayName: "Manylinux build"
-    pool:
-      vmImage: "ubuntu-latest"
-    container: $(image)
+    displayName: "ManyLinux build"
     variables:
       name: ManyLinux
       image: "quay.io/pypa/manylinux2010_x86_64:latest"
       python: "/opt/python/cp37-cp37m/bin/python"
+    pool:
+      vmImage: "ubuntu-latest"
+    container: $(image)
     steps:
     - task: PythonScript@0
       displayName: Build
@@ -162,7 +162,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: '$(name)Build'
+        artifactName: 'ManyLinuxBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
   
   - template: build-win-signed.yml
