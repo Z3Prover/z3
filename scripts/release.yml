@@ -137,7 +137,7 @@ stages:
       python: "/opt/python/cp37-cp37m/bin/python"
     pool:
       vmImage: "ubuntu-latest"
-    container: $(image)
+    container: "quay.io/pypa/manylinux2010_x86_64:latest"
     steps:
     - task: PythonScript@0
       displayName: Build
