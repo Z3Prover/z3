@@ -44,7 +44,7 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: MacBuildArm64
-    displayName: "macOS Build"
+    displayName: "macOS ARM64 Build"
     pool:
       vmImage: "macOS-latest"
     steps:
@@ -394,7 +394,7 @@ stages:
       displayName: 'Download macOS Arm64 Build'
       inputs:
         artifact: 'MacArm64'
-        path: $(Agent.TempDirectory)\package		
+        path: $(Agent.TempDirectory)		
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Build'
       inputs:
