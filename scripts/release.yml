@@ -130,22 +130,14 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: LinuxBuilds
-    strategy:
-      matrix:
-        manyLinux:
-          name: ManyLinux
-          image: "quay.io/pypa/manylinux2010_x86_64:latest"
-          python: "/opt/python/cp37-cp37m/bin/python"
-        muslLinux:
-          name: MuslLinux
-          image: "quay.io/pypa/musllinux_1_1_x86_64:latest"
-          python: "/opt/python/cp310-cp310/bin/python"
-    displayName: "$(name) build"
+    displayName: "Manylinux build"
     pool:
       vmImage: "ubuntu-latest"
     container: $(image)
     variables:
-      python: $(python)
+      name: ManyLinux
+      image: "quay.io/pypa/manylinux2010_x86_64:latest"
+      python: "/opt/python/cp37-cp37m/bin/python"
     steps:
     - task: PythonScript@0
       displayName: Build
