@@ -403,11 +403,6 @@ stages:
         artifact: 'ManyLinuxBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download MuslLinux Build'
-      inputs:
-        artifact: 'MuslLinuxBuild'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
         artifact: 'WindowsBuild-x86'
