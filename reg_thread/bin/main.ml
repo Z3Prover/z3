@@ -1,5 +1,5 @@
 
-let t1 () =
+let t_z3 () =
   let ctx = Z3.mk_context [] in
 
   let n = 1_000 in
@@ -28,17 +28,21 @@ let t1 () =
   done;
   ()
 
-let t2 () =
+let t_gc () =
   while true do
-    let _a = Sys.opaque_identity (Array.make (10 * 1024 * 1024) 1.) in
+    for _i = 1 to 100 do
+      let _a = Sys.opaque_identity (Array.make (2 * 1024 * 1024) 1.) in
+    Thread.yield();
+      ()
+    done;
     Thread.yield();
     Printf.printf "t2: gc\n%!";
     Gc.compact();
   done
 
 let () =
-  let t1 = Thread.create t1 () in
-  let t2 = Thread.create t2 () in
+  let t1 = Thread.create t_z3 () in
+  let trs = Array.init 1 (fun _ -> Thread.create t_gc ()) in
 
   Thread.join t1;
-  Thread.join t2
+  Array.iter Thread.join trs
