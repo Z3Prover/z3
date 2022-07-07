@@ -1544,7 +1544,8 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 ml_wrapper.write('  assert(_iter == Val_emptylist);\n\n')
             i = i + 1
 
-        release_caml_gc= name in z3_long_funs
+        #release_caml_gc= name in z3_long_funs
+        release_caml_gc= False
         if release_caml_gc:
             ml_wrapper.write('\n  caml_release_runtime_system();\n')
 
