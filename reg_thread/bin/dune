@@ -1,0 +1,5 @@
+(executable
+ (public_name reg_thread)
+ (name main)
+ (flags :standard -warn-error -a+8)
+ (libraries z3 containers threads))
