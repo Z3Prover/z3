@@ -4,6 +4,7 @@
 #include "ast/datatype_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include <iostream>
 
 static void list(unsigned bound, ast_manager& m, sort* s) {
     value_generator gen(m);

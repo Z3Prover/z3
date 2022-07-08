@@ -604,7 +604,7 @@ def java_array_element_type(p):
     else:
         return 'jlong'
 
-def mk_java(java_dir, package_name):
+def mk_java(java_src, java_dir, package_name):
     java_nativef  = os.path.join(java_dir, 'Native.java')
     java_wrapperf = os.path.join(java_dir, 'Native.cpp')
     java_native   = open(java_nativef, 'w')
@@ -689,65 +689,10 @@ def mk_java(java_dir, package_name):
     java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = package_name.replace('.', '_')
-    java_wrapper.write('// Automatically generated file\n')
-    java_wrapper.write('#include<jni.h>\n')
-    java_wrapper.write('#include<stdlib.h>\n')
-    java_wrapper.write('#include"z3.h"\n')
-    java_wrapper.write('#ifdef __cplusplus\n')
-    java_wrapper.write('extern "C" {\n')
-    java_wrapper.write('#endif\n\n')
-    java_wrapper.write('#ifdef __GNUC__\n#if __GNUC__ >= 4\n#define DLL_VIS __attribute__ ((visibility ("default")))\n#else\n#define DLL_VIS\n#endif\n#else\n#define DLL_VIS\n#endif\n\n')
-    java_wrapper.write('#if defined(__LP64__) || defined(_WIN64)\n\n')
-    java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
-    java_wrapper.write('  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);\n')
-    java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
-    java_wrapper.write('  if (OLD != 0) jenv->ReleaseLongArrayElements(OLD, (jlong *) NEW, JNI_ABORT);     \n\n')
-    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                               \\\n')
-    java_wrapper.write('  jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW);             \n')
-    java_wrapper.write('#define SETLONGAREGION(OLD,Z,SZ,NEW)                               \\\n')
-    java_wrapper.write('  jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW)              \n\n')
-    java_wrapper.write('#else\n\n')
-    java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
-    java_wrapper.write('  T * NEW = 0; {                                                   \\\n')
-    java_wrapper.write('  jlong * temp = (OLD == 0) ? 0 : jenv->GetLongArrayElements(OLD, NULL); \\\n')
-    java_wrapper.write('  unsigned int size = (OLD == 0) ? 0 :jenv->GetArrayLength(OLD);     \\\n')
-    java_wrapper.write('  if (OLD != 0) {                                                    \\\n')
-    java_wrapper.write('    NEW = (T*) (new int[size]);                                      \\\n')
-    java_wrapper.write('    for (unsigned i=0; i < size; i++)                                \\\n')
-    java_wrapper.write('      NEW[i] = reinterpret_cast<T>(temp[i]);                         \\\n')
-    java_wrapper.write('    jenv->ReleaseLongArrayElements(OLD, temp, JNI_ABORT);            \\\n')
-    java_wrapper.write('  }                                                                  \\\n')
-    java_wrapper.write('  }                                                                    \n\n')
-    java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                   \\\n')
-    java_wrapper.write('  delete [] NEW;                                                     \n\n')
-    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                              \\\n')
-    java_wrapper.write('  {                                                                 \\\n')
-    java_wrapper.write('    jlong * temp = new jlong[SZ];                                   \\\n')
-    java_wrapper.write('    jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)temp);         \\\n')
-    java_wrapper.write('    for (int i = 0; i < (SZ); i++)                                  \\\n')
-    java_wrapper.write('      NEW[i] = reinterpret_cast<T>(temp[i]);                        \\\n')
-    java_wrapper.write('    delete [] temp;                                                 \\\n')
-    java_wrapper.write('  }\n\n')
-    java_wrapper.write('#define SETLONGAREGION(OLD,Z,SZ,NEW)                                \\\n')
-    java_wrapper.write('  {                                                                 \\\n')
-    java_wrapper.write('    jlong * temp = new jlong[SZ];                                   \\\n')
-    java_wrapper.write('    for (int i = 0; i < (SZ); i++)                                  \\\n')
-    java_wrapper.write('      temp[i] = reinterpret_cast<jlong>(NEW[i]);                    \\\n')
-    java_wrapper.write('    jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,temp);                 \\\n')
-    java_wrapper.write('    delete [] temp;                                                 \\\n')
-    java_wrapper.write('  }\n\n')
-    java_wrapper.write('#endif\n\n')
-    java_wrapper.write('void Z3JavaErrorHandler(Z3_context c, Z3_error_code e)\n')
-    java_wrapper.write('{\n')
-    java_wrapper.write('  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()\n')
-    java_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
-    java_wrapper.write('  // wrappers below.\n')
-    java_wrapper.write('}\n\n')
-    java_wrapper.write('DLL_VIS JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)\n' % pkg_str)
-    java_wrapper.write('{\n')
-    java_wrapper.write('  Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);\n')
-    java_wrapper.write('}\n\n')
-    java_wrapper.write('')
+    java_wrapper.write("// Automatically generated file\n")
+    with open(java_src + "/NativeStatic.txt") as ins:
+        for line in ins:
+            java_wrapper.write(line)            
     for name, result, params in _dotnet_decls:
         java_wrapper.write('DLL_VIS JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
         i = 0
@@ -1775,7 +1720,6 @@ def write_log_h_preamble(log_h):
 
 def write_log_c_preamble(log_c):
   log_c.write('// Automatically generated file\n')
-  log_c.write('#include<iostream>\n')
   log_c.write('#include\"api/z3.h\"\n')
   log_c.write('#include\"api/api_log_macros.h\"\n')
   log_c.write('#include\"api/z3_logger.h\"\n')
@@ -1927,6 +1871,7 @@ def generate_files(api_files,
                    api_output_dir=None,
                    z3py_output_dir=None,
                    dotnet_output_dir=None,
+                   java_input_dir=None,
                    java_output_dir=None,
                    java_package_name=None,
                    ml_output_dir=None,
@@ -2004,7 +1949,7 @@ def generate_files(api_files,
         print("Generated '{}'".format(dotnet_file.name))
 
   if java_output_dir:
-    mk_java(java_output_dir, java_package_name)
+    mk_java(java_input_dir, java_output_dir, java_package_name)
 
   if ml_output_dir:
     assert not ml_src_dir is None
@@ -2028,6 +1973,10 @@ def main(args):
                       dest="dotnet_output_dir",
                       default=None,
                       help="Directory to emit dotnet files. If not specified no files are emitted.")
+  parser.add_argument("--java-input-dir",
+                      dest="java_input_dir",
+                      default=None,
+                      help="Directory where Java sources reside.")
   parser.add_argument("--java-output-dir",
                       dest="java_output_dir",
                       default=None,
@@ -2050,6 +1999,9 @@ def main(args):
     if pargs.java_package_name == None:
       logging.error('--java-package-name must be specified')
       return 1
+    if pargs.java_input_dir is None:
+      logging.error('--java-input-dir must be specified')
+      return 1
 
   if pargs.ml_output_dir:
     if pargs.ml_src_dir is None:
@@ -2065,6 +2017,7 @@ def main(args):
                  api_output_dir=pargs.api_output_dir,
                  z3py_output_dir=pargs.z3py_output_dir,
                  dotnet_output_dir=pargs.dotnet_output_dir,
+                 java_input_dir=pargs.java_input_dir,
                  java_output_dir=pargs.java_output_dir,
                  java_package_name=pargs.java_package_name,
                  ml_output_dir=pargs.ml_output_dir,

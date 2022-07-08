@@ -2154,13 +2154,14 @@ void theory_arith<Ext>::set_gb_exhausted() {
 // Scan the grobner basis eqs, and look for inconsistencies.
 template<typename Ext>
 bool theory_arith<Ext>::get_gb_eqs_and_look_for_conflict(ptr_vector<grobner::equation>& eqs, grobner& gb) {
-    TRACE("grobner", );
 
     eqs.reset();
     gb.get_equations(eqs);
-    TRACE("grobner_bug", tout << "after gb\n";);
+    TRACE("grobner", tout << "after gb\n";
+          for (grobner::equation* eq : eqs)
+              gb.display_equation(tout, *eq);
+          );
     for (grobner::equation* eq : eqs) {
-        TRACE("grobner_bug", gb.display_equation(tout, *eq););
         if (is_inconsistent(eq, gb) || is_inconsistent2(eq, gb)) {
             TRACE("grobner", tout << "inconsistent: "; gb.display_equation(tout, *eq););
             return true;

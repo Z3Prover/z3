@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/vector.h"
 #include "util/mpz.h"
 #include "util/bit_util.h"
+#include <iostream>
 
 static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k, 
                     unsigned dst_sz, unsigned const * dst, bool trace = true) {

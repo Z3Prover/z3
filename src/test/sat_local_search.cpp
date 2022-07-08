@@ -3,6 +3,7 @@
 #include "util/cancel_eh.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"
+#include <iostream>
 
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
 {

@@ -9,6 +9,7 @@
 #include "util/trace.h"
 #include <thread>
 #include <atomic>
+#include <iostream>
 
 class test_scoped_eh : public event_handler {
     std::atomic<bool> m_called = false;

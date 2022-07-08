@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include<fstream>
+#include<iostream>
 #include<signal.h>
 #include<time.h>
 #include "util/gparams.h"

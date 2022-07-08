@@ -21,11 +21,14 @@ Revision History:
 --*/
 #pragma once
 
+#include<ostream>
+
 class timeit {
     struct imp;
     imp *  m_imp;
 public:
-    timeit(bool enable, char const * msg, std::ostream & out = std::cerr);
+    timeit(bool enable, char const * msg, std::ostream * out = nullptr);
+    timeit(bool enable, char const * msg, std::ostream & out) : timeit(enable, msg, &out) {}
     ~timeit();
 };
 

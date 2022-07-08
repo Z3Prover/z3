@@ -124,7 +124,7 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
         result = m_util.mk_bv2rm(result);
     }
     else {
-        std::cout << mk_pp(t, m) << " " << mk_pp(f, m) << "\n";
+        //std::cout << mk_pp(t, m) << " " << mk_pp(f, m) << "\n";
         UNREACHABLE();
 
     }

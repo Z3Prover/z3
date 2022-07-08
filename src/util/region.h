@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 #include<cstdlib>
-#include<iostream>
+#include<ostream>
 
 #ifdef Z3DEBUG
 

@@ -22,6 +22,7 @@ Notes:
 #include "math/polynomial/polynomial_cache.h"
 #include "math/polynomial/linear_eq_solver.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 static void tst1() {
     std::cout << "\n----- Basic testing -------\n";

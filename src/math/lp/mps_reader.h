@@ -26,7 +26,7 @@ Revision History:
 #include <string>
 #include "util/vector.h"
 #include <unordered_map>
-#include <iostream>
+#include <ostream>
 #include <fstream>
 #include <locale>
 #include "math/lp/lp_primal_simplex.h"

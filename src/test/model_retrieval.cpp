@@ -13,6 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/array_decl_plugin.h"
 #include "model/model_v2_pp.h"
 #include "ast/reg_decl_plugins.h"
+#include <iostream>
 
 void tst_model_retrieval()
 {          

@@ -18,7 +18,6 @@ Notes:
 --*/
 #pragma once
 
-#include<iostream>
 #include "api/z3.h"
 #include "util/z3_exception.h"
 

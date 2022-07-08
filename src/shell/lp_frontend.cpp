@@ -15,6 +15,7 @@ Author:
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include "util/mutex.h"
+#include <iostream>
 #include <signal.h>
 #include "smt/params/smt_params_helper.hpp"
 

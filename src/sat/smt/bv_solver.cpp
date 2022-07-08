@@ -208,6 +208,22 @@ namespace bv {
         if (is_bv(eq.v1())) {
             m_find.merge(eq.v1(), eq.v2());
             VERIFY(eq.is_eq());
+            return;
+        }
+        euf::enode* n1 = var2enode(eq.v1());
+        for (euf::enode* bv2int : euf::enode_class(n1)) {
+            if (!bv.is_bv2int(bv2int->get_expr()))
+                continue;
+            euf::enode* bv2int_arg = bv2int->get_arg(0);
+            for (euf::enode* p : euf::enode_parents(n1->get_root())) {
+                if (bv.is_int2bv(p->get_expr()) && p->get_sort() == bv2int_arg->get_sort() && p->get_root() != bv2int_arg->get_root()) {
+                    euf::enode_pair_vector eqs;
+                    eqs.push_back({ n1, p->get_arg(0) });
+                    eqs.push_back({ n1, bv2int });
+                    ctx.propagate(p, bv2int_arg, euf::th_explain::propagate(*this, eqs, p, bv2int_arg));
+                    break;
+                }
+            }
         }
     }
 

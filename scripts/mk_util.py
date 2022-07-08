@@ -3027,10 +3027,12 @@ def mk_bindings(api_files):
         if is_dotnet_core_enabled():
           dotnet_output_dir = os.path.join(BUILD_DIR, 'dotnet')
           mk_dir(dotnet_output_dir)
+        java_input_dir = None
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
           java_output_dir = get_component('java').src_dir
+          java_input_dir = get_component('java').src_dir
           java_package_name = get_component('java').package_name
         ml_output_dir = None
         if is_ml_enabled():
@@ -3041,7 +3043,8 @@ def mk_bindings(api_files):
           api_output_dir=get_component('api').src_dir,
           z3py_output_dir=get_z3py_dir(),
           dotnet_output_dir=dotnet_output_dir,
-          java_output_dir=java_output_dir,
+          java_input_dir=java_input_dir,
+          java_output_dir=java_output_dir,                                  
           java_package_name=java_package_name,
           ml_output_dir=ml_output_dir,
           ml_src_dir=ml_output_dir

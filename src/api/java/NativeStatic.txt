@@ -1,0 +1,79 @@
+
+#include<jni.h>
+#include<stdlib.h>
+#include"z3.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef __GNUC__
+#if __GNUC__ >= 4
+#define DLL_VIS __attribute__ ((visibility ("default")))
+#else
+#define DLL_VIS
+#endif
+#else
+#define DLL_VIS
+#endif
+
+#if defined(__LP64__) || defined(_WIN64)
+
+#define GETLONGAELEMS(T,OLD,NEW)                                   \
+  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);
+#define RELEASELONGAELEMS(OLD,NEW)                                 \
+  if (OLD != 0) jenv->ReleaseLongArrayElements(OLD, (jlong *) NEW, JNI_ABORT);     
+
+#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                               \
+  jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW);             
+#define SETLONGAREGION(OLD,Z,SZ,NEW)                               \
+  jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW)              
+
+#else
+
+#define GETLONGAELEMS(T,OLD,NEW)                                   \
+  T * NEW = 0; {                                                   \
+  jlong * temp = (OLD == 0) ? 0 : jenv->GetLongArrayElements(OLD, NULL); \
+  unsigned int size = (OLD == 0) ? 0 :jenv->GetArrayLength(OLD);     \
+  if (OLD != 0) {                                                    \
+    NEW = (T*) (new int[size]);                                      \
+    for (unsigned i=0; i < size; i++)                                \
+      NEW[i] = reinterpret_cast<T>(temp[i]);                         \
+    jenv->ReleaseLongArrayElements(OLD, temp, JNI_ABORT);            \
+  }                                                                  \
+  }                                                                    
+
+#define RELEASELONGAELEMS(OLD,NEW)                                   \
+  delete [] NEW;                                                     
+
+#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                              \
+  {                                                                 \
+    jlong * temp = new jlong[SZ];                                   \
+    jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)temp);         \
+    for (int i = 0; i < (SZ); i++)                                  \
+      NEW[i] = reinterpret_cast<T>(temp[i]);                        \
+    delete [] temp;                                                 \
+  }
+
+#define SETLONGAREGION(OLD,Z,SZ,NEW)                                \
+  {                                                                 \
+    jlong * temp = new jlong[SZ];                                   \
+    for (int i = 0; i < (SZ); i++)                                  \
+      temp[i] = reinterpret_cast<jlong>(NEW[i]);                    \
+    jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,temp);                 \
+    delete [] temp;                                                 \
+  }
+
+#endif
+
+void Z3JavaErrorHandler(Z3_context c, Z3_error_code e)
+{
+  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()
+  // upon errors, but the actual error handling is done by throwing exceptions in the
+  // wrappers below.
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)
+{
+  Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);
+}
+

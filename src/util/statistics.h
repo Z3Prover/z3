@@ -18,7 +18,7 @@ Notes:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include "util/vector.h"
 #include "util/rlimit.h"
 

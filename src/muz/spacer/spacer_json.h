@@ -19,7 +19,7 @@ Notes:
 
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include<map>
 #include "util/ref.h"
 #include "util/ref_vector.h"

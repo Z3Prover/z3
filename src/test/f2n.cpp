@@ -18,6 +18,7 @@ Revision History:
 #include "util/f2n.h"
 #include "util/hwf.h"
 #include "util/mpf.h"
+#include <iostream>
 
 static void tst1() {
     hwf_manager      hm;

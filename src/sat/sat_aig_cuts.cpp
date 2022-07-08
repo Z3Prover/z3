@@ -818,11 +818,12 @@ namespace sat {
             lbool r = s.check();
             IF_VERBOSE(10, verbose_stream() << "check: " << r << "\n");
             if (r == l_true) {
-                std::sort(vars.begin(), vars.end());
-                s.display(std::cout);
-                for (auto v : vars) std::cout << v << " := " << s.get_model()[v] << "\n";
-                std::string line;
-                std::getline(std::cin, line);
+                IF_VERBOSE(0,
+                    std::sort(vars.begin(), vars.end());
+                    s.display(verbose_stream());
+                    for (auto v : vars) verbose_stream() << v << " := " << s.get_model()[v] << "\n";
+                );
+                UNREACHABLE();
             }
         }
     };

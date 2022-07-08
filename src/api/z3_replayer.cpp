@@ -22,6 +22,7 @@ Notes:
 #include "util/stream_buffer.h"
 #include "util/symbol.h"
 #include "util/trace.h"
+#include<iostream>
 #include<sstream>
 #include<vector>
 

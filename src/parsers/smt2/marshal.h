@@ -12,7 +12,7 @@ Abstract:
 #pragma once
 
 #include <string>
-#include <iostream>
+#include <ostream>
 
 #include "ast/ast.h"
 

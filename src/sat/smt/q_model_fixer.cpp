@@ -302,9 +302,10 @@ namespace q {
             return md->v2t[md->values[j]];
         };
         
+#if 0
         for (unsigned j = 0; j < sz; ++j)
             std::cout << mk_pp(md->values[j], m) << "\n";
-
+#endif
 
         expr* arg = t->get_arg(i);
 

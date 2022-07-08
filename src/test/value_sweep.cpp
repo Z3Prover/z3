@@ -3,6 +3,7 @@
 #include "ast/ast_pp.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include <iostream>
 
 void tst_value_sweep() {
     ast_manager m;

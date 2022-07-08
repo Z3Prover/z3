@@ -3,6 +3,7 @@
 #include "util/statistics.h"
 #include "sat/sat_lookahead.h"
 #include "sat/dimacs.h"
+#include <iostream>
 
 static void display_model(sat::model const & m) {
     for (unsigned i = 1; i < m.size(); i++) {

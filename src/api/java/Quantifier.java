@@ -161,6 +161,12 @@ public class Quantifier extends BoolExpr
     /**
      * Create a quantified expression.
      *
+     * @param ctx Context to create the quantifier on.
+     * @param isForall Quantifier type.
+     * @param sorts Sorts of bound variables.
+     * @param names Names of bound variables
+     * @param body Body of quantifier
+     * @param weight Weight used to indicate priority for qunatifier instantiation
      * @param patterns Nullable patterns
      * @param noPatterns Nullable noPatterns
      * @param quantifierID Nullable quantifierID

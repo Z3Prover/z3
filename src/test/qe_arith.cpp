@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_context.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include <iostream>
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);

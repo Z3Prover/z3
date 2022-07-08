@@ -39,6 +39,7 @@ namespace datalog {
     }
 
     rule_set * mk_array_instantiation::operator()(rule_set const & source)  {
+#if 0
         std::cout<<"Array Instantiation called with parameters :"
                  <<" enforce="<<m_ctx.get_params().xform_instantiate_arrays_enforce()
                  <<" nb_quantifier="<<m_ctx.get_params().xform_instantiate_arrays_nb_quantifier()
@@ -46,6 +47,7 @@ namespace datalog {
                  <<"\n";
         std::cout<<"Input rules = \n";
         source.display(std::cout);
+#endif
         src_set = &source;
         scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
         dst = result.get();
@@ -55,8 +57,10 @@ namespace datalog {
             rule & r = *source.get_rule(i);
             instantiate_rule(r, *result);
         }
+#if 0
         std::cout<<"\n\nOutput rules = \n";
         result->display(std::cout);
+#endif
         return result.detach();
     }
 

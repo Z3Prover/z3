@@ -14,7 +14,6 @@ Author:
 Notes:
 
 --*/
-#include<iostream>
 #include "util/cmd_context_types.h"
 
 std::ostream & operator<<(std::ostream & out, cmd_arg_kind k) {

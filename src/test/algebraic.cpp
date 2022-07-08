@@ -20,6 +20,7 @@ Notes:
 #include "math/polynomial/polynomial_var2value.h"
 #include "util/mpbq.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 static void display_anums(std::ostream & out, scoped_anum_vector const & rs) {
     out << "numbers in decimal:\n";

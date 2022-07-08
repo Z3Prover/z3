@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include "util/tptr.h"
 #include "util/small_object_allocator.h"
 #include "util/chashtable.h"

@@ -19,6 +19,8 @@ add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
   COMMAND "${PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+    "--java-input-dir"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "--java-output-dir"
     "${CMAKE_CURRENT_BINARY_DIR}"
     "--java-package-name"

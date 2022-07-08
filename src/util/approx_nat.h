@@ -19,7 +19,7 @@ Notes:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include<climits>
 
 class approx_nat {

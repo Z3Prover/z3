@@ -9,6 +9,7 @@
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
+#include <iostream>
 
 namespace dd {
     void print_eqs(ptr_vector<solver::equation> const& eqs) {

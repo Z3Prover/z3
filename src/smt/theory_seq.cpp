@@ -3216,18 +3216,15 @@ void theory_seq::relevant_eh(app* n) {
         add_ubv_string(n);
 
     expr* arg = nullptr;
-    if (m_sk.is_tail(n, arg)) {
+    if (m_sk.is_tail(n, arg)) 
         add_length_limit(arg, m_max_unfolding_depth, true);
-    }
 
-    if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) {
+    if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
-    }
 
     if (m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
-        m_util.str.is_replace_re_all(n)
-        ) {
+        m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);
     }
 }

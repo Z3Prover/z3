@@ -20,7 +20,7 @@ Revision History:
 --*/
 
 #include<sstream>
-#include<iostream>
+#include<ostream>
 #include "util/vector.h"
 #include "util/smt2_util.h"
 #include "ast/ast_smt_pp.h"

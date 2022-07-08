@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 #include<string>
 #include<utility>
 #include "ast/ast.h"

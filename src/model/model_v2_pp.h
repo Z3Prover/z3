@@ -17,7 +17,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<ostream>
 class model_core;
 
 void model_v2_pp(std::ostream & out, model_core const & m, bool partial = false);

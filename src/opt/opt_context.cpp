@@ -137,9 +137,6 @@ namespace opt {
         m_model_fixed(),
         m_objective_refs(m),
         m_core(m),
-        m_enable_sat(false),
-        m_is_clausal(false),
-        m_pp_neat(false),
         m_unknown("unknown")
     {
         params_ref p;
@@ -196,6 +193,8 @@ namespace opt {
 
     void context::add_hard_constraint(expr* f) {
         if (m_calling_on_model) {
+            if (!m_incremental)
+                throw default_exception("Set opt.incremental = true to allow adding constraints during search");
             get_solver().assert_expr(f);
             for (auto const& [k, v] : m_maxsmts)
                 v->reset_upper();
@@ -682,14 +681,11 @@ namespace opt {
 
     void context::init_solver() {
         setup_arith_solver();
+        m_sat_solver = nullptr;
         m_opt_solver = alloc(opt_solver, m, m_params, *m_fm);
         m_opt_solver->set_logic(m_logic);
         m_solver = m_opt_solver.get();
-        m_opt_solver->ensure_pb();
-    
-        //if (opt_params(m_params).priority() == symbol("pareto") ||
-        //    (opt_params(m_params).priority() == symbol("lex") && m_objectives.size() > 1)) {
-        //}        
+        m_opt_solver->ensure_pb();    
     }
 
     void context::setup_arith_solver() {
@@ -708,6 +704,8 @@ namespace opt {
 
         if (m_maxsat_engine != symbol("maxres") &&
             m_maxsat_engine != symbol("rc2") &&
+            m_maxsat_engine != symbol("rc2tot") &&
+            m_maxsat_engine != symbol("rc2bin") &&
             m_maxsat_engine != symbol("maxres-bin") &&
             m_maxsat_engine != symbol("maxres-bin-delay") &&
             m_maxsat_engine != symbol("pd-maxres") &&
@@ -839,19 +837,14 @@ namespace opt {
         }
 
         goal_ref g(alloc(goal, m, true, !asms.empty()));
-        for (expr* fml : fmls) {
+        for (expr* fml : fmls) 
             g->assert_expr(fml);
-        }
-        for (expr * a : asms) {
+        for (expr * a : asms) 
             g->assert_expr(a, a);
-        }
         tactic_ref tac0 = 
             and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
-                     mk_solve_eqs_tactic(m),
-                     // NB: cannot ackermannize because max/min objectives would disappear
-                     // mk_ackermannize_bv_tactic(m, m_params), 
-                     // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
+                     m_incremental ? mk_skip_tactic() : mk_solve_eqs_tactic(m),
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac1, tac2, tac3, tac4;
@@ -862,7 +855,7 @@ namespace opt {
             m.linearize(core, deps);           
             has_dep |= !deps.empty();
         }
-        if (optp.elim_01() && m_logic.is_null() && !has_dep) {
+        if (optp.elim_01() && m_logic.is_null() && !has_dep && !m_incremental) {
             tac1 = mk_dt2bv_tactic(m);
             tac2 = mk_lia2card_tactic(m);
             tac3 = mk_eq2bv_tactic(m);
@@ -1569,6 +1562,7 @@ namespace opt {
         m_maxsat_engine = _p.maxsat_engine();
         m_pp_neat = _p.pp_neat();
         m_pp_wcnf = _p.pp_wcnf();
+        m_incremental = _p.incremental();
     }
 
     std::string context::to_string()  {

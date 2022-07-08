@@ -4,7 +4,7 @@
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
-
+#include <iostream>
 
 void tst_model_evaluator() {
     ast_manager m;

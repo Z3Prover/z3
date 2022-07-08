@@ -467,9 +467,7 @@ namespace sat {
         literal_vector lits(n, c);
         IF_VERBOSE(0, verbose_stream() << "Verification of " << lits << " failed\n");
         // s.display(std::cout);
-        std::string line;
-        std::getline(std::cin, line);
-        exit(0);
+        UNREACHABLE();
 #if 0
         SASSERT(false);
         INVOKE_DEBUGGER();

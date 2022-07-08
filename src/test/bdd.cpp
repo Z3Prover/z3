@@ -1,4 +1,5 @@
 #include "math/dd/dd_bdd.h"
+#include <iostream>
 
 namespace dd {
     static void test1() {

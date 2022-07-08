@@ -12,6 +12,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "tactic/tactic.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/fd_solver/fd_solver.h"
+#include <iostream>
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);

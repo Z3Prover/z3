@@ -9,10 +9,13 @@ Abstract:
 
     Core based (weighted) max-sat algorithms:
 
-    - mu:        max-sat algorithm by Nina and Bacchus, AAAI 2014.
-    - mus-mss:   based on dual refinement of bounds.
-    - binary:    binary versino of maxres
-    - rc2:       implementaion of rc2 heuristic using cardinality constraints
+    - mu:         max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    - mus-mss:    based on dual refinement of bounds.
+    - binary:     binary version of maxres
+    - rc2:        implementaion of rc2 heuristic using cardinality constraints
+    - rc2t:       implementaion of rc2 heuristic using totalizerx
+    - rc2-binary: hybrid of rc2 and binary maxres. Perform one step of binary maxres. 
+                  If there are more than 16 soft constraints create a cardinality constraint.
 
 
     MaxRes is a core-guided approach to maxsat.
@@ -58,6 +61,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
+#include "ast/ast_smt_pp.h"
 #include "model/model_smt2_pp.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
@@ -69,6 +73,8 @@ Notes:
 #include "opt/opt_cores.h"
 #include "opt/maxsmt.h"
 #include "opt/maxcore.h"
+#include "opt/totalizer.h"
+#include <iostream>
 
 using namespace opt;
 
@@ -78,7 +84,8 @@ public:
         s_primal,
         s_primal_dual,
         s_primal_binary,
-        s_rc2
+        s_rc2,
+        s_primal_binary_rc2
     };
 private:
     struct stats {
@@ -128,6 +135,7 @@ private:
     bool             m_enable_lns = false;             // enable LNS improvements
     unsigned         m_lns_conflicts = 1000;           // number of conflicts used for LNS improvement
     bool             m_enable_core_rotate = false;     // enable core rotation
+    bool             m_use_totalizer = true;           // use totalizer instead of cardinality encoding
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
@@ -157,13 +165,19 @@ public:
         case s_rc2:
             m_trace_id = "rc2";
             break;
+        case s_primal_binary_rc2:
+            m_trace_id = "rc2bin";
+            break;
         default:
             UNREACHABLE();
             break;
         }
     }
 
-    ~maxcore() override {}
+    ~maxcore() override {
+        for (auto& [k,t] : m_totalizers)
+            dealloc(t);        
+    }
 
     bool is_literal(expr* l) {
         return
@@ -360,6 +374,7 @@ public:
         case s_primal:
         case s_primal_binary:
         case s_rc2:
+        case s_primal_binary_rc2:
             return mus_solver();
         case s_primal_dual:
             return primal_dual_solver();
@@ -553,6 +568,9 @@ public:
         case strategy_t::s_rc2:
             max_resolve_rc2(core, w);
             break;
+        case strategy_t::s_primal_binary_rc2:
+            max_resolve_rc2bin(core, w);
+            break;
         default:
             max_resolve(core, w);
             break;
@@ -717,10 +735,9 @@ public:
             m_defs.push_back(fml);
         }
     }
-
-
-    void bin_max_resolve(exprs const& _core, rational w) {
-        expr_ref_vector core(m, _core.size(), _core.data());
+    
+    void bin_resolve(exprs const& _core, rational weight, expr_ref_vector& us) {
+        expr_ref_vector core(m, _core.size(), _core.data()), fmls(m);
         expr_ref fml(m), cls(m);
         for (unsigned i = 0; i + 1 < core.size(); i += 2) {
             expr* a = core.get(i);
@@ -739,13 +756,19 @@ public:
             add(fml);
             update_model(v, cls);
             m_defs.push_back(fml);
-            new_assumption(u, w);
+            us.push_back(u);
             core.push_back(v);
         }
-        s().assert_expr(m.mk_not(core.back()));
+        s().assert_expr(m.mk_not(core.back()));        
     }
 
-
+    void bin_max_resolve(exprs const& _core, rational w) {
+        expr_ref_vector core(m, _core.size(), _core.data()), us(m);
+        expr_ref fml(m), cls(m);
+        bin_resolve(_core, w, us);
+        for (expr* u : us)
+            new_assumption(u, w);
+    }
 
 
     // rc2, using cardinality constraints
@@ -765,8 +788,38 @@ public:
     obj_map<expr, expr*>      m_at_mostk;
     obj_map<expr, bound_info> m_bounds;
     rational                  m_unfold_upper;
+    obj_map<expr, totalizer*> m_totalizers;
+
+    expr* mk_atmost_tot(expr_ref_vector const& es, unsigned bound, rational const& weight) {
+        pb_util pb(m);
+        expr_ref am(pb.mk_at_most_k(es, 0), m);
+        totalizer* t = nullptr;        
+        if (!m_totalizers.find(am, t)) {
+            m_trail.push_back(am);
+            t = alloc(totalizer, es);
+            m_totalizers.insert(am, t);
+        }
+        expr* at_least = t->at_least(bound + 1);
+        am = m.mk_not(at_least);
+        m_trail.push_back(am);
+        expr_ref_vector& clauses = t->clauses();
+        for (auto & clause : clauses) {
+            add(clause);
+            m_defs.push_back(clause);
+        }
+        clauses.reset();
+        auto& defs = t->defs();
+        for (auto & [v, d] : defs) 
+            update_model(v, d);
+        defs.reset();
+        bound_info b(es, bound, weight);
+        m_bounds.insert(am, b);
+        return am;
+    }
 
     expr* mk_atmost(expr_ref_vector const& es, unsigned bound, rational const& weight) {
+        if (m_use_totalizer)
+            return mk_atmost_tot(es, bound, weight);
         pb_util pb(m);
         expr_ref am(pb.mk_at_most_k(es, bound), m);
         expr* r = nullptr;
@@ -785,10 +838,8 @@ public:
         return r;
     }
 
-    void max_resolve_rc2(exprs const& core, rational weight) {
-        expr_ref_vector ncore(m);
+    void weaken_bounds(exprs const& core) {
         for (expr* f : core) {
-            ncore.push_back(mk_not(m, f));
             bound_info b;
             if (!m_bounds.find(f, b))
                 continue;
@@ -800,11 +851,45 @@ public:
             new_assumption(amk, b.weight);
             m_unfold_upper -= b.weight;
         }
+    }
+
+    void max_resolve_rc2(exprs const& core, rational weight) {
+        expr_ref_vector ncore(m);
+        for (expr* f : core) 
+            ncore.push_back(mk_not(m, f));
+
+        weaken_bounds(core);
+
         if (core.size() > 1) {
             m_unfold_upper += rational(core.size() - 2) * weight;
             expr* am = mk_atmost(ncore, 1, weight);
             new_assumption(am, weight);
         }
+    }
+
+    /** 
+     * \brief hybrid of rc2 and binary resolution.
+     * Create us := u1, .., u_n, where core has size n + 1
+     * If the core is of size at most 16 just use us as soft constraints
+     * Otherwise introduce a single soft constraint, the conjunction of us.
+     */
+
+    void max_resolve_rc2bin(exprs const& core, rational weight) {
+        weaken_bounds(core);
+        expr_ref_vector us(m);
+        bin_resolve(core, weight, us);        
+        if (us.size() <= 15) {
+            for (auto* u : us)
+                new_assumption(u, weight);
+        }
+        else if (us.size() > 15) {
+            expr_ref_vector ncore(m);
+            for (expr* f : us) 
+                ncore.push_back(mk_not(m, f));
+            m_unfold_upper += rational(us.size() - 1) * weight;
+            expr* am = mk_atmost(ncore, 0, weight);
+            new_assumption(am, weight);
+        }            
     }
 
 
@@ -977,6 +1062,7 @@ public:
         m_enable_lns =              p.enable_lns();
         m_enable_core_rotate =      p.enable_core_rotate();
         m_lns_conflicts =           p.lns_conflicts();
+        m_use_totalizer =           p.rc2_totalizer();
 	if (m_c.num_objectives() > 1)
 	  m_add_upper_bound_block = false;
     }
@@ -993,6 +1079,9 @@ public:
         m_unfold_upper = 0;
         m_at_mostk.reset();
         m_bounds.reset();
+        for (auto& [k,t] : m_totalizers)
+            dealloc(t);
+        m_totalizers.reset();
         return l_true;
     }
 
@@ -1060,6 +1149,12 @@ opt::maxsmt_solver_base* opt::mk_maxres(
 opt::maxsmt_solver_base* opt::mk_rc2(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
     return alloc(maxcore, c, id, soft, maxcore::s_rc2);
+}
+
+
+opt::maxsmt_solver_base* opt::mk_rc2bin(
+    maxsat_context& c, unsigned id, vector<soft>& soft) {
+    return alloc(maxcore, c, id, soft, maxcore::s_primal_binary_rc2);
 }
 
 opt::maxsmt_solver_base* opt::mk_maxres_binary(

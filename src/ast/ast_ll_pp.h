@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include<iostream>
+#include<ostream>
 
 void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, bool only_exprs=true, bool compact=true);
 void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited, bool only_exprs=true, bool compact=true);

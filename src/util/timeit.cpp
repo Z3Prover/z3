@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include "util/timeit.h"
 #include "util/memory_manager.h"
 #include "util/stopwatch.h"
 #include<iomanip>
+#include<iostream>
 
 struct timeit::imp {
     stopwatch      m_watch;
@@ -45,9 +45,9 @@ struct timeit::imp {
     }
 };
 
-timeit::timeit(bool enable, char const * msg, std::ostream & out) {
+timeit::timeit(bool enable, char const * msg, std::ostream * out) {
     if (enable)
-        m_imp = alloc(imp, msg, out);
+        m_imp = alloc(imp, msg, out ? *out : std::cerr);
     else
         m_imp = nullptr;
 }

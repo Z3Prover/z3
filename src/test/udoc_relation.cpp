@@ -22,7 +22,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/rel/rel_context.h"
 #include "ast/bv_decl_plugin.h"
 #include "muz/rel/check_relation.h"
-
+#include <iostream>
 
 class udoc_tester {
     typedef datalog::relation_base relation_base;

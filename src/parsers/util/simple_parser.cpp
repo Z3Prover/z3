@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<fstream>
+#include<iostream>
 #include<sstream>
 #include "parsers/util/simple_parser.h"
 #include "util/warning.h"

@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/uint_set.h"
 #include "util/vector.h"
+#include <iostream>
 
 static void tst1(unsigned n) {
     uint_set       s1;

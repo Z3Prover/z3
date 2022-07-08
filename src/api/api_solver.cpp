@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include<thread>
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
@@ -257,7 +256,10 @@ extern "C" {
     }
 
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
-        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        auto& solver = *to_solver(s);
+        if (!solver.m_cmd_context) 
+            solver.m_cmd_context = alloc(cmd_context, false, &(mk_c(c)->m()));
+        auto& ctx = solver.m_cmd_context;
         ctx->set_ignore_check(true);
         std::stringstream errstrm;
         ctx->set_regular_stream(errstrm);
@@ -273,6 +275,7 @@ extern "C" {
             init_solver(c, s);
         for (expr* e : ctx->tracked_assertions()) 
             to_solver(s)->assert_expr(e);
+        ctx->reset_tracked_assertions();
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
 

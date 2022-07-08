@@ -29,6 +29,8 @@ public:
     ~scoped_timer();
     static void initialize();
     static void finalize();
+private:
+    void init_state(unsigned ms, event_handler * eh);
 };
 
 /*

@@ -14,6 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "model/model_smt2_pp.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
+#include <iostream>
 
 struct ast_ext {
     ast_manager& m;

@@ -44,6 +44,7 @@ struct Z3_solver_ref : public api::object {
     params_ref                 m_params;
     symbol                     m_logic;
     scoped_ptr<solver2smt2_pp> m_pp;
+    scoped_ptr<cmd_context>    m_cmd_context;
     mutex                      m_mux;
     event_handler*             m_eh;
 

@@ -51,6 +51,7 @@ Notes:
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
+#include <iostream>
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -537,22 +538,9 @@ public:
 cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
     m_logic(l),
-    m_interactive_mode(false),
-    m_global_decls(false),
     m_print_success(m_params.m_smtlib2_compliant),
-    m_random_seed(0),
-    m_produce_unsat_cores(false),
-    m_produce_unsat_assumptions(false),
-    m_produce_assignments(false),
-    m_status(UNKNOWN),
-    m_numeral_as_real(false),
-    m_ignore_check(false),
-    m_exit_on_error(false),
     m_manager(m),
     m_own_manager(m == nullptr),
-    m_manager_initialized(false),
-    m_pmanager(nullptr),
-    m_sexpr_manager(nullptr),
     m_regular("stdout", std::cout),
     m_diagnostic("stderr", std::cerr) {
     SASSERT(m != 0 || !has_manager());
@@ -625,13 +613,14 @@ void cmd_context::set_produce_models(bool f) {
 
 void cmd_context::set_produce_unsat_cores(bool f) {
     // can only be set before initialization
-    SASSERT(!has_manager());
+    SASSERT(!has_assertions());
     m_params.m_unsat_core |= f;
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    // can only be set before initialization
-    SASSERT(!has_manager());
+    SASSERT(!has_assertions());
+    if (has_manager()) 
+        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
     m_params.m_proof = f;
 }
 
@@ -2202,22 +2191,25 @@ expr_ref_vector cmd_context::tracked_assertions() {
         for (unsigned i = 0; i < assertions().size(); ++i) {
             expr* an  = assertion_names()[i];
             expr* asr = assertions()[i];
-            if (an) {
+            if (an) 
                 result.push_back(m().mk_implies(an, asr));
-            }
-            else {
+            else 
                 result.push_back(asr);
-            }
         }
     }
     else {
-        for (expr * e : assertions()) {
+        for (expr * e : assertions()) 
             result.push_back(e);
-        }
     }
     return result;
 }
 
+void cmd_context::reset_tracked_assertions() {
+    m_assertion_names.reset();
+    for (expr* a : m_assertions)
+        m().dec_ref(a);
+    m_assertions.reset();
+}
 
 void cmd_context::display_assertions() {
     if (!m_interactive_mode)
@@ -2253,9 +2245,8 @@ format_ns::format * cmd_context::pp(sort * s) const {
 }
 
 cmd_context::pp_env & cmd_context::get_pp_env() const {
-    if (m_pp_env.get() == nullptr) {
+    if (m_pp_env.get() == nullptr) 
         const_cast<cmd_context*>(this)->m_pp_env = alloc(pp_env, *const_cast<cmd_context*>(this));
-    }
     return *(m_pp_env.get());
 }
 
@@ -2313,9 +2304,8 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
         out << "(set-logic " << logic << ")" << std::endl;
     // collect uninterpreted function declarations
     decl_collector decls(m());
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; i++) 
         decls.visit(assertions[i]);
-    }
 
     // TODO: display uninterpreted sort decls, and datatype decls.
 
@@ -2341,9 +2331,8 @@ void cmd_context::slow_progress_sample() {
     svector<symbol> labels;
     m_solver->get_labels(labels);
     regular_stream() << "(labels";
-    for (symbol const& s : labels) {
+    for (symbol const& s : labels) 
         regular_stream() << " " << s;
-    }
     regular_stream() << "))" << std::endl;
 }
 

@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-#include<iostream>
+#include<istream>
 #include "util/symbol.h"
 #include "util/vector.h"
 #include "util/rational.h"

@@ -24,6 +24,7 @@ Revision History:
 #include "util/debug.h"
 #include "test/im_float_config.h"
 #include "util/rlimit.h"
+#include <iostream>
 
 #define PREC 100000
 
