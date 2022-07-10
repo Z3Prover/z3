@@ -256,7 +256,7 @@ def param2ml(p):
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
             return "int"
-        if param_type(p) == INT64 or param_type(p) == UINT64:
+        elif param_type(p) == INT64 or param_type(p) == UINT64:
             return "int64"
         elif param_type(p) == STRING:
             return "string"
