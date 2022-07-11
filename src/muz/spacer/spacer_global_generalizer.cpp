@@ -647,7 +647,8 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
                              << mk_pp(pat, m) << "\n"
                              << "with gas " << cluster->get_gas() << "\n";);
         unsigned gas = cluster->get_pob_gas();
-        unsigned lvl = cluster->get_min_lvl();
+        unsigned lvl = lc.get_min_lvl();
+        if (pob) lvl = std::min(lvl, pob->level());
         if (do_conjecture(pob, lemma, lit, lvl, gas)) {
             // decrease the number of times this cluster is going to be used
             // for conjecturing
@@ -670,11 +671,14 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     if (m_subsumer.subsume(lc, new_post, bindings)) {
         class pob *root = pob->parent();
         while (root->parent()) root = root->parent();
+
+        unsigned new_lvl = lc.get_min_lvl();
+        if (pob) new_lvl = std::min(new_lvl, pob->level());
         scoped_ptr<class pob> new_pob =
-            alloc(class pob, root, pob->pt(), cluster->get_min_lvl(),
-                  pob->depth(), false);
+            alloc(class pob, root, pob->pt(), new_lvl, pob->depth(), false);
         if (!new_pob) return;
 
+        new_pob->set_desired_level(pob->level());
         new_pob->set_post(mk_and(new_post), bindings);
         new_pob->set_subsume();
         pob->set_data(new_pob.detach());
@@ -687,8 +691,8 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
         pob->disable_local_gen();
         cluster->dec_gas();
 
-        TRACE("global", tout << "Create subsume pob at level "
-                             << cluster->get_min_lvl() << "\n"
+        TRACE("global", tout << "Create subsume pob at level " << new_lvl
+                             << "\n"
                              << mk_and(new_post) << "\n";);
     }
 }
