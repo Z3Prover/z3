@@ -88,6 +88,7 @@ class simplex_arith_kernel_plugin : public spacer_arith_kernel::plugin {
             kern.display(tout);
             tout << "\n";
             tout << "basics: " << basics << "\n";
+            out.display(tout);
         });
         return out.num_rows() > 0;
     }
