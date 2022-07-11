@@ -162,6 +162,7 @@ void convex_closure::kernel2fmls(expr_ref_vector &out) {
     const spacer_matrix &kern = m_kernel.get_kernel();
     SASSERT(kern.num_rows() > 0);
 
+    TRACE("cvx_dbg", kern.display(tout););
     expr_ref eq(m);
     for (unsigned i = kern.num_rows(); i > 0; i--) {
         auto &row = kern.get_row(i - 1);
@@ -262,18 +263,24 @@ bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
     SASSERT(is_sorted(data));
 
     m = rational(2);
+
+    // special handling for even/odd
+    if (is_congruent_mod(data, m)) {
+      mod(data.back(), m, d);
+      return true;
+    }
+
     // hard cut off to save time
     rational bnd(MAX_DIV_BOUND);
     rational big = data.back();
+    // AG: why (m < big)?  Note that 'big' is the smallest element of data
     for (; m < big && m < bnd; m++) {
         if (is_congruent_mod(data, m)) break;
     }
     if (m >= big) return false;
     if (m == bnd) return false;
 
-    d = data[0] % m;
-    // work around for z3::rational::rem returning negative numbers.
-    d = (m + d) % m;
+    mod(data[0], m, d);
     SASSERT(d >= rational::zero());
 
     TRACE("cvx_dbg_verb", tout << "div constraint generated. cf " << m
