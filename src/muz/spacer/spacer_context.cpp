@@ -3752,18 +3752,19 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 new_pob->set_gas(n.get_gas() - 1);
                 n.set_gas(n.get_gas() - 1);
                 out.push_back(new_pob);
+                m_stats.m_num_subsume_pobs++;
+
                 TRACE("global_verbose",
                       tout << "New subsume pob\n" << mk_pp(new_pob->post(), m) << "\n"
                            << "gas:" << new_pob->get_gas() << "\n";);
-                out.push_back(new_pob);
-                m_stats.m_num_subsume_pobs++;
             } else if (pob* new_pob = m_gg_conjecture ? m_global_gen->mk_conjecture_pob(n) : nullptr) {
                 new_pob->set_gas(n.get_gas() - 1);
                 n.set_gas(n.get_gas() - 1);
                 out.push_back(new_pob);
+                m_stats.m_num_conj++;
+
                 TRACE("global",
                       tout << "New conjecture pob\n" << mk_pp(new_pob->post(), m) << "\n";);
-                m_stats.m_num_conj++;
               }
         }
 
