@@ -308,7 +308,8 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
 
     for (unsigned i = 0; i < conjs.size(); ++i) {
         expr *e = conjs[i].get();
-        if (m.is_eq(e, e1, e2) && arith.is_int_real(e1)) {
+        if (m.is_eq(e, e1, e2) && arith.is_int_real(e1) && !arith.is_mod(e1) &&
+            !arith.is_mod(e2)) {
             conjs[i] = arith.mk_le(e1, e2);
             if (i + 1 == conjs.size()) {
                 conjs.push_back(arith.mk_ge(e1, e2));
