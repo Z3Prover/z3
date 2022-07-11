@@ -1291,6 +1291,27 @@ namespace dd {
         return *this; 
     }
 
+
+    /**
+     * \brief substitute variable v by r.
+     * This base line implementation is simplistic and does not use operator caching.
+     */
+    pdd pdd::subst_pdd(unsigned v, pdd const& r) const {
+        if (is_val())
+            return *this;
+        if (m.m_var2level[var()] < m.m_var2level[v])
+            return *this;
+        pdd l = lo().subst_pdd(v, r);
+        pdd h = hi().subst_pdd(v, r);
+        if (var() == v) 
+            return r*h + l;
+        else if (l == lo() && h == hi())
+            return *this;
+        else
+            return m.mk_var(v)*h + l;
+    }
+
+
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
     void pdd_iterator::next() {

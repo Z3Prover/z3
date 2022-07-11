@@ -367,6 +367,12 @@ namespace dd {
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
 
+        
+        /**
+         * \brief substitute variable v by r.
+         */
+        pdd subst_pdd(unsigned v, pdd const& r) const;
+
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
