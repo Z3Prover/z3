@@ -603,18 +603,24 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
 
     // -- local cluster that includes the new lemma
     lemma_cluster lc(*cluster);
-    lc.add_lemma(lemma, true);
+    // XXX most of the time lemma clustering happens before generalization
+    // XXX so `add_lemma` is likely to return false, but this does not mean
+    // XXX that the lemma is not new
+    bool is_new = lc.add_lemma(lemma, true);
+    (void)is_new;
 
     const expr_ref &pat = lc.get_pattern();
 
     TRACE("global", {
         tout << "Global generalization of:\n"
              << mk_and(lemma->get_cube()) << "\n"
+             << (is_new ? "new" : "old") << "\n"
              << "Using cluster:\n"
              << pat << "\n"
              << "Existing lemmas in the cluster:\n";
-        for (const auto &lemma : cluster->get_lemmas()) {
-            tout << mk_and(lemma.get_lemma()->get_cube()) << "\n";
+        for (const auto &li : cluster->get_lemmas()) {
+            tout << mk_and(li.get_lemma()->get_cube())
+                 << " lvl:" << li.get_lemma()->level() << "\n";
         }
     });
 
