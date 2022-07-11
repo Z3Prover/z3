@@ -39,7 +39,7 @@ bool is_sorted(const vector<rational> &data) {
 }
 
 /// Check whether all elements of \p data are congruent modulo \p m
-bool is_congruent_mod(const vector<rational> &data, rational m) {
+bool is_congruent_mod(const vector<rational> &data, const rational &m) {
     SASSERT(data.size() > 0);
     rational p = data[0] % m;
     for (auto k : data)
