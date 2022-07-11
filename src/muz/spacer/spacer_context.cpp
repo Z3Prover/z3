@@ -65,7 +65,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
     : m_ref_count(0), m_parent(parent), m_pt(pt),
       m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
       m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
-      m_open(true), m_use_farkas(true), m_in_queue(false), m_is_conjecture(false),
+      m_desired_level(0), m_open(true), m_use_farkas(true), m_in_queue(false), m_is_conjecture(false),
       m_enable_local_gen(true), m_enable_concretize(false), m_is_subsume(false),
       m_enable_expand_bnd_gen(false), m_weakness(0), m_blocked_lvl(0),
       m_concretize_pat(m_pt.get_ast_manager()),
@@ -106,6 +106,7 @@ void pob::inherit(pob const &p) {
 
     m_level = p.m_level;
     m_depth = p.m_depth;
+    m_desired_level = std::max(m_desired_level, p.m_desired_level);
     m_open = p.m_open;
     m_use_farkas = p.m_use_farkas;
 
@@ -3285,7 +3286,10 @@ bool context::check_reachability ()
 
 /// returns true if the given pob can be re-scheduled
 bool context::is_requeue(pob &n) {
-    if (!n.is_may_pob() && !m_push_pob) { return false; }
+    // if have not reached desired level, then requeue 
+    if (n.level() <= n.desired_level()) { return true; }
+    if (!m_push_pob) { return false; }
+
     unsigned max_depth = m_push_pob_max_depth;
     return (n.level() >= m_pob_queue.max_level() ||
             m_pob_queue.max_level() - n.level() <= max_depth);

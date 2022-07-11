@@ -745,6 +745,8 @@ class pob {
     unsigned                m_level:16;
     unsigned                m_depth:16;
 
+    unsigned                 m_desired_level:16;
+
     /// whether a concrete answer to the post is found
     unsigned                m_open:1;
     /// whether to use farkas generalizer to construct a lemma blocking this
@@ -854,6 +856,8 @@ public:
 
     unsigned level() const { return m_level; }
     unsigned depth() const { return m_depth; }
+    unsigned desired_level() const { return m_desired_level; }
+    void set_desired_level(unsigned v) { m_desired_level = v; }
     unsigned width() const { return m_kids.size(); }
     unsigned blocked_at(unsigned lvl = 0) {
         return (m_blocked_lvl = std::max(lvl, m_blocked_lvl));
