@@ -590,12 +590,12 @@ void simplify_bounds(expr_ref_vector &cube) { simplify_bounds_new(cube); }
 /// Adhoc rewriting of arithmetic expressions
 struct adhoc_rewriter_cfg : public default_rewriter_cfg {
     ast_manager &m;
-    arith_util m_util;
+    arith_util m_arith;
 
-    adhoc_rewriter_cfg(ast_manager &manager) : m(manager), m_util(m) {}
+    adhoc_rewriter_cfg(ast_manager &manager) : m(manager), m_arith(m) {}
 
-    bool is_le(func_decl const *n) const { return m_util.is_le(n); }
-    bool is_ge(func_decl const *n) const { return m_util.is_ge(n); }
+    bool is_le(func_decl const *n) const { return m_arith.is_le(n); }
+    bool is_ge(func_decl const *n) const { return m_arith.is_ge(n); }
 
     br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
                          expr_ref &result, proof_ref &result_pr) {
@@ -611,31 +611,32 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
 
     br_status mk_le_core(expr *arg1, expr *arg2, expr_ref &result) {
         // t <= -1  ==> t < 0 ==> !(t >= 0)
-        if (m_util.is_int(arg1) && m_util.is_minus_one(arg2)) {
-            result = m.mk_not(m_util.mk_ge(arg1, mk_zero()));
+        if (m_arith.is_int(arg1) && m_arith.is_minus_one(arg2)) {
+            result = m.mk_not(m_arith.mk_ge(arg1, mk_zero()));
             return BR_DONE;
         }
         return BR_FAILED;
     }
     br_status mk_ge_core(expr *arg1, expr *arg2, expr_ref &result) {
         // t >= 1 ==> t > 0 ==> !(t <= 0)
-        if (m_util.is_int(arg1) && is_one(arg2)) {
+        if (m_arith.is_int(arg1) && is_one(arg2)) {
 
-            result = m.mk_not(m_util.mk_le(arg1, mk_zero()));
+            result = m.mk_not(m_arith.mk_le(arg1, mk_zero()));
             return BR_DONE;
         }
         return BR_FAILED;
     }
-    expr *mk_zero() { return m_util.mk_numeral(rational(0), true); }
+    expr *mk_zero() { return m_arith.mk_numeral(rational(0), true); }
     bool is_one(expr const *n) const {
         rational val;
-        return m_util.is_numeral(n, val) && val.is_one();
+        return m_arith.is_numeral(n, val) && val.is_one();
     }
 };
 
 void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
                bool use_factor_eqs) {
 
+    ast_manager &m = out.m();
     params_ref params;
     // arith_rewriter
     params.set_bool("sort_sums", true);
