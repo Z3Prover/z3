@@ -647,15 +647,15 @@ void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
     params.set_bool("flat", true);
 
     // apply rewriter
-    th_rewriter rw(out.m(), params);
+    th_rewriter rw(m, params);
     rw(e, out);
 
-    adhoc_rewriter_cfg adhoc_cfg(out.m());
-    rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(out.m(), false, adhoc_cfg);
+    adhoc_rewriter_cfg adhoc_cfg(m);
+    rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(m, false, adhoc_cfg);
     adhoc_rw(out.get(), out);
 
-    if (out.m().is_and(out)) {
-        expr_ref_vector v(out.m());
+    if (m.is_and(out)) {
+        expr_ref_vector v(m);
         flatten_and(out, v);
 
         if (v.size() > 1) {
@@ -677,11 +677,11 @@ void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
                                            << out << "\n"
                                            << "to\n"
                                            << mk_and(v) << "\n";);
-            TRACE("spacer_normalize", mbp::term_graph egraph(out.m());
-                  for (expr *e
-                       : v) egraph.add_lit(to_app(e));
-                  tout << "Reduced app:\n"
-                       << mk_pp(egraph.to_expr(), out.m()) << "\n";);
+            TRACE("spacer_normalize", {
+                mbp::term_graph egraph(m);
+                for (expr *e : v) egraph.add_lit(to_app(e));
+                tout << "Reduced app:\n" << mk_pp(egraph.to_expr(), m) << "\n";
+            });
             out = mk_and(v);
         }
     }
