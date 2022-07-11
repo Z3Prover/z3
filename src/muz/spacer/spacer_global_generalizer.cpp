@@ -509,6 +509,7 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
 bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
                                              const expr_ref &lit, unsigned lvl,
                                              unsigned gas) {
+    arith_util arith(m);
     expr_ref_vector fml_vec(m);
     expr_ref n_post(n->post(), m);
     normalize(n_post, n_post, false, false);
@@ -518,6 +519,15 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
 
     expr_ref_vector conj(m);
     bool is_filtered = filter_out_lit(fml_vec, lit, conj);
+    expr *e1 = nullptr, *e2 = nullptr;
+    if (!is_filtered &&
+        (arith.is_le(lit, e1, e2) || arith.is_ge(lit, e1, e2))) {
+
+        // if lit is '<=' or '>=', try matching '=='
+        is_filtered =
+            filter_out_lit(fml_vec, expr_ref(m.mk_eq(e1, e2), m), conj);
+    }
+
     if (!is_filtered) {
         // -- try using the corresponding lemma instead
         conj.reset();
