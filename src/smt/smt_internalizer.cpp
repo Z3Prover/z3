@@ -1429,7 +1429,10 @@ namespace smt {
                 inc_ref(l2);
                 m_watches[(~l1).index()].insert_literal(l2);
                 m_watches[(~l2).index()].insert_literal(l1);
-                if (get_assignment(l2) == l_false) {
+                if (get_assignment(l1) == l_false) {
+                    assign(l2, b_justification(~l1));
+                }
+                else if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
                 }
                 m_clause_proof.add(l1, l2, k, j);

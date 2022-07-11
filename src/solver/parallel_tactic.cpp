@@ -113,9 +113,9 @@ class parallel_tactic : public tactic {
 
         void shutdown() {
             if (!m_shutdown) {
+                std::lock_guard<std::mutex> lock(m_mutex);
                 m_shutdown = true;
                 m_cond.notify_all();
-                std::lock_guard<std::mutex> lock(m_mutex);
                 for (solver_state* st : m_active) {
                     st->m().limit().cancel();
                 }
@@ -147,7 +147,9 @@ class parallel_tactic : public tactic {
                 }
                 {
                     std::unique_lock<std::mutex> lock(m_mutex);
-                    m_cond.wait(lock);
+                    if (!m_shutdown) {
+                        m_cond.wait(lock);
+                    }
                 }
                 dec_wait();
             }
