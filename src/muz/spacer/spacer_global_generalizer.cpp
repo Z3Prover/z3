@@ -734,11 +734,14 @@ pob *lemma_global_generalizer::mk_subsume_pob(pob &n) {
     pob *data = n.get_data();
 
     pob *f = n.pt().find_pob(data->parent(), data->post());
-    if (f && f->is_in_queue()) {
+    if (f && (f->is_in_queue() || f->is_closed())) {
         n.reset_data();
         return nullptr;
     }
 
+    TRACE("global", tout << "mk_subsume_pob at level " << data->level()
+                         << " with post state:\n"
+                         << mk_pp(data->post(), m) << "\n";);
     f = n.pt().mk_pob(data->parent(), data->level(), data->depth(),
                       data->post(), n.get_binding());
     f->set_subsume();
@@ -754,7 +757,10 @@ pob *lemma_global_generalizer::mk_conjecture_pob(pob &n) {
 
     pob *data = n.get_data();
     pob *f = n.pt().find_pob(data->parent(), data->post());
-    if (f && f->is_in_queue()) return nullptr;
+    if (f && (f->is_in_queue() || f->is_closed())) {
+        n.reset_data();
+        return nullptr;
+    }
 
     f = n.pt().mk_pob(data->parent(), data->level(), data->depth(),
                       data->post(), {m});
