@@ -4134,8 +4134,8 @@ void context::collect_statistics(statistics& st) const
               m_stats.m_num_conj_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
     st.update("SPACER subsume pob", m_stats.m_num_subsume_pobs);
-    st.update("SPACER subsume success", m_stats.m_num_subsume_pob_reachable);
-    st.update("SPACER subsume failed", m_stats.m_num_subsume_pob_blckd);
+    st.update("SPACER subsume failed", m_stats.m_num_subsume_pob_reachable);
+    st.update("SPACER subsume success", m_stats.m_num_subsume_pob_blckd);
     st.update("SPACER concretize", m_stats.m_num_concretize);
     st.update("SPACER non local gen", m_stats.m_non_local_gen);
 
