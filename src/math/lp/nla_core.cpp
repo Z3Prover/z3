@@ -1716,7 +1716,7 @@ void core::configure_grobner() {
                 for (lpvar k : emons()[j].vars()) 
                     r *= pdd_expr(rational::one(), k, dep);
                 r -= val_of_fixed_var_with_deps(j, dep);
-                m_pdd_grobner.add(r, dep);
+                add_eq_to_grobner(r, dep);
             }
         }
     }
@@ -1880,6 +1880,76 @@ dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
     return r;
 }
 
+/**
+   \brief convert p == 0 into a solved form v == r, such that
+   v has bounds [lo, oo) iff r has bounds [lo', oo)
+   v has bounds (oo,hi]  iff r has bounds (oo,hi']
+
+   The solved form allows the Grobner solver identify more bounds conflicts.
+   A bad leading term can miss bounds conflicts.
+   For example for x + y + z == 0 where x, y : [0, oo) and z : (oo,0]
+   we prefer to solve z == -x - y instead of x == -z - y
+   because the solution -z - y has neither an upper, nor a lower bound.
+ */
+bool core::is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r) {
+    if (!p.is_linear())
+        return false;
+    r = p;
+    unsigned num_lo = 0, num_hi = 0;
+    unsigned lo = 0, hi = 0;
+    rational lc, hc, c;
+    while (!r.is_val()) {
+        SASSERT(r.hi().is_val());
+        v = r.var();
+        rational val = r.hi().val();
+        switch (m_lar_solver.get_column_type(v)) {
+        case lp::column_type::lower_bound:
+            if (val > 0) num_lo++, lo = v, lc = val; else num_hi++, hi = v, hc = val;
+            break;
+        case lp::column_type::upper_bound:
+            if (val < 0) num_lo++, lo = v, lc = val; else num_hi++, hi = v, hc = val;
+            break;
+        case lp::column_type::fixed:
+        case lp::column_type::boxed:
+            break;
+        default:
+            return false;
+        }
+        if (num_lo > 1 && num_hi > 1)
+            return false;
+        r = r.lo();
+    }
+    if (num_lo == 1 && num_hi > 1) {
+        v = lo;
+        c = lc;
+    }
+    else if (num_hi == 1 && num_lo > 1) {
+        v = hi;
+        c = hc;
+    }
+    else
+        return false;
+    
+    r = c*m_pdd_manager.mk_var(v) - p;
+    if (c != 1)
+        r = r * (1/c);
+    return true;
+}
+
+/**
+   \brief add an equality to grobner solver, convert it to solved form if available.
+*/    
+void core::add_eq_to_grobner(dd::pdd& p, u_dependency* dep) {
+    unsigned v;
+    dd::pdd q(m_pdd_manager);
+    m_pdd_grobner.simplify(p, dep);
+    if (is_solved(p, v, q)) 
+        m_pdd_grobner.add_subst(v, q, dep);
+    else         
+        m_pdd_grobner.add(p, dep);    
+}
+
+
 void core::add_row_to_grobner(const vector<lp::row_cell<rational>> & row) {
     u_dependency *dep = nullptr;
     rational val;
@@ -1887,7 +1957,7 @@ void core::add_row_to_grobner(const vector<lp::row_cell<rational>> & row) {
     for (const auto &p : row) 
         sum += pdd_expr(p.coeff(), p.var(), dep);
     TRACE("grobner", print_row(row, tout) << " " << sum << "\n");
-    m_pdd_grobner.add(sum, dep);    
+    add_eq_to_grobner(sum, dep);
 }
 
 
@@ -1907,7 +1977,6 @@ void core::find_nl_cluster() {
     TRACE("grobner", tout << "vars in cluster: ";
           for (lpvar j : active_var_set()) tout << "j" << j << " "; tout << "\n";
           display_matrix_of_m_rows(tout);
-          /*emons().display(tout << "emons\n");*/
           );
 }
 

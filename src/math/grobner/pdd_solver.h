@@ -118,6 +118,7 @@ private:
     equation_vector                              m_solved; // equations with solved variables, triangular
     equation_vector                              m_processed;
     equation_vector                              m_to_simplify;
+    vector<std::tuple<unsigned, pdd, u_dependency*>> m_subst;
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict;   
@@ -135,6 +136,9 @@ public:
     void reset();
     void add(pdd const& p) { add(p, nullptr); }
     void add(pdd const& p, u_dependency * dep);
+
+    void simplify(pdd& p, u_dependency*& dep);
+    void add_subst(unsigned v, pdd const& p, u_dependency* dep);
 
     void simplify();
     void saturate();

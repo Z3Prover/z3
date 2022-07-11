@@ -1308,7 +1308,7 @@ namespace dd {
         else if (l == lo() && h == hi())
             return *this;
         else
-            return m.mk_var(v)*h + l;
+            return m.mk_var(var())*h + l;
     }
 
 

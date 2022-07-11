@@ -342,6 +342,7 @@ namespace dd {
         for (equation* e : m_solved) dealloc(e);
         for (equation* e : m_to_simplify) dealloc(e);
         for (equation* e : m_processed) dealloc(e);
+        m_subst.reset();
         m_solved.reset();
         m_processed.reset();
         m_to_simplify.reset();
@@ -354,16 +355,39 @@ namespace dd {
     void solver::add(pdd const& p, u_dependency * dep) {
         if (p.is_zero()) return;
         equation * eq = alloc(equation, p, dep);
-        if (check_conflict(*eq)) {
+        if (check_conflict(*eq)) 
             return;
-        }
         push_equation(to_simplify, eq);
         
-        if (!m_var2level.empty()) {
+        if (!m_var2level.empty()) 
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
-        }
         update_stats_max_degree_and_size(*eq);
-    }   
+    }
+
+    void solver::add_subst(unsigned v, pdd const& p, u_dependency* dep) {
+        SASSERT(m_processed.empty());
+        SASSERT(m_solved.empty());
+        
+        m_subst.push_back({v, p, dep});
+
+        for (auto* e : m_to_simplify) {                
+            auto r = e->poly().subst_pdd(v, p);
+            if (r == e->poly())
+                continue;
+            *e = m_dep_manager.mk_join(dep, e->dep());
+            *e = r;
+        }
+    }
+
+    void solver::simplify(pdd& p, u_dependency*& d) {
+        for (auto const& [v, q, d2] : m_subst) {
+            pdd r = p.subst_pdd(v, q);
+            if (r != p) {
+                p = r;
+                d = m_dep_manager.mk_join(d, d2);
+            }
+        }        
+    }
     
     bool solver::canceled() {
         return m_limit.is_canceled();
@@ -446,9 +470,24 @@ namespace dd {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        out << "solved\n"; for (auto e : m_solved) display(out, *e);
-        out << "processed\n"; for (auto e : m_processed) display(out, *e);
-        out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
+        if (!m_solved.empty()) {
+            out << "solved\n"; for (auto e : m_solved) display(out, *e);
+        }
+        if (!m_processed.empty()) {
+            out << "processed\n"; for (auto e : m_processed) display(out, *e);
+        }
+        if (!m_to_simplify.empty()) {
+            out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
+        }
+        if (!m_subst.empty()) {
+            out << "subst\n";
+            for (auto const& [v, p, d] : m_subst) {
+                out << "v" << v << " := " << p;
+                if (m_print_dep)
+                    m_print_dep(d, out);
+                out << "\n";
+            }
+        }
         return display_statistics(out);
     }
 
