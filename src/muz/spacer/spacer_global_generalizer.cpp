@@ -563,6 +563,8 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
     scoped_ptr<pob> new_pob = alloc(pob, root, n->pt(), lvl, n->depth(), false);
     if (!new_pob) return false;
 
+    new_pob->set_desired_level(n->level());
+
     new_pob->set_post(mk_and(conj));
     new_pob->set_conjecture();
 
@@ -573,7 +575,7 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
     n->set_expand_bnd();
     n->set_gas(gas);
     n->disable_local_gen();
-    TRACE("global", tout << "set conjecture " << n->get_data()->post()
+    TRACE("global", tout << "set conjecture " << mk_pp(n->get_data()->post(), m)
                          << " at level " << n->get_data()->level() << "\n";);
     return true;
 }
