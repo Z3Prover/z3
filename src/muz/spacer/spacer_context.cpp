@@ -3782,13 +3782,24 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         return l_false;
     }
     case l_undef:
-        // something went wrong
-        // if the pob is a may pob, bail out
+        // if the pob is a may pob, handle specially
         if (n.is_may_pob()) {
+          // do not create children, but bump weakness
+          // bail out if this does not help
+          // AG: do not know why this is a good strategy
+          if (n.weakness() < 10) {
+              SASSERT(out.empty());
+              n.bump_weakness();
+              return expand_pob(n, out);
+            }
             n.close();
             m_stats.m_expand_pob_undef++;
+            IF_VERBOSE(1, verbose_stream() << " UNDEF "
+                       << std::fixed << std::setprecision(2)
+                       << watch.get_seconds () << "\n";);
             return l_undef;
         }
+
         if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
