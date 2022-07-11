@@ -979,7 +979,7 @@ struct proc {
     void operator()(app const *n) const {
         expr *e1, *e2;
         if (is_mul(n, e1, e2) && ((is_var(e1) && !is_numeral(e2)) ||
-                                           (is_var(e2) && !is_numeral(e1))))
+                                  (is_var(e2) && !is_numeral(e1))))
             throw found();
     }
 };
@@ -1016,7 +1016,9 @@ bool contains_mod(expr *e, ast_manager &m) {
 
     return false;
 }
-bool contains_mod(const expr_ref &e) { return contains_mod(e.get(), e.get_manager()); }
+bool contains_mod(const expr_ref &e) {
+    return contains_mod(e.get(), e.get_manager());
+}
 
 namespace contains_real_ns {
 struct found {};
