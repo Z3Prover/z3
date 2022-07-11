@@ -398,13 +398,17 @@ namespace dd {
     inline pdd operator-(rational const& r, pdd const& b) { return b.rev_sub(r); }
     inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
-
+    inline pdd operator-(pdd const& b, rational const& r) { return b + (-r); }
+    
     inline pdd& operator&=(pdd & p, pdd const& q) { p = p & q; return p; }
     inline pdd& operator^=(pdd & p, pdd const& q) { p = p ^ q; return p; }
     inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
     inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
+    inline pdd& operator+=(pdd & p, rational const& v) { p = p + v; return p; }
+    inline pdd& operator-=(pdd & p, rational const& v) { p = p - v; return p; }
+    inline pdd& operator*=(pdd & p, rational const& v) { p = p * v; return p; }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 

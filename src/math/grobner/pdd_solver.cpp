@@ -11,9 +11,9 @@
 
   --*/
 
+#include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 #include "math/grobner/pdd_simplifier.h"
-#include "util/uint_set.h"
 #include <math.h>
 
 

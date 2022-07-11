@@ -592,7 +592,7 @@ namespace smt {
 
             // (or (= y 0)  (<= (* y (div x y)) x))
             else if (!m_util.is_numeral(divisor)) {
-                expr_ref div_ge(m), div_le(m), ge(m), le(m);
+                expr_ref div_ge(m);
                 div_ge = m_util.mk_ge(m_util.mk_sub(dividend, m_util.mk_mul(divisor, div)), zero);
                 s(div_ge);                
                 mk_axiom(eqz, div_ge, false);

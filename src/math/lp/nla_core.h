@@ -243,11 +243,11 @@ public:
 
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 
-        return m_nla_settings.run_horner() && lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; 
+        return m_nla_settings.run_horner && lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency == 0; 
     }
 
     bool need_run_grobner() const { 
-        return m_nla_settings.run_grobner() && lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0; 
+        return m_nla_settings.run_grobner && lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency == 0; 
     }
     
     void incremental_linearization(bool);
@@ -456,8 +456,7 @@ public:
         for (auto p : row) {
             v.push_back(std::make_pair(p.coeff(), p.var()));
         }
-        return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); },
-        out);        
+        return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); }, out);        
     }
     void run_grobner();
     void find_nl_cluster();
