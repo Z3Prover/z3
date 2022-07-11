@@ -72,6 +72,13 @@ unsigned lemma_cluster::get_min_lvl() {
     if (m_lemma_vec.empty()) return 0;
     unsigned lvl = m_lemma_vec[0].get_lemma()->level();
     for (auto l : m_lemma_vec) { lvl = std::min(lvl, l.get_lemma()->level()); }
+    // if all lemmas are at infinity, use the level of the lowest pob
+    if (is_infty_level(lvl)) {
+        for (auto l : m_lemma_vec) {
+          if (l.get_lemma()->has_pob())
+            lvl = std::min(lvl, l.get_lemma()->get_pob()->level());
+        }
+    }
     return lvl;
 }
 
