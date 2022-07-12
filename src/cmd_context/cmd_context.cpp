@@ -1825,6 +1825,10 @@ void cmd_context::add_declared_functions(model& mdl) {
 }
 
 void cmd_context::display_sat_result(lbool r) {
+    if (has_manager() && m().has_trace_stream()) {
+        m().trace_stream().flush();
+    }
+
     switch (r) {
     case l_true:
         regular_stream() << "sat" << std::endl;
