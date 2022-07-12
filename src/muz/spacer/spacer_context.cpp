@@ -98,6 +98,11 @@ void pob::inherit(pob const &p) {
     SASSERT(!is_in_queue());
     SASSERT(m_parent == p.m_parent);
     SASSERT(&m_pt == &p.m_pt);
+
+    // -- HACK: normalize second time because th_rewriter is not idempotent
+    if (m_post != p.m_post) {
+      normalize(m_post, m_post, false, false);
+    }
     SASSERT(m_post == p.m_post);
     SASSERT(!m_new_post);
 
