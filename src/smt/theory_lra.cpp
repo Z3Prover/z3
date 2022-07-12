@@ -1271,6 +1271,7 @@ public:
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
             mk_axiom(eqz, mod_lt_q);
+            m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
 
             if (a.is_zero(p)) {
                 mk_axiom(eqz, mk_literal(m.mk_eq(div, zero)));

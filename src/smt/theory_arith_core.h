@@ -563,7 +563,7 @@ namespace smt {
         if (!m_util.is_zero(divisor)) {
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
-            expr_ref eqz(m), eq(m), lower(m), upper(m);
+            expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m);
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
@@ -571,7 +571,8 @@ namespace smt {
             abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
             s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
-            eq          = m.mk_eq(m_util.mk_add(m_util.mk_mul(divisor, div), mod), dividend);
+            qr          = m_util.mk_add(m_util.mk_mul(divisor, div), mod);
+            eq          = m.mk_eq(qr, dividend);
             lower       = m_util.mk_ge(mod, zero);
             upper       = m_util.mk_le(mod, abs_divisor);
             TRACE("div_axiom_bug",
@@ -584,6 +585,8 @@ namespace smt {
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
+
+            m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(mod));
 
             if (m_util.is_zero(dividend)) {
                 mk_axiom(eqz, m.mk_eq(div, zero));
