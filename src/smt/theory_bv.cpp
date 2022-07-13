@@ -667,8 +667,9 @@ namespace smt {
         mk_enode(n);
         theory_var v = ctx.get_enode(n)->get_th_var(get_id()); 
         mk_bits(v);
-        mk_var(ctx.get_enode(n->get_arg(0)));
-
+        enode* k = ctx.get_enode(n->get_arg(0));
+        if (!is_attached_to_var(k))
+            mk_var(k);
         
         if (!ctx.relevancy()) 
             assert_int2bv_axiom(n);
