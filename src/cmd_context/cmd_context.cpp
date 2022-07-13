@@ -594,6 +594,7 @@ void cmd_context::global_params_updated() {
     m_params.updt_params();
     if (m_params.m_smtlib2_compliant)
         m_print_success = true;
+    set_produce_proofs(m_params.m_proof);
     if (m_solver) {
         params_ref p;
         if (!m_params.m_auto_config)
