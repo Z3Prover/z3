@@ -136,7 +136,6 @@ Z3_context_plus Z3_context_plus_mk(Z3_context c) {
      We regard custom blocks that point to a Z3_context_plus structure
      as a usage of this structure. Hence, we assign it a counter of one. */
   r->obj_count = 1;
-  r->running_in_parallel = false;
   return r;
 }
 
