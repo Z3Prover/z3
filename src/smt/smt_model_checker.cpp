@@ -453,7 +453,7 @@ namespace smt {
         TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
         m_max_cexs += m_params.m_mbqi_max_cexs;
 
-        if (num_failures == 0 && (!m_context->validate_model())) {
+        if (num_failures == 0 && !m_context->validate_model()) {
             num_failures = 1;
             // this time force expanding recursive function definitions
             // that are not forced true in the current model.
