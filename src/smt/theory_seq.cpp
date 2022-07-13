@@ -2793,19 +2793,19 @@ bool theory_seq::get_length(expr* e, rational& val) {
             todo.push_back(c);
         else if (m_util.str.is_string(c, s)) 
             val += rational(s.length());
-        else
-            continue;
-        len = mk_len(c);
-        if (!has_length(c)) {
-            add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
-            TRACE("seq", tout << "literal has no length " << mk_pp(c, m) << "\n";);
-            return false;            
-        }
-        else if (m_arith_value.get_value(len, val1) && !val1.is_neg()) 
-            val += val1;                
-        else {
-            TRACE("seq", tout << "length has not been internalized " << mk_pp(c, m) << "\n";);
-            return false;
+        else {            
+            len = mk_len(c);
+            if (!has_length(c)) {
+                add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
+                TRACE("seq", tout << "literal has no length " << mk_pp(c, m) << "\n";);
+                return false;            
+            }
+            else if (m_arith_value.get_value(len, val1) && !val1.is_neg()) 
+                val += val1;                
+            else {
+                TRACE("seq", tout << "length has not been internalized " << mk_pp(c, m) << "\n";);
+                return false;
+            }
         }
     }
     CTRACE("seq", !val.is_int(), tout << "length is not an integer\n";);
