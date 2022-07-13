@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
+#include <stdatomic.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -118,14 +119,14 @@ int compare_pointers(void* pt1, void* pt2) {
    blocks that get copied. */
 typedef struct {
   Z3_context ctx;
-  unsigned long obj_count;
+  atomic_ulong obj_count;
 } Z3_context_plus_data;
 
 /* A context is wrapped to an OCaml value by storing a pointer
    to its associated Z3_context_plus_data instance.
    This instance gets created in mk_context and is deleted
-   together with the Z3 context instance in try_to_delete_context
-   whenever the obj_count field is zero. */
+   together with the Z3 context instance in ref_decr_context
+   whenever the obj_count field reaches zero. */
 typedef Z3_context_plus_data* Z3_context_plus;
 
 Z3_context_plus Z3_context_plus_mk(Z3_context c) {
@@ -135,6 +136,7 @@ Z3_context_plus Z3_context_plus_mk(Z3_context c) {
      We regard custom blocks that point to a Z3_context_plus structure
      as a usage of this structure. Hence, we assign it a counter of one. */
   r->obj_count = 1;
+  r->running_in_parallel = false;
   return r;
 }
 
@@ -142,24 +144,24 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
   return (*cp)->ctx;
 }
 
-void try_to_delete_context(Z3_context_plus cp) {
-  if (cp->obj_count == 0) {
-    /* printf("try_to_delete_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
+void ref_decr_context(Z3_context_plus cp) {
+  // atomic check: are we the only thread to reach 0?
+  if (--(cp->obj_count) == 0) {
+    /* printf("ref_decr_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
     Z3_del_context(cp->ctx);
     free(cp);
   }
   /*
   else if (cp->obj_count > 0)
-    printf("try_to_delete_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
+    printf("ref_decr_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
   else if (cp->obj_count < 0)
-    printf("try_to_delete_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
+    printf("ref_decr_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
   */
 }
 
 void Z3_context_finalize(value v) {
   Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(v);
-  cp->obj_count--;
-  try_to_delete_context(cp);
+  ref_decr_context(cp);
 }
 
 int Z3_context_compare(value v1, value v2) {
@@ -223,9 +225,8 @@ void Z3_ast_finalize(value v) {
   /* printf("--\n"); */
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
   if (ap->p != NULL)
-    Z3_dec_ref(ap->cp->ctx, ap->p);
-  ap->cp->obj_count--;
-  try_to_delete_context(ap->cp);
+    Z3_dec_ref(ap->cp->ctx, ap->p);  // thread-safe
+  ref_decr_context(ap->cp);
 }
 
 int Z3_ast_compare(value v1, value v2) {
@@ -317,8 +318,7 @@ MK_CTX_OF(ast, 8) // let's say 16 bytes per ast
                                                                         \
   void Z3_ ## X ## _finalize(value v) {                                 \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    pp->cp->obj_count--;                                                \
-    try_to_delete_context(pp->cp);                                      \
+    ref_decr_context(pp->cp);                                           \
   }                                                                     \
                                                                         \
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
@@ -376,8 +376,7 @@ MK_CTX_OF(ast, 8) // let's say 16 bytes per ast
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
     if (pp->p != NULL)                                                  \
       Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                         \
-    pp->cp->obj_count--;                                                \
-    try_to_delete_context(pp->cp);                                      \
+    ref_decr_context(pp->cp);                                           \
   }                                                                     \
                                                                         \
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
