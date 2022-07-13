@@ -46,6 +46,7 @@ Revision History:
 #include "util/z3_exception.h"
 #include "util/dependency.h"
 #include "util/rlimit.h"
+#include "util/mutex.h"
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -1549,8 +1550,11 @@ protected:
 #ifdef Z3DEBUG
     bool slow_not_contains(ast const * n);
 #endif
+    mutable recursive_mutex m_mux_ast_table; // protects m_ast_table.
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
     symbol                    m_lambda_def;
+
+#define LOCK_AST_TABLE recursive_lock_guard lock(m_mux_ast_table)
 
     void init();
 
@@ -1666,7 +1670,10 @@ public:
 
     bool are_distinct(expr * a, expr * b) const;
 
-    bool contains(ast * a) const { return m_ast_table.contains(a); }
+    bool contains(ast * a) const {
+        LOCK_AST_TABLE;
+        return m_ast_table.contains(a);
+    }
     
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
@@ -1675,7 +1682,11 @@ public:
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }
 
-    unsigned get_num_asts() const { return m_ast_table.size(); }
+    unsigned get_num_asts() const {
+
+        LOCK_AST_TABLE;
+        return m_ast_table.size();
+  }
 
     void debug_ref_count() { m_debug_ref_count = true; }
 

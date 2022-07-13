@@ -1374,6 +1374,8 @@ decl_plugin * user_sort_plugin::mk_fresh() {
 //
 // -----------------------------------
 
+#define LOCK_AST_TABLE recursive_lock_guard lock(m_mux_ast_table)
+
 ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_format_manager):
     m_alloc("ast_manager"),
     m_expr_array_manager(*this, m_alloc),
@@ -1569,6 +1571,7 @@ ast_manager::~ast_manager() {
 }
 
 void ast_manager::compact_memory() {
+    LOCK_AST_TABLE;
     m_alloc.consolidate();
     unsigned capacity = m_ast_table.capacity();
     if (capacity > 4*m_ast_table.size()) {
@@ -1585,6 +1588,7 @@ void ast_manager::compact_memory() {
 }
 
 void ast_manager::compress_ids() {
+    LOCK_AST_TABLE;
     ptr_vector<ast> asts;
     m_expr_id_gen.cleanup();
     m_decl_id_gen.cleanup(c_first_decl_id);
@@ -1663,6 +1667,7 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
 }
 
 void ast_manager::set_next_expr_id(unsigned id) {
+    LOCK_AST_TABLE;
  try_again:
     id = m_expr_id_gen.set_next_id(id);
     for (ast * curr : m_ast_table) {
@@ -1677,6 +1682,7 @@ void ast_manager::set_next_expr_id(unsigned id) {
 unsigned ast_manager::get_node_size(ast const * n) { return ::get_node_size(n); }
 
 std::ostream& ast_manager::display(std::ostream& out) const {
+    LOCK_AST_TABLE;
     for (ast * a : m_ast_table) {
         if (is_func_decl(a)) {
             out << to_func_decl(a)->get_name() << " " << a->get_id() << "\n";
@@ -1768,6 +1774,7 @@ bool ast_manager::is_bool(expr const * n) const {
 
 #ifdef Z3DEBUG
 bool ast_manager::slow_not_contains(ast const * n) {
+    LOCK_AST_TABLE;
     unsigned num = 0;
     for (ast * curr : m_ast_table) {
         if (compare_nodes(curr, n)) {
@@ -1799,6 +1806,7 @@ static void track_id(ast_manager& m, ast* n, unsigned id) {
 #endif
 
 ast * ast_manager::register_node_core(ast * n) {
+    LOCK_AST_TABLE;
     unsigned h = get_node_hash(n);
     n->m_hash = h;
 #ifdef Z3DEBUG
@@ -1918,6 +1926,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
 void ast_manager::delete_node(ast * n) {
+    LOCK_AST_TABLE;
     TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
 
     SASSERT(m_ast_table.contains(n));
