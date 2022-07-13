@@ -1664,6 +1664,13 @@ void core::run_grobner() {
     }
 
 #if 0
+    vector<dd::pdd> eqs;
+    for (auto eq : m_pdd_grobner.equations())
+        eqs.push_back(eq->poly());
+    m_nra.check(eqs);
+#endif
+    
+#if 0
     bool propagated = false;
     for (auto eq : m_pdd_grobner.equations()) {
         auto const& p = eq->poly();
