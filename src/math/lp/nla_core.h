@@ -458,6 +458,8 @@ public:
         }
         return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); }, out);        
     }
+
+    
     void run_grobner();
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
@@ -467,6 +469,7 @@ public:
     void set_active_vars_weights(nex_creator&);
     unsigned get_var_weight(lpvar) const;
     void add_row_to_grobner(const vector<lp::row_cell<rational>> & row);
+    void add_fixed_monic_to_grobner(unsigned j);
     bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
     void add_eq_to_grobner(dd::pdd& p, u_dependency* dep);
     bool check_pdd_eq(const dd::solver::equation*);
@@ -476,6 +479,7 @@ public:
     void configure_grobner();
     bool influences_nl_var(lpvar) const;
     bool is_nl_var(lpvar) const;
+    
     bool is_used_in_monic(lpvar) const;
     void patch_monomials();
     void patch_monomials_on_to_refine();
