@@ -364,6 +364,11 @@ namespace dd {
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) { m.factor(*this, v, degree, lc, rest); }
 
+        /**
+         * \brief factor out variables
+         */
+        std::pair<unsigned_vector, pdd> var_factors();
+
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
 

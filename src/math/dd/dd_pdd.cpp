@@ -1311,6 +1311,78 @@ namespace dd {
             return m.mk_var(var())*h + l;
     }
 
+    std::pair<unsigned_vector, pdd> pdd::var_factors() {
+        if (is_val())
+            return { unsigned_vector(), *this };
+        unsigned v = var();
+        if (lo().is_val()) {
+            if (!lo().is_zero())
+                return { unsigned_vector(), *this };
+            auto [vars, p] = hi().var_factors();
+            vars.push_back(v);
+            return {vars, p};
+        }
+        auto [lo_vars, q] = lo().var_factors();
+        if (lo_vars.empty())
+            return { unsigned_vector(), *this };
+        
+        unsigned_vector lo_and_hi;
+        auto merge = [&](unsigned_vector& lo_vars, unsigned_vector& hi_vars) {
+            unsigned ir = 0, jr = 0;
+            for (unsigned i = 0, j = 0; i < lo_vars.size() || j < hi_vars.size(); ) {
+                if (i == lo_vars.size()) {
+                    hi_vars[jr++] = hi_vars[j++];
+                    continue;
+                }
+                if (j == hi_vars.size()) {
+                    lo_vars[ir++] = lo_vars[i++];
+                    continue;
+                }
+                if (lo_vars[i] == hi_vars[j]) {
+                    lo_and_hi.push_back(lo_vars[i]);
+                    ++i;
+                    ++j;
+                    continue;
+                }
+                unsigned lvl_lo = m.m_var2level[lo_vars[i]];
+                unsigned lvl_hi = m.m_var2level[hi_vars[j]];
+                if (lvl_lo > lvl_hi) {
+                    hi_vars[jr++] = hi_vars[j++];
+                    continue;
+                }
+                else {
+                    lo_vars[ir++] = lo_vars[i++];
+                    continue;
+                }
+            }
+            lo_vars.shrink(ir);
+            hi_vars.shrink(jr);
+        };
+
+        auto mul = [&](unsigned_vector const& vars, pdd p) {
+            for (auto v : vars)
+                p *= m.mk_var(v);
+            return p;
+        };
+
+        auto [hi_vars, p] = hi().var_factors();
+        if (lo_vars.back() == v) {
+            lo_vars.pop_back();
+            merge(lo_vars, hi_vars);
+            lo_and_hi.push_back(v);
+            return { lo_and_hi, mul(lo_vars, q) + mul(hi_vars, p) };
+        }
+        if (hi_vars.empty())
+            return { unsigned_vector(), *this };
+        
+        merge(lo_vars, hi_vars);
+        hi_vars.push_back(v);
+        if (lo_and_hi.empty())
+            return { unsigned_vector(), *this };
+        else 
+            return { lo_and_hi, mul(lo_vars, q) + mul(hi_vars, p) };                
+    }
+
 
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 

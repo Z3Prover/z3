@@ -323,6 +323,62 @@ public :
         SASSERT(!(2*a*b + 3*b + 2).is_non_zero());
     }
 
+    static void factors() {
+        pdd_manager m(3);
+        pdd v0 = m.mk_var(0);
+        pdd v1 = m.mk_var(1);
+        pdd v2 = m.mk_var(2);
+        pdd v3 = m.mk_var(3);
+        pdd v4 = m.mk_var(4);
+        pdd c1 = v0 * v1 * v2 + v2 * v0 + v1 + 1;
+        {
+            auto [vars, p] = c1.var_factors();
+            VERIFY(p == c1 && vars.empty());
+        }
+        {
+            auto q = c1 * v4;
+            auto [vars, p] = q.var_factors();
+            std::cout << p << " " << vars << "\n";
+            VERIFY(p == c1 && vars.size() == 1 && vars[0] == 4);
+        }
+        for (unsigned i = 0; i < 5; ++i) {
+            auto v = m.mk_var(i);
+            auto q = c1 * v;
+            std::cout << i << ": " << q << "\n";
+            auto [vars, p] = q.var_factors();
+            std::cout << p << " " << vars << "\n";
+            VERIFY(p == c1 && vars.size() == 1 && vars[0] == i);            
+        }
+        for (unsigned i = 0; i < 5; ++i) {
+            for (unsigned j = 0; j < 5; ++j) {
+                auto vi = m.mk_var(i);
+                auto vj = m.mk_var(j);
+                auto q = c1 * vi * vj;
+                auto [vars, p] = q.var_factors();
+                std::cout << p << " " << vars << "\n";
+                VERIFY(p == c1 && vars.size() == 2);
+                VERIFY(vars[0] == i || vars[1] == i);
+                VERIFY(vars[0] == j || vars[1] == j);
+            }
+        }
+        for (unsigned i = 0; i < 5; ++i) {
+            for (unsigned j = i; j < 5; ++j) {
+                for (unsigned k = j; k < 5; ++k) {
+                    auto vi = m.mk_var(i);
+                    auto vj = m.mk_var(j);
+                    auto vk = m.mk_var(k);
+                    auto q = c1 * vi * vj * vk;
+                    auto [vars, p] = q.var_factors();
+                    std::cout << p << " " << vars << "\n";
+                    VERIFY(p == c1 && vars.size() == 3);
+                    VERIFY(vars[0] == i || vars[1] == i || vars[2] == i);
+                    VERIFY(vars[0] == j || vars[1] == j || vars[2] == j);
+                    VERIFY(vars[0] == k || vars[1] == k || vars[2] == k);
+                }
+            }
+        }
+    }
+
 };
 
 }
@@ -337,4 +393,5 @@ void tst_pdd() {
     dd::test::order();
     dd::test::order_lm();
     dd::test::mod4_operations();
+    dd::test::factors();
 }
