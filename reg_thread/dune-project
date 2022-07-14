@@ -1,4 +1,4 @@
-(lang dune 3.2)
+(lang dune 2.0)
 
 (name reg_thread)
 
