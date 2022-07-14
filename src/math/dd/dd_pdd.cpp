@@ -1330,30 +1330,19 @@ namespace dd {
         auto merge = [&](unsigned_vector& lo_vars, unsigned_vector& hi_vars) {
             unsigned ir = 0, jr = 0;
             for (unsigned i = 0, j = 0; i < lo_vars.size() || j < hi_vars.size(); ) {
-                if (i == lo_vars.size()) {
+                if (i == lo_vars.size()) 
                     hi_vars[jr++] = hi_vars[j++];
-                    continue;
-                }
-                if (j == hi_vars.size()) {
+                else if (j == hi_vars.size()) 
                     lo_vars[ir++] = lo_vars[i++];
-                    continue;
-                }
-                if (lo_vars[i] == hi_vars[j]) {
+                else if (lo_vars[i] == hi_vars[j]) {
                     lo_and_hi.push_back(lo_vars[i]);
                     ++i;
                     ++j;
-                    continue;
                 }
-                unsigned lvl_lo = m.m_var2level[lo_vars[i]];
-                unsigned lvl_hi = m.m_var2level[hi_vars[j]];
-                if (lvl_lo > lvl_hi) {
+                else if (m.m_var2level[lo_vars[i]] > m.m_var2level[hi_vars[j]]) 
                     hi_vars[jr++] = hi_vars[j++];
-                    continue;
-                }
-                else {
+                else 
                     lo_vars[ir++] = lo_vars[i++];
-                    continue;
-                }
             }
             lo_vars.shrink(ir);
             hi_vars.shrink(jr);
