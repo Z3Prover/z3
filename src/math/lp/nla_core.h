@@ -27,6 +27,9 @@
 #include "math/lp/nla_intervals.h"
 #include "nlsat/nlsat_solver.h"
 
+namespace nra {
+    class solver;
+}
 
 namespace nla {
 
@@ -139,8 +142,19 @@ struct pp_factorization {
 };
 
 class core {
+    friend struct common;
     friend class new_lemma;
     friend class grobner;
+    friend class order;
+    friend struct basics;
+    friend struct tangents;
+    friend class monotone;
+    friend struct nla_settings;
+    friend class intervals;
+    friend class horner;
+    friend class solver;
+    friend class monomial_bounds;
+    friend class nra::solver;
 
     struct stats {
         unsigned m_nla_explanations;
@@ -158,9 +172,11 @@ class core {
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
-public:
+
     var_eqs<emonics>         m_evars;
+
     lp::lar_solver&          m_lar_solver;
+    reslimit&                m_reslim;
     vector<lemma> *          m_lemma_vec;
     lp::u_set                m_to_refine;
     tangents                 m_tangents;
@@ -169,23 +185,21 @@ public:
     monotone                 m_monotone;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
+    nla_settings             m_nla_settings;        
+
     horner                   m_horner;
-    nla_settings             m_nla_settings;    
     grobner                  m_grobner;
-private:
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable lp::u_set        m_active_var_set;
 
     reslimit                 m_nra_lim;
-public:
-    reslimit&                m_reslim;
-    bool                     m_use_nra_model;
+
+    bool                     m_use_nra_model = false;
     nra::solver              m_nra;
-private:
-    bool                     m_cautious_patching;
-    lpvar                    m_patched_var;
-    monic const*             m_patched_monic;      
+    bool                     m_cautious_patching = true;
+    lpvar                    m_patched_var = 0;
+    monic const*             m_patched_monic = nullptr;      
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
 

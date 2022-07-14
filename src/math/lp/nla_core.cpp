@@ -24,6 +24,7 @@ typedef lp::lar_term term;
 core::core(lp::lar_solver& s, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
+    m_reslim(lim),
     m_tangents(this),
     m_basics(this),
     m_order(this),
@@ -33,7 +34,6 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_horner(this),
     m_grobner(this),
     m_emons(m_evars),
-    m_reslim(lim),
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this)
 {
@@ -547,7 +547,8 @@ bool core::var_is_fixed(lpvar j) const {
 
 bool core::var_is_free(lpvar j) const {
     return m_lar_solver.column_is_free(j);
-}
+}
+
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
     m_lar_solver.print_term_as_indices(in.term(), out);
