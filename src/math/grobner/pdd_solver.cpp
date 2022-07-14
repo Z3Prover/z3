@@ -169,7 +169,7 @@ namespace dd {
     /*
       Use the given equation to simplify equations in set
     */
-    void solver::simplify_using(equation_vector& set, equation const& eq) {        
+    void solver::simplify_using(equation_vector& set, std::function<bool(equation&, bool&)>& simplifier) {   
         struct scoped_update {
             equation_vector& set;
             unsigned i, j, sz;
@@ -191,7 +191,7 @@ namespace dd {
             equation& target = *set[sr.i];
             bool changed_leading_term = false;
             bool simplified = true;
-            simplified = !done() && try_simplify_using(target, eq, changed_leading_term); 
+            simplified = !done() && simplifier(target, changed_leading_term); 
             
             if (simplified && is_trivial(target)) {
                 retire(&target);
@@ -210,6 +210,13 @@ namespace dd {
                 sr.nextj();
             } 
         }
+    }
+
+    void solver::simplify_using(equation_vector& set, equation const& eq) {    
+        std::function<bool(equation&, bool&)> simplifier = [&](equation& target, bool& changed_leading_term) {
+            return try_simplify_using(target, eq, changed_leading_term);
+        };
+        simplify_using(set, simplifier);
     }    
 
     /*
@@ -353,7 +360,8 @@ namespace dd {
     }
 
     void solver::add(pdd const& p, u_dependency * dep) {
-        if (p.is_zero()) return;
+        if (p.is_zero()) 
+            return;
         equation * eq = alloc(equation, p, dep);
         if (check_conflict(*eq)) 
             return;
@@ -365,18 +373,30 @@ namespace dd {
     }
 
     void solver::add_subst(unsigned v, pdd const& p, u_dependency* dep) {
-        SASSERT(m_processed.empty());
-        SASSERT(m_solved.empty());
-        
         m_subst.push_back({v, p, dep});
+        if (!m_var2level.empty()) 
+            m_levelp1 = std::max(m_var2level[v]+1, std::max(m_var2level[p.var()]+1, m_levelp1));
 
-        for (auto* e : m_to_simplify) {                
-            auto r = e->poly().subst_pdd(v, p);
-            if (r == e->poly())
-                continue;
-            *e = m_dep_manager.mk_join(dep, e->dep());
-            *e = r;
-        }
+        std::function<bool(equation&, bool&)> simplifier = [&](equation& dst, bool& changed_leading_term) {
+            auto r = dst.poly().subst_pdd(v, p);
+            if (r == dst.poly())
+                return false;
+            if (is_too_complex(r)) {
+                m_too_complex = true;
+                return false;
+            }
+            changed_leading_term = m.different_leading_term(r, dst.poly());
+            dst = r;
+            dst = m_dep_manager.mk_join(dst.dep(), dep);
+            update_stats_max_degree_and_size(dst);
+            return true;
+        };
+        if (!done()) 
+            simplify_using(m_processed, simplifier);
+        if (!done()) 
+            simplify_using(m_to_simplify, simplifier);
+        if (!done()) 
+            simplify_using(m_solved, simplifier);
     }
 
     void solver::simplify(pdd& p, u_dependency*& d) {

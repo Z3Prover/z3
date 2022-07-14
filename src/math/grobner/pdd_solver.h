@@ -164,6 +164,7 @@ private:
     void simplify_using(equation& eq, equation_vector const& eqs);
     void simplify_using(equation_vector& set, equation const& eq);
     void simplify_using(equation & dst, equation const& src, bool& changed_leading_term);
+    void simplify_using(equation_vector& set, std::function<bool(equation&, bool&)>& simplifier);
     bool try_simplify_using(equation& target, equation const& source, bool& changed_leading_term);
 
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
