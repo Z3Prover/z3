@@ -1185,17 +1185,20 @@ namespace polysat {
     }
 
     std::ostream& assignment_pp::display(std::ostream& out) const {
-        out << "v" << var << " := ";
+        out << "v" << var << " := " << num_pp(s, var, val);
+        if (with_justification)
+            out << " (" << s.m_justification[var] << ")";
+        return out;
+    }
+
+    std::ostream& num_pp::display(std::ostream& out) const {
         rational const& p = rational::power_of_two(s.size(var));
         if (val > mod(-val, p))
             out << -mod(-val, p);
         else 
             out << val;
-        if (with_justification)
-            out << " (" << s.m_justification[var] << ")";
         return out;
     }
-    
 
     void solver::collect_statistics(statistics& st) const {
         st.update("polysat iterations",   m_stats.m_num_iterations);

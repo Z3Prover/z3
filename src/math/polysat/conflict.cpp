@@ -80,11 +80,11 @@ namespace polysat {
                     m_used_vars.insert(v);
             }
             for (auto v : core.vars()) {
-                out_indent() << "v" << v << " := " << core.s.get_value(v) << "\n";
+                out_indent() << assignment_pp(core.s, v, core.s.get_value(v)) << "\n";
                 m_used_vars.insert(v);
             }
             for (auto v : core.bail_vars()) {
-                out_indent() << "v" << v << " := " << core.s.get_value(v) << " (bail)\n";
+                out_indent() << assignment_pp(core.s, v, core.s.get_value(v)) << " (bail)\n";
                 m_used_vars.insert(v);
             }
             if (core.is_bailout())

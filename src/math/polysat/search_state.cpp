@@ -21,22 +21,17 @@ namespace polysat {
     std::ostream& search_state::display_verbose(search_item const& item, std::ostream& out) const {
         switch (item.kind()) {
         case search_item_k::assignment: {
-            rational r;
-            pvar const v = item.var();
-            auto const& j = s.m_justification[v];
-            out << "v" << std::setw(3) << std::left << v << " := ";
-            out << std::setw(30) << std::left << s.m_value[v];
-            // if (value(item.var(), r)) {
-            //     SASSERT_EQ(r, s.m_value[v]);
-            //     out << r;
-            // } else
-            //     out << "*";
+            pvar const var = item.var();
+            rational const& val = s.m_value[var];
+            auto const& j = s.m_justification[var];
+            out << "v" << std::setw(3) << std::left << var << " := ";
+            out << std::setw(30) << std::left << num_pp(s, var, val);
             out << " @" << j.level();
             switch (j.kind()) {
             case justification_k::decision:
                 return out << " by decision";
             case justification_k::propagation:
-                return out << " by " << viable::var_pp(s.m_viable, v);
+                return out << " by " << viable::var_pp(s.m_viable, var);
             case justification_k::unassigned:
                 return out << " unassigned";
             }
