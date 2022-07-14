@@ -31,8 +31,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_intervals(this, lim),
     m_monomial_bounds(this),
     m_horner(this),
-    m_pdd_manager(s.number_of_vars()),
-    m_pdd_grobner(lim, m_pdd_manager),
+    m_grobner(this),
     m_emons(m_evars),
     m_reslim(lim),
     m_use_nra_model(false),
@@ -1506,7 +1505,7 @@ lbool core::check(vector<lemma>& l_vec) {
         m_horner.horner_lemmas();
 
     if (l_vec.empty() && !done() && need_run_grobner()) 
-        run_grobner();                
+        m_grobner();                
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(true); 
@@ -1661,51 +1660,15 @@ std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e
 }
 
 
-void core::set_active_vars_weights(nex_creator& nc) {
-    nc.set_number_of_vars(m_lar_solver.column_count());
-    for (lpvar j : active_var_set()) 
-        nc.set_var_weight(j, get_var_weight(j));
+bool core::is_nl_var(lpvar j) const {
+    return is_monic_var(j) || m_emons.is_used_in_monic(j);
 }
 
-void core::set_level2var_for_grobner() {
-    unsigned n = m_lar_solver.column_count();
-    unsigned_vector sorted_vars(n), weighted_vars(n);
-    for (unsigned j = 0; j < n; j++) {
-        sorted_vars[j] = j;
-        weighted_vars[j] = get_var_weight(j);
-    }
-#if 1
-    // potential update to weights
-    for (unsigned j = 0; j < n; j++) {
-        if (is_monic_var(j) && m_to_refine.contains(j)) {
-            for (lpvar k : m_emons[j].vars()) {
-                weighted_vars[k] += 6;
-            }
-        }
-    }
-#endif
-
-    std::sort(sorted_vars.begin(), sorted_vars.end(), [&](unsigned a, unsigned b) {
-                                                      unsigned wa = weighted_vars[a];
-                                                      unsigned wb = weighted_vars[b];
-                                                      return wa < wb || (wa == wb && a < b); });
-
-    unsigned_vector l2v(n);
-    for (unsigned j = 0; j < n; j++)
-        l2v[j] = sorted_vars[j];
-
-    m_pdd_manager.reset(l2v);
-
-    TRACE("grobner",
-          for (auto v : sorted_vars)
-              tout << "j" << v << " w:" << weighted_vars[v] << " ";
-          tout << "\n");
-}
 
 unsigned core::get_var_weight(lpvar j) const {
     unsigned k;
     switch (m_lar_solver.get_column_type(j)) {
-        
+
     case lp::column_type::fixed:
         k = 0;
         break;
@@ -1725,14 +1688,17 @@ unsigned core::get_var_weight(lpvar j) const {
     }
     if (is_monic_var(j)) {
         k++;
-        if (m_to_refine.contains(j)) 
+        if (m_to_refine.contains(j))
             k++;
     }
     return k;
 }
 
-bool core::is_nl_var(lpvar j) const {
-    return is_monic_var(j) || m_emons.is_used_in_monic(j);
+
+void core::set_active_vars_weights(nex_creator& nc) {
+    nc.set_number_of_vars(m_lar_solver.column_count());
+    for (lpvar j : active_var_set()) 
+        nc.set_var_weight(j, get_var_weight(j));
 }
 
 bool core::influences_nl_var(lpvar j) const {

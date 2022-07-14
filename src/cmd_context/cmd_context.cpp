@@ -619,7 +619,7 @@ void cmd_context::set_produce_unsat_cores(bool f) {
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    SASSERT(!has_assertions());
+    SASSERT(!has_assertions() || m_params.m_proof == f);
     if (has_manager()) 
         m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
     m_params.m_proof = f;
