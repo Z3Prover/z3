@@ -471,7 +471,7 @@ protected:
     void mark_so(bool flag) { m_mark_shared_occs = flag; }
     void reset_mark_so() { m_mark_shared_occs = false; }
     bool is_marked_so() const { return m_mark_shared_occs; }
-    unsigned m_ref_count;
+    atomic<unsigned> m_ref_count;
     unsigned m_hash;
 #ifdef Z3DEBUG
     // In debug mode, we store who is the owner of the mark.
@@ -484,9 +484,10 @@ protected:
         m_ref_count ++;
     }
 
-    void dec_ref() {
-        SASSERT(m_ref_count > 0);
-        --m_ref_count;
+    unsigned dec_ref() {
+        unsigned n = --m_ref_count;
+        SASSERT(n >= 0);
+        return n;
     }
 
     ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {
@@ -1697,8 +1698,7 @@ public:
     
     void dec_ref(ast* n) {
         if (n) {
-            n->dec_ref();
-            if (n->get_ref_count() == 0)
+            if (n->dec_ref() == 0)
                 delete_node(n);
         }
     }
@@ -2413,8 +2413,8 @@ protected:
 
 private:
     void push_dec_ref(ast * n) {
-        n->dec_ref();
-        if (n->get_ref_count() == 0) {
+        if (n->dec_ref() == 0) {
+            LOCK_AST_TABLE;
             m_ast_table.push_erase(n);
         }
     }
