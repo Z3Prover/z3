@@ -91,8 +91,11 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-        ast_ref_vector             m_ast_trail;
+        bool                       m_concurrent_dec_ref = false;        
+        ptr_vector<ast>            m_asts_to_flush, m_asts_to_flush2;
+        ptr_vector<api::object>    m_objects_to_flush, m_objects_to_flush2;
 
+        ast_ref_vector             m_ast_trail;        
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
         unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
@@ -170,8 +173,11 @@ namespace api {
         void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
 
+        void set_concurrent_dec_ref() { m_concurrent_dec_ref = true; }
         unsigned add_object(api::object* o);
         void del_object(api::object* o);
+        void dec_ref(ast* a);
+        void flush_objects();
 
         Z3_ast_print_mode get_print_mode() const { return m_print_mode; }
         void set_print_mode(Z3_ast_print_mode m) { m_print_mode = m; }
