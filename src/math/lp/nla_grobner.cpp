@@ -121,9 +121,12 @@ namespace nla {
             unsigned v = p.var();
             if (c().var_is_fixed(v))
                 return false;
+            ineq new_eq(v, llc::EQ, rational::zero());
+            if (c().ineq_holds(new_eq))
+                return false;
             new_lemma lemma(c(), "pdd-eq");
             add_dependencies(lemma, eq);
-            lemma |= ineq(v, llc::EQ, rational::zero());
+            lemma |= new_eq;
             return true;
         }
         if (p.is_offset()) {
@@ -135,9 +138,12 @@ namespace nla {
             rational d = lcm(denominator(a), denominator(b));
             a *= d;
             b *= d;
+            ineq new_eq(term(a, v), llc::EQ, b);
+            if (c().ineq_holds(new_eq))
+                return false;
             new_lemma lemma(c(), "pdd-eq");
             add_dependencies(lemma, eq);
-            lemma |= ineq(term(a, v), llc::EQ, b);
+            lemma |= new_eq;
             return true;
         }
 
@@ -156,16 +162,24 @@ namespace nla {
             return false;
 
         // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
-        new_lemma lemma(c(), "pdd-factored");
-        add_dependencies(lemma, eq);
+
         term t;
         while (!q.is_val()) {
             t.add_monomial(q.hi().val(), q.var());
             q = q.lo();
         }
-        for (auto v : vars) 
-            lemma |= ineq(v, llc::EQ, rational::zero());
-        lemma |= ineq(t, llc::EQ, -q.val());
+        vector<ineq> ineqs;
+        for (auto v : vars)
+            ineqs.push_back(ineq(v, llc::EQ, rational::zero()));
+        ineqs.push_back(ineq(t, llc::EQ, -q.val()));
+        for (auto const& i : ineqs)
+            if (c().ineq_holds(i))
+                return false;
+
+        new_lemma lemma(c(), "pdd-factored");
+        add_dependencies(lemma, eq);
+        for (auto const& i : ineqs)
+            lemma |= i;
         //lemma.display(verbose_stream());
         return true;
     }
