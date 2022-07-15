@@ -45,7 +45,6 @@ namespace nla {
         if (is_conflicting())
             return;
 
-#if 0
         if (propagate_bounds())
             return;
 
@@ -54,7 +53,7 @@ namespace nla {
 
         if (propagate_factorization())
             return;
-#endif   
+
         if (quota > 1)
             quota--;
 
@@ -86,19 +85,19 @@ namespace nla {
     }
 
     bool grobner::propagate_bounds() {
-        unsigned bounds = 0;
+        unsigned changed = 0;
         for (auto eq : m_solver.equations()) 
-            if (propagate_bounds(*eq) && ++bounds >= m_solver.number_of_conflicts_to_report())
+            if (propagate_bounds(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
                 return true;
-        return bounds > 0;
+        return changed > 0;
     }
 
     bool grobner::propagate_eqs() {
-        unsigned fixed = 0;
+        unsigned changed = 0;
         for (auto eq : m_solver.equations())
-            if (propagate_fixed(*eq) && ++fixed >= m_solver.number_of_conflicts_to_report())
+            if (propagate_fixed(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
                 return true;
-        return fixed > 0;
+        return changed > 0;
     }
 
     bool grobner::propagate_factorization() {
@@ -152,23 +151,23 @@ namespace nla {
 
     bool grobner::propagate_factorization(const dd::solver::equation& eq) {
         dd::pdd const& p = eq.poly();
-        if (!p.is_val() && p.lo().is_zero() && !p.hi().is_val() && p.hi().is_linear()) {
-            //IF_VERBOSE(0, verbose_stream() << "factored " << p << "\n");
-            unsigned v = p.var();
-            auto q = p.hi();
-            new_lemma lemma(c(), "pdd-factored");
-            add_dependencies(lemma, eq);
-            term t;
-            while (!q.is_val()) {
-                t.add_monomial(q.hi().val(), q.var());
-                q = q.lo();
-            }
-            lemma |= ineq(v, llc::EQ, rational::zero());
-            lemma |= ineq(t, llc::EQ, -q.val());
-            //lemma.display(verbose_stream());
-            return true;
+        auto [vars, q] = p.var_factors();
+        if (vars.empty() || !q.is_linear())
+            return false;
+
+        // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
+        new_lemma lemma(c(), "pdd-factored");
+        add_dependencies(lemma, eq);
+        term t;
+        while (!q.is_val()) {
+            t.add_monomial(q.hi().val(), q.var());
+            q = q.lo();
         }
-        return false;
+        for (auto v : vars) 
+            lemma |= ineq(v, llc::EQ, rational::zero());
+        lemma |= ineq(t, llc::EQ, -q.val());
+        //lemma.display(verbose_stream());
+        return true;
     }
 
 

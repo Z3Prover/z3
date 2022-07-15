@@ -1311,7 +1311,7 @@ namespace dd {
             return m.mk_var(var())*h + l;
     }
 
-    std::pair<unsigned_vector, pdd> pdd::var_factors() {
+    std::pair<unsigned_vector, pdd> pdd::var_factors() const {
         if (is_val())
             return { unsigned_vector(), *this };
         unsigned v = var();

@@ -35,7 +35,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_grobner(this),
     m_emons(m_evars),
     m_use_nra_model(false),
-    m_nra(s, m_nra_lim, *this)
+    m_nra(s, m_nra_lim, *this) 
 {
     m_nlsat_delay = lp_settings().nlsat_delay();
 }
@@ -56,9 +56,8 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (lp::lar_term::ival t : r) {
+    for (lp::lar_term::ival t : r) 
         ret += t.coeff() * val(t.column());
-    }
     return ret;
 }
 
@@ -78,10 +77,9 @@ bool core::ineq_holds(const ineq& n) const {
 }
 
 bool core::lemma_holds(const lemma& l) const {
-    for(const ineq &i : l.ineqs()) {
+    for (const ineq &i : l.ineqs()) 
         if (ineq_holds(i))
             return true;
-    }
     return false;
 }
 
@@ -1498,14 +1496,17 @@ lbool core::check(vector<lemma>& l_vec) {
     init_search();
 
     lbool ret = l_undef;
+    bool run_grobner = need_run_grobner();
+    bool run_horner = need_run_horner();
+    bool run_bounded_nlsat = should_run_bounded_nlsat();
 
     if (l_vec.empty() && !done()) 
         m_monomial_bounds();
     
-    if (l_vec.empty() && !done() && need_run_horner()) 
+    if (l_vec.empty() && !done() && run_horner) 
         m_horner.horner_lemmas();
 
-    if (l_vec.empty() && !done() && need_run_grobner()) 
+    if (l_vec.empty() && !done() && run_grobner) 
         m_grobner();                
 
     if (l_vec.empty() && !done()) 
@@ -1514,9 +1515,16 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
 
-    if (!conflict_found() && !done() && should_run_bounded_nlsat())
+#if 0
+    if (l_vec.empty() && !done() && !run_horner) 
+        m_horner.horner_lemmas();
+
+    if (l_vec.empty() && !done() && !run_grobner) 
+        m_grobner();                    
+#endif
+
+    if (!conflict_found() && !done() && run_bounded_nlsat)
         ret = bounded_nlsat();
-    
 
     if (l_vec.empty() && !done() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
