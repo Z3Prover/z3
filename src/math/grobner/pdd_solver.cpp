@@ -200,7 +200,6 @@ namespace dd {
                 // pushed to solved
             }
             else if (simplified && changed_leading_term) {
-                SASSERT(target.state() == processed);
                 push_equation(to_simplify, target);
                 if (!m_var2level.empty()) {
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
