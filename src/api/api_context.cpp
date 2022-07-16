@@ -400,10 +400,9 @@ extern "C" {
     void Z3_API Z3_enable_concurrent_dec_ref(Z3_context c) {
         Z3_TRY;
         LOG_Z3_enable_concurrent_dec_ref(c);
-        mk_c(c)->enableset_concurrent_dec_ref();
+        mk_c(c)->enable_concurrent_dec_ref();
         Z3_CATCH;
-    }
-    
+    }    
 
     void Z3_API Z3_toggle_warning_messages(bool enabled) {
         LOG_Z3_toggle_warning_messages(enabled);
