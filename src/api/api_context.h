@@ -172,8 +172,8 @@ namespace api {
         void set_error_code(Z3_error_code err, char const* opt_msg);
         void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
-
-        void set_concurrent_dec_ref() { m_concurrent_dec_ref = true; }
+        
+        void enable_concurrent_dec_ref() { m_concurrent_dec_ref = true; }
         unsigned add_object(api::object* o);
         void del_object(api::object* o);
         void dec_ref(ast* a);

@@ -1705,6 +1705,16 @@ extern "C" {
     void Z3_API Z3_interrupt(Z3_context c);
 
 
+    /**
+       \brief use concurrency control for dec-ref. 
+       Reference counting decrements are allowed in separate threads from the context. 
+       If this setting is not invoked, reference counting decrements are not going to be thread safe.
+
+       def_API('Z3_enable_concurrent_dec_ref', VOID, (_in(CONTEXT),))
+     */
+    void Z3_API Z3_enable_concurrent_dec_ref(Z3_context c);
+    
+
     /**@}*/
 
     /** @name Parameters */
