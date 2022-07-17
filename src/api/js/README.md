@@ -9,7 +9,7 @@ The readme for the bindings themselves is located in [`PUBLISHED_README.md`](./P
 
 You'll need to have emscripten set up, along with all of its dependencies. The easiest way to do that is with [emsdk](https://github.com/emscripten-core/emsdk).
 
-Then run `npm i` to install dependencies, `npm run build-ts` to build the TypeScript wrapper, and `npm run build-wasm` to build the wasm artifact.
+Then run `npm i` to install dependencies, `npm run build:ts` to build the TypeScript wrapper, and `npm run build:wasm` to build the wasm artifact.
 
 
 ## Tests
