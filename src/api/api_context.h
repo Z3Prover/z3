@@ -75,6 +75,9 @@ namespace api {
         struct add_plugins {  add_plugins(ast_manager & m); };
         ast_context_params                m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
+#ifndef SINGLE_THREAD
+        bool                       m_concurrent_dec_ref = false;
+#endif
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
@@ -91,9 +94,10 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-        bool                       m_concurrent_dec_ref = false;        
+#ifndef SINGLE_THREAD
         ptr_vector<ast>            m_asts_to_flush, m_asts_to_flush2;
         ptr_vector<api::object>    m_objects_to_flush, m_objects_to_flush2;
+#endif
 
         ast_ref_vector             m_ast_trail;        
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
@@ -173,7 +177,13 @@ namespace api {
         void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         
-        void enable_concurrent_dec_ref() { m_concurrent_dec_ref = true; }
+        void enable_concurrent_dec_ref() {
+#ifdef SINGLE_THREAD
+            set_error_code(Z3_EXCEPTION, "Can't use concurrent features with a single-thread build");
+#else
+            m_concurrent_dec_ref = true;
+#endif
+        }
         unsigned add_object(api::object* o);
         void del_object(api::object* o);
         void dec_ref(ast* a);

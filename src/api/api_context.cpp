@@ -51,11 +51,14 @@ namespace api {
     }
 
     void context::del_object(api::object* o) {
+#ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
             lock_guard lock(m_mux);
             m_objects_to_flush.push_back(o);
         }
-        else {
+        else
+#endif
+        {
             m_free_object_ids.push_back(o->id());
             m_allocated_objects.remove(o->id());
             dealloc(o);
@@ -63,25 +66,26 @@ namespace api {
     }
 
     void context::dec_ref(ast* a) {
+#ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
             lock_guard lock(m_mux);
             m_asts_to_flush.push_back(a);
         }
-        else 
+        else
+#endif
             m().dec_ref(a);
     }
 
     void context::flush_objects() {
+#ifndef SINGLE_THREAD
         if (!m_concurrent_dec_ref)
             return;        
         {
             lock_guard lock(m_mux);
             if (m_asts_to_flush.empty() && m_objects_to_flush.empty())
                 return;
-            m_asts_to_flush2.append(m_asts_to_flush);
-            m_asts_to_flush.reset();
-            m_objects_to_flush2.append(m_objects_to_flush);
-            m_objects_to_flush.reset();
+            m_asts_to_flush2.swap(m_asts_to_flush);
+            m_objects_to_flush2.swap(m_objects_to_flush);
         }
         for (ast* a : m_asts_to_flush2)
             m().dec_ref(a);
@@ -92,7 +96,7 @@ namespace api {
         }
         m_objects_to_flush2.reset();
         m_asts_to_flush2.reset();
-            
+#endif
     }
 
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
