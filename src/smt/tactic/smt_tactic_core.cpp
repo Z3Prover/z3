@@ -348,6 +348,7 @@ public:
         m_eq_eh = nullptr;
         m_diseq_eh = nullptr;
         m_created_eh = nullptr;
+        m_decide_eh = nullptr;
     }
 
     void user_propagate_init(
@@ -384,6 +385,10 @@ public:
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_created_eh = created_eh;
+    }
+    
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        m_decide_eh = decide_eh;
     }
 };
 
