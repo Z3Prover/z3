@@ -275,9 +275,6 @@ class lar_solver : public column_namer {
         return m_column_buffer;
     }
     bool bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const;
-    inline unsigned get_base_column_in_row(unsigned row_index) const {
-        return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
-    }
     inline lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     void catch_up_in_updating_int_solver();
     var_index to_column(unsigned ext_j) const;
@@ -357,6 +354,10 @@ public:
     }
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
+    inline unsigned get_base_column_in_row(unsigned row_index) const {
+        return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
+    }
+
 
     // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side);
@@ -630,6 +631,7 @@ public:
     }
     void round_to_integer_solution();
     inline const row_strip<mpq> &  get_row(unsigned i) const { return A_r().m_rows[i]; }
+    inline const row_strip<mpq> &  basic2row(unsigned i) const { return A_r().m_rows[row_of_basic_column(i)]; }
     inline const column_strip &  get_column(unsigned i) const { return A_r().m_columns[i]; }
     bool row_is_correct(unsigned i) const;
     bool ax_is_correct() const;

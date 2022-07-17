@@ -391,9 +391,11 @@ extern "C" {
             bool new_model = params.get_bool("model", true);
             if (old_model != new_model)
                 to_solver_ref(s)->set_produce_models(new_model);
-            param_descrs r;
-            to_solver_ref(s)->collect_param_descrs(r);
-            context_params::collect_solver_param_descrs(r);
+            param_descrs& r = to_solver(s)->m_param_descrs;
+            if(r.size () == 0) {
+              to_solver_ref(s)->collect_param_descrs(r);
+              context_params::collect_solver_param_descrs(r);
+            }
             params.validate(r);
             to_solver_ref(s)->updt_params(params);
         }

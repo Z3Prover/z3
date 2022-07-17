@@ -11,9 +11,9 @@
 
   --*/
 
+#include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 #include "math/grobner/pdd_simplifier.h"
-#include "util/uint_set.h"
 #include <math.h>
 
 
@@ -169,7 +169,7 @@ namespace dd {
     /*
       Use the given equation to simplify equations in set
     */
-    void solver::simplify_using(equation_vector& set, equation const& eq) {        
+    void solver::simplify_using(equation_vector& set, std::function<bool(equation&, bool&)>& simplifier) {   
         struct scoped_update {
             equation_vector& set;
             unsigned i, j, sz;
@@ -191,7 +191,7 @@ namespace dd {
             equation& target = *set[sr.i];
             bool changed_leading_term = false;
             bool simplified = true;
-            simplified = !done() && try_simplify_using(target, eq, changed_leading_term); 
+            simplified = !done() && simplifier(target, changed_leading_term); 
             
             if (simplified && is_trivial(target)) {
                 retire(&target);
@@ -200,7 +200,6 @@ namespace dd {
                 // pushed to solved
             }
             else if (simplified && changed_leading_term) {
-                SASSERT(target.state() == processed);
                 push_equation(to_simplify, target);
                 if (!m_var2level.empty()) {
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
@@ -210,6 +209,13 @@ namespace dd {
                 sr.nextj();
             } 
         }
+    }
+
+    void solver::simplify_using(equation_vector& set, equation const& eq) {    
+        std::function<bool(equation&, bool&)> simplifier = [&](equation& target, bool& changed_leading_term) {
+            return try_simplify_using(target, eq, changed_leading_term);
+        };
+        simplify_using(set, simplifier);
     }    
 
     /*
@@ -342,6 +348,7 @@ namespace dd {
         for (equation* e : m_solved) dealloc(e);
         for (equation* e : m_to_simplify) dealloc(e);
         for (equation* e : m_processed) dealloc(e);
+        m_subst.reset();
         m_solved.reset();
         m_processed.reset();
         m_to_simplify.reset();
@@ -352,18 +359,54 @@ namespace dd {
     }
 
     void solver::add(pdd const& p, u_dependency * dep) {
-        if (p.is_zero()) return;
-        equation * eq = alloc(equation, p, dep);
-        if (check_conflict(*eq)) {
+        if (p.is_zero()) 
             return;
-        }
+        equation * eq = alloc(equation, p, dep);
+        if (check_conflict(*eq)) 
+            return;
         push_equation(to_simplify, eq);
         
-        if (!m_var2level.empty()) {
+        if (!m_var2level.empty()) 
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
-        }
         update_stats_max_degree_and_size(*eq);
-    }   
+    }
+
+    void solver::add_subst(unsigned v, pdd const& p, u_dependency* dep) {
+        m_subst.push_back({v, p, dep});
+        if (!m_var2level.empty()) 
+            m_levelp1 = std::max(m_var2level[v]+1, std::max(m_var2level[p.var()]+1, m_levelp1));
+
+        std::function<bool(equation&, bool&)> simplifier = [&](equation& dst, bool& changed_leading_term) {
+            auto r = dst.poly().subst_pdd(v, p);
+            if (r == dst.poly())
+                return false;
+            if (is_too_complex(r)) {
+                m_too_complex = true;
+                return false;
+            }
+            changed_leading_term = m.different_leading_term(r, dst.poly());
+            dst = r;
+            dst = m_dep_manager.mk_join(dst.dep(), dep);
+            update_stats_max_degree_and_size(dst);
+            return true;
+        };
+        if (!done()) 
+            simplify_using(m_processed, simplifier);
+        if (!done()) 
+            simplify_using(m_to_simplify, simplifier);
+        if (!done()) 
+            simplify_using(m_solved, simplifier);
+    }
+
+    void solver::simplify(pdd& p, u_dependency*& d) {
+        for (auto const& [v, q, d2] : m_subst) {
+            pdd r = p.subst_pdd(v, q);
+            if (r != p) {
+                p = r;
+                d = m_dep_manager.mk_join(d, d2);
+            }
+        }        
+    }
     
     bool solver::canceled() {
         return m_limit.is_canceled();
@@ -446,9 +489,24 @@ namespace dd {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        out << "solved\n"; for (auto e : m_solved) display(out, *e);
-        out << "processed\n"; for (auto e : m_processed) display(out, *e);
-        out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
+        if (!m_solved.empty()) {
+            out << "solved\n"; for (auto e : m_solved) display(out, *e);
+        }
+        if (!m_processed.empty()) {
+            out << "processed\n"; for (auto e : m_processed) display(out, *e);
+        }
+        if (!m_to_simplify.empty()) {
+            out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
+        }
+        if (!m_subst.empty()) {
+            out << "subst\n";
+            for (auto const& [v, p, d] : m_subst) {
+                out << "v" << v << " := " << p;
+                if (m_print_dep)
+                    m_print_dep(d, out);
+                out << "\n";
+            }
+        }
         return display_statistics(out);
     }
 

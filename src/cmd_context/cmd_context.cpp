@@ -594,6 +594,7 @@ void cmd_context::global_params_updated() {
     m_params.updt_params();
     if (m_params.m_smtlib2_compliant)
         m_print_success = true;
+    set_produce_proofs(m_params.m_proof);
     if (m_solver) {
         params_ref p;
         if (!m_params.m_auto_config)
@@ -618,7 +619,7 @@ void cmd_context::set_produce_unsat_cores(bool f) {
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    SASSERT(!has_assertions());
+    SASSERT(!has_assertions() || m_params.m_proof == f);
     if (has_manager()) 
         m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
     m_params.m_proof = f;
@@ -823,15 +824,16 @@ bool cmd_context::set_logic(symbol const & s) {
     TRACE("cmd_context", tout << s << "\n";);
     if (has_logic())
         throw cmd_exception("the logic has already been set");
-    if (has_manager() && m_main_ctx)
+    if (has_assertions() && m_main_ctx)
         throw cmd_exception("logic must be set before initialization");
-    if (!smt_logics::supported_logic(s)) {
+    if (!smt_logics::supported_logic(s)) 
         return false;
-    }
+
     m_logic = s;
-    if (smt_logics::logic_has_reals_only(s)) {
+    if (m_solver)
+        mk_solver();
+    if (smt_logics::logic_has_reals_only(s)) 
         m_numeral_as_real = true;
-    }
     return true;
 }
 
@@ -1825,6 +1827,10 @@ void cmd_context::add_declared_functions(model& mdl) {
 }
 
 void cmd_context::display_sat_result(lbool r) {
+    if (has_manager() && m().has_trace_stream()) {
+        m().trace_stream().flush();
+    }
+
     switch (r) {
     case l_true:
         regular_stream() << "sat" << std::endl;

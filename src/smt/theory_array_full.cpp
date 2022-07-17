@@ -594,10 +594,13 @@ namespace smt {
         if (!ctx.add_fingerprint(this, m_default_lambda_fingerprint, 1, &arr))
             return false;
         m_stats.m_num_default_lambda_axiom++;
-        expr* def = mk_default(arr->get_expr());
+        expr* e = arr->get_expr();
+        expr* def = mk_default(e);
         quantifier* lam = m.is_lambda_def(arr->get_decl());
-        expr_ref_vector args(m);
-        args.push_back(lam);
+        TRACE("array", tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
+        expr_ref_vector args(m);       
+        var_subst subst(m, false);
+        args.push_back(subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args()));
         for (unsigned i = 0; i < lam->get_num_decls(); ++i) 
             args.push_back(mk_epsilon(lam->get_decl_sort(i)).first);
         expr_ref val(mk_select(args), m);

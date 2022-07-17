@@ -364,8 +364,19 @@ namespace dd {
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) { m.factor(*this, v, degree, lc, rest); }
 
+        /**
+         * \brief factor out variables
+         */
+        std::pair<unsigned_vector, pdd> var_factors() const;
+
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
+
+        
+        /**
+         * \brief substitute variable v by r.
+         */
+        pdd subst_pdd(unsigned v, pdd const& r) const;
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
@@ -398,13 +409,17 @@ namespace dd {
     inline pdd operator-(rational const& r, pdd const& b) { return b.rev_sub(r); }
     inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
-
+    inline pdd operator-(pdd const& b, rational const& r) { return b + (-r); }
+    
     inline pdd& operator&=(pdd & p, pdd const& q) { p = p & q; return p; }
     inline pdd& operator^=(pdd & p, pdd const& q) { p = p ^ q; return p; }
     inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
     inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
+    inline pdd& operator+=(pdd & p, rational const& v) { p = p + v; return p; }
+    inline pdd& operator-=(pdd & p, rational const& v) { p = p - v; return p; }
+    inline pdd& operator*=(pdd & p, rational const& v) { p = p * v; return p; }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 

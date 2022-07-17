@@ -20,6 +20,7 @@ Revision History:
 #include "util/params.h"
 #include "util/lbool.h"
 #include "ast/ast.h"
+#include <atomic>
 
 #define Z3_TRY try {
 #define Z3_CATCH_CORE(CODE) } catch (z3_exception & ex) { mk_c(c)->handle_exception(ex); CODE }
@@ -34,7 +35,7 @@ namespace api {
 
     // Generic wrapper for ref-count objects exposed by the API
     class object {
-        unsigned m_ref_count;
+        atomic<unsigned> m_ref_count;
         unsigned m_id;
         context& m_context;
     public:

@@ -223,6 +223,8 @@ namespace dd {
         for (unsigned i = 0; i < s.m_to_simplify.size(); ++i) {
             equation* e = s.m_to_simplify[i];
             pdd p = e->poly();
+            if (p.is_val())
+                continue;
             if (!p.hi().is_val()) {
                 continue;
             }

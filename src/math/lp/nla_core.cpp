@@ -24,6 +24,7 @@ typedef lp::lar_term term;
 core::core(lp::lar_solver& s, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
+    m_reslim(lim),
     m_tangents(this),
     m_basics(this),
     m_order(this),
@@ -31,12 +32,10 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_intervals(this, lim),
     m_monomial_bounds(this),
     m_horner(this),
-    m_pdd_manager(s.number_of_vars()),
-    m_pdd_grobner(lim, m_pdd_manager),
+    m_grobner(this),
     m_emons(m_evars),
-    m_reslim(lim),
     m_use_nra_model(false),
-    m_nra(s, m_nra_lim, *this)
+    m_nra(s, m_nra_lim, *this) 
 {
     m_nlsat_delay = lp_settings().nlsat_delay();
 }
@@ -57,9 +56,8 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (lp::lar_term::ival t : r) {
+    for (lp::lar_term::ival t : r) 
         ret += t.coeff() * val(t.column());
-    }
     return ret;
 }
 
@@ -79,10 +77,9 @@ bool core::ineq_holds(const ineq& n) const {
 }
 
 bool core::lemma_holds(const lemma& l) const {
-    for(const ineq &i : l.ineqs()) {
+    for (const ineq &i : l.ineqs()) 
         if (ineq_holds(i))
             return true;
-    }
     return false;
 }
 
@@ -548,7 +545,8 @@ bool core::var_is_fixed(lpvar j) const {
 
 bool core::var_is_free(lpvar j) const {
     return m_lar_solver.column_is_free(j);
-}
+}
+
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
     m_lar_solver.print_term_as_indices(in.term(), out);
@@ -557,7 +555,7 @@ std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
 }
 
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
-    if (m_emons.is_monic_var(j)) {
+    if (is_monic_var(j)) {
         print_monic(m_emons[j], out);
     }
         
@@ -846,7 +844,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     std::unordered_set<lpvar> vars;
     auto insert_j = [&](lpvar j) { 
         vars.insert(j);
-        if (m_emons.is_monic_var(j)) {
+        if (is_monic_var(j)) {
             for (lpvar k : m_emons[j].vars())
                 vars.insert(k);
         }
@@ -948,7 +946,7 @@ void core::maybe_add_a_factor(lpvar i,
                               std::unordered_set<unsigned>& found_rm,
                               vector<factor> & r) const {
     SASSERT(abs(val(i)) == abs(val(c)));
-    if (!m_emons.is_monic_var(i)) {
+    if (!is_monic_var(i)) {
         i = m_evars.find(i).var();
         if (try_insert(i, found_vars)) {
             r.push_back(factor(i, factor_type::VAR));
@@ -1228,7 +1226,7 @@ bool core::var_breaks_correct_monic_as_factor(lpvar j, const monic& m) const {
 }
 
 bool core::var_breaks_correct_monic(lpvar j) const {
-    if (emons().is_monic_var(j) && !m_to_refine.contains(j)) {
+    if (is_monic_var(j) && !m_to_refine.contains(j)) {
         TRACE("nla_solver", tout << "j = " << j << ", m  = "; print_monic(emons()[j], tout) << "\n";);
         return true; // changing the value of a correct monic
     }
@@ -1333,7 +1331,7 @@ bool in_power(const svector<lpvar>& vs, unsigned l) {
 
 bool core::to_refine_is_correct() const {
     for (unsigned j = 0; j < m_lar_solver.number_of_vars(); j++) {
-        if (!emons().is_monic_var(j)) continue;
+        if (!is_monic_var(j)) continue;
         bool valid = check_monic(emons()[j]);
         if (valid == m_to_refine.contains(j)) {
             TRACE("nla_solver", tout << "inconstency in m_to_refine : ";
@@ -1414,7 +1412,7 @@ void core::patch_monomials_on_to_refine() {
 void core::patch_monomials() {
     m_cautious_patching = true;
     patch_monomials_on_to_refine();
-    if (m_to_refine.size() == 0 || !m_nla_settings.expensive_patching()) {
+    if (m_to_refine.size() == 0 || !m_nla_settings.expensive_patching) {
         return;
     }
     NOT_IMPLEMENTED_YET();
@@ -1498,15 +1496,18 @@ lbool core::check(vector<lemma>& l_vec) {
     init_search();
 
     lbool ret = l_undef;
+    bool run_grobner = need_run_grobner();
+    bool run_horner = need_run_horner();
+    bool run_bounded_nlsat = should_run_bounded_nlsat();
 
     if (l_vec.empty() && !done()) 
         m_monomial_bounds();
     
-    if (l_vec.empty() && !done() && need_run_horner()) 
+    if (l_vec.empty() && !done() && run_horner) 
         m_horner.horner_lemmas();
 
-    if (l_vec.empty() && !done() && need_run_grobner()) 
-        run_grobner();                
+    if (l_vec.empty() && !done() && run_grobner) 
+        m_grobner();                
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(true); 
@@ -1514,9 +1515,16 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
 
-    if (!conflict_found() && !done() && should_run_bounded_nlsat())
+#if 0
+    if (l_vec.empty() && !done() && !run_horner) 
+        m_horner.horner_lemmas();
+
+    if (l_vec.empty() && !done() && !run_grobner) 
+        m_grobner();                    
+#endif
+
+    if (!conflict_found() && !done() && run_bounded_nlsat)
         ret = bounded_nlsat();
-    
 
     if (l_vec.empty() && !done() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
@@ -1530,11 +1538,11 @@ lbool core::check(vector<lemma>& l_vec) {
         check_weighted(3, checks);
 
         unsigned num_calls = lp_settings().stats().m_nla_calls;
-        if (!conflict_found() && m_nla_settings.run_nra() && num_calls % 50 == 0 && num_calls > 500) 
+        if (!conflict_found() && m_nla_settings.run_nra && num_calls % 50 == 0 && num_calls > 500) 
             ret = bounded_nlsat();
     }
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_nra() && ret == l_undef) {
+    if (l_vec.empty() && !done() && m_nla_settings.run_nra && ret == l_undef) {
         ret = m_nra.check();
         m_stats.m_nra_calls++;
     }
@@ -1554,7 +1562,7 @@ lbool core::check(vector<lemma>& l_vec) {
 }
 
 bool core::should_run_bounded_nlsat() {
-    if (!m_nla_settings.run_nra())
+    if (!m_nla_settings.run_nra)
         return false;
     if (m_nlsat_delay > m_nlsat_fails)
         ++m_nlsat_fails;
@@ -1619,8 +1627,13 @@ std::ostream& core::print_terms(std::ostream& out) const {
 }
 
 std::string core::var_str(lpvar j) const {
-    return is_monic_var(j)?
-        (product_indices_str(m_emons[j].vars()) + (check_monic(m_emons[j])? "": "_")) : (std::string("j") + lp::T_to_string(j));        
+    std::string result;
+    if (is_monic_var(j))
+        result += product_indices_str(m_emons[j].vars()) + (check_monic(m_emons[j])? "": "_");
+    else
+        result += std::string("j") + lp::T_to_string(j);
+    //    result += ":w" + lp::T_to_string(get_var_weight(j));
+    return result;
 }
 
 std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {
@@ -1631,251 +1644,6 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 }
 
 
-void core::run_grobner() {
-    unsigned& quota = m_nla_settings.grobner_quota();
-    if (quota == 1) {
-        return;
-    }
-    clear_and_resize_active_var_set(); 
-    find_nl_cluster();
-
-    lp_settings().stats().m_grobner_calls++;
-    configure_grobner();
-    m_pdd_grobner.saturate();
-    bool conflict = false;
-    unsigned n = m_pdd_grobner.number_of_conflicts_to_report();
-    SASSERT(n > 0);
-    for (auto eq : m_pdd_grobner.equations()) {
-        if (check_pdd_eq(eq)) {
-            conflict = true;
-            if (--n == 0)
-                break;
-        }
-    }
-    if (conflict) {
-        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
-        return;
-    }
-
-#if 0
-    bool propagated = false;
-    for (auto eq : m_pdd_grobner.equations()) {
-        auto const& p = eq->poly();
-        if (p.is_offset()) {
-            lpvar v = p.var();
-            if (m_lar_solver.column_has_lower_bound(v) &&
-                m_lar_solver.column_has_upper_bound(v))
-                continue;
-            rational fixed_val = -p.lo().val();
-            lp::explanation ex;
-            u_dependency_manager dm;
-            vector<unsigned, false> lv;
-            dm.linearize(eq->dep(), lv);
-            for (unsigned ci : lv)
-                ex.push_back(ci);
-            new_lemma lemma(*this, "pdd-eq");
-            lemma &= ex;
-            lemma |= ineq(v, llc::EQ, fixed_val);
-            propagated = true;
-        }
-    }
-    if (propagated) 
-        return;
-#endif
-
-    if (quota > 1)
-        quota--;
-    IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << quota <<  "\n");
-    IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
-    
-}
-
-void core::configure_grobner() {
-    m_pdd_grobner.reset();
-    try {
-        set_level2var_for_grobner();
-        for (unsigned i : m_rows) {
-            add_row_to_grobner(m_lar_solver.A_r().m_rows[i]);
-        }
-    }
-    catch (...) {
-        IF_VERBOSE(2, verbose_stream() << "pdd throw\n");
-        return;
-    }
-#if 0
-    IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
-    dd::pdd_eval eval(m_pdd_manager);
-    eval.var2val() = [&](unsigned j){ return val(j); };
-    for (auto* e : m_pdd_grobner.equations()) {
-        dd::pdd p = e->poly();
-        rational v = eval(p);
-        if (p.is_linear() && !eval(p).is_zero()) {
-            IF_VERBOSE(0, verbose_stream() << "violated linear constraint " << p << "\n");
-        }
-    }
-#endif
-   
-    struct dd::solver::config cfg;
-    cfg.m_max_steps = m_pdd_grobner.equations().size();
-    cfg.m_max_simplified = m_nla_settings.grobner_max_simplified();
-    cfg.m_eqs_growth = m_nla_settings.grobner_eqs_growth();
-    cfg.m_expr_size_growth = m_nla_settings.grobner_expr_size_growth();
-    cfg.m_expr_degree_growth = m_nla_settings.grobner_expr_degree_growth();
-    cfg.m_number_of_conflicts_to_report = m_nla_settings.grobner_number_of_conflicts_to_report();
-    m_pdd_grobner.set(cfg);
-    m_pdd_grobner.adjust_cfg();
-    m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
-}
-
-std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
-
-    // m_pdd_grobner.display(out);
-
-    dd::pdd_eval eval;
-    eval.var2val() = [&](unsigned j){ return val(j); };
-    for (auto* e : m_pdd_grobner.equations()) {
-        dd::pdd p = e->poly();
-        rational v = eval(p);
-        if (!v.is_zero()) {
-            out << p << " := " << v << "\n";
-        }
-    }  
-  
-    for (unsigned j = 0; j < m_lar_solver.number_of_vars(); ++j) {
-        if (m_lar_solver.column_has_lower_bound(j) || m_lar_solver.column_has_upper_bound(j)) {
-            out << j << ": [";
-                if (m_lar_solver.column_has_lower_bound(j)) out << m_lar_solver.get_lower_bound(j);
-                out << "..";
-                if (m_lar_solver.column_has_upper_bound(j)) out << m_lar_solver.get_upper_bound(j);
-                out << "]\n";
-        }
-    }              
-    return out;
-}
-
-bool core::check_pdd_eq(const dd::solver::equation* e) {
-    auto& di = m_intervals.get_dep_intervals();
-    dd::pdd_interval eval(di);
-    eval.var2interval() = [this](lpvar j, bool deps, scoped_dep_interval& a) {
-        if (deps) m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
-        else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
-    };
-    scoped_dep_interval i(di), i_wd(di);
-    eval.get_interval<dd::w_dep::without_deps>(e->poly(), i);    
-    if (!di.separated_from_zero(i))
-        return false;
-    eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
-    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        new_lemma lemma(*this, "pdd");
-        lemma &= e;
-    };
-    if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
-        lp_settings().stats().m_grobner_conflicts++;
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
-    if (active_var_set_contains(j) || var_is_fixed(j)) return;
-    TRACE("grobner", tout << "j = " << j << ", " << pp(j););
-    const auto& matrix = m_lar_solver.A_r();
-    insert_to_active_var_set(j);
-    for (auto & s : matrix.m_columns[j]) {
-        unsigned row = s.var();
-        if (m_rows.contains(row)) continue;       
-        if (matrix.m_rows[row].size() > m_nla_settings.grobner_row_length_limit()) {
-            TRACE("grobner", tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
-            continue;
-        }
-        m_rows.insert(row);
-        for (auto& rc : matrix.m_rows[row]) {
-            add_var_and_its_factors_to_q_and_collect_new_rows(rc.var(), q);
-        }
-    }
-
-    if (!is_monic_var(j))
-        return;
-
-    const monic& m = emons()[j];
-    for (auto fcn : factorization_factory_imp(m, *this)) {
-        for (const factor& fc: fcn) {
-            q.push_back(var(fc));
-        }
-    }            
-}
-
-const rational& core::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
-    unsigned lc, uc;
-    m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-    dep = m_intervals.mk_join(dep, m_intervals.mk_leaf(lc));
-    dep = m_intervals.mk_join(dep, m_intervals.mk_leaf(uc));
-    return m_lar_solver.column_lower_bound(j).x;
-}
-
-dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
-    if (m_nla_settings.grobner_subs_fixed() == 1 && var_is_fixed(j)) {
-        return m_pdd_manager.mk_val(c * val_of_fixed_var_with_deps(j, dep));
-    }
-
-    if (m_nla_settings.grobner_subs_fixed() == 2 && var_is_fixed_to_zero(j)) {
-        return m_pdd_manager.mk_val(val_of_fixed_var_with_deps(j, dep));
-    }
-
-    if (!is_monic_var(j))
-        return c * m_pdd_manager.mk_var(j);
-
-    u_dependency* zero_dep = dep;
-    // j is a monic var
-    dd::pdd r = m_pdd_manager.mk_val(c);
-    const monic& m = emons()[j];
-    for (lpvar k : m.vars()) {
-        if (m_nla_settings.grobner_subs_fixed() && var_is_fixed(k)) {
-            r *= m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, dep));
-        } else if (m_nla_settings.grobner_subs_fixed() == 2 && var_is_fixed_to_zero(k)) {
-            r = m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, zero_dep));
-            dep = zero_dep;
-            return r;
-        } else {
-            r *= m_pdd_manager.mk_var(k);
-        }
-    }
-    return r;
-}
-
-void core::add_row_to_grobner(const vector<lp::row_cell<rational>> & row) {
-    u_dependency *dep = nullptr;
-    dd::pdd sum = m_pdd_manager.mk_val(rational(0));
-    for (const auto &p : row) {
-        sum  += pdd_expr(p.coeff(), p.var(), dep);
-    }
-    m_pdd_grobner.add(sum, dep);    
-}
-
-
-void core::find_nl_cluster() {
-    prepare_rows_and_active_vars();
-    svector<lpvar> q;
-    for (lpvar j : m_to_refine) {        
-        TRACE("grobner", print_monic(emons()[j], tout) << "\n";);
-        q.push_back(j);
-    }
-    
-    while (!q.empty()) {
-        lpvar j = q.back();        
-        q.pop_back();
-        add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
-    }
-    TRACE("grobner", display_matrix_of_m_rows(tout););
-}
-
-void core::prepare_rows_and_active_vars() {
-    m_rows.clear();
-    m_rows.resize(m_lar_solver.row_count());
-    clear_and_resize_active_var_set();
-}
 
 
 std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e ) {
@@ -1900,68 +1668,28 @@ std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e
     return ret;
 }
 
-void core::display_matrix_of_m_rows(std::ostream & out) const {
-    const auto& matrix = m_lar_solver.A_r();
-    out << m_rows.size() << " rows" <<"\n";
-    out << "the matrix\n";          
-    for (const auto & r : matrix.m_rows) {
-        print_row(r, out) << std::endl;
-    }
+
+bool core::is_nl_var(lpvar j) const {
+    return is_monic_var(j) || m_emons.is_used_in_monic(j);
 }
 
-void core::set_active_vars_weights(nex_creator& nc) {
-    nc.set_number_of_vars(m_lar_solver.column_count());
-    for (lpvar j : active_var_set()) {
-        nc.set_var_weight(j, get_var_weight(j));
-    }
-}
-
-void core::set_level2var_for_grobner() {
-    unsigned n = m_lar_solver.column_count();
-    unsigned_vector sorted_vars(n), weighted_vars(n);
-    for (unsigned j = 0; j < n; j++) {
-        sorted_vars[j] = j;
-        weighted_vars[j] = get_var_weight(j);
-    }
-#if 1
-    // potential update to weights
-    for (unsigned j = 0; j < n; j++) {
-        if (is_monic_var(j) && m_to_refine.contains(j)) {
-            for (lpvar k : m_emons[j].vars()) {
-                weighted_vars[k] += 6;
-            }
-        }
-    }
-#endif
-
-    std::sort(sorted_vars.begin(), sorted_vars.end(), [&](unsigned a, unsigned b) {
-                                                      unsigned wa = weighted_vars[a];
-                                                      unsigned wb = weighted_vars[b];
-                                                      return wa < wb || (wa == wb && a < b); });
-
-    unsigned_vector l2v(n);
-    for (unsigned j = 0; j < n; j++)
-        l2v[j] = sorted_vars[j];
-
-    m_pdd_manager.reset(l2v);
-}
 
 unsigned core::get_var_weight(lpvar j) const {
     unsigned k;
     switch (m_lar_solver.get_column_type(j)) {
-        
+
     case lp::column_type::fixed:
         k = 0;
         break;
     case lp::column_type::boxed:
-        k = 2;
+        k = 3;
         break;
     case lp::column_type::lower_bound:
     case lp::column_type::upper_bound:
-        k = 4;
+        k = 6;
         break;
     case lp::column_type::free_column:
-        k = 6;
+        k = 9;
         break;
     default:
         UNREACHABLE();
@@ -1969,15 +1697,17 @@ unsigned core::get_var_weight(lpvar j) const {
     }
     if (is_monic_var(j)) {
         k++;
-        if (m_to_refine.contains(j)) {
+        if (m_to_refine.contains(j))
             k++;
-        }
     }
     return k;
 }
 
-bool core::is_nl_var(lpvar j) const {
-    return is_monic_var(j) || m_emons.is_used_in_monic(j);
+
+void core::set_active_vars_weights(nex_creator& nc) {
+    nc.set_number_of_vars(m_lar_solver.column_count());
+    for (lpvar j : active_var_set()) 
+        nc.set_var_weight(j, get_var_weight(j));
 }
 
 bool core::influences_nl_var(lpvar j) const {

@@ -258,7 +258,7 @@ namespace smt {
             bindings.set(num_decls - i - 1, sk_value);
         }
 
-        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n" << defs << "\n";);
+        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\ndefs:\n" << defs << "\n";);
         if (!defs.empty()) def = mk_and(defs);
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation, def.get());
@@ -453,7 +453,7 @@ namespace smt {
         TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
         m_max_cexs += m_params.m_mbqi_max_cexs;
 
-        if (num_failures == 0 && (!m_context->validate_model())) {
+        if (num_failures == 0 && !m_context->validate_model()) {
             num_failures = 1;
             // this time force expanding recursive function definitions
             // that are not forced true in the current model.

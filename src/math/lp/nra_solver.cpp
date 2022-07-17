@@ -65,12 +65,10 @@ struct solver::imp {
         }
 
         // add polynomial definitions.
-        for (auto const& m : m_nla_core.emons()) {
+        for (auto const& m : m_nla_core.emons()) 
              add_monic_eq(m);
-        }
-        for (unsigned i : m_term_set) {
+        for (unsigned i : m_term_set) 
             add_term(i);
-        }
         // TBD: add variable bounds?
 
         lbool r = l_undef;
@@ -176,7 +174,103 @@ struct solver::imp {
             lp_assert(false); // unreachable
         }
         m_nlsat->mk_clause(1, &lit, a);
-    }               
+    }
+
+
+    lbool check(vector<dd::pdd> const& eqs) {
+        m_zero = nullptr;
+        m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
+        m_zero = alloc(scoped_anum, am());
+        m_lp2nl.reset();
+        m_term_set.clear();
+        for (auto const& eq : eqs)
+            add_eq(eq);
+        for (auto const& [v, w] : m_lp2nl) {
+            auto& ls = m_nla_core.m_lar_solver;
+            if (ls.column_has_lower_bound(v))
+                add_lb(ls.get_lower_bound(v), w);
+            if (ls.column_has_upper_bound(v))
+                add_ub(ls.get_upper_bound(v), w);
+        }
+
+        lbool r = l_undef;
+        try {
+            r = m_nlsat->check(); 
+        }
+        catch (z3_exception&) {
+            if (m_limit.is_canceled()) {
+                r = l_undef;
+            }
+            else {
+                throw;
+            }
+        }
+
+        IF_VERBOSE(0, verbose_stream() << "check-nra " << r << "\n";
+                   m_nlsat->display(verbose_stream());
+                   for (auto const& [v, w] : m_lp2nl) {
+                       auto& ls = m_nla_core.m_lar_solver;
+                       if (ls.column_has_lower_bound(v))
+                           verbose_stream() << w << " >= " << ls.get_lower_bound(v) << "\n";
+                       if (ls.column_has_upper_bound(v))
+                           verbose_stream() << w << " <= " << ls.get_upper_bound(v) << "\n";
+                   });                   
+        
+
+        return r;
+    }
+
+    void add_eq(dd::pdd const& eq) {
+        dd::pdd normeq = eq;
+        rational lc(1);
+        for (auto const& [c, m] : eq) 
+            lc = lcm(denominator(c), lc);
+        if (lc != 1)
+            normeq *= lc;
+        polynomial::manager& pm = m_nlsat->pm();
+        polynomial::polynomial_ref p(pdd2polynomial(normeq), pm);
+        bool is_even[1] = { false };
+        polynomial::polynomial* ps[1] = { p };               
+        nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
+        m_nlsat->mk_clause(1, &lit, nullptr);
+    }
+
+    void add_lb(lp::impq const& b, unsigned w) {
+        add_bound(b.x, w, b.y <= 0, b.y > 0 ? nlsat::atom::kind::GT : nlsat::atom::kind::LT);
+    }
+    void add_ub(lp::impq const& b, unsigned w) {
+        add_bound(b.x, w, b.y >= 0, b.y < 0 ? nlsat::atom::kind::LT : nlsat::atom::kind::GT);
+    }
+
+    // w - bound < 0
+    // w - bound > 0
+    void add_bound(lp::mpq const& bound, unsigned w, bool neg, nlsat::atom::kind k) {
+        polynomial::manager& pm = m_nlsat->pm();
+        polynomial::polynomial_ref p1(pm.mk_polynomial(w), pm);
+        polynomial::polynomial_ref p2(pm.mk_const(bound), pm);
+        polynomial::polynomial_ref p(pm.sub(p1, p2), pm);
+        polynomial::polynomial* ps[1] = { p };
+        bool is_even[1] = { false };
+        nlsat::literal lit = m_nlsat->mk_ineq_literal(k, 1, ps, is_even);
+        if (neg)
+            lit.neg();
+        m_nlsat->mk_clause(1, &lit, nullptr);
+    }
+    
+    polynomial::polynomial* pdd2polynomial(dd::pdd const& p) {
+        polynomial::manager& pm = m_nlsat->pm();
+        if (p.is_val()) 
+            return pm.mk_const(p.val());
+        polynomial::polynomial_ref lo(pdd2polynomial(p.lo()), pm);
+        polynomial::polynomial_ref hi(pdd2polynomial(p.hi()), pm);
+        unsigned w, v = p.var();
+        if (!m_lp2nl.find(v, w)) {
+            w = m_nlsat->mk_var(false);
+            m_lp2nl.insert(v, w);
+        }
+        polynomial::polynomial_ref vp(pm.mk_polynomial(w, 1), pm);
+        return pm.add(lo, pm.mul(vp, hi));
+    }
 
     bool is_int(lp::var_index v) {
         return s.var_is_int(v);
@@ -263,6 +357,10 @@ solver::~solver() {
 
 lbool solver::check() {
     return m_imp->check();
+}
+
+lbool solver::check(vector<dd::pdd> const& eqs) {
+    return m_imp->check(eqs);
 }
 
 bool solver::need_check() {

@@ -59,6 +59,7 @@ let mk_context (settings:(string * string) list) =
   Z3native.del_config cfg;
   Z3native.set_ast_print_mode res (Z3enums.int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT);
   Z3native.set_internal_error_handler res;
+  Z3native.enable_concurrent_dec_ref res;
   res
 
 module Symbol =
