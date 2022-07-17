@@ -49,6 +49,13 @@ type context
 val mk_context : (string * string) list -> context
 
 (** Interaction logging for Z3
+    Interaction logs are used to record calls into the API into a text file.
+    The text file can be replayed using z3. It has to be the same version of z3
+    to ensure that low level codes emitted in a log are compatible with the
+    version of z3 replaying the log. The file suffix ".log" is understood
+    by z3 as the format of the file being an interaction log. You can use the
+    optional comman-line parameter "-log" to force z3 to treat an input file
+    as an interaction log.
     Note that this is a global, static log and if multiple Context
     objects are created, it logs the interaction with all of them. *)
 module Log :
