@@ -116,10 +116,13 @@ void grobner::reset() {
 }
 
 void grobner::display_var(std::ostream & out, expr * var) const {
+    out << "#" << var->get_id();
+#if 0
     if (is_app(var) && to_app(var)->get_num_args() > 0)
         out << mk_bounded_pp(var, m_manager);
     else
         out << mk_pp(var, m_manager);
+#endif    
 }
 
 void grobner::display_vars(std::ostream & out, unsigned num_vars, expr * const * vars) const {
@@ -129,7 +132,7 @@ void grobner::display_vars(std::ostream & out, unsigned num_vars, expr * const *
     }
 }
 
-void grobner::display_monomial(std::ostream & out, monomial const & m) const {
+void grobner::display_monomial(std::ostream & out, monomial const & m, std::function<void(std::ostream&, expr*)>& display_var) const {
     if (!m.m_coeff.is_one() || m.m_vars.empty()) {
         out << m.m_coeff;
         if (!m.m_vars.empty())
@@ -162,7 +165,7 @@ void grobner::display_monomial(std::ostream & out, monomial const & m) const {
     }
 }
 
-void grobner::display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials) const {
+void grobner::display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials, std::function<void(std::ostream&, expr*)>& display_var) const {
     bool first = true;
     for (unsigned i = 0; i < num_monomials; i++) {
         monomial const * m = monomials[i];
@@ -170,26 +173,26 @@ void grobner::display_monomials(std::ostream & out, unsigned num_monomials, mono
             first = false;
         else
             out << " + ";
-        display_monomial(out, *m);
+        display_monomial(out, *m, display_var);
     }
 }
 
-void grobner::display_equation(std::ostream & out, equation const & eq) const {
-    display_monomials(out, eq.m_monomials.size(), eq.m_monomials.data());
+void grobner::display_equation(std::ostream & out, equation const & eq, std::function<void(std::ostream&, expr*)>& display_var) const {
+    display_monomials(out, eq.m_monomials.size(), eq.m_monomials.data(), display_var);
     out << " = 0\n";
 }
 
-void grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
-    if (!v.empty()) {
-        out << header << "\n";
-        for (equation const* eq : v) 
-            display_equation(out, *eq);
-    }
+void grobner::display_equations(std::ostream & out, equation_set const & v, char const * header, std::function<void(std::ostream&, expr*)>& display_var) const {
+    if (v.empty())
+        return;
+    out << header << "\n";
+    for (equation const* eq : v) 
+        display_equation(out, *eq, display_var);
 }
 
-void grobner::display(std::ostream & out) const {
-    display_equations(out, m_processed, "processed:");
-    display_equations(out, m_to_process, "to process:");
+void grobner::display(std::ostream & out, std::function<void(std::ostream&, expr*)>& display_var) const {
+    display_equations(out, m_processed, "processed:", display_var);
+    display_equations(out, m_to_process, "to process:", display_var);
 }
 
 void grobner::set_weight(expr * n, int weight) {
@@ -525,7 +528,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
                 for (; i2 < sz2; i2++) 
                     rest.push_back(m2->m_vars[i2]);
                 TRACE("grobner", 
-                      tout << "monomail: "; display_monomial(tout, *m1); tout << " is a subset of "; 
+                      tout << "monomial: "; display_monomial(tout, *m1); tout << " is a subset of "; 
                       display_monomial(tout, *m2); tout << "\n";
                       tout << "rest: "; display_vars(tout, rest.size(), rest.data()); tout << "\n";);
                 return true;
@@ -549,7 +552,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
         }
     }
     // is not subset
-    TRACE("grobner", tout << "monomail: "; display_monomial(tout, *m1); tout << " is not a subset of "; 
+    TRACE("grobner", tout << "monomial: "; display_monomial(tout, *m1); tout << " is not a subset of "; 
           display_monomial(tout, *m2); tout << "\n";);
     return false;
 }

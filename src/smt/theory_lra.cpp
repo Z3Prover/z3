@@ -276,23 +276,23 @@ class theory_lra::imp {
                 m_nla->push();
             }
             smt_params_helper prms(ctx().get_params());
-            m_nla->settings().run_order() =                   prms.arith_nl_order();
-            m_nla->settings().run_tangents() =                prms.arith_nl_tangents();
-            m_nla->settings().run_horner() =                  prms.arith_nl_horner();
-            m_nla->settings().horner_subs_fixed() =           prms.arith_nl_horner_subs_fixed();            
-            m_nla->settings().horner_frequency() =            prms.arith_nl_horner_frequency();
-            m_nla->settings().horner_row_length_limit() =     prms.arith_nl_horner_row_length_limit();
-            m_nla->settings().run_grobner() =                 prms.arith_nl_grobner();
-            m_nla->settings().run_nra()  =                    prms.arith_nl_nra();
-            m_nla->settings().grobner_subs_fixed() =          prms.arith_nl_grobner_subs_fixed();
-            m_nla->settings().grobner_eqs_growth() =          prms.arith_nl_grobner_eqs_growth();
-            m_nla->settings().grobner_expr_size_growth() =    prms.arith_nl_grobner_expr_size_growth();
-            m_nla->settings().grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
-            m_nla->settings().grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
-            m_nla->settings().grobner_number_of_conflicts_to_report() = prms.arith_nl_grobner_cnfl_to_report();
-            m_nla->settings().grobner_quota() =               prms.arith_nl_gr_q();
-            m_nla->settings().grobner_frequency() =           prms.arith_nl_grobner_frequency();
-            m_nla->settings().expensive_patching()  =         false;
+            m_nla->settings().run_order =                   prms.arith_nl_order();
+            m_nla->settings().run_tangents =                prms.arith_nl_tangents();
+            m_nla->settings().run_horner =                  prms.arith_nl_horner();
+            m_nla->settings().horner_subs_fixed =           prms.arith_nl_horner_subs_fixed();            
+            m_nla->settings().horner_frequency =            prms.arith_nl_horner_frequency();
+            m_nla->settings().horner_row_length_limit =     prms.arith_nl_horner_row_length_limit();
+            m_nla->settings().run_grobner =                 prms.arith_nl_grobner();
+            m_nla->settings().run_nra  =                    prms.arith_nl_nra();
+            m_nla->settings().grobner_subs_fixed =          prms.arith_nl_grobner_subs_fixed();
+            m_nla->settings().grobner_eqs_growth =          prms.arith_nl_grobner_eqs_growth();
+            m_nla->settings().grobner_expr_size_growth =    prms.arith_nl_grobner_expr_size_growth();
+            m_nla->settings().grobner_expr_degree_growth =  prms.arith_nl_grobner_expr_degree_growth();
+            m_nla->settings().grobner_max_simplified =      prms.arith_nl_grobner_max_simplified();
+            m_nla->settings().grobner_number_of_conflicts_to_report = prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->settings().grobner_quota =               prms.arith_nl_gr_q();
+            m_nla->settings().grobner_frequency =           prms.arith_nl_grobner_frequency();
+            m_nla->settings().expensive_patching  =         false;
         }
     }
 
@@ -1224,9 +1224,9 @@ public:
             return;
         }
         expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
-
+        ctx().get_rewriter()(mod_r);
         expr_ref eq_r(th.mk_eq_atom(mod_r, p), m);
-        ctx().internalize(eq_r, false);        
+        ctx().internalize(eq_r, false);
         literal eq = ctx().get_literal(eq_r);
 
         rational k(0);
@@ -1256,6 +1256,39 @@ public:
         }
         else {
 
+            expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
+            expr_ref mone(a.mk_int(-1), m);
+            expr_ref modmq(a.mk_sub(mod, abs_q), m);
+            ctx().get_rewriter()(modmq);
+            literal eqz = mk_literal(m.mk_eq(q, zero));
+            literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
+            literal mod_lt_q = mk_literal(a.mk_le(modmq, mone));
+            
+            // q = 0 or p = (p mod q) + q * (p div q)
+            // q = 0 or (p mod q) >= 0
+            // q = 0 or (p mod q) < abs(q)
+            
+            mk_axiom(eqz, eq);
+            mk_axiom(eqz, mod_ge_0);
+            mk_axiom(eqz, mod_lt_q);
+            m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
+
+            if (a.is_zero(p)) {
+                mk_axiom(eqz, mk_literal(m.mk_eq(div, zero)));
+                mk_axiom(eqz, mk_literal(m.mk_eq(mod, zero)));
+            }
+            // (or (= y 0)  (<= (* y (div x y)) x))
+            else if (!a.is_numeral(q)) {
+                expr_ref div_ge(m);
+                div_ge = a.mk_ge(a.mk_sub(p, a.mk_mul(q, div)), zero);
+                ctx().get_rewriter()(div_ge);
+                mk_axiom(eqz, mk_literal(div_ge));
+                TRACE("arith", tout << eqz << " " << div_ge << "\n");
+            }
+
+
+#if 0
+            
             /*literal div_ge_0   = */ mk_literal(a.mk_ge(div, zero));
             /*literal div_le_0   = */ mk_literal(a.mk_le(div, zero));
             /*literal p_ge_0     = */ mk_literal(a.mk_ge(p, zero));
@@ -1266,7 +1299,7 @@ public:
             // q >= 0 or (p mod q) >= 0
             // q <= 0 or (p mod q) >= 0
             // q <= 0 or (p mod q) <  q
-            // q >= 0 or (p mod q) < -q
+            // q >= 0 or (p mod q) < -q            
             literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
             literal q_le_0 = mk_literal(a.mk_le(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
@@ -1277,11 +1310,11 @@ public:
             mk_axiom(q_le_0, mod_ge_0);
             mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));            
             mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));        
-
+#endif
 
 #if 0
             // seem expensive
-
+            
             mk_axiom(q_le_0, ~p_ge_0, div_ge_0); 
             mk_axiom(q_le_0, ~p_le_0, div_le_0); 
             mk_axiom(q_ge_0, ~p_ge_0, div_le_0);             
@@ -1293,19 +1326,21 @@ public:
             mk_axiom(q_ge_0, p_le_0, ~div_ge_0);
 #endif
  
+#if 0
             std::function<void(void)> log = [&,this]() {
                 th.log_axiom_unit(m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(eq.var()))); 
                 th.log_axiom_unit(m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(mod_ge_0.var()))); 
                 th.log_axiom_unit(m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_sub(mod, q), zero)));
                 th.log_axiom_unit(m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_add(mod, q), zero)));
+            };
+            if_trace_stream _ts(m, log);
+#endif
 #if 0
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var())));
 #endif
-            };
-            if_trace_stream _ts(m, log);
         }
         if (params().m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
             unsigned _k = k.get_unsigned();

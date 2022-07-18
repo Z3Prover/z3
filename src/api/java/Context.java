@@ -1717,8 +1717,8 @@ public class Context implements AutoCloseable {
      * {@code [domain -> range]}, and {@code i} must have the sort
      * {@code domain}. The sort of the result is {@code range}.
      *
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkStore
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
      **/
     public <D extends Sort, R extends Sort> Expr<R> mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
     {
@@ -1739,8 +1739,8 @@ public class Context implements AutoCloseable {
      * {@code [domains -> range]}, and {@code args} must have the sorts
      * {@code domains}. The sort of the result is {@code range}.
      *
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkStore
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
      **/
     public <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<Sort, R>> a, Expr<?>[] args)
     {
@@ -1763,8 +1763,8 @@ public class Context implements AutoCloseable {
      * {@code select}) on all indices except for {@code i}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code i} may be a different value). 
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkSelect
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
 
      **/
     public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
@@ -1788,8 +1788,8 @@ public class Context implements AutoCloseable {
      * {@code select}) on all indices except for {@code args}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code args} may be a different value). 
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkSelect
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
 
      **/
     public <R extends Sort> ArrayExpr<Sort, R> mkStore(Expr<ArraySort<Sort, R>> a, Expr<?>[] args, Expr<R> v)
@@ -1806,8 +1806,8 @@ public class Context implements AutoCloseable {
      * Remarks:  The resulting term is an array, such
      * that a {@code select} on an arbitrary index produces the value
      * {@code v}. 
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkSelect
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
      *
      **/
     public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkConstArray(D domain, Expr<R> v)
@@ -1826,9 +1826,9 @@ public class Context implements AutoCloseable {
      * {@code f} must have type {@code  range_1 .. range_n -> range}.
      * {@code v} must have sort range. The sort of the result is
      * {@code [domain_i -> range]}. 
-     * @see #mkArraySort(Sort[], Sort)
-     * @see #mkSelect
-     * @see #mkStore
+     * @see #mkArraySort(Sort[], R)
+     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
+     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
 
      **/
     @SafeVarargs
@@ -2476,7 +2476,7 @@ public class Context implements AutoCloseable {
      *
      * @return A Term with value {@code num}/{@code den}
      *         and sort Real 
-     * @see #mkNumeral(String,Sort)
+     * @see #mkNumeral(String v, R ty)
      **/
     public RatNum mkReal(int num, int den)
     {
@@ -2612,7 +2612,7 @@ public class Context implements AutoCloseable {
      * 'names' of the bound variables, and {@code body} is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
      * importance of using the quantifier during instantiation.
-     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}.
+     * Note that the bound variables are de-Bruijn indices created using {#mkBound}.
      * Z3 applies the convention that the last element in {@code names} and 
      * {@code sorts} refers to the variable with index 0, the second to last element 
      * of {@code names} and {@code sorts} refers to the variable 
@@ -2707,7 +2707,7 @@ public class Context implements AutoCloseable {
      * with the sorts of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body of the
      * lambda. 
-     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}
+     * Note that the bound variables are de-Bruijn indices created using {#mkBound}
      * Z3 applies the convention that the last element in {@code names} and
      * {@code sorts} refers to the variable with index 0, the second to last element
      * of {@code names} and {@code sorts} refers to the variable

@@ -21,6 +21,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 #include "util/obj_hashtable.h"
 
 namespace recfun {
@@ -62,6 +63,12 @@ namespace recfun {
         def *               m_def; //<! definition this is a part of
         bool                m_immediate; //<! does `rhs` contain no defined_fun/case_pred?
 
+        case_def(ast_manager& m):
+            m_pred(m),
+            m_guards(m),
+            m_rhs(m)
+        {}
+        
         case_def(ast_manager & m,
                  family_id fid,
                  def * d,
@@ -131,6 +138,8 @@ namespace recfun {
 
         bool is_fun_macro() const { return m_cases.size() == 1; }
         bool is_fun_defined() const { return !is_fun_macro(); }
+
+        def* copy(util& dst, ast_translation& tr);
 
     };
     
@@ -204,6 +213,8 @@ namespace recfun {
             }
 
             expr_ref redirect_ite(replace& subst, unsigned n, var * const* vars, expr * e);
+
+            void inherit(decl_plugin* other, ast_translation& tr) override;
 
         };
     }

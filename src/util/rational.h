@@ -343,7 +343,7 @@ public:
 
     static rational power_of_two(unsigned k);
 
-    bool is_power_of_two(unsigned & shift) {
+    bool is_power_of_two(unsigned & shift) const {
         return m().is_power_of_two(m_val, shift);
     }
 

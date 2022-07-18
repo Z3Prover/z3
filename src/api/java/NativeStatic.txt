@@ -1,4 +1,4 @@
-// Automatically generated file
+
 #include<jni.h>
 #include<stdlib.h>
 #include"z3.h"
@@ -76,3 +76,4 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_setInternalErrorHand
 {
   Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);
 }
+

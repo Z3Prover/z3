@@ -335,6 +335,7 @@ try:
 
         for modulename in (
                 'z3',
+                'z3.z3',
                 'z3.z3consts',
                 'z3.z3core',
                 'z3.z3num',

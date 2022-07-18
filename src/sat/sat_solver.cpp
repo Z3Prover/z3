@@ -2029,17 +2029,18 @@ namespace sat {
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
 
-        m_probing();
-        CASSERT("sat_missed_prop", check_missed_propagation());
-        CASSERT("sat_simplify_bug", check_invariant());
-        m_asymm_branch(false);
-
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
         if (m_ext) {
             m_ext->clauses_modifed();
             m_ext->simplify();
         }
+
+        m_probing();
+        CASSERT("sat_missed_prop", check_missed_propagation());
+        CASSERT("sat_simplify_bug", check_invariant());
+        m_asymm_branch(false);
+
         if (m_config.m_lookahead_simplify && !m_ext) {
             lookahead lh(*this);
             lh.simplify(true);

@@ -21,6 +21,7 @@ and solver_callback = ptr
 and goal = ptr
 and tactic = ptr
 and params = ptr
+and parser_context = ptr
 and probe = ptr
 and stats = ptr
 and ast_vector = ptr

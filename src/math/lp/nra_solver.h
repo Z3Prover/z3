@@ -9,6 +9,7 @@
 #include "util/rlimit.h"
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
+#include "math/dd/dd_pdd.h"
 
 namespace lp {
     class lar_solver;
@@ -35,6 +36,11 @@ namespace nra {
           that are added.
          */
         lbool check();
+
+        /**
+           \breif Check feasibility of equalities modulo bounds constraints on their variables.
+         */
+        lbool check(vector<dd::pdd> const& eqs);
 
         /*
           \brief determine whether nra check is needed.

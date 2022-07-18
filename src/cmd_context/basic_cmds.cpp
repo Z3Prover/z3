@@ -219,9 +219,8 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
     pr = ctx.get_check_sat_result()->get_proof();
     if (pr == 0)
         throw cmd_exception("proof is not available");
-    if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
+    if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) 
         throw cmd_exception("proof is not well sorted");
-    }
 
     context_params& params = ctx.params();
     const std::string& file = params.m_dot_proof_file;
@@ -235,11 +234,11 @@ static void print_core(cmd_context& ctx) {
     ctx.regular_stream() << "(";
     bool first = true;
     for (expr* e : core) {
-    if (first)
-        first = false;
-    else
-        ctx.regular_stream() << " ";
-    ctx.regular_stream() << mk_ismt2_pp(e, ctx.m());
+        if (first)
+            first = false;
+        else
+            ctx.regular_stream() << " ";
+        ctx.regular_stream() << mk_ismt2_pp(e, ctx.m());
     }
     ctx.regular_stream() << ")" << std::endl;
 }
@@ -260,9 +259,8 @@ ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset 
             return;
         if (!ctx.produce_unsat_assumptions())
             throw cmd_exception("unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)");
-        if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
+        if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) 
             throw cmd_exception("unsat assumptions is not available");
-        }
         print_core(ctx);
     });
 
@@ -410,6 +408,15 @@ class set_option_cmd : public set_get_option_cmd {
         }
     }
 
+    static void check_no_assertions(cmd_context & ctx, symbol const & opt_name) {
+        if (ctx.has_assertions()) {
+            std::string msg = "error setting '";
+            msg += opt_name.str();
+            msg += "', option value cannot be modified after assertions have been added";
+            throw cmd_exception(std::move(msg));
+        }
+    }
+
     void set_param(cmd_context & ctx, char const * value) {
         try {
             gparams::set(m_option, value);
@@ -437,11 +444,11 @@ class set_option_cmd : public set_get_option_cmd {
             ctx.set_interactive_mode(to_bool(value));
         }
         else if (m_option == m_produce_proofs) {
-            check_not_initialized(ctx, m_produce_proofs);
+            check_no_assertions(ctx, m_produce_proofs);
             ctx.set_produce_proofs(to_bool(value));
         }
         else if (m_option == m_produce_unsat_cores) {
-            check_not_initialized(ctx, m_produce_unsat_cores);
+            check_no_assertions(ctx, m_produce_unsat_cores);
             ctx.set_produce_unsat_cores(to_bool(value));
         }
         else if (m_option == m_produce_unsat_assumptions) {

@@ -2783,26 +2783,25 @@ bool theory_seq::get_length(expr* e, rational& val) {
             todo.push_back(e1);
             todo.push_back(e2);
         }
-        else if (m_util.str.is_unit(c)) {
+        else if (m_util.str.is_unit(c)) 
             val += rational(1);
-        }
-        else if (m_util.str.is_empty(c)) {
+        else if (m_util.str.is_empty(c)) 
             continue;
-        }
-        else if (m_util.str.is_string(c, s)) {
+        else if (m_util.str.is_map(c, e1, e2)) 
+            todo.push_back(e2);
+        else if (m_util.str.is_mapi(c, e1, e2, c)) 
+            todo.push_back(c);
+        else if (m_util.str.is_string(c, s)) 
             val += rational(s.length());
-        }
-        else if (!has_length(c)) {
-            len = mk_len(c);
-            add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
-            TRACE("seq", tout << "literal has no length " << mk_pp(c, m) << "\n";);
-            return false;            
-        }
         else {            
             len = mk_len(c);
-            if (m_arith_value.get_value(len, val1) && !val1.is_neg()) {
-                val += val1;                
+            if (!has_length(c)) {
+                add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
+                TRACE("seq", tout << "literal has no length " << mk_pp(c, m) << "\n";);
+                return false;            
             }
+            else if (m_arith_value.get_value(len, val1) && !val1.is_neg()) 
+                val += val1;                
             else {
                 TRACE("seq", tout << "length has not been internalized " << mk_pp(c, m) << "\n";);
                 return false;
@@ -3216,18 +3215,15 @@ void theory_seq::relevant_eh(app* n) {
         add_ubv_string(n);
 
     expr* arg = nullptr;
-    if (m_sk.is_tail(n, arg)) {
+    if (m_sk.is_tail(n, arg)) 
         add_length_limit(arg, m_max_unfolding_depth, true);
-    }
 
-    if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) {
+    if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
-    }
 
     if (m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
-        m_util.str.is_replace_re_all(n)
-        ) {
+        m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);
     }
 }

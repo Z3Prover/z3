@@ -506,7 +506,7 @@ namespace dt {
         return m_nodes;
     }
 
-    ptr_vector<euf::enode> const& solver::get_seq_args(enode* n) {
+    ptr_vector<euf::enode> const& solver::get_seq_args(enode* n, enode*& sibling) {
         m_nodes.reset();
         m_todo.reset();
         auto add_todo = [&](enode* n) {
@@ -515,9 +515,15 @@ namespace dt {
                 m_todo.push_back(n);
             }
         };
-            
-        for (enode* sib : euf::enode_class(n))
-            add_todo(sib);
+
+        for (enode* sib : euf::enode_class(n)) {
+            if (m_sutil.str.is_concat_of_units(sib->get_expr())) {
+                add_todo(sib);
+                sibling = sib;
+                break;
+            }
+        }
+
             
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             enode* n = m_todo[i];
@@ -551,10 +557,10 @@ namespace dt {
 
         // collect equalities on all children that may have been used.
         bool found = false;
-        auto add = [&](enode* arg) {
-            if (arg->get_root() == child->get_root()) {
-                if (arg != child)
-                    m_used_eqs.push_back(enode_pair(arg, child));
+        auto add = [&](enode* seq_arg) {
+            if (seq_arg->get_root() == child->get_root()) {
+                if (seq_arg != child)
+                    m_used_eqs.push_back(enode_pair(seq_arg, child));
                 found = true;
             }
         };
@@ -564,11 +570,14 @@ namespace dt {
             if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s)))
                 for (enode* aarg : get_array_args(arg))
                     add(aarg);
-        }
-        sort* se;
-        if (m_sutil.is_seq(child->get_sort(), se) && dt.is_datatype(se)) {
-            for (enode* aarg : get_seq_args(child))
-                add(aarg);
+            sort* se;
+            if (m_sutil.is_seq(arg->get_sort(), se) && dt.is_datatype(se)) {
+                enode* sibling = nullptr;
+                for (enode* seq_arg : get_seq_args(arg, sibling))
+                    add(seq_arg);
+                if (sibling && sibling != arg)
+                    m_used_eqs.push_back(enode_pair(arg, sibling));                
+            }
         }
         
         VERIFY(found);
@@ -636,12 +645,13 @@ namespace dt {
             // explore `arg` (with parent)
             expr* earg = arg->get_expr();
             sort* s = earg->get_sort(), *se;
+            enode* sibling;
             if (dt.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
             }
             else if (m_sutil.is_seq(s, se) && dt.is_datatype(se)) {
-                for (enode* sarg : get_seq_args(arg))
+                for (enode* sarg : get_seq_args(arg, sibling))
                     if (process_arg(sarg))
                         return true;
             }

@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Version 4.8.next
+Version 4.9.next
 ================
 - Planned features
   - sat.euf 
@@ -10,6 +10,42 @@ Version 4.8.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.9.1
+=============
+- Bugfix release to ensure npm package works
+
+Version 4.9.0
+=============
+- Native M1 (Mac ARM64) binaries and pypi distribution.
+  - thanks to Isabel Garcia Contreras and Arie Gurfinkel for testing and fixes
+- API for incremental parsing of assertions.
+  A description of the feature is given by example here: https://github.com/Z3Prover/z3/commit/815518dc026e900392bf0d08ed859e5ec42d1e43
+  It also allows incrementality at the level of adding assertions to the 
+  solver object. 
+- Fold/map for sequences:
+  https://microsoft.github.io/z3guide/docs/guide/Sequences#map-and-fold
+  At this point these functions are only exposed over the SMTLIB2 interface (and not programmatic API)
+  maxdiff/mindiff on arrays are more likely to be deprecated
+- User Propagator: 
+  - Add functions and callbacks for external control over branching thanks to Clemens Eisenhofer
+  - A functioning dotnet API for the User Propagator 
+    https://github.com/Z3Prover/z3/blob/master/src/api/dotnet/UserPropagator.cs
+- Java Script API
+  - higher level object wrappers are available thanks to Kevin Gibbons and Olaf Tomalka
+- Totalizers and RC2
+  - The MaxSAT engine now allows to run RC2 with totalizer encoding.
+    Totalizers are on by default as preliminary tests suggest this solves already 10% more problems on
+    standard benchmarks. The option opt.rc2.totalizer (which by default is true) is used to control whether to use
+    totalizer encoding or built-in cardinality constraints.
+    The default engine is still maxres, so you have to set opt.maxsat_engine=rc2 to
+    enable the rc2 option at this point. The engines maxres-bin and rc2bin are experimental should not be used
+    (they are inferior to default options).
+- Incremental constraints during optimization set option opt.incremental = true
+  - The interface `Z3_optimize_register_model_eh` allows to monitor incremental results during optimization.
+    It is now possible to also add constraints to the optimization context during search.
+    You have to set the option opt.incremental=true to be able to add constraints. The option
+    disables some pre-processing functionality that removes variables from the constraints. 
+
 Version 4.8.17
 ==============
  - fix breaking bug in python interface for user propagator pop
@@ -17,6 +53,29 @@ Version 4.8.17
  - initial support for nested algebraic datatypes with sequences
  - initiate map/fold operators on sequences - full integration for next releases
  - initiate maxdiff/mindiff on arrays - full integration for next releases
+
+Examples:
+
+```
+(declare-sort Expr)
+(declare-sort Var)
+(declare-datatypes ((Stmt 0)) 
+  (((Assignment (lval Var) (rval Expr)) 
+    (If (cond Expr) (th Stmt) (el Stmt)) 
+    (Seq (stmts (Seq Stmt))))))
+
+(declare-const s Stmt)
+(declare-const t Stmt)
+
+(assert ((_ is Seq) t))
+(assert ((_ is Seq) s))
+(assert (= s (seq.nth (stmts t) 2)))
+(assert (>= (seq.len (stmts s)) 5))
+(check-sat)
+(get-model)
+(assert (= s (Seq (seq.unit s))))
+(check-sat)
+```
  
 Version 4.8.16
 ==============
@@ -964,7 +1023,7 @@ The following bugs are fixed in this release:
 
 - Non-termination problem associated with option LOOKAHEAD=true.
   It gets set for QF_UF in auto-configuration mode.
-  Thanks to Pierre-Christophe BuÈ.
+  Thanks to Pierre-Christophe Bu√©.
 
 - Incorrect axioms created for injective functions.
   Thanks to Sascha Boehme.
@@ -986,7 +1045,7 @@ Version 2.6
 ===========
 
 This release fixes a few bugs.
-Thanks to Marko K‰‰ramees for reporting a bug in the strong context simplifier and
+Thanks to Marko K√§√§ramees for reporting a bug in the strong context simplifier and
 to Josh Berdine. 
 
 This release also introduces some new preprocessing features:
@@ -1018,7 +1077,7 @@ This release introduces the following features:
   <tt>Z3_update_param_value</tt> in the C API. This is particularly useful
   for turning the strong context simplifier on and off.  
  
-It also fixes bugs reported by Enric RodrÌguez Carbonell, 
+It also fixes bugs reported by Enric Rodr√≠guez Carbonell, 
 Nuno Lopes, Josh Berdine, Ethan Jackson, Rob Quigley and 
 Lucas Cordeiro.
 
@@ -1085,7 +1144,7 @@ Version 2.1
 ===========
 
 This is a bug fix release.
-Many thanks to Robert Brummayer, Carine Pascal, FranÁois Remy, 
+Many thanks to Robert Brummayer, Carine Pascal, Fran√ßois Remy, 
 Rajesh K Karmani, Roberto Lublinerman and numerous others for their 
 feedback and bug reports.
 

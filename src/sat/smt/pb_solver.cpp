@@ -34,7 +34,7 @@ namespace pb {
 
     void solver::set_conflict(constraint& c, literal lit) {
         m_stats.m_num_conflicts++;
-        TRACE("ba", display(tout, c, true); );
+        TRACE("pb", display(tout, c, true); );
         if (!validate_conflict(c)) {
             IF_VERBOSE(0, display(verbose_stream(), c, true));
             UNREACHABLE();
@@ -56,7 +56,7 @@ namespace pb {
         default:
             m_stats.m_num_propagations++;
             m_num_propagations_since_pop++;
-            //TRACE("ba", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
+            //TRACE("pb", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
             SASSERT(validate_unit_propagation(c, lit));
             assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), c.cindex()));
             break;
@@ -69,7 +69,7 @@ namespace pb {
     void solver::simplify(constraint& p) {
         SASSERT(s().at_base_lvl());
         if (p.lit() != sat::null_literal && value(p.lit()) == l_false) {
-            TRACE("ba", tout << "pb: flip sign " << p << "\n";);
+            TRACE("pb", tout << "pb: flip sign " << p << "\n";);
             IF_VERBOSE(2, verbose_stream() << "sign is flipped " << p << "\n";);
             return;
         }
@@ -280,7 +280,7 @@ namespace pb {
      */
     lbool solver::add_assign(pbc& p, literal alit) {
         BADLOG(display(verbose_stream() << "assign: " << alit << " watch: " << p.num_watch() << " size: " << p.size(), p, true));
-        TRACE("ba", display(tout << "assign: " << alit << "\n", p, true););
+        TRACE("pb", display(tout << "assign: " << alit << "\n", p, true););
         SASSERT(!inconsistent());
         unsigned sz = p.size();
         unsigned bound = p.k();
@@ -290,6 +290,7 @@ namespace pb {
         SASSERT(p.lit() == sat::null_literal || value(p.lit()) == l_true);
         SASSERT(num_watch <= sz);
         SASSERT(num_watch > 0);
+        SASSERT(validate_watch(p, sat::null_literal));
         unsigned index = 0;
         m_a_max = 0;
         m_pb_undef.reset();
@@ -311,8 +312,6 @@ namespace pb {
             return l_undef;
         }
         
-        SASSERT(validate_watch(p, sat::null_literal));
-        // SASSERT(validate_watch(p, sat::null_literal));
         
         SASSERT(index < num_watch);
         unsigned index1 = index + 1;
@@ -349,7 +348,7 @@ namespace pb {
             SASSERT(validate_watch(p, sat::null_literal));
             BADLOG(display(verbose_stream() << "conflict: " << alit << " watch: " << p.num_watch() << " size: " << p.size(), p, true));            
             SASSERT(bound <= slack);
-            TRACE("ba", tout << "conflict " << alit << "\n";);
+            TRACE("pb", tout << "conflict " << alit << "\n";);
             set_conflict(p, alit);
             return l_false;
         }
@@ -366,13 +365,14 @@ namespace pb {
         p.swap(num_watch, index);
 
 
+
         // 
         // slack >= bound, but slack - w(l) < bound 
         // l must be true.
         // 
         if (slack < bound + m_a_max) {            
             BADLOG(verbose_stream() << "slack " << slack << " " << bound << " " << m_a_max << "\n";);
-            TRACE("ba", tout << p << "\n"; for(auto j : m_pb_undef) tout << j << " "; tout << "\n";);
+            TRACE("pb", tout << p << "\n"; for(auto j : m_pb_undef) tout << j << " "; tout << "\n";);
             for (unsigned index1 : m_pb_undef) {
                 if (index1 == num_watch) {
                     index1 = index;
@@ -389,7 +389,7 @@ namespace pb {
 
         SASSERT(validate_watch(p, alit)); // except that alit is still watched.
 
-        TRACE("ba", display(tout << "assign: " << alit << "\n", p, true););
+        TRACE("pb", display(tout << "assign: " << alit << "\n", p, true););
 
         BADLOG(verbose_stream() << "unwatch " << alit << " watch: " << p.num_watch() << " size: " << p.size() << " slack: " << p.slack() << " " << inconsistent() << "\n");
 
@@ -547,7 +547,7 @@ namespace pb {
         literal l = literal(v, c1 < 0);
         c1 = std::abs(c1);
         unsigned c = static_cast<unsigned>(c1);
-        // TRACE("ba", tout << l << " " << c << "\n";);
+        // TRACE("pb", tout << l << " " << c << "\n";);
         m_overflow |= c != c1;
         return wliteral(c, l);
     }
@@ -596,12 +596,13 @@ namespace pb {
                 s().reset_mark(v);
                 --m_num_marks;
             }
-            if (idx == 0 && !_debug_conflict) {
+            if (idx == 0 && !_debug_conflict && m_num_marks > 0) {
                 _debug_conflict = true;
                 _debug_var2position.reserve(s().num_vars());
                 for (unsigned i = 0; i < lits.size(); ++i) {
                     _debug_var2position[lits[i].var()] = i;
                 }
+                IF_VERBOSE(0, verbose_stream() << "num marks: " << m_num_marks << "\n");
                 IF_VERBOSE(0, 
                            active2pb(m_A);
                            uint64_t c = 0;
@@ -617,20 +618,19 @@ namespace pb {
                     }
                 }
                 m_num_marks = 0;
-                resolve_conflict();                
+                resolve_conflict();
+                exit(0);
             }
             --idx;
         }
     }
 
     lbool solver::resolve_conflict() { 
-        if (0 == m_num_propagations_since_pop) {
+        if (0 == m_num_propagations_since_pop) 
             return l_undef;
-        }
 
-        if (s().m_config.m_pb_resolve == sat::PB_ROUNDING) {
+        if (s().m_config.m_pb_resolve == sat::PB_ROUNDING) 
             return resolve_conflict_rs();
-        }
        
         m_overflow = false;
         reset_coeffs();
@@ -638,7 +638,7 @@ namespace pb {
         m_bound = 0;
         literal consequent = s().m_not_l;
         sat::justification js = s().m_conflict;
-        TRACE("ba", tout << consequent << " " << js << "\n";);
+        TRACE("pb", tout << consequent << " " << js << "\n";);
         bool unique_max;
         m_conflict_lvl = s().get_max_lvl(consequent, js, unique_max);
         if (m_conflict_lvl == 0) {
@@ -667,7 +667,7 @@ namespace pb {
             }
 
             DEBUG_CODE(TRACE("sat_verbose", display(tout, m_A);););
-            TRACE("ba", tout << "process consequent: " << consequent << " : "; s().display_justification(tout, js) << "\n";);
+            TRACE("pb", tout << "process consequent: " << consequent << " : "; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
 
             DEBUG_CODE(justification2pb(js, consequent, offset, m_B););
@@ -741,7 +741,7 @@ namespace pb {
                     inc_bound(offset);
                     inc_coeff(consequent, offset);
                     get_antecedents(consequent, p, m_lemma);
-                    TRACE("ba", display(tout, p, true); tout << m_lemma << "\n";);
+                    TRACE("pb", display(tout, p, true); tout << m_lemma << "\n";);
                     if (_debug_conflict) {
                         verbose_stream() << consequent << " ";
                         verbose_stream() << "antecedents: " << m_lemma << "\n";
@@ -766,7 +766,7 @@ namespace pb {
                 active2pb(m_C);
                 VERIFY(validate_resolvent());
                 m_A = m_C;
-                TRACE("ba", display(tout << "conflict: ", m_A);););
+                TRACE("pb", display(tout << "conflict: ", m_A);););
 
             cut();
 
@@ -887,7 +887,7 @@ namespace pb {
             }
         }
         ineq.divide(c);
-        TRACE("ba", display(tout << "var: " << v << " " << c << ": ", ineq, true););
+        TRACE("pb", display(tout << "var: " << v << " " << c << ": ", ineq, true););
     }
 
     void solver::round_to_one(bool_var w) {
@@ -905,7 +905,7 @@ namespace pb {
         SASSERT(validate_lemma());
         divide(c);
         SASSERT(validate_lemma());
-        TRACE("ba", active2pb(m_B); display(tout, m_B, true););
+        TRACE("pb", active2pb(m_B); display(tout, m_B, true););
     }
 
     void solver::divide(unsigned c) {
@@ -935,14 +935,14 @@ namespace pb {
     }
 
     void solver::resolve_with(ineq const& ineq) {
-        TRACE("ba", display(tout, ineq, true););
+        TRACE("pb", display(tout, ineq, true););
         inc_bound(ineq.m_k);        
-        TRACE("ba", tout << "bound: " << m_bound << "\n";);
+        TRACE("pb", tout << "bound: " << m_bound << "\n";);
 
         for (unsigned i = ineq.size(); i-- > 0; ) {
             literal l = ineq.lit(i);
             inc_coeff(l, static_cast<unsigned>(ineq.coeff(i)));
-            TRACE("ba", tout << "bound: " << m_bound << " lit: " << l << " coeff: " << ineq.coeff(i) << "\n";);
+            TRACE("pb", tout << "bound: " << m_bound << " lit: " << l << " coeff: " << ineq.coeff(i) << "\n";);
         }
     }
 
@@ -995,11 +995,11 @@ namespace pb {
             consequent.neg();
             process_antecedent(consequent, 1);
         }
-        TRACE("ba", tout << consequent << " " << js << "\n";);
+        TRACE("pb", tout << consequent << " " << js << "\n";);
         unsigned idx = s().m_trail.size() - 1;
         
         do {
-            TRACE("ba", s().display_justification(tout << "process consequent: " << consequent << " : ", js) << "\n";
+            TRACE("pb", s().display_justification(tout << "process consequent: " << consequent << " : ", js) << "\n";
                   if (consequent != sat::null_literal) { active2pb(m_A); display(tout, m_A, true); }
                   );
 
@@ -1069,7 +1069,7 @@ namespace pb {
                     }
                     else {
                         SASSERT(k > c);
-                        TRACE("ba", tout << "visited: " << l << "\n";);
+                        TRACE("pb", tout << "visited: " << l << "\n";);
                         k -= c;
                     }
                 }
@@ -1118,7 +1118,7 @@ namespace pb {
                     }
                 }
                 if (idx == 0) {
-                    TRACE("ba", tout << "there is no consequent\n";);
+                    TRACE("pb", tout << "there is no consequent\n";);
                     goto bail_out;
                 }
                 --idx;
@@ -1131,7 +1131,7 @@ namespace pb {
             js = s().m_justification[v];
         }        
         while (m_num_marks > 0 && !m_overflow);
-        TRACE("ba", active2pb(m_A); display(tout, m_A, true););
+        TRACE("pb", active2pb(m_A); display(tout, m_A, true););
 
         // TBD: check if this is useful
         if (!m_overflow && consequent != sat::null_literal) {
@@ -1143,7 +1143,7 @@ namespace pb {
         }
         
     bail_out:
-        TRACE("ba", tout << "bail " << m_overflow << "\n";);
+        TRACE("pb", tout << "bail " << m_overflow << "\n";);
         if (m_overflow) {
             ++m_stats.m_num_overflow;
             m_overflow = false;
@@ -1199,23 +1199,23 @@ namespace pb {
             }
         }
         if (slack >= 0) {
-            TRACE("ba", tout << "slack is non-negative\n";);
+            TRACE("pb", tout << "slack is non-negative\n";);
             IF_VERBOSE(20, verbose_stream() << "(sat.card slack: " << slack << " skipped: " << num_skipped << ")\n";);
             return false;
         }
         if (m_overflow) {
-            TRACE("ba", tout << "overflow\n";);
+            TRACE("pb", tout << "overflow\n";);
             return false;
         }        
         if (m_lemma[0] == sat::null_literal) {
             if (m_lemma.size() == 1) {
                 s().set_conflict(sat::justification(0));
             }
-            TRACE("ba", tout << "no asserting literal\n";);
+            TRACE("pb", tout << "no asserting literal\n";);
             return false;
         }
 
-        TRACE("ba", tout << m_lemma << "\n";);
+        TRACE("pb", tout << m_lemma << "\n";);
 
         if (get_config().m_drat && m_solver) {
             s().m_drat.add(m_lemma, sat::status::th(true, get_id()));
@@ -1224,7 +1224,7 @@ namespace pb {
         s().m_lemma.reset();
         s().m_lemma.append(m_lemma);
         for (unsigned i = 1; i < m_lemma.size(); ++i) {
-            CTRACE("ba", s().is_marked(m_lemma[i].var()), tout << "marked: " << m_lemma[i] << "\n";);
+            CTRACE("pb", s().is_marked(m_lemma[i].var()), tout << "marked: " << m_lemma[i] << "\n";);
             s().mark(m_lemma[i].var());
         }
         return true;
@@ -1346,11 +1346,11 @@ namespace pb {
     }
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
-        : euf::th_solver(m, symbol("ba"), id),
+        : euf::th_solver(m, symbol("pb"), id),
           si(si), m_pb(m),
           m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
-        TRACE("ba", tout << this << "\n";);
+        TRACE("pb", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
     }
 
@@ -1418,6 +1418,8 @@ namespace pb {
         }
         else if (lit == sat::null_literal) {
             init_watch(*c);
+            if (c->is_pb()) 
+                validate_watch(c->to_pb(), sat::null_literal);
         }
         else {
             if (m_solver) m_solver->set_external(lit.var());
@@ -1569,7 +1571,7 @@ namespace pb {
     }
 
     void solver::get_antecedents(literal l, pbc const& p, literal_vector& r) {
-        TRACE("ba", display(tout << l << " level: " << s().scope_lvl() << " ", p, true););
+        TRACE("pb", display(tout << l << " level: " << s().scope_lvl() << " ", p, true););
         SASSERT(p.lit() == sat::null_literal || value(p.lit()) == l_true);
 
         if (p.lit() != sat::null_literal) {
@@ -1621,7 +1623,7 @@ namespace pb {
             if (j < p.num_watch()) {
                 j = p.num_watch();
             }
-            CTRACE("ba", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
+            CTRACE("pb", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
             
             if (_debug_conflict) {
                 IF_VERBOSE(0, verbose_stream() << "coeff " << coeff << "\n";);
@@ -1672,7 +1674,7 @@ namespace pb {
             for (unsigned i = 0; !found && i < c.k(); ++i) {
                 found = c[i] == l;
             }
-            CTRACE("ba",!found, s().display(tout << l << ":" << c << "\n"););
+            CTRACE("pb",!found, s().display(tout << l << ":" << c << "\n"););
             SASSERT(found););
         
         VERIFY(c.lit() == sat::null_literal || value(c.lit()) != l_false);
@@ -1712,7 +1714,7 @@ namespace pb {
     }
 
     void solver::remove_constraint(constraint& c, char const* reason) {
-        TRACE("ba", display(tout << "remove ", c, true) << " " << reason << "\n";);
+        TRACE("pb", display(tout << "remove ", c, true) << " " << reason << "\n";);
         IF_VERBOSE(21, display(verbose_stream() << "remove " << reason << " ", c, true););
         c.nullify_tracking_literal(*this);
         clear_watch(c);
@@ -1886,7 +1888,7 @@ namespace pb {
     }
 
     void solver::gc_half(char const* st_name) {
-        TRACE("ba", tout << "gc\n";);
+        TRACE("pb", tout << "gc\n";);
         unsigned sz     = m_learned.size();
         unsigned new_sz = sz/2;
         unsigned removed = 0;
@@ -1933,7 +1935,7 @@ namespace pb {
         // literal is assigned to false.        
         unsigned sz = c.size();
         unsigned bound = c.k();
-        TRACE("ba", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << " " << c << "\n";);
+        TRACE("pb", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << " " << c << "\n";);
 
         SASSERT(0 < bound && bound <= sz);
         if (bound == sz) {
@@ -1971,7 +1973,7 @@ namespace pb {
 
         // conflict
         if (bound != index && value(c[bound]) == l_false) {
-            TRACE("ba", tout << "conflict " << c[bound] << " " << alit << "\n";);
+            TRACE("pb", tout << "conflict " << c[bound] << " " << alit << "\n";);
             if (c.lit() != sat::null_literal && value(c.lit()) == l_undef) {
                 if (index + 1 < bound) c.swap(index, bound - 1);
                 assign(c, ~c.lit());
@@ -1985,7 +1987,7 @@ namespace pb {
             c.swap(index, bound);
         }        
 
-        // TRACE("ba", tout << "no swap " << index << " " << alit << "\n";);
+        // TRACE("pb", tout << "no swap " << index << " " << alit << "\n";);
         // there are no literals to swap with,
         // prepare for unit propagation by swapping the false literal into 
         // position bound. Then literals in positions 0..bound-1 have to be
@@ -2351,7 +2353,7 @@ namespace pb {
         }
 
         if (!all_units) {            
-            TRACE("ba", tout << "replacing by pb: " << c << "\n";);
+            TRACE("pb", tout << "replacing by pb: " << c << "\n";);
             m_wlits.reset();
             for (unsigned i = 0; i < sz; ++i) {
                 m_wlits.push_back(wliteral(coeffs[i], c[i]));
@@ -2914,13 +2916,13 @@ namespace pb {
             SASSERT(&c1 != &c2);
             if (subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
-                    TRACE("ba", tout << "subsume cardinality\n" << c1 << "\n" << c2 << "\n";);
+                    TRACE("pb", tout << "subsume cardinality\n" << c1 << "\n" << c2 << "\n";);
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
                     set_non_learned(c1);
                 }
                 else {
-                    TRACE("ba", tout << "self subsume cardinality\n";);
+                    TRACE("pb", tout << "self subsume cardinality\n";);
                     IF_VERBOSE(11, 
                                verbose_stream() << "self-subsume cardinality\n"; 
                                verbose_stream() << c1 << "\n";
@@ -2952,7 +2954,7 @@ namespace pb {
                     // self-subsumption is TBD
                 }
                 else {
-                    TRACE("ba", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
+                    TRACE("pb", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
                     removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
                     set_non_learned(c1);
@@ -3284,7 +3286,7 @@ namespace pb {
                 val += wl.first;
             }
         }
-        CTRACE("ba", val >= 0, active2pb(m_A); display(tout, m_A, true););
+        CTRACE("pb", val >= 0, active2pb(m_A); display(tout, m_A, true););
         return val < 0;
     }
 
@@ -3297,7 +3299,7 @@ namespace pb {
             if (!is_false(wl.second))
                 k += wl.first;
         }
-        CTRACE("ba", k > 0, display(tout, ineq, true););
+        CTRACE("pb", k > 0, display(tout, ineq, true););
         return k <= 0;
     }
 
@@ -3356,7 +3358,7 @@ namespace pb {
             return nullptr;
         }
         constraint* c = add_pb_ge(sat::null_literal, m_wlits, m_bound, true);                
-        TRACE("ba", if (c) display(tout, *c, true););
+        TRACE("pb", if (c) display(tout, *c, true););
         ++m_stats.m_num_lemmas;
         return c;
     }
@@ -3587,7 +3589,7 @@ namespace pb {
         s0.assign_scoped(l2);
         s0.assign_scoped(l3);
         lbool is_sat = s0.check();
-        TRACE("ba", s0.display(tout << "trying sat encoding"););
+        TRACE("pb", s0.display(tout << "trying sat encoding"););
         if (is_sat == l_false) return true;
 
         IF_VERBOSE(0, 
@@ -3698,11 +3700,11 @@ namespace pb {
     bool solver::validate_conflict(literal_vector const& lits, ineq& p) { 
         for (literal l : lits) {
             if (value(l) != l_false) {
-                TRACE("ba", tout << "literal " << l << " is not false\n";);
+                TRACE("pb", tout << "literal " << l << " is not false\n";);
                 return false;
             }
             if (!p.contains(l)) {
-                TRACE("ba", tout << "lemma contains literal " << l << " not in inequality\n";);
+                TRACE("pb", tout << "lemma contains literal " << l << " not in inequality\n";);
                 return false;
             }
         }
@@ -3713,7 +3715,7 @@ namespace pb {
                 value += coeff;
             }
         }
-        CTRACE("ba", value >= p.m_k, tout << "slack: " << value << " bound " << p.m_k << "\n";
+        CTRACE("pb", value >= p.m_k, tout << "slack: " << value << " bound " << p.m_k << "\n";
                display(tout, p);
                tout << lits << "\n";);
         return value < p.m_k;

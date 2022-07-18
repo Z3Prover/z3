@@ -241,6 +241,7 @@ namespace euf {
         static th_explain* conflict(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
         static th_explain* conflict(th_euf_solver& th, euf::enode* x, euf::enode* y);
         static th_explain* propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
+        static th_explain* propagate(th_euf_solver& th, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, sat::proof_hint const* pma = nullptr);
         static th_explain* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent, sat::proof_hint const* pma = nullptr);
         static th_explain* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, sat::proof_hint const* pma = nullptr);
 

@@ -91,7 +91,7 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
 
 
 # Mapping to ML types
-Type2ML = { VOID : 'unit', VOID_PTR : 'ptr', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
+Type2ML = { VOID : 'unit', VOID_PTR : 'ptr', INT : 'int', UINT : 'int', INT64 : 'int64', UINT64 : 'int64', DOUBLE : 'float',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string', LBOOL : 'int' }
 
@@ -254,8 +254,10 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL or param_type(p) == INT64 or param_type(p) == UINT64:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
             return "int"
+        elif param_type(p) == INT64 or param_type(p) == UINT64:
+            return "int64"
         elif param_type(p) == STRING:
             return "string"
         else:
@@ -689,6 +691,7 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = package_name.replace('.', '_')
+    java_wrapper.write("// Automatically generated file\n")
     with open(java_src + "/NativeStatic.txt") as ins:
         for line in ins:
             java_wrapper.write(line)            
@@ -1251,9 +1254,9 @@ def ml_unwrap(t, ts, s):
     elif t == UINT:
         return '(' + ts + ') Unsigned_int_val(' + s + ')'
     elif t == INT64:
-        return '(' + ts + ') Long_val(' + s + ')'
+        return '(' + ts + ') Int64_val(' + s + ')'
     elif t == UINT64:
-        return '(' + ts + ') Unsigned_long_val(' + s + ')'
+        return '(' + ts + ') Int64_val(' + s + ')'
     elif t == DOUBLE:
         return '(' + ts + ') Double_val(' + s + ')'
     elif ml_has_plus_type(ts):
@@ -1270,7 +1273,7 @@ def ml_set_wrap(t, d, n):
     elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == LBOOL:
         return d + ' = Val_int(' + n + ');'
     elif t == INT64 or t == UINT64:
-        return d + ' = Val_long(' + n + ');'
+        return d + ' = caml_copy_int64(' + n + ');'
     elif t == DOUBLE:
         return d + '= caml_copy_double(' + n + ');'
     elif t == STRING:

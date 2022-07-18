@@ -108,7 +108,7 @@ namespace recfun {
         bool is_shared(euf::theory_var v) const override { return true; }
         void init_search() override {}
         bool should_research(sat::literal_vector const& core) override;
-        bool is_beta_redex(euf::enode* p, euf::enode* n) const;
+        bool is_beta_redex(euf::enode* p, euf::enode* n) const override;
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override { return true; }
     };
