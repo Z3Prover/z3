@@ -929,8 +929,8 @@ void enum_sort_example() {
     sort s = ctx.enumeration_sort("enumT", 3, enum_names, enum_consts, enum_testers);
     // enum_consts[0] is a func_decl of arity 0.
     // we convert it to an expression using the operator()
-    expr a = enum_consts[0]();
-    expr b = enum_consts[1]();
+    expr a = enum_consts[0u]();
+    expr b = enum_consts[1u]();
     expr x = ctx.constant("x", s);
     expr test = (x==a) && (x==b);
     std::cout << "1: " << test << std::endl;

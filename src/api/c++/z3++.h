@@ -2894,7 +2894,7 @@ namespace z3 {
             if (n == 0)
                 return ctx().bool_val(true);
             else if (n == 1)
-                return operator[](0);
+                return operator[](0u);
             else {
                 array<Z3_ast> args(n);
                 for (unsigned i = 0; i < n; i++)
