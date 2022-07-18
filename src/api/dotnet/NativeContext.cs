@@ -101,6 +101,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create an expression representing <c>t[0] - t[1] - ...</c>.
+        /// </summary>
+	public Z3_ast MkSub(params Z3_ast[] t)
+        {
+            Debug.Assert(t != null);
+            Debug.Assert(t.All(a => a != IntPtr.Zero));
+            var ts = t.ToArray();
+	    return Native.Z3_mk_sub(nCtx, (uint)(ts?.Length ?? 0), ts);
+	}
+
+        /// <summary>
         /// Create an expression representing <c>t1 / t2</c>.
         /// </summary>
         public Z3_ast MkDiv(Z3_ast t1, Z3_ast t2)
