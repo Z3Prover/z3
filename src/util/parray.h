@@ -310,17 +310,15 @@ public:
     }
 
     void check_size(cell* c) const {
-        [[maybe_unused]] unsigned r;
         while (c) {
             switch (c->kind()) {
             case SET:
                 break;
             case PUSH_BACK:
-                r = size(c->next());
+                // ? SASSERT(c->idx() == size(c->next()));
                 break;
             case POP_BACK:
-                r = size(c->next());
-                SASSERT(c->idx() == r);
+                SASSERT(c->idx() == size(c->next()));
                 break;
             case ROOT:
                 return;
