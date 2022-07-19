@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Version 4.9.next
+Version 4.next
 ================
 - Planned features
   - sat.euf 
@@ -9,6 +9,37 @@ Version 4.9.next
   - polysat
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
+
+Version 4.10.0
+==============
+- Added API Z3_enable_concurrent_dec_ref to be set by interfaces that
+  use concurrent GC to manage reference counts. This feature is integrated
+  with the OCaml bindings and fixes a regression introduced when OCaml
+  transitioned to concurrent GC. Use of this feature for .Net and Java
+  bindings is not integrated for this release. They use external queues
+  that are unnecessarily complicated.
+- Added pre-declared abstract datatype declarations to the context so
+  that Z3_eval_smtlib2_string works with List examples.
+- Fixed Java linking for MacOS Arm64.
+- Added missing callback handlers in tactics for user-propagator,
+  Thanks to Clemens Eisenhofer
+- Tuning to Grobner arithmetic reasoning for smt.arith.solver=6
+  (currently the default in most cases). The check for consistency
+  modulo multiplication was updated in the following way:
+  - polynomial equalities are extracted from Simplex tableau rows using
+    a cone of influence algorithm. Rows where the basic variables were
+    unbounded were previously included. Following the legacy implementation
+    such rows are not included when building polynomial equations.
+  - equations are pre-solved if they are linear and can be split
+    into two groups one containing a single variable that has a
+    lower (upper) bound, the other with more than two variables
+    with upper (lower) bounds. This avoids losing bounds information
+    during completion.
+  - After (partial) completion, perform constant propagation for equalities
+    of the form x = 0
+  - After (partial) completion, perform factorization for factors of the
+    form x*y*p = 0 where x, are variables, p is linear.
+    
 
 Version 4.9.1
 =============
