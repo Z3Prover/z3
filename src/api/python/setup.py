@@ -134,11 +134,9 @@ def _configure_z3():
     for i in range(len(sys.argv) - 1):
         key = sys.argv[i]
         if key.starts_with("Z3_"):
-            val = sys.argv[i + 1]
-            if val.lower() == "true":
-                cmake_options[key] = "TRUE"
-            elif val.lower() == "false":
-                cmake_options[key] = "FALSE"
+            val = sys.argv[i + 1].upper()
+            if val == "TRUE" or val == "FALSE":
+                cmake_options[key] = val
                 
     cmake_args = [ '-D' + key + '=' + value for key,value in cmake_options.items() ]
     args = [ 'cmake', *cmake_args, SRC_DIR ]
