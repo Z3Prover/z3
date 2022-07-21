@@ -956,6 +956,27 @@ void tuple_example() {
     std::cout << pair2 << "\n";
 }
 
+void datatype_example() {
+    std::cout << "datatype example\n";
+    context ctx;
+    constructors cs(ctx);
+    symbol ilist = ctx.str_symbol("ilist");
+    symbol accs[2] = { ctx.str_symbol("hd"), ctx.str_symbol("tl") };
+    sort sorts[2] = { ctx.int_sort(), ctx.datatype_sort(ilist) };
+    cs.add(ctx.str_symbol("nil"), ctx.str_symbol("is-nil"), 0, nullptr, nullptr);
+    cs.add(ctx.str_symbol("cons"), ctx.str_symbol("is-cons"), 2, accs, sorts);
+    sort ls = ctx.datatype(ilist, cs);
+    std::cout << ls << "\n";
+    func_decl nil(ctx), is_nil(ctx);
+    func_decl_vector nil_acc(ctx);
+    cs.query(0, nil, is_nil, nil_acc);
+    func_decl cons(ctx), is_cons(ctx);
+    func_decl_vector cons_acc(ctx);
+    cs.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+}
+
 void expr_vector_example() {
     std::cout << "expr_vector example\n";
     context c;
@@ -1307,7 +1328,7 @@ void iterate_args() {
 
 int main() {
 
-    try {
+    try {        
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
         prove_example1(); std::cout << "\n";
@@ -1343,6 +1364,7 @@ int main() {
         incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
         tuple_example(); std::cout << "\n";
+        datatype_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
