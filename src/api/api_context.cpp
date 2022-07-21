@@ -35,11 +35,12 @@ namespace api {
 
     object::object(context& c): m_ref_count(0), m_context(c) { this->m_id = m_context.add_object(this); }
 
-    void object::inc_ref() { m_ref_count++; }
+    void object::inc_ref() { ++m_ref_count; }
 
-    void object::dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) m_context.del_object(this); }
+    void object::dec_ref() { SASSERT(m_ref_count > 0); if (--m_ref_count == 0) m_context.del_object(this); }
     
     unsigned context::add_object(api::object* o) {
+        flush_objects();
         unsigned id = m_allocated_objects.size();
         if (!m_free_object_ids.empty()) {
             id = m_free_object_ids.back();
@@ -50,9 +51,52 @@ namespace api {
     }
 
     void context::del_object(api::object* o) {
-        m_free_object_ids.push_back(o->id());
-        m_allocated_objects.remove(o->id());
-        dealloc(o);
+#ifndef SINGLE_THREAD
+        if (m_concurrent_dec_ref) {
+            lock_guard lock(m_mux);
+            m_objects_to_flush.push_back(o);
+        }
+        else
+#endif
+        {
+            m_free_object_ids.push_back(o->id());
+            m_allocated_objects.remove(o->id());
+            dealloc(o);
+        }
+    }
+
+    void context::dec_ref(ast* a) {
+#ifndef SINGLE_THREAD
+        if (m_concurrent_dec_ref) {
+            lock_guard lock(m_mux);
+            m_asts_to_flush.push_back(a);
+        }
+        else
+#endif
+            m().dec_ref(a);
+    }
+
+    void context::flush_objects() {
+#ifndef SINGLE_THREAD
+        if (!m_concurrent_dec_ref)
+            return;        
+        {
+            lock_guard lock(m_mux);
+            if (m_asts_to_flush.empty() && m_objects_to_flush.empty())
+                return;
+            m_asts_to_flush2.swap(m_asts_to_flush);
+            m_objects_to_flush2.swap(m_objects_to_flush);
+        }
+        for (ast* a : m_asts_to_flush2)
+            m().dec_ref(a);
+        for (auto* o : m_objects_to_flush2) {
+            m_free_object_ids.push_back(o->id());
+            m_allocated_objects.remove(o->id());
+            dealloc(o);
+        }
+        m_objects_to_flush2.reset();
+        m_asts_to_flush2.reset();
+#endif
     }
 
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
@@ -106,6 +150,7 @@ namespace api {
 
     context::~context() {
         m_last_obj = nullptr;
+        flush_objects();
         for (auto& kv : m_allocated_objects) {
             api::object* val = kv.m_value;
             DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
@@ -356,6 +401,13 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_enable_concurrent_dec_ref(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_enable_concurrent_dec_ref(c);
+        mk_c(c)->enable_concurrent_dec_ref();
+        Z3_CATCH;
+    }    
+
     void Z3_API Z3_toggle_warning_messages(bool enabled) {
         LOG_Z3_toggle_warning_messages(enabled);
         enable_warning_messages(enabled != 0);
@@ -365,6 +417,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_inc_ref(c, a);
         RESET_ERROR_CODE();
+        mk_c(c)->flush_objects();
         mk_c(c)->m().inc_ref(to_ast(a));
         Z3_CATCH;
     }
@@ -379,7 +432,7 @@ extern "C" {
             return;
         }
         if (a) {
-            mk_c(c)->m().dec_ref(to_ast(a));
+            mk_c(c)->dec_ref(to_ast(a));
         }
         Z3_CATCH;
     }

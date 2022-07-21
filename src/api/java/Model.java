@@ -242,7 +242,7 @@ public class Model extends Z3Object {
      * values. We say this finite set is the "universe" of the sort. 
      * 
      * @see #getNumSorts
-     * @see #getSortUniverse
+     * @see #getSortUniverse(R s)
      * 
      * @throws Z3Exception
      **/

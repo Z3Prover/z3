@@ -46,11 +46,15 @@ public:
 
     void operator()(model_ref & md) override {
         TRACE("ackermannize", tout << (fixed_model? "fixed" : "nonfixed") << "\n";);
-        SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
-        model_ref& old_model = fixed_model ? abstr_model : md;
-        SASSERT(old_model.get());
-        model * new_model = alloc(model, m);
-        convert(old_model.get(), new_model);
+        CTRACE("ackermannize", md, tout << *md << "\n");
+        CTRACE("ackermannize", fixed_model, tout << *abstr_model << "\n");
+
+        model* new_model = alloc(model, m);
+
+        if (abstr_model) 
+            convert(abstr_model.get(), new_model);                   
+        if (md)
+            convert(md.get(), new_model);        
         md = new_model;
     }
 

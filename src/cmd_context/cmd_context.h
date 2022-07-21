@@ -194,21 +194,21 @@ public:
     
 
 protected:
-    ast_context_params                  m_params;
+    ast_context_params           m_params;
     bool                         m_main_ctx;
     symbol                       m_logic;
-    bool                         m_interactive_mode;
-    bool                         m_global_decls;
+    bool                         m_interactive_mode = false;
+    bool                         m_global_decls = false;
     bool                         m_print_success;
-    unsigned                     m_random_seed;
-    bool                         m_produce_unsat_cores;
-    bool                         m_produce_unsat_assumptions;
-    bool                         m_produce_assignments;
-    status                       m_status;
-    bool                         m_numeral_as_real;
-    bool                         m_ignore_check;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
-    bool                         m_exit_on_error;
-    bool                         m_allow_duplicate_declarations { false };
+    unsigned                     m_random_seed = 0;
+    bool                         m_produce_unsat_cores = false;
+    bool                         m_produce_unsat_assumptions = false;
+    bool                         m_produce_assignments = false;
+    status                       m_status = UNKNOWN;
+    bool                         m_numeral_as_real = false;
+    bool                         m_ignore_check = false;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_exit_on_error = false;
+    bool                         m_allow_duplicate_declarations = false;
 
     static std::ostringstream    g_error_stream;
 
@@ -216,9 +216,9 @@ protected:
     sref_vector<generic_model_converter> m_mcs;
     ast_manager *                m_manager;
     bool                         m_own_manager;
-    bool                         m_manager_initialized;
-    pdecl_manager *              m_pmanager;
-    sexpr_manager *              m_sexpr_manager;
+    bool                         m_manager_initialized = false;
+    pdecl_manager *              m_pmanager = nullptr;
+    sexpr_manager *              m_sexpr_manager = nullptr;
     check_logic                  m_check_logic;
     stream_ref                   m_regular;
     stream_ref                   m_diagnostic;
@@ -362,6 +362,7 @@ public:
     bool produce_unsat_cores() const;
     bool well_sorted_check_enabled() const;
     bool validate_model_enabled() const;
+    bool has_assertions() const { return !m_assertions.empty(); }
     void set_produce_models(bool flag);
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
@@ -485,6 +486,7 @@ public:
     ptr_vector<expr> const& assertions() const { return m_assertions; }
     ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
     expr_ref_vector tracked_assertions();
+    void reset_tracked_assertions();
 
     /**
        \brief Hack: consume assertions if there are no scopes.

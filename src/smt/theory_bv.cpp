@@ -52,9 +52,8 @@ namespace smt {
         bits.reset();
         m_bits_expr.reset();
 
-        for (unsigned i = 0; i < bv_size; i++) {
+        for (unsigned i = 0; i < bv_size; i++) 
             m_bits_expr.push_back(mk_bit2bool(owner, i));
-        }
         ctx.internalize(m_bits_expr.data(), bv_size, true);
 
         for (unsigned i = 0; i < bv_size; i++) {
@@ -601,9 +600,8 @@ namespace smt {
         TRACE("bv", tout << mk_bounded_pp(n, m) << "\n";);
         process_args(n);
         mk_enode(n);
-        if (!ctx.relevancy()) {
+        if (!ctx.relevancy()) 
             assert_bv2int_axiom(n);
-        }
     }
 
 
@@ -669,10 +667,12 @@ namespace smt {
         mk_enode(n);
         theory_var v = ctx.get_enode(n)->get_th_var(get_id()); 
         mk_bits(v);
-
-        if (!ctx.relevancy()) {
+        enode* k = ctx.get_enode(n->get_arg(0));
+        if (!is_attached_to_var(k))
+            mk_var(k);
+        
+        if (!ctx.relevancy()) 
             assert_int2bv_axiom(n);
-        }
     }
     
     void theory_bv::assert_int2bv_axiom(app* n) {
@@ -1497,6 +1497,26 @@ namespace smt {
         unsigned sz  = m_bits[v1].size();
         bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
+        if (sz == 0) {
+            // int2bv(bv2int(x)) = x when int2bv(bv2int(x)) has same sort as x
+            enode* n1 = get_enode(r1);
+            for (enode* bv2int : *n1) {
+                if (!m_util.is_bv2int(bv2int->get_expr())) 
+                    continue;
+                enode* bv2int_arg = bv2int->get_arg(0);
+                for (enode* p : enode::parents(n1->get_root())) {
+                    if (m_util.is_int2bv(p->get_expr()) && p->get_root() != bv2int_arg->get_root() && p->get_sort() == bv2int_arg->get_sort()) {                        
+                        enode_pair_vector eqs;
+                        eqs.push_back({n1, p->get_arg(0) });
+                        eqs.push_back({n1, bv2int});
+                        justification * js = ctx.mk_justification(
+                            ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
+                        ctx.assign_eq(p, bv2int_arg, eq_justification(js));
+                        break;
+                    }                    
+                }
+            }
+        }
         do {
             // This outerloop is necessary to avoid missing propagation steps.
             // For example, let's assume that bits1 and bits2 contains the following

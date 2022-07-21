@@ -116,8 +116,8 @@ public:
         m_tactic->user_propagate_register_created(created_eh);
     }
 
-    void user_propagate_register_decide(user_propagator::decide_eh_t& created_eh) override {
-        m_tactic->user_propagate_register_decide(created_eh);
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        m_tactic->user_propagate_register_decide(decide_eh);
     }
 
     void user_propagate_clear() override {

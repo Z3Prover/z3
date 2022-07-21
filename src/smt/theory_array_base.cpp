@@ -101,7 +101,7 @@ namespace smt {
         SASSERT(num_args >= 3);
         sel_args.push_back(n);
         for (unsigned i = 1; i < num_args - 1; ++i) {
-            sel_args.push_back(to_app(n->get_arg(i)));
+            sel_args.push_back(n->get_arg(i));
         }
         expr_ref sel(m);
         sel = mk_select(sel_args.size(), sel_args.data());

@@ -112,7 +112,7 @@ namespace dt {
         void oc_push_stack(enode * n);
         ptr_vector<enode> m_nodes, m_todo;
         ptr_vector<enode> const& get_array_args(enode* n);
-        ptr_vector<enode> const& get_seq_args(enode* n);
+        ptr_vector<enode> const& get_seq_args(enode* n, enode*& sibling);
 
         void pop_core(unsigned n) override;
 

@@ -39,10 +39,26 @@ Notes:
 #include "solver/parallel_tactic.h"
 #include "solver/parallel_params.hpp"
 
+
+class non_parallel_tactic : public tactic {
+public:
+    non_parallel_tactic(solver* s, params_ref const& p) {
+    }
+
+    char const* name() const override { return "parallel_tactic"; }
+
+    void operator()(const goal_ref & g,goal_ref_buffer & result) override {
+        throw default_exception("parallel tactic is disabled in single threaded mode");
+    }
+    tactic * translate(ast_manager & m) override { return nullptr; }
+    void cleanup() override {}
+
+};
+
 #ifdef SINGLE_THREAD
 
 tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
-    throw default_exception("parallel tactic is disabled in single threaded mode");
+    return alloc(non_parallel_tactic, s, p);
 }
 
 #else
@@ -97,9 +113,9 @@ class parallel_tactic : public tactic {
 
         void shutdown() {
             if (!m_shutdown) {
+                std::lock_guard<std::mutex> lock(m_mutex);
                 m_shutdown = true;
                 m_cond.notify_all();
-                std::lock_guard<std::mutex> lock(m_mutex);
                 for (solver_state* st : m_active) {
                     st->m().limit().cancel();
                 }
@@ -131,7 +147,9 @@ class parallel_tactic : public tactic {
                 }
                 {
                     std::unique_lock<std::mutex> lock(m_mutex);
-                    m_cond.wait(lock);
+                    if (!m_shutdown) {
+                        m_cond.wait(lock);
+                    }
                 }
                 dec_wait();
             }

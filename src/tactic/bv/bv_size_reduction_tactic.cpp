@@ -110,7 +110,28 @@ public:
         unsigned sz = g.size();
         numeral  val;
         unsigned bv_sz;
-        expr * f, * lhs, * rhs;        
+        expr * f, * lhs, * rhs;
+
+        auto match_bitmask = [&](expr* lhs, expr* rhs) {
+            unsigned lo, hi;
+            expr* arg;
+            if (!m_util.is_numeral(rhs, val, bv_sz))
+                return false;
+            if (!val.is_zero())
+                return false;
+            if (!m_util.is_extract(lhs, lo, hi, arg))
+                return false;
+            if (lo == 0)
+                return false;
+            if (hi + 1 != m_util.get_bv_size(arg))
+                return false;
+            if (!is_uninterp_const(arg))
+                return false;
+            val = rational::power_of_two(lo - 1) -1 ;
+            update_unsigned_upper(to_app(arg), val);
+            return true;
+        };
+            
         for (unsigned i = 0; i < sz; i++) {
             bool negated = false;
             f = g.form(i);            
@@ -152,21 +173,30 @@ public:
                     else update_signed_lower(to_app(rhs), val);
                 }
             }
-            
-#if 0
+#if 0            
             else if (m_util.is_bv_ule(f, lhs, rhs)) {
                 if (is_uninterp_const(lhs) && m_util.is_numeral(rhs, val, bv_sz)) {
                     TRACE("bv_size_reduction", tout << (negated?"not ":"") << mk_ismt2_pp(f, m) << std::endl; );
                     // v <= k
-                    if (negated) update_unsigned_lower(to_app(lhs), val+numeral(1));
-                    else update_unsigned_upper(to_app(lhs), val);
+                    if (negated)
+                        update_unsigned_lower(to_app(lhs), val+numeral(1));
+                    else
+                        update_unsigned_upper(to_app(lhs), val);
                 }
                 else if (is_uninterp_const(rhs) && m_util.is_numeral(lhs, val, bv_sz)) {
                     TRACE("bv_size_reduction", tout << (negated?"not ":"") << mk_ismt2_pp(f, m) << std::endl; );
                     // k <= v
-                    if (negated) update_unsigned_upper(to_app(rhs), val-numeral(1));
-                    else update_unsigned_lower(to_app(rhs), val);                    
+                    if (negated)
+                        update_unsigned_upper(to_app(rhs), val-numeral(1));
+                    else
+                        update_unsigned_lower(to_app(rhs), val);                    
                 }
+            }
+            else if (m.is_eq(f, lhs, rhs)) {
+                if (match_bitmask(lhs, rhs))
+                    continue;
+                if (match_bitmask(rhs, lhs))
+                    continue;
             }
 #endif
         }
@@ -185,33 +215,48 @@ public:
         mc = nullptr;
         m_mc = nullptr;
         unsigned num_reduced = 0;
+        
         {
             tactic_report report("reduce-bv-size", g);
             collect_bounds(g);
             
             // create substitution
             expr_substitution subst(m);
+            
+            auto insert_def = [&](app* k, expr* new_def, app* new_const) {                    
+                if (!new_def)
+                    return;
+                subst.insert(k, new_def);
+                if (m_produce_models) {
+                    if (!m_mc) 
+                        m_mc = alloc(bv_size_reduction_mc, m, "bv_size_reduction");
+                    m_mc->add(k, new_def);
+                    if (!m_fmc && new_const) 
+                        m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
+                    if (new_const) 
+                        m_fmc->hide(new_const);
+                }
+                num_reduced++;
+            };
+
 
             if (!(m_signed_lowers.empty() || m_signed_uppers.empty())) {
                 TRACE("bv_size_reduction", 
-                        tout << "m_signed_lowers: " << std::endl;
-                        for (obj_map<app, numeral>::iterator it = m_signed_lowers.begin(); it != m_signed_lowers.end(); it++)
-                            tout << mk_ismt2_pp(it->m_key, m) << " >= " << it->m_value.to_string() << std::endl;
-                        tout << "m_signed_uppers: " << std::endl;
-                        for (obj_map<app, numeral>::iterator it = m_signed_uppers.begin(); it != m_signed_uppers.end(); it++)
-                            tout << mk_ismt2_pp(it->m_key, m) << " <= " << it->m_value.to_string() << std::endl;
-                        );                    
+                      tout << "m_signed_lowers: " << std::endl;
+                      for (auto const& [k, v] : m_signed_lowers)
+                          tout << mk_ismt2_pp(k, m) << " >= " << v.to_string() << std::endl;
+                      tout << "m_signed_uppers: " << std::endl;
+                      for (auto const& [k, v] : m_signed_uppers)
+                          tout << mk_ismt2_pp(k, m) << " <= " << v.to_string() << std::endl;
+                      );                    
                 
-                obj_map<app, numeral>::iterator it  = m_signed_lowers.begin();
-                obj_map<app, numeral>::iterator end = m_signed_lowers.end();
-                for (; it != end; ++it) {
-                    app * v = it->m_key;
-                    unsigned bv_sz = m_util.get_bv_size(v);
-                    numeral l = m_util.norm(it->m_value, bv_sz, true);
-                    obj_map<app, numeral>::obj_map_entry * entry = m_signed_uppers.find_core(v);
+                for (auto& [k, val] : m_signed_lowers) {
+                    unsigned bv_sz = m_util.get_bv_size(k);
+                    numeral l = m_util.norm(val, bv_sz, true);
+                    obj_map<app, numeral>::obj_map_entry * entry = m_signed_uppers.find_core(k);
                     if (entry != nullptr) {
                         numeral u = m_util.norm(entry->get_data().m_value, bv_sz, true);
-                        TRACE("bv_size_reduction", tout << l << " <= " << v->get_decl()->get_name() << " <= " << u << "\n";);
+                        TRACE("bv_size_reduction", tout << l << " <= " << k->get_decl()->get_name() << " <= " << u << "\n";);
                         expr * new_def = nullptr;
                         app  * new_const = nullptr;
                         if (l > u) {
@@ -219,19 +264,19 @@ public:
                             return;
                         }
                         else if (l == u) {
-                            new_def = m_util.mk_numeral(l, v->get_sort());
+                            new_def = m_util.mk_numeral(l, k->get_sort());
                         }
                         else {
                             // l < u
                             if (l.is_neg()) {
                                 unsigned l_nb = (-l).get_num_bits();
-                                unsigned v_nb = m_util.get_bv_size(v);
+                                unsigned v_nb = m_util.get_bv_size(k);
 
                                 if (u.is_neg())
                                 {
                                     // l <= v <= u <= 0
                                     unsigned i_nb = l_nb;
-                                    TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= u <= 0 " << " --> " << i_nb << " bits\n";);
+                                    TRACE("bv_size_reduction", tout << " l <= " << k->get_decl()->get_name() << " <= u <= 0 " << " --> " << i_nb << " bits\n";);
                                     if (i_nb < v_nb) {
                                         new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(i_nb));
                                         new_def = m_util.mk_concat(m_util.mk_numeral(numeral(-1), v_nb - i_nb), new_const);
@@ -241,7 +286,7 @@ public:
                                     // l <= v <= 0 <= u
                                     unsigned u_nb = u.get_num_bits();
                                     unsigned i_nb = ((l_nb > u_nb) ? l_nb : u_nb) + 1;
-                                    TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= 0 <= u " << " --> " << i_nb << " bits\n";);
+                                    TRACE("bv_size_reduction", tout << " l <= " << k->get_decl()->get_name() << " <= 0 <= u " << " --> " << i_nb << " bits\n";);
                                     if (i_nb < v_nb) {
                                         new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(i_nb));
                                         new_def = m_util.mk_sign_extend(v_nb - i_nb, new_const);
@@ -251,29 +296,28 @@ public:
                             else {
                                 // 0 <= l <= v <= u
                                 unsigned u_nb = u.get_num_bits();
-                                unsigned v_nb = m_util.get_bv_size(v);
-                                TRACE("bv_size_reduction", tout << l << " <= " << v->get_decl()->get_name() << " <= " << u << " --> " << u_nb << " bits\n";);
+                                unsigned v_nb = m_util.get_bv_size(k);
+                                TRACE("bv_size_reduction", tout << l << " <= " << k->get_decl()->get_name() << " <= " << u << " --> " << u_nb << " bits\n";);
                                 if (u_nb < v_nb) {
                                     new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(u_nb));
                                     new_def = m_util.mk_concat(m_util.mk_numeral(numeral(0), v_nb - u_nb), new_const);
                                 }
                             }
                         }
-                    
-                        if (new_def) {
-                            subst.insert(v, new_def);
-                            if (m_produce_models) {
-                                if (!m_mc) 
-                                    m_mc = alloc(bv_size_reduction_mc, m, "bv_size_reduction");
-                                m_mc->add(v, new_def);
-                                if (!m_fmc && new_const) 
-                                    m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
-                                if (new_const) 
-                                    m_fmc->hide(new_const);
-                            }
-                            num_reduced++;
-                        }
+
+                        insert_def(k, new_def, new_const);
                     }
+                }
+            }
+
+            for (auto const& [k, v] : m_unsigned_uppers) {
+                unsigned shift;
+                unsigned bv_sz = m_util.get_bv_size(k);
+                numeral u = m_util.norm(v, bv_sz, true) + 1;
+                if (u.is_power_of_two(shift) && shift < bv_sz) {                    
+                    app* new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(shift));
+                    expr* new_def = m_util.mk_concat(m_util.mk_numeral(numeral(0), bv_sz - shift), new_const);
+                    insert_def(k, new_def, new_const);
                 }
             }
             

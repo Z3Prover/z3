@@ -35,6 +35,12 @@ class char_rewriter {
 
     br_status mk_char_to_int(expr* e, expr_ref& result);
 
+    br_status mk_char_le(expr* a, expr* b, expr_ref& result);
+
+    br_status mk_char_is_digit(expr* a, expr_ref& result);
+
+    br_status mk_char_to_bv(expr* a, expr_ref& result);
+
 public:
 
     char_rewriter(ast_manager& m);

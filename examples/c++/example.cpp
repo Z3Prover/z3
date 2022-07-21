@@ -929,8 +929,8 @@ void enum_sort_example() {
     sort s = ctx.enumeration_sort("enumT", 3, enum_names, enum_consts, enum_testers);
     // enum_consts[0] is a func_decl of arity 0.
     // we convert it to an expression using the operator()
-    expr a = enum_consts[0]();
-    expr b = enum_consts[1]();
+    expr a = enum_consts[0u]();
+    expr b = enum_consts[1u]();
     expr x = ctx.constant("x", s);
     expr test = (x==a) && (x==b);
     std::cout << "1: " << test << std::endl;
@@ -954,6 +954,55 @@ void tuple_example() {
     func_decl pair2 = ctx.tuple_sort("pair2", 2, names, sorts, projs);
     
     std::cout << pair2 << "\n";
+}
+
+void datatype_example() {
+    std::cout << "datatype example\n";
+    context ctx;
+    constructors cs(ctx);
+    symbol ilist = ctx.str_symbol("ilist");
+    symbol accs[2] = { ctx.str_symbol("hd"), ctx.str_symbol("tl") };
+    sort sorts[2] = { ctx.int_sort(), ctx.datatype_sort(ilist) };
+    cs.add(ctx.str_symbol("nil"), ctx.str_symbol("is-nil"), 0, nullptr, nullptr);
+    cs.add(ctx.str_symbol("cons"), ctx.str_symbol("is-cons"), 2, accs, sorts);
+    sort ls = ctx.datatype(ilist, cs);
+    std::cout << ls << "\n";
+    func_decl nil(ctx), is_nil(ctx);
+    func_decl_vector nil_acc(ctx);
+    cs.query(0, nil, is_nil, nil_acc);
+    func_decl cons(ctx), is_cons(ctx);
+    func_decl_vector cons_acc(ctx);
+    cs.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
+    symbol tree = ctx.str_symbol("tree");
+    symbol tlist = ctx.str_symbol("tree_list");
+    symbol accs1[2] = { ctx.str_symbol("left"), ctx.str_symbol("right") };
+    symbol accs2[2] = { ctx.str_symbol("hd"), ctx.str_symbol("tail") };
+    sort sorts1[2] = { ctx.datatype_sort(tlist), ctx.datatype_sort(tlist) };
+    sort sorts2[2] = { ctx.int_sort(), ctx.datatype_sort(tree) };
+    constructors cs1(ctx), cs2(ctx);
+    cs1.add(ctx.str_symbol("tnil"), ctx.str_symbol("is-tnil"), 0, nullptr, nullptr);
+    cs1.add(ctx.str_symbol("tnode"), ctx.str_symbol("is-tnode"), 2, accs1, sorts1);
+    constructor_list cl1(cs1);
+    cs2.add(ctx.str_symbol("lnil"), ctx.str_symbol("is-lnil"), 0, nullptr, nullptr);
+    cs2.add(ctx.str_symbol("lcons"), ctx.str_symbol("is-lcons"), 2, accs2, sorts2);
+    constructor_list cl2(cs2);
+    symbol names[2] = { tree, tlist };
+    constructor_list* cl[2] = { &cl1, &cl2 };
+    sort_vector dsorts = ctx.datatypes(2, names, cl);
+    std::cout << dsorts << "\n";
+    cs1.query(0, nil, is_nil, nil_acc);
+    cs1.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
+    cs2.query(0, nil, is_nil, nil_acc);
+    cs2.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
 }
 
 void expr_vector_example() {
@@ -1343,6 +1392,7 @@ int main() {
         incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
         tuple_example(); std::cout << "\n";
+        datatype_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";

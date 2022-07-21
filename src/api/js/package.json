@@ -12,13 +12,13 @@
   "homepage": "https://github.com/Z3Prover/z3/tree/master/src/api/js",
   "repository": "github:Z3Prover/z3",
   "engines": {
-    "node": ">=16 <18"
+    "node": ">=16"
   },
   "browser": "build/browser.js",
   "main": "build/node.js",
   "types": "build/node.d.ts",
   "files": [
-    "build/*.{js,d.ts,wasm}"
+    "build/**/*.{js,d.ts,wasm}"
   ],
   "scripts": {
     "build:ts": "run-s -l build:ts:generate build:ts:tsc",

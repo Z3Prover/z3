@@ -447,10 +447,21 @@ namespace dd {
         bool resolve(unsigned v, pdd const& other, pdd& result) { return m.resolve(v, *this, other, result); }
         pdd reduce(unsigned v, pdd const& other) const { return m.reduce(v, *this, other); }
 
+        /**
+         * \brief factor out variables
+         */
+        std::pair<unsigned_vector, pdd> var_factors() const;
+
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
+        pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
         pdd subst_add(unsigned var, rational const& val) { return m.subst_add(*this, var, val); }
+
+        /**
+         * \brief substitute variable v by r.
+         */
+        pdd subst_pdd(unsigned v, pdd const& r) const;
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }

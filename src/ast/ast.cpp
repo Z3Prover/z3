@@ -471,26 +471,31 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         return
             to_var(n1)->get_idx()  == to_var(n2)->get_idx() &&
             to_var(n1)->get_sort() == to_var(n2)->get_sort();
-    case AST_QUANTIFIER:
+    case AST_QUANTIFIER: {
+        quantifier const* q1 = to_quantifier(n1);
+        quantifier const* q2 = to_quantifier(n2);
         return
-            to_quantifier(n1)->get_kind()            == to_quantifier(n2)->get_kind() &&
-            to_quantifier(n1)->get_num_decls()       == to_quantifier(n2)->get_num_decls() &&
-            compare_arrays(to_quantifier(n1)->get_decl_sorts(),
-                           to_quantifier(n2)->get_decl_sorts(),
-                           to_quantifier(n1)->get_num_decls()) &&
-            compare_arrays(to_quantifier(n1)->get_decl_names(),
-                           to_quantifier(n2)->get_decl_names(),
-                           to_quantifier(n1)->get_num_decls()) &&
-            to_quantifier(n1)->get_expr()            == to_quantifier(n2)->get_expr() &&
-            to_quantifier(n1)->get_weight()          == to_quantifier(n2)->get_weight() &&
-            to_quantifier(n1)->get_num_patterns() == to_quantifier(n2)->get_num_patterns() &&
-            compare_arrays(to_quantifier(n1)->get_patterns(),
-                           to_quantifier(n2)->get_patterns(),
-                           to_quantifier(n1)->get_num_patterns()) &&
-            to_quantifier(n1)->get_num_no_patterns() == to_quantifier(n2)->get_num_no_patterns() &&
-            compare_arrays(to_quantifier(n1)->get_no_patterns(),
-                           to_quantifier(n2)->get_no_patterns(),
-                           to_quantifier(n1)->get_num_no_patterns());
+            q1->get_kind()         == q2->get_kind() &&
+            q1->get_num_decls()    == q2->get_num_decls() &&
+            compare_arrays(q1->get_decl_sorts(),
+                           q2->get_decl_sorts(),
+                           q1->get_num_decls()) &&
+            compare_arrays(q1->get_decl_names(),
+                           q2->get_decl_names(),
+                           q1->get_num_decls()) &&
+            q1->get_expr()         == q2->get_expr() &&
+            q1->get_weight()       == q2->get_weight() &&
+            q1->get_num_patterns() == q2->get_num_patterns() &&
+            ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
+             (q1->get_qid() == q2->get_qid())) && 
+            compare_arrays(q1->get_patterns(),
+                           q2->get_patterns(),
+                           q1->get_num_patterns()) &&
+            q1->get_num_no_patterns() == q2->get_num_no_patterns() &&
+            compare_arrays(q1->get_no_patterns(),
+                           q2->get_no_patterns(),
+                           q1->get_num_no_patterns());
+    }
     default:
         UNREACHABLE();
     }

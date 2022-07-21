@@ -35,6 +35,136 @@ extern "C" {
     // ---------------
     // Support for SMTLIB2
 
+    struct Z3_parser_context_ref : public api::object {
+        scoped_ptr<cmd_context> ctx;
+
+        Z3_parser_context_ref(api::context& c): api::object(c) {
+            ast_manager& m = c.m();
+            ctx = alloc(cmd_context, false, &(m));
+            install_dl_cmds(*ctx.get());
+            install_opt_cmds(*ctx.get());
+            install_smt2_extra_cmds(*ctx.get());            
+            ctx->register_plist();
+            ctx->set_ignore_check(true);
+        }
+
+        ~Z3_parser_context_ref() override {}
+    };
+
+    inline Z3_parser_context_ref * to_parser_context(Z3_parser_context pc) { return reinterpret_cast<Z3_parser_context_ref*>(pc); }
+    inline Z3_parser_context of_parser_context(Z3_parser_context_ref* pc) { return reinterpret_cast<Z3_parser_context>(pc); }    
+
+    Z3_parser_context Z3_API Z3_mk_parser_context(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_mk_parser_context(c);
+        RESET_ERROR_CODE();
+        Z3_parser_context_ref * pc = alloc(Z3_parser_context_ref, *mk_c(c));
+        mk_c(c)->save_object(pc);
+        Z3_parser_context r = of_parser_context(pc);
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    void Z3_API Z3_parser_context_inc_ref(Z3_context c, Z3_parser_context pc) {
+        Z3_TRY;
+        LOG_Z3_parser_context_inc_ref(c, pc);
+        RESET_ERROR_CODE();
+        to_parser_context(pc)->inc_ref();
+        Z3_CATCH;   
+    }
+
+    void Z3_API Z3_parser_context_dec_ref(Z3_context c, Z3_parser_context pc) {
+        Z3_TRY;
+        LOG_Z3_parser_context_dec_ref(c, pc);
+        RESET_ERROR_CODE();
+        to_parser_context(pc)->dec_ref();
+        Z3_CATCH;   
+    }
+
+    static void insert_datatype(ast_manager& m, scoped_ptr<cmd_context>& ctx, sort* srt) {
+        datatype_util dt(m);
+        if (!dt.is_datatype(srt)) 
+            return;
+
+        for (func_decl * c : *dt.get_datatype_constructors(srt)) {
+            ctx->insert(c->get_name(), c);
+            func_decl * r = dt.get_constructor_recognizer(c);
+            ctx->insert(r->get_name(), r);
+            for (func_decl * a : *dt.get_constructor_accessors(c)) {
+                ctx->insert(a->get_name(), a);
+            }
+        }            
+    }
+
+    static void insert_sort(ast_manager& m, scoped_ptr<cmd_context>& ctx, symbol const& name, sort* srt) {
+        if (ctx->find_psort_decl(name)) 
+            return;
+        psort* ps = ctx->pm().mk_psort_cnst(srt);
+        ctx->insert(ctx->pm().mk_psort_user_decl(0, name, ps));        
+        insert_datatype(m, ctx, srt);
+    }
+
+    void Z3_API Z3_parser_context_add_sort(Z3_context c, Z3_parser_context pc, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_parser_context_add_sort(c, pc, s);
+        RESET_ERROR_CODE();
+        auto& ctx = to_parser_context(pc)->ctx;
+        sort* srt = to_sort(s);
+        symbol name = srt->get_name();
+        insert_sort(mk_c(c)->m(), ctx, name, srt);
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_parser_context_add_decl(Z3_context c, Z3_parser_context pc, Z3_func_decl f) {
+        Z3_TRY;
+        LOG_Z3_parser_context_add_decl(c, pc, f);
+        RESET_ERROR_CODE();
+        auto& ctx = *to_parser_context(pc)->ctx;
+        func_decl* fn = to_func_decl(f);
+        symbol name = fn->get_name();
+        ctx.insert(name, fn);
+        Z3_CATCH;
+    }
+
+    Z3_ast_vector Z3_parser_context_parse_stream(Z3_context c, scoped_ptr<cmd_context>& ctx, bool owned, std::istream& is) {
+        Z3_TRY;
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);        
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
+        try {
+            if (!parse_smt2_commands(*ctx, is)) {
+                if (owned)
+                    ctx = nullptr;
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
+                return of_ast_vector(v);
+            }
+        }
+        catch (z3_exception& e) {
+            if (owned)
+                ctx = nullptr;
+            errstrm << e.msg();
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
+            return of_ast_vector(v);
+        }
+        for (expr* e : ctx->tracked_assertions()) 
+            v->m_ast_vector.push_back(e);
+        ctx->reset_tracked_assertions();        
+        return of_ast_vector(v);
+        Z3_CATCH_RETURN(nullptr);        
+    }
+
+    Z3_ast_vector Z3_API Z3_parser_context_from_string(Z3_context c, Z3_parser_context pc, Z3_string str) {
+        Z3_TRY;
+        LOG_Z3_parser_context_from_string(c, pc, str);
+        std::string s(str);
+        std::istringstream is(s);
+        auto& ctx = to_parser_context(pc)->ctx;
+        Z3_ast_vector r = Z3_parser_context_parse_stream(c, ctx, false, is);
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_ast_vector parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
                                        unsigned num_sorts,
                                        Z3_symbol const _sort_names[],
@@ -48,70 +178,16 @@ extern "C" {
         install_dl_cmds(*ctx.get());
         install_opt_cmds(*ctx.get());
         install_smt2_extra_cmds(*ctx.get());
-
         ctx->register_plist();
         ctx->set_ignore_check(true);
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
-        
-        vector<symbol> sort_names;
-        ptr_vector<sort> sorts;
-        for (unsigned i = 0; i < num_sorts; ++i) {
-            sorts.push_back(to_sort(_sorts[i]));
-            sort_names.push_back(to_symbol(_sort_names[i]));
-        }
                     
-        mk_c(c)->save_object(v);        
-        for (unsigned i = 0; i < num_decls; ++i) {
-            func_decl* d = to_func_decl(decls[i]);
-            ctx->insert(to_symbol(decl_names[i]), d);
-            sort_names.push_back(d->get_range()->get_name());
-            sorts.push_back(d->get_range());
-            for (sort* s : *d) {
-                sort_names.push_back(s->get_name());
-                sorts.push_back(s);
-            }
-        }
-        datatype_util dt(m);
-        for (unsigned i = 0; i < num_sorts; ++i) {
-            sort* srt = sorts[i];
-            symbol name = sort_names[i];
-            if (ctx->find_psort_decl(name)) {
-                continue;
-            }
-            psort* ps = ctx->pm().mk_psort_cnst(srt);
-            ctx->insert(ctx->pm().mk_psort_user_decl(0, name, ps));
-            if (!dt.is_datatype(srt)) {
-                continue;
-            }
+        for (unsigned i = 0; i < num_decls; ++i) 
+            ctx->insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
 
-            for (func_decl * c : *dt.get_datatype_constructors(srt)) {
-                ctx->insert(c->get_name(), c);
-                func_decl * r = dt.get_constructor_recognizer(c);
-                ctx->insert(r->get_name(), r);
-                for (func_decl * a : *dt.get_constructor_accessors(c)) {
-                    ctx->insert(a->get_name(), a);
-                }
-            }            
-        }
-        std::stringstream errstrm;
-        ctx->set_regular_stream(errstrm);
-        try {
-            if (!parse_smt2_commands(*ctx.get(), is)) {
-                ctx = nullptr;
-                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
-                return of_ast_vector(v);
-            }
-        }
-        catch (z3_exception& e) {
-            errstrm << e.msg();
-            ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
-            return of_ast_vector(v);
-        }
-        for (expr* e : ctx->tracked_assertions()) {
-            v->m_ast_vector.push_back(e);
-        }
-        return of_ast_vector(v);
+        for (unsigned i = 0; i < num_sorts; ++i) 
+            insert_sort(m, ctx, to_symbol(_sort_names[i]), to_sort(_sorts[i]));
+
+        return Z3_parser_context_parse_stream(c, ctx, true, is);
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -155,11 +231,13 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_eval_smtlib2_string(c, str);
         if (!mk_c(c)->cmd()) {
-            mk_c(c)->cmd() = alloc(cmd_context, false, &(mk_c(c)->m()));
-            install_dl_cmds(*mk_c(c)->cmd());
-            install_opt_cmds(*mk_c(c)->cmd());
-            install_smt2_extra_cmds(*mk_c(c)->cmd());
-            mk_c(c)->cmd()->set_solver_factory(mk_smt_strategic_solver_factory());
+            auto* ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+            mk_c(c)->cmd() = ctx;
+            install_dl_cmds(*ctx);
+            install_opt_cmds(*ctx);
+            install_smt2_extra_cmds(*ctx);
+            ctx->register_plist();
+            ctx->set_solver_factory(mk_smt_strategic_solver_factory());
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
         std::string s(str);
@@ -180,4 +258,6 @@ extern "C" {
         RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous.str()));
     }
+
+
 };

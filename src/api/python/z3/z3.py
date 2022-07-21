@@ -5345,6 +5345,10 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+def DatatypeSort(name, ctx = None):
+    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype"""
+    ctx = _get_ctx(ctx)
+    return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
 
 def TupleSort(name, sorts, ctx=None):
     """Create a named tuple sort base on a set of underlying sorts
@@ -9192,6 +9196,25 @@ def _dict2darray(decls, ctx):
         i = i + 1
     return sz, _names, _decls
 
+class ParserContext:
+    def __init__(self, ctx= None):
+        self.ctx = _get_ctx(ctx)
+        self.pctx = Z3_mk_parser_context(self.ctx.ref())
+        Z3_parser_context_inc_ref(self.ctx.ref(), self.pctx)
+
+    def __del__(self):
+        if self.ctx.ref() is not None and self.pctx is not None and Z3_parser_context_dec_ref is not None:
+            Z3_parser_context_dec_ref(self.ctx.ref(), self.pctx)
+            self.pctx = None
+
+    def add_sort(self, sort):
+        Z3_parser_context_add_sort(self.ctx.ref(), self.pctx, sort.as_ast())
+
+    def add_decl(self, decl):
+        Z3_parser_context_add_decl(self.ctx.ref(), self.pctx, decl.as_ast())
+
+    def from_string(self, s):
+        return AstVector(Z3_parser_context_from_string(self.ctx.ref(), self.pctx, s), self.ctx)
 
 def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     """Parse a string in SMT 2.0 format using the given sorts and decls.
@@ -11334,11 +11357,20 @@ def user_prop_pop(ctx, cb, num_scopes):
     prop.cb = cb
     prop.pop(num_scopes)
 
+def to_ContextObj(ptr,):
+    ctx = ContextObj(ptr)
+    super(ctypes.c_void_p, ctx).__init__(ptr)
+    return ctx
 
-def user_prop_fresh(id, ctx):
+
+def user_prop_fresh(ctx, new_ctx):
     _prop_closures.set_threaded()
-    prop = _prop_closures.get(id)
-    new_prop = prop.fresh()
+    prop = _prop_closures.get(ctx)
+    nctx = Context()
+    new_ctx = to_ContextObj(new_ctx)
+    nctx.ctx = new_ctx
+    nctx.eh = Z3_set_error_handler(new_ctx, z3_error_handler)
+    new_prop = prop.fresh(nctx)
     _prop_closures.set(new_prop.id, new_prop)
     return ctypes.c_void_p(new_prop.id)
 
@@ -11401,6 +11433,7 @@ class UserPropagateBase:
         ensure_prop_closures()
         self.solver = s
         self._ctx = None
+        self.fresh_ctx = None
         self.cb = None
         self.id = _prop_closures.insert(self)
         self.fixed = None
@@ -11408,12 +11441,7 @@ class UserPropagateBase:
         self.eq = None
         self.diseq = None
         if ctx:
-            # TBD fresh is broken: ctx is not of the right type when we reach here.
-            self._ctx = Context()
-            #Z3_del_context(self._ctx.ctx)
-            #self._ctx.ctx = ctx
-            #self._ctx.eh = Z3_set_error_handler(ctx, z3_error_handler)
-            #Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
+            self.fresh_ctx = ctx
         if s:
             Z3_solver_propagate_init(self.ctx_ref(),
                                      s.solver,
@@ -11427,8 +11455,8 @@ class UserPropagateBase:
             self._ctx.ctx = None
 
     def ctx(self):
-        if self._ctx:
-            return self._ctx
+        if self.fresh_ctx:
+            return self.fresh_ctx
         else:
             return self.solver.ctx
 
@@ -11438,25 +11466,29 @@ class UserPropagateBase:
     def add_fixed(self, fixed):
         assert not self.fixed
         assert not self._ctx
-        Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
+        if self.solver:
+            Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
     def add_final(self, final):
         assert not self.final
         assert not self._ctx
-        Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
+        if self.solver:
+            Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
         assert not self.eq
         assert not self._ctx
-        Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
+        if self.solver:
+            Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
         assert not self.diseq
         assert not self._ctx
-        Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
+        if self.solver:
+            Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
     def push(self):
@@ -11465,7 +11497,7 @@ class UserPropagateBase:
     def pop(self, num_scopes):
         raise Z3Exception("pop needs to be overwritten")
 
-    def fresh(self):
+    def fresh(self, new_ctx):
         raise Z3Exception("fresh needs to be overwritten")
 
     def add(self, e):

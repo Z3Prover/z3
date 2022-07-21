@@ -270,6 +270,10 @@ namespace euf {
         return mk(th, lits.size(), lits.data(), eqs.size(), eqs.data(), sat::null_literal, x, y, pma);
     }
 
+    th_explain* th_explain::propagate(th_euf_solver& th, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, sat::proof_hint const* pma) {
+        return mk(th, 0, nullptr, eqs.size(), eqs.data(), sat::null_literal, x, y, pma);
+    }
+
     th_explain* th_explain::propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y) {
         return mk(th, 1, &lit, 0, nullptr, sat::null_literal, x, y);
     }

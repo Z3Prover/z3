@@ -71,11 +71,11 @@ void common::add_deps_of_fixed(lpvar j, u_dependency*& dep) {
 // creates a nex expression for the coeff and var, 
 nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_dependency*& dep) {
     SASSERT(!coeff.is_zero());
-    if (c().m_nla_settings.horner_subs_fixed() == 1 && c().var_is_fixed(j)) {
+    if (c().m_nla_settings.horner_subs_fixed == 1 && c().var_is_fixed(j)) {
         add_deps_of_fixed(j, dep);
         return cn.mk_scalar(coeff * c().m_lar_solver.column_lower_bound(j).x);
     }
-    if (c().m_nla_settings.horner_subs_fixed() == 2 && c().var_is_fixed_to_zero(j)) {
+    if (c().m_nla_settings.horner_subs_fixed == 2 && c().var_is_fixed_to_zero(j)) {
         add_deps_of_fixed(j, dep);
         return cn.mk_scalar(rational(0));
     }
@@ -89,10 +89,10 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
     mf *= coeff;
     u_dependency * initial_dep = dep;
     for (lpvar k : m.vars()) {
-        if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(k)) {
+        if (c().m_nla_settings.horner_subs_fixed == 1 && c().var_is_fixed(k)) {
             add_deps_of_fixed(k, dep);
             mf *= c().m_lar_solver.column_lower_bound(k).x;
-        } else if (c().m_nla_settings.horner_subs_fixed() == 2 &&
+        } else if (c().m_nla_settings.horner_subs_fixed == 2 &&
                    c().var_is_fixed_to_zero(k)) {
             dep = initial_dep;
             add_deps_of_fixed(k, dep);

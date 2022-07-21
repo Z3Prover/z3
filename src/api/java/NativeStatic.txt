@@ -1,4 +1,4 @@
-// Automatically generated file
+
 #include<jni.h>
 #include<stdlib.h>
 #include"z3.h"

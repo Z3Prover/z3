@@ -186,7 +186,7 @@ tangents::tangents(core * c) : common(c) {}
 void tangents::tangent_lemma() {
     factorization bf(nullptr);
     const monic* m = nullptr;
-    if (c().m_nla_settings.run_tangents() && c().find_bfc_to_refine(m, bf)) {
+    if (c().m_nla_settings.run_tangents && c().find_bfc_to_refine(m, bf)) {
         lpvar j = m->var();
         tangent_imp tangent(point(val(bf[0]), val(bf[1])), c().val(j), *m, bf, *this);
         tangent();
