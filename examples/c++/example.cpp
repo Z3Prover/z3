@@ -975,6 +975,34 @@ void datatype_example() {
     cs.query(1, cons, is_cons, cons_acc);
     std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
     std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
+    symbol tree = ctx.str_symbol("tree");
+    symbol tlist = ctx.str_symbol("tree_list");
+    symbol accs1[2] = { ctx.str_symbol("left"), ctx.str_symbol("right") };
+    symbol accs2[2] = { ctx.str_symbol("hd"), ctx.str_symbol("tail") };
+    sort sorts1[2] = { ctx.datatype_sort(tlist), ctx.datatype_sort(tlist) };
+    sort sorts2[2] = { ctx.int_sort(), ctx.datatype_sort(tree) };
+    constructors cs1(ctx), cs2(ctx);
+    cs1.add(ctx.str_symbol("tnil"), ctx.str_symbol("is-tnil"), 0, nullptr, nullptr);
+    cs1.add(ctx.str_symbol("tnode"), ctx.str_symbol("is-tnode"), 2, accs1, sorts1);
+    constructor_list cl1(cs1);
+    cs2.add(ctx.str_symbol("lnil"), ctx.str_symbol("is-lnil"), 0, nullptr, nullptr);
+    cs2.add(ctx.str_symbol("lcons"), ctx.str_symbol("is-lcons"), 2, accs2, sorts2);
+    constructor_list cl2(cs2);
+    symbol names[2] = { tree, tlist };
+    constructor_list* cl[2] = { &cl1, &cl2 };
+    sort_vector dsorts = ctx.datatypes(2, names, cl);
+    std::cout << dsorts << "\n";
+    cs1.query(0, nil, is_nil, nil_acc);
+    cs1.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
+    cs2.query(0, nil, is_nil, nil_acc);
+    cs2.query(1, cons, is_cons, cons_acc);
+    std::cout << nil << " " << is_nil << " " << nil_acc << "\n";
+    std::cout << cons << " " << is_cons << " " << cons_acc << "\n";
+
 }
 
 void expr_vector_example() {
@@ -1328,7 +1356,7 @@ void iterate_args() {
 
 int main() {
 
-    try {        
+    try {
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
         prove_example1(); std::cout << "\n";

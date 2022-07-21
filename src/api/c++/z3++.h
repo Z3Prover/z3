@@ -327,6 +327,16 @@ namespace z3 {
         sort datatype(symbol const& name, constructors const& cs);
 
         /**
+           \brief Create a set of mutually recursive datatypes.
+           \c n - number of recursive datatypes
+           \c names - array of names of length n
+           \c cons - array of constructor lists of length n
+        */
+        sort_vector datatypes(unsigned n, symbol const* names,
+                              constructor_list *const* cons);
+                       
+
+        /**
            \brief a reference to a recursively defined datatype.
            Expect that it gets defined as a \ref datatype.
         */
@@ -3354,15 +3364,13 @@ namespace z3 {
         context& ctx;
         Z3_constructor_list clist;
     public:
-        constructor_list(context& ctx, unsigned n, Z3_constructor const* cons): ctx(ctx) {
-            clist = Z3_mk_constructor_list(ctx, n, cons);
-        }
-        ~constructor_list() {
-            Z3_del_constructor_list(ctx, clist);
-        }
+        constructor_list(constructors const& cs);
+        ~constructor_list() { Z3_del_constructor_list(ctx, clist); }
+        operator Z3_constructor_list() const { return clist; }
     };
     
     class constructors {
+        friend class constructor_list;
         context&       ctx;
         std::vector<Z3_constructor> cons;
         std::vector<unsigned> num_fields;
@@ -3386,15 +3394,12 @@ namespace z3 {
         Z3_constructor operator[](unsigned i) const { return cons[i]; }
 
         unsigned size() const { return (unsigned)cons.size(); }
-
-        constructor_list get_constructors() const {
-            return constructor_list(ctx, (unsigned)cons.size(), cons.data());
-        }
         
         void query(unsigned i, func_decl& constructor, func_decl& test, func_decl_vector& accs) {
             Z3_func_decl _constructor;
             Z3_func_decl _test;
             array<Z3_func_decl> accessors(num_fields[i]);
+            accs.resize(0);
             Z3_query_constructor(ctx,
                                  cons[i],
                                  num_fields[i],
@@ -3408,6 +3413,13 @@ namespace z3 {
                 accs.push_back(func_decl(ctx, accessors[j]));
         }
     };
+    
+    constructor_list::constructor_list(constructors const& cs): ctx(cs.ctx) {
+        array<Z3_constructor> cons(cs.size());
+        for (unsigned i = 0; i < cs.size(); ++i)
+            cons[i] = cs[i];
+        clist = Z3_mk_constructor_list(ctx, cs.size(), cons.ptr());
+    }
 
     inline sort context::datatype(symbol const& name, constructors const& cs) {
         array<Z3_constructor> _cs(cs.size());
@@ -3416,6 +3428,22 @@ namespace z3 {
         check_error();
         return sort(*this, s);
     }
+
+    inline sort_vector context::datatypes(
+        unsigned n, symbol const* names,
+        constructor_list *const* cons) {
+        sort_vector result(*this);
+        array<Z3_symbol> _names(n);
+        array<Z3_sort> _sorts(n);
+        array<Z3_constructor_list> _cons(n);
+        for (unsigned i = 0; i < n; ++i)
+            _names[i] = names[i], _cons[i] = *cons[i];
+        Z3_mk_datatypes(*this, n, _names.ptr(), _sorts.ptr(), _cons.ptr());
+        for (unsigned i = 0; i < n; ++i)
+            result.push_back(sort(*this, _sorts[i]));
+        return result;
+    }
+
 
     inline sort context::datatype_sort(symbol const& name) {
         Z3_sort s = Z3_mk_datatype_sort(*this, name);
