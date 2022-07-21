@@ -3071,8 +3071,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_is_digit(e)) {
 	
     }
+    else if (m_util.str.is_foldl(e) || m_util.str.is_foldli(e)) {
+        
+    }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        IF_VERBOSE(0, verbose_stream() << mk_pp(e, m) << "\n");
         UNREACHABLE();
     }
 }
