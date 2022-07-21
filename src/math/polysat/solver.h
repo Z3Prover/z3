@@ -226,9 +226,7 @@ namespace polysat {
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
         void add_clause(unsigned n, signed_constraint* cs, bool is_redundant);
 
-
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
-        static void insert_constraint(signed_constraints& cs, signed_constraint c);
 
         bool inc() { return m_lim.inc(); }
 

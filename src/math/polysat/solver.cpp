@@ -1108,13 +1108,6 @@ namespace polysat {
         add_clause(4, cs, is_redundant);
     }
 
-    void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {
-        SASSERT(c);
-        LOG_V("INSERTING: " << c);
-        cs.push_back(c);
-        SASSERT(invariant(cs)); 
-    }   
-
     void solver::push() {
         LOG("Push user scope");
         push_level();
