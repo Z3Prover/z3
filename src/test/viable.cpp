@@ -80,7 +80,7 @@ namespace polysat {
             bool mem2 = s.v.is_viable(xv, rational(i));
             if (mem1 != mem2)
                 std::cout << "test violation: " << i << " member of all intervals " << mem1 << " viable: " << mem2 << "\n";
-            SASSERT(mem1 == mem2);
+            VERIFY_EQ(mem1, mem2);
         }
     }
 
@@ -188,6 +188,6 @@ namespace polysat {
 
 void tst_viable() {
     polysat::test1();
-    // polysat::test2();
     polysat::test_univariate();
+    polysat::test2();  // takes long
 }

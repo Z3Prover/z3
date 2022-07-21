@@ -454,7 +454,6 @@ namespace dd {
 
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
-        pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
         pdd subst_add(unsigned var, rational const& val) { return m.subst_add(*this, var, val); }
 
