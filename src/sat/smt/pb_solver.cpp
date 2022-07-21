@@ -1823,7 +1823,7 @@ namespace pb {
     }
 
     bool solver::validate_watch(pbc const& p, literal alit) const {
-        if (value(p.lit()) != l_true)
+        if (p.lit() == sat::null_literal || value(p.lit()) != l_true)
             return true;
         for (unsigned i = 0; i < p.size(); ++i) {
             literal l = p[i].second;
