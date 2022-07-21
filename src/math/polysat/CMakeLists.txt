@@ -11,7 +11,6 @@ z3_add_component(polysat
     justification.cpp
     linear_solver.cpp
     log.cpp
-    mul_ovfl_constraint.cpp
     op_constraint.cpp
     restart.cpp
     saturation.cpp
@@ -20,8 +19,9 @@ z3_add_component(polysat
     smul_fl_constraint.cpp
     solver.cpp
     ule_constraint.cpp
-    viable.cpp
+    umul_ovfl_constraint.cpp
     variable_elimination.cpp
+    viable.cpp
   COMPONENT_DEPENDENCIES
     util
     dd

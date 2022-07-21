@@ -18,7 +18,7 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
 #include "math/polysat/ule_constraint.h"
-#include "math/polysat/mul_ovfl_constraint.h"
+#include "math/polysat/umul_ovfl_constraint.h"
 #include "math/polysat/smul_fl_constraint.h"
 #include "math/polysat/op_constraint.h"
 
@@ -236,8 +236,8 @@ namespace polysat {
         return ule(p.manager().mk_val(msb), q);
     }
 
-    signed_constraint constraint_manager::mul_ovfl(pdd const& a, pdd const& b) {
-        return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
+    signed_constraint constraint_manager::umul_ovfl(pdd const& a, pdd const& b) {
+        return { dedup(alloc(umul_ovfl_constraint, *this, a, b)), true };
     }
 
     signed_constraint constraint_manager::smul_ovfl(pdd const& a, pdd const& b) {
@@ -294,12 +294,12 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    mul_ovfl_constraint& constraint::to_mul_ovfl() {
-        return *dynamic_cast<mul_ovfl_constraint*>(this);
+    umul_ovfl_constraint& constraint::to_umul_ovfl() {
+        return *dynamic_cast<umul_ovfl_constraint*>(this);
     }
 
-    mul_ovfl_constraint const& constraint::to_mul_ovfl() const {
-        return *dynamic_cast<mul_ovfl_constraint const*>(this);
+    umul_ovfl_constraint const& constraint::to_umul_ovfl() const {
+        return *dynamic_cast<umul_ovfl_constraint const*>(this);
     }
 
     smul_fl_constraint& constraint::to_smul_fl() {

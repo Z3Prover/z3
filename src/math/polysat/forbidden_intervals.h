@@ -71,8 +71,8 @@ namespace polysat {
             fi_record& fi);
 
         bool get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi);
-        
-        bool get_interval_mul_ovfl(signed_constraint const& c, pvar v, fi_record& fi);
+
+        bool get_interval_umul_ovfl(signed_constraint const& c, pvar v, fi_record& fi);
 
         struct backtrack {
             bool released = false;

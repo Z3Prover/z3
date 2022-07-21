@@ -17,13 +17,13 @@ namespace polysat {
 
     class solver;
 
-    class mul_ovfl_constraint final : public constraint {
+    class umul_ovfl_constraint final : public constraint {
         friend class constraint_manager;
 
         pdd m_p;
         pdd m_q;
 
-        mul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
+        umul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
         void simplify();
         bool is_always_false(bool is_positive, pdd const& p, pdd const& q) const;
         bool is_always_true(bool is_positive, pdd const& p, pdd const& q) const;
@@ -32,7 +32,7 @@ namespace polysat {
         lbool eval(pdd const& p, pdd const& q) const;
         
     public:
-        ~mul_ovfl_constraint() override {}
+        ~umul_ovfl_constraint() override {}
         pdd const& p() const { return m_p; }
         pdd const& q() const { return m_q; }
         std::ostream& display(std::ostream& out, lbool status) const override;

@@ -60,7 +60,7 @@ namespace polysat {
 
         friend class constraint;
         friend class ule_constraint;
-        friend class mul_ovfl_constraint;
+        friend class umul_ovfl_constraint;
         friend class smul_fl_constraint;
         friend class op_constraint;
         friend class signed_constraint;
@@ -344,7 +344,7 @@ namespace polysat {
         signed_constraint sgt(pdd const& p, pdd const& q) { return slt(q, p); }
         signed_constraint sgt(pdd const& p, int n) { return slt(n, p); }
         signed_constraint sgt(int n, pdd const& p) { return slt(p, n); }
-        signed_constraint umul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
+        signed_constraint umul_ovfl(pdd const& p, pdd const& q) { return m_constraints.umul_ovfl(p, q); }
         signed_constraint umul_ovfl(rational const& p, pdd const& q) { return umul_ovfl(q.manager().mk_val(p), q); }
         signed_constraint smul_ovfl(pdd const& p, pdd const& q) { return m_constraints.smul_ovfl(p, q); }
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }

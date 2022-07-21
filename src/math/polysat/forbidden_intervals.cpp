@@ -17,7 +17,7 @@ Author:
 #include "math/polysat/interval.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
-#include "math/polysat/mul_ovfl_constraint.h"
+#include "math/polysat/umul_ovfl_constraint.h"
 
 namespace polysat {
 
@@ -31,14 +31,12 @@ namespace polysat {
     bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, fi_record& fi) {
         if (c->is_ule())
             return get_interval_ule(c, v, fi);
-        if (c->is_mul_ovfl())
-            return get_interval_mul_ovfl(c, v, fi);
+        if (c->is_umul_ovfl())
+            return get_interval_umul_ovfl(c, v, fi);
         return false;
     }
 
-    
-    
-    bool forbidden_intervals::get_interval_mul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
+    bool forbidden_intervals::get_interval_umul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
 
         backtrack _backtrack(fi.side_cond);     
 
@@ -48,8 +46,8 @@ namespace polysat {
         // eval(lhs) = a1*v + eval(e1) = a1*v + b1
         // eval(rhs) = a2*v + eval(e2) = a2*v + b2
         // We keep the e1, e2 around in case we need side conditions such as e1=b1, e2=b2.
-        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_mul_ovfl().p(), fi.side_cond);
-        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_mul_ovfl().q(), fi.side_cond);
+        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_umul_ovfl().p(), fi.side_cond);
+        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_umul_ovfl().q(), fi.side_cond);
 
         auto& m = e1.manager();
         rational bound = m.max_value();
