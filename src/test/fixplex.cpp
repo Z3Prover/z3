@@ -5,6 +5,7 @@
 #include "ast/reg_decl_plugins.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
+#include <iostream>
 
 
 namespace polysat {

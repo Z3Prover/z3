@@ -970,7 +970,7 @@ namespace polysat {
             // quot_rem(2, 5) should have single solution (0, 2),
             // but with the usual axioms we also get (3, 3).
             s.add_eq(b * quot + rem - a);
-            s.add_noovfl(b, quot);
+            s.add_umul_noovfl(b, quot);
             s.add_ult(rem, b);
             // To force a solution that's different from the correct one.
             s.add_diseq(quot - 0);
@@ -1001,7 +1001,7 @@ namespace polysat {
             // quot = udiv(a*123, 123)
             s.add_eq(quot * y + rem - x);
             s.add_diseq(a - quot);
-            s.add_noovfl(quot, y);     
+            s.add_umul_noovfl(quot, y);     
             s.add_ult(rem, x);
             s.check();
             s.expect_sat();
@@ -1017,11 +1017,11 @@ namespace polysat {
             auto first = s.var(s.add_var(bw));
             s.add_eq(q*idx + r, UINT_MAX);
             s.add_ult(r, idx);
-            s.add_noovfl(q, idx);
+            s.add_umul_noovfl(q, idx);
             s.add_ult(first, second);
             s.add_diseq(idx, 0);
             s.add_ule(second - first, q);
-            s.add_noovfl(second  - first, idx);
+            s.add_umul_noovfl(second  - first, idx);
             s.check();       
         }
 
@@ -1368,9 +1368,9 @@ namespace polysat {
                 auto pa = to_pdd(m, s, expr2pdd, a);
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
-                    s.add_ovfl(pa, pb);
+                    s.add_umul_ovfl(pa, pb);
                 else
-                    s.add_noovfl(pa, pb);
+                    s.add_umul_noovfl(pa, pb);
             }
             else {
                 std::cout << "SKIP: " << mk_pp(fm, m) << "\n";            

@@ -1,4 +1,5 @@
 #include "math/interval/mod_interval_def.h"
+#include <iostream>
 
 static void test_interval1() {
     mod_interval<uint64_t> i1(1, 2);
