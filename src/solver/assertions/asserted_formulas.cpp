@@ -154,6 +154,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     force_push();
     proof_ref  in_pr(_in_pr, m), pr(_in_pr, m);
     expr_ref   r(e, m);
+    SASSERT(m.is_bool(e));
 
     if (inconsistent())
         return;

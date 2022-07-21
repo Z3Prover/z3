@@ -536,6 +536,7 @@ namespace qe {
         th_rewriter rewrite(m);
         rewrite(a);
         rewrite(b);
+        TRACE("interpolator", tout << a << " " << b << "\n");        
         solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
