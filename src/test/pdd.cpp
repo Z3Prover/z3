@@ -4,7 +4,7 @@
 namespace dd {
 
 class test {
-public :
+public:
 
     static void hello_world() {
         pdd_manager m(3);
@@ -318,9 +318,9 @@ public :
         std::cout << "expect 1 " << (2*a + 1).is_never_zero() << "\n";
         std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_never_zero() << "\n";
         std::cout << "expect 0 " << (2*a + 2).is_never_zero() << "\n";
-        SASSERT((2*a + 1).is_never_zero());
-        SASSERT((2*a + 2*b + 1).is_never_zero());
-        SASSERT(!(2*a*b + 3*b + 2).is_never_zero());
+        VERIFY((2*a + 1).is_never_zero());
+        VERIFY((2*a + 2*b + 1).is_never_zero());
+        VERIFY(!(2*a*b + 3*b + 2).is_never_zero());
     }
 
     static void degree_of_variables() {
@@ -333,52 +333,52 @@ public :
         pdd b = m.mk_var(vb);
         pdd c = m.mk_var(vc);
 
-        SASSERT(a.var() == va);
-        SASSERT(b.var() == vb);
+        VERIFY(a.var() == va);
+        VERIFY(b.var() == vb);
 
-        SASSERT(a.degree(va) == 1);
-        SASSERT(a.degree(vb) == 0);
-        SASSERT(a.degree(vc) == 0);
-        SASSERT(c.degree(vc) == 1);
-        SASSERT(c.degree(vb) == 0);
-        SASSERT(c.degree(va) == 0);
+        VERIFY(a.degree(va) == 1);
+        VERIFY(a.degree(vb) == 0);
+        VERIFY(a.degree(vc) == 0);
+        VERIFY(c.degree(vc) == 1);
+        VERIFY(c.degree(vb) == 0);
+        VERIFY(c.degree(va) == 0);
 
         {
             pdd p = a * a * a;
-            SASSERT(p.degree(va) == 3);
-            SASSERT(p.degree(vb) == 0);
+            VERIFY(p.degree(va) == 3);
+            VERIFY(p.degree(vb) == 0);
         }
 
         {
             pdd p = b * a;
-            SASSERT(p.degree(va) == 1);
-            SASSERT(p.degree(vb) == 1);
-            SASSERT(p.degree(vc) == 0);
+            VERIFY(p.degree(va) == 1);
+            VERIFY(p.degree(vb) == 1);
+            VERIFY(p.degree(vc) == 0);
         }
 
         {
             pdd p = (a*a*b + b*a*b + b + a*c)*a + b*b*c;
-            SASSERT(p.degree(va) == 3);
-            SASSERT(p.degree(vb) == 2);
-            SASSERT(p.degree(vc) == 1);
+            VERIFY(p.degree(va) == 3);
+            VERIFY(p.degree(vb) == 2);
+            VERIFY(p.degree(vc) == 1);
         }
 
         {
             // check that skipping marked nodes works (1)
             pdd p = b*a + c*a*a*a;
-            SASSERT(p.degree(va) == 3);
+            VERIFY(p.degree(va) == 3);
         }
 
         {
             // check that skipping marked nodes works (2)
             pdd p = (b+c)*(a*a*a);
-            SASSERT(p.degree(va) == 3);
+            VERIFY(p.degree(va) == 3);
         }
 
         {
             // check that skipping marked nodes works (3)
             pdd p = a*a*a*b*b*b*c + a*a*a*b*b*b;
-            SASSERT(p.degree(va) == 3);
+            VERIFY(p.degree(va) == 3);
         }
     }
 
@@ -407,9 +407,9 @@ public :
             for (unsigned i = 0; i < d; ++i) {
                 x_pow_d *= x;
             }
-            SASSERT( p == lc * x_pow_d + rest );
-            SASSERT( d == 0 || rest.degree(v) < d );
-            SASSERT( d != 0 || lc.is_zero() );
+            VERIFY( p == lc * x_pow_d + rest );
+            VERIFY( d == 0 || rest.degree(v) < d );
+            VERIFY( d != 0 || lc.is_zero() );
         };
 
         auto test_multiple = [=](pdd const& p) {
@@ -437,16 +437,16 @@ public :
         pdd const a = m.mk_var(va);
         pdd const b = m.mk_var(vb);
 
-        SASSERT(m.zero().max_pow2_divisor() == UINT_MAX);
-        SASSERT(m.one().max_pow2_divisor() == 0);
+        VERIFY(m.zero().max_pow2_divisor() == UINT_MAX);
+        VERIFY(m.one().max_pow2_divisor() == 0);
         pdd p = (1 << 20)*a*b + 1024*b*b*b;
         std::cout << p << " divided by 2^" << p.max_pow2_divisor() << "\n";
-        SASSERT(p.max_pow2_divisor() == 10);
-        SASSERT(p.div(rational::power_of_two(10)) == 1024*a*b + b*b*b);
-        SASSERT((p + p).max_pow2_divisor() == 11);
-        SASSERT((p * p).max_pow2_divisor() == 20);
-        SASSERT((p + 2*b).max_pow2_divisor() == 1);
-        SASSERT((p + b*b*b).max_pow2_divisor() == 0);
+        VERIFY(p.max_pow2_divisor() == 10);
+        VERIFY(p.div(rational::power_of_two(10)) == 1024*a*b + b*b*b);
+        VERIFY((p + p).max_pow2_divisor() == 11);
+        VERIFY((p * p).max_pow2_divisor() == 20);
+        VERIFY((p + 2*b).max_pow2_divisor() == 1);
+        VERIFY((p + b*b*b).max_pow2_divisor() == 0);
     }
 
     static void try_div() {
@@ -456,9 +456,9 @@ public :
         pdd const b = m.mk_var(1);
 
         pdd const p = 5*a + 15*a*b;
-        SASSERT_EQ(p.div(rational(5)), a + 3*a*b);
+        VERIFY_EQ(p.div(rational(5)), a + 3*a*b);
         pdd res = a;
-        SASSERT(!p.try_div(rational(3), res));
+        VERIFY(!p.try_div(rational(3), res));
     }
 
     static void binary_resolve() {
@@ -476,34 +476,34 @@ public :
 
         pdd p = a*a*b - a*a;
         pdd q = a*b*b - b*b;
-        SASSERT(m.resolve(va, p, q, r));
-        SASSERT(r == a*b*b*b - a*b*b);
-        SASSERT(!m.resolve(va, q, p, r));
-        SASSERT(!m.resolve(vb, p, q, r));
-        SASSERT(m.resolve(vb, q, p, r));
-        SASSERT(r == a*a*a*b - a*a*b);
-        SASSERT(!m.resolve(vc, p, q, r));
+        VERIFY(m.resolve(va, p, q, r));
+        VERIFY(r == a*b*b*b - a*b*b);
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == a*a*a*b - a*a*b);
+        VERIFY(!m.resolve(vc, p, q, r));
 
         p = 2*a*a*b + 13*a*a;
         q = 6*a*b*b*b + 14*b*b*b;
-        SASSERT(m.resolve(va, p, q, r));
-        SASSERT(r == (2*b+13)*2*b*b*b*a);
-        SASSERT(!m.resolve(va, q, p, r));
-        SASSERT(!m.resolve(vb, p, q, r));
-        SASSERT(m.resolve(vb, q, p, r));
-        SASSERT(r == 9*a*a*a*b*b + 5*a*a*b*b);
+        VERIFY(m.resolve(va, p, q, r));
+        VERIFY(r == (2*b+13)*2*b*b*b*a);
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == 9*a*a*a*b*b + 5*a*a*b*b);
 
         p = a*a*b - a*a + 4*a*c + 2;
         q = 3*b*b - b*b*b + 8*b*c;
-        SASSERT(!m.resolve(va, p, q, r));
-        SASSERT(!m.resolve(va, q, p, r));
-        SASSERT(!m.resolve(vb, p, q, r));
-        SASSERT(m.resolve(vb, q, p, r));
-        SASSERT(r == 2*a*a*b*b + 8*a*a*b*c + 4*a*b*b*c + 2*b*b);
-        SASSERT(m.resolve(vc, p, q, r));
-        SASSERT(r == 2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b);
-        SASSERT(m.resolve(vc, q, p, r));
-        SASSERT(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
+        VERIFY(!m.resolve(va, p, q, r));
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == 2*a*a*b*b + 8*a*a*b*c + 4*a*b*b*c + 2*b*b);
+        VERIFY(m.resolve(vc, p, q, r));
+        VERIFY(r == 2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b);
+        VERIFY(m.resolve(vc, q, p, r));
+        VERIFY(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
     }
 
     static void pow() {
@@ -515,11 +515,11 @@ public :
         pdd const a = m.mk_var(va);
         pdd const b = m.mk_var(vb);
 
-        SASSERT(a.pow(0) == m.one());
-        SASSERT(a.pow(1) == a);
-        SASSERT(a.pow(2) == a*a);
-        SASSERT(a.pow(7) == a*a*a*a*a*a*a);
-        SASSERT((3*a*b).pow(3) == 27*a*a*a*b*b*b);
+        VERIFY(a.pow(0) == m.one());
+        VERIFY(a.pow(1) == a);
+        VERIFY(a.pow(2) == a*a);
+        VERIFY(a.pow(7) == a*a*a*a*a*a*a);
+        VERIFY((3*a*b).pow(3) == 27*a*a*a*b*b*b);
     }
 
     static void subst_val() {
@@ -537,18 +537,18 @@ public :
 
         {
             pdd const p = 2*a + b + 1;
-            SASSERT(p.subst_val(va, rational(0)) == b + 1);
+            VERIFY(p.subst_val(va, rational(0)) == b + 1);
         }
         
         {
             pdd const p = a + 2*b;
-            SASSERT(p.subst_val(va, rational(0)) == 2*b);
-            SASSERT(p.subst_val(va, rational(2)) == 2*b + 2);
-            SASSERT(p.subst_val(vb, rational(0)) == a);
-            SASSERT(p.subst_val(vb, rational(1)) == a + 2);
-            SASSERT(p.subst_val(vb, rational(2)) == a);
-            SASSERT(p.subst_val(vb, rational(3)) == a + 2);
-            SASSERT(p.subst_val(va, rational(0)).subst_val(vb, rational(3)) == 2*m.one());
+            VERIFY(p.subst_val(va, rational(0)) == 2*b);
+            VERIFY(p.subst_val(va, rational(2)) == 2*b + 2);
+            VERIFY(p.subst_val(vb, rational(0)) == a);
+            VERIFY(p.subst_val(vb, rational(1)) == a + 2);
+            VERIFY(p.subst_val(vb, rational(2)) == a);
+            VERIFY(p.subst_val(vb, rational(3)) == a + 2);
+            VERIFY(p.subst_val(va, rational(0)).subst_val(vb, rational(3)) == 2*m.one());
         }
 
         {
@@ -556,7 +556,7 @@ public :
             vector<std::pair<unsigned, rational>> sub;
             sub.push_back({vb, rational(2)});
             sub.push_back({vc, rational(3)});
-            SASSERT(p.subst_val0(sub) == a + d + 1);
+            VERIFY(p.subst_val0(sub) == a + d + 1);
         }
 
         {
@@ -564,10 +564,10 @@ public :
             vector<std::pair<unsigned, rational>> sub;
             sub.push_back({vb, rational(2)});
             sub.push_back({vc, rational(3)});
-            SASSERT(p.subst_val0(sub) == (a + 2) * (d + 3));
+            VERIFY(p.subst_val0(sub) == (a + 2) * (d + 3));
             sub.push_back({va, rational(3)});
             sub.push_back({vd, rational(2)});
-            SASSERT(p.subst_val0(sub) == m.one());
+            VERIFY(p.subst_val0(sub) == m.one());
         }
     }
 
@@ -581,17 +581,17 @@ public :
         pdd const b = m.mk_var(vb);
 
         pdd p = a*a*b - a*a;
-        SASSERT(!p.is_univariate());
+        VERIFY(!p.is_univariate());
 
         pdd q = 3*a*a*a + 1*a + 2;
-        SASSERT(q.is_univariate());
+        VERIFY(q.is_univariate());
         vector<rational> coeff;
         q.get_univariate_coefficients(coeff);
-        SASSERT_EQ(coeff.size(), 4);
-        SASSERT_EQ(coeff[0], 2);
-        SASSERT_EQ(coeff[1], 1);
-        SASSERT_EQ(coeff[2], 0);
-        SASSERT_EQ(coeff[3], 3);
+        VERIFY_EQ(coeff.size(), 4);
+        VERIFY_EQ(coeff[0], 2);
+        VERIFY_EQ(coeff[1], 1);
+        VERIFY_EQ(coeff[2], 0);
+        VERIFY_EQ(coeff[3], 3);
     }
 
     static void factors() {
