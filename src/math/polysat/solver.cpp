@@ -150,7 +150,7 @@ namespace polysat {
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
         add_eq(a, b * q + r);
-        add_noovfl(b, q);
+        add_umul_noovfl(b, q);
         add_ule(r, b*q+r);
 
         auto c_eq = eq(b);

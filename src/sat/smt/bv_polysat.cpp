@@ -58,7 +58,7 @@ namespace bv {
         case OP_UGT:              polysat_le<false, false, true>(a); break;
         case OP_SGT:              polysat_le<true,  false, true>(a); break;
 
-        case OP_BUMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.mul_ovfl(p, q); }); break;            
+        case OP_BUMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.umul_ovfl(p, q); }); break;            
         case OP_BSMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_UDFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_udfl(p, q); }); break;
             

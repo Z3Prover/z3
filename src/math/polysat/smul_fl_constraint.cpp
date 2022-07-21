@@ -80,13 +80,13 @@ namespace polysat {
                 s.add_clause(~sc, s.ule(2, q()), false);
                 s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(q(), 0), false);
                 s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p(), 0), false);
-                s.add_clause(~sc, ~s.sgt(p(), 0), s.slt(p()*q(), 0), s.mul_ovfl(p(), q()), false);
-                s.add_clause(~sc, s.sgt(p(), 0),  s.slt(p()*q(), 0), s.mul_ovfl(-p(), -q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), s.slt(p()*q(), 0), s.umul_ovfl(p(), q()), false);
+                s.add_clause(~sc, s.sgt(p(), 0),  s.slt(p()*q(), 0), s.umul_ovfl(-p(), -q()), false);
             }
             else {
-                s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.mul_ovfl(p(), q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.umul_ovfl(p(), q()), false);
                 s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), ~s.slt(p()*q(), 0), false);
-                s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.mul_ovfl(-p(), -q()), false);
+                s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.umul_ovfl(-p(), -q()), false);
                 s.add_clause(~sc, ~s.slt(p(), 0), ~s.slt(q(), 0), ~s.slt((-p())*(-q()), 0), false);
             }
         }
@@ -96,13 +96,13 @@ namespace polysat {
                 s.add_clause(~sc, s.ule(2, q()), false);
                 s.add_clause(~sc, ~s.sgt(p(), 0), ~s.sgt(q(), 0), false);
                 s.add_clause(~sc, s.sgt(q(), 0), s.sgt(p(), 0), false);
-                s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(p()*q(), 0), s.mul_ovfl(p(), -q()), false);
-                s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p()*q(), 0), s.mul_ovfl(-p(), q()), false);
+                s.add_clause(~sc, ~s.sgt(p(), 0), s.sgt(p()*q(), 0), s.umul_ovfl(p(), -q()), false);
+                s.add_clause(~sc, ~s.sgt(q(), 0), s.sgt(p()*q(), 0), s.umul_ovfl(-p(), q()), false);
             }
             else {
-                s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.mul_ovfl(p(), -q()), false);
+                s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.umul_ovfl(p(), -q()), false);
                 s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.slt(p()*q(), 0), false);
-                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.mul_ovfl(-p(), q()), false);
+                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.umul_ovfl(-p(), q()), false);
                 s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.slt(p()*q(), 0), false);                
             }                
         }

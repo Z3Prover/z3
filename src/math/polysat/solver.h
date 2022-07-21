@@ -263,7 +263,19 @@ namespace polysat {
          * retrieve unsat core dependencies
          */
         void unsat_core(dependency_vector& deps);
-        
+
+        /**
+         * Return value / level of v in the current model (only meaningful if check_sat() returned l_true).
+         */
+        rational get_value(pvar v) const { SASSERT(is_assigned(v)); return m_value[v]; }
+
+        unsigned get_level(pvar v) const { SASSERT(is_assigned(v)); return m_justification[v].level(); }
+
+        /**
+         * Evaluate term under the current assignment.
+         */
+        bool try_eval(pdd const& p, rational& out_value) const;
+
         /**
          * Add variable with bit-size. 
          */
@@ -302,23 +314,9 @@ namespace polysat {
         pdd value(rational const& v, unsigned sz);
 
         /**
-         * Return value / level of v in the current model (only meaningful if check_sat() returned l_true).
-         */
-        rational get_value(pvar v) const { SASSERT(is_assigned(v)); return m_value[v]; }
-
-        unsigned get_level(pvar v) const { SASSERT(is_assigned(v)); return m_justification[v].level(); }
-
-
-        /**
-         * Evaluate term under the current assignment.
-         */
-        bool try_eval(pdd const& p, rational& out_value) const;
-
-        /**
          * Apply current substitution to p.
          */
         pdd subst(pdd const& p) const; 
-
 
         /** Create constraints */
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
@@ -346,8 +344,8 @@ namespace polysat {
         signed_constraint sgt(pdd const& p, pdd const& q) { return slt(q, p); }
         signed_constraint sgt(pdd const& p, int n) { return slt(n, p); }
         signed_constraint sgt(int n, pdd const& p) { return slt(p, n); }
-        signed_constraint mul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
-        signed_constraint mul_ovfl(rational const& p, pdd const& q) { return mul_ovfl(q.manager().mk_val(p), q); }
+        signed_constraint umul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
+        signed_constraint umul_ovfl(rational const& p, pdd const& q) { return umul_ovfl(q.manager().mk_val(p), q); }
         signed_constraint smul_ovfl(pdd const& p, pdd const& q) { return m_constraints.smul_ovfl(p, q); }
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
@@ -365,8 +363,8 @@ namespace polysat {
         void add_ult(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(ult(p, q), dep); }
         void add_sle(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(sle(p, q), dep); }
         void add_slt(pdd const& p, pdd const& q, dependency dep = null_dependency)          { assign_eh(slt(p, q), dep); }
-        void add_noovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)       { assign_eh(~mul_ovfl(p, q), dep); }
-        void add_ovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)         { assign_eh(mul_ovfl(p, q), dep); }
+        void add_umul_noovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)  { assign_eh(~umul_ovfl(p, q), dep); }
+        void add_umul_ovfl(pdd const& p, pdd const& q, dependency dep = null_dependency)    { assign_eh(umul_ovfl(p, q), dep); }
 
         void add_ule(pdd const& p, rational const& q, dependency dep = null_dependency)     { add_ule(p, p.manager().mk_val(q), dep); }
         void add_ule(rational const& p, pdd const& q, dependency dep = null_dependency)     { add_ule(q.manager().mk_val(p), q, dep); }
@@ -376,10 +374,10 @@ namespace polysat {
         void add_ult(rational const& p, pdd const& q, dependency dep = null_dependency)     { add_ult(q.manager().mk_val(p), q, dep); }
         void add_ult(pdd const& p, unsigned q, dependency dep = null_dependency)            { add_ult(p, rational(q), dep); }
         void add_ult(unsigned p, pdd const& q, dependency dep = null_dependency)            { add_ult(rational(p), q, dep); }
-        void add_noovfl(pdd const& p, rational const& q, dependency dep = null_dependency)  { add_noovfl(p, p.manager().mk_val(q), dep); }
-        void add_noovfl(rational const& p, pdd const& q, dependency dep = null_dependency)  { add_noovfl(q, p, dep); }
-        void add_noovfl(pdd const& p, unsigned q, dependency dep = null_dependency)         { add_noovfl(p, rational(q), dep); }
-        void add_noovfl(unsigned p, pdd const& q, dependency dep = null_dependency)         { add_noovfl(q, p, dep); }
+        void add_umul_noovfl(pdd const& p, rational const& q, dependency dep = null_dependency)  { add_umul_noovfl(p, p.manager().mk_val(q), dep); }
+        void add_umul_noovfl(rational const& p, pdd const& q, dependency dep = null_dependency)  { add_umul_noovfl(q, p, dep); }
+        void add_umul_noovfl(pdd const& p, unsigned q, dependency dep = null_dependency)         { add_umul_noovfl(p, rational(q), dep); }
+        void add_umul_noovfl(unsigned p, pdd const& q, dependency dep = null_dependency)         { add_umul_noovfl(q, p, dep); }
 
         /**
          * Activate the constraint corresponding to the given boolean variable.

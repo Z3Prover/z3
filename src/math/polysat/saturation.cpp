@@ -183,7 +183,7 @@ namespace polysat {
     }
 
     void inf_saturate::push_omega(pdd const& x, pdd const& y) {     
-        m_new_constraints.insert(~s.mul_ovfl(x, y));
+        m_new_constraints.insert(~s.umul_ovfl(x, y));
         /*
         // determine worst case upper bounds for x, y
         // then extract premises for a non-worst-case bound.
