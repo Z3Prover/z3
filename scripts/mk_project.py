@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 10, 0, 0)
+    set_version(4, 10, 1, 0)
     
 # Z3 Project definition
 def init_project_def():

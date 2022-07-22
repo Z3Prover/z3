@@ -10,6 +10,10 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.10.1
+==============
+- fix implementation of mk_fresh in user propagator for Python API
+
 Version 4.10.0
 ==============
 - Added API Z3_enable_concurrent_dec_ref to be set by interfaces that
