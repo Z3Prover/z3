@@ -39,6 +39,7 @@ Version 4.10.0
     of the form x = 0
   - After (partial) completion, perform factorization for factors of the
     form x*y*p = 0 where x, are variables, p is linear.
+- Added support for declaring algebraic datatypes from the C++ interface.
     
 
 Version 4.9.1
