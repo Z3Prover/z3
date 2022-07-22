@@ -204,12 +204,13 @@ class Context:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
         self.ctx = Z3_mk_context_rc(conf)
+        self.owner = True
         self.eh = Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
         Z3_del_config(conf)
 
     def __del__(self):
-        if Z3_del_context is not None:
+        if Z3_del_context is not None and self.owner:
             Z3_del_context(self.ctx)
         self.ctx = None
         self.eh = None
@@ -11367,12 +11368,14 @@ def user_prop_fresh(ctx, new_ctx):
     _prop_closures.set_threaded()
     prop = _prop_closures.get(ctx)
     nctx = Context()
+    Z3_del_context(nctx.ctx)
     new_ctx = to_ContextObj(new_ctx)
     nctx.ctx = new_ctx
     nctx.eh = Z3_set_error_handler(new_ctx, z3_error_handler)
+    nctx.owner = False
     new_prop = prop.fresh(nctx)
     _prop_closures.set(new_prop.id, new_prop)
-    return ctypes.c_void_p(new_prop.id)
+    return new_prop.id
 
 def to_Ast(ptr,):
     ast = Ast(ptr)
