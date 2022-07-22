@@ -1050,6 +1050,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return check(Z3.model_to_string(contextPtr, this.ptr));
       }
 
+      toString() {
+        return this.sexpr();
+      }
+
       eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
       eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
       eval(expr: Expr<Name>, modelCompletion: boolean = false) {
