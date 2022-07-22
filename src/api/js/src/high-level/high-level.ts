@@ -498,6 +498,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return result;
     }
 
+    ///////////////////////////////
+    // expression simplification //
+    ///////////////////////////////
+
+    async function simplify(e : Expr<Name>) {
+       return _toExpr(check(Z3.simplify(contextPtr, e)));
+    }
+
     /////////////
     // Objects //
     /////////////
