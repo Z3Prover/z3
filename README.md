@@ -10,7 +10,7 @@ Pre-built binaries for stable and nightly releases are available from [here](htt
 Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
 [bindings for several programming languages][4]. 
 
-See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
+See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
 
 ## Build status
 
