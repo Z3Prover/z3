@@ -133,7 +133,7 @@ def _configure_z3():
     # Allow command-line arguments to add and override Z3_ options
     for i in range(len(sys.argv) - 1):
         key = sys.argv[i]
-        if key.starts_with("Z3_"):
+        if key.startswith("Z3_"):
             val = sys.argv[i + 1].upper()
             if val == "TRUE" or val == "FALSE":
                 cmake_options[key] = val
