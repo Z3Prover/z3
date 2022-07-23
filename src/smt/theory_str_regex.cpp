@@ -724,8 +724,7 @@ namespace smt {
             unsigned cx = estimate_regex_complexity(sub1);
             return _qadd(lo, cx);
         } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
+            if (!u.re.is_range(re, lo, hi)) throw default_exception("regular expressions must be built from string literals");
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
@@ -767,8 +766,7 @@ namespace smt {
             unsigned cx = estimate_regex_complexity_under_complement(sub1);
             return _qmul(2, cx);
         } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
+            if (!u.re.is_range(re, lo, hi)) throw default_exception("regular expressions must be built from string literals");
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
@@ -874,8 +872,7 @@ namespace smt {
             // this is bad -- term generation requires this not to appear
             lens.reset();
         } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
+            if (!u.re.is_range(re, lo, hi)) throw default_exception("regular expressions must be built from string literals");
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
@@ -1006,8 +1003,7 @@ namespace smt {
             SASSERT(retval);
             return retval;
         } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
+            if (!u.re.is_range(re, lo, hi)) throw default_exception("regular expressions must be built from string literals");
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
