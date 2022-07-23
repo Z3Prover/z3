@@ -15,6 +15,7 @@ Author:
 Notes:
 
 --*/
+#pragma once
 
 class cmd_context;
 

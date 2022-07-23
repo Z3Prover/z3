@@ -16,6 +16,8 @@ Author:
 Notes:
     
 --*/
+#pragma once
+
 #include "util/symbol.h"
 
 void R();

@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "util/vector.h"
 #include "math/lp/binary_heap_priority_queue.h"
 namespace lp {

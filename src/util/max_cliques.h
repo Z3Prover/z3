@@ -17,6 +17,7 @@ Notes:
 
 
 --*/
+#pragma once
 
 #include "util/vector.h"
 #include "util/uint_set.h"

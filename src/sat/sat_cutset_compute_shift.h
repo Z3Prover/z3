@@ -18,6 +18,7 @@
     The truth table covers up to 6 inputs, which fits in 64 bits.
 
   --*/
+#pragma once
 
 static uint64_t compute_shift(uint64_t x, unsigned code) {
     switch (code) {

@@ -3,7 +3,7 @@
 Copyright (c) 2015 Microsoft Corporation
 
 --*/
-
+#pragma once
 
 #ifndef Z3_API
 # ifdef __GNUC__
