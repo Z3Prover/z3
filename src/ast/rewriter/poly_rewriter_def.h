@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#pragma once
 
 #include "util/container_util.h"
 #include "ast/rewriter/poly_rewriter.h"

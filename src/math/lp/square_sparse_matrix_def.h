@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+#pragma once
 
 #include "util/vector.h"
 #include "math/lp/square_sparse_matrix.h"

@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "math/lp/lp_dual_simplex.h"
 namespace lp{
 

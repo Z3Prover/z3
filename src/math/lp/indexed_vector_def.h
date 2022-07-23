@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "util/vector.h"
 #include "math/lp/indexed_vector.h"
 #include "math/lp/lp_settings.h"

@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "util/vector.h"
 #include "math/lp/row_eta_matrix.h"
 namespace lp {

@@ -19,6 +19,7 @@ Notes:
     It performs unit propagation and switches to creating
     sorting circuits if it keeps having to propagate (create new clauses).
 --*/
+#pragma once
 
 #include "smt/smt_theory.h"
 #include "ast/pb_decl_plugin.h"
