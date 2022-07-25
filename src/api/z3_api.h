@@ -4822,6 +4822,8 @@ extern "C" {
        \brief Return the number of argument of an application. If \c t
        is an constant, then the number of arguments is 0.
 
+       \sa Z3_get_app_arg
+
        def_API('Z3_get_app_num_args', UINT, (_in(CONTEXT), _in(APP)))
     */
     unsigned Z3_API Z3_get_app_num_args(Z3_context c, Z3_app a);
@@ -4830,6 +4832,8 @@ extern "C" {
        \brief Return the i-th argument of the given application.
 
        \pre i < Z3_get_app_num_args(c, a)
+
+       \sa Z3_get_app_num_args
 
        def_API('Z3_get_app_arg', AST, (_in(CONTEXT), _in(APP), _in(UINT)))
     */
@@ -5425,6 +5429,7 @@ extern "C" {
        \pre i < Z3_model_get_num_consts(c, m)
 
        \sa Z3_model_eval
+       \sa Z3_model_get_num_consts
 
        def_API('Z3_model_get_const_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
@@ -5435,6 +5440,8 @@ extern "C" {
 
        A function interpretation is represented as a finite map and an 'else' value.
        Each entry in the finite map represents the value of a function given a set of arguments.
+
+       \sa Z3_model_get_func_decl
 
        def_API('Z3_model_get_num_funcs', UINT, (_in(CONTEXT), _in(MODEL)))
     */
@@ -5561,6 +5568,8 @@ extern "C" {
        Each entry in the finite map represents the value of a function given a set of arguments.
        This procedure return the number of element in the finite map of \c f.
 
+       \sa Z3_func_interp_get_entry
+
        def_API('Z3_func_interp_get_num_entries', UINT, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
     unsigned Z3_API Z3_func_interp_get_num_entries(Z3_context c, Z3_func_interp f);
@@ -5649,6 +5658,7 @@ extern "C" {
     /**
        \brief Return the number of arguments in a \c Z3_func_entry object.
 
+       \sa Z3_func_entry_get_arg
        \sa Z3_func_interp_get_entry
 
        def_API('Z3_func_entry_get_num_args', UINT, (_in(CONTEXT), _in(FUNC_ENTRY)))
@@ -5660,6 +5670,7 @@ extern "C" {
 
        \pre i < Z3_func_entry_get_num_args(c, e)
 
+       \sa Z3_func_entry_get_num_args
        \sa Z3_func_interp_get_entry
 
        def_API('Z3_func_entry_get_arg', AST, (_in(CONTEXT), _in(FUNC_ENTRY), _in(UINT)))
@@ -5672,6 +5683,9 @@ extern "C" {
     /**
        \brief Log interaction to a file.
 
+       \sa Z3_append_log
+       \sa Z3_close_log
+
        extra_API('Z3_open_log', INT, (_in(STRING),))
     */
     bool Z3_API Z3_open_log(Z3_string filename);
@@ -5679,9 +5693,12 @@ extern "C" {
     /**
        \brief Append user-defined string to interaction log.
 
-       The interaction log is opened using Z3_open_log.
+       The interaction log is opened using #Z3_open_log.
        It contains the formulas that are checked using Z3.
        You can use this command to append comments, for instance.
+
+       \sa Z3_open_log
+       \sa Z3_close_log
 
        extra_API('Z3_append_log', VOID, (_in(STRING),))
     */
@@ -5689,6 +5706,9 @@ extern "C" {
 
     /**
        \brief Close interaction log.
+
+       \sa Z3_open_log
+       \sa Z3_append_log
 
        extra_API('Z3_close_log', VOID, ())
     */
@@ -6388,6 +6408,8 @@ extern "C" {
     /**
        \brief Return the number of builtin tactics available in Z3.
 
+       \sa Z3_get_tactic_name
+
        def_API('Z3_get_num_tactics', UINT, (_in(CONTEXT),))
     */
     unsigned Z3_API Z3_get_num_tactics(Z3_context c);
@@ -6397,12 +6419,16 @@ extern "C" {
 
        \pre i < Z3_get_num_tactics(c)
 
+       \sa Z3_get_num_tactics
+
        def_API('Z3_get_tactic_name', STRING, (_in(CONTEXT), _in(UINT)))
     */
     Z3_string Z3_API Z3_get_tactic_name(Z3_context c, unsigned i);
 
     /**
        \brief Return the number of builtin probes available in Z3.
+
+       \sa Z3_get_probe_name
 
        def_API('Z3_get_num_probes', UINT, (_in(CONTEXT),))
     */
@@ -6412,6 +6438,8 @@ extern "C" {
        \brief Return the name of the \c i probe.
 
        \pre i < Z3_get_num_probes(c)
+
+       \sa Z3_get_num_probes
 
        def_API('Z3_get_probe_name', STRING, (_in(CONTEXT), _in(UINT)))
     */
@@ -6456,12 +6484,16 @@ extern "C" {
     /**
        \brief Apply tactic \c t to the goal \c g.
 
+       \sa Z3_tactic_apply_ex
+
        def_API('Z3_tactic_apply', APPLY_RESULT, (_in(CONTEXT), _in(TACTIC), _in(GOAL)))
     */
     Z3_apply_result Z3_API Z3_tactic_apply(Z3_context c, Z3_tactic t, Z3_goal g);
 
     /**
        \brief Apply tactic \c t to the goal \c g using the parameter set \c p.
+
+       \sa Z3_tactic_apply
 
        def_API('Z3_tactic_apply_ex', APPLY_RESULT, (_in(CONTEXT), _in(TACTIC), _in(GOAL), _in(PARAMS)))
     */
@@ -6491,6 +6523,8 @@ extern "C" {
     /**
        \brief Return the number of subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
 
+       \sa Z3_apply_result_get_subgoal
+
        def_API('Z3_apply_result_get_num_subgoals', UINT, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
     unsigned Z3_API Z3_apply_result_get_num_subgoals(Z3_context c, Z3_apply_result r);
@@ -6499,6 +6533,8 @@ extern "C" {
        \brief Return one of the subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
 
        \pre i < Z3_apply_result_get_num_subgoals(c, r)
+
+       \sa Z3_apply_result_get_num_subgoals
 
        def_API('Z3_apply_result_get_subgoal', GOAL, (_in(CONTEXT), _in(APPLY_RESULT), _in(UINT)))
     */
@@ -6542,6 +6578,10 @@ extern "C" {
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
+       \sa Z3_mk_simple_solver
+       \sa Z3_mk_solver_for_logic
+       \sa Z3_mk_solver_from_tactic
+
        def_API('Z3_mk_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_solver(Z3_context c);
@@ -6569,6 +6609,10 @@ extern "C" {
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
+       \sa Z3_mk_solver
+       \sa Z3_mk_solver_for_logic
+       \sa Z3_mk_solver_from_tactic
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(Z3_context c);
@@ -6579,6 +6623,10 @@ extern "C" {
 
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
+
+       \sa Z3_mk_solver
+       \sa Z3_mk_simple_solver
+       \sa Z3_mk_solver_from_tactic
 
        def_API('Z3_mk_solver_for_logic', SOLVER, (_in(CONTEXT), _in(SYMBOL)))
     */
@@ -6591,6 +6639,10 @@ extern "C" {
 
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
+
+       \sa Z3_mk_solver
+       \sa Z3_mk_simple_solver
+       \sa Z3_mk_solver_for_logic
 
        def_API('Z3_mk_solver_from_tactic', SOLVER, (_in(CONTEXT), _in(TACTIC)))
     */
