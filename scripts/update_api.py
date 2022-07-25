@@ -1854,6 +1854,7 @@ _lib.Z3_solver_propagate_final.restype = None
 _lib.Z3_solver_propagate_fixed.restype = None
 _lib.Z3_solver_propagate_eq.restype = None
 _lib.Z3_solver_propagate_diseq.restype = None
+_lib.Z3_solver_propagate_decide.restype = None
 
 on_model_eh_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 _lib.Z3_optimize_register_model_eh.restype = None

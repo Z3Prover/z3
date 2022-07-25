@@ -11419,6 +11419,18 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.diseq(x, y)
     prop.cb = None
 
+# TODO The decision callback is not fully implemented.
+# It needs to handle the ast*, unsigned* idx, and Z3_lbool* 
+def user_prop_decide(ctx, cb, t_ref, idx_ref, phase_ref):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
+    t, idx, phase = prop.decide(t, idx, phase)
+    t_ref = t
+    idx_ref = idx
+    phase_ref = phase
+    prop.cb = None
+    
 
 _user_prop_push = Z3_push_eh(user_prop_push)
 _user_prop_pop = Z3_pop_eh(user_prop_pop)
@@ -11428,6 +11440,7 @@ _user_prop_created = Z3_created_eh(user_prop_created)
 _user_prop_final = Z3_final_eh(user_prop_final)
 _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
+_user_prop_decide = Z3_decide_eh(user_prop_decide)
 
 def PropagateFunction(name, *sig):
     """Create a function that gets tracked by user propagator.
@@ -11531,6 +11544,13 @@ class UserPropagateBase:
             Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
+    def add_decide(self, decide):
+        assert not self.decide
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
+        self.decide = decide        
+
     def push(self):
         raise Z3Exception("push needs to be overwritten")
 
@@ -11547,7 +11567,14 @@ class UserPropagateBase:
         else:
             Z3_solver_propagate_register_cb(self.ctx_ref(), ctypes.c_void_p(self.cb), e.ast)
         
-
+    #
+    # Tell the solver to perform the next split on a given term
+    # If the term is a bit-vector the index idx specifies the index of the Boolean variable being
+    # split on. A phase of true = 1/false = -1/undef = 0 = let solver decide is the last argument.
+    #
+    def next_split(self, t, idx, phase):
+        Z3_solver_next_split(self.ctx_ref(), ctypes.c_void_p(self.cb), t.ast, idx, phase)
+        
     #
     # Propagation can only be invoked as during a fixed or final callback.
     #
