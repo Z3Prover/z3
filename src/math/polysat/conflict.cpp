@@ -499,9 +499,6 @@ namespace polysat {
         
         s.inc_activity(v);    
         m_vars.remove(v);
-
-        if (is_bailout())
-            goto bailout;
         
         if (j.is_propagation()) {
             for (auto const& c : s.m_viable.get_constraints(v)) 
@@ -511,6 +508,9 @@ namespace polysat {
                 propagate(s.eq(i.hi(), i.hi_val()));                   
             }                
         }
+
+        if (is_bailout())
+            goto bailout;
 
         LOG("try-explain v" << v);
         if (try_explain(v))
