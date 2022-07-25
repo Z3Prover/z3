@@ -143,7 +143,7 @@ namespace user_solver {
         if (!m_diseq_eh)
             return;
         force_push();
-        m_diseq_eh(m_user_context, this, var2expr(eq.v1()), var2expr(eq.v2()));
+        m_diseq_eh(m_user_context, this, var2expr(de.v1()), var2expr(de.v2()));
     }
 
 
