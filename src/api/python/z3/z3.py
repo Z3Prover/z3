@@ -11364,12 +11364,12 @@ def to_ContextObj(ptr,):
     return ctx
 
 
-def user_prop_fresh(ctx, new_ctx):
+def user_prop_fresh(ctx, _new_ctx):
     _prop_closures.set_threaded()
     prop = _prop_closures.get(ctx)
     nctx = Context()
     Z3_del_context(nctx.ctx)
-    new_ctx = to_ContextObj(new_ctx)
+    new_ctx = to_ContextObj(_new_ctx)
     nctx.ctx = new_ctx
     nctx.eh = Z3_set_error_handler(new_ctx, z3_error_handler)
     nctx.owner = False
@@ -11390,6 +11390,13 @@ def user_prop_fixed(ctx, cb, id, value):
     prop.fixed(id, value)
     prop.cb = None
 
+def user_prop_created(ctx, cb, id):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    id = _to_expr_ref(to_Ast(id), prop.ctx())
+    prop.created(id)
+    prop.cb = None
+    
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
@@ -11417,10 +11424,32 @@ _user_prop_push = Z3_push_eh(user_prop_push)
 _user_prop_pop = Z3_pop_eh(user_prop_pop)
 _user_prop_fresh = Z3_fresh_eh(user_prop_fresh)
 _user_prop_fixed = Z3_fixed_eh(user_prop_fixed)
+_user_prop_created = Z3_created_eh(user_prop_created)
 _user_prop_final = Z3_final_eh(user_prop_final)
 _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 
+def PropagateFunction(name, *sig):
+    """Create a function that gets tracked by user propagator.
+       Every term headed by this function symbol is tracked.
+       If a term is fixed and the fixed callback is registered a
+       callback is invoked that the term headed by this function is fixed.
+    """
+    sig = _get_args(sig)
+    if z3_debug():
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng = sig[arity]
+    if z3_debug():
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom = (Sort * arity)()
+    for i in range(arity):
+        if z3_debug():
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_solver_propagate_declare(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
+      
 
 class UserPropagateBase:
 
@@ -11443,6 +11472,7 @@ class UserPropagateBase:
         self.final = None
         self.eq = None
         self.diseq = None
+        self.created = None
         if ctx:
             self.fresh_ctx = ctx
         if s:
@@ -11473,6 +11503,13 @@ class UserPropagateBase:
             Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
+    def add_created(self, created):
+        assert not self.created
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
+        self.created = created
+        
     def add_final(self, final):
         assert not self.final
         assert not self._ctx
@@ -11504,9 +11541,12 @@ class UserPropagateBase:
         raise Z3Exception("fresh needs to be overwritten")
 
     def add(self, e):
-        assert self.solver
         assert not self._ctx
-        Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        if self.solver:
+            Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        else:
+            Z3_solver_propagate_register_cb(self.ctx_ref(), ctypes.c_void_p(self.cb), e.ast)
+        
 
     #
     # Propagation can only be invoked as during a fixed or final callback.
@@ -11519,5 +11559,5 @@ class UserPropagateBase:
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
-    def conflict(self, deps):
-        self.propagate(BoolVal(False, self.ctx()), deps, eqs=[])
+    def conflict(self, deps = [], eqs = []):
+        self.propagate(BoolVal(False, self.ctx()), deps, eqs)

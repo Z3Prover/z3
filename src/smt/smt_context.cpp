@@ -821,6 +821,8 @@ namespace smt {
                 SASSERT(t2 != null_theory_id);
                 theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t2) : r1->get_th_var(t2);
 
+                TRACE("merge_theory_vars", tout << get_theory(t2)->get_name() << ": " << v2 << " == " << v1 << "\n");
+
                 if (v1 != null_theory_var) {
                     // only send the equality to the theory, if the equality was not propagated by it.
                     if (t2 != from_th)
@@ -839,6 +841,7 @@ namespace smt {
                 SASSERT(v1 != null_theory_var);
                 SASSERT(t1 != null_theory_id);
                 theory_var v2 = r2->get_th_var(t1);
+                TRACE("merge_theory_vars", tout << get_theory(t1)->get_name() << ": " << v2 << " == " << v1 << "\n");
                 if (v2 == null_theory_var) {
                     r2->add_th_var(v1, t1, m_region);
                     push_new_th_diseqs(r2, v1, get_theory(t1));
