@@ -735,14 +735,26 @@ public:
         reset_denominator(a);
     }
 
-    void set(mpz & a, unsigned sz, digit_t const * digits) { 
-        mpz_manager<SYNCH>::set_digits(a, sz, digits); 
+    void set_digits_unsigned(mpq & a, unsigned n, unsigned const * num, unsigned d, unsigned const * den) { 
+        mpz_manager<SYNCH>::set_digits_unsigned(a.m_num, n, num); 
+        mpz_manager<SYNCH>::set_digits_unsigned(a.m_den, d, den); 
     }
 
-    void set(mpq & a, unsigned sz, digit_t const * digits) { 
-        mpz_manager<SYNCH>::set_digits(a.m_num, sz, digits); 
-        reset_denominator(a); 
+    void set_digits_unsigned(mpq & a, unsigned sz, unsigned const * digits) { 
+      unsigned den[] = {1};
+      set_digits_unsigned(a, sz, digits, 1, den);
     }
+
+    // void set(mpq & a, unsigned sz, digit_t const * digits) { 
+    //     mpz_manager<SYNCH>::set_digits(a.m_num, sz, digits); 
+    //     reset_denominator(a); 
+    // }
+
+    void set_digits_unsigned(mpz & a, unsigned sz, digit_t const * digits) {
+       mpz_manager<SYNCH>::set_digits_unsigned(a, sz, digits);
+    }
+
+
 
     mpq dup(const mpq & source) {
         mpq temp;

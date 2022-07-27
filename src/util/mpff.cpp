@@ -1129,10 +1129,10 @@ void mpff_manager::to_mpq_core(mpff const & n, mpq_manager<SYNCH> & m, mpq & t) 
         to_buffer(0, n);
         unsigned * b = m_buffers[0].data();
         shr(m_precision, b, -exp, m_precision, b);
-        m.set(t, m_precision, b);
+        m.set_digits_unsigned(t, m_precision, b);
     }
     else {
-        m.set(t, m_precision, sig(n));
+        m.set_digits_unsigned(t, m_precision, sig(n));
         if (exp != 0) {
             _scoped_numeral<mpq_manager<SYNCH> > p(m);
             m.set(p, 2);

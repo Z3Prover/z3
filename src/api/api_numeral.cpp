@@ -459,33 +459,32 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-#if 0
-    Z3_ast Z3_API Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort* srt) {
-        LOG_TRY;
-        LOG_Z3_mk_mpz_numeral(c, sign, n, nums, srt);
+    Z3_ast Z3_API Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort srt) {
+        // LOG_TRY;
+        // LOG_Z3_mk_mpz_numeral(c, sign, n, nums, srt);
         RESET_ERROR_CODE();
-        rational z;
 
-        // todo fill in z
-        if (!z.size())
-            z.neg();
-        arith_util & a = mk_c(c)->autil();
-        auto* a = mk_c(c)->mk_numeral_core(r, a.mk_int_sort());
-        Z3_CATCH_RETURN(nullptr);
+        unsigned den[] = {1};
+        rational value(n, nums, 1, den);
+        if (!sign)
+            value.neg();
+        auto* a = mk_c(c)->mk_numeral_core(value, to_sort(srt));
+        return of_ast(a);
+        // RETURN_Z3(of_ast(a));
+        // Z3_CATCH_RETURN(nullptr);
             
     }
 
-    Z3_ast Z3_API Z3_mk_mpq_numeral1(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]) {
-        LOG_TRY;
-        LOG_Z3_mk_mpq_numeral(c, sign, n, nums, d, dens);
-        RESET_ERROR_CODE();
-        rational q;
-
-        if (!sign)
-            q.neg();
-
-        Z3_CATCH_RETURN(nullptr);
-    }
-#endif
+    // Z3_ast Z3_API Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]) {
+    //     LOG_TRY;
+    //     LOG_Z3_mk_mpq_numeral(c, sign, n, nums, d, dens);
+    //     RESET_ERROR_CODE();
+    //     rational q;
+    //
+    //     if (!sign)
+    //         q.neg();
+    //
+    //     Z3_CATCH_RETURN(nullptr);
+    // }
 
 };

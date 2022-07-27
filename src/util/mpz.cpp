@@ -435,6 +435,57 @@ void mpz_manager<SYNCH>::set(mpz & a, char const * val) {
     if (sign)
         neg(a);
 }
+template<bool SYNCH>
+void mpz_manager<SYNCH>::set_digits_unsigned(mpz & target, unsigned sz, unsigned const * digits) {
+
+  int n = 1;
+  bool little_endian = *(char *)&n == 1;
+
+  static_assert(sizeof(digit_t) >= sizeof(unsigned));
+  static_assert(sizeof(digit_t) % sizeof(unsigned) == 0);
+  auto us_per_digit = sizeof(digit_t) / sizeof(unsigned);
+  auto new_sz = sz % us_per_digit == 0 ? sz / us_per_digit : sz / us_per_digit + 1;
+
+  if (std::is_same<digit_t, unsigned>::value) {
+    set_digits(target, sz, digits);
+
+  } else if (little_endian && sz % us_per_digit == 0) {
+    set_digits(target, new_sz, (digit_t const*) digits);
+
+  } else {
+    // we need to allocate a new buffer
+    auto new_digits = new digit_t[new_sz];
+
+    if (little_endian) {
+      std::memcpy(new_digits, digits, sizeof(sz / us_per_digit) * sizeof(digit_t));
+
+    } else {
+      // big endian. we need to pack a couple of unsigned into each digit_t by bit shifting
+      for (auto i = 0; i < sz / us_per_digit; i++) {
+        digit_t val = 0;
+        for (auto j = 0; j < us_per_digit; j++) {
+          val <<= 8 * sizeof(unsigned);
+          val += digits[j + i * us_per_digit];
+        }
+        new_digits[i] = val;
+      }
+    }
+
+    if (sz % us_per_digit == 0) {
+      // we need to add some leading zeros
+      digit_t val = 0;
+      for (auto j = 0; j < sz % us_per_digit; j++) {
+        val <<= 8 * sizeof(unsigned);
+        val += digits[j + sz / us_per_digit];
+      }
+      new_digits[new_sz - 1] = 0;
+    }
+
+    set_digits(target, new_sz, new_digits);
+
+    delete[] new_digits;
+  }
+}
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * digits) {

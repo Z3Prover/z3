@@ -564,7 +564,12 @@ public:
         }
     }
 
-    void set_digits(mpz & target, unsigned sz, digit_t const * digits);
+    void set_digits(mpz & target, unsigned n, digit_t const * nums);
+
+    void set_digits_unsigned(mpz & target, unsigned n, unsigned const * nums);
+
+    void set(mpz & a, unsigned sz, digit_t const * digits);
+
 
     mpz dup(const mpz & source) {
         mpz temp;

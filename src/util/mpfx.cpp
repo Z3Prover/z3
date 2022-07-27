@@ -730,7 +730,7 @@ void mpfx_manager::to_mpq_core(mpfx const & n, mpq_manager<SYNCH> & m, mpq & t) 
     _scoped_numeral<mpz_manager<SYNCH> > a(m), b(m);
 
     unsigned * w = words(n);
-    m.set(a, m_total_sz, w);
+    m.set_digits_unsigned(a, m_total_sz, w);
 
     m.set(b, 1);
     m.mul2k(b, sizeof(unsigned)*8*m_frac_part_sz);
