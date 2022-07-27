@@ -10,6 +10,11 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.10.2
+==============
+- fix regression #6194. It broke mod/rem/div reasoning.
+- fix user propagator scope management for equality callbacks.
+
 Version 4.10.1
 ==============
 - fix implementation of mk_fresh in user propagator for Python API
