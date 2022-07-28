@@ -3396,10 +3396,10 @@ extern "C" {
        \param nums - array of numerals
        \param srt - sort of numeral (int, real, bit-vector).
 
-       future_('Z3_mk_mpz_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(SORT)))
+       def_API('Z3_mk_mpz_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(SORT)))
      */
 
-    Z3_ast Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort s);
+    Z3_ast Z3_API Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort s);
 
     /**
        \brief Create a rational numeral from a vector of unsigned numerals.
@@ -3413,10 +3413,10 @@ extern "C" {
 
        The sort of returned numeral is Real.
 
-       future_('Z3_mk_mpq_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(UINT), _in_array(4, UINT)))
+       def_API('Z3_mk_mpq_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(UINT), _in_array(4, UINT)))
      */
 
-    Z3_ast Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]);
+    Z3_ast Z3_API Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]);
 
     /**
        \brief Create a real from a fraction.

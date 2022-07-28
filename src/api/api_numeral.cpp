@@ -464,8 +464,7 @@ extern "C" {
         // LOG_Z3_mk_mpz_numeral(c, sign, n, nums, srt);
         RESET_ERROR_CODE();
 
-        unsigned den[] = {1};
-        rational value(n, nums, 1, den);
+        rational value(n, nums);
         if (!sign)
             value.neg();
         auto* a = mk_c(c)->mk_numeral_core(value, to_sort(srt));
@@ -475,20 +474,16 @@ extern "C" {
             
     }
 
-    Z3_ast Z3_API Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]) {
-        // LOG_TRY;
-        // LOG_Z3_mk_mpz_numeral(c, sign, n, nums, srt);
-        RESET_ERROR_CODE();
-
-        rational value(n, nums, d, dens);
-        if (!sign)
-            value.neg();
-
-        sort* real_ty = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
-        auto* a = mk_c(c)->mk_numeral_core(value, real_ty);
-        return of_ast(a);
-        // RETURN_Z3(of_ast(a));
-        // Z3_CATCH_RETURN(nullptr);
-    }
+    // Z3_ast Z3_API Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]) {
+    //     LOG_TRY;
+    //     LOG_Z3_mk_mpq_numeral(c, sign, n, nums, d, dens);
+    //     RESET_ERROR_CODE();
+    //     rational q;
+    //
+    //     if (!sign)
+    //         q.neg();
+    //
+    //     Z3_CATCH_RETURN(nullptr);
+    // }
 
 };

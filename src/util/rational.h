@@ -51,6 +51,9 @@ public:
     rational(unsigned n, unsigned const* num, unsigned d, unsigned const* den) 
     { m().set_digits_unsigned(m_val, n, num, d, den); }
 
+    rational(unsigned n, unsigned const* num) 
+    { m().set_digits_unsigned(m_val, n, num); }
+
     rational(mpq const & q) { m().set(m_val, q); }
 
     rational(mpz const & z) { m().set(m_val, z); }
