@@ -175,5 +175,10 @@ class limit_num_generalizer : public lemma_generalizer {
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 };
-} // namespace spacer
 
+lemma_generalizer *
+alloc_lemma_inductive_generalizer(spacer::context &ctx,
+                                  bool only_array_eligible = false,
+                                  bool enable_literal_weakening = true);
+
+} // namespace spacer

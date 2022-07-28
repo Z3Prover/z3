@@ -24,6 +24,7 @@ z3_add_component(spacer
   spacer_quant_generalizer.cpp
   spacer_arith_generalizers.cpp
   spacer_global_generalizer.cpp
+  spacer_ind_lemma_generalizer.cpp
   spacer_expand_bnd_generalizer.cpp
   spacer_cluster.cpp
   spacer_callback.cpp

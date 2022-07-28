@@ -2700,7 +2700,8 @@ void context::init_lemma_generalizers()
     //m_lemma_generalizers.push_back (alloc (unsat_core_generalizer, *this));
 
     if (m_use_ind_gen) {
-        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
+        // m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
+        m_lemma_generalizers.push_back(alloc_lemma_inductive_generalizer(*this));
     }
 
     // after the lemma is minimized (maybe should also do before)
