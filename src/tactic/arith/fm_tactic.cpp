@@ -197,23 +197,21 @@ class fm_tactic : public tactic {
                 bool has_lower = false;
                 bool has_upper = false;
                 TRACE("fm_mc", tout << "processing " << x->get_name() << "\n";);
-                clauses::iterator it  = m_clauses[i].begin();
-                clauses::iterator end = m_clauses[i].end();
-                for (; it != end; ++it) {
+                for (expr* cl : m_clauses[i]) {
                     if (!m.inc()) 
                         throw tactic_exception(m.limit().get_cancel_msg());
-                    switch (process(x, *it, u, *md, val)) {
+                    switch (process(x, cl, u, *md, val)) {
                     case NONE: 
-                        TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(*it, m) << "\n";);
+                        TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         break;
                     case LOWER: 
-                        TRACE("fm_mc", tout << "lower bound: " << val << " for:\n" << mk_ismt2_pp(*it, m) << "\n";);
+                        TRACE("fm_mc", tout << "lower bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         if (!has_lower || val > lower) 
                             lower = val; 
                         has_lower = true;
                         break;
                     case UPPER: 
-                        TRACE("fm_mc", tout << "upper bound: " << val << " for:\n" << mk_ismt2_pp(*it, m) << "\n";);
+                        TRACE("fm_mc", tout << "upper bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         if (!has_upper || val < upper) 
                             upper = val; 
                         has_upper = true;
@@ -1168,18 +1166,12 @@ class fm_tactic : public tactic {
             }
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
-            TRACE("fm", 
-                  svector<x_cost>::iterator it2  = x_cost_vector.begin();
-                  svector<x_cost>::iterator end2 = x_cost_vector.end();
-                  for (; it2 != end2; ++it2) {
-                      tout << "(" << mk_ismt2_pp(m_var2expr.get(it2->first), m) << " " << it2->second << ") ";
-                  }
+            TRACE("fm",
+                  for (auto const& [v,c] : x_cost_vector) 
+                      tout << "(" << mk_ismt2_pp(m_var2expr.get(v), m) << " " << c << ") ";
                   tout << "\n";);
-            svector<x_cost>::iterator it2  = x_cost_vector.begin();
-            svector<x_cost>::iterator end2 = x_cost_vector.end();
-            for (; it2 != end2; ++it2) {
-                xs.push_back(it2->first);
-            }
+            for (auto const& [v, c] : x_cost_vector) 
+                xs.push_back(v);
         }
         
         void cleanup_constraints(constraints & cs) {
@@ -1215,11 +1207,9 @@ class fm_tactic : public tactic {
         void analyze(constraints const & cs, var x, bool & all_int, bool & unit_coeff) const {
             all_int    = true;
             unit_coeff = true;
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
+            for (auto const * c : cs) {
                 bool curr_unit_coeff;
-                analyze(*(*it), x, all_int, curr_unit_coeff);
+                analyze(*c, x, all_int, curr_unit_coeff);
                 if (!all_int)
                     return;
                 if (!curr_unit_coeff)
@@ -1243,12 +1233,8 @@ class fm_tactic : public tactic {
         }
         
         void copy_constraints(constraints const & s, clauses & t) {
-            constraints::const_iterator it  = s.begin();
-            constraints::const_iterator end = s.end();
-            for (; it != end; ++it) {
-                app * c = to_expr(*(*it));
-                t.push_back(c);
-            }
+            for (auto const* cp : s)
+                t.push_back(to_expr(*cp));            
         }
         
         clauses tmp_clauses;
@@ -1262,10 +1248,8 @@ class fm_tactic : public tactic {
         }
         
         void mark_constraints_dead(constraints const & cs) {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it)
-                (*it)->m_dead = true;
+            for (auto* cp : cs)
+                cp->m_dead = true;
         }
         
         void mark_constraints_dead(var x) {
@@ -1514,14 +1498,8 @@ class fm_tactic : public tactic {
         }
         
         void copy_remaining(vector<constraints> & v2cs) {
-            vector<constraints>::iterator it  = v2cs.begin();
-            vector<constraints>::iterator end = v2cs.end();
-            for (; it != end; ++it) {
-                constraints & cs = *it;
-                constraints::iterator it2  = cs.begin();
-                constraints::iterator end2 = cs.end();
-                for (; it2 != end2; ++it2) {
-                    constraint * c = *it2;
+            for (constraints& cs : v2cs) {
+                for (constraint* c : cs) {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
@@ -1604,11 +1582,9 @@ class fm_tactic : public tactic {
         }
         
         void display_constraints(std::ostream & out, constraints const & cs) const {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
+            for (auto const* cp : cs) {
                 out << "  ";
-                display(out, *(*it));
+                display(out, *cp);
                 out << "\n";
             }
         }
