@@ -47,7 +47,7 @@ extern "C" {
         env_params::updt_params();
     }
     
-    Z3_bool Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {
+    bool Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {
         memory::initialize(UINT_MAX);
         LOG_Z3_global_param_get(param_id, param_value);
         *param_value = nullptr;
