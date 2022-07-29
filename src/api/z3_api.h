@@ -3387,6 +3387,7 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_numeral(Z3_context c, Z3_string numeral, Z3_sort ty);
 
+#if 0
     /**
        \brief Create an integer numeral from a vector of unsigned numerals.
 
@@ -3394,12 +3395,12 @@ extern "C" {
        \param sign - true if positive, false if negative
        \param n - length of array of numerals
        \param nums - array of numerals
-       \param srt - sort of numeral (int, real, bit-vector).
+       \param s - sort of numeral (int, real, bit-vector).
 
        future_('Z3_mk_mpz_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(SORT)))
      */
 
-    //Z3_ast Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort s);
+    Z3_ast Z3_mk_mpz_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], Z3_sort s);
 
     /**
        \brief Create a rational numeral from a vector of unsigned numerals.
@@ -3416,7 +3417,8 @@ extern "C" {
        future_('Z3_mk_mpq_numeral', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in_array(2, UINT), _in(UINT), _in_array(4, UINT)))
      */
 
-    // Z3_ast Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]);
+    Z3_ast Z3_mk_mpq_numeral(Z3_context c, bool sign, unsigned n, unsigned const nums[], unsigned d, unsigned const dens[]);
+#endif
 
     /**
        \brief Create a real from a fraction.
@@ -6982,7 +6984,7 @@ extern "C" {
     /**
         Create uninterpreted function declaration for the user propagator.
         When expressions using the function are created by the solver invoke a callback
-        to \ref \Z3_solver_propagate_created with arguments
+        to \ref Z3_solver_propagate_created with arguments
         1. context and callback solve
         2. declared_expr: expression using function that was used as the top-level symbol
         3. declared_id: a unique identifier (unique within the current scope) to track the expression.
