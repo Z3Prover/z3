@@ -28,8 +28,8 @@ namespace nla {
         const monic& m_rm;
         
         factorization_factory_imp(const monic& rm, const core& s);
-        bool find_canonical_monic_of_vars(const svector<lpvar>& vars, unsigned & i) const;
-        virtual bool canonize_sign(const monic& m) const;
-        virtual bool canonize_sign(const factorization& m) const;
+        bool find_canonical_monic_of_vars(const svector<lpvar>& vars, unsigned & i) const override;
+        bool canonize_sign(const monic& m) const override;
+        bool canonize_sign(const factorization& m) const override;
  };
 }

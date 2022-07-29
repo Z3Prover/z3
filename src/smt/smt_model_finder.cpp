@@ -464,7 +464,7 @@ namespace smt {
                 m.limit().inc();
             }
 
-            virtual ~auf_solver() {
+            ~auf_solver() override {
                 flush_nodes();
                 reset_eval_cache();
             }

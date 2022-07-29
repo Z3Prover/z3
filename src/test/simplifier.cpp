@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifdef _WINDOWS
 #include "api/z3.h"
 #include "api/z3_private.h"
 #include <iostream>
@@ -214,8 +213,3 @@ void tst_simplifier() {
     test_bool();
     test_skolemize_bug();
 }
-
-#else
-void tst_simplifier() {
-}
-#endif
