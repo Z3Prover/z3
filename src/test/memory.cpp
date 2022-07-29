@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifdef _WINDOWS
 #include "api/z3.h"
 #include "api/z3_private.h"
 #include <iostream>
@@ -59,8 +58,3 @@ void tst_memory() {
     Z3_reset_memory();
 
 }
-
-#else
-void tst_memory() {    
-}
-#endif
