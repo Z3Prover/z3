@@ -149,7 +149,7 @@ public:
     }
 
     
-    virtual ~lp_solver();
+    ~lp_solver() override;
 
     void flip_costs();
 

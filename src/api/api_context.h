@@ -58,7 +58,7 @@ namespace api {
         solver_ref   s;
     public:
         seq_expr_solver(ast_manager& m, params_ref const& p): m(m), p(p) {}
-        lbool check_sat(expr* e) {
+        lbool check_sat(expr* e) override {
             if (!s) {
                 s = mk_smt_solver(m, p, symbol("ALL"));
             }

@@ -37,7 +37,7 @@ class subpaving_tactic : public tactic {
             e2v.mk_inv(m_inv);
         }
 
-        virtual ~display_var_proc() {}
+        ~display_var_proc() override {}
         
         ast_manager & m() const { return m_inv.get_manager(); }
         
