@@ -99,7 +99,7 @@ public:
     datatype_value_generator(value_generator& g, ast_manager& m):
         m(m), g(g), dt(m), m_sorts(m) {}
    
-    ~datatype_value_generator() {
+    ~datatype_value_generator() override {
         for (auto& kv : m_values) dealloc(kv.m_value);
     }
 

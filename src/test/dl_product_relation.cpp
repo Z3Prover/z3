@@ -22,7 +22,7 @@ namespace datalog {
     public:
         collector_of_reduced(idx_set & accumulator) : m_acc(accumulator) {}
 
-        virtual void operator()(table_element * func_columns, const table_element * merged_func_columns) {
+        void operator()(table_element * func_columns, const table_element * merged_func_columns) override {
             m_acc.insert(static_cast<unsigned>(merged_func_columns[0]));
         }
     };
