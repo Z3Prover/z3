@@ -516,8 +516,9 @@ stages:
       inputs:
         command: push
         nuGetFeedType: External
-        publishFeedCredentials: Z3Nuget
+        publishFeedCredentials: $(NugetZ3)
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
+        
 
   # Enable on release:
   - job: PyPIPublish
