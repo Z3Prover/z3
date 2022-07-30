@@ -10,6 +10,10 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.11.0
+==============
+- remove Z3_bool from API
+
 Version 4.10.2
 ==============
 - fix regression #6194. It broke mod/rem/div reasoning.
