@@ -1589,8 +1589,6 @@ namespace datalog {
             m_union_fn = plugin.mk_union_fn(t, *m_aux_table, static_cast<table_base *>(nullptr));
         }
 
-        ~default_table_map_fn() override {}
-
         void operator()(table_base & t) override {
             SASSERT(t.get_signature()==m_aux_table->get_signature());
             if(!m_aux_table->empty()) {
@@ -1643,8 +1641,6 @@ namespace datalog {
             m_row.resize(get_result_signature().size());
             m_former_row.resize(get_result_signature().size());
         }
-
-        ~default_table_project_with_reduce_fn() override {}
 
         virtual void modify_fact(table_fact & f) const {
             unsigned ofs=1;

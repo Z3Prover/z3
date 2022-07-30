@@ -38,7 +38,6 @@ namespace subpaving {
         CTX m_ctx;
     public:
         context_wrapper(reslimit& lim, typename CTX::numeral_manager & m, params_ref const & p, small_object_allocator * a):m_ctx(lim, m, p, a) {}
-        ~context_wrapper() override {}
         unsigned num_vars() const override { return m_ctx.num_vars(); }
         var mk_var(bool is_int) override { return m_ctx.mk_var(is_int); }
         bool is_int(var x) const override { return m_ctx.is_int(x); }
@@ -65,8 +64,6 @@ namespace subpaving {
             m_c(m), 
             m_as(m) 
         {}
-
-        ~context_mpq_wrapper() override {}
 
         unsynch_mpq_manager & qm() const override { return m_ctx.nm(); }
 
@@ -107,8 +104,6 @@ namespace subpaving {
             m_q1(m_qm),
             m_q2(m_qm) {
         }
-
-        ~context_mpf_wrapper() override {}
 
         unsynch_mpq_manager & qm() const override { return m_qm; }
 
@@ -165,8 +160,6 @@ namespace subpaving {
             m_qm(qm) {
         }
 
-        ~context_hwf_wrapper() override {}
-
         unsynch_mpq_manager & qm() const override { return m_qm; }
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
@@ -222,8 +215,6 @@ namespace subpaving {
             m_z1(m_qm),
             m_z2(m_qm) {
         }
-
-        ~context_fpoint_wrapper() override {}
 
         unsynch_mpq_manager & qm() const override { return m_qm; }
 

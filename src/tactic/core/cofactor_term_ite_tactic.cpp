@@ -50,7 +50,6 @@ public:
         return alloc(cofactor_term_ite_tactic, m, m_params);
     }
 
-    ~cofactor_term_ite_tactic() override {}
     char const* name() const override { return "cofactor"; }
     void updt_params(params_ref const & p) override { m_params.append(p); m_elim_ite.updt_params(m_params); }
     void collect_param_descrs(param_descrs & r) override { m_elim_ite.collect_param_descrs(r); }

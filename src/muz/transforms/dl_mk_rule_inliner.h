@@ -195,7 +195,6 @@ namespace datalog {
             m_head_visitor(ctx, m_subst),
             m_tail_visitor(ctx, m_subst)
         {}
-        ~mk_rule_inliner() override { }
 
         rule_set * operator()(rule_set const & source) override;
     };

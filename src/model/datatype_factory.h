@@ -32,7 +32,6 @@ class datatype_factory : public struct_factory {
 
 public:
     datatype_factory(ast_manager & m, model_core & md);
-    ~datatype_factory() override {}
     expr * get_some_value(sort * s) override;
     expr * get_fresh_value(sort * s) override;
 };

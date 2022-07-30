@@ -26,7 +26,6 @@ namespace api {
 struct Z3_ast_vector_ref : public api::object {
     ast_ref_vector  m_ast_vector;
     Z3_ast_vector_ref(api::context& c, ast_manager & m): api::object(c), m_ast_vector(m) {}
-    ~Z3_ast_vector_ref() override {}
 };
 
 inline Z3_ast_vector_ref * to_ast_vector(Z3_ast_vector v) { return reinterpret_cast<Z3_ast_vector_ref *>(v); }

@@ -46,8 +46,6 @@ public:
         solver::updt_params(p);
     }
 
-    ~pb2bv_solver() override {}
-
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         flush_assertions();
         solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));

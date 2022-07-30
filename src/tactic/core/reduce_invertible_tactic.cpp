@@ -45,8 +45,6 @@ public:
         m_arith(m)
     {}
 
-    ~reduce_invertible_tactic() override { }
-
     char const* name() const override { return "reduce_invertible"; }
 
     tactic * translate(ast_manager & m) override {

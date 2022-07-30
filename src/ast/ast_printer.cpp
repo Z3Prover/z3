@@ -26,7 +26,6 @@ class simple_ast_printer_context : public ast_printer_context {
     smt2_pp_environment_dbg & env() const { return *(m_env.get()); }
 public:
     simple_ast_printer_context(ast_manager & m):m_manager(m) { m_env = alloc(smt2_pp_environment_dbg, m); }
-    ~simple_ast_printer_context() override {}
     ast_manager & m() const { return m_manager; }
     ast_manager & get_ast_manager() override { return m_manager; }
     void display(std::ostream & out, sort * s, unsigned indent = 0) const override { out << mk_ismt2_pp(s, m(), indent); }

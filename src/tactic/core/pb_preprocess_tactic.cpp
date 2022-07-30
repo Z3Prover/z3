@@ -102,8 +102,6 @@ public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
         m(m), m_trail(m), pb(m), m_r(m) {}
 
-    ~pb_preprocess_tactic() override {}
-
     tactic * translate(ast_manager & m) override {
         return alloc(pb_preprocess_tactic, m);
     }

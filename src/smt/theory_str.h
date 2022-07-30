@@ -51,7 +51,6 @@ public:
     str_value_factory(ast_manager & m, family_id fid) :
         value_factory(m, fid),
         u(m), delim("!"), m_next(0) {}
-    ~str_value_factory() override {}
     expr * get_some_value(sort * s) override {
         return u.str.mk_string("some value");
     }
@@ -93,7 +92,6 @@ class binary_search_trail : public trail {
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
-    ~binary_search_trail() override {}
     void undo() override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {

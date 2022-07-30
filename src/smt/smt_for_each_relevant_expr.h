@@ -92,7 +92,6 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        ~collect_relevant_label_lits() override {}
         void operator()(expr * n) override;
     };
 
@@ -103,7 +102,6 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        ~collect_relevant_labels() override {}
         void operator()(expr * n) override;
     };
 

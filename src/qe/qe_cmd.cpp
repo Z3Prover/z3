@@ -26,9 +26,6 @@ public:
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
-    ~qe_cmd() override {
-    }
-    
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
         m_target   = nullptr;

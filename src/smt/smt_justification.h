@@ -239,7 +239,6 @@ namespace smt {
             unsigned num_params, parameter* params):
             simple_justification(r, num_lits, lits),
             m_th_id(fid), m_params(num_params, params) {}
-        ~simple_theory_justification() override {}
 
         bool has_del_eh() const override { return !m_params.empty(); }
 
@@ -323,8 +322,6 @@ namespace smt {
                                         unsigned num_eqs, enode_pair const * eqs, 
                                         unsigned num_params = 0, parameter* params = nullptr):
             ext_simple_justification(r, num_lits, lits, num_eqs, eqs), m_th_id(fid), m_params(num_params, params) {}
-            
-        ~ext_theory_simple_justification() override {}
 
         bool has_del_eh() const override { return !m_params.empty(); }
 

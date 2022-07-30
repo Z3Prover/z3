@@ -32,8 +32,6 @@ class array_factory : public struct_factory {
 public:
     array_factory(ast_manager & m, model_core & md);
 
-    ~array_factory() override {}
-
     expr * get_some_value(sort * s) override;
 
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;

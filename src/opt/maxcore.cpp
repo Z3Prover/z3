@@ -100,7 +100,6 @@ private:
     struct lns_maxcore : public lns_context {
         maxcore& i;
         lns_maxcore(maxcore& i) :i(i) {}
-        ~lns_maxcore() override {}
         void update_model(model_ref& mdl) override { i.update_assignment(mdl); }
         void relax_cores(vector<expr_ref_vector> const& cores) override { i.relax_cores(cores); }
         rational cost(model& mdl) override { return i.cost(mdl); }

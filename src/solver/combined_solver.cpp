@@ -398,7 +398,6 @@ class combined_solver_factory : public solver_factory {
     scoped_ptr<solver_factory> m_f2;
 public:
     combined_solver_factory(solver_factory * f1, solver_factory * f2):m_f1(f1), m_f2(f2) {}
-    ~combined_solver_factory() override {}
 
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_combined_solver((*m_f1)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),

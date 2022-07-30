@@ -42,7 +42,6 @@ public:
     struct fmt {};
     default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
-    ~default_exception() override {}
     char const * msg() const override;
 };
 

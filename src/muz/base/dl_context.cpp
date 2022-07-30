@@ -159,8 +159,6 @@ namespace datalog {
     public:
         restore_rules(context& ctx, rule_set& r): ctx(ctx), m_old_rules(alloc(rule_set, r)) {}
 
-        ~restore_rules() override {}
-
         void undo() override {
             ctx.replace_rules(*m_old_rules);
             reset();
@@ -173,7 +171,6 @@ namespace datalog {
         unsigned m_old_size;
     public:
         restore_vec_size_trail(Vec& v): m_vector(v), m_old_size(v.size()) {}
-        ~restore_vec_size_trail() override {}
         void undo() override { m_vector.shrink(m_old_size); }
     };
 
