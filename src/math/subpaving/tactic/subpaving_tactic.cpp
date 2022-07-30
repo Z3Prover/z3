@@ -37,8 +37,6 @@ class subpaving_tactic : public tactic {
             e2v.mk_inv(m_inv);
         }
 
-        ~display_var_proc() override {}
-        
         ast_manager & m() const { return m_inv.get_manager(); }
         
         void operator()(std::ostream & out, subpaving::var x) const override {

@@ -344,7 +344,6 @@ extern "C" {
         scoped_anum_vector const & m_as;
     public:
         vector_var2anum(scoped_anum_vector & as):m_as(as) {}
-        ~vector_var2anum() override {}
         algebraic_numbers::manager & m() const override { return m_as.m(); }
         bool contains(polynomial::var x) const override { return static_cast<unsigned>(x) < m_as.size(); }
         algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as.get(x); }

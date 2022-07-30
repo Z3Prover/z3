@@ -59,7 +59,6 @@ class proto_model : public model_core {
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());
-    ~proto_model() override {}
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 

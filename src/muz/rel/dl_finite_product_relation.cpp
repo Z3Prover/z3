@@ -794,8 +794,6 @@ namespace datalog {
                 m_delta_indexes(delta_indexes),
                 m_delta_rels(delta_rels) {}
 
-            ~union_mapper() override {}
-
             bool operator()(table_element * func_columns) override {
                 relation_base & otgt_orig = m_tgt.get_inner_rel(func_columns[0]);
                 const relation_base & osrc = m_src.get_inner_rel(func_columns[1]);

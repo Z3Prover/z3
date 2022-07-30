@@ -46,8 +46,6 @@ public:
         solver::updt_params(p);
     }
 
-    ~enum2bv_solver() override {}
-
     solver* translate(ast_manager& dst_m, params_ref const& p) override {   
         solver* result = alloc(enum2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
         model_converter_ref mc = external_model_converter();

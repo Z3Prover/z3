@@ -52,8 +52,6 @@ public:
         m_params(p) {
     }
 
-    ~collect_statistics_tactic() override {}
-
     char const* name() const override { return "collect_statistics"; }
 
     tactic * translate(ast_manager & m_) override {

@@ -32,7 +32,6 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
     void assert_eq_core(expr * t, app * val);
 public:
     ctx_propagate_assertions(ast_manager& m);
-    ~ctx_propagate_assertions() override {}
     bool assert_expr(expr * t, bool sign) override;
     bool simplify(expr* t, expr_ref& result) override;
     void push();

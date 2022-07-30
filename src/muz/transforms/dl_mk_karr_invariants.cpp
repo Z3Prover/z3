@@ -105,8 +105,6 @@ namespace datalog {
         
         add_invariant_model_converter(ast_manager& m): m(m), a(m), m_funcs(m), m_invs(m) {}
 
-        ~add_invariant_model_converter() override { }
-
         void add(func_decl* p, expr* inv) {
             if (!m.is_true(inv)) {
                 m_funcs.push_back(p);

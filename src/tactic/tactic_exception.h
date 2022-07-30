@@ -26,7 +26,6 @@ protected:
     std::string m_msg;
 public:
     tactic_exception(std::string && msg) : m_msg(std::move(msg)) {}
-    ~tactic_exception() override {}
     char const * msg() const override { return m_msg.c_str(); }
 };
 

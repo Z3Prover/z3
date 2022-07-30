@@ -890,8 +890,6 @@ namespace smt {
             m_unspecified_else(true) {
         }
 
-        ~array_value_proc() override {}
-     
         void add_entry(unsigned num_args, enode * const * args, enode * value) {
             SASSERT(num_args > 0);
             SASSERT(m_dim == 0 || m_dim == num_args);

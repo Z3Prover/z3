@@ -45,7 +45,6 @@ public:
 
 class ast_printer_context : public ast_printer {
 public:
-    ~ast_printer_context() override {}
     virtual ast_manager & get_ast_manager() = 0;
     virtual std::ostream & regular_stream();
     virtual std::ostream & diagnostic_stream();

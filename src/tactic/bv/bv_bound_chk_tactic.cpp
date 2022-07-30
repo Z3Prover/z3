@@ -109,8 +109,6 @@ struct bv_bound_chk_rewriter : public rewriter_tpl<bv_bound_chk_rewriter_cfg> {
         updt_params(p);
     }
 
-    ~bv_bound_chk_rewriter() override {}
-
     void updt_params(params_ref const & _p) {
         m_cfg.updt_params(_p);
     }

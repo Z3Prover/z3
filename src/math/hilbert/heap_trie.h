@@ -80,7 +80,6 @@ class heap_trie {
         Value m_value;
     public:
         leaf(): node(leaf_t) {}
-        ~leaf() override {}
         Value const& get_value() const { return m_value; }
         void set_value(Value const& v) { m_value = v; }
         void display(std::ostream& out, unsigned indent) const override {
@@ -97,9 +96,6 @@ class heap_trie {
         children_t m_nodes;
     public:
         trie(): node(trie_t) {}
-
-        ~trie() override {
-        }
 
         node* find_or_insert(Key k, node* n) {
             for (unsigned i = 0; i < m_nodes.size(); ++i) {

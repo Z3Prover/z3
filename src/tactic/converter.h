@@ -57,8 +57,6 @@ protected:
 
 public:
     concat_converter(T * c1, T * c2):m_c1(c1), m_c2(c2) {}
-    
-    ~concat_converter() override {}
 
     void cancel() override {
         m_c2->cancel();

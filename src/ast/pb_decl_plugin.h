@@ -52,7 +52,6 @@ class pb_decl_plugin : public decl_plugin {
     func_decl * mk_eq(unsigned arity, rational const* coeffs, int k);
 public:
     pb_decl_plugin();
-    ~pb_decl_plugin() override {}
 
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override {
         UNREACHABLE();

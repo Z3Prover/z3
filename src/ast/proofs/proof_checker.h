@@ -52,8 +52,6 @@ class proof_checker {
     public:
         hyp_decl_plugin();
 
-        ~hyp_decl_plugin() override {}
-
         void finalize() override;
         
         decl_plugin * mk_fresh() override { return alloc(hyp_decl_plugin); }

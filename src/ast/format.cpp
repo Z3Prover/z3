@@ -52,8 +52,6 @@ namespace format_ns {
             m_line_break_ext("cr++") {
         }
         
-        ~format_decl_plugin() override {}
-
         void finalize() override {
             if (m_format_sort)
                 m_manager->dec_ref(m_format_sort);

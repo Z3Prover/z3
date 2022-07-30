@@ -1867,9 +1867,7 @@ namespace smtfd {
             updt_params(p);
             add_toggle(m.mk_true());
         }
-        
-        ~solver() override {}
-        
+
         ::solver* translate(ast_manager& dst_m, params_ref const& p) override {
             solver* result = alloc(solver, m_indent, dst_m, p);
             if (m_fd_sat_solver) result->m_fd_sat_solver = m_fd_sat_solver->translate(dst_m, p);

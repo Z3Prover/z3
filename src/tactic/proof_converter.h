@@ -25,7 +25,6 @@ class goal;
 
 class proof_converter : public converter {
 public:
-    ~proof_converter() override { }
     virtual proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) = 0;
     virtual proof_converter * translate(ast_translation & translator) = 0;
 };

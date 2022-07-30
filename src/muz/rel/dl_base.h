@@ -799,7 +799,6 @@ namespace datalog {
     protected:
         relation_base(relation_plugin & plugin, const relation_signature & s)
             : base_ancestor(plugin, s) {}
-        ~relation_base() override {}
     public:
         virtual relation_base * complement(func_decl* p) const = 0;
 
@@ -1040,7 +1039,6 @@ namespace datalog {
     protected:
         table_base(table_plugin & plugin, const table_signature & s)
             : base_ancestor(plugin, s) {}
-        ~table_base() override {}
     public:
         table_base * clone() const override;
         virtual table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const;

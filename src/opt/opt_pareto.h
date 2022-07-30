@@ -87,7 +87,6 @@ namespace opt {
                    params_ref & p):
             pareto_base(m, cb, s, p) {            
         }
-        ~gia_pareto() override {}
 
         lbool operator()() override;
     };
@@ -101,7 +100,6 @@ namespace opt {
                    params_ref & p):
             pareto_base(m, cb, s, p) {            
         }
-        ~oia_pareto() override {}
 
         lbool operator()() override;
     };

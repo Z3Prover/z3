@@ -129,8 +129,6 @@ public:
         m_r(m, p) {
     }
 
-    ~th_rewriter2expr_replacer() override {}
-
     ast_manager & m() const override { return m_r.m(); }
 
     void set_substitution(expr_substitution * s) override { m_r.set_substitution(s); }

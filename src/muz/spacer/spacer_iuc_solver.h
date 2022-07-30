@@ -88,8 +88,6 @@ public:
         m_old_hyp_reducer(old_hyp_reducer)
     {}
 
-    ~iuc_solver() override {}
-
     /* iuc solver specific */
     virtual void get_iuc(expr_ref_vector &core);
     void set_split_literals(bool v) { m_split_literals = v; }

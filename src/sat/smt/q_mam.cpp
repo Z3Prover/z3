@@ -3744,9 +3744,6 @@ namespace q {
             reset_pp_pc();
         }
 
-        ~mam_impl() override {
-        }
-
         void add_pattern(quantifier * qa, app * mp) override {
             SASSERT(m.is_pattern(mp));
             TRACE("trigger_bug", tout << "adding pattern\n" << mk_ismt2_pp(qa, m) << "\n" << mk_ismt2_pp(mp, m) << "\n";);

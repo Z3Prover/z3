@@ -40,8 +40,6 @@ class special_relations_decl_plugin : public decl_plugin {
 public:
     special_relations_decl_plugin();
 
-    ~special_relations_decl_plugin() override {}
-
     decl_plugin * mk_fresh() override {
         return alloc(special_relations_decl_plugin);
     }
