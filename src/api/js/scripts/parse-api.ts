@@ -16,7 +16,6 @@ const files = [
 
 const aliases = {
   __proto__: null,
-  Z3_bool: 'boolean',
   Z3_string: 'string',
   bool: 'boolean',
   signed: 'int',
