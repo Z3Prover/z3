@@ -305,7 +305,7 @@ namespace datalog {
         void register_predicate(func_decl * pred, bool named);
 
         /**
-           Restrict reltaions to set of predicates.
+           Restrict relations to set of predicates.
          */
         void restrict_predicates(func_decl_set const& preds);
 

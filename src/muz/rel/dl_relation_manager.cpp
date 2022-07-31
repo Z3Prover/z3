@@ -1230,11 +1230,11 @@ namespace datalog {
 
 
     /**
-       An auixiliary class for functors that perform filtering. It performs the table traversal
+       An auxiliary class for functors that perform filtering. It performs the table traversal
        and only asks for each individual row whether it should be removed.
 
        When using this class in multiple inheritance, this class should not be inherited publicly
-       and should be mentioned as last. This should ensure that deteletion of the object will
+       and should be mentioned as last. This should ensure that deletion of the object will
        go well when initiated from a pointer to the first ancestor.
     */
     class relation_manager::auxiliary_table_filter_fn {

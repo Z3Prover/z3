@@ -35,7 +35,7 @@ namespace datalog {
         // reserve pred id = 0 for initialization purposes
         unsigned num_preds = (unsigned)predicates.size() + 1;
 
-        // poor's man round-up log2
+        // poor man's round-up log2
         unsigned preds_bitsize = log2(num_preds);
         if ((1U << preds_bitsize) < num_preds)
             ++preds_bitsize;
