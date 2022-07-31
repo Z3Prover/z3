@@ -351,6 +351,7 @@ namespace datalog {
 
 using namespace datalog;
 
+#ifdef _WINDOWS
 void tst_dl_product_relation() {
     smt_params fparams;
     params_ref params;
@@ -361,3 +362,7 @@ void tst_dl_product_relation() {
     test_finite_product_relation(fparams, params);
     
 }
+#else
+void tst_dl_product_relation() {}
+
+#endif
