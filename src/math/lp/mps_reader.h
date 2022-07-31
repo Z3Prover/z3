@@ -20,7 +20,7 @@ Revision History:
 
 #pragma once
 
-// reads an MPS file reperesenting a Mixed Integer Program
+// reads an MPS file representing a Mixed Integer Program
 #include <functional>
 #include <algorithm>
 #include <string>

@@ -73,7 +73,7 @@ namespace datalog {
 
 
     /**
-       Termplate class containing common infrastructure for relations and tables
+       Template class containing common infrastructure for relations and tables
     */
     template<class Traits>
     struct tr_infrastructure {
@@ -881,7 +881,7 @@ namespace datalog {
     public:
         virtual ~table_row_pair_reduce_fn() {}
         /**
-            \brief The function is called for pair of table rows that became duplicit due to projection.
+            \brief The function is called for pair of table rows that became duplicated due to projection.
             The values that are in the first array after return from the function will be used for the
             resulting row.
 

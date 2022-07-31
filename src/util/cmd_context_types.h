@@ -78,7 +78,7 @@ typedef std::pair<symbol, sort*> sorted_var;
 /**
    \brief Command abstract class.
 
-   Commands may have variable number of argumets.
+   Commands may have variable number of arguments.
 */
 class cmd {
     symbol m_name;

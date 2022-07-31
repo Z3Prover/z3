@@ -448,7 +448,7 @@ public:
             info() {}
 
             /*
-              Used for constructing either an invalid info that is only used to indicate uninitialzed entry, or valid but unknown info value.
+              Used for constructing either an invalid info that is only used to indicate uninitialized entry, or valid but unknown info value.
             */
             info(lbool is_known) : known(is_known) {}
 

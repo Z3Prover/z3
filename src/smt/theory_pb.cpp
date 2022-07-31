@@ -1106,7 +1106,7 @@ namespace smt {
        \brief propagate assignment to inequality.
        This is a basic, non-optimized implementation based
        on the assumption that inequalities are mostly units
-       and/or relatively few compared to number of argumets.
+       and/or relatively few compared to number of arguments.
      */
     void theory_pb::assign_ineq(ineq& c, bool is_true) {
         m_mpz_trail.push_back(c.m_max_sum);
