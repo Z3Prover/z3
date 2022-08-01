@@ -98,7 +98,7 @@ namespace simplex {
             if (!t1.is_dead()) {
                 if (i != j) {
                     _row_entry & t2 = m_entries[j];
-                    t2.m_coeff.swap(t1.m_coeff);
+                    m.swap(t2.m_coeff, t1.m_coeff);
                     t2.m_var = t1.m_var;
                     t2.m_col_idx = t1.m_col_idx;
                     SASSERT(!t2.is_dead());

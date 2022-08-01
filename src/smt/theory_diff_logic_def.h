@@ -1283,7 +1283,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
         expr_ref tmp(m);
         core.reset();
         for (; it != end; ++it) {
-            unsigned v = it->m_var;
+            unsigned v = it->var();
             if (is_simplex_edge(v)) {
                 unsigned edge_id = simplex2edge(v);
                 literal lit = m_graph.get_explanation(edge_id);
