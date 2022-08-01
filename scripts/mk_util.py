@@ -2640,8 +2640,6 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            if sysname == 'Linux' or sysname == 'FreeBSD':
-                CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:
             CXXFLAGS     = '%s -m32' % CXXFLAGS
             LDFLAGS      = '%s -m32' % LDFLAGS
