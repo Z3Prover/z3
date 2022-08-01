@@ -61,11 +61,11 @@ public:
     }
 
     void swap(_scoped_numeral & n) {
-        m_num.swap(n.m_num);
+        m().swap(m_num, n.m_num);
     }
 
     void swap(numeral & n) {
-        m_num.swap(n);
+        m().swap(m_num, n);
     }
 
     _scoped_numeral & operator+=(numeral const & a) {

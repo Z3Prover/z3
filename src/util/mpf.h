@@ -88,6 +88,8 @@ public:
 
     void neg(mpf & o);
     void neg(mpf const & x, mpf & o);
+    
+    void swap(mpf& a, mpf& b) { a.swap(b); }
 
     bool is_zero(mpf const & x);
     bool is_neg(mpf const & x);
