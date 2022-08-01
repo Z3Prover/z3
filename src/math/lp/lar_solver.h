@@ -543,7 +543,7 @@ public:
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
-    std::string get_variable_name(var_index vi) const;
+    std::string get_variable_name(var_index vi) const override;
     void set_variable_name(var_index vi, std::string);
     inline unsigned number_of_vars() const { return m_var_register.size(); }
     inline bool is_base(unsigned j) const { return m_mpq_lar_core_solver.m_r_heading[j] >= 0; }
@@ -651,7 +651,7 @@ public:
     lar_solver();
     void set_track_pivoted_rows(bool v);
     bool get_track_pivoted_rows() const;    
-    virtual ~lar_solver();
+    ~lar_solver() override;
     const vector<impq>& r_x() const { return m_mpq_lar_core_solver.m_r_x; }
     bool column_is_int(unsigned j) const;
     inline bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j].is_int(); }

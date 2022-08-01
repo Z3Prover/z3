@@ -17,6 +17,8 @@ Author:
 Revision History:
 
 --*/
+#pragma once
+
 #include "math/dd/dd_pdd.h"
 #include "math/interval/dep_intervals.h"
 

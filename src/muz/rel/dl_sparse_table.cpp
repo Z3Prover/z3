@@ -406,8 +406,6 @@ namespace datalog {
             m_key_fact.resize(t.get_signature().size());
         }
 
-        ~full_signature_key_indexer() override {}
-
         query_result get_matching_offsets(const key_value & key) const override {
             unsigned key_len = m_key_cols.size();
             for (unsigned i=0; i<key_len; i++) {

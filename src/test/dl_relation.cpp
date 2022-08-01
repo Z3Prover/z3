@@ -4,8 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifdef _WINDOWS
-
 #include "ast/reg_decl_plugins.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
@@ -296,8 +294,3 @@ void tst_dl_relation() {
     datalog::test_interval_relation();
     datalog::test_bound_relation();
 }
-
-#else
-void tst_dl_relation() {
-}
-#endif

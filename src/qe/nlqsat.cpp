@@ -835,9 +835,6 @@ namespace qe {
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
-        ~nlqsat() override {
-        }
-
         char const* name() const override { return "nlqsat"; }
 
         void updt_params(params_ref const & p) override {

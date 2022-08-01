@@ -52,7 +52,6 @@ namespace smt {
         app * m_parent;
     public:
         and_relevancy_eh(app * p):m_parent(p) {}
-        ~and_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
 
@@ -60,7 +59,6 @@ namespace smt {
         app * m_parent;
     public:
         or_relevancy_eh(app * p):m_parent(p) {}
-        ~or_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
 
@@ -68,7 +66,6 @@ namespace smt {
         app * m_parent;
     public:
         ite_relevancy_eh(app * p):m_parent(p) {}
-        ~ite_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
 
@@ -78,7 +75,6 @@ namespace smt {
         app  * m_else_eq;
     public:
         ite_term_relevancy_eh(app * p, app * then_eq, app * else_eq):m_parent(p), m_then_eq(then_eq), m_else_eq(else_eq) {}
-        ~ite_term_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
 

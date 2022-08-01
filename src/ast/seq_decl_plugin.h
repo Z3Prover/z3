@@ -545,6 +545,7 @@ public:
         bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
         bool is_opt(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_OPTION); }
         bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_RANGE); }
+        bool is_range(expr const* n, unsigned& lo, unsigned& hi) const;
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
         bool is_empty(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_EMPTY_SET); }
         bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }

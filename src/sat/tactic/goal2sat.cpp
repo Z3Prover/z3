@@ -93,10 +93,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         updt_params(p);
     }
 
-    ~imp() override {
-    }
-        
-
     sat::cut_simplifier* aig() {
         return m_solver.get_cut_simplifier();
     }

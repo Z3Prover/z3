@@ -1113,7 +1113,7 @@ public:
         }
         {
             scoped_trace_stream ts(th, dgez, neg);
-            mk_axiom( dgez, neg);                    
+            mk_axiom( dgez, neg);
         }
     }
 
@@ -1224,7 +1224,6 @@ public:
             return;
         }
         expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
-        ctx().get_rewriter()(mod_r);
         expr_ref eq_r(th.mk_eq_atom(mod_r, p), m);
         ctx().internalize(eq_r, false);
         literal eq = ctx().get_literal(eq_r);

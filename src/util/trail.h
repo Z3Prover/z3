@@ -243,7 +243,7 @@ public:
     m_value(m_vector.back()) {
     }
 
-    virtual void undo() {
+    void undo() override {
         m_vector.push_back(m_value);
     }
 };

@@ -56,9 +56,6 @@ public:
         m_opt(opt)
     {}
 
-    ~assert_soft_cmd() override {
-    }
-
     void reset(cmd_context & ctx) override {
         m_idx = 0; 
         m_formula = nullptr;

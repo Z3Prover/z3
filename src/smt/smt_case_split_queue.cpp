@@ -150,8 +150,6 @@ namespace {
             if (!first)
                 out << "\n";            
         }
-
-        ~act_case_split_queue() override {};
     };
 
     /**
@@ -1244,8 +1242,6 @@ namespace {
                 out << "\n";
 
         }
-
-        ~theory_aware_branching_queue() override {};
     };
 }
 

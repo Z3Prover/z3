@@ -147,7 +147,6 @@ class psort_sort : public psort {
     sort * get_sort() const { return m_sort; }
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override { return m_sort; }
 public:
-    ~psort_sort() override {}
     bool is_sort_wrapper() const override { return true; }
     char const * hcons_kind() const override { return "psort_sort"; }
     unsigned hcons_hash() const override { return m_sort->get_id(); }
@@ -171,7 +170,6 @@ class psort_var : public psort {
     }
     size_t obj_size() const override { return sizeof(psort_var); }
 public:
-    ~psort_var() override {}
     char const * hcons_kind() const override { return "psort_var"; }
     unsigned hcons_hash() const override { return hash_u_u(m_num_params, m_idx); }
     bool hcons_eq(psort const * other) const override {
@@ -233,7 +231,6 @@ class psort_app : public psort {
     }
 
 public:
-    ~psort_app() override {}
     char const * hcons_kind() const override { return "psort_app"; }
     unsigned hcons_hash() const override {
         return get_composite_hash<psort_app*, khasher, chasher>(const_cast<psort_app*>(this), m_args.size());
@@ -800,8 +797,6 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         m.m().inc_array_ref(n, s);
     }
 
-    ~app_sort_info() override {}
-
     unsigned obj_size() const override { return sizeof(app_sort_info); }
 
     void finalize(pdecl_manager & m) override {
@@ -842,8 +837,6 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         sort_info(m, d),
         m_indices(n, s) {
     }
-
-    ~indexed_sort_info() override {}
 
     unsigned obj_size() const override { return sizeof(indexed_sort_info); }
 

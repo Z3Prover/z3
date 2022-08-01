@@ -939,6 +939,15 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Creates a <c>distinct</c> term.
+        /// </summary>
+        public BoolExpr MkDistinct(IEnumerable<Expr> args)
+        {
+            Debug.Assert(args != null);
+            return MkDistinct(args.ToArray());
+        }
+
+        /// <summary>
         ///  Mk an expression representing <c>not(a)</c>.
         /// </summary>
         public BoolExpr MkNot(BoolExpr a)

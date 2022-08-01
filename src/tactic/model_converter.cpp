@@ -136,8 +136,6 @@ public:
 
     model2mc(model * m, labels_vec const & r):m_model(m), m_labels(r) {}
 
-    ~model2mc() override {}
-
     void operator()(model_ref & m) override {
         if (!m || !m_model) {
             m = m_model;

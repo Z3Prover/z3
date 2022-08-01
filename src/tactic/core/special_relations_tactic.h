@@ -47,8 +47,6 @@ public:
     special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): 
         m(m), m_params(ref), m_pm(m) {}
 
-    ~special_relations_tactic() override {}
-
     void updt_params(params_ref const & p) override { m_params.append(p); }
     
     void collect_param_descrs(param_descrs & r) override { }

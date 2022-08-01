@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+#pragma once
 
 #include <set>
 #include "math/lp/lp_utils.h"

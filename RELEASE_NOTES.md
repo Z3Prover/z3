@@ -10,6 +10,19 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.11.0
+==============
+- remove Z3_bool from API
+
+Version 4.10.2
+==============
+- fix regression #6194. It broke mod/rem/div reasoning.
+- fix user propagator scope management for equality callbacks.
+
+Version 4.10.1
+==============
+- fix implementation of mk_fresh in user propagator for Python API
+
 Version 4.10.0
 ==============
 - Added API Z3_enable_concurrent_dec_ref to be set by interfaces that
@@ -39,6 +52,7 @@ Version 4.10.0
     of the form x = 0
   - After (partial) completion, perform factorization for factors of the
     form x*y*p = 0 where x, are variables, p is linear.
+- Added support for declaring algebraic datatypes from the C++ interface.
     
 
 Version 4.9.1

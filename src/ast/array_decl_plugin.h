@@ -107,7 +107,6 @@ class array_decl_plugin : public decl_plugin {
     bool is_array_sort(sort* s) const;
  public:
     array_decl_plugin();
-    ~array_decl_plugin() override {}
 
     decl_plugin * mk_fresh() override {
         return alloc(array_decl_plugin);

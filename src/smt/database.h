@@ -3,6 +3,7 @@
 Copyright (c) 2015 Microsoft Corporation
 
 --*/
+#pragma once
 
 static char const g_pattern_database[] =
 "(benchmark patterns \n"

@@ -189,7 +189,6 @@ namespace euf {
 
     public:
         th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id);
-        virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode* n);
         unsigned get_num_vars() const { return m_var2enode.size(); }
         euf::enode* e_internalize(expr* e); 

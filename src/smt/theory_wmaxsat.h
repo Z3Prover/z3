@@ -74,10 +74,7 @@ namespace smt {
                 m_old_values(old) {
                 old.push_back(value);
             }
-            
-            ~numeral_trail() override {
-            }
-            
+
             void undo() override {
                 m_value = m_old_values.back();
                 m_old_values.shrink(m_old_values.size() - 1);

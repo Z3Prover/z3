@@ -241,7 +241,6 @@ protected:
 public:
     bv_decl_plugin();
 
-    ~bv_decl_plugin() override {}
     void finalize() override;
 
     decl_plugin * mk_fresh() override { return alloc(bv_decl_plugin); }

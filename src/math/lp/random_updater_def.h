@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "math/lp/random_updater.h"
 #include "math/lp/static_matrix.h"
 #include "math/lp/lar_solver.h"

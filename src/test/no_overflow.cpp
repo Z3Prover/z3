@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#ifdef _WINDOWS
 
 #include "api/z3.h"
 #include "util/trace.h"
@@ -724,7 +723,3 @@ void tst_no_overflow() {
         }
     }
 }
-#else
-void tst_no_overflow() {
-}
-#endif

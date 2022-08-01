@@ -34,8 +34,6 @@ class fpa_value_factory : public value_factory {
         value_factory(m, fid),
         m_util(m) {}
     
-    ~fpa_value_factory() override {}
-    
     expr * get_some_value(sort * s) override {
         mpf_manager & mpfm = m_util.fm();
         

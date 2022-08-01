@@ -51,7 +51,6 @@ public:
     result operator()(goal const & g) override {
         return is_unbounded(g);
     }
-    ~is_unbounded_probe() override {}
 };
 
 probe * mk_is_unbounded_probe() {

@@ -16,6 +16,8 @@ Author:
 Revision History:
 
 --*/
+#pragma once
+
 #include "math/subpaving/subpaving_t.h"
 #include "math/interval/interval_def.h"
 #include "util/buffer.h"

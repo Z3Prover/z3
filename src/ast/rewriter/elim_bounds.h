@@ -68,8 +68,6 @@ public:
         rewriter_tpl<elim_bounds_cfg>(m, m.proofs_enabled(), m_cfg),
         m_cfg(m)
     {} 
-
-    ~elim_bounds_rw() override {}
 };
 
 

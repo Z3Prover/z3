@@ -46,10 +46,7 @@ public:
         p.insert("print_proofs", CPK_BOOL, "(default: false) print a proof showing the original term is equal to the resultant one.");
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
-    
-    ~simplify_cmd() override {
-    }
-    
+
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
         m_target   = nullptr;

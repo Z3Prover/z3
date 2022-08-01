@@ -53,7 +53,6 @@ class solver : public check_sat_result, public user_propagator::core {
     symbol      m_cancel_backup_file;
 public:
     solver() {}
-    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.

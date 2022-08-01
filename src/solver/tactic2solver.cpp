@@ -357,9 +357,7 @@ class tactic2solver_factory : public solver_factory {
 public:
     tactic2solver_factory(tactic * t):m_tactic(t) {
     }
-    
-    ~tactic2solver_factory() override {}
-    
+
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }

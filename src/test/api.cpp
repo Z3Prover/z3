@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifdef _WINDOWS
 #include "api/z3.h"
 #include "api/z3_private.h"
 #include <iostream>
@@ -112,7 +111,3 @@ void tst_api() {
     test_bvneg();
     test_mk_distinct();
 }
-#else
-void tst_api() {
-}
-#endif

@@ -16,6 +16,8 @@ Author:
 Revision History:
 
 --*/
+#pragma once
+
 #include "util/rational.h"
 #include "util/common_msgs.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"

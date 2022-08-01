@@ -3414,7 +3414,7 @@ namespace z3 {
         }
     };
     
-    constructor_list::constructor_list(constructors const& cs): ctx(cs.ctx) {
+    inline constructor_list::constructor_list(constructors const& cs): ctx(cs.ctx) {
         array<Z3_constructor> cons(cs.size());
         for (unsigned i = 0; i < cs.size(); ++i)
             cons[i] = cs[i];

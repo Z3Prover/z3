@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 // this is a part of lp_primal_core_solver that deals with the tableau
 #include "math/lp/lp_primal_core_solver.h"
 namespace lp {

@@ -1812,9 +1812,9 @@ namespace sat {
         CTRACE("resolve_bug", !c1.contains(l) || !c2.contains(~l), tout << c1 << "\n" << c2 << "\nl: " << l << "\n";);
         if (m_visited.size() <= 2*s.num_vars())
             m_visited.resize(2*s.num_vars(), false);
-        if (c1.was_removed())
+        if (c1.was_removed() && !c1.contains(l))
             return false;
-        if (c2.was_removed())
+        if (c2.was_removed() && !c2.contains(~l))
             return false;
         SASSERT(c1.contains(l));
         SASSERT(c2.contains(~l));

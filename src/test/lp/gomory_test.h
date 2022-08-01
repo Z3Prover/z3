@@ -1,3 +1,5 @@
+#pragma once
+
 namespace lp {
 #include "math/lp/lp_utils.h"
 struct gomory_test {

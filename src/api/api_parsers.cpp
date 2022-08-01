@@ -47,8 +47,6 @@ extern "C" {
             ctx->register_plist();
             ctx->set_ignore_check(true);
         }
-
-        ~Z3_parser_context_ref() override {}
     };
 
     inline Z3_parser_context_ref * to_parser_context(Z3_parser_context pc) { return reinterpret_cast<Z3_parser_context_ref*>(pc); }
