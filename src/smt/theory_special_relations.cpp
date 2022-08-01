@@ -135,7 +135,7 @@ namespace smt {
 
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
         SASSERT(m_util.is_special_relation(atm));
-        relation* r = 0;
+        relation* r = nullptr;
         ast_manager& m = get_manager();
         if (!m_relations.find(atm->get_decl(), r)) {
             r = alloc(relation, m_util.get_property(atm), atm->get_decl(), m);
@@ -470,7 +470,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(),
-                    lits.size(), lits.data(), 0, 0, params.size(), params.data())));
+                    lits.size(), lits.data(), 0, nullptr, params.size(), params.data())));
     }
 
     lbool theory_special_relations::final_check(relation& r) {

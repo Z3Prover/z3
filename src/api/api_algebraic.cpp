@@ -421,7 +421,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_get_poly(c, a);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC(a, 0);
+        CHECK_IS_ALGEBRAIC(a, nullptr);
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());

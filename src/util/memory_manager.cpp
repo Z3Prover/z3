@@ -271,7 +271,7 @@ void memory::deallocate(void * p) {
 void * memory::allocate(size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
     void * r = malloc(s);
-    if (r == 0) {
+    if (r == nullptr) {
         throw_out_of_memory();
         return nullptr;
     }
@@ -298,7 +298,7 @@ void* memory::reallocate(void *p, size_t s) {
     }
 
     void *r = realloc(real_p, s);
-    if (r == 0) {
+    if (r == nullptr) {
         throw_out_of_memory();
         return nullptr;
     }
