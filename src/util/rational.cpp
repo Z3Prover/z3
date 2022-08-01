@@ -130,7 +130,7 @@ bool rational::limit_denominator(rational &num, rational const& limit) {
     return false;
 }
 
-bool rational::mult_inverse(unsigned num_bits, rational & result) {
+bool rational::mult_inverse(unsigned num_bits, rational & result) const {
     rational const& n = *this;
     if (n.is_one()) {
         result = n;
