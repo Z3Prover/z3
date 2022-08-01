@@ -48,13 +48,13 @@ class smaller_pattern {
     void save(expr * p1, expr * p2);
     bool process(expr * p1, expr * p2);
 
-    smaller_pattern & operator=(smaller_pattern const &); 
-
 public:
 
     smaller_pattern(ast_manager & m):
         m(m) {
     }
+
+    smaller_pattern & operator=(smaller_pattern const &) = delete;
 
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);
 };
