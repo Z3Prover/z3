@@ -4,7 +4,7 @@
 namespace dd {
 
 class test {
-public :
+public:
 
     static void hello_world() {
         pdd_manager m(3);
@@ -310,17 +310,288 @@ public :
         sub1.push_back(std::make_pair(va, rational(1)));
         sub2.push_back(std::make_pair(va, rational(2)));
         sub3.push_back(std::make_pair(va, rational(3)));
-        std::cout << "sub 0 " << p.subst_val(sub0) << "\n";
-        std::cout << "sub 1 " << p.subst_val(sub1) << "\n";
-        std::cout << "sub 2 " << p.subst_val(sub2) << "\n";
-        std::cout << "sub 3 " << p.subst_val(sub3) << "\n";
+        std::cout << "sub 0 " << p.subst_val0(sub0) << "\n";
+        std::cout << "sub 1 " << p.subst_val0(sub1) << "\n";
+        std::cout << "sub 2 " << p.subst_val0(sub2) << "\n";
+        std::cout << "sub 3 " << p.subst_val0(sub3) << "\n";
 
-        std::cout << "expect 1 " << (2*a + 1).is_non_zero() << "\n";
-        std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_non_zero() << "\n";
-        std::cout << "expect 0 " << (2*a + 2).is_non_zero() << "\n";
-        SASSERT((2*a + 1).is_non_zero());
-        SASSERT((2*a + 2*b + 1).is_non_zero());
-        SASSERT(!(2*a*b + 3*b + 2).is_non_zero());
+        std::cout << "expect 1 " << (2*a + 1).is_never_zero() << "\n";
+        std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_never_zero() << "\n";
+        std::cout << "expect 0 " << (2*a + 2).is_never_zero() << "\n";
+        VERIFY((2*a + 1).is_never_zero());
+        VERIFY((2*a + 2*b + 1).is_never_zero());
+        VERIFY(!(2*a*b + 3*b + 2).is_never_zero());
+    }
+
+    static void degree_of_variables() {
+        std::cout << "degree of variables\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 3);
+        unsigned va = 0;
+        unsigned vb = 1;
+        unsigned vc = 2;
+        pdd a = m.mk_var(va);
+        pdd b = m.mk_var(vb);
+        pdd c = m.mk_var(vc);
+
+        VERIFY(a.var() == va);
+        VERIFY(b.var() == vb);
+
+        VERIFY(a.degree(va) == 1);
+        VERIFY(a.degree(vb) == 0);
+        VERIFY(a.degree(vc) == 0);
+        VERIFY(c.degree(vc) == 1);
+        VERIFY(c.degree(vb) == 0);
+        VERIFY(c.degree(va) == 0);
+
+        {
+            pdd p = a * a * a;
+            VERIFY(p.degree(va) == 3);
+            VERIFY(p.degree(vb) == 0);
+        }
+
+        {
+            pdd p = b * a;
+            VERIFY(p.degree(va) == 1);
+            VERIFY(p.degree(vb) == 1);
+            VERIFY(p.degree(vc) == 0);
+        }
+
+        {
+            pdd p = (a*a*b + b*a*b + b + a*c)*a + b*b*c;
+            VERIFY(p.degree(va) == 3);
+            VERIFY(p.degree(vb) == 2);
+            VERIFY(p.degree(vc) == 1);
+        }
+
+        {
+            // check that skipping marked nodes works (1)
+            pdd p = b*a + c*a*a*a;
+            VERIFY(p.degree(va) == 3);
+        }
+
+        {
+            // check that skipping marked nodes works (2)
+            pdd p = (b+c)*(a*a*a);
+            VERIFY(p.degree(va) == 3);
+        }
+
+        {
+            // check that skipping marked nodes works (3)
+            pdd p = a*a*a*b*b*b*c + a*a*a*b*b*b;
+            VERIFY(p.degree(va) == 3);
+        }
+    }
+
+    static void factor() {
+        std::cout << "factor\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 3);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        unsigned const vd = 3;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+        pdd const d = m.mk_var(vd);
+
+        auto test_one = [&m](pdd const& p, unsigned v, unsigned d) {
+            pdd lc = m.zero();
+            pdd rest = m.zero();
+            std::cout << "Factoring p = " << p << " by v" << v << "^" << d << "\n";
+            p.factor(v, d, lc, rest);
+            std::cout << "  lc = " << lc << "\n";
+            std::cout << "  rest = " << rest << "\n";
+            pdd x = m.mk_var(v);
+            pdd x_pow_d = m.one();
+            for (unsigned i = 0; i < d; ++i) {
+                x_pow_d *= x;
+            }
+            VERIFY( p == lc * x_pow_d + rest );
+            VERIFY( d == 0 || rest.degree(v) < d );
+            VERIFY( d != 0 || lc.is_zero() );
+        };
+
+        auto test_multiple = [=](pdd const& p) {
+            for (auto v : {va, vb, vc, vd}) {
+                for (unsigned d = 0; d <= 5; ++d) {
+                    test_one(p, v, d);
+                }
+            }
+        };
+
+        test_multiple( b );
+        test_multiple( b*b*b );
+        test_multiple( b + c );
+        test_multiple( a*a*a*a*a + a*a*a*b + a*a*b*b + c );
+        test_multiple( c*c*c*c*c + b*b*b*c + 3*b*c*c + a );
+        test_multiple( (a + b) * (b + c) * (c + d) * (d + a) );
+    }
+
+    static void max_pow2_divisor() {
+        std::cout << "max_pow2_divisor\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 256);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        VERIFY(m.zero().max_pow2_divisor() == UINT_MAX);
+        VERIFY(m.one().max_pow2_divisor() == 0);
+        pdd p = (1 << 20)*a*b + 1024*b*b*b;
+        std::cout << p << " divided by 2^" << p.max_pow2_divisor() << "\n";
+        VERIFY(p.max_pow2_divisor() == 10);
+        VERIFY(p.div(rational::power_of_two(10)) == 1024*a*b + b*b*b);
+        VERIFY((p + p).max_pow2_divisor() == 11);
+        VERIFY((p * p).max_pow2_divisor() == 20);
+        VERIFY((p + 2*b).max_pow2_divisor() == 1);
+        VERIFY((p + b*b*b).max_pow2_divisor() == 0);
+    }
+
+    static void try_div() {
+        std::cout << "try_div\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 256);
+        pdd const a = m.mk_var(0);
+        pdd const b = m.mk_var(1);
+
+        pdd const p = 5*a + 15*a*b;
+        VERIFY_EQ(p.div(rational(5)), a + 3*a*b);
+        pdd res = a;
+        VERIFY(!p.try_div(rational(3), res));
+    }
+
+    static void binary_resolve() {
+        std::cout << "binary resolve\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 4);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+
+        pdd r = m.zero();
+
+        pdd p = a*a*b - a*a;
+        pdd q = a*b*b - b*b;
+        VERIFY(m.resolve(va, p, q, r));
+        VERIFY(r == a*b*b*b - a*b*b);
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == a*a*a*b - a*a*b);
+        VERIFY(!m.resolve(vc, p, q, r));
+
+        p = 2*a*a*b + 13*a*a;
+        q = 6*a*b*b*b + 14*b*b*b;
+        VERIFY(m.resolve(va, p, q, r));
+        VERIFY(r == (2*b+13)*2*b*b*b*a);
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == 9*a*a*a*b*b + 5*a*a*b*b);
+
+        p = a*a*b - a*a + 4*a*c + 2;
+        q = 3*b*b - b*b*b + 8*b*c;
+        VERIFY(!m.resolve(va, p, q, r));
+        VERIFY(!m.resolve(va, q, p, r));
+        VERIFY(!m.resolve(vb, p, q, r));
+        VERIFY(m.resolve(vb, q, p, r));
+        VERIFY(r == 2*a*a*b*b + 8*a*a*b*c + 4*a*b*b*c + 2*b*b);
+        VERIFY(m.resolve(vc, p, q, r));
+        VERIFY(r == 2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b);
+        VERIFY(m.resolve(vc, q, p, r));
+        VERIFY(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
+    }
+
+    static void pow() {
+        std::cout << "pow\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 5);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        VERIFY(a.pow(0) == m.one());
+        VERIFY(a.pow(1) == a);
+        VERIFY(a.pow(2) == a*a);
+        VERIFY(a.pow(7) == a*a*a*a*a*a*a);
+        VERIFY((3*a*b).pow(3) == 27*a*a*a*b*b*b);
+    }
+
+    static void subst_val() {
+        std::cout << "subst_val\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 2);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        unsigned const vd = 3;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+        pdd const d = m.mk_var(vd);
+
+        {
+            pdd const p = 2*a + b + 1;
+            VERIFY(p.subst_val(va, rational(0)) == b + 1);
+        }
+        
+        {
+            pdd const p = a + 2*b;
+            VERIFY(p.subst_val(va, rational(0)) == 2*b);
+            VERIFY(p.subst_val(va, rational(2)) == 2*b + 2);
+            VERIFY(p.subst_val(vb, rational(0)) == a);
+            VERIFY(p.subst_val(vb, rational(1)) == a + 2);
+            VERIFY(p.subst_val(vb, rational(2)) == a);
+            VERIFY(p.subst_val(vb, rational(3)) == a + 2);
+            VERIFY(p.subst_val(va, rational(0)).subst_val(vb, rational(3)) == 2*m.one());
+        }
+
+        {
+            pdd const p = a + b + c + d;
+            vector<std::pair<unsigned, rational>> sub;
+            sub.push_back({vb, rational(2)});
+            sub.push_back({vc, rational(3)});
+            VERIFY(p.subst_val0(sub) == a + d + 1);
+        }
+
+        {
+            pdd const p = (a + b) * (b + c) * (c + d);
+            vector<std::pair<unsigned, rational>> sub;
+            sub.push_back({vb, rational(2)});
+            sub.push_back({vc, rational(3)});
+            VERIFY(p.subst_val0(sub) == (a + 2) * (d + 3));
+            sub.push_back({va, rational(3)});
+            sub.push_back({vd, rational(2)});
+            VERIFY(p.subst_val0(sub) == m.one());
+        }
+    }
+
+    static void univariate() {
+        std::cout << "univariate\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 4);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        pdd p = a*a*b - a*a;
+        VERIFY(!p.is_univariate());
+
+        pdd q = 3*a*a*a + 1*a + 2;
+        VERIFY(q.is_univariate());
+        vector<rational> coeff;
+        q.get_univariate_coefficients(coeff);
+        VERIFY_EQ(coeff.size(), 4);
+        VERIFY_EQ(coeff[0], 2);
+        VERIFY_EQ(coeff[1], 1);
+        VERIFY_EQ(coeff[2], 0);
+        VERIFY_EQ(coeff[3], 3);
     }
 
     static void factors() {
@@ -393,5 +664,13 @@ void tst_pdd() {
     dd::test::order();
     dd::test::order_lm();
     dd::test::mod4_operations();
+    dd::test::degree_of_variables();
+    dd::test::factor();
+    dd::test::max_pow2_divisor();
+    dd::test::try_div();
+    dd::test::binary_resolve();
+    dd::test::pow();
+    dd::test::subst_val();
+    dd::test::univariate();
     dd::test::factors();
 }
