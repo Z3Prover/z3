@@ -54,6 +54,7 @@ z3_add_component(util
     state_graph.cpp
     statistics.cpp
     symbol.cpp
+    tbv.cpp
     timeit.cpp
     timeout.cpp
     trace.cpp
