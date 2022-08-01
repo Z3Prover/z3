@@ -26,9 +26,25 @@ template<typename T>
 class scoped_ptr_vector {
     ptr_vector<T> m_vector;
 public:
+    scoped_ptr_vector() = default;
     ~scoped_ptr_vector() { reset(); }
+    scoped_ptr_vector(scoped_ptr_vector& other) = delete;
+    scoped_ptr_vector& operator=(scoped_ptr_vector& other) = delete;
+
+    scoped_ptr_vector(scoped_ptr_vector&& other) noexcept {
+        m_vector.swap(other.m_vector);
+    }
+    scoped_ptr_vector& operator=(scoped_ptr_vector&& other) {
+        if (this == &other)
+            return *this;
+        reset();
+        m_vector.swap(other.m_vector);
+        return *this;
+    }
+
     void reset() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.reset(); }
     void push_back(T * ptr) { m_vector.push_back(ptr); }
+    void push_back(scoped_ptr<T>&& ptr) { push_back(ptr.detach()); }
     void pop_back() { SASSERT(!empty()); set(size()-1, nullptr); m_vector.pop_back(); }
     T * back() const { return m_vector.back(); }
     T * operator[](unsigned idx) const { return m_vector[idx]; }
@@ -39,6 +55,7 @@ public:
         dealloc(m_vector[idx]); 
         m_vector[idx] = ptr; 
     }
+    void swap(unsigned i, unsigned j) { std::swap(m_vector[i], m_vector[j]); }
     unsigned size() const { return m_vector.size(); }
     bool empty() const { return m_vector.empty(); }
     void resize(unsigned sz) { 
@@ -64,7 +81,24 @@ public:
         ptr = m_vector.back();
         m_vector[m_vector.size()-1] = tmp;
     }
-    typename ptr_vector<T>::const_iterator begin() const { return m_vector.begin(); }
-    typename ptr_vector<T>::const_iterator end() const { return m_vector.end(); }
+
+    T* detach_back() {
+        SASSERT(!empty());
+        T* tmp = m_vector.back();
+        m_vector.back() = nullptr;
+        return tmp;
+    }
+
+    ptr_vector<T> detach() {
+        ptr_vector<T> tmp(std::move(m_vector));
+        SASSERT(m_vector.empty());
+        return tmp;
+    }
+
+    T* const* data() const { return m_vector.data(); }
+
+    using const_iterator = typename ptr_vector<T>::const_iterator;
+    const_iterator begin() const { return m_vector.begin(); }
+    const_iterator end() const { return m_vector.end(); }
 };
 
