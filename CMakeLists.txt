@@ -346,14 +346,6 @@ option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise
 
 
 ################################################################################
-# Symbol visibility
-################################################################################
-if (NOT MSVC)
-  z3_add_cxx_flag("-fvisibility=hidden" REQUIRED)
-  z3_add_cxx_flag("-fvisibility-inlines-hidden" REQUIRED)
-endif()
-
-################################################################################
 # Tracing
 ################################################################################
 option(Z3_ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
@@ -363,20 +355,6 @@ else()
   # Tracing is always enabled in debug builds
   list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
-
-################################################################################
-# Position independent code
-################################################################################
-# This is required because code built in the components will end up in a shared
-# library.
-
-# Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
-# support the flag) or if we target Windows, which generally does not use
-# position independent code for native code shared libraries (DLLs).
-if (NOT (MSVC OR MINGW OR WIN32))
-  z3_add_cxx_flag("-fPIC" REQUIRED)
-endif()
-
 
 ################################################################################
 # Link time optimization
