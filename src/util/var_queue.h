@@ -52,7 +52,7 @@ public:
     
     void mk_var_eh(var v) {
         m_queue.reserve(v+1);
-        m_queue.insert(v);
+        unassign_var_eh(v);
     }
     
     void del_var_eh(var v) {
@@ -76,5 +76,21 @@ public:
     var min_var() { SASSERT(!empty()); return m_queue.min_value(); }
     
     bool more_active(var v1, var v2) const { return m_queue.less_than(v1, v2); }
+
+    std::ostream& display(std::ostream& out) const {
+        bool first = true;
+        for (auto v : m_queue) {
+            if (first) {
+                first = false;
+            } else {
+                out << " ";
+            }
+            out << v;
+        }
+        return out;
+    }
 };
 
+inline std::ostream& operator<<(std::ostream& out, var_queue const& queue) {
+    return queue.display(out);
+}
