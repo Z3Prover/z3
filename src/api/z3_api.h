@@ -76,26 +76,11 @@ DEFINE_TYPE(Z3_rcf_num);
 */
 
 /**
-   \brief Z3 Boolean type. It is just an alias for \c bool.
-*/
-typedef bool Z3_bool;
-
-/**
    \brief Z3 string type. It is just an alias for \ccode{const char *}.
 */
 typedef const char * Z3_string;
 typedef char const*  Z3_char_ptr;
 typedef Z3_string * Z3_string_ptr;
-
-/**
-   \brief True value. It is just an alias for \c true.
-*/
-#define Z3_TRUE  true
-
-/**
-   \brief False value. It is just an alias for \c false.
-*/
-#define Z3_FALSE false
 
 /**
    \brief Lifted Boolean type: \c false, \c undefined, \c true.
