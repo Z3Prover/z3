@@ -180,10 +180,9 @@ namespace datalog {
         public:
             base_fn() = default;
             virtual ~base_fn() {}
-        private:
-            //private and undefined copy constructor and operator= to avoid copying
-            base_fn(const base_fn &);
-            base_fn& operator=(const base_fn &);
+
+            base_fn(const base_fn &) = delete;
+            base_fn& operator=(const base_fn &) = delete;
         };
 
         class join_fn : public base_fn {
@@ -1098,6 +1097,9 @@ namespace datalog {
             iterator_core() : m_ref_cnt(0) {}
             virtual ~iterator_core() {}
 
+            iterator_core(const iterator_core &) = delete;
+            iterator_core & operator=(const iterator_core &) = delete;
+
             void inc_ref() { m_ref_cnt++; }
             void dec_ref() {
                 SASSERT(m_ref_cnt>0);
@@ -1116,10 +1118,6 @@ namespace datalog {
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
             }
-        private:
-            //private and undefined copy constructor and assignment operator
-            iterator_core(const iterator_core &);
-            iterator_core & operator=(const iterator_core &);
         };
 
         struct row_iterator_core {
@@ -1127,6 +1125,9 @@ namespace datalog {
         public:
             row_iterator_core() : m_ref_cnt(0) {}
             virtual ~row_iterator_core() {}
+
+            row_iterator_core(const row_iterator_core &) = delete;
+            row_iterator_core & operator=(const row_iterator_core &) = delete;
 
             void inc_ref() { m_ref_cnt++; }
             void dec_ref() {
@@ -1146,10 +1147,6 @@ namespace datalog {
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
             }
-        private:
-            //private and undefined copy constructor and assignment operator
-            row_iterator_core(const row_iterator_core &);
-            row_iterator_core & operator=(const row_iterator_core &);
         };
 
     public:

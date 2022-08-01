@@ -25,10 +25,6 @@ Revision History:
 namespace datalog {
 
     class rule_subsumption_index {
-        //private and undefined copy constroctor
-        rule_subsumption_index(rule_subsumption_index const&);
-        //private and undefined operator=
-        rule_subsumption_index& operator=(rule_subsumption_index const&);
 
         typedef obj_hashtable<app> app_set;
 
@@ -53,6 +49,8 @@ namespace datalog {
             reset_dealloc_values(m_unconditioned_heads);
         }
 
+        rule_subsumption_index(rule_subsumption_index const&) = delete;
+        rule_subsumption_index& operator=(rule_subsumption_index const&) = delete;
         void add(rule * r);
         bool is_subsumed(rule * r);
         bool is_subsumed(app * query);

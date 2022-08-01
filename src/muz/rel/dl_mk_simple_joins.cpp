@@ -56,6 +56,7 @@ namespace datalog {
 
             pair_info() {}
 
+            pair_info & operator=(const pair_info &) = delete;
             bool can_be_joined() const {
                 return m_consumers > 0;
             }
@@ -110,8 +111,6 @@ namespace datalog {
                 SASSERT(!m_rules.empty() || m_consumers == 0);
                 return m_rules.empty();
             }
-        private:
-            pair_info & operator=(const pair_info &); //to avoid the implicit one
         };
         typedef std::pair<app*, app*> app_pair;
         typedef pair_hash<obj_ptr_hash<app>, obj_ptr_hash<app> > app_pair_hash;

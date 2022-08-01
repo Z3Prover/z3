@@ -37,8 +37,6 @@ private:
 
     char * raw_ptr() const { return reinterpret_cast<char*>(reinterpret_cast<size_t*>(m_data) - 1); }
 
-    array & operator=(array const & source);
-
     void set_data(void * mem, unsigned sz) {
         size_t * _mem = static_cast<size_t*>(mem);
         *_mem = sz; 
@@ -114,6 +112,8 @@ public:
         if (m_data && CallDestructors)
             destroy_elements();
     }
+
+    array & operator=(array const & source) = delete;
 
     // Free the memory used to store the array.
     template<typename Allocator>

@@ -80,10 +80,8 @@ namespace datalog {
         bool passes_output_thresholds(context & ctx) const;
         void output_profile(std::ostream & out) const;
 
-    private:
-        //private and undefined copy constructor and operator= to avoid the default ones
-        accounted_object(const accounted_object &);
-        accounted_object& operator=(const accounted_object &);
+        accounted_object(const accounted_object &) = delete;
+        accounted_object& operator=(const accounted_object &) = delete;
     };
 
 
