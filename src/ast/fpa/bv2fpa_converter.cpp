@@ -326,12 +326,12 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         }
         else if (m_fpa_util.is_to_real(f)) {
             expr_ref_vector dom(m);
-            func_decl_ref to_real_i(m.mk_func_decl(fid, OP_FPA_TO_REAL_I, 0, NULL, dom.size(), dom.data()), m);
+            func_decl_ref to_real_i(m.mk_func_decl(fid, OP_FPA_TO_REAL_I, 0, nullptr, dom.size(), dom.data()), m);
             expr_ref else_value(m.mk_app(to_real_i, dom.size(), dom.data()), m);
             result->set_else(else_value);
         }
         else if (m_fpa_util.is_to_ieee_bv(f)) {
-            func_decl_ref to_ieee_bv_i(m.mk_func_decl(fid, OP_FPA_TO_IEEE_BV_I, 0, NULL, dom.size(), dom.data()), m);
+            func_decl_ref to_ieee_bv_i(m.mk_func_decl(fid, OP_FPA_TO_IEEE_BV_I, 0, nullptr, dom.size(), dom.data()), m);
             expr_ref else_value(m.mk_app(to_ieee_bv_i, dom.size(), dom.data()), m);
             result->set_else(else_value);
         }

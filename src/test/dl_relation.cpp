@@ -36,7 +36,7 @@ namespace datalog {
         sig.push_back(int_sort);
 
         interval_relation& i1 = dynamic_cast<interval_relation&>(*ip.mk_empty(sig));
-        interval_relation& i2 = dynamic_cast<interval_relation&>(*ip.mk_full(0, sig));
+        interval_relation& i2 = dynamic_cast<interval_relation&>(*ip.mk_full(nullptr, sig));
 
         i1.display(std::cout);
         i2.display(std::cout);
@@ -141,7 +141,7 @@ namespace datalog {
         sig.push_back(int_sort);
 
         bound_relation& i1 = dynamic_cast<bound_relation&>(*br.mk_empty(sig));
-        bound_relation& i2 = dynamic_cast<bound_relation&>(*br.mk_full(0, sig));
+        bound_relation& i2 = dynamic_cast<bound_relation&>(*br.mk_full(nullptr, sig));
 
         i1.display(std::cout << "empty:\n");
         i2.display(std::cout << "full:\n");
@@ -212,8 +212,8 @@ namespace datalog {
         // test that equivalence classes are expanded.
         // { x1 = x3, x0 < x1 x1 < x2} u { x2 = x3, x0 < x3 } = { x0 < x3 }
         {
-            relation_base* b1 = br.mk_full(0, sig);
-            relation_base* b2 = br.mk_full(0, sig);
+            relation_base* b1 = br.mk_full(nullptr, sig);
+            relation_base* b2 = br.mk_full(nullptr, sig);
             unsigned x1x3[2] = { 1, 3 };
             unsigned x2x3[2] = { 2, 3 };
             scoped_ptr<relation_mutator_fn> id1 = br.mk_filter_identical_fn(*b1, 2, x1x3);
@@ -229,10 +229,10 @@ namespace datalog {
             b2->display(std::cout << "b2:\n");
             (*ltx0x3)(*b2);
             b2->display(std::cout << "b2:\n");
-            scoped_ptr<relation_union_fn> u = br.mk_union_fn(*b1, *b2, 0);
+            scoped_ptr<relation_union_fn> u = br.mk_union_fn(*b1, *b2, nullptr);
             b1->display(std::cout << "b1:\n");
             b2->display(std::cout << "b2:\n");
-            (*u)(*b1, *b2, 0);
+            (*u)(*b1, *b2, nullptr);
 
             b1->display(std::cout << "b1 u b2:\n");
 
@@ -245,8 +245,8 @@ namespace datalog {
         // test that equivalence classes are expanded.
         // { x1 = x2 = x3, x0 < x1} u { x1 = x3, x0 < x3, x0 < x2 } = { x0 < x2, x0 < x3 }
         {
-            relation_base* b1 = br.mk_full(0, sig);
-            relation_base* b2 = br.mk_full(0, sig);
+            relation_base* b1 = br.mk_full(nullptr, sig);
+            relation_base* b2 = br.mk_full(nullptr, sig);
             unsigned x0x3[2] = { 0, 3 };
             unsigned x1x3[2] = { 1, 3 };
             unsigned x2x3[2] = { 2, 3 };
@@ -262,10 +262,10 @@ namespace datalog {
             (*id3)(*b2);
             (*ltx0x2)(*b2);
             (*ltx0x3)(*b2);
-            scoped_ptr<relation_union_fn> u = br.mk_union_fn(*b1, *b2, 0);
+            scoped_ptr<relation_union_fn> u = br.mk_union_fn(*b1, *b2, nullptr);
             b1->display(std::cout << "b1:\n");
             b2->display(std::cout << "b2:\n");
-            (*u)(*b1, *b2, 0);
+            (*u)(*b1, *b2, nullptr);
             b1->display(std::cout << "b1 u b2:\n");
 
             // TBD check property;

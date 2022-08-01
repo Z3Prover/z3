@@ -12,7 +12,7 @@ Version 4.next
 
 Version 4.11.0
 ==============
-- remove Z3_bool from API
+- remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
 
 Version 4.10.2
 ==============
