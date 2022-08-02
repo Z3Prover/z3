@@ -37,7 +37,6 @@ Revision History:
    every instance of f(g(X)) is also an instance of f(X).
 */
 class smaller_pattern {
-    ast_manager &    m;
     ptr_vector<expr> m_bindings;
 
     typedef std::pair<expr *, expr *> expr_pair;
@@ -50,9 +49,7 @@ class smaller_pattern {
 
 public:
 
-    smaller_pattern(ast_manager & m):
-        m(m) {
-    }
+    smaller_pattern() = default;
 
     smaller_pattern & operator=(smaller_pattern const &) = delete;
 
