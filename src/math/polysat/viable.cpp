@@ -18,6 +18,11 @@ In other cases, the phase of a variable assignment across branches
 might be used in a call to is_viable. With phase caching on, it may
 just check if the cached phase is viable without detecting that it is a propagation.
 
+TODO: improve management of the fallback univariate solvers:
+      - use a solver pool and recycle the least recently used solver
+      - incrementally add/remove constraints
+      - set resource limit of univariate solver
+
 --*/
 
 
@@ -746,13 +751,10 @@ namespace polysat {
     }
 
     void viable_fallback::push_var(unsigned bit_width) {
-        auto& mk_solver = *m_usolver_factory;
-        m_usolver.push_back(mk_solver(bit_width));
         m_constraints.push_back({});
     }
 
     void viable_fallback::pop_var() {
-        m_usolver.pop_back();
         m_constraints.pop_back();
     }
 
@@ -760,11 +762,6 @@ namespace polysat {
         // v is the only unassigned variable in c.
         SASSERT(c->vars().size() == 1 || !s.is_assigned(v));
         DEBUG_CODE(for (pvar w : c->vars()) { if (v != w) SASSERT(s.is_assigned(w)); });
-        auto& us = *m_usolver[v];
-        // TODO: would be enough to push the solver only for new decision levels
-        us.push();
-        unsigned dep = m_constraints[v].size();
-        c.add_to_univariate_solver(s, us, dep);
         m_constraints[v].push_back(c);
         m_constraints_trail.push_back(v);
         s.m_trail.push_back(trail_instr_t::viable_constraint_i);
@@ -774,7 +771,6 @@ namespace polysat {
         pvar v = m_constraints_trail.back();
         m_constraints_trail.pop_back();
         m_constraints[v].pop_back();
-        m_usolver[v]->pop(1);
     }
 
     bool viable_fallback::check_constraints(pvar v) {
@@ -789,24 +785,47 @@ namespace polysat {
     }
 
     dd::find_t viable_fallback::find_viable(pvar v, rational& out_val) {
-        auto& us = *m_usolver[v];
-        switch (us.check()) {
+        unsigned bit_width = s.m_size[v];
+
+        univariate_solver* us;
+        auto it = m_usolver.find_iterator(bit_width);
+        if (it != m_usolver.end()) {
+            us = it->m_value.get();
+            us->pop(1);
+        } else {
+            auto& mk_solver = *m_usolver_factory;
+            m_usolver.insert(bit_width, mk_solver(bit_width));
+            us = m_usolver[bit_width].get();
+        }
+
+        // push once on the empty solver so we can reset it before the next use
+        us->push();
+
+        auto const& cs = m_constraints[v];
+        for (unsigned i = cs.size(); i-- > 0; ) {
+            cs[i].add_to_univariate_solver(s, *us, i);
+        }
+
+        switch (us->check()) {
         case l_true:
-            out_val = us.model();
+            out_val = us->model();
             // we don't know whether the SMT instance has a unique solution
             return dd::find_t::multiple;
         case l_false:
             return dd::find_t::empty;
         default:
             // TODO: what should we do here? (SMT solver had resource-out ==> polysat should abort too?)
+            //       can we pass polysat's resource limit to the univariate solver?
             UNREACHABLE();
             return dd::find_t::empty;
         }
     }
 
     signed_constraints viable_fallback::unsat_core(pvar v) {
+        unsigned bit_width = s.m_size[v];
+        SASSERT(m_usolver[bit_width]);
         signed_constraints cs;
-        for (unsigned dep : m_usolver[v]->unsat_core()) {
+        for (unsigned dep : m_usolver[bit_width]->unsat_core()) {
             cs.push_back(m_constraints[v][dep]);
         }
         return cs;

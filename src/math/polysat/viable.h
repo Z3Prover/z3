@@ -19,6 +19,7 @@ Author:
 
 #include <limits>
 #include "util/dlist.h"
+#include "util/map.h"
 #include "util/small_object_allocator.h"
 #include "math/polysat/types.h"
 #include "math/polysat/conflict.h"
@@ -223,12 +224,11 @@ namespace polysat {
         return v.v.display(out, v.var);
     }
 
-    // TODO: don't push on each constraint add/remove; but only when necessary
     class viable_fallback {
         solver& s;
 
         scoped_ptr<univariate_solver_factory>   m_usolver_factory;
-        scoped_ptr_vector<univariate_solver>    m_usolver;
+        u_map<scoped_ptr<univariate_solver>>    m_usolver;  // univariate solver for each bit width
         vector<signed_constraints>              m_constraints;
         svector<unsigned>                       m_constraints_trail;
 
@@ -245,7 +245,6 @@ namespace polysat {
 
         // Check whether all constraints for 'v' are satisfied.
         bool check_constraints(pvar v);
-        // bool check_value(pvar v, rational const& val);
 
         dd::find_t find_viable(pvar v, rational& out_val);
         signed_constraints unsat_core(pvar v);

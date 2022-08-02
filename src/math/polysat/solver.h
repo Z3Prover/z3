@@ -118,7 +118,7 @@ namespace polysat {
 
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
-        unsigned_vector          m_size;     // store size of variables.
+        unsigned_vector          m_size;     // store size of variables (bit width)
 
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
