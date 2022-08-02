@@ -454,10 +454,10 @@ void mpz_manager<SYNCH>::set_digits_unsigned(mpz & target, unsigned sz, unsigned
 
   } else {
     // we need to allocate a new buffer
-    auto new_digits = new digit_t[new_sz];
+    auto new_digits = std::make_unique<digit_t[]>(new_sz);
 
     if (little_endian) {
-      std::memcpy(new_digits, digits, sizeof(sz / us_per_digit) * sizeof(digit_t));
+      std::memcpy(&new_digits[0], digits, sizeof(sz / us_per_digit) * sizeof(digit_t));
 
     } else {
       // big endian. we need to pack a couple of unsigned into each digit_t by bit shifting
@@ -481,9 +481,7 @@ void mpz_manager<SYNCH>::set_digits_unsigned(mpz & target, unsigned sz, unsigned
       new_digits[new_sz - 1] = 0;
     }
 
-    set_digits(target, new_sz, new_digits);
-
-    delete[] new_digits;
+    set_digits(target, new_sz, &new_digits[0]);
   }
 }
 
