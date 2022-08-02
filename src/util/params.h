@@ -35,13 +35,14 @@ class params_ref {
     params * m_params;
     void init();
     void copy_core(params const * p);
-    params_ref& operator=(params_ref const& p) = delete;
     void set(params_ref const& p);
 public:
     params_ref():m_params(nullptr) {}
     params_ref(params_ref const & p);
     ~params_ref();
     
+    params_ref& operator=(params_ref const& p) = delete;
+
     static params_ref const & get_empty() { return g_empty_params_ref; }
     
         

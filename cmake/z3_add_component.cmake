@@ -206,6 +206,12 @@ macro(z3_add_component component_name)
   foreach (flag ${Z3_COMPONENT_CXX_FLAGS})
     target_compile_options(${component_name} PRIVATE ${flag})
   endforeach()
+  set_target_properties(${component_name} PROPERTIES
+    # Position independent code needed in shared libraries
+    POSITION_INDEPENDENT_CODE ON
+    # Symbol visibility
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
 
   # It's unfortunate that we have to manage dependencies ourselves.
   #
