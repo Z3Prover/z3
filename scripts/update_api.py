@@ -16,7 +16,6 @@ emit some of the files required for Z3's different
 language bindings.
 """
 
-import mk_exception
 import argparse
 import logging
 import re
@@ -1700,8 +1699,8 @@ def def_APIs(api_files):
                 m = pat2.match(line)
                 if m:
                     eval(line)
-            except Exception:
-                raise mk_exec_header.MKException("Failed to process API definition: %s" % line)
+            except Exception as e:
+                error('ERROR: While processing: %s: %s\n' % (e, line))
 
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
