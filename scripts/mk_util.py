@@ -2594,46 +2594,30 @@ def mk_config():
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
-            CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
-            OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'GNU':
-            CXXFLAGS       = '%s -D_HURD_' % CXXFLAGS
-            OS_DEFINES     = '-D_HURD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname == 'FreeBSD':
-            CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
-            CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname == 'OpenBSD':
-            CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname  == 'SunOS':
-            CXXFLAGS       = '%s -D_SUNOS_' % CXXFLAGS
-            OS_DEFINES     = '-D_SUNOS_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -mimpure-text' % SLIBEXTRAFLAGS
         elif sysname.startswith('CYGWIN'):
-            CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
-            OS_DEFINES     = '-D_CYGWIN'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
         elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
-            CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
-            OS_DEFINES     = '-D_MINGW'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
             EXE_EXT        = '.exe'
