@@ -87,6 +87,7 @@ namespace polysat {
         friend class scoped_solverv;        
         friend class test_polysat;
         friend class test_fi;
+        friend struct inference_resolve_with_assignment;
 
         reslimit&                m_lim;
         params_ref               m_params;

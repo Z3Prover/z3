@@ -388,7 +388,8 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override {
             out << "Resolve upon " << lit << " with assignment:";
             for (pvar v : c->vars())
-                out << " " << assignment_pp(s, v, s.get_value(v), true);
+                if (s.is_assigned(v))
+                    out << " " << assignment_pp(s, v, s.get_value(v), true);
             return out;
         }
     };

@@ -1063,7 +1063,7 @@ namespace polysat {
             // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
             if (m_bvars.value(lit) == l_true) {
                 // in this case the clause is useless
-                LOG("   Clause is already true, skippping...");
+                LOG("   Clause is already true, skipping...");
                 return;
             }
         }
