@@ -179,6 +179,12 @@ namespace smt {
                 conseq_expr = ctx.bool_var2expr(conseq.var());
             }
 
+            if (m.are_distinct(idx1->get_expr(), idx2->get_expr())) {
+                ctx.mark_as_relevant(conseq);
+                assert_axiom(conseq);
+                continue;
+            }
+
             literal ante = mk_eq(idx1->get_expr(), idx2->get_expr(), true);
             ctx.mark_as_relevant(ante);
             // ctx.force_phase(ante);
