@@ -28,7 +28,7 @@ void env_params::updt_params() {
     enable_warning_messages(p.get_bool("warning", true));
     memory::set_max_size(megabytes_to_bytes(p.get_uint("memory_max_size", 0)));
     memory::set_max_alloc_count(p.get_uint("memory_max_alloc_count", 0));
-    memory::set_high_watermark(p.get_uint("memory_high_watermark", 0));
+    memory::set_high_watermark(megabytes_to_bytes(p.get_uint("memory_high_watermark", 0)));
 }
 
 void env_params::collect_param_descrs(param_descrs & d) {
