@@ -91,9 +91,9 @@ namespace smt {
         d->m_parent_selects.push_back(s);
         TRACE("array", tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
         m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
-        for (enode* n : d->m_stores) {
+        for (enode* n : d->m_stores) 
             instantiate_axiom2a(s, n);
-        }
+
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode* store : d->m_parent_stores) {
                 SASSERT(is_store(store));
