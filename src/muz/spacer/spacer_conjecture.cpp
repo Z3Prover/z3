@@ -31,7 +31,7 @@ bool is_mono_var_lit(expr *lit, ast_manager &m) {
     bv_util bv(m);
     arith_util a_util(m);
     if (m.is_not(lit, e)) return is_mono_var_lit(e, m);
-    if (a_util.is_arith_expr((lit)) || bv.is_bv_ule(lit) ||
+    if (a_util.is_arith_expr(lit) || bv.is_bv_ule(lit) ||
         bv.is_bv_sle(lit)) {
         return get_num_vars(lit) == 1 && !has_nonlinear_var_mul(lit, m);
     }
