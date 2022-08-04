@@ -3276,7 +3276,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         }
     }
 
-    if (k_min < UINT_MAX/4) {
+    if (k_min < get_fparams().m_seq_max_unfolding) {
         m_max_unfolding_depth++;
         k_min *= 2;
         if (m_util.is_seq(s_min))
@@ -3290,7 +3290,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-depth " << m_max_unfolding_depth << ")\n");
         return true;
     }
-    else if (k_min != UINT_MAX && k_min >= UINT_MAX/4) {
+    else if (k_min != UINT_MAX && k_min >= get_fparams().m_seq_max_unfolding) {
         throw default_exception("reached max unfolding");
     }
 
