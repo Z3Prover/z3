@@ -77,7 +77,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
     }
     if (m_parent) {
         m_is_conjecture = m_parent->is_conjecture();
-        m_is_subsume = m_parent->is_subsume();
+        // m_is_subsume = m_parent->is_subsume();
         m_gas = m_parent->get_gas();
     }
 }
@@ -3246,7 +3246,13 @@ bool context::check_reachability ()
             SASSERT(m_pob_queue.size() == old_sz);
             // re-queue all pobs introduced by global gen and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-                if ((pob->is_may_pob() && pob->post() != node->post()) || is_requeue(*pob)) {
+                TRACE("gg", tout << "pob: is_may_pob " << pob->is_may_pob() << "\n";);
+                //if ((pob->is_may_pob() && pob->post() != node->post()) || is_requeue(*pob)) {
+                if (is_requeue(*pob)) {
+                  TRACE("gg",
+                        tout << "Adding back blocked pob at level "
+                             << pob->level()
+                             << " and depth " << pob->depth() << "\n");
                     m_pob_queue.push(*pob);
                 }
             }
@@ -3272,7 +3278,7 @@ bool context::check_reachability ()
 
 /// returns true if the given pob can be re-scheduled
 bool context::is_requeue(pob &n) {
-    if (!m_push_pob) {return false;}
+    if (!n.is_may_pob() && !m_push_pob) { return false; }
     unsigned max_depth = m_push_pob_max_depth;
     return (n.level() >= m_pob_queue.max_level() ||
             m_pob_queue.max_level() - n.level() <= max_depth);
