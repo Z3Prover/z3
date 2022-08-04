@@ -1532,7 +1532,6 @@ namespace dd {
     }
 
     void pdd_manager::gc() {
-        m_gc_generation++;
         init_dmark();
         m_free_nodes.reset();
         SASSERT(well_formed());

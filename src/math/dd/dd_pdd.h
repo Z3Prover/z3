@@ -208,7 +208,6 @@ namespace dd {
         rational                   m_mod2N;
         unsigned                   m_power_of_2 = 0;
         rational                   m_max_value;
-        unsigned                   m_gc_generation = 0;  ///< will be incremented on each GC
 
         void reset_op_cache();
         void init_nodes(unsigned_vector const& l2v);
