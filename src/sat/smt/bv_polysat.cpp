@@ -278,6 +278,10 @@ namespace bv {
             m_pddvar2var.setx(pv, v, UINT_MAX);
             pdd p = m_polysat.var(pv);
             polysat_set(v, p);
+#ifndef NDEBUG
+            expr* e = var2enode(v)->get_expr();
+            std::cerr << "var2pdd:     " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
+#endif
             return p;
         }
         return m_var2pdd[v];
@@ -303,7 +307,11 @@ namespace bv {
         m_var2pdd.reserve(get_num_vars(), p);
         m_var2pdd_valid.reserve(get_num_vars(), false);
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
-        m_var2pdd[v] = p;        
+        m_var2pdd[v] = p;
+#ifndef NDEBUG
+            expr* e = var2enode(v)->get_expr();
+            std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
+#endif
     }
 
     void solver::polysat_pop(unsigned n) {
