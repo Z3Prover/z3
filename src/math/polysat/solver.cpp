@@ -554,6 +554,7 @@ namespace polysat {
         m_justification[v] = justification::unassigned();
         if (!is_valid) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
+            ++m_stats.m_num_viable_fallback;
             // Try to find a valid replacement value
             switch (m_viable_fallback.find_viable(v, val)) {
             case dd::find_t::singleton:
@@ -1194,12 +1195,13 @@ namespace polysat {
     }
 
     void solver::collect_statistics(statistics& st) const {
-        st.update("polysat iterations",   m_stats.m_num_iterations);
-        st.update("polysat decisions",    m_stats.m_num_decisions);
-        st.update("polysat conflicts",    m_stats.m_num_conflicts);
-        st.update("polysat bailouts",     m_stats.m_num_bailouts);
-        st.update("polysat propagations", m_stats.m_num_propagations);
-        st.update("polysat restarts",     m_stats.m_num_restarts);
+        st.update("polysat iterations",      m_stats.m_num_iterations);
+        st.update("polysat decisions",       m_stats.m_num_decisions);
+        st.update("polysat conflicts",       m_stats.m_num_conflicts);
+        st.update("polysat bailouts",        m_stats.m_num_bailouts);
+        st.update("polysat propagations",    m_stats.m_num_propagations);
+        st.update("polysat restarts",        m_stats.m_num_restarts);
+        st.update("polysat viable fallback", m_stats.m_num_viable_fallback);
     }
 
     bool solver::invariant() {
