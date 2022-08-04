@@ -877,7 +877,7 @@ namespace qe {
 
     class quant_elim {
     public:
-        virtual ~quant_elim() {}
+        virtual ~quant_elim() = default;
     
         virtual lbool eliminate_exists(
             unsigned num_vars, app* const* vars, 

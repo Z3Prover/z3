@@ -24,7 +24,7 @@ Revision History:
 
 class ast_printer {
 public:
-    virtual ~ast_printer() {}
+    virtual ~ast_printer() = default;
     virtual void pp(sort * s, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void pp(func_decl * f, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const { UNREACHABLE(); }

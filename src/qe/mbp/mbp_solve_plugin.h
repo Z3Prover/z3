@@ -36,7 +36,7 @@ namespace mbp {
         bool is_variable(expr* e) const { return m_is_var(e); }
     public:
         solve_plugin(ast_manager& m, family_id fid, is_variable_proc& is_var) : m(m), m_id(fid), m_is_var(is_var) {}
-        virtual ~solve_plugin() {}
+        virtual ~solve_plugin() = default;
         family_id get_family_id() const { return m_id; }
         /// Process (and potentially augment) a literal
         expr_ref operator() (expr *lit);

@@ -26,7 +26,7 @@ public:
     class simplifier {
         goal_num_occurs* m_occs;
     public:
-        virtual ~simplifier() {}
+        virtual ~simplifier() = default;
         virtual bool assert_expr(expr * t, bool sign) = 0;
         virtual bool simplify(expr* t, expr_ref& result) = 0;
         virtual bool may_simplify(expr* t) { return true; }

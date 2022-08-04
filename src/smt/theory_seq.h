@@ -222,7 +222,7 @@ namespace smt {
 
         class apply {
         public:
-            virtual ~apply() {}
+            virtual ~apply() = default;
             virtual void operator()(theory_seq& th) = 0;
         };
 

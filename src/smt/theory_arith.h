@@ -294,7 +294,7 @@ namespace smt {
                 m_bound_kind(k),
                 m_atom(a) {
             }
-            virtual ~bound() {}
+            virtual ~bound() = default;
             theory_var get_var() const { return m_var; }
             bound_kind get_bound_kind() const { return static_cast<bound_kind>(m_bound_kind); }
             bool is_atom() const { return m_atom; }

@@ -42,7 +42,7 @@ namespace opt {
 
     class maxsmt_solver {
     public:        
-        virtual ~maxsmt_solver() {}
+        virtual ~maxsmt_solver() = default;
         virtual lbool operator()() = 0;
         virtual rational get_lower() const = 0;
         virtual rational get_upper() const = 0;

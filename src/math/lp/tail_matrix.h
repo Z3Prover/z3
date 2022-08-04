@@ -37,7 +37,7 @@ public:
     virtual void apply_from_left(vector<X> & w, lp_settings & settings) = 0;
     virtual void apply_from_right(vector<T> & w) = 0;
     virtual void apply_from_right(indexed_vector<T> & w) = 0;
-    virtual ~tail_matrix() {}
+    virtual ~tail_matrix() = default;
     virtual bool is_dense() const = 0;
     struct ref_row {
         const tail_matrix & m_A;

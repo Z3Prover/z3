@@ -22,7 +22,7 @@ public:
     virtual void set_number_of_rows(unsigned m)  = 0;
     virtual void set_number_of_columns(unsigned n) = 0;
 
-    virtual ~matrix() {}
+    virtual ~matrix() = default;
 
     bool is_equal(const matrix<T, X>& other);
     bool operator == (matrix<T, X> const & other) {

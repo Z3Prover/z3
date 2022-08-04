@@ -45,7 +45,7 @@ protected:
     double      m_time;
 public:
     check_sat_result():m_ref_count(0), m_status(l_undef), m_time(0) {}
-    virtual ~check_sat_result() {}
+    virtual ~check_sat_result() = default;
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
     lbool set_status(lbool r) { return m_status = r; }

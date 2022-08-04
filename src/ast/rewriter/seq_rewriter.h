@@ -83,7 +83,7 @@ public:
 
 class expr_solver {
 public:
-    virtual ~expr_solver() {}
+    virtual ~expr_solver() = default;
     virtual lbool check_sat(expr* e) = 0;
 };
 

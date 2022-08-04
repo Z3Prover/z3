@@ -28,7 +28,7 @@ namespace opt {
 
     class lns_context {
     public:
-        virtual ~lns_context() {}
+        virtual ~lns_context() = default;
         virtual void update_model(model_ref& mdl) = 0;
         virtual void relax_cores(vector<expr_ref_vector> const& cores) = 0;
         virtual rational cost(model& mdl) = 0;

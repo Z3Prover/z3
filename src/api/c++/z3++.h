@@ -87,7 +87,7 @@ namespace z3 {
     class exception : public std::exception {
         std::string m_msg;
     public:
-        virtual ~exception() throw() {}
+        virtual ~exception() throw() = default;
         exception(char const * msg):m_msg(msg) {}
         char const * msg() const { return m_msg.c_str(); }
         char const * what() const throw() { return m_msg.c_str(); }

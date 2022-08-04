@@ -43,7 +43,7 @@ namespace qe {
         lbool is_shared_cached(expr* e);
     public:
         mbi_plugin(ast_manager& m): m(m), m_shared_trail(m) {}
-        virtual ~mbi_plugin() {}
+        virtual ~mbi_plugin() = default;
 
         /**
          * Set the shared symbols.

@@ -42,7 +42,7 @@ namespace datalog {
         std::string m_name;
     public:
         engine_base(ast_manager& m, char const* name): m(m), m_name(name) {}
-        virtual ~engine_base() {}
+        virtual ~engine_base() = default;
 
         virtual expr_ref get_answer() = 0;
         virtual expr_ref get_ground_sat_answer () {

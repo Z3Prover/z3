@@ -21,7 +21,7 @@ Revision History:
 
 class ex {
 public:
-    virtual ~ex() {}
+    virtual ~ex() = default;
     virtual char const * msg() const = 0;
 };
 

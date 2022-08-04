@@ -44,7 +44,7 @@ private:
 
 public:
     probe():m_ref_count(0) {}
-    virtual ~probe() {}
+    virtual ~probe() = default;
 
     void inc_ref() { ++m_ref_count; }
     void dec_ref() { SASSERT(m_ref_count > 0); --m_ref_count; if (m_ref_count == 0) dealloc(this); }

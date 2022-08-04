@@ -52,7 +52,7 @@ namespace opt {
             m_solver(s),
             m_params(p) {
         }
-        virtual ~pareto_base() {}
+        virtual ~pareto_base() = default;
         virtual void updt_params(params_ref & p) {
             m_solver->updt_params(p);
             m_params.copy(p);

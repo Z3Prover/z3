@@ -40,7 +40,7 @@ namespace datalog {
 
         class base_fn {
         public:
-            virtual ~base_fn() {}
+            virtual ~base_fn() = default;
         };
 
         class join_fn : public base_fn {
@@ -113,7 +113,7 @@ namespace datalog {
             base_ancestor(kind k, relation_manager & m, const signature & s) 
                 : m_kind(k), m_manager(m), m_signature(s) {}
         public:
-            virtual ~base_ancestor() {}
+            virtual ~base_ancestor() = default;
 
             kind get_kind() const { return m_kind; }
             relation_manager & get_manager() const { return m_manager; }

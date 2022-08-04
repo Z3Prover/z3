@@ -31,7 +31,7 @@ public:
     elim_term_ite_cfg(ast_manager & m, defined_names & d): m(m), m_defined_names(d) { 
         // TBD enable_ac_support(false);
     }
-    virtual ~elim_term_ite_cfg() {}
+    virtual ~elim_term_ite_cfg() = default;
     vector<justified_expr> const& new_defs() const { return m_new_defs; }
     br_status reduce_app(func_decl* f, unsigned n, expr *const* args, expr_ref& result, proof_ref& result_pr);
     void push() { m_lim.push_back(m_new_defs.size()); }

@@ -42,7 +42,7 @@ namespace smt {
 
         class atom {
         public:
-            virtual ~atom() {}
+            virtual ~atom() = default;
             virtual bool is_bit() const = 0;
         };
 

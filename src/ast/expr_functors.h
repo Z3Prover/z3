@@ -27,14 +27,14 @@ Revision History:
 class i_expr_pred {
 public:
     virtual bool operator()(expr* e) = 0;
-    virtual ~i_expr_pred() {}
+    virtual ~i_expr_pred() = default;
 };
 
 
 class i_sort_pred {
 public:
     virtual bool operator()(sort* s) = 0;
-    virtual ~i_sort_pred() {}
+    virtual ~i_sort_pred() = default;
 };
 
 
