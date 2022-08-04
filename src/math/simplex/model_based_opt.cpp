@@ -981,7 +981,7 @@ namespace opt {
         lub_rows.reset();
         glb_rows.reset();
         mod_rows.reset();
-        bool lub_is_unit = false, glb_is_unit = false;
+        bool lub_is_unit = true, glb_is_unit = true;
         unsigned eq_row = UINT_MAX;
         // select the lub and glb.
         for (unsigned row_id : row_ids) {
