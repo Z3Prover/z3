@@ -3200,13 +3200,21 @@ bool context::check_reachability ()
             node = last_reachable;
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
-            if (is_reachable (*node->parent())) {
-                last_reachable = node->parent ();
+
+            // do not check the parent if its may pob status is different
+            if (node->parent()->is_may_pob() != node->is_may_pob())
+              {
+                last_reachable = nullptr;
+                break;
+              }
+
+            if (is_reachable(*node->parent())) {
+                last_reachable = node->parent();
                 SASSERT(last_reachable->is_closed());
-                last_reachable->close ();
+                last_reachable->close();
             } else if (!node->parent()->is_closed()) {
                 /* bump node->parent */
-                node->parent ()->bump_weakness();
+                node->parent()->bump_weakness();
             }
         }
 
@@ -3251,15 +3259,18 @@ bool context::check_reachability ()
         case l_true:
             SASSERT(m_pob_queue.size() == old_sz);
             SASSERT(new_pobs.empty());
+            node->close();
             last_reachable = node;
-            last_reachable->close ();
-            if (m_pob_queue.is_root(*node)) {return true;}
+            if (m_pob_queue.is_root(*node)) { return true; }
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
             // re-queue all pobs introduced by global gen and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-                TRACE("gg", tout << "pob: is_may_pob " << pob->is_may_pob() << "\n";);
+                TRACE("gg", tout << "pob: is_may_pob " << pob->is_may_pob()
+                      << " with post:\n"
+                      << mk_pp(pob->post(), m) 
+                      << "\n";);
                 //if ((pob->is_may_pob() && pob->post() != node->post()) || is_requeue(*pob)) {
                 if (is_requeue(*pob)) {
                   TRACE("gg",
