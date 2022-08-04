@@ -80,7 +80,7 @@ namespace sat {
 
     class i_local_search {
     public:
-        virtual ~i_local_search() {}
+        virtual ~i_local_search() = default;
         virtual void add(solver const& s) = 0;
         virtual void updt_params(params_ref const& p) = 0;
         virtual void set_seed(unsigned s) = 0;

@@ -149,7 +149,7 @@ namespace qe {
             m_ctx(ctx)
         {}
         
-        virtual ~qe_solver_plugin() {}
+        virtual ~qe_solver_plugin() = default;
         
         family_id get_family_id() { return m_fid; }
 

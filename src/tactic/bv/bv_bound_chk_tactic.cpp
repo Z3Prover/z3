@@ -147,7 +147,7 @@ public:
     imp(ast_manager & m, params_ref const & p, bv_bound_chk_stats& stats)
         : m_rw(m, p, stats) {    }
 
-    virtual ~imp() {    }
+    virtual ~imp() = default;
 
     ast_manager& m() { return m_rw.m(); }
 

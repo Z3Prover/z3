@@ -46,7 +46,7 @@ protected:
     format_ns::format * pp_as(format_ns::format * fname, sort * s);
     format_ns::format * pp_signature(format_ns::format * f_name, func_decl * f);
 public:
-    virtual ~smt2_pp_environment() {}
+    virtual ~smt2_pp_environment() = default;
     virtual ast_manager & get_manager() const = 0;
     virtual arith_util & get_autil() = 0;
     virtual bv_util & get_bvutil() = 0;

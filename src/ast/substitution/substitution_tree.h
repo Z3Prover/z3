@@ -29,7 +29,7 @@ protected:
     substitution & m_subst;
 public:
     st_visitor(substitution & s):m_subst(s) {}
-    virtual ~st_visitor() {}
+    virtual ~st_visitor() = default;
     substitution & get_substitution() { return m_subst; }
     virtual bool operator()(expr * e) { return true; }
 };

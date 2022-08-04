@@ -781,7 +781,7 @@ struct pdecl_manager::sort_info {
         m_decl(d) {
         m.inc_ref(d);
     }
-    virtual ~sort_info() {}
+    virtual ~sort_info() = default;
     virtual unsigned obj_size() const { return sizeof(sort_info); }
     virtual void finalize(pdecl_manager & m) { m.dec_ref(m_decl); }
     virtual void display(std::ostream & out, pdecl_manager const & m) const = 0;

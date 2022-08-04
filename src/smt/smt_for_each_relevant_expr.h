@@ -65,7 +65,7 @@ namespace smt {
 
     public:
         for_each_relevant_expr(context & ctx);
-        virtual ~for_each_relevant_expr() {}
+        virtual ~for_each_relevant_expr() = default;
         /**
            \brief Visit the relevant sub-expressions of n.
            That is, only subexpressions m of n, such that m_context.is_relevant(m).

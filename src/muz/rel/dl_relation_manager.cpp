@@ -999,7 +999,7 @@ namespace datalog {
     class relation_manager::auxiliary_table_transformer_fn {
         table_fact m_row;
     public:
-        virtual ~auxiliary_table_transformer_fn() {}
+        virtual ~auxiliary_table_transformer_fn() = default;
         virtual const table_signature & get_result_signature() const = 0;
         virtual void modify_fact(table_fact & f) const = 0;
 
@@ -1241,7 +1241,7 @@ namespace datalog {
         table_fact m_row;
         svector<table_element> m_to_remove;
     public:
-        virtual ~auxiliary_table_filter_fn() {}
+        virtual ~auxiliary_table_filter_fn() = default;
         virtual bool should_remove(const table_fact & f) const = 0;
 
         void operator()(table_base & r) {

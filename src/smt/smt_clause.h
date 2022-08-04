@@ -33,7 +33,7 @@ namespace smt {
     */
     class clause_del_eh {
     public:
-        virtual ~clause_del_eh() {}
+        virtual ~clause_del_eh() = default;
         virtual void operator()(ast_manager & m, clause * cls) = 0;
     };
 

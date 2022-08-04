@@ -274,7 +274,7 @@ namespace datalog {
         key_indexer(unsigned key_len, const unsigned * key_cols) 
             : m_key_cols(key_len, key_cols) {}
 
-        virtual ~key_indexer() {}
+        virtual ~key_indexer() = default;
 
         virtual void update(const sparse_table & t) {}
 

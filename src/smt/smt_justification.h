@@ -49,7 +49,7 @@ namespace smt {
         unsigned m_in_region:1; // true if the object was allocated in a region.
     public:
         justification(bool in_region = true):m_mark(false), m_in_region(in_region) {}
-        virtual ~justification() {}
+        virtual ~justification() = default;
 
         /**
            \brief This method should return true if the method del_eh needs to be invoked 

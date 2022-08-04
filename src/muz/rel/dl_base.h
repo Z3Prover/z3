@@ -179,7 +179,7 @@ namespace datalog {
         class base_fn {
         public:
             base_fn() = default;
-            virtual ~base_fn() {}
+            virtual ~base_fn() = default;
 
             base_fn(const base_fn &) = delete;
             base_fn& operator=(const base_fn &) = delete;
@@ -260,7 +260,7 @@ namespace datalog {
             */
             bool check_kind(base_object const& r) const { return &r.get_plugin()==this; }
         public:
-            virtual ~plugin_object() {}
+            virtual ~plugin_object() = default;
 
             virtual void initialize(family_id fid) { m_kind = fid; }
 
@@ -423,7 +423,7 @@ namespace datalog {
             }
 #endif
 
-            virtual ~base_ancestor() {}
+            virtual ~base_ancestor() = default;
 
             void set_kind(family_id kind) { SASSERT(kind>=0); m_kind = kind; }
 
@@ -865,7 +865,7 @@ namespace datalog {
 
     class table_row_mutator_fn {
     public:
-        virtual ~table_row_mutator_fn() {}
+        virtual ~table_row_mutator_fn() = default;
         /**
             \brief The function is called for a particular table row. The \c func_columns contains
             a pointer to an array of functional column values that can be modified. If the function
@@ -879,7 +879,7 @@ namespace datalog {
 
     class table_row_pair_reduce_fn {
     public:
-        virtual ~table_row_pair_reduce_fn() {}
+        virtual ~table_row_pair_reduce_fn() = default;
         /**
             \brief The function is called for pair of table rows that became duplicit due to projection.
             The values that are in the first array after return from the function will be used for the
@@ -1095,7 +1095,7 @@ namespace datalog {
             unsigned m_ref_cnt;
         public:
             iterator_core() : m_ref_cnt(0) {}
-            virtual ~iterator_core() {}
+            virtual ~iterator_core() = default;
 
             iterator_core(const iterator_core &) = delete;
             iterator_core & operator=(const iterator_core &) = delete;
@@ -1124,7 +1124,7 @@ namespace datalog {
             unsigned m_ref_cnt;
         public:
             row_iterator_core() : m_ref_cnt(0) {}
-            virtual ~row_iterator_core() {}
+            virtual ~row_iterator_core() = default;
 
             row_iterator_core(const row_iterator_core &) = delete;
             row_iterator_core & operator=(const row_iterator_core &) = delete;
@@ -1205,7 +1205,7 @@ namespace datalog {
             typedef row_iterator const_iterator;
 
             row_interface(const table_base & parent_table) : m_parent_table(parent_table) {}
-            virtual ~row_interface() {}
+            virtual ~row_interface() = default;
 
             virtual table_element operator[](unsigned col) const = 0;
 

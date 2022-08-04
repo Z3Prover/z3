@@ -53,7 +53,7 @@ namespace datalog {
                 m_limited_size = ctx.get_decl_util().try_get_size(s, m_size);
         }
     public:
-        virtual ~sort_domain() {}
+        virtual ~sort_domain() = default;
 
         sort_kind get_kind() const { return m_kind; }
         virtual unsigned get_constant_count() const = 0;

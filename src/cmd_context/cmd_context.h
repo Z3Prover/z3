@@ -96,7 +96,7 @@ public:
 class object_ref {
     unsigned m_ref_count = 0;
 public:
-    virtual ~object_ref() {}
+    virtual ~object_ref() = default;
     virtual void finalize(cmd_context & ctx) = 0;
     void inc_ref(cmd_context & ctx) {
         m_ref_count++;

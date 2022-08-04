@@ -70,7 +70,7 @@ namespace sat {
         solver* m_solver { nullptr };
     public:        
         extension(symbol const& name, int id): m_id(id), m_name(name) { }
-        virtual ~extension() {}
+        virtual ~extension() = default;
         int get_id() const { return m_id; }
         void set_solver(solver* s) { m_solver = s; }        
         solver& s() { return *m_solver; }
