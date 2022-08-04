@@ -506,28 +506,43 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
 /// Done by dropping literal \p lit from
 /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for
 /// the conjecture pob returns true if conjecture is set
-bool lemma_global_generalizer::do_conjecture(pob_ref &n, const expr_ref &lit,
-                                             unsigned lvl, unsigned gas) {
+bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
+                                             const expr_ref &lit, unsigned lvl,
+                                             unsigned gas) {
     expr_ref_vector fml_vec(m);
-    expr_ref n_pob(n->post(), m);
-    normalize_order(n_pob, n_pob);
-    fml_vec.push_back(n_pob);
+    expr_ref n_post(n->post(), m);
+    normalize(n_post, n_post, false, false);
+    // normalize_order(n_post, n_post);
+    fml_vec.push_back(n_post);
     flatten_and(fml_vec);
 
     expr_ref_vector conj(m);
     bool is_filtered = filter_out_lit(fml_vec, lit, conj);
+    if (!is_filtered) {
+      // -- try using the corresponding lemma instead
+      conj.reset();
+      n_post = mk_and(lemma->get_cube());
+      normalize_order(n_post, n_post);
+      fml_vec.reset();
+      fml_vec.push_back(n_post);
+      flatten_and(fml_vec);
+      is_filtered = filter_out_lit(fml_vec, lit, conj);
+    }
+
     SASSERT(0 < gas && gas < UINT_MAX);
     if (conj.empty()) {
         // If the pob cannot be abstracted, stop using generalization on
         // it
-        TRACE("global", tout << "stop local generalization on pob " << n_pob
-                             << " id is " << n_pob->get_id() << "\n";);
+        TRACE("global", tout << "stop local generalization on pob " << n_post
+                             << " id is " << n_post->get_id() << "\n";);
         n->disable_local_gen();
         return false;
     } else if (!is_filtered) {
         // The literal to be abstracted is not in the pob
-        TRACE("global", tout << "cannot conjecture on " << n_pob << " with lit "
-                             << lit << "\n";);
+        TRACE("global", tout << "Conjecture failed:\n"
+                             << lit << "\n"
+                             << n_post << "\n"
+                             << "conj:" << conj << "\n";);
         n->disable_local_gen();
         m_st.m_num_cant_abs++;
         return false;
@@ -572,11 +587,12 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     const expr_ref &pat = lc.get_pattern();
 
     TRACE("global", {
-        tout << "Global generalization of: " << mk_and(lemma->get_cube())
-             << "\n"
-             << "Cluster pattern: " << pat << "\n"
-             << "Other lemmas:\n";
-        for (const auto &lemma : lc.get_lemmas()) {
+        tout << "Global generalization of:\n"
+             << mk_and(lemma->get_cube()) << "\n"
+             << "Using cluster:\n"
+             << pat << "\n"
+             << "Existing lemmas in the cluster:\n";
+        for (const auto &lemma : cluster->get_lemmas()) {
             tout << mk_and(lemma.get_lemma()->get_cube()) << "\n";
         }
     });
@@ -600,11 +616,12 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     expr_ref lit(m);
     if (find_unique_mono_var_lit(pat, lit)) {
         // Create a conjecture by dropping literal from pob.
-        TRACE("global", tout << "Conjecture with pattern " << mk_pp(pat, m)
-                             << " with gas " << cluster->get_gas() << "\n";);
+        TRACE("global", tout << "Conjecture with pattern\n"
+                             << mk_pp(pat, m) << "\n"
+                             << "with gas " << cluster->get_gas() << "\n";);
         unsigned gas = cluster->get_pob_gas();
         unsigned lvl = cluster->get_min_lvl();
-        if (do_conjecture(pob, lit, lvl, gas)) {
+        if (do_conjecture(pob, lemma, lit, lvl, gas)) {
             // decrease the number of times this cluster is going to be used
             // for conjecturing
             cluster->dec_gas();
@@ -629,10 +646,9 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
         pob->set_may_pob_lvl(cluster->get_min_lvl());
         pob->set_gas(cluster->get_pob_gas() + 1);
         pob->set_expand_bnd();
-        TRACE("global", tout << "subsume pob " << mk_and(new_pob)
-                             << " at level " << cluster->get_min_lvl()
-                             << " set on pob " << mk_pp(pob->post(), m)
-                             << "\n";);
+        TRACE("global", tout << "Create subsume pob at level "
+                             << cluster->get_min_lvl() << "\n"
+                             << mk_and(new_pob) << "\n";);
         // -- stop local generalization
         // -- maybe not the best choice in general. Helped with one instance
         // on

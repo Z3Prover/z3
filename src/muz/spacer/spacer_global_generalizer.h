@@ -153,7 +153,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Done by dropping literal \p lit from
     /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for
     /// the conjecture pob returns true if conjecture is set
-    bool do_conjecture(pob_ref &n, const expr_ref &lit, unsigned lvl,
+  bool do_conjecture(pob_ref &n, lemma_ref &lemma, const expr_ref &lit, unsigned lvl,
                        unsigned gas);
 
     /// Enable/disable subsume rule
