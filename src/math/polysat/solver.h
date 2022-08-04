@@ -198,7 +198,6 @@ namespace polysat {
         void decide();
         void pdecide(pvar v);
 
-        void narrow(pvar v);
         void linear_propagate();
 
 

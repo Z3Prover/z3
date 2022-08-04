@@ -927,7 +927,6 @@ namespace polysat {
             m_conflict.reset();
             backjump(get_level(v) - 1);
             learn_lemma(*lemma);
-            narrow(v);
         }
     }
 
@@ -1050,15 +1049,6 @@ namespace polysat {
     void solver::backjump(unsigned new_level) {
         LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
         pop_levels(m_level - new_level);
-    }
-
-    /**
-     * placeholder for factoring/gcd common factors
-     */
-    void solver::narrow(pvar v) {
-        if (is_conflict())
-            return;
-        // TODO
     }
 
     // Add lemma to storage
