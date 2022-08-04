@@ -54,6 +54,20 @@ namespace smt {
         return r;
     }
 
+    app * theory_array_base::mk_select_reduce(unsigned num_args, expr * * args) {
+        array_util util(m);
+        while (util.is_store(args[0])) {
+            bool are_distinct = false;
+            for (unsigned i = 1; i < num_args && !are_distinct; ++i) 
+                are_distinct |= m.are_distinct(args[i], to_app(args[0])->get_arg(i));
+            if (!are_distinct)
+                break;
+            args[0] = to_app(to_app(args[0])->get_arg(0));
+        }
+        return mk_select(num_args, args);
+    }
+
+
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
         return m.mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
