@@ -607,7 +607,7 @@ class theory_lra::imp {
         return v;
     }
 
-    bool const has_int() const { return lp().has_int_var(); }
+    bool has_int() const { return lp().has_int_var(); }
     
     lpvar register_theory_var_in_lar_solver(theory_var v) {
         lpvar lpv = lp().external_to_local(v);
