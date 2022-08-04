@@ -3099,7 +3099,7 @@ void context::log_expand_pob(pob &n) {
         if (n.parent()) pob_id = std::to_string(n.parent()->post()->get_id());
 
         *m_trace_stream << "** expand-pob: " << n.pt().head()->get_name()
-                        << (n.is_conjecture() ? "CONJ" : "")
+                        << (n.is_conjecture() ? " CONJ" : "")
                         << (n.is_subsume() ? " SUBS" : "")
                         << " level: " << n.level()
                         << " depth: " << (n.depth() - m_pob_queue.min_depth())
@@ -3108,7 +3108,7 @@ void context::log_expand_pob(pob &n) {
     }
 
     TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
-                         << (n.is_conjecture() ? "CONJ" : "")
+                         << (n.is_conjecture() ? " CONJ" : "")
                          << (n.is_subsume() ? " SUBS" : "")
                          << " level: " << n.level()
                          << " depth: " << (n.depth() - m_pob_queue.min_depth())
@@ -3118,7 +3118,7 @@ void context::log_expand_pob(pob &n) {
 
     STRACE("spacer_progress",
            tout << "** expand-pob: " << n.pt().head()->get_name()
-                << (n.is_conjecture() ? "CONJ" : "")
+                << (n.is_conjecture() ? " CONJ" : "")
                 << (n.is_subsume() ? " SUBS" : "")
                 << " level: " << n.level()
                 << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
@@ -3690,12 +3690,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         CTRACE("global", n.is_conjecture() || n.is_subsume(),
-               tout << " Blocked "
-                    << (n.is_conjecture() ? "conjecture" : "subsume")
-                    << " pob " << mk_pp(n.post(), m)
-                    << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
-                    << " Level " << lemma_pob->level() << " id "
-                    << n.post()->get_id() << "\n";);
+               tout << "Blocked "
+                    << (n.is_conjecture() ? "conjecture " : "subsume ") << n.post()->get_id()
+                    << " at level " << n.level()
+                    << " using lemma\n" << mk_pp(lemma_pob->get_expr(), m) << "\n";);
 
         DEBUG_CODE(lemma_sanity_checker sanity_checker(*this);
                    sanity_checker(lemma_pob););
@@ -3736,21 +3734,17 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 new_pob->set_gas(n.get_gas() - 1);
                 n.set_gas(n.get_gas() - 1);
                 out.push_back(new_pob);
-                TRACE("global",
-                      tout << "Attempting to block pob " << mk_pp(n.post(), m)
-                          << " using generalization " << mk_pp(new_pob->post(), m)
-                          << " with gas " << new_pob->get_gas() << "\n";);
+                TRACE("global_verbose",
+                      tout << "New subsume pob\n" << mk_pp(new_pob->post(), m) << "\n"
+                           << "gas:" << new_pob->get_gas() << "\n";);
                 out.push_back(new_pob);
                 m_stats.m_num_subsume_pobs++;
             } else if (pob* new_pob = m_gg_conjecture ? m_global_gen->mk_conjecture_pob(n) : nullptr) {
                 new_pob->set_gas(n.get_gas() - 1);
                 n.set_gas(n.get_gas() - 1);
                 out.push_back(new_pob);
-                TRACE("global", tout << " conjecture " << mk_pp(n.post(), m)
-                                     << " id is " << n.post()->get_id()
-                                     << "\n into pob " << new_pob->post()
-                                     << " id is " << new_pob->post()->get_id()
-                                     << "\n";);
+                TRACE("global",
+                      tout << "New conjecture pob\n" << mk_pp(new_pob->post(), m) << "\n";);
                 m_stats.m_num_conj++;
               }
         }
