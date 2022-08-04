@@ -13,6 +13,7 @@ Version 4.next
 Version 4.11.0
 ==============
 - remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
+- z3++.h no longer includes `<sstream>` as it did not use it.
 
 Version 4.10.2
 ==============

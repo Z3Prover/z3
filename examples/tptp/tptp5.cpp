@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include <iostream>
 #include <fstream>
 #include <limits>
+#include <sstream>
 #include <string.h>
 #include <cstdlib>
 #include "z3++.h"
