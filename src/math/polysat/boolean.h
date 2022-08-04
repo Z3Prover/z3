@@ -25,25 +25,19 @@ namespace polysat {
             bool_propagation,
             value_propagation,
             assumption,
-            decision,
         };
 
-        svector<sat::bool_var>  m_unused;   // previously deleted variables that can be reused by new_var();
-        svector<lbool>          m_value;    // current value (indexed by literal)
-        unsigned_vector         m_level;    // level of assignment (indexed by variable)
-        dependency_vector       m_deps;     // dependencies of external asserts
-        svector<kind_t>         m_kind;     // decision or propagation?
-        // Clause associated with the assignment (indexed by variable):
-        // - for propagations: the reason (or NULL for eval'd literals)
-        // - for decisions: the lemma (or NULL for externally asserted literals)
-        ptr_vector<clause>      m_clause;
-
-        vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
+        svector<sat::bool_var>      m_unused;   // previously deleted variables that can be reused by new_var();
+        svector<lbool>              m_value;    // current value (indexed by literal)
+        unsigned_vector             m_level;    // level of assignment (indexed by variable)
+        dependency_vector           m_deps;     // dependencies of external asserts
+        svector<kind_t>             m_kind;     // decision or propagation?
+        ptr_vector<clause>          m_reason;   // reasons for bool-propagated literals
+        vector<ptr_vector<clause>>  m_watch;    // watch list for literals into clauses
 
         void assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep = null_dependency);
 
     public:
-
         bool_var_manager() {}
 
         // allocated size (not the number of active variables)
@@ -54,8 +48,6 @@ namespace polysat {
 
         bool is_assigned(sat::bool_var var) const { return value(var) != l_undef; }
         bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
-        bool is_decision(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::decision; }
-        bool is_decision(sat::literal lit) const { return is_decision(lit.var()); }
         bool is_assumption(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::assumption; }
         bool is_assumption(sat::literal lit) const { return is_assumption(lit.var()); }
         bool is_bool_propagation(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::bool_propagation; }
@@ -68,17 +60,14 @@ namespace polysat {
         bool is_false(sat::literal lit) const { return value(lit) == l_false; }
         unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
         unsigned level(sat::literal lit) const { return level(lit.var()); }
-        clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return is_bool_propagation(var) ? m_clause[var] : nullptr; }
+        clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); SASSERT(is_bool_propagation(var) == !!m_reason[var]); return m_reason[var]; }
         clause* reason(sat::literal lit) const { return reason(lit.var()); }
         dependency dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
 
-        clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_clause[var]; }
-       
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }
 
         /// Set the given literal to true
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
-        void decide(sat::literal lit, unsigned lvl, clause& lemma);
         void eval(sat::literal lit, unsigned lvl);
         void assumption(sat::literal lit, unsigned lvl, dependency dep);
         void unassign(sat::literal lit);
@@ -91,7 +80,6 @@ namespace polysat {
             case kind_t::unassigned: return out << "unassigned";
             case kind_t::bool_propagation: return out << "bool propagation";
             case kind_t::value_propagation: return out << "value propagation";
-            case kind_t::decision: return out << "decision";
             case kind_t::assumption: return out << "assumption";
             default: UNREACHABLE(); return out;
             }
