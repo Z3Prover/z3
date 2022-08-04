@@ -15,9 +15,9 @@ find_package(Z3
 )
 
 ################################################################################
-# Z3 C++ API bindings require C++11
+# Z3 C++ API bindings require C++11, but this code needs later.
 ################################################################################
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
