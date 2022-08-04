@@ -199,9 +199,8 @@ bool lemma_cluster::add_lemma(const lemma_ref &lemma, bool subsume) {
             if (rm.get_lemma() == li.get_lemma()) return false;
         }
     }
-    TRACE("cluster_stats", tout << "Added lemma " << mk_and(lemma->get_cube())
-                                << " to  existing cluster " << m_pattern
-                                << "\n";);
+    TRACE("cluster_stats", tout << "Added lemma\n" << mk_and(lemma->get_cube()) << "\n"
+                                << "to  existing cluster\n" << m_pattern << "\n";);
     return true;
 }
 
@@ -279,7 +278,7 @@ bool lemma_cluster_finder::anti_unify_n_intrp(const expr_ref &cube,
         if (is_general_pattern) {
             SASSERT(e != nullptr);
             TRACE("cluster_stats",
-                  tout << "Found a general pattern " << mk_pp(e, m) << "\n";);
+                  tout << "Found a general pattern\n" << mk_pp(e, m) << "\n";);
             // found a good pattern
             res = expr_ref(e, m);
             return true;
@@ -365,8 +364,8 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     lemma_cluster *cluster = pt.mk_cluster(pattern);
 
     TRACE("cluster_stats",
-          tout << "created new cluster with pattern: " << pattern << "\n"
-               << " and lemma cube: " << lcube << "\n";);
+          tout << "created new cluster with pattern:\n" << pattern << "\n"
+               << " and lemma cube:\n" << lcube << "\n";);
 
     IF_VERBOSE(2, verbose_stream() << "\ncreated new cluster with pattern: "
                                    << pattern << "\n"
@@ -374,9 +373,9 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
 
     for (const lemma_ref &l : neighbours) {
         SASSERT(cluster->can_contain(l));
-        cluster->add_lemma(l, false);
-        TRACE("cluster_stats",
-              tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
+        bool added = cluster->add_lemma(l, false);
+        CTRACE("cluster_stats", added,
+               tout << "Added neighbour lemma\n" << mk_and(l->get_cube()) << "\n";);
     }
 
     // finally add the lemma and do subsumption check
