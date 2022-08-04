@@ -43,13 +43,6 @@ namespace polysat {
             out << " @" << s.m_bvars.level(lit);
             if (s.m_bvars.is_assumption(lit))
                 out << " assumption";
-            else if (s.m_bvars.is_decision(lit)) {
-                clause* lemma = s.m_bvars.lemma(lit.var());
-                out << " decision on lemma: " << show_deref(lemma);
-                for (auto l2 : *lemma) {
-                    out << "\n\t" << rpad(4, l2) << ": " << rpad(16, s.lit2cnstr(l2)) << "   " << bool_justification_pp(s.m_bvars, l2);
-                }
-            }
             else if (s.m_bvars.is_bool_propagation(lit)) {
                 clause* reason = s.m_bvars.reason(lit);
                 out << " bool propagation " << show_deref(reason);

@@ -77,7 +77,6 @@ namespace polysat {
             else if (m_constraints.should_gc()) m_constraints.gc(*this);
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
-            else if (can_decide_on_lemma()) decide_on_lemma();
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
@@ -451,7 +450,6 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
 #endif
-        drop_enqueued_lemma();
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -666,13 +664,8 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_assumption(var))
+                if (m_bvars.is_assumption(var))  // TODO: wouldn't this mean we're already at the base level?
                     continue;
-                else if (m_bvars.is_decision(var)) {
-                    m_conflict.end_conflict();
-                    revert_bool_decision(lit);
-                    return;
-                }
                 else if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve(lit, *m_bvars.reason(lit));
                 else {
@@ -771,13 +764,8 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_assumption(var))
+                if (m_bvars.is_assumption(var))  // TODO: wouldn't this mean we're already at the base level?
                     continue;
-                else if (m_bvars.is_decision(var)) {
-                    m_conflict.end_conflict();
-                    revert_bool_decision(lit);
-                    return;
-                }
                 else if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve(lit, *m_bvars.reason(lit));
                 else {
@@ -838,70 +826,7 @@ namespace polysat {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
         add_clause(lemma);
-        enqueue_decision_on_lemma(lemma);
-    }
-
-    void solver::enqueue_decision_on_lemma(clause& lemma) {
-        m_lemmas.push_back(&lemma);
-    }
-
-    void solver::drop_enqueued_lemma() {
-        m_lemmas.reset();
-    }
-
-    bool solver::can_decide_on_lemma() {
-        return !m_lemmas.empty();
-    }
-
-    void solver::decide_on_lemma() {
-        SASSERT(!is_conflict());
-        SASSERT(m_lemmas.size() == 1);  // we expect to only have a single one
-        // TODO: maybe it would be nicer to have a queue of lemmas, instead of storing lemmas per-literal in m_bvars?
-        while (!m_lemmas.empty()) {
-            clause* lemma = m_lemmas.back();
-            m_lemmas.pop_back();
-            decide_on_lemma(*lemma);
-        }
-    }
-
-    void solver::decide_on_lemma(clause& lemma) {
-        LOG_H3("Guessing literal in lemma: " << lemma);
-
-        // To make a guess, we need to find an unassigned literal that is not false in the current model.
-
-        sat::literal choice = sat::null_literal;
-        unsigned num_choices = 0;  // TODO: should probably cache this? (or rather the suitability of each literal... it won't change until we backtrack beyond the current point)
-
-        for (sat::literal lit : lemma) {
-            switch (m_bvars.value(lit)) {
-            case l_true:
-                LOG("Already satisfied because literal " << lit << " is true");
-                return;
-            case l_false:
-                break;
-            case l_undef:               
-                if (lit2cnstr(lit).is_currently_false(*this)) 
-                    assign_eval(lit);                
-                else {
-                    num_choices++;
-                    choice = lit;
-                }
-                break;
-            }
-        }
-        LOG_V("num_choices: " << num_choices);
-        switch (num_choices) {
-        case 0:
-            set_conflict(lemma);
-            break;
-        case 1:
-            assign_propagate(choice, lemma);
-            break;
-        default:
-            push_level();
-            assign_decision(choice, lemma);
-            break;
-        }
+        // TODO: add pwatch?
     }
 
     /**
@@ -930,60 +855,6 @@ namespace polysat {
         }
     }
 
-    bool solver::is_decision(search_item const& item) const {
-        if (item.is_assignment())
-            return m_justification[item.var()].is_decision();
-        else
-            return m_bvars.is_decision(item.lit().var());
-    }
-
-    // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
-    //
-    // In a CDCL solver, this means ~L is in the lemma (actually, as the asserting literal). We drop the decision and replace it by the propagation (~L)^lemma.
-    //
-    // - we know L must be false
-    // - if L isn't in the core, we can still add it (weakening the lemma) to obtain "core => ~L"
-    // - then we can add the propagation (~L)^lemma and continue with the next guess
-
-    // Note that if we arrive at this point, the variables in L are "relevant" to the conflict (otherwise we would have skipped L).
-    // So the subsequent steps must have contained one of these:
-    // - propagation of some variable v from L (and maybe other constraints)
-    //      (v := val)^{L, ...}
-    //      this means L is in core, unless we core-reduced it away
-    // - propagation of L' from L
-    //      (L')^{L' \/ ¬L \/ ...}
-    //      again L is in core, unless we core-reduced it away
-
-    void solver::revert_bool_decision(sat::literal lit) {
-        sat::bool_var const var = lit.var();
-        LOG_H3("Reverting boolean decision: " << lit << " " << m_conflict);
-        SASSERT(m_bvars.is_decision(var));
-
-        clause_builder reason_builder = m_conflict.build_lemma();
-
-        SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
-        clause_ref reason = reason_builder.build();
-        SASSERT(reason);
-
-        if (reason->empty()) {
-            report_unsat();
-            return;
-        }
-        m_conflict.reset();
-
-        // The lemma where 'lit' comes from.
-        // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
-        clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
-
-        backjump(m_bvars.level(var) - 1);
-
-        // reason should force ~lit after propagation
-        add_clause(*reason);
-
-        if (lemma)
-            enqueue_decision_on_lemma(*lemma);
-    }
-
     unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = 0;
         for (auto lit : cl) {
@@ -998,12 +869,6 @@ namespace polysat {
 
     void solver::assign_propagate(sat::literal lit, clause& reason) {
         m_bvars.propagate(lit, level(lit, reason), reason);
-        m_trail.push_back(trail_instr_t::assign_bool_i);
-        m_search.push_boolean(lit);
-    }
-
-    void solver::assign_decision(sat::literal lit, clause& lemma) {
-        m_bvars.decide(lit, m_level, lemma);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
     }

@@ -116,7 +116,6 @@ namespace polysat {
         std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is being propagated
         bool                     m_propagating = false;  // set to true during propagation
 #endif
-        ptr_vector<clause>       m_lemmas;
 
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
@@ -168,15 +167,9 @@ namespace polysat {
         void deactivate_constraint(signed_constraint c);
         unsigned level(sat::literal lit, clause const& cl);
 
-        bool can_decide_on_lemma();
-        void decide_on_lemma();
-        void decide_on_lemma(clause& lemma);
-        void enqueue_decision_on_lemma(clause& lemma);
-        void drop_enqueued_lemma();
-
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
-        bool is_decision(search_item const& item) const;
+        bool is_decision(pvar v) const { return m_justification[v].is_decision(); }
 
         bool should_search();
 
