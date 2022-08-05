@@ -35,6 +35,7 @@ namespace polysat {
     }
 
     void restart::operator()() {
+        LOG_H2("Restarting");
         ++s.m_stats.m_num_restarts;
         s.pop_levels(s.m_level - s.base_level());
         m_conflicts_at_restart = s.m_stats.m_num_conflicts;

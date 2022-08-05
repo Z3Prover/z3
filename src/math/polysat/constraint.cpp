@@ -160,15 +160,18 @@ namespace polysat {
     }
 
     void constraint_manager::gc(solver& s) {
+        LOG_H1("gc");
         gc_clauses(s);
         gc_constraints(s);
     }
 
     void constraint_manager::gc_clauses(solver& s) {
+        LOG_H3("gc_clauses");
         // place to gc redundant clauses
     }
 
     void constraint_manager::gc_constraints(solver& s) {
+        LOG_H3("gc_constraints");
         uint_set used_vars;
         for (auto const& cls : m_clauses)
             for (auto const& cl : cls)
@@ -184,6 +187,7 @@ namespace polysat {
                 continue;
             if (c->is_external())
                 continue;
+            LOG("Erasing: " << show_deref(c));
             erase_bvar(c);
             m_constraints.swap(i, m_constraints.size() - 1);
             m_constraints.pop_back();
