@@ -563,7 +563,7 @@ namespace smt {
         if (!m_util.is_zero(divisor)) {
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
-            expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m);
+            expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m), le(m), ge(m);
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
@@ -581,12 +581,16 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
+            le = m_util.mk_le(m_util.mk_sub(qr, dividend), zero);
+            ge = m_util.mk_ge(m_util.mk_sub(qr, dividend), zero);
+            mk_axiom(eqz, le, false);
+            mk_axiom(eqz, ge, false);
             mk_axiom(eqz, eq,    false);
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
 
-            m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(mod));
+            //m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
 
             if (m_util.is_zero(dividend)) {
                 mk_axiom(eqz, m.mk_eq(div, zero));
