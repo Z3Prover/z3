@@ -19,7 +19,7 @@ Revision History:
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
 #include "util/gparams.h"
-#include "solver/solver_params.hpp"
+#include "params/solver_params.hpp"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
