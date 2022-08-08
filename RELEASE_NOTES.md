@@ -14,6 +14,11 @@ Version 4.11.0
 ==============
 - remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
 - z3++.h no longer includes `<sstream>` as it did not use it.
+- add solver.axioms2files
+  - prints negated theory axioms to files. Each file should be unsat
+- add solver.lemmas2console
+  - prints lemmas to the console.
+- remove option smt.arith.dump_lemmas. It is replaced by solver.axioms2files
 
 Version 4.10.2
 ==============

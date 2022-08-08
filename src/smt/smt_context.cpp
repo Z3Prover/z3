@@ -80,7 +80,8 @@ namespace smt {
         m_unsat_core(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
-        m_mk_lambda_trail(*this) {
+        m_mk_lambda_trail(*this),
+        m_lemma_visitor(m) {
 
         SASSERT(m_scope_lvl == 0);
         SASSERT(m_base_lvl == 0);
@@ -2560,7 +2561,7 @@ namespace smt {
             justification * js = cls.get_justification();
             justification * new_js = nullptr;
             if (js->in_region())
-                new_js = mk_justification(unit_resolution_justification(m_region,
+                new_js = mk_justification(unit_resolution_justification(*this,
                                                                         js,
                                                                         simp_lits.size(),
                                                                         simp_lits.data()));
@@ -2618,7 +2619,7 @@ namespace smt {
                             if (!cls_js || cls_js->in_region()) {
                                 // If cls_js is 0 or is allocated in a region, then
                                 // we can allocate the new justification in a region too.
-                                js = mk_justification(unit_resolution_justification(m_region,
+                                js = mk_justification(unit_resolution_justification(*this,
                                                                                     cls_js,
                                                                                     simp_lits.size(),
                                                                                     simp_lits.data()));

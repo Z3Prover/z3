@@ -2982,23 +2982,7 @@ namespace smt {
         }
     }
 
-    template<typename Ext>
-    void theory_arith<Ext>::dump_lemmas(literal l, antecedents const& ante) {
-        if (dump_lemmas()) {
-            TRACE("arith", ante.display(tout) << " --> "; ctx.display_detailed_literal(tout, l); tout << "\n";);
-            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().data(),
-                                             ante.eqs().size(), ante.eqs().data(), l);
 
-        }
-    }
-
-    template<typename Ext>
-    void theory_arith<Ext>::dump_lemmas(literal l, derived_bound const& ante) {
-        if (dump_lemmas()) {
-            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().data(),
-                                             ante.eqs().size(), ante.eqs().data(), l);
-        }
-    }
 
     template<typename Ext>
     void theory_arith<Ext>::assign_bound_literal(literal l, row const & r, unsigned idx, bool is_lower, inf_numeral & delta) {
@@ -3010,7 +2994,6 @@ namespace smt {
               ante.display(tout) << " --> ";
               ctx.display_detailed_literal(tout, l);
               tout << "\n";);
-        dump_lemmas(l, ante);
 
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
             literal_vector & lits = m_tmp_literal_vector2;
@@ -3028,10 +3011,9 @@ namespace smt {
             ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
-            region & r = ctx.get_region();
             ctx.assign(l, ctx.mk_justification(
                            ext_theory_propagation_justification(
-                               get_id(), r, ante.lits().size(), ante.lits().data(),
+                               get_id(), ctx, ante.lits().size(), ante.lits().data(),
                                ante.eqs().size(), ante.eqs().data(), l,
                                ante.num_params(), ante.params("assign-bounds"))));
         }
@@ -3094,13 +3076,11 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(antecedents const& ante, antecedents& bounds, char const* proof_rule) {
         set_conflict(ante.lits().size(), ante.lits().data(), ante.eqs().size(), ante.eqs().data(), bounds, proof_rule);
-        dump_lemmas(false_literal, ante);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(derived_bound const& ante, antecedents& bounds, char const* proof_rule) {
         set_conflict(ante.lits().size(), ante.lits().data(), ante.eqs().size(), ante.eqs().data(), bounds, proof_rule);
-        dump_lemmas(false_literal, ante);
     }
 
     template<typename Ext>
@@ -3134,7 +3114,7 @@ namespace smt {
         record_conflict(num_literals, lits, num_eqs, eqs, bounds.num_params(), bounds.params(proof_rule));
         ctx.set_conflict(
             ctx.mk_justification(
-                ext_theory_conflict_justification(get_id(), ctx.get_region(), num_literals, lits, num_eqs, eqs,
+                ext_theory_conflict_justification(get_id(), ctx, num_literals, lits, num_eqs, eqs,
                                                   bounds.num_params(), bounds.params(proof_rule))));
     }
 

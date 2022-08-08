@@ -544,9 +544,6 @@ namespace smt {
         unsigned small_lemma_size() const { return m_params.m_arith_small_lemma_size; }
         bool relax_bounds() const { return m_params.m_arith_stronger_lemmas; }
         bool skip_big_coeffs() const { return m_params.m_arith_skip_rows_with_big_coeffs; }
-        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
-        void dump_lemmas(literal l, antecedents const& ante);
-        void dump_lemmas(literal l, derived_bound const& ante);
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }

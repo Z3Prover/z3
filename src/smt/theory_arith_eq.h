@@ -336,7 +336,7 @@ namespace smt {
         justification * js = 
             ctx.mk_justification(
                 ext_theory_eq_propagation_justification(
-                    get_id(), r, 
+                    get_id(), ctx, 
                     lits.size(), lits.data(),
                     eqs.size(), eqs.data(),
                     _x, _y, 

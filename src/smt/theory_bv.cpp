@@ -1510,7 +1510,7 @@ namespace smt {
                         eqs.push_back({n1, p->get_arg(0) });
                         eqs.push_back({n1, bv2int});
                         justification * js = ctx.mk_justification(
-                            ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
+                            ext_theory_eq_propagation_justification(get_id(), ctx, 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
                         ctx.assign_eq(p, bv2int_arg, eq_justification(js));
                         break;
                     }                    
