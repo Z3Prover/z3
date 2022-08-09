@@ -657,7 +657,8 @@ public:
     }
 
     euf::solver* ensure_euf() {
-        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        auto* ext = m_goal2sat.ensure_euf();
         return ext;
     }
 

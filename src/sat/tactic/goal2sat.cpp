@@ -1013,6 +1013,11 @@ goal2sat::~goal2sat() {
     dealloc(m_imp);
 }
 
+euf::solver* goal2sat::ensure_euf() {
+    return m_imp->ensure_euf();
+}
+
+
 void goal2sat::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
