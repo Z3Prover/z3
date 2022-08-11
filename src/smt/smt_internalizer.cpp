@@ -1529,8 +1529,8 @@ namespace smt {
                 fmls.push_back(literal2expr(lits[i]));
             fml = mk_or(fmls);
             m_lemma_visitor.collect(fml);
-            m_lemma_visitor.display_decls(std::cout);
-            m_lemma_visitor.display_assert(std::cout, fml.get(), false);
+            m_lemma_visitor.display_skolem_decls(std::cout);
+            m_lemma_visitor.display_assert(std::cout, fml.get(), true);
         }
 
     }

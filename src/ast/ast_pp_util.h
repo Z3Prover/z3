@@ -50,6 +50,8 @@ class ast_pp_util {
 
     void display_decls(std::ostream& out);
 
+    void display_skolem_decls(std::ostream& out);
+
     void display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat = true);
 
     void display_assert(std::ostream& out, expr* f, bool neat = true);
