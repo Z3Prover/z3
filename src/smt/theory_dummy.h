@@ -46,7 +46,6 @@ namespace smt {
 
     public:
         theory_dummy(context& ctx, family_id fid, char const * name);
-        ~theory_dummy() override {}
 
         theory * mk_fresh(context * new_ctx) override { return alloc(theory_dummy, *new_ctx, get_family_id(), m_name); }
 

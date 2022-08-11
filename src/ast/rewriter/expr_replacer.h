@@ -28,7 +28,7 @@ Notes:
 class expr_replacer {
     struct scoped_set_subst;
 public:
-    virtual ~expr_replacer() {}
+    virtual ~expr_replacer() = default;
 
     virtual ast_manager & m() const = 0;
     virtual void set_substitution(expr_substitution * s) = 0;

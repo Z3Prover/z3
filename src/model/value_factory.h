@@ -230,7 +230,6 @@ class user_sort_factory : public simple_factory<unsigned> {
     app * mk_value_core(unsigned const & val, sort * s) override;
 public:
     user_sort_factory(ast_manager & m);
-    ~user_sort_factory() override {}
 
     /**
        \brief Make the universe of \c s finite, by preventing new

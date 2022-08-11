@@ -34,6 +34,14 @@ add_executable(shell
 # we don't want (I think).
   ${shell_object_files}
 )
+
+set_target_properties(shell PROPERTIES
+    # Position independent code needed in shared libraries
+    POSITION_INDEPENDENT_CODE ON
+    # Symbol visibility
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
+
 z3_add_install_tactic_rule(${shell_deps})
 z3_add_memory_initializer_rule(${shell_deps})
 z3_add_gparams_register_modules_rule(${shell_deps})

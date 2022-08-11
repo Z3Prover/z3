@@ -65,7 +65,7 @@ namespace smt {
 
     public:
         for_each_relevant_expr(context & ctx);
-        virtual ~for_each_relevant_expr() {}
+        virtual ~for_each_relevant_expr() = default;
         /**
            \brief Visit the relevant sub-expressions of n.
            That is, only subexpressions m of n, such that m_context.is_relevant(m).
@@ -92,7 +92,6 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        ~collect_relevant_label_lits() override {}
         void operator()(expr * n) override;
     };
 
@@ -103,7 +102,6 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        ~collect_relevant_labels() override {}
         void operator()(expr * n) override;
     };
 

@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.9.2'
+  ReleaseVersion: '4.11.0'
 
 stages:
 
@@ -516,8 +516,9 @@ stages:
       inputs:
         command: push
         nuGetFeedType: External
-        publishFeedCredentials: Z3Nuget
+        publishFeedCredentials: $(NugetZ3)
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
+        
 
   # Enable on release:
   - job: PyPIPublish

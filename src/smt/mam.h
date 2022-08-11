@@ -37,8 +37,7 @@ namespace smt {
             m_context(ctx) {
         }
         
-        virtual ~mam() {
-        }
+        virtual ~mam() = default;
         
         virtual void add_pattern(quantifier * q, app * mp) = 0;
 

@@ -395,12 +395,14 @@ namespace smt {
             m_fparams = alloc(smt_params, m_context->get_fparams());
             m_fparams->m_relevancy_lvl = 0; // no relevancy since the model checking problems are quantifier free
             m_fparams->m_case_split_strategy = CS_ACTIVITY; // avoid warning messages about smt.case_split >= 3.
-            m_fparams->m_arith_dump_lemmas = false;
+            m_fparams->m_axioms2files = false;
+            m_fparams->m_lemmas2console = false;            
         }
         if (!m_aux_context) {
             symbol logic;
             params_ref p;
-            p.set_bool("arith.dump_lemmas", false);
+            p.set_bool("solver.axioms2files", false);
+            p.set_bool("solver.lemmas2console", false);
             m_aux_context = m_context->mk_fresh(&logic, m_fparams.get(), p);
         }
     }

@@ -82,8 +82,6 @@ public:
             test<is_fpa_function>(g) && 
             !test<is_non_qffplra_predicate>(g);
     }
-
-    ~is_qffplra_probe() override {}
 };
 
 probe * mk_is_qffplra_probe() {

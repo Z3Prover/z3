@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include <algorithm>
 #include "math/lp/scaler.h"
 #include "math/lp/numeric_pair.h"

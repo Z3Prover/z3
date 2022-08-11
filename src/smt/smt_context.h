@@ -892,6 +892,10 @@ namespace smt {
         void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
 
         void add_lit_occs(clause const& cls);
+
+        ast_pp_util m_lemma_visitor;
+        void dump_lemma(unsigned n, literal const* lits);
+        void dump_axiom(unsigned n, literal const* lits);
     public:        
 
         void ensure_internalized(expr* e);

@@ -31,8 +31,8 @@ namespace smt {
     
     class dt_eq_justification : public ext_theory_eq_propagation_justification {
     public:
-        dt_eq_justification(family_id fid, region & r, literal antecedent, enode * lhs, enode * rhs):
-            ext_theory_eq_propagation_justification(fid, r, 1, &antecedent, 0, nullptr, lhs, rhs) {
+        dt_eq_justification(family_id fid, context& ctx, literal antecedent, enode * lhs, enode * rhs):
+            ext_theory_eq_propagation_justification(fid, ctx, 1, &antecedent, 0, nullptr, lhs, rhs) {
         }
         // Remark: the assignment must be propagated back to the datatype theory.
         theory_id get_from_theory() const override { return null_theory_id; }
@@ -122,9 +122,8 @@ namespace smt {
             }
             else {
                 SASSERT(ctx.get_assignment(antecedent) == l_true);
-                region & r   = ctx.get_region();
                 enode * _rhs = ctx.get_enode(rhs);
-                justification * js = ctx.mk_justification(dt_eq_justification(get_id(), r, antecedent, lhs, _rhs));
+                justification * js = ctx.mk_justification(dt_eq_justification(get_id(), ctx, antecedent, lhs, _rhs));
                 TRACE("datatype", tout << "assigning... #" << lhs->get_owner_id() << " #" << _rhs->get_owner_id() << "\n";
                       tout << "v" << lhs->get_th_var(get_id()) << " v" << _rhs->get_th_var(get_id()) << "\n";);
                 TRACE("datatype_detail", display(tout););
@@ -209,9 +208,8 @@ namespace smt {
         l.neg();
         SASSERT(ctx.get_assignment(l) == l_true);
         enode_pair p(c, r->get_arg(0));
-        region & reg = ctx.get_region();
         clear_mark();
-        ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, 1, &l, 1, &p)));
+        ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 1, &l, 1, &p)));
     }
 
     /**
@@ -732,9 +730,8 @@ namespace smt {
 
         if (res) {
             // m_used_eqs should contain conflict
-            region & r    = ctx.get_region();
             clear_mark();
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.data())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 0, nullptr, m_used_eqs.size(), m_used_eqs.data())));
         }
         return res;
     }
@@ -823,7 +820,6 @@ namespace smt {
     public:
         datatype_value_proc(func_decl * d):m_constructor(d) {}
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
-        ~datatype_value_proc() override {}
         void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.data());
         }
@@ -860,10 +856,9 @@ namespace smt {
         var_data * d2 = m_var_data[v2];
         if (d2->m_constructor != nullptr) {
             if (d1->m_constructor != nullptr && d1->m_constructor->get_decl() != d2->m_constructor->get_decl()) {
-                region & r    = ctx.get_region();
                 enode_pair p(d1->m_constructor, d2->m_constructor);
                 SASSERT(d1->m_constructor->get_root() == d2->m_constructor->get_root());
-                ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, 1, &p)));
+                ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 0, nullptr, 1, &p)));
             }
             if (d1->m_constructor == nullptr) {
                 m_trail_stack.push(set_ptr_trail<enode>(d1->m_constructor)); 
@@ -973,14 +968,13 @@ namespace smt {
         if (num_unassigned == 0) {
             // conflict
             SASSERT(!lits.empty());
-            region & reg = ctx.get_region();
             TRACE("datatype_conflict", tout << mk_ismt2_pp(recognizer->get_expr(), m) << "\n";
                   for (literal l : lits) 
                       ctx.display_detailed_literal(tout, l) << "\n";
                   for (auto const& p : eqs) 
                       tout << enode_eq_pp(p, ctx);
                   );
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, lits.size(), lits.data(), eqs.size(), eqs.data())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data())));
         }
         else if (num_unassigned == 1) {
             // propagate remaining recognizer
@@ -998,9 +992,8 @@ namespace smt {
                 consequent = literal(ctx.enode2bool_var(r));
             }
             ctx.mark_as_relevant(consequent);
-            region & reg = ctx.get_region();
             ctx.assign(consequent, 
-                       ctx.mk_justification(ext_theory_propagation_justification(get_id(), reg, lits.size(), lits.data(), 
+                       ctx.mk_justification(ext_theory_propagation_justification(get_id(), ctx, lits.size(), lits.data(), 
                                                                                  eqs.size(), eqs.data(), consequent)));
         }
         else {

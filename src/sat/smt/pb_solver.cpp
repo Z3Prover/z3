@@ -1795,9 +1795,9 @@ namespace pb {
         }
         if (c.lit() != sat::null_literal && value(c.lit()) != l_true) return true;
         SASSERT(c.lit() == sat::null_literal || lvl(c.lit()) == 0 || (c.is_watched(*this, c.lit()) && c.is_watched(*this, ~c.lit())));
-        if (eval(c) == l_true) {
+        if (eval(c) == l_true) 
             return true;
-        }
+        
         literal_vector lits(c.literals());
         for (literal l : lits) {
             if (lvl(l) == 0) continue;
@@ -1823,6 +1823,8 @@ namespace pb {
     }
 
     bool solver::validate_watch(pbc const& p, literal alit) const {
+        if (p.lit() == sat::null_literal || value(p.lit()) != l_true)
+            return true;
         for (unsigned i = 0; i < p.size(); ++i) {
             literal l = p[i].second;
             if (l != alit && lvl(l) != 0 && p.is_watched(*this, l) != (i < p.num_watch())) {
@@ -1833,9 +1835,8 @@ namespace pb {
             }
         }
         unsigned slack = 0;
-        for (unsigned i = 0; i < p.num_watch(); ++i) {
-            slack += p[i].first;
-        }
+        for (unsigned i = 0; i < p.num_watch(); ++i) 
+            slack += p[i].first;        
         if (slack != p.slack()) {
             IF_VERBOSE(0, display(verbose_stream(), p, true););
             UNREACHABLE();

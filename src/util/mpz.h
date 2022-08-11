@@ -29,6 +29,9 @@ Revision History:
 
 unsigned u_gcd(unsigned u, unsigned v);
 uint64_t u64_gcd(uint64_t u, uint64_t v);
+unsigned trailing_zeros(uint64_t);
+unsigned trailing_zeros(uint32_t);
+
 
 #ifdef _MP_GMP
 typedef unsigned digit_t;
@@ -41,7 +44,7 @@ typedef unsigned digit_t;
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
 
-#if !defined(_MP_GMP) && !defined(_MP_MSBIGNUM) && !defined(_MP_INTERNAL)
+#if !defined(_MP_GMP) && !defined(_MP_INTERNAL)
 #ifdef _WINDOWS
 #define _MP_INTERNAL
 #else
@@ -49,13 +52,8 @@ template<bool SYNCH> class mpq_manager;
 #endif
 #endif
 
-#if defined(_MP_MSBIGNUM)
-typedef size_t digit_t;
-#elif defined(_MP_INTERNAL)
-typedef unsigned int digit_t;
-#endif
-
 #ifndef _MP_GMP
+typedef unsigned int digit_t;
 class mpz_cell {
     unsigned  m_size;
     unsigned  m_capacity;

@@ -54,6 +54,20 @@ namespace smt {
         return r;
     }
 
+    app * theory_array_base::mk_select_reduce(unsigned num_args, expr * * args) {
+        array_util util(m);
+        while (util.is_store(args[0])) {
+            bool are_distinct = false;
+            for (unsigned i = 1; i < num_args && !are_distinct; ++i) 
+                are_distinct |= m.are_distinct(args[i], to_app(args[0])->get_arg(i));
+            if (!are_distinct)
+                break;
+            args[0] = to_app(to_app(args[0])->get_arg(0));
+        }
+        return mk_select(num_args, args);
+    }
+
+
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
         return m.mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
@@ -101,7 +115,7 @@ namespace smt {
         SASSERT(num_args >= 3);
         sel_args.push_back(n);
         for (unsigned i = 1; i < num_args - 1; ++i) {
-            sel_args.push_back(to_app(n->get_arg(i)));
+            sel_args.push_back(n->get_arg(i));
         }
         expr_ref sel(m);
         sel = mk_select(sel_args.size(), sel_args.data());
@@ -177,6 +191,12 @@ namespace smt {
                 TRACE("array", tout << mk_bounded_pp(sel1, m) << " " << mk_bounded_pp(sel2, m) << "\n";);
                 conseq = mk_eq(sel1, sel2, true);
                 conseq_expr = ctx.bool_var2expr(conseq.var());
+            }
+
+            if (m.are_distinct(idx1->get_expr(), idx2->get_expr())) {
+                ctx.mark_as_relevant(conseq);
+                assert_axiom(conseq);
+                continue;
             }
 
             literal ante = mk_eq(idx1->get_expr(), idx2->get_expr(), true);
@@ -890,8 +910,6 @@ namespace smt {
             m_unspecified_else(true) {
         }
 
-        ~array_value_proc() override {}
-     
         void add_entry(unsigned num_args, enode * const * args, enode * value) {
             SASSERT(num_args > 0);
             SASSERT(m_dim == 0 || m_dim == num_args);

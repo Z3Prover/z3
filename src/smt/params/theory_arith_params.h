@@ -72,7 +72,6 @@ struct theory_arith_params {
     bool                    m_arith_adaptive = false;
     double                  m_arith_adaptive_assertion_threshold = 0.2;
     double                  m_arith_adaptive_propagation_threshold = 0.4;
-    bool                    m_arith_dump_lemmas = false;
     bool                    m_arith_eager_eq_axioms = true;
     unsigned                m_arith_branch_cut_ratio = 2;
     bool                    m_arith_int_eq_branching = false;

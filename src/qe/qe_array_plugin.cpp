@@ -27,9 +27,6 @@ namespace qe {
         {
         }
 
-        ~array_plugin() override {}
-
-        
         void assign(contains_app& x, expr* fml, rational const& vl) override {
             UNREACHABLE();
         }

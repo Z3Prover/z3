@@ -62,6 +62,7 @@ namespace smt {
         bool is_select_arg(enode* r);
 
         app * mk_select(unsigned num_args, expr * const * args);
+        app * mk_select_reduce(unsigned num_args, expr * * args);
         app * mk_select(expr_ref_vector const& args) { return mk_select(args.size(), args.data()); }
         app * mk_store(unsigned num_args, expr * const * args);
         app * mk_default(expr* a);

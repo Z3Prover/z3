@@ -19,6 +19,7 @@ Revision History:
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
 #include "util/gparams.h"
+#include "params/solver_params.hpp"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
@@ -59,6 +60,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_dump_benchmarks = false;
     m_dump_min_time = 0.5;
     m_dump_recheck = false;
+    solver_params sp(_p);
+    m_axioms2files = sp.axioms2files();
+    m_lemmas2console = sp.lemmas2console();
 }
 
 void smt_params::updt_params(params_ref const & p) {
@@ -150,7 +154,8 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_old_clause_relevancy);
     DISPLAY_PARAM(m_inv_clause_decay);
 
-    DISPLAY_PARAM(m_smtlib_dump_lemmas);
+    DISPLAY_PARAM(m_axioms2files);
+    DISPLAY_PARAM(m_lemmas2console);
     DISPLAY_PARAM(m_logic);
     DISPLAY_PARAM(m_string_solver);
 

@@ -137,7 +137,9 @@ namespace bv {
             return true;
 
         SASSERT(!n || !n->is_attached_to(get_id()));
-        bool suppress_args = !reflect() && !m.is_considered_uninterpreted(a->get_decl());
+        bool suppress_args = !reflect() 
+            && !m.is_considered_uninterpreted(a->get_decl())
+            && !bv.is_int2bv(e) && !bv.is_bv2int(e);
         if (!n)
             n = mk_enode(e, suppress_args);
 

@@ -379,8 +379,6 @@ public:
         m_int_real_coercions(":int-real-coercions"),
         m_reproducible_resource_limit(":reproducible-resource-limit") {
     }
-    ~set_get_option_cmd() override {}
-
 };
 
 class set_option_cmd : public set_get_option_cmd {

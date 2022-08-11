@@ -26,7 +26,7 @@ class converter {
     unsigned m_ref_count;
 public:
     converter():m_ref_count(0) {}
-    virtual ~converter() {}
+    virtual ~converter() = default;
 
     void inc_ref() { ++m_ref_count;  }
 
@@ -57,8 +57,6 @@ protected:
 
 public:
     concat_converter(T * c1, T * c2):m_c1(c1), m_c2(c2) {}
-    
-    ~concat_converter() override {}
 
     void cancel() override {
         m_c2->cancel();

@@ -85,7 +85,7 @@ public:
     bool is_scalar() const { return type() == expr_type::SCALAR; }
     virtual bool is_pure_monomial() const { return false; }
     std::string str() const { std::stringstream ss; print(ss); return ss.str(); }
-    virtual ~nex() {}
+    virtual ~nex() = default;
     virtual bool contains(lpvar j) const { return false; }
     virtual unsigned get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e

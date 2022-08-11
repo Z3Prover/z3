@@ -857,7 +857,7 @@ protected:
     context& m_ctx;
 public:
     lemma_generalizer(context& ctx): m_ctx(ctx) {}
-    virtual ~lemma_generalizer() {}
+    virtual ~lemma_generalizer() = default;
     virtual void operator()(lemma_ref &lemma) = 0;
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}

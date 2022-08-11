@@ -107,7 +107,7 @@ namespace datalog {
     public:
         lazy_table_ref(lazy_table_plugin& p, table_signature const& sig): 
             m_plugin(p), m_signature(sig), m_ref(0) {}
-        virtual ~lazy_table_ref() {}
+        virtual ~lazy_table_ref() = default;
         void inc_ref() { ++m_ref; }
         void dec_ref() { --m_ref; if (0 == m_ref) dealloc(this);  }
         void release_table() { m_table.release(); }
@@ -127,8 +127,6 @@ namespace datalog {
             table_base(t->get_lplugin(), t->get_signature()), 
             m_ref(t)
         {}
-
-        ~lazy_table() override {}
 
         lazy_table_plugin& get_lplugin() const { 
             return dynamic_cast<lazy_table_plugin&>(table_base::get_plugin()); 
@@ -164,7 +162,6 @@ namespace datalog {
             m_table = table;
             // SASSERT(&p.m_plugin == &table->get_lplugin());
         }
-        ~lazy_table_base() override {}
         lazy_table_kind kind() const override { return LAZY_TABLE_BASE; }
         table_base* force() override { return m_table.get(); }
     };
@@ -183,7 +180,6 @@ namespace datalog {
               m_cols2(col_cnt, cols2),
               m_t1(t1.get_ref()),
               m_t2(t2.get_ref()) { }
-        ~lazy_table_join() override {}
         lazy_table_kind kind() const override { return LAZY_TABLE_JOIN; }
         unsigned_vector const& cols1() const { return m_cols1; }
         unsigned_vector const& cols2() const { return m_cols2; }
@@ -201,7 +197,6 @@ namespace datalog {
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
               m_src(src.get_ref()) {}
-        ~lazy_table_project() override {}
         
         lazy_table_kind kind() const override { return LAZY_TABLE_PROJECT; }
         unsigned_vector const& cols() const { return m_cols; }
@@ -217,8 +212,7 @@ namespace datalog {
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
               m_src(src.get_ref()) {}
-        ~lazy_table_rename() override {}
-        
+
         lazy_table_kind kind() const override { return LAZY_TABLE_RENAME; }
         unsigned_vector const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
@@ -231,8 +225,7 @@ namespace datalog {
     public:
         lazy_table_filter_identical(unsigned col_cnt, const unsigned * cols, lazy_table const& src)
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), m_cols(col_cnt, cols), m_src(src.get_ref()) {}
-        ~lazy_table_filter_identical() override {}
-        
+
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_IDENTICAL; }
         unsigned_vector const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
@@ -249,8 +242,7 @@ namespace datalog {
             m_col(col), 
             m_value(value), 
             m_src(src.get_ref()) {}
-        ~lazy_table_filter_equal() override {}
-        
+
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_EQUAL; }
         unsigned        col() const { return m_col; }
         table_element   value() const { return m_value; }
@@ -265,8 +257,7 @@ namespace datalog {
         lazy_table_filter_interpreted(lazy_table const& src, app* condition)
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), 
               m_condition(condition, src.get_lplugin().get_ast_manager()), m_src(src.get_ref()) {}
-        ~lazy_table_filter_interpreted() override {}
-        
+
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_INTERPRETED; }
         app* condition() const { return m_condition; }        
         lazy_table_ref* src() const { return m_src.get(); }
@@ -287,7 +278,6 @@ namespace datalog {
             m_src(src.get_ref()), 
             m_cols1(c1),
             m_cols2(c2) {}
-        ~lazy_table_filter_by_negation() override {}
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_BY_NEGATION; }
         lazy_table_ref* tgt() const { return m_tgt.get(); }
         lazy_table_ref* src() const { return m_src.get(); }

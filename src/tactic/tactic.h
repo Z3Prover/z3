@@ -35,7 +35,6 @@ class tactic : public user_propagator::core {
     unsigned m_ref_count;
 public:
     tactic():m_ref_count(0) {}
-    virtual ~tactic() {}
 
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }

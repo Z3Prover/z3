@@ -192,7 +192,7 @@ public:
             m_set(&s), m_index(at_end?s.get_max_elem():0), m_last(s.get_max_elem()) {
             scan();
             SASSERT(invariant());
-          }
+        }
         unsigned operator*() const { return m_index; }
         bool operator==(iterator const& it) const { return m_index == it.m_index; }
         bool operator!=(iterator const& it) const { return m_index != it.m_index; }

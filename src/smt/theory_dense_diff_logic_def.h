@@ -539,7 +539,7 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literals;
         antecedents.reset();
         get_antecedents(source, target, antecedents);
-        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.data(), l)));
+        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx, antecedents.size(), antecedents.data(), l)));
     }
     
     template<typename Ext>
@@ -592,11 +592,7 @@ namespace smt {
             if (l != null_literal)
                 antecedents.push_back(l);
             region & r    = ctx.get_region();
-            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.data())));
-
-            if (dump_lemmas()) {
-                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.data(), false_literal);
-            }
+            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), ctx, antecedents.size(), antecedents.data())));
 
             return;
         }
@@ -1011,7 +1007,7 @@ namespace smt {
             expr_ref tmp(m);
             core.reset();
             for (; it != end; ++it) {
-                unsigned v = it->m_var;
+                unsigned v = it->var();
                 if (num_nodes <= v && v < num_nodes + num_edges) {
                     unsigned edge_id = v - num_nodes;
                     literal lit = m_edges[edge_id].m_justification;

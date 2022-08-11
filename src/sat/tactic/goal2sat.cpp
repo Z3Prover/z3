@@ -93,10 +93,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         updt_params(p);
     }
 
-    ~imp() override {
-    }
-        
-
     sat::cut_simplifier* aig() {
         return m_solver.get_cut_simplifier();
     }
@@ -1016,6 +1012,11 @@ goal2sat::goal2sat():
 goal2sat::~goal2sat() {
     dealloc(m_imp);
 }
+
+euf::solver* goal2sat::ensure_euf() {
+    return m_imp->ensure_euf();
+}
+
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);

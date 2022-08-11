@@ -239,7 +239,6 @@ class fpa2bv_converter_wrapped : public fpa2bv_converter {
     fpa2bv_converter_wrapped(ast_manager & m, th_rewriter& rw) :
         fpa2bv_converter(m),
         m_rw(rw) {}
-    virtual ~fpa2bv_converter_wrapped() {}
     void mk_const(func_decl * f, expr_ref & result) override;
     void mk_rm_const(func_decl * f, expr_ref & result) override;
     app_ref wrap(expr * e);

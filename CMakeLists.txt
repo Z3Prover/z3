@@ -2,20 +2,13 @@
 cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.9.2.0 LANGUAGES CXX)
+project(Z3 VERSION 4.11.0.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
 ################################################################################
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
-
-################################################################################
-# Set various useful variables depending on CMake version
-################################################################################
-
-set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 
 ################################################################################
 # Message for polluted source tree sanity checks
@@ -185,35 +178,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ################################################################################
 # Platform detection
 ################################################################################
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  message(STATUS "Platform: Linux")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_LINUX_")
-  if (TARGET_ARCHITECTURE STREQUAL "x86_64")
-    list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
-  endif()
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
-  message(STATUS "Platform: Android")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_ANDROID_")
-elseif (CMAKE_SYSTEM_NAME MATCHES "GNU")
-  message(STATUS "Platform: GNU/Hurd")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_HURD_")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   if (TARGET_ARCHITECTURE STREQUAL "arm64")
     set(CMAKE_OSX_ARCHITECTURES "arm64")
   endif()
-  message(STATUS "Platform: Darwin")
-elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
-  message(STATUS "Platform: FreeBSD")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_FREEBSD_")
-elseif (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-  message(STATUS "Platform: NetBSD")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NetBSD_")
-elseif (CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
-  message(STATUS "Platform: OpenBSD")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_OPENBSD_")
-elseif (CYGWIN)
-  message(STATUS "Platform: Cygwin")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_CYGWIN")
 elseif (WIN32)
   message(STATUS "Platform: Windows")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_WINDOWS")
@@ -226,8 +194,6 @@ elseif (EMSCRIPTEN)
     "-s DISABLE_EXCEPTION_CATCHING=0"
     "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
   )
-else()
-  message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
 list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
@@ -286,15 +252,7 @@ endif()
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
 if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i686"))
   if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel"))
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-      # Intel's compiler requires linking with libiomp5
-      list(APPEND Z3_DEPENDENT_LIBS "iomp5")
-    endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-  elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-    # Intel's compiler requires linking with libiomp5
-    list(APPEND Z3_DEPENDENT_LIBS "iomp5")
   elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
@@ -349,14 +307,6 @@ option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise
 
 
 ################################################################################
-# Symbol visibility
-################################################################################
-if (NOT MSVC)
-  z3_add_cxx_flag("-fvisibility=hidden" REQUIRED)
-  z3_add_cxx_flag("-fvisibility-inlines-hidden" REQUIRED)
-endif()
-
-################################################################################
 # Tracing
 ################################################################################
 option(Z3_ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
@@ -366,20 +316,6 @@ else()
   # Tracing is always enabled in debug builds
   list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
-
-################################################################################
-# Position independent code
-################################################################################
-# This is required because code built in the components will end up in a shared
-# library.
-
-# Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
-# support the flag) or if we target Windows, which generally does not use
-# position independent code for native code shared libraries (DLLs).
-if (NOT (MSVC OR MINGW OR WIN32))
-  z3_add_cxx_flag("-fPIC" REQUIRED)
-endif()
-
 
 ################################################################################
 # Link time optimization
@@ -507,7 +443,7 @@ add_custom_target(uninstall
   COMMAND
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   COMMENT "Uninstalling..."
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
   VERBATIM
 )
 

@@ -19,7 +19,7 @@
 
         Extended Linear Simplification (as exploited in Bosphorus AAAI 2019):
         - multiply each polynomial by one variable from their orbits.
-        - The orbit of a varible are the variables that occur in the same monomial as it in some polynomial.
+        - The orbit of a variable are the variables that occur in the same monomial as it in some polynomial.
         - The extended set of polynomials is fed to a linear Gauss Jordan Eliminator that extracts
           additional linear equalities.
         - Bosphorus uses M4RI to perform efficient GJE to scale on large bit-matrices.
@@ -32,7 +32,7 @@
           The method seems rather specific to hardware multipliers so not clear it is useful to 
           generalize.
         - find monomials that contain pairs of vanishing polynomials, transitively 
-          withtout actually inlining.
+          without actually inlining.
           Then color polynomial variables w by p, resp, q if they occur in polynomial equalities
           w - r = 0, such that all paths in r contain a node colored by p, resp q. 
           polynomial variables that get colored by both p and q can be set to 0.

@@ -344,7 +344,6 @@ extern "C" {
         scoped_anum_vector const & m_as;
     public:
         vector_var2anum(scoped_anum_vector & as):m_as(as) {}
-        virtual ~vector_var2anum() {}
         algebraic_numbers::manager & m() const override { return m_as.m(); }
         bool contains(polynomial::var x) const override { return static_cast<unsigned>(x) < m_as.size(); }
         algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as.get(x); }
@@ -422,7 +421,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_get_poly(c, a);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC(a, 0);
+        CHECK_IS_ALGEBRAIC(a, nullptr);
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());

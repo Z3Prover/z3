@@ -140,10 +140,11 @@ namespace smt {
         bool get_case_split(bool_var& var, bool& is_pos);
 
         theory * mk_fresh(context * new_ctx) override;
+        char const* get_name() const override { return "user_propagate"; }
         bool internalize_atom(app* atom, bool gate_ctx) override;
         bool internalize_term(app* term) override;
-        void new_eq_eh(theory_var v1, theory_var v2) override { if (m_eq_eh) m_eq_eh(m_user_context, this, var2expr(v1), var2expr(v2)); }
-        void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) m_diseq_eh(m_user_context, this, var2expr(v1), var2expr(v2)); }
+        void new_eq_eh(theory_var v1, theory_var v2) override { if (m_eq_eh) force_push(), m_eq_eh(m_user_context, this, var2expr(v1), var2expr(v2)); }
+        void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) force_push(), m_diseq_eh(m_user_context, this, var2expr(v1), var2expr(v2)); }
         bool use_diseqs() const override { return ((bool)m_diseq_eh); }
         bool build_models() const override { return false; }
         final_check_status final_check_eh() override;

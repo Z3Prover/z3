@@ -24,12 +24,13 @@ template<typename Manager, unsigned INITIAL_SIZE = 16>
 class _scoped_numeral_buffer : public sbuffer<typename Manager::numeral, INITIAL_SIZE> {
     typedef sbuffer<typename Manager::numeral, INITIAL_SIZE> super;
     Manager & m_manager;
-    _scoped_numeral_buffer(_scoped_numeral_buffer const & v);
 public:
     _scoped_numeral_buffer(Manager & m):m_manager(m) {}
     ~_scoped_numeral_buffer() {
         reset();
     }
+
+    _scoped_numeral_buffer(_scoped_numeral_buffer const & v) = delete;
 
     void reset() {
         unsigned sz = this->size();

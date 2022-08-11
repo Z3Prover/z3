@@ -31,7 +31,7 @@ protected:
     event_handler_caller_t m_caller_id;
 public:
     event_handler(): m_caller_id(UNSET_EH_CALLER) {}
-    virtual ~event_handler() {}
+    virtual ~event_handler() = default;
     virtual void operator()(event_handler_caller_t caller_id) = 0;
     event_handler_caller_t caller_id() const { return m_caller_id; }
 };

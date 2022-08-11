@@ -190,7 +190,6 @@ namespace datalog {
                  const unsigned * cols1, const unsigned * cols2)
             : convenient_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2), m_join(j) 
         {}
-        ~join_fn() override {}
         relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
@@ -219,7 +218,6 @@ namespace datalog {
             : convenient_join_project_fn(o1_sig, o2_sig, col_cnt, cols1, cols2,
                                          removed_col_cnt, removed_cols), m_join(j) 
         {}
-        ~join_project_fn() override {}
         relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
@@ -527,8 +525,6 @@ namespace datalog {
               m_filter(f) {
         }
 
-        ~filter_identical_fn() override {}
-        
         void operator()(relation_base & _r) override {
             check_relation& r = get(_r);
             check_relation_plugin& p = r.get_plugin();            
@@ -563,8 +559,6 @@ namespace datalog {
             m_condition(condition) {
         }
 
-        ~filter_interpreted_fn() override {}
-        
         void operator()(relation_base & tb) override {
             check_relation& r = get(tb);
             check_relation_plugin& p = r.get_plugin();            
@@ -589,8 +583,6 @@ namespace datalog {
             : convenient_relation_project_fn(t.get_signature(), removed_col_cnt, removed_cols),
               m_project(p) {
         }
-
-        ~project_fn() override {}
 
         relation_base * operator()(const relation_base & tb) override {
             check_relation const& t = get(tb);
@@ -617,8 +609,6 @@ namespace datalog {
             : convenient_relation_rename_fn(t.get_signature(), cycle_len, cycle),
               m_permute(permute) {
         }
-
-        ~rename_fn() override {}
 
         relation_base * operator()(const relation_base & _t) override {
             check_relation const& t = get(_t);
@@ -647,7 +637,6 @@ namespace datalog {
             m_val(val),
             m_col(col)
         {}
-        ~filter_equal_fn() override { }
         void operator()(relation_base & tb) override {
             check_relation & t = get(tb);
             check_relation_plugin& p = t.get_plugin();
@@ -760,8 +749,6 @@ namespace datalog {
             m_cond(cond),
             m_xform(xform)
         {}
-        
-        ~filter_proj_fn() override {}
 
         relation_base* operator()(const relation_base & tb) override {
             check_relation const & t = get(tb);

@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include <set>
 #include <string>
 #include "util/vector.h"

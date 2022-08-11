@@ -122,7 +122,7 @@ macro(z3_add_component component_name)
               ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-      ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+      USES_TERMINAL
       VERBATIM
     )
     list(APPEND _list_generated_headers "${_full_output_file_path}")
@@ -206,6 +206,12 @@ macro(z3_add_component component_name)
   foreach (flag ${Z3_COMPONENT_CXX_FLAGS})
     target_compile_options(${component_name} PRIVATE ${flag})
   endforeach()
+  set_target_properties(${component_name} PROPERTIES
+    # Position independent code needed in shared libraries
+    POSITION_INDEPENDENT_CODE ON
+    # Symbol visibility
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
 
   # It's unfortunate that we have to manage dependencies ourselves.
   #
@@ -277,7 +283,7 @@ macro(z3_add_install_tactic_rule)
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
-    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+    USES_TERMINAL
     VERBATIM
   )
   unset(_expanded_components)
@@ -315,7 +321,7 @@ macro(z3_add_memory_initializer_rule)
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_mem_init_finalize_headers}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
-    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+    USES_TERMINAL
     VERBATIM
   )
   unset(_mem_init_finalize_headers)
@@ -351,7 +357,7 @@ macro(z3_add_gparams_register_modules_rule)
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_register_module_header_files}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
-    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+    USES_TERMINAL
     VERBATIM
   )
   unset(_expanded_components)

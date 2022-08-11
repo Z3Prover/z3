@@ -111,8 +111,6 @@ namespace datalog {
         rule_unifier           m_unifier;
 
 
-        slice_proof_converter(slice_proof_converter const& other);
-
         void init_form2rule() {
             if (!m_sliceform2rule.empty()) {
                 return;
@@ -270,6 +268,8 @@ namespace datalog {
             m_pinned_rules.push_back(slice_rule);
             m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
         }
+
+        slice_proof_converter(slice_proof_converter const& other) = delete;
 
         proof_ref operator()(ast_manager& m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);

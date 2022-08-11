@@ -43,7 +43,7 @@ namespace qe {
         lbool is_shared_cached(expr* e);
     public:
         mbi_plugin(ast_manager& m): m(m), m_shared_trail(m) {}
-        virtual ~mbi_plugin() {}
+        virtual ~mbi_plugin() = default;
 
         /**
          * Set the shared symbols.
@@ -106,7 +106,6 @@ namespace qe {
         solver_ref m_solver;
     public:
         prop_mbi_plugin(solver* s);
-        ~prop_mbi_plugin() override {}
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;
     };
@@ -134,7 +133,6 @@ namespace qe {
                          expr_ref_vector& uflits);
     public:
         uflia_mbi(solver* s, solver* emptySolver);
-        ~uflia_mbi() override {}
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void project(model_ref& mdl, expr_ref_vector& lits);
         void block(expr_ref_vector const& lits) override;

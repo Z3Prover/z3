@@ -26,7 +26,7 @@ Revision History:
 
 class trail {
 public:
-    virtual ~trail() {}
+    virtual ~trail() = default;
     virtual void undo() = 0;
 };
 
@@ -243,7 +243,7 @@ public:
     m_value(m_vector.back()) {
     }
 
-    virtual void undo() {
+    void undo() override {
         m_vector.push_back(m_value);
     }
 };

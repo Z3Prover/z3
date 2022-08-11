@@ -86,7 +86,6 @@ class proof2pc : public proof_converter {
     proof_ref m_pr;
 public:
     proof2pc(ast_manager & m, proof * pr):m_pr(pr, m) {}
-    ~proof2pc() override {}
 
     proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
         SASSERT(num_source == 0);

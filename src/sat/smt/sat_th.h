@@ -39,7 +39,7 @@ namespace euf {
         virtual bool post_visit(expr* e, bool sign, bool root) { return false; }
 
     public:
-        virtual ~th_internalizer() {}
+        virtual ~th_internalizer() = default;
 
         virtual sat::literal internalize(expr* e, bool sign, bool root, bool redundant) = 0;
 
@@ -60,7 +60,7 @@ namespace euf {
 
     class th_decompile {
     public:
-        virtual ~th_decompile() {}
+        virtual ~th_decompile() = default;
 
         virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) { return false; }
     };
@@ -68,7 +68,7 @@ namespace euf {
     class th_model_builder {
     public:
 
-        virtual ~th_model_builder() {}
+        virtual ~th_model_builder() = default;
 
         /**
            \brief compute the value for enode \c n and store the value in \c values
@@ -189,7 +189,6 @@ namespace euf {
 
     public:
         th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id);
-        virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode* n);
         unsigned get_num_vars() const { return m_var2enode.size(); }
         euf::enode* e_internalize(expr* e); 

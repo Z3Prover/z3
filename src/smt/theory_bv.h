@@ -42,7 +42,7 @@ namespace smt {
 
         class atom {
         public:
-            virtual ~atom() {}
+            virtual ~atom() = default;
             virtual bool is_bit() const = 0;
         };
 
@@ -56,7 +56,6 @@ namespace smt {
         struct bit_atom : public atom {
             var_pos_occ * m_occs;
             bit_atom():m_occs(nullptr) {}
-            ~bit_atom() override {}
             bool is_bit() const override { return true; }
         };
 
@@ -64,7 +63,6 @@ namespace smt {
             literal    m_var;
             literal    m_def;
             le_atom(literal v, literal d):m_var(v), m_def(d) {}
-            ~le_atom() override {}
             bool is_bit() const override { return false; }
         };
 

@@ -46,8 +46,6 @@ namespace datalog {
         qa_model_converter(ast_manager& m):
             m(m), m_old_funcs(m), m_new_funcs(m) {}
 
-        ~qa_model_converter() override {}
-
         model_converter * translate(ast_translation & translator) override {
             return alloc(qa_model_converter, m);
         }

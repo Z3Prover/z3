@@ -265,7 +265,8 @@ namespace array {
         args1.push_back(e1);
         args2.push_back(e2);
         for (func_decl* f : funcs) {
-            expr* k = m.mk_app(f, e1, e2);
+            expr_ref k(m.mk_app(f, e1, e2), m);
+            rewrite(k);
             args1.push_back(k);
             args2.push_back(k);
         }

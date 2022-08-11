@@ -1429,7 +1429,7 @@ ast_manager::~ast_manager() {
     }
     m_plugins.reset();
     while (!m_ast_table.empty()) {
-        DEBUG_CODE(IF_VERBOSE(0, verbose_stream() << "ast_manager LEAKED: " << m_ast_table.size() << std::endl););
+        DEBUG_CODE(IF_VERBOSE(1, verbose_stream() << "ast_manager LEAKED: " << m_ast_table.size() << std::endl););
         ptr_vector<ast> roots;
         ast_mark mark;
         for (ast * n : m_ast_table) {
@@ -1465,22 +1465,21 @@ ast_manager::~ast_manager() {
                 break;
             }
         }
-        for (ast * n : m_ast_table) {
-            if (!mark.is_marked(n)) {
+        for (ast * n : m_ast_table) 
+            if (!mark.is_marked(n)) 
                 roots.push_back(n);
-            }
-        }
+
         SASSERT(!roots.empty());
         for (unsigned i = 0; i < roots.size(); ++i) {
             ast* a = roots[i];
             DEBUG_CODE(
-                std::cout << "Leaked: ";
-                if (is_sort(a)) {
-                    std::cout << to_sort(a)->get_name() << "\n";
-                }
-                else {
-                    std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
-                });
+                IF_VERBOSE(1, 
+                           verbose_stream() << "Leaked: ";
+                           if (is_sort(a)) 
+                               verbose_stream() << to_sort(a)->get_name() << "\n";
+                           else 
+                               verbose_stream() << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
+                           ););
             a->m_ref_count = 0;
             delete_node(a);
         }

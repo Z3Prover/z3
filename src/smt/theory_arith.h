@@ -294,7 +294,7 @@ namespace smt {
                 m_bound_kind(k),
                 m_atom(a) {
             }
-            virtual ~bound() {}
+            virtual ~bound() = default;
             theory_var get_var() const { return m_var; }
             bound_kind get_bound_kind() const { return static_cast<bound_kind>(m_bound_kind); }
             bool is_atom() const { return m_atom; }
@@ -319,7 +319,6 @@ namespace smt {
         public:
             atom(bool_var bv, theory_var v, inf_numeral const & k, atom_kind kind);
             atom_kind get_atom_kind() const { return static_cast<atom_kind>(m_atom_kind); }
-            ~atom() override {}
             inline inf_numeral const & get_k() const { return m_k; }
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_is_true; }
@@ -341,7 +340,6 @@ namespace smt {
                 m_rhs(rhs) {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
             }
-            ~eq_bound() override {}
             bool has_justification() const override { return true; }
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
@@ -357,7 +355,6 @@ namespace smt {
             friend class theory_arith;
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
-            ~derived_bound() override {}
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
             bool has_justification() const override { return true; }
@@ -374,7 +371,6 @@ namespace smt {
             friend class theory_arith;
         public:
             justified_derived_bound(theory_var v, inf_numeral const & val, bound_kind k):derived_bound(v, val, k) {}
-            ~justified_derived_bound() override {}
             bool has_justification() const override { return true; }
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override;
             void push_lit(literal l, numeral const& coeff) override;
@@ -548,9 +544,6 @@ namespace smt {
         unsigned small_lemma_size() const { return m_params.m_arith_small_lemma_size; }
         bool relax_bounds() const { return m_params.m_arith_stronger_lemmas; }
         bool skip_big_coeffs() const { return m_params.m_arith_skip_rows_with_big_coeffs; }
-        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
-        void dump_lemmas(literal l, antecedents const& ante);
-        void dump_lemmas(literal l, derived_bound const& ante);
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }

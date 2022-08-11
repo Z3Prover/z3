@@ -607,7 +607,7 @@ class theory_lra::imp {
         return v;
     }
 
-    bool const has_int() const { return lp().has_int_var(); }
+    bool has_int() const { return lp().has_int_var(); }
     
     lpvar register_theory_var_in_lar_solver(theory_var v) {
         lpvar lpv = lp().external_to_local(v);
@@ -1113,7 +1113,7 @@ public:
         }
         {
             scoped_trace_stream ts(th, dgez, neg);
-            mk_axiom( dgez, neg);                    
+            mk_axiom( dgez, neg);
         }
     }
 
@@ -1224,7 +1224,6 @@ public:
             return;
         }
         expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
-        ctx().get_rewriter()(mod_r);
         expr_ref eq_r(th.mk_eq_atom(mod_r, p), m);
         ctx().internalize(eq_r, false);
         literal eq = ctx().get_literal(eq_r);
@@ -2332,7 +2331,6 @@ public:
     literal_vector m_core2;
 
     void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params) {
-        dump_assign(lit, core, eqs);
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core) {
@@ -2350,7 +2348,7 @@ public:
             ctx().assign(
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
-                        get_id(), ctx().get_region(), core.size(), core.data(), 
+                        get_id(), ctx(), core.size(), core.data(), 
                         eqs.size(), eqs.data(), lit, params.size(), params.data())));            
         }
     }
@@ -2943,8 +2941,6 @@ public:
     }
 
 
-    bool dump_lemmas() const { return params().m_arith_dump_lemmas; }
-
     bool propagate_eqs() const { return params().m_arith_propagate_eqs && m_num_conflicts < params().m_arith_propagation_threshold; }
 
     bound_prop_mode propagation_mode() const { return m_num_conflicts < params().m_arith_propagation_threshold ? params().m_arith_bound_prop : bound_prop_mode::BP_NONE; }
@@ -3080,7 +3076,7 @@ public:
         justification* js = 
             ctx().mk_justification(
                 ext_theory_eq_propagation_justification(
-                    get_id(), ctx().get_region(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y));
+                    get_id(), ctx(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y));
         
         TRACE("arith",
               for (auto c : m_core) 
@@ -3204,12 +3200,11 @@ public:
             set_evidence(ev.ci(), m_core, m_eqs);
         
         // SASSERT(validate_conflict(m_core, m_eqs));
-        dump_conflict(m_core, m_eqs);
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
                     ext_theory_conflict_justification(
-                        get_id(), ctx().get_region(), 
+                        get_id(), ctx(),  
                         m_core.size(), m_core.data(), 
                         m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data())));
         }
@@ -3415,11 +3410,6 @@ public:
         }
     };
 
-    void dump_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (dump_lemmas()) {
-            ctx().display_lemma_as_smt_problem(core.size(), core.data(), eqs.size(), eqs.data(), false_literal);
-        }
-    }
 
     bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
         if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
@@ -3431,13 +3421,6 @@ public:
         bool result = l_true != nctx.check();
         CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), false_literal););
         return result;
-    }
-
-    void dump_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (dump_lemmas()) {                
-            unsigned id = ctx().display_lemma_as_smt_problem(core.size(), core.data(), eqs.size(), eqs.data(), lit);
-            (void)id;
-        }
     }
 
     bool validate_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {

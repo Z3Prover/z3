@@ -783,7 +783,7 @@ bool theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     justification* js =
         ctx.mk_justification(
             ext_theory_propagation_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), lit));
+                get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), lit));
 
     m_new_propagation = true;
     ctx.assign(lit, js);
@@ -804,7 +804,7 @@ void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
+                get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
     validate_conflict(eqs, lits);
 }
 
@@ -829,7 +829,7 @@ bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
 
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
-            get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
+            get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
     
     {
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_expr(), n2->get_expr()); };
@@ -1923,7 +1923,6 @@ public:
     seq_value_proc(theory_seq& th, enode* n, sort* s): th(th), m_node(n), m_sort(s) {
         (void)m_node;
     }
-    ~seq_value_proc() override {}
     void add_unit(enode* n) { 
         m_dependencies.push_back(model_value_dependency(n)); 
         m_source.push_back(unit_source);
@@ -2955,7 +2954,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     justification* js =
         ctx.mk_justification(
             ext_theory_eq_propagation_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
+                get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
 
     m_new_propagation = true;
     
@@ -3071,8 +3070,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_is_digit(e)) {
 	
     }
+    else if (m_util.str.is_foldl(e) || m_util.str.is_foldli(e)) {
+        
+    }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        IF_VERBOSE(0, verbose_stream() << mk_pp(e, m) << "\n");
         UNREACHABLE();
     }
 }
@@ -3273,7 +3276,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         }
     }
 
-    if (k_min < UINT_MAX/4) {
+    if (k_min < get_fparams().m_seq_max_unfolding) {
         m_max_unfolding_depth++;
         k_min *= 2;
         if (m_util.is_seq(s_min))
@@ -3287,7 +3290,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-depth " << m_max_unfolding_depth << ")\n");
         return true;
     }
-    else if (k_min != UINT_MAX && k_min >= UINT_MAX/4) {
+    else if (k_min != UINT_MAX && k_min >= get_fparams().m_seq_max_unfolding) {
         throw default_exception("reached max unfolding");
     }
 

@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 9, 2, 0)
+    set_version(4, 11, 0, 0)
     
 # Z3 Project definition
 def init_project_def():
@@ -38,7 +38,7 @@ def init_project_def():
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
-    add_lib('solver', ['model', 'tactic', 'proofs'])
+    add_lib('solver', ['params', 'model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')

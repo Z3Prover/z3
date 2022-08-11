@@ -53,7 +53,7 @@ namespace user_propagator {
     class core {
     public:
 
-        virtual ~core() {}
+        virtual ~core() = default;
         
         virtual void user_propagate_init(
             void* ctx, 

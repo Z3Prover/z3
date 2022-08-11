@@ -40,8 +40,6 @@ public:
           fixed_model(false)
     { }
 
-    ~ackr_model_converter() override { }
-
     void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
     void operator()(model_ref & md) override {

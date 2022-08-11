@@ -40,7 +40,7 @@ namespace api {
         context& m_context;
     public:
         object(context& c);
-        virtual ~object() {}
+        virtual ~object() = default;
         unsigned ref_count() const { return m_ref_count; }
         unsigned id() const { return m_id; }
         void inc_ref();

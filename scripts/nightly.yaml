@@ -1,8 +1,8 @@
 variables:
 
   Major: '4'
-  Minor: '9'
-  Patch: '2'
+  Minor: '11'
+  Patch: '0'
   NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
 
 stages:

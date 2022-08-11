@@ -902,9 +902,6 @@ public:
     tactic * translate(ast_manager & m) override {
         return alloc(purify_arith_tactic, m, m_params);
     }
-        
-    ~purify_arith_tactic() override {
-    }
 
     char const* name() const override { return "purify_arith"; }
 

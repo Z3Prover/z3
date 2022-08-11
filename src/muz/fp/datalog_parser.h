@@ -27,7 +27,7 @@ namespace datalog {
     public:        
         static parser * create(context& ctx, ast_manager & ast_manager);
 
-        virtual ~parser() {}
+        virtual ~parser() = default;
 
         virtual bool parse_file(char const * path) = 0;
         virtual bool parse_string(char const * string) = 0;
@@ -37,7 +37,7 @@ namespace datalog {
     public:        
         static wpa_parser * create(context& ctx, ast_manager & ast_manager);
 
-        virtual ~wpa_parser() {}
+        virtual ~wpa_parser() = default;
 
         virtual bool parse_directory(char const * path) = 0;
     };

@@ -222,7 +222,7 @@ namespace smt {
 
         class apply {
         public:
-            virtual ~apply() {}
+            virtual ~apply() = default;
             virtual void operator()(theory_seq& th) = 0;
         };
 
@@ -230,7 +230,6 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
-            ~replay_length_coherence() override {}
             void operator()(theory_seq& th) override {
                 th.check_length_coherence(m_e);
                 m_e.reset();
@@ -241,7 +240,6 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_fixed_length(ast_manager& m, expr* e) : m_e(e, m) {}
-            ~replay_fixed_length() override {}
             void operator()(theory_seq& th) override {
                 th.fixed_length(m_e, false, false);
                 m_e.reset();
@@ -252,7 +250,6 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
-            ~replay_axiom() override {}
             void operator()(theory_seq& th) override {
                 th.enque_axiom(m_e);
                 m_e.reset();
@@ -264,7 +261,6 @@ namespace smt {
             bool     m_sign;
         public:
             replay_unit_literal(ast_manager& m, expr* e, bool sign) : m_e(e, m), m_sign(sign) {}
-            ~replay_unit_literal() override {}
             void operator()(theory_seq& th) override {
                 literal lit = th.mk_literal(m_e);
                 if (m_sign) lit.neg();
@@ -278,7 +274,6 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_is_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
-            ~replay_is_axiom() override {}
             void operator()(theory_seq& th) override {
                 th.check_int_string(m_e);
                 m_e.reset();

@@ -135,7 +135,7 @@ namespace smt {
 
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
         SASSERT(m_util.is_special_relation(atm));
-        relation* r = 0;
+        relation* r = nullptr;
         ast_manager& m = get_manager();
         if (!m_relations.find(atm->get_decl(), r)) {
             r = alloc(relation, m_util.get_property(atm), atm->get_decl(), m);
@@ -279,7 +279,7 @@ namespace smt {
                 enode* tcn = ensure_enode(tc_app);
                 if (ctx.get_assignment(tcn) != l_true) {
                     literal consequent = ctx.get_literal(tc_app);
-                    justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), 1, &lit, consequent));
+                    justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx, 1, &lit, consequent));
                     TRACE("special_relations", tout << "propagate: " << tc_app << "\n";);
                     ctx.assign(consequent, j);
                     new_assertion = true;
@@ -469,8 +469,8 @@ namespace smt {
         ctx.set_conflict(
             ctx.mk_justification(
                 ext_theory_conflict_justification(
-                    get_id(), ctx.get_region(),
-                    lits.size(), lits.data(), 0, 0, params.size(), params.data())));
+                    get_id(), ctx, 
+                    lits.size(), lits.data(), 0, nullptr, params.size(), params.data())));
     }
 
     lbool theory_special_relations::final_check(relation& r) {
@@ -532,7 +532,7 @@ namespace smt {
                     literal_vector const& lits = r.m_explanation;
                     TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
                     IF_VERBOSE(20, ctx.display_literals_verbose(verbose_stream() << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
-                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.data(), 0, nullptr, 
+                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx, lits.size(), lits.data(), 0, nullptr, 
                                                                                                      x, y)));
                     ctx.assign_eq(x, y, js);
                 }
@@ -1149,8 +1149,8 @@ namespace smt {
 
 
     void theory_special_relations::get_specrels(func_decl_set& rels) const {
-        for (auto [f, r] : m_relations)
-            rels.insert(m_util.get_relation(r->m_decl));
+        for (auto [f, r] : m_relations) 
+            rels.insert(r->m_decl);
     }
 
 }

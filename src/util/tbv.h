@@ -21,8 +21,8 @@ Revision History:
 #pragma once
 
 #include "util/fixed_bit_vector.h"
+#include "util/bit_vector.h"
 #include "util/rational.h"
-#include "ast/ast.h"
 
 class tbv;
 
@@ -84,10 +84,7 @@ public:
     void set(tbv& dst, tbv const& other, unsigned hi, unsigned lo);
     void set(tbv& dst, unsigned index, tbit value);
 
-
     static void debug_alloc();
-    expr_ref to_formula(ast_manager& m, tbv const& src);
-    expr_ref mk_var(ast_manager& m, unsigned i);
 };
 
 class tbv: private fixed_bit_vector {

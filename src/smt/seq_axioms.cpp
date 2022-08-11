@@ -86,7 +86,7 @@ void seq_axioms::add_clause(expr_ref_vector const& clause) {
         justification* js =
             ctx().mk_justification(
                 ext_theory_eq_propagation_justification(
-                    th.get_id(), ctx().get_region(), 0, nullptr, 0, nullptr, n1, n2));
+                    th.get_id(), ctx(), 0, nullptr, 0, nullptr, n1, n2));
         ctx().assign_eq(n1, n2, eq_justification(js));
         return;
     }

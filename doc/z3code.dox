@@ -816,7 +816,7 @@ INCLUDE_FILE_PATTERNS  =
 # undefined via #undef or recursively expanded use the := operator
 # instead of the = operator.
 
-PREDEFINED             =Z3_ast_opt:=Z3_ast Z3_bool_opt:=Z3_bool Z3_func_interp_opt:=Z3_func_interp Z3_model_opt:=Z3_model __out_opt:=__out
+PREDEFINED             =Z3_ast_opt:=Z3_ast Z3_func_interp_opt:=Z3_func_interp Z3_model_opt:=Z3_model __out_opt:=__out
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then
 # this tag can be used to specify a list of macro names that should be expanded.
@@ -825,7 +825,7 @@ PREDEFINED             =Z3_ast_opt:=Z3_ast Z3_bool_opt:=Z3_bool Z3_func_interp_o
 
 EXPAND_AS_DEFINED      =
 
-# Z3_ast_opt Z3_bool_opt Z3_func_interp_opt Z3_model_opt __out_opt
+# Z3_ast_opt Z3_func_interp_opt Z3_model_opt __out_opt
 
 # If the SKIP_FUNCTION_MACROS tag is set to YES (the default) then
 # doxygen's preprocessor will remove all function-like macros that are alone

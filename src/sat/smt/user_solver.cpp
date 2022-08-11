@@ -131,6 +131,21 @@ namespace user_solver {
         m_id2justification.setx(v, lits, sat::literal_vector());
         m_fixed_eh(m_user_context, this, var2expr(v), lit.sign() ? m.mk_false() : m.mk_true());
     }
+    
+    void solver::new_eq_eh(euf::th_eq const& eq) {
+        if (!m_eq_eh)
+            return;
+        force_push();
+        m_eq_eh(m_user_context, this, var2expr(eq.v1()), var2expr(eq.v2()));
+    }
+    
+    void solver::new_diseq_eh(euf::th_eq const& de) {
+        if (!m_diseq_eh)
+            return;
+        force_push();
+        m_diseq_eh(m_user_context, this, var2expr(de.v1()), var2expr(de.v2()));
+    }
+
 
     void solver::push_core() {
         th_euf_solver::push_core();

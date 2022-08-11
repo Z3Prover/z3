@@ -99,8 +99,6 @@ namespace datalog {
          */
         mk_slice(context & ctx);
 
-        ~mk_slice() override { }
-        
         rule_set * operator()(rule_set const & source) override;
 
         func_decl* get_predicate(func_decl* p) { func_decl* q = p; m_predicates.find(p, q); return q; }

@@ -9,6 +9,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include <string>
 #include "util/vector.h"
 #include "math/lp/lar_core_solver.h"

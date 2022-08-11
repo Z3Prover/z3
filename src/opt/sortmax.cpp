@@ -39,8 +39,6 @@ namespace opt {
         sortmax(maxsat_context& c, vector<soft>& s, unsigned index): 
             maxsmt_solver_base(c, s, index), m_sort(*this), m_trail(m), m_fresh(m) {}
 
-        ~sortmax() override {}
-
         lbool operator()() override {
             if (!init()) 
                 return l_undef;

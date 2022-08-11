@@ -89,7 +89,7 @@ namespace datalog {
             m_can_destratify_negation(can_destratify_negation), m_transformer(nullptr) {}
 
     public:
-        virtual ~plugin() {}
+        virtual ~plugin() = default;
 
         unsigned get_priority() { return m_priority; }
         bool can_destratify_negation() const { return m_can_destratify_negation; }

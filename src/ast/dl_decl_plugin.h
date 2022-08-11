@@ -101,7 +101,6 @@ namespace datalog {
     public:
 
         dl_decl_plugin();
-        ~dl_decl_plugin() override {}
 
         decl_plugin * mk_fresh() override { return alloc(dl_decl_plugin); }
         

@@ -1,4 +1,5 @@
 #include "jlcxx/jlcxx.hpp"
+#include <sstream>
 #include "z3++.h"
 
 using namespace z3;

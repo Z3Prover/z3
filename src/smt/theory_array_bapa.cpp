@@ -450,7 +450,6 @@ namespace smt {
             app*                     m_obj;
         public:
             remove_sz(ast_manager& m, obj_map<app, sz_info*>& tab, app* t): m(m), m_table(tab), m_obj(t) { }
-            ~remove_sz() override {}
             void undo() override { m.dec_ref(m_obj); dealloc(m_table[m_obj]); m_table.remove(m_obj); }
         };
 

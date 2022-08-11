@@ -1024,7 +1024,7 @@ protected:
     friend class ast_manager;
 
 public:
-    virtual ~decl_plugin() {}
+    virtual ~decl_plugin() = default;
     virtual void finalize() {}
 
 
@@ -2582,7 +2582,7 @@ class ast_mark {
     obj_mark<expr>                        m_expr_marks;
     obj_mark<decl, bit_vector, decl2uint> m_decl_marks;
 public:
-    virtual ~ast_mark() {}
+    virtual ~ast_mark() = default;
     bool is_marked(ast * n) const;
     virtual void mark(ast * n, bool flag);
     virtual void reset();

@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+#pragma once
 
 #include <unordered_map>
 #include <vector>

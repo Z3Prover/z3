@@ -105,7 +105,7 @@ namespace datatype {
         class size {
             unsigned m_ref{ 0 };
         public:
-            virtual ~size() { }
+            virtual ~size() = default;
             void inc_ref() { ++m_ref; }
             void dec_ref();
             static size* mk_offset(sort_size const& s); 

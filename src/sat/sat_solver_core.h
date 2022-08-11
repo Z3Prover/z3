@@ -31,7 +31,7 @@ namespace sat {
         reslimit&               m_rlimit;
     public:
         solver_core(reslimit& l) : m_rlimit(l) {}
-        virtual ~solver_core() {}
+        virtual ~solver_core() = default;
 
         // add clauses
         virtual void add_clause(unsigned n, literal* lits, status st) = 0;

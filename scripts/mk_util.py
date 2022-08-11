@@ -1830,8 +1830,11 @@ class JavaDLLComponent(Component):
             if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %
                           os.path.join('api', 'java', 'Native'))
+            elif IS_OSX and IS_ARCH_ARM64:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) -arch arm64 %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+                          os.path.join('api', 'java', 'Native'))                
             else:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) $(SLINK_EXTRA_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
                           os.path.join('api', 'java', 'Native'))
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             deps = ''
@@ -2591,46 +2594,30 @@ def mk_config():
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
-            CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
-            OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'GNU':
-            CXXFLAGS       = '%s -D_HURD_' % CXXFLAGS
-            OS_DEFINES     = '-D_HURD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname == 'FreeBSD':
-            CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
-            CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname == 'OpenBSD':
-            CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
-            OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname  == 'SunOS':
-            CXXFLAGS       = '%s -D_SUNOS_' % CXXFLAGS
-            OS_DEFINES     = '-D_SUNOS_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -mimpure-text' % SLIBEXTRAFLAGS
         elif sysname.startswith('CYGWIN'):
-            CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
-            OS_DEFINES     = '-D_CYGWIN'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
         elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
-            CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
-            OS_DEFINES     = '-D_MINGW'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
             EXE_EXT        = '.exe'
@@ -2640,8 +2627,6 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            if sysname == 'Linux' or sysname == 'FreeBSD':
-                CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:
             CXXFLAGS     = '%s -m32' % CXXFLAGS
             LDFLAGS      = '%s -m32' % LDFLAGS

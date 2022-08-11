@@ -115,8 +115,6 @@ public:
         return m_solver.get_config().m_incremental;
     }
 
-    ~inc_sat_solver() override {}
-
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
@@ -659,7 +657,8 @@ public:
     }
 
     euf::solver* ensure_euf() {
-        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        auto* ext = m_goal2sat.ensure_euf();
         return ext;
     }
 

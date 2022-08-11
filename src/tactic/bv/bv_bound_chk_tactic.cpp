@@ -109,8 +109,6 @@ struct bv_bound_chk_rewriter : public rewriter_tpl<bv_bound_chk_rewriter_cfg> {
         updt_params(p);
     }
 
-    ~bv_bound_chk_rewriter() override {}
-
     void updt_params(params_ref const & _p) {
         m_cfg.updt_params(_p);
     }
@@ -149,7 +147,7 @@ public:
     imp(ast_manager & m, params_ref const & p, bv_bound_chk_stats& stats)
         : m_rw(m, p, stats) {    }
 
-    virtual ~imp() {    }
+    virtual ~imp() = default;
 
     ast_manager& m() { return m_rw.m(); }
 
