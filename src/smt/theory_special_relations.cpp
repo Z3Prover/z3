@@ -1149,8 +1149,8 @@ namespace smt {
 
 
     void theory_special_relations::get_specrels(func_decl_set& rels) const {
-        for (auto [f, r] : m_relations)
-            rels.insert(m_util.get_relation(r->m_decl));
+        for (auto [f, r] : m_relations) 
+            rels.insert(r->m_decl);
     }
 
 }
