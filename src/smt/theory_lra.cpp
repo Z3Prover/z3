@@ -3507,16 +3507,15 @@ public:
         case lp::lp_status::OPTIMAL: {
             init_variable_values();
             TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            inf_rational val = get_value(v);
-            // inf_rational val(term_max.x, term_max.y);
+            auto val = value(v);
             blocker = mk_gt(v);
-            return inf_eps(rational::zero(), val);
+            return val;
         }
         case lp::lp_status::FEASIBLE: {
-            inf_rational val = get_value(v);
+            auto val = value(v);
             TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             blocker = mk_gt(v);
-            return inf_eps(rational::zero(), val);
+            return val;
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
@@ -3533,23 +3532,19 @@ public:
         rational r = val.x;
         expr_ref e(m);
         if (a.is_int(obj->get_sort())) {
-            if (r.is_int()) {
+            if (r.is_int()) 
                 r += rational::one();
-            }
-            else {
+            else 
                 r = ceil(r);
-            }
             e = a.mk_numeral(r, obj->get_sort());
             e = a.mk_ge(obj, e);
         }
         else {
             e = a.mk_numeral(r, obj->get_sort());
-            if (val.y.is_neg()) {
+            if (val.y.is_neg()) 
                 e = a.mk_ge(obj, e);
-            }
-            else {
+            else 
                 e = a.mk_gt(obj, e);
-            }
         }
         TRACE("opt", tout << "v" << v << " " << val << " " << r << " " << e << "\n";);
         return e;
