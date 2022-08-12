@@ -30,7 +30,9 @@ namespace opt {
         t_eq,
         t_lt,
         t_le,
-        t_mod
+        t_divides,
+        t_mod,
+        t_div
     };
 
 
@@ -57,6 +59,7 @@ namespace opt {
             ineq_type   m_type;         // inequality type
             rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
             bool        m_alive;        // rows can be marked dead if they have been processed.
+            unsigned    m_id;           // variable defined by row (used for mod_t and div_t)
             void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
 
             row& normalize();
@@ -85,9 +88,9 @@ namespace opt {
         static const unsigned   m_objective_id = 0;
         vector<unsigned_vector> m_var2row_ids;
         vector<rational>        m_var2value;
-        bool_vector           m_var2is_int;
+        bool_vector             m_var2is_int;
         vector<var>             m_new_vars;
-        unsigned_vector         m_lub, m_glb, m_mod;
+        unsigned_vector         m_lub, m_glb, m_divides, m_mod, m_div;
         unsigned_vector         m_above, m_below;
         unsigned_vector         m_retired_rows;
         
@@ -122,13 +125,17 @@ namespace opt {
 
         void sub(unsigned dst, rational const& c);
 
-        void del_var(unsigned dst, unsigned x);
+        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel);
 
-        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel);       
+        void add_lower_bound(unsigned x, rational const& lo);
+
+        void add_upper_bound(unsigned x, rational const& hi);
 
         void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r);
 
         void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B);
+
+        void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B, unsigned z);
 
         void replace_var(unsigned row_id, unsigned x, rational const& C);
 
@@ -138,7 +145,7 @@ namespace opt {
 
         unsigned new_row();
 
-        unsigned copy_row(unsigned row_id);
+        unsigned copy_row(unsigned row_id, unsigned excl = UINT_MAX);
 
         rational n_sign(rational const& b) const;
 
@@ -150,8 +157,12 @@ namespace opt {
 
         def solve_for(unsigned row_id, unsigned x, bool compute_def);
 
-        def solve_mod(unsigned x, unsigned_vector const& mod_rows, bool compute_def);
-        
+        def solve_divides(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+
+        def solve_mod(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+
+        def solve_div(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 
         void retire_row(unsigned row_id);
@@ -172,6 +183,17 @@ namespace opt {
 
         // add a divisibility constraint. The row should divide m.
         void add_divides(vector<var> const& coeffs, rational const& c, rational const& m);
+
+
+        // add sub-expression for modulus
+        // v = add_mod(coeffs, m) means
+        // v = coeffs mod m
+        unsigned add_mod(vector<var> const& coeffs, rational const& c, rational const& m);
+
+        // add sub-expression for div
+        // v = add_div(coeffs, m) means
+        // v = coeffs div m
+        unsigned add_div(vector<var> const& coeffs, rational const& c, rational const& m);
 
         // Set the objective function (linear).
         void set_objective(vector<var> const& coeffs, rational const& c);
