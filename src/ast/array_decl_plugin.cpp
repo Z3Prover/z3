@@ -326,7 +326,9 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
     parameter param(i);
-    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
+    func_decl_info info(func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
+    info.set_commutative(true);
+    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, info);
 }
 
 
