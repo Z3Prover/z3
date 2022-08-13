@@ -202,6 +202,8 @@ namespace opt {
         PASSERT(index == 0 || r.m_type != t_lt ||  r.m_value.is_neg());
         PASSERT(index == 0 || r.m_type != t_le || !r.m_value.is_pos());        
         PASSERT(index == 0 || r.m_type != t_divides || (mod(r.m_value, r.m_mod).is_zero()));
+        PASSERT(index == 0 || r.m_type != t_mod || r.m_id < m_var2value.size());
+        PASSERT(index == 0 || r.m_type != t_div || r.m_id < m_var2value.size());
         return true;
     }
         
@@ -536,7 +538,7 @@ namespace opt {
             rational a2 = get_coefficient(row_dst, x);
             if (is_int(x)) {
                 TRACE("opt", 
-                      tout << a1 << " " << a2 << ": ";
+                      tout << x << ": " << a1 << " " << a2 << ": ";
                       display(tout, m_rows[row_dst]);
                       display(tout, m_rows[row_src]););
                 if (a1.is_pos() != a2.is_pos() || m_rows[row_src].m_type == opt::t_eq) {  
@@ -546,7 +548,7 @@ namespace opt {
                     mul(row_dst, abs(a1));
                     mul_add(false, row_dst, -abs(a2), row_src);
                 }
-                TRACE("opt", display(tout, m_rows[row_dst]););
+                TRACE("opt", display(tout << "result ", m_rows[row_dst]););
                 normalize(row_dst);
             }
             else {
@@ -594,7 +596,7 @@ namespace opt {
         bool use_case1 = abs_src_c == abs_dst_c && src_c.is_pos() != dst_c.is_pos() && !abs_src_c.is_one() && t_le == dst.m_type && t_le == src.m_type; 
         bool use_case2 = distance.is_nonpos() || abs_src_c.is_one() || abs_dst_c.is_one();
 
-        if (use_case1 && false) {
+        if (use_case1) {
             //
             // x*src_c + s <= 0
             // -x*src_c + t <= 0
@@ -620,8 +622,10 @@ namespace opt {
                     dst_coeffs.push_back(v);
             unsigned v = add_div(src_coeffs, -src_coeff, abs_src_c);
             dst_coeffs.push_back(var(v, -abs_src_c));
-            add_constraint(dst_coeffs, dst_coeff, t_le);
+            if (src_c < 0)
+                std::swap(row_src, row_dst);
             retire_row(row_dst);
+            add_constraint(dst_coeffs, dst_coeff, t_le);
             return;
         }
 
@@ -871,7 +875,6 @@ namespace opt {
 
     unsigned model_based_opt::add_var(rational const& value, bool is_int) {
         unsigned v = m_var2value.size();
-        verbose_stream() << "add var " << v << "\n";
         m_var2value.push_back(value);
         m_var2is_int.push_back(is_int);
         SASSERT(value.is_int() || !is_int);
@@ -946,40 +949,43 @@ namespace opt {
         add_constraint(coeffs, -hi, t_le);
     }
 
-    void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, ineq_type rel) {
-        add_constraint(coeffs, c, rational::zero(), rel);
+    unsigned model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, ineq_type rel) {
+        return add_constraint(coeffs, c, rational::zero(), rel, 0);
     }
 
     void model_based_opt::add_divides(vector<var> const& coeffs, rational const& c, rational const& m) {
-        add_constraint(coeffs, c, m, t_divides);
+        add_constraint(coeffs, c, m, t_divides, 0);
     }
 
     unsigned model_based_opt::add_mod(vector<var> const& coeffs, rational const& c, rational const& m) {
-        add_constraint(coeffs, c, m, t_mod);
-        unsigned row_id = m_rows.size() - 1;
-        auto& r = m_rows[row_id];
-        unsigned v = add_var(mod(r.m_value, m), true);
-        r.m_id = v;
-        m_var2row_ids[v].push_back(row_id);
+        rational value = c;
+        for (auto const& var : coeffs)
+            value += var.m_coeff * m_var2value[var.m_id];
+        unsigned v = add_var(mod(value, m), true);
+        add_constraint(coeffs, c, m, t_mod, v);
         return v;
     }
 
-    unsigned model_based_opt::add_div(vector<var> const& coeffs, rational const& c, rational const& m) {
-        add_constraint(coeffs, c, m, t_div);
-        unsigned row_id = m_rows.size() - 1;
-        auto& r = m_rows[row_id];
-        unsigned v = add_var(div(r.m_value, m), true);
-        r.m_id = v;
-        m_var2row_ids[v].push_back(row_id);
+    unsigned model_based_opt::add_div(vector<var> const& coeffs, rational const& c, rational const& m) {        
+        rational value = c;
+        for (auto const& var : coeffs)
+            value += var.m_coeff * m_var2value[var.m_id];
+        unsigned v = add_var(div(value, m), true);
+        add_constraint(coeffs, c, m, t_div, v);
         return v;
     }
 
-    void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel) {
+    unsigned model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel, unsigned id) {
+        auto const& r = m_rows.back();
+        if (r.m_vars == coeffs && r.m_coeff == c && r.m_mod == m && r.m_type == rel && r.m_id == id && r.m_alive)
+            return m_rows.size() - 1;
         unsigned row_id = new_row();
         set_row(row_id, coeffs, c, m, rel);
+        m_rows[row_id].m_id = id;
         for (var const& coeff : coeffs) 
             m_var2row_ids[coeff.m_id].push_back(row_id); 
         SASSERT(invariant(row_id, m_rows[row_id]));
+        return row_id;
     }
 
     void model_based_opt::set_objective(vector<var> const& coeffs, rational const& c) {
@@ -1246,15 +1252,20 @@ namespace opt {
         vector<var> coeffs = m_rows[row_index].m_vars;
         rational coeff = m_rows[row_index].m_coeff;
         
-        unsigned w = add_mod(coeffs, coeff, m);
+        unsigned w = UINT_MAX;
+        rational offset(0);
+        if (coeffs.empty())
+            offset = mod(coeff, m);
+        else
+            w = add_mod(coeffs, coeff, m);
 
-        rational w_value = m_var2value[w];
+        rational w_value = w == UINT_MAX ? offset : m_var2value[w];
 
         // add g*z + w - v - k*m = 0, for k = (g*z_value + w_value) div m
-        rational km = div(g*z_value + w_value, m)*m;
+        rational km = div(g*z_value + w_value, m)*m + offset;
         vector<var> mod_coeffs;
         if (g != 0) mod_coeffs.push_back(var(z, g));
-        mod_coeffs.push_back(var(w, rational::one()));
+        if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
         mod_coeffs.push_back(var(v, rational::minus_one()));
         add_constraint(mod_coeffs, km, t_eq);
         add_lower_bound(v, rational::zero());
@@ -1304,6 +1315,9 @@ namespace opt {
         rational m = m_rows[row_index].m_mod;
         unsigned v = m_rows[row_index].m_id;
         rational x_value = m_var2value[x];
+
+        // display(verbose_stream(), m_rows[row_index]);
+
         // disable row
         m_rows[row_index].m_alive = false;
         replace_var(row_index, x, rational::zero());
@@ -1348,7 +1362,12 @@ namespace opt {
         // add w = b div m
         vector<var> coeffs = m_rows[row_index].m_vars;
         rational coeff = m_rows[row_index].m_coeff;
-        unsigned w = add_div(coeffs, coeff, m);
+        unsigned w = UINT_MAX;
+        rational offset(0);
+        if (coeffs.empty())
+            offset = div(coeff, m);
+        else 
+            w = add_div(coeffs, coeff, m);
 
         //
         // w = b div m
@@ -1357,28 +1376,32 @@ namespace opt {
         // k*m <= g*z + b mod m < (k+1)*m
         //
         
-        rational k = div(a*z_value + mod(b_value, m), m);
+        rational k = div(a*z_value + mod(b_value, m), m) + offset;
         rational n = div(a_inv * a, m);
         vector<var> div_coeffs;
         div_coeffs.push_back(var(v, rational::minus_one()));
         div_coeffs.push_back(var(y, a));
-        div_coeffs.push_back(var(w, rational::one()));
+        if (w != UINT_MAX) div_coeffs.push_back(var(w, rational::one()));
         if (n != 0) div_coeffs.push_back(var(z, n));
         add_constraint(div_coeffs, k, t_eq);
 
-        unsigned u = add_mod(coeffs, coeff, m);
+        unsigned u = UINT_MAX;
+        offset = 0;
+        if (coeffs.empty())
+            offset = mod(coeff, m);
+        else
+            u = add_mod(coeffs, coeff, m);
 
         // add g*z + (b mod m) < (k + 1)*m
         vector<var> bound_coeffs;
         if (g != 0) bound_coeffs.push_back(var(z, g));
-        bound_coeffs.push_back(var(u, rational::one()));       
-        add_constraint(bound_coeffs, 1 - m * (k + 1), t_le);
+        if (u != UINT_MAX) bound_coeffs.push_back(var(u, rational::one()));       
+        add_constraint(bound_coeffs, 1 - m * (k + 1) + offset, t_le);
 
         // add k*m <= gz + (b mod m)
         for (auto& c : bound_coeffs)
             c.m_coeff.neg();
-        add_constraint(bound_coeffs, k * m, t_le);
-
+        add_constraint(bound_coeffs, k * m - offset, t_le);
         // allow to recycle row.
         m_retired_rows.push_back(row_index);
 
@@ -1524,7 +1547,8 @@ namespace opt {
     // 3 | -t  & 21 | (-ct + 3s) & a-t <= 3u
 
     model_based_opt::def model_based_opt::solve_for(unsigned row_id1, unsigned x, bool compute_def) {
-        TRACE("opt", tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";);
+        TRACE("opt", tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";
+        display(tout));
         rational a = get_coefficient(row_id1, x), b;
         row& r1 = m_rows[row_id1];
         ineq_type ty = r1.m_type;
@@ -1548,6 +1572,7 @@ namespace opt {
             vector<var> coeffs;
             mk_coeffs_without(coeffs, r1.m_vars, x);
             rational c = mod(-eval(coeffs), a);
+            TRACE("opt", tout << "add divides " << eval(coeffs) << " " << a << " " << c << "\n");
             add_divides(coeffs, c, a);
         }
         unsigned_vector const& row_ids = m_var2row_ids[x];
@@ -1580,6 +1605,7 @@ namespace opt {
             TRACE("opt1", tout << "updated eval " << x << " := " << eval(x) << "\n";);
         }
         retire_row(row_id1);
+        TRACE("opt", display(tout << "solved v" << x << "\n"));
         return result;
     }
     

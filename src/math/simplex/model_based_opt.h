@@ -50,6 +50,14 @@ namespace opt {
                     return x.m_id < y.m_id;
                 }
             };
+
+            bool operator==(var const& other) const {
+                return m_id == other.m_id && m_coeff == other.m_coeff;
+            }
+
+            bool operator!=(var const& other) const {
+                return !(*this == other);
+            }
         };
         struct row {
             row(): m_type(t_le), m_value(0), m_alive(false) {}
@@ -131,7 +139,7 @@ namespace opt {
 
         void add_upper_bound(unsigned x, rational const& hi);
 
-        void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r);
+        unsigned add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r, unsigned id);
 
         void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B);
 
@@ -179,7 +187,7 @@ namespace opt {
 
         // add a constraint. We assume that the constraint is 
         // satisfied under the values provided to the variables.
-        void add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
+        unsigned add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
 
         // add a divisibility constraint. The row should divide m.
         void add_divides(vector<var> const& coeffs, rational const& c, rational const& m);
