@@ -596,7 +596,7 @@ namespace opt {
         bool use_case1 = abs_src_c == abs_dst_c && src_c.is_pos() != dst_c.is_pos() && !abs_src_c.is_one() && t_le == dst.m_type && t_le == src.m_type; 
         bool use_case2 = distance.is_nonpos() || abs_src_c.is_one() || abs_dst_c.is_one();
 
-        if (use_case1) {
+        if (use_case1 && false) {
             //
             // x*src_c + s <= 0
             // -x*src_c + t <= 0
