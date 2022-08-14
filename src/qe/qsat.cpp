@@ -241,9 +241,8 @@ namespace qe {
         while (sz0 != todo.size()) {
             app* a = to_app(todo.back());
             todo.pop_back();
-            if (mark.is_marked(a)) {
+            if (mark.is_marked(a)) 
                 continue;
-            }
             
             mark.mark(a);
             if (m_lit2pred.find(a, p)) {
@@ -284,9 +283,8 @@ namespace qe {
                 m_elevel.insert(r, l);
                 eq = m.mk_eq(r, a);
                 defs.push_back(eq);
-                if (!is_predicate(a, l.max())) {
+                if (!is_predicate(a, l.max())) 
                     insert(r, l);
-                }
                 level.merge(l);
             }
         }
@@ -637,57 +635,55 @@ namespace qe {
                 check_cancel();
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
-                if (m_model.get()) {
+                if (m_model.get()) 
                     validate_assumptions(*m_model.get(), asms);
-                }
                 TRACE("qe", tout << asms << "\n";);
                 solver& s = get_kernel(m_level).s();
                 lbool res = s.check_sat(asms);
                 switch (res) {
                 case l_true:
                     s.get_model(m_model);
+                    CTRACE("qe", !m_model, tout << "no model\n");
                     if (!m_model)
                         return l_undef;
                     SASSERT(validate_defs("check_sat"));
                     SASSERT(!m_model.get() || validate_assumptions(*m_model.get(), asms));
                     SASSERT(validate_model(asms));
                     TRACE("qe", s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
-                    if (m_level == 0) {
+                    if (m_level == 0) 
                         m_model_save = m_model;
-                    }
                     push();
-                    if (m_level == 1 && m_mode == qsat_maximize) {
+                    if (m_level == 1 && m_mode == qsat_maximize) 
                         maximize_model();
-                    }
                     break;
                 case l_false:
                     switch (m_level) {
                     case 0: 
                         return l_false;
                     case 1: 
-                        if (m_mode == qsat_sat) {
+                        if (m_mode == qsat_sat) 
                             return l_true; 
-                        }
 
                         if (m_model.get()) {
                             SASSERT(validate_assumptions(*m_model.get(), asms));
-                            if (!project_qe(asms)) return l_undef;
+                            if (!project_qe(asms))
+                                return l_undef;
                         }
-                        else {
+                        else 
                             pop(1);
-                        }
                         break;
                     default: 
                         if (m_model.get()) {
-                            if (!project(asms)) return l_undef;
+                            if (!project(asms))
+                                return l_undef;
                         }
-                        else {
+                        else 
                             pop(1);
-                        }
                         break;
                     }
                     break;
                 case l_undef:
+                    TRACE("qe", tout << "check-sat is undef\n");
                     return res;
                 }
             }
@@ -833,11 +829,10 @@ namespace qe {
             }
         }
 
-        bool get_core(expr_ref_vector& core, unsigned level) {
+        void get_core(expr_ref_vector& core, unsigned level) {
             SASSERT(validate_defs("get_core"));
             get_kernel(level).get_core(core);
             m_pred_abs.pred2lit(core);
-            return true;
         }
 
         bool minimize_core(expr_ref_vector& core, unsigned level) {
@@ -905,9 +900,7 @@ namespace qe {
             SASSERT(m_level == 1);
             expr_ref fml(m);
             model& mdl = *m_model.get();
-            if (!get_core(core, m_level)) {
-                return false;
-            }
+            get_core(core, m_level);
             SASSERT(validate_core(mdl, core));
             get_vars(m_level);
             SASSERT(validate_assumptions(mdl, core));
@@ -927,7 +920,7 @@ namespace qe {
         }
                 
         bool project(expr_ref_vector& core) {
-            if (!get_core(core, m_level)) return false;
+            get_core(core, m_level);
             TRACE("qe", display(tout); display(tout << "core\n", core););
             SASSERT(m_level >= 2);
             expr_ref fml(m); 
@@ -950,14 +943,17 @@ namespace qe {
             if (level.max() == UINT_MAX) {
                 num_scopes = 2*(m_level/2);
             }
+            else if (level.max() + 2 > m_level) {
+                // fishy - this can happen.
+                TRACE("qe", tout << "max-level: " << level.max() << " level: " << m_level << "\n");
+                return false;
+            }
             else {
-                if (level.max() + 2 > m_level) return false;
                 SASSERT(level.max() + 2 <= m_level);
                 num_scopes = m_level - level.max();
                 SASSERT(num_scopes >= 2);
-                if ((num_scopes % 2) != 0) {
+                if ((num_scopes % 2) != 0) 
                     --num_scopes;
-                }
             }
             
             pop(num_scopes); 

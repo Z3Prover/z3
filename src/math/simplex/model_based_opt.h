@@ -125,7 +125,7 @@ namespace opt {
 
         void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
-        void mul_add(unsigned x, rational const& a1, unsigned row_src, rational const& a2, unsigned row_dst);
+        void mul_add(unsigned x, rational a1, unsigned row_src, rational a2, unsigned row_dst);
 
         void mul(unsigned dst, rational const& c);
 
@@ -139,7 +139,7 @@ namespace opt {
 
         void add_upper_bound(unsigned x, rational const& hi);
 
-        unsigned add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r, unsigned id);
+        void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r, unsigned id);
 
         void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B);
 
@@ -187,7 +187,7 @@ namespace opt {
 
         // add a constraint. We assume that the constraint is 
         // satisfied under the values provided to the variables.
-        unsigned add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
+        void add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
 
         // add a divisibility constraint. The row should divide m.
         void add_divides(vector<var> const& coeffs, rational const& c, rational const& m);
