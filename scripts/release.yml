@@ -91,7 +91,7 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-latest"
+      vmImage: "ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
