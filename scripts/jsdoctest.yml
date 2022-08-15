@@ -12,7 +12,7 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-latest"
+      vmImage: "ubuntu-latest"
     steps:
 # TODO setup emscripten with no-install, then run
     - script: npm --prefix=src/api/js ci
