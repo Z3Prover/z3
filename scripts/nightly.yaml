@@ -546,7 +546,7 @@ stages:
     - task: GitHubRelease@0
       continueOnError: true 
       inputs:
-        gitHubConnection: Z3-Pipeline-Github
+        gitHubConnection: Z3Prover
         repositoryName: 'Z3Prover/z3'
         action: 'delete'
 #     target: '$(Build.SourceVersion)'
@@ -555,7 +555,7 @@ stages:
     - task: GitHubRelease@0
       continueOnError: true 
       inputs:
-        gitHubConnection: Z3-Pipeline-Github
+        gitHubConnection: Z3Prover
         repositoryName: 'Z3Prover/z3'
         action: 'create'
 #     target: '$(Build.SourceVersion)'
