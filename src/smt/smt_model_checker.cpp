@@ -218,7 +218,7 @@ namespace smt {
             TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
 
             if (use_inv) {
-	            unsigned sk_term_gen = 0;
+                unsigned sk_term_gen = 0;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
                 if (sk_term != nullptr) {
                     TRACE("model_checker", tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
@@ -243,6 +243,8 @@ namespace smt {
             func_decl * f = nullptr;
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
+                if (contains_model_value(body))
+                    return false;                    
                 ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
                 svector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) {
