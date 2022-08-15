@@ -485,7 +485,7 @@ stages:
         path: $(Agent.TempDirectory)	
     - task: GitHubRelease@0
       inputs:
-        gitHubConnection: Z3GitHub
+        gitHubConnection: Z3-Pipeline-Github
         repositoryName: $(Build.Repository.Name)
         action: 'create'
         target: '$(Build.SourceVersion)'
