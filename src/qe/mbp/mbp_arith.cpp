@@ -234,7 +234,7 @@ namespace mbp {
                 rational c0 = add_def(t1, mul1, coeffs);
                 tids.insert(t, mbo.add_mod(coeffs, c0, mul1));
             }
-            else if (false && a.is_idiv(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
+            else if (a.is_idiv(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
                 // v = t1 div mul1
                 vars coeffs;
                 rational c0 = add_def(t1, mul1, coeffs);
