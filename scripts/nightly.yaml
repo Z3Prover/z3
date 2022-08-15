@@ -55,7 +55,7 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-latest"
+      vmImage: "ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
@@ -92,7 +92,7 @@ stages:
       name: ManyLinux
     displayName: "ManyLinux build"
     pool:
-      vmImage: "Ubuntu-18.04"
+      vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2010_x86_64:latest"
     steps:
     - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
@@ -111,7 +111,7 @@ stages:
 #      name: MuslLinux
 #    displayName: "MuslLinux build"
 #    pool:
-#      vmImage: "Ubuntu-18.04"
+#      vmImage: "ubuntu-latest"
 #    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
 #    steps:
 #    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
