@@ -485,7 +485,7 @@ stages:
         path: $(Agent.TempDirectory)	
     - task: GitHubRelease@0
       inputs:
-        gitHubConnection: Z3-Pipeline-Github
+        gitHubConnection: Z3Prover
         repositoryName: $(Build.Repository.Name)
         action: 'create'
         target: '$(Build.SourceVersion)'
@@ -518,27 +518,6 @@ stages:
         nuGetFeedType: External
         publishFeedCredentials: $(NugetZ3)
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
-        
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        #symbolsFolder: '$(Build.SourcesDirectory)' # Optional
-        searchPattern: '**/*.pdb' 
-        indexSources: true
-        publishSymbols: true
-        symbolServerType: TeamServices
-        #symbolsPath: The file share that hosts your symbols. # Optional
-        #compressSymbols: false # Required when symbolServerType == FileShare
-        #SymbolExpirationInDays: The number of days that symbols should be retained. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: 36530
-        #IndexableFileFormats: Which debug formats to publish to the symbol server. # Options: Default, Pdb, SourceMap, All. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: Default
-        #detailedLog: true # Optional
-        #treatNotIndexedAsWarning: false # Optional
-        #useNetCoreClientTool: false # Optional
-        #symbolsMaximumWaitTime: # Optional
-        #symbolsProduct: # Optional
-        #symbolsVersion: # Optional
-        #symbolsArtifactName: 'Symbols_$(BuildConfiguration)' # Optional
 
   # Enable on release:
   - job: PyPIPublish

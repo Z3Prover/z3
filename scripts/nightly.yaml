@@ -146,20 +146,26 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows32'
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
     # Publish symbol archive to match nuget package
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)' # Optional
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols' # Optional
         searchPattern: '**/*.pdb' 
         indexSources: true
         publishSymbols: true
         symbolServerType: TeamServices
+        detailedLog: true
         #symbolsPath: The file share that hosts your symbols. # Optional
         #compressSymbols: false # Required when symbolServerType == FileShare
         #SymbolExpirationInDays: The number of days that symbols should be retained. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: 36530
         #IndexableFileFormats: Which debug formats to publish to the symbol server. # Options: Default, Pdb, SourceMap, All. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: Default
-        #detailedLog: true # Optional
         #treatNotIndexedAsWarning: false # Optional
         #useNetCoreClientTool: false # Optional
         #symbolsMaximumWaitTime: # Optional
@@ -189,27 +195,32 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows64'
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
     # Publish symbol archive to match nuget package
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)' # Optional
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols' # Optional
         searchPattern: '**/*.pdb' 
         indexSources: true
         publishSymbols: true
         symbolServerType: TeamServices
+        detailedLog: true
         #symbolsPath: The file share that hosts your symbols. # Optional
         #compressSymbols: false # Required when symbolServerType == FileShare
         #SymbolExpirationInDays: The number of days that symbols should be retained. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: 36530
         #IndexableFileFormats: Which debug formats to publish to the symbol server. # Options: Default, Pdb, SourceMap, All. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: Default
-        #detailedLog: true # Optional
         #treatNotIndexedAsWarning: false # Optional
         #useNetCoreClientTool: false # Optional
         #symbolsMaximumWaitTime: # Optional
         #symbolsProduct: # Optional
         #symbolsVersion: # Optional
         #symbolsArtifactName: 'Symbols_$(BuildConfiguration)' # Optional
-
         
 
 - stage: Package
