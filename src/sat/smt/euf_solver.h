@@ -176,6 +176,7 @@ namespace euf {
         void log_antecedents(literal l, literal_vector const& r);
         void log_justification(literal l, th_explain const& jst);
         void drat_log_decl(func_decl* f);
+        void drat_log_params(func_decl* f);
         void drat_log_expr1(expr* n);
         ptr_vector<expr> m_drat_todo;
         obj_hashtable<ast> m_drat_asts;

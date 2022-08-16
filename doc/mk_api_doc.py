@@ -24,6 +24,7 @@ JS_API_PATH='../src/api/js'
 Z3PY_ENABLED=True
 DOTNET_ENABLED=True
 JAVA_ENABLED=True
+Z3OPTIONS_ENABLED=True
 DOTNET_API_SEARCH_PATHS=['../src/api/dotnet']
 JAVA_API_SEARCH_PATHS=['../src/api/java']
 SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
@@ -236,6 +237,25 @@ try:
         print('Javascript documentation enabled')
     else:
         print('Javascript documentation disabled')
+
+    if Z3OPTIONS_ENABLED:
+        print("Z3 Options Enabled")
+        out = subprocess.call([Z3_EXE, "-pm"],stdout=subprocess.PIPE).communicate()[0]
+        modules = []
+        if out != None:
+            out = out.decode(sys.stdout.encoding)
+            module_re = re.compile(r"\[module\] (.*)\,")
+            lines = out.split("\n")
+            for line in lines:
+                m = module_re.search(line)
+                if m:
+                    modules += [m.group(1)]
+        for module in modules:
+            out = subprocess.call([Z3_EXE, "-pmhtml:%s" % module],stdout=subprocess.PIPE).communicate()[0]
+            if out == None:
+                continue
+            out = out.decode(sys.stdout.encoding)
+            
 
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file(

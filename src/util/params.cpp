@@ -161,12 +161,16 @@ struct param_descrs::imp {
         bool operator()(symbol const & s1, symbol const & s2) const { return ::lt(s1, s2); }        
     };
 
-    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
+    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr, bool markdown) const {
         svector<symbol> names;
         for (auto const& kv : m_info) {
             names.push_back(kv.m_key);
         }
         std::sort(names.begin(), names.end(), symlt());
+        if (markdown) {
+            out << " Parameter | Type | Description | Default\n";
+            out << " ----------------------------------------\n";            
+        }
         for (symbol const& name : names) {
             for (unsigned i = 0; i < indent; i++) out << " ";
             if (smt2_style)
@@ -186,10 +190,20 @@ struct param_descrs::imp {
             info d;
             m_info.find(name, d);
             SASSERT(d.m_descr);
-            out << " (" << d.m_kind << ")";
+            if (markdown) 
+                out << " | " << d.m_kind << " ";
+            else
+                out << " (" << d.m_kind << ")";
+            if (markdown)
+                out << " | ";
             if (include_descr)
                 out << " " << d.m_descr;
-            if (d.m_default != nullptr)
+            if (markdown) {
+                out << " | ";
+                if (d.m_default)
+                    out << d.m_default;
+            }
+            else if (d.m_default != nullptr)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
@@ -280,7 +294,11 @@ char const* param_descrs::get_module(symbol const& name) const {
 }
 
 void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
-    return m_imp->display(out, indent, smt2_style, include_descr);
+    return m_imp->display(out, indent, smt2_style, include_descr, false);
+}
+
+void param_descrs::display_markdown(std::ostream & out, bool smt2_style, bool include_descr) const {
+    return m_imp->display(out, 0, smt2_style, include_descr, true);
 }
 
 void insert_max_memory(param_descrs & r) {
