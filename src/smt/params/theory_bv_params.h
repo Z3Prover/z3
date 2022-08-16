@@ -36,6 +36,7 @@ struct theory_bv_params {
     bool         m_bv_enable_int2bv2int = true;
     bool         m_bv_watch_diseq = false;
     bool         m_bv_delay = true;
+    bool         m_bv_size_reduce = false;
     theory_bv_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }

@@ -30,6 +30,7 @@ Revision History:
 #include "ast/rewriter/bv_elim.h"
 #include "ast/rewriter/der.h"
 #include "ast/rewriter/elim_bounds.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "ast/normal_forms/defined_names.h"
@@ -150,6 +151,16 @@ class asserted_formulas {
         void post_op() override { af.m_reduce_asserted_formulas(); }
     };
 
+    class bv_size_reduce_fn : public simplify_fmls {
+        expr_safe_replace              m_sub;
+    public:
+        bv_size_reduce_fn(asserted_formulas& af): simplify_fmls(af, "bv-size-reduce"), m_sub(af.m) {}
+        bool should_apply() const override { return af.m_smt_params.m_bv_size_reduce; }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override;
+        void push_scope();
+        void pop_scope(unsigned n);
+    };
+
     class elim_term_ite_fn : public simplify_fmls {
         elim_term_ite_rw m_elim;
     public:
@@ -205,6 +216,7 @@ class asserted_formulas {
     elim_bvs_from_quantifiers   m_elim_bvs_from_quantifiers;
     cheap_quant_fourier_motzkin m_cheap_quant_fourier_motzkin;
     apply_bit2int               m_apply_bit2int;
+    bv_size_reduce_fn           m_bv_size_reduce;
     lift_ite                    m_lift_ite;
     ng_lift_ite                 m_ng_lift_ite;
     find_macros_fn              m_find_macros;
