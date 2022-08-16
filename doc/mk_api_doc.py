@@ -238,24 +238,6 @@ try:
     else:
         print('Javascript documentation disabled')
 
-    if Z3OPTIONS_ENABLED:
-        print("Z3 Options Enabled")
-        out = subprocess.call([Z3_EXE, "-pm"],stdout=subprocess.PIPE).communicate()[0]
-        modules = []
-        if out != None:
-            out = out.decode(sys.stdout.encoding)
-            module_re = re.compile(r"\[module\] (.*)\,")
-            lines = out.split("\n")
-            for line in lines:
-                m = module_re.search(line)
-                if m:
-                    modules += [m.group(1)]
-        for module in modules:
-            out = subprocess.call([Z3_EXE, "-pmhtml:%s" % module],stdout=subprocess.PIPE).communicate()[0]
-            if out == None:
-                continue
-            out = out.decode(sys.stdout.encoding)
-            
 
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file(
