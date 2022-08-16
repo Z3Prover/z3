@@ -561,6 +561,14 @@ namespace smt {
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
         th_rewriter & s  = ctx.get_rewriter();
         if (!m_util.is_zero(divisor)) {
+            auto mk_mul = [&](expr* a, expr* b) { 
+                if (m_util.is_mul(a)) {
+                    ptr_vector<expr> args(to_app(a)->get_num_args(), to_app(a)->get_args());
+                    args.push_back(b);
+                    return m_util.mk_mul(args.size(), args.data());
+                }
+                return m_util.mk_mul(a, b);
+            };
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m), le(m), ge(m);
@@ -571,7 +579,7 @@ namespace smt {
             abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
             s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
-            qr          = m_util.mk_add(m_util.mk_mul(divisor, div), mod);
+            qr          = m_util.mk_add(mk_mul(divisor, div), mod);
             eq          = m.mk_eq(qr, dividend);
             lower       = m_util.mk_ge(mod, zero);
             upper       = m_util.mk_le(mod, abs_divisor);
@@ -590,7 +598,7 @@ namespace smt {
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
 
-            //m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
+            // m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
 
             if (m_util.is_zero(dividend)) {
                 mk_axiom(eqz, m.mk_eq(div, zero));

@@ -1260,6 +1260,7 @@ namespace opt {
             vector<var> coeffs = m_rows[ri].m_vars;
             rational coeff = m_rows[ri].m_coeff;
             unsigned v = m_rows[ri].m_id;
+            rational v_value = m_var2value[v];
 
             unsigned w = UINT_MAX;
             rational offset(0);
@@ -1270,14 +1271,14 @@ namespace opt {
 
             rational w_value = w == UINT_MAX ? offset : m_var2value[w];
 
-            // add v = a*z + w - k*K = 0, for k = (a*z_value + w_value) div K
+            // add v = a*z + w - V, for k = (a*z_value + w_value) div K
             // claim: (= (mod x K) (- x (* K (div x K)))))) is a theorem for every x, K != 0
-            rational kK = div(a * z_value + w_value, K) * K;
+            rational V = v_value - a * z_value - w_value;
             vector<var> mod_coeffs;
             mod_coeffs.push_back(var(v, rational::minus_one()));
             mod_coeffs.push_back(var(z, a));
             if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
-            add_constraint(mod_coeffs, kK + offset, t_eq);
+            add_constraint(mod_coeffs, V + offset, t_eq);
             add_lower_bound(v, rational::zero());
             add_upper_bound(v, K - 1);
 

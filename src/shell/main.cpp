@@ -95,6 +95,7 @@ void display_usage() {
     std::cout << "  -p          display Z3 global (and module) parameters.\n";
     std::cout << "  -pd         display Z3 global (and module) parameter descriptions.\n";
     std::cout << "  -pm:name    display Z3 module ('name') parameters.\n";
+    std::cout << "  -pmmd:name  display Z3 module ('name') parameters in Markdown format.\n";
     std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  -tactics[:name]  display built-in tactics or if argument is given, display detailed information on tactic.\n";
     std::cout << "  -probes     display avilable probes.\n";
@@ -244,6 +245,15 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
             else if (strcmp(opt_name, "pd") == 0) {
                 gparams::display(std::cout, 0, false, true);
+                exit(0);
+            }
+            else if (strcmp(opt_name, "pmmd") == 0) {
+                if (opt_arg) 
+                    gparams::display_module_markdown(std::cout, opt_arg);
+                else {
+                    gparams::display_modules(std::cout);
+                    std::cout << "\nUse -pm:name to display all parameters available at module 'name'\n";
+                }
                 exit(0);
             }
             else if (strcmp(opt_name, "pm") == 0) {
