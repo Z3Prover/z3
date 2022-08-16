@@ -5,8 +5,9 @@ import re
 
 Z3_EXE = "z3.exe"
 
-def help():
-    print("Z3 Options Enabled")
+def help(ous):
+    
+    ous.write("Z3 Options\n")
     out = subprocess.Popen([Z3_EXE, "-pm"],stdout=subprocess.PIPE).communicate()[0]
     modules = []
     if out != None:
@@ -22,6 +23,8 @@ def help():
             if out == None:
                 continue
             out = out.decode(sys.stdout.encoding)
-            print(out)
+            out = out.replace("\r","")
+            ous.write(out)
 
-help()
+with open("Parameters.md",'w') as ous:
+    help(ous)
