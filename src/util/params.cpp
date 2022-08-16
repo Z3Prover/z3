@@ -169,7 +169,7 @@ struct param_descrs::imp {
         std::sort(names.begin(), names.end(), symlt());
         if (markdown) {
             out << " Parameter | Type | Description | Default\n";
-            out << " ----------------------------------------\n";            
+            out << " ----------|------|-------------|--------\n";            
         }
         for (symbol const& name : names) {
             for (unsigned i = 0; i < indent; i++) out << " ";
