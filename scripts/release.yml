@@ -56,8 +56,6 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
       
-
-
   - job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
@@ -86,7 +84,6 @@ stages:
       inputs:
         artifactName: 'UbuntuBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
-
 
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"

@@ -157,22 +157,12 @@ stages:
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols' # Optional
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
         searchPattern: '**/*.pdb' 
         indexSources: true
         publishSymbols: true
         symbolServerType: TeamServices
         detailedLog: true
-        #symbolsPath: The file share that hosts your symbols. # Optional
-        #compressSymbols: false # Required when symbolServerType == FileShare
-        #SymbolExpirationInDays: The number of days that symbols should be retained. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: 36530
-        #IndexableFileFormats: Which debug formats to publish to the symbol server. # Options: Default, Pdb, SourceMap, All. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: Default
-        #treatNotIndexedAsWarning: false # Optional
-        #useNetCoreClientTool: false # Optional
-        #symbolsMaximumWaitTime: # Optional
-        #symbolsProduct: # Optional
-        #symbolsVersion: # Optional
-        #symbolsArtifactName: 'Symbols_$(BuildConfiguration)' # Optional
 
   - job: Windows64
     displayName: "Windows 64-bit build"
@@ -206,23 +196,12 @@ stages:
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols' # Optional
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
         searchPattern: '**/*.pdb' 
         indexSources: true
         publishSymbols: true
         symbolServerType: TeamServices
         detailedLog: true
-        #symbolsPath: The file share that hosts your symbols. # Optional
-        #compressSymbols: false # Required when symbolServerType == FileShare
-        #SymbolExpirationInDays: The number of days that symbols should be retained. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: 36530
-        #IndexableFileFormats: Which debug formats to publish to the symbol server. # Options: Default, Pdb, SourceMap, All. # Required when PublishSymbols = true && SymbolServerType = TeamServices. Default: Default
-        #treatNotIndexedAsWarning: false # Optional
-        #useNetCoreClientTool: false # Optional
-        #symbolsMaximumWaitTime: # Optional
-        #symbolsProduct: # Optional
-        #symbolsVersion: # Optional
-        #symbolsArtifactName: 'Symbols_$(BuildConfiguration)' # Optional
-        
 
 - stage: Package
   jobs:
