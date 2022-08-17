@@ -374,6 +374,8 @@ namespace dd {
         unsigned power_of_2() const { return m_power_of_2; }
         rational const& max_value() const { return m_max_value; }
         rational const& two_to_N() const { return m_mod2N; }
+        rational normalize(rational const& n) const { return mod(-n, m_mod2N) < n ? -mod(-n, m_mod2N) : n; }
+
 
         unsigned_vector const& free_vars(pdd const& p);
 

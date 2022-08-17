@@ -118,10 +118,11 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {
+        auto& m = i.hi().manager();
         if (i.is_full())
             return os << "full";
         else
-            return os << i.symbolic() << " := [" << i.lo_val() << ";" << i.hi_val() << "[";
+            return os << i.symbolic() << " := [" << m.normalize(i.lo_val()) << ";" << m.normalize(i.hi_val()) << "[";
     }
 
 

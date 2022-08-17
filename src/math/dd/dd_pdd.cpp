@@ -1627,9 +1627,9 @@ namespace dd {
             rational c = abs(m.first);
             m.second.reverse();
             if (!c.is_one() || m.second.empty()) {
-                if (m_semantics == mod2N_e && mod(-c, m_mod2N) < c)
-                    out << -mod(-c, m_mod2N);
-                else 
+                if (m_semantics == mod2N_e)
+                    out << normalize(c);
+                else
                     out << c;
                 if (!m.second.empty()) out << "*";
             }
