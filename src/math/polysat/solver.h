@@ -80,6 +80,7 @@ namespace polysat {
         friend class viable_fallback;
         friend class search_state;
         friend class num_pp;
+        friend class lit_pp;
         friend class assignment_pp;
         friend class assignments_pp;
         friend class ex_polynomial_superposition;
@@ -420,6 +421,14 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
     };
 
+    class lit_pp {
+        solver const& s;
+        sat::literal lit;
+    public:
+        lit_pp(solver const& s, sat::literal lit): s(s), lit(lit) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
     /** Format value 'val' as member of the domain of 'var' */
     class num_pp {
         solver const& s;
@@ -433,6 +442,8 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, solver const& s) { return s.display(out); }
 
     inline std::ostream& operator<<(std::ostream& out, num_pp const& v) { return v.display(out); }
+
+    inline std::ostream& operator<<(std::ostream& out, lit_pp const& l) { return l.display(out); }
 
     inline std::ostream& operator<<(std::ostream& out, assignment_pp const& p) { return p.display(out); }
 

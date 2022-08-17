@@ -920,7 +920,7 @@ namespace polysat {
     void solver::add_clause(clause& clause) {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
-            LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
+            LOG("   Literal " << lit << " is: " << lit_pp(*this, lit));
             // SASSERT(m_bvars.value(lit) != l_true);
             // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
             if (m_bvars.value(lit) == l_true) {
@@ -1043,6 +1043,17 @@ namespace polysat {
         out << "v" << var << " := " << num_pp(s, var, val);
         if (with_justification)
             out << " (" << s.m_justification[var] << ")";
+        return out;
+    }
+
+    std::ostream& lit_pp::display(std::ostream& out) const {
+        auto c = s.lit2cnstr(lit);
+        out << lit << ": " << c << "  [";
+        out << " bvalue=" << s.m_bvars.value(lit);
+        if (s.m_bvars.is_assigned(lit))
+            out << " @" << s.m_bvars.level(lit);
+        out << " pwatched=" << c->is_pwatched();
+        out << "  ]";
         return out;
     }
 
