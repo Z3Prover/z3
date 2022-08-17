@@ -624,10 +624,9 @@ namespace polysat {
         }
         m_conflict.begin_conflict("resolve_conflict");
         
-        search_iterator search_it(m_search);
-        while (search_it.next()) {
-            auto& item = *search_it;
-            search_it.set_resolved();
+        for (unsigned i = m_search.size(); i-- > 0; ) {
+            auto& item = m_search[i];
+            m_search.set_resolved(i);
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
@@ -722,10 +721,9 @@ namespace polysat {
      */
     void solver::backtrack_fi() {
         uint_set relevant_vars;
-        search_iterator search_it(m_search);
-        while (search_it.next()) {
-            auto& item = *search_it;
-            search_it.set_resolved();
+        for (unsigned i = m_search.size(); i-- > 0; ) {
+            auto& item = m_search[i];
+            m_search.set_resolved(i);
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
