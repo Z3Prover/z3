@@ -22,6 +22,22 @@ jobs:
         python scripts\mk_win_dist.py
             --${{parameters.BuildArchitecture}}-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+  - task: CopyFiles@2
+    displayName: 'Collect Symbols'
+    inputs:
+      sourceFolder: dist
+      contents: '**/*.pdb'
+      targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+  # Publish symbol archive to match nuget package
+  # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+  - task: PublishSymbols@2
+    inputs:
+      symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+      searchPattern: '**/*.pdb' 
+      indexSources: false # Github sources not supported
+      publishSymbols: true
+      symbolServerType: TeamServices
+      detailedLog: true
   - task: EsrpCodeSigning@1
     displayName: Sign
     inputs:

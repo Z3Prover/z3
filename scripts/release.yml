@@ -56,8 +56,6 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
       
-
-
   - job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
@@ -86,7 +84,6 @@ stages:
       inputs:
         artifactName: 'UbuntuBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
-
 
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
@@ -167,6 +164,7 @@ stages:
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
+
 
 # Creates Z3 packages in various formats
 - stage: Package
@@ -485,7 +483,7 @@ stages:
         path: $(Agent.TempDirectory)	
     - task: GitHubRelease@0
       inputs:
-        gitHubConnection: Z3-Pipeline-Github
+        gitHubConnection: Z3Prover
         repositoryName: $(Build.Repository.Name)
         action: 'create'
         target: '$(Build.SourceVersion)'
@@ -498,7 +496,7 @@ stages:
         isDraft: true
         isPreRelease: true
 
-  # Enable on release (after fixing Nuget key)
+     
   - job: NuGetPublish
     condition: eq(1,0)
     displayName: "Publish to NuGet.org"
@@ -518,7 +516,6 @@ stages:
         nuGetFeedType: External
         publishFeedCredentials: $(NugetZ3)
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
-        
 
   # Enable on release:
   - job: PyPIPublish

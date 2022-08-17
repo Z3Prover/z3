@@ -147,6 +147,22 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows32'
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+    # Publish symbol archive to match nuget package
+    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+    - task: PublishSymbols@2
+      inputs:
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        searchPattern: '**/*.pdb' 
+        indexSources: false # Github not supported
+        publishSymbols: true
+        symbolServerType: TeamServices
+        detailedLog: true
 
   - job: Windows64
     displayName: "Windows 64-bit build"
@@ -170,8 +186,22 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows64'
-
-        
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+    # Publish symbol archive to match nuget package
+    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+    - task: PublishSymbols@2
+      inputs:
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        searchPattern: '**/*.pdb' 
+        indexSources: false # Github not supported
+        publishSymbols: true
+        symbolServerType: TeamServices
+        detailedLog: true
 
 - stage: Package
   jobs:
@@ -556,15 +586,16 @@ stages:
       displayName: 'NuGet Nightly x64 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Nightly'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
         packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         allowPackageConflicts: true
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x86 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Nightly'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
         packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         allowPackageConflicts: true
-
+    
+       
 # TBD: run regression tests on generated binaries.
