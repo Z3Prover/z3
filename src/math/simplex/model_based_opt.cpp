@@ -1256,6 +1256,8 @@ namespace opt {
 
         for (unsigned ri : mod_rows) {
             rational a = get_coefficient(ri, x);
+            replace_var(ri, x, rational::zero());
+
             // add w = b mod K
             vector<var> coeffs = m_rows[ri].m_vars;
             rational coeff = m_rows[ri].m_coeff;
