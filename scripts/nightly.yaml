@@ -159,7 +159,7 @@ stages:
       inputs:
         symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
         searchPattern: '**/*.pdb' 
-        indexSources: true
+        indexSources: false # Github not supported
         publishSymbols: true
         symbolServerType: TeamServices
         detailedLog: true
@@ -198,7 +198,7 @@ stages:
       inputs:
         symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
         searchPattern: '**/*.pdb' 
-        indexSources: true
+        indexSources: false # Github not supported
         publishSymbols: true
         symbolServerType: TeamServices
         detailedLog: true

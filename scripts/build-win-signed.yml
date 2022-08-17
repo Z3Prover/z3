@@ -34,7 +34,7 @@ jobs:
     inputs:
       symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
       searchPattern: '**/*.pdb' 
-      indexSources: true
+      indexSources: false # Github sources not supported
       publishSymbols: true
       symbolServerType: TeamServices
       detailedLog: true
