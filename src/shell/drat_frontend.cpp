@@ -363,6 +363,21 @@ public:
                     result = au.mk_numeral(num, true);
                     return;
                 }
+                if (name == "as-array" && sz == 3) {
+                    array_util au(m);
+                    auto const* ch2 = sexpr->get_child(2);
+                    switch (ch2->get_kind()) {
+                    case sexpr::kind_t::COMPOSITE:
+                        break;
+                    default:
+                        name = sexpr->get_child(2)->get_symbol();
+                        f = ctx.find_func_decl(name);
+                        if (f) {
+                            result = au.mk_as_array(f);
+                            return;
+                        }
+                    }
+                }
                 for (unsigned i = 2; i < sz; ++i) {
                     auto* child = sexpr->get_child(i);
                     if (child->is_numeral() && child->get_numeral().is_unsigned())
@@ -378,7 +393,6 @@ public:
             name = sexpr->get_symbol();
             break;
         case sexpr::kind_t::BV_NUMERAL: {
-            std::cout << "bv numeral\n";
             goto bail;            
         }
         case sexpr::kind_t::STRING:

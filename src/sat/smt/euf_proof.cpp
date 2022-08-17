@@ -27,9 +27,20 @@ namespace euf {
         m_drat_initialized = true;
     }
 
+    void solver::drat_log_params(func_decl* f) {
+        for (unsigned i = f->get_num_parameters(); i-- > 0; ) {
+            auto const& p = f->get_parameter(i);
+            if (!p.is_ast()) 
+                continue;
+            ast* a = p.get_ast();
+            if (is_func_decl(a))
+                drat_log_decl(to_func_decl(a));
+        }
+    }
     void solver::drat_log_expr1(expr* e) {
         if (is_app(e)) {
             app* a = to_app(e);
+            drat_log_params(a->get_decl());
             drat_log_decl(a->get_decl());
             std::stringstream strm;
             strm << mk_ismt2_func(a->get_decl(), m);

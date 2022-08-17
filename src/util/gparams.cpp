@@ -533,6 +533,22 @@ public:
         out << "\n";
         d->display(out, 4, false);
     }
+    void display_module_markdown(std::ostream & out, char const* module_name) {
+        lock_guard lock(*gparams_mux);
+        param_descrs * d = nullptr;
+        if (!get_module_param_descr(module_name, d)) {
+            std::stringstream strm;
+            strm << "unknown module '" << module_name << "'";                    
+            throw exception(std::move(strm).str());
+        }
+        out << "## Module " << module_name << "\n\n";
+        char const * descr = nullptr;
+        if (get_module_descrs().find(module_name, descr)) {
+            out << "Description: " << descr;
+        }
+        out << "\n";
+        d->display_markdown(out);
+    }
 
     param_descrs const& get_global_param_descrs() {
         lock_guard lock(*gparams_mux);
@@ -641,6 +657,11 @@ void gparams::display_modules(std::ostream & out) {
 void gparams::display_module(std::ostream & out, char const * module_name) {
     SASSERT(g_imp);
     g_imp->display_module(out, module_name);
+}
+
+void gparams::display_module_markdown(std::ostream & out, char const * module_name) {
+    SASSERT(g_imp);
+    g_imp->display_module_markdown(out, module_name);
 }
 
 void gparams::display_parameter(std::ostream & out, char const * name) {
