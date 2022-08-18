@@ -117,7 +117,7 @@ describe('high-level', () => {
     const x = Int.const('x')
     solver.add(Not(x.eq(1)))
     expect(await solver.check()).toStrictEqual('unsat')
-  }
+  });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {
     const { Solver, Int, Function, Implies, Not } = api.Context('main');
