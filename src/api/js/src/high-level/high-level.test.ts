@@ -110,7 +110,7 @@ describe('high-level', () => {
   });
 
   it('test loading a solver state from a string', async () => {
-    const { Solver } = api.Context('main');
+    const { Solver, Not, Int } = api.Context('main');
     const solver = new Solver();
     solver.fromString("(declare-const x Int) (assert (and (< x 2) (> x 0)))")
     expect(await solver.check()).toStrictEqual('sat')    

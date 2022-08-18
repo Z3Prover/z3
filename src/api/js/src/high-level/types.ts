@@ -398,6 +398,7 @@ export interface Solver<Name extends string = 'main'> {
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
   assertions(): AstVector<Name, Bool<Name>>;
+  from_string(s : string): void;
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
   model(): Model<Name>;
 }
