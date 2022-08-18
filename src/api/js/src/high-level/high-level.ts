@@ -1012,6 +1012,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       toString() {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
       }
+
+      fromString(s : string) {
+        Z3.solver_from_string(contextPtr, this.ptr, s);
+      }
     }
 
     class ModelImpl implements Model<Name> {
