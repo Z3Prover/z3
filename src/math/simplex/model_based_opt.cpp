@@ -1624,6 +1624,8 @@ namespace opt {
                     solve(row_id1, a, row_id2, x);
                     break;
                 case t_divides:
+                case t_mod:
+                case t_div:
                     // mod reduction already done.
                     UNREACHABLE();
                     break;
