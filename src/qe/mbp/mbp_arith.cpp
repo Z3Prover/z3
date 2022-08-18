@@ -494,7 +494,8 @@ namespace mbp {
                 if (r.m_type == opt::t_div)
                     continue;
 
-                if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_divides) {
+                if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && 
+                    (r.m_type == opt::t_eq || r.m_type == opt::t_le || r.m_type == opt::t_lt)) {
                     var const& v = r.m_vars[0];
                     t = id2expr(def_vars, index2expr, v.m_id);
                     if (!v.m_coeff.is_minus_one()) {
@@ -505,7 +506,7 @@ namespace mbp {
                     case opt::t_lt: t = a.mk_gt(t, s); break;
                     case opt::t_le: t = a.mk_ge(t, s); break;
                     case opt::t_eq: t = a.mk_eq(t, s); break;
-                    default: UNREACHABLE();
+                    default: UNREACHABLE(); break;
                     }
                     fmls.push_back(t);
                     continue;
@@ -518,6 +519,9 @@ namespace mbp {
                 case opt::t_eq: t = a.mk_eq(t, s); break;
                 case opt::t_divides:
                     t = a.mk_eq(a.mk_mod(t, a.mk_int(r.m_mod)), a.mk_int(0));
+                    break;
+                default:
+                    UNREACHABLE();
                     break;
                 }
                 fmls.push_back(t);
