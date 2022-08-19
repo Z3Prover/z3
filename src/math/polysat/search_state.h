@@ -106,4 +106,74 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, search_item_pp const& p) { return p.verbose ? p.s.display_verbose(p.i, out) : p.s.display(p.i, out); }
 
+    // Go backwards over the search_state.
+    // If new entries are added during processing an item, they will be queued for processing next after the current item.
+    class search_iterator {
+
+        search_state*   m_search;
+
+        unsigned current;
+        unsigned first;  // highest index + 1
+
+        struct idx_range {
+            unsigned current;
+            unsigned first;  // highest index + 1
+        };
+        vector<idx_range>     m_index_stack;
+
+        void init() {
+            first = m_search->size();
+            current = first;  // we start one before the beginning
+        }
+
+        void try_push_block() {
+            if (first != m_search->size()) {
+                m_index_stack.push_back({current, first});
+                init();
+            }
+        }
+
+        void pop_block() {
+            current = m_index_stack.back().current;
+            // We don't restore 'first', otherwise 'next()' will immediately push a new block again.
+            // Instead, the current block is merged with the popped one.
+            m_index_stack.pop_back();
+        }
+
+        unsigned last() {
+            return m_index_stack.empty() ? 0 : m_index_stack.back().first;
+        }
+
+    public:
+        search_iterator(search_state& search):
+            m_search(&search) {
+            init();
+        }
+
+        void set_resolved() {
+            m_search->set_resolved(current);
+        }
+
+        search_item const& operator*() {
+            return (*m_search)[current];
+        }
+
+        bool next() {
+#if 1  // If you want to resolve over constraints that have been added during conflict resolution, enable this.
+            try_push_block();
+#endif
+            if (current > last()) {
+                --current;
+                return true;
+            }
+            else {
+                SASSERT(current == last());
+                if (m_index_stack.empty())
+                    return false;
+                pop_block();
+                return next();
+            }
+        }
+    };
+
 }
