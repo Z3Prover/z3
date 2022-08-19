@@ -1245,11 +1245,14 @@ namespace polysat {
         }
 
         if (all_unit) {
+            SASSERT(!intersection.is_currently_empty());
             // Unit intervals from all constraints
             // => build constraint from intersection of forbidden intervals
             //    z \not\in [l;u[  <=>  z - l >= u - l
-            auto c_new = ule(intersection.hi() - intersection.lo(), z - intersection.lo());
-            out_lits.push_back(c_new.blit());
+            if (intersection.is_proper()) {
+                auto c_new = ule(intersection.hi() - intersection.lo(), z - intersection.lo());
+                out_lits.push_back(c_new.blit());
+            }
             return;
         } else {
             out_lits.shrink(out_lits_original_size);
