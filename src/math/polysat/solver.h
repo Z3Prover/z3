@@ -234,6 +234,9 @@ namespace polysat {
         bool can_propagate();
         void propagate();
 
+        clause_ref make_asserting(clause& cl, pvar z, rational z_val);
+        void find_implied_constraint(signed_constraints const& cz, pvar z, rational z_val, sat::literal_vector& out_lits);
+
     public:
 
         /**

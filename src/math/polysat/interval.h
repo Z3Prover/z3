@@ -115,6 +115,27 @@ namespace polysat {
                 return true;
             return false;
         }
+
+        eval_interval intersect(eval_interval const& other) const {
+            if (is_full()) return other;
+            if (other.is_full()) return *this;
+
+            pdd i_lo = lo();
+            rational i_lo_val = lo_val();
+            if (lo_val() < other.lo_val()) {
+                i_lo = other.lo();
+                i_lo_val = other.lo_val();
+            }
+
+            pdd i_hi = hi();
+            rational i_hi_val = hi_val();
+            if (hi_val() > other.hi_val()) {
+                i_hi = other.hi();
+                i_hi_val = other.hi_val();
+            }
+
+            return eval_interval::proper(i_lo, i_lo_val, i_hi, i_hi_val);
+        }
     };
 
     inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {
