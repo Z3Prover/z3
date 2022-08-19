@@ -1253,12 +1253,57 @@ namespace polysat {
                 auto c_new = ule(intersection.hi() - intersection.lo(), z - intersection.lo());
                 out_lits.push_back(c_new.blit());
             }
-            return;
         } else {
             out_lits.shrink(out_lits_original_size);
-            // TODO: SAT-based approach
+            find_implied_constraint_sat(cz, z, z_val, out_lits);
         }
     }
+
+    void solver::find_implied_constraint_sat(signed_constraints const& cz, pvar z, rational z_val, sat::literal_vector& out_lits)
+    {
+        unsigned bit_width = size(z);
+        auto p_factory = mk_univariate_bitblast_factory();
+        auto p_us = (*p_factory)(bit_width);
+        auto& us = *p_us;
+
+        // Find max z1 such that z1 < z_val and all cz true under z := z1 (and current assignment)
+        rational z1 = z_val;
+
+        for (signed_constraint const& c : cz)
+            c.add_to_univariate_solver(*this, us, 0);
+        us.add_ult_const(z_val, false, 0);  // z1 < z_val
+
+        // First check if any such z1 exists
+        switch (us.check()) {
+        case l_false:
+            // No such z1 exists
+            z1 = m_pdd[z]->max_value();  // -1
+            break;
+        case l_true:
+            // z1 exists. Try to make it as small as possible by setting bits to 0
+
+            for (unsigned j = bit_width; j-- > 0; ) {
+                switch (us.check()) {
+                case l_true:
+                    // TODO
+                    break;
+                case l_false:
+                    // TODO
+                    break;
+                default:
+                    UNREACHABLE();  // TODO: see below
+                }
+            }
+
+            break;
+        default:
+            UNREACHABLE();  // TODO: should we link the child solver's resources to polysat's resource counter?
+        }
+
+        // Find min z2 such that z2 > z_val and all cz true under z := z2 (and current assignment)
+        // TODO
+    }
+
 }
 
 

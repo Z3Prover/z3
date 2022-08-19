@@ -56,6 +56,16 @@ namespace polysat {
         virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
         virtual void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
 
+        /// Add x <= val or x > val, depending on sign
+        virtual void add_ule_const(rational const& val, bool sign, dep_t dep) = 0;
+        /// Add x >= val or x < val, depending on sign
+        virtual void add_uge_const(rational const& val, bool sign, dep_t dep) = 0;
+        void add_ugt_const(rational const& val, bool sign, dep_t dep) { add_ule_const(val, !sign, dep); }
+        void add_ult_const(rational const& val, bool sign, dep_t dep) { add_uge_const(val, !sign, dep); }
+
+        // TODO: assert bit; use bv->mk_bit2bool(x, idx)
+        // virtual void add_bit(unsigned idx, bool sign, dep_t dep);
+
         virtual std::ostream& display(std::ostream& out) const = 0;
     };
 

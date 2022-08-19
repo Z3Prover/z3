@@ -136,6 +136,14 @@ namespace polysat {
             add(m.mk_eq(bv->mk_bv_not(mk_poly(in)), mk_poly(out)), sign, dep);
         }
 
+        void add_ule_const(rational const& val, bool sign, dep_t dep) override {
+            add(bv->mk_ule(x, mk_numeral(val)), sign, dep);
+        }
+
+        void add_uge_const(rational const& val, bool sign, dep_t dep) override {
+            add(bv->mk_ule(mk_numeral(val), x), sign, dep);
+        }
+
         lbool check() override {
             return s->check_sat();
         }
