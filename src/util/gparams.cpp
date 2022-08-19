@@ -541,11 +541,10 @@ public:
             strm << "unknown module '" << module_name << "'";                    
             throw exception(std::move(strm).str());
         }
-        out << "## Module " << module_name << "\n\n";
+        out << "\n## Module " << module_name << "\n\n";
         char const * descr = nullptr;
-        if (get_module_descrs().find(module_name, descr)) {
-            out << "Description: " << descr;
-        }
+        if (get_module_descrs().find(module_name, descr)) 
+            out << "Description: " << descr << "\n";
         out << "\n";
         d->display_markdown(out);
     }
