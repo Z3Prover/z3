@@ -138,21 +138,15 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
-private:
-    rational & operator=(bool) {
-        UNREACHABLE(); return *this;
-    }
-    inline rational operator*(bool  r1) const {
-        UNREACHABLE();
-        return *this;
-    }
 
-public:
+    rational & operator=(bool) = delete;
+    rational operator*(bool  r1) const = delete;
+
     rational & operator=(int v) {
         m().set(m_val, v);
         return *this;
     }
-    rational & operator=(double v) { UNREACHABLE(); return *this; }
+    rational & operator=(double v) = delete;
 
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     

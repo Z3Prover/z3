@@ -115,7 +115,7 @@ public:
     static bool precise() { return true; }
     static bool field() { return true; }
 
-    mpq_manager();
+    mpq_manager() = default;
 
     ~mpq_manager();
 

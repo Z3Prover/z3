@@ -886,8 +886,7 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         hpp = os.path.join(dirname, '%s.hpp' % class_name)
         out = open(hpp, 'w')
         out.write('// Automatically generated file\n')
-        out.write('#ifndef __%s_HPP_\n' % class_name.upper())
-        out.write('#define __%s_HPP_\n' % class_name.upper())
+        out.write('#pragma once\n')
         out.write('#include "util/params.h"\n')
         if export:
             out.write('#include "util/gparams.h"\n')
@@ -919,7 +918,6 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
                 out.write('  %s %s() const { return p.%s("%s", %s); }\n' %
                           (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
         out.write('};\n')
-        out.write('#endif\n')
         out.close()
         OUTPUT_HPP_FILE.append(hpp)
 
