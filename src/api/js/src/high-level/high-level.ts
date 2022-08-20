@@ -228,7 +228,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
            return new BoolImpl(ast);
         if (Z3.is_quantifier_exists(contextPtr, ast))
            return new BoolImpl(ast);
-        if (Z3.is_quantifier_lambda(contextPtr, ast))
+        if (Z3.is_lambda(contextPtr, ast))
            return new ExprImpl(ast);
         assert(false);
       }
