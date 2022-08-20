@@ -225,11 +225,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       const kind = check(Z3.get_ast_kind(contextPtr, ast));
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
         if (Z3.is_quantifier_forall(contextPtr, ast))
-           return BoolImpl(ast);
+           return new BoolImpl(ast);
         if (Z3.is_quantifier_exists(contextPtr, ast))
-           return BoolImpl(ast);
+           return new BoolImpl(ast);
         if (Z3.is_quantifier_lambda(contextPtr, ast))
-           return ExprImpl(ast);
+           return new ExprImpl(ast);
         assert(false);
       }
       const sortKind = check(Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast)));
