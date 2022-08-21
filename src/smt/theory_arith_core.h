@@ -590,11 +590,16 @@ namespace smt {
             m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
 
             // non-linear divisors/mod have to be flattened for the non-linear solver to understand the terms.
-            // to ensure this use the rewriter.
+            // to ensure this use the rewriter. This is a hack required to fix a latent bug that affects the
+            // legacy arithmetic solver broadly. It is not something that the newer arithmetic solver suffers from.
             qr1 = qr;
             s(qr1);
             if (qr != qr1) {
-                mk_axiom(m.mk_eq(qr, qr1), false);
+                expr_ref eq(m.mk_eq(qr, qr1), m);
+                ctx.internalize(eq, false);
+                literal qeq = ctx.get_literal(eq);
+                ctx.mark_as_relevant(qeq);
+                ctx.mk_th_axiom(get_id(), 1, &qeq);
                 m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(qr1));                
             }
 
