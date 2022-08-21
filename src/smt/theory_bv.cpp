@@ -294,8 +294,7 @@ namespace smt {
                 m_trail_stack.push(add_var_pos_trail(b));
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
             }
-            else {
-                SASSERT(th_id == null_theory_id);
+            else if (th_id == null_theory_id) {
                 ctx.set_var_theory(l.var(), get_id());
                 SASSERT(ctx.get_var_theory(l.var()) == get_id());
                 bit_atom * b = new (get_region()) bit_atom();
