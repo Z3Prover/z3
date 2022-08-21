@@ -124,7 +124,7 @@ namespace Microsoft.Z3
         /// </summary>
         internal Symbol[] MkSymbols(string[] names)
         {
-            if (names == null) return null;
+            if (names == null) return new Symbol[0];
             Symbol[] result = new Symbol[names.Length];
             for (int i = 0; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
             return result;

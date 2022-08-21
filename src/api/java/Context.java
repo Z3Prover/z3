@@ -110,7 +110,7 @@ public class Context implements AutoCloseable {
     Symbol[] mkSymbols(String[] names)
     {
         if (names == null)
-            return null;
+            return new Symbol[0];
         Symbol[] result = new Symbol[names.length];
         for (int i = 0; i < names.length; ++i)
             result[i] = mkSymbol(names[i]);
