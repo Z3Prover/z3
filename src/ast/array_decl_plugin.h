@@ -178,6 +178,7 @@ public:
     bool is_default(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_DEFAULT); }
     bool is_subset(expr const* n) const { return is_app_of(n, m_fid, OP_SET_SUBSET); }
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
+    bool is_map(func_decl* f, func_decl*& g) const { return is_map(f) && (g = get_map_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
     func_decl * get_map_func_decl(func_decl* f) const;
