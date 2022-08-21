@@ -1241,6 +1241,7 @@ public:
         context& c = ctx();
         if (!k.is_zero()) {
             mk_axiom(eq);
+            m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
             mk_axiom(mk_literal(a.mk_ge(mod, zero)));
             mk_axiom(mk_literal(a.mk_le(mod, upper)));
             
