@@ -328,7 +328,6 @@ namespace smt {
             return;
         }
         context & ctx      = get_context();
-        region & r         = ctx.get_region();
         enode * _x         = get_enode(x);
         enode * _y         = get_enode(y);
         eq_vector const& eqs = antecedents.eqs();

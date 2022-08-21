@@ -591,7 +591,6 @@ namespace smt {
             get_antecedents(target, source, antecedents);
             if (l != null_literal)
                 antecedents.push_back(l);
-            region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), ctx, antecedents.size(), antecedents.data())));
 
             return;
