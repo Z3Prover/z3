@@ -93,7 +93,7 @@ class lar_solver : public column_namer {
     unsigned_vector                                     m_row_bounds_to_replay;
     
     u_set                                               m_basic_columns_with_changed_cost;
-    // these are basic columns with the value changed, so the the corresponding row in the tableau
+    // these are basic columns with the value changed, so the corresponding row in the tableau
     // does not sum to zero anymore
     u_set                                               m_incorrect_columns;
     // copy of m_r_solver.inf_set()

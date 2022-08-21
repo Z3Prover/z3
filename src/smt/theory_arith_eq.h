@@ -37,7 +37,7 @@ namespace smt {
             return;
 
         SASSERT(is_fixed(v));
-        // WARNINING: it is not safe to use get_value(v) here, since
+        // WARNING: it is not safe to use get_value(v) here, since
         // get_value(v) may not satisfy v bounds at this point.
         if (!lower_bound(v).is_rational())
             return;
