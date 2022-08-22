@@ -1236,7 +1236,7 @@ namespace polysat {
         unsigned const out_lits_original_size = out_lits.size();
 
         forbidden_intervals fi(*this);
-        fi_record entry({ eval_interval::full(), {}, {}, rational::one()});
+        fi_record entry;
 
         auto intersection = eval_interval::full();
         bool all_unit = true;
