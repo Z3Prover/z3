@@ -63,8 +63,8 @@ namespace polysat {
         void add_ugt_const(rational const& val, bool sign, dep_t dep) { add_ule_const(val, !sign, dep); }
         void add_ult_const(rational const& val, bool sign, dep_t dep) { add_uge_const(val, !sign, dep); }
 
-        // TODO: assert bit; use bv->mk_bit2bool(x, idx)
-        // virtual void add_bit(unsigned idx, bool sign, dep_t dep);
+        /// Assert i-th bit of x
+        virtual void add_bit(unsigned idx, bool sign, dep_t dep) = 0;
 
         virtual std::ostream& display(std::ostream& out) const = 0;
     };

@@ -144,6 +144,10 @@ namespace polysat {
             add(bv->mk_ule(mk_numeral(val), x), sign, dep);
         }
 
+        void add_bit(unsigned idx, bool sign, dep_t dep) override {
+            add(bv->mk_bit2bool(x, idx), sign, dep);
+        }
+
         lbool check() override {
             return s->check_sat();
         }
