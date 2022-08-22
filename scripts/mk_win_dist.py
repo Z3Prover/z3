@@ -203,6 +203,7 @@ def mk_z3s():
 
 def get_z3_name(x64):
     major, minor, build, revision = get_version()
+    print("Assembly version:", major, minor, build, revision)
     if x64:
         platform = "x64"
     else:

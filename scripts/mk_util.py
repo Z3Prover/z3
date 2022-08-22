@@ -552,6 +552,7 @@ def set_version(major, minor, build, revision):
             VER_MINOR = versionSplits[1]
             VER_BUILD = versionSplits[2]
             VER_TWEAK = versionSplits[3]
+            print("Set Assembly Version (BUILD):", VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
             return
 
     # use parameters to set up version if not provided by script args            
@@ -564,6 +565,8 @@ def set_version(major, minor, build, revision):
     if GIT_DESCRIBE:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         VER_TWEAK = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
+    
+    print("Set Assembly Version (DEFAULT):", VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
     
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
@@ -1715,7 +1718,9 @@ class DotNetDLLComponent(Component):
 
         version = get_version_string(4)
 
-        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+        print(f"Version output to csproj: {version}");
+
+        core_csproj_str = f"""<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
@@ -1727,7 +1732,7 @@ class DotNetDLLComponent(Component):
     <PackageId>Microsoft.Z3</PackageId>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
-    <Version>%s</Version>
+    <Version>{version}</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Microsoft</Authors>
     <Company>Microsoft</Company>
@@ -1735,14 +1740,14 @@ class DotNetDLLComponent(Component):
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
     <PackageTags>smt constraint solver theorem prover</PackageTags>
-    %s
+    {key}
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\%s\*.cs;*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
+    <Compile Include="..\{self.to_src_dir}\*.cs;*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
   </ItemGroup>
 
-</Project>""" % (version, key, self.to_src_dir)
+</Project>"""
 
         mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
         csproj = os.path.join('dotnet', 'z3.csproj')
@@ -2845,6 +2850,9 @@ def update_version():
     minor = VER_MINOR
     build = VER_BUILD
     revision = VER_TWEAK
+
+    print(f"UpdateVersion: {major}.{minor}.{build}.{revision}");
+    
     if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
