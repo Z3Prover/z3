@@ -624,7 +624,7 @@ namespace polysat {
             return;
         }
         m_conflict.begin_conflict("resolve_conflict");
-        
+
         search_iterator search_it(m_search);
         while (search_it.next()) {
             auto& item = *search_it;
@@ -675,6 +675,7 @@ namespace polysat {
                 }
             }
         }
+        LOG("End of resolve_conflict loop");
         m_conflict.end_conflict();
         report_unsat();
     }
@@ -688,6 +689,11 @@ namespace polysat {
         clause_ref lemma = m_conflict.build_lemma().build();
         LOG_H2("backtrack_lemma: " << show_deref(lemma));
         SASSERT(lemma);
+        LOG("Lemma: " << *lemma);
+        for (sat::literal lit : *lemma) {
+            LOG("   Literal " << lit << " is: " << lit_pp(*this, lit));
+            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
+        }
 
         // find second-highest level of the literals in the lemma
         unsigned max_level = 0;  // could be simplified if we're sure that always max_level == m_level
