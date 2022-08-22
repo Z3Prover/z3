@@ -11,7 +11,7 @@ Module Name:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #pragma once
@@ -37,9 +37,7 @@ namespace polysat {
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
         
-        struct entry : public dll_base<entry>, public fi_record { 
-            entry() : fi_record({ eval_interval::full(), {}, {}, rational::one()}) {}
-        };
+        struct entry : public dll_base<entry>, public fi_record {};
         enum class entry_kind { unit_e, equal_e, diseq_e };
         
         ptr_vector<entry>                    m_alloc;

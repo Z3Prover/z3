@@ -10,7 +10,7 @@ Module Name:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #pragma once
@@ -28,13 +28,6 @@ namespace polysat {
 
         /** Create invalid fi_record */
         fi_record(): interval(eval_interval::full()) {}
-
-        fi_record(eval_interval interval, vector<signed_constraint> side_cond, signed_constraint src, rational coeff):
-            interval(interval),
-            side_cond(side_cond),
-            src(src),
-            coeff(coeff)
-        {}
 
         struct less {
             bool operator()(fi_record const& a, fi_record const& b) const {
