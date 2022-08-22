@@ -1,14 +1,14 @@
 variables:
-
   Major: '4'
   Minor: '11'
   Patch: '1'
-  NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
+  AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
+  NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
 stages:
 - stage: Build
   jobs:
-
+  
   - job: Mac
     displayName: "Mac Build"
     pool:
@@ -135,6 +135,7 @@ stages:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
           python scripts\mk_win_dist.py
+            --assembly-version=$(AssemblyVersion)
             --x86-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
             --zip
@@ -174,6 +175,7 @@ stages:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
           python scripts\mk_win_dist.py
+            --assembly-version=$(AssemblyVersion)
             --x64-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
             --zip

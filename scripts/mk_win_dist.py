@@ -24,6 +24,7 @@ BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
+ASSEMBLY_VERSION=None
 DOTNET_CORE_ENABLED=True
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
@@ -62,6 +63,7 @@ def display_help():
     print("  -s, --silent                  do not print verbose messages.")
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --assembly-version             assembly version for dll")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
@@ -102,6 +104,8 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_CORE_ENABLED = False
+        elif opt == '--assemblyVersion':
+            ASSEMBLY_VERSION = arg
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
@@ -133,6 +137,8 @@ def mk_build_dir(path, x64):
             opts.append('--dotnet')
             if not DOTNET_KEY_FILE is None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
+        if not ASSEMBLY_VERSION is None:
+            opts.append('--assembly-version='+ASSEMBLY_VERSION)
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
@@ -299,9 +305,10 @@ def cp_licenses():
     cp_license(False)
 
 def init_flags():
-    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED
+    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED, ASSEMBLY_VERSION
     mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
+    mk_util.ASSEMBLY_VERSION = ASSEMBLY_VERSION
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
     mk_util.ALWAYS_DYNAMIC_BASE = True
