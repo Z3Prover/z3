@@ -22,6 +22,8 @@ namespace polysat {
 
     public:
         simplify_clause(solver& s);
+
+        bool apply(clause& cl);
     };
 
 }

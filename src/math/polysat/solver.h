@@ -24,6 +24,7 @@ Author:
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"
 #include "math/polysat/restart.h"
 #include "math/polysat/explain.h"
@@ -69,6 +70,7 @@ namespace polysat {
         friend class clause_builder;
         friend class conflict;
         friend class conflict_explainer;
+        friend class simplify_clause;
         friend class simplify;
         friend class restart;
         friend class explainer;
@@ -99,6 +101,7 @@ namespace polysat {
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
         conflict                 m_conflict; 
+        simplify_clause          m_simplify_clause;
         simplify                 m_simplify;
         restart                  m_restart;
         bool_var_manager         m_bvars;       // Map boolean variables to constraints

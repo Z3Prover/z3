@@ -21,4 +21,9 @@ namespace polysat {
         s(s)
     {}
 
+    bool simplify_clause::apply(clause& cl)
+    {
+        (void)s;
+        return false;
+    }
 }

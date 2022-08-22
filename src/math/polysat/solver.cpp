@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 
@@ -33,6 +33,7 @@ namespace polysat {
         m_viable_fallback(*this),
         m_linear_solver(*this),
         m_conflict(*this),
+        m_simplify_clause(*this),
         m_simplify(*this),
         m_restart(*this),
         m_bvars(),
@@ -825,6 +826,7 @@ namespace polysat {
     void solver::learn_lemma(clause& lemma) {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
+        m_simplify_clause.apply(lemma);
         add_clause(lemma);
         // TODO: add pwatch?
     }
