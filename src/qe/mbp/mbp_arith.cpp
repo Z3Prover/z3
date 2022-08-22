@@ -68,6 +68,8 @@ namespace mbp {
             DEBUG_CODE(expr_ref val(m);
             eval(lit, val);
             CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
+            if (m.is_false(val))
+                return false;
             SASSERT(m.limit().is_canceled() || !m.is_false(val)););
 
             if (!m.inc())
@@ -291,6 +293,7 @@ namespace mbp {
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
             eval.set_model_completion(true);
+            model.set_inline();
             compute_def |= m_apply_projection;
 
             opt::model_based_opt mbo;

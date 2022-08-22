@@ -98,6 +98,7 @@ namespace mbp {
     bool project_plugin::reduce(model_evaluator& eval, model& model, expr* fml, expr_ref_vector& fmls) {
         expr* nfml, * f1, * f2, * f3;
         expr_ref val(m);
+        model.set_inline();
         if (m.is_not(fml, nfml) && m.is_distinct(nfml))
             push_back(fmls, pick_equality(m, model, nfml));
         else if (m.is_or(fml)) {

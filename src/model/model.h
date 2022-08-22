@@ -81,6 +81,8 @@ public:
     expr_ref get_inlined_const_interp(func_decl* f, bool force_inline);
     expr_ref unfold_as_array(expr* e);
 
+    void set_inline() { m_inline = true; }
+
     //
     // Primitives for building models
     //
