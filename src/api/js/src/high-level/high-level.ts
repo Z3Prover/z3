@@ -1015,6 +1015,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       fromString(s : string) {
         Z3.solver_from_string(contextPtr, this.ptr, s);
+        throwIfError();
       }
     }
 
