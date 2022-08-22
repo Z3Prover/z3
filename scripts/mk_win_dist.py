@@ -76,7 +76,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
+    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, PYTHON_ENABLED, X86ONLY, X64ONLY
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -85,6 +85,7 @@ def parse_options():
                                                                    'nojava',
                                                                    'nodotnet',
                                                                    'dotnet-key=',
+                                                                   'assembly-version=',
                                                                    'zip',
                                                                    'githash',
                                                                    'nopython',
@@ -104,7 +105,7 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_CORE_ENABLED = False
-        elif opt == '--assemblyVersion':
+        elif opt == '--assembly-version':
             ASSEMBLY_VERSION = arg
         elif opt == '--nopython':
             PYTHON_ENABLED = False
