@@ -16,6 +16,7 @@ z3_add_component(polysat
     saturation.cpp
     search_state.cpp
     simplify.cpp
+    simplify_clause.cpp
     smul_fl_constraint.cpp
     solver.cpp
     ule_constraint.cpp
@@ -28,6 +29,6 @@ z3_add_component(polysat
     simplex
     interval
     bigfix
- PYG_FILES
+  PYG_FILES
     polysat_params.pyg
 )
