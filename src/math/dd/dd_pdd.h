@@ -407,6 +407,7 @@ namespace dd {
         unsigned var() const { return m.var(root); }
         rational const& val() const { SASSERT(is_val()); return m.val(root); }
         rational const& leading_coefficient() const;
+        rational const& offset() const;
         bool is_val() const { return m.is_val(root); }
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }

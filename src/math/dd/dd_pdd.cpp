@@ -1736,6 +1736,14 @@ namespace dd {
         return p.val();
     }
 
+    rational const& pdd::offset() const {
+        pdd p = *this;
+        while (!p.is_val())
+            p = p.lo();
+        return p.val();        
+    }
+ 
+
     pdd pdd::shl(unsigned n) const {
         return (*this) * rational::power_of_two(n);
     }

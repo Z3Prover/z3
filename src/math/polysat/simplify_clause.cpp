@@ -21,18 +21,63 @@ namespace polysat {
         s(s)
     {}
 
-    bool simplify_clause::apply(clause& cl)
-    {
+    bool simplify_clause::apply(clause& cl) {
         bool changed = false;
-        if (try_unilinear_subsumption(cl)) changed = true;
+        if (try_unilinear_subsumption(cl)) 
+            changed = true;
         return changed;
     }
 
-    struct subs_entry : fi_record {
-        unsigned lit_idx;
-        pvar var;
-        bool subsumed;
-    };
+    pdd simplify_clause::abstract(pdd const& p, pdd& v) {
+        if (p.is_val())
+            return p;
+        if (p.is_unilinear()) {
+            v = p.manager().mk_var(p.var());
+            return p;
+        }
+        unsigned max_var = p.var();
+        auto& m = p.manager();
+        pdd r(m);
+        v = p - p.offset();
+        r = p - v;
+        if (p.leading_coefficient() < 0) {
+            v = -v;
+            r -= m.mk_var(max_var);
+        }
+        else 
+            r += m.mk_var(max_var);
+        return r;
+    }
+
+    void simplify_clause::prepare_subs_entry(subs_entry& entry, signed_constraint c) {
+        entry.valid = false;
+        if (!c->is_ule())
+            return;
+        forbidden_intervals fi(s);
+
+        auto const& ule = c->to_ule();
+        auto& m = ule.lhs().manager();
+        signed_constraint sc = c;
+        pdd v_lhs(m), v_rhs(m);
+        pdd lhs = abstract(ule.lhs(), v_lhs);
+        pdd rhs = abstract(ule.rhs(), v_rhs);
+        if (lhs.is_val() && rhs.is_val())
+            return;
+        if (!lhs.is_val() && !rhs.is_val() && v_lhs != v_rhs)
+            return;
+        if (lhs != ule.lhs() || rhs != ule.rhs()) {
+            sc = s.ule(lhs, rhs);
+            if (c.is_negative())
+                sc.negate();
+        }
+        pvar v = rhs.is_val() ? lhs.var() : rhs.var();
+        VERIFY(fi.get_interval(sc, v, entry));
+        if (entry.coeff != 1)
+            return;
+        entry.var = lhs.is_val() ? v_rhs : v_lhs;
+        entry.subsumed = false;
+        entry.valid = true;
+    }
 
     /**
      * Test simple subsumption between univariate and linear literals, i.e.,
@@ -41,87 +86,44 @@ namespace polysat {
      * A literal C subsumes literal D if the forbidden interval of C is a subset of the forbidden interval of D.
      * C subsumes D  <==  fi(C) subset fi(D)
      */
-    bool simplify_clause::try_unilinear_subsumption(clause& cl)
-    {
+    bool simplify_clause::try_unilinear_subsumption(clause& cl) {
         LOG_H2("Unilinear subsumption for: " << cl);
-        subs_entry entry;
-        vector<subs_entry> entries;  // TODO: we don't need to store the full fi_record
-        forbidden_intervals fi(s);
-        // Find univariate and linear constraints and their forbidden intervals
+
+        m_entries.reserve(cl.size());
         for (unsigned i = 0; i < cl.size(); ++i) {
+            subs_entry& entry = m_entries[i];
             sat::literal lit = cl[i];
-            signed_constraint c = s.lit2cnstr(lit);
-            if (!c->is_ule())
-                continue;
-            auto const& ule = c->to_ule();
-            pdd const& lhs = ule.lhs();
-            pdd const& rhs = ule.rhs();
-            if (!lhs.is_val() && !lhs.is_unilinear())
-                continue;
-            if (!rhs.is_val() && !rhs.is_unilinear())
-                continue;
-            if (!lhs.is_val() && !rhs.is_val() && lhs.var() != rhs.var())
-                continue;
             LOG("Literal " << lit_pp(s, lit));
-            SASSERT(!lhs.is_val() || !rhs.is_val());  // purely numeric constraints should have been filtered out by the clause_builder
-            pvar v = rhs.is_val() ? lhs.var() : rhs.var();
-            VERIFY(fi.get_interval(c, v, entry));
-            if (entry.coeff != 1)
-                continue;
-            entry.lit_idx = i;
-            entry.var = v;
-            entry.subsumed = false;
-            entries.push_back(entry);
+            signed_constraint c = s.lit2cnstr(lit);
+            prepare_subs_entry(entry, c);
         }
+        
         // Check subsumption between intervals for the same variable
         bool any_subsumed = false;
-        for (unsigned i = 0; i < entries.size(); ++i) {
-            subs_entry& e = entries[i];
-            if (e.subsumed)
+        for (unsigned i = 0; i < cl.size(); ++i) {
+            subs_entry& e = m_entries[i];
+            if (e.subsumed || !e.valid)
                 continue;
-            for (unsigned j = i + 1; j < entries.size(); ++j) {
-                subs_entry& f = entries[j];
-                SASSERT(e.lit_idx != f.lit_idx);
-                if (e.var != f.var)
+            for (unsigned j = 0; j < cl.size(); ++j) {
+                subs_entry& f = m_entries[j];
+                if (f.subsumed || !f.valid || i == j || !e.var || !f.var || *e.var != *f.var)
                     continue;
                 if (e.interval.currently_contains(f.interval)) {
                     // f subset of e  ==>  f.src subsumes e.src
-                    LOG("Literal " << cl[e.lit_idx] << " subsumed by " << cl[f.lit_idx]);
+                    LOG("Literal " << s.lit2cnstr(cl[i]) << " subsumed by " << s.lit2cnstr(cl[j]) << "\n");
                     e.subsumed = true;
                     any_subsumed = true;
                     break;
-                }
-                if (f.interval.currently_contains(e.interval)) {
-                    // e subset of f  ==>  e.src subsumes f.src
-                    LOG("Literal " << cl[f.lit_idx] << " subsumed by " << cl[e.lit_idx]);
-                    f.subsumed = true;
-                    any_subsumed = true;
-                    continue;
                 }
             }
         }
         // Remove subsumed literals
         if (!any_subsumed)
             return false;
-        auto e_it = entries.begin();
-        while (e_it != entries.end() && !e_it->subsumed)
-            ++e_it;
-        SASSERT(e_it != entries.end() && e_it->subsumed);
-        unsigned next_subsumed_i = e_it->lit_idx;
-        unsigned i = next_subsumed_i;
-        unsigned j = next_subsumed_i;
-        while (i < cl.size()) {
-            if (i == next_subsumed_i) {
-                while (e_it != entries.end() && !e_it->subsumed)
-                    ++e_it;
-                if (e_it != entries.end())
-                    next_subsumed_i = e_it->lit_idx;
-                // NOTE: no need to update next_subsumed_i in the else-branch since we already passed that location
-                i++;
-            }
-            else
-                cl[j++] = cl[i++];
-        }
+        unsigned j = 0;
+        for (unsigned i = 0; i < cl.size(); ++i) 
+            if (!m_entries[i].subsumed)
+                cl[j++] = cl[i];
         cl.m_literals.shrink(j);
         return true;
     }
