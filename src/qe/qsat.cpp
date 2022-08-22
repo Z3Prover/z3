@@ -356,18 +356,14 @@ namespace qe {
         expr *c, *d;
         max_level lvl2;
         TRACE("qe", tout << mk_pp(a, m) << " " << lvl << "\n";);
-        if (m_asm2pred.find(a, b)) {
-            q = b;
-        }
-        else if (m.is_not(a, c) && m_asm2pred.find(c, b)) {
-            q = m.mk_not(b);
-        }
-        else if (m_pred2asm.find(a, d)) {
-            q = a;
-        }
-        else if (m.is_not(a, c) && m_pred2asm.find(c, d)) {
-            q = a;
-        }
+        if (m_asm2pred.find(a, b)) 
+            q = b;        
+        else if (m.is_not(a, c) && m_asm2pred.find(c, b)) 
+            q = m.mk_not(b);        
+        else if (m_pred2asm.find(a, d)) 
+            q = a;        
+        else if (m.is_not(a, c) && m_pred2asm.find(c, d)) 
+            q = a;        
         else {
             p = fresh_bool("def");
             if (m.is_not(a, a)) {
@@ -425,12 +421,10 @@ namespace qe {
                 }
             } 
             if (args.size() == sz) {
-                if (diff) {
-                    r = m.mk_app(a->get_decl(), args);
-                }
-                else {
-                    r = to_app(a);
-                }
+                if (diff) 
+                    r = m.mk_app(a->get_decl(), args);                
+                else 
+                    r = to_app(a);                
                 cache.insert(a, r);
                 trail.push_back(r);
                 todo.pop_back();
@@ -465,12 +459,10 @@ namespace qe {
             for (unsigned j = 0; j < m_preds[i].size(); ++j) {
                 app* p = m_preds[i][j];
                 expr* e;
-                if (m_pred2lit.find(p, e)) {
-                    out << mk_pp(p, m) << " := " << mk_pp(e, m) << "\n";
-                }
-                else {
-                    out << mk_pp(p, m) << "\n";
-                }
+                if (m_pred2lit.find(p, e)) 
+                    out << mk_pp(p, m) << " := " << mk_pp(e, m) << "\n";                
+                else 
+                    out << mk_pp(p, m) << "\n";                
             }
         }            
     }        
@@ -481,12 +473,10 @@ namespace qe {
             expr* e = a;
             bool is_not = m.is_not(a, e);
             out << mk_pp(a, m);
-            if (m_elevel.find(e, lvl)) {
-                lvl.display(out << " - ");
-            }
-            if (m_pred2lit.find(e, e)) {
-                out << " : " << (is_not?"!":"") << mk_pp(e, m);
-            }
+            if (m_elevel.find(e, lvl)) 
+                lvl.display(out << " - ");            
+            if (m_pred2lit.find(e, e)) 
+                out << " : " << (is_not?"!":"") << mk_pp(e, m);            
             out << "\n";
         }
     }
@@ -498,9 +488,8 @@ namespace qe {
         while (sz0 != todo.size()) {
             expr* e = todo.back();
             todo.pop_back();
-            if (mark.is_marked(e) || is_var(e)) {
-                continue;
-            }
+            if (mark.is_marked(e) || is_var(e)) 
+                continue;            
             mark.mark(e);
             if (is_quantifier(e)) {
                 todo.push_back(to_quantifier(e)->get_expr());
@@ -508,12 +497,10 @@ namespace qe {
             }
             SASSERT(is_app(e));
             app* a = to_app(e);
-            if (is_uninterp_const(a)) { // TBD generalize for uninterpreted functions.
-                vars.push_back(a);
-            }
-            for (expr* arg : *a) {
-                todo.push_back(arg);
-            }
+            if (is_uninterp_const(a))  // TBD generalize for uninterpreted functions.
+                vars.push_back(a);            
+            for (expr* arg : *a) 
+                todo.push_back(arg);            
         }
     }
 
@@ -929,6 +916,7 @@ namespace qe {
             SASSERT(validate_core(mdl, core));
             get_vars(m_level-1);
             SASSERT(validate_project(mdl, core));
+            mdl.set_inline();
             m_mbp(force_elim(), m_avars, mdl, core);
             TRACE("qe", tout << "aux vars: " << m_avars << "\n";);
             for (app* v : m_avars) m_pred_abs.ensure_expr_level(v, m_level-1);
