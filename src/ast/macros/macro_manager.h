@@ -47,6 +47,7 @@ class macro_manager {
     expr_dependency_ref_vector       m_macro_deps;
     obj_hashtable<func_decl>         m_forbidden_set;
     func_decl_ref_vector             m_forbidden;
+    obj_hashtable<func_decl>         m_unsafe_macros;
     struct scope {
         unsigned m_decls_lim;
         unsigned m_forbidden_lim;
@@ -86,7 +87,7 @@ public:
     quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = nullptr; m_decl2macro.find(f, q); return q; }
     void get_head_def(quantifier * q, func_decl * d, app * & head, expr_ref & def, bool& revert) const;
     void expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep);
-
+    obj_hashtable<func_decl>& unsafe_macros() { return m_unsafe_macros; }
 
 };
 

@@ -617,7 +617,7 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
    */
   mul(other: Arith<Name> | number | bigint | string): Arith<Name>;
   /**
-   * Substract second number from the first one
+   * Subtract second number from the first one
    */
   sub(other: Arith<Name> | number | bigint | string): Arith<Name>;
   /**
@@ -709,7 +709,7 @@ export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
 }
 
 /**
- * A Sort represting Bit Vector numbers of specified {@link BitVecSort.size size}
+ * A Sort representing Bit Vector numbers of specified {@link BitVecSort.size size}
  *
  * @typeParam Bits - A number representing amount of bits for this sort
  * @category Bit Vectors
@@ -878,42 +878,42 @@ export interface BitVec<Bits extends number = number, Name extends string = 'mai
 
   /**
    * Creates a signed less-or-equal operation (`<=`)
-   * @category Comparision
+   * @category Comparison
    */
   sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates an unsigned less-or-equal operation (`<=`)
-   * @category Comparision
+   * @category Comparison
    */
   ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates a signed less-than operation (`<`)
-   * @category Comparision
+   * @category Comparison
    */
   slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates an unsigned less-than operation (`<`)
-   * @category Comparision
+   * @category Comparison
    */
   ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates a signed greater-or-equal operation (`>=`)
-   * @category Comparision
+   * @category Comparison
    */
   sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates an unsigned greater-or-equal operation (`>=`)
-   * @category Comparision
+   * @category Comparison
    */
   uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates a signed greater-than operation (`>`)
-   * @category Comparision
+   * @category Comparison
    */
   sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
   /**
    * Creates an unsigned greater-than operation (`>`)
-   * @category Comparision
+   * @category Comparison
    */
   ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 

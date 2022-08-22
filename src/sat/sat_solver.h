@@ -527,20 +527,21 @@ namespace sat {
 
         unsigned m_conflicts_since_init { 0 };
         unsigned m_restarts { 0 };
-        unsigned m_restart_next_out { 0 };
-        unsigned m_conflicts_since_restart { 0 };
-        bool     m_force_conflict_analysis { false };
-        unsigned m_simplifications { 0 };
-        unsigned m_restart_threshold { 0 };
-        unsigned m_luby_idx { 0 };
-        unsigned m_conflicts_since_gc { 0 };
-        unsigned m_gc_threshold { 0 };
-        unsigned m_defrag_threshold { 0 };
-        unsigned m_num_checkpoints { 0 };
-        double   m_min_d_tk { 0 } ;
-        unsigned m_next_simplify { 0 };
-        bool     m_simplify_enabled { true };
-        bool     m_restart_enabled { true };
+        unsigned m_restart_next_out = 0;
+        unsigned m_conflicts_since_restart = 0;
+        bool     m_force_conflict_analysis = false;
+        unsigned m_simplifications = 0;
+        unsigned m_restart_threshold = 0;
+        unsigned m_luby_idx = 0;
+        unsigned m_conflicts_since_gc = 0;
+        unsigned m_gc_threshold = 0;
+        unsigned m_defrag_threshold = 0;
+        unsigned m_num_checkpoints = 0;
+        double   m_min_d_tk = 0.0 ;
+        unsigned m_next_simplify = 0;
+        double   m_simplify_mult = 1.5;
+        bool     m_simplify_enabled = true;
+        bool     m_restart_enabled = true;
         bool guess(bool_var next);
         bool decide();
         bool_var next_var();
@@ -713,7 +714,6 @@ namespace sat {
         //
         // -----------------------
     public:
-        void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
         bool_var_vector const& get_vars_to_reinit() const { return m_vars_to_reinit;  }
         bool is_probing() const { return m_is_probing; }
         bool is_free(bool_var v) const { return m_free_vars.contains(v); }

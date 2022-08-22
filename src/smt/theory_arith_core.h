@@ -561,17 +561,9 @@ namespace smt {
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
         th_rewriter & s  = ctx.get_rewriter();
         if (!m_util.is_zero(divisor)) {
-            auto mk_mul = [&](expr* a, expr* b) { 
-                if (m_util.is_mul(a)) {
-                    ptr_vector<expr> args(to_app(a)->get_num_args(), to_app(a)->get_args());
-                    args.push_back(b);
-                    return m_util.mk_mul(args.size(), args.data());
-                }
-                return m_util.mk_mul(a, b);
-            };
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
-            expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m), le(m), ge(m);
+            expr_ref eqz(m), eq(m), lower(m), upper(m), qr(m), qr1(m), le(m), ge(m);
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
@@ -579,7 +571,7 @@ namespace smt {
             abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
             s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
-            qr          = m_util.mk_add(mk_mul(divisor, div), mod);
+            qr          = m_util.mk_add(m_util.mk_mul(divisor, div), mod);
             eq          = m.mk_eq(qr, dividend);
             lower       = m_util.mk_ge(mod, zero);
             upper       = m_util.mk_le(mod, abs_divisor);
@@ -589,16 +581,27 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
-            le = m_util.mk_le(m_util.mk_sub(qr, dividend), zero);
-            ge = m_util.mk_ge(m_util.mk_sub(qr, dividend), zero);
-            mk_axiom(eqz, le, false);
-            mk_axiom(eqz, ge, false);
             mk_axiom(eqz, eq,    false);
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
+
             rational k;
 
-            // m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
+            m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
+
+            // non-linear divisors/mod have to be flattened for the non-linear solver to understand the terms.
+            // to ensure this use the rewriter. This is a hack required to fix a latent bug that affects the
+            // legacy arithmetic solver broadly. It is not something that the newer arithmetic solver suffers from.
+            qr1 = qr;
+            s(qr1);
+            if (qr != qr1) {
+                expr_ref eq(m.mk_eq(qr, qr1), m);
+                ctx.internalize(eq, false);
+                literal qeq = ctx.get_literal(eq);
+                ctx.mark_as_relevant(qeq);
+                ctx.mk_th_axiom(get_id(), 1, &qeq);
+                m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(qr1));                
+            }
 
             if (m_util.is_zero(dividend)) {
                 mk_axiom(eqz, m.mk_eq(div, zero));

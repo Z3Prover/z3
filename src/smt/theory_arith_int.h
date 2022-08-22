@@ -711,7 +711,7 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 if (is_fixed(it->m_var)) {
-                    // WARNINING: it is not safe to use get_value(it->m_var) here, since
+                    // WARNING: it is not safe to use get_value(it->m_var) here, since
                     // get_value(it->m_var) may not satisfy it->m_var bounds at this point.
                     numeral aux = lcm_den * it->m_coeff;
                     consts += aux * lower_bound(it->m_var).get_rational();

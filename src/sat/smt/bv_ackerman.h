@@ -51,13 +51,13 @@ namespace bv {
 
         solver&       s;
         table_t       m_table;
-        vv*           m_queue { nullptr };
-        vv*           m_tmp_vv { nullptr };
+        vv*           m_queue = nullptr;
+        vv*           m_tmp_vv = nullptr;
 
-        unsigned      m_gc_threshold { 100 };
-        unsigned      m_propagate_high_watermark { 10000 };
-        unsigned      m_propagate_low_watermark { 10 };
-        unsigned      m_num_propagations_since_last_gc { 0 };
+        unsigned      m_gc_threshold = 100;
+        unsigned      m_propagate_high_watermark = 10000;
+        unsigned      m_propagate_low_watermark = 10;
+        unsigned      m_num_propagations_since_last_gc = 0;
         bool_vector   m_diff_levels;
 
         void update_glue(vv& v);
