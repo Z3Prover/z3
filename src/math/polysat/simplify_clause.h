@@ -20,6 +20,8 @@ namespace polysat {
     class simplify_clause {
         solver& s;
 
+        bool try_unilinear_subsumption(clause& cl);
+
     public:
         simplify_clause(solver& s);
 

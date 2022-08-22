@@ -8,7 +8,7 @@ Module Name:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #pragma once
@@ -18,6 +18,7 @@ Author:
 namespace polysat {
 
     class signed_constraint;
+    class simplify_clause;
 
     class clause;
     using clause_ref = ref<clause>;
@@ -31,6 +32,7 @@ namespace polysat {
     //
     class clause {
         friend class constraint_manager;
+        friend class simplify_clause;
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         bool m_redundant = true;
@@ -57,7 +59,6 @@ namespace polysat {
 
         static clause_ref from_unit(signed_constraint c);
         static clause_ref from_literals(sat::literal_vector literals);
-
 
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
