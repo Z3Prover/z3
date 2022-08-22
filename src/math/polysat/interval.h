@@ -96,7 +96,7 @@ namespace polysat {
             else
                 return val < hi_val() || val >= lo_val();
         }
-        bool contains(eval_interval const& other) const {
+        bool currently_contains(eval_interval const& other) const {
             if (is_full())
                 return true;
             // lo <= lo' <= hi' <= hi'

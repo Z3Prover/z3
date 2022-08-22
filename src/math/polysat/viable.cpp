@@ -211,11 +211,11 @@ namespace polysat {
         else {
             entry* first = e;
             do {
-                if (e->interval.contains(ne->interval)) {
+                if (e->interval.currently_contains(ne->interval)) {
                     m_alloc.push_back(ne);
                     return false;
                 }
-                while (ne->interval.contains(e->interval)) {
+                while (ne->interval.currently_contains(e->interval)) {
                     entry* n = e->next();
                     remove_entry(e);
                     if (!m_units[v]) {
@@ -228,7 +228,7 @@ namespace polysat {
                 }             
                 SASSERT(e->interval.lo_val() != ne->interval.lo_val());
                 if (e->interval.lo_val() > ne->interval.lo_val()) {
-                    if (first->prev()->interval.contains(ne->interval)) {
+                    if (first->prev()->interval.currently_contains(ne->interval)) {
                         m_alloc.push_back(ne);
                         return false;
                     }
@@ -729,7 +729,7 @@ namespace polysat {
                 return false;
             
             auto* n = e->next();
-            if (n != e && e->interval.contains(n->interval)) 
+            if (n != e && e->interval.currently_contains(n->interval))
                 return false;
             
             if (n == first)
