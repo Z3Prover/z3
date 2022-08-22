@@ -536,15 +536,21 @@ public:
     void display_module_markdown(std::ostream & out, char const* module_name) {
         lock_guard lock(*gparams_mux);
         param_descrs * d = nullptr;
+
+        if (module_name == std::string("global")) {
+            out << "\n## Global Parameters\n\n";
+            get_param_descrs().display_markdown(out);
+            return;
+        }
         if (!get_module_param_descr(module_name, d)) {
             std::stringstream strm;
             strm << "unknown module '" << module_name << "'";                    
             throw exception(std::move(strm).str());
         }
-        out << "\n## Module " << module_name << "\n\n";
+        out << "\n## " << module_name << "\n\n";
         char const * descr = nullptr;
         if (get_module_descrs().find(module_name, descr)) 
-            out << "Description: " << descr << "\n";
+            out << descr << "\n";
         out << "\n";
         d->display_markdown(out);
     }

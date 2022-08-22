@@ -35,7 +35,7 @@ def help(ous):
     ous.write("Z3 Options\n")
     z3_exe = BUILD_DIR + "/z3"
     out = subprocess.Popen([z3_exe, "-pm"],stdout=subprocess.PIPE).communicate()[0]
-    modules = []
+    modules = ["global"]
     if out != None:
         out = out.decode(sys.stdout.encoding)
         module_re = re.compile(r"\[module\] (.*)\,")

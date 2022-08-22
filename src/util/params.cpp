@@ -194,9 +194,19 @@ struct param_descrs::imp {
                 out << " | " << d.m_kind << " ";
             else
                 out << " (" << d.m_kind << ")";
-            if (markdown)
+            if (markdown) {
                 out << " | ";
-            if (include_descr)
+                std::string desc;
+                for (auto ch : std::string(d.m_descr)) {
+                    switch (ch) {
+                    case '<': desc += "&lt;"; break;
+                    case '>': desc += "&gt;"; break;
+                    default: desc.push_back(ch);
+                    }
+                }
+                out << " " << desc;
+            }
+            else if (include_descr)
                 out << " " << d.m_descr;
             if (markdown) {
                 out << " | ";
