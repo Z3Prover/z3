@@ -40,7 +40,8 @@ namespace polysat {
         pdd r(m);
         v = p - p.offset();
         r = p - v;
-        if (p.leading_coefficient() < 0) {
+        auto const& lc = p.leading_coefficient();
+        if (mod(-lc, m.two_to_N()) < lc) {
             v = -v;
             r -= m.mk_var(max_var);
         }
