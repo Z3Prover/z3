@@ -541,11 +541,11 @@ def find_c_compiler():
     raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
-    global ASSEMBLY_VERSION,VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
+    global ASSEMBLY_VERSION, VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
 
     # We need to give the assembly a build specific version
     # global version overrides local default expression
-    if not ASSEMBLY_VERSION is None:
+    if ASSEMBLY_VERSION is not None:
         versionSplits = ASSEMBLY_VERSION.split('.')
         if len(versionSplits) > 3:
             VER_MAJOR = versionSplits[0]
@@ -1718,7 +1718,7 @@ class DotNetDLLComponent(Component):
 
         version = get_version_string(4)
 
-        print(f'Version output to csproj: {version}')
+        print(f"Version output to csproj: {version}")
 
         core_csproj_str = f"""<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>

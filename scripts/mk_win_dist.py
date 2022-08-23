@@ -63,7 +63,7 @@ def display_help():
     print("  -s, --silent                  do not print verbose messages.")
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
-    print("  --assembly-version             assembly version for dll")
+    print("  --assembly-version            assembly version for dll")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
@@ -136,9 +136,9 @@ def mk_build_dir(path, x64):
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnet')
-            if not DOTNET_KEY_FILE is None:
+            if DOTNET_KEY_FILE is not None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
-        if not ASSEMBLY_VERSION is None:
+        if ASSEMBLY_VERSION is not None:
             opts.append('--assembly-version='+ASSEMBLY_VERSION)
         if JAVA_ENABLED:
             opts.append('--java')

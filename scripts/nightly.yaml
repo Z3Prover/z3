@@ -8,7 +8,6 @@ variables:
 stages:
 - stage: Build
   jobs:
-  
   - job: Mac
     displayName: "Mac Build"
     pool:
@@ -23,7 +22,6 @@ stages:
         artifactName: 'Mac'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-
   - job: MacArm64
     displayName: "Mac ARM64 Build"
     pool:
@@ -36,7 +34,6 @@ stages:
       inputs:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
-
 
   - job: Ubuntu
     displayName: "Ubuntu build"
@@ -123,7 +120,6 @@ stages:
 #      inputs:
 #        artifactName: '$(name)Build'
 #        targetPath: $(Build.ArtifactStagingDirectory)
-
 
   - job: Windows32
     displayName: "Windows 32-bit build"
