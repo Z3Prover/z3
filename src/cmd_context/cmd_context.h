@@ -191,6 +191,22 @@ public:
         ~scoped_watch() { m_ctx.m_watch.stop(); }
     };
 
+    struct scoped_redirect {
+        cmd_context& m_ctx;
+        std::ostream& m_verbose;
+        std::ostream* m_warning;
+
+        scoped_redirect(cmd_context& ctx): m_ctx(ctx), m_verbose(verbose_stream()), m_warning(warning_stream()) {
+            set_warning_stream(&(*m_ctx.m_diagnostic));
+            set_verbose_stream(m_ctx.diagnostic_stream());
+        }
+
+        ~scoped_redirect() {
+            set_verbose_stream(m_verbose);
+            set_warning_stream(m_warning);
+        }
+    };
+
     
 
 protected:

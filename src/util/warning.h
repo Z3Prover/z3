@@ -28,6 +28,8 @@ void set_error_stream(std::ostream* strm);
 
 void set_warning_stream(std::ostream* strm);
 
+std::ostream* warning_stream();
+
 void warning_msg(const char * msg, ...);
 
 void format2ostream(std::ostream& out, char const* fmt, va_list args);

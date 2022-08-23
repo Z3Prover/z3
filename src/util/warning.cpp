@@ -83,6 +83,10 @@ void set_warning_stream(std::ostream* strm) {
     g_warning_stream = strm;
 }
 
+std::ostream* warning_stream() {
+    return g_warning_stream;
+}
+
 void format2ostream(std::ostream & out, char const* msg, va_list args) {
     svector<char>  buff;
     BEGIN_ERR_HANDLER();
