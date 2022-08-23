@@ -91,9 +91,9 @@ struct smt_params : public preprocessor_params,
     unsigned         m_relevancy_lvl = 2;
     bool             m_relevancy_lemma = false;
     unsigned         m_random_seed = 0;
-    double           m_random_var_freq = 1.052;
-    double           m_inv_decay = 1;
-    unsigned         m_clause_decay;
+    double           m_random_var_freq = 0.01;
+    double           m_inv_decay = 1.052;
+    unsigned         m_clause_decay = 1;
     initial_activity m_random_initial_activity = initial_activity::IA_RANDOM_WHEN_SEARCHING;
     phase_selection  m_phase_selection = phase_selection::PS_CACHING_CONSERVATIVE;
     unsigned         m_phase_caching_on = 700;
