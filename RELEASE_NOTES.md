@@ -13,7 +13,7 @@ Version 4.next
 Version 4.11.1
 ==============
 - add error handling to fromString method in JavaScript
-- fix regression in default parameters for CDCL.
+- fix regression in default parameters for CDCL (Nuno Lopes)
 
 Version 4.11.0
 ==============
