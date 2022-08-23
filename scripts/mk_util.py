@@ -1718,9 +1718,9 @@ class DotNetDLLComponent(Component):
 
         version = get_version_string(4)
 
-        print(f"Version output to csproj: {version}");
+        print(f'Version output to csproj: {version}')
 
-        core_csproj_str = f"""<Project Sdk="Microsoft.NET.Sdk">
+        core_csproj_str = f'""<Project Sdk="Microsoft.NET.Sdk">'
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
