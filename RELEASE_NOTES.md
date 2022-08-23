@@ -10,6 +10,11 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.11.1
+==============
+- add error handling to fromString method in JavaScript
+- fix regression in default parameters for CDCL.
+
 Version 4.11.0
 ==============
 - remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
@@ -23,7 +28,7 @@ Version 4.11.0
   - it allows to apply incremental pre-processing of bit-vectors by identifying ranges that are known to be constant.
     This rewrite is beneficial, for instance, when bit-vectors are constrained to have many high-level bits set to 0.
 - add feature to model-based projection for arithmetic to handle integer division.
-- add from_string method to JavaScript solver object.
+- add fromString method to JavaScript solver object.
 
 Version 4.10.2
 ==============
