@@ -139,7 +139,7 @@ def mk_build_dir(path, x64):
             if DOTNET_KEY_FILE is not None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
         if ASSEMBLY_VERSION is not None:
-            opts.append('--assembly-version='+ASSEMBLY_VERSION)
+            opts.append('--assembly-version=' + ASSEMBLY_VERSION)
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
