@@ -35,6 +35,7 @@ namespace sat {
             if (s.get_config().m_drat_binary) 
                 std::swap(m_out, m_bout);            
         }
+        m_print_clause = nullptr;
     }
 
     drat::~drat() {
