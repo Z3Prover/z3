@@ -355,8 +355,7 @@ namespace euf {
             if (m_relevancy.enabled())
                 m_relevancy.propagate();
             if (m_egraph.inconsistent()) {  
-                unsigned lvl = s().scope_lvl();
-                s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
+                set_conflict(conflict_constraint().to_index());
                 return true;
             }
             bool propagated1 = false;

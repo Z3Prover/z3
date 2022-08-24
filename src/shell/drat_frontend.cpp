@@ -250,13 +250,14 @@ public:
 
            
             std::cout << "p hint verified\n";
+            return true;
             break;
         }
         default:
             UNREACHABLE();
             break;
         }
-        return true;
+        return false;
     }
 
     /**
@@ -459,7 +460,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         std::cout.flush();
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause: {
-            bool validated = false && checker.validate_hint(exprs, r.m_lits, r.m_hint);
+            bool validated = checker.validate_hint(exprs, r.m_lits, r.m_hint);
             checker.add(r.m_lits, r.m_status, validated);
             if (drat_checker.inconsistent()) {
                 std::cout << "inconsistent\n";

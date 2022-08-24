@@ -372,21 +372,18 @@ namespace q {
     }
 
     void ematch::propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx) {
-        if (is_conflict) {
+        if (is_conflict) 
             ++m_stats.m_num_conflicts;
-            ctx.set_conflict(j_idx);
-        }
-        else {
+        else
             ++m_stats.m_num_propagations;
-            auto& j = justification::from_index(j_idx);
-            sat::literal_vector lits;
-            lits.push_back(~j.m_clause.m_literal);
-            for (unsigned i = 0; i < j.m_clause.size(); ++i) 
-                lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i]));            
-            m_qs.log_instantiation(lits);
-            m_qs.add_clause(lits);
-        }
-        
+
+        auto& j = justification::from_index(j_idx);
+        sat::literal_vector lits;
+        lits.push_back(~j.m_clause.m_literal);
+        for (unsigned i = 0; i < j.m_clause.size(); ++i) 
+            lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i]));            
+        m_qs.log_instantiation(lits);
+        m_qs.add_clause(lits);               
     }
 
     bool ematch::flush_prop_queue() {
