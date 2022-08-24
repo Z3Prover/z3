@@ -195,22 +195,31 @@ namespace euf {
     }
 
     void solver::log_clause(unsigned n, literal const* lits, sat::status st) {
-        if (get_config().m_lemmas2console) {
-            std::function<symbol(int)> ppth = [&](int th) {
-                return m.get_family_name(th);
-            };
-            if (st.is_redundant() || st.is_asserted()) {
-                expr_ref_vector clause(m);
-                for (unsigned i = 0; i < n; ++i) {
-                    expr_ref e = literal2expr(lits[i]);
-                    if (!e)
-                        return;
-                    clause.push_back(e);
-                }
-                expr_ref cl = mk_or(clause);
-                std::cout << sat::status_pp(st, ppth) << " " << cl << "\n";
-            }
+        if (!get_config().m_lemmas2console) 
+            return;
+        if (!st.is_redundant() && !st.is_asserted()) 
+            return;
+        std::function<symbol(int)> ppth = [&](int th) {
+            return m.get_family_name(th);
+        };
+        
+        expr_ref_vector clause(m);
+        for (unsigned i = 0; i < n; ++i) {
+            expr_ref e = literal2expr(lits[i]);
+            if (!e)
+                return;
+            clause.push_back(e);
+            m_clause_visitor.collect(e);
         }
+        m_clause_visitor.display_skolem_decls(std::cout);
+        for (expr* e : clause)
+            m_clause_visitor.define_expr(std::cout, e);
+        if (!st.is_sat())
+            std::cout << "; " << sat::status_pp(st, ppth) << "\n";
+        std::cout << "(assert (or";
+        for (expr* e : clause) 
+            std::cout << " $" << e->get_id();
+        std::cout << "))\n";
     }
 
 }

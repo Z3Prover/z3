@@ -49,7 +49,8 @@ namespace euf {
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_values(m)
+        m_values(m),
+        m_clause_visitor(m)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
