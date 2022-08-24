@@ -71,6 +71,7 @@ namespace q {
         for (auto const& [qlit, fml, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ctx.mk_literal(fml);
+            m_qs.log_instantiation(~qlit, ~lit);
             m_qs.add_clause(~qlit, ~lit);
         }
         m_instantiations.reset();

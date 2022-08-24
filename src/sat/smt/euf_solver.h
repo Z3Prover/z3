@@ -182,6 +182,7 @@ namespace euf {
         obj_hashtable<ast> m_drat_asts;
         bool m_drat_initialized{ false };
         void init_drat();
+        void log_clause(unsigned n, literal const* lits, sat::status st);
 
         // relevancy
         //bool_vector m_relevant_expr_ids;

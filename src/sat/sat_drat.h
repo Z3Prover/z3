@@ -92,6 +92,8 @@ namespace sat {
         bool                    m_trim = false;
         stats                   m_stats;
 
+        std::function<void(unsigned, literal const*, status)> m_print_clause;
+
         void dump_activity();
         void dump(unsigned n, literal const* c, status st);
         void bdump(unsigned n, literal const* c, status st);
@@ -137,6 +139,10 @@ namespace sat {
         void add(literal_vector const& c, status st);
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
+
+        void set_print_clause(std::function<void(unsigned, literal const*, status)>& print_clause) {
+            m_print_clause = print_clause;
+        }
 
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v

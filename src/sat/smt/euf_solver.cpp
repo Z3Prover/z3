@@ -169,6 +169,14 @@ namespace euf {
         TRACE("before_search", s().display(tout););
         for (auto* s : m_solvers)
             s->init_search();
+
+        if (get_config().m_lemmas2console) {
+            std::function<void(unsigned, sat::literal const*, sat::status)> on_clause = 
+                [&](unsigned n, sat::literal const* lits, sat::status st) {
+                log_clause(n, lits, st);
+            };
+            get_drat().set_print_clause(on_clause);
+        }
     }
 
     bool solver::is_external(bool_var v) {

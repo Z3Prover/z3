@@ -379,9 +379,14 @@ namespace q {
         else {
             ++m_stats.m_num_propagations;
             auto& j = justification::from_index(j_idx);
-            auto lit = instantiate(j.m_clause, j.m_binding, j.m_clause[idx]);
-            ctx.propagate(lit, j_idx);
+            sat::literal_vector lits;
+            lits.push_back(~j.m_clause.m_literal);
+            for (unsigned i = 0; i < j.m_clause.size(); ++i) 
+                lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i]));            
+            m_qs.log_instantiation(lits);
+            m_qs.add_clause(lits);
         }
+        
     }
 
     bool ematch::flush_prop_queue() {
@@ -408,6 +413,7 @@ namespace q {
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
         m_evidence.reset();
         ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
+        m_qs.log_instantiation(~c.m_literal, lit);
     }
 
     sat::literal ematch::instantiate(clause& c, euf::enode* const* binding, lit const& l) {

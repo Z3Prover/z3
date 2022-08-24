@@ -27,7 +27,7 @@ def init_project_def():
     add_lib('params', ['util'])
     add_lib('smt_params', ['params'], 'smt/params')
     add_lib('grobner', ['ast', 'dd', 'simplex'], 'math/grobner')    
-    add_lib('sat', ['util', 'dd', 'grobner'])    
+    add_lib('sat', ['params', 'util', 'dd', 'grobner'])    
     add_lib('nlsat', ['polynomial', 'sat'])
     add_lib('lp', ['util', 'nlsat', 'grobner', 'interval', 'smt_params'], 'math/lp')
     add_lib('rewriter', ['ast', 'polynomial', 'automata', 'params'], 'ast/rewriter')

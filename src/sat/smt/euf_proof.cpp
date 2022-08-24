@@ -16,6 +16,8 @@ Author:
 --*/
 
 #include "sat/smt/euf_solver.h"
+#include "ast/ast_util.h"
+#include <iostream>
 
 namespace euf {
 
@@ -190,6 +192,25 @@ namespace euf {
         get_drat().def_add_arg(b->get_id());
         get_drat().def_end();
         get_drat().bool_def(lit.var(), eq->get_id());
+    }
+
+    void solver::log_clause(unsigned n, literal const* lits, sat::status st) {
+        if (get_config().m_lemmas2console) {
+            std::function<symbol(int)> ppth = [&](int th) {
+                return m.get_family_name(th);
+            };
+            if (st.is_redundant() || st.is_asserted()) {
+                expr_ref_vector clause(m);
+                for (unsigned i = 0; i < n; ++i) {
+                    expr_ref e = literal2expr(lits[i]);
+                    if (!e)
+                        return;
+                    clause.push_back(e);
+                }
+                expr_ref cl = mk_or(clause);
+                std::cout << sat::status_pp(st, ppth) << " " << cl << "\n";
+            }
+        }
     }
 
 }

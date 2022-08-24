@@ -356,4 +356,7 @@ namespace q {
         m_ematch.get_antecedents(l, idx, r, probing);
     }
 
+    void solver::log_instantiation(unsigned n, sat::literal const* lits) {
+        TRACE("q", for (unsigned i = 0; i < n; ++i) tout << literal2expr(lits[i]) << "\n";);
+    }
 }
