@@ -111,7 +111,7 @@ namespace polysat {
                     continue;
                 if (e.interval.currently_contains(f.interval)) {
                     // f subset of e  ==>  f.src subsumes e.src
-                    LOG("Literal " << s.lit2cnstr(cl[i]) << " subsumed by " << s.lit2cnstr(cl[j]) << "\n");
+                    LOG("Literal " << s.lit2cnstr(cl[i]) << " subsumed by " << s.lit2cnstr(cl[j]));
                     e.subsumed = true;
                     any_subsumed = true;
                     break;
