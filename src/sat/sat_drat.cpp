@@ -35,7 +35,7 @@ namespace sat {
             if (s.get_config().m_drat_binary) 
                 std::swap(m_out, m_bout);            
         }
-        m_print_clause = nullptr;
+        // m_print_clause = nullptr;
     }
 
     drat::~drat() {
@@ -691,7 +691,7 @@ namespace sat {
         if (m_out) dump(1, &l, st);
         if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
-        if (m_print_clause) m_print_clause(1, &l, st);
+        //if (m_print_clause) m_print_clause(1, &l, st);
     }
     void drat::add(literal l1, literal l2, status st) {
         if (st.is_deleted())
@@ -702,7 +702,7 @@ namespace sat {
         if (m_out) dump(2, ls, st);
         if (m_bout) bdump(2, ls, st);
         if (m_check) append(l1, l2, st);
-        if (m_print_clause) m_print_clause(2, ls, st);
+        //if (m_print_clause) m_print_clause(2, ls, st);
     }
     void drat::add(clause& c, status st) {
         if (st.is_deleted())
@@ -712,7 +712,7 @@ namespace sat {
         if (m_out) dump(c.size(), c.begin(), st);
         if (m_bout) bdump(c.size(), c.begin(), st);
         if (m_check) append(mk_clause(c), st);
-        if (m_print_clause) m_print_clause(c.size(), c.begin(), st);
+        //if (m_print_clause) m_print_clause(c.size(), c.begin(), st);
     }
     
     void drat::add(literal_vector const& lits, status st) {
@@ -734,8 +734,7 @@ namespace sat {
         if (m_out)
             dump(sz, lits, st);
 
-        if (m_print_clause) 
-            m_print_clause(sz, lits, st);
+        //if (m_print_clause) m_print_clause(sz, lits, st);
     }
 
     void drat::add(literal_vector const& c) {
@@ -755,8 +754,7 @@ namespace sat {
             }
             }
         }
-        if (m_print_clause)
-            m_print_clause(c.size(), c.data(), status::redundant());
+        // if (m_print_clause) m_print_clause(c.size(), c.data(), status::redundant());
     }
 
     void drat::del(literal l) {

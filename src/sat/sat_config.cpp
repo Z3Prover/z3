@@ -32,7 +32,7 @@ namespace sat {
 
     void config::updt_params(params_ref const & _p) {
         sat_params p(_p);
-        solver_params sp(_p);
+        // solver_params sp(_p);
 
         m_max_memory  = megabytes_to_bytes(p.max_memory());
 
@@ -197,7 +197,7 @@ namespace sat {
         m_drat_check_unsat  = p.drat_check_unsat();
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
-        m_drat            = !p.drat_disable() && (sp.lemmas2console() || m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
+        m_drat            = !p.drat_disable() && (/*sp.lemmas2console() || */ m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
         m_drup_trim       = p.drup_trim();
