@@ -419,6 +419,7 @@ namespace opt {
     }
 
     void model_based_opt::retire_row(unsigned row_id) {
+        SASSERT(!m_retired_rows.contains(row_id));
         m_rows[row_id].m_alive = false;
         m_retired_rows.push_back(row_id);
     }
