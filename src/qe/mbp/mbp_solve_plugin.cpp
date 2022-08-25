@@ -376,7 +376,7 @@ namespace mbp {
                     rhs = m_bv.mk_concat(2, args);
                 }
                 else if (lo > 0 && hi + 1 == sz) {
-                    expr* args[3] = { rhs, m_bv.mk_extract(lo - 1, 0, e) };
+                    expr* args[2] = { rhs, m_bv.mk_extract(lo - 1, 0, e) };
                     rhs = m_bv.mk_concat(2, args);                    
                 }
                 else {
@@ -384,6 +384,15 @@ namespace mbp {
                 }
                 return true;
             }
+#if 0
+            expr *f = nullptr
+            // this one is for Nuno to find and generalize for invertible expressions
+            if (m_bv.is_bv_add(lhs, e, f) && is_variable(e)) {
+                lhs = e;
+                rhs = m_bv.mk_bv_sub(rhs, f);
+                return true;
+            }
+#endif
             return false;
         }
     public:
