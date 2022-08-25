@@ -73,7 +73,7 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
-        // std::function<void(unsigned, literal const*, status)> m_print_clause;
+        std::function<void(unsigned, literal const*, status)> m_print_clause;
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
