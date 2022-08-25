@@ -175,6 +175,7 @@ struct smt_params : public preprocessor_params,
     // -----------------------------------
     bool              m_axioms2files = false;
     bool              m_lemmas2console = false;
+    bool              m_instantiations2console = false;
     symbol            m_logic = symbol::null;
 
     // -----------------------------------

@@ -31,14 +31,14 @@ class ast_pp_util {
     stacked_value<unsigned> m_decls;
     stacked_value<unsigned> m_sorts;
     expr_mark               m_is_defined;
-    ptr_vector<expr>        m_defined;
+    expr_ref_vector         m_defined;
     unsigned_vector         m_defined_lim;
 
  public:
 
     decl_collector      coll;
-
-    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), coll(m) {}
+    
+    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), coll(m), m_defined(m) {}
 
     void reset() { coll.reset(); m_removed.reset(); m_sorts.clear(0u); m_decls.clear(0u); m_rec_decls.clear(0u); 
         m_is_defined.reset(); m_defined.reset(); m_defined_lim.reset(); }
@@ -64,6 +64,8 @@ class ast_pp_util {
     std::ostream& display_expr(std::ostream& out, expr* f, bool neat = true);
 
     std::ostream& define_expr(std::ostream& out, expr* f);
+
+    std::ostream& display_expr_def(std::ostream& out, expr* f);
 
     void push();
 

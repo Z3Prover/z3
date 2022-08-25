@@ -139,9 +139,16 @@ void ast_pp_util::pop(unsigned n) {
     m_sorts.pop(n);
     unsigned old_sz = m_defined_lim[m_defined_lim.size() - n];
     for (unsigned i = m_defined.size(); i-- > old_sz; ) 
-        m_is_defined.mark(m_defined[i], false);
+        m_is_defined.mark(m_defined.get(i), false);
     m_defined.shrink(old_sz);
     m_defined_lim.shrink(m_defined_lim.size() - n);
+}
+
+std::ostream& ast_pp_util::display_expr_def(std::ostream& out, expr* n) {
+    if (is_app(n) && to_app(n)->get_num_args() == 0)
+        return out << mk_pp(n, m);
+    else
+        return out << "$" << n->get_id();
 }
 
 std::ostream& ast_pp_util::define_expr(std::ostream& out, expr* n) {
@@ -166,13 +173,11 @@ std::ostream& ast_pp_util::define_expr(std::ostream& out, expr* n) {
             m_defined.push_back(n);
             m_is_defined.mark(n, true);
             visit.pop_back();
-            if (to_app(n)->get_num_args() == 0) 
-                out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " " << mk_pp(n, m) << "\n";                
-            else {
+            if (to_app(n)->get_num_args() > 0) {
                 out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " (";            
                 out << to_app(n)->get_name(); // fixme
                 for (auto* e : *to_app(n)) 
-                    out << " $" << e->get_id(); 
+                    display_expr_def(out << " ", e);
                 out << ")\n";
             }
             continue;

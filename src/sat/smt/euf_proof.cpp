@@ -199,27 +199,51 @@ namespace euf {
             return;
         if (!st.is_redundant() && !st.is_asserted()) 
             return;
+
+        
+        if (!visit_clause(n, lits))
+            return;
+
         std::function<symbol(int)> ppth = [&](int th) {
             return m.get_family_name(th);
         };
-        
-        expr_ref_vector clause(m);
-        for (unsigned i = 0; i < n; ++i) {
-            expr_ref e = literal2expr(lits[i]);
-            if (!e)
-                return;
-            clause.push_back(e);
-            m_clause_visitor.collect(e);
-        }
-        m_clause_visitor.display_skolem_decls(std::cout);
-        for (expr* e : clause)
-            m_clause_visitor.define_expr(std::cout, e);
         if (!st.is_sat())
             std::cout << "; " << sat::status_pp(st, ppth) << "\n";
+
+        display_clause(n, lits);
+    }
+
+
+    bool solver::visit_clause(unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            expr* e = bool_var2expr(lits[i].var());
+            if (!e)
+                return false;
+            visit_expr(e);
+        }
+        return true;
+    }
+
+    void solver::display_clause(unsigned n, literal const* lits) {
         std::cout << "(assert (or";
-        for (expr* e : clause) 
-            std::cout << " $" << e->get_id();
+        for (unsigned i = 0; i < n; ++i) {
+            expr* e = bool_var2expr(lits[i].var());
+            if (lits[i].sign())
+                m_clause_visitor.display_expr_def(std::cout << " (not ", e) << ")";
+            else
+                m_clause_visitor.display_expr_def(std::cout << " ", e);
+        }
         std::cout << "))\n";
+    }
+
+    void solver::visit_expr(expr* e) {
+        m_clause_visitor.collect(e);
+        m_clause_visitor.display_skolem_decls(std::cout);
+        m_clause_visitor.define_expr(std::cout, e);
+    }
+
+    void solver::display_expr(expr* e) {
+        m_clause_visitor.display_expr_def(std::cout, e);
     }
 
 }

@@ -185,6 +185,7 @@ namespace euf {
         ast_pp_util m_clause_visitor;
         void log_clause(unsigned n, literal const* lits, sat::status st);
 
+
         // relevancy
         //bool_vector m_relevant_expr_ids;
         //bool_vector m_relevant_visited;
@@ -348,6 +349,10 @@ namespace euf {
         void drat_bool_def(sat::bool_var v, expr* n);
         void drat_eq_def(sat::literal lit, expr* eq);
         void drat_log_expr(expr* n);
+        bool visit_clause(unsigned n, literal const* lits);
+        void display_clause(unsigned n, literal const* lits);
+        void visit_expr(expr* e);
+        void display_expr(expr* e);
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
