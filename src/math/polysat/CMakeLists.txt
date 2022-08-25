@@ -8,6 +8,7 @@ z3_add_component(polysat
     eq_explain.cpp
     explain.cpp
     forbidden_intervals.cpp
+    inference_logger.cpp
     justification.cpp
     linear_solver.cpp
     log.cpp
