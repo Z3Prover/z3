@@ -242,6 +242,7 @@ namespace polysat {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         signed_constraint c = lit2cnstr(lit);
         SASSERT(c);
+        // TODO: review active and activate_constraint
         if (c->is_active())
             return;
         activate_constraint(c);
@@ -296,8 +297,9 @@ namespace polysat {
         }
         // at most one poly variable remains unassigned.
         if (m_bvars.is_assigned(c->bvar())) {
-            // constraint is active, propagate it
-            SASSERT(c->is_active());
+            // constraint state: bool-propagated
+            // // constraint is active, propagate it
+            // SASSERT(c->is_active());   // TODO: what exactly does 'active' mean now ... use 'pwatched' and similar instead, to make meaning explicit?
             signed_constraint sc(c, m_bvars.value(c->bvar()) == l_true);
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
@@ -306,8 +308,9 @@ namespace polysat {
             }
             sc.narrow(*this, false);
         } else {
-            // constraint is not yet active, try to evaluate it
-            SASSERT(!c->is_active());
+            // constraint state: active but unassigned (bvalue undef, but pwatch is set and active; e.g., new constraints generated for lemmas)
+            // // constraint is not yet active, try to evaluate it
+            // SASSERT(!c->is_active());
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
                 // Wait for the remaining variable to be assigned
@@ -427,8 +430,10 @@ namespace polysat {
             m_free_pvars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
         }
-        else 
-            set_conflict(c);
+        else {
+            UNREACHABLE();
+            // set_conflict(c);
+        }
     }
 
     void solver::push_level() {
@@ -834,7 +839,6 @@ namespace polysat {
         SASSERT(!lemma.empty());
         m_simplify_clause.apply(lemma);
         add_clause(lemma);
-        // TODO: add pwatch?
     }
 
     /**
@@ -943,6 +947,7 @@ namespace polysat {
         if (!clause.is_redundant()) {
             // for (at least) non-redundant clauses, we also need to watch the constraints
             // so we can discover when the clause should propagate
+            // TODO: check if we also need pwatch for redundant clauses
             for (sat::literal lit : clause)
                 add_pwatch(m_constraints.lookup(lit.var()));
         }
