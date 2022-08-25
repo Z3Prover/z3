@@ -4,6 +4,7 @@ z3_add_component(polysat
     clause.cpp
     clause_builder.cpp
     conflict.cpp
+    conflict2.cpp
     constraint.cpp
     eq_explain.cpp
     explain.cpp
