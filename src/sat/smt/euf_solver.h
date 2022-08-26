@@ -60,7 +60,7 @@ namespace euf {
         std::ostream& display(std::ostream& out) const;
     };
 
-    class solver : public sat::extension, public th_internalizer, public th_decompile {
+    class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::print_clause {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
         class user_sort;
@@ -183,7 +183,10 @@ namespace euf {
         bool m_drat_initialized{ false };
         void init_drat();
         ast_pp_util m_clause_visitor;
-        void log_clause(unsigned n, literal const* lits, sat::status st);
+        void on_clause(unsigned n, literal const* lits, sat::status st) override;
+        void def_add_arg(unsigned arg);
+        void def_end();
+        void def_begin(char id, unsigned n, std::string const& name);
 
 
         // relevancy

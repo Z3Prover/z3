@@ -29,6 +29,18 @@ namespace euf {
         m_drat_initialized = true;
     }
 
+    void solver::def_add_arg(unsigned arg) {
+        get_drat().def_add_arg(arg);
+    }
+
+    void solver::def_end() {
+        get_drat().def_end();
+    }
+
+    void solver::def_begin(char id, unsigned n, std::string const& name) {
+        get_drat().def_begin(id, n, name);
+    }
+
     void solver::drat_log_params(func_decl* f) {
         for (unsigned i = f->get_num_parameters(); i-- > 0; ) {
             auto const& p = f->get_parameter(i);
@@ -39,6 +51,7 @@ namespace euf {
                 drat_log_decl(to_func_decl(a));
         }
     }
+    
     void solver::drat_log_expr1(expr* e) {
         if (is_app(e)) {
             app* a = to_app(e);
@@ -48,14 +61,14 @@ namespace euf {
             strm << mk_ismt2_func(a->get_decl(), m);
             get_drat().def_begin('e', e->get_id(), strm.str());
             for (expr* arg : *a)
-                get_drat().def_add_arg(arg->get_id());
-            get_drat().def_end();
+                def_add_arg(arg->get_id());
+            def_end();
         }
         else if (is_var(e)) {
             var* v = to_var(e);
             get_drat().def_begin('v', v->get_id(), "" + mk_pp(e->get_sort(), m));
-            get_drat().def_add_arg(v->get_idx());
-            get_drat().def_end();
+            def_add_arg(v->get_idx());
+            def_end();
         }
         else if (is_quantifier(e)) {
             quantifier* q = to_quantifier(e);
@@ -65,8 +78,8 @@ namespace euf {
                 strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";            
             strm << ")";
             get_drat().def_begin('q', q->get_id(), strm.str());
-            get_drat().def_add_arg(q->get_expr()->get_id());
-            get_drat().def_end();
+            def_add_arg(q->get_expr()->get_id());
+            def_end();
         }
         else 
             UNREACHABLE();
@@ -118,7 +131,7 @@ namespace euf {
         smt2_pp_environment_dbg env(m);
         ast_smt2_pp(strm, f, env);
         get_drat().def_begin('f', f->get_small_id(), strm.str());
-        get_drat().def_end();
+        def_end();
     }
 
     /**
@@ -188,13 +201,13 @@ namespace euf {
         drat_log_expr(a);
         drat_log_expr(b);
         get_drat().def_begin('e', eq->get_id(), std::string("="));
-        get_drat().def_add_arg(a->get_id());
-        get_drat().def_add_arg(b->get_id());
-        get_drat().def_end();
+        def_add_arg(a->get_id());
+        def_add_arg(b->get_id());
+        def_end();
         get_drat().bool_def(lit.var(), eq->get_id());
     }
 
-    void solver::log_clause(unsigned n, literal const* lits, sat::status st) {
+    void solver::on_clause(unsigned n, literal const* lits, sat::status st) {
         if (!get_config().m_lemmas2console) 
             return;
         if (!st.is_redundant() && !st.is_asserted()) 

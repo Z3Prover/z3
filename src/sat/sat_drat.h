@@ -60,6 +60,10 @@ namespace sat {
     class justification;
     class clause;
 
+    struct print_clause {
+        virtual void on_clause(unsigned, literal const*, status) = 0;
+    };
+
     class drat {
         struct stats {
             unsigned m_num_drup = 0;
@@ -73,7 +77,7 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
-        std::function<void(unsigned, literal const*, status)> m_print_clause;
+        print_clause* m_print_clause = nullptr;
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
@@ -140,8 +144,8 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        void set_print_clause(std::function<void(unsigned, literal const*, status)>& print_clause) {
-            // m_print_clause = print_clause;
+        void set_print_clause(print_clause& print_clause) {
+            m_print_clause = &print_clause;
         }
 
         // support for SMT - connect Boolean variables with AST nodes
