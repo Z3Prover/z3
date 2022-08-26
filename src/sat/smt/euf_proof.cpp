@@ -30,19 +30,27 @@ namespace euf {
     }
 
     void solver::def_add_arg(unsigned arg) {
-        get_drat().def_add_arg(arg);
+        auto* out = get_drat().out();
+        if (out)
+            (*out) << " " << arg;
     }
 
     void solver::def_end() {
-        get_drat().def_end();
+        auto* out = get_drat().out();
+        if (out)
+            (*out) << " 0\n";
     }
 
     void solver::def_begin(char id, unsigned n, std::string const& name) {
-        get_drat().def_begin(id, n, name);
+        auto* out = get_drat().out();
+        if (out)
+            (*out) << id << " " << n << " " << name;
     }
 
     void solver::bool_def(bool_var v, unsigned n) {
-        get_drat().bool_def(v, n);
+        auto* out = get_drat().out();
+        if (out)
+            (*out) << "b " << v << " " << n << " 0\n";
     }
 
 

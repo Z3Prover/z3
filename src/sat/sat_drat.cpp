@@ -255,31 +255,6 @@ namespace sat {
         }
     }
 
-    void drat::bool_def(bool_var v, unsigned n) {
-        if (m_out)
-            (*m_out) << "b " << v << " " << n << " 0\n";
-    }
-
-    void drat::def_begin(char id, unsigned n, std::string const& name) {
-        if (m_out) 
-            (*m_out) << id << " " << n << " " << name;
-    }
-
-    void drat::def_add_arg(unsigned arg) {
-        if (m_out)
-            (*m_out) << " " << arg;
-    }
-
-    void drat::def_end() {
-        if (m_out)
-            (*m_out) << " 0\n";
-    }
-
-    void drat::log_adhoc(std::function<void(std::ostream&)>& fn) {
-        if (m_out)
-            fn(*m_out);
-    }
-
     void drat::append(clause& c, status st) {
         TRACE("sat_drat", pp(tout, st) << " " << c << "\n";);
         for (literal lit : c) declare(lit);
