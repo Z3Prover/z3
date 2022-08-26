@@ -352,6 +352,7 @@ namespace euf {
         void drat_bool_def(sat::bool_var v, expr* n);
         void drat_eq_def(sat::literal lit, expr* eq);
         void drat_log_expr(expr* n);
+        void bool_def(bool_var v, unsigned n);
         bool visit_clause(unsigned n, literal const* lits);
         void display_clause(unsigned n, literal const* lits);
         void visit_expr(expr* e);

@@ -61,7 +61,8 @@ namespace sat {
     class clause;
 
     struct print_clause {
-        virtual void on_clause(unsigned, literal const*, status) = 0;
+        virtual ~print_clause() {}
+        virtual void on_clause(unsigned, literal const*, status) = 0;        
     };
 
     class drat {
@@ -150,12 +151,12 @@ namespace sat {
 
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v
-        void bool_def(bool_var v, unsigned n);
 
         // declare AST node n with 'name' and arguments arg
         void def_begin(char id, unsigned n, std::string const& name);
         void def_add_arg(unsigned arg);
         void def_end();
+        void bool_def(bool_var v, unsigned n);
 
         // ad-hoc logging until a format is developed
         void log_adhoc(std::function<void(std::ostream&)>& fn);
