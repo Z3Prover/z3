@@ -599,6 +599,8 @@ namespace smt {
         TRACE("bv", tout << mk_bounded_pp(n, m) << "\n";);
         process_args(n);
         mk_enode(n);
+        m_bv2int.push_back(ctx.get_enode(n));
+        ctx.push_trail(push_back_vector<enode_vector>(m_bv2int));
         if (!ctx.relevancy()) 
             assert_bv2int_axiom(n);
     }
@@ -1496,12 +1498,10 @@ namespace smt {
         unsigned sz  = m_bits[v1].size();
         bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
-        if (sz == 0) {
+        if (sz == 0 && !m_bv2int.empty()) {
             // int2bv(bv2int(x)) = x when int2bv(bv2int(x)) has same sort as x
             enode* n1 = get_enode(r1);
-            for (enode* bv2int : *n1) {
-                if (!m_util.is_bv2int(bv2int->get_expr())) 
-                    continue;
+            auto propagate_bv2int = [&](enode* bv2int) {
                 enode* bv2int_arg = bv2int->get_arg(0);
                 for (enode* p : enode::parents(n1->get_root())) {
                     if (m_util.is_int2bv(p->get_expr()) && p->get_root() != bv2int_arg->get_root() && p->get_sort() == bv2int_arg->get_sort()) {                        
@@ -1513,6 +1513,18 @@ namespace smt {
                         ctx.assign_eq(p, bv2int_arg, eq_justification(js));
                         break;
                     }                    
+                }
+            };
+
+            if (m_bv2int.size() < n1->get_class_size()) {
+                for (enode* bv2int : m_bv2int)
+                    if (bv2int->get_root() == n1->get_root())
+                        propagate_bv2int(bv2int);
+            }
+            else {
+                for (enode* bv2int : *n1) {
+                    if (m_util.is_bv2int(bv2int->get_expr())) 
+                        propagate_bv2int(bv2int);
                 }
             }
         }

@@ -49,16 +49,19 @@ namespace bv {
         update_glue(*other);
 
         vv::push_to_front(m_queue, other);
-        if (other == n) {
+        bool do_gc = other == n;
+        if (other == n) 
             new_tmp();        
-            gc();
-        }
+               
         if (other->m_glue == 0) {
+            do_gc = false;
             remove(other);
             add_cc(v1, v2);
         }
         else if (other->m_count > 2*m_propagate_high_watermark) 
             propagate();
+        if (do_gc)
+            gc();
     }
 
     void ackerman::used_diseq_eh(euf::theory_var v1, euf::theory_var v2) {
