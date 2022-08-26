@@ -33,6 +33,7 @@ namespace polysat {
         m_viable_fallback(*this),
         m_linear_solver(*this),
         m_conflict(*this),
+        m_conflict2(*this),
         m_simplify_clause(*this),
         m_simplify(*this),
         m_restart(*this),

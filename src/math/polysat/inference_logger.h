@@ -24,8 +24,22 @@ namespace polysat {
 
     class clause_builder;
     class search_item;
-    class inference;
     class solver;
+
+    class inference {
+    public:
+        virtual ~inference() {}
+        virtual std::ostream& display(std::ostream& out) const = 0;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, inference const& i) { return i.display(out); }
+
+    class inference_named : public inference {
+        char const* m_name;
+    public:
+        inference_named(char const* name) : m_name(name) { SASSERT(name); }
+        std::ostream& display(std::ostream& out) const override { return out << m_name; }
+    };
 
     class inference_logger {
     public:
@@ -84,25 +98,6 @@ namespace polysat {
         void log_conflict_state() override;
 
         void log_lemma(clause_builder const& cb) override;
-    };
-
-
-
-    class inference {
-    public:
-        virtual ~inference() {}
-        virtual std::ostream& display(std::ostream& out) const = 0;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, inference const& i) { return i.display(out); }
-
-
-
-    class inference_named : public inference {
-        char const* m_name;
-    public:
-        inference_named(char const* name) : m_name(name) { SASSERT(name); }
-        std::ostream& display(std::ostream& out) const override { return out << m_name; }
     };
 
 }

@@ -72,6 +72,7 @@ Lemma:       y < z or xz <= xy or O(x,y)
 #pragma once
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/inference_logger.h"
 #include <optional>
 
 namespace polysat {
@@ -81,22 +82,7 @@ namespace polysat {
     class inference_engine;
     class variable_elimination_engine;
     class conflict_iterator;
-    class inference_logger;
-
-    class inference {
-    public:
-        virtual ~inference() {}
-        virtual std::ostream& display(std::ostream& out) const = 0;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, inference const& i) { return i.display(out); }
-
-    class inference_named : public inference {
-        char const* m_name;
-    public:
-        inference_named(char const* name) : m_name(name) { SASSERT(name); }
-        std::ostream& display(std::ostream& out) const override { return out << m_name; }
-    };
+    class old_inference_logger;
 
     enum class conflict_kind_t {
         ok,
@@ -122,8 +108,8 @@ namespace polysat {
          */
         conflict_kind_t m_kind = conflict_kind_t::ok;
 
-        friend class inference_logger;
-        scoped_ptr<inference_logger> m_logger;
+        friend class old_inference_logger;
+        scoped_ptr<old_inference_logger> m_logger;
 
         bool_vector m_bvar2mark;                  // mark of Boolean variables
 
@@ -142,7 +128,7 @@ namespace polysat {
         ~conflict();
 
         /// Begin next conflict
-        void begin_conflict(char const* text);
+        void begin_conflict(char const* text = nullptr);
         /// Log inference at the current state.
         void log_inference(inference const& inf);
         void log_inference(char const* name) { log_inference(inference_named(name)); }

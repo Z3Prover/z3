@@ -35,7 +35,7 @@ Notes:
 
 namespace polysat {
 
-    class inference_logger {
+    class old_inference_logger {
         uint_set m_used_constraints;
         uint_set m_used_vars;
         scoped_ptr<std::ostream> m_out = nullptr;
@@ -55,7 +55,10 @@ namespace polysat {
     public:
         void begin_conflict(char const* text) {
             ++m_conflicts;
-            LOG("Begin CONFLICT #" << m_conflicts << " (" << text << ")");
+            if (text)
+                LOG("Begin CONFLICT #" << m_conflicts << " (" << text << ")");
+            else
+                LOG("Begin CONFLICT #" << m_conflicts);
             m_used_constraints.reset();
             m_used_vars.reset();
             if (!m_out)
@@ -139,7 +142,7 @@ namespace polysat {
         inf_engines.push_back(alloc(inf_saturate, s));
         // TODO: how to set this on the CLI? "polysat.log_conflicts=true" doesn't seem to work although z3 accepts it
         if (true || s.get_config().m_log_conflicts)
-            m_logger = alloc(inference_logger);
+            m_logger = alloc(old_inference_logger);
     }
 
     conflict::~conflict() {}

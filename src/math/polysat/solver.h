@@ -22,6 +22,7 @@ Author:
 #include "util/params.h"
 #include "math/polysat/boolean.h"
 #include "math/polysat/conflict.h"
+#include "math/polysat/conflict2.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/simplify_clause.h"
@@ -69,13 +70,14 @@ namespace polysat {
         friend class clause;
         friend class clause_builder;
         friend class conflict;
+        friend class conflict2;
         friend class conflict_explainer;
         friend class simplify_clause;
         friend class simplify;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
-        friend class inference_logger;
+        friend class old_inference_logger;
         friend class file_inference_logger;
         friend class forbidden_intervals;
         friend class linear_solver;
@@ -101,7 +103,8 @@ namespace polysat {
         viable                   m_viable;   // viable sets per variable
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
-        conflict                 m_conflict; 
+        conflict                 m_conflict;
+        conflict2                m_conflict2;
         simplify_clause          m_simplify_clause;
         simplify                 m_simplify;
         restart                  m_restart;
