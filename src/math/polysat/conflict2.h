@@ -114,7 +114,7 @@ namespace polysat {
         /** conflict because the constraint c is false under current variable assignment */
         void init(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
-        void init(pvar v);
+        void init(pvar v, bool by_viable_fallback = false);
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;

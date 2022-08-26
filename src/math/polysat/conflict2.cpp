@@ -68,16 +68,21 @@ namespace polysat {
         SASSERT(!empty());
     }
 
-    void conflict2::init(pvar v) {
+    void conflict2::init(pvar v, bool by_viable_fallback) {
         // NOTE: do forbidden interval projection in this method (rather than keeping a separate state like we did before)
         // Option 1: forbidden interval projection
         // Option 2: add all constraints from m_viable + dependent variables
 
-        // TODO: we need to know whether the conflict is from m_viable for m_viable_fallback
-        // - m_viable: standard forbidden interval lemma
-        // - m_viable_fallback: initial conflict is the unsat core of the univariate solver
-        // (a flag on this method might be good enough)
+        if (by_viable_fallback) {
+            // Conflict detected by viable fallback:
+            // initial conflict is the unsat core of the univariate solver
+            signed_constraints unsat_core = s.m_viable_fallback.unsat_core(v);
+            for (auto c : unsat_core)
+                insert(c);
+            return;
+        }
 
+        // TODO:
         // VERIFY(s.m_viable.resolve(v, *this));
         // log_inference(inf_fi_lemma(v));
     }
