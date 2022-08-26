@@ -1430,10 +1430,9 @@ namespace pb {
             IF_VERBOSE(0, verbose_stream() << *c << "\n");
         VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
-            std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
-                out << "c ba constraint " << *c << " 0\n";
-            };
-            m_solver->get_drat().log_adhoc(fn);
+            auto * out = s().get_drat().out();
+            if (out)
+                *out << "c ba constraint " << *c << " 0\n";
         }
     }
 

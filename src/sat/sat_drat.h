@@ -60,6 +60,11 @@ namespace sat {
     class justification;
     class clause;
 
+    struct print_clause {
+        virtual ~print_clause() {}
+        virtual void on_clause(unsigned, literal const*, status) = 0;        
+    };
+
     class drat {
         struct stats {
             unsigned m_num_drup = 0;
@@ -73,7 +78,7 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
-        std::function<void(unsigned, literal const*, status)> m_print_clause;
+        print_clause* m_print_clause = nullptr;
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
@@ -140,21 +145,16 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        void set_print_clause(std::function<void(unsigned, literal const*, status)>& print_clause) {
-            // m_print_clause = print_clause;
+        void set_print_clause(print_clause& print_clause) {
+            m_print_clause = &print_clause;
         }
 
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v
-        void bool_def(bool_var v, unsigned n);
 
         // declare AST node n with 'name' and arguments arg
-        void def_begin(char id, unsigned n, std::string const& name);
-        void def_add_arg(unsigned arg);
-        void def_end();
+        std::ostream* out() { return m_out; }
 
-        // ad-hoc logging until a format is developed
-        void log_adhoc(std::function<void(std::ostream&)>& fn);
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);
