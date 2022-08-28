@@ -105,7 +105,7 @@ namespace Microsoft.Z3
             finally
             {
                 callbackNesting--;
-                if (callbackNesting == 0) // callbacks can be nested (e.g., internalizing new element in created)f
+                if (callbackNesting == 0) // callbacks can be nested (e.g., internalizing new element in "created")
                     this.callback = IntPtr.Zero;
             }
         }
