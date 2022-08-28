@@ -29,7 +29,7 @@ Revision History:
    \brief Macros are universally quantified formulas of the form:
      (forall X  (= (f X) T[X]))
      (forall X  (iff (f X) T[X]))
-   where T[X] does not contain X.
+   where T[X] does not contain f.
 
    This class is responsible for storing macros and expanding them.
    It has support for backtracking and tagging declarations in an expression as forbidded for being macros.
