@@ -402,7 +402,7 @@ int STD_CALL main(int argc, char ** argv) {
             return_value = read_mps_file(g_input_file);
             break;
         case IN_DRAT:
-            return_value = read_drat(g_drat_input_file, g_input_file);
+            return_value = read_drat(g_drat_input_file);
             break;
         default:
             UNREACHABLE();

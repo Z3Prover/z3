@@ -170,9 +170,6 @@ namespace euf {
         TRACE("before_search", s().display(tout););
         for (auto* s : m_solvers)
             s->init_search();
-
-        if (get_config().m_lemmas2console) 
-            get_drat().set_print_clause(*this);
     }
 
     bool solver::is_external(bool_var v) {

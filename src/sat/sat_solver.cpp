@@ -402,6 +402,7 @@ namespace sat {
         extension::scoped_drating _sd(*m_ext.get());
         if (j.get_kind() == justification::EXT_JUSTIFICATION) 
             fill_ext_antecedents(lit, j, false);
+        TRACE("sat", tout << "drat-unit\n");
         m_drat.add(lit, m_searching);
     }
 
@@ -948,8 +949,7 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) 
                 drat_log_unit(l, j);
-            if (!m_config.m_drup_trim)
-                j = justification(0); // erase justification for level 0
+            j = justification(0); // erase justification for level 0
         }
         else {
             VERIFY(!at_base_lvl());

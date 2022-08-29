@@ -26,6 +26,7 @@ Revision History:
 #include "parsers/smt2/smt2parser.h"
 #include "muz/fp/dl_cmds.h"
 #include "cmd_context/extra_cmds/dbg_cmds.h"
+#include "cmd_context/proof_cmds.h"
 #include "opt/opt_cmds.h"
 #include "cmd_context/extra_cmds/polynomial_cmds.h"
 #include "cmd_context/extra_cmds/subpaving_cmds.h"
@@ -128,6 +129,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_subpaving_cmds(ctx);
     install_opt_cmds(ctx);
     install_smt2_extra_cmds(ctx);
+    install_proof_cmds(ctx);
 
     g_cmd_context = &ctx;
     signal(SIGINT, on_ctrl_c);

@@ -112,27 +112,6 @@ static void read_clause(Buffer & in, std::ostream& err, sat::literal_vector & li
     }
 }
 
-template<typename Buffer>
-static void read_pragma(Buffer & in, std::ostream& err, std::string& p, sat::proof_hint& h) {
-    skip_whitespace(in);
-    if (*in != 'p')
-        return;
-    ++in;
-    while (*in == ' ')
-        ++in;
-    while (true) {
-        if (*in == EOF)
-            break;
-        if (*in == '\n') {
-            ++in;
-            break;
-        }
-        p.push_back(*in);
-        ++in;
-    }
-    if (!p.empty()) 
-        h.from_string(p);
-}
 
 
 template<typename Buffer>
@@ -177,25 +156,7 @@ namespace dimacs {
     std::ostream& operator<<(std::ostream& out, drat_pp const& p) {
         auto const& r = p.r;
         sat::status_pp pp(r.m_status, p.th);
-        switch (r.m_tag) {
-        case drat_record::tag_t::is_clause:
-            if (!r.m_pragma.empty()) 
-                return out << pp << " " << r.m_lits << " 0 p " << r.m_pragma << "\n";
-            return out << pp << " " << r.m_lits << " 0\n";            
-        case drat_record::tag_t::is_node:
-            return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
-        case drat_record::tag_t::is_sort:
-            return out << "s " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
-        case drat_record::tag_t::is_decl:
-            return out << "f " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
-        case drat_record::tag_t::is_bool_def:
-            return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
-        case drat_record::tag_t::is_var:
-            return out << "v " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
-        case drat_record::tag_t::is_quantifier:
-            return out << "q " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
-        }
-        return out;
+        return out << pp << " " << r.m_lits << " 0\n";            
     }
 
     char const* drat_parser::parse_identifier() {
@@ -266,47 +227,10 @@ namespace dimacs {
     }
 
     bool drat_parser::next() {
-        int n, b, e, theory_id;
-        auto parse_ast = [&](drat_record::tag_t tag) {
-            ++in;
-            skip_whitespace(in);
-            n = parse_int(in, err);                    
-            skip_whitespace(in);
-            m_record.m_name = parse_sexpr();
-            m_record.m_tag = tag;
-            m_record.m_node_id = n;
-            m_record.m_args.reset();
-            while (true) {
-                n = parse_int(in, err);
-                if (n == 0)
-                    break;
-                if (n < 0)
-                    throw lex_error();
-                m_record.m_args.push_back(n);
-            }
-        };
-        auto parse_var = [&]() {
-            ++in;
-            skip_whitespace(in);
-            n = parse_int(in, err);                    
-            skip_whitespace(in);
-            m_record.m_name = parse_sexpr();
-            m_record.m_tag = drat_record::tag_t::is_var;
-            m_record.m_node_id = n;
-            m_record.m_args.reset();
-            n = parse_int(in, err);
-            if (n < 0)
-                throw lex_error();
-            m_record.m_args.push_back(n);
-            n = parse_int(in, err);
-            if (n != 0)
-                throw lex_error();
-        };
+        int theory_id;
         try {
         loop:
             skip_whitespace(in);
-            m_record.m_pragma.clear();
-            m_record.m_hint.reset();
             switch (*in) {
             case EOF:
                 return false;                
@@ -321,7 +245,6 @@ namespace dimacs {
                 ++in;
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
-                m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::input();
                 break;
             case 'a':
@@ -331,49 +254,13 @@ namespace dimacs {
                 theory_id = read_theory_id();
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
-                read_pragma(in, err, m_record.m_pragma, m_record.m_hint);
-                m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::th(false, theory_id);
-                break;
-            case 'e':
-                // parse expression definition
-                parse_ast(drat_record::tag_t::is_node);
-                break;
-            case 'v':
-                parse_var();
-                break;
-            case 'q':
-                parse_ast(drat_record::tag_t::is_quantifier);
-                break;
-            case 'f':
-                // parse function declaration
-                parse_ast(drat_record::tag_t::is_decl);
-                break;
-            case 's':
-                // parse sort declaration (not used)
-                parse_ast(drat_record::tag_t::is_sort);
-                break;
-            case 'b':
-                // parse bridge between Boolean variable identifier b 
-                // and expression identifier e, which is of type Bool
-                ++in;
-                skip_whitespace(in);
-                b = parse_int(in, err);
-                n = parse_int(in, err);
-                e = parse_int(in, err);
-                if (e != 0)
-                    throw lex_error();
-                m_record.m_tag = drat_record::tag_t::is_bool_def;
-                m_record.m_node_id = b;
-                m_record.m_args.reset();
-                m_record.m_args.push_back(n);
                 break;
             case 'd':
                 // parse clause deletion
                 ++in;
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
-                m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::deleted();
                 break;
             case 'r':
@@ -383,13 +270,11 @@ namespace dimacs {
                 skip_whitespace(in);
                 theory_id = read_theory_id();
                 read_clause(in, err, m_record.m_lits);
-                m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::th(true, theory_id);
                 break;
             default:
                 // parse clause redundant modulo DRAT (or mostly just DRUP)
                 read_clause(in, err, m_record.m_lits);
-                m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::redundant();
                 break;                
             }    

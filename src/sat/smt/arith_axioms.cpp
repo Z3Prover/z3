@@ -264,11 +264,12 @@ namespace arith {
         SASSERT(k1 != k2 || kind1 != kind2);
 
         auto bin_clause = [&](sat::literal l1, sat::literal l2) {
-            sat::proof_hint* bound_params = nullptr;
+            arith_proof_hint* bound_params = nullptr;
             if (ctx.use_drat()) {
-                bound_params = &m_farkas2;
-                m_farkas2.m_literals[0] = std::make_pair(rational(1), ~l1);
-                m_farkas2.m_literals[1] = std::make_pair(rational(1), ~l2);
+                m_arith_hint.set_type(ctx, hint_type::farkas_h);
+                m_arith_hint.add_lit(rational(1), ~l1);
+                m_arith_hint.add_lit(rational(1), ~l2);
+                bound_params = m_arith_hint.mk(ctx);
             }
             add_clause(l1, l2, bound_params);            
         };

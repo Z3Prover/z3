@@ -15,6 +15,8 @@ Author:
 
 --*/
 
+#include "ast/ast_util.h"
+#include "ast/scoped_proof.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/arith_solver.h"
 
@@ -81,7 +83,6 @@ namespace arith {
     }
 
     void solver::explain_assumptions() {
-        m_arith_hint.reset();
         unsigned i = 0;
         for (auto const & ev : m_explanation) {
             ++i;
@@ -91,14 +92,12 @@ namespace arith {
             switch (m_constraint_sources[idx]) {
             case inequality_source: {
                 literal lit = m_inequalities[idx];
-                m_arith_hint.m_literals.push_back({ev.coeff(), lit});
+                m_arith_hint.add_lit(ev.coeff(), lit);
                 break;                
             }
             case equality_source: {
                 auto [u, v] = m_equalities[idx];
-                ctx.drat_log_expr(u->get_expr());
-                ctx.drat_log_expr(v->get_expr());
-                m_arith_hint.m_eqs.push_back({u->get_expr_id(), v->get_expr_id()});
+                m_arith_hint.add_eq(u, v);
                 break;
             }
             default:
@@ -115,22 +114,65 @@ namespace arith {
      * such that there is a r >= 1
      * (r1*a1+..+r_k*a_k) = r*a, (r1*b1+..+r_k*b_k) <= r*b
      */
-    sat::proof_hint const* solver::explain(sat::hint_type ty, sat::literal lit) {
+    arith_proof_hint const* solver::explain(hint_type ty, sat::literal lit) {
         if (!ctx.use_drat())
             return nullptr;
-        m_arith_hint.m_ty = ty;
+        m_arith_hint.set_type(ctx, ty);
         explain_assumptions();
         if (lit != sat::null_literal)
-            m_arith_hint.m_literals.push_back({rational(1), ~lit});
-        return &m_arith_hint;
+            m_arith_hint.add_lit(rational(1), ~lit);
+        return m_arith_hint.mk(ctx);
     }
 
-    sat::proof_hint const* solver::explain_implied_eq(euf::enode* a, euf::enode* b) {
+    arith_proof_hint const* solver::explain_implied_eq(euf::enode* a, euf::enode* b) {
         if (!ctx.use_drat())
             return nullptr;
-        m_arith_hint.m_ty = sat::hint_type::implied_eq_h;
+        m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
         explain_assumptions();
-        m_arith_hint.m_diseqs.push_back({a->get_expr_id(), b->get_expr_id()});
-        return &m_arith_hint;
+        m_arith_hint.add_diseq(a, b);
+        return m_arith_hint.mk(ctx);
+    }
+
+    expr* arith_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        family_id fid = m.get_family_id("arith");
+        arith_util arith(m);
+        solver& a = dynamic_cast<solver&>(*s.fid2solver(fid));
+        char const* name;
+        switch (m_ty) {
+        case hint_type::farkas_h:
+            name = "farkas";
+            break;
+        case hint_type::bound_h:
+            name = "bound";
+            break;
+        case hint_type::implied_eq_h:
+            name = "implied-eq";
+            break;
+        }
+        rational lc(1);
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
+            lc = lcm(lc, denominator(a.m_arith_hint.lit(i).first));
+            
+        expr_ref_vector args(m);
+        sort_ref_vector sorts(m);
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {            
+            auto const& [coeff, lit] = a.m_arith_hint.lit(i);
+            args.push_back(arith.mk_int(coeff*lc));
+            args.push_back(s.literal2expr(lit));
+        }
+        for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
+            auto const& [a, b, is_eq] = a.m_arith_hint.eq(i);            
+            expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
+            if (!is_eq) eq = m.mk_not(eq);
+            args.push_back(arith.mk_int(lc));
+            args.push_back(eq);
+        }
+        for (expr* a : args)
+            sorts.push_back(a->get_sort());
+        sort* range = m.mk_proof_sort();
+        func_decl* d = m.mk_func_decl(symbol(name), args.size(), sorts.data(), range);
+        expr* r = m.mk_app(d, args);
+        return r;
     }
 }

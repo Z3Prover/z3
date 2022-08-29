@@ -391,8 +391,8 @@ namespace bv {
         if (c.m_kind != bv_justification::kind_t::bit2ne) {
             expr* e1 = var2expr(c.m_v1);
             expr* e2 = var2expr(c.m_v2);
-            eq = m.mk_eq(e1, e2);       
-            ctx.drat_eq_def(leq, eq);
+            eq = m.mk_eq(e1, e2);      
+            ctx.set_tmp_bool_var(leq.var(), eq);
         }
 
         sat::literal_vector lits;

@@ -360,19 +360,7 @@ namespace q {
     void solver::log_instantiation(unsigned n, sat::literal const* lits, justification* j) {
         TRACE("q", for (unsigned i = 0; i < n; ++i) tout << literal2expr(lits[i]) << "\n";);
         if (get_config().m_instantiations2console) {
-
-            ctx.visit_clause(n, lits);
-            if (j) {
-                for (unsigned i = 0; i < j->m_clause.num_decls(); ++i)
-                    ctx.visit_expr(j->m_binding[i]->get_expr());
-                std::cout << "; (instantiation";
-                for (unsigned i = 0; i < j->m_clause.num_decls(); ++i) {
-                    std::cout << " ";
-                    ctx.display_expr(j->m_binding[i]->get_expr());
-                }
-                std::cout << ")\n";
-            }
-            ctx.display_clause(n, lits);
+            ctx.on_instantiation(n, lits, j ? j->m_clause.num_decls() : 0, j ? j->m_binding : nullptr);
         }
     }
 }

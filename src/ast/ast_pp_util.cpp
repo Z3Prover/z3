@@ -175,14 +175,14 @@ std::ostream& ast_pp_util::define_expr(std::ostream& out, expr* n) {
             visit.pop_back();
             if (to_app(n)->get_num_args() > 0) {
                 out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " (";            
-                out << to_app(n)->get_name(); // fixme
+                out << mk_ismt2_func(to_app(n)->get_decl(), m);
                 for (auto* e : *to_app(n)) 
                     display_expr_def(out << " ", e);
-                out << ")\n";
+                out << "))\n";
             }
             continue;
         }
-        out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " " << mk_pp(n, m) << "\n";                
+        out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " " << mk_pp(n, m) << ")\n";                
         m_defined.push_back(n);
         m_is_defined.mark(n, true);
         visit.pop_back();        

@@ -39,6 +39,7 @@ Notes:
 #include "solver/progress_callback.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
+#include "cmd_context/proof_cmds.h"
 #include "params/context_params.h"
 
 
@@ -172,6 +173,7 @@ public:
     bool owns_manager() const { return m_manager != nullptr; }
 };
 
+
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
     enum status {
@@ -225,6 +227,7 @@ protected:
     bool                         m_ignore_check = false;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
     bool                         m_exit_on_error = false;
     bool                         m_allow_duplicate_declarations = false;
+    scoped_ptr<proof_cmds>       m_proof_cmds;
 
     static std::ostringstream    g_error_stream;
 
@@ -396,6 +399,8 @@ public:
     ast_manager & get_ast_manager() override { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
+
+    proof_cmds& get_proof_cmds() { if (!m_proof_cmds) m_proof_cmds = proof_cmds::mk(m()); return *m_proof_cmds; }
 
     void set_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }

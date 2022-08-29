@@ -60,8 +60,8 @@ namespace sat {
     class justification;
     class clause;
 
-    struct print_clause {
-        virtual ~print_clause() {}
+    struct clause_eh {
+        virtual ~clause_eh() {}
         virtual void on_clause(unsigned, literal const*, status) = 0;        
     };
 
@@ -78,7 +78,7 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
-        print_clause* m_print_clause = nullptr;
+        clause_eh* m_clause_eh = nullptr;
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
@@ -95,7 +95,6 @@ namespace sat {
         bool                    m_check_sat = false;
         bool                    m_check = false;
         bool                    m_activity = false;
-        bool                    m_trim = false;
         stats                   m_stats;
 
 
@@ -145,16 +144,9 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        void set_print_clause(print_clause& print_clause) {
-            m_print_clause = &print_clause;
-        }
+        void set_clause_eh(clause_eh& clause_eh) { m_clause_eh = &clause_eh; }
 
-        // support for SMT - connect Boolean variables with AST nodes
-        // associate AST node id with Boolean variable v
-
-        // declare AST node n with 'name' and arguments arg
         std::ostream* out() { return m_out; }
-
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);
@@ -181,8 +173,6 @@ namespace sat {
         svector<std::pair<literal, clause*>> const& units() { return m_units; }
         bool is_drup(unsigned n, literal const* c, literal_vector& units);
         solver& get_solver() { return s; }
-
-        svector<std::pair<clause&, status>> trim();
         
     };
 

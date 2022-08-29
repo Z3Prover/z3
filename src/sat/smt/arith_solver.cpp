@@ -39,8 +39,6 @@ namespace arith {
         lp().settings().set_random_seed(get_config().m_random_seed);
         
         m_lia = alloc(lp::int_solver, *m_solver.get());
-        m_farkas2.m_ty = sat::hint_type::farkas_h;
-        m_farkas2.m_literals.resize(2);
     }
 
     solver::~solver() {
@@ -197,11 +195,12 @@ namespace arith {
         reset_evidence();
         m_core.push_back(lit1);
         TRACE("arith", tout << lit2 << " <- " << m_core << "\n";);
-        sat::proof_hint* ph = nullptr;
+        arith_proof_hint* ph = nullptr;
         if (ctx.use_drat()) {
-            ph = &m_farkas2;
-            m_farkas2.m_literals[0] = std::make_pair(rational(1), lit1);
-            m_farkas2.m_literals[1] = std::make_pair(rational(1), ~lit2);
+            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            m_arith_hint.add_lit(rational(1), lit1);
+            m_arith_hint.add_lit(rational(1), ~lit2);
+            ph = m_arith_hint.mk(ctx);
         }
         assign(lit2, m_core, m_eqs, ph); 
         ++m_stats.m_bounds_propagations;
@@ -262,7 +261,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
         }
 
         if (should_refine_bounds() && first)
@@ -378,7 +377,7 @@ namespace arith {
         reset_evidence();
         m_explanation.clear();
         lp().explain_implied_bound(be, m_bp);
-        assign(bound, m_core, m_eqs, explain(sat::hint_type::farkas_h, bound));
+        assign(bound, m_core, m_eqs, explain(hint_type::farkas_h, bound));
     }
 
 
@@ -1178,7 +1177,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
             lia_check = l_false;
             break;
         }
@@ -1200,7 +1199,7 @@ namespace arith {
         return lia_check;
     }
 
-    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, sat::proof_hint const* pma) {        
+    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma) {        
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core)
@@ -1247,7 +1246,7 @@ namespace arith {
         for (literal& c : m_core)
             c.neg();
 
-        add_clause(m_core, explain(sat::hint_type::farkas_h));
+        add_clause(m_core, explain(hint_type::farkas_h));
     }
 
     bool solver::is_infeasible() const {

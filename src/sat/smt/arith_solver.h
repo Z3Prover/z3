@@ -48,7 +48,60 @@ namespace arith {
     typedef sat::literal_vector literal_vector;
     typedef lp_api::bound<sat::literal> api_bound;
 
+    enum class hint_type {
+        farkas_h,
+        bound_h,
+        implied_eq_h    
+    };
+
+    struct arith_proof_hint : public euf::th_proof_hint {
+        hint_type                              m_ty;
+        unsigned m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
+        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et):
+            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+        expr* get_hint(euf::solver& s) const override;
+    };
+
+    class arith_proof_hint_builder {
+        vector<std::pair<rational, literal>>   m_literals;
+        svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
+        hint_type                              m_ty;
+        unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail;
+        void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
+        void add(euf::enode* a, euf::enode* b, bool is_eq) {
+            if (m_eq_tail < m_eqs.size()) 
+                m_eqs[m_eq_tail] = std::tuple(a, b, is_eq); 
+            else 
+                m_eqs.push_back(std::tuple(a, b, is_eq)); 
+            m_eq_tail++; 
+        }
+    public:
+        void set_type(euf::solver& ctx, hint_type ty) { 
+            ctx.push(value_trail<unsigned>(m_eq_tail)); 
+            ctx.push(value_trail<unsigned>(m_lit_tail)); 
+            m_ty = ty; 
+            reset(); 
+        }
+        void add_eq(euf::enode* a, euf::enode* b) { add(a, b, true); }
+        void add_diseq(euf::enode* a, euf::enode* b) { add(a, b, false); }
+        void add_lit(rational const& coeff, literal lit) { 
+            if (m_lit_tail < m_literals.size())
+                m_literals[m_lit_tail] = {coeff, lit};
+            else
+                m_literals.push_back({coeff, lit}); 
+            m_lit_tail++;
+        }
+        std::pair<rational, literal> const& lit(unsigned i) const { return m_literals[i]; }
+        std::tuple<enode*, enode*, bool> const& eq(unsigned i) const { return m_eqs[i]; }
+        arith_proof_hint* mk(euf::solver& s) { 
+            return new (s.get_region()) arith_proof_hint(m_ty, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
+        }
+    };
+
+
     class solver : public euf::th_euf_solver {
+
+        friend struct arith_proof_hint;
 
         struct scope {
             unsigned m_bounds_lim;
@@ -414,15 +467,15 @@ namespace arith {
         void set_conflict();
         void set_conflict_or_lemma(literal_vector const& core, bool is_conflict);
         void set_evidence(lp::constraint_index idx);
-        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, sat::proof_hint const* pma);
+        void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma);
 
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
-        sat::proof_hint m_arith_hint;
-        sat::proof_hint m_farkas2;
-        sat::proof_hint const* explain(sat::hint_type ty, sat::literal lit = sat::null_literal);
-        sat::proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
+        arith_proof_hint_builder m_arith_hint;
+
+        arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
+        arith_proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
         void explain_assumptions();
 
 

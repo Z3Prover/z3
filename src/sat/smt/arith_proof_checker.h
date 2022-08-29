@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2020 Microsoft Corporation
+Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
@@ -11,7 +11,15 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2020-09-08
+    Nikolaj Bjorner (nbjorner) 2022-08-28
+
+Notes:
+
+The module assumes a limited repertoire of arithmetic proof rules.
+
+- farkas - inequalities, equalities and disequalities with coefficients
+- implied-eq - last literal is a disequality. The literals before imply the corresponding equality.
+- bound - last literal is a bound. It is implied by prior literals.
 
 --*/
 #pragma once
@@ -19,11 +27,12 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
+#include "sat/smt/euf_proof_checker.h"
 
 
 namespace arith {
 
-    class proof_checker {
+    class proof_checker : public euf::proof_checker_plugin {
         struct row {
             obj_map<expr, rational> m_coeffs;
             rational m_coeff;
@@ -300,6 +309,8 @@ namespace arith {
         
     public:
         proof_checker(ast_manager& m): m(m), a(m) {}
+
+        ~proof_checker() override {}
         
         void reset() {
             m_ineq.reset();
@@ -350,6 +361,47 @@ namespace arith {
             return out;
         }
 
+        bool check(expr_ref_vector const& clause, app* jst) override {
+            reset();
+
+            if (jst->get_name() == symbol("farkas")) {
+                bool even = true;
+                rational coeff;
+                expr* x, *y;
+                for (expr* arg : *jst) {
+                    if (even) {
+                        VERIFY(a.is_numeral(arg, coeff));
+                    }
+                    else {
+                        bool sign = m.is_not(arg, arg);
+                        if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) 
+                            add_ineq(coeff, arg, sign);
+                        else if (m.is_eq(arg, x, y)) {
+                            if (sign)
+                                add_diseq(x, y);
+                            else
+                                add_eq(x, y);
+                        }
+                        else
+                            return false;
+                    }                        
+                    even = !even;
+                }
+                // display(verbose_stream());
+                // todo: correlate with literals in clause, literals that are not in clause should have RUP property.
+                return check_farkas();
+            }
+
+            // todo: rules for bounds and implied-by
+            
+            return false;
+        }
+
+        void register_plugins(euf::proof_checker& pc) {
+            pc.register_plugin(symbol("farkas"), this);
+            pc.register_plugin(symbol("bound"), this);
+            pc.register_plugin(symbol("implied-eq"), this);
+        }
         
     };
 

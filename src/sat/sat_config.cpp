@@ -197,10 +197,10 @@ namespace sat {
         m_drat_check_unsat  = p.drat_check_unsat();
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
-        m_drat            = !p.drat_disable() && (sp.lemmas2console() || m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
+        m_smt_proof       = p.smt_proof();
+        m_drat            = !p.drat_disable() && (sp.lemmas2console() || m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_smt_proof.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
-        m_drup_trim       = p.drup_trim();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.
@@ -254,10 +254,6 @@ namespace sat {
         sat_simplifier_params ssp(_p);
         m_elim_vars = ssp.elim_vars();
 
-#if 0
-        if (m_drat && (m_xor_solver || m_card_solver)) 
-            throw sat_param_exception("DRAT checking only works for pure CNF");
-#endif
     }
 
     void config::collect_param_descrs(param_descrs & r) {
