@@ -26,6 +26,7 @@ namespace euf {
         arith::proof_checker* apc = alloc(arith::proof_checker, m);
         m_plugins.push_back(apc);
         apc->register_plugins(*this);
+        (void)m;
     }
 
     proof_checker::~proof_checker() {}

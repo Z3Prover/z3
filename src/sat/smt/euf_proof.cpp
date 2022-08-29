@@ -176,7 +176,7 @@ namespace euf {
         display_literals(out << "(assume", n, lits) << ")\n";        
     }
 
-    void solver::display_redundant(std::ostream& out, unsigned n, literal const* lits, expr_ref& proof_hint) {
+    void solver::display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
         if (proof_hint)
             visit_expr(out, proof_hint);
         display_hint(display_literals(out << "(learn", n, lits), proof_hint) << ")\n";        

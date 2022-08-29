@@ -397,7 +397,7 @@ namespace arith {
             return false;
         }
 
-        void register_plugins(euf::proof_checker& pc) {
+        void register_plugins(euf::proof_checker& pc) override {
             pc.register_plugin(symbol("farkas"), this);
             pc.register_plugin(symbol("bound"), this);
             pc.register_plugin(symbol("implied-eq"), this);

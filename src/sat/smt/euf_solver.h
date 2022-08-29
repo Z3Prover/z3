@@ -184,7 +184,7 @@ namespace euf {
         void on_proof(unsigned n, literal const* lits, sat::status st);
         std::ostream& display_literals(std::ostream& out, unsigned n, sat::literal const* lits);
         void display_assume(std::ostream& out, unsigned n, literal const* lits);
-        void display_redundant(std::ostream& out, unsigned n, literal const* lits, expr_ref& proof_hint);        
+        void display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
         void display_deleted(std::ostream& out, unsigned n, literal const* lits);
         std::ostream& display_hint(std::ostream& out, expr* proof_hint);
         expr_ref status2proof_hint(sat::status st);
