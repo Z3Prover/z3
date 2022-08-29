@@ -31,19 +31,6 @@ Notes:
 */
 
 
-class proof_cmds {
-    class imp;
-    imp* m_imp;
-public:
-    static proof_cmds* mk(ast_manager& m);
-    proof_cmds(ast_manager& m);
-    ~proof_cmds();
-    void add_literal(expr* e);
-    void end_assumption();
-    void end_learned();
-    void end_deleted();
-};
-
 class cmd_context;
 void install_proof_cmds(cmd_context & ctx);
 

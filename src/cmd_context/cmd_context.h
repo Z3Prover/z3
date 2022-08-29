@@ -91,6 +91,18 @@ public:
     vector<macro_decl>::iterator end() const { return m_decls->end(); }
 };
 
+
+class proof_cmds {
+public:
+    proof_cmds(ast_manager& m);
+    virtual ~proof_cmds();
+    virtual void add_literal(expr* e) = 0;
+    virtual void end_assumption() = 0;
+    virtual void end_learned() = 0;
+    virtual void end_deleted() = 0;
+};
+
+
 /**
    \brief Generic wrapper.
 */
@@ -400,7 +412,8 @@ public:
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
-    proof_cmds& get_proof_cmds() { if (!m_proof_cmds) m_proof_cmds = proof_cmds::mk(m()); return *m_proof_cmds; }
+    proof_cmds* get_proof_cmds() { return m_proof_cmds; }
+    void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
 
     void set_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }

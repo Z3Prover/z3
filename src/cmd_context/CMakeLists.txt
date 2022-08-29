@@ -11,7 +11,6 @@ z3_add_component(cmd_context
     simplify_cmd.cpp
     tactic_cmds.cpp
     tactic_manager.cpp
-    proof_cmds.cpp
   COMPONENT_DEPENDENCIES
     rewriter
     solver

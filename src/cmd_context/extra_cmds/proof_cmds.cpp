@@ -24,9 +24,9 @@ Notes:
 #include "util/small_object_allocator.h"
 #include "ast/ast_util.h"
 #include "cmd_context/cmd_context.h"
-#include "smt/smt_solver.h"
-#include "sat/sat_solver.h"
-#include "sat/sat_drat.h"
+// include "smt/smt_solver.h"
+// include "sat/sat_solver.h"
+// include "sat/sat_drat.h"
 #include "sat/smt/euf_proof_checker.h"
 #include <iostream>
 
@@ -57,7 +57,7 @@ public:
         // sat_solver(m_params, m.limit()), 
         // m_drat(sat_solver) 
     {
-        m_solver = mk_smt_solver(m, m_params, symbol());
+//        m_solver = mk_smt_solver(m, m_params, symbol());
     }
 
     void check(expr_ref_vector const& clause, expr* proof_hint) {
@@ -94,22 +94,22 @@ public:
     }
 };
 
-class proof_cmds::imp {
+class proof_cmds_imp : public proof_cmds {
     ast_manager& m;
     expr_ref_vector m_lits;
     expr_ref m_proof_hint;
     smt_checker m_checker;
 public:
-    imp(ast_manager& m): m(m), m_lits(m), m_proof_hint(m), m_checker(m) {}
+    proof_cmds_imp(ast_manager& m): m(m), m_lits(m), m_proof_hint(m), m_checker(m) {}
 
-    void add_literal(expr* e) {
+    void add_literal(expr* e) override {
         if (m.is_proof(e))
             m_proof_hint = e;
         else
             m_lits.push_back(e);
     }
 
-    void end_assumption() {
+    void end_assumption() override {
         m_checker.assume(m_lits);
         m_lits.reset();
         m_proof_hint.reset();
@@ -127,32 +127,11 @@ public:
     }
 };
 
-proof_cmds* proof_cmds::mk(ast_manager& m) {
-    return alloc(proof_cmds, m);
-}
 
-proof_cmds::proof_cmds(ast_manager& m) {
-    m_imp = alloc(imp, m);
-}
-
-proof_cmds::~proof_cmds() {
-    dealloc(m_imp);
-}
-
-void proof_cmds::add_literal(expr* e) {
-    m_imp->add_literal(e);
-}
-
-void proof_cmds::end_assumption() {
-    m_imp->end_assumption();
-}
-
-void proof_cmds::end_learned() {
-    m_imp->end_learned();
-}
-
-void proof_cmds::end_deleted() {
-    m_imp->end_deleted();
+static proof_cmds& get(cmd_context& ctx) {
+    if (!ctx.get_proof_cmds())
+        ctx.set_proof_cmds(alloc(proof_cmds_imp, ctx.m()));
+    return *ctx.get_proof_cmds();
 }
 
 // assumption
@@ -166,8 +145,8 @@ public:
     void finalize(cmd_context & ctx) override {}
     void failure_cleanup(cmd_context & ctx) override {}
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }    
-    void set_next_arg(cmd_context & ctx, expr * arg) override { ctx.get_proof_cmds().add_literal(arg); }
-    void execute(cmd_context& ctx) override { ctx.get_proof_cmds().end_assumption(); }
+    void set_next_arg(cmd_context & ctx, expr * arg) override { get(ctx).add_literal(arg); }
+    void execute(cmd_context& ctx) override { get(ctx).end_assumption(); }
 };
 
 // deleted clause
@@ -181,8 +160,8 @@ public:
     void finalize(cmd_context & ctx) override {}
     void failure_cleanup(cmd_context & ctx) override {}
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }    
-    void set_next_arg(cmd_context & ctx, expr * arg) override { ctx.get_proof_cmds().add_literal(arg); }
-    void execute(cmd_context& ctx) override { ctx.get_proof_cmds().end_deleted(); }
+    void set_next_arg(cmd_context & ctx, expr * arg) override { get(ctx).add_literal(arg); }
+    void execute(cmd_context& ctx) override { get(ctx).end_deleted(); }
 };
 
 // learned/redundant clause
@@ -190,14 +169,14 @@ class learn_cmd : public cmd {
 public:
     learn_cmd():cmd("learn") {}
     char const* get_usage() const override { return "<expr>+"; }
-    char const * get_descr(cmd_context& ctx) const override { return "proof command for learned (redundant) clauses"; }
+    char const* get_descr(cmd_context& ctx) const override { return "proof command for learned (redundant) clauses"; }
     unsigned get_arity() const override { return VAR_ARITY; }
     void prepare(cmd_context & ctx) override {}
     void finalize(cmd_context & ctx) override {}
     void failure_cleanup(cmd_context & ctx) override {}
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }    
-    void set_next_arg(cmd_context & ctx, expr * arg) override { ctx.get_proof_cmds().add_literal(arg); }
-    void execute(cmd_context& ctx) override { ctx.get_proof_cmds().end_learned(); }
+    void set_next_arg(cmd_context & ctx, expr * arg) override { get(ctx).add_literal(arg); }
+    void execute(cmd_context& ctx) override { get(ctx).end_learned(); }
 };
 
 void install_proof_cmds(cmd_context & ctx) {
