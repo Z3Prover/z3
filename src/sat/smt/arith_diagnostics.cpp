@@ -162,14 +162,14 @@ namespace arith {
             args.push_back(s.literal2expr(lit));
         }
         for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
-            auto const& [a, b, is_eq] = a.m_arith_hint.eq(i);            
-            expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
+            auto const& [x, y, is_eq] = a.m_arith_hint.eq(i);            
+            expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
             if (!is_eq) eq = m.mk_not(eq);
             args.push_back(arith.mk_int(lc));
             args.push_back(eq);
         }
-        for (expr* a : args)
-            sorts.push_back(a->get_sort());
+        for (expr* arg : args)
+            sorts.push_back(arg->get_sort());
         sort* range = m.mk_proof_sort();
         func_decl* d = m.mk_func_decl(symbol(name), args.size(), sorts.data(), range);
         expr* r = m.mk_app(d, args);

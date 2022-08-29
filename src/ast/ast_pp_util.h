@@ -38,7 +38,7 @@ class ast_pp_util {
 
     decl_collector      coll;
     
-    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), coll(m), m_defined(m) {}
+    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), m_defined(m), coll(m) {}
 
     void reset() { coll.reset(); m_removed.reset(); m_sorts.clear(0u); m_decls.clear(0u); m_rec_decls.clear(0u); 
         m_is_defined.reset(); m_defined.reset(); m_defined_lim.reset(); }
