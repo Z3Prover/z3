@@ -166,9 +166,7 @@ namespace opt {
 
         def solve_divides(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
 
-        def solve_mod(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
-
-        def solve_div(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+        def solve_mod_div(unsigned x, unsigned_vector const& mod_rows, unsigned_vector const& divide_rows, bool compute_def);
 
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 

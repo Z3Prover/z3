@@ -380,40 +380,37 @@ namespace opt {
         m_below.reset();
         for (unsigned row_id : row_ids) {
             SASSERT(row_id != m_objective_id);
-            if (visited.contains(row_id)) {
+            if (visited.contains(row_id)) 
                 continue;
-            }
             visited.insert(row_id);
             row& r = m_rows[row_id];
-            if (r.m_alive) {
-                rational a = get_coefficient(row_id, x);
-                if (a.is_zero()) {
-                    // skip
-                }
-                else if (a.is_pos() == is_pos || r.m_type == t_eq) {
-                    rational value = x_val - (r.m_value/a);
-                    if (bound_row_index == UINT_MAX) {
-                        lub_val = value;
-                        bound_row_index = row_id;
-                        bound_coeff = a;
-                    }
-                    else if ((value == lub_val && r.m_type == opt::t_lt) ||
-                             (is_pos && value < lub_val) || 
-                   
-                        (!is_pos && value > lub_val)) {
-                        m_above.push_back(bound_row_index);
-                        lub_val = value;
-                        bound_row_index = row_id;                          
-                        bound_coeff = a;
-                    }
-                    else {
-                        m_above.push_back(row_id);
-                    }
-                }
-                else {
-                    m_below.push_back(row_id);
-                }
+            if (!r.m_alive)
+                continue;
+            rational a = get_coefficient(row_id, x);
+            if (a.is_zero()) {
+                // skip
             }
+            else if (a.is_pos() == is_pos || r.m_type == t_eq) {
+                rational value = x_val - (r.m_value/a);
+                if (bound_row_index == UINT_MAX) {
+                    lub_val = value;
+                    bound_row_index = row_id;
+                    bound_coeff = a;
+                }
+                else if ((value == lub_val && r.m_type == opt::t_lt) ||
+                         (is_pos && value < lub_val) || 
+                         
+                         (!is_pos && value > lub_val)) {
+                    m_above.push_back(bound_row_index);
+                    lub_val = value;
+                    bound_row_index = row_id;                          
+                    bound_coeff = a;
+                }
+                else 
+                    m_above.push_back(row_id);
+            }
+            else 
+                m_below.push_back(row_id);
         }
         return bound_row_index != UINT_MAX;
     }
@@ -1062,23 +1059,18 @@ namespace opt {
         unsigned eq_row = UINT_MAX;
         // select the lub and glb.
         for (unsigned row_id : row_ids) {
-            if (visited.contains(row_id)) {
+            if (visited.contains(row_id)) 
                 continue;
-            }
             visited.insert(row_id);
             row& r = m_rows[row_id];
-            if (!r.m_alive) {
+            if (!r.m_alive) 
                 continue;
-            }
             rational a = get_coefficient(row_id, x);
-            if (a.is_zero()) {
+            if (a.is_zero()) 
                 continue;
-            }
-            if (r.m_type == t_eq) {
+            if (r.m_type == t_eq) 
                 eq_row = row_id;
-                continue;
-            }
-            if (r.m_type == t_mod) 
+            else if (r.m_type == t_mod) 
                 mod_rows.push_back(row_id);
             else if (r.m_type == t_div) 
                 div_rows.push_back(row_id);
@@ -1111,14 +1103,11 @@ namespace opt {
             }
         }
 
-        if (!mod_rows.empty()) 
-            return solve_mod(x, mod_rows, compute_def);
-
-        if (!div_rows.empty())
-            return solve_div(x, div_rows, compute_def);
-
         if (!divide_rows.empty()) 
             return solve_divides(x, divide_rows, compute_def);
+
+        if (!div_rows.empty() || !mod_rows.empty())
+            return solve_mod_div(x, mod_rows, div_rows, compute_def);
 
         if (eq_row != UINT_MAX) 
             return solve_for(eq_row, x, compute_def);
@@ -1223,94 +1212,7 @@ namespace opt {
     // - 0 <= g*z.value + w.value < K*(g+1)
     // -  add g*z + w - v - k*K = 0 for suitable k from 0 .. g based on model
     // 
-    
-    model_based_opt::def model_based_opt::solve_mod(unsigned x, unsigned_vector const& _mod_rows, bool compute_def) {
-        def result;
-        unsigned_vector mod_rows(_mod_rows);
-        rational K(1);
-        for (unsigned ri : mod_rows)
-            K = lcm(K, m_rows[ri].m_mod);
-
-        rational x_value = m_var2value[x];
-        rational y_value = div(x_value, K);
-        rational z_value = mod(x_value, K);
-        SASSERT(x_value == K * y_value + z_value);
-        SASSERT(0 <= z_value && z_value < K);
-        // add new variables
-        unsigned z = add_var(z_value, true);
-        unsigned y = add_var(y_value, true);
-
-        uint_set visited;
-        unsigned j = 0;
-        for (unsigned ri : mod_rows) {
-            if (visited.contains(ri))
-                continue;
-            m_rows[ri].m_alive = false;
-            visited.insert(ri);
-            mod_rows[j++] = ri;
-        }
-        mod_rows.shrink(j);
-
-        // replace x by K*y + z in other rows.
-        for (unsigned ri : m_var2row_ids[x]) {
-            if (visited.contains(ri))
-                continue;
-            replace_var(ri, x, K, y, rational::one(), z);
-            visited.insert(ri);
-            normalize(ri);
-        }
-
-        // add bounds for z
-        add_lower_bound(z, rational::zero());
-        add_upper_bound(z, K - 1);
-
-        for (unsigned ri : mod_rows) {
-            rational a = get_coefficient(ri, x);
-            replace_var(ri, x, rational::zero());
-
-            // add w = b mod K
-            vector<var> coeffs = m_rows[ri].m_vars;
-            rational coeff = m_rows[ri].m_coeff;
-            unsigned v = m_rows[ri].m_id;
-            rational v_value = m_var2value[v];
-
-            unsigned w = UINT_MAX;
-            rational offset(0);
-            if (coeffs.empty() || K == 1)
-                offset = mod(coeff, K);
-            else
-                w = add_mod(coeffs, coeff, K);
-
-
-            rational w_value = w == UINT_MAX ? offset : m_var2value[w];
-
-            // add v = a*z + w - V, for k = (a*z_value + w_value) div K
-            // claim: (= (mod x K) (- x (* K (div x K)))))) is a theorem for every x, K != 0
-            rational V = v_value - a * z_value - w_value;
-            vector<var> mod_coeffs;
-            mod_coeffs.push_back(var(v, rational::minus_one()));
-            mod_coeffs.push_back(var(z, a));
-            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
-            add_constraint(mod_coeffs, V + offset, t_eq);
-            add_lower_bound(v, rational::zero());
-            add_upper_bound(v, K - 1);
-
-            retire_row(ri);
-
-            project(v, false);
-        }
-
-        def y_def = project(y, compute_def);
-        def z_def = project(z, compute_def);
-
-        if (compute_def) {
-            result = (y_def * K) + z_def;
-            m_var2value[x] = eval(result);
-        }
-        TRACE("opt", display(tout << "solve_mod\n"));
-        return result;
-    }
-
+    //
     //
     // Given v = a*x + b div K
     // Replace x |-> K*y + z
@@ -1332,13 +1234,16 @@ namespace opt {
     // where k is between 0 and g
     // when gcd(a, K) = 1, then there are only two cases.
     // 
-    model_based_opt::def model_based_opt::solve_div(unsigned x, unsigned_vector const& _div_rows, bool compute_def) {
+    model_based_opt::def model_based_opt::solve_mod_div(unsigned x, unsigned_vector const& _mod_rows, unsigned_vector const& _div_rows, bool compute_def) {
         def result;
-        unsigned_vector div_rows(_div_rows);
-        SASSERT(!div_rows.empty());
+        unsigned_vector div_rows(_div_rows), mod_rows(_mod_rows);
+        SASSERT(!div_rows.empty() || !mod_rows.empty());
+        TRACE("opt", display(tout << "solve_div " << x << "\n"));
 
         rational K(1);
         for (unsigned ri : div_rows)
+            K = lcm(K, m_rows[ri].m_mod);
+        for (unsigned ri : mod_rows)
             K = lcm(K, m_rows[ri].m_mod);
 
         rational x_value = m_var2value[x];
@@ -1362,6 +1267,17 @@ namespace opt {
             div_rows[j++] = ri;
         }
         div_rows.shrink(j);
+        
+        j = 0;
+        for (unsigned ri : mod_rows) {
+            if (visited.contains(ri))
+                continue;
+            m_rows[ri].m_alive = false;
+            visited.insert(ri);
+            mod_rows[j++] = ri;
+        }
+        mod_rows.shrink(j);
+
 
         // replace x by K*y + z in other rows.
         for (unsigned ri : m_var2row_ids[x]) {
@@ -1376,9 +1292,10 @@ namespace opt {
         add_lower_bound(z, rational::zero());
         add_upper_bound(z, K - 1);
         
-        TRACE("opt", display(tout));
 
-        // solve for x_value = K*y_value + z_value, 0 <= z_value < K.       
+        // solve for x_value = K*y_value + z_value, 0 <= z_value < K.
+
+        unsigned_vector vs;
 
         for (unsigned ri : div_rows) {
 
@@ -1458,10 +1375,48 @@ namespace opt {
             add_constraint(bound_coeffs, k * K - offset, t_le);
             // allow to recycle row.
             retire_row(ri);
-            project(v, false);
+            vs.push_back(v);
         }
 
-        TRACE("opt", display(tout << "solve_div reduced " << y << " " << z << "\n"));
+        for (unsigned ri : mod_rows) {
+            rational a = get_coefficient(ri, x);
+            replace_var(ri, x, rational::zero());
+
+            // add w = b mod K
+            vector<var> coeffs = m_rows[ri].m_vars;
+            rational coeff = m_rows[ri].m_coeff;
+            unsigned v = m_rows[ri].m_id;
+            rational v_value = m_var2value[v];
+
+            unsigned w = UINT_MAX;
+            rational offset(0);
+            if (coeffs.empty() || K == 1)
+                offset = mod(coeff, K);
+            else
+                w = add_mod(coeffs, coeff, K);
+
+
+            rational w_value = w == UINT_MAX ? offset : m_var2value[w];
+
+            // add v = a*z + w - V, for k = (a*z_value + w_value) div K
+            // claim: (= (mod x K) (- x (* K (div x K)))))) is a theorem for every x, K != 0
+            rational V = v_value - a * z_value - w_value;
+            vector<var> mod_coeffs;
+            mod_coeffs.push_back(var(v, rational::minus_one()));
+            mod_coeffs.push_back(var(z, a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
+            add_constraint(mod_coeffs, V + offset, t_eq);
+            add_lower_bound(v, rational::zero());
+            add_upper_bound(v, K - 1);
+
+            retire_row(ri);
+            vs.push_back(v);
+        }
+
+
+        for (unsigned v : vs)
+            project(v, false);
+
         // project internal variables.
 
         def y_def = project(y, compute_def);
@@ -1525,12 +1480,12 @@ namespace opt {
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
         for (unsigned row_id : row_ids) {           
-            if (!visited.contains(row_id)) {
-                // x |-> D*y + u
-                replace_var(row_id, x, D, y, u);
-                visited.insert(row_id);
-                normalize(row_id);
-            }
+            if (visited.contains(row_id))
+                continue;
+            // x |-> D*y + u
+            replace_var(row_id, x, D, y, u);
+            visited.insert(row_id);
+            normalize(row_id);            
         }
         TRACE("opt1", display(tout << "tableau after replace x by y := v" << y << "\n"););
         def result = project(y, compute_def);
@@ -1635,25 +1590,28 @@ namespace opt {
         uint_set visited;
         visited.insert(row_id1);
         for (unsigned row_id2 : row_ids) {
-            if (!visited.contains(row_id2)) {                
-                visited.insert(row_id2);                
-                b = get_coefficient(row_id2, x);
-                if (b.is_zero())
-                    continue;
-                row& dst = m_rows[row_id2];
-                switch (dst.m_type) {
-                case t_eq:
-                case t_lt:
-                case t_le:
-                    solve(row_id1, a, row_id2, x);
-                    break;
-                case t_divides:
-                case t_mod:
-                case t_div:
-                    // mod reduction already done.
-                    UNREACHABLE();
-                    break;
-                }
+            if (visited.contains(row_id2))
+                continue;
+            visited.insert(row_id2);
+            row& r = m_rows[row_id2];
+            if (!r.m_alive)
+                continue;
+            b = get_coefficient(row_id2, x);
+            if (b.is_zero())
+                continue;
+            row& dst = m_rows[row_id2];
+            switch (dst.m_type) {
+            case t_eq:
+            case t_lt:
+            case t_le:
+                solve(row_id1, a, row_id2, x);
+                break;
+            case t_divides:
+            case t_mod:
+            case t_div:
+                // mod reduction already done.
+                UNREACHABLE();
+                break;
             }
         }
         def result;
