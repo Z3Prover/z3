@@ -24,7 +24,7 @@ Notes:
 #include "util/small_object_allocator.h"
 #include "ast/ast_util.h"
 #include "cmd_context/cmd_context.h"
-// include "smt/smt_solver.h"
+#include "smt/smt_solver.h"
 // include "sat/sat_solver.h"
 // include "sat/sat_drat.h"
 #include "sat/smt/euf_proof_checker.h"
@@ -57,7 +57,7 @@ public:
         // sat_solver(m_params, m.limit()), 
         // m_drat(sat_solver) 
     {
-//        m_solver = mk_smt_solver(m, m_params, symbol());
+        m_solver = mk_smt_solver(m, m_params, symbol());
     }
 
     void check(expr_ref_vector const& clause, expr* proof_hint) {
