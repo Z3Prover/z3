@@ -566,14 +566,13 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
     bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case, bool& are_unique) {
         SASSERT(m_ar.is_array(a));
-        bool are_values = true;
         are_unique = true;
         TRACE("model_evaluator", tout << mk_pp(a, m) << "\n";);
 
         while (m_ar.is_store(a)) {
             expr_ref_vector store(m);
             store.append(to_app(a)->get_num_args()-1, to_app(a)->get_args()+1);
-            are_values &= args_are_values(store, are_unique);
+            args_are_values(store, are_unique);
             stores.push_back(store);
             a = to_app(a)->get_arg(0);
         }
@@ -584,9 +583,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
 
         if (m_ar_rw.has_index_set(a, else_case, stores)) {
-            for (auto const& store : stores) {
-                are_values &= args_are_values(store, are_unique);
-            }
+            for (auto const& store : stores) 
+                args_are_values(store, are_unique);
             return true;
         }
         if (!m_ar.is_as_array(a)) {
