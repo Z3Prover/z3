@@ -39,7 +39,6 @@ Notes:
 #include "solver/progress_callback.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
-#include "cmd_context/proof_cmds.h"
 #include "params/context_params.h"
 
 
@@ -94,8 +93,7 @@ public:
 
 class proof_cmds {
 public:
-    proof_cmds(ast_manager& m);
-    virtual ~proof_cmds();
+    virtual ~proof_cmds() {}
     virtual void add_literal(expr* e) = 0;
     virtual void end_assumption() = 0;
     virtual void end_learned() = 0;
@@ -412,7 +410,7 @@ public:
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
-    proof_cmds* get_proof_cmds() { return m_proof_cmds; }
+    proof_cmds* get_proof_cmds() { return m_proof_cmds.get(); }
     void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
 
     void set_solver_factory(solver_factory * s);
