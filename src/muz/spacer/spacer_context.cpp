@@ -3537,7 +3537,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     unsigned num_reuse_reach = 0;
 
 
-    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
+    if (!n.is_may_pob() && m_push_pob && n.pt().is_blocked(n, uses_level)) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
@@ -3551,6 +3551,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
           STRACE("spacer_progress",
                 tout << "This pob can be blocked by instantiation\n";);
       }
+
       if ((n.is_may_pob()) && n.get_gas() == 0) {
           TRACE("global", tout << "Cant prove may pob. Collapsing "
                               << mk_pp(n.post(), m) << "\n";);
