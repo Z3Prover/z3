@@ -168,6 +168,7 @@ namespace simplex {
         void add_var(row r, numeral const& n, var_t var);
         void add(row r, numeral const& n, row src);
         void mul(row r, numeral const& n);
+        void div(row r, numeral const& n);
         void neg(row r);
         void del(row r);
 

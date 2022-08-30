@@ -766,11 +766,11 @@ namespace smt {
             for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
             l1 << ")\n";
             l2 << ")\n";
-            IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
+            IF_VERBOSE(2, verbose_stream() << l1.str() << l2.str());
             m_last_positions.reset();
             m_last_positions.append(offsets);
         }
-        IF_VERBOSE(1, verbose_stream() << str);
+        IF_VERBOSE(2, verbose_stream() << str);
     }
 
 };
