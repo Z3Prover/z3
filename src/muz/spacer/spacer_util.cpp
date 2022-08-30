@@ -656,7 +656,8 @@ void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
     // arith_rewriter
     params.set_bool("sort_sums", true);
     params.set_bool("gcd_rounding", true);
-    params.set_bool("arith_lhs", true);
+    // params.set_bool("arith_lhs", true);
+     params.set_bool("arith_ineq_lhs", true);
     // poly_rewriter
     params.set_bool("som", true);
     params.set_bool("flat", true);
@@ -665,9 +666,9 @@ void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
     th_rewriter rw(m, params);
     rw(e, out);
 
-    adhoc_rewriter_cfg adhoc_cfg(m);
-    rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(m, false, adhoc_cfg);
-    adhoc_rw(out.get(), out);
+    // adhoc_rewriter_cfg adhoc_cfg(m);
+    // rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(m, false, adhoc_cfg);
+    // adhoc_rw(out.get(), out);
 
     if (m.is_and(out)) {
         expr_ref_vector v(m);
@@ -700,6 +701,8 @@ void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
             out = mk_and(v);
         }
     }
+
+    // normalize_order(out, out);
 }
 
 // rewrite term such that the pretty printing is easier to read
