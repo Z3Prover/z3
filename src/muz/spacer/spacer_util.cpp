@@ -633,6 +633,21 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
     }
 };
 
+bool is_normalized(expr_ref e, bool use_simplify_bounds, bool use_factor_eqs) {
+    expr_ref out(e.m());
+    normalize(e, out, use_simplify_bounds, use_factor_eqs);
+
+    expr_ref out0 = out;
+    if (e != out) { normalize(out, out, use_simplify_bounds, use_factor_eqs); }
+
+    CTRACE("inherit_bug", e != out,
+           tout << "e==out0: " << (e == out0) << " e==out: " << (e == out)
+                << " out0==out: " << (out0 == out) << "\n";
+           tout << "e: " << e << "\n"
+                << "out0: " << out0 << "\n"
+                << "out: " << out << "\n";);
+    return e == out;
+}
 void normalize(expr *e, expr_ref &out, bool use_simplify_bounds,
                bool use_factor_eqs) {
 

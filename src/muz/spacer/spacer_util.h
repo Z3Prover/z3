@@ -104,6 +104,9 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs);
 expr_ref_vector compute_implicant_literals(model &mdl,
                                            expr_ref_vector &formula);
 void simplify_bounds(expr_ref_vector &lemmas);
+bool is_normalized(expr_ref e, bool use_simplify_bounds = true,
+                   bool factor_eqs = false);
+
 void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true,
                bool factor_eqs = false);
 
@@ -160,7 +163,8 @@ bool find_unique_mono_var_lit(const expr_ref &p, expr_ref &lit);
 /// Drop all literals that numerically match \p lit, from \p fml_vec.
 ///
 /// \p abs_fml holds the result. Returns true if any literal has been dropped
-bool filter_out_lit(const expr_ref_vector &in, const expr_ref &lit, expr_ref_vector &out);
+bool filter_out_lit(const expr_ref_vector &in, const expr_ref &lit,
+                    expr_ref_vector &out);
 
 /// Returns true if range of s is numeric
 bool is_numeric_sub(const substitution &s);
