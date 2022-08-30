@@ -158,14 +158,14 @@ namespace arith {
         sort_ref_vector sorts(m);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {            
             auto const& [coeff, lit] = a.m_arith_hint.lit(i);
-            args.push_back(arith.mk_int(coeff*lc));
+            args.push_back(arith.mk_int(abs(coeff*lc)));
             args.push_back(s.literal2expr(lit));
         }
         for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
             auto const& [x, y, is_eq] = a.m_arith_hint.eq(i);            
             expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
             if (!is_eq) eq = m.mk_not(eq);
-            args.push_back(arith.mk_int(lc));
+            args.push_back(arith.mk_int(1));
             args.push_back(eq);
         }
         for (expr* arg : args)

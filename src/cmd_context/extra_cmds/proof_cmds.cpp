@@ -25,8 +25,8 @@ Notes:
 #include "ast/ast_util.h"
 #include "cmd_context/cmd_context.h"
 #include "smt/smt_solver.h"
-// include "sat/sat_solver.h"
-// include "sat/sat_drat.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_drat.h"
 #include "sat/smt/euf_proof_checker.h"
 #include <iostream>
 
@@ -37,30 +37,67 @@ class smt_checker {
 
     scoped_ptr<solver> m_solver;
 
-#if 0
-    sat::solver  sat_solver;
+    symbol       m_rup;
+    sat::solver  m_sat_solver;
     sat::drat    m_drat;
     sat::literal_vector m_units;
-    sat::literal_vector m_drup_units;
+    sat::literal_vector m_clause;
 
     void add_units() {
         auto const& units = m_drat.units();
         for (unsigned i = m_units.size(); i < units.size(); ++i)
             m_units.push_back(units[i].first);
     }
-#endif
 
 public:
     smt_checker(ast_manager& m):
         m(m),
-        m_checker(m)
-        // sat_solver(m_params, m.limit()), 
-        // m_drat(sat_solver) 
+        m_checker(m),
+        m_sat_solver(m_params, m.limit()), 
+        m_drat(m_sat_solver) 
     {
+        m_params.set_bool("drat.check_unsat", true);
+        m_sat_solver.updt_params(m_params);
+        m_drat.updt_config();
         m_solver = mk_smt_solver(m, m_params, symbol());
+        m_rup = symbol("rup");
+    }
+
+    bool is_rup(expr* proof_hint) {
+        return
+            proof_hint &&
+            is_app(proof_hint) &&
+            to_app(proof_hint)->get_name() == m_rup;        
+    }
+
+    void mk_clause(expr_ref_vector const& clause) {
+        m_clause.reset();
+        for (expr* e : clause) {
+            bool sign = false;
+            while (m.is_not(e, e))
+                sign = !sign;
+            m_clause.push_back(sat::literal(e->get_id(), sign));
+        }
+    }
+    
+    bool check_rup(expr_ref_vector const& clause) {
+        add_units();
+        mk_clause(clause);
+        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
+    }
+
+    void add_clause(expr_ref_vector const& clause) {
+        mk_clause(clause);
+        m_drat.add(m_clause, sat::status::input());
     }
 
     void check(expr_ref_vector const& clause, expr* proof_hint) {
+
+
+        if (is_rup(proof_hint) && check_rup(clause)) {
+            std::cout << "(verified-rup)\n";
+            return;
+        }
 
         if (m_checker.check(clause, proof_hint)) {
             if (is_app(proof_hint))
@@ -90,15 +127,16 @@ public:
     }
 
     void assume(expr_ref_vector const& clause) {
+        add_clause(clause);
         m_solver->assert_expr(mk_or(clause));
     }
 };
 
 class proof_cmds_imp : public proof_cmds {
-    ast_manager& m;
+    ast_manager&    m;
     expr_ref_vector m_lits;
-    expr_ref m_proof_hint;
-    smt_checker m_checker;
+    expr_ref        m_proof_hint;
+    smt_checker     m_checker;
 public:
     proof_cmds_imp(ast_manager& m): m(m), m_lits(m), m_proof_hint(m), m_checker(m) {}
 

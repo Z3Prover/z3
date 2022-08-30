@@ -370,7 +370,10 @@ namespace arith {
                 expr* x, *y;
                 for (expr* arg : *jst) {
                     if (even) {
-                        VERIFY(a.is_numeral(arg, coeff));
+                        if (!a.is_numeral(arg, coeff)) {
+                            IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
+                            return false;
+                        }
                     }
                     else {
                         bool sign = m.is_not(arg, arg);
@@ -387,13 +390,16 @@ namespace arith {
                     }                        
                     even = !even;
                 }
-                // display(verbose_stream());
-                // todo: correlate with literals in clause, literals that are not in clause should have RUP property.
-                return check_farkas();
+                if (check_farkas())
+                    return true;
+                
+                IF_VERBOSE(0, verbose_stream() << "did not check farkas\n" << mk_pp(jst, m) << "\n");
+                return false;
             }
 
             // todo: rules for bounds and implied-by
-            
+
+            IF_VERBOSE(0, verbose_stream() << "did not check " << mk_pp(jst, m) << "\n");
             return false;
         }
 
