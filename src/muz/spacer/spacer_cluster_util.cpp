@@ -83,6 +83,16 @@ struct bool_and_less_proc {
 
         if (e1 == e2) return false;
 
+        if (e1->get_kind() != e2->get_kind()) return e1->get_kind() < e2->get_kind();
+        if (!is_app(e1)) return ast_lt(e1, e2);
+
+        app *a1 = to_app(e1), *a2 = to_app(e2);
+
+        if (a1->get_family_id() != a2->get_family_id())
+            return a1->get_family_id() < a2->get_family_id();
+        if (a1->get_decl_kind() != a2->get_decl_kind())
+            return a1->get_decl_kind() < a2->get_decl_kind();
+
         if (!(m_arith.is_le(e1, t1, k1) || m_arith.is_lt(e1, t1, k1) ||
               m_arith.is_ge(e1, t1, k1) || m_arith.is_gt(e1, t1, k1))) {
             t1 = e1;
@@ -98,10 +108,10 @@ struct bool_and_less_proc {
 
         if (t1 == t2) return ast_lt(k1, k2);
 
-        if (!(is_app(t1) && is_app(t2))) {
-            return is_app(t1) == is_app(t2) ? ast_lt(t1, t2)
-                                            : is_app(t1) < is_app(t2);
-        }
+        if (t1->get_kind() != t2->get_kind())
+          return t1->get_kind() < t2->get_kind();
+
+        if (!is_app(t1)) return ast_lt(t1, t2);
 
         unsigned d1 = to_app(t1)->get_depth();
         unsigned d2 = to_app(t2)->get_depth();
