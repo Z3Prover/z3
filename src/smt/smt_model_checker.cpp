@@ -239,7 +239,7 @@ namespace smt {
                     sk_value = sk_term;
                 }
                 // last ditch: am I an array?
-                else if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_array_interp(f)) {
+                else if (false && autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_array_interp(f)) {
                     sk_value = cex->get_func_interp(f)->get_array_interp(f);
                 }
 
