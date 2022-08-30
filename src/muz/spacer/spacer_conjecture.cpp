@@ -71,15 +71,18 @@ bool find_unique_mono_var_lit(const expr_ref &pattern, expr_ref &res) {
 bool filter_out_lit(const expr_ref_vector &vec, const expr_ref &lit, expr_ref_vector &out) {
     ast_manager &m = vec.get_manager();
     bool dirty = false, pos = false;
-    sem_matcher m_matcher(m);
+    sem_matcher matcher(m);
     substitution sub(m);
 
     out.reset();
-    sub.reserve(1, get_num_vars(lit.get()));
+    unsigned lit_num_vars = get_num_vars(lit.get());
     SASSERT(!(m.is_not(lit) && m.is_eq(to_app(lit)->get_arg(0))));
     for (auto &c : vec) {
-        m_matcher.reset();
-        if (m_matcher(lit, c, sub, pos) && pos) {
+        sub.reset();
+        sub.reserve(1, lit_num_vars);
+        matcher.reset();
+
+        if (matcher(lit, c, sub, pos) && pos) {
             if (is_numeric_sub(sub)) {
                 dirty = true;
                 continue;
@@ -87,6 +90,9 @@ bool filter_out_lit(const expr_ref_vector &vec, const expr_ref &lit, expr_ref_ve
         }
         out.push_back(c);
     }
+
+    CTRACE("global", dirty,
+           tout << "Filtered " << lit << " from " << vec << "\n got " << out << "\n";);
     return dirty;
 }
 } // namespace spacer
