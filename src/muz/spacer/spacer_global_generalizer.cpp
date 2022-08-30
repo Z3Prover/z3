@@ -614,6 +614,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     TRACE("global", {
         tout << "Global generalization of:\n"
              << mk_and(lemma->get_cube()) << "\n"
+             << "at lvl: " << lemma->level() << "\n"
              << (is_new ? "new" : "old") << "\n"
              << "Using cluster:\n"
              << pat << "\n"
@@ -653,6 +654,11 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
             // decrease the number of times this cluster is going to be used
             // for conjecturing
             cluster->dec_gas();
+            return;
+        } else {
+            // -- if conjecture failed, there is nothing else to do.
+            // -- the pob matched pre-condition for conjecture, so it should not
+            // be subsumed
             return;
         }
     }
