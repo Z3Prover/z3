@@ -49,7 +49,8 @@ namespace euf {
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_values(m)
+        m_values(m),
+        m_clause_visitor(m)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
@@ -347,8 +348,7 @@ namespace euf {
             if (m_relevancy.enabled())
                 m_relevancy.propagate();
             if (m_egraph.inconsistent()) {  
-                unsigned lvl = s().scope_lvl();
-                s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
+                set_conflict(conflict_constraint().to_index());
                 return true;
             }
             bool propagated1 = false;
@@ -519,7 +519,7 @@ namespace euf {
         bool merged = false;
         for (unsigned i = m_egraph.nodes().size(); i-- > 0; ) {
             euf::enode* n = m_egraph.nodes()[i];
-            if (!is_shared(n) || !m.is_bool(n->get_expr()))
+            if (!m.is_bool(n->get_expr()) || !is_shared(n))
                 continue;
             if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
                 m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));

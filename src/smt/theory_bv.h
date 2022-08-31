@@ -112,6 +112,7 @@ namespace smt {
         svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
+        enode_vector             m_bv2int;
         typedef svector<theory_var> vars;
 
         typedef std::pair<numeral, unsigned> value_sort_pair;

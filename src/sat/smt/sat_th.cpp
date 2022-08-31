@@ -125,7 +125,7 @@ namespace euf {
             pop_core(n);        
     }
 
-    sat::status th_euf_solver::mk_status(sat::proof_hint const* ps) {
+    sat::status th_euf_solver::mk_status(th_proof_hint const* ps) {
         return sat::status::th(m_is_redundant, get_id(), ps);
     }
 
@@ -149,7 +149,7 @@ namespace euf {
         return add_clause(2, lits);
     }
 
-    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::proof_hint const* ps) {      
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps) {      
         sat::literal lits[2] = { a, b };
         return add_clause(2, lits, ps);
     }
@@ -164,7 +164,7 @@ namespace euf {
         return add_clause(4, lits);
     }
 
-    bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, sat::proof_hint const* ps) {
+    bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps) {
         bool was_true = false;
         for (unsigned i = 0; i < n; ++i)       
             was_true |= is_true(lits[i]);
@@ -226,13 +226,14 @@ namespace euf {
         return ctx.s().rand()();
     }
 
-    size_t th_explain::get_obj_size(unsigned num_lits, unsigned num_eqs, sat::proof_hint const* pma) {
-        return sat::constraint_base::obj_size(sizeof(th_explain) + sizeof(sat::literal) * num_lits + sizeof(enode_pair) * num_eqs + (pma?pma->to_string().length()+1:1));
+    size_t th_explain::get_obj_size(unsigned num_lits, unsigned num_eqs) {
+        return sat::constraint_base::obj_size(sizeof(th_explain) + sizeof(sat::literal) * num_lits + sizeof(enode_pair) * num_eqs);
     }
 
-    th_explain::th_explain(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& p, sat::proof_hint const* pma) {
+    th_explain::th_explain(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& p, th_proof_hint const* pma) {
         m_consequent = c;
         m_eq = p;
+        m_proof_hint = pma;
         m_num_literals = n_lits;
         m_num_eqs = n_eqs;
         char * base_ptr = reinterpret_cast<char*>(this) + sizeof(th_explain); 
@@ -244,33 +245,24 @@ namespace euf {
         m_eqs = reinterpret_cast<enode_pair*>(base_ptr);
         for (i = 0; i < n_eqs; ++i)
             m_eqs[i] = eqs[i];
-        base_ptr += sizeof(enode_pair) * n_eqs;        
-        m_pragma = reinterpret_cast<char*>(base_ptr);
-        i = 0;
-        if (pma) {
-            std::string s = pma->to_string();
-            for (i = 0; s[i]; ++i)
-                m_pragma[i] = s[i];
-        }
-        m_pragma[i] = 0;
     }
 
-    th_explain* th_explain::mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y, sat::proof_hint const* pma) {
+    th_explain* th_explain::mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y, th_proof_hint const* pma) {
         region& r = th.ctx.get_region();
-        void* mem = r.allocate(get_obj_size(n_lits, n_eqs, pma));
+        void* mem = r.allocate(get_obj_size(n_lits, n_eqs));
         sat::constraint_base::initialize(mem, &th);
-        return new (sat::constraint_base::ptr2mem(mem)) th_explain(n_lits, lits, n_eqs, eqs, c, enode_pair(x, y));
+        return new (sat::constraint_base::ptr2mem(mem)) th_explain(n_lits, lits, n_eqs, eqs, c, enode_pair(x, y), pma);
     }
 
-    th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent, sat::proof_hint const* pma) {
+    th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent, th_proof_hint const* pma) {
         return mk(th, lits.size(), lits.data(), eqs.size(), eqs.data(), consequent, nullptr, nullptr, pma);
     }
 
-    th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, sat::proof_hint const* pma) {
+    th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, th_proof_hint const* pma) {
         return mk(th, lits.size(), lits.data(), eqs.size(), eqs.data(), sat::null_literal, x, y, pma);
     }
 
-    th_explain* th_explain::propagate(th_euf_solver& th, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, sat::proof_hint const* pma) {
+    th_explain* th_explain::propagate(th_euf_solver& th, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y, th_proof_hint const* pma) {
         return mk(th, 0, nullptr, eqs.size(), eqs.data(), sat::null_literal, x, y, pma);
     }
 
@@ -313,8 +305,8 @@ namespace euf {
             out << "--> " << m_consequent;
         if (m_eq.first != nullptr)
             out << "--> " << m_eq.first->get_expr_id() << " == " << m_eq.second->get_expr_id();
-        if (m_pragma != nullptr)
-            out << " p " << m_pragma;
+        if (m_proof_hint != nullptr)
+            out << " p ";
         return out;
     }
 

@@ -84,7 +84,7 @@ namespace sat {
     };
 
     struct no_drat_params : public params_ref {
-        no_drat_params() { set_sym("drat.file", symbol()); }        
+        no_drat_params() { set_bool("drat.disable", true); }
     };
     
     class solver : public solver_core {

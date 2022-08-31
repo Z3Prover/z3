@@ -63,6 +63,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     solver_params sp(_p);
     m_axioms2files = sp.axioms2files();
     m_lemmas2console = sp.lemmas2console();
+    m_instantiations2console = sp.instantiations2console();
 }
 
 void smt_params::updt_params(params_ref const & p) {

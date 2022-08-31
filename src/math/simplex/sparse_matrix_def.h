@@ -433,6 +433,25 @@ namespace simplex {
     }
 
     /**
+       \brief Set row <- n/row
+    */
+    template <typename Ext>
+    void sparse_matrix<Ext>::div(row r, numeral const &n) {
+      SASSERT(!m.is_zero(n));
+      if (m.is_one(n)) {
+        // no op
+      } else if (m.is_minus_one(n)) {
+        neg(r);
+      } else {
+        row_iterator it = row_begin(r);
+        row_iterator end = row_end(r);
+        for (; it != end; ++it) {
+          m.div(it->m_coeff, n, it->m_coeff);
+        }
+      }
+    }
+
+    /**
        \brief Delete row.
     */    
     template<typename Ext>

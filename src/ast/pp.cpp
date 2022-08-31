@@ -66,7 +66,6 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
     bool     single_line   = p.single_line();
 
     unsigned pos = 0;
-    unsigned ribbon_pos = 0;
     unsigned line = 0;
     unsigned len;
     unsigned i;
@@ -92,7 +91,6 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
                 break;
             }
             pos += len;
-            ribbon_pos += len;
             out << f->get_decl()->get_parameter(0).get_symbol();
             break;
         case OP_INDENT:
@@ -121,7 +119,6 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
                 break;
             }
             pos = indent;
-            ribbon_pos = 0;
             line++;
             if (line < max_num_lines) {
                 out << "\n";

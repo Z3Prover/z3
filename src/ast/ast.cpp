@@ -889,8 +889,10 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
 }
 
 void basic_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
-    if (logic == symbol::null)
+    if (logic == symbol::null) {
         sort_names.push_back(builtin_name("bool", BOOL_SORT));
+        sort_names.push_back(builtin_name("Proof", PROOF_SORT)); // reserved name?
+    }
     sort_names.push_back(builtin_name("Bool", BOOL_SORT));
 }
 

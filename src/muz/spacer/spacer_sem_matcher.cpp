@@ -84,7 +84,7 @@ bool sem_matcher::operator()(expr * e1, expr * e2, substitution & s, bool &pos) 
         top = false;
 
         if (n1->get_decl() != n2->get_decl()) {
-            expr *e1 = nullptr, *e2 = nullptr;
+            expr *e1 = nullptr, *e2 = nullptr, *e3 = nullptr, *e4 = nullptr, *e5 = nullptr;
             rational val1, val2;
 
             // x<=y == !(x>y)
@@ -120,6 +120,26 @@ bool sem_matcher::operator()(expr * e1, expr * e2, substitution & s, bool &pos) 
             else {
                 return false;
             }
+#if 0
+            // x >= var and !(y <= n)
+            // match (x, y) and (var, n+1)
+            if (m_arith.is_ge(n1, e1, e2) && is_var(e2) &&
+                m.is_not(n2, e3) && m_arith.is_le(e3, e4, e5) &&
+                m_arith.is_int(e5) &&
+                m_arith.is_numeral(e5, val2)) {
+
+                expr* num2 = m_arith.mk_numeral(val2 + 1, true);
+                m_pinned.push_back(num2);
+
+                if (!match_var(to_var(e2), num2)) return false;
+
+                m_todo.pop_back();
+
+                m_todo.push_back(expr_pair(e1, e4));
+
+                continue;
+            }
+#endif
         }
 
         unsigned num_args1 = n1->get_num_args();

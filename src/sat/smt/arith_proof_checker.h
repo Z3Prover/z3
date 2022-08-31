@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2020 Microsoft Corporation
+Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
@@ -11,7 +11,15 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2020-09-08
+    Nikolaj Bjorner (nbjorner) 2022-08-28
+
+Notes:
+
+The module assumes a limited repertoire of arithmetic proof rules.
+
+- farkas - inequalities, equalities and disequalities with coefficients
+- implied-eq - last literal is a disequality. The literals before imply the corresponding equality.
+- bound - last literal is a bound. It is implied by prior literals.
 
 --*/
 #pragma once
@@ -19,11 +27,12 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
+#include "sat/smt/euf_proof_checker.h"
 
 
 namespace arith {
 
-    class proof_checker {
+    class proof_checker : public euf::proof_checker_plugin {
         struct row {
             obj_map<expr, rational> m_coeffs;
             rational m_coeff;
@@ -131,11 +140,13 @@ namespace arith {
             SASSERT(m_todo.empty());
             m_todo.push_back({ mul, e });
             rational coeff1;
-            expr* e1, *e2;
+            expr* e1, *e2, *e3;
             for (unsigned i = 0; i < m_todo.size(); ++i) {
                 auto [coeff, e] = m_todo[i];
                 if (a.is_mul(e, e1, e2) && a.is_numeral(e1, coeff1))
                     m_todo.push_back({coeff*coeff1, e2});
+                else if (a.is_mul(e, e1, e2) && a.is_uminus(e1, e3) && a.is_numeral(e3, coeff1))
+                    m_todo.push_back({-coeff*coeff1, e2});
                 else if (a.is_mul(e, e1, e2) && a.is_numeral(e2, coeff1))
                     m_todo.push_back({coeff*coeff1, e1});
                 else if (a.is_add(e))
@@ -149,6 +160,8 @@ namespace arith {
                 }
                 else if (a.is_numeral(e, coeff1)) 
                     r.m_coeff += coeff*coeff1;
+                else if (a.is_uminus(e, e1) && a.is_numeral(e1, coeff1))
+                    r.m_coeff -= coeff*coeff1;
                 else
                     add(r, e, coeff);
             }
@@ -300,6 +313,8 @@ namespace arith {
         
     public:
         proof_checker(ast_manager& m): m(m), a(m) {}
+
+        ~proof_checker() override {}
         
         void reset() {
             m_ineq.reset();
@@ -350,6 +365,70 @@ namespace arith {
             return out;
         }
 
+        bool check(expr_ref_vector const& clause, app* jst, expr_ref_vector& units) override {
+            reset();
+            expr_mark pos, neg;
+            for (expr* e : clause)
+                if (m.is_not(e, e))
+                    neg.mark(e, true);
+                else
+                    pos.mark(e, true);
+
+            if (jst->get_name() == symbol("farkas")) {
+                bool even = true;
+                rational coeff;
+                expr* x, *y;
+                for (expr* arg : *jst) {
+                    if (even) {
+                        if (!a.is_numeral(arg, coeff)) {
+                            IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
+                            return false;
+                        }
+                    }
+                    else {
+                        bool sign = m.is_not(arg, arg);
+                        if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) 
+                            add_ineq(coeff, arg, sign);
+                        else if (m.is_eq(arg, x, y)) {
+                            if (sign)
+                                add_diseq(x, y);
+                            else
+                                add_eq(x, y);
+                        }
+                        else
+                            return false;
+
+                        if (sign && !pos.is_marked(arg)) {
+                            units.push_back(m.mk_not(arg));
+                            pos.mark(arg, false);
+                        }
+                        else if (!sign && !neg.is_marked(arg)) {
+                            units.push_back(arg);
+                            neg.mark(arg, false);
+                        }
+                            
+                    }                        
+                    even = !even;
+                }
+                if (check_farkas()) {
+                    return true;
+                }
+                
+                IF_VERBOSE(0, verbose_stream() << "did not check farkas\n" << mk_pp(jst, m) << "\n"; display(verbose_stream()); );
+                return false;
+            }
+
+            // todo: rules for bounds and implied-by
+
+            IF_VERBOSE(0, verbose_stream() << "did not check " << mk_pp(jst, m) << "\n");
+            return false;
+        }
+
+        void register_plugins(euf::proof_checker& pc) override {
+            pc.register_plugin(symbol("farkas"), this);
+            pc.register_plugin(symbol("bound"), this);
+            pc.register_plugin(symbol("implied-eq"), this);
+        }
         
     };
 

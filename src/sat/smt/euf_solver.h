@@ -60,11 +60,10 @@ namespace euf {
         std::ostream& display(std::ostream& out) const;
     };
 
-    class solver : public sat::extension, public th_internalizer, public th_decompile {
+    class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
         class user_sort;
-        // friend class sat::ba_solver;
         struct stats {
             unsigned m_ackerman;
             unsigned m_final_checks;
@@ -175,20 +174,22 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
         void log_justification(literal l, th_explain const& jst);
-        void drat_log_decl(func_decl* f);
-        void drat_log_params(func_decl* f);
-        void drat_log_expr1(expr* n);
-        ptr_vector<expr> m_drat_todo;
-        obj_hashtable<ast> m_drat_asts;
-        bool m_drat_initialized{ false };
-        void init_drat();
+
+        bool m_proof_initialized = false;
+        void init_proof();
+        ast_pp_util m_clause_visitor;
+        bool m_display_all_decls = false;
+        void on_clause(unsigned n, literal const* lits, sat::status st) override;
+        void on_lemma(unsigned n, literal const* lits, sat::status st);
+        void on_proof(unsigned n, literal const* lits, sat::status st);
+        std::ostream& display_literals(std::ostream& out, unsigned n, sat::literal const* lits);
+        void display_assume(std::ostream& out, unsigned n, literal const* lits);
+        void display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
+        void display_deleted(std::ostream& out, unsigned n, literal const* lits);
+        std::ostream& display_hint(std::ostream& out, expr* proof_hint);
+        expr_ref status2proof_hint(sat::status st);
 
         // relevancy
-        //bool_vector m_relevant_expr_ids;
-        //bool_vector m_relevant_visited;
-        //ptr_vector<expr> m_relevant_todo;
-        //void init_relevant_expr_ids();
-        //void push_relevant(sat::bool_var v);
         bool is_propagated(sat::literal lit);
         // invariant
         void check_eqc_bool_assignment() const;
@@ -341,11 +342,16 @@ namespace euf {
 
 
         // proof
-        bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
+        bool use_drat() { return s().get_config().m_drat && (init_proof(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
-        void drat_bool_def(sat::bool_var v, expr* n);
-        void drat_eq_def(sat::literal lit, expr* eq);
-        void drat_log_expr(expr* n);
+
+        void set_tmp_bool_var(sat::bool_var b, expr* e);
+        bool visit_clause(std::ostream& out, unsigned n, literal const* lits);
+        void display_assert(std::ostream& out, unsigned n, literal const* lits);
+        void visit_expr(std::ostream& out, expr* e);
+        std::ostream& display_expr(std::ostream& out, expr* e);        
+        void on_instantiation(unsigned n, sat::literal const* lits, unsigned k, euf::enode* const* bindings);
+        scoped_ptr<std::ostream> m_proof_out;
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,

@@ -60,14 +60,13 @@ namespace opt {
             }
         };
         struct row {
-            row(): m_type(t_le), m_value(0), m_alive(false) {}
-            vector<var> m_vars;         // variables with coefficients
-            rational    m_coeff;        // constant in inequality
-            rational    m_mod;          // value the term divide
-            ineq_type   m_type;         // inequality type
-            rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
-            bool        m_alive;        // rows can be marked dead if they have been processed.
-            unsigned    m_id;           // variable defined by row (used for mod_t and div_t)
+            vector<var> m_vars;               // variables with coefficients
+            rational    m_coeff = rational::zero();          // constant in inequality
+            rational    m_mod = rational::zero();            // value the term divide
+            ineq_type   m_type = t_le;        // inequality type
+            rational    m_value = rational::zero();          // value of m_vars + m_coeff under interpretation of m_var2value.
+            bool        m_alive = false;      // rows can be marked dead if they have been processed.
+            unsigned    m_id = UINT_MAX;      // variable defined by row (used for mod_t and div_t)
             void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
 
             row& normalize();
@@ -139,7 +138,7 @@ namespace opt {
 
         void add_upper_bound(unsigned x, rational const& hi);
 
-        void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r, unsigned id);
+        unsigned add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r, unsigned id);
 
         void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B);
 
@@ -167,9 +166,7 @@ namespace opt {
 
         def solve_divides(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
 
-        def solve_mod(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
-
-        def solve_div(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+        def solve_mod_div(unsigned x, unsigned_vector const& mod_rows, unsigned_vector const& divide_rows, bool compute_def);
 
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 

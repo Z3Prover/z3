@@ -402,6 +402,7 @@ namespace sat {
         extension::scoped_drating _sd(*m_ext.get());
         if (j.get_kind() == justification::EXT_JUSTIFICATION) 
             fill_ext_antecedents(lit, j, false);
+        TRACE("sat", tout << "drat-unit\n");
         m_drat.add(lit, m_searching);
     }
 
@@ -412,6 +413,7 @@ namespace sat {
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
         bool redundant = st.is_redundant();
         TRACE("sat", tout << "mk_clause: "  << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
+        bool logged = false;
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
             bool keep = simplify_clause(num_lits, lits);
@@ -420,8 +422,10 @@ namespace sat {
                 return nullptr; // clause is equivalent to true.
             }
             // if an input clause is simplified, then log the simplified version as learned
-            if (m_config.m_drat && old_sz > num_lits)
+            if (m_config.m_drat && old_sz > num_lits) {
                 drat_log_clause(num_lits, lits, st);
+                logged = true;
+            }
 
             ++m_stats.m_non_learned_generation;
             if (!m_searching) {
@@ -435,7 +439,7 @@ namespace sat {
             set_conflict();
             return nullptr;
         case 1:
-            if (m_config.m_drat && (!st.is_sat() || st.is_input()))
+            if (!logged && m_config.m_drat && (!st.is_sat() || st.is_input()))
                 drat_log_clause(num_lits, lits, st);
             assign_unit(lits[0]);
             return nullptr;
@@ -945,8 +949,7 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) 
                 drat_log_unit(l, j);
-            if (!m_config.m_drup_trim)
-                j = justification(0); // erase justification for level 0
+            j = justification(0); // erase justification for level 0
         }
         else {
             VERIFY(!at_base_lvl());

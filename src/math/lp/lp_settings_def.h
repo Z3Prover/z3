@@ -49,6 +49,7 @@ const char* lp_status_to_string(lp_status status) {
     case lp_status::TIME_EXHAUSTED: return "TIME_EXHAUSTED";
     case lp_status::EMPTY: return "EMPTY";
     case lp_status::UNSTABLE: return "UNSTABLE";
+    case lp_status::CANCELLED: return "CANCELLED";
     default:
         lp_unreachable();
     }

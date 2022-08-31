@@ -546,6 +546,7 @@ bool emonics::invariant() const {
                 }
                 CTRACE("nla_solver_mons", !found, tout << "not found v" << v << ": " << m << "\n";);
                 SASSERT(found);
+                (void)found;
                 c = c->m_next;
             }
             while (c != ht.m_head);

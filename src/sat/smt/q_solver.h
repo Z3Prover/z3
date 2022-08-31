@@ -88,5 +88,9 @@ namespace q {
         sat::literal_vector const& universal() const { return m_universal; }
         quantifier* flatten(quantifier* q);
 
+        void log_instantiation(sat::literal q, sat::literal i, justification* j = nullptr) { sat::literal lits[2] = { q, i }; log_instantiation(2, lits, j); }
+        void log_instantiation(sat::literal_vector const& lits, justification* j) { log_instantiation(lits.size(), lits.data(), j); }
+        void log_instantiation(unsigned n, sat::literal const* lits, justification* j);
+
     };
 }

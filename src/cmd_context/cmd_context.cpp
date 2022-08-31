@@ -561,6 +561,7 @@ cmd_context::~cmd_context() {
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
+    m_proof_cmds = nullptr;
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;

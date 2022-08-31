@@ -211,9 +211,8 @@ namespace bv {
             return;
         }
         euf::enode* n1 = var2enode(eq.v1());
-        for (euf::enode* bv2int : euf::enode_class(n1)) {
-            if (!bv.is_bv2int(bv2int->get_expr()))
-                continue;
+
+        auto propagate_bv2int = [&](euf::enode* bv2int) {
             euf::enode* bv2int_arg = bv2int->get_arg(0);
             for (euf::enode* p : euf::enode_parents(n1->get_root())) {
                 if (bv.is_int2bv(p->get_expr()) && p->get_sort() == bv2int_arg->get_sort() && p->get_root() != bv2int_arg->get_root()) {
@@ -223,6 +222,19 @@ namespace bv {
                     ctx.propagate(p, bv2int_arg, euf::th_explain::propagate(*this, eqs, p, bv2int_arg));
                     break;
                 }
+            }
+        };
+
+        if (m_bv2ints.size() < n1->class_size()) {
+            for (auto* bv2int : m_bv2ints) {
+                if (bv2int->get_root() == n1->get_root())
+                    propagate_bv2int(bv2int);
+            }
+        }
+        else {
+            for (euf::enode* bv2int : euf::enode_class(n1)) {                
+                if (bv.is_bv2int(bv2int->get_expr()))
+                    propagate_bv2int(bv2int);
             }
         }
     }
@@ -279,6 +291,8 @@ namespace bv {
             ++m_stats.m_num_ne2bit;
             s().assign(consequent, mk_ne2bit_justification(undef_idx, v1, v2, consequent, antecedent));
         }
+        else if (!get_config().m_bv_eq_axioms) 
+            ;
         else if (s().at_search_lvl()) {
             force_push();
             assert_ackerman(v1, v2);
@@ -377,8 +391,8 @@ namespace bv {
         if (c.m_kind != bv_justification::kind_t::bit2ne) {
             expr* e1 = var2expr(c.m_v1);
             expr* e2 = var2expr(c.m_v2);
-            eq = m.mk_eq(e1, e2);       
-            ctx.drat_eq_def(leq, eq);
+            eq = m.mk_eq(e1, e2);      
+            ctx.set_tmp_bool_var(leq.var(), eq);
         }
 
         sat::literal_vector lits;

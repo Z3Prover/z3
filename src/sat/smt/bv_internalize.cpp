@@ -429,6 +429,8 @@ namespace bv {
             args.push_back(m.mk_ite(b, m_autil.mk_int(power2(i++)), zero));        
         expr_ref sum(m_autil.mk_add(sz, args.data()), m);
         sat::literal lit = eq_internalize(n, sum);
+        m_bv2ints.push_back(expr2enode(n));
+        ctx.push(push_back_vector<euf::enode_vector>(m_bv2ints));
 	add_unit(lit);
     }
 

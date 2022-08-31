@@ -75,7 +75,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
     bool                        m_euf { false };
-    bool                        m_drat { false };
     bool                        m_is_redundant { false };
     bool                        m_top_level { false };
     sat::literal_vector         aig_lits;
@@ -102,7 +101,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_euf = sp.euf();
-        m_drat = sp.drat_file().is_non_empty_string();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -169,13 +167,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (m_expr2var_replay && m_expr2var_replay->find(n, v))
             return v;
         v = m_solver.add_var(is_ext);
-        log_def(v, n);
         return v;
-    }
-
-    void log_def(sat::bool_var v, expr* n) {
-        if (m_drat && m_euf)
-            ensure_euf()->drat_bool_def(v, n);
     }
 
     sat::bool_var to_bool_var(expr* e) override {

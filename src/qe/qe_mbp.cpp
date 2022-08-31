@@ -269,8 +269,6 @@ public:
     }
 
     bool validate_model(model& model, expr_ref_vector const& fmls) {
-        expr_ref val(m);
-        model_evaluator eval(model);
         for (expr* f : fmls) {
             VERIFY(!model.is_false(f));
         }

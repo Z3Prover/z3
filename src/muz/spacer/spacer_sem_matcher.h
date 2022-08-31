@@ -38,11 +38,11 @@ class sem_matcher {
     substitution *        m_subst;
     svector<expr_pair>    m_todo;
 
-    void reset();
 
     bool match_var(var *v, expr *e);
 public:
     sem_matcher(ast_manager &man);
+    void reset();
 
     /**
        \brief Return true if e2 is an instance of e1.

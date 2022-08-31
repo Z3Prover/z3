@@ -242,6 +242,7 @@ extern "C" {
         std::istringstream is(s);
         ctx->set_regular_stream(ous);
         ctx->set_diagnostic_stream(ous);
+        cmd_context::scoped_redirect _redirect(*ctx);
         try {
             if (!parse_smt2_commands(*ctx.get(), is)) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());

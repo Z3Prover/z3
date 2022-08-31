@@ -24,6 +24,7 @@ Author:
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
 #include "qe/lite/qe_lite.h"
+#include <iostream>
 
 
 namespace q {
@@ -356,4 +357,10 @@ namespace q {
         m_ematch.get_antecedents(l, idx, r, probing);
     }
 
+    void solver::log_instantiation(unsigned n, sat::literal const* lits, justification* j) {
+        TRACE("q", for (unsigned i = 0; i < n; ++i) tout << literal2expr(lits[i]) << "\n";);
+        if (get_config().m_instantiations2console) {
+            ctx.on_instantiation(n, lits, j ? j->m_clause.num_decls() : 0, j ? j->m_binding : nullptr);
+        }
+    }
 }

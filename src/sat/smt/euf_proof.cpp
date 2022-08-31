@@ -16,107 +16,26 @@ Author:
 --*/
 
 #include "sat/smt/euf_solver.h"
+#include "ast/ast_util.h"
+#include <iostream>
 
 namespace euf {
 
-    void solver::init_drat() {
-        if (!m_drat_initialized) {
+    void solver::init_proof() {
+        if (!m_proof_initialized) {
             get_drat().add_theory(get_id(), symbol("euf"));
             get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
         }
-        m_drat_initialized = true;
-    }
-
-    void solver::drat_log_params(func_decl* f) {
-        for (unsigned i = f->get_num_parameters(); i-- > 0; ) {
-            auto const& p = f->get_parameter(i);
-            if (!p.is_ast()) 
-                continue;
-            ast* a = p.get_ast();
-            if (is_func_decl(a))
-                drat_log_decl(to_func_decl(a));
+        if (!m_proof_out && s().get_config().m_drat && 
+            (get_config().m_lemmas2console || s().get_config().m_smt_proof.is_non_empty_string())) {
+            TRACE("euf", tout << "init-proof\n");
+            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
+            if (get_config().m_lemmas2console) 
+                get_drat().set_clause_eh(*this);
+            if (s().get_config().m_smt_proof.is_non_empty_string()) 
+                get_drat().set_clause_eh(*this);
         }
-    }
-    void solver::drat_log_expr1(expr* e) {
-        if (is_app(e)) {
-            app* a = to_app(e);
-            drat_log_params(a->get_decl());
-            drat_log_decl(a->get_decl());
-            std::stringstream strm;
-            strm << mk_ismt2_func(a->get_decl(), m);
-            get_drat().def_begin('e', e->get_id(), strm.str());
-            for (expr* arg : *a)
-                get_drat().def_add_arg(arg->get_id());
-            get_drat().def_end();
-        }
-        else if (is_var(e)) {
-            var* v = to_var(e);
-            get_drat().def_begin('v', v->get_id(), "" + mk_pp(e->get_sort(), m));
-            get_drat().def_add_arg(v->get_idx());
-            get_drat().def_end();
-        }
-        else if (is_quantifier(e)) {
-            quantifier* q = to_quantifier(e);
-            std::stringstream strm;           
-            strm << "(" << (is_forall(q) ? "forall" : (is_exists(q) ? "exists" : "lambda"));
-            for (unsigned i = 0; i < q->get_num_decls(); ++i) 
-                strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";            
-            strm << ")";
-            get_drat().def_begin('q', q->get_id(), strm.str());
-            get_drat().def_add_arg(q->get_expr()->get_id());
-            get_drat().def_end();
-        }
-        else 
-            UNREACHABLE();
-        m_drat_asts.insert(e);
-        push(insert_obj_trail<ast>(m_drat_asts, e));
-    }
-
-    void solver::drat_log_expr(expr* e) {
-        if (m_drat_asts.contains(e))
-            return;
-        ptr_vector<expr>::scoped_stack _sc(m_drat_todo);
-        m_drat_todo.push_back(e);
-        while (!m_drat_todo.empty()) {
-            e = m_drat_todo.back();
-            unsigned sz = m_drat_todo.size();
-            if (is_app(e)) 
-                for (expr* arg : *to_app(e))
-                    if (!m_drat_asts.contains(arg))
-                        m_drat_todo.push_back(arg);
-            if (is_quantifier(e)) {
-                expr* arg = to_quantifier(e)->get_expr();
-                if (!m_drat_asts.contains(arg))
-                    m_drat_todo.push_back(arg);                
-            }                
-            if (m_drat_todo.size() != sz)
-                continue;
-            if (!m_drat_asts.contains(e))
-                drat_log_expr1(e);
-            m_drat_todo.pop_back();                   
-        }
-    }
-
-    void solver::drat_bool_def(sat::bool_var v, expr* e) {
-        if (!use_drat())
-            return;
-        drat_log_expr(e);
-        get_drat().bool_def(v, e->get_id());
-    }
-
-
-    void solver::drat_log_decl(func_decl* f) {
-        if (f->get_family_id() != null_family_id) 
-            return;
-        if (m_drat_asts.contains(f))
-            return;
-        m_drat_asts.insert(f);
-        push(insert_obj_trail< ast>(m_drat_asts, f));
-        std::ostringstream strm;
-        smt2_pp_environment_dbg env(m);
-        ast_smt2_pp(strm, f, env);
-        get_drat().def_begin('f', f->get_small_id(), strm.str());
-        get_drat().def_end();
+        m_proof_initialized = true;
     }
 
     /**
@@ -155,16 +74,19 @@ namespace euf {
         }
     }
 
+    void solver::set_tmp_bool_var(bool_var b, expr* e) {
+        m_bool_var2expr.setx(b, e, nullptr);
+    }
+
     void solver::log_justification(literal l, th_explain const& jst) {
         literal_vector lits;
-        unsigned nv = s().num_vars();
         expr_ref_vector eqs(m);
+        unsigned nv = s().num_vars();
         auto add_lit = [&](enode_pair const& eq) {
             ++nv;
-            literal lit(nv, false);
             eqs.push_back(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
-            drat_eq_def(lit, eqs.back());            
-            return lit;
+            set_tmp_bool_var(nv, eqs.back());
+            return literal(nv, false);
         };
 
         for (auto lit : euf::th_explain::lits(jst))
@@ -180,16 +102,133 @@ namespace euf {
         get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
     }
 
-    void solver::drat_eq_def(literal lit, expr* eq) {
-        expr *a = nullptr, *b = nullptr;
-        VERIFY(m.is_eq(eq, a, b));
-        drat_log_expr(a);
-        drat_log_expr(b);
-        get_drat().def_begin('e', eq->get_id(), std::string("="));
-        get_drat().def_add_arg(a->get_id());
-        get_drat().def_add_arg(b->get_id());
-        get_drat().def_end();
-        get_drat().bool_def(lit.var(), eq->get_id());
+    void solver::on_clause(unsigned n, literal const* lits, sat::status st) {
+        TRACE("euf", tout << "on-clause " << n << "\n");
+        on_lemma(n, lits, st);
+        on_proof(n, lits, st);
+    }
+
+    void solver::on_proof(unsigned n, literal const* lits, sat::status st) {
+        if (!m_proof_out)
+            return;
+        flet<bool> _display_all_decls(m_display_all_decls, true);
+        std::ostream& out = *m_proof_out;
+        if (!visit_clause(out, n, lits))
+            return;
+        if (st.is_asserted()) 
+            display_redundant(out, n, lits, status2proof_hint(st));
+        else if (st.is_deleted()) 
+            display_deleted(out, n, lits);        
+        else if (st.is_redundant()) 
+            display_redundant(out, n, lits, status2proof_hint(st));
+        else if (st.is_input()) 
+            display_assume(out, n, lits);
+        else 
+            UNREACHABLE();
+        out.flush();
+    }
+        
+    void solver::on_lemma(unsigned n, literal const* lits, sat::status st) {
+        if (!get_config().m_lemmas2console) 
+            return;
+        if (!st.is_redundant() && !st.is_asserted()) 
+            return;
+        
+        std::ostream& out = std::cout;
+        if (!visit_clause(out, n, lits))
+            return;
+        std::function<symbol(int)> ppth = [&](int th) {
+            return m.get_family_name(th);
+        };
+        if (!st.is_sat())
+            out << "; " << sat::status_pp(st, ppth) << "\n";
+
+        display_assert(out, n, lits);
+    }
+
+    void solver::on_instantiation(unsigned n, sat::literal const* lits, unsigned k, euf::enode* const* bindings) {
+        std::ostream& out = std::cout;
+        for (unsigned i = 0; i < k; ++i)
+            visit_expr(out, bindings[i]->get_expr());        
+        VERIFY(visit_clause(out, n, lits));
+        out << "(instantiate";
+        display_literals(out, n, lits);
+        for (unsigned i = 0; i < k; ++i) 
+            display_expr(out << " :binding ", bindings[i]->get_expr());
+        out << ")\n";
+    }
+
+    bool solver::visit_clause(std::ostream& out, unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            expr* e = bool_var2expr(lits[i].var());
+            if (!e)
+                return false;
+            visit_expr(out, e);
+        }
+        return true;
+    }
+
+    void solver::display_assert(std::ostream& out, unsigned n, literal const* lits) {
+        display_literals(out << "(assert (or", n, lits) << "))\n";
+    }
+    
+    void solver::display_assume(std::ostream& out, unsigned n, literal const* lits) {
+        display_literals(out << "(assume", n, lits) << ")\n";        
+    }
+
+    void solver::display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
+        if (proof_hint)
+            visit_expr(out, proof_hint);
+        display_hint(display_literals(out << "(learn", n, lits), proof_hint) << ")\n";        
+    }
+
+    void solver::display_deleted(std::ostream& out, unsigned n, literal const* lits) {
+        display_literals(out << "(del", n, lits) << ")\n";        
+    }
+
+    std::ostream& solver::display_hint(std::ostream& out, expr* proof_hint) {
+        if (proof_hint)
+            return display_expr(out << " ", proof_hint);
+        else
+            return out;
+    }
+
+    expr_ref solver::status2proof_hint(sat::status st) {
+        if (st.is_sat()) 
+            return expr_ref(m.mk_const("rup", m.mk_proof_sort()), m); // provable by reverse unit propagation
+        auto* h = reinterpret_cast<euf::th_proof_hint const*>(st.get_hint());
+        if (!h)
+            return expr_ref(m);
+
+        expr* e = h->get_hint(*this);
+        if (e)
+            return expr_ref(e, m);
+
+        return expr_ref(m);        
+    }
+
+    std::ostream& solver::display_literals(std::ostream& out, unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            expr* e = bool_var2expr(lits[i].var());
+            if (lits[i].sign())
+                display_expr(out << " (not ", e) << ")";
+            else
+                display_expr(out << " ", e);
+        }
+        return out;
+    }
+
+    void solver::visit_expr(std::ostream& out, expr* e) {
+        m_clause_visitor.collect(e);
+        if (m_display_all_decls)
+            m_clause_visitor.display_decls(out);
+        else
+            m_clause_visitor.display_skolem_decls(out);
+        m_clause_visitor.define_expr(out, e);
+    }
+
+    std::ostream& solver::display_expr(std::ostream& out, expr* e) {
+        return m_clause_visitor.display_expr_def(out, e);
     }
 
 }

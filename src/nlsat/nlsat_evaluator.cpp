@@ -286,22 +286,23 @@ namespace nlsat {
             }
             
             bool check_invariant() const {
-                SASSERT(m_sections.size() == m_sorted_sections.size());
-                for (unsigned i = 0; i < m_sorted_sections.size(); i++) {
-                    SASSERT(m_sorted_sections[i] < m_sections.size());
-                    SASSERT(m_sections[m_sorted_sections[i]].m_pos == i);
-                }
-                unsigned total_num_sections = 0;
-                unsigned total_num_signs = 0;
-                for (unsigned i = 0; i < m_info.size(); i++) {
-                    SASSERT(m_info[i].m_first_section <= m_poly_sections.size());
-                    SASSERT(m_info[i].m_num_roots == 0 || m_info[i].m_first_section < m_poly_sections.size());
-                    SASSERT(m_info[i].m_first_sign < m_poly_signs.size());
-                    total_num_sections += m_info[i].m_num_roots;
-                    total_num_signs += m_info[i].m_num_roots + 1;
-                }
-                SASSERT(total_num_sections == m_poly_sections.size());
-                SASSERT(total_num_signs == m_poly_signs.size());
+                DEBUG_CODE(
+                    SASSERT(m_sections.size() == m_sorted_sections.size());
+                    for (unsigned i = 0; i < m_sorted_sections.size(); i++) {
+                        SASSERT(m_sorted_sections[i] < m_sections.size());
+                        SASSERT(m_sections[m_sorted_sections[i]].m_pos == i);
+                    }
+                    unsigned total_num_sections = 0;
+                    unsigned total_num_signs = 0;
+                    for (unsigned i = 0; i < m_info.size(); i++) {
+                        SASSERT(m_info[i].m_first_section <= m_poly_sections.size());
+                        SASSERT(m_info[i].m_num_roots == 0 || m_info[i].m_first_section < m_poly_sections.size());
+                        SASSERT(m_info[i].m_first_sign < m_poly_signs.size());
+                        total_num_sections += m_info[i].m_num_roots;
+                        total_num_signs += m_info[i].m_num_roots + 1;
+                    }
+                    SASSERT(total_num_sections == m_poly_sections.size());
+                    SASSERT(total_num_signs == m_poly_signs.size()););
                 return true;
             }
 
