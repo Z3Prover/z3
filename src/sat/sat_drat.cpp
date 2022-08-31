@@ -416,6 +416,8 @@ namespace sat {
     void drat::verify(unsigned n, literal const* c) {
         if (!m_check_unsat) 
             return;
+        if (m_inconsistent)
+            return;
         for (unsigned i = 0; i < n; ++i) 
             declare(c[i]);
         if (is_drup(n, c)) {
@@ -690,7 +692,7 @@ namespace sat {
             ++m_stats.m_num_add;
         if (m_check) {
             switch (sz) {
-            case 0: add(); break;
+            case 0: if (st.is_input()) m_inconsistent = true; else add(); break;
             case 1: append(lits[0], st); break;
             default: append(mk_clause(sz, lits, st.is_redundant()), st); break;
             }

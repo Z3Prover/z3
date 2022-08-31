@@ -35,13 +35,14 @@ namespace euf {
         m_map.insert(rule, p);
     }
 
-    bool proof_checker::check(expr_ref_vector const& clause, expr* e) {
+    bool proof_checker::check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units) {
         if (!e || !is_app(e))
             return false;
+        units.reset();
         app* a = to_app(e);
         proof_checker_plugin* p = nullptr;
         if (m_map.find(a->get_decl()->get_name(), p)) 
-            return p->check(clause, a);
+            return p->check(clause, a, units);
         return false;
     }
 

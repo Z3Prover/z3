@@ -255,9 +255,8 @@ namespace smt {
                     return false;                    
                 ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
                 svector<symbol> names;
-                for (unsigned i = 0; i < f->get_arity(); ++i) {
+                for (unsigned i = 0; i < f->get_arity(); ++i) 
                     names.push_back(symbol(i));
-                }
                 defined_names dn(m);
                 body = replace_value_from_ctx(body);
                 body = m.mk_lambda(sorts.size(), sorts.data(), names.data(), body);
@@ -575,16 +574,16 @@ namespace smt {
                     for (unsigned i = 0; i < n; ++i) {
                         proof* pr = nullptr;
                         expr* arg = args[i];
-                        if (m.proofs_enabled()) {
+                        if (m.proofs_enabled()) 
                             pr = m.mk_def_intro(arg);
-                        }
                         m_context->internalize_assertion(arg, pr, gen);
                     }
                 }
 
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
-                      tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";);
+                      tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
+                      tout << "def " << mk_pp(inst.m_def, m) << "\n";);
                 m_context->add_instance(q, nullptr, num_decls, bindings.data(), inst.m_def, gen, gen, gen, dummy);
                 TRACE("model_checker_bug_detail", tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }

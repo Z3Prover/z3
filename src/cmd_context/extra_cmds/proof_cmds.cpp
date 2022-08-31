@@ -15,28 +15,51 @@ Author:
 
 Notes:
 
-- add theory hint bypass using proof checker plugins of SMT
-  - arith_proof_checker.h is currently
-- could use m_drat for drup premises.
+Proof checker for clauses created during search.
+1. Clauses annotated by RUP (reverse unit propagation)
+   are checked to be inferrable using reverse unit propagation
+   based on previous clauses.
+2. Clauses annotated by supported proof rules (proof hints)
+   are checked by custom proof checkers. There is a proof checker
+   for each proof rule. Main proof checkers just have a single step
+   but the framework allows to compose proof rules, each inference
+   is checked for correctness by a plugin. 
+3. When there are no supported plugin to justify the derived
+   clause, or a custom check fails, the fallback is to check that the
+   derived clause is a consequence of the input clauses using SMT.
+   The last approach is a bail-out and offers a weaker notion of
+   self-validation. It is often (but not always) sufficient for using proof
+   checking for debugging, as the root-cause for an unsound inference in z3
+   does not necessarily manifest when checking the conclusion of the
+   inference. An external proof checker that uses such fallbacks could
+   use several solvers, or bootstrap from a solver that can generate certificates
+   when z3 does not.
+   
+
+
 
 --*/
 
 #include "util/small_object_allocator.h"
 #include "ast/ast_util.h"
-#include "cmd_context/cmd_context.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
 #include "sat/smt/euf_proof_checker.h"
+#include "cmd_context/cmd_context.h"
 #include <iostream>
 
 class smt_checker {
     ast_manager& m;
     params_ref   m_params;
+
+    // for checking proof rules (hints)
     euf::proof_checker m_checker;
 
+    // for fallback SMT checker
     scoped_ptr<solver> m_solver;
 
+    // for RUP
     symbol       m_rup;
     sat::solver  m_sat_solver;
     sat::drat    m_drat;
@@ -63,11 +86,10 @@ public:
         m_rup = symbol("rup");
     }
 
-    bool is_rup(expr* proof_hint) {
+    bool is_rup(app* proof_hint) {
         return
             proof_hint &&
-            is_app(proof_hint) &&
-            to_app(proof_hint)->get_name() == m_rup;        
+            proof_hint->get_name() == m_rup;        
     }
 
     void mk_clause(expr_ref_vector const& clause) {
@@ -79,10 +101,24 @@ public:
             m_clause.push_back(sat::literal(e->get_id(), sign));
         }
     }
+
+    void mk_clause(expr* e) {
+        m_clause.reset();
+        bool sign = false;
+        while (m.is_not(e, e))
+            sign = !sign;
+        m_clause.push_back(sat::literal(e->get_id(), sign));
+    }
     
     bool check_rup(expr_ref_vector const& clause) {
         add_units();
         mk_clause(clause);
+        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
+    }
+
+    bool check_rup(expr* u) {
+        add_units();
+        mk_clause(u);
         return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
     }
 
@@ -91,20 +127,27 @@ public:
         m_drat.add(m_clause, sat::status::input());
     }
 
-    void check(expr_ref_vector const& clause, expr* proof_hint) {
-
-
+    void check(expr_ref_vector& clause, app* proof_hint) {
+        
         if (is_rup(proof_hint) && check_rup(clause)) {
             std::cout << "(verified-rup)\n";
             return;
         }
 
-        if (m_checker.check(clause, proof_hint)) {
-            if (is_app(proof_hint))
-                std::cout << "(verified-" << to_app(proof_hint)->get_name() << ")\n";
-            else
-                std::cout << "(verified-checker)\n";
-            return;
+        expr_ref_vector units(m);
+        if (m_checker.check(clause, proof_hint, units)) {
+            bool units_are_rup = true;
+            for (expr* u : units) {
+                if (!check_rup(u)) {
+                    std::cout << "unit " << mk_pp(u, m) << " is not rup\n";
+                    units_are_rup = false;
+                }
+            }
+            if (units_are_rup) {
+                std::cout << "(verified-" << proof_hint->get_name() << ")\n";
+                add_clause(clause);
+                return;
+            }
         }
 
         m_solver->push();
@@ -123,7 +166,7 @@ public:
         }
         m_solver->pop(1);
         std::cout << "(verified-smt)\n";
-        // assume(clause);
+        add_clause(clause);
     }
 
     void assume(expr_ref_vector const& clause) {
@@ -135,14 +178,14 @@ public:
 class proof_cmds_imp : public proof_cmds {
     ast_manager&    m;
     expr_ref_vector m_lits;
-    expr_ref        m_proof_hint;
+    app_ref         m_proof_hint;
     smt_checker     m_checker;
 public:
     proof_cmds_imp(ast_manager& m): m(m), m_lits(m), m_proof_hint(m), m_checker(m) {}
 
     void add_literal(expr* e) override {
         if (m.is_proof(e))
-            m_proof_hint = e;
+            m_proof_hint = to_app(e);
         else
             m_lits.push_back(e);
     }
