@@ -91,6 +91,7 @@ TRACE = False
 PYTHON_ENABLED=False
 DOTNET_CORE_ENABLED=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
+ASSEMBLY_VERSION=getenv("Z2_ASSEMBLY_VERSION", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
@@ -540,15 +541,33 @@ def find_c_compiler():
     raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
-    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
+    global ASSEMBLY_VERSION, VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
+
+    # We need to give the assembly a build specific version
+    # global version overrides local default expression
+    if ASSEMBLY_VERSION is not None:
+        versionSplits = ASSEMBLY_VERSION.split('.')
+        if len(versionSplits) > 3:
+            VER_MAJOR = versionSplits[0]
+            VER_MINOR = versionSplits[1]
+            VER_BUILD = versionSplits[2]
+            VER_TWEAK = versionSplits[3]
+            print("Set Assembly Version (BUILD):", VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
+            return
+
+    # use parameters to set up version if not provided by script args            
     VER_MAJOR = major
     VER_MINOR = minor
     VER_BUILD = build
     VER_TWEAK = revision
+
+    # update VER_TWEAK base on github     
     if GIT_DESCRIBE:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         VER_TWEAK = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
-
+    
+    print("Set Assembly Version (DEFAULT):", VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
+    
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
 
@@ -666,6 +685,7 @@ def display_help(exit_code):
         print("  --optimize                    generate optimized code during linking.")
     print("  --dotnet                      generate .NET platform bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
+    print("  --assembly-version=<x.x.x.x>  provide version number for build")
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --js                          generate JScript bindings.")
@@ -700,14 +720,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE, IS_ARCH_ARM64
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxa:hmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'arm64=', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnet-key=', 'assembly-version=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
         print("ERROR: Invalid command line option")
@@ -745,6 +765,8 @@ def parse_options():
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
+        elif opt in ('--assembly-version'):
+            ASSEMBLY_VERSION = arg
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -1694,7 +1716,9 @@ class DotNetDLLComponent(Component):
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
             key += "\n<SignAssembly>true</SignAssembly>"
 
-        version = get_version_string(3)
+        version = get_version_string(4)
+
+        print("Version output to csproj:", version)
 
         core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
 
@@ -2826,6 +2850,9 @@ def update_version():
     minor = VER_MINOR
     build = VER_BUILD
     revision = VER_TWEAK
+
+    print("UpdateVersion:", get_full_version_string(major, minor, build, revision))
+    
     if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
