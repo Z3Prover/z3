@@ -169,7 +169,7 @@ namespace mbp {
                                 eqs.push_back(m.mk_eq(access(c, j, acc, b), a->get_arg(j)));
                             }
                         }
-                        if (!is_app_of(b, c)) {
+                        if (!is_app_of(b, c) && dt.get_datatype_num_constructors(c->get_range()) != 1) {                            
                             eqs.push_back(m.mk_app(rec, b));
                         }
 
@@ -231,7 +231,7 @@ namespace mbp {
             }
             func_decl* c = to_app(l)->get_decl();
             ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(c);
-            if (!is_app_of(r, c)) {
+            if (!is_app_of(r, c) && dt.get_datatype_num_constructors(c->get_range()) != 1) {
                 lits.push_back(m.mk_app(dt.get_constructor_is(c), r));
             }
             for (unsigned i = 0; i < acc.size(); ++i) {
