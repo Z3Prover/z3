@@ -56,15 +56,9 @@ namespace bv {
             unsigned   m_idx = UINT_MAX;
             theory_var m_v1 = euf::null_theory_var;
             theory_var m_v2 = euf::null_theory_var;
-            union {
-                struct {
-                    sat::literal m_consequent;
-                    sat::literal m_antecedent;
-                };
-                struct {
-                    euf::enode* a, *b, *c;
-                };
-            };
+            sat::literal m_consequent;
+            sat::literal m_antecedent;
+            euf::enode* a, *b, *c;
                     
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
                 m_kind(bv_justification::kind_t::eq2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
