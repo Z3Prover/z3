@@ -635,6 +635,28 @@ namespace datatype {
             }
         }
 
+        bool plugin::are_distinct(app * a, app * b) const {
+            if (a == b)
+                return false;
+            if (is_unique_value(a) && is_unique_value(b))
+                return true;
+            if (u().is_constructor(a) && u().is_constructor(b)) {
+                if (a->get_decl() != b->get_decl())
+                    return true;
+                for (unsigned i = a->get_num_args(); i-- > 0; ) {
+                    if (!is_app(a->get_arg(i)))
+                        continue;
+                    if (!is_app(b->get_arg(i)))
+                        continue;
+                    app* _a = to_app(a->get_arg(i));
+                    app* _b = to_app(b->get_arg(i));
+                    if (m_manager->are_distinct(_a, _b))
+                        return true;
+                }
+            }
+            return false;
+        }
+
         expr * plugin::get_some_value(sort * s) {
             SASSERT(u().is_datatype(s));
             func_decl * c = u().get_non_rec_constructor(s);

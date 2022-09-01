@@ -233,6 +233,8 @@ namespace datatype {
             bool is_value(app* e) const override { return is_value_aux(false, e); }
         
             bool is_unique_value(app * e) const override { return is_value_aux(true, e); }
+
+            bool are_distinct(app * a, app * b) const override;
         
             void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
                 
