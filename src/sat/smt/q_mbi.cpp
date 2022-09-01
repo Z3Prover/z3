@@ -68,11 +68,21 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto const& [qlit, fml, generation] : m_instantiations) {
+        for (auto const& [qlit, fml, inst, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ctx.mk_literal(fml);
+            euf::th_proof_hint* ph = nullptr;
+            if (!inst.empty()) {
+                ph = q_proof_hint::mk(ctx, inst.size(), inst.data());
+                sat::literal_vector lits;
+                lits.push_back(~qlit);
+                lits.push_back(~lit);
+                m_qs.add_clause(lits, ph);
+            }
+            else {
+                m_qs.add_clause(~qlit, ~lit);
+            }
             m_qs.log_instantiation(~qlit, ~lit);
-            m_qs.add_clause(~qlit, ~lit);
         }
         m_instantiations.reset();
         if (result != l_true)
@@ -224,9 +234,30 @@ namespace q {
         TRACE("q", tout << "project: " << proj << "\n";);
         IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
-        unsigned generation = ctx.get_max_generation(proj);    
-        m_instantiations.push_back(instantiation_t(qlit, proj, generation));
+        unsigned generation = ctx.get_max_generation(proj);
+        expr_ref_vector inst = extract_binding(q);
+        m_instantiations.push_back(instantiation_t(qlit, proj, inst, generation));
     }
+
+    expr_ref_vector mbqi::extract_binding(quantifier* q) {
+        if (!m_defs.empty()) {
+            expr_safe_replace sub(m);
+            for (unsigned i = m_defs.size(); i-- > 0; ) {
+                sub(m_defs[i].term);
+                sub.insert(m_defs[i].var, m_defs[i].term);
+            }
+            q_body* qb = q2body(q);
+            expr_ref_vector inst(m);
+            for (expr* v : qb->vars) {
+                expr_ref t(m);
+                sub(v, t);
+                inst.push_back(t);
+            }
+            return inst;
+        }
+        return expr_ref_vector(m);
+    }
+
 
     void mbqi::add_universe_restriction(q_body& qb) {
         for (app* v : qb.vars) {
@@ -284,6 +315,7 @@ namespace q {
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         bool fmls_extracted = false;
+        m_defs.reset();
         TRACE("q",
               tout << "Project\n";
               tout << fmls << "\n";
@@ -314,16 +346,22 @@ namespace q {
                 fmls_extracted = true;
             }
             if (!p)
-                continue;
-            if (!(*p)(*m_model, vars, fmls))
-                return expr_ref(nullptr, m);
+                continue; 
+            if (ctx.use_drat()) {
+                if (!p->project(*m_model, vars, fmls, m_defs))
+                    return expr_ref(m);                
+            }
+            else if (!(*p)(*m_model, vars, fmls))
+                return expr_ref(m);
         }
         for (app* v : vars) {
             expr_ref term(m);
             expr_ref val = (*m_model)(v);
             val = m_model->unfold_as_array(val);
             term = replace_model_value(val);
-            rep.insert(v, term);        
+            rep.insert(v, term);
+            if (ctx.use_drat())
+                m_defs.push_back(mbp::def(expr_ref(v, m), term));
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);

@@ -31,10 +31,11 @@ namespace q {
 
     struct q_proof_hint : public euf::th_proof_hint {
         unsigned     m_num_bindings;
-        euf::enode* m_bindings[0];
+        expr*        m_bindings[0];
         q_proof_hint() {}
-        static size_t get_obj_size(unsigned num_bindings) { return sizeof(q_proof_hint) + num_bindings*sizeof(euf::enode*); }
+        static size_t get_obj_size(unsigned num_bindings) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*); }
         static q_proof_hint* mk(euf::solver& s, unsigned n, euf::enode* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, unsigned n, expr* const* bindings);
         expr* get_hint(euf::solver& s) const override;
     };
 

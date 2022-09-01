@@ -369,16 +369,25 @@ namespace q {
         q_proof_hint* ph = new (mem) q_proof_hint();
         ph->m_num_bindings = n;
         for (unsigned i = 0; i < n; ++i)
+            ph->m_bindings[i] = bindings[i]->get_expr();
+        return ph;
+    }
+
+    q_proof_hint* q_proof_hint::mk(euf::solver& s, unsigned n, expr* const* bindings) {
+        auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n));
+        q_proof_hint* ph = new (mem) q_proof_hint();
+        ph->m_num_bindings = n;
+        for (unsigned i = 0; i < n; ++i)
             ph->m_bindings[i] = bindings[i];
         return ph;
     }
-    
+
     expr* q_proof_hint::get_hint(euf::solver& s) const {
         ast_manager& m = s.get_manager();
         expr_ref_vector args(m);
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < m_num_bindings; ++i) {
-            args.push_back(m_bindings[i]->get_expr());
+            args.push_back(m_bindings[i]);
             sorts.push_back(args.back()->get_sort());
         }
         sort* range = m.mk_proof_sort();
