@@ -431,7 +431,7 @@ namespace bv {
         sat::literal lit = eq_internalize(n, sum);
         m_bv2ints.push_back(expr2enode(n));
         ctx.push(push_back_vector<euf::enode_vector>(m_bv2ints));
-	add_unit(lit);
+	    add_unit(lit);
     }
 
     void solver::internalize_int2bv(app* n) {
@@ -460,8 +460,8 @@ namespace bv {
         unsigned sz = bv.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
         rhs = m_autil.mk_mod(e, m_autil.mk_int(mod));
-	sat::literal eq_lit = eq_internalize(lhs, rhs);
-	add_unit(eq_lit);
+        sat::literal eq_lit = eq_internalize(lhs, rhs);
+        add_unit(eq_lit);
        
         expr_ref_vector n_bits(m);
         get_bits(n_enode, n_bits);
@@ -472,8 +472,8 @@ namespace bv {
             rhs = m_autil.mk_mod(rhs, m_autil.mk_int(2));
             rhs = mk_eq(rhs, m_autil.mk_int(1));
             lhs = n_bits.get(i);
-	    eq_lit = eq_internalize(lhs, rhs);
-	    add_unit(eq_lit);
+            eq_lit = eq_internalize(lhs, rhs);
+	        add_unit(eq_lit);
         }
     }
 

@@ -66,7 +66,7 @@ namespace arith {
         vector<std::pair<rational, literal>>   m_literals;
         svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
         hint_type                              m_ty;
-        unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail;
+        unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
             if (m_eq_tail < m_eqs.size()) 

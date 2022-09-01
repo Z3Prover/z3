@@ -51,13 +51,21 @@ namespace bv {
         };
 
         struct bv_justification {
-            enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne };
+            enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne, bv2int };
             kind_t     m_kind;
-            unsigned   m_idx{ UINT_MAX };
-            theory_var m_v1{ euf::null_theory_var };
-            theory_var m_v2 { euf::null_theory_var };
-            sat::literal m_consequent;
-            sat::literal m_antecedent;
+            unsigned   m_idx = UINT_MAX;
+            theory_var m_v1 = euf::null_theory_var;
+            theory_var m_v2 = euf::null_theory_var;
+            union {
+                struct {
+                    sat::literal m_consequent;
+                    sat::literal m_antecedent;
+                };
+                struct {
+                    euf::enode* a, *b, *c;
+                };
+            };
+                    
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
                 m_kind(bv_justification::kind_t::eq2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             bv_justification(theory_var v1, theory_var v2):
@@ -66,6 +74,8 @@ namespace bv {
                 m_kind(bv_justification::kind_t::bit2ne), m_idx(idx), m_consequent(c) {}
             bv_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
                 m_kind(bv_justification::kind_t::ne2bit), m_idx(idx), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+            bv_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c):
+                m_kind(bv_justification::kind_t::bv2int), m_v1(v1), m_v2(v2), a(a), b(b), c(c) {}
             sat::ext_constraint_idx to_index() const { 
                 return sat::constraint_base::mem2base(this); 
             }
@@ -79,6 +89,7 @@ namespace bv {
         sat::ext_justification_idx mk_bit2eq_justification(theory_var v1, theory_var v2);
         sat::justification mk_bit2ne_justification(unsigned idx, sat::literal c);
         sat::justification mk_ne2bit_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a);
+        sat::ext_constraint_idx mk_bv2int_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c);
         void log_drat(bv_justification const& c);
  
 
