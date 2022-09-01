@@ -166,6 +166,8 @@ public:
         }
         m_solver->pop(1);
         std::cout << "(verified-smt)\n";
+        if (proof_hint)
+            std::cout << "(missed-hint " << mk_pp(proof_hint, m) << ")\n";
         add_clause(clause);
     }
 

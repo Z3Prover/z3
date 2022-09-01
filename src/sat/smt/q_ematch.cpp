@@ -381,9 +381,12 @@ namespace q {
         sat::literal_vector lits;
         lits.push_back(~j.m_clause.m_literal);
         for (unsigned i = 0; i < j.m_clause.size(); ++i) 
-            lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i]));            
+            lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i])); 
         m_qs.log_instantiation(lits, &j);
-        m_qs.add_clause(lits);               
+        euf::th_proof_hint* ph = nullptr;
+        if (ctx.use_drat()) 
+            ph = q_proof_hint::mk(ctx, j.m_clause.size(), j.m_binding);
+        m_qs.add_clause(lits, ph);               
     }
 
     bool ematch::flush_prop_queue() {

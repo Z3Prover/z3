@@ -442,6 +442,9 @@ namespace bv {
         }
         ctx.get_drat().add(lits, status());
         // TBD, a proper way would be to delete the lemma after use.
+        ctx.set_tmp_bool_var(leq1.var(), nullptr);
+        ctx.set_tmp_bool_var(leq2.var(), nullptr);
+
     }
 
     void solver::asserted(literal l) {

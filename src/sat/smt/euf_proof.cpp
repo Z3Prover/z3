@@ -100,6 +100,8 @@ namespace euf {
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
         get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
+        for (unsigned i = s().num_vars(); i < nv; ++i)
+            set_tmp_bool_var(i, nullptr);
     }
 
     void solver::on_clause(unsigned n, literal const* lits, sat::status st) {

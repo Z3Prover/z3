@@ -29,6 +29,15 @@ namespace euf {
 
 namespace q {
 
+    struct q_proof_hint : public euf::th_proof_hint {
+        unsigned     m_num_bindings;
+        euf::enode* m_bindings[0];
+        q_proof_hint() {}
+        static size_t get_obj_size(unsigned num_bindings) { return sizeof(q_proof_hint) + num_bindings*sizeof(euf::enode*); }
+        static q_proof_hint* mk(euf::solver& s, unsigned n, euf::enode* const* bindings);
+        expr* get_hint(euf::solver& s) const override;
+    };
+
     class solver : public euf::th_euf_solver {
 
         typedef obj_map<quantifier, quantifier*> flat_table;

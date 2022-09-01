@@ -363,4 +363,28 @@ namespace q {
             ctx.on_instantiation(n, lits, j ? j->m_clause.num_decls() : 0, j ? j->m_binding : nullptr);
         }
     }
+
+    q_proof_hint* q_proof_hint::mk(euf::solver& s, unsigned n, euf::enode* const* bindings) {
+        auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n));
+        q_proof_hint* ph = new (mem) q_proof_hint();
+        ph->m_num_bindings = n;
+        for (unsigned i = 0; i < n; ++i)
+            ph->m_bindings[i] = bindings[i];
+        return ph;
+    }
+    
+    expr* q_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        expr_ref_vector args(m);
+        sort_ref_vector sorts(m);
+        for (unsigned i = 0; i < m_num_bindings; ++i) {
+            args.push_back(m_bindings[i]->get_expr());
+            sorts.push_back(args.back()->get_sort());
+        }
+        sort* range = m.mk_proof_sort();
+        func_decl* d = m.mk_func_decl(symbol("inst"), args.size(), sorts.data(), range);
+        expr* r = m.mk_app(d, args);
+        return r;
+    }
+
 }
