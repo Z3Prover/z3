@@ -8436,6 +8436,14 @@ namespace smt {
             }
         }
 
+        bool existNegativeContains = false;
+        expr_ref_vector assignments(m);
+        ctx.get_assignments(assignments);
+        for (expr * a : assignments) {
+            expr * subterm;
+            if (m.is_not(a, subterm) && u.str.is_contains(subterm)) existNegativeContains = true;
+        }
+
         if (!needToAssignFreeVars) {
 
             // check string-int terms
@@ -8506,9 +8514,11 @@ namespace smt {
             // we're not done if some variable in a regex membership predicate was unassigned
             if (regexOK) {
                 if (unused_internal_variables.empty()) {
-                    TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
-                    m_stats.m_solved_by = 2;
-                    return FC_DONE;
+                    if (!existNegativeContains) {
+                        TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
+                        m_stats.m_solved_by = 2;
+                        return FC_DONE;
+                    }
                 } else {
                     TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
                     for (auto const &var : unused_internal_variables) {
@@ -8560,9 +8570,6 @@ namespace smt {
                 return FC_CONTINUE;
             }
             TRACE("str", tout << "arithmetic solver done in final check" << std::endl;);
-
-            expr_ref_vector assignments(m);
-            ctx.get_assignments(assignments);
 
             expr_ref_vector precondition(m);
             expr_ref_vector cex(m);
