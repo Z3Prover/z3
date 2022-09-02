@@ -167,7 +167,7 @@ namespace euf {
             lit = lit2;
         }
 
-        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
+        TRACE("euf", tout << "attach v" << v << " " << mk_bounded_pp(e, m) << "\n";);
         m_bool_var2expr.reserve(v + 1, nullptr);
         if (m_bool_var2expr[v] && m_egraph.find(e)) {
             if (m_egraph.find(e)->bool_var() != v) {

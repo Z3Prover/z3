@@ -83,10 +83,11 @@ namespace euf {
         expr_ref_vector eqs(m);
         unsigned nv = s().num_vars();
         auto add_lit = [&](enode_pair const& eq) {
+            unsigned v = nv;
             ++nv;
             eqs.push_back(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
-            set_tmp_bool_var(nv, eqs.back());
-            return literal(nv, false);
+            set_tmp_bool_var(v, eqs.back());
+            return literal(v, false);
         };
 
         for (auto lit : euf::th_explain::lits(jst))
