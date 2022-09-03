@@ -212,7 +212,7 @@ void mpz_manager<SYNCH>::deallocate(bool is_heap, mpz_cell * ptr) {
         m_allocator.deallocate(cell_size(ptr->m_capacity), ptr); 
 #else
         if (SYNCH) {
-            memory::deallocate(ptr);
+            memory::deallocate(ptr, cell_size(ptr->m_capacity));
         }
         else {
             m_allocator.deallocate(cell_size(ptr->m_capacity), ptr);        

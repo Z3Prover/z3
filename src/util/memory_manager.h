@@ -80,10 +80,10 @@ public:
 #define dealloc(_ptr_) deallocf(__FILE__,__LINE__,_ptr_)
 
 template<typename T>
-void deallocf(char const* file, int line, T * ptr, unsigned size) {
+void deallocf(char const* file, int line, T * ptr) {
     if (ptr == 0) return;
     ptr->~T();
-    memory::deallocate(file, line, ptr, size);
+    memory::deallocate(file, line, ptr, sizeof(T));
 }
 
 #else 

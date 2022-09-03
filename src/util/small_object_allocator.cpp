@@ -77,7 +77,7 @@ void small_object_allocator::deallocate(size_t size, void * p) {
 
 #if defined(Z3DEBUG) && !defined(_WINDOWS)
     // Valgrind friendly
-    memory::deallocate(p);
+    memory::deallocate(p, size);
     return;
 #endif
     SASSERT(m_alloc_size >= size);

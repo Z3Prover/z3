@@ -266,7 +266,7 @@ void memory::deallocate(void * p, unsigned given_size) {
     if (g_memory_thread_alloc_size < -SYNCH_THRESHOLD) {
         synchronize_counters(false);
     }
-    SASSERT(sz - sizeof(size_t) == given_size);
+    SASSERT(given_size == 0 || sz - sizeof(size_t) == given_size);
 }
 
 void * memory::allocate(size_t s) {
@@ -324,7 +324,7 @@ void memory::deallocate(void * p, unsigned given_size) {
         g_memory_alloc_size -= sz;
     }
     free(real_p);
-    SASSERT(sz - sizeof(size_t) == given_size);
+    SASSERT(given_size == 0 || sz - sizeof(size_t) == given_size);
 }
 
 void * memory::allocate(size_t s) {
