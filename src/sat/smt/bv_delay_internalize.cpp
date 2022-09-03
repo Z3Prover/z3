@@ -47,7 +47,7 @@ namespace bv {
             return true;
         unsigned num_vars = e->get_num_args();
         for (expr* arg : *e) 
-            if (!m.is_value(arg))
+            if (m.is_value(arg))
                 --num_vars;
         if (num_vars <= 1) 
             return true;
