@@ -20,7 +20,7 @@ Revision History:
 
 #include "util/memory_manager.h"
 
-#define PAGE_HEADER_SZ sizeof(size_t)
+#define PAGE_HEADER_SZ 2 * sizeof(size_t)
 #define DEFAULT_PAGE_SIZE (8192 - PAGE_HEADER_SZ)
 #define PAGE_HEADER_MASK (static_cast<size_t>(-1) - 1)
 

@@ -140,7 +140,7 @@ void stack::deallocate() {
         SASSERT(m_curr_ptr < m_curr_end_ptr);
     }
     if (external_ptr(m)) {
-        dealloc_svect(reinterpret_cast<char**>(m_curr_ptr)[0]);
+        dealloc_svect(reinterpret_cast<char**>(m_curr_ptr)[0], 0 /* FIXME */);
     }
     SASSERT(m_curr_ptr > m_curr_page);
 }

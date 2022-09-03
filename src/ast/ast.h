@@ -757,7 +757,7 @@ public:
     }
 
     ~tmp_app() {
-        dealloc_svect(m_data);
+        dealloc_svect(m_data, app::get_obj_size(m_num_args));
     }
 
     app * get_app() {

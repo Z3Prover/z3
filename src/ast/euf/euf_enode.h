@@ -127,6 +127,10 @@ namespace euf {
             return n;
         }    
        
+        static void del_tmp(enode * e, unsigned num_args) {
+            memory::deallocate(e, get_enode_size(num_args));
+        }
+
         friend class add_th_var_trail;
         friend class replace_th_var_trail;
         void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }

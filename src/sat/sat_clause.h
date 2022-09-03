@@ -56,9 +56,9 @@ namespace sat {
         literal            m_lits[0];
 
         static size_t get_obj_size(unsigned num_lits) { return sizeof(clause) + num_lits * sizeof(literal); }
-        size_t get_size() const { return get_obj_size(m_capacity); }
         clause(unsigned id, unsigned sz, literal const * lits, bool learned);
     public:
+        size_t get_size() const { return get_obj_size(m_capacity); }
         unsigned id() const { return m_id; }
         unsigned size() const { return m_size; }
         unsigned capacity() const { return m_capacity; }
@@ -125,7 +125,7 @@ namespace sat {
         clause * m_clause;
     public:
         tmp_clause():m_clause(nullptr) {}
-        ~tmp_clause() { if (m_clause) dealloc_svect(m_clause); }
+        ~tmp_clause() { if (m_clause) dealloc_svect(m_clause, m_clause->get_size()); }
         clause * get() const { return m_clause; }
         void set(unsigned num_lits, literal const * lits, bool learned);
         void set(literal l1, literal l2, bool learned) { literal ls[2] = { l1, l2 }; set(2, ls, learned); }

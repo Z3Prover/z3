@@ -37,7 +37,7 @@ class string_buffer {
         char * new_buffer   = alloc_svect(char, new_capacity);
         memcpy(new_buffer, m_buffer, m_pos);
         if (m_capacity > INITIAL_SIZE) {
-            dealloc_svect(m_buffer);
+            dealloc_svect(m_buffer, m_capacity);
         }
         m_capacity = new_capacity;
         m_buffer   = new_buffer;
@@ -52,7 +52,7 @@ public:
 
     ~string_buffer() {
         if (m_capacity > INITIAL_SIZE) {
-            dealloc_svect(m_buffer);
+            dealloc_svect(m_buffer, m_capacity);
         }
     }
 

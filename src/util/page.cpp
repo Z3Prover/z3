@@ -19,16 +19,25 @@ Revision History:
 #include "util/page.h"
 #include "util/debug.h"
 
-inline void set_page_header(char * page, char * prev, bool default_page) {
+static void set_page_header(char * page, char * prev, bool default_page) {
     size_t header = reinterpret_cast<size_t>(prev) | static_cast<size_t>(default_page); 
     reinterpret_cast<size_t *>(page)[-1] = header;
     SASSERT(is_default_page(page) == default_page);
     SASSERT(prev_page(page) == prev);
 }
 
-inline char * alloc_page(size_t s) { char * r = alloc_svect(char, s+PAGE_HEADER_SZ); return r + PAGE_HEADER_SZ; }
+static void set_page_header(char * page, char * prev, bool default_page, unsigned size) {
+    reinterpret_cast<size_t *>(page)[-2] = size + PAGE_HEADER_SZ;
+    set_page_header(page, prev, default_page);
+}
 
-inline void del_page(char * page) { dealloc_svect(page - PAGE_HEADER_SZ); }
+static size_t page_size(char * page) {
+  return reinterpret_cast<size_t *>(page)[-2];
+}
+
+static char * alloc_page(size_t s) { char * r = alloc_svect(char, s+PAGE_HEADER_SZ); return r + PAGE_HEADER_SZ; }
+
+static void del_page(char * page) { dealloc_svect(page - PAGE_HEADER_SZ, page_size(page)); }
 
 void del_pages(char * page) {
     while (page != nullptr) {
@@ -47,13 +56,13 @@ char * allocate_default_page(char * prev, char * & free_pages) {
     else {
         r = alloc_page(DEFAULT_PAGE_SIZE);
     }
-    set_page_header(r, prev, true);
+    set_page_header(r, prev, true, DEFAULT_PAGE_SIZE);
     return r;
 }
 
 char * allocate_page(char * prev, size_t sz) {
     char * r = alloc_page(sz);
-    set_page_header(r, prev, false);
+    set_page_header(r, prev, false, sz);
     return r;
 }
 

@@ -82,7 +82,7 @@ public:
     void deallocate(size_t size, void * p) {
         m_alloc_size -= size;
         if (size >= SMALL_OBJ_SIZE) {
-            memory::deallocate(p);
+            memory::deallocate(p, size);
         }
         else {
             m_free[free_slot_id(size)].push_back(p);

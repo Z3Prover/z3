@@ -30,7 +30,8 @@ namespace smt {
 
     void watch_list::destroy() {
         if (m_data) {
-            dealloc_svect(reinterpret_cast<char*>(m_data) - HEADER_SIZE);
+            unsigned size = reinterpret_cast<unsigned *>(m_data)[-1] + HEADER_SIZE;
+            dealloc_svect(reinterpret_cast<char*>(m_data) - HEADER_SIZE, size);
         }
     }
     

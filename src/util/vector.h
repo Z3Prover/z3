@@ -170,7 +170,9 @@ class vector {
     }
 
     void free_memory() { 
-        memory::deallocate(reinterpret_cast<char*>(reinterpret_cast<SZ*>(m_data) - 2));
+        SZ capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
+        memory::deallocate(reinterpret_cast<char*>(reinterpret_cast<SZ*>(m_data) - 2),
+                           sizeof(T) * capacity + sizeof(SZ) * 2);
     }
 
     void expand_vector() {

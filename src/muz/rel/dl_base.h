@@ -432,7 +432,8 @@ namespace datalog {
             */
             void destroy() {
                 this->~base_ancestor();
-                memory::deallocate(this);
+                // TODO: revise the size below; can sub-classes hit this?
+                memory::deallocate(this, sizeof(*this));
             }
         public:
             /**

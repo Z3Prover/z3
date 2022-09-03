@@ -58,11 +58,11 @@ public:
     static void finalize(bool shutdown = true);
     static void display_max_usage(std::ostream& os);
     static void display_i_max_usage(std::ostream& os);
-    static void deallocate(void* p);
+    static void deallocate(void* p, unsigned size);
     static ALLOC_ATTR void* allocate(size_t s);
     static ALLOC_ATTR void* reallocate(void *p, size_t s);
 #if Z3DEBUG
-    static void deallocate(char const* file, int line, void* p);
+    static void deallocate(char const* file, int line, void* p, unsigned size);
     static ALLOC_ATTR void* allocate(char const* file, int line, char const* obj, size_t s);
 #endif
     static unsigned long long get_allocation_size();
@@ -80,10 +80,10 @@ public:
 #define dealloc(_ptr_) deallocf(__FILE__,__LINE__,_ptr_)
 
 template<typename T>
-void deallocf(char const* file, int line, T * ptr) {
+void deallocf(char const* file, int line, T * ptr, unsigned size) {
     if (ptr == 0) return;
     ptr->~T();
-    memory::deallocate(file, line, ptr);
+    memory::deallocate(file, line, ptr, size);
 }
 
 #else 
@@ -94,7 +94,7 @@ template<typename T>
 void dealloc(T * ptr) {
     if (ptr == nullptr) return;
     ptr->~T();
-    memory::deallocate(ptr);
+    memory::deallocate(ptr, sizeof(T));
 }
 
 #endif
@@ -117,15 +117,15 @@ void dealloc_vect(T * ptr, unsigned sz) {
     T * curr = ptr;
     for (unsigned i = 0; i < sz; i++, curr++)
         curr->~T();
-    memory::deallocate(ptr);
+    memory::deallocate(ptr, sizeof(T) * sz);
 }
 
 #define alloc_svect(T, sz) static_cast<T*>(memory::allocate(sizeof(T) * sz))
 
 template<typename T>
-void dealloc_svect(T * ptr) {
+void dealloc_svect(T * ptr, unsigned size) {
     if (ptr == nullptr) return;
-    memory::deallocate(ptr);
+    memory::deallocate(ptr, sizeof(T) * size);
 }
 
 struct mem_stat {
@@ -135,6 +135,3 @@ inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
     double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
     return out << std::fixed << std::setprecision(2) << mem;
 }
-
-
-

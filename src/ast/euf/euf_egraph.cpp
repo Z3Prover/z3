@@ -43,7 +43,7 @@ namespace euf {
 
     enode* egraph::find(expr* e, unsigned n, enode* const* args) {
         if (m_tmp_node && m_tmp_node_capacity < n) {
-            memory::deallocate(m_tmp_node);
+            enode::del_tmp(m_tmp_node, m_tmp_node_capacity);
             m_tmp_node = nullptr;
         }
         if (!m_tmp_node) {
@@ -139,7 +139,7 @@ namespace euf {
         for (enode* n : m_nodes) 
             n->m_parents.finalize();
         if (m_tmp_node)
-            memory::deallocate(m_tmp_node);
+            enode::del_tmp(m_tmp_node, m_tmp_node_capacity);
     }
 
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {

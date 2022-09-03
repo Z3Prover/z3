@@ -69,7 +69,7 @@ namespace smt {
 
     unit_resolution_justification::~unit_resolution_justification() {
         if (!in_region()) {
-            dealloc_svect(m_literals); // I don't need to invoke destructor...
+            dealloc_svect(m_literals, m_num_literals); // I don't need to invoke destructor...
             dealloc(m_antecedent);
         }
     }
@@ -413,7 +413,7 @@ namespace smt {
 
     theory_lemma_justification::~theory_lemma_justification() {
         SASSERT(!in_region());
-        dealloc_svect(m_literals); 
+        dealloc_svect(m_literals, m_num_literals);
     }
     
     void theory_lemma_justification::del_eh(ast_manager & m) {

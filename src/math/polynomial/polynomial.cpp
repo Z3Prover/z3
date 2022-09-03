@@ -515,7 +515,7 @@ namespace polynomial {
         }
 
         void deallocate(monomial * ptr, unsigned capacity) {
-            memory::deallocate(ptr);
+            memory::deallocate(ptr, monomial::get_obj_size(capacity));
         }
 
         void increase_capacity(unsigned new_capacity) {

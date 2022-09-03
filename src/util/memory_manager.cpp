@@ -203,8 +203,8 @@ void memory::display_i_max_usage(std::ostream & os) {
 }
 
 #if Z3DEBUG
-void memory::deallocate(char const * file, int line, void * p) {
-    deallocate(p);
+void memory::deallocate(char const * file, int line, void * p, unsigned size) {
+    deallocate(p, size);
     TRACE_CODE(if (!g_finalizing) TRACE("memory", tout << "dealloc " << std::hex << p << std::dec << " " << file << ":" << line << "\n";););
 }
 
@@ -257,7 +257,7 @@ static void synchronize_counters(bool allocating) {
     }
 }
 
-void memory::deallocate(void * p) {
+void memory::deallocate(void * p, unsigned given_size) {
     size_t * sz_p  = reinterpret_cast<size_t*>(p) - 1;
     size_t sz      = *sz_p;
     void * real_p  = reinterpret_cast<void*>(sz_p);
@@ -266,6 +266,7 @@ void memory::deallocate(void * p) {
     if (g_memory_thread_alloc_size < -SYNCH_THRESHOLD) {
         synchronize_counters(false);
     }
+    SASSERT(sz - sizeof(size_t) == given_size);
 }
 
 void * memory::allocate(size_t s) {
@@ -314,7 +315,7 @@ void* memory::reallocate(void *p, size_t s) {
 // ==================================
 // allocate & deallocate without using thread local storage
 
-void memory::deallocate(void * p) {
+void memory::deallocate(void * p, unsigned given_size) {
     size_t * sz_p  = reinterpret_cast<size_t*>(p) - 1;
     size_t sz      = *sz_p;
     void * real_p  = reinterpret_cast<void*>(sz_p);
@@ -323,6 +324,7 @@ void memory::deallocate(void * p) {
         g_memory_alloc_size -= sz;
     }
     free(real_p);
+    SASSERT(sz - sizeof(size_t) == given_size);
 }
 
 void * memory::allocate(size_t s) {

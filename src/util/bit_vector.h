@@ -89,7 +89,7 @@ public:
     }
 
     ~bit_vector() {
-        dealloc_svect(m_data);
+        dealloc_svect(m_data, m_capacity);
     }
     
     void reset() {
@@ -193,7 +193,7 @@ public:
             return *this;
 
         if (m_capacity < source.m_capacity) {
-            dealloc_svect(m_data);
+            dealloc_svect(m_data, m_capacity);
             m_data     = alloc_svect(unsigned, source.m_capacity);
             m_capacity = source.m_capacity;
         }

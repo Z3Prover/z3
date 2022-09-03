@@ -32,7 +32,7 @@ void * region::allocate(size_t size) {
 
 void region::reset() {
     for (auto* c : m_chunks)
-        dealloc_svect(c);
+        dealloc_svect(c, /* FIXME */ 0);
     m_chunks.reset();
     m_scopes.reset();
 }
@@ -43,7 +43,7 @@ void region::pop_scope() {
     ptr_vector<char>::iterator it  = m_chunks.begin() + old_size;
     ptr_vector<char>::iterator end = m_chunks.end();
     for (; it != end; ++it) 
-        dealloc_svect(*it);    
+        dealloc_svect(*it, /* FIXME */ 0);    
     m_chunks.shrink(old_size);
 }
 

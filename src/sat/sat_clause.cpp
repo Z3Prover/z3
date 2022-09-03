@@ -137,7 +137,7 @@ namespace sat {
 
     void tmp_clause::set(unsigned num_lits, literal const * lits, bool learned) {
         if (m_clause && m_clause->m_capacity < num_lits) {
-            dealloc_svect(m_clause);
+            dealloc_svect(m_clause, m_clause->get_size());
             m_clause = nullptr;
         }
         if (!m_clause) {

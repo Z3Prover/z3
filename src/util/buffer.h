@@ -34,14 +34,14 @@ protected:
 
     void free_memory() {
         if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {
-            dealloc_svect(m_buffer);
+            dealloc_svect(m_buffer, m_capacity);
         }
     }
 
     void expand() {
         static_assert(std::is_nothrow_move_constructible<T>::value);
         unsigned new_capacity = m_capacity << 1;
-        T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
+        T * new_buffer        = reinterpret_cast<T*>(alloc_svect(T, new_capacity));
         for (unsigned i = 0; i < m_pos; ++i) {
             new (&new_buffer[i]) T(std::move(m_buffer[i]));
             if (CallDestructors) {

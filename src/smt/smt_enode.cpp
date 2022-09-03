@@ -333,13 +333,13 @@ namespace smt {
     }
 
     tmp_enode::~tmp_enode() {
-        dealloc_svect(m_enode_data);
+        dealloc_svect(m_enode_data, sizeof(enode) + m_capacity * sizeof(enode*));
     }
 
     void tmp_enode::set_capacity(unsigned new_capacity) {
         SASSERT(new_capacity > m_capacity);
         if (m_enode_data)
-            dealloc_svect(m_enode_data);
+            dealloc_svect(m_enode_data, sizeof(enode) + m_capacity * sizeof(enode*));
         m_capacity   = new_capacity;
         unsigned sz  = sizeof(enode) + m_capacity * sizeof(enode*);
         m_enode_data = alloc_svect(char, sz);

@@ -146,7 +146,7 @@ namespace smt {
 
         static enode * mk_dummy(ast_manager & m, app2enode_t const & app2enode, app * owner);
         
-        static void del_dummy(enode * n) { dealloc_svect(reinterpret_cast<char*>(n)); }
+        static void del_dummy(enode * n) { dealloc_svect(reinterpret_cast<char*>(n), get_enode_size(n->m_owner->get_num_args())); }
 
         unsigned get_func_decl_id() const {
             return m_func_decl_id;

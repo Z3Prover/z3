@@ -84,7 +84,7 @@ void small_object_allocator::deallocate(size_t size, void * p) {
     SASSERT(p);
     m_alloc_size -= size;
     if (size >= SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT)) {
-        memory::deallocate(p);
+        memory::deallocate(p, size);
         return;
     }
     unsigned slot_id = static_cast<unsigned>(size >> PTR_ALIGNMENT);
