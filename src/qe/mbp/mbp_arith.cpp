@@ -183,7 +183,9 @@ namespace mbp {
                 return c0;
             };
 
-            if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1))
+            if (tids.contains(t))
+                insert_mul(t, mul, ts);
+            else if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1))
                 linearize(mbo, eval, mul * mul1, t2, c, fmls, ts, tids);
             else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1))
                 linearize(mbo, eval, mul * mul1, t1, c, fmls, ts, tids);
@@ -221,6 +223,7 @@ namespace mbp {
                 vars coeffs;
                 rational c0 = add_def(t1, mul1, coeffs);
                 tids.insert(t, mbo.add_mod(coeffs, c0, mul1));
+
             }
             else if (a.is_idiv(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
                 // v = t1 div mul1
@@ -278,9 +281,8 @@ namespace mbp {
 
         expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
             expr_ref t(index2expr[v.m_id], m);
-            if (!v.m_coeff.is_one()) {
-                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
-            }
+            if (!v.m_coeff.is_one()) 
+                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);            
             return t;
         }
 

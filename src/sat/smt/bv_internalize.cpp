@@ -450,6 +450,10 @@ namespace bv {
      * Create the axioms:
      *   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
      * for i = 0,.., sz-1
+     *
+     * Alternative axiomatization:
+     * e = sum bit2bool(i,n)*2^i + 2^n * (div(e, 2^n))
+     * possibly term div(e,2^n) is not 
      */
     void solver::assert_int2bv_axiom(app* n) {
         expr* e = nullptr;
