@@ -13,7 +13,27 @@ Version 4.next
 Version 4.11.1
 ==============
 - add error handling to fromString method in JavaScript
-- fix regression in default parameters for CDCL (Nuno Lopes)
+- fix regression in default parameters for CDCL, thanks to Nuno Lopes
+- fix model evaluation bugs for as-array nested under functions (data-type constructors)
+- add rewrite simplifications for datatypes with a single constructor
+- add "Global Guidance" capability to SPACER, thanks to Arie Gurfinkel and Hari Gorvind.
+  The commit logs related to Global Guidance contain detailed information.
+- change proof logging format for the new core to use SMTLIB commands.
+  The format was so far an extension of DRAT used by SAT solvers, but not well compatible
+  with SMT format that is extensible. The resulting format is a mild extension of SMTLIB with
+  three extra commands assume, learn, del. They track input clauses, generated clauses and deleted clauses.
+  They are optionally augmented by proof hints. Two proof hints are used in the current version: "rup" and "farkas".
+  "rup" is used whent the generated clause can be justified by reverse unit propagation. "farkas" is used when
+  the clause can be justified by a combination of Farkas cutting planes. There is a built-in proof checker for the
+  format. Quantifier instantiations are also tracked as proof hints.
+  Other proof hints are to be added as the feature set is tested and developed. The fallback, buit-in,
+  self-checker uses z3 to check that the generated clause is a consequence. Note that this is generally
+  insufficient as generated clauses are in principle required to only be satisfiability preserving.
+  Proof checking and tranformation operations is overall open ended.
+  The log for the first commit introducing this change contains further information on the format.
+- fix to re-entrancy bug in user propagator (thanks to Clemens Eisenhofer).
+- handle _toExpr for quantified formulas in JS bindings
+
 
 Version 4.11.0
 ==============
