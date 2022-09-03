@@ -1044,13 +1044,14 @@ namespace smt {
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         TRACE("mk_bound_axioms", display_atom(tout << "making bound axioms for " << a1 << " ", a1, true); tout << "\n";);
+
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
-
         typename atoms::iterator lo_inf = end, lo_sup = end;
         typename atoms::iterator hi_inf = end, hi_sup = end;
+
         for (; it != end; ++it) {
-            atom * a2 = *it;
+            atom* a2 = *it;
             inf_numeral const & k2(a2->get_k());
             atom_kind kind2 = a2->get_atom_kind();
             TRACE("mk_bound_axioms", display_atom(tout << "compare " << a2 << " ", a2, true); tout << "\n";);
@@ -3010,15 +3011,12 @@ namespace smt {
             literal_vector & lits = m_tmp_literal_vector2;
             lits.reset();
             lits.push_back(l);
-            literal_vector::const_iterator it  = ante.lits().begin();
-            literal_vector::const_iterator end = ante.lits().end();
-            for (; it != end; ++it)
-                lits.push_back(~(*it));
+            for (auto const& lit : ante.lits())
+                lits.push_back(~lit);
             justification * js = nullptr;
-            if (proofs_enabled()) {
+            if (proofs_enabled()) 
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.data(),
                            ante.num_params(), ante.params("assign-bounds"));
-            }
             ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
@@ -3045,19 +3043,15 @@ namespace smt {
                     int upper_idx;
                     is_row_useful_for_bound_prop(r, lower_idx, upper_idx);
 
-                    if (lower_idx >= 0) {
+                    if (lower_idx >= 0) 
                         imply_bound_for_monomial(r, lower_idx, true);
-                    }
-                    else if (lower_idx == -1) {
+                    else if (lower_idx == -1) 
                         imply_bound_for_all_monomials(r, true);
-                    }
 
-                    if (upper_idx >= 0) {
+                    if (upper_idx >= 0) 
                         imply_bound_for_monomial(r, upper_idx, false);
-                    }
-                    else if (upper_idx == -1) {
+                    else if (upper_idx == -1) 
                         imply_bound_for_all_monomials(r, false);
-                    }
 
                     // sneaking cheap eq detection in this loop
                     propagate_cheap_eq(r_idx);
