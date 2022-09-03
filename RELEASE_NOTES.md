@@ -10,7 +10,7 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
-Version 4.11.1
+Version 4.11.2
 ==============
 - add error handling to fromString method in JavaScript
 - fix regression in default parameters for CDCL, thanks to Nuno Lopes
@@ -34,6 +34,9 @@ Version 4.11.1
 - fix to re-entrancy bug in user propagator (thanks to Clemens Eisenhofer).
 - handle _toExpr for quantified formulas in JS bindings
 
+Version 4.11.1
+==============
+- skipped
 
 Version 4.11.0
 ==============
