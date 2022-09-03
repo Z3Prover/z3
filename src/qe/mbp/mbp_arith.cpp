@@ -215,6 +215,7 @@ namespace mbp {
                     linearize(mbo, eval, mul, t3, c, fmls, ts, tids);
                 }
                 else {
+                    IF_VERBOSE(1, verbose_stream() << "mbp failed on if: " << mk_pp(t, m) << " := " << val << "\n");
                     throw default_exception("mbp evaluation didn't produce a truth value");
                 }
             }
@@ -234,8 +235,10 @@ namespace mbp {
             else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
                 rational r;
                 val = eval(t);
-                if (!a.is_numeral(val, r))
+                if (!a.is_numeral(val, r)) {
+                    IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(t, m) << " := " << val << "\n");
                     throw default_exception("mbp evaluation didn't produce an integer");
+                }
                 c += mul * r;
 
                 rational c0(-r), mul0(1);
@@ -335,8 +338,10 @@ namespace mbp {
                     expr_ref val = eval(v);
                     if (!m.inc())
                         return false;
-                    if (!a.is_numeral(val, r))
+                    if (!a.is_numeral(val, r)) {
+                        IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(v, m) << " := " << val << "\n");
                         throw default_exception("evaluation did not produce a numeral");
+                    }
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
@@ -623,6 +628,7 @@ namespace mbp {
                     expr_ref val = eval(v);
                     if (!a.is_numeral(val, r)) {
                         TRACE("qe", tout << eval.get_model() << "\n";);
+                        IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(v, m) << " := " << val << "\n");
                         throw default_exception("mbp evaluation was only partial");
                     }
                     id = mbo.add_var(r, a.is_int(v));

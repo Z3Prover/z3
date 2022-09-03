@@ -246,8 +246,10 @@ namespace mbp {
     bool project_plugin::is_true(model_evaluator& eval, expr* e) {
         expr_ref val = eval(e);
         bool tt = m.is_true(val);
-        if (!tt && !m.is_false(val) && contains_uninterpreted(val))
+        if (!tt && !m.is_false(val) && contains_uninterpreted(val)) {
+            IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(e, m) << " := " << val << "\n");
             throw default_exception("could not evaluate Boolean in model");
+        }
         SASSERT(tt || m.is_false(val));
         return tt;
     }
