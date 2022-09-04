@@ -732,7 +732,7 @@ void asserted_formulas::bv_size_reduce_fn::simplify(justified_expr const& j, exp
     auto check_reduce = [&](expr* a, expr* b) {
         if (bv.is_extract(a, lo, hi, x) && lo > 0 && hi + 1 == bv.get_bv_size(x) && bv.is_numeral(b, r) && r == 0) {
             // insert x -> x[0,lo-1] ++ n into sub
-            new_term = bv.mk_concat(bv.mk_extract(lo - 1, 0, x), b);
+            new_term = bv.mk_concat(b, bv.mk_extract(lo - 1, 0, x));
             m_sub.insert(x, new_term);
             n = j.get_fml();
             return true;
