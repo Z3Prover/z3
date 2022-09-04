@@ -124,7 +124,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_ast_vector Z3_parser_context_parse_stream(Z3_context c, scoped_ptr<cmd_context>& ctx, bool owned, std::istream& is) {
+    static Z3_ast_vector Z3_parser_context_parse_stream(Z3_context c, scoped_ptr<cmd_context>& ctx, bool owned, std::istream& is) {
         Z3_TRY;
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);        
@@ -163,6 +163,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    static
     Z3_ast_vector parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
                                        unsigned num_sorts,
                                        Z3_symbol const _sort_names[],
@@ -257,6 +258,4 @@ extern "C" {
         RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous.str()));
     }
-
-
-};
+}
