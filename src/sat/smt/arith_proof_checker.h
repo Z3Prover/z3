@@ -41,16 +41,19 @@ namespace arith {
                 m_coeff = 0;
             }
         };
-        
+       
         ast_manager& m;
-        arith_util a;
+        arith_util   a;
         vector<std::pair<rational, expr*>> m_todo;
-        bool m_strict = false;
-        row m_ineq;
-        row m_conseq;
-        vector<row> m_eqs;
-        vector<row> m_ineqs;
-        vector<row> m_diseqs;
+        bool         m_strict = false;
+        row          m_ineq;
+        row          m_conseq;
+        vector<row>  m_eqs;
+        vector<row>  m_ineqs;
+        vector<row>  m_diseqs;
+        symbol       m_farkas;
+        symbol       m_implied_eq;
+        symbol       m_bound;
         
         void add(row& r, expr* v, rational const& coeff) {
             rational coeff1;
@@ -147,6 +150,8 @@ namespace arith {
                     m_todo.push_back({coeff*coeff1, e2});
                 else if (a.is_mul(e, e1, e2) && a.is_uminus(e1, e3) && a.is_numeral(e3, coeff1))
                     m_todo.push_back({-coeff*coeff1, e2});
+                else if (a.is_mul(e, e1, e2) && a.is_uminus(e2, e3) && a.is_numeral(e3, coeff1))
+                    m_todo.push_back({ -coeff * coeff1, e1 });
                 else if (a.is_mul(e, e1, e2) && a.is_numeral(e2, coeff1))
                     m_todo.push_back({coeff*coeff1, e1});
                 else if (a.is_add(e))
@@ -309,10 +314,14 @@ namespace arith {
             rows.push_back(row());
             return rows.back();
         }
-
         
     public:
-        proof_checker(ast_manager& m): m(m), a(m) {}
+        proof_checker(ast_manager& m): 
+            m(m), 
+            a(m), 
+            m_farkas("farkas"), 
+            m_implied_eq("implied-eq"), 
+            m_bound("bound") {}
 
         ~proof_checker() override {}
         
@@ -328,7 +337,8 @@ namespace arith {
         bool add_ineq(rational const& coeff, expr* e, bool sign) {
             if (!m_diseqs.empty())
                 return add_literal(fresh(m_ineqs), abs(coeff), e, sign);
-            return add_literal(m_ineq, abs(coeff), e, sign);
+            else 
+                return add_literal(m_ineq, abs(coeff), e, sign);
         }
         
         bool add_conseq(rational const& coeff, expr* e, bool sign) {
@@ -374,60 +384,66 @@ namespace arith {
                 else
                     pos.mark(e, true);
 
-            if (jst->get_name() == symbol("farkas")) {
-                bool even = true;
-                rational coeff;
-                expr* x, *y;
-                for (expr* arg : *jst) {
-                    if (even) {
-                        if (!a.is_numeral(arg, coeff)) {
-                            IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
-                            return false;
-                        }
-                    }
-                    else {
-                        bool sign = m.is_not(arg, arg);
-                        if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) 
-                            add_ineq(coeff, arg, sign);
-                        else if (m.is_eq(arg, x, y)) {
-                            if (sign)
-                                add_diseq(x, y);
-                            else
-                                add_eq(x, y);
-                        }
-                        else
-                            return false;
-
-                        if (sign && !pos.is_marked(arg)) {
-                            units.push_back(m.mk_not(arg));
-                            pos.mark(arg, false);
-                        }
-                        else if (!sign && !neg.is_marked(arg)) {
-                            units.push_back(arg);
-                            neg.mark(arg, false);
-                        }
-                            
-                    }                        
-                    even = !even;
-                }
-                if (check_farkas()) {
-                    return true;
-                }
-                
-                IF_VERBOSE(0, verbose_stream() << "did not check farkas\n" << mk_pp(jst, m) << "\n"; display(verbose_stream()); );
+            if (jst->get_name() != m_farkas &&
+                jst->get_name() != m_bound &&
+                jst->get_name() != m_implied_eq) {
+                IF_VERBOSE(0, verbose_stream() << "unhandled inference " << mk_pp(jst, m) << "\n");
                 return false;
             }
+            bool is_bound = jst->get_name() == m_bound;
+            bool even = true;
+            rational coeff;
+            expr* x, * y;
+            unsigned j = 0;
+            for (expr* arg : *jst) {
+                if (even) {
+                    if (!a.is_numeral(arg, coeff)) {
+                        IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
+                        return false;
+                    }
+                }
+                else {
+                    bool sign = m.is_not(arg, arg);
+                    if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) {
+                        if (is_bound && j + 1 == jst->get_num_args())
+                            add_conseq(coeff, arg, sign);
+                        else
+                            add_ineq(coeff, arg, sign);
+                    }
+                    else if (m.is_eq(arg, x, y)) {
+                        if (sign)
+                            add_diseq(x, y);
+                        else
+                            add_eq(x, y);
+                    }
+                    else {
+                        IF_VERBOSE(0, verbose_stream() << "not a recognized arithmetical relation " << mk_pp(arg, m) << "\n");
+                        return false;
+                    }
 
-            // todo: rules for bounds and implied-by
-
-            IF_VERBOSE(0, verbose_stream() << "did not check " << mk_pp(jst, m) << "\n");
+                    if (sign && !pos.is_marked(arg)) {
+                        units.push_back(m.mk_not(arg));
+                        pos.mark(arg, false);
+                    }
+                    else if (!sign && !neg.is_marked(arg)) {
+                        units.push_back(arg);
+                        neg.mark(arg, false);
+                    }
+                }
+                even = !even;
+                ++j;
+            }
+            if (check()) 
+                return true;
+            
+            IF_VERBOSE(0, verbose_stream() << "did not check condition\n" << mk_pp(jst, m) << "\n"; display(verbose_stream()); );
             return false;
         }
 
         void register_plugins(euf::proof_checker& pc) override {
-            pc.register_plugin(symbol("farkas"), this);
-            pc.register_plugin(symbol("bound"), this);
-            pc.register_plugin(symbol("implied-eq"), this);
+            pc.register_plugin(m_farkas, this);
+            pc.register_plugin(m_bound, this);
+            pc.register_plugin(m_implied_eq, this);
         }
         
     };

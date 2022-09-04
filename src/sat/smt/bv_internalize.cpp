@@ -308,7 +308,6 @@ namespace bv {
         euf::enode* n = bool_var2enode(l.var());
         if (!n->is_attached_to(get_id())) 
             mk_var(n);
-
         set_bit_eh(v, l, idx);
     }
 
@@ -453,7 +452,9 @@ namespace bv {
      *
      * Alternative axiomatization:
      * e = sum bit2bool(i,n)*2^i + 2^n * (div(e, 2^n))
-     * possibly term div(e,2^n) is not 
+     * possibly term div(e,2^n) is not correct with respect to adapted semantics?
+     * if not, use fresh variable or similar. Overall should be much beter.
+     * Note: based on superb question raised at workshop on 9/1/22.
      */
     void solver::assert_int2bv_axiom(app* n) {
         expr* e = nullptr;
@@ -534,27 +535,27 @@ namespace bv {
         internalize_binary(a, bin);
     }
 
-    void solver::internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& iun) {
+    void solver::internalize_interp(app* n, std::function<expr* (expr*, expr*)>& ibin, std::function<expr* (expr*)>& iun) {
         bv_rewriter_params p(s().params());
         expr* arg1 = n->get_arg(0);
         expr* arg2 = n->get_arg(1);
         mk_bits(get_th_var(n));
-	sat::literal eq_lit;
+        sat::literal eq_lit;
         if (p.hi_div0()) {
             eq_lit = eq_internalize(n, ibin(arg1, arg2));
-	    add_unit(eq_lit);
-	}
-	else {
-	    unsigned sz = bv.get_bv_size(n);
-	    expr_ref zero(bv.mk_numeral(0, sz), m);
-	    sat::literal eqZ = eq_internalize(arg2, zero);
-	    sat::literal eqU = mk_literal(iun(arg1));
-	    sat::literal eqI = mk_literal(ibin(arg1, arg2));
-	    add_clause(~eqZ, eqU);
-	    add_clause(eqZ, eqI);
-	    ctx.add_aux(~eqZ, eqU);
-	    ctx.add_aux(eqZ, eqI);
-	}
+            add_unit(eq_lit);
+        }
+        else {
+            unsigned sz = bv.get_bv_size(n);
+            expr_ref zero(bv.mk_numeral(0, sz), m);
+            sat::literal eqZ = eq_internalize(arg2, zero);
+            sat::literal eqU = mk_literal(iun(arg1));
+            sat::literal eqI = mk_literal(ibin(arg1, arg2));
+            add_clause(~eqZ, eqU);
+            add_clause(eqZ, eqI);
+            ctx.add_aux(~eqZ, eqU);
+            ctx.add_aux(eqZ, eqI);
+        }
     }
 
     void solver::internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn) {
@@ -574,11 +575,9 @@ namespace bv {
         init_bits(n, bits);
     }
 
-
     void solver::internalize_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
         SASSERT(e->get_num_args() >= 1);
-        expr_ref_vector bits(m), new_bits(m), arg_bits(m);
-        
+        expr_ref_vector bits(m), new_bits(m), arg_bits(m);        
         get_arg_bits(e, 0, bits);
         for (unsigned i = 1; i < e->get_num_args(); ++i) {
             arg_bits.reset();
@@ -658,7 +657,7 @@ namespace bv {
             conc.push_back(arg);
         expr_ref r(bv.mk_concat(conc), m);
         mk_bits(get_th_var(e));
-	sat::literal eq_lit = eq_internalize(e, r);
+        sat::literal eq_lit = eq_internalize(e, r);
         add_unit(eq_lit);
     }
 
@@ -667,9 +666,8 @@ namespace bv {
         expr* arg = nullptr;
         VERIFY(bv.is_bit2bool(n, arg, idx));
         euf::enode* argn = expr2enode(arg);
-        if (!argn->is_attached_to(get_id())) {
-            mk_var(argn);
-        }        
+        if (!argn->is_attached_to(get_id())) 
+            mk_var(argn);   
         theory_var v_arg = argn->get_th_var(get_id());        
         SASSERT(idx < get_bv_size(v_arg));
         sat::literal lit = expr2literal(n);
@@ -770,7 +768,7 @@ namespace bv {
             e1 = bv.mk_bit2bool(o1, i);
             e2 = bv.mk_bit2bool(o2, i);
             literal eq = eq_internalize(e1, e2);
-	    add_clause(eq, ~oeq);
+            add_clause(eq, ~oeq);
             eqs.push_back(~eq);
         }
         TRACE("bv", for (auto l : eqs) tout << mk_bounded_pp(literal2expr(l), m) << " "; tout << "\n";);
