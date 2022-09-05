@@ -75,7 +75,7 @@ namespace bv {
     /**
        \brief expose the multiplication circuit lazily.
        It adds clauses for multiplier output one by one to enforce
-       the semantics of multiplier semantics.
+       the semantics of multipliers.
      */
 
     bool solver::check_lazy_mul(app* e, expr* arg_value, expr* mul_value) {
