@@ -26,6 +26,15 @@ namespace euf {
 
 namespace bv {
 
+    struct lazy_mul {
+        expr_ref_vector m_out;
+        unsigned        m_bits;
+        lazy_mul(app* a, expr_ref_vector& out):
+            m_out(out), 
+            m_bits(0) {
+        }
+    };
+
     class solver : public euf::th_euf_solver {
         typedef rational numeral;
         typedef euf::theory_var theory_var;
@@ -215,6 +224,7 @@ namespace bv {
         unsigned                   m_prop_queue_head = 0;
         sat::literal               m_true = sat::null_literal;
         euf::enode_vector          m_bv2ints;
+        obj_map<app, lazy_mul*>   m_lazymul;
 
         // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
@@ -280,6 +290,7 @@ namespace bv {
         bool m_cheap_axioms{ true };
         bool should_bit_blast(app * n);
         bool check_delay_internalized(expr* e);
+        bool check_lazy_mul(app* e, expr* mul_value, expr* arg_value);
         bool check_mul(app* e);
         bool check_mul_invertibility(app* n, expr_ref_vector const& arg_values, expr* value);
         bool check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
