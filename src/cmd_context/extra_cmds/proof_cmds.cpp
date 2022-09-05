@@ -198,13 +198,13 @@ public:
         m_proof_hint.reset();
     }
 
-    void end_learned() {
+    void end_learned() override {
         m_checker.check(m_lits, m_proof_hint);
         m_lits.reset();
         m_proof_hint.reset();
     }
 
-    void end_deleted() {
+    void end_deleted() override {
         m_lits.reset();
         m_proof_hint.reset();
     }
