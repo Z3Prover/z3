@@ -3027,11 +3027,23 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
             found_complement = true;
         }
     }
+    // patch to deal with lambdas introduced during search.
+    // lambdas can occur in terms both internalized and in raw form.
+    if (!found_complement && !is_or(f1) && num_proofs == 2) {
+        args.push_back(proofs[0]);
+        args.push_back(proofs[1]);
+        args.push_back(mk_false());
+        found_complement = true;
+    }
+
     if (!found_complement) {
         args.append(num_proofs, (expr**)proofs);
         CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
                for (unsigned i = 1; i < num_proofs; ++i)
                    tout << mk_pp(proofs[i], *this) << "\n";
+               tout << "facts\n";
+               for (unsigned i = 0; i < num_proofs; ++i)
+                   tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
                );
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
