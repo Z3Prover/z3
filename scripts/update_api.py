@@ -776,6 +776,13 @@ def mk_java(java_src, java_dir, package_name):
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
                     java_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
                     java_wrapper.write('  }\n')
+                elif param_type(param) == STRING:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Ljava/lang/String;");')
+                    java_wrapper.write('     jstring fval = jenv->NewStringUTF(_a%s);\n' % i)
+                    java_wrapper.write('     jenv->SetObjectField(a%s, fid, fval);\n' % i)
+                    java_wrapper.write('  }\n')
                 else:
                     java_wrapper.write('  {\n')
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
