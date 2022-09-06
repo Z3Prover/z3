@@ -50,13 +50,6 @@ namespace Microsoft.Z3
                 m_n_obj = IntPtr.Zero;                
             }
 
-            if (m_ctx != null)
-            {
-                if (Interlocked.Decrement(ref m_ctx.refCount) == 0)
-                    GC.ReRegisterForFinalize(m_ctx);
-                m_ctx = null;
-            }
-
             GC.SuppressFinalize(this);
         }
 
@@ -64,29 +57,25 @@ namespace Microsoft.Z3
         
         private void ObjectInvariant()
         {
-            Debug.Assert(this.m_ctx != null);
+            Debug.Assert(this.Context != null);
         }
 
         #endregion
 
         #region Internal
-        private Context m_ctx = null;
-        private IntPtr m_n_obj = IntPtr.Zero;
+
+        private IntPtr m_n_obj;
 
         internal Z3Object(Context ctx)
+            : this(ctx, IntPtr.Zero)
         {
-            Debug.Assert(ctx != null);
-
-            Interlocked.Increment(ref ctx.refCount);
-            m_ctx = ctx;
         }
 
         internal Z3Object(Context ctx, IntPtr obj)
         {
             Debug.Assert(ctx != null);
 
-            Interlocked.Increment(ref ctx.refCount);
-            m_ctx = ctx;
+            Context = ctx;
             IncRef(obj);
             m_n_obj = obj;
         }
@@ -116,13 +105,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Access Context object 
         /// </summary>
-	    public Context Context
-        {
-            get 
-            {
-                return m_ctx; 
-            }            
-        }
+	    public Context Context { get; }
 
         internal static IntPtr[] ArrayToNative(Z3Object[] a)
         {

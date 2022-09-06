@@ -4778,7 +4778,7 @@ namespace Microsoft.Z3
         #endregion
 
         #region Internal
-        internal IntPtr m_ctx = IntPtr.Zero;
+        internal readonly IntPtr m_ctx;
         internal Native.Z3_error_handler m_n_err_handler = null;
         internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
@@ -4966,9 +4966,7 @@ namespace Microsoft.Z3
         /// Optimize DRQ
         /// </summary>
         public IDecRefQueue Optimize_DRQ { get { return m_Fixedpoint_DRQ; } }
-
-        internal long refCount = 0;
-
+        
         /// <summary>
         /// Finalizer.
         /// </summary>
@@ -5011,16 +5009,11 @@ namespace Microsoft.Z3
             m_realSort = null;
             m_stringSort = null;
             m_charSort = null;
-            if (refCount == 0 && m_ctx != IntPtr.Zero)
-            {
-                m_n_err_handler = null;
-                IntPtr ctx = m_ctx;
-                m_ctx = IntPtr.Zero;
-                if (!is_external) 
-                   Native.Z3_del_context(ctx);
-            }
-            else
-                GC.ReRegisterForFinalize(this);
+            m_n_err_handler = null;
+            IntPtr ctx = m_ctx;
+            if (!is_external)
+                Native.Z3_del_context(ctx);
+            GC.SuppressFinalize(this);
         }
 
 
