@@ -4314,6 +4314,16 @@ namespace z3 {
             Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
+        void conflict(expr_vector const& fixed, expr_vector const& lhs, expr_vector const& rhs) {
+            assert(cb);
+            assert(lhs.size() == rhs.size());
+            expr conseq = ctx().bool_val(false);
+            array<Z3_ast> _fixed(fixed);
+            array<Z3_ast> _lhs(lhs);
+            array<Z3_ast> _rhs(rhs);
+            Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
+        }
+
         void propagate(expr_vector const& fixed, expr const& conseq) {
             assert(cb);
             assert((Z3_context)conseq.ctx() == (Z3_context)ctx());
