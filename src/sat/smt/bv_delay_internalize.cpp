@@ -145,9 +145,12 @@ namespace bv {
         if (!check_mul_invertibility(e, args, r1))
             return false;
 
+#if 0
+        // unsound?
+
         if (!check_lazy_mul(e, r1, r2))
             return false;
-   
+#endif
         // Some other possible approaches:
         // algebraic rules:
         // x*(y+z), and there are nodes for x*y or x*z -> x*(y+z) = x*y + x*z
@@ -229,18 +232,17 @@ namespace bv {
     bool solver::check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
         SASSERT(mul_value != arg_value);
         SASSERT(!(bv.is_zero(mul_value) && bv.is_zero(arg_value)));
-        if (bv.is_zero(arg_value)) {
+        if (bv.is_zero(arg_value) && false) {
             unsigned sz = n->get_num_args();
             expr_ref_vector args(m, sz, n->get_args());
             for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
-
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
                 args[i] = n->get_arg(i);                
                 add_unit(eq_internalize(r, arg_value));
             }
-            IF_VERBOSE(2, verbose_stream() << "delay internalize @" << s().scope_lvl() << "\n");
+            IF_VERBOSE(2, verbose_stream() << "delay internalize @" << s().scope_lvl() << " " << mk_pp(n, m) << "\n");
             return false;
         }
         if (bv.is_zero(mul_value)) {
