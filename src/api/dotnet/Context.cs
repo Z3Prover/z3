@@ -4778,7 +4778,8 @@ namespace Microsoft.Z3
         #endregion
 
         #region Internal
-        internal readonly IntPtr m_ctx;
+        internal IntPtr m_ctx;
+        private readonly object m_ctxLock = new object();
         internal Native.Z3_error_handler m_n_err_handler = null;
         internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
@@ -5012,7 +5013,13 @@ namespace Microsoft.Z3
             m_n_err_handler = null;
             IntPtr ctx = m_ctx;
             if (!is_external)
-                Native.Z3_del_context(ctx);
+            {   
+                lock (m_ctxLock)
+                {
+                    Native.Z3_del_context(ctx);
+                    m_ctx = IntPtr.Zero;
+                }                                                                                                }
+            }
             GC.SuppressFinalize(this);
         }
 
