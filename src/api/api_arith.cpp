@@ -22,6 +22,8 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "math/polynomial/algebraic_numbers.h"
 
+#include <iostream>
+
 #define MK_ARITH_OP(NAME, OP) MK_NARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
 #define MK_BINARY_ARITH_OP(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
 #define MK_ARITH_PRED(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
@@ -88,7 +90,25 @@ extern "C" {
     MK_ARITH_PRED(Z3_mk_gt,  OP_GT);
     MK_ARITH_PRED(Z3_mk_le,  OP_LE);
     MK_ARITH_PRED(Z3_mk_ge,  OP_GE);
-    MK_ARITH_PRED(Z3_mk_divides, OP_IDIVIDES);
+
+    Z3_ast Z3_API Z3_mk_divides(Z3_context c, Z3_ast n1, Z3_ast n2) {
+        Z3_TRY;
+        LOG_Z3_mk_divides(c, n1, n2);
+        RESET_ERROR_CODE();
+        rational val;
+        if (!is_expr(n1) || !mk_c(c)->autil().is_numeral(to_expr(n1), val) || !val.is_unsigned()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            RETURN_Z3(nullptr);
+        }
+        parameter p(val.get_unsigned());
+        expr* arg = to_expr(n2);
+        expr* a = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), OP_IDIVIDES, 1, &p, 1, &arg);
+        mk_c(c)->save_ast_trail(a);
+        check_sorts(c, a);
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     MK_UNARY(Z3_mk_int2real, mk_c(c)->get_arith_fid(), OP_TO_REAL, SKIP);
     MK_UNARY(Z3_mk_real2int, mk_c(c)->get_arith_fid(), OP_TO_INT, SKIP);
     MK_UNARY(Z3_mk_is_int,   mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP);
