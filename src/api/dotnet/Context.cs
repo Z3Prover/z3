@@ -5013,12 +5013,12 @@ namespace Microsoft.Z3
             m_n_err_handler = null;
             IntPtr ctx = m_ctx;
             if (!is_external)
-            {   
+            {
                 lock (m_ctxLock)
                 {
                     Native.Z3_del_context(ctx);
                     m_ctx = IntPtr.Zero;
-                }                                                                                                }
+                }
             }
             GC.SuppressFinalize(this);
         }
