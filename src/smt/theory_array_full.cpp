@@ -604,6 +604,14 @@ namespace smt {
         for (unsigned i = 0; i < lam->get_num_decls(); ++i) 
             args.push_back(mk_epsilon(lam->get_decl_sort(i)).first);
         expr_ref val(mk_select(args), m);
+        ctx.get_rewriter()(val);
+        if (has_quantifiers(val)) {
+            expr_ref fn(m.mk_fresh_const("lambda-body", m.mk_bool_sort()), m);
+            expr_ref eq(m.mk_eq(fn, val), m);
+            ctx.assert_expr(eq);
+            ctx.internalize_assertions();
+            val = fn;
+        }
         ctx.internalize(def, false);
         ctx.internalize(val.get(), false);
         return try_assign_eq(val.get(), def);
