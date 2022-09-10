@@ -531,6 +531,13 @@ public:
 #endif
 };
 
+#define MATCH_QUATARY(_MATCHER_)                                                                                \
+    bool _MATCHER_(expr const* n, expr*& a1, expr*& a2, expr *& a3, expr *& a4) const {                                \
+        if (_MATCHER_(n) && to_app(n)->get_num_args() == 4) {                                                   \
+            a1 = to_app(n)->get_arg(0); a2 = to_app(n)->get_arg(1); a3 = to_app(n)->get_arg(2); a4 = to_app(n)->get_arg(3); return true; } \
+        return false;                                                                                           \
+    }
+
 #define MATCH_TERNARY(_MATCHER_)                                                                                \
     bool _MATCHER_(expr const* n, expr*& a1, expr*& a2, expr *& a3) const {                                     \
         if (_MATCHER_(n) && to_app(n)->get_num_args() == 3) {                                                   \
