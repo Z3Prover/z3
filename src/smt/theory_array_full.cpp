@@ -330,7 +330,8 @@ namespace smt {
             // Even if there was, as-array on interpreted 
             // functions will be incomplete.
             // The instantiation operations are still sound to include.
-            found_unsupported_op(n);
+            m_as_array.push_back(node);
+            ctx.push_trail(push_back_vector(m_as_array));
             instantiate_default_as_array_axiom(node);
         }
         else if (is_array_ext(n)) {
@@ -815,11 +816,21 @@ namespace smt {
         if (r == FC_DONE && m_bapa) {
             r = m_bapa->final_check();
         }
-        bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
+        bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
         return r;
     }
+
+    bool theory_array_full::has_non_beta_as_array() {
+        for (enode* n : m_as_array) {
+            for (enode* p : n->get_parents())
+                if (!is_beta_redex(p, n))
+                    return true;
+        }
+        return false;
+    }
+
 
     bool theory_array_full::instantiate_parent_stores_default(theory_var v) {
         SASSERT(v != null_theory_var);
