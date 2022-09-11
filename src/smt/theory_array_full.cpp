@@ -825,8 +825,10 @@ namespace smt {
     bool theory_array_full::has_non_beta_as_array() {
         for (enode* n : m_as_array) {
             for (enode* p : n->get_parents())
-                if (!is_beta_redex(p, n))
+                if (!ctx.is_beta_redex(p, n)) {
+                    TRACE("array", tout << "not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
+                }
         }
         return false;
     }

@@ -777,8 +777,6 @@ namespace smt {
 
         bool has_lambda();
 
-        bool is_beta_redex(enode* p, enode* n) const;
-
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
@@ -1034,6 +1032,8 @@ namespace smt {
         bool assume_eq(enode * lhs, enode * rhs);
 
         bool is_shared(enode * n) const;
+
+        bool is_beta_redex(enode* p, enode* n) const;
 
         void assign_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             push_eq(lhs, rhs, js);
