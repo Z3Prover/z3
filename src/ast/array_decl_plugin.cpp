@@ -122,7 +122,7 @@ bool array_decl_plugin::is_array_sort(sort* s) const {
 
 func_decl * array_decl_plugin::mk_const(sort * s, unsigned arity, sort * const * domain) {
     if (arity != 1) {
-        m_manager->raise_exception("invalid const array definition, invalid domain size");
+        m_manager->raise_exception("invalid const array definition, expected one argument");
         return nullptr;
     }
     if (!is_array_sort(s)) {
