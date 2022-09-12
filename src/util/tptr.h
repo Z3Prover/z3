@@ -26,19 +26,19 @@ Revision History:
 #define TAG_MASK         (ALIGNMENT_VALUE - 1)
 #define PTR_MASK         (~TAG_MASK)  
 
-#define ALIGN(T, PTR) reinterpret_cast<T>(((reinterpret_cast<size_t>(PTR) >> PTR_ALIGNMENT) + \
-                         static_cast<size_t>((reinterpret_cast<size_t>(PTR) & TAG_MASK) != 0)) << PTR_ALIGNMENT)
+#define ALIGN(T, PTR) reinterpret_cast<T>(((reinterpret_cast<uintptr_t>(PTR) >> PTR_ALIGNMENT) + \
+                         static_cast<uintptr_t>((reinterpret_cast<uintptr_t>(PTR) & TAG_MASK) != 0)) << PTR_ALIGNMENT)
 
-#define UNTAG(T, PTR) reinterpret_cast<T>(reinterpret_cast<size_t>(PTR) & PTR_MASK)
+#define UNTAG(T, PTR) reinterpret_cast<T>(reinterpret_cast<uintptr_t>(PTR) & PTR_MASK)
 
-#define TAG(T, PTR, TAG_VAL) reinterpret_cast<T>(reinterpret_cast<size_t>(PTR) | static_cast<size_t>(TAG_VAL))
+#define TAG(T, PTR, TAG_VAL) reinterpret_cast<T>(reinterpret_cast<uintptr_t>(PTR) | static_cast<uintptr_t>(TAG_VAL))
 
-#define GET_TAG(PTR) (reinterpret_cast<size_t>(PTR) & TAG_MASK)
+#define GET_TAG(PTR) (reinterpret_cast<uintptr_t>(PTR) & TAG_MASK)
 
-#define BOXINT(T, VAL) reinterpret_cast<T>(static_cast<size_t>(VAL) << PTR_ALIGNMENT)
+#define BOXINT(T, VAL) reinterpret_cast<T>(static_cast<uintptr_t>(VAL) << PTR_ALIGNMENT)
 
-#define BOXTAGINT(T, VAL, TAG_VAL) reinterpret_cast<T>((static_cast<size_t>(VAL) << PTR_ALIGNMENT) | static_cast<size_t>(TAG_VAL))
+#define BOXTAGINT(T, VAL, TAG_VAL) reinterpret_cast<T>((static_cast<uintptr_t>(VAL) << PTR_ALIGNMENT) | static_cast<uintptr_t>(TAG_VAL))
 
-#define UNBOXINT(PTR) static_cast<int>(reinterpret_cast<size_t>(PTR) >> PTR_ALIGNMENT)
+#define UNBOXINT(PTR) static_cast<int>(reinterpret_cast<uintptr_t>(PTR) >> PTR_ALIGNMENT)
 
 
