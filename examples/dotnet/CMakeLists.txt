@@ -24,9 +24,9 @@ if(UNIX AND NOT APPLE)
 
     add_custom_target(
         z3_dotnet_test_manual_copy_assembly_hack ALL
-        COMMAND ${CMAKE_COMMAND} -E copy ${z3_dotnet_test_manual_copy_deps} ${PROJECT_BINARY_DIR}/dotnet/netcoreapp3.1/
+        COMMAND ${CMAKE_COMMAND} -E copy ${z3_dotnet_test_manual_copy_deps} ${PROJECT_BINARY_DIR}/dotnet/netcoreapp2.0/
         # hack the libz3 entry in deps so it's easy enough for dotnet to reach it...
-        COMMAND sed \"s/runtimes\\/.*libz3\\.so/libz3.so/\" -i ${PROJECT_BINARY_DIR}/dotnet/netcoreapp3.1/dotnet.deps.json
+        COMMAND sed \"s/runtimes\\/.*libz3\\.so/libz3.so/\" -i ${PROJECT_BINARY_DIR}/dotnet/netcoreapp2.0/dotnet.deps.json
         )
 
     add_dependencies(z3_dotnet_test_manual_copy_assembly_hack BUILD_dotnet)
