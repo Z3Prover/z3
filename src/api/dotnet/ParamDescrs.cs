@@ -91,33 +91,20 @@ namespace Microsoft.Z3
             : base(ctx, obj)
         {
             Debug.Assert(ctx != null);
-        }
-
-        internal class DecRefQueue : IDecRefQueue
-        {
-            public DecRefQueue() : base() { }
-            public DecRefQueue(uint move_limit) : base(move_limit) { }
-            internal override void IncRef(Context ctx, IntPtr obj)
-            {
-                Native.Z3_param_descrs_inc_ref(ctx.nCtx, obj);
-            }
-
-            internal override void DecRef(Context ctx, IntPtr obj)
-            {
-                Native.Z3_param_descrs_dec_ref(ctx.nCtx, obj);
-            }
-        };        
+        }       
 
         internal override void IncRef(IntPtr o)
         {
-            Context.ParamDescrs_DRQ.IncAndClear(Context, o);
-            base.IncRef(o);
+            Native.Z3_param_descrs_inc_ref(Context.nCtx, o);
         }
 
         internal override void DecRef(IntPtr o)
         {
-            Context.ParamDescrs_DRQ.Add(o);
-            base.DecRef(o);
+            lock (Context)
+            {
+                if (Context.nCtx != IntPtr.Zero)
+                    Native.Z3_param_descrs_dec_ref(Context.nCtx, o);
+            }
         }
         #endregion
     }

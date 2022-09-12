@@ -52,8 +52,6 @@ namespace Microsoft.Z3
 
             if (m_ctx != null)
             {
-                if (Interlocked.Decrement(ref m_ctx.refCount) == 0)
-                    GC.ReRegisterForFinalize(m_ctx);
                 m_ctx = null;
             }
 
@@ -76,16 +74,12 @@ namespace Microsoft.Z3
         internal Z3Object(Context ctx)
         {
             Debug.Assert(ctx != null);
-
-            Interlocked.Increment(ref ctx.refCount);
             m_ctx = ctx;
         }
 
         internal Z3Object(Context ctx, IntPtr obj)
         {
             Debug.Assert(ctx != null);
-
-            Interlocked.Increment(ref ctx.refCount);
             m_ctx = ctx;
             IncRef(obj);
             m_n_obj = obj;
