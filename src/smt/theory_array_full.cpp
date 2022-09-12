@@ -607,7 +607,7 @@ namespace smt {
         expr_ref val(mk_select(args), m);
         ctx.get_rewriter()(val);
         if (has_quantifiers(val)) {
-            expr_ref fn(m.mk_fresh_const("lambda-body", m.mk_bool_sort()), m);
+            expr_ref fn(m.mk_fresh_const("lambda-body", val->get_sort()), m);
             expr_ref eq(m.mk_eq(fn, val), m);
             ctx.assert_expr(eq);
             ctx.internalize_assertions();
