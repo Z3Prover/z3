@@ -509,6 +509,8 @@ namespace seq {
     }
 
     /**
+       i = last_indexof(t, s):
+
        !contains(t, s) => i = -1   
        |t| = 0 => |s| = 0 or i = -1
        |t| = 0 & |s| = 0 => i = 0

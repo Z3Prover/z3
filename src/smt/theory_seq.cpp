@@ -304,6 +304,7 @@ void theory_seq::init() {
     m_ax.add_axiom5 = add_ax;
     m_ax.mk_eq_empty2 = mk_eq_emp;
     m_arith_value.init(&ctx);
+    m_max_unfolding_depth = ctx.get_fparams().m_seq_min_unfolding;
 }
 
 #define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(20, verbose_stream() << s << "\n"); }
@@ -3256,6 +3257,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_from_code(n) ||
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
+        m_util.str.is_last_index(n) ||
         m_util.str.is_length(n) || 
         /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
         m_util.str.is_le(n)) {
