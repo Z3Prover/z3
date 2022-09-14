@@ -3207,26 +3207,25 @@ namespace smt {
             reduce_assertions();
             if (get_cancel_flag()) 
                 return;
-            qhead = m_asserted_formulas.get_qhead();
-            if (!m_asserted_formulas.inconsistent()) {
-                unsigned sz = m_asserted_formulas.get_num_formulas();
-                while (qhead < sz) {
-                    if (get_cancel_flag()) {
-                        m_asserted_formulas.commit(qhead);
-                        return;
-                    }
-                    expr * f   = m_asserted_formulas.get_formula(qhead);
-                    proof * pr = m_asserted_formulas.get_formula_proof(qhead);
-                    SASSERT(!pr || f == m.get_fact(pr));
-                    internalize_assertion(f, pr, 0);
-                    qhead++;
-                }
-                m_asserted_formulas.commit();
-            }
-            if (m_asserted_formulas.inconsistent() && !inconsistent()) {
-                asserted_inconsistent();
+            if (m_asserted_formulas.inconsistent()) {
+                if (!inconsistent())
+                    asserted_inconsistent();
                 break;
             }
+            qhead = m_asserted_formulas.get_qhead();
+            unsigned sz = m_asserted_formulas.get_num_formulas();
+            while (qhead < sz) {
+                if (get_cancel_flag()) {
+                    m_asserted_formulas.commit(qhead);
+                    return;
+                }
+                expr * f   = m_asserted_formulas.get_formula(qhead);
+                proof * pr = m_asserted_formulas.get_formula_proof(qhead);
+                SASSERT(!pr || f == m.get_fact(pr));
+                internalize_assertion(f, pr, 0);
+                ++qhead;
+            }
+            m_asserted_formulas.commit();
         }
         while (qhead < m_asserted_formulas.get_num_formulas());
 
