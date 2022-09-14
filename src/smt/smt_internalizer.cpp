@@ -615,11 +615,15 @@ namespace smt {
 
     bool context::has_lambda() {
         for (auto const & [n, q] : m_lambdas) {
-            if (n->get_class_size() != 1) 
+            if (n->get_class_size() != 1) {
+                TRACE("context", tout << "class size " << n->get_class_size() << " " << enode_pp(n, *this) << "\n");
                 return true;
+            }
             for (enode* p : enode::parents(n)) 
-                if (!is_beta_redex(p, n)) 
+                if (!is_beta_redex(p, n)) {
+                    TRACE("context", tout << "not a beta redex " << enode_pp(p, *this) << "\n");
                     return true;
+                }
         }
         return false;
     }

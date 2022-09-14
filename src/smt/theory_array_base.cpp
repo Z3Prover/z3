@@ -498,6 +498,8 @@ namespace smt {
             return p->get_arg(0)->get_root() == n->get_root();
         if (is_map(p))
             return true;
+        if (is_store(p))
+            return true;
         return false;
     }
 

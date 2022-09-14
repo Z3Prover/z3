@@ -3198,14 +3198,15 @@ namespace smt {
 
     void context::internalize_assertions() {
         if (get_cancel_flag()) return;
+        if (m_internalizing_assertions) return;
+        flet<bool> _internalizing(m_internalizing_assertions, true);
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();
         if (get_cancel_flag()) return;
         if (!m_asserted_formulas.inconsistent()) {
-            unsigned sz    = m_asserted_formulas.get_num_formulas();
             unsigned qhead = m_asserted_formulas.get_qhead();
-            while (qhead < sz) {
+            while (qhead < m_asserted_formulas.get_num_formulas()) {
                 if (get_cancel_flag()) {
                     m_asserted_formulas.commit(qhead);
                     return;

@@ -107,11 +107,12 @@ namespace smt {
 
         ptr_vector<justification>   m_justifications;
 
-        unsigned                    m_final_check_idx; // circular counter used for implementing fairness
+        unsigned                    m_final_check_idx = 0; // circular counter used for implementing fairness
 
-        bool                        m_is_auxiliary { false }; // used to prevent unwanted information from being logged.
-        class parallel*             m_par { nullptr };
-        unsigned                    m_par_index { 0 };
+        bool                        m_is_auxiliary = false; // used to prevent unwanted information from being logged.
+        class parallel*             m_par = nullptr;
+        unsigned                    m_par_index = 0;
+        bool                        m_internalizing_assertions = false;
 
         // -----------------------------------
         //
