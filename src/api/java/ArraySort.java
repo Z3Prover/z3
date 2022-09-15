@@ -36,6 +36,18 @@ public class ArraySort<D extends Sort, R extends Sort> extends Sort
     }
 
     /**
+     * The domain of a multi-dimensional array sort.
+     * @throws Z3Exception 
+     * @throws Z3Exception on error
+     * @return a sort
+     **/
+    public D getDomain(int idx)
+    {
+        return (D) Sort.create(getContext(),
+			       Native.getArraySortDomainN(getContext().nCtx(), getNativeObject(), idx));
+    }
+
+    /**
      * The range of the array sort.
      * @throws Z3Exception 
      * @throws Z3Exception on error
