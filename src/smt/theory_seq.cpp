@@ -1538,10 +1538,23 @@ void theory_seq::add_length(expr* l) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
-    if (m_sk.is_indexof_left(s))
+    if (m_util.str.is_concat(s)) {
+        for (expr* e : *to_app(s))
+            add_length_limit(e, k, is_searching);
         return;
-    if (m_sk.is_indexof_right(s))
+    }
+    if (m_util.str.is_unit(s))
         return;
+    if (m_util.str.is_empty(s))
+        return;
+
+    if (m_sk.is_skolem(s)) {
+        for (expr* e : *to_app(s))
+            if (m_util.is_seq(e) || m_sk.is_skolem(e))
+                add_length_limit(e, k, is_searching);
+        return;        
+    }
+
     expr_ref lim_e = m_ax.add_length_limit(s, k);
     unsigned k0 = 0;
     if (m_length_limit_map.find(s, k0)) {

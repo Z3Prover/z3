@@ -32,8 +32,10 @@ namespace seq {
 
         symbol         m_prefix, m_suffix;
         symbol         m_tail;
+        symbol         m_left, m_right;
         symbol         m_seq_first, m_seq_last; 
-        symbol         m_indexof_left, m_indexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t. 
+        symbol         m_indexof_left, m_indexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t.
+        symbol         m_lindexof_left, m_lindexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t.
         symbol         m_aut_step;                        // regex unfolding state
         symbol         m_accept;                          // regex
         symbol         m_is_empty;                        // regex emptiness check
@@ -81,8 +83,8 @@ namespace seq {
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
         expr_ref mk_contains_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.cnt.l", t, s, offset); }
         expr_ref mk_contains_right(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.cnt.r", t, s, offset); }
-        expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.lidx.l", t, s, offset); }
-        expr_ref mk_last_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.lidx.r", t, s, offset); }
+        expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_lindexof_left, t, s, offset); }
+        expr_ref mk_last_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_lindexof_right, t, s, offset); }
 
         expr_ref mk_tail(expr* s, expr* i) { return mk(m_tail, s, i); }
         expr_ref mk_post(expr* s, expr* i) { return mk(m_post, s, i); }
@@ -100,8 +102,8 @@ namespace seq {
         expr_ref mk_digit2int(expr* ch) { return mk(symbol("seq.digit2int"), ch, nullptr, nullptr, nullptr, a.mk_int()); }
         expr_ref mk_digit2bv(expr* ch, sort* bv_sort);
         expr_ref mk_ubv2ch(expr* b) { return mk(symbol("seq.ubv2ch"), b, nullptr, nullptr, nullptr, seq.mk_char_sort()); }
-        expr_ref mk_left(expr* x, expr* y, expr* z = nullptr) { return mk("seq.left", x, y, z); }
-        expr_ref mk_right(expr* x, expr* y, expr* z = nullptr) { return mk("seq.right", x, y, z); }
+        expr_ref mk_left(expr* x, expr* y, expr* z = nullptr) { return mk(m_left, x, y, z); }
+        expr_ref mk_right(expr* x, expr* y, expr* z = nullptr) { return mk(m_right, x, y, z); }
         expr_ref mk_max_unfolding_depth(unsigned d);
         expr_ref mk_length_limit(expr* e, unsigned d);
 
@@ -117,6 +119,8 @@ namespace seq {
         bool is_seq_first(expr* e) const { return is_skolem(m_seq_first, e); }
         bool is_indexof_left(expr* e) const { return is_skolem(m_indexof_left, e); }
         bool is_indexof_right(expr* e) const { return is_skolem(m_indexof_right, e); }
+        bool is_last_indexof_left(expr* e) const { return is_skolem(m_lindexof_left, e); }
+        bool is_last_indexof_right(expr* e) const { return is_skolem(m_lindexof_right, e); }
         bool is_indexof_left(expr* e, expr*& x, expr*& y) const { 
             return is_indexof_left(e) && (x = to_app(e)->get_arg(0), y = to_app(e)->get_arg(1), true); 
         }
@@ -124,6 +128,7 @@ namespace seq {
             return is_indexof_right(e) && (x = to_app(e)->get_arg(0), y = to_app(e)->get_arg(1), true); 
         }
 
+        bool is_left_or_right(expr* e, expr*& x, expr*& y, expr*& z);
         bool is_step(expr* e) const { return is_skolem(m_aut_step, e); }
         bool is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
