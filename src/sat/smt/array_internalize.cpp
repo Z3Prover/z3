@@ -252,6 +252,8 @@ namespace array {
             return p->get_arg(0)->get_root() == n->get_root();
         if (a.is_map(p->get_expr()))
             return true;
+        if (a.is_store(p->get_expr()))
+            return true;
         return false;
     }
 

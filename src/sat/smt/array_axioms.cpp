@@ -700,6 +700,18 @@ namespace array {
             n->unmark1();
     }
 
+    bool solver::check_lambdas() {
+        unsigned num_vars = get_num_vars();
+        for (unsigned i = 0; i < num_vars; i++) {
+            auto* n = var2enode(i);
+            if (a.is_as_array(n->get_expr()) || is_lambda(n->get_expr()))
+                for (euf::enode* p : euf::enode_parents(n))
+                    if (!ctx.is_beta_redex(p, n))
+                        return false;
+        }
+        return true;
+    }
+
     bool solver::is_shared_arg(euf::enode* r) {
         SASSERT(r->is_root());
         for (euf::enode* n : euf::enode_parents(r)) {
