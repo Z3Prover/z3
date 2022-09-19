@@ -385,20 +385,16 @@ namespace arith {
         TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
-        if (is_infeasible()) {
+        if (is_infeasible()) 
             return;
-        }
         lp::lconstraint_kind k = bound2constraint_kind(b.is_int(), b.get_bound_kind(), is_true);
-        if (k == lp::LT || k == lp::LE) {
+        if (k == lp::LT || k == lp::LE) 
             ++m_stats.m_assert_lower;
-        }
-        else {
+        else 
             ++m_stats.m_assert_upper;
-        }
         inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) {
+        if (propagate_eqs() && value.is_rational()) 
             propagate_eqs(b.tv(), ci, k, b, value.get_rational());
-        }
 #if 0
         if (propagation_mode() != BP_NONE)
             lp().mark_rows_for_bound_prop(b.tv().id());
@@ -1118,16 +1114,23 @@ namespace arith {
     }
 
     bool solver::check_delayed_eqs() {
-        for (auto p : m_delayed_eqs) {
+        bool found_diseq = false;
+        if (m_delayed_eqs_qhead == m_delayed_eqs.size())
+            return true;
+        force_push();
+        ctx.push(value_trail<unsigned>(m_delayed_eqs_qhead));
+        for (; m_delayed_eqs_qhead < m_delayed_eqs.size(); ++ m_delayed_eqs_qhead) {
+            auto p = m_delayed_eqs[m_delayed_eqs_qhead];
             auto const& e = p.first;
             if (p.second)
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
                 mk_diseq_axiom(e);
-                return false;
+                found_diseq = true;
+                break;
             }
-        }
-        return true;
+        }        
+        return !found_diseq;
     }
 
     lbool solver::check_lia() {
