@@ -262,6 +262,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
+            if (k == OP_AND) {
+                st = m_a_rw.mk_and_core(num, args, result);
+                if (st != BR_FAILED)
+                    return st;
+            }
             return m_b_rw.mk_app_core(f, num, args, result);
         }
         if (fid == m_a_rw.get_fid())

@@ -175,7 +175,7 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
         }
         if (mk_nflat_and_core(flat_args.size(), flat_args.data(), result) == BR_FAILED)
             result = m().mk_and(flat_args);
-        return BR_DONE;
+        return BR_REWRITE1;
     }
     return mk_nflat_and_core(num_args, args, result);
 }
@@ -874,7 +874,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
                 expr_ref tmp(m());
                 mk_not(c, tmp);
                 mk_and(tmp, e, result);
-                return BR_DONE;
+                return BR_REWRITE1;
             }
         }
         if (m().is_true(e) && m_elim_ite) {            
@@ -885,11 +885,11 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         }
         if (m().is_false(e) && m_elim_ite) {
             mk_and(c, t, result);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
         if (c == e && m_elim_ite) {
             mk_and(c, t, result);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
         if (c == t && m_elim_ite) {
             mk_or(c, e, result);
@@ -912,13 +912,13 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         expr_ref a(m());
         mk_and(c, t2, a);
         result = m().mk_not(m().mk_eq(t1, a));
-        return BR_REWRITE2;
+        return BR_REWRITE3;
     }
     if (m().is_not(t, t1) && m().is_eq(t1, t2, t1) && e == t1) {
         expr_ref a(m());
         mk_and(c, t2, a);
         result = m().mk_eq(t1, a);
-        return BR_REWRITE2;
+        return BR_REWRITE3;
     }
 #endif
 
@@ -931,14 +931,14 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
             expr_ref new_c(m());
             mk_and(c, not_c2, new_c);
             result = m().mk_ite(new_c, to_app(t)->get_arg(2), e);
-            return BR_REWRITE1;
+            return BR_REWRITE2;
         }
         // (ite c1 (ite c2 t1 t2) t2) ==> (ite (and c1 c2) t1 t2)
         if (e == to_app(t)->get_arg(2)) {
             expr_ref new_c(m());
             mk_and(c, to_app(t)->get_arg(0), new_c);
             result = m().mk_ite(new_c, to_app(t)->get_arg(1), e);
-            return BR_REWRITE1;
+            return BR_REWRITE2;
         }
 
 
@@ -955,7 +955,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
                 expr_ref new_c(m());
                 mk_or(and1, and2, new_c);
                 result = m().mk_ite(new_c, to_app(t)->get_arg(1), to_app(t)->get_arg(2));
-                return BR_REWRITE1;
+                return BR_REWRITE3;
             }
 
             // (ite c1 (ite c2 t1 t2) (ite c3 t2 t1)) ==> (ite (or (and c1 c2) (and (not c1) (not c3))) t1 t2)
@@ -972,7 +972,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
                 expr_ref new_c(m());
                 mk_or(and1, and2, new_c);
                 result = m().mk_ite(new_c, to_app(t)->get_arg(1), to_app(t)->get_arg(2));
-                return BR_REWRITE1;
+                return BR_REWRITE3;
             }
         }
     }

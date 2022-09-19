@@ -706,6 +706,31 @@ br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
     return st;
 }
 
+br_status arith_rewriter::mk_and_core(unsigned n, expr* const* args, expr_ref& result) {
+    if (n <= 1)
+        return BR_FAILED;
+    expr* x, * y, * z, * u;
+    rational a, b;
+    if (m_util.is_le(args[0], x, y) && m_util.is_numeral(x, a)) {
+        expr* arg0 = args[0];
+        ptr_buffer<expr> rest;
+        for (unsigned i = 1; i < n; ++i) {
+            if (m_util.is_le(args[i], z, u) && u == y && m_util.is_numeral(z, b)) {
+                if (b > a)
+                    arg0 = args[i];
+            }
+            else
+                rest.push_back(args[i]);
+        }
+        if (rest.size() < n - 1) {
+            rest.push_back(arg0);
+            result = m().mk_and(rest);
+            return BR_REWRITE1;
+        }
+    }
+    return BR_FAILED;
+}
+
 bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
     expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
     rational p, k, l;
