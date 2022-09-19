@@ -343,6 +343,7 @@ namespace sat {
         void push_reinit_stack(clause & c);
         void push_reinit_stack(literal l1, literal l2);
 
+        void init_ts(unsigned n, svector<unsigned>& v, unsigned& ts);
         void init_visited();
         void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
         void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
