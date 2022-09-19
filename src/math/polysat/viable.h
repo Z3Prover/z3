@@ -23,6 +23,7 @@ Author:
 #include "util/small_object_allocator.h"
 #include "math/polysat/types.h"
 #include "math/polysat/conflict.h"
+#include "math/polysat/conflict2.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/univariate/univariate_solver.h"
@@ -111,6 +112,7 @@ namespace polysat {
         * \pre there are no viable values for v
         */
         bool resolve(pvar v, conflict& core);
+        bool resolve(pvar v, conflict2& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)

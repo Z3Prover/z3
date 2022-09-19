@@ -48,8 +48,8 @@ namespace polysat {
         /// Begin next conflict
         virtual void begin_conflict(char const* text = nullptr) = 0;
         /// Log inference and the current state.
-        virtual void log_inference(inference const& inf) = 0;
-        virtual void log_inference(char const* name) { log_inference(inference_named(name)); }
+        virtual void log(inference const& inf) = 0;
+        virtual void log(char const* name) { log(inference_named(name)); }
         virtual void log_var(pvar v) = 0;
         /// Log relevant part of search state and viable.
         virtual void end_conflict() = 0;
@@ -63,7 +63,7 @@ namespace polysat {
     class dummy_inference_logger : public inference_logger {
     public:
         virtual void begin_conflict(char const* text) override {}
-        virtual void log_inference(inference const& inf) override {}
+        virtual void log(inference const& inf) override {}
         virtual void log_var(pvar v) override {}
         virtual void end_conflict() override {}
         virtual void log_conflict_state() override {}
@@ -89,7 +89,7 @@ namespace polysat {
         /// Begin next conflict
         void begin_conflict(char const* text) override;
         /// Log inference and the current state.
-        void log_inference(inference const& inf) override;
+        void log(inference const& inf) override;
         void log_var(pvar v) override;
         /// Log relevant part of search state and viable.
         void end_conflict() override;

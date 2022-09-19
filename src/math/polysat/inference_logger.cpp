@@ -85,7 +85,7 @@ namespace polysat {
         out().flush();
     }
 
-    void file_inference_logger::log_inference(inference const& inf) {
+    void file_inference_logger::log(inference const& inf) {
         out() << hline() << "\n";
         out() << inf << "\n";
         log_conflict_state();

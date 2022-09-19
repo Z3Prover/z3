@@ -12,8 +12,9 @@ Author:
 
 Notes:
 
-    A conflict state is of the form <Vars, Constraints>
-    Where Vars are shorthand for the constraints v = value(v) for v in Vars and value(v) is the assignent.
+    A conflict state is of the form <Vars, Constraints, Lemmas>
+    Where Vars are shorthand for the constraints v = value(v) for v in Vars and value(v) is the assignment.
+    Lemmas provide justifications for newly created constraints.
 
     The conflict state is unsatisfiable under background clauses F.
     Dually, the negation is a consequence of F.
@@ -23,14 +24,14 @@ Notes:
     Assignments are of the form:
 
     lit <- D => lit              - lit is propagated by the clause D => lit
-    lit <- ?                     - lit is a decision literal.
     lit <- asserted              - lit is asserted
     lit <- Vars                  - lit is propagated from variable evaluation.
 
     v = value <- D               - v is assigned value by constraints D
     v = value <- ?               - v is a decision literal.
 
-    - All literals should be assigned in the stack prior to their use.
+    - All literals should be assigned in the stack prior to their use;
+      or justified by one of the side lemmas.
 
     l <- D => l,       < Vars, { l } u C >   ===>   < Vars, C u D >
     l <- ?,            < Vars, { l } u C >   ===>   ~l <- (C & Vars = value(Vars) => ~l)
@@ -66,6 +67,15 @@ Lemma:       y < z or xz <= xy or O(x,y)
 
 
 
+TODO:
+- update notes/example above
+- question: if a side lemma justifies a constraint, then we resolve over one of the premises of the lemma; do we want to update the lemma or not?
+- conflict resolution plugins
+    - may generate lemma
+        - post-processing/simplification on lemma (e.g., literal subsumption; can be done in solver)
+    - may force backjumping without further conflict resolution (e.g., if applicable lemma was found by global analysis of search state)
+    - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
+    - force a restart if we get a bailout lemma or non-asserting conflict?
 
 
 --*/
@@ -84,6 +94,15 @@ namespace polysat {
     class conflict_iterator;
     class inference_logger;
 
+    enum class conflict2_kind_t {
+        // standard conflict resolution
+        ok,
+        // bailout lemma because no appropriate conflict resolution method applies
+        bailout,
+        // force backjumping without further conflict resolution because a good lemma has been found
+        backjump,
+    };
+
     class conflict2 {
         solver& s;
         scoped_ptr<inference_logger> m_logger;
@@ -91,17 +110,14 @@ namespace polysat {
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
+        // uint_set m_bail_vars;               // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
 
         // additional lemmas generated during conflict resolution
         vector<clause_ref> m_lemmas;
 
-        // TODO:
-        // conflict resolution plugins
-        // - may generate lemma
-        // - may force backjumping without further conflict resolution
-        // - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
+        conflict2_kind_t m_kind = conflict2_kind_t::ok;
 
     public:
         conflict2(solver& s);
@@ -111,6 +127,13 @@ namespace polysat {
         bool empty() const;
         void reset();
 
+        uint_set const& vars() const { return m_vars; }
+
+        bool is_bailout() const { return m_kind == conflict2_kind_t::bailout; }
+        bool is_backjumping() const { return m_kind == conflict2_kind_t::backjump; }
+        void set_bailout();
+        void set_backjump();
+
         /** conflict because the constraint c is false under current variable assignment */
         void init(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
@@ -118,6 +141,7 @@ namespace polysat {
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
+        bool contains_pvar(pvar v) const { return m_vars.contains(v) /* || m_bail_vars.contains(v) */; }
 
         /**
          * Insert constraint c into conflict state.
@@ -130,8 +154,20 @@ namespace polysat {
         /** Insert assigned variables of c */
         void insert_vars(signed_constraint c);
 
+        /** Evaluate constraint under assignment and insert it into conflict state. */
+        void insert_eval(signed_constraint c);
+
         /** Remove c from core */
         void remove(signed_constraint c);
+
+        /** Perform boolean resolution with the clause upon the given literal. */
+        void resolve_bool(sat::literal lit, clause const& cl);
+
+        /** lit was fully evaluated under the assignment.  */
+        void resolve_with_assignment(sat::literal lit);
+
+        /** Perform resolution with "v = value <- ..." */
+        bool resolve_value(pvar v);
 
         std::ostream& display(std::ostream& out) const;
     };

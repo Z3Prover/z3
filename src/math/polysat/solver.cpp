@@ -645,7 +645,7 @@ namespace polysat {
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
-                inc_activity(v);
+                // inc_activity(v);  // done in resolve_value
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
                     m_conflict.end_conflict();
@@ -887,6 +887,7 @@ namespace polysat {
     }
 
     void solver::assign_eval(sat::literal lit) {
+        SASSERT(lit2cnstr(lit).is_currently_true(*this));
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
         for (auto v : lit2cnstr(lit)->vars())

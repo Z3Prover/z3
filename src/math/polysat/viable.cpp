@@ -629,6 +629,10 @@ namespace polysat {
         }
     };
 
+    bool viable::resolve(pvar v, conflict2& core) {
+        NOT_IMPLEMENTED_YET();
+    }
+
     bool viable::resolve(pvar v, conflict& core) {
         if (has_viable(v))
             return false;
