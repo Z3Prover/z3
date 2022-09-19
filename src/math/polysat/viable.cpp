@@ -631,6 +631,7 @@ namespace polysat {
 
     bool viable::resolve(pvar v, conflict2& core) {
         NOT_IMPLEMENTED_YET();
+        return false;
     }
 
     bool viable::resolve(pvar v, conflict& core) {
@@ -652,6 +653,18 @@ namespace polysat {
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
                 core.propagate(c);
+#if 0
+                if (n != first) {
+                    while {
+                        entry* n1 = n->next();
+                        if (n1 != first && e->currently_contains(*n1)) {
+                            n = n1;
+                            continue;
+                        }
+                    }
+                    while (false);
+                }
+#endif
             }
             for (auto sc : e->side_cond) 
                 core.propagate(sc);
