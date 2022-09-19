@@ -110,12 +110,10 @@ namespace sat {
 
     inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
 
-    typedef tracked_uint_set uint_set;
-
-    typedef uint_set bool_var_set;
+    typedef tracked_uint_set bool_var_set;
 
     class literal_set {
-        uint_set m_set;
+        tracked_uint_set m_set;
     public:
         literal_set(literal_vector const& v) {
             for (unsigned i = 0; i < v.size(); ++i) insert(v[i]);
@@ -141,9 +139,9 @@ namespace sat {
         void reset() { m_set.reset(); }
         void finalize() { m_set.finalize(); }
         class iterator {
-            uint_set::iterator m_it;
+            tracked_uint_set::iterator m_it;
         public:
-            iterator(uint_set::iterator it):m_it(it) {}
+            iterator(tracked_uint_set::iterator it):m_it(it) {}
             literal operator*() const { return to_literal(*m_it); }
             iterator& operator++() { ++m_it; return *this; }
             iterator operator++(int) { iterator tmp = *this; ++m_it; return tmp; }
