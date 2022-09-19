@@ -488,7 +488,8 @@ namespace euf {
         };
         if (merge_shared_bools())
             cont = true;
-        for (auto* e : m_solvers) {
+        for (unsigned i = 0; i < m_solvers.size(); ++i) {
+            auto* e = m_solvers[i];
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
             if (e == m_qsolver)
