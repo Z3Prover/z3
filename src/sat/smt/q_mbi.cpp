@@ -635,8 +635,8 @@ namespace q {
     void mbqi::collect_statistics(statistics& st) const {
         if (m_solver)
             m_solver->collect_statistics(st);
-        st.update("q-num-instantiations", m_stats.m_num_instantiations);
-        st.update("q-num-checks", m_stats.m_num_checks);
+        st.update("q mbi instantiations", m_stats.m_num_instantiations);
+        st.update("q mbi num checks", m_stats.m_num_checks);
     }
 
 }
