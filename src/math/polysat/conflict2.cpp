@@ -124,6 +124,9 @@ namespace polysat {
             // TODO: apply conflict resolution plugins here too?
         } else {
             VERIFY(s.m_viable.resolve(v, *this));
+            // TODO: in general the forbidden interval lemma is not asserting.
+            //       but each branch exclude the current assignment.
+            //       in those cases we will (additionally?) need an abstraction that is asserting to make sure viable is updated properly.
             set_backjump();
             logger().begin_conflict("forbidden interval lemma");
         }
@@ -140,7 +143,7 @@ namespace polysat {
         if (c.is_always_true())
             return;
         LOG("Inserting: " << c);
-        SASSERT(!c.is_always_false());  // if we add c, the core would be a tautology
+        SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
         for (pvar v : c->vars()) {
@@ -176,7 +179,6 @@ namespace polysat {
             m_var_occurrences[v]--;
     }
 
-
     void conflict2::resolve_bool(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -202,25 +204,25 @@ namespace polysat {
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
 
+        if (is_backjumping())
+            return;
+
         unsigned const lvl = s.m_bvars.level(lit);
         signed_constraint c = s.lit2cnstr(lit);
-/*
-        // TODO: why bail_vars?
+
+        // If evaluation depends on a decision,
+        // then we rather keep the more general constraint c instead of inserting "x = v"
         bool has_decision = false;
         for (pvar v : c->vars())
             if (s.is_assigned(v) && s.m_justification[v].is_decision())
                 m_bail_vars.insert(v), has_decision = true;
+
         if (!has_decision) {
             remove(c);
             for (pvar v : c->vars())
                 if (s.is_assigned(v) && s.get_level(v) <= lvl)
                     m_vars.insert(v);
         }
-*/
-            remove(c);
-            for (pvar v : c->vars())
-                if (s.is_assigned(v) && s.get_level(v) <= lvl)
-                    m_vars.insert(v);
 
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
@@ -228,13 +230,20 @@ namespace polysat {
     bool conflict2::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
 
+        if (is_backjumping()) {
+            for (auto const& c : s.m_viable.get_constraints(v))
+                for (pvar v : c->vars())
+                    logger().log_var(v);
+            return false;
+        }
+
         if (is_bailout())
             return false;
 
         auto const& j = s.m_justification[v];
 
-        // if (j.is_decision() && m_bail_vars.contains(v))
-        //     return false;
+        if (j.is_decision() && m_bail_vars.contains(v))   // TODO: what if also m_vars.contains(v)? might have a chance at elimination
+            return false;
 
         s.inc_activity(v);
         m_vars.remove(v);

@@ -76,6 +76,7 @@ TODO:
     - may force backjumping without further conflict resolution (e.g., if applicable lemma was found by global analysis of search state)
     - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
     - force a restart if we get a bailout lemma or non-asserting conflict?
+- consider case if v is both in vars and bail_vars (do we need to keep it in bail_vars even if we can eliminate it from vars?)
 
 
 --*/
@@ -100,6 +101,7 @@ namespace polysat {
         // bailout lemma because no appropriate conflict resolution method applies
         bailout,
         // force backjumping without further conflict resolution because a good lemma has been found
+        // TODO: distinguish backtrack/revert of last decision from backjump to second-highest level in the lemma
         backjump,
     };
 
@@ -110,11 +112,12 @@ namespace polysat {
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
-        // uint_set m_bail_vars;               // tracked for cone of influence but not directly involved in conflict resolution
+        uint_set m_bail_vars;               // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
 
         // additional lemmas generated during conflict resolution
+        // TODO: we might not need all of these in the end. add only the side lemmas which justify a constraint in the final lemma (recursively)?
         vector<clause_ref> m_lemmas;
 
         conflict2_kind_t m_kind = conflict2_kind_t::ok;
@@ -141,7 +144,7 @@ namespace polysat {
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
-        bool contains_pvar(pvar v) const { return m_vars.contains(v) /* || m_bail_vars.contains(v) */; }
+        bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
 
         /**
          * Insert constraint c into conflict state.
