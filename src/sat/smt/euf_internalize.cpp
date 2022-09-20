@@ -266,7 +266,7 @@ namespace euf {
             return;
         sort* srt = e->get_arg(0)->get_sort();
         auto sort_sz = srt->get_num_elements();
-        if (sort_sz.is_finite() && sort_sz.size() <= sz)
+        if (sort_sz.is_finite() && sort_sz.size() < sz)
             s().add_clause(0, nullptr, st);
         else if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
