@@ -700,6 +700,11 @@ namespace array {
             n->unmark1();
     }
 
+    /**
+    * \brief check that lambda expressions are beta redexes.
+    * The array solver is not a decision procedure for lambdas that do not occur in beta 
+    * redexes.
+    */
     bool solver::check_lambdas() {
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {

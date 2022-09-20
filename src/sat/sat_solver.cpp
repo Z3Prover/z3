@@ -940,6 +940,7 @@ namespace sat {
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
+        TRACE("sat", display(display_justification(tout << "conflict " << not_l << " ", c) << "\n"));
     }
 
     void solver::assign_core(literal l, justification j) {
@@ -1803,24 +1804,21 @@ namespace sat {
 
 
     void solver::init_assumptions(unsigned num_lits, literal const* lits) {
-        if (num_lits == 0 && m_user_scope_literals.empty()) {
-            return;
-        }
+        if (num_lits == 0 && m_user_scope_literals.empty()) 
+            return;        
 
         SASSERT(at_base_lvl());
         reset_assumptions();
         push();
 
         propagate(false);
-        if (inconsistent()) {
-            return;
-        }
+        if (inconsistent()) 
+            return;        
 
         TRACE("sat",
               tout << literal_vector(num_lits, lits) << "\n";
-              if (!m_user_scope_literals.empty()) {
-                  tout << "user literals: " << m_user_scope_literals << "\n";
-              }
+              if (!m_user_scope_literals.empty()) 
+                  tout << "user literals: " << m_user_scope_literals << "\n";              
               m_mc.display(tout);
               );
 
@@ -1897,13 +1895,11 @@ namespace sat {
                   tout << "consistent: " << !inconsistent() << "\n";
                   for (literal a : m_assumptions) {
                       index_set s;
-                      if (m_antecedents.find(a.var(), s)) {
-                          tout << a << ": "; display_index_set(tout, s) << "\n";
-                      }
+                      if (m_antecedents.find(a.var(), s)) 
+                          tout << a << ": "; display_index_set(tout, s) << "\n";                      
                   }
-                  for (literal lit : m_user_scope_literals) {
-                      tout << "user " << lit << "\n"; 
-                  }
+                  for (literal lit : m_user_scope_literals) 
+                      tout << "user " << lit << "\n";                   
                   );
         }
     }
@@ -2419,7 +2415,9 @@ namespace sat {
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
 
-        if (m_conflict_lvl <= 1 && (!m_assumptions.empty() || !m_user_scope_literals.empty())) {
+        if (m_conflict_lvl <= 1 && (!m_assumptions.empty() || 
+                                    !m_ext_assumption_set.empty() || 
+                                    !m_user_scope_literals.empty())) {
             TRACE("sat", tout << "unsat core\n";);
             resolve_conflict_for_unsat_core();
             return l_false;
