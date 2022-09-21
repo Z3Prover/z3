@@ -904,18 +904,16 @@ namespace datatype {
     bool util::is_well_founded(unsigned num_types, sort* const* sorts) {
         buffer<bool> well_founded(num_types, false);
         obj_map<sort, unsigned> sort2id;
-        for (unsigned i = 0; i < num_types; ++i) {
+        for (unsigned i = 0; i < num_types; ++i) 
             sort2id.insert(sorts[i], i);
-        }
         unsigned num_well_founded = 0, id = 0;
         bool changed;
         ptr_vector<sort> subsorts;
         do {
             changed = false;
             for (unsigned tid = 0; tid < num_types; tid++) {
-                if (well_founded[tid]) {
+                if (well_founded[tid]) 
                     continue;
-                }
                 sort* s = sorts[tid];
                 def const& d = get_def(s);
                 for (constructor const* c : d) {
@@ -923,9 +921,12 @@ namespace datatype {
                         subsorts.reset();
                         get_subsorts(a->range(), subsorts);
                         for (sort* srt : subsorts) {
-                            if (sort2id.find(srt, id) && !well_founded[id]) {
-                                goto next_constructor;
+                            if (sort2id.find(srt, id)) {
+                                if (!well_founded[id]) 
+                                    goto next_constructor;
                             }
+                            else if (is_datatype(srt))
+                                break;
                         }
                     }
                     changed = true;
