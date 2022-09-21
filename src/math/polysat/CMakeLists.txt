@@ -30,6 +30,7 @@ z3_add_component(polysat
     simplex
     interval
     bigfix
+    polysat_univariate_solver
   PYG_FILES
     polysat_params.pyg
 )

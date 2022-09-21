@@ -17,8 +17,6 @@ Author:
 --*/
 
 #include "math/polysat/univariate/univariate_solver.h"
-#include "math/polysat/log.h"
-#include "sat/sat_solver/inc_sat_solver.h"
 #include "solver/solver.h"
 #include "util/util.h"
 #include "ast/ast.h"
@@ -55,9 +53,7 @@ namespace polysat {
         ~univariate_bitblast_solver() override = default;
 
         void push() override {
-            // LOG("univariate push...");
             s->push();
-            // LOG("univariate push done");
         }
 
         void pop(unsigned n) override {
