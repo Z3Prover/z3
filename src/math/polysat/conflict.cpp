@@ -157,6 +157,8 @@ namespace polysat {
             UNREACHABLE();  // we don't follow the regular loop when backjumping
             return false;
         }
+        UNREACHABLE();
+        return false;
     }
 
     bool conflict::is_relevant(sat::literal lit) const {

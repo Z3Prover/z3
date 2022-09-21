@@ -22,10 +22,9 @@ namespace polysat {
     {}
 
     bool simplify_clause::apply(clause& cl) {
-        bool changed = false;
-        if (try_unilinear_subsumption(cl)) 
-            changed = true;
-        return changed;
+        if (try_constant_subsumptions(cl))
+            return true;
+        return false;
     }
 
     pdd simplify_clause::abstract(pdd const& p, pdd& v) {
@@ -79,6 +78,7 @@ namespace polysat {
         entry.subsumed = false;
         entry.valid = true;
     }
+
 
     /**
      * Test simple subsumption between univariate and linear literals, i.e.,
