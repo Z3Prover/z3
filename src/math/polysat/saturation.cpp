@@ -1,3 +1,4 @@
+#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -486,3 +487,4 @@ namespace polysat {
     }
 
 }
+#endif

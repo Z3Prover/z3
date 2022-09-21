@@ -635,7 +635,6 @@ namespace polysat {
         auto* e = m_units[v];
         entry* first = e;
         SASSERT(e);
-        core.reset();
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
@@ -670,16 +669,13 @@ namespace polysat {
         core.logger().log(inf_fi(*this, v));
 
         // TODO: should not be here, too general
-        /*
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
-                core.reset();
                 core.set(~c);
                 core.logger().log("");
                 break;
             }
         }
-        */
 
         return true;
     }

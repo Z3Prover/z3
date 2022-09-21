@@ -17,9 +17,7 @@ Author:
 --*/
 
 #include "math/polysat/solver.h"
-#include "math/polysat/explain.h"
 #include "math/polysat/log.h"
-#include "math/polysat/variable_elimination.h"
 #include "math/polysat/polysat_params.hpp"
 
 // For development; to be removed once the linear solver works well enough

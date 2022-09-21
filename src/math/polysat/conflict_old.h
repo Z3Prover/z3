@@ -1,3 +1,4 @@
+#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -249,3 +250,4 @@ namespace polysat {
     inline conflict::const_iterator conflict::begin() const { return conflict_iterator::begin(cm(), m_literals); }
     inline conflict::const_iterator conflict::end() const { return conflict_iterator::end(cm(), m_literals); }
 }
+#endif

@@ -1,3 +1,4 @@
+#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -601,3 +602,4 @@ namespace polysat {
         return m_bvar2mark.get(b, false);
     }
 }
+#endif

@@ -22,9 +22,8 @@ namespace polysat {
         // and kick out all other constraints.
         for (signed_constraint c : core) {
             if (!c->contains_var(v) && c.is_currently_false(s)) {
-                core.reset();
                 core.set(c);
-                core.log_inference("ve_reduction");
+                core.logger().log("ve_reduction");
                 return true;
             }                
         }

@@ -60,8 +60,9 @@ namespace polysat {
         for (auto const& c : core) {
             sat::literal const lit = c.blit();
             out_indent() << lit << ": " << c << '\n';
-            // TODO: if justified by a side lemma, print it here
-            // out_indent() << "    justified by: " << lemma << '\n';
+            clause* lemma = core.side_lemma(lit);
+            if (lemma)
+                out_indent() << "    justified by: " << lemma << '\n';
             m_used_constraints.insert(lit.index());
             for (pvar v : c->vars())
                 m_used_vars.insert(v);

@@ -145,9 +145,32 @@ namespace polysat {
 
     void conflict::init(signed_constraint c) {
         SASSERT(empty());
+        set_impl(c);
+        logger().begin_conflict();
+    }
+
+    void conflict::set(signed_constraint c) {
+        reset();
+        set_impl(c);
+    }
+
+    void conflict::set_impl(signed_constraint c) {
         if (c.bvalue(s) == l_false) {
             // boolean conflict
-            NOT_IMPLEMENTED_YET();
+            SASSERT(false);  // fail here to force check when we encounter this case
+            // TODO: if we set() and then log() it will be confusing if this branch is hit.
+            //       ideally the boolean resolution would be done separately afterwards
+            auto* cl = s.m_bvars.reason(c.blit());
+#if 0
+            if (cl)
+                set(*cl);  // why the whole clause? or do we want the boolean resolution?
+            else
+                insert(c);
+#else
+            insert(c);
+            if (cl)
+                resolve_bool(c.blit(), *cl);
+#endif
         } else {
             // conflict due to assignment
             SASSERT(c.bvalue(s) == l_true);
@@ -156,7 +179,6 @@ namespace polysat {
             insert_vars(c);
         }
         SASSERT(!empty());
-        logger().begin_conflict();  // TODO: we often call reset/set so doing this here doesn't really work... make subsequent begins a no-op? or separate init and set? (set could then do reset() internally ... and we only need set() for signed_constraint, not all three variations)
     }
 
     void conflict::init(clause const& cl) {
@@ -237,6 +259,19 @@ namespace polysat {
         m_literals.remove(c.blit().index());
         for (pvar v : c->vars())
             m_var_occurrences[v]--;
+    }
+
+    void conflict::insert(signed_constraint c, clause_ref lemma) {
+        unsigned const idx = c.blit().to_uint();
+        SASSERT(!contains(c));  // not required, but this case should be checked
+        SASSERT(!m_lemmas.contains(idx));  // not required, but this case should be checked
+        insert(c);
+        m_lemmas.insert(idx, lemma);
+    }
+
+    clause* conflict::side_lemma(sat::literal lit) const {
+        unsigned const idx = lit.to_uint();
+        return m_lemmas.get(idx, {}).get();
     }
 
     void conflict::resolve_bool(sat::literal lit, clause const& cl) {
@@ -337,8 +372,8 @@ namespace polysat {
         clause_builder lemma(s);
 
         // TODO: is this sound, doing it for each constraint separately?
-        // for (auto c : *this)
-        //     minimize_vars(c);
+        for (auto c : *this)
+            minimize_vars(c);
 
         for (auto c : *this)
             lemma.push(~c);
@@ -353,6 +388,8 @@ namespace polysat {
 
         logger().log_lemma(lemma);
         logger().end_conflict();
+
+        // TODO: additional lemmas
 
         return lemma.build();
     }

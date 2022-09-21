@@ -1,3 +1,4 @@
+#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -101,6 +102,14 @@ namespace polysat {
                 core.log_inference(inference_sup("1", v, c2, c1));
                 return l_true;
             case l_undef:
+#if 0
+                core.reset();
+                core.insert(c1);
+                core.insert(c2);
+                core.insert(~c);
+                core.log_inference(inference_sup("1b", v, c2, c1));
+                return l_true;
+#else
                 SASSERT(premises.empty());
                 // Ensure that c is assigned and justified                    
                 premises.push_back(c1);
@@ -115,6 +124,7 @@ namespace polysat {
                 SASSERT_EQ(l_true, c.bvalue(s));
                 SASSERT(c.is_currently_false(s));
                 break;
+#endif
             default:
                 break;
             }
@@ -235,3 +245,4 @@ namespace polysat {
     }
 
 }
+#endif

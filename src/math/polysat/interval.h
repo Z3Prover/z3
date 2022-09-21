@@ -109,7 +109,7 @@ namespace polysat {
             // hi < lo <= lo' <= hi'
             if (lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val())
                 return true;
-            // lo' <= hi' <= hi < lo 
+            // lo' <= hi' <= hi < lo
             if (other.lo_val() <= other.hi_val() && other.hi_val() <= hi_val())
                 return true;
             // hi' <= hi < lo <= lo'

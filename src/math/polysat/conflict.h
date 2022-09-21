@@ -76,6 +76,7 @@ TODO:
     - may force backjumping without further conflict resolution (e.g., if applicable lemma was found by global analysis of search state)
     - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
     - force a restart if we get a bailout lemma or non-asserting conflict?
+- store the side lemmas as well (but only those that justify a constraint in the final lemma, recursively)
 - consider case if v is both in vars and bail_vars (do we need to keep it in bail_vars even if we can eliminate it from vars?)
 - Find a way to use resolve_value with forbidden interval lemmas.
   Then get rid of conflict_kind_t::backtrack and m_relevant_vars.
@@ -88,9 +89,9 @@ TODO:
     - or try to find an L(x,y) such that C1 -> L, ..., Cn -> L, and L -> y != b  (under x := a); worst case y != b can work as L
 - minimize_vars... is it sound to do for each constraint separately, like we are doing now?
 
-
 --*/
 #pragma once
+#include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/inference_logger.h"
 #include <optional>
@@ -128,12 +129,12 @@ namespace polysat {
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
 
-        // additional lemmas generated during conflict resolution
-        // TODO: we might not need all of these in the end. add only the side lemmas which justify a constraint in the final lemma (recursively)?
-        vector<clause_ref> m_lemmas;
+        // Additional lemmas that justify new constraints generated during conflict resolution
+        u_map<clause_ref> m_lemmas;
 
         conflict_kind_t m_kind = conflict_kind_t::ok;
 
+        void set_impl(signed_constraint c);
         bool minimize_vars(signed_constraint c);
 
     public:
@@ -169,10 +170,16 @@ namespace polysat {
         /** conflict because there is no viable value for the variable v */
         void init(pvar v, bool by_viable_fallback);
 
+        /** replace the current conflict by a single constraint */
+        void set(signed_constraint c);
+
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
+
+        clause* side_lemma(signed_constraint c) const { SASSERT(c); return side_lemma(c.blit()); }
+        clause* side_lemma(sat::literal lit) const;
 
         /**
          * Insert constraint c into conflict state.
@@ -181,6 +188,11 @@ namespace polysat {
          *  - e.g., constant constraints such as "4 > 1"
          */
         void insert(signed_constraint c);
+
+        /**
+         * Insert constraint c that is justified by the given lemma.
+         */
+        void insert(signed_constraint c, clause_ref lemma);
 
         /** Insert assigned variables of c */
         void insert_vars(signed_constraint c);
