@@ -14,7 +14,8 @@ Notes:
 
 --*/
 
-#include "math/polysat/conflict2.h"
+#include "math/polysat/conflict.h"
+#include "math/polysat/clause_builder.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/inference_logger.h"
 #include "math/polysat/log.h"
@@ -25,9 +26,16 @@ Notes:
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
-#include <fstream>
 
 namespace polysat {
+
+    class header_with_var : public displayable {
+        char const* m_text;
+        pvar m_var;
+    public:
+        header_with_var(char const* text, pvar var) : m_text(text), m_var(var) { SASSERT(text); }
+        std::ostream& display(std::ostream& out) const override { return out << m_text << m_var; }
+    };
 
     struct inf_resolve_bool : public inference {
         sat::literal m_lit;
@@ -61,7 +69,7 @@ namespace polysat {
         }
     };
 
-    conflict2::conflict2(solver& s) : s(s) {
+    conflict::conflict(solver& s) : s(s) {
         // TODO: m_log_conflicts is always false even if "polysat.log_conflicts=true" is given on the command line
         if (true || s.get_config().m_log_conflicts)
             m_logger = alloc(file_inference_logger, s);
@@ -69,35 +77,73 @@ namespace polysat {
             m_logger = alloc(dummy_inference_logger);
     }
 
-    inference_logger& conflict2::logger() {
+    inference_logger& conflict::logger() {
         return *m_logger;
     }
 
-    bool conflict2::empty() const {
-        return m_literals.empty() && m_vars.empty() && m_lemmas.empty();
+    conflict::const_iterator conflict::begin() const {
+        return conflict_iterator::begin(s.m_constraints, m_literals);
     }
 
-    void conflict2::reset() {
+    conflict::const_iterator conflict::end() const {
+        return conflict_iterator::end(s.m_constraints, m_literals);
+    }
+
+    bool conflict::empty() const {
+        return m_literals.empty()
+            && m_vars.empty()
+            && m_bail_vars.empty()
+            && m_lemmas.empty();
+    }
+
+    void conflict::reset() {
         m_literals.reset();
         m_vars.reset();
+        m_bail_vars.reset();
+        m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_lemmas.reset();
-        m_kind = conflict2_kind_t::ok;
+        m_kind = conflict_kind_t::ok;
         SASSERT(empty());
     }
 
-    void conflict2::set_bailout() {
-        SASSERT(m_kind == conflict2_kind_t::ok);
-        m_kind = conflict2_kind_t::bailout;
+    void conflict::set_bailout() {
+        SASSERT(m_kind == conflict_kind_t::ok);
+        m_kind = conflict_kind_t::bailout;
         s.m_stats.m_num_bailouts++;
     }
 
-    void conflict2::set_backjump() {
-        SASSERT(m_kind == conflict2_kind_t::ok);
-        m_kind = conflict2_kind_t::backjump;
+    void conflict::set_backtrack() {
+        SASSERT(m_kind == conflict_kind_t::ok);
+        SASSERT(m_relevant_vars.empty());
+        m_kind = conflict_kind_t::backtrack;
+
+    }
+    void conflict::set_backjump() {
+        SASSERT(m_kind == conflict_kind_t::ok);
+        m_kind = conflict_kind_t::backjump;
     }
 
-    void conflict2::init(signed_constraint c) {
+    bool conflict::is_relevant_pvar(pvar v) const {
+        switch (m_kind) {
+        case conflict_kind_t::ok:
+            return contains_pvar(v);
+        case conflict_kind_t::bailout:
+            return true;
+        case conflict_kind_t::backtrack:
+            return pvar_occurs_in_constraints(v) || m_relevant_vars.contains(v);
+            // return m_relevant_vars.contains(v);
+        case conflict_kind_t::backjump:
+            UNREACHABLE();  // we don't follow the regular loop when backjumping
+            return false;
+        }
+    }
+
+    bool conflict::is_relevant(sat::literal lit) const {
+        return contains(lit) || contains(~lit);
+    }
+
+    void conflict::init(signed_constraint c) {
         SASSERT(empty());
         if (c.bvalue(s) == l_false) {
             // boolean conflict
@@ -110,34 +156,48 @@ namespace polysat {
             insert_vars(c);
         }
         SASSERT(!empty());
+        logger().begin_conflict();  // TODO: we often call reset/set so doing this here doesn't really work... make subsequent begins a no-op? or separate init and set? (set could then do reset() internally ... and we only need set() for signed_constraint, not all three variations)
+    }
+
+    void conflict::init(clause const& cl) {
+        // if (!empty())
+        //     return;
+        // LOG("Conflict: " << cl);
+        SASSERT(empty());
+        for (auto lit : cl) {
+            auto c = s.lit2cnstr(lit);
+            SASSERT(c.bvalue(s) == l_false);
+            insert(~c);
+        }
+        SASSERT(!empty());
         logger().begin_conflict();
     }
 
-    void conflict2::init(pvar v, bool by_viable_fallback) {
+    void conflict::init(pvar v, bool by_viable_fallback) {
         if (by_viable_fallback) {
+            logger().begin_conflict(header_with_var("unsat core from viable fallback for v", v));
             // Conflict detected by viable fallback:
             // initial conflict is the unsat core of the univariate solver
             signed_constraints unsat_core = s.m_viable_fallback.unsat_core(v);
             for (auto c : unsat_core)
                 insert(c);
-            logger().begin_conflict("unsat core from viable fallback");
             // TODO: apply conflict resolution plugins here too?
         } else {
+            logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
+            set_backtrack();
             VERIFY(s.m_viable.resolve(v, *this));
             // TODO: in general the forbidden interval lemma is not asserting.
             //       but each branch exclude the current assignment.
             //       in those cases we will (additionally?) need an abstraction that is asserting to make sure viable is updated properly.
-            set_backjump();
-            logger().begin_conflict("forbidden interval lemma");
         }
     }
 
-    bool conflict2::contains(sat::literal lit) const {
+    bool conflict::contains(sat::literal lit) const {
         SASSERT(lit != sat::null_literal);
         return m_literals.contains(lit.index());
     }
 
-    void conflict2::insert(signed_constraint c) {
+    void conflict::insert(signed_constraint c) {
         if (contains(c))
             return;
         if (c.is_always_true())
@@ -153,7 +213,7 @@ namespace polysat {
         }
     }
 
-    void conflict2::insert_eval(signed_constraint c) {
+    void conflict::insert_eval(signed_constraint c) {
         switch (c.bvalue(s)) {
         case l_undef:
             s.assign_eval(c.blit());
@@ -166,20 +226,20 @@ namespace polysat {
         insert(c);
     }
 
-    void conflict2::insert_vars(signed_constraint c) {
+    void conflict::insert_vars(signed_constraint c) {
         for (pvar v : c->vars())
             if (s.is_assigned(v))
                 m_vars.insert(v);
     }
 
-    void conflict2::remove(signed_constraint c) {
+    void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
         m_literals.remove(c.blit().index());
         for (pvar v : c->vars())
             m_var_occurrences[v]--;
     }
 
-    void conflict2::resolve_bool(sat::literal lit, clause const& cl) {
+    void conflict::resolve_bool(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
@@ -197,7 +257,7 @@ namespace polysat {
         logger().log(inf_resolve_bool(lit, cl));
     }
 
-    void conflict2::resolve_with_assignment(sat::literal lit) {
+    void conflict::resolve_with_assignment(sat::literal lit) {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
@@ -227,19 +287,21 @@ namespace polysat {
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
 
-    bool conflict2::resolve_value(pvar v) {
-        SASSERT(contains_pvar(v));
-
-        if (is_backjumping()) {
-            for (auto const& c : s.m_viable.get_constraints(v))
-                for (pvar v : c->vars())
-                    logger().log_var(v);
-            return false;
-        }
+    bool conflict::resolve_value(pvar v) {
 
         if (is_bailout())
             return false;
 
+        if (is_backtracking()) {
+            for (auto const& c : s.m_viable.get_constraints(v))
+                for (pvar v : c->vars()) {
+                    m_relevant_vars.insert(v);
+                    logger().log_var(v);
+                }
+            return false;
+        }
+
+        SASSERT(contains_pvar(v));
         auto const& j = s.m_justification[v];
 
         if (j.is_decision() && m_bail_vars.contains(v))   // TODO: what if also m_vars.contains(v)? might have a chance at elimination
@@ -265,12 +327,79 @@ namespace polysat {
         // Need to keep the variable in case of decision
         if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);
-        logger().log("bailout");
+        logger().log("Bailout");
         return false;
     }
 
-    std::ostream& conflict2::display(std::ostream& out) const {
-        out << "TODO\n";
+    clause_ref conflict::build_lemma() {
+        LOG_H3("Build lemma from core");
+        LOG("core: " << *this);
+        clause_builder lemma(s);
+
+        // TODO: is this sound, doing it for each constraint separately?
+        // for (auto c : *this)
+        //     minimize_vars(c);
+
+        for (auto c : *this)
+            lemma.push(~c);
+
+        for (unsigned v : m_vars) {
+            auto eq = s.eq(s.var(v), s.get_value(v));
+            if (eq.bvalue(s) == l_undef)
+                s.assign_eval(eq.blit());
+            lemma.push(~eq);
+        }
+        s.decay_activity();
+
+        logger().log_lemma(lemma);
+        logger().end_conflict();
+
+        return lemma.build();
+    }
+
+    bool conflict::minimize_vars(signed_constraint c) {
+        if (m_vars.empty())
+            return false;
+        if (!c.is_currently_false(s))
+            return false;
+
+        assignment_t a;
+        for (auto v : m_vars)
+            a.push_back(std::make_pair(v, s.get_value(v)));
+        for (unsigned i = 0; i < a.size(); ++i) {
+            std::pair<pvar, rational> save = a[i];
+            std::pair<pvar, rational> last = a.back();
+            a[i] = last;
+            a.pop_back();
+            if (c.is_currently_false(s, a))
+                --i;
+            else {
+                a.push_back(last);
+                a[i] = save;
+            }
+        }
+        if (a.size() == m_vars.num_elems())
+            return false;
+        m_vars.reset();
+        for (auto const& [v, val] : a)
+            m_vars.insert(v);
+        logger().log("minimize vars");
+        LOG("reduced " << m_vars);
+        return true;
+    }
+
+    std::ostream& conflict::display(std::ostream& out) const {
+        char const* sep = "";
+        for (auto c : *this)
+            out << sep << c->bvar2string() << " " << c, sep = " ; ";
+        if (!m_vars.empty())
+            out << " vars";
+        for (auto v : m_vars)
+            out << " v" << v;
+        if (!m_bail_vars.empty())
+            out << " bail vars";
+        for (auto v : m_bail_vars)
+            out << " v" << v;
         return out;
     }
 }

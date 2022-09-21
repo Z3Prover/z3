@@ -33,7 +33,6 @@ namespace polysat {
         m_viable_fallback(*this),
         m_linear_solver(*this),
         m_conflict(*this),
-        m_conflict2(*this),
         m_simplify_clause(*this),
         m_simplify(*this),
         m_restart(*this),
@@ -545,7 +544,7 @@ namespace polysat {
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
             m_free_pvars.unassign_var_eh(v);
-            set_conflict(v);
+            set_conflict(v, false);
             return;
         case dd::find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
@@ -578,8 +577,7 @@ namespace polysat {
             case dd::find_t::empty:
                 LOG("Fallback solver: unsat");
                 m_free_pvars.unassign_var_eh(v);
-                auto core = m_viable_fallback.unsat_core(v);  // TODO: add constraints from unsat_core to conflict
-                set_conflict(v);
+                set_conflict(v, true);
                 return;
             }
         }
@@ -620,17 +618,6 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        if (m_conflict.conflict_var() != null_var) {
-            m_conflict.begin_conflict("backtrack_fi");
-            pvar v = m_conflict.conflict_var();
-            // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
-            // TODO: use unsat core from m_viable_fallback if the conflict is from there
-            VERIFY(m_viable.resolve(v, m_conflict));
-            backtrack_fi();
-            return;
-        }
-        m_conflict.begin_conflict("resolve_conflict");
-
         search_iterator search_it(m_search);
         while (search_it.next()) {
             auto& item = *search_it;
@@ -638,23 +625,21 @@ namespace polysat {
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
+                // if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
+                if (!m_conflict.is_relevant_pvar(v)) {
                     m_search.pop_assignment();
                     continue;
                 }
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
-                // inc_activity(v);  // done in resolve_value
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
-                    m_conflict.end_conflict();
                     revert_decision(v);
                     return;
                 }
-                if (m_conflict.is_bailout_lemma()) {
-                    m_conflict.end_conflict();
-                    backtrack_lemma();
+                if (m_conflict.is_backjumping()) {
+                    backjump_lemma();
                     return;
                 }
                 m_search.pop_assignment();
@@ -664,36 +649,37 @@ namespace polysat {
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
                 sat::bool_var const var = lit.var();
-                if (!m_conflict.is_marked(var))
+                if (!m_conflict.is_relevant(lit))
                     continue;
-
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_assumption(var))  // TODO: wouldn't this mean we're already at the base level?
-                    continue;
+                if (m_bvars.is_assumption(var)) {
+                    SASSERT(m_bvars.level(var) <= base_level());
+                    break;
+                }
                 else if (m_bvars.is_bool_propagation(var))
-                    m_conflict.resolve(lit, *m_bvars.reason(lit));
+                    m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
                 else {
                     SASSERT(m_bvars.is_value_propagation(var));
-                    m_conflict.resolve_with_assignment(lit, m_bvars.level(lit));
+                    m_conflict.resolve_with_assignment(lit);
                 }
             }
         }
         LOG("End of resolve_conflict loop");
-        m_conflict.end_conflict();
+        m_conflict.logger().end_conflict();
         report_unsat();
     }
 
     /**
-     * Simple backtracking for lemmas:
+     * Simple backjumping for lemmas:
      * jump to the level where the lemma can be (bool-)propagated,
      * even without reverting the last decision.
      */
-    void solver::backtrack_lemma() {
-        clause_ref lemma = m_conflict.build_lemma().build();
-        LOG_H2("backtrack_lemma: " << show_deref(lemma));
+    void solver::backjump_lemma() {
+        clause_ref lemma = m_conflict.build_lemma();
+        LOG_H2("backjump_lemma: " << show_deref(lemma));
         SASSERT(lemma);
         LOG("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
@@ -715,6 +701,7 @@ namespace polysat {
                 jump_level = lit_level;
             }
         }
+        SASSERT(max_level == m_level);  // not required; see comment on max_level
 
         jump_level = std::max(jump_level, base_level());
 
@@ -726,69 +713,6 @@ namespace polysat {
         m_conflict.reset();
         backjump(jump_level);
         learn_lemma(*lemma);
-    }
-
-    /**
-     * Simpler backtracking for forbidden interval lemmas:
-     * since forbidden intervals already gives us a lemma where the conflict variable has been eliminated,
-     * we can backtrack to the last relevant decision and learn this lemma.
-     */
-    void solver::backtrack_fi() {
-        uint_set relevant_vars;
-        search_iterator search_it(m_search);
-        while (search_it.next()) {
-            auto& item = *search_it;
-            search_it.set_resolved();
-            if (item.is_assignment()) {
-                // Resolve over variable assignment
-                pvar v = item.var();
-                if (!m_conflict.pvar_occurs_in_constraints(v) && !relevant_vars.contains(v)) {
-                    m_search.pop_assignment();
-                    continue;
-                }
-                LOG_H2("Working on " << search_item_pp(m_search, item));
-                LOG(m_justification[v]);
-                LOG("Conflict: " << m_conflict);
-                inc_activity(v);
-                justification& j = m_justification[v];
-                if (j.level() > base_level() && j.is_decision()) {
-                    m_conflict.end_conflict();
-                    revert_decision(v);
-                    return;
-                }
-                SASSERT(j.is_propagation());
-                // If a variable was propagated:
-                // we don't really care about the constraints in this case, but just about the variables it depends on
-                for (auto const& c : m_viable.get_constraints(v))
-                    for (pvar v : c->vars()) {
-                        relevant_vars.insert(v);
-                        m_conflict.log_var(v);
-                    }
-                m_search.pop_assignment();
-            }
-            else {
-                // Resolve over boolean literal
-                SASSERT(item.is_boolean());
-                sat::literal const lit = item.lit();
-                sat::bool_var const var = lit.var();
-                if (!m_conflict.is_marked(var))
-                    continue;
-                LOG_H2("Working on " << search_item_pp(m_search, item));
-                LOG(bool_justification_pp(m_bvars, lit));
-                LOG("Literal " << lit << " is " << lit2cnstr(lit));
-                LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_assumption(var))  // TODO: wouldn't this mean we're already at the base level?
-                    continue;
-                else if (m_bvars.is_bool_propagation(var))
-                    m_conflict.resolve(lit, *m_bvars.reason(lit));
-                else {
-                    SASSERT(m_bvars.is_value_propagation(var));
-                    continue;
-                }
-            }
-        }
-        m_conflict.end_conflict();
-        report_unsat();
     }
 
     /**
@@ -839,6 +763,7 @@ namespace polysat {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
         m_simplify_clause.apply(lemma);
+        // TODO: print warning if the lemma is non-asserting?
         add_clause(lemma);
     }
 
@@ -858,7 +783,7 @@ namespace polysat {
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
 
-        clause_ref lemma = m_conflict.build_lemma().build();
+        clause_ref lemma = m_conflict.build_lemma();
         if (lemma->empty())
             report_unsat();
         else {
@@ -887,7 +812,7 @@ namespace polysat {
     }
 
     void solver::assign_eval(sat::literal lit) {
-        SASSERT(lit2cnstr(lit).is_currently_true(*this));
+        // SASSERT(lit2cnstr(lit).is_currently_true(*this));  // "morally" this should hold, but currently fails because of pop_assignment during resolve_conflict
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
         for (auto v : lit2cnstr(lit)->vars())
@@ -934,12 +859,13 @@ namespace polysat {
     void solver::add_clause(clause& clause) {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
-            LOG("   Literal " << lit << " is: " << lit_pp(*this, lit));
+            LOG("   " << lit_pp(*this, lit));
             // SASSERT(m_bvars.value(lit) != l_true);
             // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
             if (m_bvars.value(lit) == l_true) {
                 // in this case the clause is useless
                 LOG("   Clause is already true, skipping...");
+                // SASSERT(false);  // should never happen (at least for redundant clauses)
                 return;
             }
         }
@@ -1106,12 +1032,14 @@ namespace polysat {
      * Check that two variables of each constraint are watched.
      */
     bool solver::wlist_invariant() {
+#if 0
         for (pvar v = 0; v < m_value.size(); ++v) {
             std::stringstream s;
             for (constraint* c : m_pwatch[v])
                 s << " " << c->bvar();
             LOG("Watch for v" << v << ": " << s.str());
         }
+#endif
         // Skip boolean variables that aren't active yet
         uint_set skip;
         for (unsigned i = m_qhead; i < m_search.size(); ++i)

@@ -5,7 +5,7 @@ Module Name:
 
     maintain viable domains
     It uses the interval extraction functions from forbidden intervals.
-    An empty viable set corresponds directly to a conflict that does not rely on 
+    An empty viable set corresponds directly to a conflict that does not rely on
     the non-viable variable.
 
 Author:
@@ -23,24 +23,24 @@ Author:
 #include "util/small_object_allocator.h"
 #include "math/polysat/types.h"
 #include "math/polysat/conflict.h"
-#include "math/polysat/conflict2.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/forbidden_intervals.h"
-#include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
 
     class solver;
+    class univariate_solver;
+    class univariate_solver_factory;
 
     class viable {
         friend class test_fi;
 
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
-        
+
         struct entry : public dll_base<entry>, public fi_record {};
         enum class entry_kind { unit_e, equal_e, diseq_e };
-        
+
         ptr_vector<entry>                    m_alloc;
         ptr_vector<entry>                    m_units;        // set of viable values based on unit multipliers
         ptr_vector<entry>                    m_equal_lin;    // entries that have non-unit multipliers, but are equal
@@ -112,7 +112,6 @@ namespace polysat {
         * \pre there are no viable values for v
         */
         bool resolve(pvar v, conflict& core);
-        bool resolve(pvar v, conflict2& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
@@ -129,11 +128,11 @@ namespace polysat {
             bool   visited = false;
             unsigned idx = 0;
         public:
-            iterator(entry* curr, bool visited) : 
+            iterator(entry* curr, bool visited) :
                 curr(curr), visited(visited || !curr) {}
 
             iterator& operator++() {
-                if (idx < curr->side_cond.size()) 
+                if (idx < curr->side_cond.size())
                     ++idx;
                 else {
                     idx = 0;
@@ -143,7 +142,7 @@ namespace polysat {
                 return *this;
             }
 
-            signed_constraint& operator*() { 
+            signed_constraint& operator*() {
                 return idx < curr->side_cond.size() ? curr->side_cond[idx] : curr->src;
             }
 
@@ -165,8 +164,8 @@ namespace polysat {
             iterator end() const { return iterator(v.m_units[var], true); }
         };
 
-        constraints get_constraints(pvar v) const { 
-            return constraints(*this, v); 
+        constraints get_constraints(pvar v) const {
+            return constraints(*this, v);
         }
 
         class int_iterator {
@@ -181,8 +180,8 @@ namespace polysat {
                 return *this;
             }
 
-            eval_interval const& operator*() { 
-                return curr->interval;                
+            eval_interval const& operator*() {
+                return curr->interval;
             }
 
             bool operator==(int_iterator const& other) const {
@@ -210,10 +209,10 @@ namespace polysat {
 
         struct var_pp {
             viable const& v;
-            pvar var;        
+            pvar var;
             var_pp(viable const& v, pvar var) : v(v), var(var) {}
         };
-       
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, viable const& v) {

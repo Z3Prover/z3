@@ -4,10 +4,9 @@ z3_add_component(polysat
     clause.cpp
     clause_builder.cpp
     conflict.cpp
-    conflict2.cpp
     constraint.cpp
-    eq_explain.cpp
-    explain.cpp
+    # eq_explain.cpp
+    # explain.cpp
     forbidden_intervals.cpp
     inference_logger.cpp
     justification.cpp
@@ -15,7 +14,7 @@ z3_add_component(polysat
     log.cpp
     op_constraint.cpp
     restart.cpp
-    saturation.cpp
+    # saturation.cpp
     search_state.cpp
     simplify.cpp
     simplify_clause.cpp
@@ -23,7 +22,7 @@ z3_add_component(polysat
     solver.cpp
     ule_constraint.cpp
     umul_ovfl_constraint.cpp
-    variable_elimination.cpp
+    # variable_elimination.cpp
     viable.cpp
   COMPONENT_DEPENDENCIES
     util

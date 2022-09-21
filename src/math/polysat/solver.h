@@ -22,7 +22,6 @@ Author:
 #include "util/params.h"
 #include "math/polysat/boolean.h"
 #include "math/polysat/conflict.h"
-#include "math/polysat/conflict2.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/simplify_clause.h"
@@ -36,8 +35,6 @@ Author:
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
-
-
 
 namespace polysat {
 
@@ -70,14 +67,12 @@ namespace polysat {
         friend class clause;
         friend class clause_builder;
         friend class conflict;
-        friend class conflict2;
         friend class conflict_explainer;
         friend class simplify_clause;
         friend class simplify;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
-        friend class old_inference_logger;
         friend class file_inference_logger;
         friend class forbidden_intervals;
         friend class linear_solver;
@@ -94,7 +89,6 @@ namespace polysat {
         friend class scoped_solverv;        
         friend class test_polysat;
         friend class test_fi;
-        friend struct inference_resolve_with_assignment;
         friend struct inf_resolve_with_assignment;
 
         reslimit&                m_lim;
@@ -105,7 +99,6 @@ namespace polysat {
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
         conflict                 m_conflict;
-        conflict2                m_conflict2;
         simplify_clause          m_simplify_clause;
         simplify                 m_simplify;
         restart                  m_restart;
@@ -192,9 +185,9 @@ namespace polysat {
         void erase_pwatch(pvar v, constraint* c);
         void erase_pwatch(constraint* c);
 
-        void set_conflict(signed_constraint c) { m_conflict.set(c); }
-        void set_conflict(clause& cl) { m_conflict.set(cl); }
-        void set_conflict(pvar v) { m_conflict.set(v); }
+        void set_conflict(signed_constraint c) { m_conflict.init(c); }
+        void set_conflict(clause& cl) { m_conflict.init(cl); }
+        void set_conflict(pvar v, bool by_viable_fallback) { m_conflict.init(v, by_viable_fallback); }
 
         bool can_decide() const { return !m_free_pvars.empty(); }
         void decide();
@@ -202,14 +195,12 @@ namespace polysat {
 
         void linear_propagate();
 
-
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
 
         void resolve_conflict();
-        void backtrack_fi();
-        void backtrack_lemma();
+        void backjump_lemma();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
 
@@ -461,7 +452,4 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, assignments_pp const& a) { return a.display(out); }
 
-
 }
-
-

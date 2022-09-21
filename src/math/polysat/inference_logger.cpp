@@ -40,48 +40,53 @@ namespace polysat {
         return std::string(70, '-');
     }
 
-    void file_inference_logger::begin_conflict(char const* text) {
+    void file_inference_logger::begin_conflict(displayable const& header) {
         ++m_num_conflicts;
-        if (text)
-            LOG("Begin CONFLICT #" << m_num_conflicts << " (" << text << ")");
-        else
-            LOG("Begin CONFLICT #" << m_num_conflicts);
+        LOG("Begin CONFLICT #" << m_num_conflicts << ": " << header);
         m_used_constraints.reset();
         m_used_vars.reset();
         if (!m_out)
             m_out = alloc(std::ofstream, "conflicts.txt");
         else
             out() << "\n\n\n\n\n\n\n\n\n\n\n\n";
-        out() << "CONFLICT #" << m_num_conflicts;
-        if (text)
-            out() << " (" << text << ")";
-        out() << "\n";
+        out() << "CONFLICT #" << m_num_conflicts << ": " << header << "\n";
         // log initial conflict state
         out() << hline() << "\n";
         log_conflict_state();
     }
 
     void file_inference_logger::log_conflict_state() {
-        out() << "TODO";
-        /* TODO: update for new conflict
-        conflict2 const& core = s.m_conflict2;
+        conflict const& core = s.m_conflict;
         for (auto const& c : core) {
-            out_indent() << c.blit() << ": " << c << '\n';
-            m_used_constraints.insert(c.blit().index());
+            sat::literal const lit = c.blit();
+            out_indent() << lit << ": " << c << '\n';
+            // TODO: if justified by a side lemma, print it here
+            // out_indent() << "    justified by: " << lemma << '\n';
+            m_used_constraints.insert(lit.index());
             for (pvar v : c->vars())
                 m_used_vars.insert(v);
         }
         for (auto v : core.vars()) {
-            out_indent() << assignment_pp(core.s, v, core.s.get_value(v)) << "\n";
+            out_indent() << assignment_pp(s, v, s.get_value(v)) << "\n";
             m_used_vars.insert(v);
         }
         for (auto v : core.bail_vars()) {
-            out_indent() << assignment_pp(core.s, v, core.s.get_value(v)) << " (bail)\n";
+            out_indent() << assignment_pp(s, v, s.get_value(v)) << " (bail)\n";
             m_used_vars.insert(v);
         }
-        if (core.is_bailout())
+        switch (core.kind()) {
+        case conflict_kind_t::ok:
+            break;
+        case conflict_kind_t::bailout:
             out_indent() << "(bailout)\n";
-        */
+            break;
+        case conflict_kind_t::backtrack:
+            out_indent() << "(backtrack)\n";
+            break;
+        case conflict_kind_t::backjump:
+            out_indent() << "(backjump)\n";
+            break;
+        }
         out().flush();
     }
 
@@ -102,7 +107,6 @@ namespace polysat {
         out() << "\n";
         for (auto const& lit : cb)
             out_indent() << lit_pp(s, lit) << "\n";
-            // out_indent() << lit << ": " << s.lit2cnstr(lit) << "\n";
         out().flush();
     }
 

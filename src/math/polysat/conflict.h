@@ -77,42 +77,54 @@ TODO:
     - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
     - force a restart if we get a bailout lemma or non-asserting conflict?
 - consider case if v is both in vars and bail_vars (do we need to keep it in bail_vars even if we can eliminate it from vars?)
+- Find a way to use resolve_value with forbidden interval lemmas.
+  Then get rid of conflict_kind_t::backtrack and m_relevant_vars.
+  Maybe:
+    x := a, y := b, z has no viable value
+    - assume y was propagated
+    - FI-Lemma C1 \/ ... \/ Cn without z.
+    - for each i, we should have x := a /\ Ci ==> y != b
+    - can we choose one of the Ci to cover the domain of y and extract an FI-Lemma D1 \/ ... \/ Dk without y,z?
+    - or try to find an L(x,y) such that C1 -> L, ..., Cn -> L, and L -> y != b  (under x := a); worst case y != b can work as L
+- minimize_vars... is it sound to do for each constraint separately, like we are doing now?
 
 
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
-#include "math/polysat/clause_builder.h"
 #include "math/polysat/inference_logger.h"
 #include <optional>
 
 namespace polysat {
 
     class solver;
-    class explainer;
-    class inference_engine;
-    class variable_elimination_engine;
     class conflict_iterator;
-    class inference_logger;
 
-    enum class conflict2_kind_t {
+    enum class conflict_kind_t {
         // standard conflict resolution
         ok,
         // bailout lemma because no appropriate conflict resolution method applies
         bailout,
+        // conflict contains the final lemma;
+        // backtrack to and revert the last relevant decision
+        // NOTE: this is currently used for the forbidden intervals lemmas.
+        //       we should find a way to use resolve_value with these lemmas,
+        //       to properly eliminate value propagations. (see todo notes above)
+        backtrack,
+        // conflict contains the final lemma;
         // force backjumping without further conflict resolution because a good lemma has been found
-        // TODO: distinguish backtrack/revert of last decision from backjump to second-highest level in the lemma
         backjump,
     };
 
-    class conflict2 {
+    class conflict {
         solver& s;
         scoped_ptr<inference_logger> m_logger;
 
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
-        uint_set m_bail_vars;               // tracked for cone of influence but not directly involved in conflict resolution
+        uint_set m_bail_vars;               // decision variables that are only used to evaluate a constraint; see resolve_with_assignment.
+        uint_set m_relevant_vars;           // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
 
@@ -120,31 +132,47 @@ namespace polysat {
         // TODO: we might not need all of these in the end. add only the side lemmas which justify a constraint in the final lemma (recursively)?
         vector<clause_ref> m_lemmas;
 
-        conflict2_kind_t m_kind = conflict2_kind_t::ok;
+        conflict_kind_t m_kind = conflict_kind_t::ok;
+
+        bool minimize_vars(signed_constraint c);
 
     public:
-        conflict2(solver& s);
+        conflict(solver& s);
 
         inference_logger& logger();
 
         bool empty() const;
         void reset();
 
-        uint_set const& vars() const { return m_vars; }
+        using const_iterator = conflict_iterator;
+        const_iterator begin() const;
+        const_iterator end() const;
 
-        bool is_bailout() const { return m_kind == conflict2_kind_t::bailout; }
-        bool is_backjumping() const { return m_kind == conflict2_kind_t::backjump; }
+        uint_set const& vars() const { return m_vars; }
+        uint_set const& bail_vars() const { return m_bail_vars; }
+
+        conflict_kind_t kind() const { return m_kind; }
+        bool is_bailout() const { return m_kind == conflict_kind_t::bailout; }
+        bool is_backtracking() const { return m_kind == conflict_kind_t::backtrack; }
+        bool is_backjumping() const { return m_kind == conflict_kind_t::backjump; }
         void set_bailout();
+        void set_backtrack();
         void set_backjump();
+
+        bool is_relevant_pvar(pvar v) const;
+        bool is_relevant(sat::literal lit) const;
 
         /** conflict because the constraint c is false under current variable assignment */
         void init(signed_constraint c);
+        /** boolean conflict with the given clause */
+        void init(clause const& cl);
         /** conflict because there is no viable value for the variable v */
-        void init(pvar v, bool by_viable_fallback = false);
+        void init(pvar v, bool by_viable_fallback);
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
+        bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
 
         /**
          * Insert constraint c into conflict state.
@@ -172,9 +200,53 @@ namespace polysat {
         /** Perform resolution with "v = value <- ..." */
         bool resolve_value(pvar v);
 
+        /** Convert the core into a lemma to be learned. */
+        clause_ref build_lemma();
+
         std::ostream& display(std::ostream& out) const;
     };
 
-    inline std::ostream& operator<<(std::ostream& out, conflict2 const& c) { return c.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, conflict const& c) { return c.display(out); }
 
+    class conflict_iterator {
+        friend class conflict;
+
+        using inner_t = indexed_uint_set::iterator;
+
+        constraint_manager* m_cm;
+        inner_t m_inner;
+
+        conflict_iterator(constraint_manager& cm, inner_t inner):
+            m_cm(&cm), m_inner(inner) {}
+
+        static conflict_iterator begin(constraint_manager& cm, indexed_uint_set const& lits) {
+            return {cm, lits.begin()};
+        }
+
+        static conflict_iterator end(constraint_manager& cm, indexed_uint_set const& lits) {
+            return {cm, lits.end()};
+        }
+
+    public:
+        using value_type = signed_constraint;
+        using difference_type = unsigned;
+        using pointer = signed_constraint const*;
+        using reference = signed_constraint const&;
+        using iterator_category = std::input_iterator_tag;
+
+        conflict_iterator& operator++() {
+            ++m_inner;
+            return *this;
+        }
+
+        signed_constraint operator*() const {
+            return m_cm->lookup(sat::to_literal(*m_inner));
+        }
+
+        bool operator==(conflict_iterator const& other) const {
+            return m_inner == other.m_inner;
+        }
+
+        bool operator!=(conflict_iterator const& other) const { return !operator==(other); }
+    };
 }

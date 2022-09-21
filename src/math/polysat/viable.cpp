@@ -29,8 +29,18 @@ TODO: improve management of the fallback univariate solvers:
 #include "util/debug.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
+
+    struct inf_fi : public inference {
+        viable& v;
+        pvar var;
+        inf_fi(viable& v, pvar var) : v(v), var(var) {}
+        std::ostream& display(std::ostream& out) const override {
+            return out << "Forbidden intervals for v" << var << ": " << viable::var_pp(v, var);
+        }
+    };
 
     viable::viable(solver& s):
         s(s),
@@ -54,7 +64,7 @@ namespace polysat {
         m_diseq_lin.pop_back();
     }
 
-    viable::entry* viable::alloc_entry() {       
+    viable::entry* viable::alloc_entry() {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
@@ -68,21 +78,21 @@ namespace polysat {
         auto& [v, k, e] = m_trail.back();
         SASSERT(well_formed(m_units[v]));
         switch (k) {
-        case entry_kind::unit_e: 
-            e->remove_from(m_units[v], e); 
+        case entry_kind::unit_e:
+            e->remove_from(m_units[v], e);
             SASSERT(well_formed(m_units[v]));
             break;
-        case entry_kind::equal_e: 
-            e->remove_from(m_equal_lin[v], e); 
+        case entry_kind::equal_e:
+            e->remove_from(m_equal_lin[v], e);
             break;
         case entry_kind::diseq_e:
-            e->remove_from(m_diseq_lin[v], e); 
+            e->remove_from(m_diseq_lin[v], e);
             break;
         default:
             UNREACHABLE();
             break;
         }
-        m_alloc.push_back(e);       
+        m_alloc.push_back(e);
         m_trail.pop_back();
     }
 
@@ -98,12 +108,12 @@ namespace polysat {
             if (e->interval.lo_val() < m_units[v]->interval.lo_val())
                 m_units[v] = e;
         }
-        else 
-            m_units[v] = e;  
+        else
+            m_units[v] = e;
         SASSERT(well_formed(m_units[v]));
         m_trail.pop_back();
     }
-    
+
     bool viable::intersect(pdd const & p, pdd const & q, signed_constraint const& sc) {
         pvar v = null_var;
         bool first = true;
@@ -124,7 +134,7 @@ namespace polysat {
                 prop = true;
                 break;
             case dd::find_t::empty:
-                s.set_conflict(v);
+                s.set_conflict(v, false);
                 return true;
             default:
                 break;
@@ -136,7 +146,7 @@ namespace polysat {
             goto try_viable;
         }
         return prop;
-    }    
+    }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
         entry* ne = alloc_entry();
@@ -184,12 +194,11 @@ namespace polysat {
             m_alloc.push_back(ne);
             return false;
         }
-        
 
         auto create_entry = [&]() {
             m_trail.push_back({ v, entry_kind::unit_e, ne });
             s.m_trail.push_back(trail_instr_t::viable_add_i);
-            ne->init(ne);            
+            ne->init(ne);
             return ne;
         };
 
@@ -200,13 +209,13 @@ namespace polysat {
         };
 
         if (ne->interval.is_full()) {
-            while (m_units[v]) 
+            while (m_units[v])
                 remove_entry(m_units[v]);
             m_units[v] = create_entry();
             return true;
         }
 
-        if (!e) 
+        if (!e)
             m_units[v] = create_entry();
         else {
             entry* first = e;
@@ -222,10 +231,10 @@ namespace polysat {
                         m_units[v] = create_entry();
                         return true;
                     }
-                    if (e == first) 
-                        first = n;                    
+                    if (e == first)
+                        first = n;
                     e = n;
-                }             
+                }
                 SASSERT(e->interval.lo_val() != ne->interval.lo_val());
                 if (e->interval.lo_val() > ne->interval.lo_val()) {
                     if (first->prev()->interval.currently_contains(ne->interval)) {
@@ -239,7 +248,7 @@ namespace polysat {
                     return true;
                 }
                 e = e->next();
-            }             
+            }
             while (e != first);
             // otherwise, append to end of list
             first->insert_before(create_entry());
@@ -255,10 +264,10 @@ namespace polysat {
     /**
     * Traverse all interval constraints with coefficients to check whether current value 'val' for
     * 'v' is feasible. If not, extract a (maximal) interval to block 'v' from being assigned val.
-    * 
+    *
     * To investigate:
     * - side conditions are stronger than for unit intervals. They constrain the lower and upper bounds to
-    *   be precisely the assigned values. This is to ensure that lo/hi that are computed based on lo_val 
+    *   be precisely the assigned values. This is to ensure that lo/hi that are computed based on lo_val
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_equal_lin(pvar v, rational const& val) {
@@ -330,7 +339,7 @@ namespace polysat {
 
                 if (e->interval.lo_val() < e->interval.hi_val()) {
                     increase_hi(hi);
-                    decrease_lo(lo);                    
+                    decrease_lo(lo);
                 }
                 else if (e->interval.lo_val() <= coeff_val) {
                     rational lambda_u = floor((max_value - coeff_val) / e->coeff);
@@ -342,13 +351,13 @@ namespace polysat {
                 else {
                     SASSERT(coeff_val < e->interval.hi_val());
                     rational lambda_l = floor(coeff_val / e->coeff);
-                    lo = val - lambda_l; 
+                    lo = val - lambda_l;
                     increase_hi(hi);
                 }
                 LOG("forbidden interval v" << v << " " << val << " " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
                 SASSERT(hi <= mod_value);
-                bool full = (lo == 0 && hi == mod_value);                    
-                if (hi == mod_value) 
+                bool full = (lo == 0 && hi == mod_value);
+                if (hi == mod_value)
                     hi = 0;
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
@@ -358,13 +367,13 @@ namespace polysat {
                 ne->coeff = 1;
                 if (full)
                     ne->interval = eval_interval::full();
-                else 
+                else
                     ne->interval = eval_interval::proper(lop, lo, hip, hi);
                 intersect(v, ne);
                 return false;
             }
             e = e->next();
-        }         
+        }
         while (e != first);
         return true;
     }
@@ -453,7 +462,7 @@ namespace polysat {
         return true;
     }
 
-    bool viable::has_viable(pvar v) {     
+    bool viable::has_viable(pvar v) {
         refined:
         auto* e = m_units[v];
 
@@ -468,9 +477,9 @@ namespace polysat {
             return false;
         // quick check: last interval doesn't wrap around, so hi_val
         // has not been covered
-        if (last->interval.lo_val() < last->interval.hi_val()) 
+        if (last->interval.lo_val() < last->interval.hi_val())
             CHECK_RETURN(last->interval.hi_val());
-        
+
         do {
             if (e->interval.is_full())
                 return false;
@@ -482,16 +491,16 @@ namespace polysat {
             if (n == first) {
                 if (e->interval.lo_val() > e->interval.hi_val())
                     return false;
-                CHECK_RETURN(e->interval.hi_val());              
+                CHECK_RETURN(e->interval.hi_val());
             }
             e = n;
-        }         
+        }
         while (e != first);
         return false;
 #undef CHECK_RETURN
     }
 
-    bool viable::is_viable(pvar v, rational const& val) { 
+    bool viable::is_viable(pvar v, rational const& val) {
         auto* e = m_units[v];
         if (!e)
             return refine_viable(v, val);
@@ -499,17 +508,17 @@ namespace polysat {
         entry* last = first->prev();
         if (last->interval.currently_contains(val))
             return false;
-        for (; e != last; e = e->next()) {        
+        for (; e != last; e = e->next()) {
             if (e->interval.currently_contains(val))
                 return false;
-            if (val < e->interval.lo_val()) 
-                return refine_viable(v, val);            
-        }         
+            if (val < e->interval.lo_val())
+                return refine_viable(v, val);
+        }
         return refine_viable(v, val);
     }
 
 
-    rational viable::min_viable(pvar v) { 
+    rational viable::min_viable(pvar v) {
         refined:
         rational lo(0);
         auto* e = m_units[v];
@@ -521,20 +530,20 @@ namespace polysat {
         entry* last = first->prev();
         if (last->interval.currently_contains(lo))
             lo = last->interval.hi_val();
-        do {        
+        do {
             if (!e->interval.currently_contains(lo))
                 break;
             lo = e->interval.hi_val();
             e = e->next();
-        }         
+        }
         while (e != first);
         if (!refine_viable(v, lo))
             goto refined;
-        SASSERT(is_viable(v, lo));  
+        SASSERT(is_viable(v, lo));
         return lo;
     }
 
-    rational viable::max_viable(pvar v) { 
+    rational viable::max_viable(pvar v) {
         refined:
         rational hi = s.var2pdd(v).max_value();
         auto* e = m_units[v];
@@ -549,7 +558,7 @@ namespace polysat {
                 break;
             hi = e->interval.lo_val() - 1;
             e = e->prev();
-        }           
+        }
         while (e != last);
         if (!refine_viable(v, hi))
             goto refined;
@@ -557,7 +566,7 @@ namespace polysat {
         return hi;
     }
 
-    dd::find_t viable::find_viable(pvar v, rational& lo) { 
+    dd::find_t viable::find_viable(pvar v, rational& lo) {
         refined:
         lo = 0;
         auto* e = m_units[v];
@@ -594,7 +603,7 @@ namespace polysat {
                 break;
             lo = e->interval.hi_val();
             e = e->next();
-        }         
+        }
         while (e != first);
 
         if (e->interval.currently_contains(lo))
@@ -608,7 +617,7 @@ namespace polysat {
                 break;
             hi = e->interval.lo_val() - 1;
             e = e->prev();
-        }         
+        }
         while (e != last);
         if (!refine_viable(v, lo))
             goto refined;
@@ -618,20 +627,6 @@ namespace polysat {
             return dd::find_t::singleton;
         else
             return dd::find_t::multiple;
-    }
-
-    struct inference_fi : public inference {
-        viable& v;
-        pvar var;
-        inference_fi(viable& v, pvar var) : v(v), var(var) {}
-        std::ostream& display(std::ostream& out) const override {
-            return out << "Forbidden intervals for v" << var << ": " << viable::var_pp(v, var);
-        }
-    };
-
-    bool viable::resolve(pvar v, conflict2& core) {
-        NOT_IMPLEMENTED_YET();
-        return false;
     }
 
     bool viable::resolve(pvar v, conflict& core) {
@@ -652,7 +647,7 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                core.propagate(c);
+                core.insert_eval(c);
 #if 0
                 if (n != first) {
                     while {
@@ -666,21 +661,26 @@ namespace polysat {
                 }
 #endif
             }
-            for (auto sc : e->side_cond) 
-                core.propagate(sc);
+            for (auto sc : e->side_cond)
+                core.insert_eval(sc);
             core.insert(e->src);
             e = n;
-        }             
+        }
         while (e != first);
+        core.logger().log(inf_fi(*this, v));
 
+        // TODO: should not be here, too general
+        /*
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
                 core.reset();
                 core.set(~c);
+                core.logger().log("");
                 break;
             }
         }
-        core.log_inference(inference_fi(*this, v));
+        */
+
         return true;
     }
 
@@ -694,7 +694,7 @@ namespace polysat {
         do {
             LOG("v" << v << ": " << e->interval << " " << e->side_cond << " " << e->src);
             e = e->next();
-        }         
+        }
         while (e != first);
     }
 
@@ -712,7 +712,7 @@ namespace polysat {
                 out << e->coeff << " * v" << v << " ";
             out << e->interval << " " << e->side_cond << " " << e->src << "; ";
             e = e->next();
-        }         
+        }
         while (e != first);
         return out;
     }
@@ -732,7 +732,7 @@ namespace polysat {
 
     /*
     * Lower bounds are strictly ascending.
-    * intervals don't contain each-other (since lower bounds are ascending, 
+    * intervals don't contain each-other (since lower bounds are ascending,
     * it suffices to check containment in one direction).
     */
     bool viable::well_formed(entry* e) {
@@ -742,15 +742,15 @@ namespace polysat {
         while (true) {
             if (e->interval.is_full())
                 return e->next() == e;
-            if (e->interval.is_currently_empty()) 
+            if (e->interval.is_currently_empty())
                 return false;
-            
+
             auto* n = e->next();
             if (n != e && e->interval.currently_contains(n->interval))
                 return false;
-            
+
             if (n == first)
-                break;            
+                break;
             if (e->interval.lo_val() >= n->interval.lo_val())
                 return false;
             e = n;
