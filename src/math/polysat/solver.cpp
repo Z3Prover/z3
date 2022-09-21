@@ -681,12 +681,12 @@ namespace polysat {
         SASSERT(lemma);
         LOG("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
-            LOG("   Literal " << lit << " is: " << lit_pp(*this, lit));
+            LOG("   " << lit_pp(*this, lit));
             SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
         }
 
         // find second-highest level of the literals in the lemma
-        unsigned max_level = 0;  // could be simplified if we're sure that always max_level == m_level
+        unsigned max_level = 0;
         unsigned jump_level = 0;
         for (auto lit : *lemma) {
             if (!m_bvars.is_assigned(lit))
@@ -699,7 +699,6 @@ namespace polysat {
                 jump_level = lit_level;
             }
         }
-        SASSERT(max_level == m_level);  // not required; see comment on max_level
 
         jump_level = std::max(jump_level, base_level());
 

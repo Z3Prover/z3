@@ -100,6 +100,7 @@ namespace polysat {
 
     class solver;
     class conflict_iterator;
+    class conflict_resolver;
 
     enum class conflict_kind_t {
         // standard conflict resolution
@@ -120,6 +121,7 @@ namespace polysat {
     class conflict {
         solver& s;
         scoped_ptr<inference_logger> m_logger;
+        scoped_ptr<conflict_resolver> m_resolver;
 
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
@@ -139,6 +141,7 @@ namespace polysat {
 
     public:
         conflict(solver& s);
+        ~conflict();
 
         inference_logger& logger();
 

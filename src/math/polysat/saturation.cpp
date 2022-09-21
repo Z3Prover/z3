@@ -1,4 +1,3 @@
-#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -103,8 +102,9 @@ namespace polysat {
             core.insert(d);
         if (c.bvalue(s) != l_false)  // conflict is due to the evaluation of c, so it depends on the variable values
             core.insert_vars(c);
-        core.insert(~c);       
-        core.log_inference(inf_name);
+        core.insert(~c);
+        core.set_backjump();
+        core.logger().log(inf_name);
         LOG("Core " << core);
         return true;        
     }
@@ -487,4 +487,3 @@ namespace polysat {
     }
 
 }
-#endif

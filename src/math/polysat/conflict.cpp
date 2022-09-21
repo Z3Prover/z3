@@ -69,13 +69,33 @@ namespace polysat {
         }
     };
 
+
+    class conflict_resolver {
+        inf_saturate m_saturate;
+
+    public:
+        conflict_resolver(solver& s)
+            : m_saturate(s)
+        {}
+
+        bool try_resolve_value(pvar v, conflict& core) {
+            if (m_saturate.perform(v, core))
+                return true;
+            return false;
+        }
+    };
+
+
     conflict::conflict(solver& s) : s(s) {
         // TODO: m_log_conflicts is always false even if "polysat.log_conflicts=true" is given on the command line
         if (true || s.get_config().m_log_conflicts)
             m_logger = alloc(file_inference_logger, s);
         else
             m_logger = alloc(dummy_inference_logger);
+        m_resolver = alloc(conflict_resolver, s);
     }
+
+    conflict::~conflict() {}
 
     inference_logger& conflict::logger() {
         return *m_logger;
@@ -355,7 +375,8 @@ namespace polysat {
         }
         logger().log(inf_resolve_value(s, v));
 
-        // TODO: call conflict resolution plugins here; "return true" if successful
+        if (m_resolver->try_resolve_value(v, *this))
+            return true;
 
         // No conflict resolution plugin succeeded => give up and bail out
         set_bailout();

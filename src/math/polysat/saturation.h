@@ -1,4 +1,3 @@
-#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
@@ -18,7 +17,6 @@ Author:
 namespace polysat {
 
     class solver;
-    class constraint_manager;
 
     class inference_engine {
         friend class conflict;
@@ -111,4 +109,3 @@ namespace polysat {
      */
 
 }
-#endif
