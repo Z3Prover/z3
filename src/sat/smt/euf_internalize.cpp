@@ -264,7 +264,11 @@ namespace euf {
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
         if (sz <= 1) 
             return;
-        if (sz <= distinct_max_args) {
+        sort* srt = e->get_arg(0)->get_sort();
+        auto sort_sz = srt->get_num_elements();
+        if (sort_sz.is_finite() && sort_sz.size() < sz)
+            s().add_clause(0, nullptr, st);
+        else if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
@@ -274,8 +278,7 @@ namespace euf {
             }
         }
         else {
-            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n
-            sort* srt = e->get_arg(0)->get_sort();
+            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n            
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
             func_decl_ref f(m.mk_fresh_func_decl("dist-f", "", 1, &srt, u), m);

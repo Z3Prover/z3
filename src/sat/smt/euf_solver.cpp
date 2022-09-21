@@ -488,7 +488,8 @@ namespace euf {
         };
         if (merge_shared_bools())
             cont = true;
-        for (auto* e : m_solvers) {
+        for (unsigned i = 0; i < m_solvers.size(); ++i) {
+            auto* e = m_solvers[i];
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
             if (e == m_qsolver)
@@ -616,15 +617,17 @@ namespace euf {
             else 
                 lit = si.internalize(e, false);
             VERIFY(lit.var() == v);     
-            if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
+            if (!m_egraph.find(e) && !m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e) && !m.is_implies(e) && !m.is_xor(e)) {
                 ptr_buffer<euf::enode> args;
                 if (is_app(e))
                     for (expr* arg : *to_app(e))
                         args.push_back(e_internalize(arg));
+                internalize(e, true);
                 if (!m_egraph.find(e))
                     mk_enode(e, args.size(), args.data());
             }
-            attach_lit(lit, e);            
+            else 
+                attach_lit(lit, e);            
         }
         
         if (relevancy_enabled())
@@ -863,7 +866,13 @@ namespace euf {
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
             expr* e = m_bool_var2expr[v];
-            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
+            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1);
+            euf::enode* n = m_egraph.find(e);
+            if (n) {
+                for (auto const& th : enode_th_vars(n))
+                    out << " " << m_id2solver[th.get_id()]->name();
+            }
+            out << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);

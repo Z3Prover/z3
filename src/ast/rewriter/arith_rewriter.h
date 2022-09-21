@@ -149,6 +149,8 @@ public:
 
     br_status mk_abs_core(expr * arg, expr_ref & result);
 
+    br_status mk_and_core(unsigned n, expr* const* args, expr_ref& result);
+
     br_status mk_div_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_idivides(unsigned k, expr * arg, expr_ref & result);

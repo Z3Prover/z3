@@ -428,9 +428,8 @@ namespace sat {
             }
 
             ++m_stats.m_non_learned_generation;
-            if (!m_searching) {
-                m_mc.add_clause(num_lits, lits);
-            }
+            if (!m_searching) 
+                m_mc.add_clause(num_lits, lits);            
         }       
 
 
@@ -941,10 +940,12 @@ namespace sat {
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
+        TRACE("sat", display(display_justification(tout << "conflict " << not_l << " ", c) << "\n"));
     }
 
     void solver::assign_core(literal l, justification j) {
         SASSERT(value(l) == l_undef);
+        SASSERT(!m_trail.contains(l) && !m_trail.contains(~l));
         TRACE("sat_assign_core", tout << l << " " << j << "\n";);
         if (j.level() == 0) {
             if (m_config.m_drat) 
@@ -1803,24 +1804,21 @@ namespace sat {
 
 
     void solver::init_assumptions(unsigned num_lits, literal const* lits) {
-        if (num_lits == 0 && m_user_scope_literals.empty()) {
-            return;
-        }
+        if (num_lits == 0 && m_user_scope_literals.empty()) 
+            return;        
 
         SASSERT(at_base_lvl());
         reset_assumptions();
         push();
 
         propagate(false);
-        if (inconsistent()) {
-            return;
-        }
+        if (inconsistent()) 
+            return;        
 
         TRACE("sat",
               tout << literal_vector(num_lits, lits) << "\n";
-              if (!m_user_scope_literals.empty()) {
-                  tout << "user literals: " << m_user_scope_literals << "\n";
-              }
+              if (!m_user_scope_literals.empty()) 
+                  tout << "user literals: " << m_user_scope_literals << "\n";              
               m_mc.display(tout);
               );
 
@@ -1897,13 +1895,11 @@ namespace sat {
                   tout << "consistent: " << !inconsistent() << "\n";
                   for (literal a : m_assumptions) {
                       index_set s;
-                      if (m_antecedents.find(a.var(), s)) {
-                          tout << a << ": "; display_index_set(tout, s) << "\n";
-                      }
+                      if (m_antecedents.find(a.var(), s)) 
+                          tout << a << ": "; display_index_set(tout, s) << "\n";                      
                   }
-                  for (literal lit : m_user_scope_literals) {
-                      tout << "user " << lit << "\n"; 
-                  }
+                  for (literal lit : m_user_scope_literals) 
+                      tout << "user " << lit << "\n";                   
                   );
         }
     }
@@ -2419,7 +2415,9 @@ namespace sat {
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
 
-        if (m_conflict_lvl <= 1 && (!m_assumptions.empty() || !m_user_scope_literals.empty())) {
+        if (m_conflict_lvl <= 1 && (!m_assumptions.empty() || 
+                                    !m_ext_assumption_set.empty() || 
+                                    !m_user_scope_literals.empty())) {
             TRACE("sat", tout << "unsat core\n";);
             resolve_conflict_for_unsat_core();
             return l_false;
@@ -3654,11 +3652,14 @@ namespace sat {
             }
         }
         m_trail.shrink(old_sz);        
+        DEBUG_CODE(for (literal l : m_trail) SASSERT(lvl(l.var()) <= new_lvl););
         m_qhead = m_trail.size();
         if (!m_replay_assign.empty()) IF_VERBOSE(20, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
         CTRACE("sat", !m_replay_assign.empty(), tout << "replay-assign: " << m_replay_assign << "\n";);
         for (unsigned i = m_replay_assign.size(); i-- > 0; ) {
             literal lit = m_replay_assign[i];
+            SASSERT(value(lit) == l_true);
+            SASSERT(!m_trail.contains(lit) && !m_trail.contains(~lit));
             m_trail.push_back(lit);            
         }
         
@@ -3709,11 +3710,11 @@ namespace sat {
     //
 
     void solver::user_push() {
-
         pop_to_base_level();
         m_free_var_freeze.push_back(m_free_vars);
         m_free_vars.reset(); // resetting free_vars forces new variables to be assigned above new_v
         bool_var new_v = mk_var(true, false);
+        SASSERT(new_v + 1 == m_justification.size()); // there are no active variables that have higher values
         literal lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
         m_cut_simplifier = nullptr; // for simplicity, wipe it out
@@ -3724,13 +3725,13 @@ namespace sat {
 
     void solver::user_pop(unsigned num_scopes) {
         unsigned old_sz = m_user_scope_literals.size() - num_scopes;
-        bool_var max_var = m_user_scope_literals[old_sz].var();
+        bool_var max_var = m_user_scope_literals[old_sz].var();        
         m_user_scope_literals.shrink(old_sz);
 
         pop_to_base_level();
         if (m_ext)
             m_ext->user_pop(num_scopes);
-
+    
         gc_vars(max_var);
         TRACE("sat", display(tout););
 
@@ -3743,7 +3744,7 @@ namespace sat {
         m_free_vars.append(m_free_var_freeze[old_sz]); 
         m_free_var_freeze.shrink(old_sz);
         scoped_suspend_rlimit _sp(m_rlimit);
-        propagate(false);
+        propagate(false);     
     }
 
     void solver::pop_to_base_level() {
@@ -4832,20 +4833,22 @@ namespace sat {
         return true;
     }
 
-    void solver::init_visited() {
-        if (m_visited.empty()) {
-            m_visited_ts = 0;
+    void solver::init_ts(unsigned n, svector<unsigned>& v, unsigned& ts) {
+        if (v.empty()) 
+            ts = 0;
+        
+        ts++;
+        if (ts == 0) {
+            ts = 1;
+            v.reset();
         }
-        m_visited_ts++;
-        if (m_visited_ts == 0) {
-            m_visited_ts = 1;
-            m_visited.reset();
-        }
-        while (m_visited.size() < 2*num_vars()) {
-            m_visited.push_back(0);
-        }
+        while (v.size() < n) 
+            v.push_back(0);        
     }
 
+    void solver::init_visited() {
+        init_ts(2 * num_vars(), m_visited, m_visited_ts);
+    }
 
 
 };

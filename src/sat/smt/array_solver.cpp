@@ -108,7 +108,9 @@ namespace array {
         if (m_delay_qhead < m_axiom_trail.size()) 
             return sat::check_result::CR_CONTINUE;
 
-        
+        if (!check_lambdas())
+            return sat::check_result::CR_GIVEUP;
+
         // validate_check();
         return sat::check_result::CR_DONE;
     }
