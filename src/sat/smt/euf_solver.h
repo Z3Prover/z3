@@ -160,7 +160,6 @@ namespace euf {
         void collect_dependencies(user_sort& us, deps_t& deps);
         void values2model(deps_t const& deps, model_ref& mdl);
         void validate_model(model& mdl);
-        void display_validation_failure(std::ostream& out, model& mdl, enode* n);
 
         // solving
         void propagate_literals();
@@ -409,6 +408,7 @@ namespace euf {
         obj_map<expr, enode*> const& values2root();
         void model_updated(model_ref& mdl);
         expr* node2value(enode* n) const;
+        void display_validation_failure(std::ostream& out, model& mdl, enode* n);
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
