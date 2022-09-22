@@ -42,6 +42,7 @@ namespace Microsoft.Z3
             lock (creation_lock)
             {
                 m_ctx = Native.Z3_mk_context_rc(IntPtr.Zero);
+                Native.Z3_enable_concurrent_dec_ref(m_ctx);
                 InitContext();
             }
         }
@@ -4794,7 +4795,6 @@ namespace Microsoft.Z3
             PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
             m_n_err_handler = new Native.Z3_error_handler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.Z3_set_error_handler(m_ctx, m_n_err_handler);
-            GC.SuppressFinalize(this);
         }
 
         internal void CheckContextMatch(Z3Object other)
@@ -4893,8 +4893,8 @@ namespace Microsoft.Z3
                 if (!is_external)
                     Native.Z3_del_context(ctx);
             }
-            else
-                GC.ReRegisterForFinalize(this);
+
+            GC.SuppressFinalize(this);
         }
 
 

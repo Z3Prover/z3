@@ -50,10 +50,7 @@ namespace Microsoft.Z3
                 m_n_obj = IntPtr.Zero;                
             }
 
-            if (m_ctx != null)
-            {
-                m_ctx = null;
-            }
+            m_ctx = null;
 
             GC.SuppressFinalize(this);
         }
@@ -81,8 +78,8 @@ namespace Microsoft.Z3
         {
             Debug.Assert(ctx != null);
             m_ctx = ctx;
-            IncRef(obj);
             m_n_obj = obj;
+            IncRef(obj);
         }
 
         internal virtual void IncRef(IntPtr o) { }
@@ -103,7 +100,7 @@ namespace Microsoft.Z3
 
         internal static IntPtr GetNativeObject(Z3Object s)
         {
-            if (s == null) return new IntPtr();
+            if (s == null) return IntPtr.Zero;
             return s.NativeObject;
         }
 
