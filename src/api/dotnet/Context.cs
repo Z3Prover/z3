@@ -42,6 +42,7 @@ namespace Microsoft.Z3
             lock (creation_lock)
             {
                 m_ctx = Native.Z3_mk_context_rc(IntPtr.Zero);
+                Native.Z3_enable_concurrent_dec_ref(m_ctx);
                 InitContext();
             }
         }
