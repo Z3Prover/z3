@@ -304,6 +304,7 @@ endif()
 # Option to control what type of library we build
 ################################################################################
 option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
 
 
 ################################################################################
