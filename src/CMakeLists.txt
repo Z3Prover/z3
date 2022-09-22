@@ -116,7 +116,7 @@ else()
   set(lib_type "STATIC")
 endif()
 # Enable static msvc runtime.
-if (MSVC AND MSVC_STATIC)
+if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
     set(CompilerFlags
         CMAKE_CXX_FLAGS
         CMAKE_CXX_FLAGS_DEBUG
