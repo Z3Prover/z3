@@ -64,6 +64,17 @@ void ast_pp_util::display_decls(std::ostream& out) {
     m_rec_decls = n;
 }
 
+void ast_pp_util::display_skolem_decls(std::ostream& out) {
+    ast_smt_pp pp(m);
+    unsigned n = coll.get_num_decls();
+    for (unsigned i = m_decls; i < n; ++i) {
+        func_decl* f = coll.get_func_decls()[i];
+        if (f->get_family_id() == null_family_id && !m_removed.contains(f) && f->is_skolem()) 
+            ast_smt2_pp(out, f, m_env) << "\n";
+    }
+    m_decls = n;    
+}
+
 void ast_pp_util::remove_decl(func_decl* f) {
     m_removed.insert(f);
 }
@@ -118,6 +129,7 @@ void ast_pp_util::push() {
     m_rec_decls.push();
     m_decls.push();
     m_sorts.push();
+    m_defined_lim.push_back(m_defined.size());
 }
 
 void ast_pp_util::pop(unsigned n) {
@@ -125,4 +137,55 @@ void ast_pp_util::pop(unsigned n) {
     m_rec_decls.pop(n);
     m_decls.pop(n);
     m_sorts.pop(n);
+    unsigned old_sz = m_defined_lim[m_defined_lim.size() - n];
+    for (unsigned i = m_defined.size(); i-- > old_sz; ) 
+        m_is_defined.mark(m_defined.get(i), false);
+    m_defined.shrink(old_sz);
+    m_defined_lim.shrink(m_defined_lim.size() - n);
+}
+
+std::ostream& ast_pp_util::display_expr_def(std::ostream& out, expr* n) {
+    if (is_app(n) && to_app(n)->get_num_args() == 0)
+        return out << mk_pp(n, m);
+    else
+        return out << "$" << n->get_id();
+}
+
+std::ostream& ast_pp_util::define_expr(std::ostream& out, expr* n) {
+    ptr_buffer<expr> visit;
+    visit.push_back(n);
+    while (!visit.empty()) {
+        n = visit.back();
+        if (m_is_defined.is_marked(n)) {
+            visit.pop_back();
+            continue;
+        }
+        if (is_app(n)) {
+            bool all_visit = true;
+            for (auto* e : *to_app(n)) {
+                if (m_is_defined.is_marked(e))
+                    continue;
+                all_visit = false;
+                visit.push_back(e);
+            }
+            if (!all_visit)
+                continue;
+            m_defined.push_back(n);
+            m_is_defined.mark(n, true);
+            visit.pop_back();
+            if (to_app(n)->get_num_args() > 0) {
+                out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " (";            
+                out << mk_ismt2_func(to_app(n)->get_decl(), m);
+                for (auto* e : *to_app(n)) 
+                    display_expr_def(out << " ", e);
+                out << "))\n";
+            }
+            continue;
+        }
+        out << "(define-const $" << n->get_id() << " " << mk_pp(n->get_sort(), m) << " " << mk_pp(n, m) << ")\n";                
+        m_defined.push_back(n);
+        m_is_defined.mark(n, true);
+        visit.pop_back();        
+    }
+    return out;
 }

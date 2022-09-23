@@ -518,7 +518,7 @@ std::ostream& emonics::display(std::ostream& out, cell* c) const {
 
 bool emonics::invariant() const {
     TRACE("nla_solver_mons", display(tout););
-    // the varible index contains exactly the active monomials
+    // the variable index contains exactly the active monomials
     unsigned mons = 0;
     for (lpvar v = 0; v < m_var2index.size(); v++) {
         if (is_monic_var(v)) {
@@ -546,6 +546,7 @@ bool emonics::invariant() const {
                 }
                 CTRACE("nla_solver_mons", !found, tout << "not found v" << v << ": " << m << "\n";);
                 SASSERT(found);
+                (void)found;
                 c = c->m_next;
             }
             while (c != ht.m_head);

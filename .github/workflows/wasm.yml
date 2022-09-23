@@ -12,6 +12,9 @@ defaults:
 env:
   EM_VERSION: 3.1.15
 
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
 jobs:
   check:
     name: Check

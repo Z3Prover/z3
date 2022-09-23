@@ -55,7 +55,7 @@ namespace opt {
         {            
             updt_params(p);
         }
-        virtual ~sls_solver() {}
+        virtual ~sls_solver() = default;
 
         virtual void updt_params(params_ref & p) {
             m_solver->updt_params(p);

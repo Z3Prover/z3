@@ -61,8 +61,7 @@ namespace dd {
 
     solver::solver(reslimit& lim, pdd_manager& m) : 
         m(m),
-        m_limit(lim), 
-        m_conflict(nullptr)
+        m_limit(lim) 
     {}
 
     solver::~solver() {
@@ -179,9 +178,8 @@ namespace dd {
                 set[i]->set_index(j++);
             }
             ~scoped_update() {                
-                for (; i < sz; ++i) {
+                for (; i < sz; ++i) 
                     nextj();
-                }
                 set.shrink(j);
             }
         };
@@ -191,23 +189,24 @@ namespace dd {
             equation& target = *set[sr.i];
             bool changed_leading_term = false;
             bool simplified = true;
-            simplified = !done() && simplifier(target, changed_leading_term); 
+            simplified = !done() && simplifier(target, changed_leading_term);
+
             
-            if (simplified && is_trivial(target)) {
+            if (simplified && is_trivial(target)) 
                 retire(&target);
-            }
             else if (simplified && check_conflict(target)) {
                 // pushed to solved
             }
             else if (simplified && changed_leading_term) {
-                push_equation(to_simplify, target);
-                if (!m_var2level.empty()) {
+                if (&m_to_simplify == &set)
+                    sr.nextj();
+                else
+                    push_equation(to_simplify, target);
+                if (!m_var2level.empty()) 
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
-                }
             }
-            else {
+            else 
                 sr.nextj();
-            } 
         }
     }
 

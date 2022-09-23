@@ -1961,7 +1961,7 @@ namespace q {
                 for (unsigned i = 0; i < num_args; i++)
                     m_args[i] = m_registers[pc->m_iregs[i]]->get_root();
                 for (enode* n : euf::enode_class(r)) {
-                    if (n->get_decl() == f) {
+                    if (n->get_decl() == f && num_args == n->num_args()) {
                         unsigned i = 0;
                         for (; i < num_args; i++) {
                             if (n->get_arg(i)->get_root() != m_args[i])

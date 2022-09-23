@@ -265,7 +265,8 @@ namespace array {
         args1.push_back(e1);
         args2.push_back(e2);
         for (func_decl* f : funcs) {
-            expr* k = m.mk_app(f, e1, e2);
+            expr_ref k(m.mk_app(f, e1, e2), m);
+            rewrite(k);
             args1.push_back(k);
             args2.push_back(k);
         }
@@ -697,6 +698,23 @@ namespace array {
         TRACE("array", tout << "collecting shared vars...\n"; for (auto v : roots) tout << ctx.bpp(var2enode(v)) << "\n";);
         for (auto* n : to_unmark)
             n->unmark1();
+    }
+
+    /**
+    * \brief check that lambda expressions are beta redexes.
+    * The array solver is not a decision procedure for lambdas that do not occur in beta 
+    * redexes.
+    */
+    bool solver::check_lambdas() {
+        unsigned num_vars = get_num_vars();
+        for (unsigned i = 0; i < num_vars; i++) {
+            auto* n = var2enode(i);
+            if (a.is_as_array(n->get_expr()) || is_lambda(n->get_expr()))
+                for (euf::enode* p : euf::enode_parents(n))
+                    if (!ctx.is_beta_redex(p, n))
+                        return false;
+        }
+        return true;
     }
 
     bool solver::is_shared_arg(euf::enode* r) {

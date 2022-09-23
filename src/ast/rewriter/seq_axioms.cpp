@@ -509,6 +509,8 @@ namespace seq {
     }
 
     /**
+       i = last_indexof(t, s):
+
        !contains(t, s) => i = -1   
        |t| = 0 => |s| = 0 or i = -1
        |t| = 0 & |s| = 0 => i = 0
@@ -1258,9 +1260,12 @@ namespace seq {
         expr_ref emp = mk_eq_empty(a);
         expr_ref cnt = expr_ref(e, m);
         add_clause(cnt, ~pref);
-        add_clause(cnt, ~postf);
+        add_clause(cnt, emp, ~postf);
         add_clause(~emp, mk_eq_empty(tail));
         add_clause(emp, mk_eq(a, seq.str.mk_concat(head, tail)));
+        expr* s, *idx;
+        if (m_sk.is_tail(tail, s, idx))
+            add_clause(emp, mk_ge_e(mk_len(s), idx));
     }
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {

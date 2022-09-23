@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 11, 0, 0)
+    set_version(4, 11, 3, 0) # express a default build version or pick up ci build version
     
 # Z3 Project definition
 def init_project_def():
@@ -27,7 +27,7 @@ def init_project_def():
     add_lib('params', ['util'])
     add_lib('smt_params', ['params'], 'smt/params')
     add_lib('grobner', ['ast', 'dd', 'simplex'], 'math/grobner')    
-    add_lib('sat', ['util', 'dd', 'grobner'])    
+    add_lib('sat', ['params', 'util', 'dd', 'grobner'])    
     add_lib('nlsat', ['polynomial', 'sat'])
     add_lib('lp', ['util', 'nlsat', 'grobner', 'interval', 'smt_params'], 'math/lp')
     add_lib('rewriter', ['ast', 'polynomial', 'automata', 'params'], 'ast/rewriter')
@@ -38,7 +38,7 @@ def init_project_def():
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
-    add_lib('solver', ['model', 'tactic', 'proofs'])
+    add_lib('solver', ['params', 'model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
@@ -87,7 +87,7 @@ def init_project_def():
     API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_fpa.h', 'z3_spacer.h']
     add_lib('api', ['portfolio',  'realclosure', 'opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
-    add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'qe', 'arith_tactics'], 'cmd_context/extra_cmds')
+    add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'qe', 'euf', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_exe('shell', ['api', 'sat', 'extra_cmds', 'opt'], exe_name='z3')
     add_exe('test', ['polysat','api', 'fuzzing', 'simplex', 'sat_smt'], exe_name='test-z3', install=False)
     _libz3Component = add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll',

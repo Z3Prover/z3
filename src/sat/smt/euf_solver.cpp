@@ -49,7 +49,8 @@ namespace euf {
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_values(m)
+        m_values(m),
+        m_clause_visitor(m)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
@@ -347,8 +348,7 @@ namespace euf {
             if (m_relevancy.enabled())
                 m_relevancy.propagate();
             if (m_egraph.inconsistent()) {  
-                unsigned lvl = s().scope_lvl();
-                s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
+                set_conflict(conflict_constraint().to_index());
                 return true;
             }
             bool propagated1 = false;
@@ -488,7 +488,8 @@ namespace euf {
         };
         if (merge_shared_bools())
             cont = true;
-        for (auto* e : m_solvers) {
+        for (unsigned i = 0; i < m_solvers.size(); ++i) {
+            auto* e = m_solvers[i];
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
             if (e == m_qsolver)
@@ -519,7 +520,7 @@ namespace euf {
         bool merged = false;
         for (unsigned i = m_egraph.nodes().size(); i-- > 0; ) {
             euf::enode* n = m_egraph.nodes()[i];
-            if (!is_shared(n) || !m.is_bool(n->get_expr()))
+            if (!m.is_bool(n->get_expr()) || !is_shared(n))
                 continue;
             if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
                 m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
@@ -616,15 +617,17 @@ namespace euf {
             else 
                 lit = si.internalize(e, false);
             VERIFY(lit.var() == v);     
-            if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
+            if (!m_egraph.find(e) && !m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e) && !m.is_implies(e) && !m.is_xor(e)) {
                 ptr_buffer<euf::enode> args;
                 if (is_app(e))
                     for (expr* arg : *to_app(e))
                         args.push_back(e_internalize(arg));
+                internalize(e, true);
                 if (!m_egraph.find(e))
                     mk_enode(e, args.size(), args.data());
             }
-            attach_lit(lit, e);            
+            else 
+                attach_lit(lit, e);            
         }
         
         if (relevancy_enabled())
@@ -778,7 +781,7 @@ namespace euf {
         }
         for (auto const& thv : enode_th_vars(n)) {
             auto* th = m_id2solver.get(thv.get_id(), nullptr);
-            if (th && !th->is_fixed(thv.get_var(), val, explain))
+            if (th && th->is_fixed(thv.get_var(), val, explain))
                 return true;
         }
         return false;
@@ -863,7 +866,13 @@ namespace euf {
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
             expr* e = m_bool_var2expr[v];
-            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
+            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1);
+            euf::enode* n = m_egraph.find(e);
+            if (n) {
+                for (auto const& th : enode_th_vars(n))
+                    out << " " << m_id2solver[th.get_id()]->name();
+            }
+            out << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);
@@ -1067,10 +1076,7 @@ namespace euf {
         user_propagator::fresh_eh_t& fresh_eh) {
         m_user_propagator = alloc(user_solver::solver, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
-        for (unsigned i = m_scopes.size(); i-- > 0; )
-            m_user_propagator->push();
-        m_solvers.push_back(m_user_propagator);
-        m_id2solver.setx(m_user_propagator->get_id(), m_user_propagator, nullptr);
+        add_solver(m_user_propagator);
     }
 
     bool solver::watches_fixed(enode* n) const {

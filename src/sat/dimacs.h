@@ -53,18 +53,11 @@ namespace dimacs {
     };
 
     struct drat_record {
-        enum class tag_t { is_clause, is_node, is_decl, is_sort, is_bool_def, is_var, is_quantifier };
-        tag_t            m_tag{ tag_t::is_clause };
         // a clause populates m_lits and m_status
         // a node populates m_node_id, m_name, m_args
         // a bool def populates m_node_id and one element in m_args
         sat::literal_vector  m_lits;
         sat::status     m_status = sat::status::redundant();
-        unsigned        m_node_id = 0;
-        std::string     m_name;
-        unsigned_vector m_args;
-        std::string     m_pragma;
-        sat::proof_hint m_hint;
     };
 
     struct drat_pp {

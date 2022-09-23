@@ -403,6 +403,7 @@ public:
         MATCH_BINARY(is_map);
         MATCH_TERNARY(is_mapi);
         MATCH_TERNARY(is_foldl);
+        MATCH_QUATARY(is_foldli);
         MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
         MATCH_TERNARY(is_replace_re);
@@ -448,7 +449,7 @@ public:
             info() {}
 
             /*
-              Used for constructing either an invalid info that is only used to indicate uninitialzed entry, or valid but unknown info value.
+              Used for constructing either an invalid info that is only used to indicate uninitialized entry, or valid but unknown info value.
             */
             info(lbool is_known) : known(is_known) {}
 

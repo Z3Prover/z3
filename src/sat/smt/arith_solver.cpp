@@ -39,8 +39,6 @@ namespace arith {
         lp().settings().set_random_seed(get_config().m_random_seed);
         
         m_lia = alloc(lp::int_solver, *m_solver.get());
-        m_farkas2.m_ty = sat::hint_type::farkas_h;
-        m_farkas2.m_literals.resize(2);
     }
 
     solver::~solver() {
@@ -197,11 +195,12 @@ namespace arith {
         reset_evidence();
         m_core.push_back(lit1);
         TRACE("arith", tout << lit2 << " <- " << m_core << "\n";);
-        sat::proof_hint* ph = nullptr;
+        arith_proof_hint* ph = nullptr;
         if (ctx.use_drat()) {
-            ph = &m_farkas2;
-            m_farkas2.m_literals[0] = std::make_pair(rational(1), lit1);
-            m_farkas2.m_literals[1] = std::make_pair(rational(1), ~lit2);
+            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            m_arith_hint.add_lit(rational(1), lit1);
+            m_arith_hint.add_lit(rational(1), ~lit2);
+            ph = m_arith_hint.mk(ctx);
         }
         assign(lit2, m_core, m_eqs, ph); 
         ++m_stats.m_bounds_propagations;
@@ -262,7 +261,7 @@ namespace arith {
             TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
         }
 
         if (should_refine_bounds() && first)
@@ -378,7 +377,7 @@ namespace arith {
         reset_evidence();
         m_explanation.clear();
         lp().explain_implied_bound(be, m_bp);
-        assign(bound, m_core, m_eqs, explain(sat::hint_type::farkas_h, bound));
+        assign(bound, m_core, m_eqs, explain(hint_type::farkas_h, bound));
     }
 
 
@@ -386,20 +385,16 @@ namespace arith {
         TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
-        if (is_infeasible()) {
+        if (is_infeasible()) 
             return;
-        }
         lp::lconstraint_kind k = bound2constraint_kind(b.is_int(), b.get_bound_kind(), is_true);
-        if (k == lp::LT || k == lp::LE) {
+        if (k == lp::LT || k == lp::LE) 
             ++m_stats.m_assert_lower;
-        }
-        else {
+        else 
             ++m_stats.m_assert_upper;
-        }
         inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) {
+        if (propagate_eqs() && value.is_rational()) 
             propagate_eqs(b.tv(), ci, k, b, value.get_rational());
-        }
 #if 0
         if (propagation_mode() != BP_NONE)
             lp().mark_rows_for_bound_prop(b.tv().id());
@@ -617,8 +612,7 @@ namespace arith {
                        verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << *b << "\n";);
-            IF_VERBOSE(0, ctx.display(verbose_stream()));
-            IF_VERBOSE(0, verbose_stream() << mdl << "\n");
+            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream(), mdl, n));
             UNREACHABLE();
         }
     }
@@ -1119,16 +1113,23 @@ namespace arith {
     }
 
     bool solver::check_delayed_eqs() {
-        for (auto p : m_delayed_eqs) {
+        bool found_diseq = false;
+        if (m_delayed_eqs_qhead == m_delayed_eqs.size())
+            return true;
+        force_push();
+        ctx.push(value_trail<unsigned>(m_delayed_eqs_qhead));
+        for (; m_delayed_eqs_qhead < m_delayed_eqs.size(); ++ m_delayed_eqs_qhead) {
+            auto p = m_delayed_eqs[m_delayed_eqs_qhead];
             auto const& e = p.first;
             if (p.second)
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
                 mk_diseq_axiom(e);
-                return false;
+                found_diseq = true;
+                break;
             }
-        }
-        return true;
+        }        
+        return !found_diseq;
     }
 
     lbool solver::check_lia() {
@@ -1178,7 +1179,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(sat::hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
             lia_check = l_false;
             break;
         }
@@ -1200,7 +1201,7 @@ namespace arith {
         return lia_check;
     }
 
-    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, sat::proof_hint const* pma) {        
+    void solver::assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma) {        
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core)
@@ -1247,7 +1248,7 @@ namespace arith {
         for (literal& c : m_core)
             c.neg();
 
-        add_clause(m_core, explain(sat::hint_type::farkas_h));
+        add_clause(m_core, explain(hint_type::farkas_h));
     }
 
     bool solver::is_infeasible() const {

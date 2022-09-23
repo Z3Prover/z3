@@ -222,7 +222,7 @@ namespace smt {
 
         class apply {
         public:
-            virtual ~apply() {}
+            virtual ~apply() = default;
             virtual void operator()(theory_seq& th) = 0;
         };
 
@@ -328,6 +328,7 @@ namespace smt {
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
         scoped_vector<expr*>       m_lts;        // set of asserted str.<, str.<= literals
+        scoped_vector<expr*>       m_recfuns;    // set of recursive functions that are defined by unfolding seq argument (map/fold)
         bool                       m_lts_checked; 
         unsigned                   m_eq_id;
         th_union_find              m_find;
@@ -484,6 +485,7 @@ namespace smt {
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        bool solve_recfuns();
         bool check_ne_literals(unsigned idx, unsigned& num_undef_lits);
         bool propagate_ne2lit(unsigned idx);
         bool propagate_ne2eq(unsigned idx);

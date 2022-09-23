@@ -38,7 +38,7 @@ protected:
     virtual size_t obj_size() const { UNREACHABLE(); return sizeof(*this); }
     pdecl(unsigned id, unsigned num_params):m_id(id), m_num_params(num_params), m_ref_count(0) {}
     virtual void finalize(pdecl_manager & m) {}
-    virtual ~pdecl() {}
+    virtual ~pdecl() = default;
 public:
     virtual bool check_num_params(pdecl * other) const { return m_num_params == other->m_num_params; }
     unsigned get_num_params() const { return m_num_params; }
@@ -257,7 +257,7 @@ public:
 
 class new_datatype_eh {
 public:
-    virtual ~new_datatype_eh() {}
+    virtual ~new_datatype_eh() = default;
     virtual void operator()(sort * dt, pdecl* pd) = 0;
 };
 

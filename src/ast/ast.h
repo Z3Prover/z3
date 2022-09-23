@@ -531,6 +531,13 @@ public:
 #endif
 };
 
+#define MATCH_QUATARY(_MATCHER_)                                                                                \
+    bool _MATCHER_(expr const* n, expr*& a1, expr*& a2, expr *& a3, expr *& a4) const {                                \
+        if (_MATCHER_(n) && to_app(n)->get_num_args() == 4) {                                                   \
+            a1 = to_app(n)->get_arg(0); a2 = to_app(n)->get_arg(1); a3 = to_app(n)->get_arg(2); a4 = to_app(n)->get_arg(3); return true; } \
+        return false;                                                                                           \
+    }
+
 #define MATCH_TERNARY(_MATCHER_)                                                                                \
     bool _MATCHER_(expr const* n, expr*& a1, expr*& a2, expr *& a3) const {                                     \
         if (_MATCHER_(n) && to_app(n)->get_num_args() == 3) {                                                   \
@@ -1024,7 +1031,7 @@ protected:
     friend class ast_manager;
 
 public:
-    virtual ~decl_plugin() {}
+    virtual ~decl_plugin() = default;
     virtual void finalize() {}
 
 
@@ -2582,7 +2589,7 @@ class ast_mark {
     obj_mark<expr>                        m_expr_marks;
     obj_mark<decl, bit_vector, decl2uint> m_decl_marks;
 public:
-    virtual ~ast_mark() {}
+    virtual ~ast_mark() = default;
     bool is_marked(ast * n) const;
     virtual void mark(ast * n, bool flag);
     virtual void reset();

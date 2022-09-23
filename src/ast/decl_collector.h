@@ -23,6 +23,7 @@ Revision History:
 #include "util/lim_vector.h"
 #include "ast/ast.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 
 class decl_collector {
     ast_manager &         m_manager;
@@ -35,6 +36,7 @@ class decl_collector {
     family_id             m_basic_fid;
     family_id             m_dt_fid;
     datatype_util         m_dt_util;
+    array_util            m_ar_util;
     family_id             m_rec_fid;
     ptr_vector<ast>       m_todo;
 

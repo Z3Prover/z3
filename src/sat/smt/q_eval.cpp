@@ -47,21 +47,21 @@ namespace q {
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
             lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
+            TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is " << cmp << "\n";);
             switch (cmp) {
-            case l_false:
+            case l_false:                
                 m_indirect_nodes.shrink(lim);
                 if (!l.sign)
                     break;
                 c.m_watch = i;
                 return l_true;
-            case l_true:
+            case l_true:   
                 m_indirect_nodes.shrink(lim);
                 if (l.sign)
-                    break;
+                    break;                
                 c.m_watch = i;
                 return l_true;
             case l_undef:
-                TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is undef\n";);
                 if (idx != UINT_MAX) {
                     idx = UINT_MAX;
                     return l_undef;

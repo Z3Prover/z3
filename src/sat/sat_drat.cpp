@@ -52,8 +52,7 @@ namespace sat {
     void drat::updt_config() {            
         m_check_unsat = s.get_config().m_drat_check_unsat;
         m_check_sat   = s.get_config().m_drat_check_sat;
-        m_trim        = s.get_config().m_drup_trim;       
-        m_check       = m_check_unsat || m_check_sat || m_trim;
+        m_check       = m_check_unsat || m_check_sat;
         m_activity    = s.get_config().m_drat_activity;
     }
 
@@ -130,14 +129,6 @@ namespace sat {
             }
         }
         buffer[len++] = '0';
-        if (st.get_hint()) {
-            buffer[len++] = ' ';
-            buffer[len++] = 'p';
-            buffer[len++] = ' ';
-            auto* ps = st.get_hint();
-            for (auto ch : ps->to_string())
-                buffer[len++] = ch;
-        }
         buffer[len++] = '\n';
         m_out->write(buffer, len);
     }
@@ -210,8 +201,6 @@ namespace sat {
         if (st.is_redundant() && st.is_sat()) 
             verify(1, &l);
 
-        if (m_trim)
-            m_proof.push_back({mk_clause(1, &l, st.is_redundant()), st});
 
         if (st.is_deleted()) 
             return;
@@ -230,8 +219,7 @@ namespace sat {
 
         IF_VERBOSE(20, trace(verbose_stream(), 2, lits, st););
         if (st.is_deleted()) {
-            if (m_trim)
-                m_proof.push_back({mk_clause(2, lits, true), st});
+            ;
         }
         else {
             if (st.is_redundant() && st.is_sat()) 
@@ -253,31 +241,6 @@ namespace sat {
             else if (value(l2) == l_false) 
                 assign_propagate(l1, &c);            
         }
-    }
-
-    void drat::bool_def(bool_var v, unsigned n) {
-        if (m_out)
-            (*m_out) << "b " << v << " " << n << " 0\n";
-    }
-
-    void drat::def_begin(char id, unsigned n, std::string const& name) {
-        if (m_out) 
-            (*m_out) << id << " " << n << " " << name;
-    }
-
-    void drat::def_add_arg(unsigned arg) {
-        if (m_out)
-            (*m_out) << " " << arg;
-    }
-
-    void drat::def_end() {
-        if (m_out)
-            (*m_out) << " 0\n";
-    }
-
-    void drat::log_adhoc(std::function<void(std::ostream&)>& fn) {
-        if (m_out)
-            fn(*m_out);
     }
 
     void drat::append(clause& c, status st) {
@@ -452,6 +415,8 @@ namespace sat {
 
     void drat::verify(unsigned n, literal const* c) {
         if (!m_check_unsat) 
+            return;
+        if (m_inconsistent)
             return;
         for (unsigned i = 0; i < n; ++i) 
             declare(c[i]);
@@ -683,6 +648,7 @@ namespace sat {
             verify(0, nullptr);
             SASSERT(m_inconsistent);
         }
+        if (m_clause_eh) m_clause_eh->on_clause(0, nullptr, status::redundant());
     }
     void drat::add(literal l, bool learned) {
         ++m_stats.m_num_add;
@@ -690,6 +656,8 @@ namespace sat {
         if (m_out) dump(1, &l, st);
         if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
+        TRACE("sat", tout << "add " << m_clause_eh << "\n");
+        if (m_clause_eh) m_clause_eh->on_clause(1, &l, st);
     }
     void drat::add(literal l1, literal l2, status st) {
         if (st.is_deleted())
@@ -700,6 +668,7 @@ namespace sat {
         if (m_out) dump(2, ls, st);
         if (m_bout) bdump(2, ls, st);
         if (m_check) append(l1, l2, st);
+        if (m_clause_eh) m_clause_eh->on_clause(2, ls, st);
     }
     void drat::add(clause& c, status st) {
         if (st.is_deleted())
@@ -709,6 +678,7 @@ namespace sat {
         if (m_out) dump(c.size(), c.begin(), st);
         if (m_bout) bdump(c.size(), c.begin(), st);
         if (m_check) append(mk_clause(c), st);
+        if (m_clause_eh) m_clause_eh->on_clause(c.size(), c.begin(), st);
     }
     
     void drat::add(literal_vector const& lits, status st) {
@@ -722,13 +692,16 @@ namespace sat {
             ++m_stats.m_num_add;
         if (m_check) {
             switch (sz) {
-            case 0: add(); break;
+            case 0: if (st.is_input()) m_inconsistent = true; else add(); break;
             case 1: append(lits[0], st); break;
             default: append(mk_clause(sz, lits, st.is_redundant()), st); break;
             }
         }
         if (m_out)
             dump(sz, lits, st);
+
+        if (m_clause_eh)
+            m_clause_eh->on_clause(sz, lits, st);
     }
 
     void drat::add(literal_vector const& c) {
@@ -748,6 +721,8 @@ namespace sat {
             }
             }
         }
+        if (m_clause_eh)
+            m_clause_eh->on_clause(c.size(), c.data(), status::redundant());
     }
 
     void drat::del(literal l) {
@@ -755,6 +730,7 @@ namespace sat {
         if (m_out) dump(1, &l, status::deleted());
         if (m_bout) bdump(1, &l, status::deleted());
         if (m_check) append(l, status::deleted());
+        if (m_clause_eh) m_clause_eh->on_clause(1, &l, status::deleted());
     }
 
     void drat::del(literal l1, literal l2) {
@@ -763,6 +739,7 @@ namespace sat {
         if (m_out) dump(2, ls, status::deleted());
         if (m_bout) bdump(2, ls, status::deleted());
         if (m_check) append(l1, l2, status::deleted());
+        if (m_clause_eh) m_clause_eh->on_clause(2, ls, status::deleted());
     }
 
     void drat::del(clause& c) {
@@ -780,7 +757,8 @@ namespace sat {
         ++m_stats.m_num_del;
         if (m_out) dump(c.size(), c.begin(), status::deleted());
         if (m_bout) bdump(c.size(), c.begin(), status::deleted());
-        if (m_check) append(mk_clause(c), status::deleted());        
+        if (m_check) append(mk_clause(c), status::deleted());     
+        if (m_clause_eh) m_clause_eh->on_clause(c.size(), c.begin(), status::deleted());   
     }
 
     clause& drat::mk_clause(clause& c) {
@@ -796,22 +774,8 @@ namespace sat {
         if (m_out) dump(c.size(), c.begin(), status::deleted());
         if (m_bout) bdump(c.size(), c.begin(), status::deleted());
         if (m_check) append(mk_clause(c.size(), c.begin(), true), status::deleted());        
+        if (m_clause_eh) m_clause_eh->on_clause(c.size(), c.begin(), status::deleted());
     }
-
-    //
-    // placeholder for trim function.
-    // 1. trail contains justification for the empty clause.
-    // 2. backward pass to prune.
-    // 
-    svector<std::pair<clause&, status>> drat::trim() {
-        SASSERT(m_units.empty());
-        svector<std::pair<clause&, status>> proof;
-        for (auto const& [c, st] : m_proof)
-            if (!st.is_deleted())
-                proof.push_back({c,st});
-        return proof;
-    }
-
 
     void drat::check_model(model const& m) {
     }
@@ -844,196 +808,4 @@ namespace sat {
         return out;
     }
 
-
-    std::string proof_hint::to_string() const {
-        std::ostringstream ous;
-        switch (m_ty) {
-        case hint_type::null_h:
-            return std::string();
-        case hint_type::farkas_h:
-            ous << "farkas ";
-            break;
-        case hint_type::bound_h:
-            ous << "bound ";
-            break;
-        case hint_type::implied_eq_h:
-            ous << "implied_eq ";
-            break;
-        default:
-            UNREACHABLE();
-            break;
-        }
-        for (auto const& [q, l] : m_literals)
-            ous << rational(q) << " * " << l << " ";
-        for (auto const& [a, b] : m_eqs)
-            ous << " = " << a << " " << b << " ";
-        for (auto const& [a, b] : m_diseqs)
-            ous << " != " << a << " " << b << " ";
-        return ous.str();
-    }
-
-    void proof_hint::from_string(char const* s) {
-        proof_hint& h = *this;
-        h.reset();
-        h.m_ty = hint_type::null_h;
-        if (!s)
-            return;
-        auto ws = [&]() {
-            while (*s == ' ' || *s == '\n' || *s == '\t')
-                ++s;
-        };
-
-        auto parse_type = [&]() {
-            if (0 == strncmp(s, "farkas", 6)) {
-                h.m_ty = hint_type::farkas_h;
-                s += 6;
-                return true;
-            }
-            if (0 == strncmp(s, "bound", 5)) {
-                h.m_ty = hint_type::bound_h;
-                s += 5;
-                return true;
-            }
-            if (0 == strncmp(s, "implied_eq", 10)) {
-                h.m_ty = hint_type::implied_eq_h;
-                s += 10;
-                return true;
-            }
-            return false;
-        };
-
-        sbuffer<char> buff;
-        auto parse_coeff = [&]() {
-            buff.reset();
-            while (*s && *s != ' ') {
-                buff.push_back(*s);
-                ++s;
-            }
-            buff.push_back(0);
-            return rational(buff.data());
-        };
-
-        auto parse_literal = [&]() {
-            rational r = parse_coeff();
-            if (!r.is_int())
-                return sat::null_literal;
-            if (r < 0)
-                return sat::literal((-r).get_unsigned(), true);
-            return sat::literal(r.get_unsigned(), false);
-        };
-        auto parse_coeff_literal = [&]() {
-            if (*s == '=') {
-                ++s;
-                ws();
-                unsigned a = parse_coeff().get_unsigned();
-                ws();
-                unsigned b = parse_coeff().get_unsigned();
-                h.m_eqs.push_back(std::make_pair(a, b));
-                return true;
-            }
-            if (*s == '!' && *(s + 1) == '=') {
-                s += 2;
-                ws();
-                unsigned a = parse_coeff().get_unsigned();
-                ws();
-                unsigned b = parse_coeff().get_unsigned();
-                h.m_diseqs.push_back(std::make_pair(a, b));
-                return true;
-            }
-            rational coeff = parse_coeff();
-            ws();
-            if (*s == '*') {
-                ++s;
-                ws();
-                sat::literal lit = parse_literal();
-                h.m_literals.push_back(std::make_pair(coeff, lit));
-                return true;
-            }
-            return false;
-        };
-
-        ws();
-        if (!parse_type())
-            return;
-        ws();
-        while (*s) {
-            if (!parse_coeff_literal())
-                return;
-            ws();            
-        }
-    }
-
-#if 0
-    // debugging code
-    bool drat::is_clause(clause& c, literal l1, literal l2, literal l3, drat::status st1, drat::status st2) {
-        //if (st1 != st2) return false;
-        if (c.size() != 3) return false;
-        if (l1 == c[0]) {
-            if (l2 == c[1] && l3 == c[2]) return true;
-            if (l2 == c[2] && l3 == c[1]) return true;
-        }
-        if (l2 == c[0]) {
-            if (l1 == c[1] && l3 == c[2]) return true;
-            if (l1 == c[2] && l3 == c[1]) return true;
-        }
-        if (l3 == c[0]) {
-            if (l1 == c[1] && l2 == c[2]) return true;
-            if (l1 == c[2] && l2 == c[1]) return true;
-        }
-        return false;
-    }
-#endif
-
-
-#if 0
-        if (!m_inconsistent) {
-            literal_vector lits(n, c);
-            IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
-            for (unsigned v = 0; v < m_assignment.size(); ++v) {
-                lbool val = m_assignment[v];
-                if (val != l_undef) {
-                    IF_VERBOSE(0, verbose_stream() << literal(v, false) << " |-> " << val << "\n");
-                }
-            }
-            for (clause* cp : s.m_clauses) {
-                clause& cl = *cp;
-                bool found = false;
-                for (literal l : cl) {
-                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
-                }
-            }
-            for (clause* cp : s.m_learned) {
-                clause& cl = *cp;
-                bool found = false;
-                for (literal l : cl) {
-                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
-                }
-            }
-            svector<sat::solver::bin_clause> bin;
-            s.collect_bin_clauses(bin, true);
-            for (auto& b : bin) {
-                bool found = false;
-                if (m_assignment[b.first.var()] != (b.first.sign() ? l_true : l_false)) found = true;
-                if (m_assignment[b.second.var()] != (b.second.sign() ? l_true : l_false)) found = true;
-                if (!found) {
-                    IF_VERBOSE(0, verbose_stream() << "Bin clause is false under assignment: " << b.first << " " << b.second << "\n");
-                }
-            }
-            IF_VERBOSE(0, s.display(verbose_stream()));
-            exit(0);
-        }
-#endif
-    
 }

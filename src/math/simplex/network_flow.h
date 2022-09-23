@@ -87,7 +87,7 @@ namespace smt {
                   m_states(states),
                   m_enter_id(enter_id) {
             }
-            virtual ~pivot_rule_impl() {}
+            virtual ~pivot_rule_impl() = default;
             virtual bool choose_entering_edge() = 0;
             virtual pivot_rule rule() const = 0;
         };

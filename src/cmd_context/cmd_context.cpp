@@ -561,6 +561,7 @@ cmd_context::~cmd_context() {
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
+    m_proof_cmds = nullptr;
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;
@@ -1054,7 +1055,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
     if (f) 
         return f;
     builtin_decl d;
-    if (domain && m_builtin_decls.find(s, d)) {
+    if ((arity == 0 || domain) && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
         // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.

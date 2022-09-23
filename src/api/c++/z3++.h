@@ -23,7 +23,6 @@ Notes:
 #include<cassert>
 #include<ostream>
 #include<string>
-#include<sstream>
 #include<memory>
 #include<vector>
 #include<z3.h>
@@ -88,7 +87,7 @@ namespace z3 {
     class exception : public std::exception {
         std::string m_msg;
     public:
-        virtual ~exception() throw() {}
+        virtual ~exception() throw() = default;
         exception(char const * msg):m_msg(msg) {}
         char const * msg() const { return m_msg.c_str(); }
         char const * what() const throw() { return m_msg.c_str(); }
@@ -4313,6 +4312,16 @@ namespace z3 {
             expr conseq = ctx().bool_val(false);
             array<Z3_ast> _fixed(fixed);
             Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
+        }
+
+        void conflict(expr_vector const& fixed, expr_vector const& lhs, expr_vector const& rhs) {
+            assert(cb);
+            assert(lhs.size() == rhs.size());
+            expr conseq = ctx().bool_val(false);
+            array<Z3_ast> _fixed(fixed);
+            array<Z3_ast> _lhs(lhs);
+            array<Z3_ast> _rhs(rhs);
+            Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
 
         void propagate(expr_vector const& fixed, expr const& conseq) {

@@ -8,7 +8,7 @@ import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
  *
  * **NOTE**: The set of solutions might be infinite.
  * Always ensure to limit amount generated, either by knowing that the
- * solution space is constrainted, or by taking only a specified
+ * solution space is constrained, or by taking only a specified
  * amount of solutions
  * ```typescript
  * import { sliceAsync } from 'iter-tools';
@@ -46,7 +46,7 @@ async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): 
           .filter(decl => decl.arity() === 0)
           .map(decl => {
             const term = decl.call();
-            // TODO(ritave): Assert not an array / uinterpeted sort
+            // TODO(ritave): Assert not an array / uninterpreted sort
             const value = model.eval(term, true);
             return term.neq(value);
           }),
@@ -107,6 +107,16 @@ describe('high-level', () => {
     const conjecture = Implies(x.eq(y), g.call(x).eq(g.call(y)));
     solver.add(Not(conjecture));
     expect(await solver.check()).toStrictEqual('unsat');
+  });
+
+  it('test loading a solver state from a string', async () => {
+    const { Solver, Not, Int } = api.Context('main');
+    const solver = new Solver();
+    solver.fromString("(declare-const x Int) (assert (and (< x 2) (> x 0)))")
+    expect(await solver.check()).toStrictEqual('sat')    
+    const x = Int.const('x')
+    solver.add(Not(x.eq(1)))
+    expect(await solver.check()).toStrictEqual('unsat')
   });
 
   it('disproves x = y implies g(g(x)) = g(y)', async () => {

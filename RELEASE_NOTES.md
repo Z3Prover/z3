@@ -10,9 +10,48 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.11.2
+==============
+- add error handling to fromString method in JavaScript
+- fix regression in default parameters for CDCL, thanks to Nuno Lopes
+- fix model evaluation bugs for as-array nested under functions (data-type constructors)
+- add rewrite simplifications for datatypes with a single constructor
+- add "Global Guidance" capability to SPACER, thanks to Arie Gurfinkel and Hari Gorvind.
+  The commit logs related to Global Guidance contain detailed information.
+- change proof logging format for the new core to use SMTLIB commands.
+  The format was so far an extension of DRAT used by SAT solvers, but not well compatible
+  with SMT format that is extensible. The resulting format is a mild extension of SMTLIB with
+  three extra commands assume, learn, del. They track input clauses, generated clauses and deleted clauses.
+  They are optionally augmented by proof hints. Two proof hints are used in the current version: "rup" and "farkas".
+  "rup" is used whent the generated clause can be justified by reverse unit propagation. "farkas" is used when
+  the clause can be justified by a combination of Farkas cutting planes. There is a built-in proof checker for the
+  format. Quantifier instantiations are also tracked as proof hints.
+  Other proof hints are to be added as the feature set is tested and developed. The fallback, buit-in,
+  self-checker uses z3 to check that the generated clause is a consequence. Note that this is generally
+  insufficient as generated clauses are in principle required to only be satisfiability preserving.
+  Proof checking and tranformation operations is overall open ended.
+  The log for the first commit introducing this change contains further information on the format.
+- fix to re-entrancy bug in user propagator (thanks to Clemens Eisenhofer).
+- handle _toExpr for quantified formulas in JS bindings
+
+Version 4.11.1
+==============
+- skipped
+
 Version 4.11.0
 ==============
 - remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
+- z3++.h no longer includes `<sstream>` as it did not use it.
+- add solver.axioms2files
+  - prints negated theory axioms to files. Each file should be unsat
+- add solver.lemmas2console
+  - prints lemmas to the console.
+- remove option smt.arith.dump_lemmas. It is replaced by solver.axioms2files
+- add option smt.bv.reduce_size. 
+  - it allows to apply incremental pre-processing of bit-vectors by identifying ranges that are known to be constant.
+    This rewrite is beneficial, for instance, when bit-vectors are constrained to have many high-level bits set to 0.
+- add feature to model-based projection for arithmetic to handle integer division.
+- add fromString method to JavaScript solver object.
 
 Version 4.10.2
 ==============

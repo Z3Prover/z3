@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.11.0'
+  ReleaseVersion: '4.11.3'
 
 stages:
 
@@ -56,8 +56,6 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
       
-
-
   - job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
@@ -87,11 +85,10 @@ stages:
         artifactName: 'UbuntuBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-latest"
+      vmImage: "ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
@@ -112,6 +109,7 @@ stages:
         eval `opam config env` 
         cd doc
         python mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        python mk_params_doc.py 
         mkdir api/html/ml
         ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
         cd ..
@@ -167,6 +165,7 @@ stages:
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
+
 
 # Creates Z3 packages in various formats
 - stage: Package
@@ -485,7 +484,7 @@ stages:
         path: $(Agent.TempDirectory)	
     - task: GitHubRelease@0
       inputs:
-        gitHubConnection: Z3GitHub
+        gitHubConnection: Z3Prover
         repositoryName: $(Build.Repository.Name)
         action: 'create'
         target: '$(Build.SourceVersion)'
@@ -498,7 +497,7 @@ stages:
         isDraft: true
         isPreRelease: true
 
-  # Enable on release (after fixing Nuget key)
+     
   - job: NuGetPublish
     condition: eq(1,0)
     displayName: "Publish to NuGet.org"
@@ -518,7 +517,6 @@ stages:
         nuGetFeedType: External
         publishFeedCredentials: $(NugetZ3)
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
-        
 
   # Enable on release:
   - job: PyPIPublish

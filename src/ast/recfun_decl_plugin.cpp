@@ -291,7 +291,11 @@ namespace recfun {
                     expr * e = stack.back();
                     stack.pop_back();                    
 
-                    if (m.is_ite(e)) {
+                    expr* cond = nullptr, *th = nullptr, *el = nullptr; 
+                    if (m.is_ite(e, cond, th, el) && contains_def(u, cond)) {
+                        // skip
+                    }
+                    else if (m.is_ite(e)) {
                         // need to do a case split on `e`, forking the search space
                         b.to_split = st.cons_ite(to_app(e), b.to_split);
                     } 
@@ -338,9 +342,8 @@ namespace recfun {
                 
                 // substitute, to get rid of `ite` terms
                 expr_ref case_rhs = subst(rhs);
-                for (unsigned i = 0; i < conditions.size(); ++i) {
+                for (unsigned i = 0; i < conditions.size(); ++i) 
                     conditions[i] = subst(conditions.get(i));
-                }
                 
                 // yield new case
                 bool is_imm = is_i(case_rhs);
@@ -471,9 +474,8 @@ namespace recfun {
         
         void plugin::set_definition(replace& r, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
             u().set_definition(r, d, is_macro, n_vars, vars, rhs);
-            for (case_def & c : d.get_def()->get_cases()) {
+            for (case_def & c : d.get_def()->get_cases()) 
                 m_case_defs.insert(c.get_decl(), &c);
-            }
         }
 
         bool plugin::has_defs() const {

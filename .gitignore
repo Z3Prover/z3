@@ -92,3 +92,4 @@ CMakeSettings.json
 # Editor temp files
 *.swp
 .DS_Store
+dbg/**

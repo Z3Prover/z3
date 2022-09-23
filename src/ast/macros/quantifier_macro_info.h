@@ -39,7 +39,7 @@ protected:
     void collect_macro_candidates(quantifier* q);
 public:
     quantifier_macro_info(ast_manager& m, quantifier* q);
-    virtual ~quantifier_macro_info() {}
+    virtual ~quantifier_macro_info() = default;
     bool is_auf() const { return m_is_auf; }
     quantifier* get_flat_q() const { return m_flat_q; }
     bool has_cond_macros() const { return !m_cond_macros.empty(); }

@@ -26,7 +26,7 @@ Revision History:
 
 class trail {
 public:
-    virtual ~trail() {}
+    virtual ~trail() = default;
     virtual void undo() = 0;
 };
 

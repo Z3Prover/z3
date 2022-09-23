@@ -107,7 +107,7 @@ namespace datalog {
     public:
         lazy_table_ref(lazy_table_plugin& p, table_signature const& sig): 
             m_plugin(p), m_signature(sig), m_ref(0) {}
-        virtual ~lazy_table_ref() {}
+        virtual ~lazy_table_ref() = default;
         void inc_ref() { ++m_ref; }
         void dec_ref() { --m_ref; if (0 == m_ref) dealloc(this);  }
         void release_table() { m_table.release(); }

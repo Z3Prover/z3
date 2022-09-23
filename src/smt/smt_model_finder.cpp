@@ -1157,7 +1157,7 @@ namespace smt {
             ast_manager& m;
         public:
             qinfo(ast_manager& m) :m(m) {}
-            virtual ~qinfo() {}
+            virtual ~qinfo() = default;
             virtual char const* get_kind() const = 0;
             virtual bool is_equal(qinfo const* qi) const = 0;
             virtual void display(std::ostream& out) const { out << "[" << get_kind() << "]"; }

@@ -23,7 +23,7 @@
 
 class value_generator_core {
  public:        
-    virtual ~value_generator_core() {}
+    virtual ~value_generator_core() = default;
     virtual family_id get_fid() const = 0;
     virtual expr_ref get_value(sort* s, unsigned index) = 0;
 };

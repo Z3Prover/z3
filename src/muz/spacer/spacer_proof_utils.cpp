@@ -284,6 +284,11 @@ namespace spacer {
                                    ptr_buffer<proof> const &parents,
                                    unsigned num_params,
                                    parameter const *params) {
+        if(num_params != parents.size() + 1) {
+            //TODO: fix bug
+            TRACE("spacer.fkab", tout << "UNEXPECTED INPUT TO FUNCTION. Bailing out\n";);
+            return proof_ref(m);
+        }
         SASSERT(num_params == parents.size() + 1 /* one param is missing */);
         arith_util a(m);
         th_rewriter rw(m);

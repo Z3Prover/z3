@@ -24,6 +24,7 @@ BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
+ASSEMBLY_VERSION=None
 DOTNET_CORE_ENABLED=True
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
@@ -62,6 +63,7 @@ def display_help():
     print("  -s, --silent                  do not print verbose messages.")
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --assembly-version            assembly version for dll")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
@@ -74,7 +76,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
+    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, PYTHON_ENABLED, X86ONLY, X64ONLY
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -83,6 +85,7 @@ def parse_options():
                                                                    'nojava',
                                                                    'nodotnet',
                                                                    'dotnet-key=',
+                                                                   'assembly-version=',
                                                                    'zip',
                                                                    'githash',
                                                                    'nopython',
@@ -102,6 +105,8 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_CORE_ENABLED = False
+        elif opt == '--assembly-version':
+            ASSEMBLY_VERSION = arg
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
@@ -131,8 +136,10 @@ def mk_build_dir(path, x64):
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnet')
-            if not DOTNET_KEY_FILE is None:
+            if DOTNET_KEY_FILE is not None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
+        if ASSEMBLY_VERSION is not None:
+            opts.append('--assembly-version=' + ASSEMBLY_VERSION)
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
@@ -196,6 +203,7 @@ def mk_z3s():
 
 def get_z3_name(x64):
     major, minor, build, revision = get_version()
+    print("Assembly version:", major, minor, build, revision)
     if x64:
         platform = "x64"
     else:
@@ -299,9 +307,10 @@ def cp_licenses():
     cp_license(False)
 
 def init_flags():
-    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED
+    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED, ASSEMBLY_VERSION
     mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
+    mk_util.ASSEMBLY_VERSION = ASSEMBLY_VERSION
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
     mk_util.ALWAYS_DYNAMIC_BASE = True

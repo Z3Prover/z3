@@ -153,7 +153,7 @@ namespace api {
         flush_objects();
         for (auto& kv : m_allocated_objects) {
             api::object* val = kv.m_value;
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
+            DEBUG_CODE(if (!m_concurrent_dec_ref) warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
         }
         if (m_params.owns_manager())

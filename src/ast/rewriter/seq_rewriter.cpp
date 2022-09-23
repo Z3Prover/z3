@@ -2068,7 +2068,7 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
  */
 br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
     if (str().is_empty(seqA)) {
-        result = str().mk_empty(get_array_range(f->get_sort()));
+        result = str().mk_empty(str().mk_seq(get_array_range(f->get_sort())));
         return BR_DONE;
     }
     expr* a, *s1, *s2;
@@ -2087,7 +2087,7 @@ br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
 
 br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& result) {
     if (str().is_empty(seqA)) {
-        result = str().mk_empty(get_array_range(f->get_sort()));
+        result = str().mk_empty(str().mk_seq(get_array_range(f->get_sort())));
         return BR_DONE;
     }
     expr* a, *s1, *s2;

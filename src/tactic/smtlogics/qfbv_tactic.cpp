@@ -90,9 +90,6 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     params_ref solver_p;
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
 
-    params_ref big_aig_p;
-    big_aig_p.set_bool("aig_per_assertion", false);
-
     tactic* preamble_st = mk_qfbv_preamble(m, p);
     tactic * st = main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
@@ -107,10 +104,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
                                                           and_then(using_params(and_then(mk_simplify_tactic(m),
                                                                                          mk_solve_eqs_tactic(m)),
                                                                                 local_ctx_p),
-                                                                   if_no_proofs(cond(mk_produce_unsat_cores_probe(),
-                                                                                     mk_aig_tactic(),
-                                                                                     using_params(mk_aig_tactic(),
-                                                                                                  big_aig_p))))),
+                                                                   if_no_proofs(mk_aig_tactic()))),
                                                      sat),
                                             smt))));
 

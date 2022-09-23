@@ -105,6 +105,19 @@ Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
 file for details. It is recommended for most build tasks, 
 except for building OCaml bindings.
 
+## Building Z3 using vcpkg
+
+vcpkg is a full platform package manager, you can easily install libzmq with vcpkg.
+ 
+Execute:
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git
+./bootstrap-vcpkg.bat # For powershell
+./bootstrap-vcpkg.sh # For bash
+./vcpkg install z3
+```
+
 ## Dependencies
 Z3 itself has few dependencies. It uses C++ runtime libraries, including pthreads for multi-threading.
 It is optionally possible to use GMP for multi-precision integers, but Z3 contains its own self-contained 

@@ -29,6 +29,16 @@ namespace euf {
 
 namespace q {
 
+    struct q_proof_hint : public euf::th_proof_hint {
+        unsigned     m_num_bindings;
+        expr*        m_bindings[0];
+        q_proof_hint() {}
+        static size_t get_obj_size(unsigned num_bindings) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*); }
+        static q_proof_hint* mk(euf::solver& s, unsigned n, euf::enode* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, unsigned n, expr* const* bindings);
+        expr* get_hint(euf::solver& s) const override;
+    };
+
     class solver : public euf::th_euf_solver {
 
         typedef obj_map<quantifier, quantifier*> flat_table;
@@ -87,6 +97,10 @@ namespace q {
         ast_manager& get_manager() { return m; }
         sat::literal_vector const& universal() const { return m_universal; }
         quantifier* flatten(quantifier* q);
+
+        void log_instantiation(sat::literal q, sat::literal i, justification* j = nullptr) { sat::literal lits[2] = { q, i }; log_instantiation(2, lits, j); }
+        void log_instantiation(sat::literal_vector const& lits, justification* j) { log_instantiation(lits.size(), lits.data(), j); }
+        void log_instantiation(unsigned n, sat::literal const* lits, justification* j);
 
     };
 }

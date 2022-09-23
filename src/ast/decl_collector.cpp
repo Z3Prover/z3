@@ -48,6 +48,7 @@ bool decl_collector::is_bool(sort * s) {
 }
 
 void decl_collector::visit_func(func_decl * n) {
+    func_decl* g;
     if (!m_visited.is_marked(n)) {
         family_id fid = n->get_family_id();
         if (fid == null_family_id) 
@@ -57,6 +58,8 @@ void decl_collector::visit_func(func_decl * n) {
             recfun::util u(m());
             m_todo.push_back(u.get_def(n).get_rhs());
         }
+        else if (m_ar_util.is_as_array(n, g)) 
+            m_todo.push_back(g);
         m_visited.mark(n, true);
         m_trail.push_back(n);
     }
@@ -65,7 +68,8 @@ void decl_collector::visit_func(func_decl * n) {
 decl_collector::decl_collector(ast_manager & m):
     m_manager(m),
     m_trail(m),
-    m_dt_util(m) {
+    m_dt_util(m),
+    m_ar_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
     m_dt_fid = m_dt_util.get_family_id();
     recfun::util rec_util(m);
@@ -156,8 +160,15 @@ void decl_collector::collect_deps(sort* s, sort_set& set) {
         for (unsigned i = 0; i < num_cnstr; i++) {
             func_decl * cnstr = m_dt_util.get_datatype_constructors(s)->get(i);
             set.insert(cnstr->get_range());
-            for (unsigned j = 0; j < cnstr->get_arity(); ++j) 
-                set.insert(cnstr->get_domain(j));
+            for (unsigned j = 0; j < cnstr->get_arity(); ++j) {
+                sort* n = cnstr->get_domain(j);
+                set.insert(n);
+                for (unsigned i = n->get_num_parameters(); i-- > 0; ) {
+                    parameter const& p = n->get_parameter(i);
+                    if (p.is_ast() && is_sort(p.get_ast()))
+                        set.insert(to_sort(p.get_ast()));
+                }
+            }
         }
     }
 

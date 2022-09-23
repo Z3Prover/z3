@@ -39,7 +39,7 @@ namespace subpaving {
 
 class context {
 public:
-    virtual ~context() {}
+    virtual ~context() = default;
 
     virtual unsynch_mpq_manager & qm() const = 0;
 

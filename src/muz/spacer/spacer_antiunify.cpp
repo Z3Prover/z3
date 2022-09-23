@@ -155,6 +155,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
             m_pinned.push_back(u);
             m_cache.insert(n1, n2, u);
         }
+        m_todo.pop_back();
     }
 
     expr *r;

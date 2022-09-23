@@ -29,7 +29,7 @@ public:
 
 class name_exprs {
 public:
-    virtual ~name_exprs() {}
+    virtual ~name_exprs() = default;
     virtual void operator()(expr * n,                          // [IN] expression that contain the sub-expressions to be named
                             expr_ref_vector & new_defs,        // [OUT] new definitions
                             proof_ref_vector & new_def_proofs, // [OUT] proofs of the new definitions 

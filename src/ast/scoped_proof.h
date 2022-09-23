@@ -29,8 +29,8 @@ public:
         m.toggle_proof_mode(mode);
     }
     ~scoped_proof_mode() {
-            m.toggle_proof_mode(m_mode);            
-        }
+        m.toggle_proof_mode(m_mode);            
+    }
     
 };
 

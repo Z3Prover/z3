@@ -315,7 +315,7 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
     if (m.is_false(prop.m_conseq)) {
         js = ctx.mk_justification(
             ext_theory_conflict_justification(
-                get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
+                get_id(), ctx, m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
         ctx.set_conflict(js);
     }
     else {

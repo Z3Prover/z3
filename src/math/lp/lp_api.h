@@ -49,7 +49,7 @@ namespace lp_api {
             m_constraints[1] = ct;
         }
 
-        virtual ~bound() {}
+        virtual ~bound() = default;
 
         theory_var get_var() const { return m_var; }
 

@@ -49,16 +49,19 @@ namespace bv {
         update_glue(*other);
 
         vv::push_to_front(m_queue, other);
-        if (other == n) {
+        bool do_gc = other == n;
+        if (other == n) 
             new_tmp();        
-            gc();
-        }
+               
         if (other->m_glue == 0) {
+            do_gc = false;
             remove(other);
             add_cc(v1, v2);
         }
-        else if (other->m_count > m_propagate_high_watermark) 
-            s.s().set_should_simplify();
+        else if (other->m_count > 2*m_propagate_high_watermark) 
+            propagate();
+        if (do_gc)
+            gc();
     }
 
     void ackerman::used_diseq_eh(euf::theory_var v1, euf::theory_var v2) {
@@ -76,8 +79,8 @@ namespace bv {
             new_tmp();
             gc();
         }
-        if (other->m_count > m_propagate_high_watermark) 
-            s.s().set_should_simplify();
+        if (other->m_count > 2*m_propagate_high_watermark) 
+            propagate();
     }
 
     void ackerman::update_glue(vv& v) {
@@ -137,6 +140,9 @@ namespace bv {
         if (m_num_propagations_since_last_gc <= s.get_config().m_dack_gc) 
             return;
         m_num_propagations_since_last_gc = 0;
+
+        if (m_table.size() > m_gc_threshold) 
+            propagate();
         
         while (m_table.size() > m_gc_threshold) 
             remove(m_queue->prev());     
@@ -147,7 +153,6 @@ namespace bv {
     }
 
     void ackerman::propagate() {
-        SASSERT(s.s().at_base_lvl());
         auto* n = m_queue;
         vv* k = nullptr;
         unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflict * s.get_config().m_dack_factor);

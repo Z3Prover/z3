@@ -385,7 +385,7 @@ public:
         context_t * m_ctx;
     public:
         node_selector(context_t * ctx):m_ctx(ctx) {}
-        virtual ~node_selector() {}
+        virtual ~node_selector() = default;
 
         context_t * ctx() const { return m_ctx; }
 
@@ -403,7 +403,7 @@ public:
         context_t * m_ctx;
     public:
         var_selector(context_t * ctx):m_ctx(ctx) {}
-        virtual ~var_selector() {}
+        virtual ~var_selector() = default;
 
         context_t * ctx() const { return m_ctx; }
 
@@ -436,7 +436,7 @@ public:
         context_t * m_ctx;
     public:
         node_splitter(context_t * ctx):m_ctx(ctx) {}
-        virtual ~node_splitter() {}
+        virtual ~node_splitter() = default;
         
         context_t * ctx() const { return m_ctx; }
         node * mk_node(node * p) { return ctx()->mk_node(p); }

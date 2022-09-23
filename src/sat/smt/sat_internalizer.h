@@ -21,7 +21,7 @@ Author:
 namespace sat {
     class sat_internalizer {
     public:
-        virtual ~sat_internalizer() {}
+        virtual ~sat_internalizer() = default;
         virtual bool is_bool_op(expr* e) const = 0;
         virtual literal internalize(expr* e, bool learned) = 0;
         virtual bool_var to_bool_var(expr* e) = 0;

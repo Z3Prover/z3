@@ -21,10 +21,6 @@ Revision History:
 #include "util/z3_exception.h"
 
 template<bool SYNCH>
-mpq_manager<SYNCH>::mpq_manager() {
-}
-
-template<bool SYNCH>
 mpq_manager<SYNCH>::~mpq_manager() {
     del(m_tmp1);
     del(m_tmp2);

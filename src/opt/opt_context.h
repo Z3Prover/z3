@@ -330,6 +330,7 @@ namespace opt {
 
         struct is_fd;
         bool probe_fd();
+        bool is_maxsat_query();
 
         struct is_propositional_fn;
         bool is_propositional(expr* e);

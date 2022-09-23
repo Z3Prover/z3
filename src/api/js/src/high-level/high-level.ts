@@ -224,6 +224,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function _toExpr(ast: Z3_ast): Bool<Name> | IntNum<Name> | RatNum<Name> | Arith<Name> | Expr<Name> {
       const kind = check(Z3.get_ast_kind(contextPtr, ast));
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
+        if (Z3.is_quantifier_forall(contextPtr, ast))
+           return new BoolImpl(ast);
+        if (Z3.is_quantifier_exists(contextPtr, ast))
+           return new BoolImpl(ast);
+        if (Z3.is_lambda(contextPtr, ast))
+           return new ExprImpl(ast);
         assert(false);
       }
       const sortKind = check(Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast)));
@@ -1011,6 +1017,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       toString() {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
+      }
+
+      fromString(s : string) {
+        Z3.solver_from_string(contextPtr, this.ptr, s);
+        throwIfError();
       }
     }
 

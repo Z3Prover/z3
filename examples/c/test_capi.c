@@ -2946,6 +2946,28 @@ void mk_model_example() {
     Z3_del_context(ctx);
 }
 
+void divides_example()
+{
+    Z3_context ctx;
+    Z3_solver s;
+    Z3_ast x, number;
+    Z3_ast c;
+
+    ctx    = mk_context();
+    s      = mk_solver(ctx);
+
+    x      = mk_int_var(ctx, "x");
+    number = mk_int(ctx, 2);
+
+    c      = Z3_mk_divides(ctx, number, x);
+    Z3_solver_assert(ctx, s, c);
+
+    check2(ctx, s, Z3_L_TRUE);
+
+    del_solver(ctx, s);
+    Z3_del_context(ctx);
+}
+
 /**@}*/
 /**@}*/
 
@@ -2955,6 +2977,7 @@ int main() {
 #ifdef LOG_Z3_CALLS
     Z3_open_log("z3.log");
 #endif
+    divides_example();
     display_version();
     simple_example();
     demorgan();

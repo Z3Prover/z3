@@ -138,7 +138,7 @@ namespace smt {
             enode* n2 = ensure_enode(bits2char);
             justification* j = 
                 ctx.mk_justification(
-                    ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), n1, n2));
+                    ext_theory_eq_propagation_justification(get_id(), ctx, n1, n2));
             ctx.assign_eq(n1, n2, eq_justification(j));
         }
         ++m_stats.m_num_blast;
@@ -267,7 +267,7 @@ namespace smt {
         enode* n2 = ensure_enode(sum_bits);
         justification* j = 
             ctx.mk_justification(
-                ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), n1, n2));
+                ext_theory_eq_propagation_justification(get_id(), ctx, n1, n2));
         ctx.assign_eq(n1, n2, eq_justification(j));
     }
 

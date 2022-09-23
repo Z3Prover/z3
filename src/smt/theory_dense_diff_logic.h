@@ -238,7 +238,6 @@ namespace smt {
         void flush_eh() override;
         void reset_eh() override;
         
-        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
 
         void display(std::ostream & out) const override;
         virtual void display_atom(std::ostream & out, atom * a) const;

@@ -26,7 +26,7 @@ namespace datalog {
 
     class external_relation_context {
     public:
-        virtual ~external_relation_context() {}
+        virtual ~external_relation_context() = default;
 
         virtual family_id get_family_id() const = 0;
 

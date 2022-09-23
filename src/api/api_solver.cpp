@@ -36,7 +36,7 @@ Revision History:
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
 #include "solver/tactic2solver.h"
-#include "solver/solver_params.hpp"
+#include "params/solver_params.hpp"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"

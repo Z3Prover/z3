@@ -121,7 +121,7 @@ private:
     vector<std::tuple<unsigned, pdd, u_dependency*>> m_subst;
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
-    equation*                                    m_conflict;   
+    equation*                                    m_conflict = nullptr;   
     bool                                         m_too_complex;
 public:
     solver(reslimit& lim, pdd_manager& m);

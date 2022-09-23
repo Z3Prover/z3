@@ -596,10 +596,10 @@ public:
 
     void convert_internalized() {
         m_solver.pop_to_base_level();
-        if (!is_internalized() && m_fmls_head > 0) {
-            internalize_formulas();
-        }
-        if (!is_internalized() || m_internalized_converted) return;
+        if (!is_internalized() && m_fmls_head > 0) 
+            internalize_formulas();        
+        if (!is_internalized() || m_internalized_converted) 
+            return;
         sat2goal s2g;
         m_cached_mc = nullptr;
         goal g(m, false, true, false);
@@ -657,7 +657,8 @@ public:
     }
 
     euf::solver* ensure_euf() {
-        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        auto* ext = m_goal2sat.ensure_euf();
         return ext;
     }
 

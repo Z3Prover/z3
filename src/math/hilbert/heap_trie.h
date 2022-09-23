@@ -66,7 +66,7 @@ class heap_trie {
         unsigned m_ref;
     public:
         node(node_t t): m_type(t), m_ref(0) {}
-        virtual ~node() {}
+        virtual ~node() = default;
         node_t type() const { return m_type; }
         void inc_ref() { ++m_ref; }
         void dec_ref() { SASSERT(m_ref > 0); --m_ref; }
