@@ -83,7 +83,7 @@ namespace polysat {
             case kind_t::assumption: return out << "assumption";
             default: UNREACHABLE(); return out;
             }
-         }
+        }
     };
 
     struct bool_justification_pp {

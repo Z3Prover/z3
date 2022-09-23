@@ -394,7 +394,7 @@ namespace polysat {
 
     void solver::add_pwatch(constraint* c, pvar v) {
         SASSERT(m_locked_wlist != v);  // the propagate loop will not discover the new size
-        LOG("Watching v" << v << " in constraint " << show_deref(c));
+        LOG_V("Watching v" << v << " in constraint " << show_deref(c));
         m_pwatch[v].push_back(c);
     }
 
@@ -855,8 +855,10 @@ namespace polysat {
     }
 
     void solver::backjump(unsigned new_level) {
-        LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
-        pop_levels(m_level - new_level);
+        if (m_level != new_level) {
+            LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
+            pop_levels(m_level - new_level);
+        }
     }
 
     // Add lemma to storage
@@ -916,14 +918,14 @@ namespace polysat {
     }
 
     void solver::push() {
-        LOG("Push user scope");
+        LOG_H3("Push user scope");
         push_level();
         m_base_levels.push_back(m_level);
     }
 
     void solver::pop(unsigned num_scopes) {
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
-        LOG("Pop " << num_scopes << " user scopes");
+        LOG_H3("Pop " << num_scopes << " user scopes");
         pop_levels(m_level - base_level + 1);
         if (m_level < m_conflict.level())
             m_conflict.reset();

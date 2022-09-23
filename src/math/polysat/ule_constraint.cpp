@@ -128,9 +128,9 @@ namespace polysat {
         signed_constraint sc(this, is_positive);
 
         LOG_H3("Narrowing " << sc);
-        LOG("Assignment: " << assignments_pp(s));
-        LOG("Substituted LHS: " << lhs() << " := " << p);
-        LOG("Substituted RHS: " << rhs() << " := " << q);
+        LOG_V("Assignment: " << assignments_pp(s));
+        LOG_V("Substituted LHS: " << lhs() << " := " << p);
+        LOG_V("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(is_positive, p, q)) {
             s.set_conflict(sc);

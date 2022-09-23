@@ -67,7 +67,7 @@ namespace polysat {
     }
 
     void bool_var_manager::eval(sat::literal lit, unsigned lvl) {
-        LOG("Eval literal " << lit << " @ " << lvl);
+        LOG_V("Eval literal " << lit << " @ " << lvl);
         assign(kind_t::value_propagation, lit, lvl, nullptr);
         SASSERT(is_value_propagation(lit));
     }
