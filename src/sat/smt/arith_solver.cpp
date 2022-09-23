@@ -681,10 +681,7 @@ namespace arith {
         scope& sc = m_scopes.back();
         sc.m_bounds_lim = m_bounds_trail.size();
         sc.m_asserted_qhead = m_asserted_qhead;
-        sc.m_idiv_lim = m_idiv_terms.size();
         sc.m_asserted_lim = m_asserted.size();
-        sc.m_not_handled = m_not_handled;
-        sc.m_underspecified_lim = m_underspecified.size();
         lp().push();
         if (m_nla)
             m_nla->push();
@@ -696,11 +693,8 @@ namespace arith {
         TRACE("arith", tout << "pop " << num_scopes << "\n";);
         unsigned old_size = m_scopes.size() - num_scopes;
         del_bounds(m_scopes[old_size].m_bounds_lim);
-        m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted.shrink(m_scopes[old_size].m_asserted_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
-        m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
-        m_not_handled = m_scopes[old_size].m_not_handled;
         m_scopes.resize(old_size);
         lp().pop(num_scopes);
         m_new_bounds.reset();
@@ -1117,7 +1111,7 @@ namespace arith {
         if (m_delayed_eqs.empty())
             return true;
         force_push();
-        for (unsigned i; i < m_delayed_eqs.size(); ++i) {
+        for (unsigned i = 0; i < m_delayed_eqs.size(); ++i) {
             auto p = m_delayed_eqs[i];
             auto const& e = p.first;
             if (p.second)

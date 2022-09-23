@@ -105,11 +105,8 @@ namespace arith {
 
         struct scope {
             unsigned m_bounds_lim;
-            unsigned m_idiv_lim;
             unsigned m_asserted_qhead;
             unsigned m_asserted_lim;
-            unsigned m_underspecified_lim;
-            expr* m_not_handled;
         };
 
         class resource_limit : public lp::lp_resource_limit {
@@ -220,7 +217,7 @@ namespace arith {
         svector<std::pair<euf::th_eq, bool>>          m_delayed_eqs;
 
         literal_vector  m_asserted;
-        expr* m_not_handled{ nullptr };
+        expr* m_not_handled = nullptr;
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
