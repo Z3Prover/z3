@@ -1114,12 +1114,11 @@ namespace arith {
 
     bool solver::check_delayed_eqs() {
         bool found_diseq = false;
-        if (m_delayed_eqs_qhead == m_delayed_eqs.size())
+        if (m_delayed_eqs.empty())
             return true;
         force_push();
-        ctx.push(value_trail<unsigned>(m_delayed_eqs_qhead));
-        for (; m_delayed_eqs_qhead < m_delayed_eqs.size(); ++ m_delayed_eqs_qhead) {
-            auto p = m_delayed_eqs[m_delayed_eqs_qhead];
+        for (unsigned i; i < m_delayed_eqs.size(); ++i) {
+            auto p = m_delayed_eqs[i];
             auto const& e = p.first;
             if (p.second)
                 new_eq_eh(e);

@@ -218,7 +218,6 @@ namespace arith {
         svector<euf::enode_pair>                      m_equalities;      // asserted rows corresponding to equalities.
         svector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
         svector<std::pair<euf::th_eq, bool>>          m_delayed_eqs;
-        unsigned                                      m_delayed_eqs_qhead = 0;
 
         literal_vector  m_asserted;
         expr* m_not_handled{ nullptr };
