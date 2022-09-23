@@ -59,6 +59,21 @@ TODO:
 
 namespace polysat {
 
+    class conflict_resolver {
+        inf_saturate m_saturate;
+
+    public:
+        conflict_resolver(solver& s)
+            : m_saturate(s)
+        {}
+
+        bool try_resolve_value(pvar v, conflict& core) {
+            if (m_saturate.perform(v, core))
+                return true;
+            return false;
+        }
+    };
+
     class header_with_var : public displayable {
         char const* m_text;
         pvar m_var;
@@ -98,23 +113,6 @@ namespace polysat {
             return out << "Value resolution with " << assignment_pp(s, v, s.get_value(v), true);
         }
     };
-
-
-    class conflict_resolver {
-        inf_saturate m_saturate;
-
-    public:
-        conflict_resolver(solver& s)
-            : m_saturate(s)
-        {}
-
-        bool try_resolve_value(pvar v, conflict& core) {
-            if (m_saturate.perform(v, core))
-                return true;
-            return false;
-        }
-    };
-
 
     conflict::conflict(solver& s) : s(s) {
         // TODO: m_log_conflicts is always false even if "polysat.log_conflicts=true" is given on the command line
@@ -209,20 +207,6 @@ namespace polysat {
     void conflict::init(signed_constraint c) {
         SASSERT(empty());
         m_level = s.m_level;
-        /*
-        // NOTE: c.is_always_false() may happen e.g. if we add an always false constraint in the input
-        if (c.is_always_false()) {
-            SASSERT(c.bvalue(s) == l_true);
-            SASSERT(s.m_bvars.is_assumption(c.blit()));
-            SASSERT(s.at_base_level());
-            // TODO: this kind of constraint should be handled when it is being added to the solver.
-            return;
-        }
-        if (c.bvalue(s) == l_false && s.at_base_level()) {
-            // We have opposite literals in the input.
-            return;
-        }
-        */
         set_impl(c);
         logger().begin_conflict();
     }
@@ -235,20 +219,10 @@ namespace polysat {
     void conflict::set_impl(signed_constraint c) {
         if (c.bvalue(s) == l_false) {
             // boolean conflict
-            SASSERT(false);  // fail here to force check when we encounter this case
-            // TODO: if we set() and then log() it will be confusing if this branch is hit.
-            //       ideally the boolean resolution would be done separately afterwards
-            auto* cl = s.m_bvars.reason(c.blit());
-#if 0
-            if (cl)
-                set(*cl);  // why the whole clause? or do we want the boolean resolution?
-            else
-                insert(c);
-#else
-            insert(c);
-            if (cl)
-                resolve_bool(c.blit(), *cl);
-#endif
+            // This case should not happen:
+            // - opposite input literals are handled separately
+            // - other boolean conflicts will discover violated clause during boolean propagation
+            VERIFY(false);  // fail here to force check when we encounter this case
         } else {
             // conflict due to assignment
             SASSERT(c.bvalue(s) == l_true);
@@ -260,9 +234,6 @@ namespace polysat {
     }
 
     void conflict::init(clause const& cl) {
-        // if (!empty())
-        //     return;
-        // LOG("Conflict: " << cl);
         SASSERT(empty());
         m_level = s.m_level;
         for (auto lit : cl) {
