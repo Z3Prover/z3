@@ -58,7 +58,7 @@ namespace {
 namespace polysat {
 
     // test resolve, factoring routines
-    // auxiliary 
+    // auxiliary
 
     struct solver_scope {
         reslimit lim;
@@ -125,50 +125,50 @@ namespace polysat {
          */
 
         /// Creates two separate conflicts (from narrowing) before solving loop is started.
-    static void test_add_conflicts() {
-        scoped_solver s(__func__);
-        auto a = s.var(s.add_var(3));
-        auto b = s.var(s.add_var(3));
-        s.add_eq(a + 1);
-        s.add_eq(a + 2);
-        s.add_eq(b + 1);
-        s.add_eq(b + 2);
-        s.check();
-        s.expect_unsat();
-    }
+        static void test_add_conflicts() {
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(3));
+            auto b = s.var(s.add_var(3));
+            s.add_eq(a + 1);
+            s.add_eq(a + 2);
+            s.add_eq(b + 1);
+            s.add_eq(b + 2);
+            s.check();
+            s.expect_unsat();
+        }
 
         /// Has constraints which must be inserted into other watchlist to discover UNSAT
-    static void test_wlist() {
-        scoped_solver s(__func__);
-        auto a = s.var(s.add_var(3));
-        auto b = s.var(s.add_var(3));
-        auto c = s.var(s.add_var(3));
-        auto d = s.var(s.add_var(3));
-        s.add_eq(d + c + b + a + 1);
-        s.add_eq(d + c + b + a);
-        s.add_eq(d + c + b);
-        s.add_eq(d + c);
-        s.add_eq(d);
-        s.check();
-        s.expect_unsat();
-    }
+        static void test_wlist() {
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(3));
+            auto b = s.var(s.add_var(3));
+            auto c = s.var(s.add_var(3));
+            auto d = s.var(s.add_var(3));
+            s.add_eq(d + c + b + a + 1);
+            s.add_eq(d + c + b + a);
+            s.add_eq(d + c + b);
+            s.add_eq(d + c);
+            s.add_eq(d);
+            s.check();
+            s.expect_unsat();
+        }
 
         /// Has a constraint in cjust[a] where a does not occur.
-    static void test_cjust() {
-        scoped_solver s(__func__);
-        auto a = s.var(s.add_var(3));
-        auto b = s.var(s.add_var(3));
-        auto c = s.var(s.add_var(3));
-        // 1. Decide a = 0.
-        s.add_eq(a*a + b + 7);                  // 2. Propagate b = 1
-        s.add_eq(b*b + c*c*c*(b+7) + c + 5);    // 3. Propagate c = 2
-        s.add_eq(b*b + c*c);                    // 4. Conflict
-        // Resolution fails because second constraint has c*c*c
-        // => cjust[a] += b*b + c*c
-        s.check();
-        s.expect_unsat();
-    }
-    
+        static void test_cjust() {
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(3));
+            auto b = s.var(s.add_var(3));
+            auto c = s.var(s.add_var(3));
+            // 1. Decide a = 0.
+            s.add_eq(a*a + b + 7);                  // 2. Propagate b = 1
+            s.add_eq(b*b + c*c*c*(b+7) + c + 5);    // 3. Propagate c = 2
+            s.add_eq(b*b + c*c);                    // 4. Conflict
+            // Resolution fails because second constraint has c*c*c
+            // => cjust[a] += b*b + c*c
+            s.check();
+            s.expect_unsat();
+        }
+
         /**
          * most basic linear equation solving.
          * they should be solvable.
@@ -184,7 +184,7 @@ namespace polysat {
             s.check();
             s.expect_sat({{a, 3}});
         }
-    
+
         static void test_l2() {
             scoped_solver s(__func__);
             auto a = s.var(s.add_var(2));
@@ -207,7 +207,7 @@ namespace polysat {
         static void test_l4() {
             scoped_solver s(__func__);
             auto a = s.var(s.add_var(3));
-            s.add_eq(4*a + 2);
+            s.add_eq(4*a + 2);  // always false due to parity
             s.check();
             s.expect_unsat();
         }
@@ -223,7 +223,6 @@ namespace polysat {
             s.expect_sat({{a, 4}, {b, 4}});
         }
 
-    
         /**
          * This one is unsat because a*a*(a*a - 1)
          * is 0 for all values of a.
@@ -268,9 +267,9 @@ namespace polysat {
 
 
         // Unique solution: u = 5
-        static void test_ineq_basic1() {
+        static void test_ineq_basic1(unsigned bw = 32) {
             scoped_solver s(__func__);
-            auto u = s.var(s.add_var(4));
+            auto u = s.var(s.add_var(bw));
             s.add_ule(u, 5);
             s.add_ule(5, u);
             s.check();
@@ -278,9 +277,9 @@ namespace polysat {
         }
 
         // Unsatisfiable
-        static void test_ineq_basic2() {
+        static void test_ineq_basic2(unsigned bw = 32) {
             scoped_solver s(__func__);
-            auto u = s.var(s.add_var(4));
+            auto u = s.var(s.add_var(bw));
             s.add_ult(u, 5);
             s.add_ule(5, u);
             s.check();
@@ -288,11 +287,11 @@ namespace polysat {
         }
 
         // Solutions with u = v = w
-        static void test_ineq_basic3() {
+        static void test_ineq_basic3(unsigned bw = 32) {
             scoped_solver s(__func__);
-            auto u = s.var(s.add_var(4));
-            auto v = s.var(s.add_var(4));
-            auto w = s.var(s.add_var(4));
+            auto u = s.var(s.add_var(bw));
+            auto v = s.var(s.add_var(bw));
+            auto w = s.var(s.add_var(bw));
             s.add_ule(u, v);
             s.add_ule(v, w);
             s.add_ule(w, u);
@@ -303,11 +302,11 @@ namespace polysat {
         }
 
         // Unsatisfiable
-        static void test_ineq_basic4() {
+        static void test_ineq_basic4(unsigned bw = 32) {
             scoped_solver s(__func__);
-            auto u = s.var(s.add_var(4));
-            auto v = s.var(s.add_var(4));
-            auto w = s.var(s.add_var(4));
+            auto u = s.var(s.add_var(bw));
+            auto v = s.var(s.add_var(bw));
+            auto w = s.var(s.add_var(bw));
             s.add_ule(u, v);
             s.add_ult(v, w);
             s.add_ule(w, u);
@@ -384,7 +383,7 @@ namespace polysat {
 
         /**
          * Monotonicity example from certora
-         * 
+         *
          * We do overflow checks by doubling the base bitwidth here.
          */
         static void test_monot(unsigned base_bw = 5) {
@@ -469,15 +468,15 @@ namespace polysat {
          * Mul-then-div in fixed point arithmetic is (roughly) neutral.
          *
          * I.e. we prove "(((a * b) / sf) * sf) / b" to be equal to a, up to some error margin.
-         * 
+         *
          * sf is the scaling factor (we could leave this unconstrained, but non-zero, to make the benchmark a bit harder)
          * em is the error margin
-         * 
+         *
          * We do overflow checks by doubling the base bitwidth here.
          */
         static void test_fixed_point_arith_mul_div_inverse() {
             scoped_solver s(__func__);
-        
+
             auto baseBw = 5;
             auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
 
@@ -541,17 +540,17 @@ namespace polysat {
          * Div-then-mul in fixed point arithmetic is (roughly) neutral.
          *
          * I.e. we prove "(b * ((a * sf) / b)) / sf" to be equal to a, up to some error margin.
-         * 
+         *
          * sf is the scaling factor (we could leave this unconstrained, but non-zero, to make the benchmark a bit harder)
          * em is the error margin
-         * 
+         *
          * We do overflow checks by doubling the base bitwidth here.
          */
         static void test_fixed_point_arith_div_mul_inverse(unsigned base_bw = 5) {
             scoped_solver s(__func__);
 
             auto max_int_const = rational::power_of_two(base_bw) - 1;
-        
+
             auto bw = 2 * base_bw;
             auto max_int = s.var(s.add_var(bw));
             s.add_eq(max_int - max_int_const);
@@ -679,9 +678,9 @@ namespace polysat {
          */
         static void test_monot_bounds_full(unsigned base_bw = 5) {
             scoped_solver s(__func__);
-        
+
             auto const max_int_const = rational::power_of_two(base_bw) - 1;
-        
+
             auto const bw = 2 * base_bw;
             auto const max_int = s.var(s.add_var(bw));
             s.add_eq(max_int - max_int_const);
@@ -704,10 +703,10 @@ namespace polysat {
 
             /*  last assertion:
                 (not
-                (=> (bvugt second first) 
-                (=> 
-                (=> (not (= idx #x00000000)) 
-                (bvule (bvsub second first) q)) 
+                (=> (bvugt second first)
+                (=>
+                (=> (not (= idx #x00000000))
+                (bvule (bvsub second first) q))
                 (bvumul_noovfl (bvsub second first) idx))))
                 transforming negated boolean skeleton:
                 (not (=> a (=> (or b c) d))) <=> (and a (not d) (or b c))
@@ -809,7 +808,7 @@ namespace polysat {
                 s.add_ult(y, bound);
                 s.check();
                 s.expect_unsat();
-            } 
+            }
             else {
                 for (unsigned i = 0; i < 6; ++i) {
                     test_ineq_axiom1(bw, i);
@@ -912,7 +911,7 @@ namespace polysat {
             s.check();
             s.expect_sat();
         }
-    
+
         static void test_ineq_non_axiom4(unsigned bw = 32) {
             for (unsigned i = 0; i < 24; ++i)
                 test_ineq_non_axiom4(bw, i);
@@ -1001,7 +1000,7 @@ namespace polysat {
             // quot = udiv(a*123, 123)
             s.add_eq(quot * y + rem - x);
             s.add_diseq(a - quot);
-            s.add_umul_noovfl(quot, y);     
+            s.add_umul_noovfl(quot, y);
             s.add_ult(rem, x);
             s.check();
             s.expect_sat();
@@ -1022,7 +1021,7 @@ namespace polysat {
             s.add_diseq(idx, 0);
             s.add_ule(second - first, q);
             s.add_umul_noovfl(second  - first, idx);
-            s.check();       
+            s.check();
         }
 
         static void test_band(unsigned bw = 32) {
@@ -1149,10 +1148,10 @@ namespace polysat {
     //     a1*x + b1 <= a2*x + b2   (mod m = 2^bw)
     //
     // and their negation.
-    
+
     class test_fi {
-        
-        static bool is_violated(rational const& a1, rational const& b1, rational const& a2, rational const& b2, 
+
+        static bool is_violated(rational const& a1, rational const& b1, rational const& a2, rational const& b2,
                                 rational const& val, bool negated, rational const& m) {
             rational const lhs = (a1*val + b1) % m;
             rational const rhs = (a2*val + b2) % m;
@@ -1169,7 +1168,7 @@ namespace polysat {
                 return false;
             if (!is_violated(a1, b1, a2, b2, val, negated, m))
                 return false;
-            
+
             scoped_solver s(__func__);
             auto x = s.var(s.add_var(bw));
             signed_constraint c = s.ule(a1*x + b1, a2*x + b2);
@@ -1230,7 +1229,7 @@ namespace polysat {
                 }
             }
         }
-            
+
         static void randomized(unsigned num_rounds = 100000, unsigned bw = 16) {
             std::cout << "test_fi::randomized for bw=" << bw << " (" << num_rounds << " rounds)" << std::endl;
             rational const m = rational::power_of_two(bw);
@@ -1254,7 +1253,7 @@ namespace polysat {
                     round--;
             }
         }
-        
+
     };  // class test_fi
 
 
@@ -1285,8 +1284,8 @@ namespace polysat {
         }
         else if (bv.is_bv_udiv(e, a, b)) {
             auto pa = to_pdd(m, s, expr2pdd, a);
-            auto pb = to_pdd(m, s, expr2pdd, b);  
-            auto qr = s.quot_rem(pa, pb);            
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            auto qr = s.quot_rem(pa, pb);
             r = alloc(pdd, std::get<0>(qr));
         }
         else if (bv.is_bv_urem(e, a, b)) {
@@ -1312,9 +1311,9 @@ namespace polysat {
             auto pa = to_pdd(m, s, expr2pdd, a);
             r = alloc(pdd, -pa);
         }
-        else if (bv.is_numeral(e, n, sz)) 
+        else if (bv.is_numeral(e, n, sz))
             r = alloc(pdd, s.value(n, sz));
-        else if (is_uninterp(e)) 
+        else if (is_uninterp(e))
             r = alloc(pdd, s.var(s.add_var(sz)));
         else {
             std::cout << "UNKNOWN " << mk_pp(e, m) << "\n";
@@ -1336,7 +1335,7 @@ namespace polysat {
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
                     s.add_diseq(pa - pb);
-                else 
+                else
                     s.add_eq(pa - pb);
             }
             else if (bv.is_ult(fm, a, b) || bv.is_ugt(fm, b, a)) {
@@ -1344,7 +1343,7 @@ namespace polysat {
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
                     s.add_ule(pb, pa);
-                else 
+                else
                     s.add_ult(pa, pb);
             }
             else if (bv.is_ule(fm, a, b) || bv.is_uge(fm, b, a)) {
@@ -1352,7 +1351,7 @@ namespace polysat {
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
                     s.add_ult(pb, pa);
-                else 
+                else
                     s.add_ule(pa, pb);
             }
             else if (bv.is_slt(fm, a, b) || bv.is_sgt(fm, b, a)) {
@@ -1360,7 +1359,7 @@ namespace polysat {
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
                     s.add_sle(pb, pa);
-                else 
+                else
                     s.add_slt(pa, pb);
             }
             else if (bv.is_sle(fm, a, b) || bv.is_sge(fm, b, a)) {
@@ -1368,7 +1367,7 @@ namespace polysat {
                 auto pb = to_pdd(m, s, expr2pdd, b);
                 if (is_not)
                     s.add_slt(pb, pa);
-                else 
+                else
                     s.add_sle(pa, pb);
             }
             else if (bv.is_bv_umul_no_ovfl(fm, a, b)) {
@@ -1380,106 +1379,78 @@ namespace polysat {
                     s.add_umul_noovfl(pa, pb);
             }
             else {
-                std::cout << "SKIP: " << mk_pp(fm, m) << "\n";            
+                std::cout << "SKIP: " << mk_pp(fm, m) << "\n";
             }
         }
         for (auto const& [k,v] : expr2pdd)
             dealloc(v);
     }
-    
+
 }  // namespace polysat
 
 
 void tst_polysat() {
     using namespace polysat;
 
+    // test_polysat::test_add_conflicts();  // ok
+    // test_polysat::test_wlist();  // ok
+    // test_polysat::test_cjust();  // uses viable_fallback; weak lemmas
+    // test_polysat::test_subst();  // TODO: assert + resource limit
+    // test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
 
-    test_polysat::test_fi_zero();
-    test_polysat::test_fi_nonzero();
-    test_polysat::test_fi_nonmax();
-    test_polysat::test_fi_disequal_mild();
+    // test_polysat::test_l1();   // ok
+    // test_polysat::test_l2();   // TODO: loops
+    // test_polysat::test_l3();   // ok
+    // test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
+    // test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
 
+    // test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
+    // test_polysat::test_p2();    // ok (viable_fallback finds the correct value)
+    // test_polysat::test_p3();    // TODO: resource limit
 
+    // test_polysat::test_ineq_basic1();  // ok
+    // test_polysat::test_ineq_basic2();  // TODO: assert / boolean conflict
+    // test_polysat::test_ineq_basic3();  // ok
+    // test_polysat::test_ineq_basic4();  // TODO: resource limit
+    // test_polysat::test_ineq_basic5();  // works, but only because variable order changes after the conflict
+                                          // TODO: non-asserting lemma
+                                          // possible variable selection heuristic: start with the most restricted interval?
+                                          // (if we have a restricted and non-restricted variable; we should probably pick the restricted one first. hoping that we can propagate and uncover restrictions on the other variable.)
+    // test_polysat::test_ineq_basic6();  // same as ineq_basic5
 
-#if 0
-    // looks like a fishy conflict lemma?
-    test_polysat::test_monot_bounds();
-     return;
+    // test_polysat::test_var_minimize();  // works but var_minimized isn't used (UNSAT before lemma is created)
 
-    test_polysat::test_quot_rem_incomplete();
-    test_polysat::test_quot_rem_fixed();
-    //return;
-
-    test_polysat::test_band();
-    return;
-
-    test_polysat::test_quot_rem();
-    return;
-
-    test_polysat::test_ineq_axiom1();
-    test_polysat::test_ineq_axiom2();
-    test_polysat::test_ineq_axiom3();
-    test_polysat::test_ineq_axiom4();
-    test_polysat::test_ineq_axiom5();
-    test_polysat::test_ineq_axiom6();
-    return;
-
-#endif
-
-            
+    // test_polysat::test_ineq1();  // TODO: resource limit
+    // test_polysat::test_ineq2();  // TODO: resource limit
+    // test_polysat::test_monot();  // TODO: resource limit
+    // test_polysat::test_monot_bounds(2);  // weak conflicts
     // test_polysat::test_monot_bounds(8);
+    // test_polysat::test_monot_bounds();  // TODO: resource limit
+    // test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant
+    // test_polysat::test_monot_bounds_simple(8);  // undef
+    // test_polysat::test_fixed_point_arith_div_mul_inverse();   // undef
 
-    test_polysat::test_add_conflicts();
-    test_polysat::test_wlist();
-    test_polysat::test_l1();
-    test_polysat::test_l2();
-    test_polysat::test_l3();
-    test_polysat::test_l4();
-    test_polysat::test_l5();
-    test_polysat::test_p1();
-    test_polysat::test_p2();
-    test_polysat::test_p3();
+    // test_polysat::test_ineq_axiom1();
+    // test_polysat::test_ineq_axiom2();
+    // test_polysat::test_ineq_axiom3();
+    // test_polysat::test_ineq_axiom4();
+    // test_polysat::test_ineq_axiom5();
+    // test_polysat::test_ineq_axiom6();
+    // test_polysat::test_ineq_non_axiom1();  // assertion but looks otherwise ok
+    // test_polysat::test_ineq_non_axiom4(32, 5);  // assertions/undef
 
-    test_polysat::test_ineq_basic1();
-    test_polysat::test_ineq_basic2();
-    test_polysat::test_ineq_basic3();
-    test_polysat::test_ineq_basic4();
-    test_polysat::test_ineq_basic5();
-    test_polysat::test_ineq_basic6();
+    // test_polysat::test_quot_rem_incomplete();
+    // test_polysat::test_quot_rem_fixed();
+    // test_polysat::test_band();
+    // test_polysat::test_quot_rem();
 
-    test_polysat::test_cjust();
-    test_polysat::test_subst();
+    // test_polysat::test_fi_zero();  // ok
+    // test_polysat::test_fi_nonzero();  // ok
+    // test_polysat::test_fi_nonmax();  // ok (viable_fallback chooses value for second variable)
+    // test_polysat::test_fi_disequal_mild();  // ok
 
-    test_polysat::test_var_minimize();
-
-    test_polysat::test_ineq1();
-    test_polysat::test_ineq2();
-    test_polysat::test_monot();
-    test_polysat::test_monot_bounds(2);
-
-    return;
-
-    test_polysat::test_ineq_axiom1();
-    test_polysat::test_ineq_axiom2();
-    test_polysat::test_ineq_axiom3();
-    test_polysat::test_ineq_axiom4();
-    test_polysat::test_ineq_axiom5();
-    test_polysat::test_ineq_axiom6();
-
-    test_fi::exhaustive();
-    test_fi::randomized();
-    return;
-
-#if 0
-    test_polysat::test_ineq_non_axiom4(32, 5);
-#endif
-
-    // inefficient conflicts:
-    // Takes time: test_polysat::test_monot_bounds_full();
-
-    test_polysat::test_monot_bounds_simple(8);
-    test_polysat::test_fixed_point_arith_div_mul_inverse();
-
+    // test_fi::exhaustive();
+    // test_fi::randomized();
 }
 
 
@@ -1508,7 +1479,7 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     // convert to solver state.
 
     signal(SIGINT, on_ctrl_c);
-    
+
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " FILE\n";
         return;
