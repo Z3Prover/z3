@@ -612,8 +612,7 @@ namespace arith {
                        verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << *b << "\n";);
-            IF_VERBOSE(0, ctx.display(verbose_stream()));
-            IF_VERBOSE(0, verbose_stream() << mdl << "\n");
+            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream(), mdl, n));
             UNREACHABLE();
         }
     }

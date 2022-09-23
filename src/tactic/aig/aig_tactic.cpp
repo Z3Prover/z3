@@ -16,6 +16,9 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_util.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/for_each_expr.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig.h"
 
@@ -24,7 +27,6 @@ class aig_manager;
 class aig_tactic : public tactic {
     unsigned long long m_max_memory;
     bool               m_aig_gate_encoding;
-    bool               m_aig_per_assertion;
     aig_manager *      m_aig_manager;
 
     struct mk_aig_manager {
@@ -52,40 +54,54 @@ public:
         aig_tactic * t = alloc(aig_tactic);
         t->m_max_memory = m_max_memory;
         t->m_aig_gate_encoding = m_aig_gate_encoding;
-        t->m_aig_per_assertion = m_aig_per_assertion;
         return t;
     }
 
     void updt_params(params_ref const & p) override {
         m_max_memory        = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_aig_gate_encoding = p.get_bool("aig_default_gate_encoding", true);
-        m_aig_per_assertion = p.get_bool("aig_per_assertion", true); 
     }
 
     void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
-        r.insert("aig_per_assertion", CPK_BOOL, "(default: true) process one assertion at a time.");
     }
 
     void operator()(goal_ref const & g) {
+        ast_manager& m = g->m();
+        mk_aig_manager mk(*this, m);
 
-        mk_aig_manager mk(*this, g->m());
-        if (m_aig_per_assertion) {
-            for (unsigned i = 0; i < g->size(); i++) {
+        expr_ref_vector nodeps(m);
+        
+        for (unsigned i = 0; i < g->size(); i++) {
+            expr_dependency * ed = g->dep(i);
+            if (!ed) {
+                nodeps.push_back(g->form(i));
+                g->update(i, m.mk_true());
+            }
+            else {
                 aig_ref r = m_aig_manager->mk_aig(g->form(i));
                 m_aig_manager->max_sharing(r);
-                expr_ref new_f(g->m());
+                expr_ref new_f(m);
                 m_aig_manager->to_formula(r, new_f);
-                expr_dependency * ed = g->dep(i);
-                g->update(i, new_f, nullptr, ed);
+                unsigned old_sz = get_num_exprs(g->form(i));
+                unsigned new_sz = get_num_exprs(new_f);
+                if (new_sz <= 1.2*old_sz)
+                    g->update(i, new_f, nullptr, ed);
             }
         }
-        else {
-            fail_if_unsat_core_generation("aig", g);
-            aig_ref r = m_aig_manager->mk_aig(*(g.get()));
-            g->reset(); // save memory
+
+        if (!nodeps.empty()) {
+            expr_ref conj(::mk_and(nodeps));
+            aig_ref r = m_aig_manager->mk_aig(conj);
             m_aig_manager->max_sharing(r);
-            m_aig_manager->to_formula(r, *(g.get()));
+            expr_ref new_f(m);
+            m_aig_manager->to_formula(r, new_f);
+            unsigned old_sz = get_num_exprs(conj);
+            unsigned new_sz = get_num_exprs(new_f);
+            
+            if (new_sz > 1.2*old_sz)
+                new_f = conj;
+            g->assert_expr(new_f);                       
         }
     }
     
