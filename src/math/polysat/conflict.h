@@ -65,30 +65,6 @@ Based on     z <= y & ~O(x,y) => xz <= xy
 Resolve:     ~O(x, y) <- { x, y } both x, y are decision variables
 Lemma:       y < z or xz <= xy or O(x,y)
 
-
-
-TODO:
-- update notes/example above
-- question: if a side lemma justifies a constraint, then we resolve over one of the premises of the lemma; do we want to update the lemma or not?
-- conflict resolution plugins
-    - may generate lemma
-        - post-processing/simplification on lemma (e.g., literal subsumption; can be done in solver)
-    - may force backjumping without further conflict resolution (e.g., if applicable lemma was found by global analysis of search state)
-    - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
-    - force a restart if we get a bailout lemma or non-asserting conflict?
-- store the side lemmas as well (but only those that justify a constraint in the final lemma, recursively)
-- consider case if v is both in vars and bail_vars (do we need to keep it in bail_vars even if we can eliminate it from vars?)
-- Find a way to use resolve_value with forbidden interval lemmas.
-  Then get rid of conflict_kind_t::backtrack and m_relevant_vars.
-  Maybe:
-    x := a, y := b, z has no viable value
-    - assume y was propagated
-    - FI-Lemma C1 \/ ... \/ Cn without z.
-    - for each i, we should have x := a /\ Ci ==> y != b
-    - can we choose one of the Ci to cover the domain of y and extract an FI-Lemma D1 \/ ... \/ Dk without y,z?
-    - or try to find an L(x,y) such that C1 -> L, ..., Cn -> L, and L -> y != b  (under x := a); worst case y != b can work as L
-- minimize_vars... is it sound to do for each constraint separately, like we are doing now?
-
 --*/
 #pragma once
 #include "math/polysat/types.h"
