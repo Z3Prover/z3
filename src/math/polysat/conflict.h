@@ -32,6 +32,7 @@ Notes:
 
     - All literals should be assigned in the stack prior to their use;
       or justified by one of the side lemmas.
+      (thus: all literals in the core must have bvalue == l_true)
 
     l <- D => l,       < Vars, { l } u C >   ===>   < Vars, C u D >
     l <- ?,            < Vars, { l } u C >   ===>   ~l <- (C & Vars = value(Vars) => ~l)
@@ -112,6 +113,9 @@ namespace polysat {
 
         conflict_kind_t m_kind = conflict_kind_t::ok;
 
+        // Level at which the conflict was discovered
+        unsigned m_level = UINT_MAX;
+
         void set_impl(signed_constraint c);
         bool minimize_vars(signed_constraint c);
 
@@ -131,6 +135,8 @@ namespace polysat {
         uint_set const& vars() const { return m_vars; }
         uint_set const& bail_vars() const { return m_bail_vars; }
 
+        unsigned level() const { return m_level; }
+
         conflict_kind_t kind() const { return m_kind; }
         bool is_bailout() const { return m_kind == conflict_kind_t::bailout; }
         bool is_backtracking() const { return m_kind == conflict_kind_t::backtrack; }
@@ -142,6 +148,8 @@ namespace polysat {
         bool is_relevant_pvar(pvar v) const;
         bool is_relevant(sat::literal lit) const;
 
+        /** conflict due to obvious input inconsistency */
+        void init_at_base_level();
         /** conflict because the constraint c is false under current variable assignment */
         void init(signed_constraint c);
         /** boolean conflict with the given clause */

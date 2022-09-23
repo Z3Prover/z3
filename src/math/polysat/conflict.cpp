@@ -140,10 +140,14 @@ namespace polysat {
     }
 
     bool conflict::empty() const {
-        return m_literals.empty()
-            && m_vars.empty()
-            && m_bail_vars.empty()
-            && m_lemmas.empty();
+        bool const is_empty = (m_level == UINT_MAX);
+        if (is_empty) {
+            SASSERT(m_literals.empty());
+            SASSERT(m_vars.empty());
+            SASSERT(m_bail_vars.empty());
+            SASSERT(m_lemmas.empty());
+        }
+        return is_empty;
     }
 
     void conflict::reset() {
@@ -154,6 +158,7 @@ namespace polysat {
         m_var_occurrences.reset();
         m_lemmas.reset();
         m_kind = conflict_kind_t::ok;
+        m_level = UINT_MAX;
         SASSERT(empty());
     }
 
@@ -182,7 +187,6 @@ namespace polysat {
             return true;
         case conflict_kind_t::backtrack:
             return pvar_occurs_in_constraints(v) || m_relevant_vars.contains(v);
-            // return m_relevant_vars.contains(v);
         case conflict_kind_t::backjump:
             UNREACHABLE();  // we don't follow the regular loop when backjumping
             return false;
@@ -195,8 +199,30 @@ namespace polysat {
         return contains(lit) || contains(~lit);
     }
 
+    void conflict::init_at_base_level() {
+        SASSERT(empty());
+        SASSERT(s.at_base_level());
+        m_level = s.m_level;
+        SASSERT(!empty());
+    }
+
     void conflict::init(signed_constraint c) {
         SASSERT(empty());
+        m_level = s.m_level;
+        /*
+        // NOTE: c.is_always_false() may happen e.g. if we add an always false constraint in the input
+        if (c.is_always_false()) {
+            SASSERT(c.bvalue(s) == l_true);
+            SASSERT(s.m_bvars.is_assumption(c.blit()));
+            SASSERT(s.at_base_level());
+            // TODO: this kind of constraint should be handled when it is being added to the solver.
+            return;
+        }
+        if (c.bvalue(s) == l_false && s.at_base_level()) {
+            // We have opposite literals in the input.
+            return;
+        }
+        */
         set_impl(c);
         logger().begin_conflict();
     }
@@ -238,6 +264,7 @@ namespace polysat {
         //     return;
         // LOG("Conflict: " << cl);
         SASSERT(empty());
+        m_level = s.m_level;
         for (auto lit : cl) {
             auto c = s.lit2cnstr(lit);
             SASSERT(c.bvalue(s) == l_false);
@@ -248,6 +275,8 @@ namespace polysat {
     }
 
     void conflict::init(pvar v, bool by_viable_fallback) {
+        SASSERT(empty());
+        m_level = s.m_level;
         if (by_viable_fallback) {
             logger().begin_conflict(header_with_var("unsat core from viable fallback for v", v));
             // Conflict detected by viable fallback:
@@ -264,6 +293,7 @@ namespace polysat {
             //       but each branch exclude the current assignment.
             //       in those cases we will (additionally?) need an abstraction that is asserting to make sure viable is updated properly.
         }
+        SASSERT(!empty());
     }
 
     bool conflict::contains(sat::literal lit) const {
@@ -276,7 +306,8 @@ namespace polysat {
             return;
         if (c.is_always_true())
             return;
-        LOG("Inserting: " << c);
+        LOG("Inserting " << lit_pp(s, c));
+        SASSERT(c.bvalue(s) == l_true);
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
@@ -424,9 +455,12 @@ namespace polysat {
         LOG("core: " << *this);
         clause_builder lemma(s);
 
-        // TODO: is this sound, doing it for each constraint separately?
-        for (auto c : *this)
+#if 0
+        if (m_literals.size() == 1) {
+            auto c = *begin();
             minimize_vars(c);
+        }
+#endif
 
         for (auto c : *this)
             lemma.push(~c);

@@ -1120,22 +1120,29 @@ namespace polysat {
                 s.check();
             }
         }
-        
-        // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
-        // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
-        // static void test_mixed_vars() {
-        //     scoped_solver s(__func__);
-        //     auto a = s.var(s.add_var(2));
-        //     auto b = s.var(s.add_var(4));
-        //     auto c = s.var(s.add_var(2));
-        //     s.add_eq(a + 2*c + 4);
-        //     s.add_eq(3*b + 4);
-        //     s.check();
-        //     // Expected result:
-        // }
-    
+
+        static void test_pop_conflict() {
+            scoped_solver s(__func__);
+            auto a = s.var(s.add_var(32));
+            s.add_ule(a, 5);
+            s.push();
+            s.add_ult(5, a);
+            s.push();
+            s.add_ule(1, a);
+            s.check();
+            s.expect_unsat();
+            s.pop();
+            s.check();
+            s.expect_unsat();
+            s.pop();
+            s.add_ult(4, a);
+            // s.add_ule(100, a);
+            s.check();
+            s.expect_sat({{a, 5}});
+        }
+
     };  // class test_polysat
-    
+
 
     // Here we deal with linear constraints of the form
     //

@@ -185,14 +185,21 @@ namespace polysat {
         LOG("New constraint: " << c);
         switch (m_bvars.value(lit)) {
         case l_false:
-            set_conflict(c);
+            // Input literal contradicts current boolean state (e.g., opposite literals in the input)
+            // => conflict only flags the inconsistency
+            set_conflict_at_base_level();
             SASSERT(dep == null_dependency && "track dependencies is TODO");
-            break;
+            return;
         case l_true:
             // constraint c is already asserted
             SASSERT(m_bvars.level(lit) <= m_level);
             break;
         case l_undef:
+            if (c.is_always_false()) {
+                // asserted an always-false constraint
+                set_conflict_at_base_level();
+                return;
+            }
             m_bvars.assumption(lit, m_level, dep);
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(lit);
@@ -915,10 +922,11 @@ namespace polysat {
     }
 
     void solver::pop(unsigned num_scopes) {
-        unsigned base_level = m_base_levels[m_base_levels.size() - num_scopes];
-        LOG("Pop " << num_scopes << " user scopes; lowest popped level = " << base_level << "; current level = " << m_level);
+        unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
+        LOG("Pop " << num_scopes << " user scopes");
         pop_levels(m_level - base_level + 1);
-        m_conflict.reset();   
+        if (m_level < m_conflict.level())
+            m_conflict.reset();
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
     }
 
