@@ -994,12 +994,21 @@ namespace polysat {
 
     std::ostream& lit_pp::display(std::ostream& out) const {
         auto c = s.lit2cnstr(lit);
-        out << lit << ": " << c << "  [";
-        out << " bvalue=" << s.m_bvars.value(lit);
-        if (s.m_bvars.is_assigned(lit))
-            out << " @" << s.m_bvars.level(lit);
-        out << " pwatched=" << c->is_pwatched();
-        out << "  ]";
+        out << lpad(4, lit) << ": " << rpad(30, c) << "  [";
+        out << " " << s.m_bvars.value(lit);
+        if (s.m_bvars.is_assigned(lit)) {
+            out << ' ';
+            if (s.m_bvars.is_assumption(lit))
+                out << "assert";
+            else if (s.m_bvars.is_bool_propagation(lit))
+                out << "bprop";
+            else if (s.m_bvars.is_value_propagation(lit))
+                out << "eval";
+            out << '@' << s.m_bvars.level(lit);
+        }
+        if (c->is_pwatched())
+            out << " pwatched";
+        out << " ]";
         return out;
     }
 
