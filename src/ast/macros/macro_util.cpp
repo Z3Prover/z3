@@ -923,7 +923,7 @@ void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, 
 
     TRACE("macro_util", tout << "Candidate check for: " << mk_ismt2_pp(atom, m_manager) << std::endl;);
 
-    if (m_manager.is_eq(atom, lhs, rhs)) {
+    auto insert_quasi = [&](expr* lhs, expr* rhs) {
         if (is_quasi_macro_head(lhs, num_decls) &&
             !is_forbidden(to_app(lhs)->get_decl()) &&
             !occurs(to_app(lhs)->get_decl(), rhs) &&
@@ -931,22 +931,30 @@ void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, 
             expr_ref cond(m_manager);
             get_rest_clause_as_cond(atom, cond);
             insert_quasi_macro(to_app(lhs), num_decls, rhs, cond, false, true, false, r);
+            return true;
         }
-        else if (is_hint_atom(lhs, rhs)) {
-            insert_quasi_macro(to_app(lhs), num_decls, rhs, nullptr, false, true, true, r);
-        }
+        return false;
+    };
 
-        if (is_quasi_macro_head(rhs, num_decls) &&
-            !is_forbidden(to_app(rhs)->get_decl()) &&
-            !occurs(to_app(rhs)->get_decl(), lhs) &&
-            !rest_contains_decl(to_app(rhs)->get_decl(), atom)) {
-            expr_ref cond(m_manager);
-            get_rest_clause_as_cond(atom, cond);
-            insert_quasi_macro(to_app(rhs), num_decls, lhs, cond, false, true, false, r);
-        }
-        else if (is_hint_atom(rhs, lhs)) {
-            insert_quasi_macro(to_app(rhs), num_decls, lhs, nullptr, false, true, true, r);
-        }
+    auto insert_hint = [&](expr* lhs, expr* rhs) {
+        if (is_hint_atom(lhs, rhs)) 
+            insert_quasi_macro(to_app(lhs), num_decls, rhs, nullptr, false, true, true, r);
+    };
+
+    if (m_manager.is_eq(atom, lhs, rhs)) {
+        if (!insert_quasi(lhs, rhs))
+            insert_hint(lhs, rhs);
+        if (!insert_quasi(rhs, lhs))
+            insert_hint(rhs, lhs);
+    }
+    expr* atom2;
+    if (m_manager.is_not(atom, atom2) && m_manager.is_eq(atom2, lhs, rhs) && m_manager.is_bool(lhs)) {
+        expr_ref nlhs(m_manager.mk_not(lhs), m_manager);
+        expr_ref nrhs(m_manager.mk_not(rhs), m_manager);
+        if (!insert_quasi(lhs, nrhs))
+            insert_hint(lhs, nrhs);
+        if (!insert_quasi(rhs, nlhs))
+            insert_hint(rhs, nlhs);
     }
 
     collect_arith_macro_candidates(atom, num_decls, r);
