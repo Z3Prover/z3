@@ -249,7 +249,11 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
 
     // get unassigned variable from enode
     var = enode_to_bool(new_enode, new_bit);
-
+    
+    if (var == null_bool_var)
+        // selected variable is already assigned
+        throw default_exception("expression in \"decide\" is already assigned");
+    
     // in case the callback did not decide on a truth value -> let Z3 decide
     is_pos = ctx.guess(var, phase);
 }
