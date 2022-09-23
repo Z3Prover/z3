@@ -598,6 +598,7 @@ namespace polysat {
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(m_viable.is_viable(v, val));
+        SASSERT(j.is_decision() || j.is_propagation());
         SASSERT(j.level() == m_level);
         SASSERT(!is_assigned(v));
         SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
@@ -605,9 +606,12 @@ namespace polysat {
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
-        SASSERT(m_viable_fallback.check_constraints(v));
+        // Decision should satisfy all univariate constraints.
+        // Propagation might violate some other constraint; but we will notice that in the propagation loop when v is propagated.
+        // TODO: on the other hand, checking constraints here would have us discover some conflicts earlier.
+        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(v));
 #if ENABLE_LINEAR_SOLVER
-        // TODO: convert justification into a format that can be tracked in a depdendency core.
+        // TODO: convert justification into a format that can be tracked in a dependency core.
         m_linear_solver.set_value(v, val, UINT_MAX);
 #endif
     }

@@ -790,8 +790,10 @@ namespace polysat {
         for (auto const& c : m_constraints[v]) {
             // for this check, all variables need to be assigned
             DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(s.is_assigned(w)); });
-            if (c.is_currently_false(s))
+            if (c.is_currently_false(s)) {
+                LOG(assignment_pp(s, v, s.get_value(v)) << " violates constraint " << lit_pp(s, c));
                 return false;
+            }
             SASSERT(c.is_currently_true(s));
         }
         return true;
