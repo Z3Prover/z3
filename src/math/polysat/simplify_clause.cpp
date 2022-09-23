@@ -11,6 +11,34 @@ Author:
 
 Notes:
 
+    TODO: check why it fails with test_l2
+          at least 7 should be subsumed by 8 ??? (or the other way around)
+          and 6 should also be subsumed (but there's a difference in coefficient)
+        Lemma: 7 -6 -0 8 -1
+            7: -1 <= 2*v1 + 2  [ bvalue=l_false @1 pwatched=0  ]
+            -6: v1 + -1 != 0  [ bvalue=l_false @1 pwatched=0  ]
+            -0: v1 + 2*v0 + 1 != 0  [ bvalue=l_false @0 pwatched=1  ]
+            8: 1 <= 2*v1 + 2  [ bvalue=l_false @1 pwatched=0  ]
+            -1: 2*v1 + v0 != 0  [ bvalue=l_false @0 pwatched=1  ]
+
+    TODO: from test_l5, conflict #2:   (mod 2^3)
+        Lemma: -1 \/ -2 \/ -6 \/ -7
+           -1: 2*v1 + v0 + 4 != 0  [ bvalue=l_false @0 pwatched=1  ]
+           -2: 4*v1 + v0 + 4 != 0  [ bvalue=l_false @0 pwatched=1  ]
+           -6: 2*v1 + -2 != 0  [ bvalue=l_undef pwatched=0  ]
+           -7: v1 + -1 != 0  [ bvalue=l_undef pwatched=0  ]
+
+            -7  ==>  v1 \not\in { 1 }
+            -6  ==>  v1 \not\in { 1, 5 }
+            ==> -6 subsumes -7
+
+    TODO: from test_ineq_basic5:
+        Lemma: -0 \/ -1 \/ 2 \/ 3
+           -0: -4 > v1 + v0  [ bvalue=l_false @0 pwatched=1  ]
+           -1: v1 > 2  [ bvalue=l_false @0 pwatched=1  ]
+           2: -3 <= -1*v0 + -7  [ bvalue=l_undef pwatched=0  ]
+           3: -4 <= v0  [ bvalue=l_undef pwatched=0  ]
+
 --*/
 #include "math/polysat/solver.h"
 #include "math/polysat/simplify_clause.h"
@@ -22,11 +50,22 @@ namespace polysat {
     {}
 
     bool simplify_clause::apply(clause& cl) {
-        if (try_constant_subsumptions(cl))
+        if (try_equal_body_subsumptions(cl))
             return true;
         return false;
     }
 
+    /**
+     * Abstract body of the polynomial (i.e., the variable terms without constant term)
+     * by a single variable.
+     *
+     * abstract(2*x*y + x + 7)
+     * -> v = 2*x*y + x
+     *    r = x + 7
+     *
+     * \return Abstracted polynomial
+     * \param[out] v Body
+     */
     pdd simplify_clause::abstract(pdd const& p, pdd& v) {
         if (p.is_val())
             return p;
@@ -44,7 +83,7 @@ namespace polysat {
             v = -v;
             r -= m.mk_var(max_var);
         }
-        else 
+        else
             r += m.mk_var(max_var);
         return r;
     }
@@ -81,13 +120,19 @@ namespace polysat {
 
 
     /**
-     * Test simple subsumption between univariate and linear literals, i.e.,
-     * the case where both literals can be represented by a single contiguous forbidden interval.
+     * Test simple subsumption between inequalities over equal polynomials (up to the constant term),
+     * i.e., subsumption between literals of the form:
+     *
+     *      p + n_1 <= n_2
+     *      n_3 <= p + n_4
+     *      p + n_5 <= p + n_6
+     *
+     * (p polynomial, n_i constant numbers)
      *
      * A literal C subsumes literal D if the forbidden interval of C is a subset of the forbidden interval of D.
      * C subsumes D  <==  fi(C) subset fi(D)
      */
-    bool simplify_clause::try_unilinear_subsumption(clause& cl) {
+    bool simplify_clause::try_equal_body_subsumptions(clause& cl) {
         LOG_H2("Unilinear subsumption for: " << cl);
 
         m_entries.reserve(cl.size());
@@ -98,7 +143,7 @@ namespace polysat {
             signed_constraint c = s.lit2cnstr(lit);
             prepare_subs_entry(entry, c);
         }
-        
+
         // Check subsumption between intervals for the same variable
         bool any_subsumed = false;
         for (unsigned i = 0; i < cl.size(); ++i) {
@@ -122,7 +167,7 @@ namespace polysat {
         if (!any_subsumed)
             return false;
         unsigned j = 0;
-        for (unsigned i = 0; i < cl.size(); ++i) 
+        for (unsigned i = 0; i < cl.size(); ++i)
             if (!m_entries[i].subsumed)
                 cl[j++] = cl[i];
         cl.m_literals.shrink(j);

@@ -29,7 +29,7 @@ namespace polysat {
         solver& s;
         vector<subs_entry> m_entries;
 
-        bool try_unilinear_subsumption(clause& cl);
+        bool try_equal_body_subsumptions(clause& cl);
 
         void prepare_subs_entry(subs_entry& entry, signed_constraint c);
 
