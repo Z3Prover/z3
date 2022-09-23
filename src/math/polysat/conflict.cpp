@@ -251,10 +251,19 @@ namespace polysat {
         if (by_viable_fallback) {
             logger().begin_conflict(header_with_var("unsat core from viable fallback for v", v));
             // Conflict detected by viable fallback:
-            // initial conflict is the unsat core of the univariate solver
+            // initial conflict is the unsat core of the univariate solver,
+            // and the assignment (under which the constraints are univariate in v)
+            // TODO:
+            // - currently we add variables directly, which is sound:
+            //      e.g.:   v^2 + w^2 == 0;   w := 1
+            // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
+            //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
             signed_constraints unsat_core = s.m_viable_fallback.unsat_core(v);
-            for (auto c : unsat_core)
+            for (auto c : unsat_core) {
                 insert(c);
+                insert_vars(c);
+            }
+            SASSERT(!m_vars.contains(v));
             // TODO: apply conflict resolution plugins here too?
         } else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
