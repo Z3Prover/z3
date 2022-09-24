@@ -1,5 +1,8 @@
 name: MSVC Static Build
 
+permissions:
+  contents: read # to fetch code (actions/checkout)
+  
 on:
   push:
   pull_request:
