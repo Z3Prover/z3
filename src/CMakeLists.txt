@@ -135,7 +135,7 @@ if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
         set(${CompilerFlag} "${${CompilerFlag}}" CACHE STRING "msvc compiler flags" FORCE)
         message("MSVC flags: ${CompilerFlag}:${${CompilerFlag}}")
     endforeach()
-endif(MSVC)
+endif()
 add_library(libz3 ${lib_type} ${object_files})
 target_include_directories(libz3 INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>

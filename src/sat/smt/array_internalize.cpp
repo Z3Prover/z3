@@ -122,7 +122,7 @@ namespace array {
             ctx.push(push_back_vector(m_minmaxdiffs));
             break;
         case OP_ARRAY_DEFAULT:
-            add_parent_default(find(n->get_arg(0)), n);
+            add_parent_default(find(n->get_arg(0)));
             break;
         case OP_ARRAY_MAP:
         case OP_SET_UNION:

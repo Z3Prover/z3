@@ -172,6 +172,10 @@ namespace array {
             add_parent_select(v1, select);
         if (is_lambda(e1) || is_lambda(e2))
             push_axiom(congruence_axiom(n1, n2));
+        if (d1.m_has_default && !d2.m_has_default)
+            add_parent_default(v2);
+        if (!d1.m_has_default && d2.m_has_default)
+            add_parent_default(v1);
     }
 
     void solver::add_parent_select(theory_var v_child, euf::enode* select) {
@@ -206,9 +210,10 @@ namespace array {
             propagate_select_axioms(d, lambda);
     }
 
-    void solver::add_parent_default(theory_var v, euf::enode* def) {
-        SASSERT(a.is_default(def->get_expr()));
+    void solver::add_parent_default(theory_var v) {
         auto& d = get_var_data(find(v));
+        ctx.push(value_trail(d.m_has_default));
+        d.m_has_default = true;
         for (euf::enode* lambda : d.m_lambdas)
             push_axiom(default_axiom(lambda));
         if (should_prop_upward(d))

@@ -69,14 +69,21 @@ namespace array {
             values.set(n->get_expr_id(), n->get_expr());
             return;
         }
-            
+        theory_var v = get_th_var(n);
+        euf::enode* d = get_default(v);
+
+        if (a.is_const(n->get_expr())) {
+            expr* val = values.get(d->get_root_id());
+            SASSERT(val);
+            values.set(n->get_expr_id(), a.mk_const_array(n->get_sort(), val));
+            return;
+        }
+        
         unsigned arity = get_array_arity(srt);
         func_decl * f    = mk_aux_decl_for_array_sort(m, srt);
         func_interp * fi = alloc(func_interp, m, arity);
         mdl.register_decl(f, fi);
 
-        theory_var v = get_th_var(n);
-        euf::enode* d = get_default(v);
         if (d && !fi->get_else())
             fi->set_else(values.get(d->get_root_id()));
 

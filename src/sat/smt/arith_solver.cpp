@@ -686,7 +686,6 @@ namespace arith {
         if (m_nla)
             m_nla->push();
         th_euf_solver::push_core();
-
     }
 
     void solver::pop_core(unsigned num_scopes) {

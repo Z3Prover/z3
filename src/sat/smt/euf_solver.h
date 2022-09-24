@@ -105,6 +105,7 @@ namespace euf {
         user_solver::solver*          m_user_propagator = nullptr;
         th_solver*             m_qsolver = nullptr;
         unsigned               m_generation = 0;
+        std::string            m_reason_unknown; 
         mutable ptr_vector<expr> m_todo;
 
         ptr_vector<expr>                                m_bool_var2expr;
@@ -290,6 +291,7 @@ namespace euf {
         bool should_research(sat::literal_vector const& core) override;
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
+        std::string reason_unknown() override { return m_reason_unknown; }
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);

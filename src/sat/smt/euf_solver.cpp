@@ -166,8 +166,9 @@ namespace euf {
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
     }
 
-    void solver::init_search() {
+    void solver::init_search() {        
         TRACE("before_search", s().display(tout););
+        m_reason_unknown.clear();
         for (auto* s : m_solvers)
             s->init_search();
     }
@@ -482,7 +483,7 @@ namespace euf {
         auto apply_solver = [&](th_solver* e) {
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
-            case sat::check_result::CR_GIVEUP: give_up = true; break;
+            case sat::check_result::CR_GIVEUP: m_reason_unknown = "incomplete theory " + e->name().str(); TRACE("euf", tout << "give up " << e->name() << "\n"); give_up = true; break;
             default: break;
             }
         };
@@ -490,8 +491,10 @@ namespace euf {
             cont = true;
         for (unsigned i = 0; i < m_solvers.size(); ++i) {
             auto* e = m_solvers[i];
-            if (!m.inc())
+            if (!m.inc()) {
+                m_reason_unknown = "canceled";
                 return sat::check_result::CR_GIVEUP;
+            }
             if (e == m_qsolver)
                 continue;
             apply_solver(e);

@@ -132,6 +132,8 @@ namespace sat {
             return false;
         }
         virtual bool is_pb() { return false; }
+
+        virtual std::string reason_unknown() { return "unknown"; }
     };
 
 };

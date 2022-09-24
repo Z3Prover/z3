@@ -198,6 +198,7 @@ namespace q {
         expr_ref_vector eqs(m);
         add_domain_bounds(mdl, qb);
         auto proj = solver_project(mdl, qb, eqs, false);
+        CTRACE("q", !proj, tout << "could not project " << qb.mbody << " " << eqs << "\n" << mdl);
         if (!proj)
             return false;
         add_instantiation(q, proj);
@@ -339,8 +340,10 @@ namespace q {
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
                 for (expr* e : fmls)
-                    if (!m_model->is_true(e))
+                    if (!m_model->is_true(e)) {
+                        TRACE("q", tout << "not true: " << mk_pp(e, m) << " := " << (*m_model)(e) << "\n");
                         return expr_ref(nullptr, m);
+                    }
                 mbp::project_plugin proj(m);
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
@@ -348,8 +351,9 @@ namespace q {
             if (!p)
                 continue; 
             if (ctx.use_drat()) {
-                if (!p->project(*m_model, vars, fmls, m_defs))
-                    return expr_ref(m);                
+                if (!p->project(*m_model, vars, fmls, m_defs)) 
+                    return expr_ref(m);
+                    
             }
             else if (!(*p)(*m_model, vars, fmls))
                 return expr_ref(m);
@@ -430,8 +434,11 @@ namespace q {
     void mbqi::add_domain_bounds(model& mdl, q_body& qb) {
         qb.domain_eqs.reset();
         m_model->reset_eval_cache();
-        for (app* v : qb.vars)
-            m_model->register_decl(v->get_decl(), mdl(v));
+        {
+            model::scoped_model_completion _sc(mdl, true);
+            for (app* v : qb.vars)
+                m_model->register_decl(v->get_decl(), mdl(v));
+        }
         ctx.model_updated(m_model);
         if (qb.var_args.empty())
             return;
@@ -440,7 +447,8 @@ namespace q {
             expr_ref _term = subst(t, qb.vars);
             app_ref  term(to_app(_term), m);
             expr_ref value = (*m_model)(term->get_arg(idx));
-            m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
+            if (m.is_value(value))
+                m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
         }
     }
 
