@@ -46,7 +46,7 @@ namespace euf {
      * so it isn't necessarily an axiom over EUF,
      * We will here leave it to the EUF checker to perform resolution steps.
      */
-    void solver::log_antecedents(literal l, literal_vector const& r) {
+    void solver::log_antecedents(literal l, literal_vector const& r, eq_proof_hint* hint) {
         TRACE("euf", log_antecedents(tout, l, r););
         if (!use_drat())
             return;
@@ -55,7 +55,7 @@ namespace euf {
             lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
-        get_drat().add(lits, sat::status::th(true, get_id()));
+        get_drat().add(lits, sat::status::th(true, get_id(), hint));
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
@@ -72,6 +72,55 @@ namespace euf {
             expr* n = m_bool_var2expr[l.var()];
             out << mk_bounded_pp(n, m) << "\n";
         }
+    }
+
+    eq_proof_hint* solver::mk_hint(literal lit, literal_vector const& r) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(value_trail(m_cc_tail));
+        push(restore_size_trail(m_eq_proof_literals));
+        if (lit != sat::null_literal)
+            m_eq_proof_literals.push_back(~lit);
+        m_eq_proof_literals.append(r);
+        m_lit_head = m_lit_tail;
+        m_cc_head  = m_cc_tail;
+        m_lit_tail = m_eq_proof_literals.size();
+        m_cc_tail  = m_explain_cc.size();
+        return new (get_region()) eq_proof_hint(m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);
+    }
+
+    expr* eq_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        func_decl_ref cc(m);
+        sort* proof = m.mk_proof_sort();
+        ptr_buffer<sort> sorts;
+        expr_ref_vector args(m);
+        if (m_cc_head < m_cc_tail) {
+            sort* sorts[2] = { m.mk_bool_sort(), m.mk_bool_sort() };
+            cc = m.mk_func_decl(symbol("cc"), 2, sorts, proof);
+        }
+        auto cc_proof = [&](bool comm, expr* eq) {
+            return m.mk_app(cc, m.mk_bool_val(comm), eq);
+        };
+        auto compare_ts = [](cc_justification_record const& a,
+                             cc_justification_record const& b) {
+            auto const& [_1, _2, ta, _3] = a;
+            auto const& [_4, _5, tb, _6] = b;
+            return ta < tb;
+        };
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
+            args.push_back(s.literal2expr(s.m_eq_proof_literals[i]));
+        std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
+        for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
+            auto const& [a, b, ts, comm] = s.m_explain_cc[i];
+            args.push_back(cc_proof(comm, m.mk_eq(a->get_expr(), b->get_expr())));
+        }
+        for (auto * arg : args)
+            sorts.push_back(arg->get_sort());
+        
+        func_decl* f = m.mk_func_decl(symbol("euf"), sorts.size(), sorts.data(), proof);
+        return m.mk_app(f, args);
     }
 
     void solver::set_tmp_bool_var(bool_var b, expr* e) {

@@ -207,7 +207,7 @@ namespace user_solver {
         for (unsigned id : prop.m_ids)
             r.append(m_id2justification[id]);        
         for (auto const& p : prop.m_eqs)
-            ctx.add_antecedent(expr2enode(p.first), expr2enode(p.second));
+            ctx.add_antecedent(probing, expr2enode(p.first), expr2enode(p.second));
     }
 
     /*
