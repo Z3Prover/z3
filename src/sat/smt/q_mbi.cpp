@@ -355,8 +355,10 @@ namespace q {
                     return expr_ref(m);
                     
             }
-            else if (!(*p)(*m_model, vars, fmls))
+            else if (!(*p)(*m_model, vars, fmls)) {
+                TRACE("q", tout << "theory projection failed\n");
                 return expr_ref(m);
+            }
         }
         for (app* v : vars) {
             expr_ref term(m);
@@ -581,6 +583,7 @@ namespace q {
         binding.reset();
         auto const& nodes = ctx.get_egraph().nodes();
         m_model->reset_eval_cache();
+        model::scoped_model_completion _sc(*m_model, true);
         for (unsigned j = 0; j < offsets.size(); ++j) {
             unsigned offset = offsets[j];
             binding.push_back(nodes[offset]->get_expr());
