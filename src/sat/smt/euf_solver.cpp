@@ -202,6 +202,8 @@ namespace euf {
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
+        if (use_drat() && !probing) 
+            push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
@@ -220,33 +222,35 @@ namespace euf {
             }
         }
         m_egraph.end_explain();  
+        eq_proof_hint* hint = (use_drat() && !probing) ? mk_hint(l, r) : nullptr;
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;
         r.shrink(j);
-        TRACE("euf", tout << "explain " << l << " <- " << r << " " << probing << "\n";);
+        CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
         if (!probing)
-            log_antecedents(l, r);
+            log_antecedents(l, r, hint);
     }
 
     void solver::get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
         for (auto lit : euf::th_explain::lits(jst))
             r.push_back(lit);
         for (auto eq : euf::th_explain::eqs(jst))
-            add_antecedent(eq.first, eq.second);
-
+            add_antecedent(probing, eq.first, eq.second);
+        
         if (!probing && use_drat()) 
             log_justification(l, jst);
     }
 
-    void solver::add_antecedent(enode* a, enode* b) {
-        m_egraph.explain_eq<size_t>(m_explain, a, b);
+    void solver::add_antecedent(bool probing, enode* a, enode* b) {
+        cc_justification* cc = (!probing && use_drat()) ? &m_explain_cc : nullptr;
+        m_egraph.explain_eq<size_t>(m_explain, cc, a, b);
     }
 
-    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b) {
-        sat::bool_var v = get_egraph().explain_diseq(ex, a, b);
+    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b) {
+        sat::bool_var v = get_egraph().explain_diseq(ex, cc, a, b);
         SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
         if (v != sat::null_bool_var) 
             ex.push_back(to_ptr(sat::literal(v, true)));
@@ -262,14 +266,17 @@ namespace euf {
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
         expr* e = nullptr;
         euf::enode* n = nullptr;
+        cc_justification* cc = nullptr;
 
         if (!probing && !m_drating)
             init_ackerman();
-
+        if (!probing && use_drat())
+            cc = &m_explain_cc;
+        
         switch (j.kind()) {
         case constraint::kind_t::conflict:
             SASSERT(m_egraph.inconsistent());
-            m_egraph.explain<size_t>(m_explain);
+            m_egraph.explain<size_t>(m_explain, cc);
             break;
         case constraint::kind_t::eq:
             e = m_bool_var2expr[l.var()];
@@ -277,14 +284,14 @@ namespace euf {
             SASSERT(n);
             SASSERT(n->is_equality());
             SASSERT(!l.sign());
-            m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
+            m_egraph.explain_eq<size_t>(m_explain, cc, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
             e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(m.is_bool(n->get_expr()));
-            m_egraph.explain_eq<size_t>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
+            m_egraph.explain_eq<size_t>(m_explain, cc, n, (l.sign() ? mk_false() : mk_true()));
             break;
         default:
             IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
@@ -423,7 +430,7 @@ namespace euf {
         
         m_egraph.begin_explain();
         m_explain.reset();
-        m_egraph.explain_eq<size_t>(m_explain, e.child(), e.root());
+        m_egraph.explain_eq<size_t>(m_explain, nullptr, e.child(), e.root());
         m_egraph.end_explain();
         if (m_egraph.uses_congruence())
             return false;

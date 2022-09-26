@@ -60,9 +60,18 @@ namespace euf {
         std::ostream& display(std::ostream& out) const;
     };
 
+    class eq_proof_hint : public th_proof_hint {
+        unsigned m_lit_head, m_lit_tail, m_cc_head, m_cc_tail;
+    public:
+        eq_proof_hint(unsigned lh, unsigned lt, unsigned ch, unsigned ct):
+            m_lit_head(lh), m_lit_tail(lt), m_cc_head(ch), m_cc_tail(ct) {}
+        expr* get_hint(euf::solver& s) const override;
+    };
+
     class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
+        friend class eq_proof_hint;
         class user_sort;
         struct stats {
             unsigned m_ackerman;
@@ -110,6 +119,7 @@ namespace euf {
 
         ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
+        euf::cc_justification                           m_explain_cc;
         unsigned                                        m_num_scopes = 0;
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
@@ -172,8 +182,11 @@ namespace euf {
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
-        void log_antecedents(literal l, literal_vector const& r);
+        void log_antecedents(literal l, literal_vector const& r, eq_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
+        literal_vector m_eq_proof_literals;
+        unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
+        eq_proof_hint* mk_hint(literal lit, literal_vector const& r);
 
         bool m_proof_initialized = false;
         void init_proof();
@@ -307,8 +320,8 @@ namespace euf {
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
-        void add_antecedent(enode* a, enode* b);
-        void add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b);
+        void add_antecedent(bool probing, enode* a, enode* b);
+        void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;

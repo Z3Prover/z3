@@ -96,6 +96,7 @@ namespace q {
         binding* alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
        
         ptr_vector<size_t> m_explain;
+        euf::cc_justification m_explain_cc;
         sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
         void ensure_ground_enodes(expr* e);

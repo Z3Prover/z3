@@ -113,14 +113,16 @@ namespace q {
         if (idx != UINT_MAX)
             lit = c[idx];
         m_explain.reset();
+        m_explain_cc.reset();
         ctx.get_egraph().begin_explain();
         ctx.reset_explain();
+        euf::cc_justification* cc = ctx.use_drat() ? &m_explain_cc : nullptr;
         for (auto const& [a, b] : m_evidence) {
             SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
             if (a->get_root() == b->get_root())
-                ctx.get_egraph().explain_eq<size_t>(m_explain, a, b);
+                ctx.get_egraph().explain_eq<size_t>(m_explain, cc, a, b);
             else
-                ctx.add_diseq_antecedent(m_explain, a, b);
+                ctx.add_diseq_antecedent(m_explain, cc, a, b);
         }
         ctx.get_egraph().end_explain();
 
