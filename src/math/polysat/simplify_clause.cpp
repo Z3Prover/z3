@@ -11,33 +11,44 @@ Author:
 
 Notes:
 
-    TODO: check why it fails with test_l2
-          at least 7 should be subsumed by 8 ??? (or the other way around)
-          and 6 should also be subsumed (but there's a difference in coefficient)
-        Lemma: 7 -6 -0 8 -1
-            7: -1 <= 2*v1 + 2  [ bvalue=l_false @1 pwatched=0  ]
-            -6: v1 + -1 != 0  [ bvalue=l_false @1 pwatched=0  ]
-            -0: v1 + 2*v0 + 1 != 0  [ bvalue=l_false @0 pwatched=1  ]
-            8: 1 <= 2*v1 + 2  [ bvalue=l_false @1 pwatched=0  ]
-            -1: 2*v1 + v0 != 0  [ bvalue=l_false @0 pwatched=1  ]
+    TODO: check why it fails with test_l2   (mod 2^2)
+        Lemma: -0 \/ -1 \/ -6 \/ 8
+             -0: v1 + 2*v0 + 1 != 0              [ l_false assert@0 pwatched ]
+             -1: 2*v1 + v0 != 0                  [ l_false assert@0 pwatched ]
+             -6: v1 + -1 != 0                    [ l_undef ]
+              8: 1 <= 2*v1 + 2                   [ l_undef ]
+
+        -6  ==>  v1 \not\in { 1 }
+        8   ==>  v1 \not\in { 1, 3 }
+        so 8 subsumes -6   (8 ==> -6)
+        Actually:
+            - this means we have to keep -6 and throw out 8.
+            - because in case of v1 := 3, the original lemma will be satisfied.
+            TODO: meaning of "subsumption" is probably flipped in the code below?
 
     TODO: from test_l5, conflict #2:   (mod 2^3)
         Lemma: -1 \/ -2 \/ -6 \/ -7
-           -1: 2*v1 + v0 + 4 != 0  [ bvalue=l_false @0 pwatched=1  ]
-           -2: 4*v1 + v0 + 4 != 0  [ bvalue=l_false @0 pwatched=1  ]
-           -6: 2*v1 + -2 != 0  [ bvalue=l_undef pwatched=0  ]
-           -7: v1 + -1 != 0  [ bvalue=l_undef pwatched=0  ]
+           -1: 2*v1 + v0 + 4 != 0   [ bvalue=l_false @0 pwatched=1  ]
+           -2: 4*v1 + v0 + 4 != 0   [ bvalue=l_false @0 pwatched=1  ]
+           -6: 2*v1 + -2 != 0       [ bvalue=l_undef pwatched=0  ]
+           -7: v1 + -1 != 0         [ bvalue=l_undef pwatched=0  ]
 
             -7  ==>  v1 \not\in { 1 }
             -6  ==>  v1 \not\in { 1, 5 }
             ==> -6 subsumes -7
 
-    TODO: from test_ineq_basic5:
+    TODO: from test_ineq_basic5:    (mod 2^4)
         Lemma: -0 \/ -1 \/ 2 \/ 3
-           -0: -4 > v1 + v0  [ bvalue=l_false @0 pwatched=1  ]
-           -1: v1 > 2  [ bvalue=l_false @0 pwatched=1  ]
-           2: -3 <= -1*v0 + -7  [ bvalue=l_undef pwatched=0  ]
-           3: -4 <= v0  [ bvalue=l_undef pwatched=0  ]
+           -0: -4 > v1 + v0         [ bvalue=l_false @0 pwatched=1  ]
+           -1: v1 > 2               [ bvalue=l_false @0 pwatched=1  ]
+            2: -3 <= -1*v0 + -7     [ bvalue=l_undef pwatched=0  ]
+            3: -4 <= v0             [ bvalue=l_undef pwatched=0  ]
+
+        2  ==>  v0 \not\in [0;12[
+        3  ==>  v0 \not\in [13;10[
+        A value is "truly" forbidden if neither branch works:
+            v0 \not\in [0;12[ intersect [13;10[  ==  [0;10[
+        ==> replace 2, 3 by single constraint 10 <= v0
 
 --*/
 #include "math/polysat/solver.h"
