@@ -212,6 +212,15 @@ namespace polysat {
             s.expect_unsat();
         }
 
+        static void test_l4b() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(32));
+            auto y = s.var(s.add_var(32));
+            s.add_eq(2*x + 4*y + 1);  // always false due to parity
+            s.check();
+            s.expect_unsat();
+        }
+
         static void test_l5() {
             scoped_solver s(__func__);
             auto a = s.var(s.add_var(3));
@@ -1402,6 +1411,7 @@ void tst_polysat() {
     // test_polysat::test_l2();   // TODO: loops
     // test_polysat::test_l3();   // ok
     // test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
+    // test_polysat::test_l4b();  // ok
     // test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
 
     // test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
