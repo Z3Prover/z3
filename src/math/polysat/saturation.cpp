@@ -99,7 +99,7 @@ namespace polysat {
 
         core.reset();
         for (auto d : m_new_constraints)
-            core.insert(d);
+            core.insert_eval(d);
         if (c.bvalue(s) != l_false)  // conflict is due to the evaluation of c, so it depends on the variable values
             core.insert_vars(c);
         core.insert(~c);
