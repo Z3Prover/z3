@@ -67,11 +67,17 @@ namespace polysat {
      * \param[out] v Body
      */
     pdd simplify_clause::abstract(pdd const& p, pdd& v) {
-        if (p.is_val())
+        if (p.is_val()) {
+            SASSERT(v.is_zero());
             return p;
+        }
         if (p.is_unilinear()) {
-            v = p.manager().mk_var(p.var());
-            return p;
+            // we need an interval with coeff == 1 to be able to compare intervals easily
+            auto const& coeff = p.hi().val();
+            if (coeff.is_one() || coeff == p.manager().max_value()) {
+                v = p.manager().mk_var(p.var());
+                return p;
+            }
         }
         unsigned max_var = p.var();
         auto& m = p.manager();
