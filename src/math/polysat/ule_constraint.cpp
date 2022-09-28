@@ -78,8 +78,8 @@ namespace polysat {
                 m_lhs = 1, m_rhs = 0;
             return;
         }
-        // k <= p => p - k <= - k - 1
-        if (m_lhs.is_val() && false) {
+        // k <= p   -->   p - k <= - k - 1
+        if (m_lhs.is_val()) {
             pdd k = m_lhs;
             m_lhs = m_rhs - k;
             m_rhs = - k - 1;
@@ -93,17 +93,6 @@ namespace polysat {
                 x = mod(x, m_lhs.manager().two_to_N());
             m_lhs *= x;
             SASSERT(m_lhs.leading_coefficient().is_power_of_two());
-        }
-
-        // 1 <= a*p + q <=> 1 <= p + a^-1*q for a odd.
-        if (m_lhs.is_one() && !m_rhs.leading_coefficient().is_power_of_two()) {
-            rational lc = m_rhs.leading_coefficient();
-            rational x, y;
-            gcd(lc, m_rhs.manager().two_to_N(), x, y);
-            if (x.is_neg())
-                x = mod(x, m_rhs.manager().two_to_N());
-            m_rhs *= x;
-            SASSERT(m_rhs.leading_coefficient().is_power_of_two());
         }
     }
 
