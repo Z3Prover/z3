@@ -11,32 +11,6 @@ Author:
 
 Notes:
 
-    TODO: check why it fails with test_l2   (mod 2^2)
-        Lemma: -0 \/ -1 \/ -6 \/ 8
-             -0: v1 + 2*v0 + 1 != 0              [ l_false assert@0 pwatched ]
-             -1: 2*v1 + v0 != 0                  [ l_false assert@0 pwatched ]
-             -6: v1 + -1 != 0                    [ l_undef ]
-              8: 1 <= 2*v1 + 2                   [ l_undef ]
-
-        -6  ==>  v1 \not\in { 1 }
-        8   ==>  v1 \not\in { 1, 3 }
-        so 8 subsumes -6   (8 ==> -6)
-        Actually:
-            - this means we have to keep -6 and throw out 8.
-            - because in case of v1 := 3, the original lemma will be satisfied.
-            TODO: meaning of "subsumption" is probably flipped in the code below?
-
-    TODO: from test_l5, conflict #2:   (mod 2^3)
-        Lemma: -1 \/ -2 \/ -6 \/ -7
-           -1: 2*v1 + v0 + 4 != 0   [ bvalue=l_false @0 pwatched=1  ]
-           -2: 4*v1 + v0 + 4 != 0   [ bvalue=l_false @0 pwatched=1  ]
-           -6: 2*v1 + -2 != 0       [ bvalue=l_undef pwatched=0  ]
-           -7: v1 + -1 != 0         [ bvalue=l_undef pwatched=0  ]
-
-            -7  ==>  v1 \not\in { 1 }
-            -6  ==>  v1 \not\in { 1, 5 }
-            ==> -6 subsumes -7
-
     TODO: from test_ineq_basic5:    (mod 2^4)
         Lemma: -0 \/ -1 \/ 2 \/ 3
            -0: -4 > v1 + v0         [ bvalue=l_false @0 pwatched=1  ]
@@ -68,7 +42,7 @@ namespace polysat {
         return false;
     }
 
-    // If x != k appears among the new literals, all others are superfluous
+    // If x != k appears among the new literals, all others are superfluous.
     bool simplify_clause::try_recognize_bailout(clause& cl) {
         LOG_H2("Try to find bailout literal");
         pvar v = null_var;
@@ -189,7 +163,7 @@ namespace polysat {
         if (entry.coeff != 1)
             return;
         entry.var = lhs.is_val() ? v_rhs : v_lhs;
-        entry.subsumed = false;
+        entry.subsuming = false;
         entry.valid = true;
     }
 
@@ -204,11 +178,13 @@ namespace polysat {
      *
      * (p polynomial, n_i constant numbers)
      *
-     * A literal C subsumes literal D if the forbidden interval of C is a subset of the forbidden interval of D.
-     * C subsumes D  <==  fi(C) subset fi(D)
+     * A literal C subsumes literal D (i.e, C ==> D),
+     * if the forbidden interval of C is a superset of the forbidden interval of D.
+     * fi(D) subset fi(C)  ==>  C subsumes D
+     * If C subsumes D, remove C from the lemma.
      */
     bool simplify_clause::try_equal_body_subsumptions(clause& cl) {
-        LOG_H2("Unilinear subsumption for: " << cl);
+        LOG_H2("Equal-body-subsumption for: " << cl);
 
         m_entries.reserve(cl.size());
         for (unsigned i = 0; i < cl.size(); ++i) {
@@ -223,27 +199,27 @@ namespace polysat {
         bool any_subsumed = false;
         for (unsigned i = 0; i < cl.size(); ++i) {
             subs_entry& e = m_entries[i];
-            if (e.subsumed || !e.valid)
+            if (e.subsuming || !e.valid)
                 continue;
             for (unsigned j = 0; j < cl.size(); ++j) {
                 subs_entry& f = m_entries[j];
-                if (f.subsumed || !f.valid || i == j || !e.var || !f.var || *e.var != *f.var)
+                if (f.subsuming || !f.valid || i == j || *e.var != *f.var)
                     continue;
                 if (e.interval.currently_contains(f.interval)) {
-                    // f subset of e  ==>  f.src subsumes e.src
-                    LOG("Literal " << s.lit2cnstr(cl[i]) << " subsumed by " << s.lit2cnstr(cl[j]));
-                    e.subsumed = true;
+                    // f subset of e  ==>  f.src subsumed by e.src
+                    LOG("Removing " << s.lit2cnstr(cl[i]) << " because it subsumes " << s.lit2cnstr(cl[j]));
+                    e.subsuming = true;
                     any_subsumed = true;
                     break;
                 }
             }
         }
-        // Remove subsumed literals
+        // Remove subsuming literals
         if (!any_subsumed)
             return false;
         unsigned j = 0;
         for (unsigned i = 0; i < cl.size(); ++i)
-            if (!m_entries[i].subsumed)
+            if (!m_entries[i].subsuming)
                 cl[j++] = cl[i];
         cl.m_literals.shrink(j);
         return true;

@@ -22,7 +22,7 @@ namespace polysat {
 
         struct subs_entry : fi_record {
             optional<pdd>  var;
-            bool subsumed = false;
+            bool subsuming = false;
             bool valid = false;
         };
 

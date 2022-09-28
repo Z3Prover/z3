@@ -69,8 +69,10 @@ std::pair<std::ostream&, bool> polysat_log(LogLevel msg_level, std::string fn, s
 
   size_t width = 20;
   size_t padding = 0;
-  if (width > fn.size()) 
+  if (width >= fn.size()) 
       padding = width - fn.size();
+  else
+    fn = fn.substr(0, width - 3) + "...";
   char const* color = nullptr;
   color = level_color(msg_level);
 #ifdef _MSC_VER    
