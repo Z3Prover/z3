@@ -225,4 +225,117 @@ namespace polysat {
         return true;
     }
 
+
+
+
+#if 0
+    // All variables of clause 'cl' except 'z' are assigned.
+    // Goal: a possibly weaker clause that implies a restriction on z around z_val
+    clause_ref simplify_clause::make_asserting(clause& cl, pvar z, rational z_val) {
+        signed_constraints cz;  // constraints of 'cl' that contain 'z'
+        sat::literal_vector lits;  // literals of the new clause
+        for (sat::literal lit : cl) {
+            signed_constraint c = s.lit2cnstr(lit);
+            if (c.contains_var(z))
+                cz.push_back(c);
+            else
+                lits.push_back(lit);
+        }
+        SASSERT(!cz.empty());
+        if (cz.size() == 1) {
+            // TODO: even in this case, if the constraint is non-linear in z, we might want to extract a maximal forbidden interval around z_val.
+            return nullptr;
+        }
+        else {
+            // multiple constraints that contain z
+            find_implied_constraint(cz, z, z_val, lits);
+            return clause::from_literals(std::move(lits));
+        }
+    }
+
+    // Each constraint in 'cz' is univariate in 'z' under the current assignment.
+    // Goal: a literal that is implied by the disjunction of cz and ensures z != z_val in viable.
+    //       (plus side conditions that do not depend on z)
+    void simplify_clause::find_implied_constraint(signed_constraints const& cz, pvar z, rational z_val, sat::literal_vector& out_lits)
+    {
+        unsigned const out_lits_original_size = out_lits.size();
+
+        forbidden_intervals fi(s);
+        fi_record entry;
+
+        auto intersection = eval_interval::full();
+        bool all_unit = true;
+
+        for (signed_constraint const& c : cz) {
+            if (fi.get_interval(c, z, entry) && entry.coeff == 1) {
+                intersection = intersection.intersect(entry.interval);
+                for (auto const& sc : entry.side_cond)
+                    out_lits.push_back(sc.blit());
+            } else {
+                all_unit = false;
+                break;
+            }
+        }
+
+        if (all_unit) {
+            SASSERT(!intersection.is_currently_empty());
+            // Unit intervals from all constraints
+            // => build constraint from intersection of forbidden intervals
+            //    z \not\in [l;u[  <=>  z - l >= u - l
+            if (intersection.is_proper()) {
+                auto c_new = s.ule(intersection.hi() - intersection.lo(), z - intersection.lo());
+                out_lits.push_back(c_new.blit());
+            }
+        } else {
+            out_lits.shrink(out_lits_original_size);
+            find_implied_constraint_sat(cz, z, z_val, out_lits);
+        }
+    }
+
+    void simplify_clause::find_implied_constraint_sat(signed_constraints const& cz, pvar z, rational z_val, sat::literal_vector& out_lits)
+    {
+        unsigned bit_width = s.size(z);
+        auto p_factory = mk_univariate_bitblast_factory();
+        auto p_us = (*p_factory)(bit_width);
+        auto& us = *p_us;
+
+        // Find max z1 such that z1 < z_val and all cz true under z := z1 (and current assignment)
+        rational z1 = z_val;
+
+        for (signed_constraint const& c : cz)
+            c.add_to_univariate_solver(s, us, 0);
+        us.add_ult_const(z_val, false, 0);  // z1 < z_val
+
+        // First check if any such z1 exists
+        switch (us.check()) {
+        case l_false:
+            // No such z1 exists
+            z1 = s.m_pdd[z]->max_value();  // -1
+            break;
+        case l_true:
+            // z1 exists. Try to make it as small as possible by setting bits to 0
+
+            for (unsigned j = bit_width; j-- > 0; ) {
+                switch (us.check()) {
+                case l_true:
+                    // TODO
+                    break;
+                case l_false:
+                    // TODO
+                    break;
+                default:
+                    UNREACHABLE();  // TODO: see below
+                }
+            }
+
+            break;
+        default:
+            UNREACHABLE();  // TODO: should we link the child solver's resources to polysat's resource counter?
+        }
+
+        // Find min z2 such that z2 > z_val and all cz true under z := z2 (and current assignment)
+        // TODO
+    }
+#endif
+
 }

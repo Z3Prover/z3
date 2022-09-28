@@ -118,6 +118,14 @@ namespace polysat {
             return false;
         }
 
+#if 0
+        // TODO: intersection of wrapping intervals might not be an interval!!!
+        //
+        // Example:
+        //    [---------[
+        // -----[    [----
+        // would give
+        //    [-[    [--[
         eval_interval intersect(eval_interval const& other) const {
             if (is_full()) return other;
             if (other.is_full()) return *this;
@@ -138,6 +146,8 @@ namespace polysat {
 
             return eval_interval::proper(i_lo, i_lo_val, i_hi, i_hi_val);
         }
+#endif
+
     };
 
     inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {
