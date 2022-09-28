@@ -34,7 +34,7 @@ namespace polysat {
         pdd const& rhs() const { return m_rhs; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const;
+        static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs);
         bool is_always_false(bool is_positive) const override;
         bool is_currently_false(solver& s, bool is_positive) const override;
         bool is_currently_true(solver& s, bool is_positive) const override;

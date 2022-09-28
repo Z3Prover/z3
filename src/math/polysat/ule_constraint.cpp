@@ -134,17 +134,22 @@ namespace polysat {
         s.m_viable.intersect(p, q, sc);
     }
 
-    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {
-        // TODO: other conditions (e.g. when forbidden interval would be full)
+    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) {
         if (is_positive) {
+            // lhs <= rhs
             if (rhs.is_zero())
-                return lhs.is_never_zero();
+                return lhs.is_never_zero();  // p <= 0 implies p == 0
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
         }
         else {
+            // lhs > rhs
             if (lhs.is_zero())
                 return true;  // 0 > ... is always false
-            return (lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val()) || (lhs == rhs);
+            if (lhs == rhs)
+                return true;  // p > p
+            if (lhs.is_one() && rhs.is_never_zero())
+                return true;  // 1 > p implies p == 0
+            return lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val();
         }
     }
 

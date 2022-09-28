@@ -196,6 +196,7 @@ namespace polysat {
             break;
         case l_undef:
             if (c.is_always_false()) {
+                LOG("Always false: " << c);
                 // asserted an always-false constraint
                 set_conflict_at_base_level();
                 return;
