@@ -32,6 +32,7 @@ namespace polysat {
         ~ule_constraint() override {}
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
+        static std::ostream& display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs);
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
         static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs);
@@ -48,5 +49,14 @@ namespace polysat {
         bool is_diseq() const override { return m_lhs.is_one(); }
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
+
+    struct ule_pp {
+        lbool status;
+        pdd lhs;
+        pdd rhs;
+        ule_pp(lbool status, pdd const& lhs, pdd const& rhs): status(status), lhs(lhs), rhs(rhs) {}
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, ule_pp const& u) { return ule_constraint::display(out, u.status, u.lhs, u.rhs); }
 
 }

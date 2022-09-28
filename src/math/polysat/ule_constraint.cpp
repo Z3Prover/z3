@@ -49,7 +49,15 @@ namespace polysat {
     ule_constraint::ule_constraint(constraint_manager& m, pdd const& l, pdd const& r) :
         constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
 
+#ifndef NDEBUG
+        pdd const old_lhs = m_lhs;
+        pdd const old_rhs = m_rhs;
+#endif
         simplify();
+#ifndef NDEBUG
+        if (old_lhs != m_lhs || old_rhs != m_rhs)
+            LOG("Simplify: " << ule_pp(l_true, old_lhs, old_rhs) << "   -->   " << ule_pp(l_true, m_lhs, m_rhs));
+#endif
 
         m_vars.append(m_lhs.free_vars());
         for (auto v : m_rhs.free_vars())
@@ -96,14 +104,20 @@ namespace polysat {
         }
     }
 
-    std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
-        out << m_lhs;
-        if (is_eq() && status == l_true) out << " == ";
-        else if (is_eq() && status == l_false) out << " != ";
+    std::ostream& ule_constraint::display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs) {
+        out << lhs;
+        if (rhs.is_zero() && status == l_true) out << " == ";
+        else if (rhs.is_zero() && status == l_false) out << " != ";
+        // else if (lhs.is_one() && status == l_true) out << " != ";
+        // else if (lhs.is_one() && status == l_false) out << " == ";
         else if (status == l_true) out << " <= ";
         else if (status == l_false) out << " > ";
         else out << " <=/> ";
-        return out << m_rhs;
+        return out << rhs;
+    }
+
+    std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
+        return display(out, status, m_lhs, m_rhs);
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
