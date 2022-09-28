@@ -203,7 +203,11 @@ namespace polysat {
     }
 
     signed_constraint constraint_manager::ule(pdd const& a, pdd const& b) {
-        return { dedup(alloc(ule_constraint, *this, a, b)), true };
+        bool is_positive = true;
+        pdd lhs = a;
+        pdd rhs = b;
+        ule_constraint::simplify(is_positive, lhs, rhs);
+        return { dedup(alloc(ule_constraint, *this, lhs, rhs)), is_positive };
     }
 
     signed_constraint constraint_manager::eq(pdd const& p) { 
@@ -215,18 +219,12 @@ namespace polysat {
     }
 
     bool signed_constraint::is_eq() const {
-        if (is_positive())
-            return m_constraint->is_eq();
-        else
-            return m_constraint->is_diseq();
+        return is_positive() && m_constraint->is_eq();
     }
 
     pdd const& signed_constraint::eq() const {
         SASSERT(is_eq());
-        if (is_positive())
-            return m_constraint->to_ule().lhs();
-        else
-            return m_constraint->to_ule().rhs();        
+        return m_constraint->to_ule().lhs();
     }
 
     /**

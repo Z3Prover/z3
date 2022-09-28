@@ -12,15 +12,30 @@ Author:
 
 Notes:
 
+   Canonical representation of equation p == 0 is the constraint p <= 0.
+   The alternatives p < 1, -1 <= q, q > -2 are eliminated.
+
    Rewrite rules to simplify expressions.
    In the following let k, k1, k2 be values.
   
-   - k1 <= k2   ==> 0 <= 0 if k1 <= k2
-   - k1 <= k2   ==> 1 <= 0 if k1 >  k2
-   - 0 <= p     ==> 0 <= 0
-   - p <= -1    ==> 0 <= 0
-   - k*2^n*p <= 0   ==> 2^n*p <= 0 if k is odd, leading coeffient is always a power of 2.
-   - k <= p     ==> p - k <= - k - 1
+   - k1 <= k2       ==>   0 <= 0 if k1 <= k2
+   - k1 <= k2       ==>   1 <= 0 if k1 >  k2
+   - 0 <= p         ==>   0 <= 0
+   - p <= 0         ==>   1 <= 0 if p is never zero due to parity
+   - p <= -1        ==>   0 <= 0
+   - k <= p         ==>   p - k <= - k - 1
+   - k*2^n*p <= 0   ==>   2^n*p <= 0 if k is odd, leading coeffient is always a power of 2.
+
+   Note: the rules will rewrite alternative formulations of equations:
+   - -1 <= p        ==>   p + 1 <= 0
+   -  1 <= p        ==>   p - 1 <= -2
+
+   Rewrite rules on signed constraints:
+
+   - p > -2         ==>   p + 1 <= 0
+   - p <= -2        ==>   p + 1 > 0
+
+   At this point, all equations are in canonical form.
 
 TODO: clause simplifications:
 
@@ -44,72 +59,97 @@ Note:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 
+namespace {
+    using namespace polysat;
+
+    // Simplify lhs <= rhs
+    void simplify_impl(bool& is_positive, pdd& lhs, pdd& rhs) {
+        // 0 <= p   -->   0 <= 0
+        if (lhs.is_zero()) {
+            rhs = 0;
+            return;
+        }
+        // p <= -1   -->   0 <= 0
+        if (rhs.is_val() && rhs.val() == rhs.manager().max_value()) {
+            lhs = 0, rhs = 0;
+            return;
+        }
+        // p <= p   -->   0 <= 0
+        if (lhs == rhs) {
+            lhs = 0, rhs = 0;
+            return;
+        }
+        // Evaluate constants
+        if (lhs.is_val() && rhs.is_val()) {
+            if (lhs.val() <= rhs.val())
+                lhs = 0, rhs = 0;
+            else
+                lhs = 1, rhs = 0;
+            return;
+        }
+        // k <= p   -->   p - k <= - k - 1
+        if (lhs.is_val()) {
+            pdd k = lhs;
+            lhs = rhs - k;
+            rhs = - k - 1;
+        }
+        // p >  -2   -->   p + 1 <= 0
+        // p <= -2   -->   p + 1 >  0
+        if (rhs.is_val() && (rhs + 2).is_zero()) {
+            lhs = lhs + 1;
+            rhs = 0;
+            is_positive = !is_positive;
+        }
+        // 2p + 1 <= 0   -->   1 <= 0
+        if (rhs.is_zero() && lhs.is_never_zero()) {
+            lhs = 1;
+            return;
+        }
+        // a*p + q <= 0   -->   p + a^-1*q <= 0   for a odd
+        if (rhs.is_zero() && !lhs.leading_coefficient().is_power_of_two()) {
+            rational lc = lhs.leading_coefficient();
+            rational x, y;
+            gcd(lc, lhs.manager().two_to_N(), x, y);
+            if (x.is_neg())
+                x = mod(x, lhs.manager().two_to_N());
+            lhs *= x;
+            SASSERT(lhs.leading_coefficient().is_power_of_two());
+        }
+    } // simplify_impl
+}
+
+
 namespace polysat {
 
     ule_constraint::ule_constraint(constraint_manager& m, pdd const& l, pdd const& r) :
         constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
 
-#ifndef NDEBUG
-        pdd const old_lhs = m_lhs;
-        pdd const old_rhs = m_rhs;
-#endif
-        simplify();
-#ifndef NDEBUG
-        if (old_lhs != m_lhs || old_rhs != m_rhs)
-            LOG("Simplify: " << ule_pp(l_true, old_lhs, old_rhs) << "   -->   " << ule_pp(l_true, m_lhs, m_rhs));
-#endif
-
         m_vars.append(m_lhs.free_vars());
         for (auto v : m_rhs.free_vars())
             if (!m_vars.contains(v))
                 m_vars.push_back(v);
-
     }
 
-    void ule_constraint::simplify() {
-        if (m_lhs.is_zero()) {
-            m_rhs = 0;
-            return;
+    void ule_constraint::simplify(bool& is_positive, pdd& lhs, pdd& rhs) {
+#ifndef NDEBUG
+        bool const old_is_positive = is_positive;
+        pdd const old_lhs = lhs;
+        pdd const old_rhs = rhs;
+#endif
+        simplify_impl(is_positive, lhs, rhs);
+#ifndef NDEBUG
+        if (old_is_positive != is_positive || old_lhs != lhs || old_rhs != rhs) {
+            ule_pp const old_ule(to_lbool(old_is_positive), old_lhs, old_rhs);
+            ule_pp const new_ule(to_lbool(is_positive), lhs, rhs);
+            LOG("Simplify: " << old_ule << "   -->   " << new_ule);
         }
-        if (m_rhs.is_val() && m_rhs.val() == m_rhs.manager().max_value()) {
-            m_lhs = 0, m_rhs = 0;
-            return;
-        }
-        if (m_lhs == m_rhs) {
-            m_lhs = m_rhs = 0;
-            return;
-        }
-        if (m_lhs.is_val() && m_rhs.is_val()) {
-            if (m_lhs.val() <= m_rhs.val())
-                m_lhs = m_rhs = 0;
-            else
-                m_lhs = 1, m_rhs = 0;
-            return;
-        }
-        // k <= p   -->   p - k <= - k - 1
-        if (m_lhs.is_val()) {
-            pdd k = m_lhs;
-            m_lhs = m_rhs - k;
-            m_rhs = - k - 1;
-        }
-        // a*p + q <= 0 <=> p + a^-1*q <= 0 for a odd
-        if (m_rhs.is_zero() && !m_lhs.leading_coefficient().is_power_of_two()) {
-            rational lc = m_lhs.leading_coefficient();
-            rational x, y;
-            gcd(lc, m_lhs.manager().two_to_N(), x, y);
-            if (x.is_neg())
-                x = mod(x, m_lhs.manager().two_to_N());
-            m_lhs *= x;
-            SASSERT(m_lhs.leading_coefficient().is_power_of_two());
-        }
+#endif
     }
 
     std::ostream& ule_constraint::display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs) {
         out << lhs;
         if (rhs.is_zero() && status == l_true) out << " == ";
         else if (rhs.is_zero() && status == l_false) out << " != ";
-        // else if (lhs.is_one() && status == l_true) out << " != ";
-        // else if (lhs.is_one() && status == l_false) out << " == ";
         else if (status == l_true) out << " <= ";
         else if (status == l_false) out << " > ";
         else out << " <=/> ";
@@ -149,6 +189,7 @@ namespace polysat {
     }
 
     bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) {
+        // NOTE: don't assume simplifications here because we also call this on partially substituted constraints
         if (is_positive) {
             // lhs <= rhs
             if (rhs.is_zero())
@@ -198,7 +239,6 @@ namespace polysat {
         else 
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
-
 
     inequality ule_constraint::as_inequality(bool is_positive) const {
         if (is_positive)

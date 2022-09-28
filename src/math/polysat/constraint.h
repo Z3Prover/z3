@@ -106,8 +106,8 @@ namespace polysat {
         signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
         signed_constraint band(pdd const& p, pdd const& q, pdd const& r);
 
-        constraint *const* begin() const { return m_constraints.data(); }
-        constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
+        constraint* const* begin() const { return m_constraints.data(); }
+        constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
 
         using clause_iterator = decltype(m_clauses)::const_iterator;
         clause_iterator clauses_begin() const { return m_clauses.begin(); }
@@ -167,7 +167,6 @@ namespace polysat {
         bool operator!=(constraint const& other) const { return !operator==(other); }
 
         virtual bool is_eq() const { return false; }
-        virtual bool is_diseq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_umul_ovfl() const { return m_kind == ckind_t::umul_ovfl_t; }
         bool is_smul_fl() const { return m_kind == ckind_t::smul_fl_t; }

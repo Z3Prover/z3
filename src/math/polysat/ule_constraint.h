@@ -26,7 +26,7 @@ namespace polysat {
         pdd m_rhs;
 
         ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
-        void simplify();
+        static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
 
     public:
         ~ule_constraint() override {}
@@ -46,7 +46,6 @@ namespace polysat {
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return m_rhs.is_zero(); }
-        bool is_diseq() const override { return m_lhs.is_one(); }
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
 
