@@ -1408,7 +1408,7 @@ void tst_polysat() {
     // test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
 
     // test_polysat::test_l1();   // ok
-    // test_polysat::test_l2();   // TODO: loops
+    // test_polysat::test_l2();   // ok but enumerates values
     // test_polysat::test_l3();   // ok
     // test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
     // test_polysat::test_l4b();  // ok

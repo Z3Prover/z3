@@ -61,9 +61,67 @@ namespace polysat {
     {}
 
     bool simplify_clause::apply(clause& cl) {
+        if (try_recognize_bailout(cl))
+            return true;
         if (try_equal_body_subsumptions(cl))
             return true;
         return false;
+    }
+
+    // If x != k appears among the new literals, all others are superfluous
+    bool simplify_clause::try_recognize_bailout(clause& cl) {
+        LOG_H2("Try to find bailout literal");
+        pvar v = null_var;
+        sat::literal eq = sat::null_literal;
+        rational k;
+        for (sat::literal lit : cl) {
+            LOG_V("Examine " << lit_pp(s, lit));
+            lbool status = s.m_bvars.value(lit);
+            // skip premise literals
+            if (status == l_false)
+                continue;
+            SASSERT(status != l_true);  // would be an invalid lemma
+            SASSERT_EQ(status, l_undef);  // new literal
+            auto c = s.lit2cnstr(lit);
+            // For now we only handle the case where exactly one variable is
+            // unassigned among the new constraints
+            for (pvar w : c->vars()) {
+                if (s.is_assigned(w))
+                    continue;
+                if (v == null_var)
+                    v = w;
+                else if (v != w)
+                    return false;
+            }
+            SASSERT(v != null_var);  // constraints without unassigned variables would be evaluated at this point
+            if (c.is_diseq() && c.diseq().is_unilinear()) {
+                pdd const& p = c.diseq();
+                if (p.hi().is_one()) {
+                    eq = lit;
+                    k = (-p.lo()).val();
+                }
+            }
+        }
+        if (eq == sat::null_literal)
+            return false;
+        LOG("Found bailout literal: " << lit_pp(s, eq));
+        // Keep all premise literals and the equation
+        unsigned j = 0;
+        for (unsigned i = 0; i < cl.size(); ++i) {
+            sat::literal const lit = cl[i];
+            lbool const status = s.m_bvars.value(lit);
+            if (status == l_false || lit == eq)
+                cl[j++] = cl[i];
+            else {
+                DEBUG_CODE({
+                    auto a = s.assignment();
+                    a.push_back({v, k});
+                    SASSERT(s.lit2cnstr(lit).is_currently_false(s, a));
+                });
+            }
+        }
+        cl.m_literals.shrink(j);
+        return true;
     }
 
     /**

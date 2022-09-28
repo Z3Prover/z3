@@ -237,7 +237,8 @@ namespace polysat {
         }
 
         void negate() { m_positive = !m_positive; }
-        signed_constraint operator~() const { return {get(), !is_positive()}; }
+        signed_constraint negated() const { return {get(), !is_positive()}; }
+        signed_constraint operator~() const { return negated(); }
 
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
@@ -268,7 +269,9 @@ namespace polysat {
         constraint const& operator*() const { return *m_constraint; }
 
         bool is_eq() const;
+        bool is_diseq() const { return negated().is_eq(); }
         pdd const& eq() const;
+        pdd const& diseq() const { return negated().eq(); }
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 
