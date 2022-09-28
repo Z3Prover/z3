@@ -30,12 +30,19 @@ namespace euf {
 namespace q {
 
     struct q_proof_hint : public euf::th_proof_hint {
-        unsigned     m_num_bindings;
-        expr*        m_bindings[0];
-        q_proof_hint() {}
-        static size_t get_obj_size(unsigned num_bindings) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*); }
-        static q_proof_hint* mk(euf::solver& s, unsigned n, euf::enode* const* bindings);
-        static q_proof_hint* mk(euf::solver& s, unsigned n, expr* const* bindings);
+        unsigned      m_num_bindings;
+        unsigned      m_num_literals;
+        sat::literal* m_literals;
+        expr*         m_bindings[0];
+        
+        q_proof_hint(unsigned b, unsigned l) {
+            m_num_bindings = b;
+            m_num_literals = l;
+            m_literals = reinterpret_cast<sat::literal*>(m_bindings + m_num_bindings);
+        }
+        static size_t get_obj_size(unsigned num_bindings, unsigned num_lits) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*) + num_lits*sizeof(sat::literal); }
+        static q_proof_hint* mk(euf::solver& s, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings);
         expr* get_hint(euf::solver& s) const override;
     };
 

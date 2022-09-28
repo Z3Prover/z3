@@ -322,6 +322,7 @@ namespace arith {
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
         void mk_power0_axioms(app* t, app* n);
         void flush_bound_axioms();
+        void add_farkas_clause(sat::literal l1, sat::literal l2);
 
         // bounds
         struct compare_bounds {
@@ -473,6 +474,7 @@ namespace arith {
 
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
         arith_proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
+        arith_proof_hint const* explain_triangle_eq(sat::literal le, sat::literal ge, sat::literal eq);
         void explain_assumptions();
 
 

@@ -48,7 +48,6 @@ Notes:
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
-    ast_manager&    m;
     mutable sat::solver     m_solver;
     stacked_value<bool> m_has_uninterpreted;
     goal2sat        m_goal2sat;
@@ -87,7 +86,7 @@ class inc_sat_solver : public solver {
     bool is_internalized() const { return m_fmls_head == m_fmls.size(); }
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
-        m(m), 
+        solver(m),
         m_solver(p, m.limit()),
         m_has_uninterpreted(false),
         m_fmls(m),
@@ -405,7 +404,7 @@ public:
         return result;
     }
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         return nullptr;
     }
 

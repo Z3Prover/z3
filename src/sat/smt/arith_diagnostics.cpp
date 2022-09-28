@@ -133,6 +133,16 @@ namespace arith {
         return m_arith_hint.mk(ctx);
     }
 
+    arith_proof_hint const* solver::explain_triangle_eq(sat::literal le, sat::literal ge, sat::literal eq) {
+        if (!ctx.use_drat())
+            return nullptr;
+        m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
+        m_arith_hint.add_lit(rational(1), le);
+        m_arith_hint.add_lit(rational(1), ge);
+        m_arith_hint.add_lit(rational(1), ~eq);
+        return m_arith_hint.mk(ctx);
+    }
+
     expr* arith_proof_hint::get_hint(euf::solver& s) const {
         ast_manager& m = s.get_manager();
         family_id fid = m.get_family_id("arith");

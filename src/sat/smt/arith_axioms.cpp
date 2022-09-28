@@ -251,6 +251,17 @@ namespace arith {
         if (hi_sup != end) mk_bound_axiom(b, *hi_sup);
     }
 
+    void solver::add_farkas_clause(sat::literal l1, sat::literal l2) {
+        arith_proof_hint* bound_params = nullptr;
+        if (ctx.use_drat()) {
+            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            m_arith_hint.add_lit(rational(1), ~l1);
+            m_arith_hint.add_lit(rational(1), ~l2);
+            bound_params = m_arith_hint.mk(ctx);
+        }
+        add_clause(l1, l2, bound_params);
+    }
+
     void solver::mk_bound_axiom(api_bound& b1, api_bound& b2) {
         literal   l1(b1.get_lit());
         literal   l2(b2.get_lit());
@@ -263,55 +274,45 @@ namespace arith {
         if (k1 == k2 && kind1 == kind2) return;
         SASSERT(k1 != k2 || kind1 != kind2);
 
-        auto bin_clause = [&](sat::literal l1, sat::literal l2) {
-            arith_proof_hint* bound_params = nullptr;
-            if (ctx.use_drat()) {
-                m_arith_hint.set_type(ctx, hint_type::farkas_h);
-                m_arith_hint.add_lit(rational(1), ~l1);
-                m_arith_hint.add_lit(rational(1), ~l2);
-                bound_params = m_arith_hint.mk(ctx);
-            }
-            add_clause(l1, l2, bound_params);            
-        };
         
         if (kind1 == lp_api::lower_t) {
             if (kind2 == lp_api::lower_t) {
                 if (k2 <= k1)
-                    bin_clause(~l1, l2);
+                    add_farkas_clause(~l1, l2);
                 else
-                    bin_clause(l1, ~l2);
+                    add_farkas_clause(l1, ~l2);
             }
             else if (k1 <= k2)
                 // k1 <= k2, k1 <= x or x <= k2
-                bin_clause(l1, l2);
+                add_farkas_clause(l1, l2);
             else {
                 // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
-                bin_clause(~l1, ~l2);
+                add_farkas_clause(~l1, ~l2);
                 if (v_is_int && k1 == k2 + rational(1))
                     // k1 <= x or x <= k1-1
-                    bin_clause(l1, l2);
+                    add_farkas_clause(l1, l2);
             }
         }
         else if (kind2 == lp_api::lower_t) {
             if (k1 >= k2)
                 // k1 >= lo_inf, k1 >= x or lo_inf <= x
-                bin_clause(l1, l2);
+                add_farkas_clause(l1, l2);
             else {
                 // k1 < k2, k2 <= x => ~(x <= k1)
-                bin_clause(~l1, ~l2);
+                add_farkas_clause(~l1, ~l2);
                 if (v_is_int && k1 == k2 - rational(1))
                     // x <= k1 or k1+l <= x
-                    bin_clause(l1, l2);
+                    add_farkas_clause(l1, l2);
             }
         }
         else {
             // kind1 == A_UPPER, kind2 == A_UPPER
             if (k1 >= k2)
                 // k1 >= k2, x <= k2 => x <= k1
-                bin_clause(l1, ~l2);
+                add_farkas_clause(l1, ~l2);
             else
                 // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
-                bin_clause(~l1, l2);
+                add_farkas_clause(~l1, l2);
         }
     }
 
@@ -421,9 +422,9 @@ namespace arith {
             ge = mk_literal(a.mk_ge(diff, zero));
         }
         ++m_stats.m_assert_diseq;  
-        add_clause(~eq, le);
-        add_clause(~eq, ge);
-        add_clause(~le, ~ge, eq);
+        add_farkas_clause(~eq, le);
+        add_farkas_clause(~eq, ge);
+        add_clause(~le, ~ge, eq, explain_triangle_eq(le, ge, eq));
     }
 
 

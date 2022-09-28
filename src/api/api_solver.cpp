@@ -43,6 +43,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"
+#include "cmd_context/extra_cmds/proof_cmds.h"
 
 
 extern "C" {
@@ -257,8 +258,10 @@ extern "C" {
 
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         auto& solver = *to_solver(s);
-        if (!solver.m_cmd_context) 
+        if (!solver.m_cmd_context) {
             solver.m_cmd_context = alloc(cmd_context, false, &(mk_c(c)->m()));
+            install_proof_cmds(*solver.m_cmd_context);            
+        }
         auto& ctx = solver.m_cmd_context;
         ctx->set_ignore_check(true);
         std::stringstream errstrm;
@@ -270,6 +273,7 @@ extern "C" {
             return;
         }
 
+
         bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
@@ -277,6 +281,10 @@ extern "C" {
             to_solver(s)->assert_expr(e);
         ctx->reset_tracked_assertions();
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+        auto* ctx_s = ctx->get_solver();
+        if (ctx_s && ctx_s->get_proof())
+            to_solver_ref(s)->set_proof(ctx_s->get_proof());
+
     }
 
     static void solver_from_dimacs_stream(Z3_context c, Z3_solver s, std::istream& is) {

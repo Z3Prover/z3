@@ -52,7 +52,7 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-    solver() {}
+    solver(ast_manager& m): check_sat_result(m) {}
 
     /**
     \brief Creates a clone of the solver.

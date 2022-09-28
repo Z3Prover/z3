@@ -92,16 +92,20 @@ namespace euf {
 
     expr* eq_proof_hint::get_hint(euf::solver& s) const {
         ast_manager& m = s.get_manager();
-        func_decl_ref cc(m);
+        func_decl_ref cc(m), cc_comm(m);
         sort* proof = m.mk_proof_sort();
         ptr_buffer<sort> sorts;
         expr_ref_vector args(m);
         if (m_cc_head < m_cc_tail) {
-            sort* sorts[2] = { m.mk_bool_sort(), m.mk_bool_sort() };
-            cc = m.mk_func_decl(symbol("cc"), 2, sorts, proof);
+            sort* sorts[1] = { m.mk_bool_sort() };
+            cc_comm = m.mk_func_decl(symbol("comm"), 1, sorts, proof);
+            cc = m.mk_func_decl(symbol("cc"), 1, sorts, proof);
         }
         auto cc_proof = [&](bool comm, expr* eq) {
-            return m.mk_app(cc, m.mk_bool_val(comm), eq);
+            if (comm)
+                return m.mk_app(cc_comm, eq);
+            else
+                return m.mk_app(cc, eq);
         };
         auto compare_ts = [](cc_justification_record const& a,
                              cc_justification_record const& b) {
@@ -168,11 +172,11 @@ namespace euf {
         if (!visit_clause(out, n, lits))
             return;
         if (st.is_asserted()) 
-            display_redundant(out, n, lits, status2proof_hint(st));
+            display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_deleted()) 
             display_deleted(out, n, lits);        
         else if (st.is_redundant()) 
-            display_redundant(out, n, lits, status2proof_hint(st));
+            display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_input()) 
             display_assume(out, n, lits);
         else 
@@ -228,10 +232,12 @@ namespace euf {
         display_literals(out << "(assume", n, lits) << ")\n";        
     }
 
-    void solver::display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
-        if (proof_hint)
-            visit_expr(out, proof_hint);
-        display_hint(display_literals(out << "(learn", n, lits), proof_hint) << ")\n";        
+    void solver::display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
+        expr_ref hint(proof_hint, m);
+        if (!hint)
+            hint = m.mk_const(symbol("smt"), m.mk_proof_sort());
+        visit_expr(out, hint);
+        display_hint(display_literals(out << "(infer", n, lits), hint) << ")\n";        
     }
 
     void solver::display_deleted(std::ostream& out, unsigned n, literal const* lits) {

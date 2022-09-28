@@ -47,6 +47,7 @@ Proof checker for clauses created during search.
 #include "sat/sat_drat.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "cmd_context/cmd_context.h"
+#include "params/solver_params.hpp"
 #include <iostream>
 
 class smt_checker {
@@ -166,8 +167,6 @@ public:
         }
         m_solver->pop(1);
         std::cout << "(verified-smt)\n";
-        if (proof_hint)
-            std::cout << "(missed-hint " << mk_pp(proof_hint, m) << ")\n";
         add_clause(clause);
     }
 
@@ -175,15 +174,59 @@ public:
         add_clause(clause);
         m_solver->assert_expr(mk_or(clause));
     }
+
+    void del(expr_ref_vector const& clause) {
+
+    }
+
+};
+
+
+class proof_saver {
+    cmd_context& ctx;
+    ast_manager& m;
+public:
+    proof_saver(cmd_context& ctx):ctx(ctx), m(ctx.m()) {
+        auto* s = ctx.get_solver();
+        if (!s)
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        if (!ctx.get_check_sat_result())
+            ctx.set_check_sat_result(ctx.get_solver());
+    }
+
+    void assume(expr_ref_vector const& clause) {
+        ctx.get_solver()->log_inference(m.mk_assumption_add(nullptr, mk_or(clause)));
+    }
+
+    void del(expr_ref_vector const& clause) {
+        ctx.get_solver()->log_inference(m.mk_redundant_del(mk_or(clause)));
+    }
+
+    void infer(expr_ref_vector const& clause, app* hint) {
+        ctx.get_solver()->log_inference(m.mk_lemma_add(hint, mk_or(clause)));
+    }
+    
 };
 
 class proof_cmds_imp : public proof_cmds {
+    cmd_context&    ctx;
     ast_manager&    m;
     expr_ref_vector m_lits;
     app_ref         m_proof_hint;
-    smt_checker     m_checker;
+    bool            m_check  = true;
+    bool            m_save   = false;
+    bool            m_trim   = false;
+    scoped_ptr<smt_checker>     m_checker;
+    scoped_ptr<proof_saver>     m_saver;
+    
+    smt_checker& checker() { if (!m_checker) m_checker = alloc(smt_checker, m); return *m_checker; }
+    proof_saver& saver() { if (!m_saver) m_saver = alloc(proof_saver, ctx); return *m_saver; }
+
+    
 public:
-    proof_cmds_imp(ast_manager& m): m(m), m_lits(m), m_proof_hint(m), m_checker(m) {}
+    proof_cmds_imp(cmd_context& ctx): ctx(ctx), m(ctx.m()), m_lits(m), m_proof_hint(m) {
+        updt_params(gparams::get_module("solver"));
+    }
 
     void add_literal(expr* e) override {
         if (m.is_proof(e))
@@ -193,27 +236,43 @@ public:
     }
 
     void end_assumption() override {
-        m_checker.assume(m_lits);
+        if (m_check)
+            checker().assume(m_lits);
+        if (m_save)
+            saver().assume(m_lits);
         m_lits.reset();
         m_proof_hint.reset();
     }
 
-    void end_learned() override {
-        m_checker.check(m_lits, m_proof_hint);
+    void end_infer() override {
+        if (m_check)
+            checker().check(m_lits, m_proof_hint);
+        if (m_save)
+            saver().infer(m_lits, m_proof_hint);
         m_lits.reset();
         m_proof_hint.reset();
     }
 
     void end_deleted() override {
+        if (m_check)
+            checker().del(m_lits);
+        if (m_save)
+            saver().del(m_lits);
         m_lits.reset();
         m_proof_hint.reset();
+    }
+
+    void updt_params(params_ref const& p) {
+        solver_params sp(p);
+        m_check = sp.proof_check();
+        m_save  = sp.proof_save();        
     }
 };
 
 
 static proof_cmds& get(cmd_context& ctx) {
     if (!ctx.get_proof_cmds())
-        ctx.set_proof_cmds(alloc(proof_cmds_imp, ctx.m()));
+        ctx.set_proof_cmds(alloc(proof_cmds_imp, ctx));
     return *ctx.get_proof_cmds();
 }
 
@@ -248,9 +307,9 @@ public:
 };
 
 // learned/redundant clause
-class learn_cmd : public cmd {
+class infer_cmd : public cmd {
 public:
-    learn_cmd():cmd("learn") {}
+    infer_cmd():cmd("infer") {}
     char const* get_usage() const override { return "<expr>+"; }
     char const* get_descr(cmd_context& ctx) const override { return "proof command for learned (redundant) clauses"; }
     unsigned get_arity() const override { return VAR_ARITY; }
@@ -259,11 +318,11 @@ public:
     void failure_cleanup(cmd_context & ctx) override {}
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }    
     void set_next_arg(cmd_context & ctx, expr * arg) override { get(ctx).add_literal(arg); }
-    void execute(cmd_context& ctx) override { get(ctx).end_learned(); }
+    void execute(cmd_context& ctx) override { get(ctx).end_infer(); }
 };
 
 void install_proof_cmds(cmd_context & ctx) {
     ctx.insert(alloc(del_cmd));
-    ctx.insert(alloc(learn_cmd));
+    ctx.insert(alloc(infer_cmd));
     ctx.insert(alloc(assume_cmd));
 }

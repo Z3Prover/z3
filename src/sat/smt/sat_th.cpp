@@ -143,20 +143,16 @@ namespace euf {
                 is_new = true;
         return is_new;
     }
-
-    bool th_euf_solver::add_clause(sat::literal a, sat::literal b) {      
-        sat::literal lits[2] = { a, b };
-        return add_clause(2, lits);
-    }
-
-    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps) {      
+    
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps) {
+        SASSERT(ps);
         sat::literal lits[2] = { a, b };
         return add_clause(2, lits, ps);
     }
 
-    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {      
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, th_proof_hint const* ps) {
         sat::literal lits[3] = { a, b, c };
-        return add_clause(3, lits);
+        return add_clause(3, lits, ps);
     }
 
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
@@ -165,6 +161,7 @@ namespace euf {
     }
 
     bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps) {
+        //SASSERT(!ctx.use_drat() || ps); - very far from true, and isn't a requirement
         bool was_true = false;
         for (unsigned i = 0; i < n; ++i)       
             was_true |= is_true(lits[i]);

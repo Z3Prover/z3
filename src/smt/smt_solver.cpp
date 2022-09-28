@@ -289,7 +289,7 @@ namespace {
             m_context.get_model(m);
         }
 
-        proof * get_proof() override {
+        proof * get_proof_core() override {
             return m_context.get_proof();
         }
 

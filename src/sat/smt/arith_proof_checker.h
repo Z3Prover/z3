@@ -383,14 +383,13 @@ namespace arith {
                     neg.mark(e, true);
                 else
                     pos.mark(e, true);
-
-            if (jst->get_name() != m_farkas &&
-                jst->get_name() != m_bound &&
-                jst->get_name() != m_implied_eq) {
+            bool is_bound = jst->get_name() == m_bound;
+            bool is_implied_eq = jst->get_name() == m_implied_eq;
+            bool is_farkas = jst->get_name() == m_farkas;
+            if (!is_farkas && !is_bound && !is_implied_eq) {
                 IF_VERBOSE(0, verbose_stream() << "unhandled inference " << mk_pp(jst, m) << "\n");
                 return false;
             }
-            bool is_bound = jst->get_name() == m_bound;
             bool even = true;
             rational coeff;
             expr* x, * y;
@@ -436,7 +435,6 @@ namespace arith {
             if (check()) 
                 return true;
             
-            IF_VERBOSE(0, verbose_stream() << "did not check condition\n" << mk_pp(jst, m) << "\n"; display(verbose_stream()); );
             return false;
         }
 

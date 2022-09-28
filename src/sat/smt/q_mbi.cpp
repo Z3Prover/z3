@@ -70,19 +70,10 @@ namespace q {
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
         for (auto const& [qlit, fml, inst, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
-            sat::literal lit = ctx.mk_literal(fml);
-            euf::th_proof_hint* ph = nullptr;
-            if (!inst.empty()) {
-                ph = q_proof_hint::mk(ctx, inst.size(), inst.data());
-                sat::literal_vector lits;
-                lits.push_back(~qlit);
-                lits.push_back(~lit);
-                m_qs.add_clause(lits, ph);
-            }
-            else {
-                m_qs.add_clause(~qlit, ~lit);
-            }
-            m_qs.log_instantiation(~qlit, ~lit);
+            sat::literal lit = ~ctx.mk_literal(fml);
+            auto* ph = q_proof_hint::mk(ctx, ~qlit, lit, inst.size(), inst.data());
+            m_qs.add_clause(~qlit, lit, ph);
+            m_qs.log_instantiation(~qlit, lit);
         }
         m_instantiations.reset();
         if (result != l_true)

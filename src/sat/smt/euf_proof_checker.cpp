@@ -20,6 +20,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_proof_checker.h"
+#include <iostream>
 
 namespace euf {
 
@@ -57,6 +58,7 @@ namespace euf {
         ast_manager&     m;
         basic_union_find m_uf;
         svector<std::pair<unsigned, unsigned>> m_expr2id;
+        ptr_vector<expr>                       m_id2expr;
         svector<std::pair<expr*,expr*>> m_diseqs;
         unsigned         m_ts = 0;
         
@@ -108,10 +110,10 @@ namespace euf {
             if (ts != m_ts) {
                 id = m_uf.mk_var();
                 m_expr2id.setx(e->get_id(), {m_ts, id}, {0,0});
+                m_id2expr.setx(id, e, nullptr);
             }
             return id;
-        }
-        
+        }                
 
     public:
         eq_proof_checker(ast_manager& m): m(m) {}
@@ -149,15 +151,17 @@ namespace euf {
                     if (!is_app(arg))
                         return false;
                     app* a = to_app(arg);
-                    if (a->get_num_args() != 2)
+                    if (a->get_num_args() != 1)
                         return false;
-                    if (a->get_name() != symbol("cc"))
+                    if (!m.is_eq(a->get_arg(0), x, y))
                         return false;
-                    if (!m.is_eq(a->get_arg(1), x, y))
+                    bool is_cc = a->get_name() == symbol("cc");
+                    bool is_comm = a->get_name() == symbol("comm");
+                    if (!is_cc && !is_comm)
                         return false;
                     if (!is_app(x) || !is_app(y))
                         return false;
-                    if (!congruence(m.is_true(a->get_arg(0)), to_app(x), to_app(y))) {
+                    if (!congruence(!is_cc, to_app(x), to_app(y))) {
                         IF_VERBOSE(0, verbose_stream() << "not congruent " << mk_pp(a, m) << "\n");
                         return false;
                     }
@@ -167,9 +171,27 @@ namespace euf {
                     return false;
                 }                
             }
+            // check if a disequality is violated.
             for (auto const& [a, b] : m_diseqs)
                 if (are_equal(a, b))
-                    return true;            
+                    return true;
+
+            // check if some equivalence class contains two distinct values.            
+            for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
+                if (v != m_uf.find(v))
+                    continue;
+                unsigned r = v;
+                expr* val = nullptr;
+                do {
+                    expr* e = m_id2expr[v];
+                    if (val && m.are_distinct(e, val))
+                        return true;
+                    if (m.is_value(e))
+                        val = e;
+                    v = m_uf.next(v);
+                }
+                while (r != v);
+            }
             return false;
         }
 
@@ -201,8 +223,12 @@ namespace euf {
         units.reset();
         app* a = to_app(e);
         proof_checker_plugin* p = nullptr;
-        if (m_map.find(a->get_decl()->get_name(), p)) 
-            return p->check(clause, a, units);
+        if (!m_map.find(a->get_decl()->get_name(), p))
+            return false;
+        if (p->check(clause, a, units))
+            return true;
+        
+        std::cout << "(missed-hint " << mk_pp(e, m) << ")\n";
         return false;
     }
 

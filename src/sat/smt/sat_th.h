@@ -160,9 +160,8 @@ namespace euf {
         bool add_unit(sat::literal lit);
         bool add_units(sat::literal_vector const& lits);
         bool add_clause(sat::literal lit) { return add_unit(lit); }
-        bool add_clause(sat::literal a, sat::literal b);
-        bool add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps);
-        bool add_clause(sat::literal a, sat::literal b, sat::literal c);
+        bool add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps = nullptr);
+        bool add_clause(sat::literal a, sat::literal b, sat::literal c, th_proof_hint const* ps = nullptr);
         bool add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
         bool add_clause(sat::literal_vector const& lits, th_proof_hint const* ps = nullptr) { return add_clause(lits.size(), lits.data(), ps); }
         bool add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps = nullptr);
