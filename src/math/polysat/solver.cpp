@@ -246,6 +246,7 @@ namespace polysat {
     */
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
+        LOG("Literal " << lit_pp(*this, lit));
         signed_constraint c = lit2cnstr(lit);
         SASSERT(c);
         // TODO: review active and activate_constraint
@@ -471,6 +472,7 @@ namespace polysat {
             case trail_instr_t::pwatch_i: {
                 constraint* c = m_pwatch_trail.back();
                 erase_pwatch(c);
+                c->set_active(false);   // TODO: review meaning of "active"
                 m_pwatch_trail.pop_back();
                 break;
             }
@@ -789,7 +791,7 @@ namespace polysat {
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
-        LOG_H3("Reverting decision: pvar " << v << " := " << val);
+        LOG_H2("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma();
@@ -1015,6 +1017,10 @@ namespace polysat {
         }
         if (c->is_pwatched())
             out << " pwatched";
+        if (c->is_active())
+            out << " active";
+        if (c->is_external())
+            out << " ext";
         out << " ]";
         return out;
     }
@@ -1087,8 +1093,8 @@ namespace polysat {
             }
             unsigned expected_watches = std::min(2u, c->vars().size());
             if (num_watches != expected_watches)
-                LOG("wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
-            SASSERT_EQ(num_watches, expected_watches);
+                LOG("Wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
+            VERIFY_EQ(num_watches, expected_watches);
         }
         return true;
     }

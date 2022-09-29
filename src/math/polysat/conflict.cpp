@@ -287,7 +287,7 @@ namespace polysat {
         if (c.is_always_true())
             return;
         LOG("Inserting " << lit_pp(s, c));
-        SASSERT(c.bvalue(s) == l_true);
+        SASSERT_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());

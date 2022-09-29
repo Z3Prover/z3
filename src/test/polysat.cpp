@@ -232,6 +232,14 @@ namespace polysat {
             s.expect_sat({{a, 4}, {b, 4}});
         }
 
+        static void test_l6() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(6));
+            s.add_ule(29*x + 3, 29*x + 1);
+            s.check();
+            s.expect_sat();
+        }
+
         /**
          * This one is unsat because a*a*(a*a - 1)
          * is 0 for all values of a.
@@ -1404,7 +1412,7 @@ void tst_polysat() {
     // test_polysat::test_add_conflicts();  // ok
     // test_polysat::test_wlist();  // ok
     // test_polysat::test_cjust();  // uses viable_fallback; weak lemmas
-    // test_polysat::test_subst();  // TODO: assert + resource limit
+    // test_polysat::test_subst();  // TODO: resource limit; needs polynomial superposition
     // test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
 
     // test_polysat::test_l1();   // ok
@@ -1413,13 +1421,14 @@ void tst_polysat() {
     // test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
     // test_polysat::test_l4b();  // ok
     // test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
+    // test_polysat::test_l6();   // ok (refine-equal-lin)
 
     // test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
     // test_polysat::test_p2();    // ok (viable_fallback finds the correct value)
     // test_polysat::test_p3();    // TODO: resource limit
 
     // test_polysat::test_ineq_basic1();  // ok
-    // test_polysat::test_ineq_basic2();  // TODO: assert / boolean conflict
+    // test_polysat::test_ineq_basic2();  // ok
     // test_polysat::test_ineq_basic3();  // ok
     // test_polysat::test_ineq_basic4();  // TODO: resource limit
     // test_polysat::test_ineq_basic5();  // works, but only because variable order changes after the conflict
@@ -1436,7 +1445,7 @@ void tst_polysat() {
     // test_polysat::test_monot_bounds(2);  // weak conflicts
     // test_polysat::test_monot_bounds(8);
     // test_polysat::test_monot_bounds();  // TODO: resource limit
-    // test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant
+    // test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant -- it's a problem with push/pop and that the "active" flag isn't maintained properly
     // test_polysat::test_monot_bounds_simple(8);  // undef
     // test_polysat::test_fixed_point_arith_div_mul_inverse();   // undef
 

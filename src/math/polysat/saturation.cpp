@@ -102,7 +102,7 @@ namespace polysat {
             core.insert_eval(d);
         if (c.bvalue(s) != l_false)  // conflict is due to the evaluation of c, so it depends on the variable values
             core.insert_vars(c);
-        core.insert(~c);
+        core.insert_eval(~c);
         core.set_backjump();
         core.logger().log(inf_name);
         LOG("Core " << core);
