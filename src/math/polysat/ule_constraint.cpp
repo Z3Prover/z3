@@ -229,15 +229,7 @@ namespace polysat {
     }
 
     bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {
-        auto p = s.subst(lhs());
-        auto q = s.subst(rhs());
-        if (is_positive) {
-            if (p.is_zero())
-                return true;
-            return p.is_val() && q.is_val() && p.val() <= q.val();
-        }
-        else 
-            return p.is_val() && q.is_val() && p.val() > q.val();
+        return is_currently_false(s, !is_positive);
     }
 
     inequality ule_constraint::as_inequality(bool is_positive) const {
