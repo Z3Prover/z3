@@ -70,24 +70,15 @@ namespace polysat {
     }
 
     bool umul_ovfl_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q) const {
-        switch (eval(p, q)) {
-        case l_true: return is_positive;
-        case l_false: return !is_positive;
-        default: return false;
-        }
+        return is_always_false(!is_positive, p, q);
     }
 
     bool umul_ovfl_constraint::is_always_false(bool is_positive) const {
         return is_always_false(is_positive, m_p, m_q);
     }
 
-
     bool umul_ovfl_constraint::is_currently_false(solver& s, bool is_positive) const {
         return is_always_false(is_positive, s.subst(p()), s.subst(q()));
-    }
-
-    bool umul_ovfl_constraint::is_currently_true(solver& s, bool is_positive) const {
-        return is_always_true(is_positive, s.subst(p()), s.subst(q()));
     }
 
     void umul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {    

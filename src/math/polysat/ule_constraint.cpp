@@ -224,14 +224,6 @@ namespace polysat {
         return is_always_false(is_positive, p, q);
     }
 
-    bool ule_constraint::is_currently_true(solver& s, assignment_t const& sub, bool is_positive) const { 
-        return is_currently_false(s, sub, !is_positive);
-    }
-
-    bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {
-        return is_currently_false(s, !is_positive);
-    }
-
     inequality ule_constraint::as_inequality(bool is_positive) const {
         if (is_positive)
             return inequality(lhs(), rhs(), false, this);

@@ -67,11 +67,7 @@ namespace polysat {
     }
 
     bool op_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const {
-        switch (eval(p, q, r)) {
-        case l_true: return is_positive;
-        case l_false: return !is_positive;
-        default: return false;
-        }
+        return is_always_false(!is_positive, p, q, r);
     }
 
     bool op_constraint::is_always_false(bool is_positive) const {
@@ -80,10 +76,6 @@ namespace polysat {
 
     bool op_constraint::is_currently_false(solver& s, bool is_positive) const {
         return is_always_false(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));        
-    }
-
-    bool op_constraint::is_currently_true(solver& s, bool is_positive) const {
-        return is_always_true(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));        
     }
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {
