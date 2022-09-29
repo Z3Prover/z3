@@ -27,6 +27,7 @@ namespace polysat {
 
         ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
         static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
+        static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs);
 
     public:
         ~ule_constraint() override {}
@@ -35,7 +36,6 @@ namespace polysat {
         static std::ostream& display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs);
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs);
         bool is_always_false(bool is_positive) const override;
         bool is_currently_false(solver& s, bool is_positive) const override;
         bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const override;

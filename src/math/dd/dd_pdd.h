@@ -253,6 +253,7 @@ namespace dd {
         inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
         inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
         inline bool is_var(PDD p) const { return !is_val(p) && is_zero(lo(p)) && is_one(hi(p)); }
+        inline bool is_max(PDD p) const { SASSERT(m_semantics == mod2_e || m_semantics == mod2N_e); return is_val(p) && val(p) == max_value(); }
         bool is_never_zero(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
@@ -413,6 +414,7 @@ namespace dd {
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
         bool is_var() const { return m.is_var(root); }
+        bool is_max() const { return m.is_max(root); }
         /** Polynomial is of the form a * x + b for numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }

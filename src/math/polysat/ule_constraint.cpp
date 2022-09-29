@@ -70,7 +70,7 @@ namespace {
             return;
         }
         // p <= -1   -->   0 <= 0
-        if (rhs.is_val() && rhs.val() == rhs.manager().max_value()) {
+        if (rhs.is_max()) {
             lhs = 0, rhs = 0;
             return;
         }
@@ -202,6 +202,8 @@ namespace polysat {
                 return true;  // 0 > ... is always false
             if (lhs == rhs)
                 return true;  // p > p
+            if (rhs.is_max())
+                return true;  // p > -1
             if (lhs.is_one() && rhs.is_never_zero())
                 return true;  // 1 > p implies p == 0
             return lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val();
