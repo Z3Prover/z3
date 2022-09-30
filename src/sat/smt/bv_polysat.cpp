@@ -32,20 +32,19 @@ namespace bv {
 
     void solver::internalize_polysat(app* a) {
 
-        std::function<polysat::pdd(polysat::pdd, polysat::pdd)> bin;
-        std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)> binc;
-
-#define mk_binary(a, fn) bin = fn; polysat_binary(a, bin);
-#define mk_binaryc(a, fn) binc = fn; polysat_binaryc(a, binc);
-
         switch (to_app(a)->get_decl_kind()) {
-        case OP_BMUL:             mk_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
-        case OP_BADD:             mk_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
-        case OP_BSUB:             mk_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
-        case OP_BLSHR:            mk_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.lshr(p, q); }); break;
-        case OP_BAND:             mk_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.band(p, q); }); break;
+        case OP_BMUL:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
+        case OP_BADD:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
+        case OP_BSUB:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
+        case OP_BLSHR:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.lshr(p, q); }); break;
+        case OP_BAND:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.band(p, q); }); break;
+        case OP_BOR:              polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bor(p, q); }); break;
+        case OP_BXOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxor(p, q); }); break;
+        case OP_BNAND:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnand(p, q); }); break;
+        case OP_BNOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnor(p, q); }); break;
+        case OP_BNOT:             polysat_unary(a, [&](pdd const& p) { return m_polysat.bnot(p); }); break;
 
-        case OP_BNEG:             polysat_neg(a); break;            
+        case OP_BNEG:             polysat_unary(a, [&](pdd const& p) { return -p; }); break;
         case OP_MKBV:             polysat_mkbv(a); break;
         case OP_BV_NUM:           polysat_num(a); break;
             
@@ -58,9 +57,9 @@ namespace bv {
         case OP_UGT:              polysat_le<false, false, true>(a); break;
         case OP_SGT:              polysat_le<true,  false, true>(a); break;
 
-        case OP_BUMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.umul_ovfl(p, q); }); break;            
-        case OP_BSMUL_NO_OVFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_ovfl(p, q); }); break;
-        case OP_BSMUL_NO_UDFL:    mk_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_udfl(p, q); }); break;
+        case OP_BUMUL_NO_OVFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.umul_ovfl(p, q); }); break;
+        case OP_BSMUL_NO_OVFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_ovfl(p, q); }); break;
+        case OP_BSMUL_NO_UDFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_udfl(p, q); }); break;
             
         case OP_BUDIV_I:          polysat_div_rem_i(a, true); break;       
         case OP_BUREM_I:          polysat_div_rem_i(a, false); break;
@@ -84,11 +83,6 @@ namespace bv {
         case OP_BSMOD_I:
         case OP_BSHL:            
         case OP_BASHR:
-        case OP_BOR:
-        case OP_BXOR:
-        case OP_BNAND:
-        case OP_BNOR:
-        case OP_BNOT:
         case OP_BCOMP:
         case OP_SIGN_EXT:
         case OP_ZERO_EXT:
@@ -104,7 +98,7 @@ namespace bv {
         }
     }
 
-    void solver::polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)>& fn) {
+    void solver::polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)> const& fn) {
         auto p = expr2pdd(e->get_arg(0));
         auto q = expr2pdd(e->get_arg(1));
         auto sc = ~fn(p, q);
@@ -139,12 +133,6 @@ namespace bv {
         ctx.add_aux(eqZ, eqI);        
     }
 
-    void solver::polysat_neg(app* e) {
-        SASSERT(e->get_num_args() == 1);
-        auto p = expr2pdd(e->get_arg(0));
-        polysat_set(e, -p);
-    }
-
     void solver::polysat_num(app* a) {
         numeral val;
         unsigned sz = 0;
@@ -167,12 +155,18 @@ namespace bv {
         }
     }
 
-    void solver::polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)>& fn) {
+    void solver::polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn) {
         SASSERT(e->get_num_args() >= 1);
         auto p = expr2pdd(e->get_arg(0));
         for (unsigned i = 1; i < e->get_num_args(); ++i) 
             p = fn(p, expr2pdd(e->get_arg(i)));
         polysat_set(e, p);
+    }
+
+    void solver::polysat_unary(app* e, std::function<polysat::pdd(polysat::pdd)> const& fn) {
+        SASSERT(e->get_num_args() == 1);
+        auto p = expr2pdd(e->get_arg(0));
+        polysat_set(e, fn(p));
     }
 
     template<bool Signed, bool Rev, bool Negated>
@@ -309,8 +303,8 @@ namespace bv {
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
         m_var2pdd[v] = p;
 #ifndef NDEBUG
-            expr* e = var2enode(v)->get_expr();
-            std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
+        expr* e = var2enode(v)->get_expr();
+        std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
 #endif
     }
 

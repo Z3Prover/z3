@@ -166,6 +166,10 @@ namespace polysat {
         return r;
     }
 
+    pdd solver::bnot(pdd const& p) {
+        return -p - 1;
+    }
+
     pdd solver::band(pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
@@ -174,6 +178,28 @@ namespace polysat {
         return r;
     }
 
+    pdd solver::bor(pdd const& p, pdd const& q) {
+        // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+        // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+        // TODO: switch to op_constraint once supported
+        return (p + q) - band(p, q);
+    }
+
+    pdd solver::bxor(pdd const& p, pdd const& q) {
+        // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+        // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+        // TODO: switch to op_constraint once supported
+        return bor(p, q) - band(p, q);
+        // return (p + q) - 2*band(p, q);
+    }
+
+    pdd solver::bnand(pdd const& p, pdd const& q) {
+        return bnot(band(p, q));
+    }
+
+    pdd solver::bnor(pdd const& p, pdd const& q) {
+        return bnot(bor(p, q));
+    }
 
     void solver::assign_eh(signed_constraint c, dependency dep) {
         backjump(base_level());

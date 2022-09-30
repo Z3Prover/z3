@@ -294,14 +294,39 @@ namespace polysat {
         std::tuple<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
         /**
-        * Create expression for the logical right shift of p by q.
-        */
+         * Create expression for the logical right shift of p by q.
+         */
         pdd lshr(pdd const& p, pdd const& q);
 
         /**
-         * Create expression for bit-wise and of p by q.
+         * Create expression for the bit-wise negation of p.
+         */
+        pdd bnot(pdd const& p);
+
+        /**
+         * Create expression for bit-wise and of p, q.
          */
         pdd band(pdd const& p, pdd const& q);
+
+        /**
+         * Create expression for bit-wise or of p, q.
+         */
+        pdd bor(pdd const& p, pdd const& q);
+
+        /**
+         * Create expression for bit-wise xor of p, q.
+         */
+        pdd bxor(pdd const& p, pdd const& q);
+
+        /**
+         * Create expression for bit-wise nand of p, q.
+         */
+        pdd bnand(pdd const& p, pdd const& q);
+
+        /**
+         * Create expression for bit-wise nor of p, q.
+         */
+        pdd bnor(pdd const& p, pdd const& q);
 
         /**
          * Create polynomial constant.

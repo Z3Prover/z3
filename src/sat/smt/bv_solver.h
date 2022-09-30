@@ -286,17 +286,17 @@ namespace bv {
         void internalize_polysat(app* a);
         void polysat_push();
         void polysat_pop(unsigned n);
-        void polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)>& fn);
+        void polysat_unary(app* e, std::function<polysat::pdd(polysat::pdd)> const& fn);
+        void polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn);
         polysat::pdd expr2pdd(expr* e);
         void polysat_set(euf::theory_var v, polysat::pdd const& p);
         polysat::pdd var2pdd(euf::theory_var v);
         void polysat_set(expr* e, polysat::pdd const& p);
         template<bool Signed, bool Reverse, bool Negated>
         void polysat_le(app* n);
-        void polysat_neg(app* a);
         void polysat_num(app* a);
         void polysat_mkbv(app* a);
-        void polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)>& fn);
+        void polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)> const& fn);
         void polysat_div_rem_i(app* e, bool is_div);
         void polysat_div_rem(app* e, bool is_div);
         void polysat_bit2bool(atom* a, expr* e, unsigned idx);
