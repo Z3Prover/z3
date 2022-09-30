@@ -227,6 +227,7 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
+        bool lemma_invariant(clause const& lemma);
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();

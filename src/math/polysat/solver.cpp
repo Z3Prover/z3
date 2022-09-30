@@ -718,12 +718,7 @@ namespace polysat {
     void solver::backjump_lemma() {
         clause_ref lemma = m_conflict.build_lemma();
         LOG_H2("backjump_lemma: " << show_deref(lemma));
-        SASSERT(lemma);
-        LOG("Lemma: " << *lemma);
-        for (sat::literal lit : *lemma) {
-            LOG("   " << lit_pp(*this, lit));
-            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
-        }
+        SASSERT(lemma && lemma_invariant(*lemma));
 
         // find second-highest level of the literals in the lemma
         unsigned max_level = 0;
@@ -821,6 +816,8 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma();
+        SASSERT(lemma && lemma_invariant(*lemma));
+
         if (lemma->empty())
             report_unsat();
         else {
@@ -828,6 +825,15 @@ namespace polysat {
             backjump(get_level(v) - 1);
             learn_lemma(*lemma);
         }
+    }
+
+    bool solver::lemma_invariant(clause const& lemma) {
+        LOG("Lemma: " << lemma);
+        for (sat::literal lit : lemma) {
+            LOG("  " << lit_pp(*this, lit));
+            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
+        }
+        return true;
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
