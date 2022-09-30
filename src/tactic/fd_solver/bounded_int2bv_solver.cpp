@@ -140,8 +140,18 @@ public:
         }
     }
 
+    void check_assumptions(unsigned num_assumptions, expr * const * assumptions) {
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            expr* arg = assumptions[i];
+            m.is_not(arg, arg);
+            if (!is_uninterp_const(arg))
+                throw default_exception("only propositional assumptions are supported for finite domains " + mk_pp(arg, m));
+        }
+    }
+
     lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         flush_assertions();
+        check_assumptions(num_assumptions, assumptions);
         return m_solver->check_sat_core(num_assumptions, assumptions);
     }
 
