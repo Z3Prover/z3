@@ -181,6 +181,141 @@ public:
 
 };
 
+namespace sat {
+    /**
+     * Replay proof entierly, then walk backwards extracting reduced proof.
+     */
+    class proof_trim {
+        cmd_context& ctx;
+        ast_manager& m;
+        solver s;
+        literal_vector m_clause;
+        struct hash {
+            unsigned operator()(literal_vector const& v) const {
+                return string_hash((char const*)v.begin(), v.size()*sizeof(literal), 3);
+            }
+        };
+        struct eq {
+            bool operator()(literal_vector const& a, literal_vector const& b) const {
+                return a == b;
+            }
+        };
+        map<literal_vector, clause_vector, hash, eq> m_clauses;
+        
+        void mk_clause(expr_ref_vector const& clause) {
+            m_clause.reset();
+            for (expr* arg: clause)
+                add_literal(arg);
+            std::sort(m_clause.begin(), m_clause.end());
+        }
+        
+        bool_var mk_var(expr* arg) {
+            while (arg->get_id() >= s.num_vars())
+                s.mk_var(true, true);
+            return arg->get_id();
+        }
+        
+        void add_literal(expr* arg) {
+            bool sign = m.is_not(arg, arg);
+            m_clause.push_back(literal(mk_var(arg), sign));
+        }
+
+
+        /**
+           Pseudo-code from Gurfinkel, Vizel, FMCAD 2014
+           Input: trail (a0,d0), ..., (an,dn) = ({},bot)
+           Output: reduced trail - result 
+           result = []
+           C = an
+           for i = n to 0 do
+               if s.is_deleted(ai) then s.revive(ai)
+               else 
+                  if s.isontrail(ai) then
+                     s.undotrailcore(ai,C)
+                  s.delete(ai)
+                  if ai in C then 
+                      if ai is not initial then
+                         s.savetrail()
+                         s.enqueue(not ai)
+                         c = s.propagate()
+                         s.conflictanalysiscore(c, C)
+                         s.restoretrail()
+                       result += [ai]
+            reverse(result)
+            
+            is_deleted(ai):
+               clause was detached
+            revive(ai):
+               attach clause ai
+            isontrail(ai):
+                some literal on the current trail in s is justified by ai
+            undotrailcore(ai, C):
+                pop the trail until dependencies on ai are gone
+            savetrail:
+                store current trail so it can be restored
+            enqueue(not ai):
+                assert negations of ai at a new decision level
+            conflictanalysiscore(c, C):
+                ?
+            restoretrail:
+                restore the trail to the position before enqueue
+                
+                                               
+            
+        */        
+        void trim() {
+            
+        }
+        
+    public:
+        proof_trim(cmd_context& ctx):
+            ctx(ctx),
+            m(ctx.m()),
+            s(gparams::get_module("sat"), m.limit()) {
+            
+        }
+        
+        void assume(expr_ref_vector const& _clause) {        
+            mk_clause(_clause);
+            IF_VERBOSE(3, verbose_stream() << "add: " << m_clause << "\n");
+            auto* cl = s.mk_clause(m_clause, status::redundant());
+            s.propagate(false);            
+            if (!cl)
+                return;
+            IF_VERBOSE(3, verbose_stream() << "add: " << *cl << "\n");
+            auto& v = m_clauses.insert_if_not_there(m_clause, clause_vector());            
+            v.push_back(cl);
+        }
+        
+        void del(expr_ref_vector const& _clause) {
+            mk_clause(_clause);
+            IF_VERBOSE(3, verbose_stream() << "del: " << m_clause << "\n");
+            if (m_clause.size() == 2) {
+                s.detach_bin_clause(m_clause[0], m_clause[1], true);
+                return;
+            }
+            auto* e = m_clauses.find_core(m_clause);
+            if (!e)
+                return;
+            auto& v = e->get_data().m_value;            
+            if (!v.empty()) {
+                IF_VERBOSE(3, verbose_stream() << "del: " << *v.back() << "\n");
+                s.detach_clause(*v.back());
+                v.pop_back();
+            }
+        }
+        
+        void infer(expr_ref_vector const& _clause, app*) {
+            assume(_clause);
+        }
+
+        void updt_params(params_ref const& p) {
+            s.updt_params(p);
+        }
+
+    };
+}
+
 
 class proof_saver {
     cmd_context& ctx;
@@ -218,10 +353,11 @@ class proof_cmds_imp : public proof_cmds {
     bool            m_trim   = false;
     scoped_ptr<smt_checker>     m_checker;
     scoped_ptr<proof_saver>     m_saver;
+    scoped_ptr<sat::proof_trim>      m_trimmer;
     
     smt_checker& checker() { if (!m_checker) m_checker = alloc(smt_checker, m); return *m_checker; }
     proof_saver& saver() { if (!m_saver) m_saver = alloc(proof_saver, ctx); return *m_saver; }
-
+    sat::proof_trim& trim() { if (!m_trimmer) m_trimmer = alloc(sat::proof_trim, ctx); return *m_trimmer; }
     
 public:
     proof_cmds_imp(cmd_context& ctx): ctx(ctx), m(ctx.m()), m_lits(m), m_proof_hint(m) {
@@ -240,6 +376,8 @@ public:
             checker().assume(m_lits);
         if (m_save)
             saver().assume(m_lits);
+        if (m_trim)
+            trim().assume(m_lits);
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -249,6 +387,8 @@ public:
             checker().check(m_lits, m_proof_hint);
         if (m_save)
             saver().infer(m_lits, m_proof_hint);
+        if (m_trim)
+            trim().infer(m_lits, m_proof_hint);
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -258,6 +398,8 @@ public:
             checker().del(m_lits);
         if (m_save)
             saver().del(m_lits);
+        if (m_trim)
+            trim().del(m_lits);
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -266,6 +408,9 @@ public:
         solver_params sp(p);
         m_check = sp.proof_check();
         m_save  = sp.proof_save();        
+        m_trim  = sp.proof_trim();
+        if (m_trim)
+            trim().updt_params(p);
     }
 };
 

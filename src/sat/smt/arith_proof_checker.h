@@ -18,7 +18,7 @@ Notes:
 The module assumes a limited repertoire of arithmetic proof rules.
 
 - farkas - inequalities, equalities and disequalities with coefficients
-- implied-eq - last literal is a disequality. The literals before imply the corresponding equality.
+- implied-eq - last literal is a disequality. The literals before imply the complementary equality.
 - bound - last literal is a bound. It is implied by prior literals.
 
 --*/
@@ -26,8 +26,10 @@ The module assumes a limited repertoire of arithmetic proof rules.
 
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
+#include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "sat/smt/euf_proof_checker.h"
+#include <iostream>
 
 
 namespace arith {
@@ -49,8 +51,6 @@ namespace arith {
         row          m_ineq;
         row          m_conseq;
         vector<row>  m_eqs;
-        vector<row>  m_ineqs;
-        vector<row>  m_diseqs;
         symbol       m_farkas;
         symbol       m_implied_eq;
         symbol       m_bound;
@@ -261,26 +261,6 @@ namespace arith {
             return false;
         }
 
-        //
-        // checking disequalities is TBD.
-        // it has to select only a subset of bounds to justify each inequality.
-        // example
-        // c <= x <= c, c <= y <= c => x = y
-        // for the proof of x <= y use the inequalities x <= c <= y
-        // for the proof of y <= x use the inequalities y <= c <= x
-        // example
-        // x <= y, y <= z, z <= u, u <= x => x = z
-        // for the proof of x <= z use the inequalities x <= y, y <= z
-        // for the proof of z <= x use the inequalities z <= u, u <= x
-        // 
-        // so when m_diseqs is non-empty we can't just add inequalities with Farkas coefficients
-        // into m_ineq, since coefficients of the usable subset vanish.
-        // 
-
-        bool check_diseq() {
-            return false;
-        }
-
         std::ostream& display_row(std::ostream& out, row const& r) {
             bool first = true;
             for (auto const& [v, coeff] : r.m_coeffs) {
@@ -329,16 +309,11 @@ namespace arith {
             m_ineq.reset();
             m_conseq.reset();
             m_eqs.reset();
-            m_ineqs.reset();
-            m_diseqs.reset();
             m_strict = false;
         }
         
         bool add_ineq(rational const& coeff, expr* e, bool sign) {
-            if (!m_diseqs.empty())
-                return add_literal(fresh(m_ineqs), abs(coeff), e, sign);
-            else 
-                return add_literal(m_ineq, abs(coeff), e, sign);
+            return add_literal(m_ineq, abs(coeff), e, sign);
         }
         
         bool add_conseq(rational const& coeff, expr* e, bool sign) {
@@ -350,20 +325,12 @@ namespace arith {
             linearize(r, rational(1), a);
             linearize(r, rational(-1), b);
         }
-
-        void add_diseq(expr* a, expr* b) {
-            row& r = fresh(m_diseqs);
-            linearize(r, rational(1), a);
-            linearize(r, rational(-1), b);            
-        }
         
         bool check() {
-            if (!m_diseqs.empty())
-                return check_diseq();
-            else if (!m_conseq.m_coeffs.empty())
-                return check_bound();
-            else
+            if (m_conseq.m_coeffs.empty())
                 return check_farkas();
+            else
+                return check_bound();
         }
 
         std::ostream& display(std::ostream& out) {
@@ -375,14 +342,41 @@ namespace arith {
             return out;
         }
 
-        bool check(expr_ref_vector const& clause, app* jst, expr_ref_vector& units) override {
+        expr_ref_vector clause(app* jst) override {
+            expr_ref_vector result(m);
+            for (expr* arg : *jst) 
+                if (m.is_bool(arg))
+                    result.push_back(mk_not(m, arg));
+            return result;
+        }
+
+        /**
+           Add implied equality as an inequality
+         */
+        bool add_implied_ineq(bool sign, app* jst) {
+            unsigned n = jst->get_num_args();
+            if (n < 2)
+                return false;
+            expr* arg1 = jst->get_arg(n - 2);
+            expr* arg2 = jst->get_arg(n - 1);
+            rational coeff;
+            if (!a.is_numeral(arg1, coeff))
+                return false;
+            if (!m.is_not(arg2, arg2))
+                return false;
+            if (!m.is_eq(arg2, arg1, arg2))
+                return false;
+            if (!sign)
+                coeff.neg();
+            auto& r = m_ineq;
+            linearize(r, coeff, arg1);
+            linearize(r, -coeff, arg2);
+            m_strict = true;
+            return true;
+        }
+
+        bool check(app* jst) override {
             reset();
-            expr_mark pos, neg;
-            for (expr* e : clause)
-                if (m.is_not(e, e))
-                    neg.mark(e, true);
-                else
-                    pos.mark(e, true);
             bool is_bound = jst->get_name() == m_bound;
             bool is_implied_eq = jst->get_name() == m_implied_eq;
             bool is_farkas = jst->get_name() == m_farkas;
@@ -393,12 +387,26 @@ namespace arith {
             bool even = true;
             rational coeff;
             expr* x, * y;
-            unsigned j = 0;
+            unsigned j = 0, num_le = 0;
+
+            
             for (expr* arg : *jst) {
                 if (even) {
                     if (!a.is_numeral(arg, coeff)) {
                         IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
                         return false;
+                    }
+                    if (is_implied_eq) {
+                        is_implied_eq = false;
+                        if (!coeff.is_unsigned()) {
+                            IF_VERBOSE(0, verbose_stream() << "not unsigned " << mk_pp(jst, m) << "\n");
+                            return false;
+                        }
+                        num_le = coeff.get_unsigned();
+                        if (!add_implied_ineq(false, jst))
+                            return false;
+                        ++j;
+                        continue;
                     }
                 }
                 else {
@@ -406,12 +414,24 @@ namespace arith {
                     if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) {
                         if (is_bound && j + 1 == jst->get_num_args())
                             add_conseq(coeff, arg, sign);
+                        else if (num_le > 0) {
+                            add_ineq(coeff, arg, sign);
+                            --num_le;
+                            if (num_le == 0) {
+                                // we processed all the first inequalities,
+                                // check that they imply one half of the implied equality.
+                                if (!check())
+                                    return false;
+                                reset();
+                                VERIFY(add_implied_ineq(true, jst));
+                            }
+                        }
                         else
                             add_ineq(coeff, arg, sign);
                     }
                     else if (m.is_eq(arg, x, y)) {
-                        if (sign)
-                            add_diseq(x, y);
+                        if (sign) 
+                            return check(); // it should be an implied equality
                         else
                             add_eq(x, y);
                     }
@@ -419,23 +439,11 @@ namespace arith {
                         IF_VERBOSE(0, verbose_stream() << "not a recognized arithmetical relation " << mk_pp(arg, m) << "\n");
                         return false;
                     }
-
-                    if (sign && !pos.is_marked(arg)) {
-                        units.push_back(m.mk_not(arg));
-                        pos.mark(arg, false);
-                    }
-                    else if (!sign && !neg.is_marked(arg)) {
-                        units.push_back(arg);
-                        neg.mark(arg, false);
-                    }
                 }
                 even = !even;
                 ++j;
             }
-            if (check()) 
-                return true;
-            
-            return false;
+            return check();
         }
 
         void register_plugins(euf::proof_checker& pc) override {

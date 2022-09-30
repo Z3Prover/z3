@@ -424,7 +424,7 @@ namespace arith {
         ++m_stats.m_assert_diseq;  
         add_farkas_clause(~eq, le);
         add_farkas_clause(~eq, ge);
-        add_clause(~le, ~ge, eq, explain_triangle_eq(le, ge, eq));
+        add_clause(~le, ~ge, eq, explain_trichotomy(le, ge, eq));
     }
 
 

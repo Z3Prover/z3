@@ -129,14 +129,16 @@ namespace arith {
             return nullptr;
         m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
         explain_assumptions();
+        m_arith_hint.set_num_le(1); // TODO
         m_arith_hint.add_diseq(a, b);
         return m_arith_hint.mk(ctx);
     }
 
-    arith_proof_hint const* solver::explain_triangle_eq(sat::literal le, sat::literal ge, sat::literal eq) {
+    arith_proof_hint const* solver::explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq) {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
+        m_arith_hint.set_num_le(1);
         m_arith_hint.add_lit(rational(1), le);
         m_arith_hint.add_lit(rational(1), ge);
         m_arith_hint.add_lit(rational(1), ~eq);
@@ -149,6 +151,9 @@ namespace arith {
         arith_util arith(m);
         solver& a = dynamic_cast<solver&>(*s.fid2solver(fid));
         char const* name;
+        expr_ref_vector args(m);
+        sort_ref_vector sorts(m);
+
         switch (m_ty) {
         case hint_type::farkas_h:
             name = "farkas";
@@ -158,15 +163,14 @@ namespace arith {
             break;
         case hint_type::implied_eq_h:
             name = "implied-eq";
+            args.push_back(arith.mk_int(m_num_le));
             break;
         }
         rational lc(1);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             lc = lcm(lc, denominator(a.m_arith_hint.lit(i).first));
-            
-        expr_ref_vector args(m);
-        sort_ref_vector sorts(m);
-        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {            
+
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {
             auto const& [coeff, lit] = a.m_arith_hint.lit(i);
             args.push_back(arith.mk_int(abs(coeff*lc)));
             args.push_back(s.literal2expr(lit));

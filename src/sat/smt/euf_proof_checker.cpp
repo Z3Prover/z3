@@ -17,6 +17,7 @@ Author:
 
 #include "util/union_find.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_proof_checker.h"
@@ -120,24 +121,23 @@ namespace euf {
 
         ~eq_proof_checker() override {}
 
-        bool check(expr_ref_vector const& clause, app* jst, expr_ref_vector& units) override {
-            IF_VERBOSE(10, verbose_stream() << clause << "\n" << mk_pp(jst, m) << "\n");
+        expr_ref_vector clause(app* jst) override {
+            expr_ref_vector result(m);
+            for (expr* arg : *jst) 
+                if (m.is_bool(arg)) 
+                    result.push_back(mk_not(m, arg));
+            return result;
+        }
+
+        bool check(app* jst) override {
+            IF_VERBOSE(10, verbose_stream() << mk_pp(jst, m) << "\n");
             reset();
-            expr_mark pos, neg;
-            expr* x, *y;
-            for (expr* e : clause)
-                if (m.is_not(e, e))
-                    neg.mark(e, true);
-                else
-                    pos.mark(e, true);
 
             for (expr* arg : *jst) {
-                if (m.is_bool(arg)) { 
-                    bool sign = m.is_not(arg, arg);
-                    if (sign && !pos.is_marked(arg))
-                        units.push_back(m.mk_not(arg));
-                    else if (!sign & !neg.is_marked(arg))
-                        units.push_back(arg);
+                expr* x, *y;
+                bool sign = m.is_not(arg, arg);
+
+                if (m.is_bool(arg)) {
                     if (m.is_eq(arg, x, y)) {
                         if (sign)
                             m_diseqs.push_back({x, y});
@@ -198,38 +198,144 @@ namespace euf {
         void register_plugins(proof_checker& pc) override {
             pc.register_plugin(symbol("euf"), this);
         }
+    };
 
+    /**
+       A resolution proof term is of the form
+       (res pivot proof1 proof2)
+       The pivot occurs with opposite signs in proof1 and proof2
+     */
+
+    class res_proof_checker : public proof_checker_plugin {
+        ast_manager&   m;
+        proof_checker& pc;
+
+    public:
+        res_proof_checker(ast_manager& m, proof_checker& pc): m(m), pc(pc) {}
+        
+        ~res_proof_checker() override {}
+
+        bool check(app* jst) override {
+            if (jst->get_num_args() != 3)
+                return false;
+            auto [pivot, proof1, proof2] = jst->args3();
+            if (!m.is_bool(pivot) || !m.is_proof(proof1) || !m.is_proof(proof2))
+                return false;
+            expr* narg;
+            bool found1 = false, found2 = false, found3 = false, found4 = false;
+            for (expr* arg : pc.clause(proof1)) {
+                found1 |= arg == pivot;
+                found2 |= m.is_not(arg, narg) && narg == pivot;
+            }
+            if (found1 == found2)
+                return false;
+            
+            for (expr* arg : pc.clause(proof2)) {
+                found3 |= arg == pivot;
+                found4 |= m.is_not(arg, narg) && narg == pivot;
+            }
+            if (found3 == found4)
+                return false;
+            if (found3 == found1)
+                return false;
+            return pc.check(proof1) && pc.check(proof2);            
+        }
+
+        expr_ref_vector clause(app* jst) override {
+            expr_ref_vector result(m);
+            auto [pivot, proof1, proof2] = jst->args3();
+            expr* narg;
+            auto is_pivot = [&](expr* arg) {
+                if (arg == pivot)
+                    return true;
+                return m.is_not(arg, narg) && narg == pivot;                
+            };
+            for (expr* arg : pc.clause(proof1))
+                if (!is_pivot(arg))
+                    result.push_back(arg);
+            for (expr* arg : pc.clause(proof2))
+                if (!is_pivot(arg))
+                    result.push_back(arg);            
+            return result;
+        }
+
+        void register_plugins(proof_checker& pc) override {
+            pc.register_plugin(symbol("res"), this);
+        }
     };
 
     proof_checker::proof_checker(ast_manager& m):
         m(m) {
-        arith::proof_checker* apc = alloc(arith::proof_checker, m);
-        eq_proof_checker* epc = alloc(eq_proof_checker, m);
-        m_plugins.push_back(apc);
-        m_plugins.push_back(epc);
-        apc->register_plugins(*this);
-        epc->register_plugins(*this);
+        add_plugin(alloc(arith::proof_checker, m));
+        add_plugin(alloc(eq_proof_checker, m));
+        add_plugin(alloc(res_proof_checker, m, *this));
     }
 
-    proof_checker::~proof_checker() {}
+    proof_checker::~proof_checker() {
+        for (auto& [k, v] : m_checked_clauses)
+            dealloc(v);
+    }
+
+    void proof_checker::add_plugin(proof_checker_plugin* p) {
+        m_plugins.push_back(p);
+        p->register_plugins(*this);
+    }
 
     void proof_checker::register_plugin(symbol const& rule, proof_checker_plugin* p) {
         m_map.insert(rule, p);
     }
 
-    bool proof_checker::check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units) {
+    bool proof_checker::check(expr* e) {
+        if (m_checked_clauses.contains(e))
+            return true;
+        
         if (!e || !is_app(e))
             return false;
-        units.reset();
         app* a = to_app(e);
         proof_checker_plugin* p = nullptr;
         if (!m_map.find(a->get_decl()->get_name(), p))
             return false;
-        if (p->check(clause, a, units))
-            return true;
-        
-        std::cout << "(missed-hint " << mk_pp(e, m) << ")\n";
-        return false;
+        if (!p->check(a)) {
+            std::cout << "(missed-hint " << mk_pp(e, m) << ")\n";
+            return false;
+        }
+        return true;
+    }
+
+    expr_ref_vector proof_checker::clause(expr* e) {
+        expr_ref_vector* rr;
+        if (m_checked_clauses.find(e, rr))
+            return *rr;
+        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_decl()->get_name()));
+        auto& r = m_map[to_app(e)->get_decl()->get_name()]->clause(to_app(e));
+        m_checked_clauses.insert(e, alloc(expr_ref_vector, r));
+        return r;
+    }
+
+    bool proof_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
+        if (!check(e))
+            return false;
+        units.reset();
+        expr_mark literals;
+        auto clause2 = clause(e);
+
+        // check that all literals in clause1 are in clause2
+        for (expr* arg : clause2)
+            literals.mark(arg, true);
+        for (expr* arg : clause1)
+            if (!literals.is_marked(arg))
+                return false;
+
+        // extract negated units for literals in clause2 but not in clause1
+        // the literals should be rup
+        literals.reset();
+        for (expr* arg : clause1)
+            literals.mark(arg, true);
+        for (expr* arg : clause2)
+            if (!literals.is_marked(arg))
+                units.push_back(mk_not(m, arg));
+
+        return true;
     }
 
 }

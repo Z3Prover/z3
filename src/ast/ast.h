@@ -731,6 +731,8 @@ public:
     unsigned get_num_args() const { return m_num_args; }
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
     expr * const * get_args() const { return m_args; }
+    std::tuple<expr*,expr*> args2() const { SASSERT(m_num_args == 2); return {get_arg(0), get_arg(1)}; }
+    std::tuple<expr*,expr*,expr*> args3() const { SASSERT(m_num_args == 3); return {get_arg(0), get_arg(1), get_arg(2)}; }
     unsigned get_size() const { return get_obj_size(get_num_args()); }
     expr * const * begin() const { return m_args; }
     expr * const * end() const { return m_args + m_num_args; }

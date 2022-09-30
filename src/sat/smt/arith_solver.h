@@ -51,14 +51,15 @@ namespace arith {
     enum class hint_type {
         farkas_h,
         bound_h,
-        implied_eq_h    
+        implied_eq_h
     };
 
     struct arith_proof_hint : public euf::th_proof_hint {
-        hint_type                              m_ty;
-        unsigned m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
-        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et):
-            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+        hint_type m_ty;
+        unsigned  m_num_le;
+        unsigned  m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
+        arith_proof_hint(hint_type t, unsigned num_le, unsigned lh, unsigned lt, unsigned eh, unsigned et):
+            m_ty(t), m_num_le(num_le), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
         expr* get_hint(euf::solver& s) const override;
     };
 
@@ -66,6 +67,7 @@ namespace arith {
         vector<std::pair<rational, literal>>   m_literals;
         svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
         hint_type                              m_ty;
+        unsigned                               m_num_le = 0;
         unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
@@ -82,6 +84,7 @@ namespace arith {
             m_ty = ty; 
             reset(); 
         }
+        void set_num_le(unsigned n) { m_num_le = n; }
         void add_eq(euf::enode* a, euf::enode* b) { add(a, b, true); }
         void add_diseq(euf::enode* a, euf::enode* b) { add(a, b, false); }
         void add_lit(rational const& coeff, literal lit) { 
@@ -94,7 +97,7 @@ namespace arith {
         std::pair<rational, literal> const& lit(unsigned i) const { return m_literals[i]; }
         std::tuple<enode*, enode*, bool> const& eq(unsigned i) const { return m_eqs[i]; }
         arith_proof_hint* mk(euf::solver& s) { 
-            return new (s.get_region()) arith_proof_hint(m_ty, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
+            return new (s.get_region()) arith_proof_hint(m_ty, m_num_le, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
         }
     };
 
@@ -474,7 +477,7 @@ namespace arith {
 
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
         arith_proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
-        arith_proof_hint const* explain_triangle_eq(sat::literal le, sat::literal ge, sat::literal eq);
+        arith_proof_hint const* explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq);
         void explain_assumptions();
 
 

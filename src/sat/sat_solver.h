@@ -235,6 +235,7 @@ namespace sat {
         friend class aig_finder;
         friend class lut_finder;
         friend class npn3_finder;
+        friend class proof_trim;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;
