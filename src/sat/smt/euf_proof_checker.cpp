@@ -307,7 +307,7 @@ namespace euf {
         if (m_checked_clauses.find(e, rr))
             return *rr;
         SASSERT(is_app(e) && m_map.contains(to_app(e)->get_decl()->get_name()));
-        auto& r = m_map[to_app(e)->get_decl()->get_name()]->clause(to_app(e));
+        expr_ref_vector r = m_map[to_app(e)->get_decl()->get_name()]->clause(to_app(e));
         m_checked_clauses.insert(e, alloc(expr_ref_vector, r));
         return r;
     }
