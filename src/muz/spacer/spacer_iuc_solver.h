@@ -68,11 +68,11 @@ private:
     app* fresh_proxy();
     void elim_proxies(expr_ref_vector &v);
 public:
-    iuc_solver(solver &solver, unsigned iuc, unsigned iuc_arith,
+    iuc_solver(solver &, unsigned iuc, unsigned iuc_arith,
                bool print_farkas_stats, bool old_hyp_reducer,
                bool split_literals = false) :
         solver(m),
-        m_solver(solver),
+        m_solver(s),
         m_proxies(m),
         m_num_proxies(0),
         m_base_defs(*this),
