@@ -624,10 +624,8 @@ void cmd_context::set_produce_proofs(bool f) {
     if (m_params.m_proof == f)
         return;
     SASSERT(!has_assertions());
-    if (has_manager()) {
+    if (has_manager()) 
         m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
-        std::cout << m_params.m_proof << " " << f << "\n";
-    }
     m_params.m_proof = f;
     mk_solver();
 }
