@@ -243,7 +243,10 @@ namespace euf {
 
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
-            auto [pivot, proof1, proof2] = jst->args3();
+            auto x = jst->args3();
+            auto pivot  = std::get<0>(x);
+            auto proof1 = std::get<1>(x);
+            auto proof2 = std::get<2>(x);
             expr* narg;
             auto is_pivot = [&](expr* arg) {
                 if (arg == pivot)
