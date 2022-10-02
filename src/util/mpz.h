@@ -84,10 +84,8 @@ class mpz {
 #else
     typedef mpz_t mpz_type;
 #endif
-    int        m_val; 
-    unsigned   m_kind:1;
-    unsigned   m_owner:1;
-    mpz_type * m_ptr;
+    int64_t    m_val;
+    uintptr_t  m_ptr;
     friend class mpz_manager<true>;
     friend class mpz_manager<false>;
     friend class mpq_manager<true>;
@@ -96,11 +94,33 @@ class mpz {
     friend class mpbq;
     friend class mpbq_manager;
     friend class mpz_stack;
+
+    mpz_type* ptr() { return (mpz_type*)(m_ptr & ~3); }
+    const mpz_type* ptr() const { return (mpz_type*)(m_ptr & ~3); }
+    mpz_kind kind() const { return mpz_kind(m_ptr & 1); }
+    mpz_owner owner() const { return mpz_owner(m_ptr & 2); }
+    void set(mpz_type* ptr) { m_ptr = (uintptr_t)ptr; SASSERT(ptr & ~3 == 0); }
+    void set(mpz_kind k)  { m_ptr = (m_ptr & ~1) | k; }
+    void set(mpz_owner o) { m_ptr = (m_ptr & ~2) | (o << 1); }
+
 public:
-    mpz(int v):m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
-    mpz():m_val(0), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
-    mpz(mpz_type* ptr): m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr);}
-    mpz(mpz && other) noexcept : m_val(other.m_val), m_kind(other.m_kind), m_owner(other.m_owner), m_ptr(nullptr) {
+    mpz(int v) : m_val(v), m_ptr(0) {
+        set(mpz_small);
+        set(mpz_self);
+    }
+
+    mpz() : m_val(0), m_ptr(0) {
+        set(mpz_small);
+        set(mpz_self);
+    }
+
+    mpz(mpz_type* ptr) : m_val(0) {
+        set(ptr);
+        set(mpz_small);
+        set(mpz_ext);
+    }
+
+    mpz(mpz && other) noexcept : m_val(other.m_val), m_ptr(0) {
         std::swap(m_ptr, other.m_ptr);
     }
 
@@ -113,8 +133,6 @@ public:
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);
-        unsigned o = m_owner; m_owner = other.m_owner; other.m_owner = o;
-        unsigned k = m_kind; m_kind = other.m_kind; other.m_kind = k;
     }
 };
 
@@ -124,7 +142,7 @@ class mpz_stack : public mpz {
     unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
 public:
     mpz_stack():mpz(reinterpret_cast<mpz_cell*>(m_bytes)) {
-        m_ptr->m_capacity = capacity;
+        ptr()->m_capacity = capacity;
     }
 };
 #else
@@ -147,7 +165,7 @@ class mpz_manager {
     mutable mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
-    unsigned                m_init_cell_capacity;
+    static const unsigned   m_init_cell_capacity = 6;
     mpz                     m_int_min;
     
     static unsigned cell_size(unsigned capacity) { 
@@ -159,15 +177,15 @@ class mpz_manager {
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
         if (m_init_cell_capacity > c) c = m_init_cell_capacity;
-        if (n.m_ptr == nullptr || capacity(n) < c) {
+        if (n.ptr() == nullptr || capacity(n) < c) {
             deallocate(n);
-            n.m_val             = 1;
-            n.m_kind            = mpz_large;
-            n.m_owner           = mpz_self;
-            n.m_ptr             = allocate(c);
+            n.m_val = 1;
+            n.set(allocate(c));
+            n.set(mpz_large);
+            n.set(mpz_self);
         }
         else {
-            n.m_kind = mpz_large;
+            n.set(mpz_large);
         }
     }
 
@@ -228,32 +246,27 @@ class mpz_manager {
         }
     }
 
-    void clear(mpz& n) { if (n.m_ptr) { mpz_clear(*n.m_ptr); }}
+    void clear(mpz& n) { if (n.ptr()) { mpz_clear(*n.ptr()); }}
 #endif
 
     void deallocate(mpz& n) {
-        if (n.m_ptr) {
-            deallocate(n.m_owner == mpz_self, n.m_ptr);
-            n.m_ptr = nullptr;
-            n.m_kind = mpz_small;
+        if (n.ptr()) {
+            deallocate(n.owner() == mpz_self, n.ptr());
+            n.m_ptr = 0;
+            n.set(mpz_small);
         }
     }
 
     mpz                     m_two64;
 
 
-    static int64_t i64(mpz const & a) { return static_cast<int64_t>(a.m_val); }
+    static int64_t i64(mpz const & a) { return a.m_val; }
 
     void set_big_i64(mpz & c, int64_t v);
 
     void set_i64(mpz & c, int64_t v) {
-        if (v >= INT_MIN && v <= INT_MAX) {
-            c.m_val = static_cast<int>(v); 
-            c.m_kind = mpz_small;
-        }
-        else {
-            set_big_i64(c, v);
-        }
+        c.m_val = v;
+        c.set(mpz_small);
     }
 
     void set_big_ui64(mpz & c, uint64_t v);
@@ -261,11 +274,12 @@ class mpz_manager {
 
 #ifndef _MP_GMP
 
-    static unsigned capacity(mpz const & c) { return c.m_ptr->m_capacity; }
+    static unsigned capacity(mpz const & c) { return c.ptr()->m_capacity; }
 
-    static unsigned size(mpz const & c) { return c.m_ptr->m_size; }
+    static unsigned size(mpz const & c) { return c.ptr()->m_size; }
 
-    static digit_t * digits(mpz const & c) { return c.m_ptr->m_digits; }
+    static const digit_t * digits(mpz const & c) { return c.ptr()->m_digits; }
+    static digit_t * digits(mpz & c) { return c.ptr()->m_digits; }
 
     // Return true if the absolute value fits in a UINT64
     static bool is_abs_uint64(mpz const & a) {
@@ -281,7 +295,7 @@ class mpz_manager {
     static uint64_t big_abs_to_uint64(mpz const & a) {
         SASSERT(is_abs_uint64(a));
         SASSERT(!is_small(a));
-        if (a.m_ptr->m_size == 1)
+        if (a.ptr()->m_size == 1)
             return digits(a)[0];
         if (sizeof(digit_t) == sizeof(uint64_t))
             // 64-bit machine
@@ -306,9 +320,9 @@ class mpz_manager {
 
     void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell, mpz_cell* reserve) {
         if (is_small(a)) {
-            if (a.m_val == INT_MIN) {
+            if (a.m_val == INT64_MIN) {
                 sign = -1;
-                cell = m_int_min.m_ptr;
+                cell = m_int_min.ptr();
             }
             else {
                 cell = reserve;
@@ -325,7 +339,7 @@ class mpz_manager {
         }
         else {
             sign = a.m_val;
-            cell = a.m_ptr;
+            cell = const_cast<mpz_cell*>(a.ptr());
         }
     }
 
@@ -342,12 +356,12 @@ class mpz_manager {
     };
     
     void mk_big(mpz & a) {
-        if (a.m_ptr == nullptr) {
+        if (a.ptr() == nullptr) {
             a.m_val = 0;
-            a.m_ptr = allocate();
-            a.m_owner = mpz_self;
+            a.set(allocate());
+            a.set(mpz_self);
         }
-        a.m_kind = mpz_large;
+        a.set(mpz_large);
     }
 
 
@@ -398,7 +412,7 @@ public:
 
     ~mpz_manager();
 
-    static bool is_small(mpz const & a) { return a.m_kind == mpz_small; }
+    static bool is_small(mpz const & a) { return a.kind() == mpz_small; }
 
     static mpz mk_z(int val) { return mpz(val); }
     
@@ -527,7 +541,7 @@ public:
     void set(mpz & target, mpz const & source) {
         if (is_small(source)) {
             target.m_val = source.m_val;
-            target.m_kind = mpz_small;
+            target.set(mpz_small);
         }
         else {
             big_set(target, source);
@@ -536,7 +550,7 @@ public:
 
     void set(mpz & a, int val) {
         a.m_val = val;
-        a.m_kind = mpz_small;
+        a.set(mpz_small);
     }
 
     void set(mpz & a, unsigned val) {
@@ -553,9 +567,9 @@ public:
     }
 
     void set(mpz & a, uint64_t val) {
-        if (val < INT_MAX) {
-            a.m_val = static_cast<int>(val);
-            a.m_kind = mpz_small;
+        if (val <= INT64_MAX) {
+            a.m_val = static_cast<int64_t>(val);
+            a.set(mpz_small);
         }
         else {
             set_big_ui64(a, val);
@@ -574,10 +588,7 @@ public:
     void reset(mpz & a);
 
     void swap(mpz & a, mpz & b) {
-        std::swap(a.m_val, b.m_val);
-        std::swap(a.m_ptr, b.m_ptr);
-        auto o = a.m_owner; a.m_owner = b.m_owner; b.m_owner = o;
-        auto k = a.m_kind; a.m_kind = b.m_kind; b.m_kind = k;
+        a.swap(b);
     }
 
     bool is_uint64(mpz const & a) const;
@@ -588,11 +599,11 @@ public:
 
     int64_t get_int64(mpz const & a) const;
 
-    bool is_uint(mpz const & a) const { return is_uint64(a) && get_uint64(a) < UINT_MAX; }
+    bool is_uint(mpz const & a) const { return is_uint64(a) && get_uint64(a) <= UINT_MAX; }
     
     unsigned get_uint(mpz const & a) const { SASSERT(is_uint(a)); return static_cast<unsigned>(get_uint64(a)); }
 
-    bool is_int(mpz const & a) const { return is_int64(a) && INT_MIN < get_int64(a) && get_int64(a) < INT_MAX; }
+    bool is_int(mpz const & a) const { return is_int64(a) && INT_MIN <= get_int64(a) && get_int64(a) <= INT_MAX; }
     
     int get_int(mpz const & a) const { SASSERT(is_int(a)); return static_cast<int>(get_int64(a)); }
 
