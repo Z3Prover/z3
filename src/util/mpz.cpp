@@ -1571,7 +1571,7 @@ bool mpz_manager<SYNCH>::is_uint64(mpz const & a) const {
 #ifndef _MP_GMP
     if (a.m_val < 0)
         return false;
-    if (is_small(a) && a.m_val <= UINT64_MAX)
+    if (is_small(a))
         return true;
     if (sizeof(digit_t) == sizeof(uint64_t)) {
         return size(a) <= 1;
