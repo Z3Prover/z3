@@ -458,7 +458,7 @@ public:
     
     static bool is_zero(mpz const & a) { return sign(a) == 0; }
 
-    static int sign(mpz const & a) {
+    static int64_t sign(mpz const & a) {
 #ifndef _MP_GMP
         return a.m_val;
 #else

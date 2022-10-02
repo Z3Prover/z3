@@ -692,7 +692,7 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a0, mpz const & b0, mpz & c) {
     set_big_i64(a, a0.m_val);
     set_big_i64(b, b0.m_val);
     sign_cell ca(*this, a), cb(*this, b);
-    int sign_b = cb.sign();
+    auto sign_b = cb.sign();
     mpz_stack tmp;
     if (SUB)
         sign_b = -sign_b;
