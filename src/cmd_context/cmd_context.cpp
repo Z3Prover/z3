@@ -624,10 +624,11 @@ void cmd_context::set_produce_proofs(bool f) {
     if (m_params.m_proof == f)
         return;
     SASSERT(!has_assertions());
-    if (has_manager()) 
-        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
     m_params.m_proof = f;
-    mk_solver();
+    if (has_manager()) {
+        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
+        mk_solver();
+    }
 }
 
 
