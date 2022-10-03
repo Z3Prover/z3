@@ -99,7 +99,7 @@ class mpz {
     const mpz_type* ptr() const { return (mpz_type*)(m_ptr & ~3); }
     mpz_kind kind() const { return mpz_kind(m_ptr & 1); }
     mpz_owner owner() const { return mpz_owner(m_ptr & 2); }
-    void set(mpz_type* ptr) { m_ptr = (uintptr_t)ptr; SASSERT(ptr & ~3 == 0); }
+    void set(mpz_type* ptr) { m_ptr = (uintptr_t)ptr; SASSERT((m_ptr & 3) == 0); }
     void set(mpz_kind k)  { m_ptr = (m_ptr & ~1) | k; }
     void set(mpz_owner o) { m_ptr = (m_ptr & ~2) | (o << 1); }
 
