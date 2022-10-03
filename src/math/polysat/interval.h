@@ -66,9 +66,11 @@ namespace polysat {
         static eval_interval empty(dd::pdd_manager &m) {
             return {interval::empty(m), rational::zero(), rational::zero()};
         }
+
         static eval_interval full() {
             return {interval::full(), rational::zero(), rational::zero()};
         }
+
         static eval_interval proper(pdd const &lo, rational const &lo_val, pdd const &hi, rational const &hi_val) {
             SASSERT(0 <= lo_val && lo_val <= lo.manager().max_value());
             SASSERT(0 <= hi_val && hi_val <= hi.manager().max_value());
@@ -84,10 +86,12 @@ namespace polysat {
         pdd const& hi() const { return m_symbolic.hi(); }
         rational const& lo_val() const { SASSERT(is_proper()); return m_concrete_lo; }
         rational const& hi_val() const { SASSERT(is_proper()); return m_concrete_hi; }
+
         rational current_len() const {
             SASSERT(is_proper());
             return mod(hi_val() - lo_val(), rational::power_of_two(lo().power_of_2()));
         }
+
         bool currently_contains(rational const& val) const {
             if (is_full())
                 return true;
@@ -96,6 +100,7 @@ namespace polysat {
             else
                 return val < hi_val() || val >= lo_val();
         }
+
         bool currently_contains(eval_interval const& other) const {
             if (is_full())
                 return true;
@@ -118,37 +123,7 @@ namespace polysat {
             return false;
         }
 
-#if 0
-        // TODO: intersection of wrapping intervals might not be an interval!!!
-        //
-        // Example:
-        //    [---------[
-        // -----[    [----
-        // would give
-        //    [-[    [--[
-        eval_interval intersect(eval_interval const& other) const {
-            if (is_full()) return other;
-            if (other.is_full()) return *this;
-
-            pdd i_lo = lo();
-            rational i_lo_val = lo_val();
-            if (lo_val() < other.lo_val()) {
-                i_lo = other.lo();
-                i_lo_val = other.lo_val();
-            }
-
-            pdd i_hi = hi();
-            rational i_hi_val = hi_val();
-            if (hi_val() > other.hi_val()) {
-                i_hi = other.hi();
-                i_hi_val = other.hi_val();
-            }
-
-            return eval_interval::proper(i_lo, i_lo_val, i_hi, i_hi_val);
-        }
-#endif
-
-    };
+    };  // class eval_interval
 
     inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {
         if (i.is_full())
@@ -158,6 +133,5 @@ namespace polysat {
             return os << i.symbolic() << " := [" << m.normalize(i.lo_val()) << ";" << m.normalize(i.hi_val()) << "[";
         }
     }
-
 
 }
