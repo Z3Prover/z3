@@ -633,12 +633,47 @@ namespace polysat {
         if (has_viable(v))
             return false;
         auto* e = m_units[v];
+        // TODO: in the forbidden interval paper, they start with the longest interval. We should also try that at some point.
         entry* first = e;
         SASSERT(e);
+        // If there is a full interval, all others would have been removed
+        SASSERT(!e->interval.is_full() || e->next() == e);
+        SASSERT(e->interval.is_full() || all_of(*e, [](entry const& f) { return !f.interval.is_full(); }));
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
             entry* n = e->next();
+
+#if 0
+            // Choose the next interval which furthest extends the covered region.
+            // Example:
+            //      covered:   [-------]
+            //      e:           [-------]      <--- not required for the lemma because all points are also covered by other intervals
+            //      n:              [-------]
+            //
+            // Note that intervals are sorted by their starting points,
+            // so the intervals to be considered (i.e., those that
+            // contain the current endpoint), form a prefix of the list.
+            //
+            // Furthermore, because we remove intervals that are subsets
+            // of other intervals, also the endpoints must be increasing,
+            // so the last interval of this prefix is the best choice.
+            //
+            // current:  [------[
+            // next:       [---[        <--- impossible, would have been removed.
+            //
+            // current:  [------[
+            // next:       [-------[    <--- thus, the next interval is always the better choice.
+            //
+            // The interval 'first' is always part of the lemma. If we reach first again here, we have covered the complete domain.
+            while (n != first) {
+                entry* n1 = n->next();
+                if (!e->interval.currently_contains(n1->interval.lo_val()))
+                    break;
+                n = n1;
+            }
+#endif
+
             if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
                 auto const& next_lo = n->interval.lo();
@@ -647,18 +682,6 @@ namespace polysat {
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
                 core.insert_eval(c);
-#if 0
-                if (n != first) {
-                    while {
-                        entry* n1 = n->next();
-                        if (n1 != first && e->currently_contains(*n1)) {
-                            n = n1;
-                            continue;
-                        }
-                    }
-                    while (false);
-                }
-#endif
             }
             for (auto sc : e->side_cond)
                 core.insert_eval(sc);
