@@ -20,11 +20,13 @@ Revision History:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
-#include<ostream>
-#include<climits>
-#include<limits>
-#include<stdint.h>
+#include <ostream>
+#include <climits>
+#include <limits>
+#include <stdint.h>
 #include <string>
+#include <algorithm>
+#include <iterator>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -373,4 +375,12 @@ inline size_t megabytes_to_bytes(unsigned mb) {
     if (r != b)  // overflow
         r = SIZE_MAX;    
     return r;
+}
+
+/** Compact version of std::all_of */
+template <typename Container, typename Predicate>
+bool all_of(Container const& c, Predicate f)
+{
+    using std::begin, std::end;  // allows begin(c) to also find c.begin()
+    return std::all_of(begin(c), end(c), std::forward<Predicate>(f));
 }

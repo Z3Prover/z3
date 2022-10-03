@@ -29,14 +29,14 @@ namespace polysat {
     }
 
     bool clause::is_always_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
+        return all_of(m_literals, [&s](sat::literal lit) {
             signed_constraint c = s.m_constraints.lookup(lit);
             return c.is_always_false();
         });
     }
 
     bool clause::is_currently_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
+        return all_of(m_literals, [&s](sat::literal lit) {
             signed_constraint c = s.m_constraints.lookup(lit);
             return c.is_currently_false(s);
         });

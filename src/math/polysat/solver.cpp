@@ -630,7 +630,7 @@ namespace polysat {
         SASSERT(j.is_decision() || j.is_propagation());
         SASSERT(j.level() == m_level);
         SASSERT(!is_assigned(v));
-        SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
+        SASSERT(all_of(assignment(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
@@ -1154,7 +1154,7 @@ namespace polysat {
         for (sat::bool_var v = m_bvars.size(); v-- > 0; ) {
             sat::literal lit(v);            
             auto c = lit2cnstr(lit);  
-            if (!std::all_of(c->vars().begin(), c->vars().end(), [&](auto v) { return is_assigned(v); }))
+            if (!all_of(c->vars(), [this](auto w) { return is_assigned(w); }))
                 continue;
             ok &= (m_bvars.value(lit) != l_true) || !c.is_currently_false(*this);
             ok &= (m_bvars.value(lit) != l_false) || !c.is_currently_true(*this);
