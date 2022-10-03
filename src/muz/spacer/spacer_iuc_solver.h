@@ -71,7 +71,7 @@ public:
     iuc_solver(solver &s, unsigned iuc, unsigned iuc_arith,
                bool print_farkas_stats, bool old_hyp_reducer,
                bool split_literals = false) :
-        solver(m),
+        solver(s.get_manager()),
         m_solver(s),
         m_proxies(m),
         m_num_proxies(0),
