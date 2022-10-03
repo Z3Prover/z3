@@ -627,7 +627,8 @@ void cmd_context::set_produce_proofs(bool f) {
     m_params.m_proof = f;
     if (has_manager()) {
         m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
-        mk_solver();
+        if (m_solver_factory)
+            mk_solver();
     }
 }
 
