@@ -134,6 +134,9 @@ namespace polysat {
         unsigned_vector          m_qhead_trail;
         constraints              m_pwatch_trail;
 
+        ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
+        unsigned                 m_lemmas_qhead = 0;
+
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
         void push_qhead() { 
@@ -163,7 +166,7 @@ namespace polysat {
         void pop_levels(unsigned num_levels);
 
         void assign_propagate(sat::literal lit, clause& reason);
-        void assign_decision(sat::literal lit, clause& lemma);
+        void assign_decision(sat::literal lit);
         void assign_eval(sat::literal lit);
         void activate_constraint(signed_constraint c);
         void deactivate_constraint(signed_constraint c);
@@ -190,8 +193,11 @@ namespace polysat {
         void set_conflict(clause& cl) { m_conflict.init(cl); }
         void set_conflict(pvar v, bool by_viable_fallback) { m_conflict.init(v, by_viable_fallback); }
 
-        bool can_decide() const { return !m_free_pvars.empty(); }
+        bool can_decide() const;
+        bool can_bdecide() const;
+        bool can_pdecide() const;
         void decide();
+        void bdecide();
         void pdecide(pvar v);
 
         void linear_propagate();
@@ -227,7 +233,7 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
-        bool lemma_invariant(clause const& lemma);
+        bool lemma_invariant(clause const* lemma);
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();

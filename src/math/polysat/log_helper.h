@@ -17,11 +17,10 @@ Author:
 --*/
 #pragma once
 
-#include <iostream>
+#include <ostream>
 #include <sstream>
+#include <type_traits>
 #include <utility>
-#include "util/ref.h"
-#include "util/util.h"
 
 template <typename T>
 struct show_deref_t {
@@ -29,11 +28,11 @@ struct show_deref_t {
 };
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, show_deref_t<T> s) {
+std::ostream& operator<<(std::ostream& out, show_deref_t<T> s) {
     if (s.ptr)
-        return os << *s.ptr;
+        return out << *s.ptr;
     else
-        return os << "<null>";
+        return out << "<null>";
 }
 
 template <typename T>

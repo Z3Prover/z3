@@ -495,6 +495,10 @@ namespace polysat {
                 pop_qhead();
                 break;
             }
+            case trail_instr_t::lemma_qhead_i: {
+                m_lemmas_qhead--;
+                break;
+            }
             case trail_instr_t::pwatch_i: {
                 constraint* c = m_pwatch_trail.back();
                 erase_pwatch(c);
@@ -561,10 +565,70 @@ namespace polysat {
         }
     }
 
+    bool solver::can_decide() const {
+        return can_pdecide() || can_bdecide();
+    }
+
+    bool solver::can_pdecide() const {
+        return !m_free_pvars.empty();
+    }
+
+    bool solver::can_bdecide() const {
+        return m_lemmas_qhead < m_lemmas.size();
+    }
+
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        pdecide(m_free_pvars.next_var());
+        SASSERT(can_pdecide());  // if !can_pdecide(), all boolean literals have been propagated...
+        if (can_bdecide())
+            bdecide();
+        else
+            pdecide(m_free_pvars.next_var());
+    }
+
+    /// Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit
+    template <typename Callable>
+    class on_scope_exit final {
+        Callable m_ef;
+    public:
+        explicit on_scope_exit(Callable&& ef)
+            : m_ef(std::forward<Callable>(ef))
+        { }
+        ~on_scope_exit() {
+            m_ef();
+        }
+    };
+
+    void solver::bdecide() {
+        clause& lemma = *m_lemmas[m_lemmas_qhead++];
+        on_scope_exit update_trail([this]() {
+            // must be done after push_level, but also if we return early.
+            m_trail.push_back(trail_instr_t::lemma_qhead_i);
+        });
+
+        LOG_H2("Decide on non-asserting lemma: " << lemma);
+        sat::literal choice = sat::null_literal;
+        for (sat::literal lit : lemma) {
+            switch (m_bvars.value(lit)) {
+            case l_true:
+                // Clause is satisfied; nothing to do here
+                return;
+            case l_false:
+                break;
+            case l_undef:
+                if (choice == sat::null_literal)
+                    choice = lit;
+                break;
+            }
+        }
+        LOG("Choice is " << lit_pp(*this, choice));
+        // SASSERT(2 <= count_if(lemma, [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+        SASSERT(choice != sat::null_literal);
+        // TODO: is the case after backtracking correct?
+        //       => the backtracking code has to handle this. making sure that the decision literal is set to false.
+        push_level();
+        assign_decision(choice);
     }
 
     void solver::pdecide(pvar v) {
@@ -718,7 +782,7 @@ namespace polysat {
     void solver::backjump_lemma() {
         clause_ref lemma = m_conflict.build_lemma();
         LOG_H2("backjump_lemma: " << show_deref(lemma));
-        SASSERT(lemma && lemma_invariant(*lemma));
+        SASSERT(lemma_invariant(lemma.get()));
 
         // find second-highest level of the literals in the lemma
         unsigned max_level = 0;
@@ -795,8 +859,15 @@ namespace polysat {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
         m_simplify_clause.apply(lemma);
-        // TODO: print warning if the lemma is non-asserting?
         add_clause(lemma);
+        // At this point, all literals in lemma have been value- or bool-propated, if possible.
+        // So if the lemma is/was asserting, all its literals are now assigned.
+        bool is_asserting = all_of(lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
+        if (!is_asserting) {
+            LOG("Lemma is not asserting!");
+            m_lemmas.push_back(&lemma);
+            SASSERT(can_bdecide());
+        }
     }
 
     /**
@@ -816,7 +887,7 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma();
-        SASSERT(lemma && lemma_invariant(*lemma));
+        SASSERT(lemma_invariant(lemma.get()));
 
         if (lemma->empty())
             report_unsat();
@@ -827,9 +898,10 @@ namespace polysat {
         }
     }
 
-    bool solver::lemma_invariant(clause const& lemma) {
-        LOG("Lemma: " << lemma);
-        for (sat::literal lit : lemma) {
+    bool solver::lemma_invariant(clause const* lemma) {
+        SASSERT(lemma);
+        LOG("Lemma: " << *lemma);
+        for (sat::literal lit : *lemma) {
             LOG("  " << lit_pp(*this, lit));
             SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
         }
@@ -846,6 +918,12 @@ namespace polysat {
                 lvl = std::max(lvl, c.level(*this));
         }
         return lvl;
+    }
+
+    void solver::assign_decision(sat::literal lit) {
+        m_bvars.decision(lit, m_level);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
     }
 
     void solver::assign_propagate(sat::literal lit, clause& reason) {

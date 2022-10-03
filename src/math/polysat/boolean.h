@@ -25,6 +25,7 @@ namespace polysat {
             bool_propagation,
             value_propagation,
             assumption,
+            decision,
         };
 
         svector<sat::bool_var>      m_unused;   // previously deleted variables that can be reused by new_var();
@@ -36,6 +37,8 @@ namespace polysat {
         vector<ptr_vector<clause>>  m_watch;    // watch list for literals into clauses
 
         void assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep = null_dependency);
+        bool invariant(sat::bool_var var) const;
+        bool invariant(sat::literal lit) const { return invariant(lit.var()); }
 
     public:
         bool_var_manager() {}
@@ -46,13 +49,15 @@ namespace polysat {
         sat::bool_var new_var();
         void del_var(sat::bool_var var);
 
-        bool is_assigned(sat::bool_var var) const { return value(var) != l_undef; }
-        bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
-        bool is_assumption(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::assumption; }
+        bool is_assigned(sat::bool_var var) const { SASSERT(invariant(var)); return value(var) != l_undef; }
+        bool is_assigned(sat::literal lit) const { SASSERT(invariant(lit)); return value(lit) != l_undef; }
+        bool is_assumption(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::assumption; }
         bool is_assumption(sat::literal lit) const { return is_assumption(lit.var()); }
-        bool is_bool_propagation(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::bool_propagation; }
+        bool is_decision(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::decision; }
+        bool is_decision(sat::literal lit) const { return is_decision(lit.var()); }
+        bool is_bool_propagation(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::bool_propagation; }
         bool is_bool_propagation(sat::literal lit) const { return is_bool_propagation(lit.var()); }
-        bool is_value_propagation(sat::bool_var var) const { return is_assigned(var) && m_kind[var] == kind_t::value_propagation; }
+        bool is_value_propagation(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::value_propagation; }
         bool is_value_propagation(sat::literal lit) const { return is_value_propagation(lit.var()); }
         lbool value(sat::bool_var var) const { return value(sat::literal(var)); }
         lbool value(sat::literal lit) const { return m_value[lit.index()]; }
@@ -70,6 +75,8 @@ namespace polysat {
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
         void eval(sat::literal lit, unsigned lvl);
         void assumption(sat::literal lit, unsigned lvl, dependency dep);
+        void decision(sat::literal lit, unsigned lvl);
+
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;
@@ -81,8 +88,10 @@ namespace polysat {
             case kind_t::bool_propagation: return out << "bool propagation";
             case kind_t::value_propagation: return out << "value propagation";
             case kind_t::assumption: return out << "assumption";
-            default: UNREACHABLE(); return out;
+            case kind_t::decision: return out << "decision";
             }
+            UNREACHABLE();
+            return out;
         }
     };
 

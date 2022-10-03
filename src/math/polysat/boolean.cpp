@@ -60,6 +60,11 @@ namespace polysat {
         // m_unused.push_back(var);
     }
 
+    bool bool_var_manager::invariant(sat::bool_var var) const {
+        SASSERT_EQ(value(var) == l_undef, m_kind[var] == kind_t::unassigned);
+        return true;
+    }
+
     void bool_var_manager::propagate(sat::literal lit, unsigned lvl, clause& reason) {
         LOG("Propagate literal " << lit << " @ " << lvl << " by " << reason);
         assign(kind_t::bool_propagation, lit, lvl, &reason);
@@ -76,6 +81,12 @@ namespace polysat {
         LOG("Asserted " << lit << " @ " << lvl);
         assign(kind_t::assumption, lit, lvl, nullptr, dep);
         SASSERT(is_assumption(lit));
+    }
+
+    void bool_var_manager::decision(sat::literal lit, unsigned lvl) {
+        LOG("Decided " << lit << " @ " << lvl);
+        assign(kind_t::decision, lit, lvl, nullptr);
+        SASSERT(is_decision(lit));
     }
 
     void bool_var_manager::assign(kind_t k, sat::literal lit, unsigned lvl, clause* reason, dependency dep) {

@@ -16,8 +16,9 @@ Author:
 
 namespace polysat {
 
-    enum class trail_instr_t { 
+    enum class trail_instr_t {
         qhead_i,
+        lemma_qhead_i,
         pwatch_i,
         add_var_i,
         inc_level_i,
@@ -27,7 +28,5 @@ namespace polysat {
         assign_i,
         assign_bool_i
     };
-
-    
 
 }
