@@ -161,9 +161,9 @@ public:
 
     void abs(mpq & a) { mpz_manager<SYNCH>::abs(a.m_num); }
 
-    static int sign(mpz const & a) { return mpz_manager<SYNCH>::sign(a); }
+    static int64_t sign(mpz const & a) { return mpz_manager<SYNCH>::sign(a); }
 
-    static int sign(mpq const & a) { return mpz_manager<SYNCH>::sign(a.m_num); }
+    static int64_t sign(mpq const & a) { return mpz_manager<SYNCH>::sign(a.m_num); }
 
     static bool is_pos(mpz const & a) { return mpz_manager<SYNCH>::is_pos(a); }
 

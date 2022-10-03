@@ -310,15 +310,15 @@ class mpz_manager {
         unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
         mpz m_local;
         mpz const& m_a;
-        int m_sign;
+        int64_t m_sign;
         mpz_cell* m_cell;
     public:
         sign_cell(mpz_manager& m, mpz const& a);
-        int             sign() { return m_sign; }
+        int64_t         sign() { return m_sign; }
         mpz_cell const* cell() { return m_cell; }
     };
 
-    void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell, mpz_cell* reserve) {
+    void get_sign_cell(mpz const & a, int64_t & sign, mpz_cell * & cell, mpz_cell* reserve) {
         if (is_small(a)) {
             if (a.m_val == INT64_MIN) {
                 sign = -1;
@@ -326,15 +326,19 @@ class mpz_manager {
             }
             else {
                 cell = reserve;
-                cell->m_size = 1;
+                uint64_t v;
                 if (a.m_val < 0) {
                     sign = -1;
-                    cell->m_digits[0] = -a.m_val;
+                    v = -a.m_val;
                 }
                 else {
                     sign = 1;
-                    cell->m_digits[0] = a.m_val;
+                    v = a.m_val;
                 }
+                static_assert(sizeof(digit_t) == sizeof(unsigned));
+                cell->m_digits[0] = static_cast<unsigned>(v);
+                cell->m_digits[1] = static_cast<unsigned>(v >> 32);
+                cell->m_size = cell->m_digits[1] == 0 ? 1 : 2;
             }
         }
         else {

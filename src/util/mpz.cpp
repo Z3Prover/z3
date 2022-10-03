@@ -1973,27 +1973,10 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         capacity = m_init_cell_capacity;
     
     if (is_small(a)) {
-        int64_t val = a.m_val;
         allocate_if_needed(a, capacity);
         a.set(mpz_large);
         SASSERT(a.ptr()->m_capacity >= capacity);
-        if (val == INT64_MIN) {
-            unsigned intmin_sz = m_int_min.ptr()->m_size;
-            for (unsigned i = 0; i < intmin_sz; i++)
-                a.ptr()->m_digits[i] = m_int_min.ptr()->m_digits[i];
-            a.m_val = -1;
-            a.ptr()->m_size = m_int_min.ptr()->m_size;
-        }
-        else if (val < 0) {
-            a.ptr()->m_digits[0] = -val;
-            a.m_val = -1;
-            a.ptr()->m_size = 1;
-        }
-        else {
-            a.ptr()->m_digits[0] =  val;
-            a.m_val = 1;
-            a.ptr()->m_size = 1;
-        }
+        set_big_i64(a, a.m_val);
     }
     else if (a.ptr()->m_capacity < capacity) {
         mpz_cell * new_cell = allocate(capacity);
