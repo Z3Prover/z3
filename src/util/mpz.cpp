@@ -2440,14 +2440,14 @@ template<bool SYNCH>
 bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
     digits.reset();
     if (is_small(a)) {
-        if (a.m_val < 0) {
-            digits.push_back(-a.m_val);
-            return true;
-        }
-        else {
-            digits.push_back(a.m_val);
-            return false;
-        }
+        auto v = (uint64_t)a.m_val;
+        if (a.m_val < 0)
+            v = -v;
+
+        static_assert(sizeof(digit_t) == sizeof(unsigned));
+        digits.push_back(static_cast<unsigned>(v));
+        digits.push_back(static_cast<unsigned>(v >> 32));
+        return a.m_val < 0;
     }
     else {
 #ifndef _MP_GMP
