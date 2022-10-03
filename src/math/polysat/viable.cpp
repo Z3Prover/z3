@@ -644,7 +644,6 @@ namespace polysat {
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
             entry* n = e->next();
 
-#if 0
             // Choose the next interval which furthest extends the covered region.
             // Example:
             //      covered:   [-------]
@@ -668,11 +667,21 @@ namespace polysat {
             // The interval 'first' is always part of the lemma. If we reach first again here, we have covered the complete domain.
             while (n != first) {
                 entry* n1 = n->next();
-                if (!e->interval.currently_contains(n1->interval.lo_val()))
+                // Check if n1 is eligible; if yes, then n1 is better than n.
+                //
+                // Case 1, n1 overlaps e (unless n1 == e):
+                //      e:  [------[
+                //      n1:      [----[
+                // Case 2, n1 connects to e:
+                //      e:  [------[
+                //      n1:        [----[
+                if (n1 == e)
                     break;
+                if (!e->interval.currently_contains(n1->interval.lo_val()))
+                    if (e->interval.hi_val() != n1->interval.lo_val())
+                        break;
                 n = n1;
             }
-#endif
 
             if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
