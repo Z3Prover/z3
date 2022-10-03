@@ -173,6 +173,7 @@ namespace polysat {
     pdd solver::band(pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
+        // TODO: use existing r if we call again with the same arguments
         pdd r = m.mk_var(add_var(sz));
         assign_eh(m_constraints.band(p, q, r), null_dependency);
         return r;
@@ -189,8 +190,7 @@ namespace polysat {
         // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
         // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
         // TODO: switch to op_constraint once supported
-        return bor(p, q) - band(p, q);
-        // return (p + q) - 2*band(p, q);
+        return (p + q) - 2*band(p, q);
     }
 
     pdd solver::bnand(pdd const& p, pdd const& q) {
