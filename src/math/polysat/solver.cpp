@@ -930,8 +930,6 @@ namespace polysat {
         SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_false(lit1); }));
         SASSERT(all_of(lemma, [this, var](sat::literal lit1) { return var == lit1.var() || m_bvars.level(lit1) < m_bvars.level(var); }));
 
-        SASSERT(false);
-
         m_conflict.reset();
         backjump(m_bvars.level(var) - 1);
         learn_lemma(lemma);
