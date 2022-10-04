@@ -24,6 +24,20 @@ Notes:
             v0 \not\in [0;12[ intersect [13;10[  ==  [0;10[
         ==> replace 2, 3 by single constraint 10 <= v0
 
+
+    TODO: from bench1:
+        Lemma: 12 \/ -26 \/ 292 \/ 294 \/ 295
+             12: v11 <= v10 + v0                 [ l_false assert@0 pwatched active ]
+            -26: v12 + -1*v11 != 0               [ l_false assert@0 pwatched active ]
+            292: v10 + v0 + 1 == 0               [ l_false eval@6 pwatched active ]
+            294: v12 + -1*v10 + -1*v0 + -1 == 0  [ l_undef ]
+            295: v10 + v0 + 1 <= v12             [ l_undef ]
+
+        294: v10 + v0 + 1 == v12
+        295: v10 + v0 + 1 <= v12
+
+        ==> drop 294
+
 --*/
 #include "math/polysat/solver.h"
 #include "math/polysat/simplify_clause.h"
