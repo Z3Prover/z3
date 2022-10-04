@@ -499,6 +499,10 @@ namespace polysat {
                 m_lemmas_qhead--;
                 break;
             }
+            case trail_instr_t::add_lemma_i: {
+                m_lemmas.pop_back();
+                break;
+            }
             case trail_instr_t::pwatch_i: {
                 constraint* c = m_pwatch_trail.back();
                 erase_pwatch(c);
@@ -866,6 +870,15 @@ namespace polysat {
         if (!is_asserting) {
             LOG("Lemma is not asserting!");
             m_lemmas.push_back(&lemma);
+            m_trail.push_back(trail_instr_t::add_lemma_i);
+            // TODO: currently we forget non-asserting lemmas when backjumping over them.
+            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
+            //       even the lemma should instead be waiting for propagations.
+            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
+            //       The same could even be done in general for all lemmas, instead of distinguishing between
+            //       asserting and non-asserting lemmas.
+            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
+            //       depending on which pvars are assigned.)
             SASSERT(can_bdecide());
         }
     }
@@ -1041,6 +1054,7 @@ namespace polysat {
     }
 
     void solver::pop(unsigned num_scopes) {
+        VERIFY(m_base_levels.size() >= num_scopes);
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG_H3("Pop " << num_scopes << " user scopes");
         pop_levels(m_level - base_level + 1);
