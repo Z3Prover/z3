@@ -457,7 +457,7 @@ namespace polysat {
         solver const& s;
         sat::literal lit;
     public:
-        lit_pp(solver const& s, signed_constraint c): s(s), lit(c.blit()) {}
+        lit_pp(solver const& s, signed_constraint c): s(s), lit(c ? c.blit() : sat::null_literal) {}
         lit_pp(solver const& s, sat::literal lit): s(s), lit(lit) {}
         std::ostream& display(std::ostream& out) const;
     };

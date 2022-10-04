@@ -1113,8 +1113,10 @@ namespace polysat {
 
     std::ostream& lit_pp::display(std::ostream& out) const {
         auto c = s.lit2cnstr(lit);
-        out << lpad(4, lit) << ": " << rpad(30, c) << "  [";
-        out << " " << s.m_bvars.value(lit);
+        out << lpad(4, lit) << ": " << rpad(30, c);
+        if (!c)
+            return out;
+        out << "  [ " << s.m_bvars.value(lit);
         if (s.m_bvars.is_assigned(lit)) {
             out << ' ';
             if (s.m_bvars.is_assumption(lit))
@@ -1123,6 +1125,8 @@ namespace polysat {
                 out << "bprop";
             else if (s.m_bvars.is_value_propagation(lit))
                 out << "eval";
+            else if (s.m_bvars.is_decision(lit))
+                out << "decide";
             out << '@' << s.m_bvars.level(lit);
         }
         if (c->is_pwatched())
