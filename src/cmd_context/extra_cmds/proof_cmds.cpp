@@ -45,6 +45,7 @@ Proof checker for clauses created during search.
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
+#include "sat/sat_proof_trim.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "cmd_context/cmd_context.h"
 #include "params/solver_params.hpp"
@@ -181,203 +182,57 @@ public:
 
 };
 
-namespace sat {
-    /**
-     * Replay proof entierly, then walk backwards extracting reduced proof.
-     */
-    class proof_trim {
-        cmd_context& ctx;
-        ast_manager& m;
-        solver s;
-        literal_vector m_clause;
-
-        vector<std::tuple<literal_vector, clause*, bool, bool>> m_trail;
+/**
+ * Replay proof entierly, then walk backwards extracting reduced proof.
+ */
+class proof_trim {
+    cmd_context& ctx;
+    ast_manager& m;
+    sat::proof_trim trim;
         
-        struct hash {
-            unsigned operator()(literal_vector const& v) const {
-                return string_hash((char const*)v.begin(), v.size()*sizeof(literal), 3);
-            }
-        };
-        struct eq {
-            bool operator()(literal_vector const& a, literal_vector const& b) const {
-                return a == b;
-            }
-        };
-        map<literal_vector, clause_vector, hash, eq> m_clauses;
+    void mk_clause(expr_ref_vector const& clause) {
+        trim.init_clause();
+        for (expr* arg: clause)
+            add_literal(arg);
+    }
         
-        void mk_clause(expr_ref_vector const& clause) {
-            m_clause.reset();
-            for (expr* arg: clause)
-                add_literal(arg);
-            std::sort(m_clause.begin(), m_clause.end());
-        }
+    sat::bool_var mk_var(expr* arg) {
+        while (arg->get_id() >= trim.num_vars())
+            trim.mk_var();
+        return arg->get_id();
+    }
         
-        bool_var mk_var(expr* arg) {
-            while (arg->get_id() >= s.num_vars())
-                s.mk_var(true, true);
-            return arg->get_id();
-        }
-        
-        void add_literal(expr* arg) {
-            bool sign = m.is_not(arg, arg);
-            m_clause.push_back(literal(mk_var(arg), sign));
-        }
-
-
-        /**
-           Pseudo-code from Gurfinkel, Vizel, FMCAD 2014
-           Input: trail (a0,d0), ..., (an,dn) = ({},bot)
-           Output: reduced trail - result 
-           result = []
-           C = { an }
-           for i = n to 0 do
-               if s.is_deleted(ai) then s.revive(ai)
-               else 
-                  if s.isontrail(ai) then
-                     s.undotrailcore(ai,C)
-                  s.delete(ai)
-                  if ai in C then 
-                      if ai is not initial then
-                         s.savetrail()
-                         s.enqueue(not ai)
-                         c = s.propagate()
-                         s.conflictanalysiscore(c, C)
-                         s.restoretrail()
-                       result += [ai]
-            reverse(result)
-            
-            is_deleted(ai):
-               clause was detached
-            revive(ai):
-               attach clause ai
-            isontrail(ai):
-                some literal on the current trail in s is justified by ai
-            undotrailcore(ai, C):
-                pop the trail until dependencies on ai are gone
-            savetrail:
-                store current trail so it can be restored
-            enqueue(not ai):
-                assert negations of ai at a new decision level
-            conflictanalysiscore(c, C):
-                ?
-            restoretrail:
-                restore the trail to the position before enqueue
-                
-                                                           
-        */        
-        void trim() {            
-            vector<literal_vector> result, clauses;
-            clauses.push_back(literal_vector());
-            for (unsigned i = m_trail.size(); i-- > 0; ) {
-                auto const& [cl, clp, is_add, is_initial] = m_trail[i];
-                if (!is_add) {
-                    revive(cl, clp);
-                    continue;
-                }
-                prune_trail(cl, clp);
-                del(cl, clp);
-                if (!clauses.contains(cl))
-                    continue;
-                if (!is_initial) {
-                    s.push();
-                    unsigned lvl = s.scope_lvl();
-                    for (auto lit : cl)
-                        s.assign(~lit, justification(lvl));
-                    s.propagate(false);
-                    SASSERT(s.inconsistent());
-                    conflict_analysis(clauses);
-                    s.pop(1);
-                }
-                result.push_back(cl);
-            }
-            result.reverse();
-        }
-
-        void del(literal_vector const& cl, clause* cp) {
-            if (cp) 
-                s.detach_clause(*cp);
-            else 
-                del(cl);
-        }
-
-        void prune_trail(literal_vector const& cl, clause* cp) {
-
-        }
-
-        void conflict_analysis(vector<literal_vector> const& clauses) {
-            
-        }
-
-
-        void revive(literal_vector const& cl, clause* cp) {
-            if (cp) 
-                s.attach_clause(*cp);
-            else 
-                s.mk_clause(cl, status::redundant());            
-        }
-
-
-        clause* del(literal_vector const& cl) {
-            clause* cp = nullptr;
-            IF_VERBOSE(3, verbose_stream() << "del: " << cl << "\n");
-            if (m_clause.size() == 2) {
-                s.detach_bin_clause(cl[0], cl[1], true);
-                return cp;
-            }
-            auto* e = m_clauses.find_core(cl);            
-            if (!e)
-                return cp;
-            auto& v = e->get_data().m_value;
-            if (!v.empty()) {
-                cp = v.back();
-                IF_VERBOSE(3, verbose_stream() << "del: " << *cp << "\n");
-                s.detach_clause(*cp);
-                v.pop_back();
-            }
-            return cp;
-        }
-
-        void save(literal_vector const& lits, clause* cl) {
-            if (!cl)                
-                return;
-            IF_VERBOSE(3, verbose_stream() << "add: " << *cl << "\n");
-            auto& v = m_clauses.insert_if_not_there(lits, clause_vector());            
-            v.push_back(cl);
-        }
-        
-    public:
-        proof_trim(cmd_context& ctx):
-            ctx(ctx),
-            m(ctx.m()),
-            s(gparams::get_module("sat"), m.limit()) {            
-        }
-        
-        void assume(expr_ref_vector const& _clause, bool is_initial = true) {        
-            mk_clause(_clause);
-            IF_VERBOSE(3, verbose_stream() << "add: " << m_clause << "\n");
-            auto* cl = s.mk_clause(m_clause, status::redundant());
-            m_trail.push_back({ m_clause, cl, true, is_initial });
-            s.propagate(false);
-            save(m_clause, cl);
-        }
-        
-        void del(expr_ref_vector const& _clause) {
-            mk_clause(_clause);
-            clause* cp = del(m_clause);
-            m_trail.push_back({ m_clause, cp, false, true });
-        }
-        
-        void infer(expr_ref_vector const& _clause, app*) {
-            assume(_clause, false);
-        }
-
-        void updt_params(params_ref const& p) {
-            s.updt_params(p);
-        }
-
-    };
-}
-
+    void add_literal(expr* arg) {
+        bool sign = m.is_not(arg, arg);
+        trim.add_literal(mk_var(arg), sign);
+    }
+      
+public:
+    proof_trim(cmd_context& ctx):
+        ctx(ctx),
+        m(ctx.m()),
+        trim(gparams::get_module("sat"), m.limit()) {            
+    }
+    
+    void assume(expr_ref_vector const& _clause, bool is_initial = true) {        
+        mk_clause(_clause);
+        trim.assume(true);
+    }
+    
+    void del(expr_ref_vector const& _clause) {
+        mk_clause(_clause);
+        trim.del();
+    }
+    
+    void infer(expr_ref_vector const& _clause, app*) {
+        mk_clause(_clause);
+        trim.infer();
+    }
+    
+    void updt_params(params_ref const& p) {
+        trim.updt_params(p);
+    }    
+};
 
 class proof_saver {
     cmd_context& ctx;
@@ -415,11 +270,11 @@ class proof_cmds_imp : public proof_cmds {
     bool            m_trim   = false;
     scoped_ptr<smt_checker>     m_checker;
     scoped_ptr<proof_saver>     m_saver;
-    scoped_ptr<sat::proof_trim>      m_trimmer;
+    scoped_ptr<proof_trim>      m_trimmer;
     
     smt_checker& checker() { if (!m_checker) m_checker = alloc(smt_checker, m); return *m_checker; }
     proof_saver& saver() { if (!m_saver) m_saver = alloc(proof_saver, ctx); return *m_saver; }
-    sat::proof_trim& trim() { if (!m_trimmer) m_trimmer = alloc(sat::proof_trim, ctx); return *m_trimmer; }
+    proof_trim& trim() { if (!m_trimmer) m_trimmer = alloc(proof_trim, ctx); return *m_trimmer; }
     
 public:
     proof_cmds_imp(cmd_context& ctx): ctx(ctx), m(ctx.m()), m_lits(m), m_proof_hint(m) {
