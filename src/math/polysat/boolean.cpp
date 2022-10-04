@@ -46,7 +46,7 @@ namespace polysat {
     }
 
     void bool_var_manager::del_var(sat::bool_var var) {
-        SASSERT(std::count(m_unused.begin(), m_unused.end(), var) == 0);
+        SASSERT(count(m_unused, var) == 0);
         auto lit = sat::literal(var);
         m_value[lit.index()]    = l_undef;
         m_value[(~lit).index()] = l_undef;

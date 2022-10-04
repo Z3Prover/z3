@@ -1195,7 +1195,7 @@ namespace polysat {
             int64_t num_watches = 0;
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
-                auto n = std::count(wlist.begin(), wlist.end(), c);
+                auto n = count(wlist, c);
                 if (n > 1)
                     std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist

@@ -343,9 +343,9 @@ namespace polysat {
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
         SASSERT(contains(lit));
-        SASSERT(std::count(cl.begin(), cl.end(), lit) > 0);
+        SASSERT(count(cl, lit) > 0);
         SASSERT(!contains(~lit));
-        SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
+        SASSERT(count(cl, ~lit) == 0);
 
         remove(s.lit2cnstr(lit));
         for (sat::literal other : cl)

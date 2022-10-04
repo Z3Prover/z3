@@ -50,7 +50,7 @@ namespace polysat {
 
         clause(sat::literal_vector literals):
             m_literals(std::move(literals)) {
-            SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
+            SASSERT(count(m_literals, sat::null_literal) == 0);
         }
 
     public:
@@ -69,6 +69,7 @@ namespace polysat {
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
 
+        // evaluates under pvar assignment
         bool is_always_false(solver& s) const;
         bool is_currently_false(solver& s) const;
 

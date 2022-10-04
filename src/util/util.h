@@ -384,3 +384,11 @@ bool all_of(Container const& c, Predicate f)
     using std::begin, std::end;  // allows begin(c) to also find c.begin()
     return std::all_of(begin(c), end(c), std::forward<Predicate>(f));
 }
+
+/** Compact version of std::count */
+template <typename Container, typename Item>
+std::size_t count(Container const& c, Item x)
+{
+    using std::begin, std::end;  // allows begin(c) to also find c.begin()
+    return std::count(begin(c), end(c), std::forward<Item>(x));
+}
