@@ -130,7 +130,7 @@ namespace polysat {
             rational val;
             switch (find_viable(v, val)) {
             case dd::find_t::singleton:
-                s.propagate(v, val, sc); // TBD why is sc used as justification? It should be all of viable
+                s.assign_propagate(v, val);
                 prop = true;
                 break;
             case dd::find_t::empty:

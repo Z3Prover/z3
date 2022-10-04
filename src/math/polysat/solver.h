@@ -84,9 +84,9 @@ namespace polysat {
         friend class assignment_pp;
         friend class assignments_pp;
         friend class ex_polynomial_superposition;
-        friend class inf_saturate;        
+        friend class inf_saturate;
         friend class constraint_manager;
-        friend class scoped_solverv;        
+        friend class scoped_solverv;
         friend class test_polysat;
         friend class test_fi;
         friend struct inf_resolve_with_assignment;
@@ -119,7 +119,7 @@ namespace polysat {
         bool                     m_propagating = false;  // set to true during propagation
 #endif
 
-        unsigned_vector          m_activity; 
+        unsigned_vector          m_activity;
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables (bit width)
 
@@ -137,9 +137,9 @@ namespace polysat {
         ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
 
-        unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
+        unsigned_vector          m_base_levels;  // External clients can push/pop scope.
 
-        void push_qhead() { 
+        void push_qhead() {
             m_trail.push_back(trail_instr_t::qhead_i);
             m_qhead_trail.push_back(m_qhead);
         }
@@ -172,6 +172,8 @@ namespace polysat {
         void deactivate_constraint(signed_constraint c);
         unsigned level(sat::literal lit, clause const& cl);
 
+        void assign_propagate(pvar v, rational const& val);
+        void assign_verify(pvar v, rational val, justification j);
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
         bool is_decision(pvar v) const { return m_justification[v].is_decision(); }
@@ -181,7 +183,6 @@ namespace polysat {
         void propagate(sat::literal lit);
         void propagate(pvar v);
         bool propagate(pvar v, constraint* c);
-        void propagate(pvar v, rational const& val, signed_constraint c);
         bool propagate(sat::literal lit, clause& cl);
         void add_pwatch(constraint* c);
         void add_pwatch(constraint* c, pvar v);
@@ -237,7 +238,7 @@ namespace polysat {
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();
-        
+
         bool can_propagate();
         void propagate();
 
@@ -279,7 +280,7 @@ namespace polysat {
         bool try_eval(pdd const& p, rational& out_value) const;
 
         /**
-         * Add variable with bit-size. 
+         * Add variable with bit-size.
          */
         pvar add_var(unsigned sz);
 
@@ -290,9 +291,9 @@ namespace polysat {
 
         /**
         * Create terms for unsigned quot-rem
-        * 
+        *
         * Return tuple (quot, rem)
-        * 
+        *
         * The following properties are enforced:
         * b*quot + rem = a
         * ~ovfl(b*quot)
@@ -343,7 +344,7 @@ namespace polysat {
         /**
          * Apply current substitution to p.
          */
-        pdd subst(pdd const& p) const; 
+        pdd subst(pdd const& p) const;
 
         /** Create constraints */
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
@@ -423,7 +424,7 @@ namespace polysat {
          */
         void push();
         void pop(unsigned num_scopes = 1);
-       
+
         std::ostream& display(std::ostream& out) const;
 
         void collect_statistics(statistics& st) const;

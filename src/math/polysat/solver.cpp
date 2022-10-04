@@ -25,7 +25,7 @@ Author:
 
 namespace polysat {
 
-    solver::solver(reslimit& lim): 
+    solver::solver(reslimit& lim):
         m_lim(lim),
         m_viable(*this),
         m_viable_fallback(*this),
@@ -54,13 +54,13 @@ namespace polysat {
     }
 
     bool solver::should_search() {
-        return 
-            m_lim.inc() && 
+        return
+            m_lim.inc() &&
             (m_stats.m_num_conflicts < get_config().m_max_conflicts) &&
             (m_stats.m_num_decisions < get_config().m_max_decisions);
     }
-   
-    lbool solver::check_sat() {         
+
+    lbool solver::check_sat() {
         LOG("Starting");
         while (should_search()) {
             m_stats.m_num_iterations++;
@@ -99,7 +99,7 @@ namespace polysat {
     dd::pdd_manager& solver::var2pdd(pvar v) {
         return sz2pdd(size(v));
     }
-        
+
     unsigned solver::add_var(unsigned sz) {
         pvar v = m_value.size();
         m_value.push_back(rational::zero());
@@ -240,7 +240,7 @@ namespace polysat {
         m_linear_solver.new_constraint(*c.get());
 #endif
     }
-    
+
 
     bool solver::can_propagate() {
         return m_qhead < m_search.size() && !is_conflict();
@@ -453,22 +453,6 @@ namespace polysat {
         }
     }
 
-
-
-    // TODO: get rid of this or at least rename it
-    void solver::propagate(pvar v, rational const& val, signed_constraint c) {
-        // this looks weird... mixing propagation and conflict with c? also, the conflict should not be c but the whole of viable+c.
-        LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
-        if (m_viable.is_viable(v, val)) {
-            m_free_pvars.del_var_eh(v);
-            assign_core(v, val, justification::propagation(m_level));        
-        }
-        else {
-            UNREACHABLE();
-            // set_conflict(c);
-        }
-    }
-
     void solver::push_level() {
         ++m_level;
         m_trail.push_back(trail_instr_t::inc_level_i);
@@ -476,8 +460,6 @@ namespace polysat {
         m_linear_solver.push();
 #endif
     }
-
-
 
     void solver::pop_levels(unsigned num_levels) {
         if (num_levels == 0)
@@ -550,8 +532,8 @@ namespace polysat {
 
                 if (active_level <= target_level)
                     replay.push_back(lit);
-                else 
-                    m_bvars.unassign(lit);                
+                else
+                    m_bvars.unassign(lit);
                 m_search.pop();
                 break;
             }
@@ -650,13 +632,33 @@ namespace polysat {
             return;
         case dd::find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
+            // NOTE 2: probably not true anymore; viable::intersect should trigger all propagations now
+            DEBUG_CODE( UNREACHABLE(); );
             j = justification::propagation(m_level);
             break;
         case dd::find_t::multiple:
             j = justification::decision(m_level + 1);
             break;
         }
-        // Verify the value we're trying to assign
+        assign_verify(v, val, j);
+    }
+
+    void solver::assign_propagate(pvar v, rational const& val) {
+        LOG("Propagation: " << assignment_pp(*this, v, val));
+        SASSERT(!is_assigned(v));
+        SASSERT(m_viable.is_viable(v, val));
+        m_free_pvars.del_var_eh(v);
+        // NOTE: we do not have to check the univariate solver here.
+        //       Since we propagate, this means at most the single value 'val' is viable.
+        //       If it is not actually viable, the propagation loop will find out and enter the conflict state.
+        //       (However, if we do check here, we might find the conflict earlier. Might be worth a try.)
+        assign_core(v, val, justification::propagation(m_level));
+    }
+
+    /// Verify the value we're trying to assign against the univariate solver
+    void solver::assign_verify(pvar v, rational val, justification j) {
+        SASSERT(j.is_decision() || j.is_propagation());
+        // First, check evaluation of the currently-univariate constraints
         // TODO: we should add a better way to test constraints under assignments, without modifying the solver state.
         m_value[v] = val;
         m_search.push_assignment(v, val);
@@ -672,8 +674,7 @@ namespace polysat {
             case dd::find_t::singleton:
             case dd::find_t::multiple:
                 LOG("Fallback solver: " << assignment_pp(*this, v, val));
-                // NOTE: I don't think this can happen if viable::find_viable returned a singleton. since all values excluded by viable are true negatives.
-                SASSERT(!j.is_propagation());
+                SASSERT(!j.is_propagation());  // all excluded values are true negatives, so if j.is_propagation() the univariate solver must return unsat
                 j = justification::decision(m_level + 1);
                 break;
             case dd::find_t::empty:
@@ -686,12 +687,12 @@ namespace polysat {
         if (j.is_decision())
             push_level();
         assign_core(v, val, j);
-    }   
+    }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
-        if (j.is_decision()) 
+        if (j.is_decision())
             ++m_stats.m_num_decisions;
-        else 
+        else
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(m_viable.is_viable(v, val));
@@ -702,7 +703,7 @@ namespace polysat {
         m_value[v] = val;
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
-        m_justification[v] = j; 
+        m_justification[v] = j;
         // Decision should satisfy all univariate constraints.
         // Propagation might violate some other constraint; but we will notice that in the propagation loop when v is propagated.
         // TODO: on the other hand, checking constraints here would have us discover some conflicts earlier.
@@ -820,10 +821,10 @@ namespace polysat {
 
     /**
     * Variable activity accounting.
-    * As a placeholder we increment activity 
+    * As a placeholder we increment activity
     * 1. when a variable assignment is used in a conflict.
     * 2. when a variable propagation is resolved against.
-    * The hypothesis that this is useful should be tested against a 
+    * The hypothesis that this is useful should be tested against a
     * broader suite of benchmarks and tested with micro-benchmarks.
     * It should be tested in conjunction with restarts.
     */
@@ -846,7 +847,7 @@ namespace polysat {
         }
         m_activity_inc >>= 14;
     }
-    
+
     void solver::report_unsat() {
         backjump(base_level());
         SASSERT(!m_conflict.empty());
@@ -889,13 +890,13 @@ namespace polysat {
     /**
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
-     * 
+     *
      * C & v = val is conflict.
-     * 
+     *
      * C => v != val
-     * 
-     * l1 \/ l2 \/ ... \/ lk \/ v != val     
-     *      
+     *
+     * l1 \/ l2 \/ ... \/ lk \/ v != val
+     *
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
@@ -990,7 +991,7 @@ namespace polysat {
         m_search.push_boolean(lit);
     }
 
-    /** 
+    /**
     * Activate constraint immediately
     * Activation and de-activation of constraints follows the scope controlled by push/pop.
     * constraints activated within the linear solver are de-activated when the linear
@@ -1067,7 +1068,7 @@ namespace polysat {
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
         signed_constraint cs[2] = { c1, c2 };
-        add_clause(2, cs, is_redundant);        
+        add_clause(2, cs, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant) {
@@ -1099,7 +1100,7 @@ namespace polysat {
     bool solver::at_base_level() const {
         return m_level == base_level();
     }
-    
+
     unsigned solver::base_level() const {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
     }
@@ -1118,7 +1119,7 @@ namespace polysat {
                 pvar v = item.var();
                 auto const& j = m_justification[v];
                 out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level() << " ";
-                if (j.is_propagation()) 
+                if (j.is_propagation())
                     for (auto const& c : m_viable.get_constraints(v))
                         out << c << " ";
                 out << "\n";
@@ -1138,8 +1139,8 @@ namespace polysat {
         for (auto const& cls : m_constraints.clauses()) {
             for (auto const& cl : cls) {
                 out << "\t" << *cl << "\n";
-                for (auto lit : *cl) 
-                    out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";                
+                for (auto lit : *cl)
+                    out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
             }
         }
         return out;
@@ -1190,7 +1191,7 @@ namespace polysat {
         rational const& p = rational::power_of_two(s.size(var));
         if (val > mod(-val, p))
             out << -mod(-val, p);
-        else 
+        else
             out << val;
         return out;
     }
@@ -1281,8 +1282,8 @@ namespace polysat {
             return true;
         bool ok = true;
         for (sat::bool_var v = m_bvars.size(); v-- > 0; ) {
-            sat::literal lit(v);            
-            auto c = lit2cnstr(lit);  
+            sat::literal lit(v);
+            auto c = lit2cnstr(lit);
             if (!all_of(c->vars(), [this](auto w) { return is_assigned(w); }))
                 continue;
             ok &= (m_bvars.value(lit) != l_true) || !c.is_currently_false(*this);
