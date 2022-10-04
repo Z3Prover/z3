@@ -761,11 +761,14 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.is_assumption(var)) {
-                    SASSERT(m_bvars.level(var) <= base_level());
+                if (m_bvars.level(var) <= base_level())
                     break;
+                SASSERT(!m_bvars.is_assumption(var));
+                if (m_bvars.is_decision(var)) {
+                    revert_bool_decision(lit);
+                    return;
                 }
-                else if (m_bvars.is_bool_propagation(var))
+                if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
                 else {
                     SASSERT(m_bvars.is_value_propagation(var));
@@ -863,7 +866,7 @@ namespace polysat {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
         m_simplify_clause.apply(lemma);
-        add_clause(lemma);
+        add_clause(lemma);  // propagates undef literals, if possible
         // At this point, all literals in lemma have been value- or bool-propated, if possible.
         // So if the lemma is/was asserting, all its literals are now assigned.
         bool is_asserting = all_of(lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
@@ -902,13 +905,43 @@ namespace polysat {
         clause_ref lemma = m_conflict.build_lemma();
         SASSERT(lemma_invariant(lemma.get()));
 
-        if (lemma->empty())
+        if (lemma->empty()) {
             report_unsat();
-        else {
-            m_conflict.reset();
-            backjump(get_level(v) - 1);
-            learn_lemma(*lemma);
+            return;
         }
+
+        m_conflict.reset();
+        backjump(get_level(v) - 1);
+        learn_lemma(*lemma);
+    }
+
+    void solver::revert_bool_decision(sat::literal const lit) {
+        LOG_H2("Reverting decision: " << lit_pp(*this, lit));
+        sat::bool_var const var = lit.var();
+
+        clause_ref lemma_ref = m_conflict.build_lemma();
+        SASSERT(lemma_ref);
+        clause& lemma = *lemma_ref;
+        SASSERT(lemma_invariant(&lemma));
+
+        SASSERT(!lemma.empty());
+        SASSERT(count(lemma, ~lit) > 0);
+        SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_false(lit1); }));
+        SASSERT(all_of(lemma, [this, var](sat::literal lit1) { return var == lit1.var() || m_bvars.level(lit1) < m_bvars.level(var); }));
+
+        SASSERT(false);
+
+        m_conflict.reset();
+        backjump(m_bvars.level(var) - 1);
+        learn_lemma(lemma);
+        // At this point, the lemma is asserting for ~lit,
+        // and has been propagated by learn_lemma/add_clause.
+        SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_assigned(lit1); }));
+        // so the regular propagation loop will propagate ~lit.
+        // Recall that lit comes from a non-asserting lemma.
+        // If there is more than one undef choice left in that lemma,
+        // then the next bdecide will take care of that (after all outstanding propagations).
+        SASSERT(can_bdecide());
     }
 
     bool solver::lemma_invariant(clause const* lemma) {
