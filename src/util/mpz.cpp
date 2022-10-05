@@ -689,9 +689,12 @@ template<bool SYNCH>
 template<bool SUB>
 void mpz_manager<SYNCH>::big_add_sub(mpz const & a0, mpz const & b0, mpz & c) {
     mpz a, b;
-    set_big_i64(a, a0.m_val);
-    set_big_i64(b, b0.m_val);
-    sign_cell ca(*this, a), cb(*this, b);
+    if (is_small(a0))
+        set_big_i64(a, a0.m_val);
+    if (is_small(b0))
+        set_big_i64(b, b0.m_val);
+    sign_cell ca(*this, is_small(a0) ? a : a0);
+    sign_cell cb(*this, is_small(b0) ? b : b0);
     auto sign_b = cb.sign();
     mpz_stack tmp;
     if (SUB)
