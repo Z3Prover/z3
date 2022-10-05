@@ -35,6 +35,7 @@ namespace sat {
         uint_set       m_in_coi;
         vector<std::tuple<literal_vector, clause*, bool, bool>> m_trail;
         
+        
         struct hash {
             unsigned operator()(literal_vector const& v) const {
                 return string_hash((char const*)v.begin(), v.size()*sizeof(literal), 3);
@@ -47,17 +48,21 @@ namespace sat {
         };
         map<literal_vector, clause_vector, hash, eq> m_clauses;
 
+        hashtable<literal_vector, hash, eq> m_core_literals;
+
         void del(literal_vector const& cl, clause* cp);
 
         bool match_clause(literal_vector const& cl, literal l1, literal l2) const;
         bool match_clause(literal_vector const& cl, literal l1, literal l2, literal l3) const;
 
         void prune_trail(literal_vector const& cl, clause* cp);
-        void conflict_analysis_core(unsigned init_sz, vector<literal_vector>& clauses);
-        void add_core(literal l, justification j, vector<literal_vector>& clauses);
+        void conflict_analysis_core(literal_vector const& cl, clause* cp);
+        void add_core(literal l, justification j);
+        bool in_core(literal_vector const& cl, clause* cp) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
         void save(literal_vector const& lits, clause* cl);
+
         
     public:
 
@@ -73,7 +78,7 @@ namespace sat {
         void infer();
         void updt_params(params_ref const& p) { s.updt_params(p); }
 
-        void trim();
+        vector<literal_vector> trim();
 
     };
 }

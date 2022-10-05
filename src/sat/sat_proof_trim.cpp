@@ -26,47 +26,13 @@ namespace sat {
     /**
        Pseudo-code from Gurfinkel, Vizel, FMCAD 2014
        Input: trail (a0,d0), ..., (an,dn) = ({},bot)
-       Output: reduced trail - result 
-       result = []
-       C = { an }
-       for i = n to 0 do
-           if s.is_deleted(ai) then s.revive(ai)
-           else 
-              if s.isontrail(ai) then
-                  s.undotrailcore(ai,C)
-              s.delete(ai)
-              if ai in C then 
-                  if ai is not initial then
-                      s.savetrail()
-                      s.enqueue(not ai)
-                      c = s.propagate()
-                      s.conflictanalysiscore(c, C)
-                      s.restoretrail()
-                   result += [ai]
-       reverse(result)
-            
-       is_deleted(ai):
-          clause was detached
-       revive(ai):
-          attach clause ai
-       isontrail(ai):
-          some literal on the current trail in s is justified by ai
-       undotrailcore(ai, C):
-          pop the trail until dependencies on ai are gone
-       savetrail:
-          store current trail so it can be restored
-       enqueue(not ai):
-          assert negations of ai at a new decision level
-       conflictanalysiscore(c, C):
-          ?
-       restoretrail:
-          restore the trail to the position before enqueue
-                                                                          
+       Output: reduced trail - result                                                                           
     */        
 
-    void proof_trim::trim() {
-        vector<literal_vector> result, clauses;
-        clauses.push_back(literal_vector());
+    vector<literal_vector> proof_trim::trim() {
+        vector<literal_vector> result;
+        m_core_literals.reset();
+        m_core_literals.insert(literal_vector());
         for (unsigned i = m_trail.size(); i-- > 0; ) {
             auto const& [cl, clp, is_add, is_initial] = m_trail[i];
             if (!is_add) {
@@ -75,22 +41,15 @@ namespace sat {
             }
             prune_trail(cl, clp);
             del(cl, clp);
-            if (!clauses.contains(cl))
+            if (!in_core(cl, clp))
                 continue;
             result.push_back(cl);
             if (is_initial)
                 continue;
-            s.push();
-            unsigned init_sz = s.m_trail.size();
-            unsigned lvl = s.scope_lvl();
-            for (auto lit : cl)
-                s.assign(~lit, justification(lvl));
-            s.propagate(false);
-            SASSERT(s.inconsistent());
-            conflict_analysis_core(init_sz, clauses);
-            s.pop(1);                
+            conflict_analysis_core(cl, clp);            
         }
         result.reverse();
+        return result;
     }
     
     void proof_trim::del(literal_vector const& cl, clause* cp) {
@@ -176,14 +135,15 @@ namespace sat {
        The current state is in conflict.
        Chase justifications for conflict to extract clauses that are in coi of conflict.
 
+
        Assume:
        F | G, ~C |- []
        Let T (trail) be the extension of G, ~C that derives the empty clause.
        T := G, ~C, l1:j1, l2:j2, ..., lk:jk
        The goal is to extract clauses in T that are used to derive C.
-       - some of the literals in ~C that are not set to true already (they must be unassigned relative)
-       are used to derive the empty clause.
-       - some literals in ~C that are assigned to true may also be used to derive the empty clause.
+       This is achieved by collecting all literals from j1, j2, ... jk 
+       and the conflict clause that are at level below ~C and using the clauses that justify those literals. 
+      
              
        Example:
        C = c or d or e
@@ -197,44 +157,67 @@ namespace sat {
        queried for their explanation. Their explanation is added to the clauses.
        
     */
-    void proof_trim::conflict_analysis_core(unsigned init_sz, vector<literal_vector>& clauses) {
-        justification j = s.m_conflict;
-        literal consequent = null_literal;
-        unsigned idx = s.m_trail.size() - 1;
-        unsigned old_sz = s.m_unmark.size();
-        bool_var c_var;
-        auto add_dependency = [&](bool_var v) {
-            auto j = s.m_justification[v];
-            literal lit = literal(v, s.value(v) == l_false);
-            add_core(lit, j, clauses);            
-        };
-        
-        if (s.m_not_l != null_literal) {
-            s.process_antecedent_for_unsat_core(s.m_not_l);
-            add_core(s.m_not_l, s.m_justification[s.m_not_l.var()], clauses);
-            add_core(~s.m_not_l, j, clauses);
-            consequent = ~s.m_not_l;                
+    void proof_trim::conflict_analysis_core(literal_vector const& cl, clause* cp) {
+
+        s.push();
+        unsigned lvl = s.scope_lvl();
+        for (auto lit : cl)
+            s.assign(~lit, justification(lvl));
+        unsigned trail_size0 = s.m_trail.size();
+        s.push();
+        s.propagate(false);
+        if (!s.inconsistent()) {
+            s.m_qhead = 0;
+            s.propagate(false);
         }
-        while (true) {
-            s.process_consequent_for_unsat_core(consequent, j);
-            while (idx >= init_sz) {
-                consequent = s.m_trail[idx];
-                c_var = consequent.var();
-                if (s.is_marked(c_var))
-                    break;
-                --idx;
+        SASSERT(s.inconsistent());
+
+        auto add_dependency = [&](literal lit) {
+            bool_var v = lit.var();
+            if (s.lvl(v) == 0) {
+                // inefficient for repeated insertions ? 
+                auto j = s.m_justification[v];
+                literal lit = literal(v, s.value(v) == l_false);
+                add_core(lit, j);                
             }
-            if (idx < init_sz)
+            else if (s.lvl(v) == 2) 
+                s.mark(v);
+        };
+
+        auto add_jdependency = [&](justification j) {
+            switch (j.get_kind()) {
+            case justification::BINARY:
+                add_dependency(j.get_literal());
                 break;
-            j = s.m_justification[c_var];
-            --idx;
+            case justification::TERNARY:
+                add_dependency(j.get_literal1());
+                add_dependency(j.get_literal2());
+                break;
+            case justification::CLAUSE: 
+                for (auto lit : s.get_clause(j))
+                    if (s.value(lit) == l_false)
+                        add_dependency(lit);
+                break;
+            default:
+                break;
+            }            
+        };
+
+        if (s.m_not_l != null_literal)
+            add_dependency(s.m_not_l);
+        add_jdependency(s.m_conflict);
+        
+        for (unsigned i = s.m_trail.size(); i-- > trail_size0; ) {
+            bool_var v = s.m_trail[i].var();
+            if (!s.is_marked(v))
+                continue;
+            s.reset_mark(v);
+            add_jdependency(s.m_justification[v]);
         }
-        for (unsigned i = s.m_mark.size(); i-- > old_sz; ) 
-            add_dependency(s.m_unmark[i]);
-        s.reset_unmark(old_sz);
+        s.pop(2);                
     }
 
-    void proof_trim::add_core(literal l, justification j, vector<literal_vector>& clauses) {
+    void proof_trim::add_core(literal l, justification j) {
         m_clause.reset();
         switch (j.get_kind()) {
         case justification::NONE:
@@ -248,18 +231,23 @@ namespace sat {
             m_clause.push_back(j.get_literal1());
             m_clause.push_back(j.get_literal2());
             break;
-        case justification::CLAUSE: 
-            for (auto lit : s.get_clause(j))
-                m_clause.push_back(lit);
-            break;
+        case justification::CLAUSE:
+            s.get_clause(j).mark_used();
+            return;
         default:
             UNREACHABLE();
             break;
         }
         std::sort(m_clause.begin(), m_clause.end());
-        clauses.insert(m_clause);            
+        m_core_literals.insert(m_clause);
     }
 
+    bool proof_trim::in_core(literal_vector const& cl, clause* cp) const {
+        if (cp)
+            return cp->was_used();
+        else
+            return m_core_literals.contains(cl);
+    }
 
     void proof_trim::revive(literal_vector const& cl, clause* cp) {
         if (cp) 
