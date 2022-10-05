@@ -189,7 +189,9 @@ class proof_trim {
     cmd_context& ctx;
     ast_manager& m;
     sat::proof_trim trim;
-        
+    vector<expr_ref_vector> m_clauses;
+    bool_vector             m_is_infer;
+    
     void mk_clause(expr_ref_vector const& clause) {
         trim.init_clause();
         for (expr* arg: clause)
@@ -214,9 +216,11 @@ public:
         trim(gparams::get_module("sat"), m.limit()) {            
     }
     
-    void assume(expr_ref_vector const& _clause, bool is_initial = true) {        
-        mk_clause(_clause);
-        trim.assume(true);
+    void assume(expr_ref_vector const& clause) {
+        mk_clause(clause);
+        trim.assume(m_clauses.size());
+        m_clauses.push_back(clause);
+        m_is_infer.push_back(false);
     }
     
     void del(expr_ref_vector const& _clause) {
@@ -224,14 +228,42 @@ public:
         trim.del();
     }
     
-    void infer(expr_ref_vector const& _clause, app*) {
-        mk_clause(_clause);
-        trim.infer();
+    void infer(expr_ref_vector const& clause, app* hint) {
+        mk_clause(clause);
+        trim.infer(m_clauses.size());
+        m_clauses.push_back(clause);
+        if (hint)
+            m_clauses.back().push_back(hint);
+        m_is_infer.push_back(true);
     }
     
     void updt_params(params_ref const& p) {
         trim.updt_params(p);
-    }    
+    }
+
+    void do_trim(std::ostream& out) {
+        ast_pp_util pp(m);
+        auto ids = trim.trim();
+        for (unsigned id : ids) {
+            auto const& clause = m_clauses[id];
+            bool is_infer = m_is_infer[id];
+            for (expr* e : clause) 
+                pp.collect(e);
+            pp.display_decls(out);
+            for (expr* e : clause) 
+                pp.define_expr(out, e);
+
+            if (!is_infer)
+                out << "(assume ";
+            else
+                out << "(infer";
+            for (expr* e : clause) 
+                pp.display_expr_def(out << " ", e);
+            out << ")\n";
+        }
+    }
+
+    
 };
 
 class proof_saver {

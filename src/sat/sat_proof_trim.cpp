@@ -29,12 +29,13 @@ namespace sat {
        Output: reduced trail - result                                                                           
     */        
 
-    vector<literal_vector> proof_trim::trim() {
-        vector<literal_vector> result;
+    unsigned_vector proof_trim::trim() {
+        unsigned_vector result;
         m_core_literals.reset();
         m_core_literals.insert(literal_vector());
+        m_propagated.resize(num_vars(), false);
         for (unsigned i = m_trail.size(); i-- > 0; ) {
-            auto const& [cl, clp, is_add, is_initial] = m_trail[i];
+            auto const& [id, cl, clp, is_add, is_initial] = m_trail[i];
             if (!is_add) {
                 revive(cl, clp);
                 continue;
@@ -43,7 +44,7 @@ namespace sat {
             del(cl, clp);
             if (!in_core(cl, clp))
                 continue;
-            result.push_back(cl);
+            result.push_back(id);
             if (is_initial)
                 continue;
             conflict_analysis_core(cl, clp);            
@@ -73,15 +74,15 @@ namespace sat {
              (l1 == cl[2] && l2 == cl[0] && l3 == cl[1]));
     }
 
-            /**
-         * cl is on the trail if there is some literal l that is implied by cl
-         * Remove all clauses after cl that are in the cone of influence of cl.
-         * The coi is defined inductively: C is in coi of cl if it contains ~l
-         * or it contains ~l' where l' is implied by a clause in the coi of cl.
-         * Possible optimization: 
-         * - check if clause contains a literal that is on implied on the trail
-         *   if it doesn't contain any such literal, bypass the trail adjustment.
-         */
+    /**
+     * cl is on the trail if there is some literal l that is implied by cl
+     * Remove all clauses after cl that are in the cone of influence of cl.
+     * The coi is defined inductively: C is in coi of cl if it contains ~l
+     * or it contains ~l' where l' is implied by a clause in the coi of cl.
+     * Possible optimization: 
+     * - check if clause contains a literal that is on implied on the trail
+     *   if it doesn't contain any such literal, bypass the trail adjustment.
+     */
 
     void proof_trim::prune_trail(literal_vector const& cl, clause* cp) {
         m_in_clause.reset();
@@ -89,6 +90,12 @@ namespace sat {
         
         for (literal lit : cl) 
             m_in_clause.insert(lit.index());
+
+        auto unassign_literal = [&](literal l) {
+            m_in_coi.insert((~l).index());
+            s.m_assignment[l.index()] = l_undef;
+            s.m_assignment[(~l).index()] = l_undef;
+        };
         
         bool on_trail = false;
         unsigned j = 0;
@@ -97,9 +104,7 @@ namespace sat {
             if (m_in_clause.contains(l.index())) {
                 SASSERT(!on_trail);
                 on_trail = true;
-                m_in_coi.insert((~l).index());
-                s.m_assignment[l.index()] = l_undef;
-                s.m_assignment[(~l).index()] = l_undef;
+                unassign_literal(l);
                 continue;
             }
             if (!on_trail) {
@@ -119,11 +124,8 @@ namespace sat {
             else
                 UNREACHABLE(); // approach does not work for external justifications
             
-            if (in_coi) {
-                m_in_coi.insert((~l).index());
-                s.m_assignment[l.index()] = l_undef;
-                s.m_assignment[(~l).index()] = l_undef;
-            }
+            if (in_coi) 
+                unassign_literal(l);
             else
                 s.m_trail[j++] = s.m_trail[i];
         }            
@@ -171,51 +173,58 @@ namespace sat {
             s.propagate(false);
         }
         SASSERT(s.inconsistent());
-
-        auto add_dependency = [&](literal lit) {
-            bool_var v = lit.var();
-            if (s.lvl(v) == 0) {
-                // inefficient for repeated insertions ? 
-                auto j = s.m_justification[v];
-                literal lit = literal(v, s.value(v) == l_false);
-                add_core(lit, j);                
-            }
-            else if (s.lvl(v) == 2) 
-                s.mark(v);
-        };
-
-        auto add_jdependency = [&](justification j) {
-            switch (j.get_kind()) {
-            case justification::BINARY:
-                add_dependency(j.get_literal());
-                break;
-            case justification::TERNARY:
-                add_dependency(j.get_literal1());
-                add_dependency(j.get_literal2());
-                break;
-            case justification::CLAUSE: 
-                for (auto lit : s.get_clause(j))
-                    if (s.value(lit) == l_false)
-                        add_dependency(lit);
-                break;
-            default:
-                break;
-            }            
-        };
+        for (unsigned i = trail_size0; i < s.m_trail.size(); ++i)
+            m_propagated[s.m_trail[i].var()] = true;
 
         if (s.m_not_l != null_literal)
             add_dependency(s.m_not_l);
-        add_jdependency(s.m_conflict);
+        add_dependency(s.m_conflict);
         
         for (unsigned i = s.m_trail.size(); i-- > trail_size0; ) {
             bool_var v = s.m_trail[i].var();
+            m_propagated[v] = false;
             if (!s.is_marked(v))
                 continue;
             s.reset_mark(v);
-            add_jdependency(s.m_justification[v]);
+            add_dependency(s.get_justification(v));
         }
         s.pop(2);                
     }
+
+    void proof_trim::add_dependency(literal lit) {
+        bool_var v = lit.var();
+        if (m_propagated[v]) // literal was propagated after assuming ~C
+            s.mark(v);        
+        else if (s.lvl(v) == 0) { // literal depends on level 0, it is not assumed by ~C
+            // inefficient for repeated insertions ? 
+            auto j = s.get_justification(v);
+            literal lit = literal(v, s.value(v) == l_false);
+            add_core(lit, j);                
+        }
+    }
+    
+    void proof_trim::add_dependency(justification j) {
+        switch (j.get_kind()) {
+        case justification::BINARY:
+            add_dependency(j.get_literal());
+            break;
+        case justification::TERNARY:
+            add_dependency(j.get_literal1());
+            add_dependency(j.get_literal2());
+            break;
+        case justification::CLAUSE: 
+            for (auto lit : s.get_clause(j))
+                if (s.value(lit) == l_false)
+                    add_dependency(lit);
+            break;
+        case justification::EXT_JUSTIFICATION:
+            UNREACHABLE();
+            break;
+        default:
+            break;
+        }            
+    }
+
 
     void proof_trim::add_core(literal l, justification j) {
         m_clause.reset();
@@ -256,7 +265,6 @@ namespace sat {
             s.mk_clause(cl, status::redundant());            
     }
 
-
     clause* proof_trim::del(literal_vector const& cl) {
         clause* cp = nullptr;
         IF_VERBOSE(3, verbose_stream() << "del: " << cl << "\n");
@@ -283,19 +291,17 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << "add: " << *cl << "\n");
         auto& v = m_clauses.insert_if_not_there(lits, clause_vector());            
         v.push_back(cl);
-    }
-
-    
+    }    
 
     proof_trim::proof_trim(params_ref const& p, reslimit& lim):
         s(p, lim)
     {}
 
-    void proof_trim::assume(bool is_initial) {
+    void proof_trim::assume(unsigned id, bool is_initial) {
         std::sort(m_clause.begin(), m_clause.end());
         IF_VERBOSE(3, verbose_stream() << "add: " << m_clause << "\n");
         auto* cl = s.mk_clause(m_clause, status::redundant());
-        m_trail.push_back({ m_clause, cl, true, is_initial });
+        m_trail.push_back({ id, m_clause, cl, true, is_initial });
         s.propagate(false);
         save(m_clause, cl);
     }
@@ -303,11 +309,11 @@ namespace sat {
     void proof_trim::del() {
         std::sort(m_clause.begin(), m_clause.end());
         clause* cp = del(m_clause);
-        m_trail.push_back({ m_clause, cp, false, true });
+        m_trail.push_back({ 0, m_clause, cp, false, true });
     }
     
-    void proof_trim::infer() {
-        assume(false);        
+    void proof_trim::infer(unsigned id) {
+        assume(id, false);        
     }
 
 
