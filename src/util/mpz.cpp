@@ -776,11 +776,17 @@ void mpz_manager<SYNCH>::big_sub(mpz const & a, mpz const & b, mpz & c) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
+void mpz_manager<SYNCH>::big_mul(mpz const & a0, mpz const & b0, mpz & c) {
 #ifndef _MP_GMP
+    mpz a, b;
+    if (is_small(a0))
+        set_big_i64(a, a0.m_val);
+    if (is_small(b0))
+        set_big_i64(b, b0.m_val);
+    sign_cell ca(*this, is_small(a0) ? a : a0);
+    sign_cell cb(*this, is_small(b0) ? b : b0);
     // TBD replace tmp by c.
     mpz_stack tmp;
-    sign_cell ca(*this, a), cb(*this, b);
     unsigned sz  = ca.cell()->m_size + cb.cell()->m_size;
     allocate_if_needed(tmp, sz);
     m_mpn_manager.mul(ca.cell()->m_digits,
@@ -789,6 +795,8 @@ void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
                       cb.cell()->m_size,
                       tmp.ptr()->m_digits);
     set(*tmp.ptr(), c, ca.sign() == cb.sign() ? 1 : -1, sz);
+    del(a);
+    del(b);
     del(tmp);
 #else
     // GMP version
@@ -1503,28 +1511,15 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
     if (&target == &source)
         return;
     target.m_val = source.m_val;
-    if (target.ptr() == nullptr) {
-        target.set(allocate(capacity(source)));
-        target.ptr()->m_size     = size(source);
-        target.ptr()->m_capacity = capacity(source);
-        target.set(mpz_large);
-        target.set(mpz_self);
-        memcpy(target.ptr()->m_digits, source.ptr()->m_digits, sizeof(digit_t) * size(source));
-    }
-    else if (capacity(target) < size(source)) {
+    if (target.ptr() == nullptr || capacity(target) < size(source)) {
         deallocate(target);
         target.set(allocate(capacity(source)));
-        target.ptr()->m_size     = size(source);
         target.ptr()->m_capacity = capacity(source);
-        target.set(mpz_large);
         target.set(mpz_self);
-        memcpy(target.ptr()->m_digits, source.ptr()->m_digits, sizeof(digit_t) * size(source));
     }
-    else {
-        target.ptr()->m_size = size(source);
-        memcpy(target.ptr()->m_digits, source.ptr()->m_digits, sizeof(digit_t) * size(source));
-        target.set(mpz_large);
-    }
+    target.ptr()->m_size = size(source);
+    target.set(mpz_large);
+    memcpy(target.ptr()->m_digits, source.ptr()->m_digits, sizeof(digit_t) * size(source));
 #else
     // GMP version
     mk_big(target);
@@ -2027,10 +2022,9 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     if (k == 0 || is_zero(a))
         return;
     if (is_small(a)) {
-        if (k < 32) {
+        if (k < 64) {
             int64_t twok = 1ull << ((int64_t)k);
-            int64_t val = a.m_val;
-            a.m_val = (int)(val/twok);
+            a.m_val /= twok;
         }
         else {
             a.m_val = 0;
@@ -2464,7 +2458,7 @@ template<bool SYNCH>
 bool mpz_manager<SYNCH>::get_bit(mpz const & a, unsigned index) {
     if (is_small(a)) {
         SASSERT(a.m_val >= 0);
-        if (index >= 8*sizeof(digit_t))
+        if (index >= 8*sizeof(int64_t))
             return false;
         return 0 != (a.m_val & (1ull << (digit_t)index));
     }

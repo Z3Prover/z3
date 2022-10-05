@@ -558,10 +558,8 @@ public:
     }
 
     void set(mpz & a, unsigned val) {
-        if (val <= INT_MAX)
-            set(a, static_cast<int>(val));
-        else
-            set(a, static_cast<int64_t>(static_cast<uint64_t>(val)));
+        a.m_val = val;
+        a.set(mpz_small);
     }
 
     void set(mpz & a, char const * val);
