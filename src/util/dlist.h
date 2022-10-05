@@ -18,14 +18,25 @@ Revision History:
 --*/
 #pragma once
 #include <type_traits>
+#include "util/debug.h"
+#include "util/util.h"
 
 template <typename T> class dll_iterator;
 
 template <typename T>
 class dll_base {
-    T* m_next { nullptr };
-    T* m_prev { nullptr };
+    T* m_next = nullptr;
+    T* m_prev = nullptr;
+
+protected:
+    dll_base() = default;
+    ~dll_base() = default;
+
 public:
+    dll_base(dll_base const&) = delete;
+    dll_base(dll_base&&) = delete;
+    dll_base& operator=(dll_base const&) = delete;
+    dll_base& operator=(dll_base&&) = delete;
 
     T* prev() { return m_prev; }
     T* next() { return m_next; }
@@ -35,6 +46,7 @@ public:
     void init(T* t) {
         m_next = t;
         m_prev = t;
+        SASSERT(invariant());
     }
 
     static T* pop(T*& list) {
@@ -45,23 +57,61 @@ public:
         return head;
     }
 
-    void insert_after(T* elem) {
+    void insert_after(T* other) {
+#ifndef NDEBUG
+        SASSERT(other);
+        SASSERT(invariant());
+        SASSERT(other->invariant());
+        unsigned const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        unsigned const old_sz2 = count_if(*other, [](T const&) { return true; });
+#endif
+        // have:        this -> next -> ...
+        // insert:      other -> ... -> other_end
+        // result:      this -> other -> ... -> other_end -> next -> ...
         T* next = this->m_next;
-        elem->m_prev = next->m_prev;
-        elem->m_next = next;
-        this->m_next = elem;
-        next->m_prev = elem;
+        T* other_end = other->m_prev;
+        this->m_next = other;
+        other->m_prev = static_cast<T*>(this);
+        other_end->m_next = next;
+        next->m_prev = other_end;
+#ifndef NDEBUG
+        SASSERT(invariant());
+        SASSERT(other->invariant());
+        unsigned const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        SASSERT_EQ(new_sz, old_sz1 + old_sz2);
+#endif
     }
 
-    void insert_before(T* elem) {
+    void insert_before(T* other) {
+#ifndef NDEBUG
+        SASSERT(other);
+        SASSERT(invariant());
+        SASSERT(other->invariant());
+        unsigned const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        unsigned const old_sz2 = count_if(*other, [](T const&) { return true; });
+#endif
+        // have:        prev -> this -> ...
+        // insert:      other -> ... -> other_end
+        // result:      prev -> other -> ... -> other_end -> this -> ...
         T* prev = this->m_prev;
-        elem->m_next = prev->m_next;
-        elem->m_prev = prev;
-        prev->m_next = elem;
-        this->m_prev = elem;
+        T* other_end = other->m_prev;
+        prev->m_next = other;
+        other->m_prev = prev;
+        other_end->m_next = static_cast<T*>(this);
+        this->m_prev = other_end;
+#ifndef NDEBUG
+        SASSERT(invariant());
+        SASSERT(other->invariant());
+        unsigned const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        SASSERT_EQ(new_sz, old_sz1 + old_sz2);
+#endif
     }
     
     static void remove_from(T*& list, T* elem) {
+        SASSERT(list);
+        SASSERT(elem);
+        SASSERT(list->invariant());
+        SASSERT(elem->invariant());
         if (list->m_next == list) {
             SASSERT(elem == list);
             list = nullptr;
@@ -73,6 +123,7 @@ public:
         auto* prev = elem->m_prev;
         prev->m_next = next;
         next->m_prev = prev;        
+        SASSERT(list->invariant());
     }
 
     static void push_to_front(T*& list, T* elem) {
@@ -141,10 +192,11 @@ public:
         return {elem, false};
     }
 
-    // using value_type = T;
-    // using pointer = T const*;
-    // using reference = T const&;
-    // using iterator_category = std::input_iterator_tag;
+    using value_type = T;
+    using pointer = T const*;
+    using reference = T const&;
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
 
     dll_iterator& operator++() {
         m_elem = m_elem->next();

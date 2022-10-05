@@ -75,18 +75,18 @@ namespace polysat {
     }
 
     void viable::pop_viable() {
-        auto& [v, k, e] = m_trail.back();
+        auto const& [v, k, e] = m_trail.back();
         SASSERT(well_formed(m_units[v]));
         switch (k) {
         case entry_kind::unit_e:
-            e->remove_from(m_units[v], e);
+            entry::remove_from(m_units[v], e);
             SASSERT(well_formed(m_units[v]));
             break;
         case entry_kind::equal_e:
-            e->remove_from(m_equal_lin[v], e);
+            entry::remove_from(m_equal_lin[v], e);
             break;
         case entry_kind::diseq_e:
-            e->remove_from(m_diseq_lin[v], e);
+            entry::remove_from(m_diseq_lin[v], e);
             break;
         default:
             UNREACHABLE();
@@ -104,7 +104,9 @@ namespace polysat {
         (void)k;
         SASSERT(well_formed(m_units[v]));
         if (e->prev() != e) {
-            e->prev()->insert_after(e);
+            entry* pos = e->prev();
+            e->init(e);
+            pos->insert_after(e);
             if (e->interval.lo_val() < m_units[v]->interval.lo_val())
                 m_units[v] = e;
         }
@@ -180,6 +182,7 @@ namespace polysat {
             entries[v] = e;
         else
             e->insert_after(entries[v]);
+        SASSERT(entries[v]->invariant());
         SASSERT(well_formed(m_units[v]));
     }
 
@@ -272,10 +275,10 @@ namespace polysat {
     */
     bool viable::refine_equal_lin(pvar v, rational const& val) {
         // LOG_H2("refine-equal-lin with v" << v << ", val = " << val);
-        auto* e = m_equal_lin[v];
+        entry const* e = m_equal_lin[v];
         if (!e)
             return true;
-        entry* first = e;
+        entry const* first = e;
         rational const& max_value = s.var2pdd(v).max_value();
         rational mod_value = max_value + 1;
 
@@ -380,10 +383,10 @@ namespace polysat {
 
     bool viable::refine_disequal_lin(pvar v, rational const& val) {
         // LOG_H2("refine-disequal-lin with v" << v << ", val = " << val);
-        auto* e = m_diseq_lin[v];
+        entry const* e = m_diseq_lin[v];
         if (!e)
             return true;
-        entry* first = e;
+        entry const* first = e;
         rational const& max_value = s.var2pdd(v).max_value();
         rational const mod_value = max_value + 1;
 
@@ -632,9 +635,9 @@ namespace polysat {
     bool viable::resolve(pvar v, conflict& core) {
         if (has_viable(v))
             return false;
-        auto* e = m_units[v];
+        entry const* e = m_units[v];
         // TODO: in the forbidden interval paper, they start with the longest interval. We should also try that at some point.
-        entry* first = e;
+        entry const* first = e;
         SASSERT(e);
         // If there is a full interval, all others would have been removed
         SASSERT(!e->interval.is_full() || e->next() == e);
@@ -642,7 +645,7 @@ namespace polysat {
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
-            entry* n = e->next();
+            entry const* n = e->next();
 
             // Choose the next interval which furthest extends the covered region.
             // Example:
@@ -666,7 +669,7 @@ namespace polysat {
             //
             // The interval 'first' is always part of the lemma. If we reach first again here, we have covered the complete domain.
             while (n != first) {
-                entry* n1 = n->next();
+                entry const* n1 = n->next();
                 // Check if n1 is eligible; if yes, then n1 is better than n.
                 //
                 // Case 1, n1 overlaps e (unless n1 == e):

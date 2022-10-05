@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include <stdlib.h>
+#include <iostream>
 
 void enable_assertions(bool f);
 bool assertions_enabled();
