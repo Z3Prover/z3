@@ -174,6 +174,7 @@ namespace sat {
         literal_vector          m_trail;
         clause_wrapper_vector   m_clauses_to_reinit;
         std::string             m_reason_unknown;
+        bool                    m_trim = false;
 
         svector<unsigned>       m_visited;
         unsigned                m_visited_ts;
@@ -203,7 +204,7 @@ namespace sat {
         class lookahead*        m_cuber;
         class i_local_search*   m_local_search;
 
-        statistics              m_aux_stats;
+        statistics              m_aux_stats;        
 
         void del_clauses(clause_vector& clauses);
 
@@ -282,6 +283,8 @@ namespace sat {
         clause* mk_clause(literal l1, literal l2, literal l3, sat::status st = sat::status::asserted());
 
         random_gen& rand() { return m_rand; }
+
+        void set_trim() { m_trim = true; }
 
     protected:
         void reset_var(bool_var v, bool ext, bool dvar);
@@ -399,7 +402,7 @@ namespace sat {
             }
         }
         void update_assign(literal l, justification j) {
-            if (j.level() == 0) 
+            if (j.level() == 0 && !m_trim) 
                 m_justification[l.var()] = j;
         }
         void assign_unit(literal l) { assign(l, justification(0)); }

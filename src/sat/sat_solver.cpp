@@ -416,7 +416,7 @@ namespace sat {
         bool logged = false;
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
-            bool keep = simplify_clause(num_lits, lits);
+            bool keep = m_trim || simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
                 return nullptr; // clause is equivalent to true.
@@ -461,16 +461,16 @@ namespace sat {
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
         
-        if (redundant && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
+        if (redundant && !m_trim && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (redundant && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
+        if (redundant && !m_trim && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
         watched* w0 = redundant ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
-        if (w0) {
+        if (w0 && !m_trim) {
             TRACE("sat", tout << "found binary " << l1 << " " << l2 << "\n";);
             if (w0->is_learned() && !redundant) {
                 w0->set_learned(false);
@@ -487,9 +487,10 @@ namespace sat {
         if (m_config.m_drat) 
             m_drat.add(l1, l2, st);
         if (propagate_bin_clause(l1, l2)) {
-            if (at_base_lvl())
+            if (!at_base_lvl())
+                push_reinit_stack(l1, l2);
+            else if (!m_trim)
                 return;
-            push_reinit_stack(l1, l2);
         }
         else if (has_variables_to_reinit(l1, l2))
             push_reinit_stack(l1, l2);
@@ -950,7 +951,8 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) 
                 drat_log_unit(l, j);
-            j = justification(0); // erase justification for level 0
+            if (!m_trim)
+                j = justification(0); // erase justification for level 0
         }
         else {
             VERIFY(!at_base_lvl());

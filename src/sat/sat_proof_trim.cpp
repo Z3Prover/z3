@@ -40,7 +40,10 @@ namespace sat {
                 revive(cl, clp);
                 continue;
             }
+            IF_VERBOSE(0, s.display(verbose_stream()));
             prune_trail(cl, clp);
+            IF_VERBOSE(0, verbose_stream() << cl << " " << in_core(cl, clp) << ": "; for (auto const& c : m_core_literals) verbose_stream() << "{" << c << "} ");
+            IF_VERBOSE(0, s.display(verbose_stream() << "\n"));
             del(cl, clp);
             if (!in_core(cl, clp))
                 continue;
@@ -88,6 +91,9 @@ namespace sat {
         m_in_clause.reset();
         m_in_coi.reset();
         
+        if (cl.empty())
+            return;
+
         for (literal lit : cl) 
             m_in_clause.insert(lit.index());
 
@@ -130,6 +136,9 @@ namespace sat {
                 s.m_trail[j++] = s.m_trail[i];
         }            
         s.m_trail.shrink(j);
+        s.m_inconsistent = false; 
+        s.m_qhead = s.m_trail.size();
+        s.propagate(false);
     }
 
 
@@ -160,24 +169,38 @@ namespace sat {
        
     */
     void proof_trim::conflict_analysis_core(literal_vector const& cl, clause* cp) {
-
+        IF_VERBOSE(3, verbose_stream() << "core " << cl << "\n");
+        
+        if (cl.empty()) {
+            add_core(~s.m_not_l, s.m_conflict);
+            add_core(s.m_not_l, s.get_justification(s.m_not_l));
+            return;
+        }
+        SASSERT(!s.inconsistent());
         s.push();
         unsigned lvl = s.scope_lvl();
         for (auto lit : cl)
             s.assign(~lit, justification(lvl));
         unsigned trail_size0 = s.m_trail.size();
-        s.push();
         s.propagate(false);
         if (!s.inconsistent()) {
             s.m_qhead = 0;
             s.propagate(false);
         }
+        if (!s.inconsistent())
+            IF_VERBOSE(0, s.display(verbose_stream()));
+        
         SASSERT(s.inconsistent());
         for (unsigned i = trail_size0; i < s.m_trail.size(); ++i)
             m_propagated[s.m_trail[i].var()] = true;
 
-        if (s.m_not_l != null_literal)
+        SASSERT(s.inconsistent());
+        IF_VERBOSE(3, verbose_stream() << s.m_not_l << " " << s.m_conflict << "\n");
+        if (s.m_not_l != null_literal) {
+            if (s.lvl(s.m_not_l) == 0)
+                add_core(~s.m_not_l, s.m_conflict);
             add_dependency(s.m_not_l);
+        }
         add_dependency(s.m_conflict);
         
         for (unsigned i = s.m_trail.size(); i-- > trail_size0; ) {
@@ -188,7 +211,7 @@ namespace sat {
             s.reset_mark(v);
             add_dependency(s.get_justification(v));
         }
-        s.pop(2);                
+        s.pop(1);                
     }
 
     void proof_trim::add_dependency(literal lit) {
@@ -230,7 +253,8 @@ namespace sat {
         m_clause.reset();
         switch (j.get_kind()) {
         case justification::NONE:
-            return;                
+            m_clause.push_back(l);
+            break;                
         case justification::BINARY:
             m_clause.push_back(l);
             m_clause.push_back(j.get_literal());
@@ -242,12 +266,14 @@ namespace sat {
             break;
         case justification::CLAUSE:
             s.get_clause(j).mark_used();
+            IF_VERBOSE(3, verbose_stream() << "add core " << s.get_clause(j) << "\n");
             return;
         default:
             UNREACHABLE();
             break;
         }
         std::sort(m_clause.begin(), m_clause.end());
+        IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
         m_core_literals.insert(m_clause);
     }
 
@@ -268,7 +294,7 @@ namespace sat {
     clause* proof_trim::del(literal_vector const& cl) {
         clause* cp = nullptr;
         IF_VERBOSE(3, verbose_stream() << "del: " << cl << "\n");
-        if (m_clause.size() == 2) {
+        if (cl.size() == 2) {
             s.detach_bin_clause(cl[0], cl[1], true);
             return cp;
         }
@@ -294,12 +320,13 @@ namespace sat {
     }    
 
     proof_trim::proof_trim(params_ref const& p, reslimit& lim):
-        s(p, lim)
-    {}
+        s(p, lim) {
+        s.set_trim();
+    }
 
     void proof_trim::assume(unsigned id, bool is_initial) {
         std::sort(m_clause.begin(), m_clause.end());
-        IF_VERBOSE(3, verbose_stream() << "add: " << m_clause << "\n");
+        IF_VERBOSE(3, verbose_stream() << (is_initial?"assume ":"rup ") << m_clause << "\n");
         auto* cl = s.mk_clause(m_clause, status::redundant());
         m_trail.push_back({ id, m_clause, cl, true, is_initial });
         s.propagate(false);

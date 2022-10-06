@@ -189,8 +189,10 @@ class proof_trim {
     cmd_context& ctx;
     ast_manager& m;
     sat::proof_trim trim;
+    euf::proof_checker m_checker;
     vector<expr_ref_vector> m_clauses;
     bool_vector             m_is_infer;
+    symbol                  m_rup;
     
     void mk_clause(expr_ref_vector const& clause) {
         trim.init_clause();
@@ -208,12 +210,18 @@ class proof_trim {
         bool sign = m.is_not(arg, arg);
         trim.add_literal(mk_var(arg), sign);
     }
+
+    bool is_rup(expr* hint) const {
+        return hint && is_app(hint) && to_app(hint)->get_decl()->get_name() == m_rup;
+    }
       
 public:
     proof_trim(cmd_context& ctx):
         ctx(ctx),
         m(ctx.m()),
-        trim(gparams::get_module("sat"), m.limit()) {            
+        trim(gparams::get_module("sat"), m.limit()),
+        m_checker(m) {
+        m_rup = symbol("rup");
     }
     
     void assume(expr_ref_vector const& clause) {
@@ -227,14 +235,52 @@ public:
         mk_clause(_clause);
         trim.del();
     }
+
+    /**
+     * Theory axioms are treated as assumptions.
+     * Some literals in the theory axioms may have been removed
+     * because they are false at base level. To reconstruct this
+     * dependency rely on the proof_checker to produce the original
+     * clauses. Thus, trim isn't correct for theory axioms that don't
+     * have a way to return clauses.
+     * The clauses can be retrieved directly from the justification
+     * that is used internally, so adding clause retrieval for every
+     * theory axiom is possible even if there are no checkers.
+     * In this case, the proof_checker::check dependency should not
+     * be used.
+     */
     
     void infer(expr_ref_vector const& clause, app* hint) {
+        if (hint && !is_rup(hint) && m_checker.check(hint)) {
+            auto clause1 = m_checker.clause(hint);
+            if (clause1.size() != clause.size()) {
+                mk_clause(clause1);
+                trim.assume(m_clauses.size());
+                clause1.push_back(hint);
+                m_clauses.push_back(clause1);                
+                m_is_infer.push_back(false);
+                mk_clause(clause);
+                trim.infer(m_clauses.size());
+                m_clauses.push_back(clause);
+                m_clauses.back().push_back(hint);
+                m_is_infer.push_back(true);
+                if (clause.empty()) 
+                    do_trim(std::cout);
+                return;
+            }
+        }
+
         mk_clause(clause);
-        trim.infer(m_clauses.size());
+        if (is_rup(hint))
+            trim.infer(m_clauses.size());
+        else
+            trim.assume(m_clauses.size());
         m_clauses.push_back(clause);
         if (hint)
             m_clauses.back().push_back(hint);
-        m_is_infer.push_back(true);
+        m_is_infer.push_back(is_rup(hint));
+        if (clause.empty()) 
+            do_trim(std::cout);
     }
     
     void updt_params(params_ref const& p) {
@@ -254,7 +300,7 @@ public:
                 pp.define_expr(out, e);
 
             if (!is_infer)
-                out << "(assume ";
+                out << "(assume";
             else
                 out << "(infer";
             for (expr* e : clause) 

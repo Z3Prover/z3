@@ -323,10 +323,12 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         ctx.set_conflict(js);
     }
     else {
+#if 1
         for (auto& lit : m_lits)
             lit.neg();
         for (auto const& [a,b] : m_eqs)
             m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+#endif
         
         literal lit; 
         if (has_quantifiers(prop.m_conseq)) {
@@ -339,8 +341,20 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         else 
             lit = mk_literal(prop.m_conseq);            
         ctx.mark_as_relevant(lit);
+
+#if 0
+        justification* js =
+            ctx.mk_justification(
+                ext_theory_propagation_justification(
+                    get_id(), ctx, m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), lit));
+
+        ctx.assign(lit, js);
+#endif
+        
+#if 1           
         m_lits.push_back(lit);
         ctx.mk_th_lemma(get_id(), m_lits);
+#endif
         TRACE("user_propagate", ctx.display(tout););
     }
 }
