@@ -1926,8 +1926,8 @@ bool mpz_manager<SYNCH>::is_power_of_two(mpz const & a, unsigned & shift) {
     if (is_nonpos(a))
         return false;
     if (is_small(a)) {
-        if (::is_power_of_two(a.m_val)) {
-            shift = ::log2((unsigned)a.m_val);
+        if (::is_power_of_two((uint64_t)a.m_val)) {
+            shift = ::uint64_log2((uint64_t)a.m_val);
             return true;
         }
         else {
@@ -2216,7 +2216,7 @@ unsigned mpz_manager<SYNCH>::log2(mpz const & a) {
     if (is_nonpos(a))
         return 0;
     if (is_small(a))
-        return ::log2((uint64_t)a.m_val);
+        return uint64_log2((uint64_t)a.m_val);
 #ifndef _MP_GMP
     static_assert(sizeof(digit_t) == 8 || sizeof(digit_t) == 4, "");
     const mpz_cell * c = a.ptr();
