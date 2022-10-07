@@ -706,6 +706,7 @@ namespace polysat {
         // TODO: should not be here, too general
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
+                UNREACHABLE();  // an invariant of the new conflict state is that bvalue of all inserted constraints is l_true (cf. assertion in conflict::insert)
                 core.set(~c);
                 core.logger().log("");
                 break;
