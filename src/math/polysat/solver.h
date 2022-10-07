@@ -17,7 +17,6 @@ Author:
 --*/
 #pragma once
 
-#include <limits>
 #include "util/statistics.h"
 #include "util/params.h"
 #include "math/polysat/boolean.h"
@@ -35,6 +34,8 @@ Author:
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
+#include <limits>
+#include <optional>
 
 namespace polysat {
 
@@ -222,7 +223,7 @@ namespace polysat {
         void report_unsat();
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
-        void add_clause(clause& lemma);
+        void add_clause(clause& clause);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);

@@ -1012,7 +1012,7 @@ namespace polysat {
 
     /// Deactivate constraint
     void solver::deactivate_constraint(signed_constraint c) {
-        LOG("Deactivating constraint: " << c.blit());
+        LOG_V("Deactivating constraint: " << c.blit());
         c->set_active(false);
     }
 
@@ -1023,7 +1023,7 @@ namespace polysat {
         }
     }
 
-    // Add lemma to storage
+    // Add clause to storage
     void solver::add_clause(clause& clause) {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {

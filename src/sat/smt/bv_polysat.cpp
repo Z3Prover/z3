@@ -273,8 +273,8 @@ namespace bv {
             pdd p = m_polysat.var(pv);
             polysat_set(v, p);
 #ifndef NDEBUG
-            expr* e = var2enode(v)->get_expr();
-            std::cerr << "var2pdd:     " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
+            // expr* e = var2enode(v)->get_expr();
+            // std::cerr << "var2pdd:     " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
 #endif
             return p;
         }
@@ -303,8 +303,8 @@ namespace bv {
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
         m_var2pdd[v] = p;
 #ifndef NDEBUG
-        expr* e = var2enode(v)->get_expr();
-        std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
+        // expr* e = var2enode(v)->get_expr();
+        // std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
 #endif
     }
 
