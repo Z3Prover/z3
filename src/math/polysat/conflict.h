@@ -71,7 +71,7 @@ Lemma:       y < z or xz <= xy or O(x,y)
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/inference_logger.h"
-#include <optional>
+#include <initializer_list>
 
 namespace polysat {
 
@@ -118,6 +118,12 @@ namespace polysat {
 
         void set_impl(signed_constraint c);
         bool minimize_vars(signed_constraint c);
+
+        void set_side_lemma(signed_constraint c, clause_ref lemma) { SASSERT(c); set_side_lemma(c.blit(), std::move(lemma)); }
+        void set_side_lemma(sat::literal lit, clause_ref lemma);
+
+        /** Store relevant side lemmas */
+        void learn_side_lemmas();
 
     public:
         conflict(solver& s);
@@ -228,7 +234,7 @@ namespace polysat {
 
     public:
         using value_type = signed_constraint;
-        using difference_type = unsigned;
+        using difference_type = std::ptrdiff_t;
         using pointer = signed_constraint const*;
         using reference = signed_constraint const&;
         using iterator_category = std::input_iterator_tag;

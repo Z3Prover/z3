@@ -337,6 +337,12 @@ namespace polysat {
         return m_lemmas.get(idx, {}).get();
     }
 
+    void conflict::set_side_lemma(sat::literal lit, clause_ref lemma) {
+        SASSERT_EQ(side_lemma(lit), nullptr);
+        unsigned const idx = lit.to_uint();
+        m_lemmas.insert(idx, std::move(lemma));
+    }
+
     void conflict::resolve_bool(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -456,9 +462,34 @@ namespace polysat {
         logger().log_lemma(lemma);
         logger().end_conflict();
 
-        // TODO: additional lemmas
+        learn_side_lemmas();
 
         return lemma.build();
+    }
+
+    void conflict::learn_side_lemmas() {
+        auto needs_side_lemma = [this](sat::literal lit) -> bool {
+            return s.m_bvars.value(lit) == l_undef && side_lemma(lit);
+        };
+        sat::literal_vector todo;
+        for (auto c : *this)
+            if (needs_side_lemma(c.blit()))
+                todo.push_back(c.blit());
+        while (!todo.empty()) {
+            sat::literal lit = todo.back();
+            todo.pop_back();
+            if (s.m_bvars.value(lit) != l_undef)
+                continue;
+            clause* lemma = side_lemma(lit);
+            SASSERT(lemma);
+            // Need to add the full derivation tree
+            for (auto lit2 : *lemma)
+                if (needs_side_lemma(lit2))
+                    todo.push_back(lit2);
+            // Store and bool-propagate the lemma
+            s.m_constraints.store(lemma, s, false);
+        }
+        m_lemmas.reset();
     }
 
     bool conflict::minimize_vars(signed_constraint c) {
