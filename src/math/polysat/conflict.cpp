@@ -331,6 +331,14 @@ namespace polysat {
         lemma->set_redundant(true);
         LOG("Side lemma: " << *lemma);
         m_lemmas.push_back(std::move(lemma));
+        // If possible, we should set the new constraint to l_true;
+        // and re-enable the assertions marked with "tag:true_by_side_lemma".
+        // Or we adjust the conflict invariant:
+        // - l_true constraints is the default case as before,
+        // - l_undef constraints are new and justified by some side lemma, but
+        //   should be treated by the conflict resolution methods like l_true
+        //   constraints,
+        // - l_false constraints are disallowed in the conflict (as before).
     }
 
     void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
