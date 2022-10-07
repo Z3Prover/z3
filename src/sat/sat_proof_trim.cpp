@@ -40,10 +40,10 @@ namespace sat {
                 revive(cl, clp);
                 continue;
             }
-            IF_VERBOSE(0, s.display(verbose_stream()));
+            IF_VERBOSE(10, s.display(verbose_stream()));
             prune_trail(cl, clp);
-            IF_VERBOSE(0, verbose_stream() << cl << " " << in_core(cl, clp) << ": "; for (auto const& c : m_core_literals) verbose_stream() << "{" << c << "} ");
-            IF_VERBOSE(0, s.display(verbose_stream() << "\n"));
+            IF_VERBOSE(10, verbose_stream() << cl << " " << in_core(cl, clp) << ": "; for (auto const& c : m_core_literals) verbose_stream() << "{" << c << "} ");
+            IF_VERBOSE(10, s.display(verbose_stream() << "\n"));
             del(cl, clp);
             if (!in_core(cl, clp))
                 continue;

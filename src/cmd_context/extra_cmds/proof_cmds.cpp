@@ -152,6 +152,14 @@ public:
             }
         }
 
+        // extract a simplified verification condition in case proof validation does not work.
+        // quantifier instantiation can be validated as follows:
+        // If quantifier instantiation claims that (forall x . phi(x)) => psi using instantiation x -> t
+        // then check the simplified VC: phi(t) => psi.
+        // in case psi is the literal instantiation, then the clause is a propositional tautology.
+        // The VC function is a no-op if the proof hint does not have an associated vc generator.
+        m_checker.vc(proof_hint, clause);
+        
         m_solver->push();
         for (expr* lit : clause)
             m_solver->assert_expr(m.mk_not(lit));

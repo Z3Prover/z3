@@ -21,6 +21,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_proof_checker.h"
+#include "sat/smt/q_proof_checker.h"
 #include <iostream>
 
 namespace euf {
@@ -240,7 +241,7 @@ namespace euf {
                 return false;
             return pc.check(proof1) && pc.check(proof2);            
         }
-
+        
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
             auto x = jst->args3();
@@ -272,6 +273,7 @@ namespace euf {
         add_plugin(alloc(arith::proof_checker, m));
         add_plugin(alloc(eq_proof_checker, m));
         add_plugin(alloc(res_proof_checker, m, *this));
+        add_plugin(alloc(q::proof_checker, m));
     }
 
     proof_checker::~proof_checker() {
@@ -290,8 +292,7 @@ namespace euf {
 
     bool proof_checker::check(expr* e) {
         if (m_checked_clauses.contains(e))
-            return true;
-        
+            return true;        
         if (!e || !is_app(e))
             return false;
         app* a = to_app(e);
@@ -309,12 +310,17 @@ namespace euf {
         expr_ref_vector* rr;
         if (m_checked_clauses.find(e, rr))
             return *rr;
-        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_decl()->get_name()));
-        expr_ref_vector r = m_map[to_app(e)->get_decl()->get_name()]->clause(to_app(e));
+        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+        expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
         m_checked_clauses.insert(e, alloc(expr_ref_vector, r));
         return r;
     }
 
+    void proof_checker::vc(expr* e, expr_ref_vector& clause) {
+        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+        m_map[to_app(e)->get_name()]->vc(to_app(e), clause);
+    }
+   
     bool proof_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
         if (!check(e))
             return false;

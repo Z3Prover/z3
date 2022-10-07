@@ -103,14 +103,18 @@ namespace dt {
     */
     void solver::assert_eq_axiom(enode* n1, expr* e2, literal antecedent) {
         expr* e1 = n1->get_expr();
+        euf::th_proof_hint* ph = nullptr;
+        if (ctx.use_drat()) {
+            // todo
+        }
         if (antecedent == sat::null_literal)
-            add_unit(eq_internalize(e1, e2));
+            add_unit(eq_internalize(e1, e2), ph);
         else if (s().value(antecedent) == l_true) {
             euf::enode* n2 = e_internalize(e2);
-            ctx.propagate(n1, n2, euf::th_explain::propagate(*this, antecedent, n1, n2));
+            ctx.propagate(n1, n2, euf::th_explain::propagate(*this, antecedent, n1, n2, ph));
         }
         else
-            add_clause(~antecedent, eq_internalize(e1, e2));
+            add_clause(~antecedent, eq_internalize(e1, e2), ph);
     }
 
     /**
