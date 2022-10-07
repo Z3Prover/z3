@@ -58,14 +58,18 @@ namespace sat {
 
         void prune_trail(literal_vector const& cl, clause* cp);
         void conflict_analysis_core(literal_vector const& cl, clause* cp);
+
         void add_dependency(literal lit);
         void add_dependency(justification j);
+        void add_core(bool_var v);
         void add_core(literal l, justification j);
         bool in_core(literal_vector const& cl, clause* cp) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
         void save(literal_vector const& lits, clause* cl);
 
+        uint_set m_units;
+        bool unit_or_binary_occurs();
         
     public:
 

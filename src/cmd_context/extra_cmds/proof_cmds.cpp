@@ -258,7 +258,7 @@ public:
                 trim.assume(m_clauses.size());
                 clause1.push_back(hint);
                 m_clauses.push_back(clause1);                
-                m_is_infer.push_back(false);
+                m_is_infer.push_back(true);
                 mk_clause(clause);
                 trim.infer(m_clauses.size());
                 m_clauses.push_back(clause);
@@ -278,7 +278,7 @@ public:
         m_clauses.push_back(clause);
         if (hint)
             m_clauses.back().push_back(hint);
-        m_is_infer.push_back(is_rup(hint));
+        m_is_infer.push_back(true);
         if (clause.empty()) 
             do_trim(std::cout);
     }
@@ -295,16 +295,23 @@ public:
             bool is_infer = m_is_infer[id];
             for (expr* e : clause) 
                 pp.collect(e);
+            
             pp.display_decls(out);
-            for (expr* e : clause) 
+            for (expr* e : clause) {
+                m.is_not(e, e);
                 pp.define_expr(out, e);
+            }
 
             if (!is_infer)
                 out << "(assume";
             else
                 out << "(infer";
-            for (expr* e : clause) 
-                pp.display_expr_def(out << " ", e);
+            for (expr* e : clause) {
+                if (m.is_not(e, e))
+                    pp.display_expr_def(out << " (not ", e) << ")";
+                else
+                    pp.display_expr_def(out << " ", e);
+            }
             out << ")\n";
         }
     }

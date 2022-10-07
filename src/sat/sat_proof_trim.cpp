@@ -171,34 +171,28 @@ namespace sat {
     void proof_trim::conflict_analysis_core(literal_vector const& cl, clause* cp) {
         IF_VERBOSE(3, verbose_stream() << "core " << cl << "\n");
         
-        if (cl.empty()) {
-            add_core(~s.m_not_l, s.m_conflict);
-            add_core(s.m_not_l, s.get_justification(s.m_not_l));
-            return;
-        }
-        SASSERT(!s.inconsistent());
-        s.push();
-        unsigned lvl = s.scope_lvl();
-        for (auto lit : cl)
-            s.assign(~lit, justification(lvl));
         unsigned trail_size0 = s.m_trail.size();
-        s.propagate(false);
-        if (!s.inconsistent()) {
-            s.m_qhead = 0;
+        if (!cl.empty()) {
+            SASSERT(!s.inconsistent());
+            s.push();
+            unsigned lvl = s.scope_lvl();
+            for (auto lit : cl)
+                s.assign(~lit, justification(lvl));
+            trail_size0 = s.m_trail.size();
             s.propagate(false);
+            if (!s.inconsistent()) {
+                s.m_qhead = 0;
+                s.propagate(false);
+            }
+            if (!s.inconsistent())
+                IF_VERBOSE(0, s.display(verbose_stream()));
+            for (unsigned i = trail_size0; i < s.m_trail.size(); ++i)
+                m_propagated[s.m_trail[i].var()] = true;
         }
-        if (!s.inconsistent())
-            IF_VERBOSE(0, s.display(verbose_stream()));
-        
-        SASSERT(s.inconsistent());
-        for (unsigned i = trail_size0; i < s.m_trail.size(); ++i)
-            m_propagated[s.m_trail[i].var()] = true;
-
         SASSERT(s.inconsistent());
         IF_VERBOSE(3, verbose_stream() << s.m_not_l << " " << s.m_conflict << "\n");
         if (s.m_not_l != null_literal) {
-            if (s.lvl(s.m_not_l) == 0)
-                add_core(~s.m_not_l, s.m_conflict);
+            add_core(~s.m_not_l, s.m_conflict);
             add_dependency(s.m_not_l);
         }
         add_dependency(s.m_conflict);
@@ -208,22 +202,21 @@ namespace sat {
             m_propagated[v] = false;
             if (!s.is_marked(v))
                 continue;
+            add_core(v);
             s.reset_mark(v);
             add_dependency(s.get_justification(v));
         }
-        s.pop(1);                
+        if (!cl.empty())
+            s.pop(1);                
     }
 
     void proof_trim::add_dependency(literal lit) {
         bool_var v = lit.var();
         if (m_propagated[v]) // literal was propagated after assuming ~C
             s.mark(v);        
-        else if (s.lvl(v) == 0) { // literal depends on level 0, it is not assumed by ~C
+        else if (s.lvl(v) == 0)  // literal depends on level 0, it is not assumed by ~C
             // inefficient for repeated insertions ? 
-            auto j = s.get_justification(v);
-            literal lit = literal(v, s.value(v) == l_false);
-            add_core(lit, j);                
-        }
+            add_core(v);                       
     }
     
     void proof_trim::add_dependency(justification j) {
@@ -246,6 +239,12 @@ namespace sat {
         default:
             break;
         }            
+    }
+
+    void proof_trim::add_core(bool_var v) {
+        auto j = s.get_justification(v);
+        literal lit = literal(v, s.value(v) == l_false);
+        add_core(lit, j);
     }
 
 
@@ -275,6 +274,11 @@ namespace sat {
         std::sort(m_clause.begin(), m_clause.end());
         IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
         m_core_literals.insert(m_clause);
+        if (s.lvl(l) == 0) {
+            m_clause.reset();
+            m_clause.push_back(l);
+            m_core_literals.insert(m_clause);
+        }
     }
 
     bool proof_trim::in_core(literal_vector const& cl, clause* cp) const {
@@ -326,11 +330,28 @@ namespace sat {
 
     void proof_trim::assume(unsigned id, bool is_initial) {
         std::sort(m_clause.begin(), m_clause.end());
+        if (unit_or_binary_occurs())
+            return;
         IF_VERBOSE(3, verbose_stream() << (is_initial?"assume ":"rup ") << m_clause << "\n");
         auto* cl = s.mk_clause(m_clause, status::redundant());
         m_trail.push_back({ id, m_clause, cl, true, is_initial });
         s.propagate(false);
         save(m_clause, cl);
+    }
+
+    /**
+    * Unit clauses (and binary clause) do not have multi-set semantics in the solver.
+    * So they should only be represented once.
+    */
+    bool proof_trim::unit_or_binary_occurs() {
+        if (m_clause.size() == 1) {
+            literal lit = m_clause[0];
+            if (m_units.contains(lit.index()))
+                return true;
+            m_units.insert(lit.index());
+        }
+        // todo: binary?
+        return false;
     }
     
     void proof_trim::del() {
