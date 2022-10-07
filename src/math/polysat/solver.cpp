@@ -801,9 +801,12 @@ namespace polysat {
         // LOG("max_level:   " << max_level);
         // LOG("jump_level:  " << jump_level);
 
+        backjump_and_learn(jump_level, *lemma);
+        /*
         m_conflict.reset();
         backjump(jump_level);
         learn_lemma(*lemma);
+        */
     }
 
     /**
@@ -898,9 +901,16 @@ namespace polysat {
             return;
         }
 
+        unsigned jump_level = get_level(v) - 1;
+        backjump_and_learn(jump_level, *lemma);
+        /*
+        clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
         m_conflict.reset();
         backjump(get_level(v) - 1);
+        for (auto cl : side_lemmas)
+            add_clause(*cl);
         learn_lemma(*lemma);
+        */
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
@@ -917,9 +927,13 @@ namespace polysat {
         SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_false(lit1); }));
         SASSERT(all_of(lemma, [this, var](sat::literal lit1) { return var == lit1.var() || m_bvars.level(lit1) < m_bvars.level(var); }));
 
+        unsigned jump_level = m_bvars.level(var) - 1;
+        backjump_and_learn(jump_level, lemma);
+        /*
         m_conflict.reset();
         backjump(m_bvars.level(var) - 1);
         learn_lemma(lemma);
+        */
         // At this point, the lemma is asserting for ~lit,
         // and has been propagated by learn_lemma/add_clause.
         SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_assigned(lit1); }));
@@ -928,6 +942,15 @@ namespace polysat {
         // If there is more than one undef choice left in that lemma,
         // then the next bdecide will take care of that (after all outstanding propagations).
         SASSERT(can_bdecide());
+    }
+
+    void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
+        clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
+        m_conflict.reset();
+        backjump(jump_level);
+        for (auto cl : side_lemmas)
+            add_clause(*cl);
+        learn_lemma(lemma);
     }
 
     bool solver::lemma_invariant(clause const* lemma) {

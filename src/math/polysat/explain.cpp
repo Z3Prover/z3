@@ -15,24 +15,9 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 
-namespace polysat {
+// TODO: rename file
 
-/*
-    struct post_propagate2 : public inference {
-        const char* name;
-        signed_constraint conclusion;
-        signed_constraint premise1;
-        signed_constraint premise2;
-        post_propagate2(const char* name, signed_constraint conclusion, signed_constraint premise1, signed_constraint premise2)
-            : name(name), conclusion(conclusion), premise1(premise1), premise2(premise2) {}
-        std::ostream& display(std::ostream& out) const override {
-            return out << "Post-propagate (by " << name << "), "
-                << "conclusion " << conclusion.blit() << ": " << conclusion
-                << " from " << premise1.blit() << ": " << premise1
-                << " and " << premise2.blit() << ": " << premise2;
-        }
-    };
-*/
+namespace polysat {
 
     struct inference_sup : public inference {
         const char* name;
@@ -76,33 +61,22 @@ namespace polysat {
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
     lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
-        vector<signed_constraint> premises;
-
-#if 0
-        for (auto si : s.m_search) {
-            if (!si.is_boolean())
-                continue;
-            if (si.is_resolved())
-                continue;
-            auto c1 = s.lit2cnstr(si.lit());       
-            if (!c1->contains_var(v))
-                continue;
-            if (!c1.is_eq())
-                continue;
-            if (!c1.is_currently_true(s))
-                continue;
-#else
         for (auto c1 : s.m_viable.get_constraints(v)) {
             if (!c1->contains_var(v))  // side conditions do not contain v; skip them here
                 continue;
             if (!c1.is_eq())
                 continue;
             SASSERT(c1.is_currently_true(s));
-#endif
+            SASSERT(c2.is_currently_false(s));
+            SASSERT_EQ(c1.bvalue(s), l_true);
+            SASSERT_EQ(c2.bvalue(s), l_true);
+
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
+            SASSERT(c.is_currently_false(s));
 
+            // TODO: move this case distinction into conflict::add_lemma?
             char const* inf_name = "?";
             switch (c.bvalue(s)) {
             case l_false:
@@ -117,12 +91,12 @@ namespace polysat {
                 inf_name = "l_undef";
                 // c evaluates to false,
                 // c should be unit-propagated to l_true by c1 /\ c2 ==> c
-                core.bool_propagate(c, {c1, c2});
-                // TODO: log inference?
+                core.add_lemma({c, ~c1, ~c2});
+                core.log_inference(inference_sup("l_undef lemma", v, c2, c1));
                 SASSERT_EQ(l_true, c.bvalue(s));
-                SASSERT(c.is_currently_false(s));
                 break;
             case l_true:
+                // c is just another constraint on the search stack; could be equivalent or better
                 inf_name = "l_true";
                 break;
             default:

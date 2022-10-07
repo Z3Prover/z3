@@ -321,6 +321,21 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
+    void conflict::add_lemma(signed_constraint const* cs, unsigned cs_len) {
+        clause_builder cb(s);
+        for (unsigned i = 0; i < cs_len; ++i)
+            cb.push(cs[i]);
+        clause_ref lemma = cb.build();
+        SASSERT(lemma);
+        lemma->set_redundant(true);
+        m_lemmas.push_back(std::move(lemma));
+    }
+
+    void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
+        add_lemma(std::data(cs), cs.size());
+    }
+
+#if 0
     void conflict::bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len) {
         if (c.is_always_false()) {
             VERIFY(false);  // TODO: this case can probably happen, but needs special attention
@@ -347,6 +362,7 @@ namespace polysat {
     void conflict::bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises) {
         bool_propagate(c, std::data(premises), premises.size());
     }
+#endif
 
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
@@ -365,14 +381,7 @@ namespace polysat {
         m_kind = conflict_kind_t::ok;
     }
 
-    void conflict::insert(signed_constraint c, clause_ref lemma) {
-        unsigned const idx = c.blit().to_uint();
-        SASSERT(!contains(c));  // not required, but this case should be checked
-        SASSERT(!m_lemmas.contains(idx));  // not required, but this case should be checked
-        insert(c);
-        m_lemmas.insert(idx, lemma);
-    }
-
+#if 0
     clause* conflict::side_lemma(sat::literal lit) const {
         unsigned const idx = lit.to_uint();
         return m_lemmas.get(idx, {}).get();
@@ -383,6 +392,7 @@ namespace polysat {
         unsigned const idx = lit.to_uint();
         m_lemmas.insert(idx, std::move(lemma));
     }
+#endif
 
     void conflict::resolve_bool(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
@@ -503,11 +513,19 @@ namespace polysat {
         logger().log_lemma(lemma);
         logger().end_conflict();
 
-        learn_side_lemmas();
-
         return lemma.build();
     }
 
+    clause_ref_vector conflict::take_side_lemmas() {
+#ifndef NDEBUG
+        on_scope_exit check_empty([this]() {
+            SASSERT(m_lemmas.empty());
+        });
+#endif
+        return std::move(m_lemmas);
+    }
+
+#if 0
     void conflict::learn_side_lemmas() {
         auto needs_side_lemma = [this](sat::literal lit) -> bool {
             return s.m_bvars.value(lit) == l_undef && side_lemma(lit);
@@ -529,9 +547,11 @@ namespace polysat {
                     todo.push_back(lit2);
             // Store and bool-propagate the lemma
             s.m_constraints.store(lemma, s, false);
+            SASSERT(s.m_bvars.value(lit) != l_undef);
         }
         m_lemmas.reset();
     }
+#endif
 
     bool conflict::minimize_vars(signed_constraint c) {
         if (m_vars.empty())

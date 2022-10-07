@@ -60,9 +60,11 @@ namespace polysat {
         for (auto const& c : core) {
             sat::literal const lit = c.blit();
             out_indent() << lit << ": " << c << '\n';
+#if 0
             clause* lemma = core.side_lemma(lit);
             if (lemma)
                 out_indent() << "    justified by: " << lemma << '\n';
+#endif
             m_used_constraints.insert(lit.index());
             for (pvar v : c->vars())
                 m_used_vars.insert(v);
@@ -88,6 +90,11 @@ namespace polysat {
             out_indent() << "(backjump)\n";
             break;
         }
+        for (clause* lemma : core.side_lemmas()) {
+            out_indent() << "Side lemma: " << *lemma << "\n";
+            for (sat::literal lit : *lemma)
+                out_indent() << "    " << lit_pp(s, lit) << "\n";
+        }
         out().flush();
     }
 
@@ -103,10 +110,10 @@ namespace polysat {
 
     void file_inference_logger::log_lemma(clause_builder const& cb) {
         out() << hline() << "\nLemma:";
-        for (auto const& lit : cb)
+        for (sat::literal lit : cb)
             out() << " " << lit;
         out() << "\n";
-        for (auto const& lit : cb)
+        for (sat::literal lit : cb)
             out_indent() << lit_pp(s, lit) << "\n";
         out().flush();
     }

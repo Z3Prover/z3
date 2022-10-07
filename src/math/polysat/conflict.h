@@ -109,7 +109,7 @@ namespace polysat {
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
 
         // Additional lemmas that justify new constraints generated during conflict resolution
-        u_map<clause_ref> m_lemmas;
+        clause_ref_vector m_lemmas;
 
         conflict_kind_t m_kind = conflict_kind_t::ok;
 
@@ -119,11 +119,10 @@ namespace polysat {
         void set_impl(signed_constraint c);
         bool minimize_vars(signed_constraint c);
 
+#if 0
         void set_side_lemma(signed_constraint c, clause_ref lemma) { SASSERT(c); set_side_lemma(c.blit(), std::move(lemma)); }
         void set_side_lemma(sat::literal lit, clause_ref lemma);
-
-        /** Store relevant side lemmas */
-        void learn_side_lemmas();
+#endif
 
     public:
         conflict(solver& s);
@@ -174,8 +173,10 @@ namespace polysat {
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
 
+#if 0
         clause* side_lemma(signed_constraint c) const { SASSERT(c); return side_lemma(c.blit()); }
         clause* side_lemma(sat::literal lit) const;
+#endif
 
         /**
          * Insert constraint c into conflict state.
@@ -185,17 +186,17 @@ namespace polysat {
          */
         void insert(signed_constraint c);
 
-        /**
-         * Insert constraint c that is justified by the given lemma.
-         */
-        void insert(signed_constraint c, clause_ref lemma);
-
         /** Insert assigned variables of c */
         void insert_vars(signed_constraint c);
 
         /** Evaluate constraint under assignment and insert it into conflict state. */
         void insert_eval(signed_constraint c);
 
+        /** Add a side lemma to the conflict; to be learned in addition to the main lemma after conflict resolution finishes. */
+        void add_lemma(std::initializer_list<signed_constraint> cs);
+        void add_lemma(signed_constraint const* cs, unsigned cs_len);
+
+#if 0
         /**
          * Derive new constraint c by bool-propagation from premises c1, ..., cn;
          * as if c was unit-propagated by the lemma c1 /\ ... /\ cn ==> c.
@@ -203,6 +204,7 @@ namespace polysat {
          */
         void bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len);
         void bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises);
+#endif
 
         /** Remove c from core */
         void remove(signed_constraint c);
@@ -225,6 +227,11 @@ namespace polysat {
 
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();
+
+        /** Move the accumulated side lemmas out of the conflict */
+        clause_ref_vector take_side_lemmas();
+
+        clause_ref_vector const& side_lemmas() const { return m_lemmas; }
 
         std::ostream& display(std::ostream& out) const;
     };

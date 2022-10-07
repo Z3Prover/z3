@@ -212,6 +212,7 @@ namespace polysat {
         void backjump_lemma();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
+        void backjump_and_learn(unsigned jump_level, clause& lemma);
 
         // activity of variables based on standard VSIDS
         unsigned m_activity_inc = 128;
