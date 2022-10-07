@@ -777,7 +777,7 @@ namespace polysat {
     void solver::backjump_lemma() {
         clause_ref lemma = m_conflict.build_lemma();
         LOG_H2("backjump_lemma: " << show_deref(lemma));
-        SASSERT(lemma_invariant(lemma.get()));
+        SASSERT(lemma);
 
         // find second-highest level of the literals in the lemma
         unsigned max_level = 0;
@@ -894,7 +894,7 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma();
-        SASSERT(lemma_invariant(lemma.get()));
+        SASSERT(lemma);
 
         if (lemma->empty()) {
             report_unsat();
@@ -920,7 +920,6 @@ namespace polysat {
         clause_ref lemma_ref = m_conflict.build_lemma();
         SASSERT(lemma_ref);
         clause& lemma = *lemma_ref;
-        SASSERT(lemma_invariant(&lemma));
 
         SASSERT(!lemma.empty());
         SASSERT(count(lemma, ~lit) > 0);
@@ -945,20 +944,27 @@ namespace polysat {
     }
 
     void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
+#ifndef NDEBUG
+        assignment_t const old_assignment = assignment();
+#endif
         clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
         m_conflict.reset();
         backjump(jump_level);
         for (auto cl : side_lemmas)
             add_clause(*cl);
+        SASSERT(lemma_invariant(lemma, old_assignment));
         learn_lemma(lemma);
     }
 
-    bool solver::lemma_invariant(clause const* lemma) {
-        SASSERT(lemma);
-        LOG("Lemma: " << *lemma);
-        for (sat::literal lit : *lemma) {
+    bool solver::lemma_invariant(clause const& lemma, assignment_t const& assignment) {
+        LOG("Lemma: " << lemma);
+        for (sat::literal lit : lemma) {
             LOG("  " << lit_pp(*this, lit));
-            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this));
+            // TODO: constraints derived by side lemmas are l_undef at this point!
+            //       they will be false after backjumping and when the side lemmas are propagated.
+            //       but at that point, we cannot check is_currently_false anymore, because the assignment was already reset.
+            //       solution: make a copy of assignment and test invariant after propagating side lemmas (inside learn_lemma?)
+            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this, assignment));
         }
         return true;
     }
