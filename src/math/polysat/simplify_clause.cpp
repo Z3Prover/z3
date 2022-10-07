@@ -33,10 +33,12 @@ Notes:
             294: v12 + -1*v10 + -1*v0 + -1 == 0  [ l_undef ]
             295: v10 + v0 + 1 <= v12             [ l_undef ]
 
+        292: v10 + v0 + 1 == 0
         294: v10 + v0 + 1 == v12
         295: v10 + v0 + 1 <= v12
 
-        ==> drop 294
+        ==> drop 294 because it implies 295
+        ==> drop 292 because it implies 295
 
 --*/
 #include "math/polysat/solver.h"
