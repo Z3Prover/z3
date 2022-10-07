@@ -795,86 +795,7 @@ namespace polysat {
         }
 
         jump_level = std::max(jump_level, base_level());
-
-        // LOG("current lvl: " << m_level);
-        // LOG("base level:  " << base_level());
-        // LOG("max_level:   " << max_level);
-        // LOG("jump_level:  " << jump_level);
-
         backjump_and_learn(jump_level, *lemma);
-        /*
-        m_conflict.reset();
-        backjump(jump_level);
-        learn_lemma(*lemma);
-        */
-    }
-
-    /**
-    * Variable activity accounting.
-    * As a placeholder we increment activity
-    * 1. when a variable assignment is used in a conflict.
-    * 2. when a variable propagation is resolved against.
-    * The hypothesis that this is useful should be tested against a
-    * broader suite of benchmarks and tested with micro-benchmarks.
-    * It should be tested in conjunction with restarts.
-    */
-    void solver::inc_activity(pvar v) {
-        unsigned& act = m_activity[v];
-        act += m_activity_inc;
-        m_free_pvars.activity_increased_eh(v);
-        if (act > (1 << 24))
-            rescale_activity();
-    }
-
-    void solver::decay_activity() {
-        m_activity_inc *= m_variable_decay;
-        m_activity_inc /= 100;
-    }
-
-    void solver::rescale_activity() {
-        for (unsigned& act : m_activity) {
-            act >>= 14;
-        }
-        m_activity_inc >>= 14;
-    }
-
-    void solver::report_unsat() {
-        backjump(base_level());
-        SASSERT(!m_conflict.empty());
-    }
-
-    void solver::unsat_core(dependency_vector& deps) {
-        deps.reset();
-        LOG("conflict" << m_conflict);
-        for (auto c : m_conflict) {
-            auto d = m_bvars.dep(c.blit());
-            if (d != null_dependency)
-                deps.push_back(d);
-        }
-    }
-
-    void solver::learn_lemma(clause& lemma) {
-        LOG("Learning: "<< lemma);
-        SASSERT(!lemma.empty());
-        m_simplify_clause.apply(lemma);
-        add_clause(lemma);  // propagates undef literals, if possible
-        // At this point, all literals in lemma have been value- or bool-propated, if possible.
-        // So if the lemma is/was asserting, all its literals are now assigned.
-        bool is_asserting = all_of(lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
-        if (!is_asserting) {
-            LOG("Lemma is not asserting!");
-            m_lemmas.push_back(&lemma);
-            m_trail.push_back(trail_instr_t::add_lemma_i);
-            // TODO: currently we forget non-asserting lemmas when backjumping over them.
-            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
-            //       even the lemma should instead be waiting for propagations.
-            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
-            //       The same could even be done in general for all lemmas, instead of distinguishing between
-            //       asserting and non-asserting lemmas.
-            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
-            //       depending on which pvars are assigned.)
-            SASSERT(can_bdecide());
-        }
     }
 
     /**
@@ -903,14 +824,6 @@ namespace polysat {
 
         unsigned jump_level = get_level(v) - 1;
         backjump_and_learn(jump_level, *lemma);
-        /*
-        clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
-        m_conflict.reset();
-        backjump(get_level(v) - 1);
-        for (auto cl : side_lemmas)
-            add_clause(*cl);
-        learn_lemma(*lemma);
-        */
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
@@ -928,11 +841,6 @@ namespace polysat {
 
         unsigned jump_level = m_bvars.level(var) - 1;
         backjump_and_learn(jump_level, lemma);
-        /*
-        m_conflict.reset();
-        backjump(m_bvars.level(var) - 1);
-        learn_lemma(lemma);
-        */
         // At this point, the lemma is asserting for ~lit,
         // and has been propagated by learn_lemma/add_clause.
         SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_assigned(lit1); }));
@@ -956,14 +864,33 @@ namespace polysat {
         learn_lemma(lemma);
     }
 
+    void solver::learn_lemma(clause& lemma) {
+        SASSERT(!lemma.empty());
+        m_simplify_clause.apply(lemma);
+        add_clause(lemma);  // propagates undef literals, if possible
+        // At this point, all literals in lemma have been value- or bool-propated, if possible.
+        // So if the lemma is/was asserting, all its literals are now assigned.
+        bool is_asserting = all_of(lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
+        if (!is_asserting) {
+            LOG("Lemma is not asserting!");
+            m_lemmas.push_back(&lemma);
+            m_trail.push_back(trail_instr_t::add_lemma_i);
+            // TODO: currently we forget non-asserting lemmas when backjumping over them.
+            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
+            //       even the lemma should instead be waiting for propagations.
+            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
+            //       The same could even be done in general for all lemmas, instead of distinguishing between
+            //       asserting and non-asserting lemmas.
+            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
+            //       depending on which pvars are assigned.)
+            SASSERT(can_bdecide());
+        }
+    }
+
     bool solver::lemma_invariant(clause const& lemma, assignment_t const& assignment) {
         LOG("Lemma: " << lemma);
         for (sat::literal lit : lemma) {
             LOG("  " << lit_pp(*this, lit));
-            // TODO: constraints derived by side lemmas are l_undef at this point!
-            //       they will be false after backjumping and when the side lemmas are propagated.
-            //       but at that point, we cannot check is_currently_false anymore, because the assignment was already reset.
-            //       solution: make a copy of assignment and test invariant after propagating side lemmas (inside learn_lemma?)
             SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this, assignment));
         }
         return true;
@@ -1124,6 +1051,50 @@ namespace polysat {
         if (r.is_val())
             out_value = r.val();
         return r.is_val();
+    }
+
+    /**
+     * Variable activity accounting.
+     * As a placeholder we increment activity
+     * 1. when a variable assignment is used in a conflict.
+     * 2. when a variable propagation is resolved against.
+     * The hypothesis that this is useful should be tested against a
+     * broader suite of benchmarks and tested with micro-benchmarks.
+     * It should be tested in conjunction with restarts.
+     */
+    void solver::inc_activity(pvar v) {
+        unsigned& act = m_activity[v];
+        act += m_activity_inc;
+        m_free_pvars.activity_increased_eh(v);
+        if (act > (1 << 24))
+            rescale_activity();
+    }
+
+    void solver::decay_activity() {
+        m_activity_inc *= m_variable_decay;
+        m_activity_inc /= 100;
+    }
+
+    void solver::rescale_activity() {
+        for (unsigned& act : m_activity) {
+            act >>= 14;
+        }
+        m_activity_inc >>= 14;
+    }
+
+    void solver::report_unsat() {
+        backjump(base_level());
+        SASSERT(!m_conflict.empty());
+    }
+
+    void solver::unsat_core(dependency_vector& deps) {
+        deps.reset();
+        LOG("conflict" << m_conflict);
+        for (auto c : m_conflict) {
+            auto d = m_bvars.dep(c.blit());
+            if (d != null_dependency)
+                deps.push_back(d);
+        }
     }
 
     std::ostream& solver::display(std::ostream& out) const {
