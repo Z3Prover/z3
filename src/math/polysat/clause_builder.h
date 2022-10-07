@@ -12,9 +12,7 @@ Author:
 Notes:
 
  Builds a clause from literals and constraints.
- Takes care to
- - resolve with unit clauses and accumulate their dependencies,
- - skip trivial new constraints such as "4 <= 1".
+ Skips trivial new constraints such as "4 <= 1".
 
 --*/
 #pragma once
@@ -26,7 +24,7 @@ namespace polysat {
     class clause_builder {
         solver*               m_solver;
         sat::literal_vector   m_literals;
-        /// true iff clause contains a literal that is always true
+        /// True iff clause contains a literal that is always true
         /// (only this specific case of tautology is covered by this flag)
         bool                  m_is_tautology = false;
 
@@ -40,19 +38,14 @@ namespace polysat {
         bool empty() const { return m_literals.empty() && !m_is_tautology; }
         void reset();
 
-
         /// Build the clause. This will reset the clause builder so it can be reused.
         /// Returns nullptr if the clause is a tautology and should not be added to the solver.
         clause_ref build();
-
 
         void push(sat::literal lit);
         void push(signed_constraint c);
         void push(inequality const& i) { push(i.as_signed_constraint()); }
 
-        /// Push a new constraint. Allocates a boolean variable for the constraint, if necessary.
-        void push_new(signed_constraint c);
-      
         using const_iterator = decltype(m_literals)::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }

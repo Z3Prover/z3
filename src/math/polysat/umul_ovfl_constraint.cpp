@@ -132,9 +132,9 @@ namespace polysat {
         SASSERT(bound * p.val() > max);
         SASSERT((bound - 1) * p.val() <= max);
         clause_builder cb(s);
-        cb.push_new(~sc);
-        cb.push_new(~premise);
-        cb.push_new(conseq);
+        cb.push(~sc);
+        cb.push(~premise);
+        cb.push(conseq);
         clause_ref just = cb.build();
         SASSERT(just);
         s.add_clause(*just);

@@ -332,7 +332,7 @@ namespace polysat {
             cb.push(~premises[i]);
         }
         SASSERT_EQ(c.bvalue(s), l_undef);
-        cb.push_new(c);
+        cb.push(c);
         clause_ref lemma = cb.build();
         SASSERT(lemma);
         lemma->set_redundant(true);

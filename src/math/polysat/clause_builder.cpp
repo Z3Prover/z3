@@ -61,7 +61,8 @@ namespace polysat {
     void clause_builder::push(signed_constraint c) {
         SASSERT(c);
         SASSERT(c->has_bvar());
-        SASSERT(!c.is_always_false());   // if this case occurs legitimately, we should skip the constraint.
+        if (c.is_always_false())  // filter out trivial constraints such as "4 < 2"
+            return;
         if (c.is_always_true()) {
             m_is_tautology = true;
             return;
@@ -72,11 +73,5 @@ namespace polysat {
         }       
 #endif
         m_literals.push_back(c.blit());
-    }
-
-    void clause_builder::push_new(signed_constraint c) {
-        if (c.is_always_false())  // filter out trivial constraints such as "4 < 2" (may come in from forbidden intervals)
-            return;
-        push(c);
     }
 }
