@@ -400,3 +400,16 @@ std::size_t count_if(Container const& c, Predicate p)
     using std::begin, std::end;  // allows begin(c) to also find c.begin()
     return std::count_if(begin(c), end(c), std::forward<Predicate>(p));
 }
+
+/// Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit
+template <typename Callable>
+class on_scope_exit final {
+    Callable m_ef;
+public:
+    on_scope_exit(Callable&& ef)
+        : m_ef(std::forward<Callable>(ef))
+    { }
+    ~on_scope_exit() {
+        m_ef();
+    }
+};

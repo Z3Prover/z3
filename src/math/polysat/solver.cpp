@@ -573,25 +573,12 @@ namespace polysat {
             pdecide(m_free_pvars.next_var());
     }
 
-    /// Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit
-    template <typename Callable>
-    class on_scope_exit final {
-        Callable m_ef;
-    public:
-        explicit on_scope_exit(Callable&& ef)
-            : m_ef(std::forward<Callable>(ef))
-        { }
-        ~on_scope_exit() {
-            m_ef();
-        }
-    };
-
     void solver::bdecide() {
         clause& lemma = *m_lemmas[m_lemmas_qhead++];
-        on_scope_exit update_trail([this]() {
+        on_scope_exit update_trail = [this]() {
             // must be done after push_level, but also if we return early.
             m_trail.push_back(trail_instr_t::lemma_qhead_i);
-        });
+        };
 
         LOG_H2("Decide on non-asserting lemma: " << lemma);
         sat::literal choice = sat::null_literal;
