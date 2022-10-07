@@ -731,7 +731,7 @@ namespace polysat {
     }
 
     void viable::log() {
-        for (pvar v = 0; v < std::min(10u, m_units.size()); ++v)
+        for (pvar v = 0; v < m_units.size(); ++v)
             log(v);
     }
 
