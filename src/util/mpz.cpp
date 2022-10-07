@@ -83,9 +83,6 @@ unsigned trailing_zeros(uint64_t x) {
     return static_cast<unsigned>(_trailing_zeros64(x));
 }
 
-#define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
-#define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
-
 
 unsigned u_gcd(unsigned u, unsigned v) { 
     if (u == 0) return v;
@@ -126,9 +123,7 @@ template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
     m_allocator("mpz_manager") {
 
-#ifndef _MP_GMP
-    set_big_i64(m_int_min, INT64_MIN);
-#else
+#ifdef _MP_GMP
     // GMP
     mpz_init(m_tmp);
     mpz_init(m_tmp2);
@@ -157,17 +152,14 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_sub_ui(m_int64_min, m_int64_min, 1);
 #endif
     
-    mpz one(1);
     set(m_two64, (uint64_t)UINT64_MAX);
-    add(m_two64, one, m_two64);
+    add(m_two64, mpz(1), m_two64);
 }
 
 template<bool SYNCH>
 mpz_manager<SYNCH>::~mpz_manager() {
     del(m_two64);
-#ifndef _MP_GMP
-    del(m_int_min);
-#else
+#ifdef _MP_GMP
     mpz_clear(m_tmp);
     mpz_clear(m_tmp2);
     mpz_clear(m_two32);
@@ -265,16 +257,10 @@ void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 #ifndef _MP_GMP
-    if (c.ptr() == nullptr) {
-        c.set(allocate(m_init_cell_capacity));
-        c.set(mpz_self);
-    }
-    c.set(mpz_large);
     SASSERT(capacity(c) >= m_init_cell_capacity);
     uint64_t _v;
-    if (v == std::numeric_limits<int64_t>::min()) {
-        // min-int is even
-        _v = -(v/2);
+    if (v == INT64_MIN) {
+        _v = (uint64_t)INT64_MAX + 1;
         c.m_val = -1;
     }
     else if (v < 0) {
@@ -449,33 +435,17 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
     else {
 #ifndef _MP_GMP
         target.m_val = 1; // number is positive.
-        if (target.ptr() == nullptr) {
+        if (target.ptr() == nullptr || capacity(target) < sz) {
+            deallocate(target);
             unsigned c = sz < m_init_cell_capacity ? m_init_cell_capacity : sz;
             target.set(allocate(c));
-            target.ptr()->m_size     = sz;
             target.ptr()->m_capacity = c;
-            target.set(mpz_large);
             target.set(mpz_self);
+        }
+        target.ptr()->m_size = sz;
+        if (target.ptr()->m_digits != digits)
             memcpy(target.ptr()->m_digits, digits, sizeof(digit_t) * sz);
-        }
-        else if (capacity(target) < sz) {
-            SASSERT(sz > m_init_cell_capacity);
-            mpz_cell* ptr = allocate(sz);
-            memcpy(ptr->m_digits, digits, sizeof(digit_t) * sz);
-            ptr->m_size = sz; 
-            ptr->m_capacity = sz;
-            deallocate(target);
-            target.m_val    = 1;
-            target.set(ptr);
-            target.set(mpz_large);
-            target.set(mpz_self);
-        }
-        else {
-            target.ptr()->m_size = sz;
-            if (target.ptr()->m_digits != digits)
-                memcpy(target.ptr()->m_digits, digits, sizeof(digit_t) * sz);
-            target.set(mpz_large);
-        }
+        target.set(mpz_large);
 #else
         mk_big(target);
         // reset
@@ -642,9 +612,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::neg(mpz & a) {
     STRACE("mpz", tout << "[mpz] 0 - " << to_string(a) << " == ";); 
     if (is_small(a) && a.m_val == INT64_MIN) {
-        // neg(INT64_MIN) = UINT64_MAX + 1
-        set_big_ui64(a, UINT64_MAX);
-        inc(a);
+        set_big_ui64(a, (uint64_t)INT64_MAX + 1);
         return;
     }
 #ifndef _MP_GMP
@@ -664,11 +632,8 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::abs(mpz & a) {
     if (is_small(a)) {
         if (a.m_val < 0) {
-            if (a.m_val == INT64_MIN) {
-                // abs(INT64_MIN) = UINT64_MAX + 1
-                set_big_ui64(a, UINT64_MAX);
-                inc(a);
-            }
+            if (a.m_val == INT64_MIN)
+                set_big_ui64(a, (uint64_t)INT64_MAX + 1);
             else
                 a.m_val = -a.m_val;
         }
@@ -687,14 +652,9 @@ void mpz_manager<SYNCH>::abs(mpz & a) {
 #ifndef _MP_GMP
 template<bool SYNCH>
 template<bool SUB>
-void mpz_manager<SYNCH>::big_add_sub(mpz const & a0, mpz const & b0, mpz & c) {
-    mpz a, b;
-    if (is_small(a0))
-        set_big_i64(a, a0.m_val);
-    if (is_small(b0))
-        set_big_i64(b, b0.m_val);
-    sign_cell ca(*this, is_small(a0) ? a : a0);
-    sign_cell cb(*this, is_small(b0) ? b : b0);
+void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
+    sign_cell ca(*this, a);
+    sign_cell cb(*this, b);
     auto sign_b = cb.sign();
     mpz_stack tmp;
     if (SUB)
@@ -743,8 +703,6 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a0, mpz const & b0, mpz & c) {
             set(*tmp.ptr(), c, ca.sign(), sz);
         }
     }
-    del(a);
-    del(b);
     del(tmp);
 }
 #endif
@@ -776,15 +734,10 @@ void mpz_manager<SYNCH>::big_sub(mpz const & a, mpz const & b, mpz & c) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::big_mul(mpz const & a0, mpz const & b0, mpz & c) {
+void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
 #ifndef _MP_GMP
-    mpz a, b;
-    if (is_small(a0))
-        set_big_i64(a, a0.m_val);
-    if (is_small(b0))
-        set_big_i64(b, b0.m_val);
-    sign_cell ca(*this, is_small(a0) ? a : a0);
-    sign_cell cb(*this, is_small(b0) ? b : b0);
+    sign_cell ca(*this, a);
+    sign_cell cb(*this, b);
     // TBD replace tmp by c.
     mpz_stack tmp;
     unsigned sz  = ca.cell()->m_size + cb.cell()->m_size;
@@ -795,8 +748,6 @@ void mpz_manager<SYNCH>::big_mul(mpz const & a0, mpz const & b0, mpz & c) {
                       cb.cell()->m_size,
                       tmp.ptr()->m_digits);
     set(*tmp.ptr(), c, ca.sign() == cb.sign() ? 1 : -1, sz);
-    del(a);
-    del(b);
     del(tmp);
 #else
     // GMP version
@@ -1871,8 +1822,8 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
 #ifndef _MP_GMP
     if (is_small(a)) {
         if (a.m_val == 2) {
-            if (p < 8 * sizeof(int) - 1) {
-                b.m_val = 1 << p;
+            if (p < 8 * sizeof(int64_t) - 1) {
+                b.m_val = 1ll << p;
                 b.set(mpz_small);
             }
             else {
@@ -2238,7 +2189,7 @@ unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
     if (is_small(a) && a.m_val == INT64_MIN)
-        return uint64_log2((uint64_t)a.m_val);
+        return uint64_log2((uint64_t)INT64_MAX + 1);
         
     if (is_small(a))
         return uint64_log2((uint64_t)-a.m_val);

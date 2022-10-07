@@ -320,26 +320,24 @@ class mpz_manager {
 
     void get_sign_cell(mpz const & a, int64_t & sign, mpz_cell * & cell, mpz_cell* reserve) {
         if (is_small(a)) {
-            if (a.m_val == INT64_MIN) {
+            cell = reserve;
+            uint64_t v;
+            if (a.m_val < 0) {
                 sign = -1;
-                cell = m_int_min.ptr();
-            }
-            else {
-                cell = reserve;
-                uint64_t v;
-                if (a.m_val < 0) {
-                    sign = -1;
+                if (a.m_val == INT64_MIN) {
+                    v = (uint64_t)INT64_MAX + 1;
+                } else {
                     v = -a.m_val;
                 }
-                else {
-                    sign = 1;
-                    v = a.m_val;
-                }
-                static_assert(sizeof(digit_t) == sizeof(unsigned));
-                cell->m_digits[0] = static_cast<unsigned>(v);
-                cell->m_digits[1] = static_cast<unsigned>(v >> 32);
-                cell->m_size = cell->m_digits[1] == 0 ? 1 : 2;
             }
+            else {
+                sign = 1;
+                v = a.m_val;
+            }
+            static_assert(sizeof(digit_t) == sizeof(unsigned));
+            cell->m_digits[0] = static_cast<unsigned>(v);
+            cell->m_digits[1] = static_cast<unsigned>(v >> 32);
+            cell->m_size = cell->m_digits[1] == 0 ? 1 : 2;
         }
         else {
             sign = a.m_val;
