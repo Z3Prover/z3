@@ -853,14 +853,27 @@ namespace polysat {
 
     void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
 #ifndef NDEBUG
-        assignment_t const old_assignment = assignment();
+        assignment_t old_assignment;
+        // We can't use solver::assignment() here because we already used search_sate::pop_assignment().
+        // TODO: fix search_state design; it should show a consistent state.
+        search_iterator search_it(m_search);
+        while (search_it.next()) {
+            auto& item = *search_it;
+            if (item.is_assignment()) {
+                pvar v = item.var();
+                old_assignment.push_back({v, get_value(v)});
+            }
+        }
+        sat::literal_vector lemma_invariant_todo;
+        SASSERT(lemma_invariant_part1(lemma, old_assignment, lemma_invariant_todo));
+        // SASSERT(lemma_invariant(lemma, old_assignment));
 #endif
         clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
         m_conflict.reset();
         backjump(jump_level);
         for (auto cl : side_lemmas)
             add_clause(*cl);
-        SASSERT(lemma_invariant(lemma, old_assignment));
+        SASSERT(lemma_invariant_part2(lemma_invariant_todo));
         learn_lemma(lemma);
     }
 
@@ -887,11 +900,37 @@ namespace polysat {
         }
     }
 
-    bool solver::lemma_invariant(clause const& lemma, assignment_t const& assignment) {
+    bool solver::lemma_invariant_part1(clause const& lemma, assignment_t const& assignment, sat::literal_vector& out_todo) {
+        SASSERT(out_todo.empty());
         LOG("Lemma: " << lemma);
+        // LOG("assignment: " << assignment);
         for (sat::literal lit : lemma) {
-            LOG("  " << lit_pp(*this, lit));
-            SASSERT(m_bvars.value(lit) == l_false || lit2cnstr(lit).is_currently_false(*this, assignment));
+            auto const c = lit2cnstr(lit);
+            bool const currently_false = c.is_currently_false(*this, assignment);
+            LOG("  " << lit_pp(*this, lit) << "    currently_false? " << currently_false);
+            if (!currently_false && m_bvars.value(lit) == l_undef)
+                out_todo.push_back(lit);  // undefs might only be set false after the side lemmas are propagated, so check them later.
+            else
+                SASSERT(m_bvars.value(lit) == l_false || currently_false);
+        }
+        return true;
+    }
+
+    bool solver::lemma_invariant_part2(sat::literal_vector const& todo) {
+        // Check that undef literals are now propagated by the side lemmas.
+        for (sat::literal lit : todo)
+            SASSERT(m_bvars.value(lit) == l_false);
+        return true;
+    }
+
+    bool solver::lemma_invariant(clause const& lemma, assignment_t const& old_assignment) {
+        LOG("Lemma: " << lemma);
+        // LOG("old_assignment: " << old_assignment);
+        for (sat::literal lit : lemma) {
+            auto const c = lit2cnstr(lit);
+            bool const currently_false = c.is_currently_false(*this, old_assignment);
+            LOG("  " << lit_pp(*this, lit) << "    currently_false? " << currently_false);
+            SASSERT(m_bvars.value(lit) == l_false || currently_false);
         }
         return true;
     }

@@ -237,6 +237,8 @@ namespace polysat {
         bool invariant();
         static bool invariant(signed_constraints const& cs);
         bool lemma_invariant(clause const& lemma, assignment_t const& assignment);
+        bool lemma_invariant_part1(clause const& lemma, assignment_t const& assignment, sat::literal_vector& out_todo);
+        bool lemma_invariant_part2(sat::literal_vector const& todo);
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();
