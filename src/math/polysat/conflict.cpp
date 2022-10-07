@@ -230,8 +230,9 @@ namespace polysat {
             VERIFY(false);  // fail here to force check when we encounter this case
         }
         else {
-            // conflict due to assignment
-            SASSERT(c.bvalue(s) == l_true);
+            // Constraint c conflicts with the variable assignment
+            // SASSERT(c.bvalue(s) == l_true);  // "morally" the bvalue should always be true. But (at least for now) some literals may be undef when they are only justified by a side lemma.
+                                                // TODO: maybe we can set them to true (without putting them on the search stack). But need to make sure to set them to false when finalizing the conflict; and before backjumping/learning. (tag:true_by_side_lemma)
             SASSERT(c.is_currently_false(s));
             insert(c);
             insert_vars(c);
@@ -291,7 +292,7 @@ namespace polysat {
         if (c.is_always_true())
             return;
         LOG("Inserting " << lit_pp(s, c));
-        SASSERT_EQ(c.bvalue(s), l_true);
+        // SASSERT_EQ(c.bvalue(s), l_true);  // TODO: see comment in 'set_impl' (tag:true_by_side_lemma)
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
@@ -328,6 +329,7 @@ namespace polysat {
         clause_ref lemma = cb.build();
         SASSERT(lemma);
         lemma->set_redundant(true);
+        LOG("Side lemma: " << *lemma);
         m_lemmas.push_back(std::move(lemma));
     }
 
@@ -596,6 +598,7 @@ namespace polysat {
             out << " bail vars";
         for (auto v : m_bail_vars)
             out << " v" << v;
+        // TODO: side lemmas?
         return out;
     }
 }
