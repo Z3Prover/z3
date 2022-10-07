@@ -869,8 +869,24 @@ namespace polysat {
         // SASSERT(lemma_invariant(lemma, old_assignment));
 #endif
         clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
+        sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
         m_conflict.reset();
         backjump(jump_level);
+        for (sat::literal lit : narrow_queue) {
+            switch (m_bvars.value(lit)) {
+            case l_true:
+                lit2cnstr(lit).narrow(*this, false);
+                break;
+            case l_false:
+                lit2cnstr(~lit).narrow(*this, false);
+                break;
+            case l_undef:
+                /* do nothing */
+                break;
+            default:
+                UNREACHABLE();
+            }
+        }
         for (auto cl : side_lemmas)
             add_clause(*cl);
         SASSERT(lemma_invariant_part2(lemma_invariant_todo));

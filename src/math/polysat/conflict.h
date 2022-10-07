@@ -111,6 +111,11 @@ namespace polysat {
         // Additional lemmas that justify new constraints generated during conflict resolution
         clause_ref_vector m_lemmas;
 
+        // Store constraints that should be narrowed after backjumping.
+        // This allows us to perform propagations that are missed by the two-watched-variables scheme,
+        // e.g., because one of the watched variables is unassigned but irrelevant (e.g., x is irrelevant in x*y if y := 0).
+        sat::literal_vector m_narrow_queue;
+
         conflict_kind_t m_kind = conflict_kind_t::ok;
 
         // Level at which the conflict was discovered
@@ -232,6 +237,9 @@ namespace polysat {
         clause_ref_vector take_side_lemmas();
 
         clause_ref_vector const& side_lemmas() const { return m_lemmas; }
+
+        /** Move the literals to be narrowed out of the conflict */
+        sat::literal_vector take_narrow_queue();
 
         std::ostream& display(std::ostream& out) const;
     };

@@ -148,6 +148,7 @@ namespace polysat {
             SASSERT(m_vars.empty());
             SASSERT(m_bail_vars.empty());
             SASSERT(m_lemmas.empty());
+            SASSERT(m_narrow_queue.empty());
         }
         return is_empty;
     }
@@ -159,6 +160,7 @@ namespace polysat {
         m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_lemmas.reset();
+        m_narrow_queue.reset();
         m_kind = conflict_kind_t::ok;
         m_level = UINT_MAX;
         SASSERT(empty());
@@ -211,6 +213,7 @@ namespace polysat {
     void conflict::init(signed_constraint c) {
         SASSERT(empty());
         m_level = s.m_level;
+        m_narrow_queue.push_back(c.blit());  // if the conflict is only due to a missed propagation of c
         set_impl(c);
         logger().begin_conflict();
     }
@@ -533,6 +536,15 @@ namespace polysat {
         });
 #endif
         return std::move(m_lemmas);
+    }
+
+    sat::literal_vector conflict::take_narrow_queue() {
+#ifndef NDEBUG
+        on_scope_exit check_empty([this]() {
+            SASSERT(m_narrow_queue.empty());
+        });
+#endif
+        return std::move(m_narrow_queue);
     }
 
 #if 0
