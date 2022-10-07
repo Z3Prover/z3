@@ -130,8 +130,11 @@ namespace polysat {
         ~conflict();
 
         inference_logger& logger();
+        void log_inference(inference const& inf) { logger().log(inf); }
 
         bool empty() const;
+
+        /** Reset to "no conflict" state. This is only appropriate when conflict resolution is complete or aborted. */
         void reset();
 
         using const_iterator = conflict_iterator;
@@ -193,8 +196,23 @@ namespace polysat {
         /** Evaluate constraint under assignment and insert it into conflict state. */
         void insert_eval(signed_constraint c);
 
+        /**
+         * Derive new constraint c by bool-propagation from premises c1, ..., cn;
+         * as if c was unit-propagated by the lemma c1 /\ ... /\ cn ==> c.
+         * Does not add c to the conflict state.
+         */
+        void bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len);
+        void bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises);
+
         /** Remove c from core */
         void remove(signed_constraint c);
+        void remove_var(pvar v);
+        /**
+         * Remove all constraints and variables from the conflict state.
+         * Use this during conflict resolution if the core needs to be replaced.
+         * (It keeps the conflict level and side lemmas.)
+         */
+        void remove_all();
 
         /** Perform boolean resolution with the clause upon the given literal. */
         void resolve_bool(sat::literal lit, clause const& cl);

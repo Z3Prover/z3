@@ -1,15 +1,14 @@
-#if 0
 /*++
 Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    Conflict explanation / resolution
+    Conflict explanation by polynomial superposition
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #include "math/polysat/explain.h"
@@ -18,6 +17,7 @@ Author:
 
 namespace polysat {
 
+/*
     struct post_propagate2 : public inference {
         const char* name;
         signed_constraint conclusion;
@@ -32,6 +32,7 @@ namespace polysat {
                 << " and " << premise2.blit() << ": " << premise2;
         }
     };
+*/
 
     struct inference_sup : public inference {
         const char* name;
@@ -60,6 +61,8 @@ namespace polysat {
             return {};
         // Only keep result if the degree in c2 was reduced.
         // (this condition might be too strict, but we use it for now to prevent looping)
+        // TODO: check total degree; only keep if total degree smaller or equal.
+        //       can always do this if c1 is linear.
         if (b.degree(v) <= r.degree(v))
             return {};
         signed_constraint c = s.eq(r);
@@ -75,6 +78,7 @@ namespace polysat {
     lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
         vector<signed_constraint> premises;
 
+#if 0
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
@@ -87,6 +91,14 @@ namespace polysat {
                 continue;
             if (!c1.is_currently_true(s))
                 continue;
+#else
+        for (auto c1 : s.m_viable.get_constraints(v)) {
+            if (!c1->contains_var(v))  // side conditions do not contain v; skip them here
+                continue;
+            if (!c1.is_eq())
+                continue;
+            SASSERT(c1.is_currently_true(s));
+#endif
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
@@ -95,43 +107,30 @@ namespace polysat {
             switch (c.bvalue(s)) {
             case l_false:
                 // new conflict state based on propagation and theory conflict
-                core.reset();
+                core.remove_all();
                 core.insert(c1);
                 core.insert(c2);
                 core.insert(~c);
-                core.log_inference(inference_sup("1", v, c2, c1));
+                core.log_inference(inference_sup("l_false", v, c2, c1));
                 return l_true;
             case l_undef:
-#if 0
-                core.reset();
-                core.insert(c1);
-                core.insert(c2);
-                core.insert(~c);
-                core.log_inference(inference_sup("1b", v, c2, c1));
-                return l_true;
-#else
-                SASSERT(premises.empty());
-                // Ensure that c is assigned and justified                    
-                premises.push_back(c1);
-                premises.push_back(c2);
-                // var dependency on c is lost
-                // c evaluates to false, when the clause ~c1 or ~c2 or c
-                // gets created, c is assigned to false by evaluation propagation
-                // It should have been assigned true by unit propagation.
-                core.replace(c2, c, premises);
-                core.log_inference(post_propagate2("superposition", c, c2, c1));
-                inf_name = "2";
+                inf_name = "l_undef";
+                // c evaluates to false,
+                // c should be unit-propagated to l_true by c1 /\ c2 ==> c
+                core.bool_propagate(c, {c1, c2});
+                // TODO: log inference?
                 SASSERT_EQ(l_true, c.bvalue(s));
                 SASSERT(c.is_currently_false(s));
                 break;
-#endif
+            case l_true:
+                inf_name = "l_true";
+                break;
             default:
+                UNREACHABLE();
                 break;
             }
 
-            // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
             // c alone (+ variables) is now enough to represent the conflict.
-            core.reset();
             core.set(c);
             core.log_inference(inference_sup(inf_name, v, c2, c1));
             return c->contains_var(v) ? l_undef : l_true;
@@ -139,14 +138,12 @@ namespace polysat {
         return l_false;
     }
 
-    // TODO(later): check superposition into disequality again (see notes)
     // true = done, false = abort, undef = continue
-    // TODO: can try multiple replacements at once; then the c2 loop needs to be done only once... (requires some reorganization for storing the premises)
     lbool ex_polynomial_superposition::try_explain1(pvar v, conflict& core) {
         for (auto c2 : core) {
-            if (!c2->contains_var(v))
-                continue;
             if (!c2.is_eq())
+                continue;
+            if (!c2->contains_var(v))
                 continue;
             if (!c2.is_currently_false(s))
                 continue;
@@ -162,6 +159,7 @@ namespace polysat {
         return l_false;
     }
 
+#if 0
     void ex_polynomial_superposition::reduce_by(pvar v, conflict& core) {
         bool progress = true;
         while (progress) {
@@ -235,9 +233,12 @@ namespace polysat {
         }
         return false;
     }
+#endif
 
-    bool ex_polynomial_superposition::try_explain(pvar v, conflict& core) {
+    bool ex_polynomial_superposition::perform(pvar v, conflict& core) {
+#if 0
         reduce_by(v, core);
+#endif
         lbool result = l_undef;
         while (result == l_undef)
             result = try_explain1(v, core);
@@ -245,4 +246,3 @@ namespace polysat {
     }
 
 }
-#endif

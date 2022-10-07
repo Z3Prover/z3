@@ -61,13 +61,17 @@ namespace polysat {
 
     class conflict_resolver {
         inf_saturate m_saturate;
+        ex_polynomial_superposition m_poly_sup;
 
     public:
         conflict_resolver(solver& s)
             : m_saturate(s)
+            , m_poly_sup(s)
         {}
 
         bool try_resolve_value(pvar v, conflict& core) {
+            if (m_poly_sup.perform(v, core))
+                return true;
             if (m_saturate.perform(v, core))
                 return true;
             return false;
@@ -212,7 +216,8 @@ namespace polysat {
     }
 
     void conflict::set(signed_constraint c) {
-        reset();
+        SASSERT(!empty());
+        remove_all();
         set_impl(c);
     }
 
@@ -223,7 +228,8 @@ namespace polysat {
             // - opposite input literals are handled separately
             // - other boolean conflicts will discover violated clause during boolean propagation
             VERIFY(false);  // fail here to force check when we encounter this case
-        } else {
+        }
+        else {
             // conflict due to assignment
             SASSERT(c.bvalue(s) == l_true);
             SASSERT(c.is_currently_false(s));
@@ -265,13 +271,11 @@ namespace polysat {
             }
             SASSERT(!m_vars.contains(v));
             // TODO: apply conflict resolution plugins here too?
-        } else {
+        }
+        else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             set_backtrack();
             VERIFY(s.m_viable.resolve(v, *this));
-            // TODO: in general the forbidden interval lemma is not asserting.
-            //       but each branch exclude the current assignment.
-            //       in those cases we will (additionally?) need an abstraction that is asserting to make sure viable is updated properly.
         }
         SASSERT(!empty());
     }
@@ -317,11 +321,48 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
+    void conflict::bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len) {
+        if (c.is_always_false()) {
+            VERIFY(false);  // TODO: this case can probably happen, but needs special attention
+        }
+        // Build lemma: premises ==> c
+        clause_builder cb(s);
+        for (unsigned i = 0; i < premises_len; ++i) {
+            SASSERT_EQ(premises[i].bvalue(s), l_true);
+            cb.push(~premises[i]);
+        }
+        SASSERT_EQ(c.bvalue(s), l_undef);
+        cb.push_new(c);
+        clause_ref lemma = cb.build();
+        SASSERT(lemma);
+        lemma->set_redundant(true);
+        set_side_lemma(c, lemma);
+        // TODO: we must "simulate" the propagation but don't want to put the literal onto the search stack.
+        s.assign_propagate(c.blit(), *lemma);
+        // s.m_search.pop();  // doesn't work... breaks m_trail and backjumping
+        SASSERT_EQ(c.bvalue(s), l_true);
+        // insert(c);
+    }
+
+    void conflict::bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises) {
+        bool_propagate(c, std::data(premises), premises.size());
+    }
+
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
         m_literals.remove(c.blit().index());
         for (pvar v : c->vars())
             m_var_occurrences[v]--;
+    }
+
+    void conflict::remove_all() {
+        SASSERT(!empty());
+        m_literals.reset();
+        m_vars.reset();
+        m_bail_vars.reset();
+        m_relevant_vars.reset();
+        m_var_occurrences.reset();
+        m_kind = conflict_kind_t::ok;
     }
 
     void conflict::insert(signed_constraint c, clause_ref lemma) {
