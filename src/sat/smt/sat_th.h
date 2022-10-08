@@ -238,7 +238,7 @@ namespace euf {
 
     public:
         static th_explain* conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, th_proof_hint const* ph = nullptr);
-        static th_explain* conflict(th_euf_solver& th, sat::literal_vector const& lits) { return conflict(th, lits.size(), lits.data(), 0, nullptr); }
+        static th_explain* conflict(th_euf_solver& th, sat::literal_vector const& lits, th_proof_hint const* ph = nullptr) { return conflict(th, lits.size(), lits.data(), 0, nullptr, nullptr); }
         static th_explain* conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, th_proof_hint const* ph = nullptr);
         static th_explain* conflict(th_euf_solver& th, enode_pair_vector const& eqs, th_proof_hint const* ph = nullptr);
         static th_explain* conflict(th_euf_solver& th, sat::literal lit, th_proof_hint const* ph = nullptr);

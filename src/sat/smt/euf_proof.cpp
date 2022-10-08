@@ -79,13 +79,13 @@ namespace euf {
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_eq_proof_literals));
+        push(restore_size_trail(m_proof_literals));
         if (lit != sat::null_literal)
-            m_eq_proof_literals.push_back(~lit);
-        m_eq_proof_literals.append(r);
+            m_proof_literals.push_back(~lit);
+        m_proof_literals.append(r);
         m_lit_head = m_lit_tail;
         m_cc_head  = m_cc_tail;
-        m_lit_tail = m_eq_proof_literals.size();
+        m_lit_tail = m_proof_literals.size();
         m_cc_tail  = m_explain_cc.size();
         return new (get_region()) eq_proof_hint(m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);
     }
@@ -114,7 +114,7 @@ namespace euf {
             return ta < tb;
         };
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
-            args.push_back(s.literal2expr(s.m_eq_proof_literals[i]));
+            args.push_back(s.literal2expr(s.m_proof_literals[i]));
         std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
         for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
             auto const& [a, b, ts, comm] = s.m_explain_cc[i];
@@ -124,6 +124,66 @@ namespace euf {
             sorts.push_back(arg->get_sort());
         
         func_decl* f = m.mk_func_decl(symbol("euf"), sorts.size(), sorts.data(), proof);
+        return m.mk_app(f, args);
+    }
+    
+    smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd, expr_pair const* deqs) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(restore_size_trail(m_proof_literals));
+        
+        for (unsigned i = 0; i < nl; ++i)
+            if (sat::null_literal != lits[i])
+                m_proof_literals.push_back(lits[i]);
+
+        push(value_trail(m_eq_tail));
+        push(restore_size_trail(m_proof_eqs));
+        m_proof_eqs.append(ne, eqs);
+        
+        push(value_trail(m_deq_tail));
+        push(restore_size_trail(m_proof_deqs));
+        m_proof_deqs.append(nd, deqs);
+        
+        m_lit_head = m_lit_tail;
+        m_eq_head  = m_eq_tail;
+        m_deq_head = m_deq_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_eq_tail  = m_proof_eqs.size();
+        m_deq_tail = m_proof_deqs.size();
+        
+        return new (get_region()) smt_proof_hint(n, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail);
+    }
+
+    smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, enode_pair const* eqs) {
+        if (!use_drat())
+            return nullptr;
+        m_expr_pairs.reset();
+        for (unsigned i = 0; i < ne; ++i)
+            m_expr_pairs.push_back({ eqs[i].first->get_expr(), eqs[i].second->get_expr() });
+        return mk_smt_hint(n, nl, lits, ne, m_expr_pairs.data());
+    }
+
+
+    expr* smt_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        sort* proof = m.mk_proof_sort();
+        ptr_buffer<sort> sorts;
+        expr_ref_vector args(m);
+        
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
+            args.push_back(s.literal2expr(s.m_proof_literals[i]));
+        for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
+            auto const& [a, b] = s.m_proof_eqs[i];
+            args.push_back(m.mk_eq(a, b));
+        }
+        for (unsigned i = m_deq_head; i < m_deq_tail; ++i) {
+            auto const& [a, b] = s.m_proof_deqs[i];
+            args.push_back(m.mk_not(m.mk_eq(a, b)));
+        }
+        for (auto * arg : args)
+            sorts.push_back(arg->get_sort());
+        func_decl* f = m.mk_func_decl(m_name, sorts.size(), sorts.data(), proof);
         return m.mk_app(f, args);
     }
 

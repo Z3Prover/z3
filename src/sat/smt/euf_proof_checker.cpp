@@ -145,8 +145,10 @@ namespace euf {
                         else 
                             merge(x, y);
                     }
-                    else 
-                        IF_VERBOSE(0, verbose_stream() << "TODO " << mk_pp(arg, m) << " " << sign << "\n");
+                    else if (m.is_not(arg, arg))
+                        merge(arg, m.mk_false());
+                    else
+                        merge(arg, m.mk_true());
                 }
                 else if (m.is_proof(arg)) {
                     if (!is_app(arg))
@@ -274,6 +276,7 @@ namespace euf {
         add_plugin(alloc(eq_proof_checker, m));
         add_plugin(alloc(res_proof_checker, m, *this));
         add_plugin(alloc(q::proof_checker, m));
+        add_plugin(alloc(smt_proof_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
     }
 
     proof_checker::~proof_checker() {
@@ -317,8 +320,13 @@ namespace euf {
     }
 
     void proof_checker::vc(expr* e, expr_ref_vector& clause) {
-        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
-        m_map[to_app(e)->get_name()]->vc(to_app(e), clause);
+        SASSERT(is_app(e));
+        app* a = to_app(e);
+        proof_checker_plugin* p = nullptr;
+        if (m_map.find(a->get_name(), p))
+            p->vc(a, clause);
+        else 
+            IF_VERBOSE(0, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
     }
    
     bool proof_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
@@ -347,5 +355,13 @@ namespace euf {
         return true;
     }
 
+    expr_ref_vector smt_proof_checker_plugin::clause(app* jst) {
+        expr_ref_vector result(m);
+        SASSERT(jst->get_name() == m_rule);
+        for (expr* arg : *jst) 
+            result.push_back(mk_not(m, arg));
+        return result;
+    }
+    
 }
 

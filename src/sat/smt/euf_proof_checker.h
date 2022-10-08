@@ -49,5 +49,22 @@ namespace euf {
         bool check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units);
     };
 
+    /**
+       Base class for checking SMT proofs whose justifications are 
+       provided as a set of literals and E-node equalities.
+       It provides shared implementations for clause and register_plugin.
+       It overrides check to always fail.
+     */
+    class smt_proof_checker_plugin : public proof_checker_plugin {
+        ast_manager& m;
+        symbol m_rule;
+    public:
+        smt_proof_checker_plugin(ast_manager& m, symbol const& n): m(m), m_rule(n) {}
+        ~smt_proof_checker_plugin() override {}
+        bool check(app* jst) override { return false; }
+        expr_ref_vector clause(app* jst) override;        
+        void register_plugins(proof_checker& pc) override { pc.register_plugin(m_rule, this); }
+    };
+
 }
 

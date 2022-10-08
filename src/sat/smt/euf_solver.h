@@ -68,10 +68,20 @@ namespace euf {
         expr* get_hint(euf::solver& s) const override;
     };
 
+    class smt_proof_hint : public th_proof_hint {
+        symbol   m_name;
+        unsigned m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail;
+    public:
+        smt_proof_hint(symbol const& n, unsigned lh, unsigned lt, unsigned ch, unsigned ct, unsigned dh, unsigned dt):
+            m_name(n), m_lit_head(lh), m_lit_tail(lt), m_eq_head(ch), m_eq_tail(ct), m_deq_head(dh), m_deq_tail(dt) {}
+        expr* get_hint(euf::solver& s) const override;
+    };
+
     class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
         friend class eq_proof_hint;
+        friend class smt_proof_hint;
         class user_sort;
         struct stats {
             unsigned m_ackerman;
@@ -130,6 +140,7 @@ namespace euf {
         constraint* m_eq = nullptr;
         constraint* m_lit = nullptr;
 
+
         // internalization
         bool visit(expr* e) override;
         bool visited(expr* e) override;
@@ -184,8 +195,12 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r, eq_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
-        literal_vector m_eq_proof_literals;
+
+        typedef std::pair<expr*, expr*> expr_pair;
+        literal_vector    m_proof_literals;
+        svector<expr_pair> m_proof_eqs, m_proof_deqs, m_expr_pairs;
         unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
+        unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
         eq_proof_hint* mk_hint(literal lit, literal_vector const& r);
 
         bool m_proof_initialized = false;
@@ -365,6 +380,26 @@ namespace euf {
         void visit_expr(std::ostream& out, expr* e);
         std::ostream& display_expr(std::ostream& out, expr* e);        
         void on_instantiation(unsigned n, sat::literal const* lits, unsigned k, euf::enode* const* bindings);
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal_vector const& lits, enode_pair_vector const& eqs) {
+            return mk_smt_hint(n, lits.size(), lits.data(), eqs.size(), eqs.data());
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, enode_pair_vector const& eqs) {
+            return mk_smt_hint(n, 0, nullptr, eqs.size(), eqs.data());
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal_vector const& lits) {
+            return mk_smt_hint(n, lits.size(), lits.data(), 0, (expr_pair const*) nullptr);            
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd = 0, expr_pair const* deqs = nullptr); 
+        smt_proof_hint* mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, enode_pair const* eqs); 
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, unsigned ne, expr_pair const* eqs) { return mk_smt_hint(n, 1, &lit, ne, eqs); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit) { return mk_smt_hint(n, 1, &lit, 0, (expr_pair const*)nullptr); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal l1, literal l2) { literal ls[2] = {l1,l2}; return mk_smt_hint(n, 2, ls, 0, (expr_pair const*)nullptr); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 1, &e); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 1, &lit, 1, &e); }
+        smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 0, nullptr, 1, &e); }        
+        smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, enode* a, enode* b) { return mk_smt_prop_hint(n, lit, a->get_expr(), b->get_expr()); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 0, nullptr, 1, &e); }
+
         scoped_ptr<std::ostream> m_proof_out;
 
         // decompile

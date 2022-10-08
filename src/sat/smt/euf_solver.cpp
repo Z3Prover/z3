@@ -305,11 +305,9 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-
         m_relevancy.asserted(l);
         if (!m_relevancy.is_relevant(l))
             return;        
-
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
@@ -334,7 +332,7 @@ namespace euf {
             m_egraph.merge(r, rb, to_ptr(rl));
             SASSERT(m_egraph.inconsistent());
             return;
-	    }
+        }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
