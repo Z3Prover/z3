@@ -847,7 +847,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         int64_t _b = b.m_val;
         if (_a < 0) _a = -_a;
         if (_b < 0) _b = -_b;
-        unsigned r = u64_gcd(_a, _b);
+        auto r = u64_gcd(_a, _b);
         set(c, r);
     }
     else {
@@ -1018,7 +1018,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             SASSERT(ge(a1, b1));
             if (is_small(b1)) {
                 if (is_small(a1)) {
-                    unsigned r = u64_gcd(a1.m_val, b1.m_val);
+                    auto r = u64_gcd(a1.m_val, b1.m_val);
                     set(c, r);
                     break;
                 }
@@ -2113,6 +2113,10 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
         unsigned r = 0;
         int64_t v  = a.m_val;
 #define COUNT_DIGIT_RIGHT_ZEROS()               \
+        if (v % (1ll << 32) == 0) {             \
+            r += 32;                            \
+            v /= (1ll << 32);                   \
+        }                                       \
         if (v % (1 << 16) == 0) {               \
             r += 16;                            \
             v /= (1 << 16);                     \
