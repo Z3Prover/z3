@@ -183,6 +183,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (m_expr2var_replay && m_expr2var_replay->find(n, v))
             return v;
         v = m_solver.add_var(is_ext);
+        if (!is_ext && m_euf && ensure_euf()->use_drat())
+            ensure_euf()->set_bool_var2expr(v, n);
         return v;
     }
 
@@ -417,7 +419,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             cache(t, l);
             sat::literal * lits = m_result_stack.end() - num;       
             for (unsigned i = 0; i < num; i++) 
-                mk_clause(~lits[i], l);
+                mk_clause(~lits[i], l, mk_tseitin(~lits[i], l));
                        
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
@@ -427,7 +429,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
-            mk_clause(num+1, lits);
+            mk_clause(num+1, lits, mk_tseitin(num+1, lits));
             if (aig()) 
                 aig()->add_or(l, num, aig_lits.data());
                         
@@ -470,7 +472,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
             // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
-                mk_clause(~l, lits[i]);
+                mk_clause(~l, lits[i], mk_tseitin(~l, lits[i]));
             }
             // /\ lits => l
             for (unsigned i = 0; i < num; ++i) {
@@ -482,7 +484,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 aig_lits.reset();
                 aig_lits.append(num, lits);
             }
-            mk_clause(num+1, lits);
+            mk_clause(num+1, lits, mk_tseitin(num+1, lits));
             if (aig()) {
                 aig()->add_and(l, num, aig_lits.data());
             }        
@@ -934,6 +936,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         expr_ref f(m), d_new(m);
         ptr_vector<expr> deps;
         expr_ref_vector  fmls(m);
+        if (m_euf)
+            ensure_euf();
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);
             // Add assumptions.

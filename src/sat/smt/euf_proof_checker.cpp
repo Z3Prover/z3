@@ -322,7 +322,7 @@ namespace euf {
         proof_checker_plugin* p = nullptr;
         if (m_map.find(a->get_name(), p))
             return p->vc(a, clause, v);
-        IF_VERBOSE(0, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
+        IF_VERBOSE(10, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
         return false;
     }
    

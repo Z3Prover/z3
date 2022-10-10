@@ -72,6 +72,7 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
+            use_drat();
     }
 
     /**

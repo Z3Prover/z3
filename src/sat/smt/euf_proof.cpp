@@ -28,7 +28,7 @@ namespace euf {
         }
         if (!m_proof_out && s().get_config().m_drat && 
             (get_config().m_lemmas2console || s().get_config().m_smt_proof.is_non_empty_string())) {
-            TRACE("euf", tout << "init-proof\n");
+            TRACE("euf", tout << "init-proof " << s().get_config().m_smt_proof << "\n");
             m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
             if (get_config().m_lemmas2console) 
                 get_drat().set_clause_eh(*this);
@@ -284,10 +284,13 @@ namespace euf {
     }
 
     bool solver::visit_clause(std::ostream& out, unsigned n, literal const* lits) {
+        expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
             expr* e = bool_var2expr(lits[i].var());
-            if (!e)
-                return false;
+            if (!e) {
+                k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
+                e = k;
+            }
             visit_expr(out, e);
         }
         return true;
@@ -335,8 +338,13 @@ namespace euf {
     }
 
     std::ostream& solver::display_literals(std::ostream& out, unsigned n, literal const* lits) {
+        expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
             expr* e = bool_var2expr(lits[i].var());
+            if (!e) {
+                k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
+                e = k;
+            }
             if (lits[i].sign())
                 display_expr(out << " (not ", e) << ")";
             else

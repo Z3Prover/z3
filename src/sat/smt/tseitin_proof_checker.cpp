@@ -31,28 +31,75 @@ namespace tseitin {
         expr* main_expr = nullptr;
         unsigned max_depth = 0;
         for (expr* arg : *jst) {
-            if (get_depth(arg) > max_depth) {
+            unsigned arg_depth = get_depth(arg);
+            if (arg_depth > max_depth) {
                 main_expr = arg;
-                max_depth = get_depth(arg);
+                max_depth = arg_depth;
             }
+            if (arg_depth == max_depth && m.is_not(main_expr)) 
+                main_expr = arg;            
         }
+
         if (!main_expr)
             return false;
 
         expr* a;
+
+        // (or (and a b) (not a) (not b))
+        if (m.is_and(main_expr)) {            
+            scoped_mark sm(*this);
+            for (expr* arg : *jst)
+                if (m.is_not(arg, arg))
+                    mark(arg);
+            for (expr* arg : *to_app(main_expr)) {
+                if (!is_marked(arg))
+                    return false;
+            }
+            return true;
+        }
+
+        // (or (or a b) (not a))
+        if (m.is_or(main_expr)) {            
+            scoped_mark sm(*this);
+            for (expr* arg : *jst)
+                if (m.is_not(arg, arg))
+                    mark(arg);
+            for (expr* arg : *to_app(main_expr)) {
+                if (is_marked(arg))
+                    return true;
+            }
+            return false;
+        }
+        
         if (m.is_not(main_expr, a)) {
+            
+            // (or (not a) a')
             for (expr* arg : *jst)
                 if (equiv(a, arg))
                     return true;
             
-            if (m.is_and(a))
-                for (expr* arg1 : *to_app(a))
-                    for (expr* arg2 : *jst)
-                        if (equiv(arg1, arg2))
-                            return true;
+            // (or (not (and a b)) a)
+            if (m.is_and(a)) {
+                scoped_mark sm(*this);
+                for (expr* arg : *jst)
+                    mark(arg);
+                for (expr* arg : *to_app(a))
+                    if (is_marked(arg))
+                        return true;              
+            }
             
-            if (m.is_or(a))
-                return false;
+            // (or (not (or a b) a b))
+            if (m.is_or(a)) {
+                scoped_mark sm(*this);
+                for (expr* arg : *jst)
+                    mark(arg);
+                for (expr* arg : *to_app(a))
+                    if (!is_marked(arg))
+                        return false;
+                return true;
+            }
+
+#if 0
             if (m.is_implies(a))
                 return false;
             if (m.is_eq(a))
@@ -61,6 +108,7 @@ namespace tseitin {
                 return false;
             if (m.is_distinct(a))
                 return false;
+#endif
         }
         return false;
     }

@@ -28,8 +28,16 @@ namespace tseitin {
     class proof_checker : public euf::proof_checker_plugin {
         ast_manager& m;
 
+        expr_fast_mark1 m_mark;
         bool equiv(expr* a, expr* b);
         
+        void mark(expr* a) { m_mark.mark(a); }
+        bool is_marked(expr* a) { return m_mark.is_marked(a); }
+        struct scoped_mark {
+            proof_checker& pc;
+            scoped_mark(proof_checker& pc): pc(pc) {}
+            ~scoped_mark() { pc.m_mark.reset(); }
+        };
     public:
         proof_checker(ast_manager& m): 
             m(m) {

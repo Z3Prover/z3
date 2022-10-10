@@ -113,6 +113,8 @@ namespace q {
     expr_ref mbqi::replace_model_value(expr* e) {
         auto const& v2r = ctx.values2root();
         euf::enode* r = nullptr;
+        if (m.is_bool(e))
+            return expr_ref(e, m);
         if (v2r.find(e, r))
             return choose_term(r);        
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -135,7 +137,7 @@ namespace q {
                 r = n;
             }
             else if (n->generation() == gen) {
-                if ((m_qs.random() % ++count) == 0)
+                if ((m_qs.random() % ++count) == 0 && has_quantifiers(n->get_expr()))
                     r = n;
             }
             if (count > m_max_choose_candidates)
@@ -233,22 +235,21 @@ namespace q {
 
     expr_ref_vector mbqi::extract_binding(quantifier* q) {
         SASSERT(!ctx.use_drat() || !m_defs.empty());
-        if (!m_defs.empty()) {
-            expr_safe_replace sub(m);
-            for (unsigned i = m_defs.size(); i-- > 0; ) {
-                sub(m_defs[i].term);
-                sub.insert(m_defs[i].var, m_defs[i].term);
-            }
-            q_body* qb = q2body(q);
-            expr_ref_vector inst(m);
-            for (expr* v : qb->vars) {
-                expr_ref t(m);
-                sub(v, t);
-                inst.push_back(t);
-            }
-            return inst;
+        if (m_defs.empty())
+            return expr_ref_vector(m);
+        expr_safe_replace sub(m);
+        for (unsigned i = m_defs.size(); i-- > 0; ) {
+            sub(m_defs[i].term);
+            sub.insert(m_defs[i].var, m_defs[i].term);
         }
-        return expr_ref_vector(m);
+        q_body* qb = q2body(q);
+        expr_ref_vector inst(m);
+        for (expr* v : qb->vars) {
+            expr_ref t(m);
+            sub(v, t);
+            inst.push_back(t);
+        }
+        return inst;
     }
 
 
@@ -344,8 +345,7 @@ namespace q {
                 continue; 
             if (ctx.use_drat()) {
                 if (!p->project(*m_model, vars, fmls, m_defs)) 
-                    return expr_ref(m);
-                    
+                    return expr_ref(m);                    
             }
             else if (!(*p)(*m_model, vars, fmls)) {
                 TRACE("q", tout << "theory projection failed\n");
@@ -363,7 +363,8 @@ namespace q {
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
-        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";);
+        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";
+                    for (auto const& [v,t] : m_defs) tout << v << " := " << t << "\n");
         return mk_and(fmls);
     }
 

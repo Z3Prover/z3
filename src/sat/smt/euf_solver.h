@@ -309,6 +309,7 @@ namespace euf {
         trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);
+        void set_solver(sat::solver* s) override { m_solver = s; use_drat(); }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
@@ -371,7 +372,7 @@ namespace euf {
 
 
         // proof
-        bool use_drat() { return s().get_config().m_drat && (init_proof(), true); }
+        bool use_drat() { return m_solver && s().get_config().m_drat && (init_proof(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
 
         void set_tmp_bool_var(sat::bool_var b, expr* e);
@@ -420,6 +421,7 @@ namespace euf {
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* e_internalize(expr* e);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
+        void set_bool_var2expr(sat::bool_var v, expr* e) { m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
