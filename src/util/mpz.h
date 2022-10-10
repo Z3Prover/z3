@@ -181,12 +181,9 @@ class mpz_manager {
             deallocate(n);
             n.m_val = 1;
             n.set(allocate(c));
-            n.set(mpz_large);
             n.set(mpz_self);
         }
-        else {
-            n.set(mpz_large);
-        }
+        n.set(mpz_large);
     }
 
     void deallocate(bool is_heap, mpz_cell * ptr);

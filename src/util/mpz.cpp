@@ -153,7 +153,7 @@ mpz_manager<SYNCH>::mpz_manager():
 #endif
     
     set(m_two64, (uint64_t)UINT64_MAX);
-    add(m_two64, mpz(1), m_two64);
+    inc(m_two64);
 }
 
 template<bool SYNCH>
@@ -385,11 +385,21 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
     }
     
     auto d = src.m_digits[0];
-    if (i == 1 && d < INT64_MAX) {
+    if (i == 1 && d <= INT64_MAX) {
         // src fits in a fixnum
         a.m_val = sign < 0 ? -static_cast<int64_t>(d) : static_cast<int64_t>(d);
         a.set(mpz_small);
         return;
+    }
+
+    if (i == 2) {
+        static_assert(sizeof(digit_t) == sizeof(unsigned));
+        auto val = ((static_cast<uint64_t>(src.m_digits[1]) << 32) | (static_cast<uint64_t>(src.m_digits[0])));
+        if (val <= INT64_MAX) {
+            a.m_val = sign < 0 ? -static_cast<int64_t>(val) : static_cast<int64_t>(val);
+            a.set(mpz_small);
+            return;
+        }
     }
 
     set_digits(a, i, src.m_digits);
@@ -1807,7 +1817,18 @@ unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
         // keep same hash as before to avoid regressions..
         if ((int)a.m_val == a.m_val)
             return ::abs(a.m_val);
-        return string_hash((const char*)&a.m_val, sizeof(int64_t), 17);
+
+        uint64_t v = a.m_val;
+        if (a.m_val == INT64_MIN) {
+            v = (uint64_t)INT64_MAX + 1;
+        }
+        else if (a.m_val < 0) {
+            v = -v;
+        }
+        unsigned digits[2] = { static_cast<unsigned>(v),
+                               static_cast<unsigned>(v >> 32) };
+        SASSERT(digits[1] != 0);
+        return string_hash((const char*)digits, 2 * sizeof(digit_t), 17);
     }
 #ifndef _MP_GMP
     unsigned sz = size(a);
