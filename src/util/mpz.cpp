@@ -384,10 +384,10 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
         return;
     }
     
-    unsigned d = src.m_digits[0];
-    if (i == 1 && d <= INT_MAX) {
-        // src fits is a fixnum
-        a.m_val = sign < 0 ? -static_cast<int>(d) : static_cast<int>(d);
+    auto d = src.m_digits[0];
+    if (i == 1 && d < INT64_MAX) {
+        // src fits in a fixnum
+        a.m_val = sign < 0 ? -static_cast<int64_t>(d) : static_cast<int64_t>(d);
         a.set(mpz_small);
         return;
     }
@@ -534,9 +534,14 @@ void mpz_manager<SYNCH>::machine_div(mpz const & a, mpz const & b, mpz & c) {
     if (is_small(b) && i64(b) == 0)
         throw default_exception("division by 0"); 
 
-    if (is_small(a) && is_small(b)) 
-        set_i64(c, i64(a) / i64(b));
-    else 
+    if (is_small(a) && is_small(b)) {
+        // overflows
+        if (i64(a) == INT64_MIN && i64(b) == -1) {
+            set_big_ui64(c, (uint64_t)INT64_MAX + 1);
+        } else {
+            set_i64(c, i64(a) / i64(b));
+        }
+    } else
         big_div(a, b, c);
     STRACE("mpz", tout << to_string(c) << "\n";);
 }
@@ -1798,8 +1803,12 @@ std::string mpz_manager<SYNCH>::to_string(mpz const & a) const {
 
 template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
-    if (is_small(a))
-        return ::abs(a.m_val);
+    if (is_small(a)) {
+        // keep same hash as before to avoid regressions..
+        if ((int)a.m_val == a.m_val)
+            return ::abs(a.m_val);
+        return string_hash((const char*)&a.m_val, sizeof(int64_t), 17);
+    }
 #ifndef _MP_GMP
     unsigned sz = size(a);
     if (sz == 1)
@@ -1922,10 +1931,10 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         capacity = m_init_cell_capacity;
     
     if (is_small(a)) {
+        auto val = a.m_val;
         allocate_if_needed(a, capacity);
-        a.set(mpz_large);
         SASSERT(a.ptr()->m_capacity >= capacity);
-        set_big_i64(a, a.m_val);
+        set_big_i64(a, val);
     }
     else if (a.ptr()->m_capacity < capacity) {
         mpz_cell * new_cell = allocate(capacity);
@@ -2051,7 +2060,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     TRACE("mpz_mul2k", tout << "mul2k\na: " << to_string(a) << "\nk: " << k << "\n";);
     unsigned word_shift  = k / (8 * sizeof(digit_t));
     unsigned bit_shift   = k % (8 * sizeof(digit_t));
-    unsigned old_sz      = is_small(a) ? 1 : a.ptr()->m_size;
+    unsigned old_sz      = is_small(a) ? (sizeof(int64_t) / sizeof(digit_t)) : a.ptr()->m_size;
     unsigned new_sz      = old_sz + word_shift + 1;
     ensure_capacity(a, new_sz);
     TRACE("mpz_mul2k", tout << "word_shift: " << word_shift << "\nbit_shift: " << bit_shift << "\nold_sz: " << old_sz << "\nnew_sz: " << new_sz 
