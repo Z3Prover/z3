@@ -22,6 +22,7 @@ Author:
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_proof_checker.h"
 #include "sat/smt/q_proof_checker.h"
+#include "sat/smt/tseitin_proof_checker.h"
 #include <iostream>
 
 namespace euf {
@@ -145,10 +146,7 @@ namespace euf {
                         else 
                             merge(x, y);
                     }
-                    else if (m.is_not(arg, arg))
-                        merge(arg, m.mk_false());
-                    else
-                        merge(arg, m.mk_true());
+                    merge(arg, sign ? m.mk_false() : m.mk_true());
                 }
                 else if (m.is_proof(arg)) {
                     if (!is_app(arg))
@@ -277,6 +275,7 @@ namespace euf {
         add_plugin(alloc(res_proof_checker, m, *this));
         add_plugin(alloc(q::proof_checker, m));
         add_plugin(alloc(smt_proof_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
+        add_plugin(alloc(tseitin::proof_checker, m));
     }
 
     proof_checker::~proof_checker() {
@@ -302,10 +301,8 @@ namespace euf {
         proof_checker_plugin* p = nullptr;
         if (!m_map.find(a->get_decl()->get_name(), p))
             return false;
-        if (!p->check(a)) {
-            std::cout << "(missed-hint " << mk_pp(e, m) << ")\n";
-            return false;
-        }
+        if (!p->check(a)) 
+            return false;        
         return true;
     }
 
@@ -319,14 +316,14 @@ namespace euf {
         return r;
     }
 
-    void proof_checker::vc(expr* e, expr_ref_vector& clause) {
+    bool proof_checker::vc(expr* e, expr_ref_vector const& clause, expr_ref_vector& v) {
         SASSERT(is_app(e));
         app* a = to_app(e);
         proof_checker_plugin* p = nullptr;
         if (m_map.find(a->get_name(), p))
-            p->vc(a, clause);
-        else 
-            IF_VERBOSE(0, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
+            return p->vc(a, clause, v);
+        IF_VERBOSE(0, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
+        return false;
     }
    
     bool proof_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {

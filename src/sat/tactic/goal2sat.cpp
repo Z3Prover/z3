@@ -68,15 +68,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
-    obj_map<expr, sat::bool_var>* m_expr2var_replay { nullptr };
+    obj_map<expr, sat::bool_var>* m_expr2var_replay = nullptr;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
-    bool                        m_euf { false };
-    bool                        m_is_redundant { false };
-    bool                        m_top_level { false };
+    bool                        m_euf = false;
+    bool                        m_is_redundant = false;
+    bool                        m_top_level = false;
     sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -108,8 +108,24 @@ struct goal2sat::imp : public sat::sat_internalizer {
         throw tactic_exception(std::move(s0));
     }
 
-    sat::status mk_status() const {
-        return sat::status::th(m_is_redundant, m.get_basic_family_id());
+    symbol m_tseitin = symbol("tseitin");
+
+    euf::th_proof_hint* mk_tseitin(unsigned n, sat::literal const* lits) {
+        if (m_euf && ensure_euf()->use_drat())
+            return ensure_euf()->mk_smt_hint(m_tseitin, n, lits);
+        return nullptr;
+    }
+
+    euf::th_proof_hint* mk_tseitin(sat::literal a, sat::literal b) {
+        if (m_euf && ensure_euf()->use_drat()) {
+            sat::literal lits[2] = { a, b };
+            return ensure_euf()->mk_smt_hint(m_tseitin, 2, lits);
+        }
+        return nullptr;
+    }
+
+    sat::status mk_status(euf::th_proof_hint* ph = nullptr) const {
+        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
     }
 
     bool relevancy_enabled() {
@@ -124,42 +140,42 @@ struct goal2sat::imp : public sat::sat_internalizer {
         mk_clause(1, &l);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2) {
+    void mk_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[2] = { l1, l2 };
-        mk_clause(2, lits);
+        mk_clause(2, lits, ph);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[3] = { l1, l2, l3 };
-        mk_clause(3, lits);
+        mk_clause(3, lits, ph);
     }
 
-    void mk_clause(unsigned n, sat::literal * lits) {
+    void mk_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph = nullptr) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_aux(n, lits);
-        m_solver.add_clause(n, lits, mk_status());
+        m_solver.add_clause(n, lits, mk_status(ph));
     }
 
     void mk_root_clause(sat::literal l) {
         mk_root_clause(1, &l);
     }
 
-    void mk_root_clause(sat::literal l1, sat::literal l2) {
+    void mk_root_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[2] = { l1, l2 };
-        mk_root_clause(2, lits);
+        mk_root_clause(2, lits, ph);
     }
 
-    void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[3] = { l1, l2, l3 };
-        mk_root_clause(3, lits);
+        mk_root_clause(3, lits, ph);
     }
 
-    void mk_root_clause(unsigned n, sat::literal * lits) {
+    void mk_root_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph = nullptr) {
         TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_root(n, lits);
-        m_solver.add_clause(n, lits, m_is_redundant ? mk_status() : sat::status::input());
+        m_solver.add_clause(n, lits, m_is_redundant ? mk_status(ph) : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {

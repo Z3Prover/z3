@@ -365,6 +365,7 @@ namespace q {
     }
 
     q_proof_hint* q_proof_hint::mk(euf::solver& s, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings) {
+        SASSERT(n > 0);
         auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n, lits.size()));
         q_proof_hint* ph = new (mem) q_proof_hint(n, lits.size());
         for (unsigned i = 0; i < n; ++i)
@@ -375,6 +376,7 @@ namespace q {
     }
 
     q_proof_hint* q_proof_hint::mk(euf::solver& s, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings) {
+        SASSERT(n > 0);
         auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n, 2));
         q_proof_hint* ph = new (mem) q_proof_hint(n, 2);
         for (unsigned i = 0; i < n; ++i)

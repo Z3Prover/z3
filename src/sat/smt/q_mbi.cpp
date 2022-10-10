@@ -232,6 +232,7 @@ namespace q {
     }
 
     expr_ref_vector mbqi::extract_binding(quantifier* q) {
+        SASSERT(!ctx.use_drat() || !m_defs.empty());
         if (!m_defs.empty()) {
             expr_safe_replace sub(m);
             for (unsigned i = m_defs.size(); i-- > 0; ) {
@@ -543,6 +544,14 @@ namespace q {
                 body = subst(q_flat->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
+                if (ctx.use_drat()) {
+                    m_defs.reset();
+                    for (unsigned i = 0; i < binding.size(); ++i) {
+                        expr_ref v(qb.vars.get(i), m);
+                        expr_ref t(binding.get(i), m);
+                        m_defs.push_back(mbp::def(v, t));
+                    }
+                }
                 add_instantiation(q, body);
                 ++num_bindings;
             }                

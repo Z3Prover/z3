@@ -160,8 +160,13 @@ namespace euf {
             s().set_external(v);
             s().set_eliminated(v, false);
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
-            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
+            th_proof_hint* ph1 = nullptr, * ph2 = nullptr;
+            if (use_drat()) {
+                ph1 = mk_smt_hint(symbol("tseitin"), ~lit, lit2);
+                ph2 = mk_smt_hint(symbol("tseitin"), lit, ~lit2);
+            }
+            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph1));
+            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph2));
             add_aux(~lit, lit2);
             add_aux(lit, ~lit2);
             lit = lit2;
@@ -310,8 +315,8 @@ namespace euf {
                 sat::literal lit_el = mk_literal(eq_el);
                 add_root(~lit_c, lit_th);
                 add_root(lit_c, lit_el);
-                s().add_clause(~lit_c, lit_th, st);
-                s().add_clause(lit_c, lit_el, st);
+                s().add_clause(~lit_c, lit_th, mk_tseitin_status(~lit_c, lit_th));
+                s().add_clause(lit_c, lit_el, mk_tseitin_status(lit_c, lit_el));
             }
         }
         else if (m.is_distinct(e)) {
@@ -329,8 +334,8 @@ namespace euf {
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             add_root(~dist, ~some_eq);
             add_root(dist, some_eq);
-            s().add_clause(~dist, ~some_eq, st);
-            s().add_clause(dist, some_eq, st);
+            s().add_clause(~dist, ~some_eq, mk_tseitin_status(~dist, ~some_eq));
+            s().add_clause(dist, some_eq, mk_tseitin_status(dist, some_eq));
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -341,8 +346,8 @@ namespace euf {
                 sat::literal lit2 = expr2literal(e2);
                 add_root(~lit1, lit2);
                 add_root(lit1, ~lit2);
-                s().add_clause(~lit1, lit2, st);
-                s().add_clause(lit1, ~lit2, st);
+                s().add_clause(~lit1, lit2, mk_tseitin_status(~lit1, lit2));
+                s().add_clause(lit1, ~lit2, mk_tseitin_status(lit1, ~lit2));
             }
         }
     }

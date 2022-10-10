@@ -158,10 +158,15 @@ public:
         // then check the simplified VC: phi(t) => psi.
         // in case psi is the literal instantiation, then the clause is a propositional tautology.
         // The VC function is a no-op if the proof hint does not have an associated vc generator.
-        m_checker.vc(proof_hint, clause);
+        expr_ref_vector vc(clause);
+        if (m_checker.vc(proof_hint, clause, vc)) {
+            std::cout << "(verified-" << proof_hint->get_name() << ")\n";
+            add_clause(clause);
+            return;
+        }
         
         m_solver->push();
-        for (expr* lit : clause)
+        for (expr* lit : vc)
             m_solver->assert_expr(m.mk_not(lit));
         lbool is_sat = m_solver->check_sat();
         if (is_sat != l_false) {
@@ -175,7 +180,11 @@ public:
             exit(0);
         }
         m_solver->pop(1);
-        std::cout << "(verified-smt)\n";
+        std::cout << "(verified-smt"; 
+        if (proof_hint) std::cout << " " << mk_pp(proof_hint, m);
+        for (expr* arg : clause)
+            std::cout << " " << mk_pp(arg, m);
+        std::cout << ")\n";
         add_clause(clause);
     }
 

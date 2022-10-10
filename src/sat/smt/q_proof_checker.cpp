@@ -25,27 +25,33 @@ namespace q {
         expr_ref_vector result(m);
         for (expr* arg : *jst) 
             if (!is_bind(arg))
-                result.push_back(arg);
+                result.push_back(mk_not(m, arg));
         return result;
     }
 
     expr_ref_vector proof_checker::binding(app* jst) {
         expr_ref_vector result(m);
         for (expr* arg : *jst) 
-            if (is_bind(arg))
-                result.push_back(to_app(arg)->get_arg(0));
+            if (is_bind(arg)) {
+                result.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                break;
+            }
         return result;        
     }
     
-    void proof_checker::vc(app* jst, expr_ref_vector& clause) {
+    bool proof_checker::vc(app* jst, expr_ref_vector const& clause0, expr_ref_vector& v) {
         expr* q = nullptr;
         if (!is_inst(jst))
-            return;
-        SASSERT(clause.size() >= 2);
-        VERIFY(m.is_not(clause.get(0), q) && is_forall(q));
+            return false;
+        auto clause1 = clause(jst);
+        SASSERT(clause1.size() >= 2);
+        VERIFY(m.is_not(clause1.get(0), q) && is_forall(q));
         auto inst = binding(jst);
         expr_ref qi = instantiate(m, to_quantifier(q), inst.begin());
-        clause[0] = m.mk_not(qi);
+        clause1[0] = m.mk_not(qi);
+        v.reset();
+        v.append(clause1);
+        return qi == clause1.get(1);
     }
 
     bool proof_checker::is_inst(expr* jst) {

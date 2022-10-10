@@ -144,10 +144,9 @@ namespace euf {
         return is_new;
     }
     
-    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, th_proof_hint const* ps) {
-        SASSERT(ps);
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, th_proof_hint const* ph) {
         sat::literal lits[2] = { a, b };
-        return add_clause(2, lits, ps);
+        return add_clause(2, lits, ph);
     }
 
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, th_proof_hint const* ps) {
@@ -161,7 +160,7 @@ namespace euf {
     }
 
     bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps) {
-        //SASSERT(!ctx.use_drat() || ps); - very far from true, and isn't a requirement
+        SASSERT(!ctx.use_drat() || ps); // - very far from true, and isn't a requirement
         bool was_true = false;
         for (unsigned i = 0; i < n; ++i)       
             was_true |= is_true(lits[i]);

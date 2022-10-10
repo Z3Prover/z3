@@ -30,7 +30,7 @@ namespace euf {
         virtual bool check(app* jst) = 0;
         virtual expr_ref_vector clause(app* jst) = 0;
         virtual void register_plugins(proof_checker& pc) = 0;
-        virtual void vc(app* jst, expr_ref_vector& clause) { }
+        virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { return false; }
     };
 
     class proof_checker {
@@ -45,7 +45,7 @@ namespace euf {
         void register_plugin(symbol const& rule, proof_checker_plugin*);
         bool check(expr* jst);
         expr_ref_vector clause(expr* jst);
-        void vc(expr* jst, expr_ref_vector& clause);
+        bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
         bool check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units);
     };
 
