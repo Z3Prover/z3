@@ -1993,6 +1993,17 @@ void mpz_manager<SYNCH>::normalize(mpz & a) {
         a.set(mpz_small);
         return;
     }
+
+    if (i == 2) {
+        static_assert(sizeof(digit_t) == sizeof(unsigned));
+        auto val = ((static_cast<uint64_t>(ds[1]) << 32) | static_cast<uint64_t>(ds[0]));
+        if (val <= INT64_MAX) {
+            a.m_val = a.m_val < 0 ? -static_cast<int64_t>(val) : static_cast<int64_t>(val);
+            a.set(mpz_small);
+            return;
+        }
+    }
+
     // adjust size
     c->m_size = i;
 }
