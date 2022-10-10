@@ -124,6 +124,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return nullptr;
     }
 
+    euf::th_proof_hint* mk_tseitin(sat::literal a, sat::literal b, sat::literal c) {
+        if (m_euf && ensure_euf()->use_drat()) {
+            sat::literal lits[3] = { a, b, c };
+            return ensure_euf()->mk_smt_hint(m_tseitin, 3, lits);
+        }
+        return nullptr;
+    }
+
     sat::status mk_status(euf::th_proof_hint* ph = nullptr) const {
         return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
     }
@@ -522,13 +530,13 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::bool_var k = add_var(false, n);
             sat::literal  l(k, false);
             cache(n, l);
-            mk_clause(~l, ~c, t);
-            mk_clause(~l,  c, e);
-            mk_clause(l,  ~c, ~t);
-            mk_clause(l,   c, ~e);
+            mk_clause(~l, ~c, t, mk_tseitin(~l, ~c, t));
+            mk_clause(~l,  c, e, mk_tseitin(~l, c, e));
+            mk_clause(l,  ~c, ~t, mk_tseitin(l, ~c, ~t));
+            mk_clause(l,   c, ~e, mk_tseitin(l, c, ~e));
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l);
-                mk_clause(t,  e, ~l);
+                mk_clause(~t, ~e, l, mk_tseitin(~t, ~e, l));
+                mk_clause(t,  e, ~l, mk_tseitin(t, e, ~l));
             }
             if (aig()) aig()->add_ite(l, c, t, e);
             if (sign)
@@ -555,8 +563,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             cache(t, l);
             // l <=> ~lit
-            mk_clause(lit, l);
-            mk_clause(~lit, ~l);
+            mk_clause(lit, l, mk_tseitin(lit, l));
+            mk_clause(~lit, ~l, mk_tseitin(~lit, ~l));
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
@@ -587,9 +595,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             cache(t, l);
             // l <=> (l1 => l2)
-            mk_clause(~l, ~l1, l2);
-            mk_clause(l1, l);
-            mk_clause(~l2, l);
+            mk_clause(~l, ~l1, l2, mk_tseitin(~l, ~l1, l2));
+            mk_clause(l1, l, mk_tseitin(l1, l));
+            mk_clause(~l2, l, mk_tseitin(~l2, l));
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
@@ -625,10 +633,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             if (m.is_xor(t))
                 l1.neg();
-            mk_clause(~l, l1, ~l2);
-            mk_clause(~l, ~l1, l2);
-            mk_clause(l, l1, l2);
-            mk_clause(l, ~l1, ~l2);
+            mk_clause(~l,  l1, ~l2, mk_tseitin(~l, l1, ~l2));
+            mk_clause(~l, ~l1,  l2, mk_tseitin(~l, ~l1, l2));
+            mk_clause(l,   l1,  l2, mk_tseitin(l, l1, l2));
+            mk_clause(l,  ~l1, ~l2, mk_tseitin(l, ~l1, ~l2));
             if (aig()) aig()->add_iff(l, l1, l2);
 
             cache(t, l);

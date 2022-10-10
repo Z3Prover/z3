@@ -29,14 +29,33 @@ namespace tseitin {
         ast_manager& m;
 
         expr_fast_mark1 m_mark;
+        expr_fast_mark2 m_nmark;
         bool equiv(expr* a, expr* b);
         
         void mark(expr* a) { m_mark.mark(a); }
         bool is_marked(expr* a) { return m_mark.is_marked(a); }
+
+        void nmark(expr* a) { m_nmark.mark(a); }
+        bool is_nmarked(expr* a) { return m_nmark.is_marked(a); }
+
+        void complement_mark(expr* a) {
+            if (m.is_not(a, a))
+                m_nmark.mark(a);
+            else
+                m_mark.mark(a);
+        }
+
+        bool is_complement(expr* a) {
+            if (m.is_not(a, a))
+                return is_marked(a);
+            else
+                return is_nmarked(a);
+        }
+
         struct scoped_mark {
             proof_checker& pc;
             scoped_mark(proof_checker& pc): pc(pc) {}
-            ~scoped_mark() { pc.m_mark.reset(); }
+            ~scoped_mark() { pc.m_mark.reset(); pc.m_nmark.reset(); }
         };
     public:
         proof_checker(ast_manager& m): 
