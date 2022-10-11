@@ -212,16 +212,16 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
     size_t e_pos = v.find('p');
     if (e_pos == std::string_view::npos) e_pos = v.find('P');
-    const char *f = (e_pos != std::string_view::npos) ? v.substr(0, e_pos).data() : v.data();
-    const char *e = (e_pos != std::string_view::npos) ? v.substr(e_pos+1).data() : "0";
+    auto f = (e_pos != std::string_view::npos) ? std::string(v.substr(0, e_pos)) : std::string(v);
+    auto e = (e_pos != std::string_view::npos) ? std::string(v.substr(e_pos+1)) : "0";
 
     TRACE("mpf_dbg", tout << "sgn = " << sgn << " f = " << f << " e = " << e << std::endl;);
 
     scoped_mpq q(m_mpq_manager);
-    m_mpq_manager.set(q, f);
+    m_mpq_manager.set(q, f.c_str());
 
     scoped_mpz ex(m_mpq_manager);
-    m_mpz_manager.set(ex, e);
+    m_mpz_manager.set(ex, e.c_str());
 
     set(o, ebits, sbits, rm, ex, q);
     o.sign = sgn;
@@ -1562,7 +1562,7 @@ std::string mpf_manager::to_string(mpf const & x) {
             if (m_mpq_manager.is_int(r))
                 ss << ".0";
             ss << " " << exponent;
-            res += ss.str();
+            res += std::move(ss).str();
         }
     }
 
@@ -1600,7 +1600,7 @@ std::string mpf_manager::to_string_raw(mpf const & x) {
     res += " ";
     std::stringstream ss("");
     ss << exp(x);
-    res += ss.str();
+    res += std::move(ss).str();
     if (is_normal(x))
         res += " N";
     else
@@ -1629,7 +1629,7 @@ std::string mpf_manager::to_string_hexfloat(mpf const & x) {
     ss.setf(ff);
     ss.precision(13);
     ss << std::hexfloat << to_double(x);
-    return ss.str();
+    return std::move(ss).str();
 }
 
 std::string mpf_manager::to_string_binary(mpf const & x, unsigned upper_extra, unsigned lower_extra) {
