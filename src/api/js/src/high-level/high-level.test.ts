@@ -42,14 +42,14 @@ async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): 
     solver.add(
       Or(
         ...decls
-        // TODO(ritave): Assert on arity > 0
-        .filter(decl => decl.arity() === 0)
-        .map(decl => {
-          const term = decl.call();
-          // TODO(ritave): Assert not an array / uninterpreted sort
-          const value = model.eval(term, true);
-          return term.neq(value);
-        }),
+          // TODO(ritave): Assert on arity > 0
+          .filter(decl => decl.arity() === 0)
+          .map(decl => {
+            const term = decl.call();
+            // TODO(ritave): Assert not an array / uninterpreted sort
+            const value = model.eval(term, true);
+            return term.neq(value);
+          }),
       ),
     );
   }
@@ -428,7 +428,7 @@ describe('high-level', () => {
       const model = await solve(
         // @ts-ignore
         arr1.select(0).add(arr1.select(1)).add(arr1.select(2)).add(arr1.select(3)).eq(
-        // @ts-ignore
+          // @ts-ignore
           arr2.select(0).add(arr2.select(1)).add(arr2.select(2)).add(arr2.select(3))
         ).and(
           arr1.select(0).neq(arr2.select(0)).and(
@@ -487,21 +487,21 @@ describe('high-level', () => {
       const solutions = await asyncToArray(allSolutions(x.ge(1), x.le(5)));
       expect(solutions.length).toStrictEqual(5);
       const results = solutions
-      .map(solution => {
-        const expr = solution.eval(x);
-        assert(isIntVal(expr));
-        return expr.value();
-      })
-      .sort((a, b) => {
-        assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
-        if (a < b) {
-          return -1;
-        } else if (a == b) {
-          return 0;
-        } else {
-          return 1;
-        }
-      });
+        .map(solution => {
+          const expr = solution.eval(x);
+          assert(isIntVal(expr));
+          return expr.value();
+        })
+        .sort((a, b) => {
+          assert(a !== null && b !== null && typeof a === 'bigint' && typeof b === 'bigint');
+          if (a < b) {
+            return -1;
+          } else if (a == b) {
+            return 0;
+          } else {
+            return 1;
+          }
+        });
       expect(results).toStrictEqual([1n, 2n, 3n, 4n, 5n]);
     });
   });
