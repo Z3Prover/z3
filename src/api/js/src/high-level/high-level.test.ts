@@ -426,9 +426,7 @@ describe('high-level', () => {
       const arr2 = Array.const('arr2', BitVec.sort(2), BitVec.sort(256));
 
       const model = await solve(
-        // @ts-ignore
         arr1.select(0).add(arr1.select(1)).add(arr1.select(2)).add(arr1.select(3)).eq(
-          // @ts-ignore
           arr2.select(0).add(arr2.select(1)).add(arr2.select(2)).add(arr2.select(3))
         ).and(
           arr1.select(0).neq(arr2.select(0)).and(

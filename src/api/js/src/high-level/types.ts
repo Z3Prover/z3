@@ -21,7 +21,7 @@ export type AnySort<Name extends string = 'main'> =
   | BoolSort<Name>
   | ArithSort<Name>
   | BitVecSort<number, Name>
-  | SMTArraySort<Name>;
+  | SMTArraySort<any, Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -31,7 +31,7 @@ export type AnyExpr<Name extends string = 'main'> =
   | RatNum<Name>
   | BitVec<number, Name>
   | BitVecNum<number, Name>
-  | SMTArray<Name>;
+  | SMTArray<any, Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -43,16 +43,16 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
       ? Arith<Name>
       : S extends BitVecSort<infer Size, Name>
         ? BitVec<Size, Name>
-        : S extends Sort<Name>
-          ? Expr<Name>
-          : S extends SMTArraySort<Name>
-            ? SMTArray<Name>
+        : S extends SMTArraySort<infer RangeSort, Name>
+          ? SMTArray<RangeSort, Name>
+          : S extends Sort<Name>
+            ? Expr<Name, S, Z3_ast>
             : never;
 
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
   S extends bigint
-    ? IntNum<Name>
+    ? ArithSort<Name>
     : S extends number | CoercibleRational
       ? RatNum<Name>
       : S extends boolean
@@ -60,6 +60,24 @@ export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends str
         : S extends Expr<Name>
           ? S
           : never;
+
+/** @hidden */
+export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
+  S extends Bool<Name>
+    ? (boolean | Bool<Name>)
+    : S extends IntNum<Name>
+      ? (bigint | number | IntNum<Name>)
+      : S extends RatNum<Name>
+        ? (bigint | number | CoercibleRational | RatNum<Name>)
+        : S extends Arith<Name>
+          ? (bigint | number | CoercibleRational | Arith<Name>)
+          : S extends BitVec<infer Size, Name>
+            ? (number | BitVec<Size, Name>)
+            : S extends SMTArray<infer RangeSort, Name>
+              ? SMTArray<RangeSort, Name>
+              : S extends Expr<Name>
+                ? Expr<Name>
+                : never;
 
 /**
  * Used to create a Real constant
@@ -207,10 +225,10 @@ export interface Context<Name extends string = 'main'> {
   isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
 
   /** @category Functions */
-  isArraySort(obj: unknown): obj is SMTArraySort<Name>;
+  isArraySort(obj: unknown): obj is SMTArraySort<any, Name>;
 
   /** @category Functions */
-  isArray(obj: unknown): obj is SMTArray<Name>;
+  isArray(obj: unknown): obj is SMTArray<any, Name>;
 
   /** @category Functions */
   isConstArray(obj: unknown): boolean;
@@ -575,7 +593,7 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | BoolSort['__typename']
     | ArithSort['__typename']
     | BitVecSort['__typename']
-    | SMTArraySort['__typename'];
+    | SMTArraySort<any>['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -658,7 +676,7 @@ export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_fun
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
   /** @hidden */
-  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'] | SMTArray['__typename'];
+  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'] | SMTArray<any>['__typename'];
 
   get sort(): S;
 
@@ -1191,7 +1209,7 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
  * @typeParam Bits - A number representing amount of bits for this sort
  * @category Arrays
  */
-export interface SMTArraySort<Name extends string = 'main'> extends Sort<Name> {
+export interface SMTArraySort<RangeSort extends AnySort<Name>, Name extends string = 'main'> extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'ArraySort';
 
@@ -1215,32 +1233,37 @@ export interface SMTArraySort<Name extends string = 'main'> extends Sort<Name> {
    * The sort of the range
    * TODO: add example
    */
-  range(): AnySort<Name>;
+  range(): RangeSort;
 
 }
 
 /** @category Arrays */
 export interface SMTArrayCreation<Name extends string> {
-  sort(...sig: AnySort<Name>[]): SMTArraySort<Name>;
+  sort<RangeSort extends AnySort<Name>>(
+    ...sig: [...AnySort<Name>[], RangeSort]
+  ): SMTArraySort<RangeSort, Name>;
 
-  const(name: string, ...sig: AnySort<Name>[]): SMTArray<Name>;
+  const<RangeSort extends AnySort<Name>>(
+    name: string, ...sig: [...AnySort<Name>[], RangeSort]
+  ): SMTArray<RangeSort, Name>;
 
-  consts(
+  consts<RangeSort extends AnySort<Name>>(
     names: string | string[],
-    ...sig: AnySort<Name>[]
-  ): SMTArray<Name>[];
+    ...sig: [...AnySort<Name>[], RangeSort]
+  ): SMTArray<RangeSort, Name>[];
 
-  K(
+  K<RangeSort extends AnySort<Name>>(
     domain: AnySort<Name>,
-    value: Expr<Name, AnySort<Name>, Z3_ast>
-  ): SMTArray<Name>;
+    value: SortToExprMap<RangeSort, Name>
+  ): SMTArray<RangeSort, Name>;
 }
 
 /**
  * Represents Array expression
  * @category Arrays
  */
-export interface SMTArray<Name extends string = 'main'> extends Expr<Name> {
+export interface SMTArray<RangeSort extends AnySort<Name>, Name extends string = 'main'>
+  extends Expr<Name, SMTArraySort<RangeSort, Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'Array';
 
@@ -1248,15 +1271,21 @@ export interface SMTArray<Name extends string = 'main'> extends Expr<Name> {
 
   domain_n(i: number): AnySort<Name>;
 
-  range(): AnySort<Name>;
+  range(): RangeSort;
 
-  select(...indices: CoercibleToExpr<Name>[]): AnyExpr<Name>;
+  select(...indices: CoercibleToExpr<Name>[]): SortToExprMap<RangeSort, Name>;
 
   /**
+   * value should be coercible to RangeSort
    *
-   * @param args (idx0, idx1, ..., idxN, value)
+   * @param indicesAndValue (idx0, idx1, ..., idxN, value)
    */
-  store(...args: CoercibleToExpr<Name>[]): SMTArray<Name>;
+  store(
+    ...indicesAndValue: [
+      ...CoercibleToExpr<Name>[],
+      CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>
+    ]
+  ): SMTArray<RangeSort, Name>;
 
 }
 
