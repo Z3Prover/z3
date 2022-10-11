@@ -20,7 +20,8 @@ export type AnySort<Name extends string = 'main'> =
   | Sort<Name>
   | BoolSort<Name>
   | ArithSort<Name>
-  | BitVecSort<number, Name>;
+  | BitVecSort<number, Name>
+  | SMTArraySort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -29,12 +30,14 @@ export type AnyExpr<Name extends string = 'main'> =
   | IntNum<Name>
   | RatNum<Name>
   | BitVec<number, Name>
-  | BitVecNum<number, Name>;
+  | BitVecNum<number, Name>
+  | SMTArray<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 /** @hidden */
-export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> = S extends BoolSort
+export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
+    S extends BoolSort
   ? Bool<Name>
   : S extends ArithSort<Name>
   ? Arith<Name>
@@ -42,10 +45,13 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   ? BitVec<Size, Name>
   : S extends Sort<Name>
   ? Expr<Name>
+  : S extends SMTArraySort<Name>
+  ? SMTArray<Name>
   : never;
 
 /** @hidden */
-export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
+export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
+    S extends bigint
   ? IntNum<Name>
   : S extends number | CoercibleRational
   ? RatNum<Name>
@@ -168,6 +174,12 @@ export interface Context<Name extends string = 'main'> {
   /** @category Functions */
   isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
   /** @category Functions */
+  isArraySort(obj: unknown): obj is SMTArraySort<Name>;
+  /** @category Functions */
+  isArray(obj: unknown): obj is SMTArray<Name>;
+  /** @category Functions */
+  isConstArray(obj: unknown): boolean;
+  /** @category Functions */
   isProbe(obj: unknown): obj is Probe<Name>;
   /** @category Functions */
   isTactic(obj: unknown): obj is Tactic<Name>;
@@ -259,6 +271,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Real: RealCreation<Name>;
   /** @category Expressions */
   readonly BitVec: BitVecCreation<Name>;
+  /** @category Expressions */
+  readonly Array: SMTArrayCreation<Name>;
 
   ////////////////
   // Operations //
@@ -452,7 +466,12 @@ export interface SortCreation<Name extends string> {
 }
 export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
   /** @hidden */
-  readonly __typename: 'Sort' | BoolSort['__typename'] | ArithSort['__typename'] | BitVecSort['__typename'];
+  readonly __typename:
+    | 'Sort'
+    | BoolSort['__typename']
+    | ArithSort['__typename']
+    | BitVecSort['__typename']
+    | SMTArraySort['__typename'];
 
   kind(): Z3_sort_kind;
   /** @virtual */
@@ -521,7 +540,7 @@ export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_fun
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
   /** @hidden */
-  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'];
+  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'] | SMTArray['__typename'];
 
   get sort(): S;
 
@@ -562,6 +581,7 @@ export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<
   and(other: Bool<Name> | boolean): Bool<Name>;
   or(other: Bool<Name> | boolean): Bool<Name>;
   xor(other: Bool<Name> | boolean): Bool<Name>;
+  implies(other: Bool<Name> | boolean): Bool<Name>;
 }
 
 /**
@@ -956,6 +976,81 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
   asSignedValue(): bigint;
   asString(): string;
   asBinaryString(): string;
+}
+
+/**
+ * A Sort representing Bit Vector numbers of specified {@link BitVecSort.size size}
+ *
+ * @typeParam Bits - A number representing amount of bits for this sort
+ * @category Arrays
+ */
+export interface SMTArraySort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'ArraySort';
+
+  /**
+   * The sort of the first dimension of the domain
+   *
+   * TODO: Add example
+   */
+  domain(): AnySort<Name>;
+
+  /**
+   * The sort of the i-th (0-indexed) dimension of the domain
+   *
+   * TODO: add example
+   *
+   * @param i index of the dimension of the domain being requested
+   */
+  domain_n(i: number): AnySort<Name>;
+
+  /**
+   * The sort of the range
+   * TODO: add example
+   */
+  range(): AnySort<Name>;
+
+}
+
+/** @category Arrays */
+export interface SMTArrayCreation<Name extends string> {
+  sort(...sig: AnySort<Name>[]): SMTArraySort<Name>;
+
+  const(name: string, ...sig: AnySort<Name>[]): SMTArray<Name>;
+
+  consts(
+    names: string | string[],
+    ...sig: AnySort<Name>[]
+  ): SMTArray<Name>[];
+
+  K(
+    domain: AnySort<Name>,
+    value: Expr<Name, AnySort<Name>, Z3_ast>
+  ): SMTArray<Name>;
+}
+
+/**
+ * Represents Array expression
+ * @category Arrays
+ */
+export interface SMTArray<Name extends string = 'main'> extends Expr<Name> {
+  /** @hidden */
+  readonly __typename: 'Array';
+
+  domain(): AnySort<Name>;
+
+  domain_n(i: number): AnySort<Name>;
+
+  range(): AnySort<Name>;
+
+  select(...indices: CoercibleToExpr<Name>[]): AnyExpr<Name>;
+
+  /**
+   *
+   * @param args (idx0, idx1, ..., idxN, value)
+   */
+  store(...args: CoercibleToExpr<Name>[]): SMTArray<Name>;
+
 }
 
 export interface Probe<Name extends string = 'main'> {
