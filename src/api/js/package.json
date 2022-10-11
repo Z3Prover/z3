@@ -35,7 +35,8 @@
   "contributors": [
     "Kevin Gibbons <bakkot@gmail.com>",
     "Nikolaj Bjorner",
-    "Olaf Tomalka <olaf@tomalka.me>"
+    "Olaf Tomalka <olaf@tomalka.me>",
+    "Walden Yan <waldenyan20@gmail.com>"
   ],
   "devDependencies": {
     "@types/jest": "^27.5.1",
