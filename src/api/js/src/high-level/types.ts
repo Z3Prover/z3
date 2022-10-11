@@ -553,6 +553,8 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
 
   eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
 
+  eval<Bits extends number = number>(expr: BitVec<Bits, Name>, modelCompletion?: boolean): BitVecNum<Bits, Name>;
+
   eval(expr: Expr<Name>, modelCompletion?: boolean): Expr<Name>;
 
   get(i: number): FuncDecl<Name>;

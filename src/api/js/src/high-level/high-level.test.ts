@@ -444,9 +444,7 @@ describe('high-level', () => {
       assert(isArray(arr1Sol) && isArraySort(arr1Sol.sort));
       assert(isArray(arr2Sol) && isArraySort(arr2Sol.sort));
 
-      // @ts-ignore
       const arr1Vals = [0, 1, 2, 3].map(i => model.eval(arr1.select(i)).value());
-      // @ts-ignore
       const arr2Vals = [0, 1, 2, 3].map(i => model.eval(arr2.select(i)).value());
       expect((arr1Vals.reduce((a, b) => a + b, 0n) % mod) === arr2Vals.reduce((a, b) => a + b, 0n) % mod);
       for (let i = 0; i < 4; i++) {

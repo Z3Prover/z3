@@ -1144,6 +1144,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
       eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
+      eval<Bits extends number = number>(expr: BitVec<Bits, Name>, modelCompletion?: boolean): BitVecNum<Bits, Name>;
       eval(expr: Expr<Name>, modelCompletion: boolean = false) {
         _assertContext(expr);
         const r = check(Z3.model_eval(contextPtr, this.ptr, expr.ast, modelCompletion));
