@@ -38,28 +38,28 @@ export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name>
 /** @hidden */
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
   S extends BoolSort
-  ? Bool<Name>
-  : S extends ArithSort<Name>
-  ? Arith<Name>
-  : S extends BitVecSort<infer Size, Name>
-  ? BitVec<Size, Name>
-  : S extends Sort<Name>
-  ? Expr<Name>
-  : S extends SMTArraySort<Name>
-  ? SMTArray<Name>
-  : never;
+    ? Bool<Name>
+    : S extends ArithSort<Name>
+      ? Arith<Name>
+      : S extends BitVecSort<infer Size, Name>
+        ? BitVec<Size, Name>
+        : S extends Sort<Name>
+          ? Expr<Name>
+          : S extends SMTArraySort<Name>
+            ? SMTArray<Name>
+            : never;
 
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
   S extends bigint
-  ? IntNum<Name>
-  : S extends number | CoercibleRational
-  ? RatNum<Name>
-  : S extends boolean
-  ? Bool<Name>
-  : S extends Expr<Name>
-  ? S
-  : never;
+    ? IntNum<Name>
+    : S extends number | CoercibleRational
+      ? RatNum<Name>
+      : S extends boolean
+        ? Bool<Name>
+        : S extends Expr<Name>
+          ? S
+          : never;
 
 /**
  * Used to create a Real constant

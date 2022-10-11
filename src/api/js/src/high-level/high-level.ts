@@ -8,7 +8,7 @@
 // TODO(ritave): If a test times out, jest kills it, and the global state of Z3 is left in an unexpected state.
 //               This occurs specifically during longer check(). Afterwards, all next tests will fail to run
 //               thinking the previous call was not finished. Find a way to stop execution and clean up the global state
-import {Mutex} from 'async-mutex';
+import { Mutex } from 'async-mutex';
 import {
   Z3Core,
   Z3_ast,
@@ -72,7 +72,7 @@ import {
   Z3Error,
   Z3HighLevel,
 } from './types';
-import {allSatisfy, assert, assertExhaustive} from './utils';
+import { allSatisfy, assert, assertExhaustive } from './utils';
 
 const FALLBACK_PRECISION = 17;
 
@@ -115,7 +115,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
   }
 
   function getVersionString() {
-    const {major, minor, build_number} = Z3.get_version();
+    const { major, minor, build_number } = Z3.get_version();
     return `${major}.${minor}.${build_number}`;
   }
 
@@ -1581,7 +1581,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare readonly __typename: RatNum['__typename'];
 
       value() {
-        return {numerator: this.numerator().value(), denominator: this.denominator().value()};
+        return { numerator: this.numerator().value(), denominator: this.denominator().value() };
       }
 
       numerator() {
@@ -1593,7 +1593,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       asNumber() {
-        const {numerator, denominator} = this.value();
+        const { numerator, denominator } = this.value();
         const div = numerator / denominator;
         return Number(div) + Number(numerator - div * denominator) / Number(denominator);
       }
