@@ -37,7 +37,7 @@ import {
   AnyExpr,
   AnySort,
   Arith,
-  ArithSort,
+  ArithSort, ArrayIndexType,
   Ast,
   AstMap,
   AstMapCtor,
@@ -447,13 +447,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return r;
     }
 
-    function isArraySort(obj: unknown): obj is SMTArraySort<any, Name> {
+    function isArraySort(obj: unknown): obj is SMTArraySort<any, any, Name> {
       const r = obj instanceof ArraySortImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isArray(obj: unknown): obj is SMTArray<any, Name> {
+    function isArray(obj: unknown): obj is SMTArray<any, any, Name> {
       const r = obj instanceof ArrayImpl;
       r && _assertContext(obj);
       return r;
@@ -701,9 +701,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
     };
     const Array = {
-      sort<RangeSort extends AnySort<Name>>(
-        ...sig: [...AnySort<Name>[], RangeSort]
-      ): SMTArraySort<RangeSort, Name> {
+      sort<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
+        ...sig: [...DomainSort, RangeSort]
+      ): SMTArraySort<DomainSort, RangeSort, Name> {
         const arity = sig.length - 1;
         const r = sig[arity];
         const d = sig[0];
@@ -713,28 +713,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const dom = sig.slice(0, arity);
         return new ArraySortImpl(Z3.mk_array_sort_n(contextPtr, dom.map(s => s.ptr), r.ptr));
       },
-      const<RangeSort extends AnySort<Name>>(
-        name: string,
-        ...sig: [...AnySort<Name>[], RangeSort]
-      ): SMTArray<RangeSort, Name> {
-        return new ArrayImpl<RangeSort>(
+      const<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
+        name: string, ...sig: [...DomainSort, RangeSort]
+      ): SMTArray<DomainSort, RangeSort, Name> {
+        return new ArrayImpl<DomainSort, RangeSort>(
           check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(...sig).ptr))
         );
       },
-      consts<RangeSort extends AnySort<Name>>(
+      consts<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
         names: string | string[],
-        ...sig: [...AnySort<Name>[], RangeSort]
-      ): SMTArray<RangeSort, Name>[] {
+        ...sig: [...DomainSort, RangeSort]
+      ): SMTArray<DomainSort, RangeSort, Name>[] {
         if (typeof names === 'string') {
           names = names.split(' ');
         }
         return names.map(name => Array.const(name, ...sig));
       },
-      K<RangeSort extends AnySort<Name>>(
-        domain: AnySort<Name>,
+      K<DomainSort extends AnySort<Name>, RangeSort extends AnySort<Name>>(
+        domain: DomainSort,
         value: SortToExprMap<RangeSort, Name>
-      ): SMTArray<RangeSort, Name> {
-        return new ArrayImpl<RangeSort>(
+      ): SMTArray<[DomainSort], RangeSort, Name> {
+        return new ArrayImpl<[DomainSort], RangeSort>(
           check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr))
         );
       }
@@ -1161,7 +1160,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
       get(
         i: number | FuncDecl<Name> | Expr<Name> | Sort<Name>,
-        to?: number,
+        to?: number
       ): FuncDecl<Name> | FuncInterp<Name> | Expr<Name> | AstVector<Name, AnyAst<Name>> | FuncDecl<Name>[] {
         assert(to === undefined || typeof i === 'number');
         if (typeof i === 'number') {
@@ -1841,16 +1840,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ArraySortImpl<RangeSort extends AnySort<Name>>
+    class ArraySortImpl<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>
       extends SortImpl
-      implements SMTArraySort<RangeSort, Name> {
-      declare readonly __typename: SMTArraySort<RangeSort, Name>['__typename'];
+      implements SMTArraySort<DomainSort, RangeSort, Name> {
+      declare readonly __typename: SMTArraySort<DomainSort, RangeSort, Name>['__typename'];
 
-      domain(): AnySort<Name> {
+      domain(): DomainSort[0] {
         return _toSort(check(Z3.get_array_sort_domain(contextPtr, this.ptr)));
       }
 
-      domain_n(i: number): AnySort<Name> {
+      domain_n(i: number): DomainSort[number] {
         return _toSort(check(Z3.get_array_sort_domain_n(contextPtr, this.ptr, i)));
       }
 
@@ -1860,16 +1859,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     }
 
-    class ArrayImpl<RangeSort extends AnySort<Name>>
-      extends ExprImpl<Z3_ast, ArraySortImpl<RangeSort>>
-      implements SMTArray<RangeSort, Name> {
-      declare readonly __typename: SMTArray<RangeSort, Name>['__typename'];
+    class ArrayImpl<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>
+      extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
+      implements SMTArray<DomainSort, RangeSort, Name> {
+      declare readonly __typename: SMTArray<DomainSort, RangeSort, Name>['__typename'];
 
-      domain(): AnySort<Name> {
+      domain(): DomainSort[0] {
         return this.sort.domain();
       }
 
-      domain_n(i: number): AnySort<Name> {
+      domain_n(i: number): DomainSort[number] {
         return this.sort.domain_n(i);
       }
 
@@ -1877,7 +1876,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return this.sort.range();
       }
 
-      select(...indices: CoercibleToExpr<Name>[]): SortToExprMap<RangeSort, Name> {
+      select(...indices: ArrayIndexType<DomainSort, Name>): SortToExprMap<RangeSort, Name> {
         const args = indices.map((arg, i) => this.domain_n(i).cast(arg));
         if (args.length === 1) {
           return _toExpr(check(Z3.mk_select(contextPtr, this.ast, args[0].ast))) as SortToExprMap<RangeSort, Name>;
@@ -1888,10 +1887,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       store(
         ...indicesAndValue: [
-          ...CoercibleToExpr<Name>[],
+          ...ArrayIndexType<DomainSort, Name>,
           CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>
         ]
-      ): SMTArray<RangeSort, Name> {
+      ): SMTArray<DomainSort, RangeSort, Name> {
         const args = indicesAndValue.map((arg, i) => {
           if (i === indicesAndValue.length - 1) {
             return this.range().cast(arg);
@@ -1902,10 +1901,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           throw new Z3Error("Array store requires both index and value arguments");
         }
         if (args.length === 2) {
-          return _toExpr(check(Z3.mk_store(contextPtr, this.ast, args[0].ast, args[1].ast))) as SMTArray<RangeSort, Name>;
+          return _toExpr(check(Z3.mk_store(contextPtr, this.ast, args[0].ast, args[1].ast))) as SMTArray<DomainSort, RangeSort, Name>;
         }
         const _idxs = args.slice(0, args.length - 1).map(arg => arg.ast);
-        return _toExpr(check(Z3.mk_store_n(contextPtr, this.ast, _idxs, args[args.length - 1].ast))) as SMTArray<RangeSort, Name>;
+        return _toExpr(check(Z3.mk_store_n(contextPtr, this.ast, _idxs, args[args.length - 1].ast))) as SMTArray<DomainSort, RangeSort, Name>;
       }
 
     }

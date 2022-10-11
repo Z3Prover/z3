@@ -392,6 +392,20 @@ describe('high-level', () => {
   });
 
   describe('arrays', () => {
+    it('domain and range type inference', async() => {
+      const { BitVec, Array, isArray, isArraySort} = api.Context('main');
+
+      const arr = Array.const('arr', BitVec.sort(160), BitVec.sort(256));
+
+      const domain = arr.domain();
+      expect(domain.size()).toStrictEqual(160);
+      expect(arr.domain_n(0).size()).toStrictEqual(160);
+      const range = arr.range();
+      expect(range.size()).toStrictEqual(256);
+
+      assert(isArray(arr) && isArraySort(arr.sort));
+    })
+
     it('can do simple proofs', async () => {
       const { BitVec, Array, isArray, isArraySort, isConstArray, Eq, Not } = api.Context('main');
 
@@ -401,6 +415,7 @@ describe('high-level', () => {
       const FIVE_VAL = BitVec.val(5, 256);
 
       const arr = Array.const('arr', BitVec.sort(160), BitVec.sort(256));
+
       const constArr = Array.K(BitVec.sort(160), FIVE_VAL);
       assert(isArray(arr) && isArraySort(arr.sort) && isConstArray(constArr));
 
