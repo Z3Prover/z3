@@ -142,23 +142,19 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     bool top_level_relevant() {
         return m_top_level && relevancy_enabled();
-    }
-    
-    void mk_clause(sat::literal l) {
-        mk_clause(1, &l);
-    }
+    }   
 
-    void mk_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph = nullptr) {
+    void mk_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph) {
         sat::literal lits[2] = { l1, l2 };
         mk_clause(2, lits, ph);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph = nullptr) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph) {
         sat::literal lits[3] = { l1, l2, l3 };
         mk_clause(3, lits, ph);
     }
 
-    void mk_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph = nullptr) {
+    void mk_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_aux(n, lits);
