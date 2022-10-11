@@ -239,6 +239,4 @@ namespace tseitin {
             return x == u && y == z;
         return false;
     }
-
-
 }

@@ -39,10 +39,9 @@ namespace tseitin {
         bool is_nmarked(expr* a) { return m_nmark.is_marked(a); }
 
         void complement_mark(expr* a) {
+            m_mark.mark(a);
             if (m.is_not(a, a))
                 m_nmark.mark(a);
-            else
-                m_mark.mark(a);
         }
 
         bool is_complement(expr* a) {
