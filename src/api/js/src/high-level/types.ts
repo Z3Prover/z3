@@ -1206,9 +1206,10 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
 }
 
 /**
- * A Sort representing Bit Vector numbers of specified {@link BitVecSort.size size}
+ * A Sort representing a SMT Array with range of sort {@link SMTArraySort.range range}
+ * and a domain of sort {@link SMTArraySort.domain domain}
  *
- * @typeParam Bits - A number representing amount of bits for this sort
+ * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
 export interface SMTArraySort<RangeSort extends AnySort<Name>, Name extends string = 'main'> extends Sort<Name> {
