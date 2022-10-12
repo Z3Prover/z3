@@ -61,8 +61,6 @@ namespace tseitin {
             m(m) {
         }
 
-        ~proof_checker() override {}
-        
         expr_ref_vector clause(app* jst) override;
         
         bool check(app* jst) override;

@@ -23,7 +23,6 @@ Author:
 #include "sat/smt/arith_proof_checker.h"
 #include "sat/smt/q_proof_checker.h"
 #include "sat/smt/tseitin_proof_checker.h"
-#include <iostream>
 
 namespace euf {
 
@@ -121,8 +120,6 @@ namespace euf {
     public:
         eq_proof_checker(ast_manager& m): m(m) {}
 
-        ~eq_proof_checker() override {}
-
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
             for (expr* arg : *jst) 
@@ -213,8 +210,6 @@ namespace euf {
 
     public:
         res_proof_checker(ast_manager& m, proof_checker& pc): m(m), pc(pc) {}
-        
-        ~res_proof_checker() override {}
 
         bool check(app* jst) override {
             if (jst->get_num_args() != 3)

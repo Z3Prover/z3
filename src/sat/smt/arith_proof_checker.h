@@ -303,8 +303,6 @@ namespace arith {
             m_implied_eq("implied-eq"), 
             m_bound("bound") {}
 
-        ~proof_checker() override {}
-        
         void reset() {
             m_ineq.reset();
             m_conseq.reset();
