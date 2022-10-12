@@ -692,7 +692,29 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         expr_ref_vector core(mk_c(c)->m());
-        to_solver_ref(s)->get_unsat_core(core);
+        solver_params sp(to_solver(s)->m_params);
+        unsigned timeout     = mk_c(c)->get_timeout();
+        timeout              = to_solver(s)->m_params.get_uint("timeout", timeout);
+        timeout              = sp.timeout() != UINT_MAX ? sp.timeout() : timeout;
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                to_solver_ref(s)->get_unsat_core(core);
+            }
+            catch (...) {
+                to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver(s)->set_eh(nullptr);
+                if (core.empty())
+                    throw;
+            }                    
+        }
+        to_solver(s)->set_eh(nullptr);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         for (expr* e : core) {
