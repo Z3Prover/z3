@@ -293,7 +293,7 @@ namespace polysat {
     * Propagate assignment to a pvar
     */
     void solver::propagate(pvar v) {
-        LOG_H2("Propagate v" << v);
+        LOG_H2("Propagate " << assignment_pp(*this, v, get_value(v)));
         SASSERT(!m_locked_wlist);
         DEBUG_CODE(m_locked_wlist = v;);
         auto& wlist = m_pwatch[v];
@@ -749,8 +749,11 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.level(var) <= base_level())
-                    break;
+                if (m_bvars.level(var) <= base_level()) {
+                    // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
+                    //       Thus we can only skip base level literals here, instead of aborting the loop.
+                    continue;
+                }
                 SASSERT(!m_bvars.is_assumption(var));
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);

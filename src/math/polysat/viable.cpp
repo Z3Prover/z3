@@ -633,6 +633,7 @@ namespace polysat {
     }
 
     bool viable::resolve(pvar v, conflict& core) {
+        DEBUG_CODE( log(v); );
         if (has_viable(v))
             return false;
         entry const* e = m_units[v];
