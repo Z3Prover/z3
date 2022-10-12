@@ -41,9 +41,6 @@ mpf::mpf(unsigned _ebits, unsigned _sbits):
     set(ebits, sbits);
 }
 
-mpf::~mpf() {
-}
-
 void mpf::swap(mpf & other) {
     unsigned tmp = ebits;
     ebits = other.ebits;
@@ -62,9 +59,6 @@ void mpf::swap(mpf & other) {
 mpf_manager::mpf_manager() :
     m_mpz_manager(m_mpq_manager),
     m_powers2(m_mpz_manager) {
-}
-
-mpf_manager::~mpf_manager() {
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, int value) {
