@@ -42,6 +42,7 @@ Proof checker for clauses created during search.
 
 #include "util/small_object_allocator.h"
 #include "ast/ast_util.h"
+#include "ast/ast_ll_pp.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
@@ -181,9 +182,9 @@ public:
         }
         m_solver->pop(1);
         std::cout << "(verified-smt"; 
-        if (proof_hint) std::cout << " " << mk_pp(proof_hint, m);
+        if (proof_hint) std::cout << " " << mk_bounded_pp(proof_hint, m, 4);
         for (expr* arg : clause)
-            std::cout << " " << mk_pp(arg, m);
+            std::cout << " " << mk_bounded_pp(arg, m);
         std::cout << ")\n";
         add_clause(clause);
     }

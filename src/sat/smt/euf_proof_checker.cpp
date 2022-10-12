@@ -293,17 +293,13 @@ namespace euf {
     }
 
     bool proof_checker::check(expr* e) {
-        if (m_checked_clauses.contains(e))
-            return true;        
         if (!e || !is_app(e))
             return false;
+        if (m_checked_clauses.contains(e))
+            return true;        
         app* a = to_app(e);
         proof_checker_plugin* p = nullptr;
-        if (!m_map.find(a->get_decl()->get_name(), p))
-            return false;
-        if (!p->check(a)) 
-            return false;        
-        return true;
+        return m_map.find(a->get_decl()->get_name(), p) && p->check(a);
     }
 
     expr_ref_vector proof_checker::clause(expr* e) {
