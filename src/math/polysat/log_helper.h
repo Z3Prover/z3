@@ -48,16 +48,15 @@ show_deref_t<T> show_deref(Ptr const& ptr) {
 
 template <typename T>
 struct repeat {
-    unsigned count;
+    size_t count;
     T const& obj;
-    repeat(unsigned count, T const& obj): count(count), obj(obj) {}
+    repeat(size_t count, T const& obj): count(count), obj(obj) {}
 };
 
 template <typename T>
 std::ostream& operator<<(std::ostream& out, repeat<T> const& r) {
-    for (unsigned i = r.count; i-- > 0; ) {
+    for (size_t i = r.count; i-- > 0; ) 
         out << r.obj;
-    }
     return out;
 }
 
@@ -79,7 +78,7 @@ std::ostream& operator<<(std::ostream& out, pad<T> const& p) {
     std::stringstream tmp;
     tmp << p.obj;
     std::string s = tmp.str();
-    unsigned n = (s.length() < p.width) ? (p.width - s.length()) : 0;
+    size_t n = (s.length() < p.width) ? (p.width - s.length()) : 0;
     switch (p.dir) {
     case pad_direction::left:
         out << repeat(n, ' ') << s;

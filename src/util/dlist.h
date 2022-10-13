@@ -62,8 +62,8 @@ public:
         SASSERT(other);
         SASSERT(invariant());
         SASSERT(other->invariant());
-        unsigned const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
-        unsigned const old_sz2 = count_if(*other, [](T const&) { return true; });
+        size_t const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        size_t const old_sz2 = count_if(*other, [](T const&) { return true; });
 #endif
         // have:        this -> next -> ...
         // insert:      other -> ... -> other_end
@@ -77,7 +77,7 @@ public:
 #ifndef NDEBUG
         SASSERT(invariant());
         SASSERT(other->invariant());
-        unsigned const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        size_t const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
         SASSERT_EQ(new_sz, old_sz1 + old_sz2);
 #endif
     }
@@ -87,8 +87,8 @@ public:
         SASSERT(other);
         SASSERT(invariant());
         SASSERT(other->invariant());
-        unsigned const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
-        unsigned const old_sz2 = count_if(*other, [](T const&) { return true; });
+        size_t const old_sz1 = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        size_t const old_sz2 = count_if(*other, [](T const&) { return true; });
 #endif
         // have:        prev -> this -> ...
         // insert:      other -> ... -> other_end
@@ -102,7 +102,7 @@ public:
 #ifndef NDEBUG
         SASSERT(invariant());
         SASSERT(other->invariant());
-        unsigned const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
+        size_t const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
         SASSERT_EQ(new_sz, old_sz1 + old_sz2);
 #endif
     }

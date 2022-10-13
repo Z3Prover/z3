@@ -325,9 +325,9 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
-    void conflict::add_lemma(signed_constraint const* cs, unsigned cs_len) {
+    void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
-        for (unsigned i = 0; i < cs_len; ++i)
+        for (size_t i = 0; i < cs_len; ++i)
             cb.push(cs[i]);
         clause_ref lemma = cb.build();
         SASSERT(lemma);

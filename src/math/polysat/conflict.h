@@ -199,7 +199,7 @@ namespace polysat {
 
         /** Add a side lemma to the conflict; to be learned in addition to the main lemma after conflict resolution finishes. */
         void add_lemma(std::initializer_list<signed_constraint> cs);
-        void add_lemma(signed_constraint const* cs, unsigned cs_len);
+        void add_lemma(signed_constraint const* cs, size_t cs_len);
 
 #if 0
         /**
