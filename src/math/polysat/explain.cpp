@@ -41,14 +41,21 @@ namespace polysat {
         LOG("c2: " << c2);
         pdd a = c1.eq();
         pdd b = c2.eq();
+        unsigned degree_a = a.degree();
+        unsigned degree_b = b.degree();
         pdd r = a;
         if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
+            return {};
+        unsigned degree_r = r.degree();
+        if (degree_a < degree_r && degree_b < degree_r)
             return {};
         // Only keep result if the degree in c2 was reduced.
         // (this condition might be too strict, but we use it for now to prevent looping)
         // TODO: check total degree; only keep if total degree smaller or equal.
         //       can always do this if c1 is linear.
         if (b.degree(v) <= r.degree(v))
+            return {};
+        if (a.degree(v) <= r.degree(v))
             return {};
         signed_constraint c = s.eq(r);
         LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s));
