@@ -447,13 +447,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return r;
     }
 
-    function isArraySort(obj: unknown): obj is SMTArraySort<any, any, Name> {
+    function isArraySort(obj: unknown): obj is SMTArraySort<Name> {
       const r = obj instanceof ArraySortImpl;
       r && _assertContext(obj);
       return r;
     }
 
-    function isArray(obj: unknown): obj is SMTArray<any, any, Name> {
+    function isArray(obj: unknown): obj is SMTArray<Name> {
       const r = obj instanceof ArrayImpl;
       r && _assertContext(obj);
       return r;
@@ -701,9 +701,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
     };
     const Array = {
-      sort<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
+      sort<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
         ...sig: [...DomainSort, RangeSort]
-      ): SMTArraySort<DomainSort, RangeSort, Name> {
+      ): SMTArraySort<Name, DomainSort, RangeSort> {
         const arity = sig.length - 1;
         const r = sig[arity];
         const d = sig[0];
@@ -713,17 +713,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const dom = sig.slice(0, arity);
         return new ArraySortImpl(Z3.mk_array_sort_n(contextPtr, dom.map(s => s.ptr), r.ptr));
       },
-      const<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
+      const<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
         name: string, ...sig: [...DomainSort, RangeSort]
-      ): SMTArray<DomainSort, RangeSort, Name> {
+      ): SMTArray<Name, DomainSort, RangeSort> {
         return new ArrayImpl<DomainSort, RangeSort>(
           check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(...sig).ptr))
         );
       },
-      consts<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>(
+      consts<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
         names: string | string[],
         ...sig: [...DomainSort, RangeSort]
-      ): SMTArray<DomainSort, RangeSort, Name>[] {
+      ): SMTArray<Name, DomainSort, RangeSort>[] {
         if (typeof names === 'string') {
           names = names.split(' ');
         }
@@ -732,7 +732,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       K<DomainSort extends AnySort<Name>, RangeSort extends AnySort<Name>>(
         domain: DomainSort,
         value: SortToExprMap<RangeSort, Name>
-      ): SMTArray<[DomainSort], RangeSort, Name> {
+      ): SMTArray<Name, [DomainSort], RangeSort> {
         return new ArrayImpl<[DomainSort], RangeSort>(
           check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr))
         );
@@ -1840,16 +1840,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class ArraySortImpl<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>
+    class ArraySortImpl<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+      RangeSort extends AnySort<Name> = Sort<Name>>
       extends SortImpl
-      implements SMTArraySort<DomainSort, RangeSort, Name> {
-      declare readonly __typename: SMTArraySort<DomainSort, RangeSort, Name>['__typename'];
+      implements SMTArraySort<Name, DomainSort, RangeSort> {
+      declare readonly __typename: SMTArraySort['__typename'];
 
       domain(): DomainSort[0] {
         return _toSort(check(Z3.get_array_sort_domain(contextPtr, this.ptr)));
       }
 
-      domain_n(i: number): DomainSort[number] {
+      domain_n<T extends number>(i: T): DomainSort[T] {
         return _toSort(check(Z3.get_array_sort_domain_n(contextPtr, this.ptr, i)));
       }
 
@@ -1859,16 +1860,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     }
 
-    class ArrayImpl<DomainSort extends AnySort<Name>[], RangeSort extends AnySort<Name>>
-      extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
-      implements SMTArray<DomainSort, RangeSort, Name> {
-      declare readonly __typename: SMTArray<DomainSort, RangeSort, Name>['__typename'];
+    class ArrayImpl<
+      DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+      RangeSort extends AnySort<Name> = Sort<Name>
+    > extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
+      implements SMTArray<Name, DomainSort, RangeSort> {
+      declare readonly __typename: SMTArray['__typename'];
 
       domain(): DomainSort[0] {
         return this.sort.domain();
       }
 
-      domain_n(i: number): DomainSort[number] {
+      domain_n<T extends number>(i: T): DomainSort[T] {
         return this.sort.domain_n(i);
       }
 
@@ -1876,8 +1879,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return this.sort.range();
       }
 
-      select(...indices: ArrayIndexType<DomainSort, Name>): SortToExprMap<RangeSort, Name> {
-        const args = indices.map((arg, i) => this.domain_n(i).cast(arg));
+      select(...indices: ArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name> {
+        const args = indices.map((arg, i) => this.domain_n(i).cast(arg as any));
         if (args.length === 1) {
           return _toExpr(check(Z3.mk_select(contextPtr, this.ast, args[0].ast))) as SortToExprMap<RangeSort, Name>;
         }
@@ -1887,26 +1890,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       store(
         ...indicesAndValue: [
-          ...ArrayIndexType<DomainSort, Name>,
+          ...ArrayIndexType<Name, DomainSort>,
           CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>
         ]
-      ): SMTArray<DomainSort, RangeSort, Name> {
+      ): SMTArray<Name, DomainSort, RangeSort> {
         const args = indicesAndValue.map((arg, i) => {
           if (i === indicesAndValue.length - 1) {
-            return this.range().cast(arg);
+            return this.range().cast(arg as CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>);
           }
-          return this.domain_n(i).cast(arg);
+          return this.domain_n(i).cast(arg as any);
         });
         if (args.length <= 1) {
           throw new Z3Error("Array store requires both index and value arguments");
         }
         if (args.length === 2) {
-          return _toExpr(check(Z3.mk_store(contextPtr, this.ast, args[0].ast, args[1].ast))) as SMTArray<DomainSort, RangeSort, Name>;
+          return _toExpr(check(Z3.mk_store(contextPtr, this.ast, args[0].ast, args[1].ast))) as SMTArray<Name, DomainSort, RangeSort>;
         }
         const _idxs = args.slice(0, args.length - 1).map(arg => arg.ast);
-        return _toExpr(check(Z3.mk_store_n(contextPtr, this.ast, _idxs, args[args.length - 1].ast))) as SMTArray<DomainSort, RangeSort, Name>;
+        return _toExpr(check(Z3.mk_store_n(contextPtr, this.ast, _idxs, args[args.length - 1].ast))) as SMTArray<Name, DomainSort, RangeSort>;
       }
-
     }
 
     class AstVectorImpl<Item extends AnyAst<Name>> {
