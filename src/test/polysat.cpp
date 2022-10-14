@@ -354,6 +354,27 @@ namespace polysat {
             s.expect_sat();
         }
 
+        //
+	// -43 \/ 3 \/ 4 
+        //   -43: v3 + -1 != 0
+        //   3: v3 == 0
+        //   4: v3 <= v5
+
+        static void test_clause_simplify1() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto u = s.var(s.add_var(4));
+            auto v = s.var(s.add_var(4));
+            cb.push(s.eq(u));
+            cb.push(~s.eq(u - 1));
+            cb.push(s.ule(u, v));
+            auto cl = cb.build();
+            simp.apply(*cl);
+            std::cout << *cl << "\n";
+            SASSERT(cl->size() == 2);
+        }
+
 
         /**
          * Check unsat of:
@@ -1408,6 +1429,8 @@ namespace polysat {
 
 void tst_polysat() {
     using namespace polysat;
+
+    test_polysat::test_clause_simplify1();
 
     // test_polysat::test_add_conflicts();  // ok
     // test_polysat::test_wlist();  // ok

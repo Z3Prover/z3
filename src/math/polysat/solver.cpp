@@ -890,8 +890,10 @@ namespace polysat {
                 UNREACHABLE();
             }
         }
-        for (auto cl : side_lemmas)
+        for (auto cl : side_lemmas) {
+            m_simplify_clause.apply(*cl);
             add_clause(*cl);
+        }
         SASSERT(lemma_invariant_part2(lemma_invariant_todo));
         learn_lemma(lemma);
     }

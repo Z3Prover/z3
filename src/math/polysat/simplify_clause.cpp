@@ -40,6 +40,21 @@ Notes:
         ==> drop 294 because it implies 295
         ==> drop 292 because it implies 295
 
+
+    TODO from bench0:
+	-43 \/ 3 \/ 4 \/ -0 \/ -44 \/ -52
+		-43: v3 + -1 != 0
+		3: v3 == 0
+		4: v3 <= v5
+		-0: v5 + v4*v3 + -1*v2*v1 != 0
+		-44: v4 + -1 != 0
+		-52: v2 != 0
+
+        Drop v3 == 0 because it implies v3 - 1 != 0
+
+    The try_recognize_bailout returns true, but fails to simplify any other literal.
+    Overall, why return true immediately if there are other literals that subsume each-other?
+
 --*/
 #include "math/polysat/solver.h"
 #include "math/polysat/simplify_clause.h"
@@ -110,6 +125,8 @@ namespace polysat {
                 });
             }
         }
+        if (j == cl.size())
+            return false;
         cl.m_literals.shrink(j);
         return true;
     }
