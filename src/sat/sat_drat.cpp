@@ -656,7 +656,6 @@ namespace sat {
         if (m_out) dump(1, &l, st);
         if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
-        TRACE("sat", tout << "add " << m_clause_eh << "\n");
         if (m_clause_eh) m_clause_eh->on_clause(1, &l, st);
     }
     void drat::add(literal l1, literal l2, status st) {

@@ -76,7 +76,6 @@ namespace arith {
     }
 
     bool solver::unit_propagate() {
-        TRACE("arith", tout << "unit propagate\n";);
         m_model_is_initialized = false;
         if (!m_solver->has_changed_columns() && !m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
