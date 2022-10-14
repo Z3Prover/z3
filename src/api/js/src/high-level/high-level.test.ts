@@ -2,6 +2,7 @@ import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
 import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
+import { expectType } from "ts-expect";
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -404,6 +405,18 @@ describe('high-level', () => {
       expect(range.size()).toStrictEqual(256);
 
       assert(isArray(arr) && isArraySort(arr.sort));
+
+      const arr2 = Array.const('arr2', BitVec.sort(1), BitVec.sort(2), BitVec.sort(3));
+      const dom2 = arr2.domain_n(1);
+
+      // We can call size() on dom2 and see that it is two bits
+      // purely from type inference
+      expectType<2>(dom2.size());
+
+      // Won't let us create an array constant with only one of domain/range
+      // and is detected at compile time
+      // @ts-expect-error
+      const arr3 = Array.const('arr3', BitVec.sort(1));
     })
 
     it('can do simple proofs', async () => {
