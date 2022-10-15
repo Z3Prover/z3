@@ -192,6 +192,9 @@ export interface Context<Name extends string = 'main'> {
   isDistinct(obj: unknown): boolean;
 
   /** @category Functions */
+  isQuantifier(obj: unknown): obj is Quantifier<Name>;
+
+  /** @category Functions */
   isArith(obj: unknown): obj is Arith<Name>;
 
   /** @category Functions */
