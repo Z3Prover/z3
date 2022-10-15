@@ -58,6 +58,7 @@ async function* allSolutions<Name extends string>(...assertions: Bool<Name>[]): 
 
 async function prove(conjecture: Bool): Promise<void> {
   const solver = new conjecture.ctx.Solver();
+  solver.set('timeout', 1000);
   const { Not } = solver.ctx;
   solver.add(Not(conjecture));
   expect(await solver.check()).toStrictEqual('unsat');
@@ -447,13 +448,6 @@ describe('high-level', () => {
       await prove(Eq(arr2.select(0), FIVE_VAL));
       await prove(Not(Eq(arr2.select(0), BitVec.val(6, 256))));
       await prove(Eq(arr2.store(idx, val).select(idx), constArr.store(idx, val).select(idx)));
-
-      // TODO: add in Quantifiers and better typing of arrays
-      // await prove(
-      //   ForAll([idx], idx.add(1).ugt(idx).and(arr.select(idx.add(1)).ugt(arr.select(idx)))).implies(
-      //     arr.select(0).ult(arr.select(1000))
-      //   )
-      // );
     });
 
     it('Finds arrays that differ but that sum to the same', async () => {
@@ -491,6 +485,49 @@ describe('high-level', () => {
       }
     });
   });
+
+  describe('quantifiers', () => {
+
+    it('Basic Universal', async () => {
+      const Z3 = api.Context('main');
+
+      const [x, y] = Z3.Int.consts('x y');
+
+      const conjecture = Z3.ForAll(
+        [x, y],
+        (x.neq(y).implies(x.lt(y).or(x.gt(y))))
+      )
+      await prove(conjecture);
+    });
+
+    it('Basic Existential', async () => {
+      const Z3 = api.Context('main');
+
+      const [x, y, z] = Z3.Int.consts('x y z');
+
+      const conjecture = Z3.Not(x.gt(y)).implies(
+        Z3.Exists(
+          [z],
+          (Z3.Not(z.lt(x)).and(Z3.Not(z.gt(y))))
+        ) // Can be trivially discovered with z = x or x = y
+      );
+
+      await prove(conjecture);
+    });
+
+    it('Basic Lambda', async () => {
+      const Z3 = api.Context('main');
+
+      const [x, y] = Z3.Int.consts('x y z');
+      const L = Z3.Lambda([x, y], x.add(y));
+      expect(Z3.isArraySort(L.sort)).toBeTruthy();
+      expect(Z3.isArray(L)).toBeFalsy();
+
+      const conjecture = (L.select(Z3.Int.val(2 ), Z3.Int.val(5)).eq(Z3.Int.val(7)));
+      await prove(conjecture);
+    })
+
+  })
 
   describe('Solver', () => {
     it('can use push and pop', async () => {

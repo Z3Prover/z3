@@ -6,7 +6,7 @@ import {
   Z3_decl_kind,
   Z3_func_decl,
   Z3_func_interp,
-  Z3_model,
+  Z3_model, Z3_pattern,
   Z3_probe,
   Z3_solver,
   Z3_sort,
@@ -38,46 +38,46 @@ export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name>
 /** @hidden */
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
   S extends BoolSort
-    ? Bool<Name>
-    : S extends ArithSort<Name>
-      ? Arith<Name>
-      : S extends BitVecSort<infer Size, Name>
-        ? BitVec<Size, Name>
-        : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
-          ? SMTArray<Name, DomainSort, RangeSort>
-          : S extends Sort<Name>
-            ? Expr<Name, S, Z3_ast>
-            : never;
+  ? Bool<Name>
+  : S extends ArithSort<Name>
+  ? Arith<Name>
+  : S extends BitVecSort<infer Size, Name>
+  ? BitVec<Size, Name>
+  : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
+  ? SMTArray<Name, DomainSort, RangeSort>
+  : S extends Sort<Name>
+  ? Expr<Name, S, Z3_ast>
+  : never;
 
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
   S extends bigint
-    ? ArithSort<Name>
-    : S extends number | CoercibleRational
-      ? RatNum<Name>
-      : S extends boolean
-        ? Bool<Name>
-        : S extends Expr<Name>
-          ? S
-          : never;
+  ? ArithSort<Name>
+  : S extends number | CoercibleRational
+  ? RatNum<Name>
+  : S extends boolean
+  ? Bool<Name>
+  : S extends Expr<Name>
+  ? S
+  : never;
 
 /** @hidden */
 export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
   S extends Bool<Name>
-    ? (boolean | Bool<Name>)
-    : S extends IntNum<Name>
-      ? (bigint | number | IntNum<Name>)
-      : S extends RatNum<Name>
-        ? (bigint | number | CoercibleRational | RatNum<Name>)
-        : S extends Arith<Name>
-          ? (bigint | number | CoercibleRational | Arith<Name>)
-          : S extends BitVec<infer Size, Name>
-            ? (number | BitVec<Size, Name>)
-            : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
-              ? SMTArray<Name, DomainSort, RangeSort>
-              : S extends Expr<Name>
-                ? Expr<Name>
-                : never;
+  ? (boolean | Bool<Name>)
+  : S extends IntNum<Name>
+  ? (bigint | number | IntNum<Name>)
+  : S extends RatNum<Name>
+  ? (bigint | number | CoercibleRational | RatNum<Name>)
+  : S extends Arith<Name>
+  ? (bigint | number | CoercibleRational | Arith<Name>)
+  : S extends BitVec<infer Size, Name>
+  ? (number | BitVec<Size, Name>)
+  : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
+  ? SMTArray<Name, DomainSort, RangeSort>
+  : S extends Expr<Name>
+  ? Expr<Name>
+  : never;
 
 /**
  * Used to create a Real constant
@@ -407,6 +407,17 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   Or(...args: Probe<Name>[]): Probe<Name>;
 
+  // Quantifiers
+
+  /** @category Operations */
+  ForAll(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+
+  /** @category Operations */
+  Exists(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+
+  /** @category Operations */
+  Lambda(args: Expr<Name>[], expr: Expr<Name>): Quantifier<Name>;
+
   // Arithmetic
   /** @category Operations */
   ToReal(expr: Arith<Name> | bigint): Arith<Name>;
@@ -500,8 +511,9 @@ export interface Solver<Name extends string = 'main'> {
   readonly ctx: Context<Name>;
   readonly ptr: Z3_solver;
 
-  /* TODO(ritave): Decide on how to discern between integer and float parameters
   set(key: string, value: any): void;
+
+  /* TODO(ritave): Decide on how to discern between integer and float parameters
   set(params: Record<string, any>): void;
   */
   push(): void;
@@ -678,7 +690,11 @@ export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_fun
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
   /** @hidden */
-  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'] | SMTArray['__typename'];
+  readonly __typename: 'Expr'
+    | Bool['__typename']
+    | Arith['__typename']
+    | BitVec['__typename']
+    | SMTArray['__typename'];
 
   get sort(): S;
 
@@ -725,7 +741,7 @@ export interface BoolCreation<Name extends string = 'main'> {
 /** @category Booleans */
 export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<Name>, Z3_ast> {
   /** @hidden */
-  readonly __typename: 'Bool';
+  readonly __typename: 'Bool' | Quantifier['__typename'];
 
   not(): Bool<Name>;
 
@@ -736,6 +752,36 @@ export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<
   xor(other: Bool<Name> | boolean): Bool<Name>;
 
   implies(other: Bool<Name> | boolean): Bool<Name>;
+}
+
+// TODO: properly implement pattern
+/** @category Quantifiers */
+export interface Pattern<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Pattern';
+}
+
+/** @category Quantifiers */
+export interface Quantifier<Name extends string = 'main'> extends Bool<Name> {
+
+  readonly __typename: 'Quantifier';
+
+  is_forall(): boolean;
+  is_exists(): boolean;
+  is_lambda(): boolean;
+
+  select(...indices: AnyExpr<Name>[]): Expr<Name> | never;
+  weight(): number;
+  num_patterns(): number;
+  pattern(i: number): Pattern<Name>;
+  num_no_patterns(): number;
+  no_pattern(i: number): Expr<Name>;
+  body(): Bool<Name> | Expr<Name>;
+  num_vars(): number;
+  var_name(i: number): string | number;
+  var_sort(i: number): Sort<Name>;
+  children(): [Bool<Name> | Expr<Name>];
+
 }
 
 /**
