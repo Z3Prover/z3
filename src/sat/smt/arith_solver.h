@@ -71,10 +71,10 @@ namespace arith {
         unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
-            if (m_eq_tail < m_eqs.size()) 
-                m_eqs[m_eq_tail] = std::tuple(a, b, is_eq); 
-            else 
-                m_eqs.push_back(std::tuple(a, b, is_eq)); 
+            if (m_eq_tail < m_eqs.size())
+                m_eqs[m_eq_tail] = { a, b, is_eq };
+            else
+                m_eqs.push_back({a, b, is_eq });
             m_eq_tail++; 
         }
     public:
@@ -476,9 +476,9 @@ namespace arith {
         arith_proof_hint_builder m_arith_hint;
 
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
-        arith_proof_hint const* explain_implied_eq(euf::enode* a, euf::enode* b);
+        arith_proof_hint const* explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b);
         arith_proof_hint const* explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq);
-        void explain_assumptions();
+        void explain_assumptions(lp::explanation const& e);
 
 
     public:

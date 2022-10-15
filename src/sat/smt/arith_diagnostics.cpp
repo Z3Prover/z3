@@ -82,9 +82,9 @@ namespace arith {
         if (m_nla) m_nla->collect_statistics(st);
     }
 
-    void solver::explain_assumptions() {
+    void solver::explain_assumptions(lp::explanation const& e) {
         unsigned i = 0;
-        for (auto const & ev : m_explanation) {
+        for (auto const & ev : e) {
             ++i;
             auto idx = ev.ci();
             if (UINT_MAX == idx)
@@ -118,17 +118,17 @@ namespace arith {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.set_type(ctx, ty);
-        explain_assumptions();
+        explain_assumptions(m_explanation);
         if (lit != sat::null_literal)
             m_arith_hint.add_lit(rational(1), ~lit);
         return m_arith_hint.mk(ctx);
     }
 
-    arith_proof_hint const* solver::explain_implied_eq(euf::enode* a, euf::enode* b) {
+    arith_proof_hint const* solver::explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b) {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
-        explain_assumptions();
+        explain_assumptions(e);
         m_arith_hint.set_num_le(1); // TODO
         m_arith_hint.add_diseq(a, b);
         return m_arith_hint.mk(ctx);

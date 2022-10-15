@@ -58,6 +58,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "async-mutex": "^0.3.2"
+    "async-mutex": "^0.3.2",
+    "ts-expect": "^1.3.0"
   }
 }
