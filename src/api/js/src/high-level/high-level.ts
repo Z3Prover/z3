@@ -30,7 +30,7 @@ import {
   Z3_sort_kind,
   Z3_symbol,
   Z3_symbol_kind,
-  Z3_tactic,
+  Z3_tactic, Z3_pattern, Z3_app, Z3_params,
 } from '../low-level';
 import {
   AnyAst,
@@ -60,8 +60,8 @@ import {
   FuncDeclSignature,
   FuncInterp,
   IntNum,
-  Model,
-  Probe,
+  Model, Pattern,
+  Probe, Quantifier,
   RatNum,
   SMTArray,
   SMTArraySort,
@@ -199,6 +199,26 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    function _toParams(key: string, value: any): Z3_params {
+      const params = Z3.mk_params(contextPtr);
+      Z3.params_inc_ref(contextPtr, params);
+      // If value is a boolean
+      if (typeof value === 'boolean') {
+        Z3.params_set_bool(contextPtr, params, _toSymbol(key), value);
+      } else if (typeof value === 'number') {
+        // If value is a uint
+        if (Number.isInteger(value)) {
+          check(Z3.params_set_uint(contextPtr, params, _toSymbol(key), value));
+        } else {
+          // If value is a double
+          check(Z3.params_set_double(contextPtr, params, _toSymbol(key), value));
+        }
+      } else if (typeof value === 'string') {
+        check(Z3.params_set_symbol(contextPtr, params, _toSymbol(key), _toSymbol(value)));
+      }
+      return params;
+    }
+
     function _toAst(ast: Z3_ast): AnyAst<Name> {
       switch (check(Z3.get_ast_kind(contextPtr, ast))) {
         case Z3_ast_kind.Z3_SORT_AST:
@@ -229,13 +249,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function _toExpr(ast: Z3_ast): AnyExpr<Name> {
       const kind = check(Z3.get_ast_kind(contextPtr, ast));
       if (kind === Z3_ast_kind.Z3_QUANTIFIER_AST) {
-        if (Z3.is_quantifier_forall(contextPtr, ast))
-          return new BoolImpl(ast);
-        if (Z3.is_quantifier_exists(contextPtr, ast))
-          return new BoolImpl(ast);
-        if (Z3.is_lambda(contextPtr, ast))
-          return new ExprImpl(ast);
-        assert(false);
+        return new QuantifierImpl(ast);
       }
       const sortKind = check(Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast)));
       switch (sortKind) {
@@ -897,6 +911,48 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    function ForAll(quantifiers: Expr<Name>[], body: Bool<Name>, weight: number = 1): Quantifier<Name> {
+      return new QuantifierImpl(
+        Z3.mk_quantifier_const_ex(
+          contextPtr,
+          true,
+          weight,
+          _toSymbol(""),
+          _toSymbol(""),
+          quantifiers.map(q => q.ptr as Z3_app),
+          [],
+          [],
+          body.ptr
+        )
+      );
+    }
+
+    function Exists(quantifiers: Expr<Name>[], body: Bool<Name>, weight: number = 1): Quantifier<Name> {
+      return new QuantifierImpl(
+        Z3.mk_quantifier_const_ex(
+          contextPtr,
+          false,
+          weight,
+          _toSymbol(""),
+          _toSymbol(""),
+          quantifiers.map(q => q.ptr as Z3_app),
+          [],
+          [],
+          body.ptr
+        )
+      );
+    }
+
+    function Lambda(args: Expr<Name>[], expr: Expr<Name, AnySort<Name>, Z3_ast>): Quantifier<Name> {
+      return new QuantifierImpl(
+        Z3.mk_lambda_const(
+          contextPtr,
+          args.map(a => a.ptr as Z3_app),
+          expr.ptr
+        )
+      );
+    }
+
     function ToReal(expr: Arith<Name> | bigint): Arith<Name> {
       expr = from(expr) as Arith<Name>;
       _assertContext(expr);
@@ -1021,6 +1077,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ptr = myPtr;
         Z3.solver_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr));
+      }
+
+      set(key: string, value: any): void {
+        Z3.solver_set_params(contextPtr, this.ptr, _toParams(key, value));
       }
 
       push() {
@@ -1404,6 +1464,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class PatternImpl implements Pattern<Name> {
+      declare readonly __typename: Pattern['__typename'];
+      readonly ctx: Context<Name>;
+
+      constructor(readonly ptr: Z3_pattern) {
+        this.ctx = ctx;
+        // TODO: implement rest of Pattern
+      }
+    }
+
     class BoolSortImpl extends SortImpl implements BoolSort<Name> {
       declare readonly __typename: BoolSort['__typename'];
 
@@ -1446,6 +1516,75 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       implies(other: Bool<Name> | boolean): Bool<Name> {
         return Implies(this, other);
       }
+    }
+
+    class QuantifierImpl extends BoolImpl implements Quantifier<Name> {
+
+      declare readonly __typename: Quantifier['__typename'];
+
+      is_forall(): boolean {
+        return Z3.is_quantifier_forall(contextPtr, this.ast);
+      }
+
+      is_exists(): boolean {
+        return Z3.is_quantifier_exists(contextPtr, this.ast);
+      }
+
+      is_lambda(): boolean {
+        return Z3.is_lambda(contextPtr, this.ast);
+      }
+
+      select(...indices: AnyExpr<Name>[]): Expr<Name> | never {
+        if (!this.is_lambda()) {
+          throw new Error('Z3 lambda expression expected');
+        }
+        if (indices.length === 1) {
+          return _toExpr(check(Z3.mk_select(contextPtr, this.ast, indices[0].ast)));
+        }
+        const args = indices.map(arg => arg.ast);
+        return _toExpr(check(Z3.mk_select_n(contextPtr, this.ast, args)));
+      }
+
+      weight(): number | never {
+        return Z3.get_quantifier_weight(contextPtr, this.ast);
+      }
+
+      num_patterns(): number {
+        return Z3.get_quantifier_num_patterns(contextPtr, this.ast);
+      }
+
+      pattern(i: number): Pattern<Name> {
+        return new PatternImpl(check(Z3.get_quantifier_pattern_ast(contextPtr, this.ast, i)));
+      }
+
+      num_no_patterns(): number {
+        return Z3.get_quantifier_num_no_patterns(contextPtr, this.ast);
+      }
+
+      no_pattern(i: number): Expr<Name> {
+        return _toExpr(check(Z3.get_quantifier_no_pattern_ast(contextPtr, this.ast, i)));
+      }
+
+      body(): Bool<Name> | Expr<Name> {
+        return _toExpr(check(Z3.get_quantifier_body(contextPtr, this.ast)));
+      }
+
+      num_vars(): number {
+        return Z3.get_quantifier_num_bound(contextPtr, this.ast);
+      }
+
+      var_name(i: number): string | number {
+        return _fromSymbol(Z3.get_quantifier_bound_name(contextPtr, this.ast, i));
+      }
+
+      var_sort(i: number): Sort<Name> {
+        return _toSort(check(Z3.get_quantifier_bound_sort(contextPtr, this.ast, i)));
+      }
+
+      children(): [Bool<Name> | Expr<Name>] {
+        return [this.body()];
+      }
+
     }
 
     class ProbeImpl implements Probe<Name> {
@@ -1860,10 +1999,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     }
 
-    class ArrayImpl<
-      DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-      RangeSort extends AnySort<Name> = Sort<Name>
-    > extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
+    class ArrayImpl<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+      RangeSort extends AnySort<Name> = Sort<Name>> extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
       implements SMTArray<Name, DomainSort, RangeSort> {
       declare readonly __typename: SMTArray['__typename'];
 
@@ -2152,6 +2289,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Not,
       And,
       Or,
+      ForAll,
+      Exists,
+      Lambda,
       ToReal,
       ToInt,
       IsInt,
