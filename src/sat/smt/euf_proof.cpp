@@ -46,7 +46,7 @@ namespace euf {
      * so it isn't necessarily an axiom over EUF,
      * We will here leave it to the EUF checker to perform resolution steps.
      */
-    void solver::log_antecedents(literal l, literal_vector const& r, eq_proof_hint* hint) {
+    void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
         TRACE("euf", log_antecedents(tout, l, r););
         if (!use_drat())
             return;

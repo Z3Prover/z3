@@ -182,9 +182,9 @@ public:
         }
         m_solver->pop(1);
         std::cout << "(verified-smt"; 
-        if (proof_hint) std::cout << " " << mk_bounded_pp(proof_hint, m, 4);
+        if (proof_hint) std::cout << "\n" << mk_bounded_pp(proof_hint, m, 4);
         for (expr* arg : clause)
-            std::cout << " " << mk_bounded_pp(arg, m);
+            std::cout << "\n " << mk_bounded_pp(arg, m);
         std::cout << ")\n";
         add_clause(clause);
     }

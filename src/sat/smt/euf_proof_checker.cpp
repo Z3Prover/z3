@@ -19,6 +19,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_proof_checker.h"
 #include "sat/smt/q_proof_checker.h"
@@ -58,15 +59,29 @@ namespace euf {
 
     class eq_proof_checker : public proof_checker_plugin {
         ast_manager&     m;
+        arith_util       m_arith;
+        expr_ref_vector  m_trail;
         basic_union_find m_uf;
         svector<std::pair<unsigned, unsigned>> m_expr2id;
         ptr_vector<expr>                       m_id2expr;
-        svector<std::pair<expr*,expr*>> m_diseqs;
+        svector<std::pair<expr*,expr*>>        m_diseqs;
         unsigned         m_ts = 0;
         
         void merge(expr* x, expr* y) {
             m_uf.merge(expr2id(x), expr2id(y));
             IF_VERBOSE(10, verbose_stream() << "merge " << mk_bounded_pp(x, m) << " == " << mk_bounded_pp(y, m) << "\n");
+            merge_numeral(x);
+            merge_numeral(y);
+        }
+
+        void merge_numeral(expr* x) {
+            rational n;
+            expr* y;
+            if (m_arith.is_uminus(x, y) && m_arith.is_numeral(y, n)) {
+                y = m_arith.mk_numeral(-n, x->get_sort());
+                m_trail.push_back(y);
+                m_uf.merge(expr2id(x), expr2id(y));
+            }
         }
 
         bool are_equal(expr* x, expr* y) {
@@ -118,7 +133,7 @@ namespace euf {
         }                
 
     public:
-        eq_proof_checker(ast_manager& m): m(m) {}
+        eq_proof_checker(ast_manager& m): m(m), m_arith(m), m_trail(m) {}
 
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);

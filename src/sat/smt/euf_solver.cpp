@@ -200,16 +200,36 @@ namespace euf {
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
+    /**
+    Retrieve set of literals r that imply r.
+    Since the set of literals are retrieved modulo multiple theories in a single implication
+    we lose theory specific justifications. For proof logging we use a catch all rule "smt"
+    for the case where an equality is derived using more than congruence closure.
+    To create fully decomposed justifications it will be necessary to augment the justification
+    data-structure with information about the equality that is implied by the theory.
+    Then each justification will imply an equality s = t assuming literals 'r'.
+    The theory lemma is then r -> s = t, where s = t is an equality that is available for the EUF hint.
+    The EUF hint is resolved against r -> s = t to eliminate s = t and to create the resulting explanation.
+
+    Example:
+            x - 3 = 0 => x = 3 by arithmetic
+            x = 3 => f(x) = f(3) by EUF
+            resolve to produce clause x - 3 = 0 => f(x) = f(3)
+    */
+
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
         if (use_drat() && !probing) 
             push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
         auto* ext = sat::constraint_base::to_extension(idx);
+        bool has_theory = false;
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
-        else
+        else {
             ext->get_antecedents(l, idx, r, probing);
+            has_theory = true;
+        }
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
             size_t* e = m_explain[qhead];
             if (is_literal(e)) 
@@ -220,10 +240,20 @@ namespace euf {
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
+                has_theory = true;
             }
         }
         m_egraph.end_explain();  
-        eq_proof_hint* hint = (use_drat() && !probing) ? mk_hint(l, r) : nullptr;
+        th_proof_hint* hint = nullptr;
+        if (use_drat() && !probing) {
+            if (has_theory) {                
+                r.push_back(~l);
+                hint = mk_smt_hint(symbol("smt"), r);
+                r.pop_back();
+            }
+            else
+                hint = mk_hint(l, r);
+        }
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;

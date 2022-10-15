@@ -143,17 +143,13 @@ namespace arith {
             SASSERT(m_todo.empty());
             m_todo.push_back({ mul, e });
             rational coeff1;
-            expr* e1, *e2, *e3;
+            expr* e1, *e2;
             for (unsigned i = 0; i < m_todo.size(); ++i) {
                 auto [coeff, e] = m_todo[i];
-                if (a.is_mul(e, e1, e2) && a.is_numeral(e1, coeff1))
+                if (a.is_mul(e, e1, e2) && is_numeral(e1, coeff1))
                     m_todo.push_back({coeff*coeff1, e2});
-                else if (a.is_mul(e, e1, e2) && a.is_uminus(e1, e3) && a.is_numeral(e3, coeff1))
-                    m_todo.push_back({-coeff*coeff1, e2});
-                else if (a.is_mul(e, e1, e2) && a.is_uminus(e2, e3) && a.is_numeral(e3, coeff1))
-                    m_todo.push_back({ -coeff * coeff1, e1 });
-                else if (a.is_mul(e, e1, e2) && a.is_numeral(e2, coeff1))
-                    m_todo.push_back({coeff*coeff1, e1});
+                else if (a.is_mul(e, e1, e2) && is_numeral(e2, coeff1))
+                    m_todo.push_back({ coeff * coeff1, e1 });
                 else if (a.is_add(e))
                     for (expr* arg : *to_app(e))
                         m_todo.push_back({coeff, arg});
@@ -163,14 +159,20 @@ namespace arith {
                     m_todo.push_back({coeff, e1});
                     m_todo.push_back({-coeff, e2});                
                 }
-                else if (a.is_numeral(e, coeff1)) 
+                else if (is_numeral(e, coeff1)) 
                     r.m_coeff += coeff*coeff1;
-                else if (a.is_uminus(e, e1) && a.is_numeral(e1, coeff1))
-                    r.m_coeff -= coeff*coeff1;
                 else
                     add(r, e, coeff);
             }
             m_todo.reset();
+        }
+
+        bool is_numeral(expr* e, rational& n) {
+            if (a.is_numeral(e, n))
+                return true;
+            if (a.is_uminus(e, e) && a.is_numeral(e, n))
+                return n.neg(), true;
+            return false;
         }
         
         bool check_ineq(row& r) {
@@ -182,9 +184,12 @@ namespace arith {
         }
         
         // triangulate equalities, substitute results into m_ineq, m_conseq.
-        void reduce_eq() {
+        // check consistency of equalities (they may be inconsisent)
+        bool reduce_eq() {
             for (unsigned i = 0; i < m_eqs.size(); ++i) {
                 auto& r = m_eqs[i];
+                if (r.m_coeffs.empty() && r.m_coeff != 0)
+                    return false;
                 if (r.m_coeffs.empty())
                     continue;
                 auto [v, coeff] = *r.m_coeffs.begin();
@@ -193,6 +198,7 @@ namespace arith {
                 resolve(v, m_ineq, coeff, r);
                 resolve(v, m_conseq, coeff, r);
             }
+            return true;
         }
         
         
@@ -231,7 +237,8 @@ namespace arith {
         bool check_farkas() {
             if (check_ineq(m_ineq))
                 return true;
-            reduce_eq();
+            if (!reduce_eq())
+                return true;
             if (check_ineq(m_ineq))
                 return true;
             
@@ -244,7 +251,8 @@ namespace arith {
         // after all inequalities in ineq have been added up
         //
         bool check_bound() {
-            reduce_eq();
+            if (!reduce_eq())
+                return true;
             if (check_ineq(m_conseq))
                 return true;
             if (m_ineq.m_coeffs.empty() ||
@@ -401,8 +409,10 @@ namespace arith {
                             return false;
                         }
                         num_le = coeff.get_unsigned();
-                        if (!add_implied_ineq(false, jst))
+                        if (!add_implied_ineq(false, jst)) {
+                            IF_VERBOSE(0, display(verbose_stream() << "did not add implied eq"));
                             return false;
+                        }
                         ++j;
                         continue;
                     }
@@ -418,10 +428,24 @@ namespace arith {
                             if (num_le == 0) {
                                 // we processed all the first inequalities,
                                 // check that they imply one half of the implied equality.
-                                if (!check())
-                                    return false;
-                                reset();
-                                VERIFY(add_implied_ineq(true, jst));
+                                if (!check()) {
+                                    // we might have added the wrong direction of the implied equality.
+                                    // so try the opposite inequality.
+                                    add_implied_ineq(true, jst);
+                                    add_implied_ineq(true, jst);
+                                    if (check()) {
+                                        reset();
+                                        add_implied_ineq(false, jst);
+                                    }
+                                    else {
+                                        IF_VERBOSE(0, display(verbose_stream() << "failed to check implied eq "));
+                                        return false;
+                                    }
+                                }
+                                else {
+                                    reset();
+                                    VERIFY(add_implied_ineq(true, jst));
+                                }
                             }
                         }
                         else

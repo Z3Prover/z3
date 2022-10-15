@@ -193,7 +193,7 @@ namespace euf {
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
-        void log_antecedents(literal l, literal_vector const& r, eq_proof_hint* hint);
+        void log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
 
         typedef std::pair<expr*, expr*> expr_pair;
