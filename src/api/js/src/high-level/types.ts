@@ -1209,6 +1209,7 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
  * A Sort representing a SMT Array with range of sort {@link SMTArraySort.range range}
  * and a domain of sort {@link SMTArraySort.domain domain}
  *
+ * @typeParam DomainSort The sort of the domain of the array (provided as an array of sorts)
  * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
@@ -1221,15 +1222,11 @@ export interface SMTArraySort<Name extends string = 'main',
 
   /**
    * The sort of the first dimension of the domain
-   *
-   * TODO: Add example
    */
   domain(): DomainSort[0];
 
   /**
    * The sort of the i-th (0-indexed) dimension of the domain
-   *
-   * TODO: add example
    *
    * @param i index of the dimension of the domain being requested
    */
@@ -1237,7 +1234,6 @@ export interface SMTArraySort<Name extends string = 'main',
 
   /**
    * The sort of the range
-   * TODO: add example
    */
   range(): RangeSort;
 
@@ -1273,6 +1269,9 @@ export type ArrayIndexType<Name extends string = 'main',
 
 /**
  * Represents Array expression
+ *
+ * @typeParam DomainSort The sort of the domain of the array (provided as an array of sorts)
+ * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
 export interface SMTArray<Name extends string = 'main',
