@@ -1,83 +1,97 @@
 import {
-  Z3_ast,
-  Z3_ast_map,
-  Z3_ast_vector,
-  Z3_context,
-  Z3_decl_kind,
-  Z3_func_decl,
-  Z3_func_interp,
-  Z3_model, Z3_pattern,
-  Z3_probe,
-  Z3_solver,
-  Z3_sort,
-  Z3_sort_kind,
-  Z3_symbol,
-  Z3_tactic,
+    Z3_ast,
+    Z3_ast_map,
+    Z3_ast_vector,
+    Z3_context,
+    Z3_decl_kind,
+    Z3_func_decl,
+    Z3_func_interp,
+    Z3_model, Z3_pattern,
+    Z3_probe,
+    Z3_solver,
+    Z3_sort,
+    Z3_sort_kind,
+    Z3_symbol,
+    Z3_tactic,
 } from '../low-level';
 
 /** @hidden */
 export type AnySort<Name extends string = 'main'> =
-  | Sort<Name>
-  | BoolSort<Name>
-  | ArithSort<Name>
-  | BitVecSort<number, Name>
-  | SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    | Sort<Name>
+    | BoolSort<Name>
+    | ArithSort<Name>
+    | BitVecSort<number, Name>
+    | SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
-  | Expr<Name>
-  | Bool<Name>
-  | Arith<Name>
-  | IntNum<Name>
-  | RatNum<Name>
-  | BitVec<number, Name>
-  | BitVecNum<number, Name>
-  | SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    | Expr<Name>
+    | Bool<Name>
+    | Arith<Name>
+    | IntNum<Name>
+    | RatNum<Name>
+    | BitVec<number, Name>
+    | BitVecNum<number, Name>
+    | SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 /** @hidden */
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
-  S extends BoolSort
-  ? Bool<Name>
-  : S extends ArithSort<Name>
-  ? Arith<Name>
-  : S extends BitVecSort<infer Size, Name>
-  ? BitVec<Size, Name>
-  : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
-  ? SMTArray<Name, DomainSort, RangeSort>
-  : S extends Sort<Name>
-  ? Expr<Name, S, Z3_ast>
-  : never;
+    S extends BoolSort
+        ? Bool<Name>
+        : S extends ArithSort<Name>
+            ? Arith<Name>
+            : S extends BitVecSort<infer Size, Name>
+                ? BitVec<Size, Name>
+                : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
+                    ? SMTArray<Name, DomainSort, RangeSort>
+                    : S extends Sort<Name>
+                        ? Expr<Name, S, Z3_ast>
+                        : never;
 
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
-  S extends bigint
-  ? ArithSort<Name>
-  : S extends number | CoercibleRational
-  ? RatNum<Name>
-  : S extends boolean
-  ? Bool<Name>
-  : S extends Expr<Name>
-  ? S
-  : never;
+    S extends bigint
+        ? ArithSort<Name>
+        : S extends number | CoercibleRational
+            ? RatNum<Name>
+            : S extends boolean
+                ? Bool<Name>
+                : S extends Expr<Name>
+                    ? S
+                    : never;
 
 /** @hidden */
-export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
-  S extends Bool<Name>
-  ? (boolean | Bool<Name>)
-  : S extends IntNum<Name>
-  ? (bigint | number | IntNum<Name>)
-  : S extends RatNum<Name>
-  ? (bigint | number | CoercibleRational | RatNum<Name>)
-  : S extends Arith<Name>
-  ? (bigint | number | CoercibleRational | Arith<Name>)
-  : S extends BitVec<infer Size, Name>
-  ? (number | BitVec<Size, Name>)
-  : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
-  ? SMTArray<Name, DomainSort, RangeSort>
-  : S extends Expr<Name>
-  ? Expr<Name>
-  : never;
+export type CoercibleToBitVec<Bits extends number = number, Name extends string = 'main'> =
+    | bigint
+    | number
+    | BitVec<Bits, Name>;
+
+export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
+
+/** @hidden */
+export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | boolean | CoercibleRational | Expr<Name>;
+
+/** @hidden */
+export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
+
+/** @hidden */
+export type CoercibleToMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
+    S extends Bool<Name>
+        ? (boolean | Bool<Name>)
+        : S extends IntNum<Name>
+            ? (bigint | number | IntNum<Name>)
+            : S extends RatNum<Name>
+                ? (bigint | number | CoercibleRational | RatNum<Name>)
+                : S extends Arith<Name>
+                    ? (bigint | number | CoercibleRational | Arith<Name>)
+                    : S extends BitVec<infer Size, Name>
+                        ? CoercibleToBitVec<Size, Name>
+                        : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
+                            ? SMTArray<Name, DomainSort, RangeSort>
+                            : S extends Expr<Name>
+                                ? Expr<Name>
+                                : never;
 
 /**
  * Used to create a Real constant
@@ -97,10 +111,6 @@ export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'mai
  * @see {@link Context.from}
  * @category Global
  */
-export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
-
-/** @hidden */
-export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | boolean | CoercibleRational | Expr<Name>;
 
 export class Z3Error extends Error {
 }
@@ -113,474 +123,520 @@ export type CheckSatResult = 'sat' | 'unsat' | 'unknown';
 
 /** @hidden */
 export interface ContextCtor {
-  <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
+    <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
 }
 
 export interface Context<Name extends string = 'main'> {
-  /** @hidden */
-  readonly ptr: Z3_context;
-  /**
-   * Name of the current Context
-   *
-   * ```typescript
-   * const c = new Context('main')
-   *
-   * c.name
-   * // 'main'
-   * ```
-   */
-  readonly name: Name;
+    /** @hidden */
+    readonly ptr: Z3_context;
+    /**
+     * Name of the current Context
+     *
+     * ```typescript
+     * const c = new Context('main')
+     *
+     * c.name
+     * // 'main'
+     * ```
+     */
+    readonly name: Name;
 
-  ///////////////
-  // Functions //
-  ///////////////
-  /** @category Functions */
-  interrupt(): void;
+    ///////////////
+    // Functions //
+    ///////////////
+    /** @category Functions */
+    interrupt(): void;
 
-  /** @category Functions */
-  isModel(obj: unknown): obj is Model<Name>;
+    /** @category Functions */
+    isModel(obj: unknown): obj is Model<Name>;
 
-  /** @category Functions */
-  isAst(obj: unknown): obj is Ast<Name>;
+    /** @category Functions */
+    isAst(obj: unknown): obj is Ast<Name>;
 
-  /** @category Functions */
-  isSort(obj: unknown): obj is Sort<Name>;
+    /** @category Functions */
+    isSort(obj: unknown): obj is Sort<Name>;
 
-  /** @category Functions */
-  isFuncDecl(obj: unknown): obj is FuncDecl<Name>;
+    /** @category Functions */
+    isFuncDecl(obj: unknown): obj is FuncDecl<Name>;
 
-  /** @category Functions */
-  isApp(obj: unknown): boolean;
+    /** @category Functions */
+    isApp(obj: unknown): boolean;
 
-  /** @category Functions */
-  isConst(obj: unknown): boolean;
+    /** @category Functions */
+    isConst(obj: unknown): boolean;
 
-  /** @category Functions */
-  isExpr(obj: unknown): obj is Expr<Name>;
+    /** @category Functions */
+    isExpr(obj: unknown): obj is Expr<Name>;
 
-  /** @category Functions */
-  isVar(obj: unknown): boolean;
+    /** @category Functions */
+    isVar(obj: unknown): boolean;
 
-  /** @category Functions */
-  isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
+    /** @category Functions */
+    isAppOf(obj: unknown, kind: Z3_decl_kind): boolean;
 
-  /** @category Functions */
-  isBool(obj: unknown): obj is Bool<Name>;
+    /** @category Functions */
+    isBool(obj: unknown): obj is Bool<Name>;
 
-  /** @category Functions */
-  isTrue(obj: unknown): boolean;
+    /** @category Functions */
+    isTrue(obj: unknown): boolean;
 
-  /** @category Functions */
-  isFalse(obj: unknown): boolean;
+    /** @category Functions */
+    isFalse(obj: unknown): boolean;
 
-  /** @category Functions */
-  isAnd(obj: unknown): boolean;
+    /** @category Functions */
+    isAnd(obj: unknown): boolean;
 
-  /** @category Functions */
-  isOr(obj: unknown): boolean;
+    /** @category Functions */
+    isOr(obj: unknown): boolean;
 
-  /** @category Functions */
-  isImplies(obj: unknown): boolean;
+    /** @category Functions */
+    isImplies(obj: unknown): boolean;
 
-  /** @category Functions */
-  isNot(obj: unknown): boolean;
+    /** @category Functions */
+    isNot(obj: unknown): boolean;
 
-  /** @category Functions */
-  isEq(obj: unknown): boolean;
+    /** @category Functions */
+    isEq(obj: unknown): boolean;
 
-  /** @category Functions */
-  isDistinct(obj: unknown): boolean;
+    /** @category Functions */
+    isDistinct(obj: unknown): boolean;
 
-  /** @category Functions */
-  isQuantifier(obj: unknown): obj is Quantifier<Name>;
+    /** @category Functions */
+    isQuantifier(obj: unknown): obj is Quantifier<Name>;
 
-  /** @category Functions */
-  isArith(obj: unknown): obj is Arith<Name>;
+    /** @category Functions */
+    isArith(obj: unknown): obj is Arith<Name>;
 
-  /** @category Functions */
-  isArithSort(obj: unknown): obj is ArithSort<Name>;
+    /** @category Functions */
+    isArithSort(obj: unknown): obj is ArithSort<Name>;
 
-  /** @category Functions */
-  isInt(obj: unknown): boolean;
+    /** @category Functions */
+    isInt(obj: unknown): boolean;
 
-  /** @category Functions */
-  isIntVal(obj: unknown): obj is IntNum<Name>;
+    /** @category Functions */
+    isIntVal(obj: unknown): obj is IntNum<Name>;
 
-  /** @category Functions */
-  isIntSort(obj: unknown): boolean;
-
-  /** @category Functions */
-  isReal(obj: unknown): boolean;
-
-  /** @category Functions */
-  isRealVal(obj: unknown): obj is RatNum<Name>;
-
-  /** @category Functions */
-  isRealSort(obj: unknown): boolean;
-
-  /** @category Functions */
-  isBitVecSort(obj: unknown): obj is BitVecSort<number, Name>;
-
-  /** @category Functions */
-  isBitVec(obj: unknown): obj is BitVec<number, Name>;
-
-  /** @category Functions */
-  isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
-
-  /** @category Functions */
-  isArraySort(obj: unknown): obj is SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
-
-  /** @category Functions */
-  isArray(obj: unknown): obj is SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
-
-  /** @category Functions */
-  isConstArray(obj: unknown): boolean;
-
-  /** @category Functions */
-  isProbe(obj: unknown): obj is Probe<Name>;
-
-  /** @category Functions */
-  isTactic(obj: unknown): obj is Tactic<Name>;
-
-  /** @category Functions */
-  isAstVector(obj: unknown): obj is AstVector<Name, AnyAst<Name>>;
-
-  /**
-   * Returns whether two Asts are the same thing
-   * @category Functions */
-  eqIdentity(a: Ast<Name>, b: Ast<Name>): boolean;
-
-  /** @category Functions */
-  getVarIndex(obj: Expr<Name>): number;
-
-  /**
-   * Coerce a boolean into a Bool expression
-   * @category Functions */
-  from(primitive: boolean): Bool<Name>;
-
-  /**
-   * Coerce a number to an Int or Real expression (integral numbers become Ints)
-   * @category Functions */
-  from(primitive: number): IntNum<Name> | RatNum<Name>;
-
-  /**
-   * Coerce a rational into a Real expression
-   * @category Functions */
-  from(primitive: CoercibleRational): RatNum<Name>;
-
-  /**
-   * Coerce a big number into a Integer expression
-   * @category Functions */
-  from(primitive: bigint): IntNum<Name>;
-
-  /**
-   * Returns whatever expression was given
-   * @category Functions */
-  from<E extends Expr<Name>>(expr: E): E;
-
-  /** @hidden */
-  from(value: CoercibleToExpr<Name>): AnyExpr<Name>;
-
-  /**
-   * Sugar function for getting a model for given assertions
-   *
-   * ```typescript
-   * const x = Int.const('x');
-   * const y = Int.const('y');
-   * const result = await solve(x.le(y));
-   * if (isModel(result)) {
-   *   console.log('Z3 found a solution');
-   *   console.log(`x=${result.get(x)}, y=${result.get(y)}`);
-   * } else {
-   *   console.error('No solution found');
-   * }
-   * ```
-   *
-   * @see {@link Solver}
-   * @category Functions */
-  solve(...assertions: Bool<Name>[]): Promise<Model<Name> | 'unsat' | 'unknown'>;
-
-  /////////////
-  // Classes //
-  /////////////
-  /**
-   * Creates a Solver
-   * @param logic - Optional logic which the solver will use. Creates a general Solver otherwise
-   * @category Classes
-   */
-  readonly Solver: new (logic?: string) => Solver<Name>;
-  /**
-   * Creates an empty Model
-   * @see {@link Solver.model} for common usage of Model
-   * @category Classes
-   */
-  readonly Model: new () => Model<Name>;
-  /** @category Classes */
-  readonly AstVector: new <Item extends Ast<Name> = AnyAst<Name>>() => AstVector<Name, Item>;
-  /** @category Classes */
-  readonly AstMap: new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>() => AstMap<Name, Key, Value>;
-  /** @category Classes */
-  readonly Tactic: new (name: string) => Tactic<Name>;
-
-  /////////////
-  // Objects //
-  /////////////
-  /** @category Expressions */
-  readonly Sort: SortCreation<Name>;
-  /** @category Expressions */
-  readonly Function: FuncDeclCreation<Name>;
-  /** @category Expressions */
-  readonly RecFunc: RecFuncCreation<Name>;
-  /** @category Expressions */
-  readonly Bool: BoolCreation<Name>;
-  /** @category Expressions */
-  readonly Int: IntCreation<Name>;
-  /** @category Expressions */
-  readonly Real: RealCreation<Name>;
-  /** @category Expressions */
-  readonly BitVec: BitVecCreation<Name>;
-  /** @category Expressions */
-  readonly Array: SMTArrayCreation<Name>;
-
-  ////////////////
-  // Operations //
-  ////////////////
-  /** @category Operations */
-  Const<S extends Sort<Name>>(name: string, sort: S): SortToExprMap<S, Name>;
-
-  /** @category Operations */
-  Consts<S extends Sort<Name>>(name: string | string[], sort: S): SortToExprMap<S, Name>[];
-
-  /** @category Operations */
-  FreshConst<S extends Sort<Name>>(sort: S, prefix?: string): SortToExprMap<S, Name>;
-
-  /** @category Operations */
-  Var<S extends Sort<Name>>(idx: number, sort: S): SortToExprMap<S, Name>;
-
-  // Booleans
-  /** @category Operations */
-  If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
-
-  /** @category Operations */
-  If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
-    condition: Bool<Name> | boolean,
-    onTrue: OnTrueRef,
-    onFalse: OnFalseRef,
-  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
-
-  /** @category Operations */
-  Distinct(...args: CoercibleToExpr<Name>[]): Bool<Name>;
-
-  /** @category Operations */
-  Implies(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
-
-  /** @category Operations */
-  Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name>;
-
-  /** @category Operations */
-  Xor(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
-
-  /** @category Operations */
-  Not(a: Probe<Name>): Probe<Name>;
-
-  /** @category Operations */
-  Not(a: Bool<Name> | boolean): Bool<Name>;
-
-  /** @category Operations */
-  And(): Bool<Name>;
-
-  /** @category Operations */
-  And(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
-
-  /** @category Operations */
-  And(...args: (Bool<Name> | boolean)[]): Bool<Name>;
-
-  /** @category Operations */
-  And(...args: Probe<Name>[]): Probe<Name>;
-
-  /** @category Operations */
-  Or(): Bool<Name>;
-
-  /** @category Operations */
-  Or(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
-
-  /** @category Operations */
-  Or(...args: (Bool<Name> | boolean)[]): Bool<Name>;
-
-  /** @category Operations */
-  Or(...args: Probe<Name>[]): Probe<Name>;
-
-  // Quantifiers
-
-  /** @category Operations */
-  ForAll(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
-
-  /** @category Operations */
-  Exists(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
-
-  /** @category Operations */
-  Lambda(args: Expr<Name>[], expr: Expr<Name>): Quantifier<Name>;
-
-  // Arithmetic
-  /** @category Operations */
-  ToReal(expr: Arith<Name> | bigint): Arith<Name>;
-
-  /** @category Operations */
-  ToInt(expr: Arith<Name> | number | CoercibleRational | string): Arith<Name>;
-
-  /**
-   * Create an IsInt Z3 predicate
-   *
-   * ```typescript
-   * const x = Real.const('x');
-   * await solve(IsInt(x.add("1/2")), x.gt(0), x.lt(1))
-   * // x = 1/2
-   * await solve(IsInt(x.add("1/2")), x.gt(0), x.lt(1), x.neq("1/2"))
-   * // unsat
-   * ```
-   * @category Operations */
-  IsInt(expr: Arith<Name> | number | CoercibleRational | string): Bool<Name>;
-
-  /**
-   * Returns a Z3 expression representing square root of a
-   *
-   * ```typescript
-   * const a = Real.const('a');
-   *
-   * Sqrt(a);
-   * // a**(1/2)
-   * ```
-   * @category Operations */
-  Sqrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
-
-  /**
-   * Returns a Z3 expression representing cubic root of a
-   *
-   * ```typescript
-   * const a = Real.const('a');
-   *
-   * Cbrt(a);
-   * // a**(1/3)
-   * ```
-   * @category Operations */
-  Cbrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
-
-  // Bit Vectors
-  /** @category Operations */
-  BV2Int(a: BitVec<number, Name>, isSigned: boolean): Arith<Name>;
-
-  /** @category Operations */
-  Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name>;
-
-  /** @category Operations */
-  Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
-
-  /** @category Operations */
-  Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>
+    /** @category Functions */
+    isIntSort(obj: unknown): boolean;
+
+    /** @category Functions */
+    isReal(obj: unknown): boolean;
+
+    /** @category Functions */
+    isRealVal(obj: unknown): obj is RatNum<Name>;
+
+    /** @category Functions */
+    isRealSort(obj: unknown): boolean;
+
+    /** @category Functions */
+    isBitVecSort(obj: unknown): obj is BitVecSort<number, Name>;
+
+    /** @category Functions */
+    isBitVec(obj: unknown): obj is BitVec<number, Name>;
+
+    /** @category Functions */
+    isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
+
+    /** @category Functions */
+    isArraySort(obj: unknown): obj is SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+
+    /** @category Functions */
+    isArray(obj: unknown): obj is SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+
+    /** @category Functions */
+    isConstArray(obj: unknown): boolean;
+
+    /** @category Functions */
+    isProbe(obj: unknown): obj is Probe<Name>;
+
+    /** @category Functions */
+    isTactic(obj: unknown): obj is Tactic<Name>;
+
+    /** @category Functions */
+    isAstVector(obj: unknown): obj is AstVector<Name, AnyAst<Name>>;
+
+    /**
+     * Returns whether two Asts are the same thing
+     * @category Functions */
+    eqIdentity(a: Ast<Name>, b: Ast<Name>): boolean;
+
+    /** @category Functions */
+    getVarIndex(obj: Expr<Name>): number;
+
+    /**
+     * Coerce a boolean into a Bool expression
+     * @category Functions */
+    from(primitive: boolean): Bool<Name>;
+
+    /**
+     * Coerce a number to an Int or Real expression (integral numbers become Ints)
+     * @category Functions */
+    from(primitive: number): IntNum<Name> | RatNum<Name>;
+
+    /**
+     * Coerce a rational into a Real expression
+     * @category Functions */
+    from(primitive: CoercibleRational): RatNum<Name>;
+
+    /**
+     * Coerce a big number into a Integer expression
+     * @category Functions */
+    from(primitive: bigint): IntNum<Name>;
+
+    /**
+     * Returns whatever expression was given
+     * @category Functions */
+    from<E extends Expr<Name>>(expr: E): E;
+
+    /** @hidden */
+    from(value: CoercibleToExpr<Name>): AnyExpr<Name>;
+
+    /**
+     * Sugar function for getting a model for given assertions
+     *
+     * ```typescript
+     * const x = Int.const('x');
+     * const y = Int.const('y');
+     * const result = await solve(x.le(y));
+     * if (isModel(result)) {
+     *   console.log('Z3 found a solution');
+     *   console.log(`x=${result.get(x)}, y=${result.get(y)}`);
+     * } else {
+     *   console.error('No solution found');
+     * }
+     * ```
+     *
+     * @see {@link Solver}
+     * @category Functions */
+    solve(...assertions: Bool<Name>[]): Promise<Model<Name> | 'unsat' | 'unknown'>;
+
+    /////////////
+    // Classes //
+    /////////////
+    /**
+     * Creates a Solver
+     * @param logic - Optional logic which the solver will use. Creates a general Solver otherwise
+     * @category Classes
+     */
+    readonly Solver: new (logic?: string) => Solver<Name>;
+    /**
+     * Creates an empty Model
+     * @see {@link Solver.model} for common usage of Model
+     * @category Classes
+     */
+    readonly Model: new () => Model<Name>;
+    /** @category Classes */
+    readonly AstVector: new <Item extends Ast<Name> = AnyAst<Name>>() => AstVector<Name, Item>;
+    /** @category Classes */
+    readonly AstMap: new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>() => AstMap<Name, Key, Value>;
+    /** @category Classes */
+    readonly Tactic: new (name: string) => Tactic<Name>;
+
+    /////////////
+    // Objects //
+    /////////////
+    /** @category Expressions */
+    readonly Sort: SortCreation<Name>;
+    /** @category Expressions */
+    readonly Function: FuncDeclCreation<Name>;
+    /** @category Expressions */
+    readonly RecFunc: RecFuncCreation<Name>;
+    /** @category Expressions */
+    readonly Bool: BoolCreation<Name>;
+    /** @category Expressions */
+    readonly Int: IntCreation<Name>;
+    /** @category Expressions */
+    readonly Real: RealCreation<Name>;
+    /** @category Expressions */
+    readonly BitVec: BitVecCreation<Name>;
+    /** @category Expressions */
+    readonly Array: SMTArrayCreation<Name>;
+
+    ////////////////
+    // Operations //
+    ////////////////
+    /** @category Operations */
+    Const<S extends Sort<Name>>(name: string, sort: S): SortToExprMap<S, Name>;
+
+    /** @category Operations */
+    Consts<S extends Sort<Name>>(name: string | string[], sort: S): SortToExprMap<S, Name>[];
+
+    /** @category Operations */
+    FreshConst<S extends Sort<Name>>(sort: S, prefix?: string): SortToExprMap<S, Name>;
+
+    /** @category Operations */
+    Var<S extends Sort<Name>>(idx: number, sort: S): SortToExprMap<S, Name>;
+
+    // Booleans
+    /** @category Operations */
+    If(condition: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
+
+    /** @category Operations */
+    If<OnTrueRef extends CoercibleToExpr<Name>, OnFalseRef extends CoercibleToExpr<Name>>(
+        condition: Bool<Name> | boolean,
+        onTrue: OnTrueRef,
+        onFalse: OnFalseRef,
+    ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
+
+    /** @category Operations */
+    Distinct(...args: CoercibleToExpr<Name>[]): Bool<Name>;
+
+    /** @category Operations */
+    Implies(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
+
+    /** @category Operations */
+    Iff(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
+
+    /** @category Operations */
+    Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name>;
+
+    /** @category Operations */
+    Xor(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
+
+    /** @category Operations */
+    Not(a: Probe<Name>): Probe<Name>;
+
+    /** @category Operations */
+    Not(a: Bool<Name> | boolean): Bool<Name>;
+
+    /** @category Operations */
+    And(): Bool<Name>;
+
+    /** @category Operations */
+    And(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
+
+    /** @category Operations */
+    And(...args: (Bool<Name> | boolean)[]): Bool<Name>;
+
+    /** @category Operations */
+    And(...args: Probe<Name>[]): Probe<Name>;
+
+    /** @category Operations */
+    Or(): Bool<Name>;
+
+    /** @category Operations */
+    Or(vector: AstVector<Name, Bool<Name>>): Bool<Name>;
+
+    /** @category Operations */
+    Or(...args: (Bool<Name> | boolean)[]): Bool<Name>;
+
+    /** @category Operations */
+    Or(...args: Probe<Name>[]): Probe<Name>;
+
+    // Quantifiers
+
+    /** @category Operations */
+    ForAll(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+
+    /** @category Operations */
+    Exists(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+
+    /** @category Operations */
+    Lambda(args: Expr<Name>[], expr: Expr<Name>): Quantifier<Name>;
+
+    // Arithmetic
+    /** @category Operations */
+    ToReal(expr: Arith<Name> | bigint): Arith<Name>;
+
+    /** @category Operations */
+    ToInt(expr: Arith<Name> | number | CoercibleRational | string): Arith<Name>;
+
+    /**
+     * Create an IsInt Z3 predicate
+     *
+     * ```typescript
+     * const x = Real.const('x');
+     * await solve(IsInt(x.add("1/2")), x.gt(0), x.lt(1))
+     * // x = 1/2
+     * await solve(IsInt(x.add("1/2")), x.gt(0), x.lt(1), x.neq("1/2"))
+     * // unsat
+     * ```
+     * @category Operations */
+    IsInt(expr: Arith<Name> | number | CoercibleRational | string): Bool<Name>;
+
+    /**
+     * Returns a Z3 expression representing square root of a
+     *
+     * ```typescript
+     * const a = Real.const('a');
+     *
+     * Sqrt(a);
+     * // a**(1/2)
+     * ```
+     * @category Operations */
+    Sqrt(a: CoercibleToArith<Name>): Arith<Name>;
+
+    /**
+     * Returns a Z3 expression representing cubic root of a
+     *
+     * ```typescript
+     * const a = Real.const('a');
+     *
+     * Cbrt(a);
+     * // a**(1/3)
+     * ```
+     * @category Operations */
+    Cbrt(a: CoercibleToArith<Name>): Arith<Name>;
+
+    // Bit Vectors
+    /** @category Operations */
+    BV2Int(a: BitVec<number, Name>, isSigned: boolean): Arith<Name>;
+
+    /** @category Operations */
+    Int2BV<Bits extends number>(a: Arith<Name> | bigint | number, bits: Bits): BitVec<Bits, Name>;
+
+    /** @category Operations */
+    Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
+
+    /** @category Operations */
+    Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>
+
+    // Arith
+
+    /** @category Operations */
+    LT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+    /** @category Operations */
+    GT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+    /** @category Operations */
+    LE(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+    /** @category Operations */
+    GE(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+
+    // Bit Vectors
+
+    /** @category Operations */
+    ULT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    UGT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    ULE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    UGE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    // Bit Vectors
+
+    /** @category Operations */
+    SLT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    SGT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    SGE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    SLE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
-  /** @hidden */
-  readonly __typename: 'Ast' | Sort['__typename'] | FuncDecl['__typename'] | Expr['__typename'];
+    /** @hidden */
+    readonly __typename: 'Ast' | Sort['__typename'] | FuncDecl['__typename'] | Expr['__typename'];
 
-  readonly ctx: Context<Name>;
-  /** @hidden */
-  readonly ptr: Ptr;
+    readonly ctx: Context<Name>;
+    /** @hidden */
+    readonly ptr: Ptr;
 
-  /** @virtual */
-  get ast(): Z3_ast;
+    /** @virtual */
+    get ast(): Z3_ast;
 
-  /** @virtual */
-  id(): number;
+    /** @virtual */
+    id(): number;
 
-  eqIdentity(other: Ast<Name>): boolean;
+    eqIdentity(other: Ast<Name>): boolean;
 
-  neqIdentity(other: Ast<Name>): boolean;
+    neqIdentity(other: Ast<Name>): boolean;
 
-  sexpr(): string;
+    sexpr(): string;
 
-  hash(): number;
+    hash(): number;
 }
 
 /** @hidden */
 export interface SolverCtor<Name extends string> {
-  new(): Solver<Name>;
+    new(): Solver<Name>;
 }
 
 export interface Solver<Name extends string = 'main'> {
-  /** @hidden */
-  readonly __typename: 'Solver';
+    /** @hidden */
+    readonly __typename: 'Solver';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_solver;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_solver;
 
-  set(key: string, value: any): void;
+    set(key: string, value: any): void;
 
-  /* TODO(ritave): Decide on how to discern between integer and float parameters
-  set(params: Record<string, any>): void;
-  */
-  push(): void;
+    /* TODO(ritave): Decide on how to discern between integer and float parameters
+    set(params: Record<string, any>): void;
+    */
+    push(): void;
 
-  pop(num?: number): void;
+    pop(num?: number): void;
 
-  numScopes(): number;
+    numScopes(): number;
 
-  reset(): void;
+    reset(): void;
 
-  add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
+    add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
-  addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
+    addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
-  assertions(): AstVector<Name, Bool<Name>>;
+    assertions(): AstVector<Name, Bool<Name>>;
 
-  fromString(s: string): void;
+    fromString(s: string): void;
 
-  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+    check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
-  model(): Model<Name>;
+    model(): Model<Name>;
 }
 
 /** @hidden */
 export interface ModelCtor<Name extends string> {
-  new(): Model<Name>;
+    new(): Model<Name>;
 }
 
 export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<Name>> {
-  /** @hidden */
-  readonly __typename: 'Model';
+    /** @hidden */
+    readonly __typename: 'Model';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_model;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_model;
 
-  length(): number;
+    length(): number;
 
-  entries(): IterableIterator<[number, FuncDecl<Name>]>;
+    entries(): IterableIterator<[number, FuncDecl<Name>]>;
 
-  keys(): IterableIterator<number>;
+    keys(): IterableIterator<number>;
 
-  values(): IterableIterator<FuncDecl<Name>>;
+    values(): IterableIterator<FuncDecl<Name>>;
 
-  decls(): FuncDecl<Name>[];
+    decls(): FuncDecl<Name>[];
 
-  sexpr(): string;
+    sexpr(): string;
 
-  eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
+    eval(expr: Bool<Name>, modelCompletion?: boolean): Bool<Name>;
 
-  eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
+    eval(expr: Arith<Name>, modelCompletion?: boolean): Arith<Name>;
 
-  eval<Bits extends number = number>(expr: BitVec<Bits, Name>, modelCompletion?: boolean): BitVecNum<Bits, Name>;
+    eval<Bits extends number = number>(expr: BitVec<Bits, Name>, modelCompletion?: boolean): BitVecNum<Bits, Name>;
 
-  eval(expr: Expr<Name>, modelCompletion?: boolean): Expr<Name>;
+    eval(expr: Expr<Name>, modelCompletion?: boolean): Expr<Name>;
 
-  get(i: number): FuncDecl<Name>;
+    get(i: number): FuncDecl<Name>;
 
-  get(from: number, to: number): FuncDecl<Name>[];
+    get(from: number, to: number): FuncDecl<Name>[];
 
-  get(declaration: FuncDecl<Name>): FuncInterp<Name> | Expr<Name>;
+    get(declaration: FuncDecl<Name>): FuncInterp<Name> | Expr<Name>;
 
-  get(constant: Expr<Name>): Expr<Name>;
+    get(constant: Expr<Name>): Expr<Name>;
 
-  get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
+    get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 }
 
 /**
@@ -600,38 +656,38 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
  * ```
  */
 export interface SortCreation<Name extends string> {
-  declare(name: string): Sort<Name>;
+    declare(name: string): Sort<Name>;
 }
 
 export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
-  /** @hidden */
-  readonly __typename:
-    | 'Sort'
-    | BoolSort['__typename']
-    | ArithSort['__typename']
-    | BitVecSort['__typename']
-    | SMTArraySort['__typename'];
+    /** @hidden */
+    readonly __typename:
+        | 'Sort'
+        | BoolSort['__typename']
+        | ArithSort['__typename']
+        | BitVecSort['__typename']
+        | SMTArraySort['__typename'];
 
-  kind(): Z3_sort_kind;
+    kind(): Z3_sort_kind;
 
-  /** @virtual */
-  subsort(other: Sort<Name>): boolean;
+    /** @virtual */
+    subsort(other: Sort<Name>): boolean;
 
-  /** @virtual */
-  cast(expr: CoercibleToExpr<Name>): Expr<Name>;
+    /** @virtual */
+    cast(expr: CoercibleToExpr<Name>): Expr<Name>;
 
-  name(): string | number;
+    name(): string | number;
 }
 
 /**
  * @category Functions
  */
 export interface FuncInterp<Name extends string = 'main'> {
-  /** @hidden */
-  readonly __typename: 'FuncInterp';
+    /** @hidden */
+    readonly __typename: 'FuncInterp';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_func_interp;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_func_interp;
 }
 
 /** @hidden */
@@ -642,148 +698,162 @@ export type FuncDeclSignature<Name extends string> = [Sort<Name>, Sort<Name>, ..
  * @category Functions
  */
 export interface FuncDeclCreation<Name extends string> {
-  /**
-   * Declare a new function
-   *
-   * ```typescript
-   * const f = ctx.Function.declare('f', ctx.Bool.sort(), ctx.Real.sort(), ctx.Int.sort())
-   *
-   * f.call(true, "1/3").eq(5)
-   * // f(true, 1/3) == 5
-   * ```
-   * @param name Name of the function
-   * @param signature The domains, and last parameter - the range of the function
-   */
-  declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+    /**
+     * Declare a new function
+     *
+     * ```typescript
+     * const f = ctx.Function.declare('f', ctx.Bool.sort(), ctx.Real.sort(), ctx.Int.sort())
+     *
+     * f.call(true, "1/3").eq(5)
+     * // f(true, 1/3) == 5
+     * ```
+     * @param name Name of the function
+     * @param signature The domains, and last parameter - the range of the function
+     */
+    declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
 
-  fresh(...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+    fresh(...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
 }
 
 /**
  * @category Functions
  */
 export interface RecFuncCreation<Name extends string> {
-  declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+    declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
 
-  addDefinition(f: FuncDecl<Name>, args: Expr<Name>[], body: Expr<Name>): void;
+    addDefinition(f: FuncDecl<Name>, args: Expr<Name>[], body: Expr<Name>): void;
 }
 
 /**
  * @category Functions
  */
 export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_func_decl> {
-  /** @hidden */
-  readonly __typename: 'FuncDecl';
+    /** @hidden */
+    readonly __typename: 'FuncDecl';
 
-  name(): string | number;
+    name(): string | number;
 
-  arity(): number;
+    arity(): number;
 
-  domain(i: number): Sort<Name>;
+    domain(i: number): Sort<Name>;
 
-  range(): Sort<Name>;
+    range(): Sort<Name>;
 
-  kind(): Z3_decl_kind;
+    kind(): Z3_decl_kind;
 
-  params(): (number | string | Z3_symbol | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
+    params(): (number | string | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
 
-  call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
+    call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
 }
 
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
-  extends Ast<Name, Ptr> {
-  /** @hidden */
-  readonly __typename: 'Expr'
-    | Bool['__typename']
-    | Arith['__typename']
-    | BitVec['__typename']
-    | SMTArray['__typename'];
+    extends Ast<Name, Ptr> {
+    /** @hidden */
+    readonly __typename: 'Expr'
+        | Bool['__typename']
+        | Arith['__typename']
+        | BitVec['__typename']
+        | SMTArray['__typename'];
 
-  get sort(): S;
+    get sort(): S;
 
-  eq(other: CoercibleToExpr<Name>): Bool<Name>;
+    eq(other: CoercibleToExpr<Name>): Bool<Name>;
 
-  neq(other: CoercibleToExpr<Name>): Bool<Name>;
+    neq(other: CoercibleToExpr<Name>): Bool<Name>;
 
-  params(): ReturnType<FuncDecl<Name>['params']>;
+    params(): ReturnType<FuncDecl<Name>['params']>;
 
-  decl(): FuncDecl<Name>;
+    name(): ReturnType<FuncDecl<Name>['name']>;
 
-  numArgs(): number;
+    decl(): FuncDecl<Name>;
 
-  arg(i: number): AnyExpr<Name>;
+    numArgs(): number;
 
-  children(): AnyExpr<Name>[];
+    arg(i: number): AnyExpr<Name>;
+
+    children(): AnyExpr<Name>[];
 }
 
 /** @category Booleans */
 export interface BoolSort<Name extends string = 'main'> extends Sort<Name> {
-  /** @hidden */
-  readonly __typename: 'BoolSort';
+    /** @hidden */
+    readonly __typename: 'BoolSort';
 
-  cast(expr: Bool<Name> | boolean): Bool<Name>;
+    cast(expr: Bool<Name> | boolean): Bool<Name>;
 
-  cast(expr: CoercibleToExpr<Name>): never;
+    cast(expr: CoercibleToExpr<Name>): never;
 }
 
 /** @category Booleans */
 export interface BoolCreation<Name extends string = 'main'> {
-  sort(): BoolSort<Name>;
+    sort(): BoolSort<Name>;
 
-  const(name: string): Bool<Name>;
+    const(name: string): Bool<Name>;
 
-  consts(names: string | string[]): Bool<Name>[];
+    consts(names: string | string[]): Bool<Name>[];
 
-  vector(prefix: string, count: number): Bool<Name>[];
+    vector(prefix: string, count: number): Bool<Name>[];
 
-  fresh(prefix?: string): Bool<Name>;
+    fresh(prefix?: string): Bool<Name>;
 
-  val(value: boolean): Bool<Name>;
+    val(value: boolean): Bool<Name>;
 }
 
 /** @category Booleans */
 export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<Name>, Z3_ast> {
-  /** @hidden */
-  readonly __typename: 'Bool' | Quantifier['__typename'];
+    /** @hidden */
+    readonly __typename: 'Bool' | Quantifier['__typename'];
 
-  not(): Bool<Name>;
+    not(): Bool<Name>;
 
-  and(other: Bool<Name> | boolean): Bool<Name>;
+    and(other: Bool<Name> | boolean): Bool<Name>;
 
-  or(other: Bool<Name> | boolean): Bool<Name>;
+    or(other: Bool<Name> | boolean): Bool<Name>;
 
-  xor(other: Bool<Name> | boolean): Bool<Name>;
+    xor(other: Bool<Name> | boolean): Bool<Name>;
 
-  implies(other: Bool<Name> | boolean): Bool<Name>;
+    implies(other: Bool<Name> | boolean): Bool<Name>;
 }
 
 // TODO: properly implement pattern
 /** @category Quantifiers */
 export interface Pattern<Name extends string = 'main'> {
-  /** @hidden */
-  readonly __typename: 'Pattern';
+    /** @hidden */
+    readonly __typename: 'Pattern';
 }
 
 /** @category Quantifiers */
 export interface Quantifier<Name extends string = 'main'> extends Bool<Name> {
 
-  readonly __typename: 'Quantifier';
+    readonly __typename: 'Quantifier';
 
-  is_forall(): boolean;
-  is_exists(): boolean;
-  is_lambda(): boolean;
+    is_forall(): boolean;
 
-  select(...indices: AnyExpr<Name>[]): Expr<Name> | never;
-  weight(): number;
-  num_patterns(): number;
-  pattern(i: number): Pattern<Name>;
-  num_no_patterns(): number;
-  no_pattern(i: number): Expr<Name>;
-  body(): Bool<Name> | Expr<Name>;
-  num_vars(): number;
-  var_name(i: number): string | number;
-  var_sort(i: number): Sort<Name>;
-  children(): [Bool<Name> | Expr<Name>];
+    is_exists(): boolean;
+
+    is_lambda(): boolean;
+
+    select(...indices: AnyExpr<Name>[]): Expr<Name> | never;
+
+    weight(): number;
+
+    num_patterns(): number;
+
+    pattern(i: number): Pattern<Name>;
+
+    num_no_patterns(): number;
+
+    no_pattern(i: number): Expr<Name>;
+
+    body(): Bool<Name> | Expr<Name>;
+
+    num_vars(): number;
+
+    var_name(i: number): string | number;
+
+    var_sort(i: number): Sort<Name>;
+
+    children(): [Bool<Name> | Expr<Name>];
 
 }
 
@@ -792,48 +862,48 @@ export interface Quantifier<Name extends string = 'main'> extends Bool<Name> {
  * @category Arithmetic
  */
 export interface ArithSort<Name extends string = 'main'> extends Sort<Name> {
-  /** @hidden */
-  readonly __typename: 'ArithSort';
+    /** @hidden */
+    readonly __typename: 'ArithSort';
 
-  cast(other: bigint | number | string): IntNum<Name> | RatNum<Name>;
+    cast(other: bigint | number | string): IntNum<Name> | RatNum<Name>;
 
-  cast(other: CoercibleRational | RatNum<Name>): RatNum<Name>;
+    cast(other: CoercibleRational | RatNum<Name>): RatNum<Name>;
 
-  cast(other: IntNum<Name>): IntNum<Name>;
+    cast(other: IntNum<Name>): IntNum<Name>;
 
-  cast(other: bigint | number | string | Bool<Name> | Arith<Name> | CoercibleRational): Arith<Name>;
+    cast(other: bigint | number | string | Bool<Name> | Arith<Name> | CoercibleRational): Arith<Name>;
 
-  cast(other: CoercibleToExpr<Name> | string): never;
+    cast(other: CoercibleToExpr<Name> | string): never;
 }
 
 /** @category Arithmetic */
 export interface IntCreation<Name extends string> {
-  sort(): ArithSort<Name>;
+    sort(): ArithSort<Name>;
 
-  const(name: string): Arith<Name>;
+    const(name: string): Arith<Name>;
 
-  consts(names: string | string[]): Arith<Name>[];
+    consts(names: string | string[]): Arith<Name>[];
 
-  vector(prefix: string, count: number): Arith<Name>[];
+    vector(prefix: string, count: number): Arith<Name>[];
 
-  fresh(prefix?: string): Arith<Name>;
+    fresh(prefix?: string): Arith<Name>;
 
-  val(value: bigint | number | string): IntNum<Name>;
+    val(value: bigint | number | string): IntNum<Name>;
 }
 
 /** @category Arithmetic */
 export interface RealCreation<Name extends string> {
-  sort(): ArithSort<Name>;
+    sort(): ArithSort<Name>;
 
-  const(name: string): Arith<Name>;
+    const(name: string): Arith<Name>;
 
-  consts(names: string | string[]): Arith<Name>[];
+    consts(names: string | string[]): Arith<Name>[];
 
-  vector(prefix: string, count: number): Arith<Name>[];
+    vector(prefix: string, count: number): Arith<Name>[];
 
-  fresh(prefix?: string): Arith<Name>;
+    fresh(prefix?: string): Arith<Name>;
 
-  val(value: number | string | bigint | CoercibleRational): RatNum<Name>;
+    val(value: number | string | bigint | CoercibleRational): RatNum<Name>;
 }
 
 /**
@@ -841,77 +911,77 @@ export interface RealCreation<Name extends string> {
  * @category Arithmetic
  */
 export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSort<Name>, Z3_ast> {
-  /** @hidden */
-  readonly __typename: 'Arith' | IntNum['__typename'] | RatNum['__typename'];
+    /** @hidden */
+    readonly __typename: 'Arith' | IntNum['__typename'] | RatNum['__typename'];
 
-  /**
-   * Adds two numbers together
-   */
-  add(other: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Adds two numbers together
+     */
+    add(other: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Multiplies two numbers together
-   */
-  mul(other: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Multiplies two numbers together
+     */
+    mul(other: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Subtract second number from the first one
-   */
-  sub(other: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Subtract second number from the first one
+     */
+    sub(other: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Applies power to the number
-   *
-   * ```typescript
-   * const x = Int.const('x');
-   *
-   * await solve(x.pow(2).eq(4), x.lt(0)); // x**2 == 4, x < 0
-   * // x=-2
-   * ```
-   */
-  pow(exponent: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Applies power to the number
+     *
+     * ```typescript
+     * const x = Int.const('x');
+     *
+     * await solve(x.pow(2).eq(4), x.lt(0)); // x**2 == 4, x < 0
+     * // x=-2
+     * ```
+     */
+    pow(exponent: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Divides the number by the second one
-   */
-  div(other: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Divides the number by the second one
+     */
+    div(other: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Returns a number modulo second one
-   *
-   * ```typescript
-   * const x = Int.const('x');
-   *
-   * await solve(x.mod(7).eq(1), x.gt(7)) // x % 7 == 1, x > 7
-   * // x=8
-   * ```
-   */
-  mod(other: Arith<Name> | number | bigint | string): Arith<Name>;
+    /**
+     * Returns a number modulo second one
+     *
+     * ```typescript
+     * const x = Int.const('x');
+     *
+     * await solve(x.mod(7).eq(1), x.gt(7)) // x % 7 == 1, x > 7
+     * // x=8
+     * ```
+     */
+    mod(other: CoercibleToArith<Name>): Arith<Name>;
 
-  /**
-   * Returns a negation of the number
-   */
-  neg(): Arith<Name>;
+    /**
+     * Returns a negation of the number
+     */
+    neg(): Arith<Name>;
 
-  /**
-   * Return whether the number is less or equal than the second one (`<=`)
-   */
-  le(other: Arith<Name> | number | bigint | string): Bool<Name>;
+    /**
+     * Return whether the number is less or equal than the second one (`<=`)
+     */
+    le(other: CoercibleToArith<Name>): Bool<Name>;
 
-  /**
-   * Returns whether the number is less than the second one (`<`)
-   */
-  lt(other: Arith<Name> | number | bigint | string): Bool<Name>;
+    /**
+     * Returns whether the number is less than the second one (`<`)
+     */
+    lt(other: CoercibleToArith<Name>): Bool<Name>;
 
-  /**
-   * Returns whether the number is greater than the second one (`>`)
-   */
-  gt(other: Arith<Name> | number | bigint | string): Bool<Name>;
+    /**
+     * Returns whether the number is greater than the second one (`>`)
+     */
+    gt(other: CoercibleToArith<Name>): Bool<Name>;
 
-  /**
-   * Returns whether the number is greater or equal than the second one (`>=`)
-   */
-  ge(other: Arith<Name> | number | bigint | string): Bool<Name>;
+    /**
+     * Returns whether the number is greater or equal than the second one (`>=`)
+     */
+    ge(other: CoercibleToArith<Name>): Bool<Name>;
 }
 
 /**
@@ -919,14 +989,14 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
  * @category Arithmetic
  */
 export interface IntNum<Name extends string = 'main'> extends Arith<Name> {
-  /** @hidden */
-  readonly __typename: 'IntNum';
+    /** @hidden */
+    readonly __typename: 'IntNum';
 
-  value(): bigint;
+    value(): bigint;
 
-  asString(): string;
+    asString(): string;
 
-  asBinary(): string;
+    asBinary(): string;
 }
 
 /**
@@ -945,20 +1015,20 @@ export interface IntNum<Name extends string = 'main'> extends Arith<Name> {
  * @category Arithmetic
  */
 export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
-  /** @hidden */
-  readonly __typename: 'RatNum';
+    /** @hidden */
+    readonly __typename: 'RatNum';
 
-  value(): { numerator: bigint; denominator: bigint };
+    value(): { numerator: bigint; denominator: bigint };
 
-  numerator(): IntNum<Name>;
+    numerator(): IntNum<Name>;
 
-  denominator(): IntNum<Name>;
+    denominator(): IntNum<Name>;
 
-  asNumber(): number;
+    asNumber(): number;
 
-  asDecimal(prec?: number): string;
+    asDecimal(prec?: number): string;
 
-  asString(): string;
+    asString(): string;
 }
 
 /**
@@ -968,47 +1038,41 @@ export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
  * @category Bit Vectors
  */
 export interface BitVecSort<Bits extends number = number, Name extends string = 'main'> extends Sort<Name> {
-  /** @hidden */
-  readonly __typename: 'BitVecSort';
+    /** @hidden */
+    readonly __typename: 'BitVecSort';
 
-  /**
-   * The amount of bits inside the sort
-   *
-   * ```typescript
-   * const x = BitVec.const('x', 32);
-   *
-   * console.log(x.sort.size)
-   * // 32
-   * ```
-   */
-  size(): Bits;
+    /**
+     * The amount of bits inside the sort
+     *
+     * ```typescript
+     * const x = BitVec.const('x', 32);
+     *
+     * console.log(x.sort.size)
+     * // 32
+     * ```
+     */
+    size(): Bits;
 
-  cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    cast(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  cast(other: CoercibleToExpr<Name>): Expr<Name>;
+    cast(other: CoercibleToExpr<Name>): Expr<Name>;
 }
-
-/** @hidden */
-export type CoercibleToBitVec<Bits extends number = number, Name extends string = 'main'> =
-  | bigint
-  | number
-  | BitVec<Bits, Name>;
 
 /** @category Bit Vectors */
 export interface BitVecCreation<Name extends string> {
-  sort<Bits extends number = number>(bits: Bits): BitVecSort<Bits, Name>;
+    sort<Bits extends number = number>(bits: Bits): BitVecSort<Bits, Name>;
 
-  const<Bits extends number = number>(name: string, bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name>;
+    const<Bits extends number = number>(name: string, bits: Bits | BitVecSort<Bits, Name>): BitVec<Bits, Name>;
 
-  consts<Bits extends number = number>(
-    names: string | string[],
-    bits: Bits | BitVecSort<Bits, Name>,
-  ): BitVec<Bits, Name>[];
+    consts<Bits extends number = number>(
+        names: string | string[],
+        bits: Bits | BitVecSort<Bits, Name>,
+    ): BitVec<Bits, Name>[];
 
-  val<Bits extends number = number>(
-    value: bigint | number | boolean,
-    bits: Bits | BitVecSort<Bits, Name>,
-  ): BitVecNum<Bits, Name>;
+    val<Bits extends number = number>(
+        value: bigint | number | boolean,
+        bits: Bits | BitVecSort<Bits, Name>,
+    ): BitVecNum<Bits, Name>;
 }
 
 /**
@@ -1016,225 +1080,225 @@ export interface BitVecCreation<Name extends string> {
  * @category Bit Vectors
  */
 export interface BitVec<Bits extends number = number, Name extends string = 'main'>
-  extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
-  /** @hidden */
-  readonly __typename: 'BitVec' | BitVecNum['__typename'];
+    extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
+    /** @hidden */
+    readonly __typename: 'BitVec' | BitVecNum['__typename'];
 
-  /**
-   * The amount of bits of this BitVectors sort
-   *
-   * ```typescript
-   * const x = BitVec.const('x', 32);
-   *
-   * x.size
-   * // 32
-   *
-   * const Y = BitVec.sort(8);
-   * const y = BitVec.const('y', Y);
-   *
-   * y.size
-   * // 8
-   * ```
-   */
-  size(): Bits;
+    /**
+     * The amount of bits of this BitVectors sort
+     *
+     * ```typescript
+     * const x = BitVec.const('x', 32);
+     *
+     * x.size
+     * // 32
+     *
+     * const Y = BitVec.sort(8);
+     * const y = BitVec.const('y', Y);
+     *
+     * y.size
+     * // 8
+     * ```
+     */
+    size(): Bits;
 
-  /** @category Arithmetic */
-  add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  sdiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    sdiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  udiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    udiv(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  smod(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    smod(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  urem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    urem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  srem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    srem(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /** @category Arithmetic */
-  neg(): BitVec<Bits, Name>;
+    /** @category Arithmetic */
+    neg(): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise-or between two bitvectors
-   * @category4 Bitwise
-   */
-  or(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise-or between two bitvectors
+     * @category4 Bitwise
+     */
+    or(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise-and between two bitvectors
-   * @category Bitwise
-   */
-  and(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise-and between two bitvectors
+     * @category Bitwise
+     */
+    and(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise-not-and between two bitvectors
-   * @category Bitwise
-   */
-  nand(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise-not-and between two bitvectors
+     * @category Bitwise
+     */
+    nand(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise-exclusive-or between two bitvectors
-   * @category Bitwise
-   */
-  xor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise-exclusive-or between two bitvectors
+     * @category Bitwise
+     */
+    xor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise-exclusive-not-or between two bitvectors
-   * @category Bitwise
-   */
-  xnor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise-exclusive-not-or between two bitvectors
+     * @category Bitwise
+     */
+    xnor(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates an arithmetic shift right operation
-   * @category Bitwise
-   */
-  shr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates an arithmetic shift right operation
+     * @category Bitwise
+     */
+    shr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a logical shift right operation
-   * @category Bitwise
-   */
-  lshr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a logical shift right operation
+     * @category Bitwise
+     */
+    lshr(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a shift left operation
-   * @category Bitwise
-   */
-  shl(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a shift left operation
+     * @category Bitwise
+     */
+    shl(count: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a rotate right operation
-   * @category Bitwise
-   */
-  rotateRight(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a rotate right operation
+     * @category Bitwise
+     */
+    rotateRight(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a rotate left operation
-   * @category Bitwise
-   */
-  rotateLeft(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
+    /**
+     * Creates a rotate left operation
+     * @category Bitwise
+     */
+    rotateLeft(count: CoercibleToBitVec<number, Name>): BitVec<Bits, Name>;
 
-  /**
-   * Creates a bitwise not operation
-   * @category Bitwise
-   */
-  not(): BitVec<Bits, Name>;
+    /**
+     * Creates a bitwise not operation
+     * @category Bitwise
+     */
+    not(): BitVec<Bits, Name>;
 
-  /**
-   * Creates an extraction operation.
-   * Bits are indexed starting from 1 from the most right one (least significant) increasing to left (most significant)
-   *
-   * ```typescript
-   * const x = BitVec.const('x', 8);
-   *
-   * x.extract(6, 2)
-   * // Extract(6, 2, x)
-   * x.extract(6, 2).sort
-   * // BitVec(5)
-   * ```
-   * @param high The most significant bit to be extracted
-   * @param low  The least significant bit to be extracted
-   */
-  extract(high: number, low: number): BitVec<number, Name>;
+    /**
+     * Creates an extraction operation.
+     * Bits are indexed starting from 1 from the most right one (least significant) increasing to left (most significant)
+     *
+     * ```typescript
+     * const x = BitVec.const('x', 8);
+     *
+     * x.extract(6, 2)
+     * // Extract(6, 2, x)
+     * x.extract(6, 2).sort
+     * // BitVec(5)
+     * ```
+     * @param high The most significant bit to be extracted
+     * @param low  The least significant bit to be extracted
+     */
+    extract(high: number, low: number): BitVec<number, Name>;
 
-  signExt(count: number): BitVec<number, Name>;
+    signExt(count: number): BitVec<number, Name>;
 
-  zeroExt(count: number): BitVec<number, Name>;
+    zeroExt(count: number): BitVec<number, Name>;
 
-  repeat(count: number): BitVec<number, Name>;
+    repeat(count: number): BitVec<number, Name>;
 
-  /**
-   * Creates a signed less-or-equal operation (`<=`)
-   * @category Comparison
-   */
-  sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates a signed less-or-equal operation (`<=`)
+     * @category Comparison
+     */
+    sle(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates an unsigned less-or-equal operation (`<=`)
-   * @category Comparison
-   */
-  ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates an unsigned less-or-equal operation (`<=`)
+     * @category Comparison
+     */
+    ule(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates a signed less-than operation (`<`)
-   * @category Comparison
-   */
-  slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates a signed less-than operation (`<`)
+     * @category Comparison
+     */
+    slt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates an unsigned less-than operation (`<`)
-   * @category Comparison
-   */
-  ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates an unsigned less-than operation (`<`)
+     * @category Comparison
+     */
+    ult(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates a signed greater-or-equal operation (`>=`)
-   * @category Comparison
-   */
-  sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates a signed greater-or-equal operation (`>=`)
+     * @category Comparison
+     */
+    sge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates an unsigned greater-or-equal operation (`>=`)
-   * @category Comparison
-   */
-  uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates an unsigned greater-or-equal operation (`>=`)
+     * @category Comparison
+     */
+    uge(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates a signed greater-than operation (`>`)
-   * @category Comparison
-   */
-  sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates a signed greater-than operation (`>`)
+     * @category Comparison
+     */
+    sgt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates an unsigned greater-than operation (`>`)
-   * @category Comparison
-   */
-  ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /**
+     * Creates an unsigned greater-than operation (`>`)
+     * @category Comparison
+     */
+    ugt(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /**
-   * Creates a reduction-and operation
-   */
-  redAnd(): BitVec<number, Name>;
+    /**
+     * Creates a reduction-and operation
+     */
+    redAnd(): BitVec<number, Name>;
 
-  /**
-   * Creates a reduction-or operation
-   */
-  redOr(): BitVec<number, Name>;
+    /**
+     * Creates a reduction-or operation
+     */
+    redOr(): BitVec<number, Name>;
 
-  /** @category Boolean */
-  addNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+    /** @category Boolean */
+    addNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
 
-  /** @category Boolean */
-  addNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /** @category Boolean */
+    addNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /** @category Boolean */
-  subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /** @category Boolean */
+    subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /** @category Boolean */
-  subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+    /** @category Boolean */
+    subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
 
-  /** @category Boolean */
-  sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /** @category Boolean */
+    sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /** @category Boolean */
-  mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+    /** @category Boolean */
+    mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
 
-  /** @category Boolean */
-  mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+    /** @category Boolean */
+    mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-  /** @category Boolean */
-  negNoOverflow(): Bool<Name>;
+    /** @category Boolean */
+    negNoOverflow(): Bool<Name>;
 }
 
 /**
@@ -1242,16 +1306,16 @@ export interface BitVec<Bits extends number = number, Name extends string = 'mai
  * @category Bit Vectors
  */
 export interface BitVecNum<Bits extends number = number, Name extends string = 'main'> extends BitVec<Bits, Name> {
-  /** @hidden */
-  readonly __typename: 'BitVecNum';
+    /** @hidden */
+    readonly __typename: 'BitVecNum';
 
-  value(): bigint;
+    value(): bigint;
 
-  asSignedValue(): bigint;
+    asSignedValue(): bigint;
 
-  asString(): string;
+    asString(): string;
 
-  asBinaryString(): string;
+    asBinaryString(): string;
 }
 
 /**
@@ -1263,57 +1327,57 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
  * @category Arrays
  */
 export interface SMTArraySort<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-  RangeSort extends AnySort<Name> = AnySort<Name>,
-  > extends Sort<Name> {
-  /** @hidden */
-  readonly __typename: 'ArraySort';
+    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+    RangeSort extends AnySort<Name> = AnySort<Name>,
+    > extends Sort<Name> {
+    /** @hidden */
+    readonly __typename: 'ArraySort';
 
-  /**
-   * The sort of the first dimension of the domain
-   */
-  domain(): DomainSort[0];
+    /**
+     * The sort of the first dimension of the domain
+     */
+    domain(): DomainSort[0];
 
-  /**
-   * The sort of the i-th (0-indexed) dimension of the domain
-   *
-   * @param i index of the dimension of the domain being requested
-   */
-  domain_n<T extends number>(i: T): DomainSort[T];
+    /**
+     * The sort of the i-th (0-indexed) dimension of the domain
+     *
+     * @param i index of the dimension of the domain being requested
+     */
+    domain_n<T extends number>(i: T): DomainSort[T];
 
-  /**
-   * The sort of the range
-   */
-  range(): RangeSort;
+    /**
+     * The sort of the range
+     */
+    range(): RangeSort;
 
 }
 
 /** @category Arrays */
 export interface SMTArrayCreation<Name extends string> {
-  sort<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
-    ...sig: [...DomainSort, RangeSort]
-  ): SMTArraySort<Name, DomainSort, RangeSort>;
+    sort<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+        ...sig: [...DomainSort, RangeSort]
+    ): SMTArraySort<Name, DomainSort, RangeSort>;
 
-  const<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
-    name: string, ...sig: [...DomainSort, RangeSort]
-  ): SMTArray<Name, DomainSort, RangeSort>;
+    const<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+        name: string, ...sig: [...DomainSort, RangeSort]
+    ): SMTArray<Name, DomainSort, RangeSort>;
 
-  consts<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
-    names: string | string[],
-    ...sig: [...DomainSort, RangeSort]
-  ): SMTArray<Name, DomainSort, RangeSort>[];
+    consts<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+        names: string | string[],
+        ...sig: [...DomainSort, RangeSort]
+    ): SMTArray<Name, DomainSort, RangeSort>[];
 
-  K<DomainSort extends AnySort<Name>, RangeSort extends AnySort<Name>>(
-    domain: DomainSort,
-    value: SortToExprMap<RangeSort, Name>
-  ): SMTArray<Name, [DomainSort], RangeSort>;
+    K<DomainSort extends AnySort<Name>, RangeSort extends AnySort<Name>>(
+        domain: DomainSort,
+        value: SortToExprMap<RangeSort, Name>
+    ): SMTArray<Name, [DomainSort], RangeSort>;
 }
 
 export type ArrayIndexType<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]]> = [...{
-  [Index in keyof DomainSort]: DomainSort[Index] extends AnySort<Name> ?
-    CoercibleFromMap<SortToExprMap<DomainSort[Index], Name>, Name> :
-    DomainSort[Index];
+    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]]> = [...{
+    [Index in keyof DomainSort]: DomainSort[Index] extends AnySort<Name> ?
+        CoercibleToMap<SortToExprMap<DomainSort[Index], Name>, Name> :
+        DomainSort[Index];
 }]
 
 /**
@@ -1324,59 +1388,59 @@ export type ArrayIndexType<Name extends string = 'main',
  * @category Arrays
  */
 export interface SMTArray<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-  RangeSort extends AnySort<Name> = AnySort<Name>>
-  extends Expr<Name, SMTArraySort<Name, DomainSort, RangeSort>, Z3_ast> {
+    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+    RangeSort extends AnySort<Name> = AnySort<Name>>
+    extends Expr<Name, SMTArraySort<Name, DomainSort, RangeSort>, Z3_ast> {
 
-  /** @hidden */
-  readonly __typename: 'Array';
+    /** @hidden */
+    readonly __typename: 'Array';
 
-  domain(): DomainSort[0];
+    domain(): DomainSort[0];
 
-  domain_n<T extends number>(i: T): DomainSort[T];
+    domain_n<T extends number>(i: T): DomainSort[T];
 
-  range(): RangeSort;
+    range(): RangeSort;
 
-  select(...indices: ArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
+    select(...indices: ArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 
-  /**
-   * value should be coercible to RangeSort
-   *
-   * @param indicesAndValue (idx0, idx1, ..., idxN, value)
-   */
-  store(
-    ...indicesAndValue: [
-      ...ArrayIndexType<Name, DomainSort>,
-      CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>
-    ]
-  ): SMTArray<Name, DomainSort, RangeSort>;
+    /**
+     * value should be coercible to RangeSort
+     *
+     * @param indicesAndValue (idx0, idx1, ..., idxN, value)
+     */
+    store(
+        ...indicesAndValue: [
+            ...ArrayIndexType<Name, DomainSort>,
+            CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>
+        ]
+    ): SMTArray<Name, DomainSort, RangeSort>;
 
 }
 
 export interface Probe<Name extends string = 'main'> {
-  /** @hidden */
-  readonly __typename: 'Probe';
+    /** @hidden */
+    readonly __typename: 'Probe';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_probe;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_probe;
 }
 
 /** @hidden */
 export interface TacticCtor<Name extends string> {
-  new(name: string): Tactic<Name>;
+    new(name: string): Tactic<Name>;
 }
 
 export interface Tactic<Name extends string = 'main'> {
-  /** @hidden */
-  readonly __typename: 'Tactic';
+    /** @hidden */
+    readonly __typename: 'Tactic';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_tactic;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_tactic;
 }
 
 /** @hidden */
 export interface AstVectorCtor<Name extends string> {
-  new<Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Name, Item>;
+    new<Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Name, Item>;
 }
 
 /**
@@ -1396,38 +1460,38 @@ export interface AstVectorCtor<Name extends string> {
  * ```
  */
 export interface AstVector<Name extends string = 'main', Item extends Ast<Name> = AnyAst<Name>> extends Iterable<Item> {
-  /** @hidden */
-  readonly __typename: 'AstVector';
+    /** @hidden */
+    readonly __typename: 'AstVector';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_ast_vector;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_ast_vector;
 
-  length(): number;
+    length(): number;
 
-  entries(): IterableIterator<[number, Item]>;
+    entries(): IterableIterator<[number, Item]>;
 
-  keys(): IterableIterator<number>;
+    keys(): IterableIterator<number>;
 
-  values(): IterableIterator<Item>;
+    values(): IterableIterator<Item>;
 
-  get(i: number): Item;
+    get(i: number): Item;
 
-  get(from: number, to: number): Item[];
+    get(from: number, to: number): Item[];
 
-  set(i: number, v: Item): void;
+    set(i: number, v: Item): void;
 
-  push(v: Item): void;
+    push(v: Item): void;
 
-  resize(size: number): void;
+    resize(size: number): void;
 
-  has(v: Item): boolean;
+    has(v: Item): boolean;
 
-  sexpr(): string;
+    sexpr(): string;
 }
 
 /** @hidden */
 export interface AstMapCtor<Name extends string> {
-  new<Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>(): AstMap<Name, Key, Value>;
+    new<Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>(): AstMap<Name, Key, Value>;
 }
 
 /**
@@ -1452,92 +1516,92 @@ export interface AstMapCtor<Name extends string> {
  * ```
  */
 export interface AstMap<Name extends string = 'main', Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>
-  extends Iterable<[Key, Value]> {
-  /** @hidden */
-  readonly __typename: 'AstMap';
+    extends Iterable<[Key, Value]> {
+    /** @hidden */
+    readonly __typename: 'AstMap';
 
-  readonly ctx: Context<Name>;
-  readonly ptr: Z3_ast_map;
+    readonly ctx: Context<Name>;
+    readonly ptr: Z3_ast_map;
 
-  get size(): number;
+    get size(): number;
 
-  entries(): IterableIterator<[Key, Value]>;
+    entries(): IterableIterator<[Key, Value]>;
 
-  keys(): AstVector<Name, Key>;
+    keys(): AstVector<Name, Key>;
 
-  values(): IterableIterator<Value>;
+    values(): IterableIterator<Value>;
 
-  get(key: Key): Value | undefined;
+    get(key: Key): Value | undefined;
 
-  set(key: Key, value: Value): void;
+    set(key: Key, value: Value): void;
 
-  delete(key: Key): void;
+    delete(key: Key): void;
 
-  clear(): void;
+    clear(): void;
 
-  has(key: Key): boolean;
+    has(key: Key): boolean;
 
-  sexpr(): string;
+    sexpr(): string;
 }
 
 /**
  * @category Global
  */
 export interface Z3HighLevel {
-  // Global functions
-  enableTrace(tag: string): void;
+    // Global functions
+    enableTrace(tag: string): void;
 
-  disableTrace(tag: string): void;
+    disableTrace(tag: string): void;
 
-  getVersion(): {
-    major: number;
-    minor: number;
-    build_number: number;
-    revision_number: number;
-  };
+    getVersion(): {
+        major: number;
+        minor: number;
+        build_number: number;
+        revision_number: number;
+    };
 
-  getVersionString(): string;
+    getVersionString(): string;
 
-  getFullVersion(): string;
+    getFullVersion(): string;
 
-  openLog(filename: string): boolean;
+    openLog(filename: string): boolean;
 
-  appendLog(s: string): void;
+    appendLog(s: string): void;
 
-  /**
-   * Set a Z3 parameter
-   *
-   * ```typescript
-   * setParam('pp.decimal', true);
-   * ```
-   */
-  setParam(key: string, value: any): void;
+    /**
+     * Set a Z3 parameter
+     *
+     * ```typescript
+     * setParam('pp.decimal', true);
+     * ```
+     */
+    setParam(key: string, value: any): void;
 
-  /**
-   * Set multiple Z3 parameters at once
-   *
-   * ```typescript
-   * setParam({
-   *   'pp.decimal': true,
-   *   'pp.decimal_precision': 20
-   * });
-   * ```
-   */
-  setParam(key: Record<string, any>): void;
+    /**
+     * Set multiple Z3 parameters at once
+     *
+     * ```typescript
+     * setParam({
+     *   'pp.decimal': true,
+     *   'pp.decimal_precision': 20
+     * });
+     * ```
+     */
+    setParam(key: Record<string, any>): void;
 
-  /**
-   * Resets all Z3 parameters
-   */
-  resetParams(): void;
+    /**
+     * Resets all Z3 parameters
+     */
+    resetParams(): void;
 
-  /**
-   * Returns a global Z3 parameter
-   */
-  getParam(name: string): string | null;
+    /**
+     * Returns a global Z3 parameter
+     */
+    getParam(name: string): string | null;
 
-  /**
-   * Use this to create new contexts
-   * @see {@link Context}
-   */
-  readonly Context: ContextCtor;
+    /**
+     * Use this to create new contexts
+     * @see {@link Context}
+     */
+    readonly Context: ContextCtor;
 }
