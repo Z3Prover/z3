@@ -403,6 +403,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isAppOf(obj, Z3_decl_kind.Z3_OP_DISTINCT);
     }
 
+    function isQuantifier(obj: unknown): obj is Quantifier<Name> {
+      const r = obj instanceof QuantifierImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
     function isArith(obj: unknown): obj is Arith<Name> {
       const r = obj instanceof ArithImpl;
       r && _assertContext(obj);
@@ -2240,6 +2246,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isNot,
       isEq,
       isDistinct,
+      isQuantifier,
       isArith,
       isArithSort,
       isInt,
