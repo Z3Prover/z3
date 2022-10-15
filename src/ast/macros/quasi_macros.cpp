@@ -114,10 +114,9 @@ bool quasi_macros::fully_depends_on(app * a, quantifier * q) const {
         if (is_var(arg))
              bitset.set(to_var(arg)->get_idx(), true);
 
-    for (unsigned i = 0; i < bitset.size() ; i++) {
+    for (unsigned i = 0; i < bitset.size() ; i++) 
         if (!bitset.get(i))
-            return false;
-    }
+            return false;    
 
     return true;
 }
@@ -167,18 +166,18 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr(), *lhs = nullptr, *rhs = nullptr;
         if (m.is_eq(qe, lhs, rhs)) {
-	  if (is_quasi_def(q, lhs, rhs)) {
+            if (is_quasi_def(q, lhs, rhs)) {
 	        a = to_app(lhs);
                 t = rhs;
                 return true;
-	  } else if (is_quasi_def(q, rhs, lhs)) {
+            } else if (is_quasi_def(q, rhs, lhs)) {
 	        a = to_app(rhs);
                 t = lhs;
                 return true;
             }
         }
 	else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
-                   is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
+                 is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
             a = to_app(lhs);
             t = m.mk_false();
             return true;
@@ -189,8 +188,8 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
             return true;
         }
 	else if (m.is_not(qe, lhs) && m.is_eq(lhs, lhs, rhs) && m.is_bool(lhs)) {
-	  if (is_quasi_def(q, lhs, rhs)) {
-	        a = to_app(lhs);
+            if (is_quasi_def(q, lhs, rhs)) {
+                a = to_app(lhs);
                 t = m.mk_not(rhs);
                 return true;
             } else if (is_quasi_def(q, rhs, lhs)) {

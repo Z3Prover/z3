@@ -60,7 +60,6 @@ namespace euf {
         symbol m_rule;
     public:
         smt_proof_checker_plugin(ast_manager& m, symbol const& n): m(m), m_rule(n) {}
-        ~smt_proof_checker_plugin() override {}
         bool check(app* jst) override { return false; }
         expr_ref_vector clause(app* jst) override;        
         void register_plugins(proof_checker& pc) override { pc.register_plugin(m_rule, this); }

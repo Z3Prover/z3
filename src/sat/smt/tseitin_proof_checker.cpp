@@ -234,9 +234,15 @@ namespace tseitin {
     bool proof_checker::equiv(expr* a, expr* b) {
         if (a == b)
             return true;
-        expr* x, *y, *z, *u;
-        if (m.is_eq(a, x, y) && m.is_eq(b, z, u))
-            return x == u && y == z;
-        return false;
+        if (!is_app(a) || !is_app(b))
+            return false;
+        if (to_app(a)->get_decl() != to_app(b)->get_decl())
+            return false;
+        if (!to_app(a)->get_decl()->is_commutative())
+            return false;
+        if (to_app(a)->get_num_args() != 2)
+            return false;
+        return to_app(a)->get_arg(0) == to_app(b)->get_arg(1) &&
+            to_app(a)->get_arg(1) == to_app(b)->get_arg(0);
     }
 }

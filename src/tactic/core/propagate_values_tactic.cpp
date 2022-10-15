@@ -74,10 +74,13 @@ class propagate_values_tactic : public tactic {
 
     void push_result(expr * new_curr, proof * new_pr) {
         if (m_goal->proofs_enabled()) {
-            proof * pr = m_goal->pr(m_idx);            
-            new_pr     = m.mk_modus_ponens(pr, new_pr);
+            proof* pr = m_goal->pr(m_idx);
+            new_pr = m.mk_modus_ponens(pr, new_pr);
         }
-        
+        else
+            new_pr = nullptr;
+
+
         expr_dependency_ref new_d(m);
         if (m_goal->unsat_core_enabled()) {
             new_d = m_goal->dep(m_idx);

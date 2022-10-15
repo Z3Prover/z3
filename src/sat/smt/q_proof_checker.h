@@ -42,8 +42,6 @@ namespace q {
             m_inst("inst"),
             m_bind("bind") {
             }
-
-        ~proof_checker() override {}
         
         expr_ref_vector clause(app* jst) override;
 

@@ -1020,12 +1020,7 @@ namespace mbp {
             vector<expr_ref_vector> result;
             expr_ref_vector pinned(m);
             obj_map<expr, unsigned> pid;
-            model::scoped_model_completion _smc(mdl, true);
-            for (term *t : m_tg.m_terms) {
-                expr* a = t->get_expr();
-                if (!is_app(a)) continue;
-                if (m.is_bool(a) && !include_bool) continue;
-                expr_ref val = mdl(a);
+            auto insert_val = [&](expr* a, expr* val) {
                 unsigned p = 0;
                 // NB. works for simple domains Integers, Rationals, 
                 // but not for algebraic numerals.
@@ -1036,7 +1031,18 @@ namespace mbp {
                     result.push_back(expr_ref_vector(m));
                 }
                 result[p].push_back(a);
+            };
+            model::scoped_model_completion _smc(mdl, true);
+            for (term *t : m_tg.m_terms) {
+                expr* a = t->get_expr();
+                if (!is_app(a)) 
+                    continue;
+                if (m.is_bool(a) && !include_bool) 
+                    continue;
+                expr_ref val = mdl(a);
+                insert_val(a, val);
             }            
+
             return result;
         }
 
@@ -1238,7 +1244,13 @@ namespace mbp {
             for (expr* e : vec) term2pid.insert(e, id);
             ++id;
         }
-        auto partition_of = [&](expr* e) { return partitions[term2pid[e]]; }; 
+        expr_ref_vector empty(m);
+        auto partition_of = [&](expr* e) { 
+            unsigned pid;
+            if (!term2pid.find(e, pid))
+                return empty;
+            return partitions[pid]; 
+        }; 
         auto in_table = [&](expr* a, expr* b) { 
             return diseqs.contains(pair_t(a, b));
         };
