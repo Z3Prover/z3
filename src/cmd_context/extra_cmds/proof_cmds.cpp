@@ -277,7 +277,7 @@ public:
         m_proof_hint.reset();
     }
 
-    void updt_params(params_ref const& p) {
+    void updt_params(params_ref const& p) override {
         solver_params sp(p);
         m_check = sp.proof_check();
         m_save  = sp.proof_save();        
