@@ -34,7 +34,7 @@ The module assumes a limited repertoire of arithmetic proof rules.
 
 namespace arith {
 
-    class proof_checker : public euf::proof_checker_plugin {
+    class theory_checker : public euf::theory_checker_plugin {
         struct row {
             obj_map<expr, rational> m_coeffs;
             rational m_coeff;
@@ -304,7 +304,7 @@ namespace arith {
         }
         
     public:
-        proof_checker(ast_manager& m): 
+        theory_checker(ast_manager& m): 
             m(m), 
             a(m), 
             m_farkas("farkas"), 
@@ -468,7 +468,7 @@ namespace arith {
             return check();
         }
 
-        void register_plugins(euf::proof_checker& pc) override {
+        void register_plugins(euf::theory_checker& pc) override {
             pc.register_plugin(m_farkas, this);
             pc.register_plugin(m_bound, this);
             pc.register_plugin(m_implied_eq, this);

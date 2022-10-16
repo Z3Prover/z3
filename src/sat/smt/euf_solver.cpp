@@ -50,7 +50,8 @@ namespace euf {
         m_to_m(&m),
         m_to_si(&si),
         m_values(m),
-        m_clause_visitor(m)
+        m_clause_visitor(m),
+        m_smt_proof_checker(m, p)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
@@ -72,7 +73,7 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
-            use_drat();
+        use_drat();
     }
 
     /**
@@ -215,19 +216,25 @@ namespace euf {
             x - 3 = 0 => x = 3 by arithmetic
             x = 3 => f(x) = f(3) by EUF
             resolve to produce clause x - 3 = 0 => f(x) = f(3)
+
+    The last argument to get_assumptions is a place-holder to retrieve a justification of a propagation.
+    Theory solver would have to populate this hint and the combined hint would have to be composed from the
+    sub-hints.
     */
 
-    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
+    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) {
         m_egraph.begin_explain();
         m_explain.reset();
         if (use_drat() && !probing) 
             push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
         auto* ext = sat::constraint_base::to_extension(idx);
+        th_proof_hint* hint = nullptr;
+        sat::proof_hint* shint = nullptr;
         bool has_theory = false;
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
         else {
-            ext->get_antecedents(l, idx, r, probing);
+            ext->get_antecedents(l, idx, r, probing, shint);
             has_theory = true;
         }
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
@@ -239,20 +246,19 @@ namespace euf {
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
-                ext->get_antecedents(lit, idx, r, probing);
+                ext->get_antecedents(lit, idx, r, probing, shint);
                 has_theory = true;
             }
         }
         m_egraph.end_explain();  
-        th_proof_hint* hint = nullptr;
-        if (use_drat() && !probing) {
-            if (has_theory) {                
-                r.push_back(~l);
-                hint = mk_smt_hint(symbol("smt"), r);
-                r.pop_back();
-            }
-            else
+        if (use_drat() && !probing)  {
+            if (!has_theory)
                 hint = mk_hint(l, r);
+            else {
+                if (l != sat::null_literal) r.push_back(~l);
+                hint = mk_smt_hint(symbol("smt"), r);
+                if (l != sat::null_literal) r.pop_back();
+            }
         }
         unsigned j = 0;
         for (sat::literal lit : r) 
@@ -957,6 +963,7 @@ namespace euf {
         m_egraph.collect_statistics(st);
         for (auto* e : m_solvers)
             e->collect_statistics(st);
+        m_smt_proof_checker.collect_statistics(st);
         st.update("euf ackerman", m_stats.m_ackerman);
         st.update("euf final check", m_stats.m_final_checks);
     }

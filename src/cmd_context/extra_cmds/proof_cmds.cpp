@@ -52,153 +52,6 @@ Proof checker for clauses created during search.
 #include "params/solver_params.hpp"
 #include <iostream>
 
-class smt_checker {
-    ast_manager& m;
-    params_ref   m_params;
-
-    // for checking proof rules (hints)
-    euf::proof_checker m_checker;
-
-    // for fallback SMT checker
-    scoped_ptr<solver> m_solver;
-
-    // for RUP
-    symbol       m_rup;
-    sat::solver  m_sat_solver;
-    sat::drat    m_drat;
-    sat::literal_vector m_units;
-    sat::literal_vector m_clause;
-
-    void add_units() {
-        auto const& units = m_drat.units();
-        for (unsigned i = m_units.size(); i < units.size(); ++i)
-            m_units.push_back(units[i].first);
-    }
-
-public:
-    smt_checker(ast_manager& m):
-        m(m),
-        m_checker(m),
-        m_sat_solver(m_params, m.limit()), 
-        m_drat(m_sat_solver) 
-    {
-        m_params.set_bool("drat.check_unsat", true);
-        m_sat_solver.updt_params(m_params);
-        m_drat.updt_config();
-        m_solver = mk_smt_solver(m, m_params, symbol());
-        m_rup = symbol("rup");
-    }
-
-    bool is_rup(app* proof_hint) {
-        return
-            proof_hint &&
-            proof_hint->get_name() == m_rup;        
-    }
-
-    void mk_clause(expr_ref_vector const& clause) {
-        m_clause.reset();
-        for (expr* e : clause) {
-            bool sign = false;
-            while (m.is_not(e, e))
-                sign = !sign;
-            m_clause.push_back(sat::literal(e->get_id(), sign));
-        }
-    }
-
-    void mk_clause(expr* e) {
-        m_clause.reset();
-        bool sign = false;
-        while (m.is_not(e, e))
-            sign = !sign;
-        m_clause.push_back(sat::literal(e->get_id(), sign));
-    }
-    
-    bool check_rup(expr_ref_vector const& clause) {
-        add_units();
-        mk_clause(clause);
-        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
-    }
-
-    bool check_rup(expr* u) {
-        add_units();
-        mk_clause(u);
-        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
-    }
-
-    void add_clause(expr_ref_vector const& clause) {
-        mk_clause(clause);
-        m_drat.add(m_clause, sat::status::input());
-    }
-
-    void check(expr_ref_vector& clause, app* proof_hint) {
-        
-        if (is_rup(proof_hint) && check_rup(clause)) {
-            std::cout << "(verified-rup)\n";
-            return;
-        }
-
-        expr_ref_vector units(m);
-        if (m_checker.check(clause, proof_hint, units)) {
-            bool units_are_rup = true;
-            for (expr* u : units) {
-                if (!check_rup(u)) {
-                    std::cout << "unit " << mk_pp(u, m) << " is not rup\n";
-                    units_are_rup = false;
-                }
-            }
-            if (units_are_rup) {
-                std::cout << "(verified-" << proof_hint->get_name() << ")\n";
-                add_clause(clause);
-                return;
-            }
-        }
-
-        // extract a simplified verification condition in case proof validation does not work.
-        // quantifier instantiation can be validated as follows:
-        // If quantifier instantiation claims that (forall x . phi(x)) => psi using instantiation x -> t
-        // then check the simplified VC: phi(t) => psi.
-        // in case psi is the literal instantiation, then the clause is a propositional tautology.
-        // The VC function is a no-op if the proof hint does not have an associated vc generator.
-        expr_ref_vector vc(clause);
-        if (m_checker.vc(proof_hint, clause, vc)) {
-            std::cout << "(verified-" << proof_hint->get_name() << ")\n";
-            add_clause(clause);
-            return;
-        }
-        
-        m_solver->push();
-        for (expr* lit : vc)
-            m_solver->assert_expr(m.mk_not(lit));
-        lbool is_sat = m_solver->check_sat();
-        if (is_sat != l_false) {
-            std::cout << "did not verify: " << is_sat << " " << clause << "\n\n";
-            m_solver->display(std::cout);
-            if (is_sat == l_true) {
-                model_ref mdl;
-                m_solver->get_model(mdl);
-                std::cout << *mdl << "\n";
-            }                
-            exit(0);
-        }
-        m_solver->pop(1);
-        std::cout << "(verified-smt"; 
-        if (proof_hint) std::cout << "\n" << mk_bounded_pp(proof_hint, m, 4);
-        for (expr* arg : clause)
-            std::cout << "\n " << mk_bounded_pp(arg, m);
-        std::cout << ")\n";
-        add_clause(clause);
-    }
-
-    void assume(expr_ref_vector const& clause) {
-        add_clause(clause);
-        m_solver->assert_expr(mk_or(clause));
-    }
-
-    void del(expr_ref_vector const& clause) {
-
-    }
-
-};
 
 /**
  * Replay proof entierly, then walk backwards extracting reduced proof.
@@ -207,7 +60,7 @@ class proof_trim {
     cmd_context& ctx;
     ast_manager& m;
     sat::proof_trim trim;
-    euf::proof_checker m_checker;
+    euf::theory_checker m_checker;
     vector<expr_ref_vector> m_clauses;
     bool_vector             m_is_infer;
     symbol                  m_rup;
@@ -371,11 +224,11 @@ class proof_cmds_imp : public proof_cmds {
     bool            m_check  = true;
     bool            m_save   = false;
     bool            m_trim   = false;
-    scoped_ptr<smt_checker>     m_checker;
+    scoped_ptr<euf::smt_proof_checker>     m_checker;
     scoped_ptr<proof_saver>     m_saver;
     scoped_ptr<proof_trim>      m_trimmer;
     
-    smt_checker& checker() { if (!m_checker) m_checker = alloc(smt_checker, m); return *m_checker; }
+    euf::smt_proof_checker& checker() { params_ref p; if (!m_checker) m_checker = alloc(euf::smt_proof_checker, m, p); return *m_checker; }
     proof_saver& saver() { if (!m_saver) m_saver = alloc(proof_saver, ctx); return *m_saver; }
     proof_trim& trim() { if (!m_trimmer) m_trimmer = alloc(proof_trim, ctx); return *m_trimmer; }
     
@@ -404,7 +257,7 @@ public:
 
     void end_infer() override {
         if (m_check)
-            checker().check(m_lits, m_proof_hint);
+            checker().infer(m_lits, m_proof_hint);
         if (m_save)
             saver().infer(m_lits, m_proof_hint);
         if (m_trim)

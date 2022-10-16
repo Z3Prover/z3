@@ -71,7 +71,7 @@ namespace fpa {
         void finalize_model(model& mdl) override;
 
         bool unit_propagate() override;
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override { UNREACHABLE(); }
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing, sat::proof_hint*& ph) override { UNREACHABLE(); }
       sat::check_result check() override;
 
         euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx); }

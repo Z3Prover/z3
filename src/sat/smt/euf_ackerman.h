@@ -52,14 +52,14 @@ namespace euf {
 
         typedef hashtable<inference*, inference_hash, inference_eq> table_t;
 
-        solver&       s;
+        solver&       ctx;
         ast_manager&  m;
         table_t       m_table;
-        inference*    m_queue { nullptr };
-        inference*    m_tmp_inference { nullptr };
-        unsigned      m_gc_threshold { 100 };
-        unsigned      m_high_watermark { 1000 };
-        unsigned      m_num_propagations_since_last_gc { 0 };
+        inference*    m_queue = nullptr;
+        inference*    m_tmp_inference = nullptr;
+        unsigned      m_gc_threshold = 100;
+        unsigned      m_high_watermark = 1000 ;
+        unsigned      m_num_propagations_since_last_gc = 0;
  
         void reset();
         void new_tmp();
@@ -75,7 +75,7 @@ namespace euf {
 
 
     public:
-        ackerman(solver& s, ast_manager& m);
+        ackerman(solver& ctx, ast_manager& m);
         ~ackerman();
 
         void cg_conflict_eh(expr * n1, expr * n2);

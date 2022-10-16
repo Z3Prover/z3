@@ -571,6 +571,7 @@ namespace euf {
         m_updates.push_back(update_record(false, update_record::inconsistent()));
         m_n1 = n1;
         m_n2 = n2;
+        TRACE("euf", tout << "conflict " << bpp(n1) << " " << bpp(n2) << " " << j << "\n");
         m_justification = j;
     }
 
@@ -723,7 +724,7 @@ namespace euf {
         else if (j.is_congruence()) 
             push_congruence(a, b, j.is_commutative());
         if (cc && j.is_congruence()) 
-            cc->push_back(std::tuple(a, b, j.timestamp(), j.is_commutative()));
+            cc->push_back(std::tuple(a->get_app(), b->get_app(), j.timestamp(), j.is_commutative()));
     }
 
 

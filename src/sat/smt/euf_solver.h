@@ -28,6 +28,7 @@ Author:
 #include "sat/smt/euf_ackerman.h"
 #include "sat/smt/user_solver.h"
 #include "sat/smt/euf_relevancy.h"
+#include "sat/smt/euf_proof_checker.h"
 #include "smt/params/smt_params.h"
 
 
@@ -203,19 +204,22 @@ namespace euf {
         unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
         eq_proof_hint* mk_hint(literal lit, literal_vector const& r);
 
+
         bool m_proof_initialized = false;
         void init_proof();
         ast_pp_util m_clause_visitor;
         bool m_display_all_decls = false;
+        smt_proof_checker m_smt_proof_checker;
         void on_clause(unsigned n, literal const* lits, sat::status st) override;
         void on_lemma(unsigned n, literal const* lits, sat::status st);
         void on_proof(unsigned n, literal const* lits, sat::status st);
+        void on_check(unsigned n, literal const* lits, sat::status st);
         std::ostream& display_literals(std::ostream& out, unsigned n, sat::literal const* lits);
         void display_assume(std::ostream& out, unsigned n, literal const* lits);
         void display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
         void display_deleted(std::ostream& out, unsigned n, literal const* lits);
         std::ostream& display_hint(std::ostream& out, expr* proof_hint);
-        expr_ref status2proof_hint(sat::status st);
+        app_ref status2proof_hint(sat::status st);
 
         // relevancy
         bool is_propagated(sat::literal lit);
@@ -334,7 +338,7 @@ namespace euf {
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_antecedent(bool probing, enode* a, enode* b);
         void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
@@ -400,6 +404,8 @@ namespace euf {
         smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 0, nullptr, 1, &e); }        
         smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, enode* a, enode* b) { return mk_smt_prop_hint(n, lit, a->get_expr(), b->get_expr()); }
         smt_proof_hint* mk_smt_hint(symbol const& n, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 0, nullptr, 1, &e); }
+        th_proof_hint* mk_cc_proof_hint(sat::literal_vector const& ante, app* a, app* b);
+        th_proof_hint* mk_tc_proof_hint(sat::literal const* ternary_clause);
         sat::status mk_tseitin_status(sat::literal a, sat::literal b);
         sat::status mk_tseitin_status(unsigned n, sat::literal const* lits);
 

@@ -32,13 +32,13 @@ TODOs:
 namespace tseitin {
 
         
-    expr_ref_vector proof_checker::clause(app* jst) {
+    expr_ref_vector theory_checker::clause(app* jst) {
         expr_ref_vector result(m);
         result.append(jst->get_num_args(), jst->get_args());
         return result;
     }
         
-    bool proof_checker::check(app* jst) {
+    bool theory_checker::check(app* jst) {
         expr* main_expr = nullptr;
         unsigned max_depth = 0;
         for (expr* arg : *jst) {
@@ -231,7 +231,7 @@ namespace tseitin {
         return false;
     }
 
-    bool proof_checker::equiv(expr* a, expr* b) {
+    bool theory_checker::equiv(expr* a, expr* b) {
         if (a == b)
             return true;
         if (!is_app(a) || !is_app(b))

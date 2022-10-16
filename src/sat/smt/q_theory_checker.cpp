@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    q_proof_checker.cpp
+    q_theory_checker.cpp
 
 Abstract:
 
@@ -16,12 +16,12 @@ Author:
 --*/
 
 #include "ast/rewriter/var_subst.h"
-#include "sat/smt/q_proof_checker.h"
+#include "sat/smt/q_theory_checker.h"
 #include "sat/smt/q_solver.h"
 
 namespace q {
         
-    expr_ref_vector proof_checker::clause(app* jst) {
+    expr_ref_vector theory_checker::clause(app* jst) {
         expr_ref_vector result(m);
         for (expr* arg : *jst) 
             if (!is_bind(arg))
@@ -29,7 +29,7 @@ namespace q {
         return result;
     }
 
-    expr_ref_vector proof_checker::binding(app* jst) {
+    expr_ref_vector theory_checker::binding(app* jst) {
         expr_ref_vector result(m);
         for (expr* arg : *jst) 
             if (is_bind(arg)) {
@@ -39,7 +39,7 @@ namespace q {
         return result;        
     }
     
-    bool proof_checker::vc(app* jst, expr_ref_vector const& clause0, expr_ref_vector& v) {
+    bool theory_checker::vc(app* jst, expr_ref_vector const& clause0, expr_ref_vector& v) {
         expr* q = nullptr;
         if (!is_inst(jst))
             return false;
@@ -54,11 +54,11 @@ namespace q {
         return qi == clause1.get(1);
     }
 
-    bool proof_checker::is_inst(expr* jst) {
+    bool theory_checker::is_inst(expr* jst) {
         return is_app(jst) && to_app(jst)->get_name() == m_inst && m.mk_proof_sort() == jst->get_sort();
     }
 
-    bool proof_checker::is_bind(expr* e) {
+    bool theory_checker::is_bind(expr* e) {
         return is_app(e) && to_app(e)->get_name() == m_bind  && m.mk_proof_sort() == e->get_sort();
     }
 

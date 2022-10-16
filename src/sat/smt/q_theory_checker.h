@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    q_proof_checker.h
+    q_theory_checker.h
 
 Abstract:
 
@@ -25,7 +25,7 @@ Author:
 
 namespace q {
 
-    class proof_checker : public euf::proof_checker_plugin {
+    class theory_checker : public euf::theory_checker_plugin {
         ast_manager& m;
         symbol       m_inst;
         symbol       m_bind;
@@ -37,7 +37,7 @@ namespace q {
         bool is_bind(expr* e);
         
     public:
-        proof_checker(ast_manager& m): 
+        theory_checker(ast_manager& m): 
             m(m),
             m_inst("inst"),
             m_bind("bind") {
@@ -47,7 +47,7 @@ namespace q {
 
         bool check(app* jst) override { return false; }
 
-        void register_plugins(euf::proof_checker& pc) override {
+        void register_plugins(euf::theory_checker& pc) override {
             pc.register_plugin(symbol("inst"), this);
         }
 

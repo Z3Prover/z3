@@ -83,7 +83,7 @@ namespace q {
 
         solver(euf::solver& ctx, family_id fid);
         bool is_external(sat::bool_var v) override { return false; }
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override;
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing, sat::proof_hint*& ph) override;
         void asserted(sat::literal l) override;
         sat::check_result check() override;
 

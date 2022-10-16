@@ -19,30 +19,35 @@ Author:
 #include "util/map.h"
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast.h"
+#include "ast/ast_util.h"
+#include "solver/solver.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_drat.h"
+
 
 namespace euf {
 
-    class proof_checker;
+    class theory_checker;
 
-    class proof_checker_plugin {
+    class theory_checker_plugin {
     public:
-        virtual ~proof_checker_plugin() {}
+        virtual ~theory_checker_plugin() {}
         virtual bool check(app* jst) = 0;
         virtual expr_ref_vector clause(app* jst) = 0;
-        virtual void register_plugins(proof_checker& pc) = 0;
-        virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { return false; }
+        virtual void register_plugins(theory_checker& pc) = 0;
+        virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { v.reset(); v.append(this->clause(jst)); return false; }
     };
 
-    class proof_checker {
+    class theory_checker {
         ast_manager& m;
-        scoped_ptr_vector<proof_checker_plugin> m_plugins;                          // plugins of proof checkers
-        map<symbol, proof_checker_plugin*, symbol_hash_proc, symbol_eq_proc> m_map; // symbol table of proof checkers
+        scoped_ptr_vector<theory_checker_plugin> m_plugins;                          // plugins of proof checkers
+        map<symbol, theory_checker_plugin*, symbol_hash_proc, symbol_eq_proc> m_map; // symbol table of proof checkers
         obj_map<expr, expr_ref_vector*> m_checked_clauses;                          // cache of previously checked proofs and their clauses.
-        void add_plugin(proof_checker_plugin* p);
+        void add_plugin(theory_checker_plugin* p);
     public:
-        proof_checker(ast_manager& m);
-        ~proof_checker();
-        void register_plugin(symbol const& rule, proof_checker_plugin*);
+        theory_checker(ast_manager& m);
+        ~theory_checker();
+        void register_plugin(symbol const& rule, theory_checker_plugin*);
         bool check(expr* jst);
         expr_ref_vector clause(expr* jst);
         bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
@@ -55,15 +60,107 @@ namespace euf {
        It provides shared implementations for clause and register_plugin.
        It overrides check to always fail.
      */
-    class smt_proof_checker_plugin : public proof_checker_plugin {
+    class smt_theory_checker_plugin : public theory_checker_plugin {
         ast_manager& m;
         symbol m_rule;
     public:
-        smt_proof_checker_plugin(ast_manager& m, symbol const& n): m(m), m_rule(n) {}
+        smt_theory_checker_plugin(ast_manager& m, symbol const& n): m(m), m_rule(n) {}
         bool check(app* jst) override { return false; }
         expr_ref_vector clause(app* jst) override;        
-        void register_plugins(proof_checker& pc) override { pc.register_plugin(m_rule, this); }
+        void register_plugins(theory_checker& pc) override { pc.register_plugin(m_rule, this); }
     };
+
+
+    class smt_proof_checker {
+        ast_manager& m;
+        params_ref   m_params;
+        
+        // for checking proof rules (hints)
+        euf::theory_checker m_checker;
+        
+        // for fallback SMT checker
+        scoped_ptr<::solver> m_solver;
+        
+        // for RUP
+        symbol       m_rup;
+        sat::solver  m_sat_solver;
+        sat::drat    m_drat;
+        sat::literal_vector m_units;
+        sat::literal_vector m_clause;
+        bool         m_check_rup = false;
+
+        // for logging
+        symbol       m_last_rule;
+        unsigned     m_num_last_rules = 0;
+        
+        void add_units() {
+            auto const& units = m_drat.units();
+            for (unsigned i = m_units.size(); i < units.size(); ++i)
+                m_units.push_back(units[i].first);
+        }
+
+        void log_verified(app* proof_hint);
+
+        void diagnose_rup_failure(expr_ref_vector const& clause);
+
+        void ensure_solver();
+        
+    public:
+        smt_proof_checker(ast_manager& m, params_ref const& p);
+        
+        bool is_rup(app* proof_hint) {
+            return
+                proof_hint &&
+                proof_hint->get_name() == m_rup;        
+        }
+        
+        void mk_clause(expr_ref_vector const& clause) {
+            m_clause.reset();
+            for (expr* e : clause) {
+                bool sign = false;
+                while (m.is_not(e, e))
+                    sign = !sign;
+                m_clause.push_back(sat::literal(e->get_id(), sign));
+            }
+        }
+        
+        void mk_clause(expr* e) {
+            m_clause.reset();
+            bool sign = false;
+            while (m.is_not(e, e))
+                sign = !sign;
+            m_clause.push_back(sat::literal(e->get_id(), sign));
+        }
+        
+        bool check_rup(expr_ref_vector const& clause);
+        
+        bool check_rup(expr* u);
+        
+        void add_clause(expr_ref_vector const& clause) {
+            if (!m_check_rup)
+                return;
+            mk_clause(clause);
+            m_drat.add(m_clause, sat::status::input());
+        }
+
+        void assume(expr_ref_vector const& clause) {
+            add_clause(clause);
+            if (!m_check_rup)
+                return;
+            ensure_solver();
+            m_solver->assert_expr(mk_or(clause));
+        }
+        
+        void del(expr_ref_vector const& clause) {            
+        }
+
+        
+        void infer(expr_ref_vector& clause, app* proof_hint);
+
+        void collect_statistics(statistics& st) const;
+        
+    };
+
 
 }
 

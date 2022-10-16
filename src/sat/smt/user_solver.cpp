@@ -201,7 +201,7 @@ namespace user_solver {
         return sat::justification::mk_ext_justification(s().scope_lvl(), constraint->to_index());
     }
 
-    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) {
+    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing, sat::proof_hint*& ph) {
         auto& j = justification::from_index(idx);
         auto const& prop = m_prop[j.m_propagation_index];
         for (unsigned id : prop.m_ids)

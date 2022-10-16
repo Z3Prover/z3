@@ -306,7 +306,7 @@ namespace bv {
     bool solver::is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) { return false; }
     bool solver::is_external(bool_var v) { return true; }
 
-    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) {
         auto& c = bv_justification::from_index(idx);
         TRACE("bv", display_constraint(tout, idx) << "\n";);
         switch (c.m_kind) {
@@ -395,6 +395,7 @@ namespace bv {
         sat::literal leq1(s().num_vars() + 1, false);
         sat::literal leq2(s().num_vars() + 2, false);
         expr_ref eq1(m), eq2(m);
+        sat::proof_hint* ph = nullptr;
         if (c.m_kind == bv_justification::kind_t::bv2int) {
             eq1 = m.mk_eq(c.a->get_expr(), c.b->get_expr());
             eq2 = m.mk_eq(c.a->get_expr(), c.c->get_expr());
@@ -416,24 +417,24 @@ namespace bv {
             lits.push_back(c.m_consequent);
             break;
         case bv_justification::kind_t::ne2bit:
-            get_antecedents(c.m_consequent, c.to_index(), lits, true);
+            get_antecedents(c.m_consequent, c.to_index(), lits, true, ph);
             lits.push_back(c.m_consequent);
             break;
         case bv_justification::kind_t::bit2eq:      
-            get_antecedents(leq1, c.to_index(), lits, true);
+            get_antecedents(leq1, c.to_index(), lits, true, ph);
             for (auto& lit : lits)
                 lit.neg();
             lits.push_back(leq1);
             break;
         case bv_justification::kind_t::bit2ne: 
-            get_antecedents(c.m_consequent, c.to_index(), lits, true);
+            get_antecedents(c.m_consequent, c.to_index(), lits, true, ph);
             for (auto& lit : lits)
                 lit.neg();
             lits.push_back(c.m_consequent);            
             break;
         case bv_justification::kind_t::bv2int:
-            get_antecedents(leq1, c.to_index(), lits, true);
-            get_antecedents(leq2, c.to_index(), lits, true);
+            get_antecedents(leq1, c.to_index(), lits, true, ph);
+            get_antecedents(leq2, c.to_index(), lits, true, ph);
             for (auto& lit : lits)
                 lit.neg();
             lits.push_back(leq1);

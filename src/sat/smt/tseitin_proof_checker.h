@@ -25,7 +25,7 @@ Author:
 
 namespace tseitin {
 
-    class proof_checker : public euf::proof_checker_plugin {
+    class theory_checker : public euf::theory_checker_plugin {
         ast_manager& m;
 
         expr_fast_mark1 m_mark;
@@ -52,12 +52,12 @@ namespace tseitin {
         }
 
         struct scoped_mark {
-            proof_checker& pc;
-            scoped_mark(proof_checker& pc): pc(pc) {}
+            theory_checker& pc;
+            scoped_mark(theory_checker& pc): pc(pc) {}
             ~scoped_mark() { pc.m_mark.reset(); pc.m_nmark.reset(); }
         };
     public:
-        proof_checker(ast_manager& m): 
+        theory_checker(ast_manager& m): 
             m(m) {
         }
 
@@ -65,7 +65,7 @@ namespace tseitin {
         
         bool check(app* jst) override;
 
-        void register_plugins(euf::proof_checker& pc) override {
+        void register_plugins(euf::theory_checker& pc) override {
             pc.register_plugin(symbol("tseitin"), this);
         }
         

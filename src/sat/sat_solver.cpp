@@ -402,8 +402,8 @@ namespace sat {
         extension::scoped_drating _sd(*m_ext.get());
         if (j.get_kind() == justification::EXT_JUSTIFICATION) 
             fill_ext_antecedents(lit, j, false);
-        TRACE("sat", tout << "drat-unit\n");
-        m_drat.add(lit, m_searching);
+        else 
+            m_drat.add(lit, m_searching);       
     }
 
     void solver::drat_log_clause(unsigned num_lits, literal const* lits, sat::status st) {
@@ -2890,7 +2890,8 @@ namespace sat {
         SASSERT(m_ext);
         auto idx = js.get_ext_justification_idx();
         m_ext_antecedents.reset();
-        m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing);
+        proof_hint* ph = nullptr;
+        m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing, ph);
     }
 
     bool solver::is_two_phase() const {

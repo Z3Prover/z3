@@ -755,7 +755,7 @@ namespace dt {
         SASSERT(m_find.get_num_vars() == get_num_vars());
     }
 
-    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) {
         auto& jst = euf::th_explain::from_index(idx);
         ctx.get_antecedents(l, jst, r, probing);
     }

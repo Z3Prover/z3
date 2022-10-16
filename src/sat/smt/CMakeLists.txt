@@ -36,7 +36,7 @@ z3_add_component(sat_smt
     q_mam.cpp
     q_mbi.cpp
     q_model_fixer.cpp
-    q_proof_checker.cpp
+    q_theory_checker.cpp
     q_queue.cpp
     q_solver.cpp
     recfun_solver.cpp

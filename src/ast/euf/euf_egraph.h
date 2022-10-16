@@ -77,7 +77,7 @@ namespace euf {
     // It is the only information collected from justifications in order to
     // reconstruct EUF proofs. Transitivity, Symmetry of equality are not
     // tracked.
-    typedef std::tuple<enode*,enode*,uint64_t, bool> cc_justification_record;
+    typedef std::tuple<app*,app*,uint64_t, bool> cc_justification_record;
     typedef svector<cc_justification_record> cc_justification;
     
     class egraph {        

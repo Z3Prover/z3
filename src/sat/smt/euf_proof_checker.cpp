@@ -20,10 +20,13 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "smt/smt_solver.h"
+#include "sat/sat_params.hpp"
 #include "sat/smt/euf_proof_checker.h"
-#include "sat/smt/arith_proof_checker.h"
-#include "sat/smt/q_proof_checker.h"
+#include "sat/smt/arith_theory_checker.h"
+#include "sat/smt/q_theory_checker.h"
 #include "sat/smt/tseitin_proof_checker.h"
+
 
 namespace euf {
 
@@ -57,7 +60,7 @@ namespace euf {
      * union-find checker.
      */
 
-    class eq_proof_checker : public proof_checker_plugin {
+    class eq_theory_checker : public theory_checker_plugin {
         ast_manager&     m;
         arith_util       m_arith;
         expr_ref_vector  m_trail;
@@ -133,7 +136,7 @@ namespace euf {
         }                
 
     public:
-        eq_proof_checker(ast_manager& m): m(m), m_arith(m), m_trail(m) {}
+        eq_theory_checker(ast_manager& m): m(m), m_arith(m), m_trail(m) {}
 
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
@@ -208,7 +211,7 @@ namespace euf {
             return false;
         }
 
-        void register_plugins(proof_checker& pc) override {
+        void register_plugins(theory_checker& pc) override {
             pc.register_plugin(symbol("euf"), this);
         }
     };
@@ -219,12 +222,12 @@ namespace euf {
        The pivot occurs with opposite signs in proof1 and proof2
      */
 
-    class res_proof_checker : public proof_checker_plugin {
+    class res_checker : public theory_checker_plugin {
         ast_manager&   m;
-        proof_checker& pc;
+        theory_checker& pc;
 
     public:
-        res_proof_checker(ast_manager& m, proof_checker& pc): m(m), pc(pc) {}
+        res_checker(ast_manager& m, theory_checker& pc): m(m), pc(pc) {}
 
         bool check(app* jst) override {
             if (jst->get_num_args() != 3)
@@ -273,46 +276,46 @@ namespace euf {
             return result;
         }
 
-        void register_plugins(proof_checker& pc) override {
+        void register_plugins(theory_checker& pc) override {
             pc.register_plugin(symbol("res"), this);
         }
     };
 
-    proof_checker::proof_checker(ast_manager& m):
+    theory_checker::theory_checker(ast_manager& m):
         m(m) {
-        add_plugin(alloc(arith::proof_checker, m));
-        add_plugin(alloc(eq_proof_checker, m));
-        add_plugin(alloc(res_proof_checker, m, *this));
-        add_plugin(alloc(q::proof_checker, m));
-        add_plugin(alloc(smt_proof_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
-        add_plugin(alloc(tseitin::proof_checker, m));
+        add_plugin(alloc(arith::theory_checker, m));
+        add_plugin(alloc(eq_theory_checker, m));
+        add_plugin(alloc(res_checker, m, *this));
+        add_plugin(alloc(q::theory_checker, m));
+        add_plugin(alloc(smt_theory_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
+        add_plugin(alloc(tseitin::theory_checker, m));
     }
 
-    proof_checker::~proof_checker() {
+    theory_checker::~theory_checker() {
         for (auto& [k, v] : m_checked_clauses)
             dealloc(v);
     }
 
-    void proof_checker::add_plugin(proof_checker_plugin* p) {
+    void theory_checker::add_plugin(theory_checker_plugin* p) {
         m_plugins.push_back(p);
         p->register_plugins(*this);
     }
 
-    void proof_checker::register_plugin(symbol const& rule, proof_checker_plugin* p) {
+    void theory_checker::register_plugin(symbol const& rule, theory_checker_plugin* p) {
         m_map.insert(rule, p);
     }
 
-    bool proof_checker::check(expr* e) {
+    bool theory_checker::check(expr* e) {
         if (!e || !is_app(e))
             return false;
         if (m_checked_clauses.contains(e))
             return true;        
         app* a = to_app(e);
-        proof_checker_plugin* p = nullptr;
+        theory_checker_plugin* p = nullptr;
         return m_map.find(a->get_decl()->get_name(), p) && p->check(a);
     }
 
-    expr_ref_vector proof_checker::clause(expr* e) {
+    expr_ref_vector theory_checker::clause(expr* e) {
         expr_ref_vector* rr;
         if (m_checked_clauses.find(e, rr))
             return *rr;
@@ -322,17 +325,17 @@ namespace euf {
         return r;
     }
 
-    bool proof_checker::vc(expr* e, expr_ref_vector const& clause, expr_ref_vector& v) {
+    bool theory_checker::vc(expr* e, expr_ref_vector const& clause, expr_ref_vector& v) {
         SASSERT(is_app(e));
         app* a = to_app(e);
-        proof_checker_plugin* p = nullptr;
+        theory_checker_plugin* p = nullptr;
         if (m_map.find(a->get_name(), p))
             return p->vc(a, clause, v);
         IF_VERBOSE(10, verbose_stream() << "there is no proof plugin for " << mk_pp(e, m) << "\n");
         return false;
     }
    
-    bool proof_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
+    bool theory_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
         if (!check(e))
             return false;
         units.reset();
@@ -358,12 +361,165 @@ namespace euf {
         return true;
     }
 
-    expr_ref_vector smt_proof_checker_plugin::clause(app* jst) {
+    expr_ref_vector smt_theory_checker_plugin::clause(app* jst) {
         expr_ref_vector result(m);
         SASSERT(jst->get_name() == m_rule);
         for (expr* arg : *jst) 
             result.push_back(mk_not(m, arg));
         return result;
+    }
+
+
+    smt_proof_checker::smt_proof_checker(ast_manager& m, params_ref const& p):
+        m(m),
+        m_params(p),
+        m_checker(m),
+        m_sat_solver(m_params, m.limit()), 
+        m_drat(m_sat_solver) 
+    {
+        m_params.set_bool("drat.check_unsat", true);
+        m_params.set_bool("euf", false);
+        m_sat_solver.updt_params(m_params);
+        m_drat.updt_config();        
+        m_rup = symbol("rup");
+        sat_params sp(m_params);
+        m_check_rup = sp.smt_proof_check_rup();
+    }
+
+    void smt_proof_checker::ensure_solver() {
+        if (!m_solver)
+            m_solver = mk_smt_solver(m, m_params, symbol());
+    }
+
+
+    void smt_proof_checker::log_verified(app* proof_hint) {
+        symbol n = proof_hint->get_name();
+        if (n == m_last_rule) {
+            ++m_num_last_rules;
+            return;
+        }
+        if (m_num_last_rules > 0) 
+            std::cout << "(verified-" << m_last_rule << "+" << m_num_last_rules << ")\n";
+        
+        std::cout << "(verified-" << n << ")\n";
+        m_last_rule = n;
+        m_num_last_rules = 0;
+
+    }
+
+    bool smt_proof_checker::check_rup(expr_ref_vector const& clause) {
+        if (!m_check_rup)
+            return true;
+        add_units();                          
+        mk_clause(clause);
+        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
+    }
+
+    bool smt_proof_checker::check_rup(expr* u) {
+        if (!m_check_rup)
+            return true;
+        add_units();
+        mk_clause(u);
+        return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
+    }
+
+    void smt_proof_checker::infer(expr_ref_vector& clause, app* proof_hint) {
+            
+        if (is_rup(proof_hint) && check_rup(clause)) {
+            if (m_check_rup) {
+                log_verified(proof_hint);
+                add_clause(clause);
+            }
+            return;
+        }
+        
+        expr_ref_vector units(m);
+        if (m_checker.check(clause, proof_hint, units)) {
+            bool units_are_rup = true;
+            for (expr* u : units) {
+                if (!check_rup(u)) {
+                    std::cout << "unit " << mk_bounded_pp(u, m) << " is not rup\n";
+                    units_are_rup = false;
+                }
+            }
+            if (units_are_rup) {
+                log_verified(proof_hint);
+                add_clause(clause);
+                return;
+            }
+        }
+        
+        // extract a simplified verification condition in case proof validation does not work.
+        // quantifier instantiation can be validated as follows:
+        // If quantifier instantiation claims that (forall x . phi(x)) => psi using instantiation x -> t
+        // then check the simplified VC: phi(t) => psi.
+        // in case psi is the literal instantiation, then the clause is a propositional tautology.
+        // The VC function is a no-op if the proof hint does not have an associated vc generator.
+        expr_ref_vector vc(clause);
+        if (m_checker.vc(proof_hint, clause, vc)) {
+            log_verified(proof_hint);
+            add_clause(clause);
+            return;
+        }
+        
+        ensure_solver();
+        m_solver->push();
+        for (expr* lit : vc)
+            m_solver->assert_expr(m.mk_not(lit));
+        lbool is_sat = m_solver->check_sat();
+        if (is_sat != l_false) {
+            std::cout << "did not verify: " << is_sat << " " << clause << "\n";
+            if (proof_hint) 
+                std::cout << "hint: " << mk_bounded_pp(proof_hint, m, 4) << "\n";
+            m_solver->display(std::cout);
+            if (is_sat == l_true) {
+                model_ref mdl;
+                m_solver->get_model(mdl);
+                mdl->evaluate_constants();
+                std::cout << *mdl << "\n";
+            }                
+            exit(0);
+        }
+        m_solver->pop(1);
+        std::cout << "(verified-smt"; 
+        if (proof_hint) std::cout << "\n" << mk_bounded_pp(proof_hint, m, 4);
+        for (expr* arg : clause)
+            std::cout << "\n " << mk_bounded_pp(arg, m);
+        std::cout << ")\n";
+        if (is_rup(proof_hint)) 
+            diagnose_rup_failure(clause);
+            
+        add_clause(clause);
+    }
+
+    void smt_proof_checker::diagnose_rup_failure(expr_ref_vector const& clause) {
+        expr_ref_vector fmls(m), assumptions(m), core(m);
+        m_solver->get_assertions(fmls);
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            assumptions.push_back(m.mk_fresh_const("a", m.mk_bool_sort()));
+            fmls[i] = m.mk_implies(assumptions.back(), fmls.get(i));
+        }
+            
+        ref<::solver> core_solver = mk_smt_solver(m, m_params, symbol());
+        // core_solver->assert_expr(fmls);
+        core_solver->assert_expr(m.mk_not(mk_or(clause)));
+        lbool ch = core_solver->check_sat(assumptions);
+        std::cout << "failed to verify\n" << clause << "\n";
+        if (ch == l_false) {
+            core_solver->get_unsat_core(core);
+            std::cout << "core\n";
+            for (expr* f : core)
+                std::cout << mk_pp(f, m) << "\n";
+        }
+        SASSERT(false);
+        
+        exit(0);
+    }
+
+    void smt_proof_checker::collect_statistics(statistics& st) const {
+        if (m_solver)
+            m_solver->collect_statistics(st);
+
     }
     
 }
