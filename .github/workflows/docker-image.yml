@@ -41,7 +41,7 @@ jobs:
             type=edge
             type=sha,prefix=ubuntu-20.04-bare-z3-sha-
       - name: Build and push Bare Z3 Docker Image
-        uses: docker/build-push-action@v3.1.1
+        uses: docker/build-push-action@v3.2.0
         with:  
           context: .
           push: true
