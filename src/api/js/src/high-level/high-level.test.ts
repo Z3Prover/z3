@@ -2,6 +2,7 @@ import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
 import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
+import { expectType } from "ts-expect";
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -113,7 +114,7 @@ describe('high-level', () => {
     const { Solver, Not, Int } = api.Context('main');
     const solver = new Solver();
     solver.fromString("(declare-const x Int) (assert (and (< x 2) (> x 0)))")
-    expect(await solver.check()).toStrictEqual('sat')    
+    expect(await solver.check()).toStrictEqual('sat')
     const x = Int.const('x')
     solver.add(Not(x.eq(1)))
     expect(await solver.check()).toStrictEqual('unsat')
@@ -211,6 +212,7 @@ describe('high-level', () => {
         }
         return cells;
       }
+
       const INSTANCE = toSudoku(`
         ....94.3.
         ...51...7
@@ -387,6 +389,106 @@ describe('high-level', () => {
 
       // this solutions wraps around so we need to check using modulo
       expect((xv ^ yv) - 103n === (xv * yv) % 2n ** 32n).toStrictEqual(true);
+    });
+  });
+
+  describe('arrays', () => {
+
+    it('Example 1', async () => {
+      const Z3 = api.Context('main');
+
+      const arr = Z3.Array.const('arr', Z3.Int.sort(), Z3.Int.sort());
+      const [idx, val] = Z3.Int.consts('idx val');
+
+      const conjecture = (arr.store(idx, val).select(idx).eq(val));
+      await prove(conjecture);
+    });
+
+    it('domain and range type inference', async () => {
+      const { BitVec, Array, isArray, isArraySort } = api.Context('main');
+
+      const arr = Array.const('arr', BitVec.sort(160), BitVec.sort(256));
+
+      const domain = arr.domain();
+      expect(domain.size()).toStrictEqual(160);
+      expect(arr.domain_n(0).size()).toStrictEqual(160);
+      const range = arr.range();
+      expect(range.size()).toStrictEqual(256);
+
+      assert(isArray(arr) && isArraySort(arr.sort));
+
+      const arr2 = Array.const('arr2', BitVec.sort(1), BitVec.sort(2), BitVec.sort(3));
+      const dom2 = arr2.domain_n(1);
+
+      // We can call size() on dom2 and see that it is two bits
+      // purely from type inference
+      expectType<2>(dom2.size());
+
+      // Won't let us create an array constant with only one of domain/range
+      // and is detected at compile time
+      // @ts-expect-error
+      const arr3 = Array.const('arr3', BitVec.sort(1));
+    })
+
+    it('can do simple proofs', async () => {
+      const { BitVec, Array, isArray, isArraySort, isConstArray, Eq, Not } = api.Context('main');
+
+      const idx = BitVec.const('idx', 160);
+      const val = BitVec.const('val', 256);
+
+      const FIVE_VAL = BitVec.val(5, 256);
+
+      const arr = Array.const('arr', BitVec.sort(160), BitVec.sort(256));
+
+      const constArr = Array.K(BitVec.sort(160), FIVE_VAL);
+      assert(isArray(arr) && isArraySort(arr.sort) && isConstArray(constArr));
+
+      const arr2 = arr.store(0, 5);
+      await prove(Eq(arr2.select(0), FIVE_VAL));
+      await prove(Not(Eq(arr2.select(0), BitVec.val(6, 256))));
+      await prove(Eq(arr2.store(idx, val).select(idx), constArr.store(idx, val).select(idx)));
+
+      // TODO: add in Quantifiers and better typing of arrays
+      // await prove(
+      //   ForAll([idx], idx.add(1).ugt(idx).and(arr.select(idx.add(1)).ugt(arr.select(idx)))).implies(
+      //     arr.select(0).ult(arr.select(1000))
+      //   )
+      // );
+    });
+
+    it('Finds arrays that differ but that sum to the same', async () => {
+      const Z3 = api.Context('main');
+      const { Array, BitVec } = Z3;
+
+      const mod = 1n << 32n;
+
+      const arr1 = Array.const('arr', BitVec.sort(2), BitVec.sort(32));
+      const arr2 = Array.const('arr2', BitVec.sort(2), BitVec.sort(32));
+
+      const same_sum = arr1.select(0)
+        .add(arr1.select(1))
+        .add(arr1.select(2))
+        .add(arr1.select(3))
+        .eq(
+          arr2.select(0)
+            .add(arr2.select(1))
+            .add(arr2.select(2))
+            .add(arr2.select(3))
+        );
+
+      const different = arr1.select(0).neq(arr2.select(0))
+        .or(arr1.select(1).neq(arr2.select(1)))
+        .or(arr1.select(2).neq(arr2.select(2)))
+        .or(arr1.select(3).neq(arr2.select(3)));
+
+      const model = await solve(same_sum.and(different));
+
+      const arr1Vals = [0, 1, 2, 3].map(i => model.eval(arr1.select(i)).value());
+      const arr2Vals = [0, 1, 2, 3].map(i => model.eval(arr2.select(i)).value());
+      expect((arr1Vals.reduce((a, b) => a + b, 0n) % mod) === arr2Vals.reduce((a, b) => a + b, 0n) % mod);
+      for (let i = 0; i < 4; i++) {
+        expect(arr1Vals[i] !== arr2Vals[i]);
+      }
     });
   });
 
