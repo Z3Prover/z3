@@ -6653,7 +6653,7 @@ class ModelRef(Z3PPObject):
                 n = Z3_func_entry_get_num_args(x.ctx_ref(), e.entry)
                 v = AstVector()
                 for j in range(n):
-                    v.push(entry.arg_value(j))                    
+                    v.push(e.arg_value(j))                    
                 val = Z3_func_entry_get_value(x.ctx_ref(), e.entry)
                 Z3_func_interp_add_entry(x.ctx_ref(), fi2.f, v.vector, val)
             return
