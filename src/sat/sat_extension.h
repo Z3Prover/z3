@@ -89,7 +89,7 @@ namespace sat {
         virtual bool unit_propagate() = 0;        
         virtual bool is_external(bool_var v) { return false; }
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const { return 0; }
-        virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing, proof_hint*& ph) = 0;
+        virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) = 0;
         virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r) { return false; }
         virtual bool decide(bool_var& var, lbool& phase) { return false; }
         virtual bool get_case_split(bool_var& var, lbool& phase) { return false; }

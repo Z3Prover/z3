@@ -152,7 +152,7 @@ namespace user_solver {
         void push_core() override;
         void pop_core(unsigned n) override;
         bool unit_propagate() override;
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override;
         void collect_statistics(statistics& st) const override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;

@@ -338,7 +338,7 @@ namespace euf {
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_antecedent(bool probing, enode* a, enode* b);
         void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);

@@ -335,7 +335,7 @@ namespace bv {
         double get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
         bool is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) override;
         bool is_external(bool_var v) override;
-        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push_core() override;

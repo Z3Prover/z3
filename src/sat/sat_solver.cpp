@@ -2890,8 +2890,7 @@ namespace sat {
         SASSERT(m_ext);
         auto idx = js.get_ext_justification_idx();
         m_ext_antecedents.reset();
-        proof_hint* ph = nullptr;
-        m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing, ph);
+        m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing);
     }
 
     bool solver::is_two_phase() const {

@@ -92,7 +92,7 @@ namespace recfun {
         solver(euf::solver& ctx);
         ~solver() override;
         bool is_external(sat::bool_var v) override { return false; }
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override;
         void asserted(sat::literal l) override;
         sat::check_result check() override;
         std::ostream& display(std::ostream& out) const override;

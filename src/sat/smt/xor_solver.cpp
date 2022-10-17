@@ -37,7 +37,7 @@ namespace xr {
     }
     
     void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx,
-                                 sat::literal_vector & r, bool probing, sat::proof_hint*& ph) {
+                                 sat::literal_vector & r, bool probing) {
         
     }
     

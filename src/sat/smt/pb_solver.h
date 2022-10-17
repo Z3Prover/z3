@@ -377,7 +377,7 @@ namespace pb {
         bool propagated(literal l, sat::ext_constraint_idx idx) override;
         bool unit_propagate() override { return false; }
         lbool resolve_conflict() override;
-        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push() override;

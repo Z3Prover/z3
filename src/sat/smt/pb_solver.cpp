@@ -722,8 +722,7 @@ namespace pb {
                 auto* ext = sat::constraint_base::to_extension(cindex);
                 if (ext != this) {
                     m_lemma.reset();
-                    sat::proof_hint* ph = nullptr;
-                    ext->get_antecedents(consequent, idx, m_lemma, false, ph);
+                    ext->get_antecedents(consequent, idx, m_lemma, false);
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
                 }
@@ -1053,8 +1052,7 @@ namespace pb {
                 auto* ext = sat::constraint_base::to_extension(index);
                 if (ext != this) {
                     m_lemma.reset();
-                    sat::proof_hint* ph = nullptr;
-                    ext->get_antecedents(consequent, index, m_lemma, false, ph);
+                    ext->get_antecedents(consequent, index, m_lemma, false);
                     for (literal l : m_lemma) 
                         process_antecedent(~l, 1);
                     break;
@@ -1690,7 +1688,7 @@ namespace pb {
     // ----------------------------
     // constraint generic methods
 
-    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing, sat::proof_hint*& ph) {
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) {
         get_antecedents(l, index2constraint(idx), r, probing);
     }
 

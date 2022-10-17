@@ -222,19 +222,19 @@ namespace euf {
     sub-hints.
     */
 
-    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing, sat::proof_hint*& ph) {
+    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
         if (use_drat() && !probing) 
             push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
         auto* ext = sat::constraint_base::to_extension(idx);
         th_proof_hint* hint = nullptr;
-        sat::proof_hint* shint = nullptr;
         bool has_theory = false;
+        bool has_nested_theory = false;
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
         else {
-            ext->get_antecedents(l, idx, r, probing, shint);
+            ext->get_antecedents(l, idx, r, probing);
             has_theory = true;
         }
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
@@ -246,12 +246,13 @@ namespace euf {
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
-                ext->get_antecedents(lit, idx, r, probing, shint);
+                ext->get_antecedents(lit, idx, r, probing);
                 has_theory = true;
+                has_nested_theory = true;
             }
         }
         m_egraph.end_explain();  
-        if (use_drat() && !probing)  {
+        if (use_drat() && !probing)  {            
             if (!has_theory)
                 hint = mk_hint(l, r);
             else {

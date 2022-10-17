@@ -180,7 +180,7 @@ namespace recfun {
         add_clause(clause);
     }
 
-    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing, sat::proof_hint*& ph) {
+    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
         UNREACHABLE();
     }
 

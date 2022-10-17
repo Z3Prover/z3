@@ -30,7 +30,7 @@ namespace xr {
 
         void asserted(sat::literal l) override;
         bool unit_propagate() override;
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing, sat::proof_hint*& ph) override;
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override;
 
         void pre_simplify() override;
         void simplify() override;
