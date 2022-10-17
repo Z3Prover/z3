@@ -307,9 +307,8 @@ namespace mbp {
     term *term_graph::mk_term(expr *a) {
         expr_ref e(a, m);
         term * t = alloc(term, e, m_app2term);
-        if (t->get_num_args() == 0 && m.is_unique_value(a)){
+        if (t->get_num_args() == 0 && m.is_unique_value(a))
             t->mark_as_interpreted();
-        }
 
         m_terms.push_back(t);
         m_app2term.insert(a->get_id(), t);
@@ -700,30 +699,23 @@ namespace mbp {
                         if (p1 != p2) 
                             res.push_back(m.mk_eq(p1, p2));
                     }
-                    else {
+                    else 
                         TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
-                    }
                 }
                 else if (m.is_distinct(lit)) {
                     ptr_buffer<expr> diff;
-                    for (expr* arg : *to_app(lit)) {
-                        if (find_app(arg, p1)) {
+                    for (expr* arg : *to_app(lit)) 
+                        if (find_app(arg, p1)) 
                             diff.push_back(p1);
-                        }
-                    }
-                    if (diff.size() > 1) {
+                    if (diff.size() > 1) 
                         res.push_back(m.mk_distinct(diff.size(), diff.data()));
-                    }
-                    else {
+                    else 
                         TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
-                    }
                 }
-                else if (find_app(lit, p1)) {
+                else if (find_app(lit, p1)) 
                     res.push_back(p1);
-                }
-                else {
+                else 
                     TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
-                }
             }
             remove_duplicates(res);
             TRACE("qe", tout << "literals: " << res << "\n";);            

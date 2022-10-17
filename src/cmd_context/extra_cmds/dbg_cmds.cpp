@@ -405,8 +405,18 @@ public:
         if (!m.is_bool(*m_a) || !m.is_bool(*m_b))
             throw default_exception("interpolation requires two Boolean arguments");
         expr_ref itp(m);
-        mbi.pogo(ctx.get_solver_factory(), *m_a, *m_b, itp);
-        ctx.regular_stream() << itp << "\n";
+        lbool r = mbi.pogo(ctx.get_solver_factory(), *m_a, *m_b, itp);
+        switch (r) {
+        case l_true:
+            ctx.regular_stream() << "sat\n";
+            break;
+        case l_undef:
+            ctx.regular_stream() << "unknown\n";
+            break;
+        case l_false:
+            ctx.regular_stream() << itp << "\n";
+            break;
+        }
     }
 };
 
