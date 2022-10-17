@@ -160,7 +160,9 @@ namespace euf {
     }
 
     bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps) {
-        SASSERT(!ctx.use_drat() || ps); // - very far from true, and isn't a requirement
+        if (ctx.use_drat() && !ps) 
+            ps = ctx.mk_smt_clause(name(), n, lits);
+                
         bool was_true = false;
         for (unsigned i = 0; i < n; ++i)       
             was_true |= is_true(lits[i]);

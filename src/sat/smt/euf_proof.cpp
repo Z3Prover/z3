@@ -166,7 +166,24 @@ namespace euf {
         return m.mk_app(f, args);
     }
 
+    smt_proof_hint* solver::mk_smt_clause(symbol const& n, unsigned nl, literal const* lits) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(restore_size_trail(m_proof_literals));
 
+        for (unsigned i = 0; i < nl; ++i)
+            m_proof_literals.push_back(~lits[i]);
+            
+        m_lit_head = m_lit_tail;
+        m_eq_head = m_eq_tail;
+        m_deq_head = m_deq_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_eq_tail = m_proof_eqs.size();
+        m_deq_tail = m_proof_deqs.size();
+
+        return new (get_region()) smt_proof_hint(n, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail);
+    }
     
     smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd, expr_pair const* deqs) {
         if (!use_drat())

@@ -404,6 +404,7 @@ namespace euf {
         smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 0, nullptr, 1, &e); }        
         smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, enode* a, enode* b) { return mk_smt_prop_hint(n, lit, a->get_expr(), b->get_expr()); }
         smt_proof_hint* mk_smt_hint(symbol const& n, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 0, nullptr, 1, &e); }
+        smt_proof_hint* mk_smt_clause(symbol const& n, unsigned nl, literal const* lits);
         th_proof_hint* mk_cc_proof_hint(sat::literal_vector const& ante, app* a, app* b);
         th_proof_hint* mk_tc_proof_hint(sat::literal const* ternary_clause);
         sat::status mk_tseitin_status(sat::literal a, sat::literal b);
