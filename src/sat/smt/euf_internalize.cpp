@@ -330,13 +330,13 @@ namespace euf {
                     eqs.push_back(eq);
                 }
             }
-            expr_ref fml(m.mk_or(eqs), m);
+            expr_ref fml = mk_or(eqs);
             sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             add_root(~dist, ~some_eq);
             add_root(dist, some_eq);
-            s().add_clause(~dist, ~some_eq, mk_tseitin_status(~dist, ~some_eq));
-            s().add_clause(dist, some_eq, mk_tseitin_status(dist, some_eq));
+            s().add_clause(~dist, ~some_eq, mk_distinct_status(~dist, ~some_eq));
+            s().add_clause(dist, some_eq, mk_distinct_status(dist, some_eq));
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -347,8 +347,8 @@ namespace euf {
                 sat::literal lit2 = expr2literal(e2);
                 add_root(~lit1, lit2);
                 add_root(lit1, ~lit2);
-                s().add_clause(~lit1, lit2, mk_tseitin_status(~lit1, lit2));
-                s().add_clause(lit1, ~lit2, mk_tseitin_status(lit1, ~lit2));
+                s().add_clause(~lit1, lit2, mk_distinct_status(~lit1, lit2));
+                s().add_clause(lit1, ~lit2, mk_distinct_status(lit1, ~lit2));
             }
         }
     }

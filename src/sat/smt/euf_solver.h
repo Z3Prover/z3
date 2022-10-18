@@ -19,6 +19,7 @@ Author:
 #include "util/scoped_ptr_vector.h"
 #include "util/trail.h"
 #include "ast/ast_translation.h"
+#include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/model_converter.h"
@@ -391,6 +392,7 @@ namespace euf {
         void visit_expr(std::ostream& out, expr* e);
         std::ostream& display_expr(std::ostream& out, expr* e);        
         void on_instantiation(unsigned n, sat::literal const* lits, unsigned k, euf::enode* const* bindings);
+        expr_ref_vector& expr_args() { m_expr_args.reset(); return m_expr_args; }
         smt_proof_hint* mk_smt_hint(symbol const& n, literal_vector const& lits, enode_pair_vector const& eqs) {
             return mk_smt_hint(n, lits.size(), lits.data(), eqs.size(), eqs.data());
         }
@@ -441,7 +443,7 @@ namespace euf {
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
         void set_bool_var2expr(sat::bool_var v, expr* e) { m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
-        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
 
         sat::literal attach_lit(sat::literal lit, expr* e);

@@ -25,6 +25,7 @@ Author:
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/q_theory_checker.h"
+#include "sat/smt/bv_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 
@@ -292,6 +293,7 @@ namespace euf {
         add_plugin(alloc(distinct::theory_checker, m));
         add_plugin(alloc(smt_theory_checker_plugin, m)); 
         add_plugin(alloc(tseitin::theory_checker, m));
+        add_plugin(alloc(bv::theory_checker, m));
     }
 
     theory_checker::~theory_checker() {
@@ -341,8 +343,12 @@ namespace euf {
         for (expr* arg : clause2)
             literals.mark(arg, true);
         for (expr* arg : clause1)
-            if (!literals.is_marked(arg))
+            if (!literals.is_marked(arg)) {
+                if (m.is_not(arg, arg) && m.is_not(arg, arg) && literals.is_marked(arg)) // kludge
+                    continue;
+                IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(arg, m) << " not in " << clause2 << "\n");
                 return false;
+            }
 
         // extract negated units for literals in clause2 but not in clause1
         // the literals should be rup
