@@ -17,7 +17,6 @@ Notes:
 
 
 --*/
-#pragma once
 
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/bv_theory_checker.h"
