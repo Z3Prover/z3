@@ -241,7 +241,7 @@ namespace arith {
                 return true;
             if (check_ineq(m_ineq))
                 return true;
-            
+            IF_VERBOSE(3, display_row(verbose_stream() << "Failed to verify Farkas with reduced row ", m_ineq) << "\n");
             // convert to expression, maybe follows from a cut.
             return false;
         }
@@ -452,7 +452,9 @@ namespace arith {
                             add_ineq(coeff, arg, sign);
                     }
                     else if (m.is_eq(arg, x, y)) {
-                        if (sign) 
+                        if (is_bound && j + 1 == jst->get_num_args())
+                            add_conseq(coeff, arg, sign);
+                        else if (sign) 
                             return check(); // it should be an implied equality
                         else
                             add_eq(x, y);

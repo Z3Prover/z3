@@ -25,7 +25,8 @@ Author:
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/q_theory_checker.h"
-#include "sat/smt/tseitin_proof_checker.h"
+#include "sat/smt/distinct_theory_checker.h"
+#include "sat/smt/tseitin_theory_checker.h"
 
 
 namespace euf {
@@ -287,6 +288,7 @@ namespace euf {
         add_plugin(alloc(eq_theory_checker, m));
         add_plugin(alloc(res_checker, m, *this));
         add_plugin(alloc(q::theory_checker, m));
+        add_plugin(alloc(distinct::theory_checker, m));
         add_plugin(alloc(smt_theory_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
         add_plugin(alloc(tseitin::theory_checker, m));
     }
@@ -437,7 +439,7 @@ namespace euf {
         if (m_checker.check(clause, proof_hint, units)) {
             bool units_are_rup = true;
             for (expr* u : units) {
-                if (!check_rup(u)) {
+                if (!m.is_true(u) && !check_rup(u)) {
                     std::cout << "unit " << mk_bounded_pp(u, m) << " is not rup\n";
                     units_are_rup = false;
                 }

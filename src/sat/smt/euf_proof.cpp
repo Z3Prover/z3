@@ -237,6 +237,11 @@ namespace euf {
         th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("tseitin"), n, lits) : nullptr;
         return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);        
     }
+
+    sat::status solver::mk_distinct_status(unsigned n, sat::literal const* lits) {
+        th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("distinct"), n, lits) : nullptr;
+        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
+    }
     
     expr* smt_proof_hint::get_hint(euf::solver& s) const {
         ast_manager& m = s.get_manager();

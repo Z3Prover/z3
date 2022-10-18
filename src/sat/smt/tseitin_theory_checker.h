@@ -3,11 +3,11 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    tseitin_proof_checker.h
+    tseitin_theory_checker.h
 
 Abstract:
 
-    Plugin for checking quantifier instantiations
+    Plugin for checking tseitin internalization
 
 Author:
 

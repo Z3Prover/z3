@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    tseitin_proof_checker.cpp
+    tseitin_theory_checker.cpp
 
 Abstract:
 
@@ -27,7 +27,7 @@ TODOs:
 --*/
 
 #include "ast/ast_pp.h"
-#include "sat/smt/tseitin_proof_checker.h"
+#include "sat/smt/tseitin_theory_checker.h"
 
 namespace tseitin {
 
@@ -41,20 +41,28 @@ namespace tseitin {
     bool theory_checker::check(app* jst) {
         expr* main_expr = nullptr;
         unsigned max_depth = 0;
+        expr* a, * x, * y, * z, * u, * v;
+
         for (expr* arg : *jst) {
             unsigned arg_depth = get_depth(arg);
             if (arg_depth > max_depth) {
                 main_expr = arg;
                 max_depth = arg_depth;
             }
-            if (arg_depth == max_depth && m.is_not(main_expr)) 
-                main_expr = arg;            
+            if (arg_depth == max_depth && m.is_not(main_expr)) {
+                if (m.is_not(arg, x) && m.is_not(main_expr, y) && 
+                    is_app(x) && is_app(y) && 
+                    to_app(x)->get_num_args() < to_app(y)->get_num_args())
+                    continue;
+
+                main_expr = arg;
+            }
         }
 
         if (!main_expr)
             return false;
 
-        expr* a, * x, * y, *z, *u, *v;
+
 
         // (or (and a b) (not a) (not b))
         // (or (and (not a) b) a (not b))

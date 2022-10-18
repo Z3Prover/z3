@@ -295,69 +295,85 @@ class lar_solver : public column_namer {
 public:
     // this function just looks at the status
     bool is_feasible() const;
+
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const {
         return m_fixed_var_table_int;
     }
+
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() {
         return m_fixed_var_table_int;
     }
+
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() const {
         return m_fixed_var_table_real;
     }
+
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() {
         return m_fixed_var_table_real;
     }
 
     bool find_in_fixed_tables(const rational& mpq, bool is_int, unsigned & j) const {
-        return is_int? fixed_var_table_int().find(mpq, j) :
-            fixed_var_table_real().find(mpq, j);
+        return is_int? fixed_var_table_int().find(mpq, j) : fixed_var_table_real().find(mpq, j);
     }
     
     template <typename T> void remove_non_fixed_from_table(T&);
+
     unsigned external_to_column_index(unsigned) const;
+
     bool inside_bounds(lpvar, const impq&) const;
+
     inline void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
     }
+
     inline void set_column_value_test(unsigned j, const impq& v) {
         set_column_value(j, v);
     }
+
     unsigned get_total_iterations() const;
+
     var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
+
     lp_status maximize_term(unsigned j_or_term, impq &term_max);
-    inline 
-    core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const { return
-            core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out); }
+
+    inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const { 
+        return core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out); 
+    }
+
     void get_infeasibility_explanation(explanation &) const;
+
     inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
+
     inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
+
     template <typename T>
     void explain_implied_bound(const implied_bound & ib, lp_bound_propagator<T> & bp) {
         unsigned i = ib.m_row_or_term_index;
-        int bound_sign = ib.m_is_lower_bound? 1: -1;
-        int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
+        int bound_sign = (ib.m_is_lower_bound ? 1 : -1);
+        int j_sign = (ib.m_coeff_before_j_is_pos ? 1 : -1) * bound_sign;
         unsigned bound_j = ib.m_j;
-        if (tv::is_term(bound_j)) {
+        if (tv::is_term(bound_j)) 
             bound_j = m_var_register.external_to_local(bound_j);
-        }
-        for (auto const& r : A_r().m_rows[i]) {
+
+        for (auto const& r : get_row(i)) {
             unsigned j = r.var();
-            if (j == bound_j) continue;
+            if (j == bound_j) 
+                continue;
             mpq const& a = r.coeff();
-            int a_sign = is_pos(a)? 1: -1;
+            int a_sign = is_pos(a) ? 1 : -1;
             int sign = j_sign * a_sign;
             const ul_pair & ul =  m_columns_to_ul_pairs[j];
-            auto witness = sign > 0? ul.upper_bound_witness(): ul.lower_bound_witness();
+            auto witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             lp_assert(is_valid(witness));
             bp.consume(a, witness);
         }
     }
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
+
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
-
 
     // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side);
