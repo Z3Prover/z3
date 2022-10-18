@@ -74,14 +74,7 @@ namespace euf {
             m.inc_ref(inf->c);
             new_tmp();        
         }
-        other->m_count++;
-        if (other->m_count > m_high_watermark) {
-            if (other->is_cc)
-                add_cc(other->a, other->b);
-            else
-                add_eq(other->a, other->b, other->c);
-            other->m_count = 0;
-        }       
+        other->m_count++;    
         inference::push_to_front(m_queue, other);
     }
 
