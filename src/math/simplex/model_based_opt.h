@@ -86,6 +86,7 @@ namespace opt {
             def operator/(rational const& n) const;
             def operator*(rational const& n) const;
             def operator+(rational const& n) const;
+            def substitute(unsigned v, def const& other) const;
             void normalize();
         };
 

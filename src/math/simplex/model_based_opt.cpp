@@ -98,15 +98,37 @@ namespace opt {
             }
             else if (v1 < v2) {
                 vs.push_back(vs1[i]);
-                vs.back().m_coeff *= c1;                 
+                vs.back().m_coeff *= c1;    
+                ++i;
             }
             else {
                 vs.push_back(vs2[j]);
-                vs.back().m_coeff *= c2;                 
+                vs.back().m_coeff *= c2;   
+                ++j;
             }
         }
         result.m_div = c1*m_div;
         result.m_coeff = (m_coeff*c1) + (other.m_coeff*c2);
+        result.normalize();
+        return result;
+    }
+
+    model_based_opt::def model_based_opt::def::substitute(unsigned v, def const& other) const {
+        def result;
+        vector<var> const& vs1 = m_vars;
+        vector<var> const& vs2 = other.m_vars;
+        rational coeff(0);
+        for (auto const& [id, c] : vs1) {
+            if (id == v) {
+                coeff = c;
+                break;
+            }
+        }
+        if (coeff == 0) {
+            return *this;
+        }
+
+        NOT_IMPLEMENTED_YET();       
         result.normalize();
         return result;
     }
@@ -1418,13 +1440,17 @@ namespace opt {
             project(v, false);
 
         // project internal variables.
-
-        def y_def = project(y, compute_def);
         def z_def = project(z, compute_def);
+        def y_def = project(y, compute_def); // may depend on z
+
 
         if (compute_def) {
+
             result = (y_def * K) + z_def;
             m_var2value[x] = eval(result);
+            TRACE("opt", tout << y << " := " << y_def << "\n";
+                         tout << z << " := " << z_def << "\n";
+                         tout << x << " := " << result << "\n");
         }
         TRACE("opt", display(tout << "solve_div done v" << x << "\n"));
         return result;
