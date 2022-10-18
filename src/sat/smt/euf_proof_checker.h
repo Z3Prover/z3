@@ -89,7 +89,7 @@ namespace euf {
 
         // for logging
 
-        map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_hint2hit;
+        map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_hint2hit, m_hint2miss;
         unsigned m_num_logs = 0;
         
         void add_units() {
@@ -98,7 +98,7 @@ namespace euf {
                 m_units.push_back(units[i].first);
         }
 
-        void log_verified(app* proof_hint);
+        void log_verified(app* proof_hint, bool success);
 
         void diagnose_rup_failure(expr_ref_vector const& clause);
 

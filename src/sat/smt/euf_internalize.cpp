@@ -159,6 +159,9 @@ namespace euf {
             v = si.add_bool_var(e);
             s().set_external(v);
             s().set_eliminated(v, false);
+            m_bool_var2expr.reserve(v + 1, nullptr);
+            m_bool_var2expr[v] = e;
+            m_var_trail.push_back(v);
             sat::literal lit2 = literal(v, false);
             th_proof_hint* ph1 = nullptr, * ph2 = nullptr;
             if (use_drat()) {

@@ -391,15 +391,23 @@ namespace euf {
     }
 
 
-    void smt_proof_checker::log_verified(app* proof_hint) {
+    void smt_proof_checker::log_verified(app* proof_hint, bool success) {
+        if (!proof_hint)
+            return;
+
         symbol n = proof_hint->get_name();
-        m_hint2hit.insert_if_not_there(n, 0)++;
+        if (success)
+            m_hint2hit.insert_if_not_there(n, 0)++;
+        else
+            m_hint2miss.insert_if_not_there(n, 0)++;
         ++m_num_logs;
 
         if (m_num_logs < 100 || (m_num_logs % 1000) == 0) {
-            std::cout << "(verified";
+            std::cout << "(proofs";
             for (auto const& [k, v] : m_hint2hit)
-                std::cout << " :" << k << " " << v;
+                std::cout << " +" << k << " " << v;
+            for (auto const& [k, v] : m_hint2miss)
+                std::cout << " -" << k << " " << v;
             std::cout << ")\n";
         }
     }
@@ -424,7 +432,7 @@ namespace euf {
             
         if (is_rup(proof_hint) && check_rup(clause)) {
             if (m_check_rup) {
-                log_verified(proof_hint);
+                log_verified(proof_hint, true);
                 add_clause(clause);
             }
             return;
@@ -440,7 +448,7 @@ namespace euf {
                 }
             }
             if (units_are_rup) {
-                log_verified(proof_hint);
+                log_verified(proof_hint, true);
                 add_clause(clause);
                 return;
             }
@@ -454,11 +462,13 @@ namespace euf {
         // The VC function is a no-op if the proof hint does not have an associated vc generator.
         expr_ref_vector vc(clause);
         if (m_checker.vc(proof_hint, clause, vc)) {
-            log_verified(proof_hint);
+            log_verified(proof_hint, true);
             add_clause(clause);
             return;
         }
         
+        log_verified(proof_hint, false);
+
         ensure_solver();
         m_solver->push();
         for (expr* lit : vc)
