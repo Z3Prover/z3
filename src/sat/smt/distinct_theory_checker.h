@@ -42,7 +42,7 @@ namespace distinct {
         bool check(app* jst) override { return true; }
 
         void register_plugins(euf::theory_checker& pc) override {
-            pc.register_plugin(symbol("distinct"), this);
+            pc.register_plugin(symbol("alldiff"), this);
         }
         
     };

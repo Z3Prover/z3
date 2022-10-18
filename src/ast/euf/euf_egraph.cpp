@@ -650,7 +650,7 @@ namespace euf {
         SASSERT(n1->get_decl() == n2->get_decl());
         m_uses_congruence = true;
         if (m_used_cc && !comm) { 
-            m_used_cc(to_app(n1->get_expr()), to_app(n2->get_expr()));
+            m_used_cc(n1->get_app(), n2->get_app());
         }
         if (comm && 
             n1->get_arg(0)->get_root() == n2->get_arg(1)->get_root() &&

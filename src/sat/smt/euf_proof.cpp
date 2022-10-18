@@ -73,20 +73,20 @@ namespace euf {
         }
     }
 
-    eq_proof_hint* solver::mk_hint(literal lit, literal_vector const& r) {
+    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq, literal_vector const& r) {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
         push(restore_size_trail(m_proof_literals));
-        if (lit != sat::null_literal)
-            m_proof_literals.push_back(~lit);
+        if (conseq != sat::null_literal)
+            m_proof_literals.push_back(~conseq);
         m_proof_literals.append(r);
         m_lit_head = m_lit_tail;
         m_cc_head  = m_cc_tail;
         m_lit_tail = m_proof_literals.size();
         m_cc_tail  = m_explain_cc.size();
-        return new (get_region()) eq_proof_hint(m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);
+        return new (get_region()) eq_proof_hint(th, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);
     }
 
     th_proof_hint* solver::mk_cc_proof_hint(sat::literal_vector const& ante, app* a, app* b) {
@@ -107,7 +107,7 @@ namespace euf {
         m_cc_head  = m_cc_tail;
         m_lit_tail = m_proof_literals.size();
         m_cc_tail  = m_explain_cc.size();
-        return new (get_region()) eq_proof_hint(m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
+        return new (get_region()) eq_proof_hint(m_euf, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
     }
 
     th_proof_hint* solver::mk_tc_proof_hint(sat::literal const* clause) {
@@ -119,13 +119,12 @@ namespace euf {
 
         for (unsigned i = 0; i < 3; ++i)
             m_proof_literals.push_back(~clause[i]);
-
         
         m_lit_head = m_lit_tail;
         m_cc_head  = m_cc_tail;
         m_lit_tail = m_proof_literals.size();
         m_cc_tail  = m_explain_cc.size();
-        return new (get_region()) eq_proof_hint(m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
+        return new (get_region()) eq_proof_hint(m_euf, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
     }
 
 
@@ -162,7 +161,7 @@ namespace euf {
         for (auto * arg : args)
             sorts.push_back(arg->get_sort());
         
-        func_decl* f = m.mk_func_decl(symbol("euf"), sorts.size(), sorts.data(), proof);
+        func_decl* f = m.mk_func_decl(th, sorts.size(), sorts.data(), proof);
         return m.mk_app(f, args);
     }
 
@@ -239,7 +238,7 @@ namespace euf {
     }
 
     sat::status solver::mk_distinct_status(unsigned n, sat::literal const* lits) {
-        th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("distinct"), n, lits) : nullptr;
+        th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("alldiff"), n, lits) : nullptr;
         return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
     }
     

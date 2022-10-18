@@ -62,10 +62,11 @@ namespace euf {
     };
 
     class eq_proof_hint : public th_proof_hint {
+        symbol th;
         unsigned m_lit_head, m_lit_tail, m_cc_head, m_cc_tail;
     public:
-        eq_proof_hint(unsigned lh, unsigned lt, unsigned ch, unsigned ct):
-            m_lit_head(lh), m_lit_tail(lt), m_cc_head(ch), m_cc_tail(ct) {}
+        eq_proof_hint(symbol const& th, unsigned lh, unsigned lt, unsigned ch, unsigned ct):
+            th(th), m_lit_head(lh), m_lit_tail(lt), m_cc_head(ch), m_cc_tail(ct) {}
         expr* get_hint(euf::solver& s) const override;
     };
 
@@ -202,7 +203,9 @@ namespace euf {
         svector<expr_pair> m_proof_eqs, m_proof_deqs, m_expr_pairs;
         unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
         unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
-        eq_proof_hint* mk_hint(literal lit, literal_vector const& r);
+        symbol m_euf = symbol("euf");
+        symbol m_smt = symbol("smt");            
+        eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
 
 
         bool m_proof_initialized = false;

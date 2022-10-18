@@ -396,17 +396,15 @@ namespace euf {
 
     void smt_proof_checker::log_verified(app* proof_hint) {
         symbol n = proof_hint->get_name();
-        if (n == m_last_rule) {
-            ++m_num_last_rules;
-            return;
-        }
-        if (m_num_last_rules > 0) 
-            std::cout << "(verified-" << m_last_rule << "+" << m_num_last_rules << ")\n";
-        
-        std::cout << "(verified-" << n << ")\n";
-        m_last_rule = n;
-        m_num_last_rules = 0;
+        m_hint2hit.insert_if_not_there(n, 0)++;
+        ++m_num_logs;
 
+        if (m_num_logs < 100 || (m_num_logs % 1000) == 0) {
+            std::cout << "(verified";
+            for (auto const& [k, v] : m_hint2hit)
+                std::cout << " :" << k << " " << v;
+            std::cout << ")\n";
+        }
     }
 
     bool smt_proof_checker::check_rup(expr_ref_vector const& clause) {

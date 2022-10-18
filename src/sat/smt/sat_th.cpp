@@ -130,6 +130,8 @@ namespace euf {
     }
 
     bool th_euf_solver::add_unit(sat::literal lit, th_proof_hint const* ps) {
+        if (ctx.use_drat() && !ps)
+            ps = ctx.mk_smt_clause(name(), 1, &lit);
         bool was_true = is_true(lit);
         ctx.s().add_clause(1, &lit, mk_status(ps));
         ctx.add_root(lit);

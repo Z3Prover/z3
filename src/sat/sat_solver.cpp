@@ -432,15 +432,17 @@ namespace sat {
                 m_mc.add_clause(num_lits, lits);            
         }       
 
-
         switch (num_lits) {
         case 0:
             set_conflict();
             return nullptr;
         case 1:
-            if (!logged && m_config.m_drat && (!st.is_sat() || st.is_input()))
+            if (!logged && m_config.m_drat)
                 drat_log_clause(num_lits, lits, st);
-            assign_unit(lits[0]);
+            {
+                flet<bool> _disable_drat(m_config.m_drat, false);
+                assign(lits[0], justification(0));
+            }
             return nullptr;
         case 2:
             mk_bin_clause(lits[0], lits[1], st);
@@ -460,6 +462,9 @@ namespace sat {
         bool redundant = st.is_redundant();
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
+
+        if (m_config.m_drat)
+            m_drat.add(l1, l2, st);
         
         if (redundant && !m_trim && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
@@ -484,8 +489,7 @@ namespace sat {
                 push_reinit_stack(l1, l2);
             return;
         }
-        if (m_config.m_drat) 
-            m_drat.add(l1, l2, st);
+
         if (propagate_bin_clause(l1, l2)) {
             if (!at_base_lvl())
                 push_reinit_stack(l1, l2);

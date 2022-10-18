@@ -90,8 +90,9 @@ namespace euf {
         bool         m_check_rup = false;
 
         // for logging
-        symbol       m_last_rule;
-        unsigned     m_num_last_rules = 0;
+
+        map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_hint2hit;
+        unsigned m_num_logs = 0;
         
         void add_units() {
             auto const& units = m_drat.units();

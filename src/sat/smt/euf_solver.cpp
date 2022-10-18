@@ -225,8 +225,9 @@ namespace euf {
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
-        if (use_drat() && !probing) 
+        if (use_drat() && !probing) {
             push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
+        }
         auto* ext = sat::constraint_base::to_extension(idx);
         th_proof_hint* hint = nullptr;
         bool has_theory = false;
@@ -252,15 +253,9 @@ namespace euf {
             }
         }
         m_egraph.end_explain();  
-        if (use_drat() && !probing)  {            
-            if (!has_theory)
-                hint = mk_hint(l, r);
-            else {
-                if (l != sat::null_literal) r.push_back(~l);
-                hint = mk_smt_hint(symbol("smt"), r);
-                if (l != sat::null_literal) r.pop_back();
-            }
-        }
+        if (use_drat() && !probing)         
+            hint = mk_hint(has_theory ? m_smt : m_euf, l, r);
+        
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;

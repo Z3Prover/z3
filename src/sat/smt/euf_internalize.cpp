@@ -288,7 +288,7 @@ namespace euf {
             func_decl_ref f(m.mk_fresh_func_decl("dist-f", "", 1, &srt, u), m);
             for (unsigned i = 0; i < sz; ++i) {
                 expr_ref fapp(m.mk_app(f, e->get_arg(i)), m);
-                expr_ref fresh(m.mk_fresh_const("dist-value", u), m);
+                expr_ref fresh(m.mk_model_value(i, u), m);
                 enode* n = mk_enode(fresh, 0, nullptr);
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
