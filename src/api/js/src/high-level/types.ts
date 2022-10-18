@@ -21,7 +21,7 @@ export type AnySort<Name extends string = 'main'> =
     | BoolSort<Name>
     | ArithSort<Name>
     | BitVecSort<number, Name>
-    | SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    | SMTArraySort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
     | Expr<Name>
@@ -31,7 +31,7 @@ export type AnyExpr<Name extends string = 'main'> =
     | RatNum<Name>
     | BitVec<number, Name>
     | BitVecNum<number, Name>
-    | SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    | SMTArray<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -52,7 +52,7 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
     S extends bigint
-        ? ArithSort<Name>
+        ? Arith<Name>
         : S extends number | CoercibleRational
             ? RatNum<Name>
             : S extends boolean
@@ -76,20 +76,20 @@ export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | bo
 export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
 
 /** @hidden */
-export type CoercibleToMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
-    S extends Bool<Name>
+export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'> =
+    T extends Bool<Name>
         ? (boolean | Bool<Name>)
-        : S extends IntNum<Name>
+        : T extends IntNum<Name>
             ? (bigint | number | IntNum<Name>)
-            : S extends RatNum<Name>
+            : T extends RatNum<Name>
                 ? (bigint | number | CoercibleRational | RatNum<Name>)
-                : S extends Arith<Name>
-                    ? (bigint | number | CoercibleRational | Arith<Name>)
-                    : S extends BitVec<infer Size, Name>
+                : T extends Arith<Name>
+                    ? CoercibleToArith<Name>
+                    : T extends BitVec<infer Size, Name>
                         ? CoercibleToBitVec<Size, Name>
-                        : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
+                        : T extends SMTArray<Name, infer DomainSort, infer RangeSort>
                             ? SMTArray<Name, DomainSort, RangeSort>
-                            : S extends Expr<Name>
+                            : T extends Expr<Name>
                                 ? Expr<Name>
                                 : never;
 
@@ -238,10 +238,10 @@ export interface Context<Name extends string = 'main'> {
     isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
 
     /** @category Functions */
-    isArraySort(obj: unknown): obj is SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    isArraySort(obj: unknown): obj is SMTArraySort<Name>;
 
     /** @category Functions */
-    isArray(obj: unknown): obj is SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+    isArray(obj: unknown): obj is SMTArray<Name>;
 
     /** @category Functions */
     isConstArray(obj: unknown): boolean;
@@ -426,13 +426,22 @@ export interface Context<Name extends string = 'main'> {
     // Quantifiers
 
     /** @category Operations */
-    ForAll(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+    ForAll<QVarSorts extends NonEmptySortArray<Name>>(
+        quantifiers: ArrayIndexType<Name, QVarSorts>, body: Bool<Name>, weight?: number
+    ): Quantifier<Name, QVarSorts, BoolSort<Name>> & Bool<Name>;
 
     /** @category Operations */
-    Exists(quantifiers: Expr<Name>[], body: Bool<Name>, weight?: number): Quantifier<Name>;
+    Exists<QVarSorts extends NonEmptySortArray<Name>>(
+        quantifiers: ArrayIndexType<Name, QVarSorts>, body: Bool<Name>, weight?: number
+    ): Quantifier<Name, QVarSorts, BoolSort<Name>> & Bool<Name>;
 
     /** @category Operations */
-    Lambda(args: Expr<Name>[], expr: Expr<Name>): Quantifier<Name>;
+    Lambda<
+        DomainSort extends NonEmptySortArray<Name>,
+        RangeSort extends Sort<Name>
+    >(
+        quantifiers: ArrayIndexType<Name, DomainSort>, expr: SortToExprMap<RangeSort, Name>
+    ): Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>> & SMTArray<Name, DomainSort, RangeSort>;
 
     // Arithmetic
     /** @category Operations */
@@ -520,8 +529,6 @@ export interface Context<Name extends string = 'main'> {
     /** @category Operations */
     UGE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
-    // Bit Vectors
-
     /** @category Operations */
     SLT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
@@ -533,6 +540,55 @@ export interface Context<Name extends string = 'main'> {
 
     /** @category Operations */
     SLE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+    /** @category Operations */
+    Add(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+    Add<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+    Sub(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+    Sub<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+    Mul(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+    Mul<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+    Div(arg0: Arith<Name>, arg1: CoercibleToArith<Name>): Arith<Name>;
+
+    Div<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+    BUDiv<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+    Neg(a: Arith<Name>): Arith<Name>;
+
+    Neg<Bits extends number>(a: BitVec<Bits, Name>): BitVec<Bits, Name>;
+
+    Mod(a: Arith<Name>, b: CoercibleToArith<Name>): Arith<Name>;
+
+    Mod<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+    // Arrays
+
+    /** @category Operations */
+    Select<DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+        RangeSort extends Sort<Name> = Sort<Name>>(array: SMTArray<Name, DomainSort, RangeSort>, ...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
+
+    /** @category Operations */
+    Store<DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+        RangeSort extends Sort<Name> = Sort<Name>>(
+        array: SMTArray<Name, DomainSort, RangeSort>,
+        ...indicesAndValue: [...CoercibleToArrayIndexType<Name, DomainSort>, CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>]
+    ): SMTArray<Name, DomainSort, RangeSort>;
+
+    /** @category Operations */
+
+    Extract<Bits extends number>(
+        hi: number,
+        lo: number,
+        val: BitVec<Bits, Name>
+    ): BitVec<number, Name>;
+
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -802,7 +858,7 @@ export interface BoolCreation<Name extends string = 'main'> {
 /** @category Booleans */
 export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<Name>, Z3_ast> {
     /** @hidden */
-    readonly __typename: 'Bool' | Quantifier['__typename'];
+    readonly __typename: 'Bool' | 'NonLambdaQuantifier';
 
     not(): Bool<Name>;
 
@@ -820,41 +876,6 @@ export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<
 export interface Pattern<Name extends string = 'main'> {
     /** @hidden */
     readonly __typename: 'Pattern';
-}
-
-/** @category Quantifiers */
-export interface Quantifier<Name extends string = 'main'> extends Bool<Name> {
-
-    readonly __typename: 'Quantifier';
-
-    is_forall(): boolean;
-
-    is_exists(): boolean;
-
-    is_lambda(): boolean;
-
-    select(...indices: AnyExpr<Name>[]): Expr<Name> | never;
-
-    weight(): number;
-
-    num_patterns(): number;
-
-    pattern(i: number): Pattern<Name>;
-
-    num_no_patterns(): number;
-
-    no_pattern(i: number): Expr<Name>;
-
-    body(): Bool<Name> | Expr<Name>;
-
-    num_vars(): number;
-
-    var_name(i: number): string | number;
-
-    var_sort(i: number): Sort<Name>;
-
-    children(): [Bool<Name> | Expr<Name>];
-
 }
 
 /**
@@ -1325,10 +1346,11 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
  * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
-export interface SMTArraySort<Name extends string = 'main',
-    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-    RangeSort extends AnySort<Name> = AnySort<Name>,
-    > extends Sort<Name> {
+export interface SMTArraySort<
+    Name extends string = 'main',
+    DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+    RangeSort extends AnySort<Name> = AnySort<Name>
+> extends Sort<Name> {
     /** @hidden */
     readonly __typename: 'ArraySort';
 
@@ -1358,15 +1380,15 @@ export interface SMTArraySort<Name extends string = 'main',
 
 /** @category Arrays */
 export interface SMTArrayCreation<Name extends string> {
-    sort<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+    sort<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
         ...sig: [...DomainSort, RangeSort]
     ): SMTArraySort<Name, DomainSort, RangeSort>;
 
-    const<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+    const<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
         name: string, ...sig: [...DomainSort, RangeSort]
     ): SMTArray<Name, DomainSort, RangeSort>;
 
-    consts<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+    consts<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
         names: string | string[],
         ...sig: [...DomainSort, RangeSort]
     ): SMTArray<Name, DomainSort, RangeSort>[];
@@ -1377,24 +1399,39 @@ export interface SMTArrayCreation<Name extends string> {
     ): SMTArray<Name, [DomainSort], RangeSort>;
 }
 
-export type ArrayIndexType<Name extends string = 'main',
-    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]]> = [...{
-    [Index in keyof DomainSort]: DomainSort[Index] extends AnySort<Name> ?
-        CoercibleToMap<SortToExprMap<DomainSort[Index], Name>, Name> :
-        DomainSort[Index];
+export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];
+
+export type ArrayIndexType<
+    Name extends string,
+    DomainSort extends NonEmptySortArray<Name>
+> = [...{
+    [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name> ?
+        SortToExprMap<DomainSort[Key], Name> :
+        DomainSort[Key];
+}]
+
+export type CoercibleToArrayIndexType<
+    Name extends string,
+    DomainSort extends NonEmptySortArray<Name>
+> = [...{
+    [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name> ?
+        CoercibleToMap<SortToExprMap<DomainSort[Key], Name>, Name> :
+        DomainSort[Key];
 }]
 
 /**
  * Represents Array expression
  * @category Arrays
  */
-export interface SMTArray<Name extends string = 'main',
-    DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-    RangeSort extends AnySort<Name> = AnySort<Name>>
+export interface SMTArray<
+    Name extends string = 'main',
+    DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+    RangeSort extends Sort<Name> = Sort<Name>
+>
     extends Expr<Name, SMTArraySort<Name, DomainSort, RangeSort>, Z3_ast> {
 
     /** @hidden */
-    readonly __typename: 'Array';
+    readonly __typename: 'Array' | 'Lambda';
 
     domain(): DomainSort[0];
 
@@ -1402,7 +1439,7 @@ export interface SMTArray<Name extends string = 'main',
 
     range(): RangeSort;
 
-    select(...indices: ArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
+    select(...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 
     /**
      * value should be coercible to RangeSort
@@ -1411,10 +1448,63 @@ export interface SMTArray<Name extends string = 'main',
      */
     store(
         ...indicesAndValue: [
-            ...ArrayIndexType<Name, DomainSort>,
+            ...CoercibleToArrayIndexType<Name, DomainSort>,
             CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>
         ]
     ): SMTArray<Name, DomainSort, RangeSort>;
+
+}
+
+/**
+ * Defines the expression type of the body of a quantifier expression
+ *
+ * @category Quantifiers
+ */
+export type BodyT<
+    Name extends string = 'main',
+    QVarSorts extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+    QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts> = BoolSort<Name> | SMTArraySort<Name, QVarSorts>
+> =
+    QSort extends BoolSort<Name>
+    ? Bool<Name>
+    : QSort extends SMTArray<Name, QVarSorts, infer RangeSort>
+        ? SortToExprMap<RangeSort, Name>
+        : never;
+
+/** @category Quantifiers */
+export interface Quantifier<
+    Name extends string = 'main',
+    QVarSorts extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+    QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts> = BoolSort<Name> | SMTArraySort<Name, QVarSorts>
+> extends Expr<Name, QSort> {
+
+    readonly __typename: 'NonLambdaQuantifier' | 'Lambda';
+
+    is_forall(): boolean;
+
+    is_exists(): boolean;
+
+    is_lambda(): boolean;
+
+    weight(): number;
+
+    num_patterns(): number;
+
+    pattern(i: number): Pattern<Name>;
+
+    num_no_patterns(): number;
+
+    no_pattern(i: number): Expr<Name>;
+
+    body(): BodyT<Name, QVarSorts, QSort>;
+
+    num_vars(): number;
+
+    var_name(i: number): string | number;
+
+    var_sort<T extends number>(i: T): QVarSorts[T];
+
+    children(): [BodyT<Name, QVarSorts, QSort>];
 
 }
 
