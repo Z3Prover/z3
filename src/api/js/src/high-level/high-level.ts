@@ -982,7 +982,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             RangeSort extends Sort<Name>
         >(
             quantifiers: ArrayIndexType<Name, DomainSort>, expr: SortToExprMap<RangeSort, Name>
-        ): Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>> & SMTArray<Name, DomainSort, RangeSort> {
+        ): LambdaImpl<any, RangeSort> {
+            // TODO: For some reason LambdaImpl<DomainSort, RangeSort> leads to type issues
+            // and Typescript won't build. I'm not sure why since the types seem to all match
+            // up. For now, we just use any for the domain sort until a deeper look can be had
+
             // Verify all quantifiers are constants
             if (!allSatisfy(quantifiers, isConst)) {
                 throw new Error('Quantifier variables must be constants');
