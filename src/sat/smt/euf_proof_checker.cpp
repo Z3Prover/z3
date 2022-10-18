@@ -214,6 +214,7 @@ namespace euf {
 
         void register_plugins(theory_checker& pc) override {
             pc.register_plugin(symbol("euf"), this);
+            pc.register_plugin(symbol("smt"), this);
         }
     };
 
@@ -289,13 +290,11 @@ namespace euf {
         add_plugin(alloc(res_checker, m, *this));
         add_plugin(alloc(q::theory_checker, m));
         add_plugin(alloc(distinct::theory_checker, m));
-        add_plugin(alloc(smt_theory_checker_plugin, m, symbol("datatype"))); // no-op datatype proof checker
+        add_plugin(alloc(smt_theory_checker_plugin, m)); 
         add_plugin(alloc(tseitin::theory_checker, m));
     }
 
     theory_checker::~theory_checker() {
-        for (auto& [k, v] : m_checked_clauses)
-            dealloc(v);
     }
 
     void theory_checker::add_plugin(theory_checker_plugin* p) {
@@ -310,20 +309,14 @@ namespace euf {
     bool theory_checker::check(expr* e) {
         if (!e || !is_app(e))
             return false;
-        if (m_checked_clauses.contains(e))
-            return true;        
         app* a = to_app(e);
         theory_checker_plugin* p = nullptr;
         return m_map.find(a->get_decl()->get_name(), p) && p->check(a);
     }
 
     expr_ref_vector theory_checker::clause(expr* e) {
-        expr_ref_vector* rr;
-        if (m_checked_clauses.find(e, rr))
-            return *rr;
         SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
         expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
-        m_checked_clauses.insert(e, alloc(expr_ref_vector, r));
         return r;
     }
 
@@ -365,12 +358,16 @@ namespace euf {
 
     expr_ref_vector smt_theory_checker_plugin::clause(app* jst) {
         expr_ref_vector result(m);
-        SASSERT(jst->get_name() == m_rule);
         for (expr* arg : *jst) 
             result.push_back(mk_not(m, arg));
         return result;
     }
 
+    void smt_theory_checker_plugin::register_plugins(theory_checker& pc) {
+        pc.register_plugin(symbol("datatype"), this);
+        pc.register_plugin(symbol("array"), this);
+        pc.register_plugin(symbol("fpa"), this);
+    }
 
     smt_proof_checker::smt_proof_checker(ast_manager& m, params_ref const& p):
         m(m),
@@ -469,6 +466,7 @@ namespace euf {
         lbool is_sat = m_solver->check_sat();
         if (is_sat != l_false) {
             std::cout << "did not verify: " << is_sat << " " << clause << "\n";
+            std::cout << "vc:\n" << vc << "\n";
             if (proof_hint) 
                 std::cout << "hint: " << mk_bounded_pp(proof_hint, m, 4) << "\n";
             m_solver->display(std::cout);
@@ -486,6 +484,7 @@ namespace euf {
         for (expr* arg : clause)
             std::cout << "\n " << mk_bounded_pp(arg, m);
         std::cout << ")\n";
+
         if (is_rup(proof_hint)) 
             diagnose_rup_failure(clause);
             

@@ -200,11 +200,14 @@ namespace euf {
 
         typedef std::pair<expr*, expr*> expr_pair;
         literal_vector    m_proof_literals;
-        svector<expr_pair> m_proof_eqs, m_proof_deqs, m_expr_pairs;
+        svector<expr_pair> m_proof_eqs, m_proof_deqs, m_expr_pairs;        
         unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
         unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
         symbol m_euf = symbol("euf");
         symbol m_smt = symbol("smt");            
+        expr_ref_vector m_clause;
+        expr_ref_vector m_expr_args;
+
         eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
 
 

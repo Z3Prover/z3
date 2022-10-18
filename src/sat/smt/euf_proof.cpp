@@ -22,19 +22,22 @@ Author:
 namespace euf {
 
     void solver::init_proof() {
-        if (!m_proof_initialized) {
-            get_drat().add_theory(get_id(), symbol("euf"));
-            get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
-        }
-        if (!m_proof_out && s().get_config().m_drat && 
+        if (m_proof_initialized)
+            return;
+
+        if (s().get_config().m_drat && 
             (get_config().m_lemmas2console ||
              s().get_config().m_smt_proof_check ||
              s().get_config().m_smt_proof.is_non_empty_string())) {
+
+            get_drat().add_theory(get_id(), symbol("euf"));
+            get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
             TRACE("euf", tout << "init-proof " << s().get_config().m_smt_proof << "\n");
-            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
+            if (s().get_config().m_smt_proof.is_non_empty_string())
+                m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
             get_drat().set_clause_eh(*this);
+            m_proof_initialized = true;
         }
-        m_proof_initialized = true;
     }
 
     /**
@@ -133,7 +136,8 @@ namespace euf {
         func_decl_ref cc(m), cc_comm(m);
         sort* proof = m.mk_proof_sort();
         ptr_buffer<sort> sorts;
-        expr_ref_vector args(m);
+        expr_ref_vector& args = s.m_expr_args;
+        args.reset();
         if (m_cc_head < m_cc_tail) {
             sort* sorts[1] = { m.mk_bool_sort() };
             cc_comm = m.mk_func_decl(symbol("comm"), 1, sorts, proof);
@@ -325,16 +329,16 @@ namespace euf {
     void solver::on_check(unsigned n, literal const* lits, sat::status st) {
         if (!s().get_config().m_smt_proof_check)
             return;
-        expr_ref_vector clause(m);
+        m_clause.reset();
         for (unsigned i = 0; i < n; ++i) 
-            clause.push_back(literal2expr(lits[i]));
+            m_clause.push_back(literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
         if (st.is_asserted() || st.is_redundant())
-            m_smt_proof_checker.infer(clause, hint);
+            m_smt_proof_checker.infer(m_clause, hint);
         else if (st.is_deleted())
-            m_smt_proof_checker.del(clause);
+            m_smt_proof_checker.del(m_clause);
         else if (st.is_input())
-            m_smt_proof_checker.assume(clause);
+            m_smt_proof_checker.assume(m_clause);
     }
         
     void solver::on_lemma(unsigned n, literal const* lits, sat::status st) {
@@ -391,7 +395,7 @@ namespace euf {
     void solver::display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
         expr_ref hint(proof_hint, m);
         if (!hint)
-            hint = m.mk_const(symbol("smt"), m.mk_proof_sort());
+            hint = m.mk_const(m_smt, m.mk_proof_sort()); 
         visit_expr(out, hint);
         display_hint(display_literals(out << "(infer", n, lits), hint) << ")\n";        
     }

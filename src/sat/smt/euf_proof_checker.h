@@ -42,7 +42,6 @@ namespace euf {
         ast_manager& m;
         scoped_ptr_vector<theory_checker_plugin> m_plugins;                          // plugins of proof checkers
         map<symbol, theory_checker_plugin*, symbol_hash_proc, symbol_eq_proc> m_map; // symbol table of proof checkers
-        obj_map<expr, expr_ref_vector*> m_checked_clauses;                          // cache of previously checked proofs and their clauses.
         void add_plugin(theory_checker_plugin* p);
     public:
         theory_checker(ast_manager& m);
@@ -62,12 +61,11 @@ namespace euf {
      */
     class smt_theory_checker_plugin : public theory_checker_plugin {
         ast_manager& m;
-        symbol m_rule;
     public:
-        smt_theory_checker_plugin(ast_manager& m, symbol const& n): m(m), m_rule(n) {}
+        smt_theory_checker_plugin(ast_manager& m): m(m) {}
         bool check(app* jst) override { return false; }
         expr_ref_vector clause(app* jst) override;        
-        void register_plugins(theory_checker& pc) override { pc.register_plugin(m_rule, this); }
+        void register_plugins(theory_checker& pc) override;
     };
 
 
