@@ -11301,6 +11301,45 @@ def TransitiveClosure(f):
     """
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
+def to_Ast(ptr,):
+    ast = Ast(ptr)
+    super(ctypes.c_void_p, ast).__init__(ptr)
+    return ast
+
+def to_ContextObj(ptr,):
+    ctx = ContextObj(ptr)
+    super(ctypes.c_void_p, ctx).__init__(ptr)
+    return ctx
+
+def to_AstVectorObj(ptr,):
+    v = AstVectorObj(ptr)
+    super(ctypes.c_void_p, v).__init__(ptr)    
+    return v
+
+# NB. my-hacky-class only works for a single instance of OnClause
+# it should be replaced with a proper correlation between OnClause
+# and object references that can be passed over the FFI.
+# for UserPropagator we use a global dictionary, which isn't great code.
+
+_my_hacky_class = None
+def on_clause_eh(ctx, p, clause):
+    onc = _my_hacky_class
+    p = _to_expr_ref(to_Ast(p), onc.ctx)
+    clause = AstVector(to_AstVectorObj(clause), onc.ctx)
+    onc.on_clause(p, clause)
+    
+_on_clause_eh = Z3_on_clause_eh(on_clause_eh)
+
+class OnClause:
+    def __init__(self, s, on_clause):
+        self.s = s
+        self.ctx = s.ctx
+        self.on_clause = on_clause
+        self.idx = 22
+        global _my_hacky_class
+        _my_hacky_class = self
+        Z3_solver_register_on_clause(self.ctx.ref(), self.s.solver, self.idx, _on_clause_eh)        
+        
 
 class PropClosures:
     def __init__(self):
@@ -11358,11 +11397,6 @@ def user_prop_pop(ctx, cb, num_scopes):
     prop.cb = cb
     prop.pop(num_scopes)
 
-def to_ContextObj(ptr,):
-    ctx = ContextObj(ptr)
-    super(ctypes.c_void_p, ctx).__init__(ptr)
-    return ctx
-
 
 def user_prop_fresh(ctx, _new_ctx):
     _prop_closures.set_threaded()
@@ -11377,10 +11411,6 @@ def user_prop_fresh(ctx, _new_ctx):
     _prop_closures.set(new_prop.id, new_prop)
     return new_prop.id
 
-def to_Ast(ptr,):
-    ast = Ast(ptr)
-    super(ctypes.c_void_p, ast).__init__(ptr)
-    return ast
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
@@ -11442,6 +11472,7 @@ _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 _user_prop_decide = Z3_decide_eh(user_prop_decide)
 
+
 def PropagateFunction(name, *sig):
     """Create a function that gets tracked by user propagator.
        Every term headed by this function symbol is tracked.
@@ -11462,7 +11493,8 @@ def PropagateFunction(name, *sig):
         dom[i] = sig[i].ast
     ctx = rng.ctx
     return FuncDeclRef(Z3_solver_propagate_declare(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
-      
+
+    
 
 class UserPropagateBase:
 

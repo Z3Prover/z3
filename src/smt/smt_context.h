@@ -1706,6 +1706,12 @@ namespace smt {
 
         void get_units(expr_ref_vector& result);
 
+        bool on_clause_active() const { return m_clause_proof.on_clause_active(); }
+
+        void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+            m_clause_proof.register_on_clause(ctx, on_clause);
+        }
+
         /*
          * user-propagator
          */

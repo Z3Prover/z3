@@ -1626,9 +1626,11 @@ namespace smt {
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
-        else {
+        else if (pr && on_clause_active()) 
+            // support logging of quantifier instantiations and other more detailed information
+            mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
+        else 
             mk_clause(num_lits, lits, nullptr);
-        }
     }
 
     void context::mk_root_clause(literal l1, literal l2, proof * pr) {

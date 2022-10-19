@@ -25,19 +25,25 @@ namespace euf {
         if (m_proof_initialized)
             return;
 
-        if (s().get_config().m_drat && 
-            (get_config().m_lemmas2console ||
-             s().get_config().m_smt_proof_check ||
-             s().get_config().m_smt_proof.is_non_empty_string())) {
+        if (m_on_clause)
+            s().set_drat(true);
+        
+        if (!s().get_config().m_drat)
+            return;
 
-            get_drat().add_theory(get_id(), symbol("euf"));
-            get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
-            TRACE("euf", tout << "init-proof " << s().get_config().m_smt_proof << "\n");
-            if (s().get_config().m_smt_proof.is_non_empty_string())
-                m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
-            get_drat().set_clause_eh(*this);
-            m_proof_initialized = true;
-        }
+        if (!get_config().m_lemmas2console &&
+            !s().get_config().m_smt_proof_check &&
+            !m_on_clause &&
+            !s().get_config().m_smt_proof.is_non_empty_string())
+            return;
+        
+        get_drat().add_theory(get_id(), symbol("euf"));
+        get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
+
+        if (s().get_config().m_smt_proof.is_non_empty_string())
+            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
+        get_drat().set_clause_eh(*this);
+        m_proof_initialized = true;        
     }
 
     /**
@@ -135,7 +141,6 @@ namespace euf {
         ast_manager& m = s.get_manager();
         func_decl_ref cc(m), cc_comm(m);
         sort* proof = m.mk_proof_sort();
-        ptr_buffer<sort> sorts;
         expr_ref_vector& args = s.m_expr_args;
         args.reset();
         if (m_cc_head < m_cc_tail) {
@@ -161,12 +166,8 @@ namespace euf {
         for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
             auto const& [a, b, ts, comm] = s.m_explain_cc[i];
             args.push_back(cc_proof(comm, m.mk_eq(a, b)));
-        }
-        for (auto * arg : args)
-            sorts.push_back(arg->get_sort());
-        
-        func_decl* f = m.mk_func_decl(th, sorts.size(), sorts.data(), proof);
-        return m.mk_app(f, args);
+        }        
+        return m.mk_app(th, args.size(), args.data(), proof);
     }
 
     smt_proof_hint* solver::mk_smt_clause(symbol const& n, unsigned nl, literal const* lits) {
@@ -304,6 +305,17 @@ namespace euf {
         on_lemma(n, lits, st);
         on_proof(n, lits, st);
         on_check(n, lits, st);
+        on_clause_eh(n, lits, st);
+    }
+
+    void solver::on_clause_eh(unsigned n, literal const* lits, sat::status st) {
+        if (!m_on_clause)
+            return;
+        m_clause.reset();
+        for (unsigned i = 0; i < n; ++i) 
+            m_clause.push_back(literal2expr(lits[i]));
+        auto hint = status2proof_hint(st);
+        m_on_clause(m_on_clause_ctx, hint, m_clause.size(), m_clause.data());
     }
 
     void solver::on_proof(unsigned n, literal const* lits, sat::status st) {

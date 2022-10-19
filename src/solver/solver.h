@@ -278,7 +278,7 @@ public:
     };
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
- 
+
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);

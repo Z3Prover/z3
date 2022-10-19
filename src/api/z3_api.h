@@ -1433,6 +1433,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast* t, unsigned* idx, Z3_lbool* phase));
+Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
 
 
 /**
@@ -6877,6 +6878,24 @@ extern "C" {
     */
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
+    /**
+       \brief register a callback to that retrieves assumed, inferred and deleted clauses during search.
+       
+       \param c - context.
+       \param s - solver object.
+       \param user_context - a context used to maintain state for callbacks.
+       \param on_clause_eh - a callback that is invoked by when a clause is 
+                               - asserted to the CDCL engine (corresponding to an input clause after pre-processing)
+                               - inferred by CDCL(T) using either a SAT or theory conflict/propagation
+                               - deleted by the CDCL(T) engine
+
+       def_API('Z3_solver_register_on_clause', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _fnptr(Z3_on_clause_eh)))
+    */
+    void Z3_API Z3_solver_register_on_clause(
+        Z3_context  c, 
+        Z3_solver   s, 
+        void*       user_context,
+        Z3_on_clause_eh on_clause_eh);
 
     /**
        \brief register a user-properator with the solver.

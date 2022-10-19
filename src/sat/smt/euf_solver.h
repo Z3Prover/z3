@@ -123,8 +123,10 @@ namespace euf {
         sat::lookahead*        m_lookahead = nullptr;
         ast_manager*           m_to_m;
         sat::sat_internalizer* m_to_si;
-        scoped_ptr<euf::ackerman>     m_ackerman;
-        user_solver::solver*          m_user_propagator = nullptr;
+        scoped_ptr<euf::ackerman>       m_ackerman;
+        user_propagator::on_clause_eh_t m_on_clause;
+        void*                           m_on_clause_ctx = nullptr;
+        user_solver::solver*            m_user_propagator = nullptr;
         th_solver*             m_qsolver = nullptr;
         unsigned               m_generation = 0;
         std::string            m_reason_unknown; 
@@ -221,6 +223,7 @@ namespace euf {
         void on_lemma(unsigned n, literal const* lits, sat::status st);
         void on_proof(unsigned n, literal const* lits, sat::status st);
         void on_check(unsigned n, literal const* lits, sat::status st);
+        void on_clause_eh(unsigned n, literal const* lits, sat::status st);
         std::ostream& display_literals(std::ostream& out, unsigned n, sat::literal const* lits);
         void display_assume(std::ostream& out, unsigned n, literal const* lits);
         void display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
@@ -486,6 +489,11 @@ namespace euf {
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
+
+        // clause tracing
+        void register_on_clause(
+            void* ctx,
+            user_propagator::on_clause_eh_t& on_clause);
 
         // user propagator
         void user_propagate_init(

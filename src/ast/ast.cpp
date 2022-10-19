@@ -1969,6 +1969,14 @@ app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, 
     return mk_app(fid, k, 0, nullptr, 3, args);
 }
 
+app * ast_manager::mk_app(symbol const& name, unsigned n, expr* const* args, sort* range) {
+    ptr_buffer<sort> sorts;
+    for (unsigned i = 0; i < n; ++i)
+        sorts.push_back(args[i]->get_sort());
+    return mk_app(mk_func_decl(name, n, sorts.data(), range), n, args);
+}
+
+
 sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     unsigned sz      = sort::get_obj_size();
     void * mem       = allocate_node(sz);

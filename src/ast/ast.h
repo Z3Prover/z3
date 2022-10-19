@@ -1883,6 +1883,8 @@ public:
         return mk_app(decl, 3, args);
     }
 
+    app * mk_app(symbol const& name, unsigned n, expr* const* args, sort* range);
+
     app * mk_const(func_decl * decl) {
         SASSERT(decl->get_arity() == 0);
         return mk_app(decl, static_cast<unsigned>(0), static_cast<expr**>(nullptr));

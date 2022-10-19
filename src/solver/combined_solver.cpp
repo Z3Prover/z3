@@ -344,7 +344,11 @@ public:
         else
             return m_solver2->get_labels(r);
     }
-    
+
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        switch_inc_mode();
+        m_solver2->register_on_clause(ctx, on_clause);
+    }    
 
     void user_propagate_init(
         void* ctx, 

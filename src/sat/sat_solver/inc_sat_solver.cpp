@@ -661,6 +661,10 @@ public:
         return ext;
     }
 
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        ensure_euf()->register_on_clause(ctx, on_clause);
+    }
+    
     void user_propagate_init(
         void*                ctx, 
         user_propagator::push_eh_t&   push_eh,

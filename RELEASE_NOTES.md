@@ -10,6 +10,56 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.12.0
+==============
+- add clause logging API.
+  - The purpose of logging API and self-checking is to enable an array of use cases.
+    - proof mining (what instantiations did Z3 use)? 
+      - A refresh of the AxiomProfiler could use the logging API. The (brittle) trace feature should be deprecated.
+    - debugging
+      - a built-in self certifier implements a custom proof checker for the format used by the new solver (sat.euf=true).
+    - other potential options:
+      - integration into certified tool chains      
+      - interpolation 
+  - Z3_register_on_clause (also exposed over C++, Python and .Net)
+  - it applies to z3's main CDCL(T) core and a new CDCL(T) core (sat.euf=true).
+  - The added API function allows to register a callback for when clauses are inferred 
+    More precisely, when clauses are assumed (as part of input), deleted, or deduced.
+    Clauses that are deduced by the CDCL SAT engine using standard inferences are marked as 'rup'.
+    Clauses that are deduced by theories are marked by default by 'smt', and when more detailed information
+    is available with proof hints or proof objects. Instantations are considered useful to track so they
+    are logged using terms of the form (inst (not (forall (x) body)) body[t/x] (bind t)), where
+    'inst' is a name of a function that produces a proof term representing the instantiation.
+- add options for proof logging, trimming, and checking for the new core.
+  - sat.smt.proof (symbol) add SMT proof to file (default: )
+  - sat.smt.proof.check (bool) check SMT proof while it is created (default: false)
+    - it applies a custom self-validator. The self-validator comprises of several small checkers and represent a best-effort
+      validation mechanism. If there are no custom validators associated with inferences, or the custom validators fail to certify
+      inferences, the self-validator falls back to invoking z3 (SMT) solving on the lemma.
+      - euf - propagations and conflicts from congruence closure (theory of equality and uninterpreted functions) are checked
+              based on a proof format that tracks uses of congruence closure and equalities. It only performs union find operations.
+      - tseitin - clausification steps are checked for Boolean operators.
+      - farkas, bound, implies_eq - arithmetic inferences that can be justified using a combination of Farkas lemma and cuts are checked.
+              Note: the arithmetic solver may produce proof hints that the proof checker cannot check. It is mainly a limitation
+              of the arithmetic solver not pulling relevant information. Ensuring a tight coupling with proof hints and the validator
+              capabilites is open ended future work and good material for theses. 
+      - bit-vector inferences - are treated as trusted (there is no validation, it always blindly succeeds)
+      - arrays, datatypes - there is no custom validation for other theories at present. Lemmas are validated using SMT.
+  - sat.smt.proof.check_rup (bool) apply forward RUP proof checking (default: true)
+    - this option can incur significant runtime overhead. Effective proof checking relies on first trimming
+      proofs into a format where dependencies are tracked and then checking relevant inferences. 
+      Turn this option off if you just want to check theory inferences.                         
+- add options to validate proofs offline. It applies to proofs saved when sat.smt.proof is set to a valid file name.
+  - solver.proof.check (bool) check proof logs (default: true)
+    - the option sat.smt.proof_check_rup can be used to control what is checked
+  - solver.proof.save (bool) save proof log into a proof object that can be extracted using (get-proof) (default: false)
+    - experimental: saves a proof log into a term
+  - solver.proof.trim (bool) trim the offline proof and print the trimmed proof to the console
+    - experimental: performs DRUP trimming to reduce the set of hypotheses and inferences relevant to derive the empty clause.
+- JS support for Arrays, thanks to Walden Yan
+- More portable memory allocation, thanks to Nuno Lopes (avoid custom handling to calculate memory usage)
+
+
 Version 4.11.2
 ==============
 - add error handling to fromString method in JavaScript

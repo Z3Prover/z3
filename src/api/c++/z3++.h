@@ -158,7 +158,7 @@ namespace z3 {
     class context {
     private:
         friend class user_propagator_base;
-        bool       m_enable_exceptions;
+        bool       m_enable_exceptions = true;
         rounding_mode m_rounding_mode;
         Z3_context m_ctx = nullptr;
         void init(config & c) {
@@ -2670,10 +2670,10 @@ namespace z3 {
     public:
         struct simple {};
         struct translate {};
-        solver(context & c):object(c) { init(Z3_mk_solver(c)); }
-        solver(context & c, simple):object(c) { init(Z3_mk_simple_solver(c)); }
+        solver(context & c):object(c) { init(Z3_mk_solver(c)); check_error(); }
+        solver(context & c, simple):object(c) { init(Z3_mk_simple_solver(c)); check_error(); }
         solver(context & c, Z3_solver s):object(c) { init(s); }
-        solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); }
+        solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); check_error(); }
         solver(context & c, solver const& src, translate): object(c) { Z3_solver s = Z3_solver_translate(src.ctx(), src, c); check_error(); init(s); }
         solver(solver const & s):object(s) { init(s.m_solver); }
         ~solver() { Z3_solver_dec_ref(ctx(), m_solver); }
@@ -4059,6 +4059,25 @@ namespace z3 {
         return expr(ctx(), r);
     }
 
+    typedef std::function<void(expr const& proof, expr_vector const& clause)> on_clause_eh_t;
+
+    class on_clause {
+        context& c;
+        on_clause_eh_t m_on_clause;
+
+        static void _on_clause_eh(void* _ctx, Z3_ast _proof, Z3_ast_vector _literals) {
+            on_clause* ctx = static_cast<on_clause*>(_ctx);
+            expr_vector lits(ctx->c, _literals);
+            expr proof(ctx->c, _proof);
+            ctx->m_on_clause(proof, lits);
+        }
+    public:
+        on_clause(solver& s, on_clause_eh_t& on_clause_eh): c(s.ctx()) {
+            m_on_clause = on_clause_eh;
+            Z3_solver_register_on_clause(c, s, this, _on_clause_eh);
+            c.check_error();
+        }        
+    };
 
     class user_propagator_base {
 

@@ -432,17 +432,17 @@ namespace sat {
         }
         
         void checkpoint() {
-            if (!m_checkpoint_enabled) return;
-            if (limit_reached()) {
+            if (!m_checkpoint_enabled) 
+                return;
+            if (limit_reached()) 
                 throw solver_exception(Z3_CANCELED_MSG);
-            }
-            if (memory_exceeded()) {
+            if (memory_exceeded()) 
                 throw solver_exception(Z3_MAX_MEMORY_MSG);                
-            }
         }
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
+        void set_drat(bool d) { m_config.m_drat = d; }
         drat& get_drat() { return m_drat; }
         drat* get_drat_ptr() { return &m_drat;  }
         void set_incremental(bool b) { m_config.m_incremental = b; }

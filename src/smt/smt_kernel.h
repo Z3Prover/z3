@@ -290,6 +290,8 @@ namespace smt {
         */
         static void collect_param_descrs(param_descrs & d);
 
+        void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause);
+
         /**
            \brief initialize a user-propagator "theory"
         */

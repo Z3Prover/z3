@@ -389,26 +389,16 @@ namespace q {
     expr* q_proof_hint::get_hint(euf::solver& s) const {
         ast_manager& m = s.get_manager();
         expr_ref_vector args(m);
-        ptr_buffer<sort> sorts;
         expr_ref binding(m);
         sort* range = m.mk_proof_sort();
-        func_decl* d;
         for (unsigned i = 0; i < m_num_bindings; ++i) 
             args.push_back(m_bindings[i]);
-        for (expr* arg : args)
-            sorts.push_back(arg->get_sort());
-        d = m.mk_func_decl(symbol("bind"), args.size(), sorts.data(), range);
-        binding = m.mk_app(d, args);
+        binding = m.mk_app(symbol("bind"), args.size(), args.data(), range);
         args.reset();
-        sorts.reset();
         for (unsigned i = 0; i < m_num_literals; ++i) 
             args.push_back(s.literal2expr(~m_literals[i]));
-        args.push_back(binding);
-        for (expr* arg : args)
-            sorts.push_back(arg->get_sort());
-        
-        d = m.mk_func_decl(symbol("inst"), args.size(), sorts.data(), range);
-        return m.mk_app(d, args);
+        args.push_back(binding);        
+        return m.mk_app(symbol("inst"), args.size(), args.data(), range);
     }
 
 }

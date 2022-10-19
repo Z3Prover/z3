@@ -339,6 +339,10 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
   _elems.Check(ctx)
   return ceh
 
+def Z3_solver_register_on_clause(ctx, s, user_ctx, on_clause_eh, _elems = Elementaries(_lib.Z3_solver_register_on_clause)):
+    _elems.f(ctx, s, user_ctx, on_clause_eh)
+    _elems.Check(ctx)
+    
 def Z3_solver_propagate_init(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh, _elems = Elementaries(_lib.Z3_solver_propagate_init)):
     _elems.f(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh)
     _elems.Check(ctx)
@@ -1315,7 +1319,8 @@ z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_eq',
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created',
-    'Z3_solver_propagate_decide'
+    'Z3_solver_propagate_decide',
+    'Z3_solver_register_on_clause'
     ])
 
 def mk_ml(ml_src_dir, ml_output_dir):
@@ -1844,6 +1849,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
@@ -1855,6 +1861,7 @@ Z3_eq_eh    = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_
 Z3_created_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_decide_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 
+_lib.Z3_solver_register_on_clause.restype = None
 _lib.Z3_solver_propagate_init.restype = None
 _lib.Z3_solver_propagate_final.restype = None
 _lib.Z3_solver_propagate_fixed.restype = None

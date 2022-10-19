@@ -1113,6 +1113,14 @@ namespace euf {
         return true;
     }
 
+    void solver::register_on_clause(
+        void* ctx,
+        user_propagator::on_clause_eh_t& on_clause) {
+        m_on_clause_ctx = ctx;
+        m_on_clause = on_clause;
+        init_proof();
+    }
+
     void solver::user_propagate_init(
         void* ctx,
         user_propagator::push_eh_t& push_eh,
