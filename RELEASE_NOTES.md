@@ -15,49 +15,103 @@ Version 4.12.0
 - add clause logging API.
   - The purpose of logging API and self-checking is to enable an array of use cases.
     - proof mining (what instantiations did Z3 use)? 
-      - A refresh of the AxiomProfiler could use the logging API. The (brittle) trace feature should be deprecated.
+      - A refresh of the AxiomProfiler could use the logging API. 
+        The (brittle) trace feature should be deprecated.
     - debugging
-      - a built-in self certifier implements a custom proof checker for the format used by the new solver (sat.euf=true).
+      - a built-in self certifier implements a custom proof checker for 
+        the format used by the new solver (sat.euf=true).
     - other potential options:
       - integration into certified tool chains      
       - interpolation 
   - Z3_register_on_clause (also exposed over C++, Python and .Net)
   - it applies to z3's main CDCL(T) core and a new CDCL(T) core (sat.euf=true).
-  - The added API function allows to register a callback for when clauses are inferred 
-    More precisely, when clauses are assumed (as part of input), deleted, or deduced.
-    Clauses that are deduced by the CDCL SAT engine using standard inferences are marked as 'rup'.
-    Clauses that are deduced by theories are marked by default by 'smt', and when more detailed information
-    is available with proof hints or proof objects. Instantations are considered useful to track so they
-    are logged using terms of the form (inst (not (forall (x) body)) body[t/x] (bind t)), where
-    'inst' is a name of a function that produces a proof term representing the instantiation.
+  - The added API function allows to register a callback for when clauses 
+    are inferred. More precisely, when clauses are assumed (as part of input), 
+    deleted, or deduced.
+    Clauses that are deduced by the CDCL SAT engine using standard 
+    inferences are marked as 'rup'.
+    Clauses that are deduced by theories are marked by default 
+    by 'smt', and when more detailed information
+    is available with proof hints or proof objects. 
+    Instantations are considered useful to track so they
+    are logged using terms of the form 
+
+         (inst (not (forall (x) body)) body[t/x] (bind t)), where
+
+    'inst' is a name of a function that produces a proof term representing 
+    the instantiation.
 - add options for proof logging, trimming, and checking for the new core.
   - sat.smt.proof (symbol) add SMT proof to file (default: )
   - sat.smt.proof.check (bool) check SMT proof while it is created (default: false)
-    - it applies a custom self-validator. The self-validator comprises of several small checkers and represent a best-effort
-      validation mechanism. If there are no custom validators associated with inferences, or the custom validators fail to certify
-      inferences, the self-validator falls back to invoking z3 (SMT) solving on the lemma.
-      - euf - propagations and conflicts from congruence closure (theory of equality and uninterpreted functions) are checked
-              based on a proof format that tracks uses of congruence closure and equalities. It only performs union find operations.
+    - it applies a custom self-validator. The self-validator comprises of 
+      several small checkers and represent a best-effort validation mechanism. 
+      If there are no custom validators associated with inferences, or the custom 
+      validators fail to certify inferences, the self-validator falls back to 
+      invoking z3 (SMT) solving on the lemma.
+      - euf - propagations and conflicts from congruence closure 
+              (theory of equality and uninterpreted functions) are checked
+              based on a proof format that tracks uses of congruence closure and 
+              equalities. It only performs union find operations.
       - tseitin - clausification steps are checked for Boolean operators.
-      - farkas, bound, implies_eq - arithmetic inferences that can be justified using a combination of Farkas lemma and cuts are checked.
-              Note: the arithmetic solver may produce proof hints that the proof checker cannot check. It is mainly a limitation
-              of the arithmetic solver not pulling relevant information. Ensuring a tight coupling with proof hints and the validator
+      - farkas, bound, implies_eq - arithmetic inferences that can be justified using 
+              a combination of Farkas lemma and cuts are checked.
+              Note: the arithmetic solver may produce proof hints that the proof 
+              checker cannot check. It is mainly a limitation
+              of the arithmetic solver not pulling relevant information. 
+              Ensuring a tight coupling with proof hints and the validator
               capabilites is open ended future work and good material for theses. 
-      - bit-vector inferences - are treated as trusted (there is no validation, it always blindly succeeds)
-      - arrays, datatypes - there is no custom validation for other theories at present. Lemmas are validated using SMT.
+      - bit-vector inferences - are treated as trusted 
+        (there is no validation, it always blindly succeeds)
+      - arrays, datatypes - there is no custom validation for 
+        other theories at present. Lemmas are validated using SMT.
   - sat.smt.proof.check_rup (bool) apply forward RUP proof checking (default: true)
-    - this option can incur significant runtime overhead. Effective proof checking relies on first trimming
-      proofs into a format where dependencies are tracked and then checking relevant inferences. 
+    - this option can incur significant runtime overhead. 
+      Effective proof checking relies on first trimming proofs into a 
+      format where dependencies are tracked and then checking relevant inferences. 
       Turn this option off if you just want to check theory inferences.                         
-- add options to validate proofs offline. It applies to proofs saved when sat.smt.proof is set to a valid file name.
+- add options to validate proofs offline. It applies to proofs 
+  saved when sat.smt.proof is set to a valid file name.
   - solver.proof.check (bool) check proof logs (default: true)
     - the option sat.smt.proof_check_rup can be used to control what is checked
-  - solver.proof.save (bool) save proof log into a proof object that can be extracted using (get-proof) (default: false)
+  - solver.proof.save (bool) save proof log into a proof object 
+      that can be extracted using (get-proof) (default: false)
     - experimental: saves a proof log into a term
   - solver.proof.trim (bool) trim the offline proof and print the trimmed proof to the console
-    - experimental: performs DRUP trimming to reduce the set of hypotheses and inferences relevant to derive the empty clause.
+    - experimental: performs DRUP trimming to reduce the set of hypotheses 
+      and inferences relevant to derive the empty clause.
 - JS support for Arrays, thanks to Walden Yan
-- More portable memory allocation, thanks to Nuno Lopes (avoid custom handling to calculate memory usage)
+- More portable memory allocation, thanks to Nuno Lopes 
+  (avoid custom handling to calculate memory usage)
+
+- clause logging and proofs: many open-ended directions.
+  Many directions and functionality features remain in an open-ended state, 
+  subject to fixes, improvements, and contributions.
+  We list a few of them here:
+  - comprehensive efficient self-validators for arithmetic, and other theories
+  - an efficient proof checker when several theory solvers cooperate in a propagation or 
+    conflict. The theory combination case is currently delegated to the smt solver. 
+    The proper setup for integrating theory lemmas is in principle not complicated, 
+    but the implementation requires some changes.
+  - external efficient proof validators (based on certified tool chains) 
+    can be integrated over the API.
+  - dampening repeated clauses: A side-effect of conflict resolution is to 
+    log theory lemmas. It often happens that the theory lemma becomes
+    the conflict clause, that is then logged as rup. Thus, two clauses are 
+    logged.
+  - support for online trim so that proofs generated using clause logging can be used for SPACER
+    - SPACER also would benefit from more robust proof hints for arithmetic 
+      lemmas (bounds and implied equalities are sometimes not logged correctly)
+  - integration into axiom profiling through online and/or offline interfaces.
+    - an online interface attaches a callback with a running solver. This is available.
+    - an offline interface saves a clause proof to a file (currently just 
+      supported for sat.euf) and then reads the file in a separate process
+      The separate process attaches a callback on inferred clauses. 
+      This is currently not available but a relatively small feature.
+  - more detailed proof hints for the legacy solver clause logger. 
+    Other than quantifier instantiations, no detailed information is retained for 
+    theory clauses. 
+  - integration of pre-processing proofs with logging proofs. There is 
+    currently no supported bridge to create a end-to-end proof objects.
 
 
 Version 4.11.2

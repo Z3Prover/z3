@@ -672,6 +672,10 @@ namespace euf {
             else 
                 attach_lit(lit, e);            
         }
+
+        for (auto const& [e, v] : replay.m)
+            if (si.is_bool_op(e))
+               si.cache(to_app(e), sat::literal(v, false));
         
         if (relevancy_enabled())
             for (auto const& [e, generation, v] : m_reinit)

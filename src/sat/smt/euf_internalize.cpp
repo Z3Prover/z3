@@ -159,8 +159,7 @@ namespace euf {
             v = si.add_bool_var(e);
             s().set_external(v);
             s().set_eliminated(v, false);
-            m_bool_var2expr.reserve(v + 1, nullptr);
-            m_bool_var2expr[v] = e;
+            set_bool_var2expr(v, e);
             m_var_trail.push_back(v);
             sat::literal lit2 = literal(v, false);
             th_proof_hint* ph1 = nullptr, * ph2 = nullptr;
@@ -189,11 +188,11 @@ namespace euf {
             return lit;
         }
 
-        m_bool_var2expr[v] = e;
-        m_var_trail.push_back(v);        
+        set_bool_var2expr(v, e);      
         enode* n = m_egraph.find(e);
         if (!n) 
             n = mk_enode(e, 0, nullptr);
+        CTRACE("euf", n->bool_var() != sat::null_bool_var && n->bool_var() != v, display(tout << bpp(n) << " " << n->bool_var() << " vs " << v << "\n"));
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))

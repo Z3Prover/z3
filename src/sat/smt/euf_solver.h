@@ -444,7 +444,7 @@ namespace euf {
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* e_internalize(expr* e);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
-        void set_bool_var2expr(sat::bool_var v, expr* e) { m_bool_var2expr.setx(v, e, nullptr); }
+        void set_bool_var2expr(sat::bool_var v, expr* e) { m_var_trail.push_back(v);  m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
