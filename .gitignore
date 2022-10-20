@@ -81,6 +81,7 @@ src/api/js/node_modules/
 src/api/js/build/
 src/api/js/**/*.__GENERATED__.*
 debug/*
+examples/python/z3
 
 out/**
 *.bak
