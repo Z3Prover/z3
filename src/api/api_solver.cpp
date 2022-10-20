@@ -936,8 +936,10 @@ extern "C" {
         if (!solver.m_cmd_context) {
             solver.m_cmd_context = alloc(cmd_context, false, &(mk_c(c)->m()));
             install_proof_cmds(*solver.m_cmd_context);            
-            init_proof_cmds(*solver.m_cmd_context);
         }
+
+        if (!solver.m_cmd_context->proof_cmds()) 
+            init_proof_cmds(*solver.m_cmd_context);
         solver.m_cmd_context->get_proof_cmds()->register_on_clause(user_context, _on_clause);
         Z3_CATCH;   
     }
