@@ -112,38 +112,54 @@ namespace euf {
 
         std::function<::solver*(void)>   m_mk_solver;
         ast_manager&                     m;
-        sat::sat_internalizer& si;
-        relevancy              m_relevancy;
-        smt_params             m_config;
-        euf::egraph            m_egraph;
-        trail_stack            m_trail;
-        stats                  m_stats;
-        th_rewriter            m_rewriter;
-        func_decl_ref_vector   m_unhandled_functions;
-        sat::lookahead*        m_lookahead = nullptr;
-        ast_manager*           m_to_m;
-        sat::sat_internalizer* m_to_si;
-        scoped_ptr<euf::ackerman>       m_ackerman;
-        user_propagator::on_clause_eh_t m_on_clause;
-        void*                           m_on_clause_ctx = nullptr;
-        user_solver::solver*            m_user_propagator = nullptr;
-        th_solver*             m_qsolver = nullptr;
-        unsigned               m_generation = 0;
-        std::string            m_reason_unknown; 
-        mutable ptr_vector<expr> m_todo;
+        sat::sat_internalizer&           si;
+        relevancy                        m_relevancy;
+        smt_params                       m_config;
+        euf::egraph                      m_egraph;
+        trail_stack                      m_trail;
+        stats                            m_stats;
+        th_rewriter                      m_rewriter;
+        func_decl_ref_vector             m_unhandled_functions;
+        sat::lookahead*                  m_lookahead = nullptr;
+        ast_manager*                     m_to_m = nullptr;
+        sat::sat_internalizer*           m_to_si;
+        scoped_ptr<euf::ackerman>        m_ackerman;
+        user_propagator::on_clause_eh_t  m_on_clause;
+        void*                            m_on_clause_ctx = nullptr;
+        user_solver::solver*             m_user_propagator = nullptr;
+        th_solver*                       m_qsolver = nullptr;
+        unsigned                         m_generation = 0;
+        std::string                      m_reason_unknown; 
+        mutable ptr_vector<expr>         m_todo;
 
-        ptr_vector<expr>                                m_bool_var2expr;
-        ptr_vector<size_t>                              m_explain;
-        euf::cc_justification                           m_explain_cc;
-        unsigned                                        m_num_scopes = 0;
-        unsigned_vector                                 m_var_trail;
-        svector<scope>                                  m_scopes;
-        scoped_ptr_vector<th_solver>                    m_solvers;
-        ptr_vector<th_solver>                           m_id2solver;
+        ptr_vector<expr>                 m_bool_var2expr;
+        ptr_vector<size_t>               m_explain;
+        euf::cc_justification            m_explain_cc;
+        unsigned                         m_num_scopes = 0;
+        unsigned_vector                  m_var_trail;
+        svector<scope>                   m_scopes;
+        scoped_ptr_vector<th_solver>     m_solvers;
+        ptr_vector<th_solver>            m_id2solver;
 
         constraint* m_conflict = nullptr;
         constraint* m_eq = nullptr;
         constraint* m_lit = nullptr;
+
+        // proofs 
+        bool                             m_proof_initialized = false;
+        ast_pp_util                      m_clause_visitor;
+        bool                             m_display_all_decls = false;
+        smt_proof_checker                m_smt_proof_checker;
+
+        typedef std::pair<expr*, expr*> expr_pair;
+        literal_vector      m_proof_literals;
+        svector<expr_pair>  m_proof_eqs, m_proof_deqs, m_expr_pairs;        
+        unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
+        unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
+        symbol                           m_euf = symbol("euf");
+        symbol                           m_smt = symbol("smt");            
+        expr_ref_vector                  m_clause;
+        expr_ref_vector                  m_expr_args;
 
 
         // internalization
@@ -201,24 +217,12 @@ namespace euf {
         void log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
 
-        typedef std::pair<expr*, expr*> expr_pair;
-        literal_vector    m_proof_literals;
-        svector<expr_pair> m_proof_eqs, m_proof_deqs, m_expr_pairs;        
-        unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
-        unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
-        symbol m_euf = symbol("euf");
-        symbol m_smt = symbol("smt");            
-        expr_ref_vector m_clause;
-        expr_ref_vector m_expr_args;
 
         eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
 
 
-        bool m_proof_initialized = false;
+
         void init_proof();
-        ast_pp_util m_clause_visitor;
-        bool m_display_all_decls = false;
-        smt_proof_checker m_smt_proof_checker;
         void on_clause(unsigned n, literal const* lits, sat::status st) override;
         void on_lemma(unsigned n, literal const* lits, sat::status st);
         void on_proof(unsigned n, literal const* lits, sat::status st);
