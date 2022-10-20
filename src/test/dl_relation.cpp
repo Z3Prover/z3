@@ -247,7 +247,7 @@ namespace datalog {
         {
             relation_base* b1 = br.mk_full(nullptr, sig);
             relation_base* b2 = br.mk_full(nullptr, sig);
-            unsigned x0x3[2] = { 0, 3 };
+            // unsigned x0x3[2] = { 0, 3 };
             unsigned x1x3[2] = { 1, 3 };
             unsigned x2x3[2] = { 2, 3 };
             scoped_ptr<relation_mutator_fn> id1 = br.mk_filter_identical_fn(*b1, 2, x1x3);

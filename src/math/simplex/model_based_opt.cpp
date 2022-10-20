@@ -116,7 +116,7 @@ namespace opt {
     model_based_opt::def model_based_opt::def::substitute(unsigned v, def const& other) const {
         def result;
         vector<var> const& vs1 = m_vars;
-        vector<var> const& vs2 = other.m_vars;
+        // vector<var> const& vs2 = other.m_vars;
         rational coeff(0);
         for (auto const& [id, c] : vs1) {
             if (id == v) {

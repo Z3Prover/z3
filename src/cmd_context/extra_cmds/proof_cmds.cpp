@@ -57,10 +57,9 @@ Proof checker for clauses created during search.
  * Replay proof entierly, then walk backwards extracting reduced proof.
  */
 class proof_trim {
-    cmd_context& ctx;
-    ast_manager& m;
-    sat::proof_trim trim;
-    euf::theory_checker m_checker;
+    ast_manager&            m;
+    sat::proof_trim         trim;
+    euf::theory_checker     m_checker;
     vector<expr_ref_vector> m_clauses;
     bool_vector             m_is_infer;
     symbol                  m_rup;
@@ -88,7 +87,7 @@ class proof_trim {
       
 public:
     proof_trim(cmd_context& ctx):
-        ctx(ctx),
+        // ctx(ctx),
         m(ctx.m()),
         trim(gparams::get_module("sat"), m.limit()),
         m_checker(m) {

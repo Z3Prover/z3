@@ -2470,10 +2470,8 @@ namespace smt {
                 TRACE("str", tout << "SKIP: both concats are already in the same equivalence class" << std::endl;);
             } else {
                 expr_ref_vector items(m);
-                int pos = 0;
                 for (auto itor : resolvedMap) {
                     items.push_back(ctx.mk_eq_atom(itor.first, itor.second));
-                    pos += 1;
                 }
                 expr_ref premise(mk_and(items), m);
                 expr_ref conclusion(ctx.mk_eq_atom(node, resultAst), m);
@@ -4539,6 +4537,7 @@ namespace smt {
             and_item.push_back(ctx.mk_eq_atom(mk_strlen(m),
                                               m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) ));
             pos += 1;
+            (void)pos;
 
             //    addItems[0] = mk_length(t, commonVar);
             //    addItems[1] = mk_length(t, str2Ast);
@@ -6439,6 +6438,7 @@ namespace smt {
                             expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
                             and_items.push_back(arg2_eq);
                             and_count += 1;
+                            (void) and_count;
 
                             arrangement_disjunction.push_back(mk_and(and_items));
                         }

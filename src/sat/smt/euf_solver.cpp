@@ -232,7 +232,6 @@ namespace euf {
         auto* ext = sat::constraint_base::to_extension(idx);
         th_proof_hint* hint = nullptr;
         bool has_theory = false;
-        bool has_nested_theory = false;
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
         else {
@@ -250,7 +249,6 @@ namespace euf {
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
                 has_theory = true;
-                has_nested_theory = true;
             }
         }
         m_egraph.end_explain();  

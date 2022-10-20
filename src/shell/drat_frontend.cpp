@@ -18,7 +18,6 @@ Copyright (c) 2020 Microsoft Corporation
 class drup_checker {
     sat::drat& m_drat;
     sat::literal_vector m_units;
-    bool m_check_inputs = false;
 
     void add_units() {
         auto const& units = m_drat.units();
