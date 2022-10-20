@@ -25,7 +25,7 @@ namespace euf {
         if (m_proof_initialized)
             return;
 
-        if (m_on_clause)
+        if (m_on_clause && !s().get_config().m_drat_disable)
             s().set_drat(true);
         
         if (!s().get_config().m_drat)
@@ -39,7 +39,6 @@ namespace euf {
         
         get_drat().add_theory(get_id(), symbol("euf"));
         get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
-
         if (s().get_config().m_smt_proof.is_non_empty_string())
             m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
         get_drat().set_clause_eh(*this);

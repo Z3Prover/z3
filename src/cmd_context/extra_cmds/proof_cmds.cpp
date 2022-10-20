@@ -227,13 +227,34 @@ class proof_cmds_imp : public proof_cmds {
     scoped_ptr<euf::smt_proof_checker>     m_checker;
     scoped_ptr<proof_saver>     m_saver;
     scoped_ptr<proof_trim>      m_trimmer;
+    user_propagator::on_clause_eh_t  m_on_clause_eh;
+    void*                            m_on_clause_ctx = nullptr;
+    expr_ref m_assumption, m_del;
     
     euf::smt_proof_checker& checker() { params_ref p; if (!m_checker) m_checker = alloc(euf::smt_proof_checker, m, p); return *m_checker; }
     proof_saver& saver() { if (!m_saver) m_saver = alloc(proof_saver, ctx); return *m_saver; }
     proof_trim& trim() { if (!m_trimmer) m_trimmer = alloc(proof_trim, ctx); return *m_trimmer; }
+
+    expr_ref assumption() {
+        if (!m_assumption)
+            m_assumption = m.mk_app(symbol("assumption"), 0, nullptr, m.mk_proof_sort());
+        return m_assumption;
+    }
+
+    expr_ref del() {
+        if (!m_del)
+            m_del = m.mk_app(symbol("del"), 0, nullptr, m.mk_proof_sort());
+        return m_del;
+    }
     
 public:
-    proof_cmds_imp(cmd_context& ctx): ctx(ctx), m(ctx.m()), m_lits(m), m_proof_hint(m) {
+    proof_cmds_imp(cmd_context& ctx): 
+        ctx(ctx), 
+        m(ctx.m()), 
+        m_lits(m), 
+        m_proof_hint(m), 
+        m_assumption(m), 
+        m_del(m) {
         updt_params(gparams::get_module("solver"));
     }
 
@@ -251,6 +272,8 @@ public:
             saver().assume(m_lits);
         if (m_trim)
             trim().assume(m_lits);
+        if (m_on_clause_eh)
+            m_on_clause_eh(m_on_clause_ctx, assumption(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -262,6 +285,8 @@ public:
             saver().infer(m_lits, m_proof_hint);
         if (m_trim)
             trim().infer(m_lits, m_proof_hint);
+        if (m_on_clause_eh)
+            m_on_clause_eh(m_on_clause_ctx, m_proof_hint, m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -273,6 +298,8 @@ public:
             saver().del(m_lits);
         if (m_trim)
             trim().del(m_lits);
+        if (m_on_clause_eh)
+            m_on_clause_eh(m_on_clause_ctx, del(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
     }
@@ -285,6 +312,12 @@ public:
         if (m_trim)
             trim().updt_params(p);
     }
+
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause_eh) override {
+        m_on_clause_ctx = ctx;
+        m_on_clause_eh = on_clause_eh;
+    }
+
 };
 
 
@@ -343,4 +376,8 @@ void install_proof_cmds(cmd_context & ctx) {
     ctx.insert(alloc(del_cmd));
     ctx.insert(alloc(infer_cmd));
     ctx.insert(alloc(assume_cmd));
+}
+
+void init_proof_cmds(cmd_context& ctx) {
+    get(ctx);
 }

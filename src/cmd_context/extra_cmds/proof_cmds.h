@@ -33,4 +33,4 @@ Notes:
 
 class cmd_context;
 void install_proof_cmds(cmd_context & ctx);
-
+void init_proof_cmds(cmd_context& ctx);

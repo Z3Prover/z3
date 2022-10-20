@@ -372,6 +372,7 @@ namespace euf {
     void smt_theory_checker_plugin::register_plugins(theory_checker& pc) {
         pc.register_plugin(symbol("datatype"), this);
         pc.register_plugin(symbol("array"), this);
+        pc.register_plugin(symbol("quant"), this);
         pc.register_plugin(symbol("fpa"), this);
     }
 

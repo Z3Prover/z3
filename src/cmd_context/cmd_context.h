@@ -99,6 +99,7 @@ public:
     virtual void end_infer() = 0;
     virtual void end_deleted() = 0;
     virtual void updt_params(params_ref const& p) = 0;
+    virtual void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) = 0;
 };
 
 
