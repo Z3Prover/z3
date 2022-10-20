@@ -1,9 +1,8 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { CoercibleToArrayIndexType, init, killThreads, NonEmptySortArray, SortToExprMap } from '../jest';
-import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel } from './types';
+import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel, SMTArraySort, BitVecSort, SMTArray, Sort } from './types';
 import { expectType } from 'ts-expect';
-import { SMTArraySort, BitVecSort, SMTArray, Sort } from 'z3-solver';
 
 /**
  * Generate all possible solutions from given assumptions.
