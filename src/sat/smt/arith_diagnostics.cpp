@@ -152,7 +152,6 @@ namespace arith {
         solver& a = dynamic_cast<solver&>(*s.fid2solver(fid));
         char const* name;
         expr_ref_vector args(m);
-        sort_ref_vector sorts(m);
 
         switch (m_ty) {
         case hint_type::farkas_h:
@@ -182,11 +181,6 @@ namespace arith {
             args.push_back(arith.mk_int(1));
             args.push_back(eq);
         }
-        for (expr* arg : args)
-            sorts.push_back(arg->get_sort());
-        sort* range = m.mk_proof_sort();
-        func_decl* d = m.mk_func_decl(symbol(name), args.size(), sorts.data(), range);
-        expr* r = m.mk_app(d, args);
-        return r;
+        return m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
     }
 }

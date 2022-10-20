@@ -674,7 +674,7 @@ namespace euf {
         }
 
         for (auto const& [e, v] : replay.m)
-            if (si.is_bool_op(e))
+            if (si.is_bool_op(e) && !si.is_cached(to_app(e), sat::literal(v, false)))
                si.cache(to_app(e), sat::literal(v, false));
         
         if (relevancy_enabled())
