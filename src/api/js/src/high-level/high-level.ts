@@ -570,7 +570,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             declare: (name: string) => new SortImpl(Z3.mk_uninterpreted_sort(contextPtr, _toSymbol(name))),
         };
         const Function = {
-            declare: (name: string, ...signature: FuncDeclSignature<Name>) => {
+            declare: <
+                DomainSort extends Sort<Name>[],
+                RangeSort extends Sort<Name>
+            >(name: string, ...signature: [...DomainSort, RangeSort]): FuncDecl<Name, DomainSort, RangeSort> => {
                 const arity = signature.length - 1;
                 const rng = signature[arity];
                 _assertContext(rng);
@@ -579,9 +582,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
                     _assertContext(signature[i]);
                     dom.push(signature[i].ptr);
                 }
-                return new FuncDeclImpl(Z3.mk_func_decl(contextPtr, _toSymbol(name), dom, rng.ptr));
+                return new FuncDeclImpl<DomainSort, RangeSort>(Z3.mk_func_decl(contextPtr, _toSymbol(name), dom, rng.ptr));
             },
-            fresh: (...signature: FuncDeclSignature<Name>) => {
+            fresh: <
+                DomainSort extends Sort<Name>[],
+                RangeSort extends Sort<Name>
+                >(...signature: [...DomainSort, RangeSort]): FuncDecl<Name, DomainSort, RangeSort> => {
                 const arity = signature.length - 1;
                 const rng = signature[arity];
                 _assertContext(rng);
@@ -590,7 +596,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
                     _assertContext(signature[i]);
                     dom.push(signature[i].ptr);
                 }
-                return new FuncDeclImpl(Z3.mk_fresh_func_decl(contextPtr, 'f', dom, rng.ptr));
+                return new FuncDeclImpl<DomainSort, RangeSort>(Z3.mk_fresh_func_decl(contextPtr, 'f', dom, rng.ptr));
             },
         };
         const RecFunc = {
@@ -977,10 +983,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             ));
         }
 
-        function Lambda<
-            DomainSort extends NonEmptySortArray<Name>,
-            RangeSort extends Sort<Name>
-        >(
+        function Lambda<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>>(
             quantifiers: ArrayIndexType<Name, DomainSort>, expr: SortToExprMap<RangeSort, Name>
         ): LambdaImpl<any, RangeSort> {
             // TODO: For some reason LambdaImpl<DomainSort, RangeSort> leads to type issues
@@ -1121,23 +1125,23 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             return new BitVecImpl<number>(check(Z3.mk_extract(contextPtr, hi, lo, val.ast)));
         }
 
-        function Select<
-            DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
-            RangeSort extends Sort<Name> = Sort<Name>
-        >(
+        function Select<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>>(
             array: SMTArray<Name, DomainSort, RangeSort>,
             ...indices: CoercibleToArrayIndexType<Name, DomainSort>
         ): SortToExprMap<RangeSort, Name> {
             const args = indices.map((arg, i) => array.domain_n(i).cast(arg as any));
             if (args.length === 1) {
-                return _toExpr(check(Z3.mk_select(contextPtr, array.ast, args[0].ast))) as SortToExprMap<RangeSort, Name>;
+                return _toExpr(
+                    check(Z3.mk_select(contextPtr, array.ast, args[0].ast))
+                ) as SortToExprMap<RangeSort, Name>;
             }
             const _args = args.map(arg => arg.ast);
             return _toExpr(check(Z3.mk_select_n(contextPtr, array.ast, _args))) as SortToExprMap<RangeSort, Name>;
         }
 
-        function Store<DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
-            RangeSort extends Sort<Name> = Sort<Name>>(
+        function Store<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>>(
             array: SMTArray<Name, DomainSort, RangeSort>,
             ...indicesAndValue: [...CoercibleToArrayIndexType<Name, DomainSort>, CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>]
         ): SMTArray<Name, DomainSort, RangeSort> {
@@ -1476,7 +1480,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             }
         }
 
-        class FuncDeclImpl extends AstImpl<Z3_func_decl> implements FuncDecl<Name> {
+        class FuncDeclImpl<DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>> extends AstImpl<Z3_func_decl> implements FuncDecl<Name> {
             declare readonly __typename: FuncDecl['__typename'];
 
             get ast() {
@@ -1491,13 +1495,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
                 return Z3.get_arity(contextPtr, this.ptr);
             }
 
-            domain(i: number) {
+            domain<T extends number>(i: T): DomainSort[T] {
                 assert(i < this.arity(), 'Index out of bounds');
                 return _toSort(Z3.get_domain(contextPtr, this.ptr, i));
             }
 
-            range() {
-                return _toSort(Z3.get_range(contextPtr, this.ptr));
+            range(): RangeSort {
+                return _toSort(Z3.get_range(contextPtr, this.ptr)) as RangeSort;
             }
 
             kind() {
@@ -1538,17 +1542,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
                 return result;
             }
 
-            call(...args: CoercibleToExpr<Name>[]) {
+            call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name> {
                 assert(args.length === this.arity(), `Incorrect number of arguments to ${this}`);
                 return _toExpr(
                     check(Z3.mk_app(
                         contextPtr,
                         this.ptr,
                         args.map((arg, i) => {
-                            return this.domain(i).cast(arg).ast;
+                            return this.domain(i).cast(arg as any).ast;
                         }),
                     )),
-                );
+                ) as SortToExprMap<RangeSort, Name>;
             }
         }
 
@@ -2167,10 +2171,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             }
         }
 
-        class ArraySortImpl<
-            DomainSort extends NonEmptySortArray<Name>,
-            RangeSort extends Sort<Name>
-        >
+        class ArraySortImpl<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>>
             extends SortImpl
             implements SMTArraySort<Name, DomainSort, RangeSort> {
             declare readonly __typename: SMTArraySort['__typename'];
@@ -2189,10 +2191,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         }
 
-        class ArrayImpl<
-            DomainSort extends NonEmptySortArray<Name>,
-            RangeSort extends Sort<Name>
-        > extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
+        class ArrayImpl<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>> extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
             implements SMTArray<Name, DomainSort, RangeSort> {
 
             declare readonly __typename: 'Array' | 'Lambda';
@@ -2210,7 +2210,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             }
 
             select(...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name> {
-                return Select(this, ...indices);
+                return Select<DomainSort, RangeSort>(this, ...indices) as SortToExprMap<RangeSort, Name>;
             }
 
             store(
@@ -2224,10 +2224,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
 
 
-        class QuantifierImpl<
-            QVarSorts extends NonEmptySortArray<Name> ,
-            QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>
-        > extends ExprImpl<Z3_ast, QSort> implements Quantifier<Name, QVarSorts, QSort> {
+        class QuantifierImpl<QVarSorts extends NonEmptySortArray<Name>,
+            QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>> extends ExprImpl<Z3_ast, QSort> implements Quantifier<Name, QVarSorts, QSort> {
 
             declare readonly __typename: Quantifier['__typename'];
 
@@ -2285,11 +2283,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         }
 
-        class NonLambdaQuantifierImpl<
-            QVarSorts extends NonEmptySortArray<Name>
-        > extends QuantifierImpl<QVarSorts, BoolSort<Name>>
-            implements Quantifier<Name, QVarSorts, BoolSort<Name>>, Bool<Name>
-        {
+        class NonLambdaQuantifierImpl<QVarSorts extends NonEmptySortArray<Name>> extends QuantifierImpl<QVarSorts, BoolSort<Name>>
+            implements Quantifier<Name, QVarSorts, BoolSort<Name>>, Bool<Name> {
             declare readonly __typename: 'NonLambdaQuantifier';
 
             not(): Bool<Name> {
@@ -2319,13 +2314,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
 
         // isBool will return false which is unlike the python API (but like the C API)
-        class LambdaImpl<
-            DomainSort extends NonEmptySortArray<Name>,
-            RangeSort extends Sort<Name>
-        > extends QuantifierImpl<DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
+        class LambdaImpl<DomainSort extends NonEmptySortArray<Name>,
+            RangeSort extends Sort<Name>> extends QuantifierImpl<DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
             implements SMTArray<Name, DomainSort, RangeSort>,
-            Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
-        {
+                Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>> {
 
             declare readonly __typename: 'Lambda';
 
@@ -2342,7 +2334,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             }
 
             select(...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name> {
-                return Select(this, ...indices);
+                return Select<DomainSort, RangeSort>(this, ...indices);
             }
 
             store(

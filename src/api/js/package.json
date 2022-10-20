@@ -1,5 +1,6 @@
 {
   "name": "z3-solver",
+  "version": "0.1.0",
   "keywords": [
     "Z3",
     "theorem",
