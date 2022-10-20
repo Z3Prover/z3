@@ -27,8 +27,8 @@
     "build:ts:generate": "ts-node --transpileOnly scripts/make-ts-wrapper.ts src/low-level/wrapper.__GENERATED__.ts src/low-level/types.__GENERATED__.ts",
     "build:wasm": "ts-node --transpileOnly ./scripts/build-wasm.ts",
     "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
-    "lint": "prettier -c '{,src/,scripts/,examples}*.{js,ts}'",
-    "format": "prettier --write '{,src/,scripts/}*.{js,ts}'",
+    "lint": "prettier -c '{./,src/,scripts/,examples/}**/*.{js,ts}'",
+    "format": "prettier --write '{./,src/,scripts/}**/*.{js,ts}'",
     "test": "jest",
     "docs": "typedoc",
     "check-engine": "check-engine"

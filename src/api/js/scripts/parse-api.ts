@@ -45,7 +45,7 @@ const types = {
   __proto__: null,
 
   // these are function types I can't be bothered to parse
-  // NSB: They can be extracted automatically from z3_api.h thanks to the use 
+  // NSB: They can be extracted automatically from z3_api.h thanks to the use
   // of a macro.
   Z3_error_handler: 'Z3_error_handler',
   Z3_push_eh: 'Z3_push_eh',
