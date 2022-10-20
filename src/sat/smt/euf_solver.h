@@ -111,6 +111,7 @@ namespace euf {
         }
 
         std::function<::solver*(void)>   m_mk_solver;
+        user_propagator::on_clause_eh_t  m_on_clause;
         ast_manager&                     m;
         sat::sat_internalizer&           si;
         relevancy                        m_relevancy;
@@ -124,7 +125,6 @@ namespace euf {
         ast_manager*                     m_to_m = nullptr;
         sat::sat_internalizer*           m_to_si;
         scoped_ptr<euf::ackerman>        m_ackerman;
-        user_propagator::on_clause_eh_t  m_on_clause;
         void*                            m_on_clause_ctx = nullptr;
         user_solver::solver*             m_user_propagator = nullptr;
         th_solver*                       m_qsolver = nullptr;
