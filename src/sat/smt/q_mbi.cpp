@@ -125,7 +125,11 @@ namespace q {
         }
         if (m.is_model_value(e))
             return expr_ref(m.mk_model_value(0, e->get_sort()), m);
-        return expr_ref(e, m);
+
+        expr_ref e1 = m_model->unfold_as_array(e);
+        if (e1 == e)
+            return e1;
+        return replace_model_value(e1);
     }
 
     expr_ref mbqi::choose_term(euf::enode* r) {
@@ -355,8 +359,8 @@ namespace q {
         for (app* v : vars) {
             expr_ref term(m);
             expr_ref val = (*m_model)(v);
-            val = m_model->unfold_as_array(val);
             term = replace_model_value(val);
+            TRACE("euf", tout << "replaced model value " << term << "\nfrom\n" << val << "\n");
             rep.insert(v, term);
             if (ctx.use_drat())
                 m_defs.push_back(mbp::def(expr_ref(v, m), term));
@@ -407,10 +411,13 @@ namespace q {
                 auto* n = nodes[i];
                 expr* e = n->get_expr();
                 expr* val = ctx.node2value(n);                
-                if (val && e->get_sort() == srt && !m.is_value(e) && !visited.is_marked(val)) {
+                if (val && e->get_sort() == srt && 
+                    !m.is_value(e) && 
+                    !visited.is_marked(val)) {
                     visited.mark(val);
+                    expr_ref value = replace_model_value(val);
                     veqs.push_back(m.mk_eq(v, e));
-                    meqs.push_back(m.mk_eq(v, val));
+                    meqs.push_back(m.mk_eq(v, value));
                     --bound;
                 }
             }
@@ -473,6 +480,7 @@ namespace q {
             expr_ref _term = subst(e, qb.vars);
             app_ref  term(to_app(_term), m);
             expr_ref value = (*m_model)(term);
+            value = replace_model_value(value);
             expr* s = m_model_fixer.invert_app(term, value);
             rep.insert(term, s);
             expr_ref eq(m.mk_eq(term, s), m);

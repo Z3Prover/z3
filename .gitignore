@@ -82,6 +82,7 @@ src/api/js/build/
 src/api/js/**/*.__GENERATED__.*
 debug/*
 examples/python/z3
+examples/python/libz3.dll
 
 out/**
 *.bak
