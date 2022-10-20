@@ -38,16 +38,16 @@ export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name>
 /** @hidden */
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
     S extends BoolSort
-        ? Bool<Name>
-        : S extends ArithSort<Name>
-            ? Arith<Name>
-            : S extends BitVecSort<infer Size, Name>
-                ? BitVec<Size, Name>
-                : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
-                    ? SMTArray<Name, DomainSort, RangeSort>
-                    : S extends Sort<Name>
-                        ? Expr<Name, S, Z3_ast>
-                        : never;
+    ? Bool<Name>
+    : S extends ArithSort<Name>
+    ? Arith<Name>
+    : S extends BitVecSort<infer Size, Name>
+    ? BitVec<Size, Name>
+    : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
+    ? SMTArray<Name, DomainSort, RangeSort>
+    : S extends Sort<Name>
+    ? Expr<Name, S, Z3_ast>
+    : never;
 
 /** @hidden */
 export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
@@ -571,12 +571,16 @@ export interface Context<Name extends string = 'main'> {
     // Arrays
 
     /** @category Operations */
-    Select<DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
-        RangeSort extends Sort<Name> = Sort<Name>>(array: SMTArray<Name, DomainSort, RangeSort>, ...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
+    Select<
+        DomainSort extends NonEmptySortArray<Name>,
+        RangeSort extends Sort<Name> = Sort<Name>
+    >(array: SMTArray<Name, DomainSort, RangeSort>, ...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 
     /** @category Operations */
-    Store<DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
-        RangeSort extends Sort<Name> = Sort<Name>>(
+    Store<
+        DomainSort extends NonEmptySortArray<Name>,
+        RangeSort extends Sort<Name> = Sort<Name>
+    >(
         array: SMTArray<Name, DomainSort, RangeSort>,
         ...indicesAndValue: [...CoercibleToArrayIndexType<Name, DomainSort>, CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>]
     ): SMTArray<Name, DomainSort, RangeSort>;
@@ -766,9 +770,15 @@ export interface FuncDeclCreation<Name extends string> {
      * @param name Name of the function
      * @param signature The domains, and last parameter - the range of the function
      */
-    declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+    declare<
+        DomainSort extends Sort<Name>[],
+        RangeSort extends Sort<Name>
+    >(name: string, ...signature: [...DomainSort, RangeSort]): FuncDecl<Name, DomainSort, RangeSort>;
 
-    fresh(...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+    fresh<
+        DomainSort extends Sort<Name>[],
+        RangeSort extends Sort<Name>
+    >(...signature: [...DomainSort, RangeSort]): FuncDecl<Name, DomainSort, RangeSort>;
 }
 
 /**
@@ -783,7 +793,7 @@ export interface RecFuncCreation<Name extends string> {
 /**
  * @category Functions
  */
-export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_func_decl> {
+export interface FuncDecl<Name extends string = 'main', DomainSort extends Sort<Name>[] = Sort<Name>[], RangeSort extends Sort<Name> = Sort<Name>> extends Ast<Name, Z3_func_decl> {
     /** @hidden */
     readonly __typename: 'FuncDecl';
 
@@ -791,15 +801,15 @@ export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_fun
 
     arity(): number;
 
-    domain(i: number): Sort<Name>;
+    domain<T extends number>(i: T): DomainSort[T];
 
-    range(): Sort<Name>;
+    range(): RangeSort;
 
     kind(): Z3_decl_kind;
 
     params(): (number | string | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
 
-    call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
+    call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 }
 
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
@@ -1399,7 +1409,7 @@ export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Ar
 
 export type ArrayIndexType<
     Name extends string,
-    DomainSort extends NonEmptySortArray<Name>
+    DomainSort extends Sort<Name>[]
 > = [...{
     [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name> ?
         SortToExprMap<DomainSort[Key], Name> :
@@ -1408,7 +1418,7 @@ export type ArrayIndexType<
 
 export type CoercibleToArrayIndexType<
     Name extends string,
-    DomainSort extends NonEmptySortArray<Name>
+    DomainSort extends Sort<Name>[]
 > = [...{
     [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name> ?
         CoercibleToMap<SortToExprMap<DomainSort[Key], Name>, Name> :
