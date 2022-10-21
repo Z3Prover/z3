@@ -104,7 +104,7 @@ namespace q {
     * is created to ensure the justification trail is well-founded
     * during conflict resolution.
     */
-    sat::ext_justification_idx ematch::mk_justification(unsigned idx, clause& c, euf::enode* const* b) {
+    sat::ext_justification_idx ematch::mk_justification(unsigned idx, unsigned generation, clause& c, euf::enode* const* b) {
         void* mem = ctx.get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, &m_qs);
         bool sign = false;
@@ -129,7 +129,7 @@ namespace q {
         size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
         for (unsigned i = m_explain.size(); i-- > 0; )
             ev[i] = m_explain[i];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_explain.size(), ev);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, generation, m_explain.size(), ev);
         return constraint->to_index();
     }
 
@@ -363,7 +363,7 @@ namespace q {
         if (!is_owned) 
             binding = copy_nodes(c, binding); 
 
-        auto j_idx = mk_justification(idx, c, binding);     
+        auto j_idx = mk_justification(idx, max_generation, c, binding);     
 
         if (is_owned)
             propagate(ev == l_false, idx, j_idx);
@@ -387,7 +387,7 @@ namespace q {
         m_qs.log_instantiation(lits, &j);
         euf::th_proof_hint* ph = nullptr;
         if (ctx.use_drat()) 
-            ph = q_proof_hint::mk(ctx, lits, j.m_clause.num_decls(), j.m_binding);
+            ph = q_proof_hint::mk(ctx, j.m_generation, lits, j.m_clause.num_decls(), j.m_binding);
         m_qs.add_clause(lits, ph);               
     }
 
@@ -414,7 +414,7 @@ namespace q {
 
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
         m_evidence.reset();
-        ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
+        ctx.propagate(lit, mk_justification(UINT_MAX, b.m_max_generation, c, b.nodes()));
         m_qs.log_instantiation(~c.m_literal, lit);
     }
 
