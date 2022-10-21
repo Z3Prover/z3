@@ -625,6 +625,10 @@ namespace array {
         return change;
     }
 
+    /**
+     * For every occurrence of as-array(f) and every occurrence of f(t)
+     * add equality select(as-array(f), t) = f(t)
+     */
     bool solver::add_as_array_eqs(euf::enode* n) {
         func_decl* f = nullptr;
         bool change = false;
