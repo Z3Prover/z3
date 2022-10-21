@@ -49,7 +49,7 @@ namespace smt2 {
         unsigned           m_bpos;
         unsigned           m_bend;
         svector<char>      m_string;
-        std::istream&      m_stream;
+        std::istream*      m_stream;
         
         bool               m_cache_input;
         svector<char>      m_cache;
@@ -99,6 +99,7 @@ namespace smt2 {
         void stop_caching() { m_cache_input = false; }
         unsigned cache_size() const { return m_cache.size(); }
         void reset_cache() { m_cache.reset(); }
+        void reset_input(std::istream & stream, bool interactive = false);
 
         char const * cached_str(unsigned begin, unsigned end);
     };
