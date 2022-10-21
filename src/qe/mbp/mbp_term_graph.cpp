@@ -24,6 +24,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/occurs.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "model/model_evaluator.h"
 #include "qe/mbp/mbp_term_graph.h"
 
@@ -583,6 +584,7 @@ namespace mbp {
         ast_manager &m;
         u_map<expr*> m_term2app;
         u_map<expr*> m_root2rep;
+        th_rewriter  m_rewriter;
 
         model_ref m_model;
         expr_ref_vector m_pinned;  // tracks expr in the maps
@@ -609,7 +611,7 @@ namespace mbp {
                 }
                 TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
-            expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.data());
+            expr_ref pure = m_rewriter.mk_app(a->get_decl(), kids.size(), kids.data());
             m_pinned.push_back(pure);
             add_term2app(t, pure);
             return pure;
@@ -940,7 +942,7 @@ namespace mbp {
         }
 
     public:
-        projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_pinned(m) {}
+        projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_rewriter(m), m_pinned(m) {}
 
         void add_term2app(term const& t, expr* a) {
             m_term2app.insert(t.get_id(), a);
