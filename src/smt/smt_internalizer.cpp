@@ -1383,6 +1383,8 @@ namespace smt {
             Z3_fallthrough;
         case CLS_AUX: {
             literal_buffer simp_lits;
+            if (m_searching)
+                dump_lemma(num_lits, lits);
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits)) {
                 if (j && !j->in_region()) {
                     j->del_eh(m);
@@ -1394,6 +1396,7 @@ namespace smt {
             if (!simp_lits.empty()) {
                 j = mk_justification(unit_resolution_justification(*this, j, simp_lits.size(), simp_lits.data()));
             }
+              
             break;
         }
         case CLS_TH_LEMMA:
@@ -1525,7 +1528,6 @@ namespace smt {
     }
 
     void context::dump_lemma(unsigned n, literal const* lits) {
-        
         if (m_fparams.m_lemmas2console) {
             expr_ref fml(m);
             expr_ref_vector fmls(m);
@@ -1624,9 +1626,11 @@ namespace smt {
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
-        else {
+        else if (pr && on_clause_active()) 
+            // support logging of quantifier instantiations and other more detailed information
+            mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
+        else 
             mk_clause(num_lits, lits, nullptr);
-        }
     }
 
     void context::mk_root_clause(literal l1, literal l2, proof * pr) {

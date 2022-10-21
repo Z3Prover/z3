@@ -96,8 +96,10 @@ public:
     virtual ~proof_cmds() {}
     virtual void add_literal(expr* e) = 0;
     virtual void end_assumption() = 0;
-    virtual void end_learned() = 0;
+    virtual void end_infer() = 0;
     virtual void end_deleted() = 0;
+    virtual void updt_params(params_ref const& p) = 0;
+    virtual void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) = 0;
 };
 
 
@@ -159,6 +161,7 @@ struct builtin_decl {
 
 class opt_wrapper : public check_sat_result {
 public:
+    opt_wrapper(ast_manager& m): check_sat_result(m) {}
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
@@ -411,6 +414,7 @@ public:
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
     proof_cmds* get_proof_cmds() { return m_proof_cmds.get(); }
+    solver* get_solver() { return m_solver.get(); }
     void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
 
     void set_solver_factory(solver_factory * s);

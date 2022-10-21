@@ -296,7 +296,17 @@ namespace euf {
             expr_ref sval(m);
             th_rewriter rw(m);
             rw(val, sval);
-            out << bpp(r) << " := " << sval << " " << mdl(r->get_root()->get_expr()) << "\n";
+            expr_ref mval = mdl(r->get_root()->get_expr());
+            if (mval != sval) {
+                out << bpp(r) << " :=\neval:  " << sval << "\nmval:  " << mval << "\n";
+                continue;
+            }
+            if (!m.is_bool(val))
+                continue;
+            auto bval = s().value(r->bool_var());
+            bool tt = l_true == bval;
+            if (tt != m.is_true(sval))
+                out << bpp(r) << " :=\neval:  " << sval << "\nmval:  " << bval << "\n";
         }
         for (euf::enode* r : nodes)
             r->unmark1();

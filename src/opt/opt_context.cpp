@@ -124,7 +124,7 @@ namespace opt {
     }
 
     context::context(ast_manager& m):
-        m(m),
+        opt_wrapper(m),
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),

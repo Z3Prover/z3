@@ -124,7 +124,7 @@ static void test3() {
     SASSERT(g.inconsistent());
     ptr_vector<int> js;
     g.begin_explain();
-    g.explain<int>(js);
+    g.explain<int>(js, nullptr);
     g.end_explain();
     for (int* j : js) 
         std::cout << "conflict: " << *j << "\n";

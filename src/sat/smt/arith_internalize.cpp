@@ -98,6 +98,7 @@ namespace arith {
     void solver::found_underspecified(expr* n) {
         if (a.is_underspecified(n)) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
+            ctx.push(push_back_vector(m_underspecified));
             m_underspecified.push_back(to_app(n));
         }
         expr* e = nullptr, * x = nullptr, * y = nullptr;
@@ -243,6 +244,7 @@ namespace arith {
                     mk_abs_axiom(t);                
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
+                    ctx.push(push_back_vector(m_idiv_terms));
                     m_idiv_terms.push_back(n);
                     app_ref mod(a.mk_mod(n1, n2), m);
                     internalize(mod, m_is_redundant);

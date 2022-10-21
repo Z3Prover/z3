@@ -68,15 +68,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
-    obj_map<expr, sat::bool_var>* m_expr2var_replay { nullptr };
+    obj_map<expr, sat::bool_var>* m_expr2var_replay = nullptr;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
-    bool                        m_euf { false };
-    bool                        m_is_redundant { false };
-    bool                        m_top_level { false };
+    bool                        m_euf = false;
+    bool                        m_is_redundant = false;
+    bool                        m_top_level = false;
     sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -108,8 +108,32 @@ struct goal2sat::imp : public sat::sat_internalizer {
         throw tactic_exception(std::move(s0));
     }
 
-    sat::status mk_status() const {
-        return sat::status::th(m_is_redundant, m.get_basic_family_id());
+    symbol m_tseitin = symbol("tseitin");
+
+    euf::th_proof_hint* mk_tseitin(unsigned n, sat::literal const* lits) {
+        if (m_euf && ensure_euf()->use_drat())
+            return ensure_euf()->mk_smt_hint(m_tseitin, n, lits);
+        return nullptr;
+    }
+
+    euf::th_proof_hint* mk_tseitin(sat::literal a, sat::literal b) {
+        if (m_euf && ensure_euf()->use_drat()) {
+            sat::literal lits[2] = { a, b };
+            return ensure_euf()->mk_smt_hint(m_tseitin, 2, lits);
+        }
+        return nullptr;
+    }
+
+    euf::th_proof_hint* mk_tseitin(sat::literal a, sat::literal b, sat::literal c) {
+        if (m_euf && ensure_euf()->use_drat()) {
+            sat::literal lits[3] = { a, b, c };
+            return ensure_euf()->mk_smt_hint(m_tseitin, 3, lits);
+        }
+        return nullptr;
+    }
+
+    sat::status mk_status(euf::th_proof_hint* ph = nullptr) const {
+        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
     }
 
     bool relevancy_enabled() {
@@ -118,48 +142,44 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     bool top_level_relevant() {
         return m_top_level && relevancy_enabled();
-    }
-    
-    void mk_clause(sat::literal l) {
-        mk_clause(1, &l);
-    }
+    }   
 
-    void mk_clause(sat::literal l1, sat::literal l2) {
+    void mk_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph) {
         sat::literal lits[2] = { l1, l2 };
-        mk_clause(2, lits);
+        mk_clause(2, lits, ph);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph) {
         sat::literal lits[3] = { l1, l2, l3 };
-        mk_clause(3, lits);
+        mk_clause(3, lits, ph);
     }
 
-    void mk_clause(unsigned n, sat::literal * lits) {
+    void mk_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_aux(n, lits);
-        m_solver.add_clause(n, lits, mk_status());
+        m_solver.add_clause(n, lits, mk_status(ph));
     }
 
     void mk_root_clause(sat::literal l) {
         mk_root_clause(1, &l);
     }
 
-    void mk_root_clause(sat::literal l1, sat::literal l2) {
+    void mk_root_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[2] = { l1, l2 };
-        mk_root_clause(2, lits);
+        mk_root_clause(2, lits, ph);
     }
 
-    void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3, euf::th_proof_hint* ph = nullptr) {
         sat::literal lits[3] = { l1, l2, l3 };
-        mk_root_clause(3, lits);
+        mk_root_clause(3, lits, ph);
     }
 
-    void mk_root_clause(unsigned n, sat::literal * lits) {
+    void mk_root_clause(unsigned n, sat::literal * lits, euf::th_proof_hint* ph = nullptr) {
         TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_root(n, lits);
-        m_solver.add_clause(n, lits, m_is_redundant ? mk_status() : sat::status::input());
+        m_solver.add_clause(n, lits, m_is_redundant ? mk_status(ph) : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
@@ -167,6 +187,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (m_expr2var_replay && m_expr2var_replay->find(n, v))
             return v;
         v = m_solver.add_var(is_ext);
+        if (!is_ext && m_euf && ensure_euf()->use_drat())
+            ensure_euf()->set_bool_var2expr(v, n);
         return v;
     }
 
@@ -254,6 +276,13 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_lit2app.insert(l.index(), t);
         m_cache_trail.push_back(t);
     }
+
+    bool is_cached(app* t, sat::literal l) const override {
+        if (!m_app2lit.contains(t))
+            return false;
+        SASSERT(m_app2lit[t] == l);
+        return true;
+    }
     
     void convert_atom(expr * t, bool root, bool sign) {       
         SASSERT(m.is_bool(t));
@@ -262,11 +291,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
                 sat::literal tt = sat::literal(mk_bool_var(t), false);
+                if (m_euf && ensure_euf()->use_drat())
+                    ensure_euf()->set_bool_var2expr(tt.var(), t);
                 mk_root_clause(tt);
                 l = sign ? ~tt : tt;
             }
             else if (m.is_false(t)) {
                 sat::literal ff = sat::literal(mk_bool_var(t), false);
+                if (m_euf && ensure_euf()->use_drat())
+                    ensure_euf()->set_bool_var2expr(ff.var(), t);
                 mk_root_clause(~ff);
                 l = sign ? ~ff : ff;
             }
@@ -401,7 +434,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             cache(t, l);
             sat::literal * lits = m_result_stack.end() - num;       
             for (unsigned i = 0; i < num; i++) 
-                mk_clause(~lits[i], l);
+                mk_clause(~lits[i], l, mk_tseitin(~lits[i], l));
                        
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
@@ -411,7 +444,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
-            mk_clause(num+1, lits);
+            mk_clause(num+1, lits, mk_tseitin(num+1, lits));
             if (aig()) 
                 aig()->add_or(l, num, aig_lits.data());
                         
@@ -454,7 +487,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
             // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
-                mk_clause(~l, lits[i]);
+                mk_clause(~l, lits[i], mk_tseitin(~l, lits[i]));
             }
             // /\ lits => l
             for (unsigned i = 0; i < num; ++i) {
@@ -466,7 +499,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 aig_lits.reset();
                 aig_lits.append(num, lits);
             }
-            mk_clause(num+1, lits);
+            mk_clause(num+1, lits, mk_tseitin(num+1, lits));
             if (aig()) {
                 aig()->add_and(l, num, aig_lits.data());
             }        
@@ -504,13 +537,13 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::bool_var k = add_var(false, n);
             sat::literal  l(k, false);
             cache(n, l);
-            mk_clause(~l, ~c, t);
-            mk_clause(~l,  c, e);
-            mk_clause(l,  ~c, ~t);
-            mk_clause(l,   c, ~e);
+            mk_clause(~l, ~c, t, mk_tseitin(~l, ~c, t));
+            mk_clause(~l,  c, e, mk_tseitin(~l, c, e));
+            mk_clause(l,  ~c, ~t, mk_tseitin(l, ~c, ~t));
+            mk_clause(l,   c, ~e, mk_tseitin(l, c, ~e));
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l);
-                mk_clause(t,  e, ~l);
+                mk_clause(~t, ~e, l, mk_tseitin(~t, ~e, l));
+                mk_clause(t,  e, ~l, mk_tseitin(t, e, ~l));
             }
             if (aig()) aig()->add_ite(l, c, t, e);
             if (sign)
@@ -537,8 +570,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             cache(t, l);
             // l <=> ~lit
-            mk_clause(lit, l);
-            mk_clause(~lit, ~l);
+            mk_clause(lit, l, mk_tseitin(lit, l));
+            mk_clause(~lit, ~l, mk_tseitin(~lit, ~l));
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
@@ -569,9 +602,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             cache(t, l);
             // l <=> (l1 => l2)
-            mk_clause(~l, ~l1, l2);
-            mk_clause(l1, l);
-            mk_clause(~l2, l);
+            mk_clause(~l, ~l1, l2, mk_tseitin(~l, ~l1, l2));
+            mk_clause(l1, l, mk_tseitin(l1, l));
+            mk_clause(~l2, l, mk_tseitin(~l2, l));
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
@@ -607,10 +640,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             if (m.is_xor(t))
                 l1.neg();
-            mk_clause(~l, l1, ~l2);
-            mk_clause(~l, ~l1, l2);
-            mk_clause(l, l1, l2);
-            mk_clause(l, ~l1, ~l2);
+            mk_clause(~l,  l1, ~l2, mk_tseitin(~l, l1, ~l2));
+            mk_clause(~l, ~l1,  l2, mk_tseitin(~l, ~l1, l2));
+            mk_clause(l,   l1,  l2, mk_tseitin(l, l1, l2));
+            mk_clause(l,  ~l1, ~l2, mk_tseitin(l, ~l1, ~l2));
             if (aig()) aig()->add_iff(l, l1, l2);
 
             cache(t, l);
@@ -918,6 +951,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         expr_ref f(m), d_new(m);
         ptr_vector<expr> deps;
         expr_ref_vector  fmls(m);
+        if (m_euf)
+            ensure_euf();
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);
             // Add assumptions.

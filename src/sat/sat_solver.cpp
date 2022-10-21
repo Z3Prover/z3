@@ -402,8 +402,8 @@ namespace sat {
         extension::scoped_drating _sd(*m_ext.get());
         if (j.get_kind() == justification::EXT_JUSTIFICATION) 
             fill_ext_antecedents(lit, j, false);
-        TRACE("sat", tout << "drat-unit\n");
-        m_drat.add(lit, m_searching);
+        else 
+            m_drat.add(lit, m_searching);       
     }
 
     void solver::drat_log_clause(unsigned num_lits, literal const* lits, sat::status st) {
@@ -416,7 +416,7 @@ namespace sat {
         bool logged = false;
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
-            bool keep = simplify_clause(num_lits, lits);
+            bool keep = m_trim || simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
                 return nullptr; // clause is equivalent to true.
@@ -432,15 +432,17 @@ namespace sat {
                 m_mc.add_clause(num_lits, lits);            
         }       
 
-
         switch (num_lits) {
         case 0:
             set_conflict();
             return nullptr;
         case 1:
-            if (!logged && m_config.m_drat && (!st.is_sat() || st.is_input()))
+            if (!logged && m_config.m_drat)
                 drat_log_clause(num_lits, lits, st);
-            assign_unit(lits[0]);
+            {
+                flet<bool> _disable_drat(m_config.m_drat, false);
+                assign(lits[0], justification(0));
+            }
             return nullptr;
         case 2:
             mk_bin_clause(lits[0], lits[1], st);
@@ -460,17 +462,20 @@ namespace sat {
         bool redundant = st.is_redundant();
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
+
+        if (m_config.m_drat)
+            m_drat.add(l1, l2, st);
         
-        if (redundant && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
+        if (redundant && !m_trim && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (redundant && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
+        if (redundant && !m_trim && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
         watched* w0 = redundant ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
-        if (w0) {
+        if (w0 && !m_trim) {
             TRACE("sat", tout << "found binary " << l1 << " " << l2 << "\n";);
             if (w0->is_learned() && !redundant) {
                 w0->set_learned(false);
@@ -484,12 +489,12 @@ namespace sat {
                 push_reinit_stack(l1, l2);
             return;
         }
-        if (m_config.m_drat) 
-            m_drat.add(l1, l2, st);
+
         if (propagate_bin_clause(l1, l2)) {
-            if (at_base_lvl())
+            if (!at_base_lvl())
+                push_reinit_stack(l1, l2);
+            else if (!m_trim)
                 return;
-            push_reinit_stack(l1, l2);
         }
         else if (has_variables_to_reinit(l1, l2))
             push_reinit_stack(l1, l2);
@@ -950,7 +955,8 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) 
                 drat_log_unit(l, j);
-            j = justification(0); // erase justification for level 0
+            if (!m_trim)
+                j = justification(0); // erase justification for level 0
         }
         else {
             VERIFY(!at_base_lvl());
@@ -1357,7 +1363,6 @@ namespace sat {
             return is_sat;
         }
         catch (const abort_solver &) {
-            m_reason_unknown = "sat.giveup";
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort giveup\")\n";);
             return l_undef;
         }
@@ -1778,6 +1783,7 @@ namespace sat {
             case check_result::CR_CONTINUE:
                 break;
             case check_result::CR_GIVEUP:
+                m_reason_unknown = m_ext->reason_unknown();                
                 throw abort_solver();
             }
             return l_undef;

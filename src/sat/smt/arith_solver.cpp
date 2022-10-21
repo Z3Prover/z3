@@ -76,7 +76,6 @@ namespace arith {
     }
 
     bool solver::unit_propagate() {
-        TRACE("arith", tout << "unit propagate\n";);
         m_model_is_initialized = false;
         if (!m_solver->has_changed_columns() && !m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
@@ -320,7 +319,7 @@ namespace arith {
         reset_evidence();
         for (auto ev : e)
             set_evidence(ev.ci());
-        auto* ex = explain_implied_eq(n1, n2);
+        auto* ex = explain_implied_eq(e, n1, n2);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2, ex); 
         ctx.propagate(n1, n2, jst->to_index());
         return true;
@@ -681,26 +680,19 @@ namespace arith {
         scope& sc = m_scopes.back();
         sc.m_bounds_lim = m_bounds_trail.size();
         sc.m_asserted_qhead = m_asserted_qhead;
-        sc.m_idiv_lim = m_idiv_terms.size();
         sc.m_asserted_lim = m_asserted.size();
-        sc.m_not_handled = m_not_handled;
-        sc.m_underspecified_lim = m_underspecified.size();
         lp().push();
         if (m_nla)
             m_nla->push();
         th_euf_solver::push_core();
-
     }
 
     void solver::pop_core(unsigned num_scopes) {
         TRACE("arith", tout << "pop " << num_scopes << "\n";);
         unsigned old_size = m_scopes.size() - num_scopes;
         del_bounds(m_scopes[old_size].m_bounds_lim);
-        m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted.shrink(m_scopes[old_size].m_asserted_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
-        m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
-        m_not_handled = m_scopes[old_size].m_not_handled;
         m_scopes.resize(old_size);
         lp().pop(num_scopes);
         m_new_bounds.reset();
@@ -751,7 +743,7 @@ namespace arith {
         set_evidence(ci4);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
-        auto* ex = explain_implied_eq(x, y);
+        auto* ex = explain_implied_eq(m_explanation, x, y);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y, ex);
         ctx.propagate(x, y, jst->to_index());
     }
@@ -1114,12 +1106,11 @@ namespace arith {
 
     bool solver::check_delayed_eqs() {
         bool found_diseq = false;
-        if (m_delayed_eqs_qhead == m_delayed_eqs.size())
+        if (m_delayed_eqs.empty())
             return true;
         force_push();
-        ctx.push(value_trail<unsigned>(m_delayed_eqs_qhead));
-        for (; m_delayed_eqs_qhead < m_delayed_eqs.size(); ++ m_delayed_eqs_qhead) {
-            auto p = m_delayed_eqs[m_delayed_eqs_qhead];
+        for (unsigned i = 0; i < m_delayed_eqs.size(); ++i) {
+            auto p = m_delayed_eqs[i];
             auto const& e = p.first;
             if (p.second)
                 new_eq_eh(e);

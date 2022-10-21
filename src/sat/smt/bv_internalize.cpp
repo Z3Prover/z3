@@ -772,6 +772,6 @@ namespace bv {
             eqs.push_back(~eq);
         }
         TRACE("bv", for (auto l : eqs) tout << mk_bounded_pp(literal2expr(l), m) << " "; tout << "\n";);
-        s().add_clause(eqs.size(), eqs.data(), sat::status::th(m_is_redundant, get_id()));
+        add_clause(eqs);
     }
 }

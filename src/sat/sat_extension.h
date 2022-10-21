@@ -72,7 +72,7 @@ namespace sat {
         extension(symbol const& name, int id): m_id(id), m_name(name) { }
         virtual ~extension() = default;
         int get_id() const { return m_id; }
-        void set_solver(solver* s) { m_solver = s; }        
+        virtual void set_solver(solver* s) { m_solver = s; }        
         solver& s() { return *m_solver; }
         solver const& s() const { return *m_solver; }
         symbol const& name() const { return m_name;  }
@@ -132,6 +132,8 @@ namespace sat {
             return false;
         }
         virtual bool is_pb() { return false; }
+
+        virtual std::string reason_unknown() { return "unknown"; }
     };
 
 };

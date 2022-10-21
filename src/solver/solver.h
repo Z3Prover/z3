@@ -52,7 +52,7 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-    solver() {}
+    solver(ast_manager& m): check_sat_result(m) {}
 
     /**
     \brief Creates a clone of the solver.
@@ -278,7 +278,7 @@ public:
     };
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
- 
+
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);

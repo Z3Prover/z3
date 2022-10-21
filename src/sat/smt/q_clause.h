@@ -125,12 +125,13 @@ namespace q {
     struct justification {
         expr* m_lhs, * m_rhs;
         bool      m_sign;
+        unsigned  m_generation;
         unsigned  m_num_ex;
         size_t** m_explain;
         clause& m_clause;
         euf::enode* const* m_binding;
-        justification(lit const& l, clause& c, euf::enode* const* b, unsigned n, size_t** ev) :
-            m_lhs(l.lhs), m_rhs(l.rhs), m_sign(l.sign), m_num_ex(n), m_explain(ev), m_clause(c), m_binding(b) {}
+        justification(lit const& l, clause& c, euf::enode* const* b, unsigned generation, unsigned n, size_t** ev) :
+            m_lhs(l.lhs), m_rhs(l.rhs), m_sign(l.sign), m_generation(generation), m_num_ex(n), m_explain(ev), m_clause(c), m_binding(b) {}
         sat::ext_constraint_idx to_index() const {
             return sat::constraint_base::mem2base(this);
         }

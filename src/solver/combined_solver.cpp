@@ -115,7 +115,8 @@ private:
     }
 
 public:
-    combined_solver(solver * s1, solver * s2, params_ref const & p) {
+    combined_solver(solver * s1, solver * s2, params_ref const & p):
+        solver(s1->get_manager()) {
         m_solver1 = s1;
         m_solver2 = s2;
         updt_local_params(p);
@@ -318,11 +319,11 @@ public:
             return m_solver2->get_trail(max_level);
     }
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         if (m_use_solver1_results)
-            return m_solver1->get_proof();
+            return m_solver1->get_proof_core();
         else
-            return m_solver2->get_proof();
+            return m_solver2->get_proof_core();
     }
 
     std::string reason_unknown() const override {
@@ -343,7 +344,11 @@ public:
         else
             return m_solver2->get_labels(r);
     }
-    
+
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        switch_inc_mode();
+        m_solver2->register_on_clause(ctx, on_clause);
+    }    
 
     void user_propagate_init(
         void* ctx, 

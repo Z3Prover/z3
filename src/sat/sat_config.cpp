@@ -198,7 +198,17 @@ namespace sat {
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
         m_smt_proof       = p.smt_proof();
-        m_drat            = !p.drat_disable() && (sp.lemmas2console() || m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_smt_proof.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
+        m_smt_proof_check = p.smt_proof_check();
+        m_smt_proof_check_rup = p.smt_proof_check_rup();
+        m_drat_disable = p.drat_disable();
+        m_drat            =
+            !m_drat_disable && p.threads() == 1 &&
+            (sp.lemmas2console() ||
+             m_drat_check_unsat ||
+             m_drat_file.is_non_empty_string() ||
+             m_smt_proof.is_non_empty_string() ||
+             m_smt_proof_check ||
+             m_drat_check_sat);
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
         m_dyn_sub_res     = p.dyn_sub_res();

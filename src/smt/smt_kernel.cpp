@@ -260,6 +260,10 @@ namespace smt {
         m_imp->m_kernel.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
     }
 
+    void kernel::register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+        m_imp->m_kernel.register_on_clause(ctx, on_clause);
+    }
+
     void kernel::user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) {
         m_imp->m_kernel.user_propagate_register_fixed(fixed_eh);
     }

@@ -171,7 +171,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
             else
                 pr = m.mk_modus_ponens(in_pr, pr);
         }
-        TRACE("assert_expr_bug", tout << "after...\n" << r << "\n";);
+        TRACE("assert_expr_bug", tout << "after...\n" << r << "\n" << pr << "\n";);
     }
 
     m_has_quantifiers |= ::has_quantifiers(e);

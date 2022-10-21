@@ -826,7 +826,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         result = elim_unused_vars(m(), q1, params_ref());
 
 
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 
         result_pr = nullptr;
         if (m().proofs_enabled()) {
@@ -835,6 +834,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
         }
+
+        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
+
         SASSERT(old_q->get_sort() == result->get_sort());
         return true;
     }

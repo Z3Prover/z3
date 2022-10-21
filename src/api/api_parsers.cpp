@@ -27,6 +27,7 @@ Revision History:
 #include "solver/solver_na2as.h"
 #include "muz/fp/dl_cmds.h"
 #include "opt/opt_cmds.h"
+#include "cmd_context/extra_cmds/proof_cmds.h"
 
 
 
@@ -42,6 +43,7 @@ extern "C" {
             ast_manager& m = c.m();
             ctx = alloc(cmd_context, false, &(m));
             install_dl_cmds(*ctx.get());
+            install_proof_cmds(*ctx.get());
             install_opt_cmds(*ctx.get());
             install_smt2_extra_cmds(*ctx.get());            
             ctx->register_plist();
@@ -175,6 +177,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(m));
         install_dl_cmds(*ctx.get());
+        install_proof_cmds(*ctx.get());
         install_opt_cmds(*ctx.get());
         install_smt2_extra_cmds(*ctx.get());
         ctx->register_plist();
@@ -233,6 +236,7 @@ extern "C" {
             auto* ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
             mk_c(c)->cmd() = ctx;
             install_dl_cmds(*ctx);
+            install_proof_cmds(*ctx);
             install_opt_cmds(*ctx);
             install_smt2_extra_cmds(*ctx);
             ctx->register_plist();

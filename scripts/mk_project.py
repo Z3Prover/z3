@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 11, 3, 0) # express a default build version or pick up ci build version
+    set_version(4, 12, 0, 0) # express a default build version or pick up ci build version
     
 # Z3 Project definition
 def init_project_def():
@@ -51,14 +51,14 @@ def init_project_def():
     add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe_lite', ['tactic', 'mbp'], 'qe/lite')
     add_lib('solver_assertions', ['pattern','smt_params','cmd_context','qe_lite'], 'solver/assertions')
-    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
-    add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
-    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
 
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model', 'solver_assertions',
                     'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
+    add_lib('sat_smt', ['sat', 'euf', 'smt', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
+    add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
+    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')    
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
@@ -82,9 +82,9 @@ def init_project_def():
     add_lib('portfolio', ['smtlogic_tactics', 'sat_solver', 'ufbv_tactic', 'fpa_tactics', 'aig_tactic', 'fp',  'fd_solver', 'qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('opt', ['smt', 'smtlogic_tactics', 'sls_tactic', 'sat_solver'], 'opt')
     API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_fpa.h', 'z3_spacer.h']
-    add_lib('api', ['portfolio',  'realclosure', 'opt'],
-            includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'qe', 'euf', 'arith_tactics'], 'cmd_context/extra_cmds')
+    add_lib('api', ['portfolio',  'realclosure', 'opt', 'extra_cmds'],
+            includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds', 'opt'], exe_name='z3')
     add_exe('test', ['api', 'fuzzing', 'simplex', 'sat_smt'], exe_name='test-z3', install=False)
     _libz3Component = add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll',

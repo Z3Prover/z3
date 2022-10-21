@@ -703,7 +703,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
     if (sgn_a == sgn_b) {
         c.m_sign = sgn_a;
         unsigned * sig_r = m_buffers[1].data();
-        size_t   r_sz;
+        unsigned   r_sz;
         m_mpn_manager.add(sig_a, m_precision, n_sig_b, m_precision, sig_r, m_precision + 1, &r_sz);
         SASSERT(r_sz <= m_precision + 1);
         unsigned num_leading_zeros = nlz(m_precision + 1, sig_r);

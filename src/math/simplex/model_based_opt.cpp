@@ -98,17 +98,78 @@ namespace opt {
             }
             else if (v1 < v2) {
                 vs.push_back(vs1[i]);
-                vs.back().m_coeff *= c1;                 
+                vs.back().m_coeff *= c1;    
+                ++i;
             }
             else {
                 vs.push_back(vs2[j]);
-                vs.back().m_coeff *= c2;                 
+                vs.back().m_coeff *= c2;   
+                ++j;
             }
         }
         result.m_div = c1*m_div;
         result.m_coeff = (m_coeff*c1) + (other.m_coeff*c2);
         result.normalize();
         return result;
+    }
+
+    /**
+         a1*x1 + a2*x2 + a3*x3 + coeff1 / c1
+         x2 |-> b1*x1 + b4*x4 + ceoff2 / c2
+         ------------------------------------------------------------------------
+         (a1*x1 + a2*((b1*x1 + b4*x4 + coeff2) / c2) + a3*x3 + coeff1) / c1
+         ------------------------------------------------------------------------
+         (c2*a1*x1 + a2*b1*x1 + a2*b4*x4 + c2*a3*x3 + c2*coeff1 + coeff2) / c1*c2
+     */
+    void model_based_opt::def::substitute(unsigned v, def const& other) {
+        vector<var> const& vs1 = m_vars;
+        rational coeff(0);
+        for (auto const& [id, c] : vs1) {
+            if (id == v) {
+                coeff = c;
+                break;
+            }
+        }
+        if (coeff == 0) 
+            return;
+
+        rational c1 = m_div;
+        rational c2 = other.m_div;
+
+        vector<var> const& vs2 = other.m_vars;
+        vector<var> vs;
+        unsigned i = 0, j = 0;
+        while (i < vs1.size() || j < vs2.size()) {
+            unsigned v1 = UINT_MAX, v2 = UINT_MAX;
+            if (i < vs1.size()) v1 = vs1[i].m_id;
+            if (j < vs2.size()) v2 = vs2[j].m_id;
+            if (v1 == v) 
+                ++i;
+            else if (v1 == v2) {
+                vs.push_back(vs1[i]);
+                vs.back().m_coeff *= c2; 
+                vs.back().m_coeff += coeff * vs2[j].m_coeff; 
+                ++i; ++j;
+                if (vs.back().m_coeff.is_zero()) 
+                    vs.pop_back();
+            }
+            else if (v1 < v2) {
+                vs.push_back(vs1[i]);
+                vs.back().m_coeff *= c2;    
+                ++i;                
+            }
+            else {
+                vs.push_back(vs2[j]);
+                vs.back().m_coeff *= coeff;    
+                ++j;                
+            }
+        }
+        m_div *= other.m_div;
+        m_coeff *= c2;
+        m_coeff += coeff*other.m_coeff;
+        m_vars.reset();
+        m_vars.append(vs);
+        normalize();
     }
 
     model_based_opt::def model_based_opt::def::operator/(rational const& r) const {
@@ -1414,17 +1475,26 @@ namespace opt {
         }
 
 
-        for (unsigned v : vs)
-            project(v, false);
-
+        for (unsigned v : vs) {
+            def v_def = project(v, false);
+            if (compute_def)
+                eliminate(v, v_def);
+        }
+                      
         // project internal variables.
-
-        def y_def = project(y, compute_def);
         def z_def = project(z, compute_def);
+        def y_def = project(y, compute_def); // may depend on z
 
         if (compute_def) {
+            z_def.substitute(y, y_def);
+            eliminate(y, y_def);
+            eliminate(z, z_def);
+
             result = (y_def * K) + z_def;
             m_var2value[x] = eval(result);
+            TRACE("opt", tout << y << " := " << y_def << "\n";
+                         tout << z << " := " << z_def << "\n";
+                         tout << x << " := " << result << "\n");
         }
         TRACE("opt", display(tout << "solve_div done v" << x << "\n"));
         return result;
@@ -1624,14 +1694,20 @@ namespace opt {
         TRACE("opt", display(tout << "solved v" << x << "\n"));
         return result;
     }
+
+    void model_based_opt::eliminate(unsigned v, def const& new_def) {
+        for (auto & d : m_result)
+            d.substitute(v, new_def);
+    }
     
     vector<model_based_opt::def> model_based_opt::project(unsigned num_vars, unsigned const* vars, bool compute_def) {
-        vector<def> result;
+        m_result.reset();
         for (unsigned i = 0; i < num_vars; ++i) {
-            result.push_back(project(vars[i], compute_def));
+            m_result.push_back(project(vars[i], compute_def));
+            eliminate(vars[i], m_result.back());
             TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n"););
         }
-        return result;
+        return m_result;
     }
 
 }

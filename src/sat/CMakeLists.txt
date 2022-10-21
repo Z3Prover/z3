@@ -30,6 +30,7 @@ z3_add_component(sat
     sat_parallel.cpp
     sat_prob.cpp
     sat_probing.cpp
+    sat_proof_trim.cpp
     sat_scc.cpp
     sat_simplifier.cpp
     sat_solver.cpp

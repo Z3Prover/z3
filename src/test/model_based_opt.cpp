@@ -392,9 +392,29 @@ static void test11() {
 
 }
 
+static void test12() {
+    opt::model_based_opt::def d1, d2, d3, d4;
+    typedef opt::model_based_opt::var var;
+    d1.m_vars.push_back(var(1, rational(4)));
+    d1.m_vars.push_back(var(2, rational(3)));
+    d1.m_vars.push_back(var(3, rational(5)));
+    d1.m_coeff = rational(8);
+    d1.m_div = rational(7);
+    std::cout << d1 << "\n";
+    d2.m_vars.push_back(var(3, rational(2)));
+    d2.m_vars.push_back(var(4, rational(2)));
+    d2.m_div = rational(3);
+    d2.m_coeff = rational(5);
+    std::cout << d2 << "\n";
+    d1.substitute(2, d2);
+    std::cout << d1 << "\n";
+}
+
 // test with mix of upper and lower bounds
 
 void tst_model_based_opt() {
+    test12();
+    return;
     test10();
     check_random_ineqs();
     test1();
