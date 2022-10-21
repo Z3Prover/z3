@@ -332,8 +332,8 @@ bool asserted_formulas::invoke(simplify_fmls& s) {
     IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";);
     TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited););
     CASSERT("well_sorted",check_well_sorted());
+    TRACE("after_reduce", display(tout << s.id() << "\n"););
     if (inconsistent() || canceled()) {
-        TRACE("after_reduce", display(tout););
         TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited););
         return false;
     }
