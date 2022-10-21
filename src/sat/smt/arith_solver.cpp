@@ -561,6 +561,9 @@ namespace arith {
     void solver::dbg_finalize_model(model& mdl) {
         if (m_not_handled)
             return;
+
+        // this is already handled in general in euf_model.cpp
+        return;
         bool found_bad = false;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             if (!is_bool(v))
@@ -583,35 +586,8 @@ namespace arith {
             if (!found_bad && value == get_phase(n->bool_var()))
                 continue;
 
-            TRACE("arith",
-                ptr_vector<expr> nodes;
-                expr_mark marks;
-                nodes.push_back(n->get_expr());
-                for (unsigned i = 0; i < nodes.size(); ++i) {
-                    expr* r = nodes[i];
-                    if (marks.is_marked(r))
-                        continue;
-                    marks.mark(r);
-                    if (is_app(r))
-                        for (expr* arg : *to_app(r))
-                            nodes.push_back(arg);
-                    expr_ref rval(m);                    
-                    expr_ref mval = mdl(r);
-                    if (ctx.get_egraph().find(r))
-                        rval = mdl(ctx.get_egraph().find(r)->get_root()->get_expr());
-                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mval;
-                    if (rval != mval) tout << " " << rval;
-                    tout << "\n";
-                });
-            TRACE("arith",
-                tout << eval << " " << value << " " << ctx.bpp(n) << "\n";
-                tout << mdl << "\n";
-                s().display(tout););
-            IF_VERBOSE(0, 
-                       verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
-                       verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
-                       verbose_stream() << *b << "\n";);
-            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream(), mdl, n));
+            TRACE("arith", ctx.display_validation_failure(tout << *b << "\n", mdl, n));
+            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream() << *b << "\n", mdl, n));
             UNREACHABLE();
         }
     }
