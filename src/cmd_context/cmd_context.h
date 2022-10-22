@@ -41,6 +41,10 @@ Notes:
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
 
+namespace smt2 {
+    class parser;
+    void free_parser(parser*);
+}
 
 class func_decls {
     func_decl * m_decls { nullptr };
@@ -294,6 +298,8 @@ protected:
     ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
+
+    smt2::parser*                m_parser;
 
     class dt_eh : public new_datatype_eh {
         cmd_context &             m_owner;
@@ -554,6 +560,8 @@ public:
 
     void slow_progress_sample() override;
     void fast_progress_sample() override;
+    smt2::parser* parser() { return m_parser; };
+    void parser(smt2::parser* p) { m_parser = p; };
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);

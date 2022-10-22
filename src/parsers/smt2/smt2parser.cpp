@@ -3208,11 +3208,16 @@ namespace smt2 {
             }
         }
     };
+
+    void free_parser(parser * p) { delete p; }
 };
 
 bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
-    smt2::parser p(ctx, is, interactive, ps, filename);
-    return p();
+    if (ctx.parser())
+        ctx.parser()->reset_input(is, interactive);
+    else
+        ctx.parser(new smt2::parser(ctx, is, interactive, ps, filename));
+    return (*ctx.parser())();
 }
 
 sort_ref parse_smt2_sort(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {

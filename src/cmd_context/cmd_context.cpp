@@ -551,9 +551,12 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     if (m_main_ctx) {
         set_verbose_stream(diagnostic_stream());
     }
+    m_parser = nullptr;
 }
 
 cmd_context::~cmd_context() {
+    if (m_parser)
+        smt2::free_parser(m_parser);
     if (m_main_ctx) {
         set_verbose_stream(std::cerr);
     }
