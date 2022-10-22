@@ -407,9 +407,9 @@ namespace mbp {
             TRACE("qe",
                 for (auto const& [v, t] : result)
                     tout << v << " := " << t << "\n";
-            for (auto* f : fmls)
-                tout << mk_pp(f, m) << " := " << eval(f) << "\n";
-            tout << "fmls:" << fmls << "\n";);
+                  for (auto* f : fmls)
+                      tout << mk_pp(f, m) << " := " << eval(f) << "\n";
+                  tout << "fmls:" << fmls << "\n";);
             return true;
         }
 

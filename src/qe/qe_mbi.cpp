@@ -30,6 +30,7 @@ Notes:
 
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -115,6 +116,12 @@ namespace qe {
         }
         m_is_shared[id] = all_shared ? l_true : l_false;
         return all_shared;
+    }
+
+    void mbi_plugin::validate_interpolant(expr* itp) {
+        for (expr* e : subterms::ground(expr_ref(itp, m)))
+            if (!is_shared(e)) 
+                IF_VERBOSE(0, verbose_stream() << "non-shared subterm " << mk_bounded_pp(e, m) << "\n");
     }
 
 
@@ -209,12 +216,10 @@ namespace qe {
         lits.reset();
         IF_VERBOSE(10, verbose_stream() << "atoms: " << m_atoms << "\n");
         for (expr* e : m_atoms) {
-            if (mdl->is_true(e)) {
+            if (mdl->is_true(e)) 
                 lits.push_back(e);
-            }
-            else if (mdl->is_false(e)) {
+            else if (mdl->is_false(e)) 
                 lits.push_back(m.mk_not(e));
-            }
         }
         TRACE("qe", tout << "atoms from model: " << lits << "\n";);
         solver_ref dual = m_dual_solver->translate(m, m_dual_solver->get_params());
@@ -262,6 +267,64 @@ namespace qe {
         return avars;
     }
 
+    /***
+        Arithmetic projection is not guaranteed to remove non-shared variables 
+        when there are expressions with if-then-else constructs. 
+        For these cases we apply model refinement to the literals: non-shared
+        sub-expressions are replaced by model values.
+     */
+    void uflia_mbi::fix_non_shared(model& mdl, expr_ref_vector& lits) {
+        th_rewriter rewrite(m);
+        expr_ref_vector trail(m);
+        obj_map<expr, expr*> cache;
+        ptr_vector<expr> todo, args;
+        expr* f = nullptr;
+        todo.append(lits.size(), lits.data());
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            if (cache.contains(e)) {
+                todo.pop_back();
+                continue;
+            }
+            if (!is_app(e)) {
+                cache.insert(e, e);
+                todo.pop_back();
+                continue;
+            }
+            args.reset();
+            unsigned sz = todo.size();
+            bool diff = false;
+            func_decl* fn = to_app(e)->get_decl();
+            if (!is_shared(fn)) {
+                expr_ref val = mdl(e);
+                cache.insert(e, val);
+                trail.push_back(val);
+                todo.pop_back();
+                continue;
+            }
+            for (expr* arg : *to_app(e)) {
+                if (cache.find(arg, f)) { 
+                    args.push_back(f);
+                    diff |= f != arg;
+                }
+                else 
+                    todo.push_back(arg);
+            }
+            if (sz < todo.size())
+                continue;
+            todo.pop_back();
+            if (!diff) {
+                cache.insert(e, e);
+                continue;
+            }
+            f = rewrite.mk_app(to_app(e)->get_decl(), args.size(), args.data());
+            trail.push_back(f);
+            cache.insert(e, f);
+        }
+        for (unsigned i = 0; i < lits.size(); ++i) 
+            lits[i] = cache[lits.get(i)];
+    }
+
     vector<mbp::def> uflia_mbi::arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits) {
         mbp::arith_project_plugin ap(m);
         ap.set_check_purified(false);
@@ -269,6 +332,7 @@ namespace qe {
         bool ok = ap.project(*mdl.get(), avars, lits, defs);
         (void)ok;
         CTRACE("qe", !ok, tout << "projection failure ignored!!!!\n");
+        fix_non_shared(*mdl, lits);
         return defs;
     }
 
@@ -522,6 +586,7 @@ namespace qe {
                 break;
             case l_false:
                 itp = mk_or(itps);
+                a.validate_interpolant(itp);
                 return l_false;
             case l_undef:
                 return l_undef;
