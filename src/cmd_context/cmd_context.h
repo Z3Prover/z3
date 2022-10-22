@@ -300,6 +300,8 @@ protected:
     stopwatch                    m_watch;
 
     smt2::parser*                m_parser;
+    std::stringstream            m_parser_ous;
+    std::istringstream           m_parser_is;
 
     class dt_eh : public new_datatype_eh {
         cmd_context &             m_owner;
@@ -562,6 +564,9 @@ public:
     void fast_progress_sample() override;
     smt2::parser* parser() { return m_parser; };
     void parser(smt2::parser* p) { m_parser = p; };
+    std::stringstream * parser_ous() { return &m_parser_ous; }
+    std::istringstream * parser_is() { return &m_parser_is; }
+    void reset_parser_streams(std::string & input);
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
