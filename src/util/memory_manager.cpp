@@ -344,7 +344,7 @@ void* memory::reallocate(void *p, size_t s) {
     if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)
         throw_alloc_counts_exceeded();
 
-    void *r = mi_realloc(real_p, s);
+    void *r = mi_realloc(p, s);
     if (r == nullptr) {
         throw_out_of_memory();
         return nullptr;
