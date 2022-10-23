@@ -601,18 +601,17 @@ namespace sat {
         clause * r = alloc_clause(num_lits, lits, st.is_redundant());
         SASSERT(!st.is_redundant() || r->is_learned());
         bool reinit = attach_nary_clause(*r, st.is_sat() && st.is_redundant());
-        if (reinit || has_variables_to_reinit(*r)) push_reinit_stack(*r);
-        if (st.is_redundant()) {
+ 
+        if (reinit || has_variables_to_reinit(*r)) 
+            push_reinit_stack(*r);
+        if (st.is_redundant()) 
             m_learned.push_back(r);
-        }
-        else {
+        else 
             m_clauses.push_back(r);
-        }
         if (m_config.m_drat) 
             m_drat.add(*r, st);
-        for (literal l : *r) {
+        for (literal l : *r) 
             m_touched[l.var()] = m_touch_index;
-        }
         return r;
     }
 
