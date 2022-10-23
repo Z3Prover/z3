@@ -62,6 +62,8 @@ z3_add_component(util
     warning.cpp
     z3_exception.cpp
     zstring.cpp
+  COMPONENT_DEPENDENCIES
+    mimalloc
   EXTRA_REGISTER_MODULE_HEADERS
     env_params.h
   MEMORY_INIT_FINALIZER_HEADERS

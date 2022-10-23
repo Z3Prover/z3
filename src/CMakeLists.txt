@@ -34,6 +34,7 @@ endforeach()
 # you may be able to re-order some of these directories but an error will be
 # raised if you try to declare a component is dependent on another component
 # that has not yet been declared.
+add_subdirectory(util/mimalloc)
 add_subdirectory(util)
 add_subdirectory(math/polynomial)
 add_subdirectory(math/dd)
