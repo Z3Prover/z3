@@ -317,9 +317,9 @@ namespace qe {
                 cache.insert(e, e);
                 continue;
             }
-            f = rewrite.mk_app(to_app(e)->get_decl(), args.size(), args.data());
-            trail.push_back(f);
-            cache.insert(e, f);
+            expr_ref val = rewrite.mk_app(to_app(e)->get_decl(), args.size(), args.data());
+            trail.push_back(val);
+            cache.insert(e, val);
         }
         for (unsigned i = 0; i < lits.size(); ++i) 
             lits[i] = cache[lits.get(i)];
