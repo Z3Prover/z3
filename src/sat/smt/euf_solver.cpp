@@ -647,10 +647,10 @@ namespace euf {
         for (auto const& [e, generation, v] : m_reinit) 
             replay.m.insert(e, v);
     
-        TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
+        TRACE("euf", for (auto const& kv : replay.m) tout << "b" << kv.m_value << "\n";);
         for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
-            TRACE("euf", tout << "replay: " << v << " " << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
+            TRACE("euf", tout << "replay: b" << v << " #" << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
             sat::literal lit;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
