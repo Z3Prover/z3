@@ -1092,6 +1092,17 @@ class Component:
             out.write('\t@echo %s\n' % os.path.join(self.src_dir, cppfile))
         out.write('\t@$(CXX) $(CXXFLAGS) $(%s) $(CXX_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
 
+    def add_c_rules(self, out, include_defs, cfile):
+        self.add_rule_for_each_include(out, cfile)
+        objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cfile)[0])
+        srcfile = os.path.join(self.to_src_dir, cfile)
+        out.write('%s: ' % objfile)
+        self.add_cpp_h_deps(out, cfile)
+        out.write('\n')
+        if SHOW_CPPS:
+            out.write('\t@echo %s\n' % os.path.join(self.src_dir, cfile))
+        out.write('\t@$(CC) $(CFLAGS) $(%s) $(C_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
+
     def mk_makefile(self, out):
         include_defs = mk_fresh_name('includes')
         out.write('%s =' % include_defs)
@@ -1126,6 +1137,8 @@ class Component:
         else:
             for cppfile in get_cpp_files(self.src_dir):
                 self.add_cpp_rules(out, include_defs, cppfile)
+            for cfile in get_c_files(self.src_dir):
+                self.add_c_rules(out, include_defs, cfile)
 
     # Return true if the component should be included in the all: rule
     def main_component(self):
@@ -2204,7 +2217,7 @@ class CExampleComponent(CppExampleComponent):
 
     def src_files(self):
         return get_c_files(self.ex_dir)
-
+    
     def mk_makefile(self, out):
         dll_name = get_component(Z3_DLL_COMPONENT).dll_name
         dll = '%s$(SO_EXT)' % dll_name
