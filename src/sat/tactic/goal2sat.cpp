@@ -509,7 +509,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             
             m_result_stack.shrink(old_sz);
             m_result_stack.push_back(l);
-            TRACE("goal2sat", tout << m_result_stack << "\n";);
         }
     }
 
