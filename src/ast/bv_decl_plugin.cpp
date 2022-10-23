@@ -740,6 +740,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
+        op_names.push_back(builtin_name("nat2bv",OP_INT2BV));
         op_names.push_back(builtin_name("bv2int",OP_BV2INT));
         op_names.push_back(builtin_name("bv2nat",OP_BV2INT));
         op_names.push_back(builtin_name("mkbv",OP_MKBV));
