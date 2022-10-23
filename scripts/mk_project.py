@@ -13,7 +13,7 @@ def init_version():
 # Z3 Project definition
 def init_project_def():
     init_version()
-    add_lib('mimalloc',[], 'util/mimalloc')
+    add_clib('mimalloc',[], 'util/mimalloc')
     add_lib('util', ['mimalloc'], includes2install = ['z3_version.h'])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('interval', ['util'], 'math/interval')

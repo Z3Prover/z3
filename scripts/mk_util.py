@@ -1173,17 +1173,24 @@ class Component:
         pass
 
 class LibComponent(Component):
-    def __init__(self, name, path, deps, includes2install):
+    def __init__(self, name, path, deps, includes2install, is_cpp = True):
         Component.__init__(self, name, path, deps)
         self.includes2install = includes2install
+        self.is_cpp = is_cpp
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
         # generate rule for lib
         objs = []
-        for cppfile in get_cpp_files(self.src_dir):
-            objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0])
-            objs.append(objfile)
+        if self.is_cpp:
+            for cppfile in get_cpp_files(self.src_dir):
+                objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0])
+                objs.append(objfile)
+        else:
+            for cfile in get_c_files(self.src_dir):
+                objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cfile)[0])
+                objs.append(objfile)
+            
 
         libfile = '%s$(LIB_EXT)' % os.path.join(self.build_dir, self.name)
         out.write('%s:' % libfile)
@@ -2405,7 +2412,7 @@ def add_lib(name, deps=[], path=None, includes2install=[]):
     reg_component(name, c)
 
 def add_clib(name, deps=[], path=None, includes2install=[]):
-    c = CLibComponent(name, path, deps, includes2install)
+    c = LibComponent(name, path, deps, includes2install, False)
     reg_component(name, c)
 
 def add_hlib(name, path=None, includes2install=[]):
