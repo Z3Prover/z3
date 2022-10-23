@@ -20,7 +20,7 @@ terms of the MIT license. A copy of the license can be found in the file
 ----------------------------------------------------------- */
 
 #define MI_IN_PAGE_C
-#include "page-queue.c"
+#include "page-queue.ch"
 #undef MI_IN_PAGE_C
 
 
