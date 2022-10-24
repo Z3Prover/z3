@@ -1137,8 +1137,6 @@ class Component:
         else:
             for cppfile in get_cpp_files(self.src_dir):
                 self.add_cpp_rules(out, include_defs, cppfile)
-            for cfile in get_c_files(self.src_dir):
-                self.add_c_rules(out, include_defs, cfile)
 
     # Return true if the component should be included in the all: rule
     def main_component(self):
@@ -1186,7 +1184,7 @@ class Component:
         pass
 
 class LibComponent(Component):
-    def __init__(self, name, path, deps, includes2install, is_cpp = True):
+    def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
         self.includes2install = includes2install
         self.is_cpp = is_cpp
@@ -1195,15 +1193,9 @@ class LibComponent(Component):
         Component.mk_makefile(self, out)
         # generate rule for lib
         objs = []
-        if self.is_cpp:
-            for cppfile in get_cpp_files(self.src_dir):
-                objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0])
-                objs.append(objfile)
-        else:
-            for cfile in get_c_files(self.src_dir):
-                objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cfile)[0])
-                objs.append(objfile)
-            
+        for cppfile in get_cpp_files(self.src_dir):
+            objfile = '%s$(OBJ_EXT)' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
 
         libfile = '%s$(LIB_EXT)' % os.path.join(self.build_dir, self.name)
         out.write('%s:' % libfile)
@@ -2422,10 +2414,6 @@ def reg_component(name, c):
 
 def add_lib(name, deps=[], path=None, includes2install=[]):
     c = LibComponent(name, path, deps, includes2install)
-    reg_component(name, c)
-
-def add_clib(name, deps=[], path=None, includes2install=[]):
-    c = LibComponent(name, path, deps, includes2install, False)
     reg_component(name, c)
 
 def add_hlib(name, path=None, includes2install=[]):
