@@ -149,8 +149,6 @@ namespace euf {
 
     void solver::add_solver(th_solver* th) {
         family_id fid = th->get_id();
-        if (use_drat())
-            s().get_drat().add_theory(fid, th->name());
         th->set_solver(m_solver);
         th->push_scopes(s().num_scopes() + s().num_user_scopes());
         m_solvers.push_back(th);
