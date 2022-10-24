@@ -320,6 +320,8 @@ namespace euf {
     void solver::validate_model(model& mdl) {
         if (!m_unhandled_functions.empty())
             return;
+        if (get_config().m_arith_ignore_int)
+            return;
         for (auto* s : m_solvers)
             if (s && s->has_unhandled())
                 return;
