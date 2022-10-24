@@ -402,8 +402,8 @@ namespace pb {
         bool is_blocked(literal l, sat::ext_constraint_idx idx) override;
         bool check_model(sat::model const& m) const override;
 
-        literal internalize(expr* e, bool sign, bool root, bool redundant) override;
-        void internalize(expr* e, bool redundant) override;
+        literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         euf::th_solver* clone(euf::solver& ctx) override;
 

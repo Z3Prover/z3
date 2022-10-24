@@ -75,7 +75,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
     bool                        m_euf = false;
-    bool                        m_is_redundant = false;
     bool                        m_top_level = false;
     sat::literal_vector         aig_lits;
     
@@ -133,7 +132,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::status mk_status(euf::th_proof_hint* ph = nullptr) const {
-        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
+        return sat::status::th(false, m.get_basic_family_id(), ph);
     }
 
     bool relevancy_enabled() {
@@ -179,7 +178,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
         if (relevancy_enabled())
             ensure_euf()->add_root(n, lits);
-        m_solver.add_clause(n, lits, m_is_redundant ? mk_status(ph) : sat::status::input());
+        m_solver.add_clause(n, lits, ph ? mk_status(ph) : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
@@ -688,7 +687,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal lit;
         {
             flet<bool> _top(m_top_level, false);
-            lit = euf->internalize(e, sign, root, m_is_redundant);           
+            lit = euf->internalize(e, sign, root);           
         }
         if (lit == sat::null_literal) 
             return;
@@ -711,7 +710,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             th = dynamic_cast<euf::th_solver*>(ext);
             SASSERT(th);
         }
-        auto lit = th->internalize(t, sign, root, m_is_redundant);
+        auto lit = th->internalize(t, sign, root);
         m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
         if (lit == sat::null_literal)
             return;
@@ -780,12 +779,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     };
 
-    void process(expr* n, bool is_root, bool redundant) {
+    void process(expr* n, bool is_root) {
         TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 2) 
             << " root: " << is_root 
             << " result-stack: " << m_result_stack.size() 
             << " frame-stack: " << m_frame_stack.size() << "\n";);
-        flet<bool> _is_redundant(m_is_redundant, redundant);
         scoped_stack _sc(*this, is_root);
         unsigned sz = m_frame_stack.size();
         if (visit(n, is_root, false)) 
@@ -836,14 +834,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
             << " result-stack: " << m_result_stack.size() << "\n";);
     }
 
-    sat::literal internalize(expr* n, bool redundant) override {
+    sat::literal internalize(expr* n) override {
         bool is_not = m.is_not(n, n);
         flet<bool> _top(m_top_level, false);
         unsigned sz = m_result_stack.size();
         (void)sz;
         SASSERT(n->get_ref_count() > 0);
         TRACE("goal2sat", tout << "internalize " << mk_bounded_pp(n, m, 2) << "\n";);
-        process(n, false, redundant);
+        process(n, false);
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
         TRACE("goal2sat", tout << "done internalize " << result << " " << mk_bounded_pp(n, m, 2) << "\n";);
@@ -889,7 +887,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         flet<bool> _top(m_top_level, true);
         VERIFY(m_result_stack.empty());
         TRACE("goal2sat", tout << "assert: " << mk_bounded_pp(n, m, 3) << "\n";);
-        process(n, true, m_is_redundant);
+        process(n, true);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
     }

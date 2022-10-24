@@ -238,12 +238,12 @@ namespace euf {
 
     sat::status solver::mk_tseitin_status(unsigned n, sat::literal const* lits) {
         th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("tseitin"), n, lits) : nullptr;
-        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);        
+        return sat::status::th(false, m.get_basic_family_id(), ph);        
     }
 
     sat::status solver::mk_distinct_status(unsigned n, sat::literal const* lits) {
         th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("alldiff"), n, lits) : nullptr;
-        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
+        return sat::status::th(false, m.get_basic_family_id(), ph);
     }
     
     expr* smt_proof_hint::get_hint(euf::solver& s) const {
@@ -294,7 +294,7 @@ namespace euf {
             lits.push_back(jst.lit_consequent());
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
-        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
+        get_drat().add(lits, sat::status::th(false, jst.ext().get_id(), jst.get_pragma()));
         for (unsigned i = s().num_vars(); i < nv; ++i)
             set_tmp_bool_var(i, nullptr);
     }

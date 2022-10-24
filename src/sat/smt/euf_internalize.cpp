@@ -34,28 +34,28 @@ Notes:
 
 namespace euf {
 
-    void solver::internalize(expr* e, bool redundant) {
+    void solver::internalize(expr* e) {
         if (get_enode(e))
             return;
         if (si.is_bool_op(e))
-            attach_lit(si.internalize(e, redundant), e);
+            attach_lit(si.internalize(e), e);
         else if (auto* ext = expr2solver(e))
-            ext->internalize(e, redundant);
+            ext->internalize(e);
         else
-            visit_rec(m, e, false, false, redundant);
+            visit_rec(m, e, false, false);
         SASSERT(m_egraph.find(e));
     }
 
     sat::literal solver::mk_literal(expr* e) {
         expr_ref _e(e, m);
         bool is_not = m.is_not(e, e);
-        sat::literal lit = internalize(e, false, false, m_is_redundant);
+        sat::literal lit = internalize(e, false, false);
         if (is_not)
             lit.neg();
         return lit;
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
         euf::enode* n = get_enode(e);
         if (n) {
             if (m.is_bool(e)) {
@@ -67,14 +67,14 @@ namespace euf {
             return sat::null_literal;
         }
         if (si.is_bool_op(e)) {
-            sat::literal lit = attach_lit(si.internalize(e, redundant), e);
+            sat::literal lit = attach_lit(si.internalize(e), e);
             if (sign) 
                 lit.neg();
             return lit;
         }
         if (auto* ext = expr2solver(e))
-            return ext->internalize(e, sign, root, redundant);
-        if (!visit_rec(m, e, sign, root, redundant)) {
+            return ext->internalize(e, sign, root);
+        if (!visit_rec(m, e, sign, root)) {
             TRACE("euf", tout << "visit-rec\n";);          
             return sat::null_literal;
         }
@@ -89,13 +89,13 @@ namespace euf {
         th_solver* s = nullptr;        
         if (n && !si.is_bool_op(e) && (s = expr2solver(e), s && euf::null_theory_var == n->get_th_var(s->get_id()))) {
             // ensure that theory variables are attached in shared contexts. See notes (*)
-            s->internalize(e, false);
+            s->internalize(e);
             return true;
         }
         if (n)
             return true;
         if (si.is_bool_op(e)) {
-            attach_lit(si.internalize(e, m_is_redundant), e);
+            attach_lit(si.internalize(e), e);
             return true;
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -103,7 +103,7 @@ namespace euf {
             return false;
         }        
         if (auto* s = expr2solver(e))
-            s->internalize(e, m_is_redundant);            
+            s->internalize(e);            
         else 
             attach_node(mk_enode(e, 0, nullptr));        
         return true;
@@ -118,7 +118,7 @@ namespace euf {
             return false;
         SASSERT(!get_enode(e));
         if (auto* s = expr2solver(e)) 
-            s->internalize(e, m_is_redundant);        
+            s->internalize(e);        
         else 
             attach_node(mk_enode(e, num, m_args.data()));        
         return true;
@@ -167,8 +167,8 @@ namespace euf {
                 ph1 = mk_smt_hint(symbol("tseitin"), ~lit, lit2);
                 ph2 = mk_smt_hint(symbol("tseitin"), lit, ~lit2);
             }
-            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph1));
-            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph2));
+            s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id(), ph1));
+            s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id(), ph2));
             add_aux(~lit, lit2);
             add_aux(lit, ~lit2);
             lit = lit2;
@@ -258,7 +258,7 @@ namespace euf {
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
-            sat::literal lit = si.internalize(at_least2, m_is_redundant);
+            sat::literal lit = si.internalize(at_least2);
             s().add_clause(lit, mk_distinct_status(lit));
         }
     }
@@ -331,7 +331,7 @@ namespace euf {
             }
             expr_ref fml = mk_or(eqs);
             sat::literal dist(si.to_bool_var(e), false);
-            sat::literal some_eq = si.internalize(fml, m_is_redundant);
+            sat::literal some_eq = si.internalize(fml);
             add_root(~dist, ~some_eq);
             add_root(dist, some_eq);
             s().add_clause(~dist, ~some_eq, mk_distinct_status(~dist, ~some_eq));
@@ -461,7 +461,7 @@ namespace euf {
     euf::enode* solver::e_internalize(expr* e) {
         euf::enode* n = m_egraph.find(e);
         if (!n) {
-            internalize(e, m_is_redundant);
+            internalize(e);
             n = m_egraph.find(e);
         }
         return n;

@@ -168,7 +168,7 @@ namespace bv {
         TRACE("bv", tout << "found new diseq axiom\n" << pp(v1) << pp(v2););
         m_stats.m_num_diseq_static++;
         expr_ref eq(m.mk_eq(var2expr(v1), var2expr(v2)), m);
-        add_unit(~ctx.internalize(eq, false, false, m_is_redundant));
+        add_unit(~ctx.internalize(eq, false, false));
     }
 
     std::ostream& solver::display(std::ostream& out, theory_var v) const {
@@ -464,7 +464,7 @@ namespace bv {
         m_lit_head = m_lit_tail;
         m_lit_tail = m_proof_literals.size();        
         proof_hint* ph = new (get_region()) proof_hint(c.m_kind, m_proof_literals, m_lit_head, m_lit_tail, a1, a2, b1, b2);
-        auto st = sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
+        auto st = sat::status::th(false, m.get_basic_family_id(), ph);
         ctx.get_drat().add(lits, st);
         m_lit_head = m_lit_tail;
         // TBD, a proper way would be to delete the lemma after use.

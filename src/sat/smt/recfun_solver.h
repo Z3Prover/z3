@@ -101,8 +101,8 @@ namespace recfun {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool unit_propagate() override;
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         bool is_shared(euf::theory_var v) const override { return true; }

@@ -95,9 +95,9 @@ namespace fpa {
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), m) << " := " << v << "\n";);
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
         SASSERT(m.is_bool(e));
-        if (!visit_rec(m, e, sign, root, redundant))
+        if (!visit_rec(m, e, sign, root))
             return sat::null_literal;
         sat::literal lit = expr2literal(e);
         if (sign)
@@ -105,8 +105,8 @@ namespace fpa {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
-        visit_rec(m, e, false, false, redundant);
+    void solver::internalize(expr* e) {
+        visit_rec(m, e, false, false);
     }
 
     bool solver::visited(expr* e) {
@@ -118,7 +118,7 @@ namespace fpa {
         if (visited(e))
             return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
-            ctx.internalize(e, m_is_redundant);
+            ctx.internalize(e);
             return true;
         }
         m_stack.push_back(sat::eframe(e));

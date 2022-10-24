@@ -952,7 +952,6 @@ namespace arith {
     sat::check_result solver::check() {
         force_push();
         m_model_is_initialized = false;
-        flet<bool> _is_learned(m_is_redundant, true);
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 
@@ -1174,7 +1173,7 @@ namespace arith {
             for (auto const& c : core)
                 m_core2.push_back(~c);
             m_core2.push_back(lit);
-            add_clause(m_core2, pma);
+            add_redundant(m_core2, pma);
         }
         else {
             auto* jst = euf::th_explain::propagate(*this, core, eqs, lit, pma);
@@ -1215,7 +1214,7 @@ namespace arith {
         for (literal& c : m_core)
             c.neg();
 
-        add_clause(m_core, explain(hint_type::farkas_h));
+        add_redundant(m_core, explain(hint_type::farkas_h));
     }
 
     bool solver::is_infeasible() const {

@@ -21,9 +21,8 @@ Author:
 
 namespace euf {
 
-    bool th_internalizer::visit_rec(ast_manager& m, expr* a, bool sign, bool root, bool redundant) {
+    bool th_internalizer::visit_rec(ast_manager& m, expr* a, bool sign, bool root) {
         IF_VERBOSE(110, verbose_stream() << "internalize: " << mk_pp(a, m) << "\n");
-        flet<bool> _is_learned(m_is_redundant, redundant);
         svector<sat::eframe>::scoped_stack _sc(m_stack);
         unsigned sz = m_stack.size();
         visit(a);
@@ -125,15 +124,11 @@ namespace euf {
             pop_core(n);        
     }
 
-    sat::status th_euf_solver::mk_status(th_proof_hint const* ps) {
-        return sat::status::th(m_is_redundant, get_id(), ps);
-    }
-
     bool th_euf_solver::add_unit(sat::literal lit, th_proof_hint const* ps) {
         if (ctx.use_drat() && !ps)
             ps = ctx.mk_smt_clause(name(), 1, &lit);
         bool was_true = is_true(lit);
-        ctx.s().add_clause(1, &lit, mk_status(ps));
+        ctx.s().add_clause(1, &lit, sat::status::th(false, get_id(), ps));
         ctx.add_root(lit);
         return !was_true;
     }
@@ -161,7 +156,7 @@ namespace euf {
         return add_clause(4, lits, ps);
     }
 
-    bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps) {
+    bool th_euf_solver::add_clause(unsigned n, sat::literal* lits, th_proof_hint const* ps, bool is_redundant) {
         if (ctx.use_drat() && !ps) 
             ps = ctx.mk_smt_clause(name(), n, lits);
                 
@@ -169,7 +164,7 @@ namespace euf {
         for (unsigned i = 0; i < n; ++i)       
             was_true |= is_true(lits[i]);
         ctx.add_root(n, lits);
-        s().add_clause(n, lits, mk_status(ps));
+        s().add_clause(n, lits, sat::status::th(is_redundant, get_id(), ps));
         return !was_true;
     }
 

@@ -20,9 +20,9 @@ Author:
 
 namespace array {
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) { 
+    sat::literal solver::internalize(expr* e, bool sign, bool root) { 
         SASSERT(m.is_bool(e));
-        if (!visit_rec(m, e, sign, root, redundant)) {
+        if (!visit_rec(m, e, sign, root)) {
             TRACE("array", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
@@ -32,8 +32,8 @@ namespace array {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
-        visit_rec(m, e, false, false, redundant);
+    void solver::internalize(expr* e) {
+        visit_rec(m, e, false, false);
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
@@ -66,7 +66,7 @@ namespace array {
         if (visited(e))
             return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
-            ctx.internalize(e, m_is_redundant);
+            ctx.internalize(e);
             euf::enode* n = expr2enode(e);
             ensure_var(n);
             return true;
