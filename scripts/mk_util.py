@@ -1187,7 +1187,6 @@ class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
         self.includes2install = includes2install
-        self.is_cpp = is_cpp
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
