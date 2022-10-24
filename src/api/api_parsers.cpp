@@ -252,7 +252,7 @@ extern "C" {
         ctx->set_diagnostic_stream(ous);
         cmd_context::scoped_redirect _redirect(*ctx);
         try {
-            if (!parse_smt2_commands_with_parser(&mk_c(c)->m_parser, *ctx.get(), mk_c(c)->m_parser_is)) {
+            if (!parse_smt2_commands_with_parser(mk_c(c)->m_parser, *ctx.get(), mk_c(c)->m_parser_is)) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
                 RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
             }

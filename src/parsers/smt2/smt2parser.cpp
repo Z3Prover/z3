@@ -3217,12 +3217,12 @@ bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive,
     return p();
 }
 
-bool parse_smt2_commands_with_parser(class smt2::parser ** p, cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
-    if (*p)
-        (*p)->reset_input(is, interactive);
+bool parse_smt2_commands_with_parser(class smt2::parser *& p, cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
+    if (p)
+        p->reset_input(is, interactive);
     else
-        *p = alloc(smt2::parser, ctx, is, interactive, ps, filename);
-    return (**p)();
+        p = alloc(smt2::parser, ctx, is, interactive, ps, filename);
+    return (*p)();
 }
 
 sort_ref parse_smt2_sort(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
