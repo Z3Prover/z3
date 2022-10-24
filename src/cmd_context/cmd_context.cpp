@@ -551,12 +551,9 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     if (m_main_ctx) {
         set_verbose_stream(diagnostic_stream());
     }
-    m_parser = nullptr;
 }
 
 cmd_context::~cmd_context() {
-    if (m_parser)
-        smt2::free_parser(m_parser);
     if (m_main_ctx) {
         set_verbose_stream(std::cerr);
     }
@@ -2392,8 +2389,3 @@ std::ostream & operator<<(std::ostream & out, cmd_context::status st) {
     return out;
 }
 
-void cmd_context::reset_parser_streams(std::string & input) {
-    m_parser_ous.str("");
-    m_parser_is.clear();
-    m_parser_is.str(input);
-}

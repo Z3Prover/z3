@@ -149,6 +149,8 @@ namespace api {
 
 
     context::~context() {
+        if (m_parser)
+            smt2::free_parser(m_parser);
         m_last_obj = nullptr;
         flush_objects();
         for (auto& kv : m_allocated_objects) {
@@ -343,6 +345,12 @@ namespace api {
             }
             set_error_code(Z3_SORT_ERROR, nullptr);
         }
+    }
+
+    void context::reset_parser_streams(std::string & input) {
+        m_parser_ous.str("");
+        m_parser_is.clear();
+        m_parser_is.str(input);
     }
 
     // ------------------------

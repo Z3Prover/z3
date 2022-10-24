@@ -229,7 +229,9 @@ extern "C" {
     }
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str) {
-        std::stringstream * ous = nullptr;
+        // See api::context::m_parser for a motivation about the reuse
+        // of the parser and its streams
+        std::stringstream & ous = mk_c(c)->m_parser_ous;
         Z3_TRY;
         LOG_Z3_eval_smtlib2_string(c, str);
         if (!mk_c(c)->cmd()) {
@@ -244,24 +246,23 @@ extern "C" {
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
         std::string s(str);
-        ctx->reset_parser_streams(s);
+        mk_c(c)->reset_parser_streams(s);
 
-        ous = ctx->parser_ous();
-        ctx->set_regular_stream(*ous);
-        ctx->set_diagnostic_stream(*ous);
+        ctx->set_regular_stream(ous);
+        ctx->set_diagnostic_stream(ous);
         cmd_context::scoped_redirect _redirect(*ctx);
         try {
-            if (!parse_smt2_commands(*ctx.get(), *ctx->parser_is())) {
-                SET_ERROR_CODE(Z3_PARSER_ERROR, ous->str());
-                RETURN_Z3(mk_c(c)->mk_external_string(ous->str()));
+            if (!parse_smt2_commands_with_parser(&mk_c(c)->m_parser, *ctx.get(), mk_c(c)->m_parser_is)) {
+                SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
+                RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
             }
         }
         catch (z3_exception& e) {
-            if (ous->str().empty()) *ous << e.msg();
-            SET_ERROR_CODE(Z3_PARSER_ERROR, ous->str());
-            RETURN_Z3(mk_c(c)->mk_external_string(ous->str()));
+            if (ous.str().empty()) ous << e.msg();
+            SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
+            RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         }
-        RETURN_Z3(mk_c(c)->mk_external_string(ous->str()));
-        Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous?ous->str():""));
+        RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
+        Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous.str()));
     }
 }

@@ -233,6 +233,23 @@ namespace api {
 
         void check_sorts(ast * n);
 
+
+        // ------------------------------------------------
+        //
+        // State reused by calls to Z3_eval_smtlib2_string
+        //
+        // ------------------------------------------------
+        //
+        // The m_parser* fields are reused by all calls of Z3_eval_smtlib2_string using this context.
+        // It is an optimization to save the cost of recreating these objects on each invocation.
+        //
+        // See https://github.com/Z3Prover/z3/pull/6422 for the motivation
+        smt2::parser*                m_parser = nullptr;
+        std::stringstream            m_parser_ous;
+        std::istringstream           m_parser_is;
+        // Resets the streams to communicate with context::m_parser
+        void reset_parser_streams(std::string & input);
+
         // ------------------------
         //
         // Polynomial manager & caches
