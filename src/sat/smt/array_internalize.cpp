@@ -115,12 +115,6 @@ namespace array {
             SASSERT(is_array(n->get_arg(0)));
             push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
             break;
-        case OP_ARRAY_MINDIFF:
-        case OP_ARRAY_MAXDIFF:
-            push_axiom(diff_axiom(n));
-            m_minmaxdiffs.push_back(n);
-            ctx.push(push_back_vector(m_minmaxdiffs));
-            break;
         case OP_ARRAY_DEFAULT:
             add_parent_default(find(n->get_arg(0)));
             break;
@@ -175,10 +169,6 @@ namespace array {
             propagate_parent_default(find(n));
             break;
         case OP_ARRAY_EXT:
-            break;
-        case OP_ARRAY_MINDIFF:
-        case OP_ARRAY_MAXDIFF:
-            // todo
             break;
         case OP_ARRAY_DEFAULT:
             set_prop_upward(find(n->get_arg(0)));
