@@ -50,6 +50,11 @@ namespace realclosure {
     class manager;
 };
 
+namespace smt2 {
+    class parser;
+    void free_parser(parser*);
+};
+
 namespace api {
        
     class seq_expr_solver : public expr_solver {
