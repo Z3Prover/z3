@@ -20,8 +20,6 @@ Revision History:
 
 #include "sat/sat_solver.h"
 
-#define ENABLE_TERNARY true
-
 namespace sat {
 
     // -----------------------
@@ -180,6 +178,7 @@ namespace sat {
         IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat-gc :strategy " << st_name << " :deleted " << (sz - new_sz) << ")\n";);
     }
 
+#if ENABLE_TERNARY
     bool solver::can_delete3(literal l1, literal l2, literal l3) const {                                                           
         if (value(l1) == l_true && 
             value(l2) == l_false && 
@@ -193,16 +192,19 @@ namespace sat {
         }
         return true;
     }
+#endif
 
     bool solver::can_delete(clause const & c) const {
         if (c.on_reinit_stack())
             return false;
+#if ENABLE_TERNARY
         if (ENABLE_TERNARY && c.size() == 3) {
             return
                 can_delete3(c[0],c[1],c[2]) &&
                 can_delete3(c[1],c[0],c[2]) &&
                 can_delete3(c[2],c[0],c[1]);
         }
+#endif
         literal l0 = c[0];
         if (value(l0) != l_true)
             return true;
