@@ -34,7 +34,7 @@ class params_ref;
 class reslimit;
 class statistics;
 
-#define ENABLE_TERNARY false
+#define ENABLE_TERNARY true
 
 namespace sat {
 #define SAT_VB_LVL 10
