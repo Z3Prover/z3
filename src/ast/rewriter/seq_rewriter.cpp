@@ -1597,7 +1597,6 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     for (expr* rhs : lens) {
         pos = m_autil.mk_add(pos, str().mk_length(rhs));
     }
-    result = str().mk_concat(m_lhs.size() - i , m_lhs.data() + i, sort_a);
     result = str().mk_at(result, pos);
     return BR_REWRITE2;   
 }
