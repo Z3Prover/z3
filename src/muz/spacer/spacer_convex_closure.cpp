@@ -261,7 +261,6 @@ bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
     });
     SASSERT(data.size() > 1);
     SASSERT(is_sorted(data));
-    (void)is_sorted;
 
     m = rational(2);
 

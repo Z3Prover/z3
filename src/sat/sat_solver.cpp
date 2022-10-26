@@ -37,7 +37,6 @@ Revision History:
 # include <xmmintrin.h>
 #endif
 
-#define ENABLE_TERNARY true
 
 namespace sat {
 
@@ -576,6 +575,7 @@ namespace sat {
         return reinit;
     }
 
+#if ENABLE_TERNARY
     bool solver::propagate_ter_clause(clause& c) {
         bool reinit = false;
         if (value(c[1]) == l_false && value(c[2]) == l_false) {
@@ -595,24 +595,24 @@ namespace sat {
         }
         return reinit;
     }
+#endif
 
     clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_stats.m_mk_clause++;
         clause * r = alloc_clause(num_lits, lits, st.is_redundant());
         SASSERT(!st.is_redundant() || r->is_learned());
         bool reinit = attach_nary_clause(*r, st.is_sat() && st.is_redundant());
-        if (reinit || has_variables_to_reinit(*r)) push_reinit_stack(*r);
-        if (st.is_redundant()) {
+ 
+        if (reinit || has_variables_to_reinit(*r)) 
+            push_reinit_stack(*r);
+        if (st.is_redundant()) 
             m_learned.push_back(r);
-        }
-        else {
+        else 
             m_clauses.push_back(r);
-        }
         if (m_config.m_drat) 
             m_drat.add(*r, st);
-        for (literal l : *r) {
+        for (literal l : *r) 
             m_touched[l.var()] = m_touch_index;
-        }
         return r;
     }
 
@@ -1062,7 +1062,7 @@ namespace sat {
 
     bool solver::propagate_literal(literal l, bool update) {
         literal l1, l2;
-        lbool val1, val2;
+
         bool keep;
         unsigned curr_level = lvl(l);
         TRACE("sat_propagate", tout << "propagating: " << l << "@" << curr_level << " " << m_justification[l.var()] << "\n"; );
@@ -1100,7 +1100,9 @@ namespace sat {
                 *it2 = *it;
                 it2++;
                 break;
-            case watched::TERNARY:
+#if ENABLE_TERNARY
+            case watched::TERNARY: {
+                lbool val1, val2;
                 l1 = it->get_literal1();
                 l2 = it->get_literal2();
                 val1 = value(l1);
@@ -1121,6 +1123,8 @@ namespace sat {
                 *it2 = *it;
                 it2++;
                 break;
+            }
+#endif
             case watched::CLAUSE: {
                 if (value(it->get_blocked_literal()) == l_true) {
                     TRACE("propagate_clause_bug", tout << "blocked literal " << it->get_blocked_literal() << "\n";
@@ -2498,10 +2502,12 @@ namespace sat {
             case justification::BINARY:
                 process_antecedent(~(js.get_literal()), num_marks);
                 break;
+#if ENABLE_TERNARY
             case justification::TERNARY:
                 process_antecedent(~(js.get_literal1()), num_marks);
                 process_antecedent(~(js.get_literal2()), num_marks);
                 break;
+#endif
             case justification::CLAUSE: {
                 clause & c = get_clause(js);
                 unsigned i = 0;
@@ -2680,11 +2686,13 @@ namespace sat {
             SASSERT(consequent != null_literal);
             process_antecedent_for_unsat_core(~(js.get_literal()));
             break;
+#if ENABLE_TERNARY
         case justification::TERNARY:
             SASSERT(consequent != null_literal);
             process_antecedent_for_unsat_core(~(js.get_literal1()));
             process_antecedent_for_unsat_core(~(js.get_literal2()));
             break;
+#endif
         case justification::CLAUSE: {
             clause & c = get_clause(js);
             unsigned i = 0;
@@ -2821,10 +2829,12 @@ namespace sat {
         case justification::BINARY:
             level = update_max_level(js.get_literal(), level, unique_max);
             return level;
+#if ENABLE_TERNARY
         case justification::TERNARY:
             level = update_max_level(js.get_literal1(), level, unique_max);
             level = update_max_level(js.get_literal2(), level, unique_max);
             return level;
+#endif
         case justification::CLAUSE: 
             for (literal l : get_clause(js)) 
                 level = update_max_level(l, level, unique_max);
@@ -3176,6 +3186,7 @@ namespace sat {
                     return false;
                 }
                 break;
+#if ENABLE_TERNARY
             case justification::TERNARY:
                 if (!process_antecedent_for_minimization(~(js.get_literal1())) ||
                     !process_antecedent_for_minimization(~(js.get_literal2()))) {
@@ -3183,6 +3194,7 @@ namespace sat {
                     return false;
                 }
                 break;
+#endif
             case justification::CLAUSE: {
                 clause & c = get_clause(js);
                 unsigned i   = 0;
@@ -3338,10 +3350,12 @@ namespace sat {
             case justification::BINARY:
                 update_lrb_reasoned(js.get_literal());
                 break;
+#if ENABLE_TERNARY
             case justification::TERNARY:
                 update_lrb_reasoned(js.get_literal1());
                 update_lrb_reasoned(js.get_literal2());
                 break;
+#endif
             case justification::CLAUSE: {
                 clause & c = get_clause(js);
                 for (literal l : c) {
@@ -3687,6 +3701,7 @@ namespace sat {
             }
             else {
                 clause & c = *(cw.get_clause());
+#if ENABLE_TERNARY
                 if (ENABLE_TERNARY && c.size() == 3) {
                     if (propagate_ter_clause(c) && !at_base_lvl())
                         m_clauses_to_reinit[j++] = cw;                
@@ -3696,6 +3711,7 @@ namespace sat {
                         c.set_reinit_stack(false);
                     continue;
                 }
+#endif
                 detach_clause(c);
                 attach_clause(c, reinit);
                 if (reinit && !at_base_lvl()) 
@@ -3962,10 +3978,12 @@ namespace sat {
         case justification::BINARY:
             out << "binary " << js.get_literal() << "@" << lvl(js.get_literal());
             break;
+#if ENABLE_TERNARY
         case justification::TERNARY:
             out << "ternary " << js.get_literal1() << "@" << lvl(js.get_literal1()) << " ";
             out << js.get_literal2() << "@" << lvl(js.get_literal2());
             break;
+#endif
         case justification::CLAUSE: {
             out << "(";
             bool first = true;
@@ -4625,12 +4643,14 @@ namespace sat {
             if (!check_domain(lit, ~js.get_literal())) return false;
             s |= m_antecedents.find(js.get_literal().var());
             break;
+#if ENABLE_TERNARY
         case justification::TERNARY:
             if (!check_domain(lit, ~js.get_literal1()) ||
                 !check_domain(lit, ~js.get_literal2())) return false;
             s |= m_antecedents.find(js.get_literal1().var());
             s |= m_antecedents.find(js.get_literal2().var());
             break;
+#endif
         case justification::CLAUSE: {
             clause & c = get_clause(js);
             for (literal l : c) {

@@ -311,8 +311,8 @@ namespace smt {
             expr* gens[1] = { gen.get() };
             for (unsigned i = 0; i < num_bindings; ++i) 
                 bindings_e.push_back(bindings[i]->get_expr());
-            args.push_back(m.mk_not(q));
-            args.push_back(instance);
+            args.push_back(q);
+            args.push_back(mk_not(m, instance));
             args.push_back(m.mk_app(symbol("bind"), num_bindings, bindings_e.data(), m.mk_proof_sort()));
             args.push_back(m.mk_app(symbol("gen"), 1, gens, m.mk_proof_sort()));
             pr1 = m.mk_app(symbol("inst"), args.size(), args.data(), m.mk_proof_sort());

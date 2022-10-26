@@ -2000,7 +2000,7 @@ namespace sat {
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         for (auto & c1 : m_pos_cls) {
-            if (c1.was_removed())
+            if (c1.was_removed() && !c1.contains(pos_l))
                 continue;
             for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();

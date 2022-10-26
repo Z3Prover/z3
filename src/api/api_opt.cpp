@@ -383,8 +383,7 @@ extern "C" {
         Z3_string     s) {
         Z3_TRY;
         //LOG_Z3_optimize_from_string(c, d, s);
-        std::string str(s);
-        std::istringstream is(str);
+        std::istringstream is(s);
         Z3_optimize_from_stream(c, d, is, nullptr);
         Z3_CATCH;
     }

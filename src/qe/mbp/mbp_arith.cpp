@@ -155,6 +155,35 @@ namespace mbp {
                 }
                 SASSERT(found_eq);
             }
+            else if (m.is_and(lit) && !is_not) {
+                fmls.append(to_app(lit)->get_num_args(), to_app(lit)->get_args());
+                return true;
+            }
+            else if (m.is_or(lit) && is_not) {
+                for (expr* arg : *to_app(lit))
+                    fmls.push_back(mk_not(m, arg));
+                return true;
+            }
+            else if (m.is_or(lit) && !is_not) {
+                for (expr* arg : *to_app(lit)) {
+                    if (eval.is_true(arg)) {
+                        fmls.push_back(arg);
+                        return true;
+                    }
+                }
+                TRACE("qe", tout << "Skipping " << mk_pp(lit, m) << "\n";);
+                return false;
+            }
+            else if (m.is_and(lit) && is_not) {
+                for (expr* arg : *to_app(lit)) {
+                    if (eval.is_false(arg)) {
+                        fmls.push_back(mk_not(m, arg));
+                        return true;
+                    }
+                }
+                TRACE("qe", tout << "Skipping " << mk_pp(lit, m) << "\n";);
+                return false;
+            }
             else {
                 TRACE("qe", tout << "Skipping " << mk_pp(lit, m) << "\n";);
                 return false;
@@ -407,9 +436,9 @@ namespace mbp {
             TRACE("qe",
                 for (auto const& [v, t] : result)
                     tout << v << " := " << t << "\n";
-            for (auto* f : fmls)
-                tout << mk_pp(f, m) << " := " << eval(f) << "\n";
-            tout << "fmls:" << fmls << "\n";);
+                  for (auto* f : fmls)
+                      tout << mk_pp(f, m) << " := " << eval(f) << "\n";
+                  tout << "fmls:" << fmls << "\n";);
             return true;
         }
 

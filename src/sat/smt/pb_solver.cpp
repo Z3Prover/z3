@@ -690,6 +690,7 @@ namespace pb {
                 inc_coeff(consequent, offset);
                 process_antecedent(js.get_literal(), offset);
                 break;
+#if ENABLE_TERNARY
             case sat::justification::TERNARY:
                 inc_bound(offset); 
                 SASSERT (consequent != sat::null_literal);
@@ -697,6 +698,7 @@ namespace pb {
                 process_antecedent(js.get_literal1(), offset);
                 process_antecedent(js.get_literal2(), offset);
                 break;
+#endif
             case sat::justification::CLAUSE: {
                 inc_bound(offset); 
                 sat::clause & c = s().get_clause(js);
@@ -1017,6 +1019,7 @@ namespace pb {
                 inc_coeff(consequent, 1);
                 process_antecedent(js.get_literal());
                 break;
+#if ENABLE_TERNARY
             case sat::justification::TERNARY:
                 SASSERT(consequent != sat::null_literal);
                 round_to_one(consequent.var());
@@ -1025,6 +1028,7 @@ namespace pb {
                 process_antecedent(js.get_literal1());
                 process_antecedent(js.get_literal2());
                 break;
+#endif
             case sat::justification::CLAUSE: {
                 sat::clause & c = s().get_clause(js);
                 unsigned i = 0;
@@ -3472,6 +3476,7 @@ namespace pb {
             ineq.push(lit, offset);
             ineq.push(js.get_literal(), offset);
             break;
+#if ENABLE_TERNARY
         case sat::justification::TERNARY:
             SASSERT(lit != sat::null_literal);
             ineq.reset(offset);
@@ -3479,6 +3484,7 @@ namespace pb {
             ineq.push(js.get_literal1(), offset);
             ineq.push(js.get_literal2(), offset);
             break;
+#endif
         case sat::justification::CLAUSE: {
             ineq.reset(offset);
             sat::clause & c = s().get_clause(js);

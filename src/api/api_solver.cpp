@@ -318,8 +318,7 @@ extern "C" {
     void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string c_str) {
         Z3_TRY;
         LOG_Z3_solver_from_string(c, s, c_str);
-        std::string str(c_str);
-        std::istringstream is(str);
+        std::istringstream is(c_str);
         if (is_dimacs_string(c_str)) {
             solver_from_dimacs_stream(c, s, is);
         }

@@ -189,7 +189,6 @@ namespace euf {
     }
 
     void ackerman::add_cc(expr* _a, expr* _b) {     
-        flet<bool> _is_redundant(ctx.m_is_redundant, true);
         app* a = to_app(_a);
         app* b = to_app(_b);
         TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
@@ -213,7 +212,6 @@ namespace euf {
     void ackerman::add_eq(expr* a, expr* b, expr* c) {
         if (a == c || b == c)
             return;
-        flet<bool> _is_redundant(ctx.m_is_redundant, true);
         sat::literal lits[3];
         expr_ref eq1(ctx.mk_eq(a, c), m);
         expr_ref eq2(ctx.mk_eq(b, c), m);
@@ -223,7 +221,7 @@ namespace euf {
         lits[1] = ~ctx.mk_literal(eq2);
         lits[2] = ctx.mk_literal(eq3);
         th_proof_hint* ph = ctx.mk_tc_proof_hint(lits);
-        ctx.s().mk_clause(3, lits, sat::status::th(true, m.get_basic_family_id(), ph));        
+        ctx.s().add_clause(3, lits, sat::status::th(true, m.get_basic_family_id(), ph));        
     }
 
 }

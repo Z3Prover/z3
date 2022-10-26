@@ -57,17 +57,8 @@ namespace sat {
     }
 
     std::ostream& drat::pp(std::ostream& out, status st) const {
-        if (st.is_redundant())
-            out << "l";
-        else if (st.is_deleted())
+        if (st.is_deleted())
             out << "d";
-        else if (st.is_asserted())
-            out << "a";
-        else if (st.is_input())
-            out << "i";
-
-        if (!st.is_sat())
-            out << " " << m_theory[st.get_th()];
         return out;
     }
 
@@ -102,11 +93,6 @@ namespace sat {
             }
         }
 
-        if (!st.is_sat()) {
-            for (char ch : m_theory[st.get_th()])
-                buffer[len++] = ch;
-            buffer[len++] = ' ';
-        }
         for (unsigned i = 0; i < n; ++i) {
             literal lit = c[i];
             unsigned v = lit.var();
@@ -459,8 +445,10 @@ namespace sat {
             return false;
         case justification::BINARY:
             return contains(c, j.get_literal());
+#if ENABLE_TERNARY
         case justification::TERNARY:
             return contains(c, j.get_literal1(), j.get_literal2());
+#endif
         case justification::CLAUSE:
             return contains(s.get_clause(j));
         default:
