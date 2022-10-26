@@ -157,8 +157,7 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_parser_context_from_string(Z3_context c, Z3_parser_context pc, Z3_string str) {
         Z3_TRY;
         LOG_Z3_parser_context_from_string(c, pc, str);
-        std::string s(str);
-        std::istringstream is(s);
+        std::istringstream is(str);
         auto& ctx = to_parser_context(pc)->ctx;
         Z3_ast_vector r = Z3_parser_context_parse_stream(c, ctx, false, is);
         RETURN_Z3(r);
@@ -202,8 +201,7 @@ extern "C" {
                                           Z3_func_decl const decls[]) {
         Z3_TRY;
         LOG_Z3_parse_smtlib2_string(c, str, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        std::string s(str);
-        std::istringstream is(s);
+        std::istringstream is(str);
         Z3_ast_vector r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
@@ -243,8 +241,7 @@ extern "C" {
             ctx->set_solver_factory(mk_smt_strategic_solver_factory());
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
-        std::string s(str);
-        std::istringstream is(s);
+        std::istringstream is(str);
         ctx->set_regular_stream(ous);
         ctx->set_diagnostic_stream(ous);
         cmd_context::scoped_redirect _redirect(*ctx);
