@@ -2270,11 +2270,13 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
     // ~x = -1 - x
     unsigned sz = m_util.get_bv_size(x);
     if (m_util.is_bv_not(x, z)) {
-        result = m_util.mk_bv_mul(m_util.mk_bv_sub(mk_numeral(-1, sz), z), y);
+        numeral p = rational(2).expt(sz) - 1;
+        result = m_util.mk_bv_mul(m_util.mk_bv_sub(mk_numeral(p, sz), z), y);
         return BR_REWRITE3;
     }
     if (m_util.is_bv_not(y, z)) {
-        result = m_util.mk_bv_mul(m_util.mk_bv_sub(mk_numeral(-1, sz), z), x);
+        numeral p = rational(2).expt(sz) - 1;
+        result = m_util.mk_bv_mul(m_util.mk_bv_sub(mk_numeral(p, sz), z), x);
         return BR_REWRITE3;
     }
     // shl(z, u) * x = shl(x * z, u)
