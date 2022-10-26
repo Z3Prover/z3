@@ -224,6 +224,14 @@ namespace euf {
             return;
         }
 
+        // check if it is trivial
+        expr_mark visited;
+        for (expr* arg : *e) {
+            if (visited.is_marked(arg))
+                return;
+            visited.mark(arg);
+        }
+
         static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args) {
             sat::literal_vector lits;
@@ -248,7 +256,8 @@ namespace euf {
             func_decl_ref g(m.mk_fresh_func_decl("dist-g", "", 1, &u_ptr, srt), m);
             expr_ref a(m.mk_fresh_const("a", u), m);
             expr_ref_vector eqs(m);
-            for (expr* arg : *e) {
+
+            for (expr* arg : *e) {                
                 expr_ref fapp(m.mk_app(f, arg), m);
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);

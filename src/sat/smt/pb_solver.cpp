@@ -1354,7 +1354,6 @@ namespace pb {
           si(si), m_pb(m),
           m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
-        TRACE("pb", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
     }
 
@@ -1432,6 +1431,7 @@ namespace pb {
         }     
         if (!c->well_formed()) 
             IF_VERBOSE(0, verbose_stream() << *c << "\n");
+        SASSERT(c->well_formed());
         VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
             auto * out = s().get_drat().out();
