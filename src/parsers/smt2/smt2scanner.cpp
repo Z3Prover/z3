@@ -391,7 +391,7 @@ namespace smt2 {
     }
 
     void scanner::reset_input(std::istream & stream, bool interactive) {
-		m_stream = &stream;
+        m_stream = &stream;
         m_interactive = interactive;
         m_at_eof = false;
         m_bpos = 0;
