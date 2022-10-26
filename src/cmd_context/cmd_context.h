@@ -41,6 +41,7 @@ Notes:
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
 
+
 class func_decls {
     func_decl * m_decls { nullptr };
     bool signatures_collide(func_decl* f, func_decl* g) const;
