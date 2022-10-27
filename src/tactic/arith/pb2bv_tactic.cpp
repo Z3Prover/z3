@@ -866,7 +866,7 @@ private:
             m_used_dependencies(m),
             m_rw(*this) {
             updt_params(p);            
-            m_b_rw.set_flat(false); // no flattening otherwise will blowup the memory
+            m_b_rw.set_flat_and_or(false); // no flattening otherwise will blowup the memory
             m_b_rw.set_elim_and(true);
         }
 

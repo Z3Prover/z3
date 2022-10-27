@@ -116,7 +116,7 @@ class tseitin_cnf_tactic : public tactic {
             m_rw(_m),
             m_num_aux_vars(0) {
             updt_params(p);
-            m_rw.set_flat(false);
+            m_rw.set_flat_and_or(false);
         }
         
         void updt_params(params_ref const & p) {

@@ -55,7 +55,7 @@ namespace bv {
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
-        m_bb.set_flat(false);
+        m_bb.set_flat_and_or(false);
     }
 
     bool solver::is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) {
