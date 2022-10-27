@@ -64,7 +64,9 @@ namespace sat {
                     }
                     TRACE("cleanup_bug", tout << "keeping: " << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";);
                     break;
+#if ENABLE_TERNARY
                 case watched::TERNARY:
+#endif
                 case watched::CLAUSE:
                     // skip
                     break;

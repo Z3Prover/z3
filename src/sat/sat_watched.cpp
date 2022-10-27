@@ -71,6 +71,7 @@ namespace sat {
         VERIFY(found);
     }
 
+#if ENABLE_TERNARY
     void erase_ternary_watch(watch_list& wlist, literal l1, literal l2) {
         watched w(l1, l2);
         watch_list::iterator it = wlist.begin(), end = wlist.end();
@@ -96,6 +97,7 @@ namespace sat {
         }
 #endif
     }
+#endif
 
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {
         watch_list::iterator end = wlist.end();
@@ -118,9 +120,11 @@ namespace sat {
                 if (w.is_learned())
                     out << "*";
                 break;
+#if ENABLE_TERNARY
             case watched::TERNARY:
                 out << "(" << w.get_literal1() << " " << w.get_literal2() << ")";
                 break;
+#endif
             case watched::CLAUSE:
                 out << "(" << w.get_blocked_literal() << " " << *(ca.get_clause(w.get_clause_offset())) << ")";
                 break;

@@ -269,7 +269,9 @@ namespace sat {
             watch_list::iterator end2   = wlist.end();
             for (; it2 != end2; ++it2) {
                 switch (it2->get_kind()) {
+#if ENABLE_TERNARY
                 case watched::TERNARY:
+#endif
                 case watched::CLAUSE:
                     // consume
                     break;

@@ -198,7 +198,7 @@ namespace sat {
         if (c.on_reinit_stack())
             return false;
 #if ENABLE_TERNARY
-        if (ENABLE_TERNARY && c.size() == 3) {
+        if (c.size() == 3) {
             return
                 can_delete3(c[0],c[1],c[2]) &&
                 can_delete3(c[1],c[0],c[2]) &&

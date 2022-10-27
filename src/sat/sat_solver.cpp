@@ -372,15 +372,15 @@ namespace sat {
     }
 
     void solver::del_clause(clause& c) {
-        if (!c.is_learned()) {
+        if (!c.is_learned()) 
             m_stats.m_non_learned_generation++;
-        } 
-        if (c.frozen()) {
+        
+        if (c.frozen()) 
             --m_num_frozen;
-        }
-        if (!c.was_removed() && m_config.m_drat && !m_drat.is_cleaned(c)) {
+        
+        if (!c.was_removed() && m_config.m_drat && !m_drat.is_cleaned(c)) 
             m_drat.del(c);
-        }
+        
         dealloc_clause(&c);        
         if (m_searching) 
             m_stats.m_del_clause++;
@@ -448,10 +448,10 @@ namespace sat {
             if (redundant && m_par) 
                 m_par->share_clause(*this, lits[0], lits[1]);
             return nullptr;
+#if ENABLE_TERNARY
         case 3:
-            if (ENABLE_TERNARY) 
                 return mk_ter_clause(lits, st);
-            Z3_fallthrough;
+#endif
         default:
             return mk_nary_clause(num_lits, lits, st);
         }
@@ -545,6 +545,7 @@ namespace sat {
         m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
     }
 
+#if ENABLE_TERNARY
     clause * solver::mk_ter_clause(literal * lits, sat::status st) {
         VERIFY(ENABLE_TERNARY);
         m_stats.m_mk_ter_clause++;
@@ -575,7 +576,6 @@ namespace sat {
         return reinit;
     }
 
-#if ENABLE_TERNARY
     bool solver::propagate_ter_clause(clause& c) {
         bool reinit = false;
         if (value(c[1]) == l_false && value(c[2]) == l_false) {
@@ -664,9 +664,11 @@ namespace sat {
     void solver::attach_clause(clause & c, bool & reinit) {
         SASSERT(c.size() > 2);
         reinit = false;
+#if ENABLE_TERNARY
         if (ENABLE_TERNARY && c.size() == 3)
             reinit = attach_ter_clause(c, c.is_learned() ? sat::status::redundant() : sat::status::asserted());
         else
+#endif
             reinit = attach_nary_clause(c, c.is_learned() && !c.on_reinit_stack());
     }
 
@@ -914,11 +916,14 @@ namespace sat {
         if (m_config.m_drat) m_drat.del(l1, l2);       
     }
 
-    void solver::detach_clause(clause & c) {
-        if (ENABLE_TERNARY && c.size() == 3)
+    void solver::detach_clause(clause& c) {
+#if ENABLE_TERNARY
+        if (c.size() == 3) {
             detach_ter_clause(c);
-        else
-            detach_nary_clause(c);
+            return;
+        }
+#endif
+        detach_nary_clause(c);
     }
 
     void solver::detach_nary_clause(clause & c) {
@@ -927,11 +932,13 @@ namespace sat {
         erase_clause_watch(get_wlist(~c[1]), cls_off);
     }
 
+#if ENABLE_TERNARY
     void solver::detach_ter_clause(clause & c) {
         erase_ternary_watch(get_wlist(~c[0]), c[1], c[2]);
         erase_ternary_watch(get_wlist(~c[1]), c[0], c[2]);
         erase_ternary_watch(get_wlist(~c[2]), c[0], c[1]);
     }
+#endif
 
     // -----------------------
     //
@@ -1060,6 +1067,22 @@ namespace sat {
         return r;
     }
 
+    void solver::propagate_clause(clause& c, bool update, unsigned assign_level, clause_offset cls_off) {
+        unsigned glue;
+        SASSERT(value(c[0]) == l_undef); 
+            m_stats.m_propagate++;          
+            c.mark_used();                                          
+            assign_core(c[0], justification(assign_level, cls_off)); 
+            if (update && c.is_learned() && c.glue() > 2 && num_diff_levels_below(c.size(), c.begin(), c.glue() - 1, glue)) 
+                c.set_glue(glue);                                   \
+    }
+
+    void solver::set_watch(clause& c, unsigned idx, clause_offset cls_off) {
+        std::swap(c[1], c[idx]);
+        DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
+        m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));
+    }
+
     bool solver::propagate_literal(literal l, bool update) {
         literal l1, l2;
 
@@ -1139,6 +1162,8 @@ namespace sat {
                 if (c[0] == not_l)
                     std::swap(c[0], c[1]);
                 CTRACE("propagate_bug", c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
+
+
                 if (c.was_removed() || c.size() == 1 || c[1] != not_l) {
                     // Remark: this method may be invoked when the watch lists are not in a consistent state,
                     // and may contain dead/removed clauses, or clauses with removed literals.
@@ -1155,58 +1180,65 @@ namespace sat {
                     break;
                 }
                 VERIFY(c[1] == not_l);
-                literal* l_it = c.begin() + 2;
-                literal* l_end = c.end();
+                
+                unsigned undef_index = 0;
                 unsigned assign_level = curr_level;
                 unsigned max_index = 1;
-                for (; l_it != l_end; ++l_it) {
-                    if (value(*l_it) != l_false) {
-                        c[1] = *l_it;
-                        *l_it = not_l;
-                        DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
-                        m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));
+                unsigned num_undef = 0;
+                unsigned sz = c.size();
+
+                for (unsigned i = 2; i < sz && num_undef <= 1; ++i) {
+                    literal lit = c[i];
+                    switch (value(lit)) {
+                    case l_true:
+                        it2->set_clause(lit, cls_off);
+                        it2++;
                         goto end_clause_case;
-                    }
-                }
-                SASSERT(value(c[0]) == l_false || value(c[0]) == l_undef);
-                if (assign_level != scope_lvl()) {
-                    for (unsigned i = 2; i < c.size(); ++i) {
-                        unsigned level = lvl(c[i]);
+                    case l_undef:
+                        undef_index = i;
+                        ++num_undef;
+                        break;
+                    case l_false: {
+                        unsigned level = lvl(lit);
                         if (level > assign_level) {
                             assign_level = level;
                             max_index = i;
                         }
+                        break;
                     }
-                    IF_VERBOSE(20, verbose_stream() << "lower assignment level " << assign_level << " scope: " << scope_lvl() << "\n");
+                    }
+                }
+
+                if (value(c[0]) == l_false)
+                    assign_level = std::max(assign_level, lvl(c[0]));
+
+                if (undef_index != 0) {       
+                    set_watch(c, undef_index, cls_off);
+                    if (value(c[0]) == l_false && num_undef == 1) {   
+                        std::swap(c[0], c[1]);
+                        propagate_clause(c, update, assign_level, cls_off);
+                    }
+                    goto end_clause_case;
                 }
 
                 if (value(c[0]) == l_false) {
-                    assign_level = std::max(assign_level, lvl(c[0]));
                     c.mark_used();
                     CONFLICT_CLEANUP();
                     set_conflict(justification(assign_level, cls_off));
                     return false;
                 }
-                else {
-                    if (max_index != 1) {
-                        IF_VERBOSE(20, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
-                        std::swap(c[1], c[max_index]);
-                        m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));
-                    }
-                    else {
-                        *it2 = *it;
-                        it2++;
-                    }
-                    m_stats.m_propagate++;
-                    c.mark_used();
-                    assign_core(c[0], justification(assign_level, cls_off));
-                    if (update && c.is_learned() && c.glue() > 2) {
-                        unsigned glue;
-                        if (num_diff_levels_below(c.size(), c.begin(), c.glue() - 1, glue)) {
-                            c.set_glue(glue);
-                        }
-                    }
+
+                // value(c[0]) == l_undef
+
+                if (max_index != 1) {
+                    IF_VERBOSE(20, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
+                    set_watch(c, max_index, cls_off);
                 }
+                else {
+                    *it2 = *it;
+                    it2++;
+                }
+                propagate_clause(c, update, assign_level, cls_off);
             end_clause_case:
                 break;
             }
@@ -3425,6 +3457,7 @@ namespace sat {
                         unmark_lit(~l2);
                     }
                 }
+#if ENABLE_TERNARY
                 else if (w.is_ternary_clause()) {
                     literal l2 = w.get_literal1();
                     literal l3 = w.get_literal2();
@@ -3437,6 +3470,7 @@ namespace sat {
                         unmark_lit(~l2);
                     }
                 }
+#endif
                 else {
                     // May miss some binary/ternary clauses, but that is ok.
                     // I sort the watch lists at every simplification round.
@@ -3581,7 +3615,7 @@ namespace sat {
 
         auto cleanup_watch = [&](literal lit) {
             for (auto const& w : get_wlist(lit)) {
-                IF_VERBOSE(0, verbose_stream() << "cleanup: " << lit << " " << w.is_binary_clause() << "\n");
+                IF_VERBOSE(1, verbose_stream() << "cleanup: " << lit << " " << w.is_binary_clause() << "\n");
             }
         };
         for (bool_var v : m_vars_to_free) {

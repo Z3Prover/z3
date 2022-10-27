@@ -27,10 +27,12 @@ namespace sat {
         s(_s) {
     }
 
+#if ENABLE_TERNARY
     // for ternary clauses 
     static bool contains_watched(watch_list const & wlist, literal l1, literal l2) {
         return wlist.contains(watched(l1, l2));
     }
+#endif
     
     // for nary clauses
     static bool contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) {
@@ -63,6 +65,7 @@ namespace sat {
         if (c.frozen())
             return true;
 
+#if ENABLE_TERNARY
         if (c.size() == 3) {
             CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
                    tout << "watch_list:\n";
@@ -71,8 +74,10 @@ namespace sat {
             VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
             VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
             VERIFY(contains_watched(s.get_wlist(~c[2]), c[0], c[1]));
+            return true;
         }
-        else {
+#endif
+        {
             if (s.value(c[0]) == l_false || s.value(c[1]) == l_false) {
                 bool on_prop_stack = false;
                 for (unsigned i = s.m_qhead; i < s.m_trail.size(); i++) {
@@ -169,11 +174,13 @@ namespace sat {
                        tout << "\n";);
                 VERIFY(find_binary_watch(s.get_wlist(~(w.get_literal())), l));
                 break;
+#if ENABLE_TERNARY
             case watched::TERNARY:
                 VERIFY(!s.was_eliminated(w.get_literal1().var()));
                 VERIFY(!s.was_eliminated(w.get_literal2().var()));
                 VERIFY(w.get_literal1().index() < w.get_literal2().index());
                 break;
+#endif
             case watched::CLAUSE:
                 VERIFY(!s.get_clause(w.get_clause_offset()).was_removed());
                 break;

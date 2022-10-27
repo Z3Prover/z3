@@ -40,7 +40,11 @@ namespace sat {
     class watched {
     public:
         enum kind {
-            BINARY = 0, TERNARY, CLAUSE, EXT_CONSTRAINT
+            BINARY = 0, 
+#if ENABLE_TERNARY
+            TERNARY,
+#endif
+            CLAUSE, EXT_CONSTRAINT
         };
     private:
         size_t   m_val1;
@@ -55,6 +59,7 @@ namespace sat {
             SASSERT(learned || is_binary_non_learned_clause());
         }
 
+#if ENABLE_TERNARY
         watched(literal l1, literal l2) {
             SASSERT(l1 != l2);
             if (l1.index() > l2.index())
@@ -65,6 +70,7 @@ namespace sat {
             SASSERT(get_literal1() == l1);
             SASSERT(get_literal2() == l2);
         }
+#endif
 
         unsigned val2() const { return m_val2; }
 
@@ -95,9 +101,11 @@ namespace sat {
 
         void set_learned(bool l) { if (l) m_val2 |= 4u; else m_val2 &= ~4u; SASSERT(is_learned() == l); }
                 
+#if ENABLE_TERNARY
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
         literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 2); }
+#endif
 
         bool is_clause() const { return get_kind() == CLAUSE; }
         clause_offset get_clause_offset() const { SASSERT(is_clause()); return static_cast<clause_offset>(m_val1); }
@@ -117,7 +125,9 @@ namespace sat {
     };
 
     static_assert(0 <= watched::BINARY && watched::BINARY <= 3, "");
+#if ENABLE_TERNARY
     static_assert(0 <= watched::TERNARY && watched::TERNARY <= 3, "");
+#endif
     static_assert(0 <= watched::CLAUSE && watched::CLAUSE <= 3, "");
     static_assert(0 <= watched::EXT_CONSTRAINT && watched::EXT_CONSTRAINT <= 3, "");
 
@@ -125,8 +135,10 @@ namespace sat {
         bool operator()(watched const & w1, watched const & w2) const {
             if (w2.is_binary_clause()) return false;
             if (w1.is_binary_clause()) return true;
+#if ENABLE_TERNARY
             if (w2.is_ternary_clause()) return false;
             if (w1.is_ternary_clause()) return true;
+#endif
             return false;
         }
     };
