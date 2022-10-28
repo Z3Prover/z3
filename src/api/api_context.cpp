@@ -149,6 +149,8 @@ namespace api {
 
 
     context::~context() {
+        if (m_parser)
+            smt2::free_parser(m_parser);
         m_last_obj = nullptr;
         flush_objects();
         for (auto& kv : m_allocated_objects) {

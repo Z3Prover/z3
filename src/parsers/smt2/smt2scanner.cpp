@@ -27,8 +27,8 @@ namespace smt2 {
         if (m_at_eof)
             throw scanner_exception("unexpected end of file");
         if (m_interactive) {
-            m_curr = m_stream.get();
-            if (m_stream.eof())
+            m_curr = m_stream->get();
+            if (m_stream->eof())
                 m_at_eof = true;
         }
         else if (m_bpos < m_bend) {
@@ -36,8 +36,8 @@ namespace smt2 {
             m_bpos++;
         }
         else {
-            m_stream.read(m_buffer, SCANNER_BUFFER_SIZE);
-            m_bend = static_cast<unsigned>(m_stream.gcount());
+            m_stream->read(m_buffer, SCANNER_BUFFER_SIZE);
+            m_bend = static_cast<unsigned>(m_stream->gcount());
             m_bpos = 0;
             if (m_bpos == m_bend) {
                 m_at_eof = true;
@@ -281,7 +281,7 @@ namespace smt2 {
         m_bv_size(UINT_MAX),
         m_bpos(0),
         m_bend(0),
-        m_stream(stream),
+        m_stream(&stream),
         m_cache_input(false) {
 
 
@@ -390,5 +390,13 @@ namespace smt2 {
         return m_cache_result.begin();
     }
 
+    void scanner::reset_input(std::istream & stream, bool interactive) {
+        m_stream = &stream;
+        m_interactive = interactive;
+        m_at_eof = false;
+        m_bpos = 0;
+        m_bend = 0;
+        next();
+    }
 };
 
