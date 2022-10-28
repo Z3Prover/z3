@@ -19,9 +19,16 @@ Abstract:
 
 namespace xr {
 
+
     solver::solver(euf::solver& ctx):
-        th_solver(ctx.get_manager(), symbol("xor-solver"), ctx.get_manager().get_family_id("xor-solver"))
-    {}
+        solver(ctx.get_manager(), ctx.get_si(), ctx.get_manager().get_family_id("xor")) {
+        m_ctx = &ctx;
+    }
+
+    solver::solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
+        : euf::th_solver(m, symbol("xor"), id),
+          si(si) {
+    }
 
     euf::th_solver* solver::clone(euf::solver& ctx) {
         // and relevant copy internal state

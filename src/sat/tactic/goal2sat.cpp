@@ -42,6 +42,7 @@ Notes:
 #include "sat/sat_drat.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/smt/pb_solver.h"
+#include "sat/smt/xor_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/sat_params.hpp"
@@ -75,6 +76,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
     bool                        m_euf = false;
+    bool                        m_xor = false;
     bool                        m_top_level = false;
     sat::literal_vector         aig_lits;
     
@@ -100,6 +102,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_euf = sp.euf();
+        m_xor = sp.enable_xor();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -658,6 +661,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_unhandled_funs;
     }
 
+    void ensure_xor() {
+        sat::extension* ext = m_solver.get_extension();
+        if (ext)
+            return;
+        auto* x = alloc(xr::solver, m, *this, m.get_family_id("xor"));
+        m_solver.set_extension(x);        
+    }
+
     euf::solver* ensure_euf() {
         SASSERT(m_euf);
         sat::extension* ext = m_solver.get_extension();
@@ -950,6 +961,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         expr_ref_vector  fmls(m);
         if (m_euf)
             ensure_euf();
+        else if (m_xor)
+            ensure_xor();
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);
             // Add assumptions.

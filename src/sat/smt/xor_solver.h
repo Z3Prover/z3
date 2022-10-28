@@ -18,9 +18,11 @@ Abstract:
 
 namespace xr {
     class solver : public euf::th_solver {
+        euf::solver* m_ctx = nullptr;
+        sat::sat_internalizer& si;
     public:
         solver(euf::solver& ctx);
-        
+        solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
         th_solver* clone(euf::solver& ctx) override;
 
         sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }

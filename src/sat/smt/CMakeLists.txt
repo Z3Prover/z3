@@ -44,6 +44,7 @@ z3_add_component(sat_smt
     sat_th.cpp
     tseitin_theory_checker.cpp
     user_solver.cpp
+    xor_solver.cpp
   COMPONENT_DEPENDENCIES
     sat
     ast
