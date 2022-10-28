@@ -229,6 +229,7 @@ namespace sat {
             }
         }
 
+        unsigned count = 0;
         do {
             if (m_subsumption)
                 subsume();
@@ -240,8 +241,9 @@ namespace sat {
                 return;
             if (!m_subsumption || m_sub_counter < 0)
                 break;
+            ++count;
         }
-        while (!m_sub_todo.empty());
+        while (!m_sub_todo.empty() && count < 20);
         bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
         if (m_need_cleanup || vars_eliminated) {

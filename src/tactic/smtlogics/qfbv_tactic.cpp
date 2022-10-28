@@ -86,6 +86,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);
+    local_ctx_p.set_bool("flat", false);
 
     params_ref solver_p;
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.

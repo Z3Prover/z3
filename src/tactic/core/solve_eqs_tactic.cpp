@@ -36,6 +36,7 @@ class solve_eqs_tactic : public tactic {
         
         ast_manager &                 m_manager;
         expr_replacer *               m_r;
+        params_ref                    m_params;
         bool                          m_r_owner;
         arith_util                    m_a_util;
         obj_map<expr, unsigned>       m_num_occs;
@@ -80,7 +81,8 @@ class solve_eqs_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
         
         void updt_params(params_ref const & p) {
-            tactic_params tp(p);
+            m_params.append(p);
+            tactic_params tp(m_params);
             m_ite_solver     = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
             m_theory_solver  = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
             m_max_occs       = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
@@ -702,8 +704,8 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_proofs) 
                 return;
             unsigned size = g.size();
-            hoist_rewriter_star rw(m());
-            th_rewriter thrw(m());
+            hoist_rewriter_star rw(m(), m_params);
+            th_rewriter thrw(m(), m_params);
             expr_ref tmp(m()), tmp2(m());
             
             TRACE("solve_eqs", g.display(tout););
@@ -1082,15 +1084,13 @@ class solve_eqs_tactic : public tactic {
     };
     
     imp *      m_imp;
-    params_ref m_params;
 public:
-    solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner):
-        m_params(p) {
+    solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner) {
         m_imp = alloc(imp, m, p, r, owner);
     }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(solve_eqs_tactic, m, m_params, mk_expr_simp_replacer(m, m_params), true);
+        return alloc(solve_eqs_tactic, m, m_imp->m_params, mk_expr_simp_replacer(m, m_imp->m_params), true);
     }
         
     ~solve_eqs_tactic() override {
@@ -1100,8 +1100,7 @@ public:
     char const* name() const override { return "solve_eqs"; }
 
     void updt_params(params_ref const & p) override {
-        m_params.append(p);
-        m_imp->updt_params(m_params);
+        m_imp->updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {        
@@ -1126,7 +1125,7 @@ public:
         bool owner = m_imp->m_r_owner;
         m_imp->m_r_owner  = false; // stole replacer
 
-        imp * d = alloc(imp, m, m_params, r, owner);
+        imp * d = alloc(imp, m, m_imp->m_params, r, owner);
         d->m_num_eliminated_vars = num_elim_vars;
         std::swap(d, m_imp);        
         dealloc(d);
