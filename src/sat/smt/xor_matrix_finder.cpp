@@ -116,7 +116,7 @@ namespace xr {
         return false;
     }
     
-    uint32_t xor_matrix_finder::set_matrixes() {
+    unsigned xor_matrix_finder::set_matrixes() {
 
         svector<matrix_shape> matrix_shapes;
         svector<ptr_vector<constraint>> xors_in_matrix(m_matrix_no);
@@ -147,13 +147,13 @@ namespace xr {
      
         std::sort(matrix_shapes.begin(), matrix_shapes.end(), m_sorter);
     
-        uint32_t realMatrixNum = 0;
-        uint32_t unusedMatrix = 0;
-        uint32_t too_few_rows_matrix = 0;
-        uint32_t unused_matrix_printed = 0;
+        unsigned realMatrixNum = 0;
+        unsigned unusedMatrix = 0;
+        unsigned too_few_rows_matrix = 0;
+        unsigned unused_matrix_printed = 0;
         for (unsigned a = m_matrix_no; a-- > 0; ) {
             matrix_shape& m = matrix_shapes[a];
-            uint32_t i = m.m_num;
+            unsigned i = m.m_num;
             if (m.m_rows == 0) 
                 continue;            
     
