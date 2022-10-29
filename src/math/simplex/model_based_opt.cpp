@@ -1299,7 +1299,7 @@ namespace opt {
         def result;
         unsigned_vector div_rows(_div_rows), mod_rows(_mod_rows);
         SASSERT(!div_rows.empty() || !mod_rows.empty());
-        TRACE("opt", display(tout << "solve_div " << x << "\n"));
+        TRACE("opt", display(tout << "solve_div v" << x << "\n"));
 
         rational K(1);
         for (unsigned ri : div_rows)
