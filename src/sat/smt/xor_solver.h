@@ -20,7 +20,7 @@ namespace xr {
 
     class constraint {
         unsigned        m_size;
-        bool            m_detached;
+        bool            m_detached = false;
         size_t          m_obj_size;
         bool            m_rhs;
         sat::bool_var   m_vars[0];
@@ -28,7 +28,7 @@ namespace xr {
     public:
         static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(constraint) + num_lits * sizeof(sat::bool_var)); }
         
-        constraint(const svector<sat::bool_var>& ids, bool expected_result) : m_size(ids.size()), m_detached(false), m_obj_size(get_obj_size(ids.size())), m_rhs(expected_result) {
+        constraint(const svector<sat::bool_var>& ids, bool expected_result) : m_size(ids.size()), m_obj_size(get_obj_size(ids.size())), m_rhs(expected_result) {
             unsigned i = 0;
             for (auto v : ids)
                 m_vars[i++] = v;

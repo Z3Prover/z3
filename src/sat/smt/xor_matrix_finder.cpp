@@ -63,7 +63,7 @@ namespace xr {
     
         finder.move_xors_without_connecting_vars_to_unused();
         finder.clean_equivalent_xors(m_solver->xorclauses);
-        for(const auto& x: m_xor.xorclauses_unused)
+        for (const auto& x: m_xor.xorclauses_unused)
             clash_vars_unused.insert(x.clash_vars.begin(), x.clash_vars.end());
     
         if (m_xor.xorclauses.size() < m_sat.get_config().m_min_gauss_xor_clauses) {
@@ -73,9 +73,9 @@ namespace xr {
     
         //Just one giant matrix.
         // if (m_sat.get_config().m_xor_gauss_do_matrix_find)
-        if (!m_solver->conf.gaussconf.doMatrixFind) {
-            m_solver->gmatrices.push_back(new EGaussian(m_solver, 0, m_solver->xorclauses));
-            m_solver->gqueuedata.resize(m_solver->gmatrices.size());
+        if (!m_sat.get_config().m_xor_doMatrixFind) {
+            m_xor.gmatrices.push_back(new EGaussian(m_xor, 0, m_xor.xorclauses));
+            m_xor.gqueuedata.resize(m_xor.gmatrices.size());
             return true;
         }
     
