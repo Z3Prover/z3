@@ -128,7 +128,7 @@ def_module_params('sat',
                           # Xor parameters
                           ('xor.enable', BOOL, False, 'enable xor solver plugin in combination with pure SAT solving'),
 
-			  # Pull in other xor parameters as they are determined to be relevant
+                          # Pull in other xor parameters as they are determined to be relevant
                           # ('xor.max_to_find', UINT, 'tbd'),
                           # ('xor.max_to_find_slow', UINT, 'tbd'),
                           # ('xor.max_xor_matrix, UINT64, 'tbd'),
@@ -136,12 +136,13 @@ def_module_params('sat',
                           # ('xor.var_per_cut', UINT, 'tbd'),
                           # ('xor.force_preserve_xors', BOOL, 'tbd'),
                           ('xor.gauss.max_matrix_columns', UINT, UINT_MAX, 'tbd'),
-			  ('xor.gauss.max_matrix_rows', UINT,  UINT_MAX, 'The maximum matrix size -- no. of rows'),
-			  ('xor.gauss.min_matrix_rows', UINT,  0, 'The minimum matrix size -- no. of rows'),
-			  ('xor.gauss.max_num_matrices', UINT,  UINT_MAX, 'Maximum number of matrices'),
+                          ('xor.gauss.max_matrix_rows', UINT,  UINT_MAX, 'The maximum matrix size -- no. of rows'),
+                          ('xor.gauss.min_matrix_rows', UINT,  0, 'The minimum matrix size -- no. of rows'),
+                          ('xor.gauss.max_num_matrices', UINT,  UINT_MAX, 'Maximum number of matrices'),
+                          ('xor.gauss.force_use_all_matrices', BOOL, True, 'tbd'),
                           # ('xor.gauss.autodisable', BOOL, False, 'tbd'),
-   			  # ('xor.gauss.min_usefulness_cutoff', DOUBLE, 0, 'tbd'),
-			  # ('xor.gauss.do_matrix_find', BOOL, True, 'tbd'),
-			  # ('xor.gauss.min_xor_clauses', UINT, 2, 'tbd'),
-			  # ('xor.gauss.max_xor_clauses, UINT, 500000, 'tbd')
+                          # ('xor.gauss.min_usefulness_cutoff', DOUBLE, 0, 'tbd'),
+                          # ('xor.gauss.do_matrix_find', BOOL, True, 'tbd'),
+                          # ('xor.gauss.min_xor_clauses', UINT, 2, 'tbd'),
+                          # ('xor.gauss.max_xor_clauses, UINT, 500000, 'tbd')
                           ))

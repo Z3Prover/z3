@@ -207,6 +207,7 @@ namespace sat {
         unsigned           m_xor_gauss_min_matrix_rows;
         unsigned           m_xor_gauss_max_matrix_columns;
         unsigned           m_xor_gauss_max_num_matrices;
+        bool               m_xor_gauss_force_use_all_matrices;
         
 
         config(params_ref const & p);

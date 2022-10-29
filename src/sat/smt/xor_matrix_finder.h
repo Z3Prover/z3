@@ -1,3 +1,16 @@
+/*++
+Copyright (c) 2022 Microsoft Corporation
+
+Module Name:
+
+    xor_matrix_finder.h
+
+Abstract:
+
+   Based on CMS (crypto minisat by Mate Soos).
+
+--*/
+
 #pragma once
 
 #include "util/debug.h"

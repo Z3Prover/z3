@@ -1,3 +1,17 @@
+/*++
+Copyright (c) 2022 Microsoft Corporation
+
+Module Name:
+
+    xor_matrix_finder.cpp
+
+Abstract:
+
+   Based on CMS (crypto minisat by Mate Soos).
+
+--*/
+
+
 #include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 
@@ -9,14 +23,11 @@ namespace xr {
     inline bool xor_matrix_finder::belong_same_matrix(const constraint& x) {
         uint32_t comp_num = -1;
         for (sat::bool_var v : x) {
-            if (m_table[v] == l_undef) 
-                //Belongs to none, abort
+            if (m_table[v] == l_undef) // Belongs to none, abort
                 return false;            
-            if (comp_num == -1) 
-                //Belongs to this one
+            if (comp_num == -1) // Belongs to this one                
                 comp_num = m_table[v];            
-            else if (comp_num != m_table[v]) 
-                //Another var in this XOR belongs to another component
+            else if (comp_num != m_table[v]) // Another var in this XOR belongs to another component                
                 return false;            
         }
         return true;
@@ -26,7 +37,7 @@ namespace xr {
 
         SASSERT(!m_sat.inconsistent());
 #if 0
-        SASSERT(m_solver->gmatrices.empty());
+        SASSERT(m_xor.gmatrices.empty());
         can_detach = true;
     
         m_table.clear();
@@ -117,7 +128,7 @@ namespace xr {
         }
 
         for (constraint* x : m_xor.m_constraints) {
-            //take 1st variable to check which matrix it's in.
+            // take 1st variable to check which matrix it's in.
             const uint32_t matrix = m_table[(*x)[0]];
             SASSERT(matrix < m_matrix_no);
     
@@ -174,11 +185,8 @@ namespace xr {
                 }
             }
     
-#if 0
-            if (m_sat.get_config().force_use_all_matrixes) {
-                use_matrix = true;
-            }
-#endif
+            if (m_sat.get_config().m_xor_gauss_force_use_all_matrices) 
+                use_matrix = true;            
     
 #if 0
             if (use_matrix) {
