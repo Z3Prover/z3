@@ -9,6 +9,9 @@ Abstract:
 
    Based on CMS (crypto minisat by Mate Soos).
 
+Notes:
+- if use-matrices is false, maybe just disable xor? That is don't support dual approach
+
 --*/
 
 
@@ -48,25 +51,28 @@ namespace xr {
         
         XorFinder finder(NULL, solver);
     
-        for(auto& x: m_solver->xorclauses_unused) m_solver->xorclauses.push_back(std::move(x));
-        m_solver->xorclauses_unused.clear();
-        m_solver->clauseCleaner->clean_xor_clauses(solver->xorclauses);
+        for (auto& x: m_solver->xorclauses_unused) 
+            m_xor.xorclauses.push_back(std::move(x));
+        m_xor.xorclauses_unused.clear();
+        m_xor.clauseCleaner->clean_xor_clauses(solver->xorclauses); 
     
         finder.grab_mem();
         finder.move_xors_without_connecting_vars_to_unused();
-        if (!finder.xor_together_xors(m_solver->xorclauses)) return false;
+        if (!finder.xor_together_xors(m_solver->xorclauses)) 
+            return false;
     
         finder.move_xors_without_connecting_vars_to_unused();
         finder.clean_equivalent_xors(m_solver->xorclauses);
-        for(const auto& x: m_solver->xorclauses_unused)
+        for(const auto& x: m_xor.xorclauses_unused)
             clash_vars_unused.insert(x.clash_vars.begin(), x.clash_vars.end());
     
-        if (m_solver->xorclauses.size() < m_solver->conf.gaussconf.min_gauss_xor_clauses) {
+        if (m_xor.xorclauses.size() < m_sat.get_config().m_min_gauss_xor_clauses) {
             can_detach = false;
             return true;
         }
     
         //Just one giant matrix.
+        // if (m_sat.get_config().m_xor_gauss_do_matrix_find)
         if (!m_solver->conf.gaussconf.doMatrixFind) {
             m_solver->gmatrices.push_back(new EGaussian(m_solver, 0, m_solver->xorclauses));
             m_solver->gqueuedata.resize(m_solver->gmatrices.size());
@@ -74,8 +80,8 @@ namespace xr {
         }
     
         std::vector<uint32_t> newSet;
-        set<uint32_t> tomerge;
-        for (const constraint& x : m_solver->m_constraints) {
+        uint_set tomerge;
+        for (const constraint& x : m_xor.m_constraints) {
             if (belong_same_matrix(x))
                 continue;
     
@@ -101,19 +107,16 @@ namespace xr {
                 newSet.insert(newSet.end(), m_reverseTable[v].begin(), m_reverseTable[v].end());
                 m_reverseTable.erase(v);
             }
-            for (uint32_t i = 0; i < newSet.size(); i++)
-                m_table[newSet[i]] = m_matrix_no;
+            for (auto j : newSet)
+                m_table[j] = m_matrix_no;
             m_reverseTable[m_matrix_no] = newSet;
             m_matrix_no++;
         }
     
-        uint32_t numMatrixes = set_matrixes();
-    
-        const bool time_out =  false;
-        
-        return !m_solver->inconsistent();
-#endif
-        return false;
+        set_matrixes();
+
+#endif        
+        return !m_sat.inconsistent();
     }
     
     unsigned xor_matrix_finder::set_matrixes() {
