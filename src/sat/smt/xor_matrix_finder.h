@@ -25,17 +25,16 @@ namespace xr {
     class constraint;
     
     class xor_matrix_finder {
-
-                        
+        
         struct matrix_shape {
             matrix_shape(uint32_t matrix_num) : m_num(matrix_num) {}
         
             matrix_shape() {}
         
-            uint32_t m_num = 0;
-            uint32_t m_rows = 0;
-            uint32_t m_cols = 0;
-            uint32_t m_sum_xor_sizes = 0;
+            unsigned m_num = 0;
+            unsigned m_rows = 0;
+            unsigned m_cols = 0;
+            unsigned m_sum_xor_sizes = 0;
             double m_density = 0;
         
             uint64_t tot_size() const {

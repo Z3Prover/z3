@@ -18,6 +18,8 @@ Abstract:
 
 namespace xr {
 
+    class solver;
+    
     class constraint {
         unsigned        m_size;
         bool            m_detached = false;
@@ -160,6 +162,40 @@ namespace xr {
         vector<int64_t*> tofree;
     };
 #endif
+    
+    class xor_finder {
+        
+        solver& m_solver;
+        
+        unsigned_vector occcnt;
+        sat::literal_vector& toClear;
+        unsigned_vector& seen;
+        vector<unsigned char>& seen2;
+        unsigned_vector interesting;
+        
+        public:
+        
+        xor_finder(solver& s) : m_solver(s) {} 
+        
+        void grab_mem();
+        
+        void move_xors_without_connecting_vars_to_unused();
+        
+        bool xor_together_xors(vector<Xor>& this_xors);
+        
+        void clean_xors_from_empty(vector<Xor>& thisxors);
+        
+        unsigned xor_two(Xor const* x1_p, Xor const* x2_p, uint32_t& clash_var);
+        
+        bool xor_has_interesting_var(const Xor& x) {
+            for(uint32_t v: x) {
+                if (solver->seen[v] > 1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
 
     class solver : public euf::th_solver {
         friend class xor_matrix_finder;
@@ -167,8 +203,20 @@ namespace xr {
 
         euf::solver* m_ctx = nullptr;
         sat::sat_internalizer& si;
+        
+        unsigned            m_num_scopes = 0;
+        
+        sat::literal_vector  m_prop_queue;
+        unsigned_vector      m_prop_queue_lim;
+        unsigned             m_prop_queue_head = 0;
 
-        ptr_vector<constraint> m_constraints;
+        ptr_vector<constraint> m_xorclauses;
+        ptr_vector<constraint> m_xorclauses_orig;
+        ptr_vector<constraint> m_xorclauses_unused;
+        
+        vector<unsigned> removed_xorclauses_clash_vars;
+        bool detached_xor_clauses = false;
+        bool xor_clauses_updated = false;
 
 //        ptr_vector<EGaussian>       gmatrices;
 
@@ -181,22 +229,30 @@ namespace xr {
 
         void internalize(expr* e) override { UNREACHABLE(); }
 
-
         void asserted(sat::literal l) override;
         bool unit_propagate() override;
+        sat::ext_justification_idx gauss_jordan_elim(const sat::literal p, const unsigned currLevel);
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override;
 
         void pre_simplify() override;
         void simplify() override;
 
         sat::check_result check() override;
+        void force_push();
+        void push_core();
+        void pop_core(unsigned num_scopes);
         void push() override;
         void pop(unsigned n) override;
+        
+        void init_search() override {
+            find_and_init_all_matrices();
+        }
+        
+        bool find_and_init_all_matrices();
+        bool init_all_matrices();
 
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
-
     };
-
 }

@@ -107,7 +107,6 @@ namespace sat {
         m_combination |= (1 << mask); 
     }
 
-
     void xor_finder::add_xor(bool parity, clause& c) {
         DEBUG_CODE(for (clause* cp : m_clauses_to_remove) VERIFY(cp->was_used()););
         m_removed_clauses.append(m_clauses_to_remove);
