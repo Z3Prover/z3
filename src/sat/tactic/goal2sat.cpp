@@ -612,7 +612,93 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
+    unsigned get_num_args(app* t) {
+        if (!m_xor || (!m.is_iff(t) && !m.is_xor(t))) 
+            return t->get_num_args();
+
+        unsigned n = 2;
+        while (m.is_iff(t->get_arg(1)) || m.is_xor(t->get_arg(1))) {
+            ++n;
+            t = to_app(t->get_arg(1));
+        }
+        return n;
+    }
+
+    expr* get_arg(app* t, unsigned idx) {
+        if (!m_xor || (!m.is_iff(t) && !m.is_xor(t))) 
+            return t->get_arg(idx);
+        
+        while (idx >= 1) {
+            SASSERT(m.is_iff(t) || m.is_xor(t));
+            t = to_app(t->get_arg(1));
+            --idx;
+        }
+        if (m.is_iff(t) || m.is_xor(t)) 
+            return t->get_arg(idx);
+        else 
+            return t;
+    }
+
+    bool is_iff(app* t) {
+        bool r = true;
+        expr* e = t, *x = nullptr;
+        do {
+            if (m.is_iff(e, x, e))
+                continue;
+            if (m.is_xor(e, x, e)) {
+                r = !r;
+                continue;
+            }
+            break;
+        }
+        while (true);
+        return r;
+    }
+
+    /**
+     * Convert xor expressions to native xor solver directly.
+     */
+
+    void convert_iff_native(app * t, bool root, bool sign) {
+        unsigned sz = m_result_stack.size();
+        unsigned num_args = get_num_args(t);
+        ptr_buffer<expr> args;
+        SASSERT(sz >= num_args && num_args >= 2);
+        sat::literal_vector lits;
+        sat::bool_var v = add_var(true, t);
+        lits.push_back(sat::literal(v, is_iff(t)));
+        for (unsigned i = 0; i < num_args; ++i) {
+            sat::literal lit(m_result_stack[sz - num_args + i]);
+            m_solver.set_external(lit.var());
+            lits.push_back(lit);
+        }
+        // ensure that = is converted to xor
+        for (unsigned i = 1; i + 1 < lits.size(); ++i) 
+            lits[i].neg();
+        TRACE("goal2sat", tout << "convert-xor " << mk_bounded_pp(t, m, 8) << " " << lits << "\n");
+
+        ensure_xor();
+        m_solver.get_extension()->add_xor(lits);
+        if (aig()) 
+            aig()->add_xor(~lits.back(), lits.size() - 1, lits.data() + 1);
+        sat::literal lit(v, sign);
+        if (root) {            
+            m_result_stack.reset();
+            mk_root_clause(lit);
+        }
+        else {
+            m_result_stack.shrink(sz - num_args);
+            m_result_stack.push_back(lit);
+        }
+    }
+
+
     void convert_iff(app * t, bool root, bool sign) {
+        if (m_xor) {
+            convert_iff_native(t, root, sign);
+            return;
+        }
+            
         if (t->get_num_args() != 2)            
             throw default_exception("unexpected number of arguments to " + mk_pp(t, m));
         SASSERT(t->get_num_args() == 2);
@@ -824,9 +910,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 visit(t->get_arg(0), root, !sign);
                 continue;
             }
-            unsigned num = t->get_num_args();
+            unsigned num = get_num_args(t);
             while (m_frame_stack[fsz-1].m_idx < num) {
-                expr * arg = t->get_arg(m_frame_stack[fsz-1].m_idx);
+                expr * arg = get_arg(t, m_frame_stack[fsz-1].m_idx);
                 m_frame_stack[fsz - 1].m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;

@@ -31,6 +31,7 @@ Notes:
 
 #include "ast/pb_decl_plugin.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/xor_solver.h"
 
 namespace euf {
 
@@ -496,6 +497,19 @@ namespace euf {
                 m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
             break;
         }
+    }
+
+    void solver::add_xor(sat::literal_vector const& lits) {
+        family_id fid = m.mk_family_id("xor");
+        auto* ext = m_id2solver.get(fid, nullptr);
+        th_solver* xr;
+        if (!ext) {
+            xr = alloc(xr::solver, *this);
+            add_solver(xr);
+            ext = xr;
+        }
+        xr = dynamic_cast<xr::solver*>(ext);
+        xr->add_xor(lits);
     }
 
 }

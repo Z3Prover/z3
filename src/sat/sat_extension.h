@@ -127,6 +127,8 @@ namespace sat {
         virtual bool tracking_assumptions() { return false; }
         virtual bool enable_self_propagate() const { return false; }
 
+        virtual void add_xor(literal_vector const& lits) { throw default_exception("solver does not support adding xor clauses"); }
+
         virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                                 std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {                                
             return false;

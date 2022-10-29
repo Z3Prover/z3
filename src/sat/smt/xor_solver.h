@@ -177,6 +177,10 @@ namespace xr {
         solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
         th_solver* clone(euf::solver& ctx) override;
 
+
+        void add_xor(sat::literal_vector const& lits) override { NOT_IMPLEMENTED_YET(); }
+
+
         sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }
 
         void internalize(expr* e) override { UNREACHABLE(); }
