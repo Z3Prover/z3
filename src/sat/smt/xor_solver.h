@@ -17,6 +17,38 @@ Abstract:
 #include "sat/smt/euf_solver.h"
 
 namespace xr {
+
+    class constraint {
+        size_t          m_size;
+        bool            m_detached;
+        size_t          m_obj_size;
+        bool            m_rhs;
+        sat::bool_var   m_vars[0];
+        
+    public:
+        static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(constraint) + num_lits * sizeof(sat::bool_var)); }
+        
+        constraint(const svector<sat::bool_var>& ids, bool expected_result) : m_size(ids.size()), m_detached(false), m_obj_size(get_obj_size(ids.size())), m_rhs(expected_result) {
+            unsigned i = 0;
+            for (auto v : ids)
+                m_vars[i++] = v;
+        }
+        sat::ext_constraint_idx cindex() const { return sat::constraint_base::mem2base(this); }
+        void deallocate(small_object_allocator& a) { a.deallocate(m_obj_size, sat::constraint_base::mem2base_ptr(this)); }
+        sat::bool_var operator[](unsigned i) const { return m_vars[i]; }
+        bool is_detached() const { return m_detached; }
+        size_t get_size() const { return m_size; }
+        bool get_rhs() const { return m_rhs; }
+        sat::bool_var const* begin() const { return m_vars; }
+        sat::bool_var const* end() const { return m_vars + m_size; }
+        std::ostream& display(std::ostream& out) const {
+            bool first = true;
+            for (auto v : *this)
+                out << (first ? "" : " ^ ") << v, first = false;
+            return out << " = " << m_rhs;
+        }
+    };
+    
     class solver : public euf::th_solver {
         euf::solver* m_ctx = nullptr;
         sat::sat_internalizer& si;
