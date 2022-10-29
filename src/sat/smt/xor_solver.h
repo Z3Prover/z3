@@ -19,7 +19,7 @@ Abstract:
 namespace xr {
 
     class constraint {
-        size_t          m_size;
+        unsigned        m_size;
         bool            m_detached;
         size_t          m_obj_size;
         bool            m_rhs;
@@ -37,7 +37,7 @@ namespace xr {
         void deallocate(small_object_allocator& a) { a.deallocate(m_obj_size, sat::constraint_base::mem2base_ptr(this)); }
         sat::bool_var operator[](unsigned i) const { return m_vars[i]; }
         bool is_detached() const { return m_detached; }
-        size_t get_size() const { return m_size; }
+        unsigned get_size() const { return m_size; }
         bool get_rhs() const { return m_rhs; }
         sat::bool_var const* begin() const { return m_vars; }
         sat::bool_var const* end() const { return m_vars + m_size; }
@@ -50,8 +50,14 @@ namespace xr {
     };
     
     class solver : public euf::th_solver {
+        friend class xor_matrix_finder;
+
+
         euf::solver* m_ctx = nullptr;
         sat::sat_internalizer& si;
+
+        ptr_vector<constraint> m_constraints;
+
     public:
         solver(euf::solver& ctx);
         solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);

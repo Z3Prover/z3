@@ -106,7 +106,6 @@ namespace xr {
     }
     
     uint32_t xor_matrix_finder::set_matrixes() {
-        return 0;
 
         svector<matrix_shape> matrix_shapes;
         svector<ptr_vector<constraint>> xors_in_matrix(m_matrix_no);
@@ -116,7 +115,7 @@ namespace xr {
             matrix_shapes[i].m_num = i;
             matrix_shapes[i].m_cols = m_reverseTable[i].size();
         }
-#if 0        
+
         for (constraint* x : m_xor.m_constraints) {
             //take 1st variable to check which matrix it's in.
             const uint32_t matrix = m_table[(*x)[0]];
@@ -127,14 +126,14 @@ namespace xr {
             matrix_shapes[matrix].m_sum_xor_sizes += x->get_size();
             xors_in_matrix[matrix].push_back(x);
         }
-        m_solver->m_constraints.clear();
+      
+        m_xor.m_constraints.clear();
     
-        for(auto& m: matrix_shapes) {
-            if (m.tot_size() > 0) {
+        for (auto& m: matrix_shapes) 
+            if (m.tot_size() > 0) 
                 m.m_density = (double)m.m_sum_xor_sizes / (double)(m.tot_size());
-            }
-        }
-    
+                    
+     
         std::sort(matrix_shapes.begin(), matrix_shapes.end(), m_sorter);
     
         uint32_t realMatrixNum = 0;
@@ -144,65 +143,61 @@ namespace xr {
         for (unsigned a = m_matrix_no; a-- > 0; ) {
             matrix_shape& m = matrix_shapes[a];
             uint32_t i = m.m_num;
-            if (m.m_rows == 0) {
-                continue;
-            }
+            if (m.m_rows == 0) 
+                continue;            
     
             bool use_matrix = true;
     
-    
-            //Over- or undersized
-            if (use_matrix && m.m_rows > m_solver->conf.gaussconf.max_matrix_rows) {
+            // Over- or undersized 
+            
+            // Too many rows in matrix
+            if (use_matrix && m.m_rows > m_sat.get_config().m_xor_gauss_max_matrix_rows) 
                 use_matrix = false;
-                // Too many rows in matrix
-            }
-            if (use_matrix && m.m_cols > m_solver->conf.gaussconf.max_matrix_columns) {
+            
+            // Too many columns in matrix
+            if (use_matrix && m.m_cols > m_sat.get_config().m_xor_gauss_max_matrix_columns) 
                 use_matrix = false;
-                // Too many columns in matrix
-            }
+                 
+            // Too few rows in matrix
+            if (use_matrix && m.m_rows < m_sat.get_config().m_xor_gauss_min_matrix_rows) 
+                use_matrix = false, too_few_rows_matrix++;                            
     
-            if (use_matrix && m.m_rows < m_solver->conf.gaussconf.min_matrix_rows) {
+            // Over the max number of matrixes
+            if (use_matrix && realMatrixNum >= m_sat.get_config().m_xor_gauss_max_num_matrices) 
                 use_matrix = false;
-                too_few_rows_matrix++;
-                // Too few rows in matrix
-            }
-    
-            //Over the max number of matrixes
-            if (use_matrix && realMatrixNum >= m_solver->conf.gaussconf.max_num_matrices) {
-                // above max number of matrixes
-                use_matrix = false;
-            }
-    
-            //if already detached, we MUST use the matrix
-            for(const auto& x: xors_in_matrix[i]) {
+                       
+            // if already detached, we MUST use the matrix
+            for (const auto& x: xors_in_matrix[i]) {
                 if (x->is_detached()) {
                     use_matrix = true;
                     break;
                 }
             }
     
-            if (m_solver->conf.force_use_all_matrixes) {
+#if 0
+            if (m_sat.get_config().force_use_all_matrixes) {
                 use_matrix = true;
             }
+#endif
     
+#if 0
             if (use_matrix) {
-                m_solver->gmatrices.push_back(
-                    new EGaussian(m_solver, realMatrixNum, xors_in_matrix[i]));
-                m_solver->gqueuedata.resize(m_solver->gmatrices.size());
+                m_xor.gmatrices.push_back(
+                    alloc(EGaussian, m_xor, realMatrixNum, xors_in_matrix[i]));
+                m_xor.gqueuedata.resize(m_solver->gmatrices.size());
     
                 realMatrixNum++;
                 SASSERT(m_solver->gmatrices.size() == realMatrixNum);
-            } else {
+            } 
+            else {
                 for (auto& x: xors_in_matrix[i]) {
-                    m_solver->xorclauses_unused.push_back(x);
-                    //cout<< "c [matrix]xor not in matrix, now unused_xors size: " << unused_xors.size() << endl;
+                    m_xor.xorclauses_unused.push_back(x);
                     clash_vars_unused.insert(x.clash_vars.begin(), x.clash_vars.end());
                 }
                 unusedMatrix++;
             }
-        }
-    
-        return realMatrixNum;
 #endif
+        }
+        return realMatrixNum;
     }
 }

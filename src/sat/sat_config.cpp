@@ -259,8 +259,12 @@ namespace sat {
             throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
         
         m_card_solver = p.cardinality_solver();
-        m_xor_solver = false; // prevent users from playing with this option
-
+        m_xor_enable = p.xor_enable();
+        m_xor_gauss_max_matrix_rows = p.xor_gauss_max_matrix_rows();
+        m_xor_gauss_min_matrix_rows = p.xor_gauss_min_matrix_rows();
+        m_xor_gauss_max_matrix_columns = p.xor_gauss_max_matrix_columns();
+        m_xor_gauss_max_num_matrices = p.xor_gauss_max_num_matrices();
+        
         sat_simplifier_params ssp(_p);
         m_elim_vars = ssp.elim_vars();
 

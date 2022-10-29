@@ -186,7 +186,6 @@ namespace sat {
         bool               m_drat_activity;
         
         bool               m_card_solver;
-        bool               m_xor_solver;
         pb_resolve         m_pb_resolve;
         pb_lemma_format    m_pb_lemma_format;
         
@@ -201,6 +200,14 @@ namespace sat {
 
         // simplifier configurations used outside of sat_simplifier
         bool               m_elim_vars;
+
+        // xor
+        bool               m_xor_enable;
+        unsigned           m_xor_gauss_max_matrix_rows;
+        unsigned           m_xor_gauss_min_matrix_rows;
+        unsigned           m_xor_gauss_max_matrix_columns;
+        unsigned           m_xor_gauss_max_num_matrices;
+        
 
         config(params_ref const & p);
         void updt_params(params_ref const & p);
