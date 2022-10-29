@@ -27,6 +27,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"
+#include "sat/smt/xor_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "tactic/tactic.h"
 #include "tactic/fd_solver/fd_solver.h"
@@ -230,6 +231,15 @@ unsigned read_dimacs(char const * file_name) {
     sat_params sp(p);
     reslimit limit;
     sat::solver solver(p, limit);
+
+    // the xor solver uses ast_manager to be compatible with the th_solver API.
+    // we allocate an ast manager on demand if xor is enabled.
+    scoped_ptr<ast_manager> mp;
+    if (sp.xor_enable()) {
+        mp = alloc(ast_manager);
+        reg_decl_plugins(*mp);    
+        solver.set_extension(alloc(xr::solver, *mp, mp->mk_family_id("xor")));
+    }
     g_solver = &solver;
 
     if (file_name) {

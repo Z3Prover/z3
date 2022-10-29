@@ -126,6 +126,13 @@ static bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solv
             else if (*in == 'c' || *in == 'p') {
                 skip_line(in);
             }
+            else if (*in == 'x') {
+                ++in;
+                read_clause(in, err, solver, lits);
+                if (!solver.get_extension())
+                    throw default_exception("you have to set sat.xor.enable=true to use the CMS xor extension");
+                solver.mk_xor_clause(lits);
+            }
             else {
                 read_clause(in, err, solver, lits);
                 solver.mk_clause(lits.size(), lits.data());
@@ -227,7 +234,6 @@ namespace dimacs {
     }
 
     bool drat_parser::next() {
-        int theory_id;
         try {
         loop:
             skip_whitespace(in);
@@ -240,38 +246,13 @@ namespace dimacs {
                 // parse meta-data information
                 skip_line(in);
                 goto loop;
-            case 'i':
-                // parse input clause
-                ++in;
-                skip_whitespace(in);
-                read_clause(in, err, m_record.m_lits);
-                m_record.m_status = sat::status::input();
-                break;
-            case 'a':
-                // parse non-redundant theory clause
-                ++in;
-                skip_whitespace(in);
-                theory_id = read_theory_id();
-                skip_whitespace(in);
-                read_clause(in, err, m_record.m_lits);
-                m_record.m_status = sat::status::th(false, theory_id);
-                break;
             case 'd':
                 // parse clause deletion
                 ++in;
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
                 m_record.m_status = sat::status::deleted();
-                break;
-            case 'r':
-                // parse redundant theory clause
-                // the clause must be DRUP redundant modulo T
-                ++in;
-                skip_whitespace(in);
-                theory_id = read_theory_id();
-                read_clause(in, err, m_record.m_lits);
-                m_record.m_status = sat::status::th(true, theory_id);
-                break;
+                break;                
             default:
                 // parse clause redundant modulo DRAT (or mostly just DRUP)
                 read_clause(in, err, m_record.m_lits);

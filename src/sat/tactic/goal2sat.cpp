@@ -751,7 +751,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::extension* ext = m_solver.get_extension();
         if (ext)
             return;
-        auto* x = alloc(xr::solver, m, *this, m.get_family_id("xor"));
+        auto* x = alloc(xr::solver, m, m.get_family_id("xor"));
         m_solver.set_extension(x);        
     }
 

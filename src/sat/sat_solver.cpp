@@ -339,6 +339,12 @@ namespace sat {
     }
 
 
+    void solver::mk_xor_clause(sat::literal_vector const& lits) {
+        SASSERT(m_ext);
+        m_ext->add_xor(lits);
+    }
+
+
     clause* solver::mk_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_model_is_current = false;
             

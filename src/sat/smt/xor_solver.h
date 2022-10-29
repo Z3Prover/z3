@@ -166,7 +166,6 @@ namespace xr {
 
 
         euf::solver* m_ctx = nullptr;
-        sat::sat_internalizer& si;
 
         ptr_vector<constraint> m_constraints;
 
@@ -174,7 +173,7 @@ namespace xr {
 
     public:
         solver(euf::solver& ctx);
-        solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        solver(ast_manager& m, euf::theory_id id);
         th_solver* clone(euf::solver& ctx) override;
 
 

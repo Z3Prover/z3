@@ -282,6 +282,8 @@ namespace sat {
         clause* mk_clause(literal l1, literal l2, sat::status st = sat::status::asserted());
         clause* mk_clause(literal l1, literal l2, literal l3, sat::status st = sat::status::asserted());
 
+        void mk_xor_clause(sat::literal_vector const& lits);
+
         random_gen& rand() { return m_rand; }
 
         void set_trim() { m_trim = true; }
