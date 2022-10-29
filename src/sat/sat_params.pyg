@@ -62,7 +62,6 @@ def_module_params('sat',
                           ('pb.resolve', SYMBOL, 'cardinality', 'resolution strategy for boolean algebra solver: cardinality, rounding'),
                           ('pb.lemma_format', SYMBOL, 'cardinality', 'generate either cardinality or pb lemmas'),
                           ('euf', BOOL, False, 'enable euf solver (this feature is preliminary and not ready for general consumption)'),
-			  ('enable_xor', BOOL, False, 'enable xor solver plugin in combination with pure SAT solving'),
                           ('ddfw_search', BOOL, False, 'use ddfw local search instead of CDCL'),
                           ('ddfw.init_clause_weight', UINT, 8, 'initial clause weight for DDFW local search'),
                           ('ddfw.use_reward_pct', UINT, 15, 'percentage to pick highest reward variable when it has reward 0'),
@@ -112,7 +111,7 @@ def_module_params('sat',
                           ('lookahead_simplify.bca', BOOL, True, 'add learned binary clauses as part of lookahead simplification'),
                           ('lookahead.global_autarky', BOOL, False, 'prefer to branch on variables that occur in clauses that are reduced'),
                           ('lookahead.delta_fraction', DOUBLE, 1.0, 'number between 0 and 1, the smaller the more literals are selected for double lookahead'),
-                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'))
+                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'),
                           # reward function used to determine which literal to cube on.
                           # - ternary: reward function useful for random 3-SAT instances. Used by Heule and Knuth in March.
                           # - heule_schur: reward function based on "Schur Number 5", Heule, AAAI 2018
@@ -126,5 +125,23 @@ def_module_params('sat',
                           # - march_cu: default reward function used in a version of March
                           # Each reward function also comes with its own variant of "mix_diff", which
                           # is the function for combining reward metrics for the positive and negative variant of a literal.
-                          )
+                          # Xor parameters
+                          ('xor.enable', BOOL, False, 'enable xor solver plugin in combination with pure SAT solving'))
 
+			  # Pull in other xor parameters as they are determined to be relevant
+                          # ('xor.max_to_find', UINT, 'tbd'),
+                          # ('xor.max_to_find_slow', UINT, 'tbd'),
+                          # ('xor.max_xor_matrix, UINT64, 'tbd'),
+                          # ('xor.allow_elim_vars', BOOL, 'tbd'),
+                          # ('xor.var_per_cut', UINT, 'tbd'),
+                          # ('xor.force_preserve_xors', BOOL, 'tbd'),
+                          # ('xor.gauss.max_matrix_columns', UINT, 'tbd'),
+			  # ('xor.gauss.max_matrix_rows', UINT, 'The maximum matrix size -- no. of rows'),
+			  # ('xor.gauss.min_matrix_rows', UINT, 'The minimum matrix size -- no. of rows'),
+			  # ('xor.gauss.max_num_matrices', UINT, 'Maximum number of matrices'),
+                          # ('xor.gauss.autodisable', BOOL, False, 'tbd'),
+   			  # ('xor.gauss.min_usefulness_cutoff', DOUBLE, 0, 'tbd'),
+			  # ('xor.gauss.do_matrix_find', BOOL, True, 'tbd'),
+			  # ('xor.gauss.min_xor_clauses', UINT, 2, 'tbd'),
+			  # ('xor.gauss.max_xor_clauses, UINT, 500000, 'tbd')
+                          )

@@ -102,7 +102,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_euf = sp.euf();
-        m_xor = sp.enable_xor();
+        m_xor = sp.xor_enable();
     }
 
     void throw_op_not_handled(std::string const& s) {
