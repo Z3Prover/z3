@@ -141,7 +141,7 @@ namespace xr {
         uint32_t unusedMatrix = 0;
         uint32_t too_few_rows_matrix = 0;
         uint32_t unused_matrix_printed = 0;
-        for (int a = m_matrix_no - 1; a >= 0; a--) {
+        for (unsigned a = m_matrix_no; a-- > 0; ) {
             matrix_shape& m = matrix_shapes[a];
             uint32_t i = m.m_num;
             if (m.m_rows == 0) {
