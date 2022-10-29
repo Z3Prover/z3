@@ -198,7 +198,7 @@ namespace xr {
                 m_xor.gqueuedata.resize(m_solver->gmatrices.size());
     
                 realMatrixNum++;
-                SASSERT(m_solver->gmatrices.size() == realMatrixNum);
+                SASSERT(m_xor.gmatrices.size() == realMatrixNum);
             } 
             else {
                 for (auto& x: xors_in_matrix[i]) {

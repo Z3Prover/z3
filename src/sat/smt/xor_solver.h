@@ -48,7 +48,119 @@ namespace xr {
             return out << " = " << m_rhs;
         }
     };
-    
+
+#if 0
+    class EGaussian {
+    public:
+        EGaussian(
+            solver* solver,
+            const uint32_t matrix_no,
+            const vector<constraint>& xorclauses
+        );
+        ~EGaussian();
+        bool is_initialized() const;
+
+        ///returns FALSE in case of conflict
+        bool find_truths(
+            GaussWatched*& i,
+            GaussWatched*& j,
+            const uint32_t var,
+            const uint32_t row_n,
+            gauss_data& gqd
+        );
+
+        vector<Lit>* get_reason(const uint32_t row, int32_t& out_ID);
+
+        // when basic variable is touched , eliminate one col
+        void eliminate_col(
+            uint32_t p,
+            gauss_data& gqd
+        );
+        void canceling();
+        bool full_init(bool& created);
+        void update_cols_vals_set(bool force = false);
+        void print_matrix_stats(uint32_t verbosity);
+        bool must_disable(gauss_data& gqd);
+        void check_invariants();
+        void update_matrix_no(uint32_t n);
+        void check_watchlist_sanity();
+        uint32_t get_matrix_no();
+        void finalize_frat();
+        void move_back_xor_clauses();
+
+        vector<constraint> xorclauses;
+
+    private:
+        solver* solver;   // orignal sat solver
+
+        //Cleanup
+        void clear_gwatches(const uint32_t var);
+        void delete_gauss_watch_this_matrix();
+        void delete_gausswatch(const uint32_t  row_n);
+
+        //Invariant checks, debug
+        void check_no_prop_or_unsat_rows();
+        void check_tracked_cols_only_one_set();
+        bool check_row_satisfied(const uint32_t row);
+        void print_gwatches(const uint32_t var) const;
+        void check_row_not_in_watch(const uint32_t v, const uint32_t row_num) const;
+
+        //Reason generation
+        vector<XorReason> xor_reasons;
+        vector<Lit> tmp_clause;
+        uint32_t get_max_level(const GaussQData& gqd, const uint32_t row_n);
+
+        //Initialisation
+        void eliminate();
+        void fill_matrix();
+        void select_columnorder();
+        gret init_adjust_matrix(); // adjust matrix, include watch, check row is zero, etc.
+        double get_density();
+
+        //Helper functions
+        void prop_lit(
+            const gauss_data& gqd, const uint32_t row_i, const Lit ret_lit_prop);
+
+        ///////////////
+        // Internal data
+        ///////////////
+        uint32_t matrix_no;
+        bool initialized = false;
+        bool cancelled_since_val_update = true;
+        uint32_t last_val_update = 0;
+
+        //Is the clause at this ROW satisfied already?
+        //satisfied_xors[decision_level][row] tells me that
+        vector<char> satisfied_xors;
+
+        // Someone is responsible for this column if TRUE
+        ///we always WATCH this variable
+        vector<char> var_has_resp_row;
+
+        ///row_to_var_non_resp[ROW] gives VAR it's NOT responsible for
+        ///we always WATCH this variable
+        vector<uint32_t> row_to_var_non_resp;
+
+
+        PackedMatrix mat;
+        vector<vector<char>> bdd_matrix;
+        vector<uint32_t>  var_to_col; ///var->col mapping. Index with VAR
+        vector<uint32_t> col_to_var; ///col->var mapping. Index with COL
+        uint32_t num_rows = 0;
+        uint32_t num_cols = 0;
+
+        //quick lookup
+        PackedRow* cols_vals = NULL;
+        PackedRow* cols_unset = NULL;
+        PackedRow* tmp_col = NULL;
+        PackedRow* tmp_col2 = NULL;
+        void update_cols_vals_set(const Lit lit1);
+
+        //Data to free (with delete[] x)
+        vector<int64_t*> tofree;
+    };
+#endif
+
     class solver : public euf::th_solver {
         friend class xor_matrix_finder;
 
@@ -57,6 +169,8 @@ namespace xr {
         sat::sat_internalizer& si;
 
         ptr_vector<constraint> m_constraints;
+
+//        ptr_vector<EGaussian>       gmatrices;
 
     public:
         solver(euf::solver& ctx);
