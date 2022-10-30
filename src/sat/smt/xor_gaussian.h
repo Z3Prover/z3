@@ -129,19 +129,17 @@ namespace xr {
     
     struct XorReason {
         bool must_recalc = true;
-        literal propagated = literal(l_undef);
+        literal propagated = sat::null_literal;
         unsigned ID = 0;
-        svector<literal> reason;
+        sat::literal_vector reason;
     };
     
-    class Xor {
+    struct Xor {
         
         bool rhs = false;
         unsigned_vector clash_vars;
         bool detached = false;
         unsigned_vector vars;
-        
-    public:
         
         Xor() = default;
     
@@ -167,8 +165,6 @@ namespace xr {
     
         ~Xor() { }
         
-        bool is_detached() { return detached; }
-    
         unsigned_vector::const_iterator begin() const {
             return vars.begin();
         }
@@ -219,7 +215,7 @@ namespace xr {
             return vars;
         }
     
-        size_t size() const {
+        unsigned size() const {
             return vars.size();
         }
     
@@ -570,16 +566,16 @@ namespace xr {
         void canceling();
         bool full_init(bool& created);
         void update_cols_vals_set(bool force = false);
-        void print_matrix_stats(unsigned verbosity);
         bool must_disable(gauss_data& gqd);
         void check_invariants();
         void update_matrix_no(unsigned n);
         void check_watchlist_sanity();
         unsigned get_matrix_no();
-        void finalize_frat();
         void move_back_xor_clauses();
+        bool clean_xor_clauses(svector<Xor>& xors);
+        bool clean_one_xor(Xor& x);
     
-        svector<Xor> xorclauses;
+        svector<Xor> m_xorclauses;
     
     private:
         xr::solver* m_solver;   // original sat solver
@@ -593,7 +589,6 @@ namespace xr {
         void check_no_prop_or_unsat_rows();
         void check_tracked_cols_only_one_set();
         bool check_row_satisfied(const unsigned row);
-        void print_gwatches(const unsigned var) const;
         void check_row_not_in_watch(const unsigned v, const unsigned row_num) const;
     
         //Reason generation
@@ -609,10 +604,7 @@ namespace xr {
         double get_density();
     
         //Helper functions
-        void prop_lit(
-            const gauss_data& gqd, const unsigned row_i, const sat::literal ret_lit_prop);
-    
-
+        void prop_lit(const gauss_data& gqd, const unsigned row_i, const sat::literal ret_lit_prop);
 
         ///////////////
         // stats

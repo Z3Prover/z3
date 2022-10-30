@@ -187,7 +187,7 @@ namespace xr {
         return out;
     }
     
-    bool solver::find_and_init_all_matrices(){
+    bool solver::find_and_init_all_matrices() {
 #if 0
         if (!xor_clauses_updated && (!detached_xor_clauses || !assump_contains_xor_clash()))
             return true;
@@ -204,53 +204,48 @@ namespace xr {
         if (can_detach &&
             conf.xor_detach_reattach &&
             !conf.gaussconf.autodisable &&
-            (ret_no_irred_nonxor_contains_clash_vars=no_irred_nonxor_contains_clash_vars())
+            (ret_no_irred_nonxor_contains_clash_vars = no_irred_nonxor_contains_clash_vars())
         ) {
             detach_xor_clauses(mfinder.clash_vars_unused);
             unset_clash_decision_vars(xorclauses);
             rebuildOrderHeap();
-            if (conf.xor_detach_verb) print_watchlist_stats();
-        
         }
 #endif
         xor_clauses_updated = false;
+        return true;
     }
     
     bool solver::init_all_matrices() {
         SASSERT(!s().inconsistent());
-#if 0
-        SASSERT(decisionLevel() == 0);
-    
+        SASSERT(s().at_search_lvl());
         SASSERT(gmatrices.size() == gqueuedata.size());
+        
         for (unsigned i = 0; i < gmatrices.size(); i++) {
             auto& g = gmatrices[i];
             bool created = false;
             if (!g->full_init(created)) return false;
-            assert(okay());
+            SASSERT(!s().inconsistent());
     
             if (!created) {
                 gqueuedata[i].disabled = true;
                 delete g;
-                if (conf.verbosity > 5) {
-                    cout << "DELETED matrix" << endl;
-                }
-                g = NULL;
+                g = nullptr;
             }
         }
     
         unsigned j = 0;
         bool modified = false;
         for (unsigned i = 0; i < gqueuedata.size(); i++) {
-            if (gmatrices[i] != NULL) {
+            if (gmatrices[i] != nullptr) {
                 gmatrices[j] = gmatrices[i];
                 gmatrices[j]->update_matrix_no(j);
                 gqueuedata[j] = gqueuedata[i];
     
                 if (modified) {
-                    for (size_t var = 0; var < nVars(); var++) {
-                        for (GaussWatched* k = gwatches[var].begin(); k != gwatches[var].end(); k++) {
-                            if (k->matrix_num == i) {
-                                k->matrix_num = j;
+                    for (unsigned var = 0; var < s().num_vars(); var++) {
+                        for (GaussWatched& k : gwatches[var]) {
+                            if (k.matrix_num == i) {
+                                k.matrix_num = j;
                             }
                         }
                     }
@@ -262,7 +257,7 @@ namespace xr {
         }
         gqueuedata.resize(j);
         gmatrices.resize(j);
-#endif
+        
         return !s().inconsistent();
     }
     
@@ -350,7 +345,7 @@ namespace xr {
         }
     
         assert(solver->okay());
-        assert(solver->decisionLevel() == 0);
+        assert(solver->s().at_search_lvl());
         assert(solver->watches.get_smudged_list().empty());
         const size_t origsize = this_xors.size();
     

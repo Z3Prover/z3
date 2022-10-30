@@ -163,7 +163,7 @@ gret PackedRow::propGause(
 }
 
 EGaussian::EGaussian(xr::solver* _solver, const unsigned _matrix_no, const svector<Xor>& _xorclauses) : 
-    xorclauses(_xorclauses), m_solver(_solver), matrix_no(_matrix_no) { }
+    m_xorclauses(_xorclauses), m_solver(_solver), matrix_no(_matrix_no) { }
 
 EGaussian::~EGaussian() {
     delete_gauss_watch_this_matrix();
@@ -216,10 +216,10 @@ public:
 void EGaussian::select_columnorder() {
     var_to_col.clear();
     var_to_col.resize(m_solver->s().num_vars(), unassigned_col);
-    svector<unsigned> vars_needed;
+    unsigned_vector vars_needed;
     unsigned largest_used_var = 0;
 
-    for (const Xor& x : xorclauses) {
+    for (const Xor& x : m_xorclauses) {
         for (const unsigned v : x) {
             SASSERT(m_solver->s().value(v) == l_undef);
             if (var_to_col[v] == unassigned_col) {
@@ -233,7 +233,7 @@ void EGaussian::select_columnorder() {
     if (vars_needed.size() >= UINT32_MAX / 2 - 1) {
         throw default_exception("Matrix has too many rows");
     }
-    if (xorclauses.size() >= UINT32_MAX / 2 - 1) {
+    if (m_xorclauses.size() >= UINT32_MAX / 2 - 1) {
         throw default_exception("Matrix has too many rows");
     }
     var_to_col.resize(largest_used_var + 1);
@@ -251,7 +251,7 @@ void EGaussian::select_columnorder() {
     }
 
     // for the ones that were not in the order_heap, but are marked in var_to_col
-    for (unsigned v = 0; v != var_to_col.size(); v++) {
+    for (unsigned v = 0; v < var_to_col.size(); v++) {
         if (var_to_col[v] == unassigned_col - 1) {
             col_to_var.push_back(v);
             var_to_col[v] = col_to_var.size() - 1;
@@ -260,12 +260,11 @@ void EGaussian::select_columnorder() {
 }
 
 void EGaussian::fill_matrix() {
-    SASSERT(m_solver->s().trail_size() == m_solver->m_prop_queue_head);
     var_to_col.clear();
 
     // decide which variable in matrix column and the number of rows
     select_columnorder();
-    num_rows = xorclauses.size();
+    num_rows = m_xorclauses.size();
     num_cols = col_to_var.size();
     if (num_rows == 0 || num_cols == 0) {
         return;
@@ -274,7 +273,7 @@ void EGaussian::fill_matrix() {
 
     bdd_matrix.clear();
     for (unsigned row = 0; row < num_rows; row++) {
-        const Xor& c = xorclauses[row];
+        const Xor& c = m_xorclauses[row];
         mat[row].set(c, var_to_col, num_cols);
         char_vector line;
         line.resize(num_rows, 0);
@@ -304,7 +303,7 @@ void EGaussian::delete_gauss_watch_this_matrix() {
 
 void EGaussian::clear_gwatches(const unsigned var) {
     //if there is only one matrix, don't check, just empty it
-    if (m_solver->gmatrices.size() == 0) {
+    if (m_solver->gmatrices.empty()) {
         m_solver->gwatches[var].clear();
         return;
     }
@@ -328,7 +327,7 @@ bool EGaussian::full_init(bool& created) {
     unsigned trail_before;
     while (true) {
         trail_before = m_solver->s().trail_size();
-        m_solver->clauseCleaner->clean_xor_clauses(xorclauses);
+        clean_xor_clauses(m_xorclauses);
 
         fill_matrix();
         before_init_density = get_density();
@@ -357,9 +356,7 @@ bool EGaussian::full_init(bool& created) {
             default:
                 break;
         }
-
-        SASSERT(m_solver->m_prop_queue_head == m_solver->s().trail_size());
-
+        
         //Let's exit if nothing new happened
         if (m_solver->s().trail_size() == trail_before)
             break;
@@ -555,7 +552,6 @@ gret EGaussian::init_adjust_matrix() {
             }
 
             default: // need to update watch list
-                // printf("%d:need to update watch list    n",row_id);
                 SASSERT(non_resp_var != UINT32_MAX);
 
                 // insert watch list
@@ -585,7 +581,7 @@ void EGaussian::delete_gausswatch(const unsigned row_n) {
     bool debug_find = false;
     svector<GaussWatched>& ws_t = m_solver->gwatches[row_to_var_non_resp[row_n]];
 
-    for (int tmpi = ws_t.size() - 1; tmpi >= 0; tmpi--) {
+    for (int tmpi = ws_t.size(); tmpi-- > 0;) {
         if (ws_t[tmpi].row_n == row_n
             && ws_t[tmpi].matrix_num == matrix_no
         ) {
@@ -677,7 +673,7 @@ bool EGaussian::find_truths(
             *j++ = *i;
 
             xor_reasons[row_n].must_recalc = true;
-            xor_reasons[row_n].propagated = sat::literal(l_undef);
+            xor_reasons[row_n].propagated = sat::null_literal;
             gqd.confl = PropBy(matrix_no, row_n);
             gqd.ret = gauss_res::confl;
             TRACE("xor", tout << "--> conflict";);
@@ -901,7 +897,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         row_to_var_non_resp[row_i] = p;
 
                         xor_reasons[row_i].must_recalc = true;
-                        xor_reasons[row_i].propagated = sat::literal(l_undef);
+                        xor_reasons[row_i].propagated = sat::null_literal;
                         gqd.confl = PropBy(matrix_no, row_i);
                         gqd.ret = gauss_res::confl;
 
@@ -1114,8 +1110,8 @@ bool EGaussian::must_disable(gauss_data& gqd) {
     SASSERT(initialized);
     gqd.engaus_disable_checks++;
     if ((gqd.engaus_disable_checks & 0x3ff) == 0x3ff) {
-        uint64_t egcalled = elim_called + find_truth_ret_satisfied_precheck+find_truth_called_propgause;
-        unsigned limit = (unsigned)((double)egcalled * m_solver->s().get_config().min_usefulness_cutoff);
+        uint64_t egcalled = elim_called + find_truth_ret_satisfied_precheck + find_truth_called_propgause;
+        unsigned limit = (unsigned)((double)egcalled * m_solver->s().get_config().m_xor_min_usefulness_cutoff);
         unsigned useful = find_truth_ret_prop+find_truth_ret_confl+elim_ret_prop+elim_ret_confl;
         if (egcalled > 200 && useful < limit)
             return true;
@@ -1125,7 +1121,94 @@ bool EGaussian::must_disable(gauss_data& gqd) {
 }
 
 void EGaussian::move_back_xor_clauses() {
-    for (const auto& x: xorclauses) {
+    for (const auto& x: m_xorclauses) {
         m_solver->m_xorclauses.push_back(std::move(x));
+    }
+}
+
+bool EGaussian::clean_xor_clauses(svector<Xor>& xors) {     
+    SASSERT(!m_solver->s().inconsistent());
+    
+    size_t last_trail = SIZE_MAX;
+    while (last_trail != m_solver->s().trail_size()) {
+        last_trail = m_solver->s().trail_size();
+        size_t i = 0;
+        size_t j = 0;
+        for(size_t size = xors.size(); i < size; i++) {
+            Xor& x = xors[i];
+            if (m_solver->s().inconsistent()) {
+                xors[j++] = x;
+                continue;
+            }
+    
+            const bool keep = clean_one_xor(x);
+            if (keep) {
+                SASSERT(x.size() > 2);
+                xors[j++] = x;
+            } else {
+                solver->removed_xorclauses_clash_vars.insert(
+                    solver->removed_xorclauses_clash_vars.end()
+                    , x.clash_vars.begin()
+                    , x.clash_vars.end()
+                );
+            }
+        }
+        xors.resize(j);
+        if (m_solver->s().inconsistent()) break;
+        solver->ok = solver->propagate<false>().isNULL();
+    }
+    
+    return !m_solver->s().inconsistent();
+}
+
+
+bool EGaussian::clean_one_xor(Xor& x) {
+
+    bool rhs = x.rhs;
+    size_t i = 0;
+    size_t j = 0;
+    for(size_t size = x.clash_vars.size(); i < size; i++) {
+        const auto& v = x.clash_vars[i];
+        if (m_solver->s().value(v) == l_undef) {
+            x.clash_vars[j++] = v;
+        }
+    }
+    x.clash_vars.resize(j);
+
+    i = 0;
+    j = 0;
+    for(size_t size = x.size(); i < size; i++) {
+        uint32_t var = x[i];
+        if (m_solver->s().value(var) != l_undef) {
+            rhs ^= m_solver->s().value(var) == l_true;
+        } else {
+            x[j++] = var;
+        }
+    }
+    if (j < x.size()) {
+        x.resize(j);
+        x.rhs = rhs;
+    }
+
+    switch(x.size()) {
+        case 0:
+            if (x.rhs == true) solver->ok = false;
+            if (m_solver->s().inconsistent()) {
+                SASSERT(solver->unsat_cl_ID == 0);
+                solver->unsat_cl_ID = solver->clauseID;
+            }
+            return false;
+        case 1: {
+            SASSERT(!m_solver->s().inconsistent());
+            solver->enqueue<true>(Lit(x[0], !x.rhs));
+            solver->ok = solver->propagate<true>().isNULL();
+            return false;
+        }
+        case 2:
+            SASSERT(!m_solver->s().inconsistent());
+            solver->add_xor_clause_inter(vars_to_lits(x), x.rhs, true);
+            return false;
+        default:
+            return true;
     }
 }
