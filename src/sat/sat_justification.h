@@ -22,11 +22,7 @@ namespace sat {
     
     class justification {
     public:
-        enum kind { NONE = 0, BINARY = 1, 
-#if ENABLE_TERNARY
-            TERNARY = 2, 
-#endif 
-            CLAUSE = 3, EXT_JUSTIFICATION = 4};
+        enum kind { NONE = 0, BINARY = 1, CLAUSE = 2, EXT_JUSTIFICATION = 3};
     private:
         unsigned m_level;
         size_t m_val1;
@@ -36,9 +32,7 @@ namespace sat {
     public:
         justification(unsigned lvl):m_level(lvl), m_val1(0), m_val2(NONE) {}
         explicit justification(unsigned lvl, literal l):m_level(lvl), m_val1(l.to_uint()), m_val2(BINARY) {}
-#if ENABLE_TERNARY
-        justification(unsigned lvl, literal l1, literal l2):m_level(lvl), m_val1(l1.to_uint()), m_val2(TERNARY + (l2.to_uint() << 3)) {}
-#endif
+
         explicit justification(unsigned lvl, clause_offset cls_off):m_level(lvl), m_val1(cls_off), m_val2(CLAUSE) {}
         static justification mk_ext_justification(unsigned lvl, ext_justification_idx idx) { return justification(lvl, idx, EXT_JUSTIFICATION); }
         
@@ -50,12 +44,6 @@ namespace sat {
         
         bool is_binary_clause() const { return m_val2 == BINARY; }
         literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(val1()); }
-
-#if ENABLE_TERNARY
-        bool is_ternary_clause() const { return get_kind() == TERNARY; }
-        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(val1()); }
-        literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 3); }
-#endif
 
         bool is_clause() const { return m_val2 == CLAUSE; }
         clause_offset get_clause_offset() const { return m_val1; }
@@ -73,11 +61,6 @@ namespace sat {
         case justification::BINARY:
             out << "binary " << j.get_literal();
             break;
-#if ENABLE_TERNARY
-        case justification::TERNARY:
-            out << "ternary " << j.get_literal1() << " " << j.get_literal2();
-            break;
-#endif
         case justification::CLAUSE:
             out << "clause";
             break;

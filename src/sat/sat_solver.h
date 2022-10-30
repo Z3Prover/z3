@@ -305,11 +305,6 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, sat::status st);
         void mk_bin_clause(literal l1, literal l2, bool learned) { mk_bin_clause(l1, l2, learned ? sat::status::redundant() : sat::status::asserted()); }
         bool propagate_bin_clause(literal l1, literal l2);
-#if ENABLE_TERNARY
-        clause * mk_ter_clause(literal * lits, status st);
-        bool attach_ter_clause(clause & c, status st);
-        bool propagate_ter_clause(clause& c);
-#endif
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool has_variables_to_reinit(clause const& c) const;
         bool has_variables_to_reinit(literal l1, literal l2) const;
@@ -345,7 +340,6 @@ namespace sat {
         void detach_bin_clause(literal l1, literal l2, bool learned);
         void detach_clause(clause & c);
         void detach_nary_clause(clause & c);
-        void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
         void push_reinit_stack(literal l1, literal l2);
 
