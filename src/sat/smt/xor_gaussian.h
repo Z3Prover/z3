@@ -141,9 +141,9 @@ namespace xr {
         bool detached = false;
         unsigned_vector vars;
         
-        public:
+    public:
         
-        Xor() {}
+        Xor() = default;
     
         explicit Xor(const unsigned_vector& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
@@ -166,6 +166,8 @@ namespace xr {
         }
     
         ~Xor() { }
+        
+        bool is_detached() { return detached; }
     
         unsigned_vector::const_iterator begin() const {
             return vars.begin();
@@ -395,7 +397,6 @@ namespace xr {
     
         void get_reason(
             sat::literal_vector& tmp_clause,
-            const svector<lbool>& assigns,
             const unsigned_vector& col_to_var,
             PackedRow& cols_vals,
             PackedRow& tmp_col2,

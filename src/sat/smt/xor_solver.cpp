@@ -284,17 +284,17 @@ namespace xr {
             return;
         
         double myTime = cpuTime();
-        vector<Xor> cleaned;
-        assert(toClear.empty());
+        svector<Xor> cleaned;
+        SASSERT(toClear.empty());
         
         //Fill "seen" with vars used
-        uint32_t non_empty = 0;
-        for(const Xor& x: solver->xorclauses) {
+        unsigned non_empty = 0;
+        for (const Xor& x: solver->xorclauses) {
             if (x.size() != 0) {
                 non_empty++;
             }
         
-            for(uint32_t v: x) {
+            for (unsigned v: x) {
                 if (solver->seen[v] == 0) {
                     toClear.push_back(Lit(v, false));
                 }

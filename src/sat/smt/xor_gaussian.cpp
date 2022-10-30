@@ -61,7 +61,6 @@ unsigned PackedRow::find_watchVar(
 
 void PackedRow::get_reason(
     sat::literal_vector& tmp_clause,
-    const svector<lbool>& assigns,
     const unsigned_vector& col_to_var,
     PackedRow& cols_vals,
     PackedRow& tmp_col2,
@@ -468,7 +467,6 @@ sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
 
     mat[row].get_reason(
         to_fill,
-        m_solver->assigns,
         col_to_var,
         *cols_vals,
         *tmp_col2,
@@ -499,7 +497,7 @@ gret EGaussian::init_adjust_matrix() {
 
             //Conflict or satisfied
             case 0:
-                VERBOSE_PRINT("Empty XOR during init_adjust_matrix, rhs: " << (*rowI).rhs());
+                TRACE("xor", tout << "Empty XOR during init_adjust_matrix, rhs: " << (*rowI).rhs() << "\n");
                 adjust_zero++;
 
                 // conflict
@@ -582,14 +580,12 @@ gret EGaussian::init_adjust_matrix() {
 }
 
 // Delete this row because we have already add to xor clause, nothing to do anymore
-void EGaussian::delete_gausswatch(
-    const unsigned row_n
-) {
+void EGaussian::delete_gausswatch(const unsigned row_n) {
     // clear nonbasic value watch list
     bool debug_find = false;
     svector<GaussWatched>& ws_t = m_solver->gwatches[row_to_var_non_resp[row_n]];
 
-    for (int32_t tmpi = ws_t.size() - 1; tmpi >= 0; tmpi--) {
+    for (int tmpi = ws_t.size() - 1; tmpi >= 0; tmpi--) {
         if (ws_t[tmpi].row_n == row_n
             && ws_t[tmpi].matrix_num == matrix_no
         ) {
@@ -603,14 +599,14 @@ void EGaussian::delete_gausswatch(
 }
 
 unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
-    int32_t ID;
+    int ID;
     auto cl = get_reason(row_n, ID);
     unsigned nMaxLevel = gqd.currLevel;
     unsigned nMaxInd = 1;
 
     for (unsigned i = 1; i < cl->size(); i++) {
         literal l = (*cl)[i];
-        unsigned nLevel = m_solver->varData[l.var()].level;
+        unsigned nLevel = m_solver->s().lvl(l);
         if (nLevel > nMaxLevel) {
             nMaxLevel = nLevel;
             nMaxInd = i;
@@ -817,7 +813,7 @@ void EGaussian::update_cols_vals_set(bool force) {
 
     SASSERT(m_solver->s().trail_size() >= last_val_update);
     for(unsigned i = last_val_update; i < m_solver->s().trail_size(); i++) {
-        unsigned var = m_solver->trail[i].lit.var();
+        sat::bool_var var = m_solver->s().trail_literal(i).var();
         if (var_to_col.size() <= var) {
             continue;
         }
@@ -905,7 +901,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         row_to_var_non_resp[row_i] = p;
 
                         xor_reasons[row_i].must_recalc = true;
-                        xor_reasons[row_i].propagated = l_undef;
+                        xor_reasons[row_i].propagated = sat::literal(l_undef);
                         gqd.confl = PropBy(matrix_no, row_i);
                         gqd.ret = gauss_res::confl;
 
@@ -954,9 +950,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                     // this row already satisfied
                     case gret::nothing_satisfied:
                         elim_ret_satisfied++;
-                        VERBOSE_PRINT("---> Nothing to do, already satisfied , pushing in "
-                        << p+1 << " as non-responsible var ( "
-                        << row_i << " row) ");
+                        TRACE("xor", tout << "---> Nothing to do, already satisfied , pushing in " << p+1 << " as non-responsible var ( " << row_i << " row)\n");
 
                         // printf("%d:This row is nothing( maybe already true) in eliminate col
                         // n",num_row);
@@ -1121,7 +1115,7 @@ bool EGaussian::must_disable(gauss_data& gqd) {
     gqd.engaus_disable_checks++;
     if ((gqd.engaus_disable_checks & 0x3ff) == 0x3ff) {
         uint64_t egcalled = elim_called + find_truth_ret_satisfied_precheck+find_truth_called_propgause;
-        unsigned limit = (double)egcalled * m_solver->conf.gaussconf.min_usefulness_cutoff;
+        unsigned limit = (unsigned)((double)egcalled * m_solver->s().get_config().min_usefulness_cutoff);
         unsigned useful = find_truth_ret_prop+find_truth_ret_confl+elim_ret_prop+elim_ret_confl;
         if (egcalled > 200 && useful < limit)
             return true;
@@ -1132,6 +1126,6 @@ bool EGaussian::must_disable(gauss_data& gqd) {
 
 void EGaussian::move_back_xor_clauses() {
     for (const auto& x: xorclauses) {
-        m_solver->xorclauses.push_back(std::move(x));
+        m_solver->m_xorclauses.push_back(std::move(x));
     }
 }

@@ -208,6 +208,10 @@ namespace sat {
         unsigned           m_xor_gauss_max_matrix_columns;
         unsigned           m_xor_gauss_max_num_matrices;
         bool               m_xor_gauss_force_use_all_matrices;
+        double             min_usefulness_cutoff;
+        
+        const unsigned     m_min_gauss_xor_clauses = 2;
+        const double       m_max_gauss_xor_clauses = 500000;
         
 
         config(params_ref const & p);

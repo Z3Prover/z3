@@ -24,7 +24,7 @@ namespace xr {
 
     xor_matrix_finder::xor_matrix_finder(solver& s) : m_xor(s), m_sat(s.s()) { }
         
-    inline bool xor_matrix_finder::belong_same_matrix(const constraint& x) {
+    inline bool xor_matrix_finder::belong_same_matrix(const Xor& x) {
         uint32_t comp_num = -1;
         for (sat::bool_var v : x) {
             if (m_table[v] == l_undef) // Belongs to none, abort
@@ -83,9 +83,9 @@ namespace xr {
         }
 #endif
     
-        std::vector<uint32_t> newSet;
+        svector<unsigned> newSet;
         uint_set tomerge;
-        for (const constraint* x : m_xor.m_xorclauses) {
+        for (const Xor& x : m_xor.m_xorclauses) {
             if (belong_same_matrix(x))
                 continue;
     
@@ -125,7 +125,7 @@ namespace xr {
     unsigned xor_matrix_finder::set_matrixes() {
 
         svector<matrix_shape> matrix_shapes;
-        svector<ptr_vector<constraint>> xors_in_matrix(m_matrix_no);
+        svector<svector<Xor>> xors_in_matrix(m_matrix_no);
 
         for (unsigned i = 0; i < m_matrix_no; i++) {
             matrix_shapes.push_back(matrix_shape(i));
@@ -133,14 +133,14 @@ namespace xr {
             matrix_shapes[i].m_cols = m_reverseTable[i].size();
         }
 
-        for (constraint* x : m_xor.m_xorclauses) {
+        for (Xor& x : m_xor.m_xorclauses) {
             // take 1st variable to check which matrix it's in.
-            const unsigned matrix = m_table[(*x)[0]];
+            const unsigned matrix = m_table[x[0]];
             SASSERT(matrix < m_matrix_no);
     
             //for stats
             matrix_shapes[matrix].m_rows ++;
-            matrix_shapes[matrix].m_sum_xor_sizes += x->get_size();
+            matrix_shapes[matrix].m_sum_xor_sizes += x.size();
             xors_in_matrix[matrix].push_back(x);
         }
       
@@ -185,7 +185,7 @@ namespace xr {
                        
             // if already detached, we MUST use the matrix
             for (const auto& x: xors_in_matrix[i]) {
-                if (x->is_detached()) {
+                if (x.is_detached()) {
                     use_matrix = true;
                     break;
                 }
