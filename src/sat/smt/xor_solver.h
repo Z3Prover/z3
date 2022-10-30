@@ -71,9 +71,9 @@ namespace xr {
         unsigned_vector      m_prop_queue_lim;
         unsigned             m_prop_queue_head = 0;
 
-        ptr_vector<constraint> m_xorclauses;
-        ptr_vector<constraint> m_xorclauses_orig;
-        ptr_vector<constraint> m_xorclauses_unused;
+        ptr_vector<Xor> m_xorclauses;
+        ptr_vector<Xor> m_xorclauses_orig;
+        ptr_vector<Xor> m_xorclauses_unused;
         
         vector<unsigned> removed_xorclauses_clash_vars;
         bool detached_xor_clauses = false;

@@ -13,19 +13,11 @@ Abstract:
 
 #pragma once
 
-#include <vector>
-#include <limits>
-#include <string>
-#include <utility>
-
 #include "sat/smt/euf_solver.h"
 
 #include "util/debug.h"
 #include "util/sat_literal.h"
 #include "util/trace.h"
-
-using std::string;
-using std::pair;
 
 namespace xr {
     
@@ -47,7 +39,7 @@ namespace xr {
     }
 #endif
     
-    class constraint {
+    /*class constraint {
         unsigned        m_size;
         bool            m_detached = false;
         size_t          m_obj_size;
@@ -76,7 +68,7 @@ namespace xr {
                 out << (first ? "" : " ^ ") << v, first = false;
             return out << " = " << m_rhs;
         }
-    };
+    };*/
     
     struct justification {
         unsigned m_propagation_index { 0 };
@@ -124,7 +116,7 @@ namespace xr {
         unsigned currLevel; //level at which the variable was decided on
     
     
-        unsigned num_props = 0;  // total gauss propogation time for DPLL
+        unsigned num_props = 0;  // total gauss propagation time for DPLL
         unsigned num_conflicts = 0;   // total gauss conflict    time for DPLL
         unsigned engaus_disable_checks = 0;
         bool disabled = false;     // decide to do gaussian elimination
@@ -137,9 +129,9 @@ namespace xr {
     
     struct XorReason {
         bool must_recalc = true;
-        literal propagated = l_undef;
-        int32_t ID = 0;
-        vector<literal> reason;
+        literal propagated = literal(l_undef);
+        unsigned ID = 0;
+        svector<literal> reason;
     };
     
     class Xor {
@@ -391,7 +383,6 @@ namespace xr {
     
         // using find nonbasic value after watch list is enter
         gret propGause(
-            const svector<lbool>& assigns,
             const unsigned_vector& col_to_var,
             char_vector &var_has_resp_row,
             unsigned& new_resp_var,
@@ -554,7 +545,7 @@ namespace xr {
         EGaussian(
             solver* solver,
             const unsigned matrix_no,
-            const svector<constraint>& xorclauses
+            const svector<Xor>& xorclauses
         );
         ~EGaussian();
         bool is_initialized() const;
@@ -587,7 +578,7 @@ namespace xr {
         void finalize_frat();
         void move_back_xor_clauses();
     
-        svector<constraint> xorclauses;
+        svector<Xor> xorclauses;
     
     private:
         xr::solver* m_solver;   // original sat solver
@@ -605,7 +596,7 @@ namespace xr {
         void check_row_not_in_watch(const unsigned v, const unsigned row_num) const;
     
         //Reason generation
-        vector<XorReason> xor_reasons;
+        svector<XorReason> xor_reasons;
         sat::literal_vector tmp_clause;
         unsigned get_max_level(const gauss_data& gqd, const unsigned row_n);
     
@@ -678,7 +669,7 @@ namespace xr {
         void update_cols_vals_set(const sat::literal lit1);
     
         //Data to free (with delete[] x)
-        vector<int64_t*> tofree;
+        svector<int64_t*> tofree;
     };
     
     inline void EGaussian::canceling() {

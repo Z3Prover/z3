@@ -18,8 +18,7 @@ Abstract:
 #include "sat/sat_xor_finder.h"
 
 namespace xr {
-
-
+    
     solver::solver(euf::solver& ctx):
         solver(ctx.get_manager(), ctx.get_si(), ctx.get_manager().get_family_id("xor")) {
         m_ctx = &ctx;
@@ -49,7 +48,7 @@ namespace xr {
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             sat::literal const p = m_prop_queue[m_prop_queue_head];
             auto conflict = gauss_jordan_elim(p, m_num_scopes);
-            if (conflict) {
+            if (!conflict.is_null()) {
                 // TODO: Abort; add conflict
                 m_prop_queue_head = m_prop_queue.size();
             }
@@ -92,7 +91,7 @@ namespace xr {
         }
         
         for (; i != end; i++) *j++ = *i;
-        ws.shrink(i-j);
+        ws.shrink(i - j);
         
         for (unsigned g = 0; g < gqueuedata.size(); g++) {
             if (gqueuedata[g].disabled || !gmatrices[g]->is_initialized())
