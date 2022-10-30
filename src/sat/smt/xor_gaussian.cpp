@@ -162,7 +162,7 @@ gret PackedRow::propGause(
     return gret::confl;
 }
 
-EGaussian::EGaussian(xr::solver* _solver, const unsigned _matrix_no, const svector<Xor>& _xorclauses) : 
+EGaussian::EGaussian(xr::solver* _solver, const unsigned _matrix_no, const vector<Xor>& _xorclauses) : 
     m_xorclauses(_xorclauses), m_solver(_solver), matrix_no(_matrix_no) { }
 
 EGaussian::~EGaussian() {
@@ -319,7 +319,7 @@ void EGaussian::clear_gwatches(const unsigned var) {
 }
 
 bool EGaussian::full_init(bool& created) {
-    SASSERT(!m_solver->s().inconsistent());
+    SASSERT(!inconsistent());
     SASSERT(m_solver->m_num_scopes == 0);
     SASSERT(initialized == false);
     created = true;
@@ -333,7 +333,7 @@ bool EGaussian::full_init(bool& created) {
         before_init_density = get_density();
         if (num_rows == 0 || num_cols == 0) {
             created = false;
-            return !m_solver->s().inconsistent();
+            return !inconsistent();
         }
 
         eliminate();
@@ -348,7 +348,7 @@ bool EGaussian::full_init(bool& created) {
             case gret::prop:
                 SASSERT(m_solver->m_num_scopes == 0);
                 m_solver->ok = m_solver->propagate<false>().isNULL();
-                if (m_solver->s().inconsistent()) {
+                if (inconsistent()) {
                     TRACE("xor", tout << "eliminate & adjust matrix during init lead to UNSAT\n";);
                     return false;
                 }
@@ -366,7 +366,7 @@ bool EGaussian::full_init(bool& created) {
 
     xor_reasons.resize(num_rows);
     unsigned num_64b = num_cols/64+(bool)(num_cols%64);
-    for(auto& x: tofree) {
+    for (auto& x: tofree) {
         delete[] x;
     }
     tofree.clear();
@@ -401,7 +401,7 @@ bool EGaussian::full_init(bool& created) {
     update_cols_vals_set(true);
     DEBUG_CODE(check_invariants(););
     
-    return !m_solver->s().inconsistent();
+    return !inconsistent();
 }
 
 void EGaussian::eliminate() {
@@ -517,7 +517,7 @@ gret EGaussian::init_adjust_matrix() {
                 tmp_clause[0] = literal(tmp_clause[0].var(), xorEqualFalse);
                 SASSERT(m_solver->s().value(tmp_clause[0].var()) == l_undef);
                 
-                m_solver->enqueue<false>(tmp_clause[0]);
+                m_solver->s().assign_scoped(tmp_clause[0]);
 
                 TRACE("xor", tout << "-> UNIT during adjust: " << tmp_clause[0];);
                 TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
@@ -826,10 +826,16 @@ void EGaussian::update_cols_vals_set(bool force) {
 }
 
 void EGaussian::prop_lit(const gauss_data& gqd, const unsigned row_i, const literal ret_lit_prop) {
-    unsigned lev;
-    if (gqd.currLevel == m_solver->m_num_scopes) lev = gqd.currLevel;
-    else lev = get_max_level(gqd, row_i);
-    m_solver->enqueue<false>(ret_lit_prop, lev, PropBy(matrix_no, row_i));
+    unsigned level;
+    if (gqd.currLevel == m_solver->m_num_scopes) 
+        level = gqd.currLevel;
+    else 
+        level = get_max_level(gqd, row_i);
+    m_solver->s().assign(ret_lit_prop, sat::justification(level, PropBy(matrix_no, row_i)));
+}
+
+bool EGaussian::inconsistent() const {
+    return m_solver->s().inconsistent();
 }
 
 void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
@@ -1020,10 +1026,10 @@ void EGaussian::check_no_prop_or_unsat_rows() {
                 }
             }
 
-            TRACE("xor", unsigned var = row_to_var_non_resp[row]; tout 
+            TRACE("xor", tout 
             << "       matrix no: " << matrix_no << "\n"
             << "       row: " << row << "\n"
-            << "       non-resp var: " << var + 1 << "\n"
+            << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
             << "       dec level: " << m_solver->m_num_scopes << "\n";);
         }
         SASSERT(bits_unset > 1 || (bits_unset == 0 && val == 0));
@@ -1126,17 +1132,17 @@ void EGaussian::move_back_xor_clauses() {
     }
 }
 
-bool EGaussian::clean_xor_clauses(svector<Xor>& xors) {     
-    SASSERT(!m_solver->s().inconsistent());
+bool EGaussian::clean_xor_clauses(vector<Xor>& xors) {     
+    SASSERT(!inconsistent());
     
-    size_t last_trail = SIZE_MAX;
+    unsigned last_trail = UINT_MAX;
     while (last_trail != m_solver->s().trail_size()) {
         last_trail = m_solver->s().trail_size();
-        size_t i = 0;
-        size_t j = 0;
-        for(size_t size = xors.size(); i < size; i++) {
-            Xor& x = xors[i];
-            if (m_solver->s().inconsistent()) {
+        unsigned i = 0;
+        unsigned j = 0;
+        unsigned size = xors.size();
+        for (Xor& x : xors) {
+            if (inconsistent()) {
                 xors[j++] = x;
                 continue;
             }
@@ -1146,67 +1152,63 @@ bool EGaussian::clean_xor_clauses(svector<Xor>& xors) {
                 SASSERT(x.size() > 2);
                 xors[j++] = x;
             } else {
-                solver->removed_xorclauses_clash_vars.insert(
-                    solver->removed_xorclauses_clash_vars.end()
-                    , x.clash_vars.begin()
-                    , x.clash_vars.end()
+                m_solver->removed_xorclauses_clash_vars.insert(
+                    m_solver->removed_xorclauses_clash_vars.end(), 
+                    x.clash_vars.begin(), 
+                    x.clash_vars.end()
                 );
             }
         }
         xors.resize(j);
-        if (m_solver->s().inconsistent()) break;
+        if (inconsistent()) break;
         solver->ok = solver->propagate<false>().isNULL();
     }
     
-    return !m_solver->s().inconsistent();
+    return !inconsistent();
 }
 
 
 bool EGaussian::clean_one_xor(Xor& x) {
 
     bool rhs = x.rhs;
-    size_t i = 0;
-    size_t j = 0;
-    for(size_t size = x.clash_vars.size(); i < size; i++) {
-        const auto& v = x.clash_vars[i];
+    unsigned i, j = 0;
+    for (auto const& v : x.clash_vars) {
         if (m_solver->s().value(v) == l_undef) {
             x.clash_vars[j++] = v;
         }
     }
-    x.clash_vars.resize(j);
+    x.clash_vars.shrink(j);
 
+    unsigned size = x.size();
     i = 0;
     j = 0;
-    for(size_t size = x.size(); i < size; i++) {
-        uint32_t var = x[i];
-        if (m_solver->s().value(var) != l_undef) {
-            rhs ^= m_solver->s().value(var) == l_true;
+    for (auto const& v : x) {
+        if (m_solver->s().value(v) != l_undef) {
+            x.rhs  ^= m_solver->s().value(v) == l_true;
         } else {
-            x[j++] = var;
+            x[j++] = v;
         }
     }
-    if (j < x.size()) {
-        x.resize(j);
-        x.rhs = rhs;
-    }
-
-    switch(x.size()) {
+    x.shrink(j);
+    
+    switch (x.size()) {
         case 0:
-            if (x.rhs == true) solver->ok = false;
-            if (m_solver->s().inconsistent()) {
+            if (x.rhs) 
+                solver->ok = false;
+            if (inconsistent()) {
                 SASSERT(solver->unsat_cl_ID == 0);
                 solver->unsat_cl_ID = solver->clauseID;
             }
             return false;
         case 1: {
-            SASSERT(!m_solver->s().inconsistent());
-            solver->enqueue<true>(Lit(x[0], !x.rhs));
-            solver->ok = solver->propagate<true>().isNULL();
+            SASSERT(!inconsistent());
+            m_solver->s().assign_scoped(sat::literal(x[0], !x.rhs));
+            m_solver->ok = m_solver->propagate<true>().isNULL();
             return false;
         }
         case 2:
-            SASSERT(!m_solver->s().inconsistent());
-            solver->add_xor_clause_inter(vars_to_lits(x), x.rhs, true);
+            SASSERT(!inconsistent());
+            m_solver->add_xor_clause_inter(vars_to_lits(x), x.rhs, true);
             return false;
         default:
             return true;

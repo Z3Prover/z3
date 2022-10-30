@@ -71,17 +71,17 @@ namespace xr {
         unsigned_vector      m_prop_queue_lim;
         unsigned             m_prop_queue_head = 0;
 
-        svector<Xor> m_xorclauses;
-        svector<Xor> m_xorclauses_orig;
-        svector<Xor> m_xorclauses_unused;
+        vector<Xor> m_xorclauses;
+        vector<Xor> m_xorclauses_orig;
+        vector<Xor> m_xorclauses_unused;
         
         vector<unsigned> removed_xorclauses_clash_vars;
         bool detached_xor_clauses = false;
         bool xor_clauses_updated = false;
 
-        svector<svector<GaussWatched>> gwatches;
+        vector<svector<GaussWatched>> gwatches;
         
-        svector<EGaussian*> gmatrices;
+        ptr_vector<EGaussian> gmatrices;
         svector<gauss_data> gqueuedata;
         
         void force_push();

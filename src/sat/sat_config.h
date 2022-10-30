@@ -211,8 +211,8 @@ namespace sat {
         double             m_xor_min_usefulness_cutoff;
         
         const bool         m_xor_doMatrixFind = true;
-        const unsigned     m_xor_min_gauss_xor_clauses = 2;
-        const double       m_xor_max_gauss_xor_clauses = 500000;
+        const unsigned     m_xor_gauss_min_clauses = 2;
+        const double       m_xor_gauss_max_clauses = 500000;
         
 
         config(params_ref const & p);

@@ -25,7 +25,7 @@ namespace xr {
     xor_matrix_finder::xor_matrix_finder(solver& s) : m_xor(s), m_sat(s.s()) { }
         
     inline bool xor_matrix_finder::belong_same_matrix(const Xor& x) {
-        uint32_t comp_num = -1;
+        unsigned comp_num = -1;
         for (sat::bool_var v : x) {
             if (m_table[v] == l_undef) // Belongs to none, abort
                 return false;            
@@ -70,7 +70,7 @@ namespace xr {
             }
         }
     
-        if (m_xor.m_xorclauses.size() < m_sat.get_config().m_xor_min_gauss_xor_clauses) {
+        if (m_xor.m_xorclauses.size() < m_sat.get_config().m_xor_gauss_min_clauses) {
             can_detach = false;
             return true;
         }
@@ -126,7 +126,7 @@ namespace xr {
     unsigned xor_matrix_finder::set_matrixes() {
 
         svector<matrix_shape> matrix_shapes;
-        vector<svector<Xor>> xors_in_matrix(m_matrix_no);
+        vector<vector<Xor>> xors_in_matrix(m_matrix_no);
 
         for (unsigned i = 0; i < m_matrix_no; i++) {
             matrix_shapes.push_back(matrix_shape(i));

@@ -72,7 +72,7 @@ namespace sat {
         }
 
         friend literal operator~(literal l) {
-            l.m_val = l.m_val ^1;
+            l.m_val = l.m_val ^ 1;
             return l;
         }
 

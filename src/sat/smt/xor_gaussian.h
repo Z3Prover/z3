@@ -84,10 +84,175 @@ namespace xr {
         static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
     };
     
+    enum PropByType {
+        null_clause_t = 0, clause_t = 1, binary_t = 2,
+        xor_t = 3, bnn_t = 4
+    };
+        
+    class PropBy {
+        unsigned red_step : 1;
+        unsigned data1 : 31;
+        unsigned type : 3;
+        //0: clause, NULL
+        //1: clause, non-null
+        //2: binary
+        //3: xor
+        //4: bnn
+        unsigned data2 : 29;
+        int ID;
+    
+    public:
+        PropBy() :
+            red_step(0)
+            , data1(0)
+            , type(null_clause_t)
+            , data2(0) {}
+    
+        //Normal clause prop
+        explicit PropBy(const ClOffset offset) :
+            red_step(0)
+            , data1(offset)
+            , type(clause_t)
+            , data2(0) { }
+    
+        //XOR
+        PropBy(const unsigned matrix_num, const unsigned row_num):
+            data1(matrix_num)
+            , type(xor_t)
+            , data2(row_num) { }
+            
+        //Binary prop
+        PropBy(const sat::literal lit, const bool redStep, int _ID) :
+            red_step(redStep)
+            , data1(lit.index())
+            , type(binary_t)
+            , data2(0)
+            , ID(_ID) { }
+    
+        //For hyper-bin, etc.
+        PropBy(
+            const sat::literal lit
+            , bool redStep //Step that lead here from ancestor is redundant
+            , bool hyperBin //It's a hyper-binary clause
+            , bool hyperBinNotAdded //It's a hyper-binary clause, but was never added because all the rest was zero-level
+            , int _ID) :
+            red_step(redStep)
+            , data1(lit.index())
+            , type(binary_t)
+            , data2(0)
+            , ID(_ID)
+        {
+            //HACK: if we are doing seamless hyper-bin and transitive reduction
+            //then if we are at toplevel, .getAncestor()
+            //must work, and return lit_Undef, but at the same time, .isNULL()
+            //must also work, for conflict generation. So this is a hack to
+            //achieve that. What an awful hack.
+            if (lit == ~sat::null_literal)
+                type = null_clause_t;
+    
+            data2 = ((unsigned)hyperBin) << 1
+                | ((unsigned)hyperBinNotAdded) << 2;
+        }
+    
+        void set_bnn_reason(unsigned idx) {
+            SASSERT(isBNN());
+            data1 = idx;
+        }
+    
+        bool bnn_reason_set() const {
+            SASSERT(isBNN());
+            return data1 != 0xfffffff;
+        }
+    
+        unsigned get_bnn_reason() const {
+            SASSERT(bnn_reason_set());
+            return data1;
+        }
+    
+        unsigned isBNN() const {
+            return type == bnn_t;
+        }
+    
+        unsigned getBNNidx() const {
+            SASSERT(isBNN());
+            return data2;
+        }
+    
+        bool isRedStep() const {
+            return red_step;
+        }
+    
+        unsigned getID() const {
+            return ID;
+        }
+    
+        bool getHyperbin() const {
+            return data2 & 2U;
+        }
+    
+        void setHyperbin(bool toSet) {
+            data2 &= ~2U;
+            data2 |= (unsigned)toSet << 1;
+        }
+    
+        bool getHyperbinNotAdded() const {
+            return data2 & 4U;
+        }
+    
+        void setHyperbinNotAdded(bool toSet) {
+            data2 &= ~4U;
+            data2 |= (unsigned )toSet << 2;
+        }
+    
+        sat::literal getAncestor() const {
+            return ~sat::to_literal(data1);
+        }
+    
+        bool isClause() const {
+            return type == clause_t;
+        }
+    
+        PropByType getType() const {
+            return (PropByType)type;
+        }
+    
+        sat::literal lit2() const {
+            return sat::to_literal(data1);
+        }
+    
+        unsigned get_matrix_num() const {
+            return data1;
+        }
+    
+        unsigned get_row_num() const {
+            return data2;
+        }
+    
+        ClOffset get_offset() const {
+            return data1;
+        }
+    
+        bool isNULL() const {
+            return type == null_clause_t;
+        }
+    
+        bool operator==(const PropBy other) const {
+            return (type == other.type
+                    && red_step == other.red_step
+                    && data1 == other.data1
+                    && data2 == other.data2
+                   );
+        }
+    
+        bool operator!=(const PropBy other) const {
+            return !(*this == other);
+        }
+    };
+    
     enum class gret { confl, prop, nothing_satisfied, nothing_fnewwatch };
     enum class gauss_res { none, confl, prop };
     
-    struct GaussWatched{
+    struct GaussWatched {
         GaussWatched(unsigned r, unsigned m):
             row_n(r) , matrix_num(m) {}
     
@@ -111,7 +276,7 @@ namespace xr {
         bool do_eliminate; // we do elimination when basic variable is invoked
         unsigned new_resp_var;                     // do elimination variable
         unsigned new_resp_row ;         // do elimination row
-        justification confl;              // returning conflict
+        PropBy confl;              // returning conflict
         gauss_res ret; //final return value to Searcher
         unsigned currLevel; //level at which the variable was decided on
     
@@ -203,8 +368,8 @@ namespace xr {
             return vars[at];
         }
     
-        void resize(const unsigned newsize) {
-            vars.resize(newsize);
+        void shrink(const unsigned newsize) {
+            vars.shrink(newsize);
         }
     
         unsigned_vector& get_vars() {
@@ -265,19 +430,7 @@ namespace xr {
     
             return *this;
         }
-    
-        void and_inv(const PackedRow& b) {
-            for (int i = 0; i < size; i++) {
-                *(mp + i) &= ~(*(b.mp + i));
-            }
-        }
-    
-        void set_and_inv(const PackedRow& a, const PackedRow& b) {
-            for (int i = 0; i < size; i++) {
-                *(mp + i) = *(a.mp + i) & (~(*(b.mp + i)));
-            }
-        }
-    
+        
         void set_and(const PackedRow& a, const PackedRow& b) {
             for (int i = 0; i < size; i++) {
                 *(mp + i) = *(a.mp + i) & *(b.mp + i);
@@ -329,8 +482,7 @@ namespace xr {
         }
     
         inline void setBit(const unsigned i) {
-            //SetBit(mp+i/64, i%64);
-            mp[i/64] |= (1LL << (i%64));
+            mp[i / 64] |= (1LL << (i % 64));
         }
     
         inline void invert_rhs(const bool b = true) {
@@ -399,8 +551,13 @@ namespace xr {
             literal prop
         );
     
-        unsigned popcnt() const;
-        unsigned popcnt_at_least_2() const;
+        unsigned popcnt() const {
+            unsigned ret = 0;
+            for (int i = 0; i < size; i++) {
+                ret += __builtin_popcountll((uint64_t)mp[i]);
+            }
+            return ret;
+        }
     
     private:
         friend class PackedMatrix;
@@ -542,7 +699,7 @@ namespace xr {
         EGaussian(
             solver* solver,
             const unsigned matrix_no,
-            const svector<Xor>& xorclauses
+            const vector<Xor>& xorclauses
         );
         ~EGaussian();
         bool is_initialized() const;
@@ -572,10 +729,10 @@ namespace xr {
         void check_watchlist_sanity();
         unsigned get_matrix_no();
         void move_back_xor_clauses();
-        bool clean_xor_clauses(svector<Xor>& xors);
+        bool clean_xor_clauses(vector<Xor>& xors);
         bool clean_one_xor(Xor& x);
     
-        svector<Xor> m_xorclauses;
+        vector<Xor> m_xorclauses;
     
     private:
         xr::solver* m_solver;   // original sat solver
@@ -605,6 +762,7 @@ namespace xr {
     
         //Helper functions
         void prop_lit(const gauss_data& gqd, const unsigned row_i, const sat::literal ret_lit_prop);
+        bool inconsistent() const;
 
         ///////////////
         // stats
