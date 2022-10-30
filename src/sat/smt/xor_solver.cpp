@@ -48,14 +48,18 @@ namespace xr {
         m_ctx->push(value_trail<unsigned>(m_prop_queue_head));
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             sat::literal const p = m_prop_queue[m_prop_queue_head];
-            gauss_jordan_elim(p, m_num_scopes);
+            auto conflict = gauss_jordan_elim(p, m_num_scopes);
+            if (conflict) {
+                // TODO: Abort; add conflict
+                m_prop_queue_head = m_prop_queue.size();
+            }
         }
         return true;
     }
     
-    sat::ext_justification_idx solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
-#if 0
-        if (gmatrices.empty()) return PropBy();
+    justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
+        if (gmatrices.empty()) 
+            return justification::get_null();
         for (unsigned i = 0; i < gqueuedata.size(); i++) {
             if (gqueuedata[i].disabled || !gmatrices[i]->is_initialized()) continue;
             gqueuedata[i].reset();
@@ -64,7 +68,7 @@ namespace xr {
         
         bool confl_in_gauss = false;
         SASSERT(gwatches.size() > p.var());
-        vec<GaussWatched>& ws = gwatches[p.var()];
+        svector<GaussWatched>& ws = gwatches[p.var()];
         GaussWatched* i = ws.begin();
         GaussWatched* j = i;
         const GaussWatched* end = ws.end();
@@ -73,14 +77,12 @@ namespace xr {
             if (gqueuedata[i->matrix_num].disabled || !gmatrices[i->matrix_num]->is_initialized())
                 continue; //remove watch and continue
         
-            gqueuedata[i->matrix_num].new_resp_var = numeric_limits<uint32_t>::max();
-            gqueuedata[i->matrix_num].new_resp_row = numeric_limits<uint32_t>::max();
+            gqueuedata[i->matrix_num].new_resp_var = UINT_MAX;
+            gqueuedata[i->matrix_num].new_resp_row = UINT_MAX;
             gqueuedata[i->matrix_num].do_eliminate = false;
             gqueuedata[i->matrix_num].currLevel = currLevel;
         
-            if (gmatrices[i->matrix_num]->find_truths(
-                i, j, p.var(), i->row_n, gqueuedata[i->matrix_num])
-            ) {
+            if (gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, gqueuedata[i->matrix_num])) {
                 continue;
             } else {
                 confl_in_gauss = true;
@@ -102,7 +104,7 @@ namespace xr {
             }
         }
         
-        for (GaussQData& gqd: gqueuedata) {
+        for (gauss_data& gqd: gqueuedata) {
             if (gqd.disabled) continue;
         
             //There was a conflict but this is not that matrix.
@@ -112,7 +114,6 @@ namespace xr {
             switch (gqd.ret) {
                 case gauss_res::confl :{
                     gqd.num_conflicts++;
-                    qhead = trail.size();
                     return gqd.confl;
                 }
         
@@ -125,12 +126,10 @@ namespace xr {
                     break;
         
                 default:
-                    assert(false);
-                    return PropBy();
+                    UNREACHABLE();
             }
         }
-        return PropBy();
-#endif
+        return justification::get_null();
     }
     
     void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx,
@@ -275,7 +274,7 @@ namespace xr {
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
         return out;
     }
-    
+#if 0
     void xor_finder::grab_mem() {
         occcnt.clear();
         occcnt.resize(m_solver.s().num_vars(), 0);
@@ -603,5 +602,6 @@ namespace xr {
         
         return clash_num;
     }
+#endif
 }
 
