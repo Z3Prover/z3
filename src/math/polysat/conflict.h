@@ -107,6 +107,7 @@ namespace polysat {
         uint_set m_relevant_vars;           // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
+        uint_set m_vars_occurring;          // set of variables that occur in at least one of the constraints in m_literals
 
         // Additional lemmas that justify new constraints generated during conflict resolution
         clause_ref_vector m_lemmas;
@@ -177,6 +178,7 @@ namespace polysat {
         bool contains(sat::literal lit) const;
         bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
         bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
+        uint_set const& vars_occurring_in_constraints() const { return m_vars_occurring; }
 
 #if 0
         clause* side_lemma(signed_constraint c) const { SASSERT(c); return side_lemma(c.blit()); }

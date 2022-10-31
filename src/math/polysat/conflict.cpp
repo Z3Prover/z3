@@ -147,6 +147,7 @@ namespace polysat {
             SASSERT(m_literals.empty());
             SASSERT(m_vars.empty());
             SASSERT(m_bail_vars.empty());
+            SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
         }
@@ -159,6 +160,7 @@ namespace polysat {
         m_bail_vars.reset();
         m_relevant_vars.reset();
         m_var_occurrences.reset();
+        m_vars_occurring.reset();
         m_lemmas.reset();
         m_narrow_queue.reset();
         m_kind = conflict_kind_t::ok;
@@ -302,6 +304,8 @@ namespace polysat {
         for (pvar v : c->vars()) {
             if (v >= m_var_occurrences.size())
                 m_var_occurrences.resize(v + 1, 0);
+            if (!m_var_occurrences[v])
+                m_vars_occurring.insert(v);
             m_var_occurrences[v]++;
         }
     }
@@ -380,8 +384,11 @@ namespace polysat {
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
         m_literals.remove(c.blit().index());
-        for (pvar v : c->vars())
+        for (pvar v : c->vars()) {
             m_var_occurrences[v]--;
+            if (!m_var_occurrences[v])
+                m_vars_occurring.remove(v);
+        }
     }
 
     void conflict::remove_all() {
@@ -391,6 +398,7 @@ namespace polysat {
         m_bail_vars.reset();
         m_relevant_vars.reset();
         m_var_occurrences.reset();
+        m_vars_occurring.reset();
         m_kind = conflict_kind_t::ok;
     }
 
