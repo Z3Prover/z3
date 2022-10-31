@@ -70,7 +70,7 @@ namespace xr {
         }
     };*/
     
-    struct justification {
+    /*struct justification {
         unsigned m_propagation_index { 0 };
 
         justification(unsigned prop_index): m_propagation_index(prop_index) {}
@@ -82,253 +82,135 @@ namespace xr {
             return *reinterpret_cast<justification*>(sat::constraint_base::from_index(idx)->mem());
         }
         static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
-    };
+    };*/
     
-    enum PropByType {
-        null_clause_t = 0, clause_t = 1, binary_t = 2,
-        xor_t = 3, bnn_t = 4
-    };
+    class justification {
         
-    class PropBy {
-        unsigned red_step : 1;
-        unsigned data1 : 31;
-        unsigned type : 3;
-        //0: clause, NULL
-        //1: clause, non-null
-        //2: binary
-        //3: xor
-        //4: bnn
-        unsigned data2 : 29;
-        int ID;
-    
-    public:
-        PropBy() :
-            red_step(0)
-            , data1(0)
-            , type(null_clause_t)
-            , data2(0) {}
-    
-        //Normal clause prop
-        explicit PropBy(const ClOffset offset) :
-            red_step(0)
-            , data1(offset)
-            , type(clause_t)
-            , data2(0) { }
+        friend class solver;
+        
+        unsigned matrix_num;
+        unsigned row_num;
     
         //XOR
-        PropBy(const unsigned matrix_num, const unsigned row_num):
-            data1(matrix_num)
-            , type(xor_t)
-            , data2(row_num) { }
-            
-        //Binary prop
-        PropBy(const sat::literal lit, const bool redStep, int _ID) :
-            red_step(redStep)
-            , data1(lit.index())
-            , type(binary_t)
-            , data2(0)
-            , ID(_ID) { }
-    
-        //For hyper-bin, etc.
-        PropBy(
-            const sat::literal lit
-            , bool redStep //Step that lead here from ancestor is redundant
-            , bool hyperBin //It's a hyper-binary clause
-            , bool hyperBinNotAdded //It's a hyper-binary clause, but was never added because all the rest was zero-level
-            , int _ID) :
-            red_step(redStep)
-            , data1(lit.index())
-            , type(binary_t)
-            , data2(0)
-            , ID(_ID)
-        {
-            //HACK: if we are doing seamless hyper-bin and transitive reduction
-            //then if we are at toplevel, .getAncestor()
-            //must work, and return lit_Undef, but at the same time, .isNULL()
-            //must also work, for conflict generation. So this is a hack to
-            //achieve that. What an awful hack.
-            if (lit == ~sat::null_literal)
-                type = null_clause_t;
-    
-            data2 = ((unsigned)hyperBin) << 1
-                | ((unsigned)hyperBinNotAdded) << 2;
+        justification(const unsigned matrix_num, const unsigned row_num):
+            matrix_num(matrix_num),
+            row_num(row_num) { 
+            SASSERT(matrix_num != -1);
+            SASSERT(row_num != -1);
         }
-    
-        void set_bnn_reason(unsigned idx) {
-            SASSERT(isBNN());
-            data1 = idx;
+        
+    public:
+        justification() : matrix_num(-1), row_num(-1) {}
+        
+        void deallocate(small_object_allocator& a) { a.deallocate(get_obj_size(), sat::constraint_base::mem2base_ptr(this)); }
+        sat::ext_constraint_idx to_index() const { return sat::constraint_base::mem2base(this); }
+        static justification& from_index(size_t idx) { 
+            return *reinterpret_cast<justification*>(sat::constraint_base::from_index(idx)->mem());
         }
-    
-        bool bnn_reason_set() const {
-            SASSERT(isBNN());
-            return data1 != 0xfffffff;
-        }
-    
-        unsigned get_bnn_reason() const {
-            SASSERT(bnn_reason_set());
-            return data1;
-        }
-    
-        unsigned isBNN() const {
-            return type == bnn_t;
-        }
-    
-        unsigned getBNNidx() const {
-            SASSERT(isBNN());
-            return data2;
-        }
-    
-        bool isRedStep() const {
-            return red_step;
-        }
-    
-        unsigned getID() const {
-            return ID;
-        }
-    
-        bool getHyperbin() const {
-            return data2 & 2U;
-        }
-    
-        void setHyperbin(bool toSet) {
-            data2 &= ~2U;
-            data2 |= (unsigned)toSet << 1;
-        }
-    
-        bool getHyperbinNotAdded() const {
-            return data2 & 4U;
-        }
-    
-        void setHyperbinNotAdded(bool toSet) {
-            data2 &= ~4U;
-            data2 |= (unsigned )toSet << 2;
-        }
-    
-        sat::literal getAncestor() const {
-            return ~sat::to_literal(data1);
-        }
-    
-        bool isClause() const {
-            return type == clause_t;
-        }
-    
-        PropByType getType() const {
-            return (PropByType)type;
-        }
-    
-        sat::literal lit2() const {
-            return sat::to_literal(data1);
-        }
+        static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
     
         unsigned get_matrix_num() const {
-            return data1;
+            return matrix_num;
         }
     
         unsigned get_row_num() const {
-            return data2;
+            return row_num;
         }
     
-        ClOffset get_offset() const {
-            return data1;
+        bool isNull() const {
+            return matrix_num == -1;
         }
     
-        bool isNULL() const {
-            return type == null_clause_t;
+        bool operator==(const justification other) const {
+            return matrix_num == other.matrix_num && row_num == other.row_num;
         }
     
-        bool operator==(const PropBy other) const {
-            return (type == other.type
-                    && red_step == other.red_step
-                    && data1 == other.data1
-                    && data2 == other.data2
-                   );
-        }
-    
-        bool operator!=(const PropBy other) const {
+        bool operator!=(const justification other) const {
             return !(*this == other);
         }
     };
     
-    enum class gret { confl, prop, nothing_satisfied, nothing_fnewwatch };
-    enum class gauss_res { none, confl, prop };
+    inline std::ostream& operator<<(std::ostream& os, const justification& pb) {
+        if (!pb.isNull()) {
+            return os << " xor reason, matrix= " << pb.get_matrix_num() << " row: " << pb.get_row_num();
+        }
+        return os << " NULL";
+    }
     
-    struct GaussWatched {
-        GaussWatched(unsigned r, unsigned m):
-            row_n(r) , matrix_num(m) {}
+    enum class gret : unsigned { confl, prop, nothing_satisfied, nothing_fnewwatch };
+    enum class gauss_res : unsigned { none, confl, prop };
+    
+    struct gauss_watched {
+        gauss_watched(unsigned r, unsigned m) : row_n(r) , matrix_num(m) { }
     
         unsigned row_n;        // watch row
         unsigned matrix_num;   // watch matrix
     
-        bool operator<(const GaussWatched& other) const {
-            if (matrix_num < other.matrix_num) {
+        bool operator<(const gauss_watched& other) const {
+            if (matrix_num < other.matrix_num)
                 return true;
-            }
-    
-            if (matrix_num > other.matrix_num) {
+            if (matrix_num > other.matrix_num)
                 return false;
-            }
-    
             return row_n < other.row_n;
         }
     };
     
     struct gauss_data {
-        bool do_eliminate; // we do elimination when basic variable is invoked
-        unsigned new_resp_var;                     // do elimination variable
-        unsigned new_resp_row ;         // do elimination row
-        PropBy confl;              // returning conflict
-        gauss_res ret; //final return value to Searcher
-        unsigned currLevel; //level at which the variable was decided on
-    
-    
-        unsigned num_props = 0;  // total gauss propagation time for DPLL
-        unsigned num_conflicts = 0;   // total gauss conflict    time for DPLL
-        unsigned engaus_disable_checks = 0;
-        bool disabled = false;     // decide to do gaussian elimination
-    
+        bool do_eliminate;             // we do elimination when basic variable is invoked
+        unsigned new_resp_var;         // do elimination variable
+        unsigned new_resp_row ;        // do elimination row
+        sat::justification conflict;   // returning conflict
+        gauss_res status;              // status
+        unsigned currLevel;            // level at which the variable was decided on
+
+        unsigned num_props = 0;        // total gauss propagation time for DPLL
+        unsigned num_conflicts = 0;    // total gauss conflict time for DPLL
+        unsigned disable_checks = 0;
+        bool disabled = false;         // decide to do gaussian elimination
+
         void reset() {
             do_eliminate = false;
-            ret = gauss_res::none;
+            status = gauss_res::none;
         }
     };
     
-    struct XorReason {
+    struct reason {
         bool must_recalc = true;
         literal propagated = sat::null_literal;
         unsigned ID = 0;
         sat::literal_vector reason;
     };
     
-    struct Xor {
+    struct xor_clause {
         
         bool rhs = false;
         unsigned_vector clash_vars;
         bool detached = false;
         unsigned_vector vars;
         
-        Xor() = default;
+        xor_clause() = default;
     
-        explicit Xor(const unsigned_vector& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i]);
             }
         }
     
         template<typename T>
-        explicit Xor(const T& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const T& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i].var());
             }
         }
     
-        explicit Xor(const unsigned_vector& cl, const bool _rhs, const unsigned clash_var) : rhs(_rhs) {
+        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const unsigned clash_var) : rhs(_rhs) {
             clash_vars.push_back(clash_var);
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i]);
             }
         }
     
-        ~Xor() { }
+        ~xor_clause() { }
         
         unsigned_vector::const_iterator begin() const {
             return vars.begin();
@@ -346,7 +228,7 @@ namespace xr {
             return vars.end();
         }
     
-        bool operator<(const Xor& other) const {
+        bool operator<(const xor_clause& other) const {
             uint64_t i = 0;
             while(i < other.size() && i < size()) {
                 if (other[i] != vars[i])
@@ -392,7 +274,7 @@ namespace xr {
             return !rhs;
         }
     
-        void merge_clash(const Xor& other, unsigned_vector& seen) {
+        void merge_clash(const xor_clause& other, unsigned_vector& seen) {
             for (const auto& v: clash_vars) {
                 seen[v] = 1;
             }
@@ -410,7 +292,23 @@ namespace xr {
         }
     };
     
-    struct PackedRow {
+    class PackedRow {
+        
+        friend class PackedMatrix;
+        friend class EGaussian;
+        friend std::ostream& operator<<(std::ostream& os, const PackedRow& m);
+
+        PackedRow(const unsigned _size, int64_t* const _mp) :
+            mp(_mp+1),
+            rhs_internal(*_mp), 
+            size(_size) {}
+       
+           int64_t* __restrict const mp;
+           int64_t& rhs_internal;
+           const int size;
+        
+    public:
+        
         PackedRow() = delete;
         
         PackedRow& operator=(const PackedRow& b) {
@@ -558,21 +456,6 @@ namespace xr {
             }
             return ret;
         }
-    
-    private:
-        friend class PackedMatrix;
-        friend class EGaussian;
-        friend std::ostream& operator << (std::ostream& os, const PackedRow& m);
-    
-        PackedRow(const unsigned _size, int64_t*  const _mp) :
-            mp(_mp+1)
-            , rhs_internal(*_mp)
-            , size(_size) {}
-    
-        //int __attribute__ ((aligned (16))) *const mp;
-        int64_t *__restrict const mp;
-        int64_t& rhs_internal;
-        const int size;
     };
     
     struct PackedMatrix {
@@ -641,7 +524,7 @@ namespace xr {
             iterator(int64_t* _mp, const unsigned _numCols) : mp(_mp), numCols(_numCols) { }
                 
         public:
-            friend class PackedMatrix;
+            friend struct PackedMatrix;
     
             PackedRow operator*() {
                 return PackedRow(numCols, mp);
@@ -683,10 +566,6 @@ namespace xr {
             return iterator(mp+numRows*(numCols+1), numCols);
         }
     
-        inline unsigned getSize() const {
-            return numRows;
-        }
-    
     private:
     
         int64_t *mp;
@@ -699,15 +578,15 @@ namespace xr {
         EGaussian(
             solver* solver,
             const unsigned matrix_no,
-            const vector<Xor>& xorclauses
+            const vector<xor_clause>& xorclauses
         );
         ~EGaussian();
         bool is_initialized() const;
     
         ///returns FALSE in case of conflict
         bool find_truths(
-            GaussWatched*& i,
-            GaussWatched*& j,
+            gauss_watched*& i,
+            gauss_watched*& j,
             const unsigned var,
             const unsigned row_n,
             gauss_data& gqd
@@ -727,12 +606,11 @@ namespace xr {
         void check_invariants();
         void update_matrix_no(unsigned n);
         void check_watchlist_sanity();
-        unsigned get_matrix_no();
         void move_back_xor_clauses();
-        bool clean_xor_clauses(vector<Xor>& xors);
-        bool clean_one_xor(Xor& x);
+        bool clean_xor_clauses(vector<xor_clause>& xors);
+        bool clean_one_xor(xor_clause& x);
     
-        vector<Xor> m_xorclauses;
+        vector<xor_clause> m_xorclauses;
     
     private:
         xr::solver* m_solver;   // original sat solver
@@ -749,7 +627,7 @@ namespace xr {
         void check_row_not_in_watch(const unsigned v, const unsigned row_num) const;
     
         //Reason generation
-        svector<XorReason> xor_reasons;
+        vector<reason> xor_reasons;
         sat::literal_vector tmp_clause;
         unsigned get_max_level(const gauss_data& gqd, const unsigned row_n);
     
@@ -793,7 +671,8 @@ namespace xr {
         unsigned last_val_update = 0;
     
         //Is the clause at this ROW satisfied already?
-        //satisfied_xors[decision_level][row] tells me that
+        //satisfied_xors[row] tells me that
+        // TODO: Are characters enough?
         char_vector satisfied_xors;
     
         // Someone is responsible for this column if TRUE
@@ -843,10 +722,6 @@ namespace xr {
     
     inline void EGaussian::update_matrix_no(unsigned n) {
         matrix_no = n;
-    }
-    
-    inline unsigned EGaussian::get_matrix_no() {
-        return matrix_no;
     }
     
     inline bool EGaussian::is_initialized() const {

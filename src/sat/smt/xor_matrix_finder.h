@@ -59,7 +59,7 @@ namespace xr {
         
         unsigned set_matrixes();
         
-        inline bool belong_same_matrix(const Xor& x);
+        inline bool belong_same_matrix(const xor_clause& x);
         
     public:
         xor_matrix_finder(solver& solver);

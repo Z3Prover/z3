@@ -208,11 +208,12 @@ namespace sat {
         unsigned           m_xor_gauss_max_matrix_columns;
         unsigned           m_xor_gauss_max_num_matrices;
         bool               m_xor_gauss_force_use_all_matrices;
-        double             m_xor_min_usefulness_cutoff;
+        double             m_xor_gauss_min_usefulness_cutoff;
         
-        const bool         m_xor_doMatrixFind = true;
+        const bool         m_xor_gauss_doMatrixFind = true;
         const unsigned     m_xor_gauss_min_clauses = 2;
-        const double       m_xor_gauss_max_clauses = 500000;
+        const unsigned     m_xor_gauss_max_clauses = 500000;
+        const unsigned     m_xor_gauss_var_per_cut = 2;
         
 
         config(params_ref const & p);

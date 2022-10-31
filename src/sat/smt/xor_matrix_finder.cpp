@@ -24,7 +24,7 @@ namespace xr {
 
     xor_matrix_finder::xor_matrix_finder(solver& s) : m_xor(s), m_sat(s.s()) { }
         
-    inline bool xor_matrix_finder::belong_same_matrix(const Xor& x) {
+    inline bool xor_matrix_finder::belong_same_matrix(const xor_clause& x) {
         unsigned comp_num = -1;
         for (sat::bool_var v : x) {
             if (m_table[v] == l_undef) // Belongs to none, abort
@@ -76,15 +76,15 @@ namespace xr {
         }
     
         //Just one giant matrix.
-        if (!m_sat.get_config().m_xor_doMatrixFind) {
+        if (!m_sat.get_config().m_xor_gauss_doMatrixFind) {
             m_xor.gmatrices.push_back(new EGaussian(&m_xor, 0, m_xor.m_xorclauses));
             m_xor.gqueuedata.resize(m_xor.gmatrices.size());
             return true;
         }
     
         unsigned_vector newSet;
-        uint_set tomerge;
-        for (const Xor& x : m_xor.m_xorclauses) {
+        unsigned_vector tomerge;
+        for (const xor_clause& x : m_xor.m_xorclauses) {
             if (belong_same_matrix(x))
                 continue;
     
@@ -92,13 +92,13 @@ namespace xr {
             newSet.clear();
             for (unsigned v : x) {
                 if (m_table[v] != l_undef)
-                    tomerge.insert(m_table[v]);
+                    tomerge.push_back(m_table[v]);
                 else
                     newSet.push_back(v);
             }
             if (tomerge.size() == 1) {
                 const unsigned into = *tomerge.begin();
-                svector<unsigned int>& intoReverse = m_reverseTable.find(into);
+                unsigned_vector& intoReverse = m_reverseTable.find(into);
                 for (unsigned i = 0; i < newSet.size(); i++) {
                     intoReverse.push_back(newSet[i]);
                     m_table[newSet[i]] = into;
@@ -126,7 +126,7 @@ namespace xr {
     unsigned xor_matrix_finder::set_matrixes() {
 
         svector<matrix_shape> matrix_shapes;
-        vector<vector<Xor>> xors_in_matrix(m_matrix_no);
+        vector<vector<xor_clause>> xors_in_matrix(m_matrix_no);
 
         for (unsigned i = 0; i < m_matrix_no; i++) {
             matrix_shapes.push_back(matrix_shape(i));
@@ -134,7 +134,7 @@ namespace xr {
             matrix_shapes[i].m_cols = m_reverseTable[i].size();
         }
 
-        for (Xor& x : m_xor.m_xorclauses) {
+        for (xor_clause& x : m_xor.m_xorclauses) {
             // take 1st variable to check which matrix it's in.
             const unsigned matrix = m_table[x[0]];
             SASSERT(matrix < m_matrix_no);
@@ -197,7 +197,7 @@ namespace xr {
     
             if (use_matrix) {
                 m_xor.gmatrices.push_back(
-                    alloc(EGaussian, m_xor, realMatrixNum, xors_in_matrix[i]));
+                    alloc(EGaussian, &m_xor, realMatrixNum, xors_in_matrix[i]));
                 m_xor.gqueuedata.resize(m_xor.gmatrices.size());
     
                 realMatrixNum++;

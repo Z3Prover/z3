@@ -28,10 +28,95 @@ namespace xr {
         : euf::th_solver(m, symbol("xor"), id),
           si(si) {
     }
+    
+    solver::~solver() {
+        /*for (justification* j : m_justifications) {
+            j->deallocate(m_allocator);
+        }*/
+        clear_gauss_matrices(true);
+    }
 
     euf::th_solver* solver::clone(euf::solver& ctx) {
         // and relevant copy internal state
         return alloc(solver, ctx);
+    }
+    
+    void solver::add_every_combination_xor(const sat::literal_vector& lits, const bool attach) {
+        unsigned at = 0, num = 0;
+        sat::literal_vector xorlits;
+        m_tmp_xor_clash_vars.clear();
+        sat::literal lastlit_added = sat::null_literal;
+        while (at != lits.size()) {
+            xorlits.clear();
+            for (unsigned last_at = at; at < last_at + s().get_config().m_xor_gauss_var_per_cut && at < lits.size(); at++) {
+                xorlits.push_back(lits[at]);
+            }
+    
+            //Connect to old cut
+            if (lastlit_added != sat::null_literal) {
+                xorlits.push_back(lastlit_added);
+            } else if (at < lits.size()) {
+                xorlits.push_back(lits[at]);
+                at++;
+            }
+    
+            if (at + 1 == lits.size()) {
+                xorlits.push_back(lits[at]);
+                at++;
+            }
+    
+            //New lit to connect to next cut
+            if (at != lits.size()) {
+                const sat::bool_var new_var = m_solver->mk_var();
+                m_tmp_xor_clash_vars.push_back(new_var);
+                const sat::literal to_add = sat::literal(new_var, false);
+                xorlits.push_back(to_add);
+                lastlit_added = to_add;
+            }
+    
+            // TODO: Do we really need this? Makes it very complicated to port
+            // add_xor_clause_inter_cleaned_cut(xorlits, attach);
+            if (s().inconsistent())
+                break;
+    
+            num++;
+        }
+    }
+    
+    void solver::add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach) {
+        if (s().inconsistent())
+            return;
+        TRACE("xor", tout << "adding xor: " << lits << " rhs: " << rhs << "\n");
+        SASSERT(!attach || m_prop_queue_head == m_prop_queue.size());
+        SASSERT(s().at_search_lvl());
+    
+        sat::literal_vector ps(lits);
+        for(sat::literal& lit: ps) {
+            if (lit.sign()) {
+                rhs ^= true;
+                lit.neg();
+            }
+        }
+        clean_xor_no_prop(ps, rhs);
+    
+        if (ps.size() >= (0x01UL << 28)) 
+            throw default_exception("xor clause too long");
+    
+        if (ps.empty()) {
+            if (rhs)
+                m_solver->set_conflict();
+            return;
+        }
+    
+        if (rhs)
+            ps[0].neg();
+    
+        add_every_combination_xor(ps, attach);
+        if (ps.size() > 2) {
+            m_xor_clauses_updated = true;
+            m_xorclauses.push_back(xor_clause(ps, rhs, m_tmp_xor_clash_vars));
+            m_xorclauses_orig.push_back(xor_clause(ps, rhs, m_tmp_xor_clash_vars));
+        }
     }
 
     void solver::asserted(sat::literal l) {        
@@ -47,18 +132,18 @@ namespace xr {
         m_ctx->push(value_trail<unsigned>(m_prop_queue_head));
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             sat::literal const p = m_prop_queue[m_prop_queue_head];
-            auto conflict = gauss_jordan_elim(p, m_num_scopes);
-            if (!conflict.is_null()) {
-                // TODO: Abort; add conflict
+            sat::justification conflict = gauss_jordan_elim(p, m_num_scopes);
+            if (conflict.is_none()) {
                 m_prop_queue_head = m_prop_queue.size();
+                s().set_conflict(conflict);
             }
         }
         return true;
     }
     
-    justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
+    sat::justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
         if (gmatrices.empty()) 
-            return justification::get_null();
+            return sat::justification(-1);
         for (unsigned i = 0; i < gqueuedata.size(); i++) {
             if (gqueuedata[i].disabled || !gmatrices[i]->is_initialized()) continue;
             gqueuedata[i].reset();
@@ -67,10 +152,10 @@ namespace xr {
         
         bool confl_in_gauss = false;
         SASSERT(gwatches.size() > p.var());
-        svector<GaussWatched>& ws = gwatches[p.var()];
-        GaussWatched* i = ws.begin();
-        GaussWatched* j = i;
-        const GaussWatched* end = ws.end();
+        svector<gauss_watched>& ws = gwatches[p.var()];
+        gauss_watched* i = ws.begin();
+        gauss_watched* j = i;
+        const gauss_watched* end = ws.end();
         
         for (; i != end; i++) {
             if (gqueuedata[i->matrix_num].disabled || !gmatrices[i->matrix_num]->is_initialized())
@@ -99,7 +184,7 @@ namespace xr {
         
             if (gqueuedata[g].do_eliminate) {
                 gmatrices[g]->eliminate_col(p.var(), gqueuedata[g]);
-                confl_in_gauss |= (gqueuedata[g].ret == gauss_res::confl);
+                confl_in_gauss |= (gqueuedata[g].status == gauss_res::confl);
             }
         }
         
@@ -108,13 +193,13 @@ namespace xr {
         
             //There was a conflict but this is not that matrix.
             //Just skip.
-            if (confl_in_gauss && gqd.ret != gauss_res::confl) continue;
+            if (confl_in_gauss && gqd.status != gauss_res::confl) 
+                continue;
         
-            switch (gqd.ret) {
-                case gauss_res::confl :{
+            switch (gqd.status) {
+                case gauss_res::confl:
                     gqd.num_conflicts++;
-                    return gqd.confl;
-                }
+                    return gqd.conflict;
         
                 case gauss_res::prop:
                     gqd.num_props++;
@@ -128,7 +213,7 @@ namespace xr {
                     UNREACHABLE();
             }
         }
-        return justification::get_null();
+        return sat::justification(-1);
     }
     
     void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx,
@@ -150,6 +235,7 @@ namespace xr {
     
     void solver::push_core() {
         m_prop_queue_lim.push_back(m_prop_queue.size());
+        //m_justifications_lim.push_back(m_justifications.size());
     }
     
     void solver::pop_core(unsigned num_scopes) {
@@ -157,6 +243,14 @@ namespace xr {
         unsigned old_sz = m_prop_queue_lim.size() - num_scopes;
         m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
         m_prop_queue_lim.shrink(old_sz);
+        
+        /*old_sz = m_justifications_lim.size() - num_scopes;
+        unsigned lim = m_justifications_lim[old_sz];
+        for (unsigned i = m_justifications.size(); i > lim; i--) {
+            m_justifications[i - 1].destroy(m_allocator);
+        }
+        m_justifications_lim.shrink(old_sz);
+        m_justifications.shrink(old_sz);*/
     }
     
     void solver::push() {
@@ -187,13 +281,43 @@ namespace xr {
         return out;
     }
     
+    bool solver::clear_gauss_matrices(const bool destruct) {
+        // TODO: Include; ignored for now. Maybe we can ignore the detached clauses
+        /*if (!destruct) {
+            if (!fully_undo_xor_detach()) 
+                return false;
+        }*/
+        m_xor_clauses_updated = true;
+    
+        for (EGaussian* g: gmatrices) 
+            g->move_back_xor_clauses();
+        for (EGaussian* g: gmatrices) 
+            delete g;
+        for (auto& w: gwatches) 
+            w.clear();
+        
+        gmatrices.clear();
+        gqueuedata.clear();
+        
+        m_xorclauses.clear(); // we rely on xorclauses_orig now
+        m_xorclauses_unused.clear();
+        
+        if (!destruct) {
+            for (const auto& x: m_xorclauses_orig) {
+                m_xorclauses.push_back(x);
+            }
+        }
+    
+        return !s().inconsistent();
+    }
+    
     bool solver::find_and_init_all_matrices() {
-#if 0
-        if (!xor_clauses_updated && (!detached_xor_clauses || !assump_contains_xor_clash()))
+        if (!m_xor_clauses_updated/* && (!m_detached_xor_clauses || !assump_contains_xor_clash())*/)
             return true;
         
         bool can_detach;
-        if (!clear_gauss_matrices()) return false;
+        if (!clear_gauss_matrices(false)) 
+            return false;
         
         xor_matrix_finder mfinder(solver);
         ok = mfinder.find_matrices(can_detach);
@@ -201,17 +325,17 @@ namespace xr {
         if (!init_all_matrices()) return false;
         
         bool ret_no_irred_nonxor_contains_clash_vars;
+        
+        /* TODO: Make this work (ignored for now)
         if (can_detach &&
-            conf.xor_detach_reattach &&
-            !conf.gaussconf.autodisable &&
-            (ret_no_irred_nonxor_contains_clash_vars = no_irred_nonxor_contains_clash_vars())
-        ) {
+            s().get_config().m_xor_gauss_detach_reattach &&
+            !s().get_config().autodisable &&
+            (ret_no_irred_nonxor_contains_clash_vars = no_irred_nonxor_contains_clash_vars())) {
             detach_xor_clauses(mfinder.clash_vars_unused);
             unset_clash_decision_vars(xorclauses);
             rebuildOrderHeap();
-        }
-#endif
-        xor_clauses_updated = false;
+        }*/
+        m_xor_clauses_updated = false;
         return true;
     }
     
@@ -223,7 +347,8 @@ namespace xr {
         for (unsigned i = 0; i < gmatrices.size(); i++) {
             auto& g = gmatrices[i];
             bool created = false;
-            if (!g->full_init(created)) return false;
+            if (!g->full_init(created)) 
+                return false;
             SASSERT(!s().inconsistent());
     
             if (!created) {
@@ -236,29 +361,61 @@ namespace xr {
         unsigned j = 0;
         bool modified = false;
         for (unsigned i = 0; i < gqueuedata.size(); i++) {
-            if (gmatrices[i] != nullptr) {
-                gmatrices[j] = gmatrices[i];
-                gmatrices[j]->update_matrix_no(j);
-                gqueuedata[j] = gqueuedata[i];
-    
-                if (modified) {
-                    for (unsigned var = 0; var < s().num_vars(); var++) {
-                        for (GaussWatched& k : gwatches[var]) {
-                            if (k.matrix_num == i) {
-                                k.matrix_num = j;
-                            }
+            if (gmatrices[i] == nullptr) {
+                modified = true;
+                continue;
+            }
+            gmatrices[j] = gmatrices[i];
+            gmatrices[j]->update_matrix_no(j);
+            gqueuedata[j] = gqueuedata[i];
+            
+            if (modified) {
+                for (unsigned var = 0; var < s().num_vars(); var++) {
+                    for (gauss_watched& k : gwatches[var]) {
+                        if (k.matrix_num == i) {
+                            k.matrix_num = j;
                         }
                     }
                 }
-                j++;
-            } else {
-                modified = true;
             }
+            j++;
         }
         gqueuedata.resize(j);
         gmatrices.resize(j);
         
         return !s().inconsistent();
+    }
+    
+    sat::justification solver::mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i) {
+        void* mem = m_ctx->get_region().allocate(justification::get_obj_size());
+        sat::constraint_base::initialize(mem, this);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(matrix_no, row_i);
+        return sat::justification::mk_ext_justification(level, constraint->to_index()); 
+    }
+    
+    void solver::clean_xor_no_prop(sat::literal_vector & ps, bool & rhs) {
+        std::sort(ps.begin(), ps.end());
+        sat::literal p = sat::null_literal;
+        unsigned i = 0, j = 0;
+        for (; i != ps.size(); i++) {
+            SASSERT(!ps[i].sign());
+            if (ps[i].var() == p.var()) {
+                //added, but easily removed
+                j--;
+                p = sat::null_literal;
+                //Flip rhs if necessary
+                if (s().value(ps[i]) != l_undef) {
+                    rhs ^= s().value(ps[i]) == l_true;
+                }
+            } else if (s().value(ps[i]) == l_undef) {
+                //Add and remember as last one to have been added
+                ps[j++] = p = ps[i];
+            } else {
+                //modify rhs instead of adding
+                rhs ^= s().value(ps[i]) == l_true;
+            }
+        }
+        ps.resize(ps.size() - (i - j));
     }
     
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const  {

@@ -61,25 +61,29 @@ namespace xr {
         friend class xor_matrix_finder;
         friend class EGaussian;
 
+        euf::solver*              m_ctx = nullptr;
+        sat::sat_internalizer&    si;
+        small_object_allocator    m_allocator;
 
-        euf::solver* m_ctx = nullptr;
-        sat::sat_internalizer& si;
-        
-        unsigned            m_num_scopes = 0;
-        
-        sat::literal_vector  m_prop_queue;
-        unsigned_vector      m_prop_queue_lim;
-        unsigned             m_prop_queue_head = 0;
+        unsigned                  m_num_scopes = 0;
 
-        vector<Xor> m_xorclauses;
-        vector<Xor> m_xorclauses_orig;
-        vector<Xor> m_xorclauses_unused;
-        
-        vector<unsigned> removed_xorclauses_clash_vars;
-        bool detached_xor_clauses = false;
-        bool xor_clauses_updated = false;
+        sat::literal_vector       m_prop_queue;
+        unsigned_vector           m_prop_queue_lim;
+        unsigned                  m_prop_queue_head = 0;
+        // ptr_vector<justification> m_justifications;
+        // unsigned_vector           m_justifications_lim;
 
-        vector<svector<GaussWatched>> gwatches;
+        svector<sat::bool_var>    m_tmp_xor_clash_vars;
+        
+        vector<xor_clause>        m_xorclauses;
+        vector<xor_clause>        m_xorclauses_orig;
+        vector<xor_clause>        m_xorclauses_unused;
+        
+        unsigned_vector           m_removed_xorclauses_clash_vars;
+        bool                      m_detached_xor_clauses = false;
+        bool                      m_xor_clauses_updated = false;
+
+        vector<svector<gauss_watched>> gwatches;
         
         ptr_vector<EGaussian> gmatrices;
         svector<gauss_data> gqueuedata;
@@ -88,18 +92,24 @@ namespace xr {
         void push_core();
         void pop_core(unsigned num_scopes);
 
+        void clean_xor_no_prop(sat::literal_vector& ps, bool& rhs);
+        
     public:
         solver(euf::solver& ctx);
         solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        ~solver();
         th_solver* clone(euf::solver& ctx) override;
 
         sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }
 
         void internalize(expr* e) override { UNREACHABLE(); }
 
+        void add_every_combination_xor(const sat::literal_vector& lits, const bool attach);
+        void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
+        
         void asserted(sat::literal l) override;
         bool unit_propagate() override;
-        justification gauss_jordan_elim(const sat::literal p, const unsigned currLevel);
+        sat::justification gauss_jordan_elim(const sat::literal p, const unsigned currLevel);
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override;
 
         void pre_simplify() override;
@@ -112,12 +122,14 @@ namespace xr {
         void init_search() override {
             find_and_init_all_matrices();
         }
-        
+        bool clear_gauss_matrices(const bool destruct);
         bool find_and_init_all_matrices();
         bool init_all_matrices();
-
+        
+        sat::justification mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i);
+        
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
-    };
+};
 }
