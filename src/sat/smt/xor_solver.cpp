@@ -292,7 +292,7 @@ namespace xr {
         for (EGaussian* g: gmatrices) 
             g->move_back_xor_clauses();
         for (EGaussian* g: gmatrices) 
-            delete g;
+            memory::deallocate(g);
         for (auto& w: gwatches) 
             w.clear();
         
@@ -353,7 +353,7 @@ namespace xr {
     
             if (!created) {
                 gqueuedata[i].disabled = true;
-                delete g;
+                memory::deallocate(g);
                 g = nullptr;
             }
         }
