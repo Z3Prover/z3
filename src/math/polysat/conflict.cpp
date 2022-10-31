@@ -429,6 +429,7 @@ namespace polysat {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
+        SASSERT(s.m_bvars.is_value_propagation(lit));
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
 
@@ -441,9 +442,12 @@ namespace polysat {
         // If evaluation depends on a decision,
         // then we rather keep the more general constraint c instead of inserting "x = v"
         bool has_decision = false;
+#if 0
+        // TODO: this is problematic; may skip relevant decisions
         for (pvar v : c->vars())
             if (s.is_assigned(v) && s.m_justification[v].is_decision())
                 m_bail_vars.insert(v), has_decision = true;
+#endif
 
         if (!has_decision) {
             remove(c);
@@ -451,6 +455,9 @@ namespace polysat {
                 if (s.is_assigned(v) && s.get_level(v) <= lvl)
                     m_vars.insert(v);
         }
+
+        SASSERT(!contains(lit));
+        SASSERT(!contains(~lit));
 
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
