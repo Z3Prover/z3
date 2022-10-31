@@ -258,6 +258,7 @@ namespace polysat {
 
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(s, us, dep, is_positive()); }
 
+        unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
 

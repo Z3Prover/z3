@@ -85,6 +85,7 @@ namespace polysat {
         friend class assignment_pp;
         friend class assignments_pp;
         friend class ex_polynomial_superposition;
+        friend class free_variable_elimination;
         friend class inf_saturate;
         friend class constraint_manager;
         friend class scoped_solverv;

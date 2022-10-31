@@ -62,11 +62,13 @@ namespace polysat {
     class conflict_resolver {
         inf_saturate m_saturate;
         ex_polynomial_superposition m_poly_sup;
+        free_variable_elimination m_free_variable_elimination;
 
     public:
         conflict_resolver(solver& s)
             : m_saturate(s)
             , m_poly_sup(s)
+            , m_free_variable_elimination(s)
         {}
 
         bool try_resolve_value(pvar v, conflict& core) {
@@ -75,6 +77,11 @@ namespace polysat {
             if (m_saturate.perform(v, core))
                 return true;
             return false;
+        }
+
+        // Analyse current conflict core to extract additional lemmas
+        void find_extra_lemmas(conflict& core) {
+            m_free_variable_elimination.find_lemma(core);
         }
     };
 
@@ -524,6 +531,10 @@ namespace polysat {
     clause_ref conflict::build_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
+
+        // TODO: do this after each step?
+        m_resolver->find_extra_lemmas(*this);
+
         clause_builder lemma(s);
 
 #if 0
