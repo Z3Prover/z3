@@ -329,14 +329,24 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
+    void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
+        add_lemma(std::data(cs), cs.size());
+    }
+
     void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
             cb.push(cs[i]);
-        clause_ref lemma = cb.build();
+        add_lemma(cb.build());
+    }
+
+    void conflict::add_lemma(clause_ref lemma) {
         SASSERT(lemma);
         lemma->set_redundant(true);
         LOG("Side lemma: " << *lemma);
+        for (sat::literal lit : *lemma) {
+            LOG("   " << lit_pp(s, lit));
+        }
         m_lemmas.push_back(std::move(lemma));
         // If possible, we should set the new constraint to l_true;
         // and re-enable the assertions marked with "tag:true_by_side_lemma".
@@ -346,10 +356,6 @@ namespace polysat {
         //   should be treated by the conflict resolution methods like l_true
         //   constraints,
         // - l_false constraints are disallowed in the conflict (as before).
-    }
-
-    void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
-        add_lemma(std::data(cs), cs.size());
     }
 
 #if 0
