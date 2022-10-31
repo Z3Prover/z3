@@ -95,6 +95,12 @@ namespace polysat {
             LOG("c_target: " << lit_pp(s, c_target));
             LOG("c_new:    " << lit_pp(s, c_new));
 
+            // New constraint is already true (maybe we already derived it previously?)
+            // TODO: It might make sense to keep different derivations of the same constraint.
+            //       E.g., if the new clause could derive c_new at a lower decision level.
+            if (c_new.bvalue(s) == l_true)
+                continue;
+
             clause_builder cb(s);
             for (auto [w, wv] : a)
                 cb.push(~s.eq(s.var(w), wv));
