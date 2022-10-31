@@ -19,15 +19,12 @@ Abstract:
 
 namespace xr {
     
-    solver::solver(euf::solver& ctx):
-        solver(ctx.get_manager(), ctx.get_si(), ctx.get_manager().get_family_id("xor")) {
+    solver::solver(euf::solver& ctx) :
+        solver(ctx.get_manager(), ctx.get_manager().mk_family_id("xor")) {
         m_ctx = &ctx;
     }
 
-    solver::solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
-        : euf::th_solver(m, symbol("xor"), id),
-          si(si) {
-    }
+    solver::solver(ast_manager& m, euf::theory_id id) : euf::th_solver(m, symbol("xor"), id) { }
     
     solver::~solver() {
         /*for (justification* j : m_justifications) {
@@ -319,9 +316,9 @@ namespace xr {
         if (!clear_gauss_matrices(false)) 
             return false;
         
-        xor_matrix_finder mfinder(solver);
-        ok = mfinder.find_matrices(can_detach);
-        if (!ok) return false;
+        xor_matrix_finder mfinder(m_solver);
+        mfinder.find_matrices(can_detach);
+        if (s().inconsistent()) return false;
         if (!init_all_matrices()) return false;
         
         bool ret_no_irred_nonxor_contains_clash_vars;

@@ -451,6 +451,7 @@ namespace euf {
         void set_bool_var2expr(sat::bool_var v, expr* e) { m_var_trail.push_back(v);  m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m); }
+        void add_xor(sat::literal_vector const& lits) override;
         unsigned generation() const { return m_generation; }
 
         sat::literal attach_lit(sat::literal lit, expr* e);

@@ -62,8 +62,6 @@ namespace xr {
         friend class EGaussian;
 
         euf::solver*              m_ctx = nullptr;
-        sat::sat_internalizer&    si;
-        small_object_allocator    m_allocator;
 
         unsigned                  m_num_scopes = 0;
 
@@ -96,9 +94,13 @@ namespace xr {
         
     public:
         solver(euf::solver& ctx);
-        solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        solver(ast_manager& m, euf::theory_id id);
         ~solver();
         th_solver* clone(euf::solver& ctx) override;
+
+
+        void add_xor(sat::literal_vector const& lits) override { NOT_IMPLEMENTED_YET(); }
+
 
         sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }
 
