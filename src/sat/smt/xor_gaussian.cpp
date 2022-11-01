@@ -162,12 +162,12 @@ gret PackedRow::propGause(
     return gret::confl;
 }
 
-EGaussian::EGaussian(xr::solver* _solver, const unsigned _matrix_no, const vector<xor_clause>& _xorclauses) : 
+EGaussian::EGaussian(xr::solver& _solver, const unsigned _matrix_no, const vector<xor_clause>& _xorclauses) : 
     m_xorclauses(_xorclauses), m_solver(_solver), matrix_no(_matrix_no) { }
 
 EGaussian::~EGaussian() {
     delete_gauss_watch_this_matrix();
-    for(auto& x: tofree) delete[] x;
+    for(auto& x: tofree) memory::deallocate(x);
     tofree.clear();
 
     delete cols_unset;
@@ -183,30 +183,30 @@ EGaussian::~EGaussian() {
 public:
         
     explicit ColSorter(xr::solver* _solver) : m_solver(_solver) {
-        for (const auto& ass: m_solver->assumptions) {
-            literal p = m_solver->map_outer_to_inter(ass.lit_outer);
-            if (p.var() < m_solver->s().num_vars()) {
-                assert(m_solver->seen.size() > p.var());
-                m_solver->seen[p.var()] = 1;
+        for (const auto& ass: m_solver.assumptions) {
+            literal p = m_solver.map_outer_to_inter(ass.lit_outer);
+            if (p.var() < m_solver.s().num_vars()) {
+                assert(m_solver.seen.size() > p.var());
+                m_solver.seen[p.var()] = 1;
             }
         }
     }
 
     void finishup() {
-        for (const auto& ass: m_solver->assumptions) {
-            literal p = m_solver->map_outer_to_inter(ass.lit_outer);
-            if (p.var() < m_solver->s().num_vars())
-                m_solver->seen[p.var()] = 0;
+        for (const auto& ass: m_solver.assumptions) {
+            literal p = m_solver.map_outer_to_inter(ass.lit_outer);
+            if (p.var() < m_solver.s().num_vars())
+                m_solver.seen[p.var()] = 0;
         }
     }
 
     bool operator()(const unsigned a, const unsigned b) {
-        SASSERT(m_solver->seen.size() > a);
-        SASSERT(m_solver->seen.size() > b);
-        if (m_solver->seen[b] && !m_solver->seen[a])
+        SASSERT(m_solver.seen.size() > a);
+        SASSERT(m_solver.seen.size() > b);
+        if (m_solver.seen[b] && !m_solver.seen[a])
             return true;
 
-        if (!m_solver->seen[b] && m_solver->seen[a])
+        if (!m_solver.seen[b] && m_solver.seen[a])
             return false;
 
         return false;
@@ -215,13 +215,13 @@ public:
 
 void EGaussian::select_columnorder() {
     var_to_col.clear();
-    var_to_col.resize(m_solver->s().num_vars(), unassigned_col);
+    var_to_col.resize(m_solver.s().num_vars(), unassigned_col);
     unsigned_vector vars_needed;
     unsigned largest_used_var = 0;
 
     for (const xor_clause& x : m_xorclauses) {
         for (const unsigned v : x) {
-            SASSERT(m_solver->s().value(v) == l_undef);
+            SASSERT(m_solver.s().value(v) == l_undef);
             if (var_to_col[v] == unassigned_col) {
                 vars_needed.push_back(v);
                 var_to_col[v] = unassigned_col - 1;
@@ -285,50 +285,50 @@ void EGaussian::fill_matrix() {
 
     // reset
     var_has_resp_row.clear();
-    var_has_resp_row.resize(m_solver->s().num_vars(), 0);
+    var_has_resp_row.resize(m_solver.s().num_vars(), 0);
     row_to_var_non_resp.clear();
 
     delete_gauss_watch_this_matrix();
 
     //reset satisfied_xor state
-    SASSERT(m_solver->m_num_scopes == 0);
+    SASSERT(m_solver.m_num_scopes == 0);
     satisfied_xors.clear();
     satisfied_xors.resize(num_rows, 0);
 }
 
 void EGaussian::delete_gauss_watch_this_matrix() {
-    for (size_t ii = 0; ii < m_solver->gwatches.size(); ii++) {
+    for (size_t ii = 0; ii < m_solver.gwatches.size(); ii++) {
         clear_gwatches(ii);
     }
 }
 
 void EGaussian::clear_gwatches(const unsigned var) {
     //if there is only one matrix, don't check, just empty it
-    if (m_solver->gmatrices.empty()) {
-        m_solver->gwatches[var].clear();
+    if (m_solver.gmatrices.empty()) {
+        m_solver.gwatches[var].clear();
         return;
     }
 
-    gauss_watched* i = m_solver->gwatches[var].begin();
+    gauss_watched* i = m_solver.gwatches[var].begin();
     gauss_watched* j = i;
-    for(gauss_watched* end = m_solver->gwatches[var].end(); i != end; i++) {
+    for(gauss_watched* end = m_solver.gwatches[var].end(); i != end; i++) {
         if (i->matrix_num != matrix_no) {
             *j++ = *i;
         }
     }
-    m_solver->gwatches[var].shrink(i-j);
+    m_solver.gwatches[var].shrink(i-j);
 }
 
 bool EGaussian::full_init(bool& created) {
     SASSERT(!inconsistent());
-    SASSERT(m_solver->m_num_scopes == 0);
+    SASSERT(m_solver.m_num_scopes == 0);
     SASSERT(initialized == false);
     created = true;
 
     unsigned trail_before;
     while (true) {
-        trail_before = m_solver->s().trail_size();
-        clean_xor_clauses(m_xorclauses);
+        trail_before = m_solver.s().trail_size();
+        m_solver.clean_xor_clauses(m_xorclauses);
 
         fill_matrix();
         before_init_density = get_density();
@@ -346,9 +346,9 @@ bool EGaussian::full_init(bool& created) {
             case gret::confl:
                 return false;
             case gret::prop:
-                SASSERT(m_solver->m_num_scopes == 0);
-                m_solver->s().propagate(false); // TODO: Can we really do this here?
-                // m_solver->ok = m_solver->propagate<false>().isNull();
+                SASSERT(m_solver.m_num_scopes == 0);
+                m_solver.s().propagate(false); // TODO: Can we really do this here?
+                // m_solver.ok = m_solver.propagate<false>().isNull();
                 if (inconsistent()) {
                     TRACE("xor", tout << "eliminate & adjust matrix during init lead to UNSAT\n";);
                     return false;
@@ -359,7 +359,7 @@ bool EGaussian::full_init(bool& created) {
         }
         
         //Let's exit if nothing new happened
-        if (m_solver->s().trail_size() == trail_before)
+        if (m_solver.s().trail_size() == trail_before)
             break;
     }
     DEBUG_CODE(check_watchlist_sanity(););
@@ -368,29 +368,29 @@ bool EGaussian::full_init(bool& created) {
     xor_reasons.resize(num_rows);
     unsigned num_64b = num_cols/64+(bool)(num_cols%64);
     for (auto& x: tofree) {
-        delete[] x;
+        memory::deallocate(x);
     }
     tofree.clear();
-    delete cols_unset;
-    delete cols_vals;
-    delete tmp_col;
-    delete tmp_col2;
+    dealloc(cols_unset);
+    dealloc(cols_vals);
+    dealloc(tmp_col);
+    dealloc(tmp_col2);
 
-    int64_t* x = new int64_t[num_64b+1];
+    int64_t* x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
     tofree.push_back(x);
-    cols_unset = new PackedRow(num_64b, x);
+    cols_unset = alloc(PackedRow, num_64b, x);
 
-    x = new int64_t[num_64b+1];
+    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
     tofree.push_back(x);
-    cols_vals = new PackedRow(num_64b, x);
+    cols_vals = alloc(PackedRow, num_64b, x);
 
-    x = new int64_t[num_64b+1];
+    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
     tofree.push_back(x);
-    tmp_col = new PackedRow(num_64b, x);
+    tmp_col = alloc(PackedRow, num_64b, x);
 
-    x = new int64_t[num_64b+1];
+    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
     tofree.push_back(x);
-    tmp_col2 = new PackedRow(num_64b, x);
+    tmp_col2 = alloc(PackedRow, num_64b, x);
 
     cols_vals->rhs() = 0;
     cols_unset->rhs() = 0;
@@ -476,7 +476,7 @@ sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
 }
 
 gret EGaussian::init_adjust_matrix() {
-    SASSERT(m_solver->s().at_search_lvl());
+    SASSERT(m_solver.s().at_search_lvl());
     SASSERT(row_to_var_non_resp.empty());
     SASSERT(satisfied_xors.size() >= num_rows);
     TRACE("xor", tout << "mat[" << matrix_no << "] init adjusting matrix";);
@@ -499,7 +499,7 @@ gret EGaussian::init_adjust_matrix() {
                 // conflict
                 if (row.rhs()) {
                     // TODO: Is this enough? What's the justification?
-                    m_solver->s().set_conflict();
+                    m_solver.s().set_conflict();
                     TRACE("xor", tout << "-> empty clause during init_adjust_matrix";);
                     TRACE("xor", tout << "-> conflict on row: " << row_i;);
                     return gret::confl;
@@ -515,9 +515,9 @@ gret EGaussian::init_adjust_matrix() {
                 TRACE("xor", tout << "Unit XOR during init_adjust_matrix, vars: " << tmp_clause;);
                 bool xorEqualFalse = !mat[row_i].rhs();
                 tmp_clause[0] = literal(tmp_clause[0].var(), xorEqualFalse);
-                SASSERT(m_solver->s().value(tmp_clause[0].var()) == l_undef);
+                SASSERT(m_solver.s().value(tmp_clause[0].var()) == l_undef);
                 
-                m_solver->s().assign_scoped(tmp_clause[0]);
+                m_solver.s().assign_scoped(tmp_clause[0]);
 
                 TRACE("xor", tout << "-> UNIT during adjust: " << tmp_clause[0];);
                 TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
@@ -540,7 +540,7 @@ gret EGaussian::init_adjust_matrix() {
                 tmp_clause[0] = tmp_clause[0].unsign();
                 tmp_clause[1] = tmp_clause[1].unsign();
                 
-                m_solver->add_xor_clause(tmp_clause, !xorEqualFalse, true);
+                m_solver.add_xor_clause(tmp_clause, !xorEqualFalse, true);
                 TRACE("xor", tout << "-> toplevel bin-xor on row: " << row_i << " cl2: " << tmp_clause;);
 
                 // reset this row all zero, no need for this row
@@ -558,9 +558,9 @@ gret EGaussian::init_adjust_matrix() {
                 // insert watch list
                 TRACE("xor", tout << "-> watch 1: resp var " << tmp_clause[0].var()+1 << " for row " << row_i << "\n";);
                 TRACE("xor", tout << "-> watch 2: non-resp var " << non_resp_var+1 << " for row " << row_i << "\n";);
-                m_solver->gwatches[tmp_clause[0].var()].push_back(
+                m_solver.gwatches[tmp_clause[0].var()].push_back(
                     gauss_watched(row_i, matrix_no)); // insert basic variable
-                m_solver->gwatches[non_resp_var].push_back(
+                m_solver.gwatches[non_resp_var].push_back(
                     gauss_watched(row_i, matrix_no)); // insert non-basic variable
                 row_to_var_non_resp.push_back(non_resp_var); // record in this row non-basic variable
                 break;
@@ -579,7 +579,7 @@ gret EGaussian::init_adjust_matrix() {
 void EGaussian::delete_gausswatch(const unsigned row_n) {
     // clear nonbasic value watch list
     bool debug_find = false;
-    svector<gauss_watched>& ws_t = m_solver->gwatches[row_to_var_non_resp[row_n]];
+    svector<gauss_watched>& ws_t = m_solver.gwatches[row_to_var_non_resp[row_n]];
 
     for (int tmpi = ws_t.size(); tmpi-- > 0;) {
         if (ws_t[tmpi].row_n == row_n
@@ -602,7 +602,7 @@ unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
 
     for (unsigned i = 1; i < cl->size(); i++) {
         literal l = (*cl)[i];
-        unsigned nLevel = m_solver->s().lvl(l);
+        unsigned nLevel = m_solver.s().lvl(l);
         if (nLevel > nMaxLevel) {
             nMaxLevel = nLevel;
             nMaxInd = i;
@@ -631,7 +631,7 @@ bool EGaussian::find_truths(
         << "mat[" << matrix_no << "] find_truths\n"
         << "-> row: " << row_n << "\n"
         << "-> var: " << var+1 << "\n"
-        << "-> dec lev:" << m_solver->m_num_scopes);
+        << "-> dec lev:" << m_solver.m_num_scopes);
     SASSERT(row_n < num_rows);
     SASSERT(satisfied_xors.size() > row_n);
 
@@ -674,7 +674,7 @@ bool EGaussian::find_truths(
 
             xor_reasons[row_n].must_recalc = true;
             xor_reasons[row_n].propagated = sat::null_literal;
-            gqd.conflict = m_solver->mk_justification(m_solver->s().search_lvl(), matrix_no, row_n);
+            gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_n);
             gqd.status = gauss_res::confl;
             TRACE("xor", tout << "--> conflict";);
             
@@ -693,7 +693,7 @@ bool EGaussian::find_truths(
 
             xor_reasons[row_n].must_recalc = true;
             xor_reasons[row_n].propagated = ret_lit_prop;
-            SASSERT(m_solver->s().value(ret_lit_prop.var()) == l_undef);
+            SASSERT(m_solver.s().value(ret_lit_prop.var()) == l_undef);
             prop_lit(gqd, row_n, ret_lit_prop);
 
             update_cols_vals_set(ret_lit_prop);
@@ -727,7 +727,7 @@ bool EGaussian::find_truths(
             }
             SASSERT(new_resp_var != var);
             DEBUG_CODE(check_row_not_in_watch(new_resp_var, row_n););
-            m_solver->gwatches[new_resp_var].push_back(gauss_watched(row_n, matrix_no));
+            m_solver.gwatches[new_resp_var].push_back(gauss_watched(row_n, matrix_no));
 
             if (was_resp_var) {
                 //it was the responsible one, so the newly watched var
@@ -741,8 +741,8 @@ bool EGaussian::find_truths(
                 // store the eliminate variable & row
                 gqd.new_resp_var = new_resp_var;
                 gqd.new_resp_row = row_n;
-                if (m_solver->gmatrices.size() == 1) {
-                    SASSERT(m_solver->gwatches[gqd.new_resp_var].size() == 1);
+                if (m_solver.gmatrices.size() == 1) {
+                    SASSERT(m_solver.gwatches[gqd.new_resp_var].size() == 1);
                 }
                 gqd.do_eliminate = true;
                 return true;
@@ -795,48 +795,48 @@ void EGaussian::update_cols_vals_set(bool force) {
 
         for (unsigned col = 0; col < col_to_var.size(); col++) {
             unsigned var = col_to_var[col];
-            if (m_solver->s().value(var) != l_undef) {
+            if (m_solver.s().value(var) != l_undef) {
                 cols_unset->clearBit(col);
-                if (m_solver->s().value(var) == l_true) {
+                if (m_solver.s().value(var) == l_true) {
                     cols_vals->setBit(col);
                 }
             }
         }
-        last_val_update = m_solver->s().trail_size();
+        last_val_update = m_solver.s().trail_size();
         cancelled_since_val_update = false;
         return;
     }
 
-    SASSERT(m_solver->s().trail_size() >= last_val_update);
-    for(unsigned i = last_val_update; i < m_solver->s().trail_size(); i++) {
-        sat::bool_var var = m_solver->s().trail_literal(i).var();
+    SASSERT(m_solver.s().trail_size() >= last_val_update);
+    for(unsigned i = last_val_update; i < m_solver.s().trail_size(); i++) {
+        sat::bool_var var = m_solver.s().trail_literal(i).var();
         if (var_to_col.size() <= var) {
             continue;
         }
         unsigned col = var_to_col[var];
         if (col != unassigned_col) {
-            SASSERT(m_solver->s().value(var) != l_undef);
+            SASSERT(m_solver.s().value(var) != l_undef);
             cols_unset->clearBit(col);
-            if (m_solver->s().value(var) == l_true) {
+            if (m_solver.s().value(var) == l_true) {
                 cols_vals->setBit(col);
             }
         }
     }
-    last_val_update = m_solver->s().trail_size();
+    last_val_update = m_solver.s().trail_size();
 }
 
 void EGaussian::prop_lit(const gauss_data& gqd, const unsigned row_i, const literal ret_lit_prop) {
     unsigned level;
-    if (gqd.currLevel == m_solver->m_num_scopes) 
+    if (gqd.currLevel == m_solver.m_num_scopes) 
         level = gqd.currLevel;
     else 
         level = get_max_level(gqd, row_i);
     
-    m_solver->s().assign(ret_lit_prop, m_solver->mk_justification(level, matrix_no, row_i));
+    m_solver.s().assign(ret_lit_prop, m_solver.mk_justification(level, matrix_no, row_i));
 }
 
 bool EGaussian::inconsistent() const {
-    return m_solver->s().inconsistent();
+    return m_solver.s().inconsistent();
 }
 
 void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
@@ -898,14 +898,14 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                     case gret::confl: {
                         elim_ret_confl++;
                         TRACE("xor", tout << "---> conflict during eliminate_col's fixup";);
-                        m_solver->gwatches[p].push_back(gauss_watched(row_i, matrix_no));
+                        m_solver.gwatches[p].push_back(gauss_watched(row_i, matrix_no));
 
                         // update in this row non-basic variable
                         row_to_var_non_resp[row_i] = p;
 
                         xor_reasons[row_i].must_recalc = true;
                         xor_reasons[row_i].propagated = sat::null_literal;
-                        gqd.conflict = m_solver->mk_justification(m_solver->s().search_lvl(), matrix_no, row_i);
+                        gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_i);
                         gqd.status = gauss_res::confl;
 
                         break;
@@ -917,19 +917,19 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         // if conflicted already, just update non-basic variable
                         if (gqd.status == gauss_res::confl) {
                             DEBUG_CODE(check_row_not_in_watch(p, row_i););
-                            m_solver->gwatches[p].push_back(gauss_watched(row_i, matrix_no));
+                            m_solver.gwatches[p].push_back(gauss_watched(row_i, matrix_no));
                             row_to_var_non_resp[row_i] = p;
                             break;
                         }
 
                         // update no_basic information
                         DEBUG_CODE(check_row_not_in_watch(p, row_i););
-                        m_solver->gwatches[p].push_back(gauss_watched(row_i, matrix_no));
+                        m_solver.gwatches[p].push_back(gauss_watched(row_i, matrix_no));
                         row_to_var_non_resp[row_i] = p;
 
                         xor_reasons[row_i].must_recalc = true;
                         xor_reasons[row_i].propagated = ret_lit_prop;
-                        SASSERT(m_solver->s().value(ret_lit_prop.var()) == l_undef);
+                        SASSERT(m_solver.s().value(ret_lit_prop.var()) == l_undef);
                         prop_lit(gqd, row_i, ret_lit_prop);
 
                         update_cols_vals_set(ret_lit_prop);
@@ -946,7 +946,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         elim_ret_fnewwatch++;
                         
                         DEBUG_CODE(check_row_not_in_watch(new_non_resp_var, row_i););
-                        m_solver->gwatches[new_non_resp_var].push_back(gauss_watched(row_i, matrix_no));
+                        m_solver.gwatches[new_non_resp_var].push_back(gauss_watched(row_i, matrix_no));
                         row_to_var_non_resp[row_i] = new_non_resp_var;
                         break;
 
@@ -959,7 +959,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         // n",num_row);
 
                         DEBUG_CODE(check_row_not_in_watch(p, row_i););
-                        m_solver->gwatches[p].push_back(gauss_watched(row_i, matrix_no));
+                        m_solver.gwatches[p].push_back(gauss_watched(row_i, matrix_no));
                         row_to_var_non_resp[row_i] = p;
 
                         TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i;);
@@ -986,7 +986,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
 //////////////////
 
 void EGaussian::check_row_not_in_watch(const unsigned v, const unsigned row_num) const {
-    for (const auto& x: m_solver->gwatches[v]) {
+    for (const auto& x: m_solver.gwatches[v]) {
         SASSERT(!(x.matrix_num == matrix_no && x.row_n == row_num));
     }
 }
@@ -1001,10 +1001,10 @@ void EGaussian::check_no_prop_or_unsat_rows() {
         for (unsigned col = 0; col < num_cols; col++) {
             if (mat[row][col]) {
                 unsigned var = col_to_var[col];
-                if (m_solver->s().value(var) == l_undef) {
+                if (m_solver.s().value(var) == l_undef) {
                     bits_unset++;
                 } else {
-                    val ^= (m_solver->s().value(var) == l_true);
+                    val ^= (m_solver.s().value(var) == l_true);
                 }
             }
         }
@@ -1018,11 +1018,11 @@ void EGaussian::check_no_prop_or_unsat_rows() {
             error = true;
         }
         if (error) {
-            for(unsigned var = 0; var < m_solver->s().num_vars(); var++) {
-                const auto& ws = m_solver->gwatches[var];
+            for(unsigned var = 0; var < m_solver.s().num_vars(); var++) {
+                const auto& ws = m_solver.gwatches[var];
                 for (const auto& w: ws) {
                     if (w.matrix_num == matrix_no && w.row_n == row) {
-                        TRACE("xor", tout << "       gauss watched at var: " << var+1 << " val: " << m_solver->s().value(var) << "\n";);
+                        TRACE("xor", tout << "       gauss watched at var: " << var+1 << " val: " << m_solver.s().value(var) << "\n";);
                     }
                 }
             }
@@ -1031,15 +1031,15 @@ void EGaussian::check_no_prop_or_unsat_rows() {
             << "       matrix no: " << matrix_no << "\n"
             << "       row: " << row << "\n"
             << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
-            << "       dec level: " << m_solver->m_num_scopes << "\n";);
+            << "       dec level: " << m_solver.m_num_scopes << "\n";);
         }
         SASSERT(bits_unset > 1 || (bits_unset == 0 && val == 0));
     }
 }
 
 void EGaussian::check_watchlist_sanity() {
-    for (size_t i = 0; i < m_solver->s().num_vars(); i++) {
-        for (auto w: m_solver->gwatches[i]) {
+    for (size_t i = 0; i < m_solver.s().num_vars(); i++) {
+        for (auto w: m_solver.gwatches[i]) {
             if (w.matrix_num == matrix_no) {
                 SASSERT(i < var_to_col.size());
             }
@@ -1093,7 +1093,7 @@ void EGaussian::check_invariants() {
     if (!initialized) return;
     check_tracked_cols_only_one_set();
     check_no_prop_or_unsat_rows();
-    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver->m_num_scopes << "\n";);
+    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.m_num_scopes << "\n";);
 }
 
 bool EGaussian::check_row_satisfied(const unsigned row) {
@@ -1102,7 +1102,7 @@ bool EGaussian::check_row_satisfied(const unsigned row) {
     for (unsigned i = 0; i < num_cols; i++) {
         if (mat[row][i]) {
             unsigned var = col_to_var[i];
-            auto val = m_solver->s().value(var);
+            auto val = m_solver.s().value(var);
             if (val == l_undef) {
                 TRACE("xor", tout << "Var " << var+1 << " col: " << i << " is undef!\n";);
                 ret = false;
@@ -1118,7 +1118,7 @@ bool EGaussian::must_disable(gauss_data& gqd) {
     gqd.disable_checks++;
     if ((gqd.disable_checks & 0x3ff) == 0x3ff) {
         uint64_t egcalled = elim_called + find_truth_ret_satisfied_precheck + find_truth_called_propgause;
-        unsigned limit = (unsigned)((double)egcalled * m_solver->s().get_config().m_xor_gauss_min_usefulness_cutoff);
+        unsigned limit = (unsigned)((double)egcalled * m_solver.s().get_config().m_xor_gauss_min_usefulness_cutoff);
         unsigned useful = find_truth_ret_prop+find_truth_ret_confl+elim_ret_prop+elim_ret_confl;
         if (egcalled > 200 && useful < limit)
             return true;
@@ -1129,89 +1129,6 @@ bool EGaussian::must_disable(gauss_data& gqd) {
 
 void EGaussian::move_back_xor_clauses() {
     for (const auto& x: m_xorclauses) {
-        m_solver->m_xorclauses.push_back(std::move(x));
-    }
-}
-
-bool EGaussian::clean_xor_clauses(vector<xor_clause>& xors) {     
-    SASSERT(!inconsistent());
-    
-    unsigned last_trail = UINT_MAX;
-    while (last_trail != m_solver->s().trail_size()) {
-        last_trail = m_solver->s().trail_size();
-        unsigned i = 0;
-        unsigned j = 0;
-        unsigned size = xors.size();
-        for (xor_clause& x : xors) {
-            if (inconsistent()) {
-                xors[j++] = x;
-                continue;
-            }
-    
-            const bool keep = clean_one_xor(x);
-            if (keep) {
-                SASSERT(x.size() > 2);
-                xors[j++] = x;
-            } else {
-                for (const auto& v : x.clash_vars) {
-                    m_solver->m_removed_xorclauses_clash_vars.insert(v);                    
-                }
-            }
-        }
-        xors.resize(j);
-        if (inconsistent()) break;
-        solver->ok = solver->propagate<false>(xr::literal(),0,0,0).isNull();
-    }
-    
-    return !inconsistent();
-}
-
-
-bool EGaussian::clean_one_xor(xor_clause& x) {
-
-    bool rhs = x.rhs;
-    unsigned i, j = 0;
-    for (auto const& v : x.clash_vars) {
-        if (m_solver->s().value(v) == l_undef) {
-            x.clash_vars[j++] = v;
-        }
-    }
-    x.clash_vars.shrink(j);
-
-    unsigned size = x.size();
-    i = 0;
-    j = 0;
-    for (auto const& v : x) {
-        if (m_solver->s().value(v) != l_undef) {
-            x.rhs  ^= m_solver->s().value(v) == l_true;
-        } else {
-            x[j++] = v;
-        }
-    }
-    x.shrink(j);
-    
-    switch (x.size()) {
-        case 0:
-            if (x.rhs)
-                m_solver->s().set_conflict();
-                /*TODO: Do we need this?
-                 if (inconsistent()) {
-                    SASSERT(m_solver->unsat_cl_ID == 0);
-                    m_solver->unsat_cl_ID = solver->clauseID;
-                }*/
-            return false;
-        case 1: {
-            SASSERT(!inconsistent());
-            m_solver->s().assign_scoped(sat::literal(x[0], !x.rhs));
-            m_solver->s().propagate(false); // TODO: Again, are we allowed to do this?
-            //m_solver->ok = m_solver->propagate<true>().isNull();
-            return false;
-        }
-        case 2:
-            SASSERT(!inconsistent());
-            m_solver->add_xor_clause(vars_to_lits(x), x.rhs, true);
-            return false;
-        default:
-            return true;
+        m_solver.m_xorclauses.push_back(std::move(x));
     }
 }

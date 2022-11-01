@@ -13,6 +13,7 @@ Abstract:
 --*/
 
 
+#include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_xor_finder.h"
@@ -71,7 +72,7 @@ namespace xr {
                 lastlit_added = to_add;
             }
     
-            // TODO: Do we really need this? Makes it very complicated to port
+            // TODO: Implement the following function. Unfortunately, it is needed
             // add_xor_clause_inter_cleaned_cut(xorlits, attach);
             if (s().inconsistent())
                 break;
@@ -81,6 +82,7 @@ namespace xr {
     }
     
     void solver::add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach) {
+        // TODO: make overload in which "lits" ==> svector<sat::bool_var>; however, first implement missing function "add_xor_clause_inter_cleaned_cut"
         if (s().inconsistent())
             return;
         TRACE("xor", tout << "adding xor: " << lits << " rhs: " << rhs << "\n");
@@ -88,7 +90,7 @@ namespace xr {
         SASSERT(s().at_search_lvl());
     
         sat::literal_vector ps(lits);
-        for(sat::literal& lit: ps) {
+        for (sat::literal& lit: ps) {
             if (lit.sign()) {
                 rhs ^= true;
                 lit.neg();
@@ -278,6 +280,88 @@ namespace xr {
         return out;
     }
     
+    bool solver::clean_xor_clauses(vector<xor_clause>& xors) {     
+        SASSERT(!inconsistent());
+        
+        unsigned last_trail = UINT_MAX;
+        while (last_trail != s().trail_size()) {
+            last_trail = s().trail_size();
+            unsigned j = 0;
+            for (xor_clause& x : xors) {
+                if (inconsistent()) {
+                    xors[j++] = x;
+                    continue;
+                }
+        
+                const bool keep = clean_one_xor(x);
+                if (keep) {
+                    SASSERT(x.size() > 2);
+                    xors[j++] = x;
+                } else {
+                    for (const auto& v : x.clash_vars) {
+                        m_removed_xorclauses_clash_vars.insert(v);                    
+                    }
+                }
+            }
+            xors.shrink(j);
+            if (inconsistent()) break;
+            s().propagate(false); // TODO: Is this required?
+            // Why do we only break in the next iteration in case it became inconsistent?
+        }
+        
+        return !inconsistent();
+    }
+    
+    
+    bool solver::clean_one_xor(xor_clause& x) {
+    
+        unsigned j = 0;
+        for (auto const& v : x.clash_vars) {
+            if (s().value(v) == l_undef) {
+                x.clash_vars[j++] = v;
+            }
+        }
+        x.clash_vars.shrink(j);
+    
+        j = 0;
+        for (auto const& v : x) {
+            if (s().value(v) != l_undef) {
+                x.rhs  ^= s().value(v) == l_true;
+            } else {
+                x[j++] = v;
+            }
+        }
+        x.shrink(j);
+        
+        switch (x.size()) {
+            case 0:
+                if (x.rhs)
+                    s().set_conflict();
+                    /*TODO: Do we need this?
+                     if (inconsistent()) {
+                        SASSERT(m_solver.unsat_cl_ID == 0);
+                        m_solver.unsat_cl_ID = solver->clauseID;
+                    }*/
+                return false;
+            case 1: {
+                SASSERT(!inconsistent());
+                s().assign_scoped(sat::literal(x[0], !x.rhs));
+                s().propagate(false); // TODO: Again, are we allowed to do this?
+                return false;
+            }
+            case 2: {
+                SASSERT(!inconsistent());
+                sat::literal_vector vec(x.size());
+                for (const auto& v : x.vars)
+                    vec.push_back(sat::literal(v));
+                add_xor_clause(vec, x.rhs, true);
+                return false;
+            }
+            default:
+                return true;
+        }
+    }
+    
     bool solver::clear_gauss_matrices(const bool destruct) {
         // TODO: Include; ignored for now. Maybe we can ignore the detached clauses
         /*if (!destruct) {
@@ -285,26 +369,26 @@ namespace xr {
                 return false;
         }*/
         m_xor_clauses_updated = true;
-    
+
         for (EGaussian* g: gmatrices) 
             g->move_back_xor_clauses();
         for (EGaussian* g: gmatrices) 
-            memory::deallocate(g);
+            dealloc(g);
         for (auto& w: gwatches) 
             w.clear();
-        
+
         gmatrices.clear();
         gqueuedata.clear();
-        
+
         m_xorclauses.clear(); // we rely on xorclauses_orig now
         m_xorclauses_unused.clear();
-        
+
         if (!destruct) {
             for (const auto& x: m_xorclauses_orig) {
                 m_xorclauses.push_back(x);
             }
         }
-    
+
         return !s().inconsistent();
     }
     
@@ -316,14 +400,13 @@ namespace xr {
         if (!clear_gauss_matrices(false)) 
             return false;
         
-        xor_matrix_finder mfinder(m_solver);
+        xor_matrix_finder mfinder(*this);
         mfinder.find_matrices(can_detach);
         if (s().inconsistent()) return false;
         if (!init_all_matrices()) return false;
         
-        bool ret_no_irred_nonxor_contains_clash_vars;
-        
         /* TODO: Make this work (ignored for now)
+        bool ret_no_irred_nonxor_contains_clash_vars;
         if (can_detach &&
             s().get_config().m_xor_gauss_detach_reattach &&
             !s().get_config().autodisable &&
@@ -369,16 +452,15 @@ namespace xr {
             if (modified) {
                 for (unsigned var = 0; var < s().num_vars(); var++) {
                     for (gauss_watched& k : gwatches[var]) {
-                        if (k.matrix_num == i) {
+                        if (k.matrix_num == i)
                             k.matrix_num = j;
-                        }
                     }
                 }
             }
             j++;
         }
-        gqueuedata.resize(j);
-        gmatrices.resize(j);
+        gqueuedata.shrink(j);
+        gmatrices.shrink(j);
         
         return !s().inconsistent();
     }

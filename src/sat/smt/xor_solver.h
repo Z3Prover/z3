@@ -91,23 +91,25 @@ namespace xr {
         void pop_core(unsigned num_scopes);
 
         void clean_xor_no_prop(sat::literal_vector& ps, bool& rhs);
+        void add_every_combination_xor(const sat::literal_vector& lits, const bool attach);
+        
+        void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
+        
+        bool inconsistent() const { return s().inconsistent(); }
         
     public:
         solver(euf::solver& ctx);
         solver(ast_manager& m, euf::theory_id id);
-        ~solver();
+        ~solver() override;
         th_solver* clone(euf::solver& ctx) override;
 
-
-        void add_xor(sat::literal_vector const& lits) override { NOT_IMPLEMENTED_YET(); }
-
-
+        void add_xor(const sat::literal_vector& lits) override { 
+            add_xor_clause(lits, true, true);
+        }
+        
         sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }
 
         void internalize(expr* e) override { UNREACHABLE(); }
-
-        void add_every_combination_xor(const sat::literal_vector& lits, const bool attach);
-        void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
         
         void asserted(sat::literal l) override;
         bool unit_propagate() override;
@@ -124,6 +126,9 @@ namespace xr {
         void init_search() override {
             find_and_init_all_matrices();
         }
+        
+        bool clean_xor_clauses(vector<xor_clause>& xors);
+        bool clean_one_xor(xor_clause& x);
         bool clear_gauss_matrices(const bool destruct);
         bool find_and_init_all_matrices();
         bool init_all_matrices();

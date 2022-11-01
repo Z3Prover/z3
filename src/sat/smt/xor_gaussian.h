@@ -19,6 +19,11 @@ Abstract:
 #include "util/sat_literal.h"
 #include "util/trace.h"
 
+#ifdef _MSC_VER
+#include <nmmintrin.h>
+#define __builtin_popcountll _mm_popcnt_u64
+#endif
+
 namespace xr {
     
     typedef sat::literal literal;
@@ -232,7 +237,7 @@ namespace xr {
             uint64_t i = 0;
             while(i < other.size() && i < size()) {
                 if (other[i] != vars[i])
-                    return (vars[i] < other[i]);
+                    return vars[i] < other[i];
                 i++;
             }
     
@@ -458,7 +463,8 @@ namespace xr {
         }
     };
     
-    struct PackedMatrix {
+    class PackedMatrix {
+    public:
         PackedMatrix() : mp(NULL), numRows(0), numCols(0) { }
     
         ~PackedMatrix() {
@@ -576,7 +582,7 @@ namespace xr {
     class EGaussian {
     public:
         EGaussian(
-            solver* solver,
+            solver& solver,
             const unsigned matrix_no,
             const vector<xor_clause>& xorclauses
         );
@@ -607,13 +613,11 @@ namespace xr {
         void update_matrix_no(unsigned n);
         void check_watchlist_sanity();
         void move_back_xor_clauses();
-        bool clean_xor_clauses(vector<xor_clause>& xors);
-        bool clean_one_xor(xor_clause& x);
     
         vector<xor_clause> m_xorclauses;
     
     private:
-        xr::solver* m_solver;   // original sat solver
+        xr::solver& m_solver;   // original sat solver
     
         //Cleanup
         void clear_gwatches(const unsigned var);
@@ -692,20 +696,19 @@ namespace xr {
         unsigned num_cols = 0;
     
         //quick lookup
-        PackedRow* cols_vals = NULL;
-        PackedRow* cols_unset = NULL;
-        PackedRow* tmp_col = NULL;
-        PackedRow* tmp_col2 = NULL;
+        PackedRow* cols_vals = nullptr;
+        PackedRow* cols_unset = nullptr;
+        PackedRow* tmp_col = nullptr;
+        PackedRow* tmp_col2 = nullptr;
         void update_cols_vals_set(const sat::literal lit1);
     
         //Data to free (with delete[] x)
+        // TODO: This are always 4 equally sized elements; merge them into one block  
         svector<int64_t*> tofree;
     };
     
     inline void EGaussian::canceling() {
         cancelled_since_val_update = true;
-    
-        //TODO this is an overstatement, could be improved
         memset(satisfied_xors.data(), 0, satisfied_xors.size());
     }
     
