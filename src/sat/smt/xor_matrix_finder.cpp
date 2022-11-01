@@ -40,7 +40,7 @@ namespace xr {
     bool xor_matrix_finder::find_matrices(bool& can_detach) {
 
         SASSERT(!m_sat.inconsistent());
-        SASSERT(m_xor.gmatrices.empty());
+        SASSERT(m_xor.m_gmatrices.empty());
         
         can_detach = true;
     
@@ -55,14 +55,14 @@ namespace xr {
         for (auto& x: m_xor.m_xorclauses_unused) 
             m_xor.m_xorclauses.push_back(x);
         m_xor.m_xorclauses_unused.clear();
-        m_xor.clauseCleaner->clean_xor_clauses(m_xor.m_xorclauses); 
+        m_xor.clean_xor_clauses(m_xor.m_xorclauses); 
     
         finder.grab_mem();
-        finder.move_xors_without_connecting_vars_to_unused();
+        m_xor.move_xors_without_connecting_vars_to_unused();
         if (!finder.xor_together_xors(m_xor.m_xorclauses)) 
             return false;
     
-        finder.move_xors_without_connecting_vars_to_unused();
+        m_xor.move_xors_without_connecting_vars_to_unused();
         finder.clean_equivalent_xors(m_xor.m_xorclauses);
         for (const auto& c : m_xor.m_xorclauses_unused){
             for (const auto& v : c) {
@@ -77,8 +77,8 @@ namespace xr {
     
         //Just one giant matrix.
         if (!m_sat.get_config().m_xor_gauss_doMatrixFind) {
-            m_xor.gmatrices.push_back(new EGaussian(&m_xor, 0, m_xor.m_xorclauses));
-            m_xor.gqueuedata.resize(m_xor.gmatrices.size());
+            m_xor.m_gmatrices.push_back(new EGaussian(&m_xor, 0, m_xor.m_xorclauses));
+            m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
             return true;
         }
     
@@ -196,12 +196,12 @@ namespace xr {
                 use_matrix = true;            
     
             if (use_matrix) {
-                m_xor.gmatrices.push_back(
+                m_xor.m_gmatrices.push_back(
                     alloc(EGaussian, &m_xor, realMatrixNum, xors_in_matrix[i]));
-                m_xor.gqueuedata.resize(m_xor.gmatrices.size());
+                m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
     
                 realMatrixNum++;
-                SASSERT(m_xor.gmatrices.size() == realMatrixNum);
+                SASSERT(m_xor.m_gmatrices.size() == realMatrixNum);
             } 
             else {
                 for (auto& x: xors_in_matrix[i]) {

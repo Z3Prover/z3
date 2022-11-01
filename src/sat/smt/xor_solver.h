@@ -71,20 +71,25 @@ namespace xr {
         // ptr_vector<justification> m_justifications;
         // unsigned_vector           m_justifications_lim;
 
-        svector<sat::bool_var>    m_tmp_xor_clash_vars;
-        
-        vector<xor_clause>        m_xorclauses;
-        vector<xor_clause>        m_xorclauses_orig;
-        vector<xor_clause>        m_xorclauses_unused;
-        
-        unsigned_vector           m_removed_xorclauses_clash_vars;
-        bool                      m_detached_xor_clauses = false;
-        bool                      m_xor_clauses_updated = false;
+        svector<sat::bool_var>         m_tmp_xor_clash_vars;
+             
+        vector<xor_clause>             m_xorclauses;
+        vector<xor_clause>             m_xorclauses_orig;
+        vector<xor_clause>             m_xorclauses_unused;
+             
+        unsigned_vector                m_removed_xorclauses_clash_vars;
+        bool                           m_detached_xor_clauses = false;
+        bool                           m_xor_clauses_updated = false;
 
-        vector<svector<gauss_watched>> gwatches;
         
-        ptr_vector<EGaussian> gmatrices;
-        svector<gauss_data> gqueuedata;
+        vector<svector<gauss_watched>> m_gwatches;
+        ptr_vector<EGaussian>          m_gmatrices;
+        svector<gauss_data>            m_gqueuedata;
+        
+        // we could reduce this to sat::bool_var rather than literal values; but maybe we can merge with sat::solver's implementation
+        unsigned_vector                m_visited; 
+        unsigned                       m_visited_begin;
+        unsigned                       m_visited_end;
         
         void force_push();
         void push_core();
@@ -96,6 +101,31 @@ namespace xr {
         void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
         
         bool inconsistent() const { return s().inconsistent(); }
+        
+        // TODO: Why isn't this exposed publicly from sat::solver? It's great! (And if we have it publicly we could save some memory)
+        void init_ts(unsigned n, unsigned lim) {
+            SASSERT(lim > 0);
+            if (m_visited_end >= m_visited_end + lim) { // overflow
+                m_visited_begin = 0;
+                m_visited_end = lim;
+                m_visited.reset();
+            }
+            else {
+                m_visited_begin = m_visited_end;
+                m_visited_end = m_visited_end + lim;
+            }
+            while (m_visited.size() < n) 
+                m_visited.push_back(0);        
+        }
+        void init_visited(unsigned lim = 1) {
+            init_ts(2 * s().num_vars(), lim);
+        }
+        void inc_visisted(unsigned i) {
+            if (m_visited[i] + 1 <= m_visited_end)
+                m_visited[i]++;
+        }
+        bool is_visisted(unsigned i) { return m_visited[i] >= m_visited_begin; }
+        bool get_visisted(unsigned i) { return m_visited[i] - m_visited_begin; }
         
     public:
         solver(euf::solver& ctx);
@@ -132,6 +162,8 @@ namespace xr {
         bool clear_gauss_matrices(const bool destruct);
         bool find_and_init_all_matrices();
         bool init_all_matrices();
+        
+        void move_xors_without_connecting_vars_to_unused();
         
         sat::justification mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i);
         

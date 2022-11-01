@@ -141,31 +141,31 @@ namespace xr {
     }
     
     sat::justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
-        if (gmatrices.empty()) 
+        if (m_gmatrices.empty()) 
             return sat::justification(-1);
-        for (unsigned i = 0; i < gqueuedata.size(); i++) {
-            if (gqueuedata[i].disabled || !gmatrices[i]->is_initialized()) continue;
-            gqueuedata[i].reset();
-            gmatrices[i]->update_cols_vals_set();
+        for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
+            if (m_gqueuedata[i].disabled || !m_gmatrices[i]->is_initialized()) continue;
+            m_gqueuedata[i].reset();
+            m_gmatrices[i]->update_cols_vals_set();
         }
         
         bool confl_in_gauss = false;
-        SASSERT(gwatches.size() > p.var());
-        svector<gauss_watched>& ws = gwatches[p.var()];
+        SASSERT(m_gwatches.size() > p.var());
+        svector<gauss_watched>& ws = m_gwatches[p.var()];
         gauss_watched* i = ws.begin();
         gauss_watched* j = i;
         const gauss_watched* end = ws.end();
         
         for (; i != end; i++) {
-            if (gqueuedata[i->matrix_num].disabled || !gmatrices[i->matrix_num]->is_initialized())
+            if (m_gqueuedata[i->matrix_num].disabled || !m_gmatrices[i->matrix_num]->is_initialized())
                 continue; //remove watch and continue
         
-            gqueuedata[i->matrix_num].new_resp_var = UINT_MAX;
-            gqueuedata[i->matrix_num].new_resp_row = UINT_MAX;
-            gqueuedata[i->matrix_num].do_eliminate = false;
-            gqueuedata[i->matrix_num].currLevel = currLevel;
+            m_gqueuedata[i->matrix_num].new_resp_var = UINT_MAX;
+            m_gqueuedata[i->matrix_num].new_resp_row = UINT_MAX;
+            m_gqueuedata[i->matrix_num].do_eliminate = false;
+            m_gqueuedata[i->matrix_num].currLevel = currLevel;
         
-            if (gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, gqueuedata[i->matrix_num])) {
+            if (m_gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, m_gqueuedata[i->matrix_num])) {
                 continue;
             } else {
                 confl_in_gauss = true;
@@ -177,17 +177,17 @@ namespace xr {
         for (; i != end; i++) *j++ = *i;
         ws.shrink(i - j);
         
-        for (unsigned g = 0; g < gqueuedata.size(); g++) {
-            if (gqueuedata[g].disabled || !gmatrices[g]->is_initialized())
+        for (unsigned g = 0; g < m_gqueuedata.size(); g++) {
+            if (m_gqueuedata[g].disabled || !m_gmatrices[g]->is_initialized())
                 continue;
         
-            if (gqueuedata[g].do_eliminate) {
-                gmatrices[g]->eliminate_col(p.var(), gqueuedata[g]);
-                confl_in_gauss |= (gqueuedata[g].status == gauss_res::confl);
+            if (m_gqueuedata[g].do_eliminate) {
+                m_gmatrices[g]->eliminate_col(p.var(), m_gqueuedata[g]);
+                confl_in_gauss |= (m_gqueuedata[g].status == gauss_res::confl);
             }
         }
         
-        for (gauss_data& gqd: gqueuedata) {
+        for (gauss_data& gqd: m_gqueuedata) {
             if (gqd.disabled) continue;
         
             //There was a conflict but this is not that matrix.
@@ -370,15 +370,15 @@ namespace xr {
         }*/
         m_xor_clauses_updated = true;
 
-        for (EGaussian* g: gmatrices) 
+        for (EGaussian* g: m_gmatrices) 
             g->move_back_xor_clauses();
-        for (EGaussian* g: gmatrices) 
+        for (EGaussian* g: m_gmatrices) 
             dealloc(g);
-        for (auto& w: gwatches) 
+        for (auto& w: m_gwatches) 
             w.clear();
 
-        gmatrices.clear();
-        gqueuedata.clear();
+        m_gmatrices.clear();
+        m_gqueuedata.clear();
 
         m_xorclauses.clear(); // we rely on xorclauses_orig now
         m_xorclauses_unused.clear();
@@ -422,17 +422,17 @@ namespace xr {
     bool solver::init_all_matrices() {
         SASSERT(!s().inconsistent());
         SASSERT(s().at_search_lvl());
-        SASSERT(gmatrices.size() == gqueuedata.size());
+        SASSERT(m_gmatrices.size() == m_gqueuedata.size());
         
-        for (unsigned i = 0; i < gmatrices.size(); i++) {
-            auto& g = gmatrices[i];
+        for (unsigned i = 0; i < m_gmatrices.size(); i++) {
+            auto& g = m_gmatrices[i];
             bool created = false;
             if (!g->full_init(created)) 
                 return false;
             SASSERT(!s().inconsistent());
     
             if (!created) {
-                gqueuedata[i].disabled = true;
+                m_gqueuedata[i].disabled = true;
                 memory::deallocate(g);
                 g = nullptr;
             }
@@ -440,18 +440,18 @@ namespace xr {
     
         unsigned j = 0;
         bool modified = false;
-        for (unsigned i = 0; i < gqueuedata.size(); i++) {
-            if (gmatrices[i] == nullptr) {
+        for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
+            if (m_gmatrices[i] == nullptr) {
                 modified = true;
                 continue;
             }
-            gmatrices[j] = gmatrices[i];
-            gmatrices[j]->update_matrix_no(j);
-            gqueuedata[j] = gqueuedata[i];
+            m_gmatrices[j] = m_gmatrices[i];
+            m_gmatrices[j]->update_matrix_no(j);
+            m_gqueuedata[j] = m_gqueuedata[i];
             
             if (modified) {
                 for (unsigned var = 0; var < s().num_vars(); var++) {
-                    for (gauss_watched& k : gwatches[var]) {
+                    for (gauss_watched& k : m_gwatches[var]) {
                         if (k.matrix_num == i)
                             k.matrix_num = j;
                     }
@@ -459,10 +459,46 @@ namespace xr {
             }
             j++;
         }
-        gqueuedata.shrink(j);
-        gmatrices.shrink(j);
+        m_gqueuedata.shrink(j);
+        m_gmatrices.shrink(j);
         
         return !s().inconsistent();
+    }
+    
+    bool solver::xor_has_interesting_var(const xor_clause& x) {
+        for (unsigned v: x) {
+            if (get_visisted(v) > 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    void solver::move_xors_without_connecting_vars_to_unused() {
+        if (m_xorclauses.empty()) 
+            return;
+    
+        vector<xor_clause> cleaned;
+        init_visited(2);
+        
+        for(const xor_clause& x: m_xorclauses) {
+            for (unsigned v : x) {
+                inc_visisted(v);
+            }
+        }
+    
+        //has at least 1 var with occur of 2
+        for(const xor_clause& x: m_xorclauses) {
+            if (xor_has_interesting_var(x) || x.detached) {
+                TRACE("xor", tout << "XOR has connecting var: " << x << "\n";);
+                cleaned.push_back(x);
+            } else {
+                TRACE("xor", tout << "XOR has no connecting var: " << x << "\n";);
+                m_xorclauses_unused.push_back(x);
+            }
+        }
+        
+        m_xorclauses = cleaned;
     }
     
     sat::justification solver::mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i) {
