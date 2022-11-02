@@ -2,6 +2,7 @@ z3_add_component(simplifiers
   SOURCES
     euf_completion.cpp
     bv_slice.cpp
+    solve_eqs.cpp
   COMPONENT_DEPENDENCIES
     euf
     rewriter
