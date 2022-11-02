@@ -19,11 +19,6 @@ Abstract:
 #include "util/sat_literal.h"
 #include "util/trace.h"
 
-#ifdef _MSC_VER
-#include <nmmintrin.h>
-#define __builtin_popcountll _mm_popcnt_u64
-#endif
-
 namespace xr {
     
     typedef sat::literal literal;
@@ -43,51 +38,6 @@ namespace xr {
         return  __builtin_ffsll(value);
     }
 #endif
-    
-    /*class constraint {
-        unsigned        m_size;
-        bool            m_detached = false;
-        size_t          m_obj_size;
-        bool            m_rhs;
-        sat::bool_var   m_vars[0];
-        
-    public:
-        static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(constraint) + num_lits * sizeof(sat::bool_var)); }
-        
-        constraint(const svector<sat::bool_var>& ids, bool expected_result) : m_size(ids.size()), m_obj_size(get_obj_size(ids.size())), m_rhs(expected_result) {
-            unsigned i = 0;
-            for (auto v : ids)
-                m_vars[i++] = v;
-        }
-        sat::ext_constraint_idx cindex() const { return sat::constraint_base::mem2base(this); }
-        void deallocate(small_object_allocator& a) { a.deallocate(m_obj_size, sat::constraint_base::mem2base_ptr(this)); }
-        sat::bool_var operator[](unsigned i) const { return m_vars[i]; }
-        bool is_detached() const { return m_detached; }
-        unsigned get_size() const { return m_size; }
-        bool get_rhs() const { return m_rhs; }
-        sat::bool_var const* begin() const { return m_vars; }
-        sat::bool_var const* end() const { return m_vars + m_size; }
-        std::ostream& display(std::ostream& out) const {
-            bool first = true;
-            for (auto v : *this)
-                out << (first ? "" : " ^ ") << v, first = false;
-            return out << " = " << m_rhs;
-        }
-    };*/
-    
-    /*struct justification {
-        unsigned m_propagation_index { 0 };
-
-        justification(unsigned prop_index): m_propagation_index(prop_index) {}
-
-        static justification get_null() { return justification(UINT_MAX); }
-        bool is_null() const { return m_propagation_index == UINT_MAX; }
-        sat::ext_constraint_idx to_index() const { return sat::constraint_base::mem2base(this); }
-        static justification& from_index(size_t idx) { 
-            return *reinterpret_cast<justification*>(sat::constraint_base::from_index(idx)->mem());
-        }
-        static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
-    };*/
     
     class justification {
         

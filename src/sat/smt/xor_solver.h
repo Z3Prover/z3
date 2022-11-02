@@ -95,6 +95,8 @@ namespace xr {
         void push_core();
         void pop_core(unsigned num_scopes);
 
+        bool xor_has_interesting_var(const xor_clause& x);
+        
         void clean_xor_no_prop(sat::literal_vector& ps, bool& rhs);
         void add_every_combination_xor(const sat::literal_vector& lits, const bool attach);
         
@@ -120,12 +122,14 @@ namespace xr {
         void init_visited(unsigned lim = 1) {
             init_ts(2 * s().num_vars(), lim);
         }
+        void mark_visisted(unsigned i) {
+            m_visited[i] = m_visited[i] = m_visited_begin;
+        }
         void inc_visisted(unsigned i) {
-            if (m_visited[i] + 1 <= m_visited_end)
-                m_visited[i]++;
+            m_visited[i] = std::max(m_visited_begin, std::min(m_visited_end, m_visited[i] + 1));
         }
         bool is_visisted(unsigned i) { return m_visited[i] >= m_visited_begin; }
-        bool get_visisted(unsigned i) { return m_visited[i] - m_visited_begin; }
+        unsigned num_visited(unsigned i) { return std::max(m_visited_begin, m_visited[i])  - m_visited_begin; }
         
     public:
         solver(euf::solver& ctx);
@@ -164,6 +168,7 @@ namespace xr {
         bool init_all_matrices();
         
         void move_xors_without_connecting_vars_to_unused();
+        bool xor_together_xors(vector<xor_clause>& this_xors);
         
         sat::justification mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i);
         

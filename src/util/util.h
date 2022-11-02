@@ -103,6 +103,7 @@ unsigned uint64_log2(uint64_t v);
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
 // Return the number of 1 bits in v.
+// see e.g. http://en.wikipedia.org/wiki/Hamming_weight
 static inline unsigned get_num_1bits(unsigned v) {
 #ifdef __GNUC__
     return __builtin_popcount(v);
@@ -119,6 +120,25 @@ static inline unsigned get_num_1bits(unsigned v) {
     unsigned r = (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; 
     SASSERT(c == r);
     return r;
+#endif
+}
+
+static inline unsigned get_num_1bits(uint64_t v) {
+#ifdef __GNUC__
+    return __builtin_popcountll(v);
+#else
+#ifdef Z3DEBUG
+    unsigned c;
+    uint64_t v1 = v;
+    for (c = 0; v1; c++) {
+        v1 &= v1 - 1; 
+    }
+#endif
+    v = v - (v >> 1) & 0x5555555555555555;
+    v = (v & 0x3333333333333333) + ((v >> 2) & 0x3333333333333333); 
+    v = (v + (v >> 4)) & 0x0F0F0F0F0F0F0F0F;
+    uint64_t r = (v * 0x0101010101010101) >> 56;
+    SASSERT(c == r);
 #endif
 }
 

@@ -308,15 +308,13 @@ void EGaussian::clear_gwatches(const unsigned var) {
         m_solver.m_gwatches[var].clear();
         return;
     }
-
-    gauss_watched* i = m_solver.m_gwatches[var].begin();
-    gauss_watched* j = i;
-    for(gauss_watched* end = m_solver.m_gwatches[var].end(); i != end; i++) {
-        if (i->matrix_num != matrix_no) {
-            *j++ = *i;
-        }
+    
+    unsigned j = 0;
+    for (auto& w : m_solver.m_gwatches[var]) {
+        if (w.matrix_num != matrix_no) 
+            m_solver.m_gwatches[var][j++] = w;
     }
-    m_solver.m_gwatches[var].shrink(i-j);
+    m_solver.m_gwatches[var].shrink(j);
 }
 
 bool EGaussian::full_init(bool& created) {
