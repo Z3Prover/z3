@@ -177,7 +177,8 @@ namespace sat {
         bool                    m_trim = false;
 
         svector<unsigned>       m_visited;
-        unsigned                m_visited_ts;
+        unsigned                m_visited_ts = 0;
+        unsigned                m_visited_end = 0;
 
         struct scope {
             unsigned m_trail_lim;
@@ -346,13 +347,19 @@ namespace sat {
         void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
         void push_reinit_stack(literal l1, literal l2);
-
-        void init_ts(unsigned n, svector<unsigned>& v, unsigned& ts);
-        void init_visited();
+        
+        void init_ts(unsigned n, unsigned lim = 1);
+        void init_visited(unsigned lim = 1);
         void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
         void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
+        void inc_visited(literal l) {
+            m_visited[l.index()] = std::max(m_visited_ts, std::min(m_visited_end, m_visited[l.index()] + 1));
+        }
+        void inc_visited(bool_var v) { inc_visited(literal(v, false)); }
         bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
-        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
+        bool is_visited(literal l) const { return m_visited[l.index()] >= m_visited_ts; }
+        unsigned num_visited(unsigned i) { return std::max(m_visited_ts, m_visited[i]) - m_visited_ts; }
+        
         bool all_distinct(literal_vector const& lits);
         bool all_distinct(clause const& cl);
 

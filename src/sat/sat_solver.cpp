@@ -4839,22 +4839,23 @@ namespace sat {
         return true;
     }
 
-    void solver::init_ts(unsigned n, svector<unsigned>& v, unsigned& ts) {
-        if (v.empty()) 
-            ts = 0;
-        
-        ts++;
-        if (ts == 0) {
-            ts = 1;
-            v.reset();
+    void solver::init_ts(unsigned n, unsigned lim) {
+        SASSERT(lim > 0);
+        if (m_visited_end >= m_visited_end + lim) { // overflow
+            m_visited_ts = 0;
+            m_visited_end = lim;
+            m_visited.reset();
         }
-        while (v.size() < n) 
-            v.push_back(0);        
+        else {
+            m_visited_ts = m_visited_end;
+            m_visited_end = m_visited_end + lim;
+        }
+        while (m_visited.size() < n) 
+            m_visited.push_back(0);        
     }
 
-    void solver::init_visited() {
-        init_ts(2 * num_vars(), m_visited, m_visited_ts);
+    void solver::init_visited(unsigned lim) {
+        init_ts(2 * num_vars(), lim);
     }
-
 
 };
