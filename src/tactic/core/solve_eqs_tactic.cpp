@@ -1141,9 +1141,6 @@ public:
     
 };
 
-tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
-    if (r == nullptr)
-        return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
-    else
-        return clean(alloc(solve_eqs_tactic, m, p, r, false));
+tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
 }

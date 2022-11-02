@@ -290,7 +290,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
                 ast_lt lt;
                 std::sort(flat_args.begin(), flat_args.end(), lt);
             }
-            result = m().mk_or(flat_args);
+            result = mk_or_app(flat_args.size(), flat_args.data());
         }
         return BR_DONE;
     }
