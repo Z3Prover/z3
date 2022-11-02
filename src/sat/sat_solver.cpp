@@ -3542,10 +3542,10 @@ namespace sat {
         for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
             clause_wrapper const& cw = m_clauses_to_reinit[i];
             for (unsigned j = cw.size(); j-- > 0; )
-                mark_visited(cw[j].var());
+                m_visited.mark_visited(cw[j].var());
         }
         for (literal lit : m_lemma)
-            mark_visited(lit.var());
+            m_visited.mark_visited(lit.var());
 
         auto is_active = [&](bool_var v) {
             return value(v) != l_undef && lvl(v) <= new_lvl;
@@ -3553,7 +3553,7 @@ namespace sat {
 
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_external(v) || is_visited(v) || is_active(v)) {
+            if (is_external(v) || m_visited.is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
                 m_var_scope[v] = new_lvl;
@@ -4820,10 +4820,10 @@ namespace sat {
     bool solver::all_distinct(literal_vector const& lits) {
         init_visited();
         for (literal l : lits) {
-            if (is_visited(l.var())) {
+            if (m_visited.is_visited(l.var())) {
                 return false;
             }
-            mark_visited(l.var());
+            m_visited.mark_visited(l.var());
         }
         return true;
     }
@@ -4831,31 +4831,12 @@ namespace sat {
     bool solver::all_distinct(clause const& c) {
         init_visited();
         for (literal l : c) {
-            if (is_visited(l.var())) {
+            if (m_visited.is_visited(l.var())) {
                 return false;
             }
-            mark_visited(l.var());
+            m_visited.mark_visited(l.var());
         }
         return true;
-    }
-
-    void solver::init_ts(unsigned n, unsigned lim) {
-        SASSERT(lim > 0);
-        if (m_visited_end >= m_visited_end + lim) { // overflow
-            m_visited_ts = 0;
-            m_visited_end = lim;
-            m_visited.reset();
-        }
-        else {
-            m_visited_ts = m_visited_end;
-            m_visited_end = m_visited_end + lim;
-        }
-        while (m_visited.size() < n) 
-            m_visited.push_back(0);        
-    }
-
-    void solver::init_visited(unsigned lim) {
-        init_ts(2 * num_vars(), lim);
     }
 
 };
