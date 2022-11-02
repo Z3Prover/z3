@@ -461,7 +461,7 @@ namespace xr {
     }
     
     bool solver::xor_has_interesting_var(const xor_clause& x) {
-        return std::any_of(x.begin(), x.end(), [&](unsigned v) { return num_visited(v) > 1; });
+        return std::any_of(x.begin(), x.end(), [&](unsigned v) { return visited1.num_visited(v) > 1; });
     }
     
     void solver::move_xors_without_connecting_vars_to_unused() {
@@ -469,11 +469,11 @@ namespace xr {
             return;
     
         vector<xor_clause> cleaned;
-        init_visited(2);
+        visited1.init_visited(2);
         
         for(const xor_clause& x: m_xorclauses) {
             for (unsigned v : x) {
-                inc_visisted(v);
+                visited1.inc_visited(v);
             }
         }
     
@@ -524,11 +524,14 @@ namespace xr {
     }
     
     bool solver::xor_together_xors(vector<xor_clause>& this_xors) {
-        if (occcnt.size() != s().num_vars())
-            grab_mem();
-    
+        
         if (this_xors.empty())
             return !s().inconsistent();
+        
+        if (m_occ_cnt.size() != s().num_vars()) {
+            m_occ_cnt.clear();
+            m_occ_cnt.resize(s().num_vars(), 0);
+        }
     
         TRACE_CODE( 
             TRACE("xor", tout << "XOR-ing together XORs. Starting with: " << "\n";);
@@ -538,21 +541,21 @@ namespace xr {
         );
         
         SASSERT(!s().inconsistent());
-        SASSERT(s().at_scope_level());
+        SASSERT(s().at_search_lvl());
         SASSERT(s().watches.get_smudged_list().empty());
         const size_t origsize = this_xors.size();
     
         unsigned xored = 0;
-        SASSERT(toClear.empty());
+        SASSERT(m_occurrences.empty());
     
         //Link in xors into watchlist
         for (size_t i = 0; i < this_xors.size(); i++) {
             const xor_clause& x = this_xors[i];
-            for(uint32_t v: x) {
-                if (occcnt[v] == 0) {
-                    toClear.push_back(Lit(v, false));
+            for (sat::bool_var v: x) {
+                if (m_occ_cnt[v] == 0) {
+                    m_occurrences.push_back(v);
                 }
-                occcnt[v]++;
+                m_occ_cnt[v]++;
     
                 sat::literal l(v, false);
                 SASSERT(solver->watches.size() > l.toInt());
@@ -563,16 +566,13 @@ namespace xr {
     
         //Don't XOR together over the sampling vars
         //or variables that are in regular clauses
-        unsigned_vector to_clear_2;
-    
+        visited1.init_visited();
+        
         for (const auto& ws: m_watches) {
             for (const auto& w: ws) {
                 if (w.isBin() && !w.red()) {
-                    uint32_t v = w.lit2().var();
-                    if (!seen2[v]) {
-                        seen2[v] = 1;
-                        to_clear_2.push_back(v);
-                    }
+                    sat::bool_var v = w.lit2().var();
+                    visited1.mark_visited(v);
                 }
             }
         }
@@ -582,13 +582,8 @@ namespace xr {
             if (cl->red() || cl->used_in_xor()) {
                 continue;
             }
-            for (sat::literal l: *cl) {
-                if (!seen2[l.var()]) {
-                    seen2[l.var()] = 1;
-                    to_clear_2.push_back(l.var());
-                    //cout << "Not XORing together over var: " << l.var()+1 << endl;
-                }
-            }
+            for (sat::literal l: *cl)
+                visited1.mark_visited(l.var());
         }
     
         //until fixedpoint
@@ -596,9 +591,9 @@ namespace xr {
         while (changed) {
             changed = false;
             interesting.clear();
-            for (const Lit l: toClear) {
-                if (occcnt[l.var()] == 2 && !seen2[l.var()]) {
-                    interesting.push_back(l.var());
+            for (const unsigned l : m_occurrences) {
+                if (m_occ_cnt[l] == 2 && !visited1.is_visited(l)) {
+                    interesting.push_back(l);
                 }
             }
     
@@ -607,7 +602,7 @@ namespace xr {
                 //Pop and check if it can be XOR-ed together
                 const uint32_t v = interesting.back();
                 interesting.resize(interesting.size()-1);
-                if (occcnt[v] != 2)
+                if (m_occ_cnt[v] != 2)
                     continue;
     
                 size_t idxes[2];
@@ -622,7 +617,7 @@ namespace xr {
                     if (!w.isIdx()) {
                         ws[i2++] = ws[i];
                     } else if (!this_xors[w.get_idx()].empty()) {
-                        assert(at < 2);
+                        SASSERT(at < 2);
                         idxes[at] = w.get_idx();
                         at++;
                     }
@@ -630,8 +625,8 @@ namespace xr {
                 SASSERT(at == 2);
                 ws.resize(i2);
     
-                Xor& x0 = this_xors[idxes[0]];
-                Xor& x1 = this_xors[idxes[1]];
+                xor_clause& x0 = this_xors[idxes[0]];
+                xor_clause& x1 = this_xors[idxes[1]];
                 unsigned clash_var;
                 unsigned clash_num = xor_two(&x0, &x1, clash_var);
     
@@ -657,10 +652,10 @@ namespace xr {
                     m_watches[Lit(v, false)].push(Watched(idxes[1], WatchType::watch_idx_t));
     
                     for (unsigned v2: x1) {
-                        Lit l(v2, false);
-                        assert(occcnt[l.var()] >= 2);
-                        occcnt[l.var()]--;
-                        if (occcnt[l.var()] == 2 && !seen2[l.var()]) {
+                        sat::literal l(v2, false);
+                        SASSERT(m_occ_cnt[l.var()] >= 2);
+                        m_occ_cnt[l.var()]--;
+                        if (m_occ_cnt[l.var()] == 2 && !visited1.is_visited(l.var())) {
                             interesting.push_back(l.var());
                         }
                     }
@@ -670,8 +665,8 @@ namespace xr {
                     ws.push(Watched(idxes[1], WatchType::watch_idx_t));
                     continue;
                 } else {
-                    occcnt[v] -= 2;
-                    SASSERT(occcnt[v] == 0);
+                    m_occ_cnt[v] -= 2;
+                    SASSERT(m_occ_cnt[v] == 0);
     
                     xor_clause x_new(tmp_vars_xor_two, x0.rhs ^ x1.rhs, clash_var);
                     x_new.merge_clash(x0, seen);
@@ -688,8 +683,8 @@ namespace xr {
                     for(uint32_t v2: x_new) {
                         sat::literal l(v2, false);
                         solver->watches[l].push(Watched(this_xors.size()-1, WatchType::watch_idx_t));
-                        assert(occcnt[l.var()] >= 1);
-                        if (occcnt[l.var()] == 2 && !seen2[l.var()]) {
+                        SASSERT(m_occ_cnt[l.var()] >= 1);
+                        if (m_occ_cnt[l.var()] == 2 && !visited1.is_visited(l.var())) {
                             interesting.push_back(l.var());
                         }
                     }
@@ -701,9 +696,8 @@ namespace xr {
         }
     
         //Clear
-        for(const sat::literal l: toClear) occcnt[l.var()] = 0;
-        toClear.clear();
-        for(const auto& x: to_clear_2) seen2[x] = 0;
+        for(const sat::bool_var l : m_occurrences) m_occ_cnt[l.var()] = 0;
+        m_occurrences.clear();
     
         clean_occur_from_idx_types_only_smudged();
         clean_xors_from_empty(this_xors);

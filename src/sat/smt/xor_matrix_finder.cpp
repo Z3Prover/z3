@@ -50,16 +50,13 @@ namespace xr {
         clash_vars_unused.reset();
         m_matrix_no = 0;
         
-        xor_finder finder(m_xor);
-    
         for (auto& x: m_xor.m_xorclauses_unused) 
             m_xor.m_xorclauses.push_back(x);
         m_xor.m_xorclauses_unused.clear();
         m_xor.clean_xor_clauses(m_xor.m_xorclauses); 
     
-        finder.grab_mem();
         m_xor.move_xors_without_connecting_vars_to_unused();
-        if (!finder.xor_together_xors(m_xor.m_xorclauses)) 
+        if (!m_xor.xor_together_xors(m_xor.m_xorclauses)) 
             return false;
     
         m_xor.move_xors_without_connecting_vars_to_unused();

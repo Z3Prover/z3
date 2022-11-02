@@ -22,6 +22,10 @@ Abstract:
 namespace xr {
     
     typedef sat::literal literal;
+    typedef sat::bool_var bool_var;
+    typedef sat::literal_vector literal_vector;
+    typedef sat::bool_var_vector bool_var_vector;
+
 
     class solver;
     
@@ -38,7 +42,45 @@ namespace xr {
         return  __builtin_ffsll(value);
     }
 #endif
-    
+
+    class visited {
+        const unsigned&  m_num_vars;
+        
+        unsigned_vector  m_visited; 
+        unsigned         m_visited_begin = 0;
+        unsigned         m_visited_end = 0;
+        
+    public:
+        
+        visited(const unsigned& num_vars) : m_num_vars(num_vars) { }
+        
+        void init_ts(unsigned n, unsigned lim) {
+            SASSERT(lim > 0);
+            if (m_visited_end >= m_visited_end + lim) { // overflow
+                m_visited_begin = 0;
+                m_visited_end = lim;
+                m_visited.reset();
+            }
+            else {
+                m_visited_begin = m_visited_end;
+                m_visited_end = m_visited_end + lim;
+            }
+            while (m_visited.size() < n) 
+                m_visited.push_back(0);        
+        }
+        void init_visited(unsigned lim = 1) {
+            init_ts(2 * m_num_vars, lim);
+        }
+        void mark_visited(unsigned i) {
+            m_visited[i] = m_visited[i] = m_visited_begin;
+        }
+        void inc_visited(unsigned i) {
+            m_visited[i] = std::max(m_visited_begin, std::min(m_visited_end, m_visited[i] + 1));
+        }
+        bool is_visited(unsigned i) { return m_visited[i] >= m_visited_begin; }
+        unsigned num_visited(unsigned i) { return std::max(m_visited_begin, m_visited[i])  - m_visited_begin; }
+    };
+
     class justification {
         
         friend class solver;
@@ -133,32 +175,32 @@ namespace xr {
         bool must_recalc = true;
         literal propagated = sat::null_literal;
         unsigned ID = 0;
-        sat::literal_vector reason;
+        literal_vector reason;
     };
     
     struct xor_clause {
         
         bool rhs = false;
-        unsigned_vector clash_vars;
+        bool_var_vector clash_vars;
         bool detached = false;
-        unsigned_vector vars;
+        bool_var_vector vars;
         
         xor_clause() = default;
     
-        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const bool_var_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i]);
             }
         }
     
         template<typename T>
-        explicit xor_clause(const T& cl, const bool _rhs, const unsigned_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const T& cl, const bool _rhs, const bool_var_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i].var());
             }
         }
     
-        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const unsigned clash_var) : rhs(_rhs) {
+        explicit xor_clause(const bool_var_vector& cl, const bool _rhs, const unsigned clash_var) : rhs(_rhs) {
             clash_vars.push_back(clash_var);
             for (unsigned i = 0; i < cl.size(); i++) {
                 vars.push_back(cl[i]);
@@ -209,11 +251,11 @@ namespace xr {
             vars.shrink(newsize);
         }
     
-        unsigned_vector& get_vars() {
+        bool_var_vector& get_vars() {
             return vars;
         }
     
-        const unsigned_vector& get_vars() const {
+        const bool_var_vector& get_vars() const {
             return vars;
         }
     
@@ -246,6 +288,23 @@ namespace xr {
             }
         }
     };
+    
+    inline std::ostream& operator<<(std::ostream& os, const xor_clause& thisXor) {
+        for (unsigned i = 0; i < thisXor.size(); i++) {
+            os << literal(thisXor[i], false);
+    
+            if (i + 1 < thisXor.size())
+                os << " + ";
+        }
+        os << " =  " << std::boolalpha << thisXor.rhs << std::noboolalpha;
+    
+        os << " -- clash: ";
+        for (const auto& c: thisXor.clash_vars) {
+            os << c + 1 << ", ";
+        }
+    
+        return os;
+    }
     
     class PackedRow {
         
@@ -294,7 +353,7 @@ namespace xr {
             unsigned pop = 0;
             for (int i = 0; i < size && pop < 2; i++) {
                 *(mp + i) = *(a.mp + i) & *(b.mp + i);
-                pop += __builtin_popcountll((uint64_t)*(mp + i));
+                pop += get_num_1bits((uint64_t)*(mp + i));
             }
     
             return pop;
@@ -407,7 +466,7 @@ namespace xr {
         unsigned popcnt() const {
             unsigned ret = 0;
             for (int i = 0; i < size; i++) {
-                ret += __builtin_popcountll((uint64_t)mp[i]);
+                ret += get_num_1bits((uint64_t)mp[i]);
             }
             return ret;
         }
