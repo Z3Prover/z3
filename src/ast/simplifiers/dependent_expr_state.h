@@ -39,6 +39,7 @@ Author:
  */
 class dependent_expr_state {
 public:
+    virtual ~dependent_expr_state() {}
     virtual unsigned size() const = 0;
     virtual dependent_expr const& operator[](unsigned i) = 0;
     virtual void update(unsigned i, dependent_expr const& j) = 0;
