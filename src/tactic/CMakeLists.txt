@@ -17,6 +17,7 @@ z3_add_component(tactic
   COMPONENT_DEPENDENCIES
     ast
     model
+    simplifiers
   TACTIC_HEADERS
     probe.h
     tactic.h
