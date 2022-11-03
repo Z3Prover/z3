@@ -21,12 +21,14 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/simplifiers/extract_eqs.h"
+#include "params/tactic_params.hpp"
 
 
 namespace euf {
 
     class basic_extract_eq : public extract_eq {
         ast_manager& m;
+        bool m_ite_solver = true;
 
     public:
         basic_extract_eq(ast_manager& m) : m(m) {}
@@ -41,7 +43,7 @@ namespace euf {
                     eqs.push_back(dependent_eq(to_app(y), expr_ref(x, m), d));
             }
             expr* c, * th, * el, * x1, * y1, * x2, * y2;
-            if (m.is_ite(f, c, th, el)) {
+            if (m_ite_solver && m.is_ite(f, c, th, el)) {
                 if (m.is_eq(th, x1, y1) && m.is_eq(el, x2, y2)) {
                     if (x1 == y2 && is_uninterp_const(x1))
                         std::swap(x2, y2);
@@ -58,6 +60,11 @@ namespace euf {
             if (m.is_not(f, x) && is_uninterp_const(x))
                 eqs.push_back(dependent_eq(to_app(x), expr_ref(m.mk_false(), m), d));
         }
+
+        void updt_params(params_ref const& p) {
+            tactic_params tp(p);
+            m_ite_solver = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
+        }
     };
 
     class arith_extract_eq : public extract_eq {
@@ -65,6 +72,7 @@ namespace euf {
         arith_util         a;
         expr_ref_vector    m_args;
         expr_sparse_mark   m_nonzero;
+        bool               m_enabled = true;
 
 
         // solve u mod r1 = y -> u = r1*mod!1 + y
@@ -215,6 +223,8 @@ namespace euf {
     public:
         arith_extract_eq(ast_manager& m) : m(m), a(m), m_args(m) {}
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
+            if (!m_enabled)
+                return;
             auto [f, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y) && a.is_int_real(x)) {
@@ -224,11 +234,19 @@ namespace euf {
         }
 
         void pre_process(dependent_expr_state& fmls) override {
+            if (!m_enabled)
+                return;
             m_nonzero.reset();
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 auto [f, d] = fmls[i]();
                 add_pos(f);
             }
+        }
+
+
+        void updt_params(params_ref const& p) {
+            tactic_params tp(p);
+            m_enabled = p.get_bool("theory_solver", tp.solve_eqs_ite_solver());
         }
     };
 

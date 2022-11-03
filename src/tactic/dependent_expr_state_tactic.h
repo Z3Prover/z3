@@ -83,7 +83,7 @@ public:
         m_simp->reduce();
         m_goal->inc_depth();
         if (in->models_enabled())
-            in->set(m_simp->get_model_converter());
+            in->set(m_simp->get_model_converter().get());
         result.push_back(in.get());        
     }
 

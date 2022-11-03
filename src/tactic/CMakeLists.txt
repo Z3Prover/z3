@@ -19,6 +19,4 @@ z3_add_component(tactic
   TACTIC_HEADERS
     probe.h
     tactic.h
-  PYG_FILES
-    tactic_params.pyg
 )

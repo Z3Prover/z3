@@ -28,7 +28,7 @@ Revision History:
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
 #include "ast/converters/generic_model_converter.h"
-#include "tactic/tactic_params.hpp"
+#include "params/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {
     struct imp {

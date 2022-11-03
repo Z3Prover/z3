@@ -30,6 +30,10 @@ namespace euf {
             unsigned m_num_steps = 0;
             unsigned m_num_elim_vars = 0;
         };
+        struct config {
+            bool m_context_solve = true;
+            unsigned m_max_occs = UINT_MAX;
+        };
 
         th_rewriter                   m_rewriter;
         scoped_ptr_vector<extract_eq> m_extract_plugins;
@@ -40,6 +44,7 @@ namespace euf {
 
         expr_mark                     m_unsafe_vars;   // expressions that cannot be replaced
         stats                         m_stats;
+        config                        m_config;
 
         void add_subst(dependent_eq const& eq);
 

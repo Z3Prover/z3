@@ -24,6 +24,7 @@ Author:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/converters/generic_model_converter.h"
+#include "params/tactic_params.hpp"
 
 
 namespace euf {
@@ -46,7 +47,8 @@ namespace euf {
         m_next.resize(m_id2var.size());
 
         for (auto const& eq : eqs)
-            m_next[var2id(eq.var)].push_back(eq);
+            if (can_be_var(eq.var))
+                m_next[var2id(eq.var)].push_back(eq);
     }
 
     /**
@@ -136,10 +138,7 @@ namespace euf {
             tout << "after normalizing variables\n";
         for (unsigned id : m_subst_ids) {
             auto const& eq = m_next[id][0];
-            expr* def = nullptr;
-            proof* pr = nullptr;
-            expr_dependency* dep = nullptr;
-            m_subst->find(eq.var, def, pr, dep);
+            expr* def = m_subst->find(eq.var);
             tout << mk_pp(eq.var, m) << "\n----->\n" << mk_pp(def, m) << "\n\n";
         });
     }
@@ -201,14 +200,11 @@ namespace euf {
     }
 
     void solve_eqs::updt_params(params_ref const& p) {
-        // TODO
-#if 0
-        tactic_params tp(m_params);
-        m_ite_solver = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
-        m_theory_solver = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
-        m_max_occs = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
-        m_context_solve = p.get_bool("context_solve", tp.solve_eqs_context_solve());
-#endif
+        tactic_params tp(p);
+        m_config.m_max_occs = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
+        m_config.m_context_solve = p.get_bool("context_solve", tp.solve_eqs_context_solve());
+        for (auto* ex : m_extract_plugins)
+            ex->updt_params(p);
     }
 
     void solve_eqs::collect_statistics(statistics& st) const {
