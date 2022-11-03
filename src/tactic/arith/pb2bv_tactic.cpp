@@ -29,7 +29,7 @@ Notes:
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "tactic/tactical.h"
 #include "tactic/arith/bound_manager.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
 

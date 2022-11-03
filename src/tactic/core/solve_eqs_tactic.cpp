@@ -27,7 +27,7 @@ Revision History:
 #include "ast/rewriter/hoist_rewriter.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "tactic/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {

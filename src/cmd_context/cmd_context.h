@@ -33,7 +33,7 @@ Notes:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/check_logic.h"
 #include "solver/progress_callback.h"

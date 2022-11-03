@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#include "tactic/proof_converter.h"
-#include "tactic/goal.h"
+#include "ast/converters/proof_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 class concat_proof_converter : public concat_converter<proof_converter> {
@@ -46,41 +45,6 @@ proof_converter * concat(proof_converter * pc1, proof_converter * pc2) {
     return alloc(concat_proof_converter, pc1, pc2);
 }
 
-class subgoal_proof_converter : public proof_converter {
-    proof_converter_ref m_pc;
-    goal_ref_buffer     m_goals;
-public:
-    subgoal_proof_converter(proof_converter* pc, unsigned n, goal * const* goals):
-        m_pc(pc)
-    {
-        for (unsigned i = 0; i < n; ++i) m_goals.push_back(goals[i]);
-    }
-
-    proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
-        // ignore the proofs from the arguments, instead obtain the proofs fromt he subgoals.
-        SASSERT(num_source == 0);
-        proof_converter_ref_buffer pc_buffer;          
-        for (goal_ref g : m_goals) {
-            pc_buffer.push_back(g->pc());
-
-        }
-        return apply(m, m_pc, pc_buffer);
-    }
-
-    proof_converter* translate(ast_translation& tr) override {
-        proof_converter_ref pc1 = m_pc->translate(tr);
-        goal_ref_buffer goals;
-        for (goal_ref g : m_goals) goals.push_back(g->translate(tr));
-        return alloc(subgoal_proof_converter, pc1.get(), goals.size(), goals.data());
-    }
-
-    void display(std::ostream& out) override {}
-    
-};
-
-proof_converter * concat(proof_converter *pc, unsigned n, goal* const* goals) {
-    return alloc(subgoal_proof_converter, pc, n, goals);
-}
 
 class proof2pc : public proof_converter {
     proof_ref m_pr;

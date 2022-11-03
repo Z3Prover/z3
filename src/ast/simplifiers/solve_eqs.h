@@ -18,9 +18,9 @@ Author:
 
 #pragma once
 
-#include "ast/rewriter/th_rewriter.h"
-#include "ast/expr_substitution.h"
 #include "util/scoped_ptr_vector.h"
+#include "ast/expr_substitution.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifiers/extract_eqs.h"
 
 namespace euf {
@@ -74,6 +74,6 @@ namespace euf {
         void updt_params(params_ref const& p) override;
         void collect_statistics(statistics& st) const override;
 
-        // model_converter_ref get_model_converter();
+        model_converter_ref get_model_converter() override;
     };
 }

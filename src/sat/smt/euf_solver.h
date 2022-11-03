@@ -22,7 +22,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"

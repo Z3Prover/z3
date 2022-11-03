@@ -25,7 +25,7 @@ Notes:
 #include "ast/ast_pp_util.h"
 #include "tactic/tactical.h"
 #include "tactic/arith/bound_manager.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 class lia2card_tactic : public tactic {
 

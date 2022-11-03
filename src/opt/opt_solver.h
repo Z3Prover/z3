@@ -29,7 +29,7 @@ Notes:
 #include "smt/params/smt_params.h"
 #include "smt/smt_types.h"
 #include "smt/theory_opt.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 namespace opt {
 

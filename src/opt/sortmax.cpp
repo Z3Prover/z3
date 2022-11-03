@@ -24,7 +24,7 @@ Notes:
 #include "smt/smt_context.h"
 #include "opt/opt_context.h"
 #include "util/sorting_network.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 namespace opt {
 

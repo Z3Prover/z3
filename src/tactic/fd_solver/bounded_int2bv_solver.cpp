@@ -20,7 +20,7 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/arith/bound_manager.h"

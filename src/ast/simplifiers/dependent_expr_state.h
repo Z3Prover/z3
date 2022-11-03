@@ -33,6 +33,7 @@ Author:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "ast/simplifiers/dependent_expr.h"
+#include "ast/converters/model_converter.h"
 
 /**
    abstract interface to state updated by simplifiers.
@@ -66,6 +67,7 @@ public:
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
+    virtual model_converter_ref get_model_converter() { return model_converter_ref(); }
 };
 
 /**

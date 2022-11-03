@@ -22,7 +22,7 @@ Revision History:
 #include "smt/theory_arith.h"
 #include "smt/smt_farkas_util.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 namespace smt {
 

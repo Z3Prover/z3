@@ -22,7 +22,7 @@ Notes:
 #include "ast/has_free_vars.h"
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 /**
    \brief Reduce the number of arguments in function applications.

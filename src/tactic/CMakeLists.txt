@@ -2,15 +2,12 @@ z3_add_component(tactic
   SOURCES
     dependency_converter.cpp
     equiv_proof_converter.cpp
-    generic_model_converter.cpp
     goal.cpp
     goal_num_occurs.cpp
     goal_shared_occs.cpp
     goal_util.cpp
     horn_subsume_model_converter.cpp
-    model_converter.cpp
     probe.cpp
-    proof_converter.cpp
     replace_proof_converter.cpp
     tactical.cpp
     tactic.cpp
@@ -18,6 +15,7 @@ z3_add_component(tactic
     ast
     model
     simplifiers
+    converters
   TACTIC_HEADERS
     probe.h
     tactic.h

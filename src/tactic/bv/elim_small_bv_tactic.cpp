@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"

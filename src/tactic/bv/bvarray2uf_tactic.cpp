@@ -20,7 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 #include "tactic/bv/bvarray2uf_tactic.h"

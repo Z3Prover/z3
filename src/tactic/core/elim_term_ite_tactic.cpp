@@ -20,7 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 class elim_term_ite_tactic : public tactic {
 

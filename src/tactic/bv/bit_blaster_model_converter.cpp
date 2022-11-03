@@ -18,7 +18,7 @@ Notes:
 --*/
 #include "model/model.h"
 #include "model/model_pp.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"

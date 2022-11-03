@@ -33,7 +33,7 @@ Notes:
 --*/
 #include "tactic/core/pb_preprocess_tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/for_each_expr.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"

@@ -20,8 +20,7 @@ Notes:
 
 #include "ast/ast.h"
 #include "util/ref.h"
-#include "tactic/converter.h"
-class goal;
+#include "ast/converters/converter.h"
 
 class proof_converter : public converter {
 public:
@@ -35,12 +34,6 @@ typedef sref_buffer<proof_converter> proof_converter_ref_buffer;
 
 
 proof_converter * concat(proof_converter * pc1, proof_converter * pc2);
-
-/**
-   \brief create a proof converter that takes a set of subgoals and converts their proofs to a proof of 
-   the goal they were derived from.
- */
-proof_converter * concat(proof_converter *pc1, unsigned n, goal* const* goals);
 
 proof_converter * proof2proof_converter(ast_manager & m, proof * pr);
 

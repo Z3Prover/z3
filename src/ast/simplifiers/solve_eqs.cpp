@@ -23,6 +23,7 @@ Author:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/converters/generic_model_converter.h"
 
 
 namespace euf {
@@ -183,14 +184,16 @@ namespace euf {
                 m_unsafe_vars.mark(term);
     }
 
-#if 0
+    typedef generic_model_converter gmc;
+
     model_converter_ref solve_eqs::get_model_converter() {
         model_converter_ref mc = alloc(gmc, m, "solve-eqs");
-        for (unsigned id : m_subst_ids) 
-            static_cast<gmc*>(mc.get())->add(id2var(id), m_subst->find(v));
+        for (unsigned id : m_subst_ids) {
+            auto* v = m_id2var[id];
+            static_cast<gmc*>(mc.get())->add(v, m_subst->find(v));
+        }
         return mc;
     }
-#endif
 
     solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 
         dependent_expr_simplifier(m, fmls), m_rewriter(m) {

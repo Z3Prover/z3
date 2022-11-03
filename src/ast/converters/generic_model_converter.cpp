@@ -24,7 +24,7 @@ Notes:
 #include "ast/occurs.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
 

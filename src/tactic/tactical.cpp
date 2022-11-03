@@ -20,6 +20,7 @@ Notes:
 #include "util/cancel_eh.h"
 #include "util/scoped_ptr_vector.h"
 #include "tactic/tactical.h"
+#include "tactic/goal_proof_converter.h"
 #ifndef SINGLE_THREAD
 #include <thread>
 #endif
