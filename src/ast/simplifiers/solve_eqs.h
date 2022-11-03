@@ -20,6 +20,8 @@ Author:
 
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_substitution.h"
+#include "util/scoped_ptr_vector.h"
 
 
 namespace euf {
@@ -34,34 +36,37 @@ namespace euf {
     typedef vector<dependent_eq> dep_eq_vector;
 
     class extract_eq {
-    pulic:
+    public:
         virtual ~extract_eq() {}
-        virtual void get_eqs(depdendent_expr const& e, dep_eq_vector& eqs) = 0;
+        virtual void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) = 0;
     };
 
     class solve_eqs : public dependent_expr_simplifier {
         th_rewriter                   m_rewriter;
         scoped_ptr_vector<extract_eq> m_extract_plugins;
-        unsigned_vector               m_var2id;
+        unsigned_vector               m_var2id, m_id2level, m_subst_ids;
         ptr_vector<app>               m_id2var;
-        vector<uint_set>              m_next;
+        vector<dep_eq_vector>         m_next;  
+        scoped_ptr<expr_substitution> m_subst;
 
-        void init();
+        void add_subst(dependent_eq const& eq);
 
-        bool is_var(expr* v) const;
+        bool is_var(expr* e) const { return e->get_id() < m_var2id.size() && m_var2id[e->get_id()] != UINT_MAX; }
         unsigned var2id(expr* v) const { return m_var2id[v->get_id()]; }
 
         void get_eqs(dep_eq_vector& eqs) {
             for (unsigned i = m_qhead; i < m_fmls.size(); ++i) 
-                get_eqs(m_fmls[i](), eqs);            
+                get_eqs(m_fmls[i], eqs);            
         }
 
         void get_eqs(dependent_expr const& f, dep_eq_vector& eqs) {
-            for (auto* ex : m_extract_plugins)
+            for (extract_eq* ex : m_extract_plugins)
                 ex->get_eqs(f, eqs);
         }
 
-        void extract_subst(dep_eq_vector& eqs, dep_eq_vector& subst);
+        void extract_subst();
+        void extract_dep_graph(dep_eq_vector& eqs);
+        void normalize();
         void apply_subst();
 
     public:
