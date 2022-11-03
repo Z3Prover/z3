@@ -92,8 +92,6 @@ namespace euf {
 
         for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
             auto [f, d] = m_fmls[i]();
-            auto* n = m_egraph.find(f);
-            SASSERT(n);
             
             expr_dependency_ref dep(d, m);
             expr_ref g = canonize_fml(f, dep);
