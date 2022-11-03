@@ -343,7 +343,11 @@ namespace sat {
         void push_reinit_stack(clause & c);
         void push_reinit_stack(literal l1, literal l2);
         
-        void init_visited(unsigned lim = 1) { m_visited.init_visited(num_vars(), lim); }
+        void init_visited(unsigned lim = 1) { m_visited.init_visited(2 * num_vars(), lim); }
+        bool is_visited(sat::bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal lit) const { return m_visited.is_visited(lit.index()); }
+        void mark_visited(literal lit) { m_visited.mark_visited(lit.index()); }
+        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
         bool all_distinct(literal_vector const& lits);
         bool all_distinct(clause const& cl);
 

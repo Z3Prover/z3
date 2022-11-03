@@ -70,7 +70,7 @@ namespace sat {
         for (literal l : m_clause) {
             m_vars.push_back(l.var());
             m_var_position[l.var()] = i;
-            s.m_visited.mark_visited(l.var());
+            s.mark_visited(l.var());
             mask |= (l.sign() << (i++)); 
         }
         m_clauses_to_remove.reset();
@@ -91,7 +91,7 @@ namespace sat {
             // TBD: replace by BIG
             // loop over binary clauses in watch list
             for (watched const & w : s.get_wlist(l)) {
-                if (w.is_binary_clause() && s.m_visited.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
+                if (w.is_binary_clause() && s.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
                     if (extract_lut(~l, w.get_literal())) {
                         add_lut();
                         return;
@@ -100,7 +100,7 @@ namespace sat {
             }
             l.neg();
             for (watched const & w : s.get_wlist(l)) {
-                if (w.is_binary_clause() && s.m_visited.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
+                if (w.is_binary_clause() && s.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
                     if (extract_lut(~l, w.get_literal())) {
                         add_lut();
                         return;
@@ -144,7 +144,7 @@ namespace sat {
 
     bool lut_finder::extract_lut(clause& c2) {
         for (literal l : c2) {            
-            if (!s.m_visited.is_visited(l.var())) 
+            if (!s.is_visited(l.var())) 
                 return false;
         }
         if (c2.size() == m_vars.size()) {

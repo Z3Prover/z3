@@ -2709,10 +2709,10 @@ namespace pb {
     }
 
     void solver::init_visited() { s().init_visited(); }
-    void solver::mark_visited(literal l) { s().m_visited.mark_visited(l); }
-    void solver::mark_visited(bool_var v) { s().m_visited.mark_visited(v); }
-    bool solver::is_visited(bool_var v) const { return s().m_visited.is_visited(v); }    
-    bool solver::is_visited(literal l) const { return s().m_visited.is_visited(l); }
+    void solver::mark_visited(literal l) { s().mark_visited(l); }
+    void solver::mark_visited(bool_var v) { s().mark_visited(v); }
+    bool solver::is_visited(bool_var v) const { return s().is_visited(v); }    
+    bool solver::is_visited(literal l) const { return s().is_visited(l); }
 
     void solver::cleanup_clauses() {
         if (m_clause_removed) {

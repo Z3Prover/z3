@@ -406,9 +406,9 @@ namespace sat {
         auto gc_watch = [&](literal lit) {
             auto& wl1 = get_wlist(lit);
             for (auto w : get_wlist(lit)) {
-                if (w.is_binary_clause() && w.get_literal().var() < max_var && !m_visited.is_visited(w.get_literal())) {
+                if (w.is_binary_clause() && w.get_literal().var() < max_var && !is_visited(w.get_literal())) {
                     m_aux_literals.push_back(w.get_literal());
-                    m_visited.mark_visited(w.get_literal());
+                    mark_visited(w.get_literal());
                 }
             }
             wl1.reset();

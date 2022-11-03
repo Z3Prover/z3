@@ -62,7 +62,7 @@ namespace sat {
         unsigned mask = 0, i = 0;        
         for (literal l : c) {
             m_var_position[l.var()] = i;
-            s.m_visited.mark_visited(l.var());
+            s.mark_visited(l.var());
             parity ^= !l.sign();
             mask |= (!l.sign() << (i++)); 
         }
@@ -84,7 +84,7 @@ namespace sat {
             }
             // loop over binary clauses in watch list
             for (watched const & w : s.get_wlist(l)) {
-                if (w.is_binary_clause() && s.m_visited.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
+                if (w.is_binary_clause() && s.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
                     if (extract_xor(parity, c, ~l, w.get_literal())) {
                         add_xor(parity, c);
                         return;
@@ -93,7 +93,7 @@ namespace sat {
             }
             l.neg();
             for (watched const & w : s.get_wlist(l)) {
-                if (w.is_binary_clause() && s.m_visited.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
+                if (w.is_binary_clause() && s.is_visited(w.get_literal().var()) && w.get_literal().index() < l.index()) {
                     if (extract_xor(parity, c, ~l, w.get_literal())) {
                         add_xor(parity, c);
                         return;
@@ -144,7 +144,7 @@ namespace sat {
     bool xor_finder::extract_xor(bool parity, clause& c, clause& c2) {
         bool parity2 = false;
         for (literal l : c2) {            
-            if (!s.m_visited.is_visited(l.var())) return false;
+            if (!s.is_visited(l.var())) return false;
             parity2 ^= !l.sign();
         }
         if (c2.size() == c.size() && parity2 != parity) {

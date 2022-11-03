@@ -3441,10 +3441,10 @@ namespace sat {
         for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
             clause_wrapper const& cw = m_clauses_to_reinit[i];
             for (unsigned j = cw.size(); j-- > 0; )
-                m_visited.mark_visited(cw[j].var());
+                mark_visited(cw[j].var());
         }
         for (literal lit : m_lemma)
-            m_visited.mark_visited(lit.var());
+           mark_visited(lit.var());
 
         auto is_active = [&](bool_var v) {
             return value(v) != l_undef && lvl(v) <= new_lvl;
@@ -3452,7 +3452,7 @@ namespace sat {
 
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_external(v) || m_visited.is_visited(v) || is_active(v)) {
+            if (is_external(v) || is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
                 m_var_scope[v] = new_lvl;
@@ -4697,10 +4697,10 @@ namespace sat {
     bool solver::all_distinct(literal_vector const& lits) {
         init_visited();
         for (literal l : lits) {
-            if (m_visited.is_visited(l.var())) {
+            if (is_visited(l.var())) {
                 return false;
             }
-            m_visited.mark_visited(l.var());
+            mark_visited(l.var());
         }
         return true;
     }
@@ -4708,10 +4708,10 @@ namespace sat {
     bool solver::all_distinct(clause const& c) {
         init_visited();
         for (literal l : c) {
-            if (m_visited.is_visited(l.var())) {
+            if (is_visited(l.var())) {
                 return false;
             }
-            m_visited.mark_visited(l.var());
+            mark_visited(l.var());
         }
         return true;
     }
