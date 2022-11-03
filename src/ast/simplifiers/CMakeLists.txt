@@ -1,7 +1,8 @@
 z3_add_component(simplifiers
   SOURCES
-    euf_completion.cpp
     bv_slice.cpp
+    euf_completion.cpp
+    extract_eqs.cpp
     solve_eqs.cpp
   COMPONENT_DEPENDENCIES
     euf

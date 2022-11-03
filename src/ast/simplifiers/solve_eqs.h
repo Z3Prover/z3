@@ -18,28 +18,12 @@ Author:
 
 #pragma once
 
-#include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_substitution.h"
 #include "util/scoped_ptr_vector.h"
-
+#include "ast/simplifiers/extract_eqs.h"
 
 namespace euf {
-
-    struct dependent_eq {
-        app* var;
-        expr_ref term;
-        expr_dependency* dep;
-        dependent_eq(app* var, expr_ref& term, expr_dependency* d) : var(var), term(term), dep(d) {}
-    };
-
-    typedef vector<dependent_eq> dep_eq_vector;
-
-    class extract_eq {
-    public:
-        virtual ~extract_eq() {}
-        virtual void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) = 0;
-    };
 
     class solve_eqs : public dependent_expr_simplifier {
         th_rewriter                   m_rewriter;
@@ -71,10 +55,12 @@ namespace euf {
 
     public:
 
-        solve_eqs(ast_manager& m, dependent_expr_state& fmls) : dependent_expr_simplifier(m, fmls), m_rewriter(m) {}
+        solve_eqs(ast_manager& m, dependent_expr_state& fmls);
 
         void push() override { dependent_expr_simplifier::push(); }
         void pop(unsigned n) override { dependent_expr_simplifier::pop(n); }
         void reduce() override;
+
+        void updt_params(params_ref const& p) override;
     };
 }

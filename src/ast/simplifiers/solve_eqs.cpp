@@ -27,59 +27,6 @@ Author:
 
 namespace euf {
 
-    class basic_extract_eq : public extract_eq {
-        ast_manager& m;
-    public:
-        basic_extract_eq(ast_manager& m) : m(m) {}
-        void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) {
-            auto [f, d] = e();
-            expr* x, * y;
-            if (m.is_eq(f, x, y)) {
-                if (is_uninterp_const(x))
-                    eqs.push_back(dependent_eq(to_app(x), expr_ref(y, m), d));
-                if (is_uninterp_const(y))
-                    eqs.push_back(dependent_eq(to_app(y), expr_ref(x, m), d));
-            }
-            expr* c, * th, * el, * x1, * y1, * x2, * y2;
-            if (m.is_ite(f, c, th, el)) {
-                if (m.is_eq(th, x1, y1) && m.is_eq(el, x2, y2)) {
-                    if (x1 == y2 && is_uninterp_const(x1))
-                        std::swap(x2, y2);
-                    if (x2 == y2 && is_uninterp_const(x2))
-                        std::swap(x2, y2), std::swap(x1, y1);
-                    if (x2 == y1 && is_uninterp_const(x2))
-                        std::swap(x1, y1);
-                    if (x1 == x2 && is_uninterp_const(x1)) 
-                        eqs.push_back(dependent_eq(to_app(x1), expr_ref(m.mk_ite(c, y1, y2), m), d));                    
-                }
-            }
-            if (is_uninterp_const(f))
-                eqs.push_back(dependent_eq(to_app(f), expr_ref(m.mk_true(), m), d));
-            if (m.is_not(f, x) && is_uninterp_const(x))
-                eqs.push_back(dependent_eq(to_app(x), expr_ref(m.mk_false(), m), d));
-        }
-    };
-
-    class arith_extract_eq : public extract_eq {
-        ast_manager& m;
-        arith_util a;
-#if 0
-        void solve_eq(expr* f, expr_depedency* d) {
-
-        }
-#endif
-    public:
-        arith_extract_eq(ast_manager& m) : m(m), a(m) {}
-        void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) {
-#if 0
-            auto [f, d] = e();
-            expr* x, * y;
-            if (m.is_eq(f, x, y) && a.is_int_real(x))
-                ;
-#endif
-        }
-    };
-
     // initialize graph that maps variable ids to next ids
     void solve_eqs::extract_dep_graph(dep_eq_vector& eqs) {
         m_var2id.reset();
@@ -210,12 +157,33 @@ namespace euf {
     }
     
     void solve_eqs::reduce() {
+
+        for (extract_eq* ex : m_extract_plugins)
+            ex->pre_process(m_fmls);
+
+        // TODO add a loop.
         dep_eq_vector eqs;
         get_eqs(eqs);
         extract_dep_graph(eqs);
         extract_subst();
         apply_subst();
         advance_qhead(m_fmls.size());
+    }
+
+    solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 
+        dependent_expr_simplifier(m, fmls), m_rewriter(m) {
+        register_extract_eqs(m, m_extract_plugins);
+    }
+
+    void solve_eqs::updt_params(params_ref const& p) {
+        // TODO
+#if 0
+        tactic_params tp(m_params);
+        m_ite_solver = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
+        m_theory_solver = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
+        m_max_occs = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
+        m_context_solve = p.get_bool("context_solve", tp.solve_eqs_context_solve());
+#endif
     }
 
 }
