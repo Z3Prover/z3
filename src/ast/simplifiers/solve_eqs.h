@@ -26,12 +26,20 @@ Author:
 namespace euf {
 
     class solve_eqs : public dependent_expr_simplifier {
+        struct stats {
+            unsigned m_num_steps = 0;
+            unsigned m_num_elim_vars = 0;
+        };
+
         th_rewriter                   m_rewriter;
         scoped_ptr_vector<extract_eq> m_extract_plugins;
         unsigned_vector               m_var2id, m_id2level, m_subst_ids;
         ptr_vector<app>               m_id2var;
         vector<dep_eq_vector>         m_next;  
         scoped_ptr<expr_substitution> m_subst;
+
+        expr_mark                     m_unsafe_vars;   // expressions that cannot be replaced
+        stats                         m_stats;
 
         void add_subst(dependent_eq const& eq);
 
@@ -48,6 +56,8 @@ namespace euf {
                 ex->get_eqs(f, eqs);
         }
 
+        void filter_unsafe_vars();
+        bool can_be_var(expr* e) const { return is_uninterp_const(e) && !m_unsafe_vars.is_marked(e); }
         void extract_subst();
         void extract_dep_graph(dep_eq_vector& eqs);
         void normalize();
@@ -62,5 +72,8 @@ namespace euf {
         void reduce() override;
 
         void updt_params(params_ref const& p) override;
+        void collect_statistics(statistics& st) const override;
+
+        // model_converter_ref get_model_converter();
     };
 }

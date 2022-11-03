@@ -977,14 +977,8 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_models) {
                 if (!mc.get())
                     mc = alloc(gmc, m(), "solve-eqs");
-                for (app* v : m_ordered_vars) {
-                    expr * def = nullptr;
-                    proof * pr;
-                    expr_dependency * dep = nullptr;
-                    m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def);
-                    static_cast<gmc*>(mc.get())->add(v, def);
-                }
+                for (app* v : m_ordered_vars) 
+                    static_cast<gmc*>(mc.get())->add(v, m_norm_subst->find(v));
             }
         }
         

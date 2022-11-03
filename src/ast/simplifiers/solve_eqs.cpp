@@ -20,7 +20,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
-#include "ast/arith_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/solve_eqs.h"
 
@@ -37,7 +37,7 @@ namespace euf {
             sz = std::max(sz, v->get_id());
         m_var2id.resize(sz + 1, UINT_MAX);
         for (auto const& [v, t, d] : eqs) {
-            if (is_var(v))
+            if (is_var(v) || !can_be_var(v))
                 continue;
             m_var2id[v->get_id()] = m_id2var.size();
             m_id2var.push_back(v);
@@ -103,7 +103,9 @@ namespace euf {
     }
 
     void solve_eqs::add_subst(dependent_eq const& eq) {
+        SASSERT(can_be_var(eq.var));
         m_subst->insert(eq.var, eq.term, nullptr, eq.dep);
+        ++m_stats.m_num_elim_vars;
     }
 
     void solve_eqs::normalize() {
@@ -118,10 +120,11 @@ namespace euf {
         proof_ref new_pr(m);
 
         for (unsigned id : m_subst_ids) {
-            // checkpoint();
+            if (!m.inc())
+                break;
             auto const& [v, def, dep] = m_next[id][0];
             rp->operator()(def, new_def, new_pr, new_dep);
-            // m_num_steps += rp->get_num_steps() + 1;
+            m_stats.m_num_steps += rp->get_num_steps() + 1;
             new_dep = m.mk_join(dep, new_dep);
             m_subst->insert(v, new_def, new_pr, new_dep);
             // we updated the substitution, but we don't need to reset rp
@@ -141,6 +144,8 @@ namespace euf {
     }
 
     void solve_eqs::apply_subst() {
+        if (!m.inc())
+            return;
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
         rp->set_substitution(m_subst.get());
         expr_ref new_f(m);
@@ -170,6 +175,23 @@ namespace euf {
         advance_qhead(m_fmls.size());
     }
 
+    void solve_eqs::filter_unsafe_vars() {
+        m_unsafe_vars.reset();
+        recfun::util rec(m);
+        for (func_decl* f : rec.get_rec_funs())
+            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m)))
+                m_unsafe_vars.mark(term);
+    }
+
+#if 0
+    model_converter_ref solve_eqs::get_model_converter() {
+        model_converter_ref mc = alloc(gmc, m, "solve-eqs");
+        for (unsigned id : m_subst_ids) 
+            static_cast<gmc*>(mc.get())->add(id2var(id), m_subst->find(v));
+        return mc;
+    }
+#endif
+
     solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 
         dependent_expr_simplifier(m, fmls), m_rewriter(m) {
         register_extract_eqs(m, m_extract_plugins);
@@ -184,6 +206,11 @@ namespace euf {
         m_max_occs = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
         m_context_solve = p.get_bool("context_solve", tp.solve_eqs_context_solve());
 #endif
+    }
+
+    void solve_eqs::collect_statistics(statistics& st) const {
+        st.update("solve-eqs-steps", m_stats.m_num_steps);
+        st.update("solve-eqs-elim-vars", m_stats.m_num_elim_vars);
     }
 
 }

@@ -30,7 +30,7 @@ namespace euf {
         app* var;
         expr_ref term;
         expr_dependency* dep;
-        dependent_eq(app* var, expr_ref& term, expr_dependency* d) : var(var), term(term), dep(d) {}
+        dependent_eq(app* var, expr_ref const& term, expr_dependency* d) : var(var), term(term), dep(d) {}
     };
 
     typedef vector<dependent_eq> dep_eq_vector;
