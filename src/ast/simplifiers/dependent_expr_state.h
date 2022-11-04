@@ -32,8 +32,9 @@ Author:
 #include "util/trail.h"
 #include "util/statistics.h"
 #include "util/params.h"
-#include "ast/simplifiers/dependent_expr.h"
 #include "ast/converters/model_converter.h"
+#include "ast/simplifiers/dependent_expr.h"
+
 
 /**
    abstract interface to state updated by simplifiers.
