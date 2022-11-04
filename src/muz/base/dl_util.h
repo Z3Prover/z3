@@ -24,7 +24,7 @@ Revision History:
 #include "util/obj_hashtable.h"
 #include "util/uint_set.h"
 #include "tactic/horn_subsume_model_converter.h"
-#include "tactic/replace_proof_converter.h"
+#include "ast/converters/replace_proof_converter.h"
 #include "ast/substitution/substitution.h"
 #include "ast/rewriter/ast_counter.h"
 #include "util/statistics.h"
