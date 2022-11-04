@@ -34,7 +34,7 @@ Subsumption transformation (remove Horn clause):
 
 #pragma once
 
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ast/rewriter/th_rewriter.h"
 
 class horn_subsume_model_converter : public model_converter {

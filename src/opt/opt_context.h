@@ -20,7 +20,7 @@ Notes:
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "tactic/tactic.h"
 #include "qe/qsat.h"
 #include "opt/opt_solver.h"

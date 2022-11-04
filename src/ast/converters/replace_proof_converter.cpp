@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include "tactic/replace_proof_converter.h"
+#include "ast/converters/replace_proof_converter.h"
 #include "ast/expr_functors.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"

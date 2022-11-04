@@ -16,7 +16,7 @@
  --*/
 #pragma once
 
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ackermannization/ackr_info.h"
 
 model_converter * mk_ackermannize_bv_model_converter(ast_manager & m, const ackr_info_ref& info);

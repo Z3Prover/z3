@@ -95,3 +95,4 @@ CMakeSettings.json
 *.swp
 .DS_Store
 dbg/**
+*.wsp

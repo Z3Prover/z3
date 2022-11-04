@@ -34,8 +34,8 @@ Revision History:
 #include "util/ref.h"
 #include "util/ref_vector.h"
 #include "util/ref_buffer.h"
-#include "tactic/model_converter.h"
-#include "tactic/proof_converter.h"
+#include "ast/converters/model_converter.h"
+#include "ast/converters/proof_converter.h"
 #include "tactic/dependency_converter.h"
 
 class goal {

@@ -57,7 +57,7 @@ Notes:
 #include "util/ref.h"
 #include "ast/ast_pp_util.h"
 #include "model/model.h"
-#include "tactic/converter.h"
+#include "ast/converters/converter.h"
 
 class labels_vec : public svector<symbol> {};
 class smt2_pp_environment; 

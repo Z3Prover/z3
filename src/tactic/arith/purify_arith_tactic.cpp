@@ -27,7 +27,7 @@ Revision History:
 #include "tactic/core/nnf_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_replacer.h"

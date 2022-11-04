@@ -27,7 +27,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast.h"
 #include "util/params.h"
 #include "ast/normal_forms/defined_names.h"
-#include "tactic/proof_converter.h"
+#include "ast/converters/proof_converter.h"
  
 class hnf {
     class imp;

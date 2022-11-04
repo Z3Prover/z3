@@ -32,8 +32,15 @@ mk_extract_proc::~mk_extract_proc() {
 }
 
 app * mk_extract_proc::operator()(unsigned high, unsigned low, expr * arg) {
+    unsigned l, h;
+    while (m_util.is_extract(arg, l, h, arg)) {
+        low += l;
+        high += l;
+    }
     ast_manager & m = m_util.get_manager();
     sort * s = arg->get_sort();
+    if (low == 0 && high + 1 == m_util.get_bv_size(arg) && is_app(arg))
+        return to_app(arg);
     if (m_low == low && m_high == high && m_domain == s)
         return m.mk_app(m_f_cached, arg);
     // m_f_cached has a reference to m_domain, so, I don't need to inc_ref m_domain

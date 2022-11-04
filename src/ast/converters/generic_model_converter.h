@@ -19,7 +19,7 @@ Notes:
 --*/
 #pragma once
 
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 
 class generic_model_converter : public model_converter {
     enum instruction { HIDE, ADD };

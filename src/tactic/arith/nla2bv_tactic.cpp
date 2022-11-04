@@ -27,7 +27,7 @@ Notes:
 #include "util/optional.h"
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "tactic/arith/bound_manager.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_smt2_pp.h"
