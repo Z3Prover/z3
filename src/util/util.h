@@ -25,6 +25,7 @@ Revision History:
 #include<limits>
 #include<stdint.h>
 #include <string>
+#include <functional>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -179,9 +180,8 @@ void display(std::ostream & out, const IT & begin, const IT & end, const char * 
 template<typename T>
 struct delete_proc {
     void operator()(T * ptr) { 
-    if (ptr) {
-        dealloc(ptr);
-    }
+    if (ptr) 
+        dealloc(ptr);    
     }
 };
 
@@ -359,6 +359,15 @@ void fatal_error(int error_code);
 
 void set_fatal_error_handler(void (*pfn)(int error_code));
 
+
+template<typename S, typename T>
+bool any_of(S& set, T& p) {
+    for (auto const& s : set)
+        if (p(s))
+            return true;
+    return false;
+}
+// #define any_of(S, p) { for (auto const& s : S) if (p(s)) return true; return false; }
 
 /**
    \brief Iterator for the [0..sz[0]) X [0..sz[1]) X ... X [0..sz[n-1]).

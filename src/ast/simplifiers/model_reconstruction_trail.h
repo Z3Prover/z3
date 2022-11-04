@@ -44,7 +44,10 @@ class model_reconstruction_trail {
         bool is_loose() const { return !m_removed.empty(); }
 
         bool intersects(ast_mark const& free_vars) const {
-            return std::any_of(m_subst->sub().begin(), m_subst->sub().end(), [&](auto const& kv) { return free_vars.is_marked(kv.m_key); });
+            for (auto const& [k, v] : m_subst->sub())
+                if (free_vars.is_marked(k))
+                    return true;
+            return false;
         }
 
 
@@ -61,8 +64,7 @@ class model_reconstruction_trail {
 
     bool intersects(ast_mark const& free_vars, dependent_expr const& d) {
         expr_ref term(d.fml(), d.get_manager());
-        auto iter = subterms::all(term);
-        return std::any_of(iter.begin(), iter.end(), [&](expr* t) { return free_vars.is_marked(t); });
+        return any_of(subterms::all(term), [&](expr* t) { return free_vars.is_marked(t); });
     }
 
     bool intersects(ast_mark const& free_vars, vector<dependent_expr> const& added) {
