@@ -24,33 +24,62 @@ Author:
 #pragma once
 
 #include "util/scoped_ptr_vector.h"
+#include "util/trail.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/dependent_expr.h"
 #include "ast/converters/model_converter.h"
 
 class model_reconstruction_trail {
 
-    ast_manager& m;
+    struct entry {
+        scoped_ptr<expr_replacer>     m_replace;
+        scoped_ptr<expr_substitution> m_subst;
+        vector<dependent_expr>        m_removed;
+        bool                          m_active = true;
 
-    struct model_reconstruction_trail_entry {
-        scoped_ptr<expr_replacer> m_replace;
-        vector<dependent_expr>    m_removed;
-        model_reconstruction_trail_entry(expr_replacer* r, vector<dependent_expr> const& rem) :
-            m_replace(r), m_removed(rem) {}
+        entry(expr_replacer* r, expr_substitution* s, vector<dependent_expr> const& rem) :
+            m_replace(r), m_subst(s), m_removed(rem) {}
+
+        bool is_loose() const { return !m_removed.empty(); }
+
+        bool intersects(ast_mark const& free_vars) const {
+            return std::any_of(m_subst->sub().begin(), m_subst->sub().end(), [&](auto const& kv) { return free_vars.is_marked(kv.m_key); });
+        }
+
+
     };
 
-    scoped_ptr_vector<model_reconstruction_trail_entry> m_trail;
-    unsigned_vector m_limit;
+    ast_manager&             m;
+    trail_stack&             m_trail_stack;
+    scoped_ptr_vector<entry> m_trail;
+
+    void add_vars(dependent_expr const& d, ast_mark& free_vars) {
+        for (expr* t : subterms::all(expr_ref(d.fml(), d.get_manager())))
+            free_vars.mark(t, true);
+    }
+
+    bool intersects(ast_mark const& free_vars, dependent_expr const& d) {
+        expr_ref term(d.fml(), d.get_manager());
+        auto iter = subterms::all(term);
+        return std::any_of(iter.begin(), iter.end(), [&](expr* t) { return free_vars.is_marked(t); });
+    }
+
+    bool intersects(ast_mark const& free_vars, vector<dependent_expr> const& added) {
+        return std::any_of(added.begin(), added.end(), [&](dependent_expr const& d) { return intersects(free_vars, d); });
+    }
 
 public:
 
-    model_reconstruction_trail(ast_manager& m) : m(m) {}
+    model_reconstruction_trail(ast_manager& m, trail_stack& tr): 
+        m(m), m_trail_stack(tr) {}
 
     /**
     * add a new substitution to the stack
     */
     void push(expr_replacer* r, vector<dependent_expr> const& removed) {
-        m_trail.push_back(alloc(model_reconstruction_trail_entry, r, removed));
+        m_trail.push_back(alloc(entry, r, nullptr, removed));
+        m_trail_stack.push(push_back_vector(m_trail));
     }
 
     /**
@@ -63,18 +92,5 @@ public:
     * retrieve the current model converter corresponding to chaining substitutions from the trail.
     */
     model_converter_ref get_model_converter();
-
-    /**
-    * push a context. Portions of the trail added within a context are removed after a context pop.
-    */
-    void push() {
-        m_limit.push_back(m_trail.size());
-    }
-
-    void pop(unsigned n) {
-        unsigned old_sz = m_limit[m_limit.size() - n];
-        m_trail.resize(old_sz);
-        m_limit.shrink(m_limit.size() - n);
-    }
 };
 

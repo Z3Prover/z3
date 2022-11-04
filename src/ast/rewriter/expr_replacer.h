@@ -34,9 +34,10 @@ public:
     virtual void set_substitution(expr_substitution * s) = 0;
 
     virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & deps) = 0;
-    virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
-    virtual void operator()(expr * t, expr_ref & result);
-    virtual void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
+    void operator()(expr* t, expr_ref& result, expr_dependency_ref& deps);
+    void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
+    void operator()(expr * t, expr_ref & result);
+    void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
 
     virtual unsigned get_num_steps() const { return 0; }
     virtual void reset() = 0;

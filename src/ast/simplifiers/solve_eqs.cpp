@@ -60,7 +60,7 @@ namespace euf {
         m_id2level.reset();
         m_id2level.resize(m_id2var.size(), UINT_MAX);
         m_subst_ids.reset();
-        m_subst = alloc(expr_substitution, m, false, false);
+        m_subst = alloc(expr_substitution, m, true, false);
 
         auto is_explored = [&](unsigned id) {
             return m_id2level[id] != UINT_MAX;
@@ -120,16 +120,15 @@ namespace euf {
 
         expr_dependency_ref new_dep(m);
         expr_ref new_def(m);
-        proof_ref new_pr(m);
 
         for (unsigned id : m_subst_ids) {
             if (!m.inc())
                 break;
             auto const& [v, def, dep] = m_next[id][0];
-            rp->operator()(def, new_def, new_pr, new_dep);
+            rp->operator()(def, new_def, new_dep);
             m_stats.m_num_steps += rp->get_num_steps() + 1;
             new_dep = m.mk_join(dep, new_dep);
-            m_subst->insert(v, new_def, new_pr, new_dep);
+            m_subst->insert(v, new_def, nullptr, new_dep);
             // we updated the substitution, but we don't need to reset rp
             // because all cached values there do not depend on v.
         }
@@ -149,11 +148,10 @@ namespace euf {
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
         rp->set_substitution(m_subst.get());
         expr_ref new_f(m);
-        proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
         for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
             auto [f, d] = m_fmls[i]();
-            rp->operator()(f, new_f, new_pr, new_dep);
+            rp->operator()(f, new_f, new_dep);
             if (new_f == f)
                 continue;
             new_dep = m.mk_join(d, new_dep);
