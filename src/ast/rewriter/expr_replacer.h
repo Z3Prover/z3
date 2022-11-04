@@ -38,6 +38,7 @@ public:
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
     void operator()(expr * t, expr_ref & result);
     void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
+    void operator()(expr_ref_vector& v) { expr_ref t(m());  for (unsigned i = 0; i < v.size(); ++i) (*this)(v.get(i), t), v[i] = t; }
 
     virtual unsigned get_num_steps() const { return 0; }
     virtual void reset() = 0;
