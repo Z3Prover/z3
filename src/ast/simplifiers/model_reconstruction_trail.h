@@ -68,7 +68,7 @@ class model_reconstruction_trail {
     }
 
     bool intersects(ast_mark const& free_vars, vector<dependent_expr> const& added) {
-        return std::any_of(added.begin(), added.end(), [&](dependent_expr const& d) { return intersects(free_vars, d); });
+        return any_of(added, [&](dependent_expr const& d) { return intersects(free_vars, d); });
     }
 
 public:
