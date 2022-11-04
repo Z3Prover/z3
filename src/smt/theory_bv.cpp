@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 
+#define ENABLE_QUOT_REM_ENCODING 0
 
 namespace smt {
 
@@ -898,8 +899,11 @@ namespace smt {
         case OP_BSUB:           internalize_sub(term); return true;
         case OP_BMUL:           internalize_mul(term); return true;
         case OP_BSDIV_I:        internalize_sdiv(term); return true;
+#if ENABLE_QUOT_REM_ENCODING
+        case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
+#else
         case OP_BUDIV_I:        internalize_udiv(term); return true;
-            // case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
+#endif
         case OP_BSREM_I:        internalize_srem(term); return true;
         case OP_BUREM_I:        internalize_urem(term); return true;
         case OP_BSMOD_I:        internalize_smod(term); return true;
@@ -1394,7 +1398,7 @@ namespace smt {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_int2bv_axiom(n);
         }
-#if 0
+#if ENABLE_QUOT_REM_ENCODING
         else if (m_util.is_bv_udivi(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             ctx.mark_as_relevant(n->get_arg(1));
@@ -1994,7 +1998,7 @@ namespace smt {
         return true;
     }
 
-#if 0
+#if ENABLE_QUOT_REM_ENCODING
     void theory_bv::internalize_udiv_quot_rem(app* n) {
         process_args(n);
         mk_enode(n);

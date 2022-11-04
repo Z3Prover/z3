@@ -27,8 +27,8 @@ Revision History:
 #include "ast/rewriter/hoist_rewriter.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
-#include "tactic/tactic_params.hpp"
+#include "ast/converters/generic_model_converter.h"
+#include "params/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
@@ -36,6 +36,7 @@ class solve_eqs_tactic : public tactic {
         
         ast_manager &                 m_manager;
         expr_replacer *               m_r;
+        params_ref                    m_params;
         bool                          m_r_owner;
         arith_util                    m_a_util;
         obj_map<expr, unsigned>       m_num_occs;
@@ -80,7 +81,8 @@ class solve_eqs_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
         
         void updt_params(params_ref const & p) {
-            tactic_params tp(p);
+            m_params.append(p);
+            tactic_params tp(m_params);
             m_ite_solver     = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
             m_theory_solver  = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
             m_max_occs       = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
@@ -702,8 +704,8 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_proofs) 
                 return;
             unsigned size = g.size();
-            hoist_rewriter_star rw(m());
-            th_rewriter thrw(m());
+            hoist_rewriter_star rw(m(), m_params);
+            th_rewriter thrw(m(), m_params);
             expr_ref tmp(m()), tmp2(m());
             
             TRACE("solve_eqs", g.display(tout););
@@ -975,14 +977,8 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_models) {
                 if (!mc.get())
                     mc = alloc(gmc, m(), "solve-eqs");
-                for (app* v : m_ordered_vars) {
-                    expr * def = nullptr;
-                    proof * pr;
-                    expr_dependency * dep = nullptr;
-                    m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def);
-                    static_cast<gmc*>(mc.get())->add(v, def);
-                }
+                for (app* v : m_ordered_vars) 
+                    static_cast<gmc*>(mc.get())->add(v, m_norm_subst->find(v));
             }
         }
         
@@ -1082,15 +1078,13 @@ class solve_eqs_tactic : public tactic {
     };
     
     imp *      m_imp;
-    params_ref m_params;
 public:
-    solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner):
-        m_params(p) {
+    solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner) {
         m_imp = alloc(imp, m, p, r, owner);
     }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(solve_eqs_tactic, m, m_params, mk_expr_simp_replacer(m, m_params), true);
+        return alloc(solve_eqs_tactic, m, m_imp->m_params, mk_expr_simp_replacer(m, m_imp->m_params), true);
     }
         
     ~solve_eqs_tactic() override {
@@ -1100,8 +1094,7 @@ public:
     char const* name() const override { return "solve_eqs"; }
 
     void updt_params(params_ref const & p) override {
-        m_params.append(p);
-        m_imp->updt_params(m_params);
+        m_imp->updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {        
@@ -1126,7 +1119,7 @@ public:
         bool owner = m_imp->m_r_owner;
         m_imp->m_r_owner  = false; // stole replacer
 
-        imp * d = alloc(imp, m, m_params, r, owner);
+        imp * d = alloc(imp, m, m_imp->m_params, r, owner);
         d->m_num_eliminated_vars = num_elim_vars;
         std::swap(d, m_imp);        
         dealloc(d);
@@ -1142,9 +1135,6 @@ public:
     
 };
 
-tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
-    if (r == nullptr)
-        return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
-    else
-        return clean(alloc(solve_eqs_tactic, m, p, r, false));
+tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
 }

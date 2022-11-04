@@ -850,7 +850,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_f_rw(m, p),
         m_dl_rw(m),
         m_pb_rw(m),
-        m_seq_rw(m),
+        m_seq_rw(m, p),
         m_char_rw(m),
         m_rec_rw(m),
         m_a_util(m),

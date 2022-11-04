@@ -1387,6 +1387,7 @@ inline bool is_app_of(expr const * n, family_id fid, decl_kind k) { return n->ge
 inline bool is_sort_of(sort const * s, family_id fid, decl_kind k) { return s->is_sort_of(fid, k); }
 inline bool is_uninterp_const(expr const * n) { return n->get_kind() == AST_APP && to_app(n)->get_num_args() == 0 && to_app(n)->get_family_id() == null_family_id; }
 inline bool is_uninterp(expr const * n) { return n->get_kind() == AST_APP && to_app(n)->get_family_id() == null_family_id; }
+inline bool is_uninterp(func_decl const * n) { return n->get_family_id() == null_family_id; }
 inline bool is_decl_of(func_decl const * d, family_id fid, decl_kind k) { return d->get_family_id() == fid && d->get_decl_kind() == k; }
 inline bool is_ground(expr const * n) { return is_app(n) && to_app(n)->is_ground(); }
 inline bool is_non_ground(expr const * n) { return ( ! is_ground(n)); }

@@ -20,7 +20,7 @@ Notes:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "tactic/ufbv/macro_finder_tactic.h"
 
 class macro_finder_tactic : public tactic {

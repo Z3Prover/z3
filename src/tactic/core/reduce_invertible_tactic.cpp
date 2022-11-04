@@ -29,7 +29,7 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/core/reduce_invertible_tactic.h"
 #include "tactic/core/collect_occs.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include <cstdint>
 
 namespace {

@@ -24,7 +24,7 @@ Notes:
 
 void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
-    m_flat                 = p.flat();
+    m_flat_and_or          = p.flat();
     m_elim_and             = p.elim_and();
     m_elim_ite             = p.elim_ite();
     m_local_ctx            = p.local_ctx();
@@ -290,7 +290,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
                 ast_lt lt;
                 std::sort(flat_args.begin(), flat_args.end(), lt);
             }
-            result = m().mk_or(flat_args);
+            result = mk_or_app(flat_args.size(), flat_args.data());
         }
         return BR_DONE;
     }
@@ -555,7 +555,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
                 result = arg;                                                                   \
                 return true;                                                                    \
             }                                                                                   \
-            if (m_flat && m().is_or(arg)) {                                                     \
+            if (m_flat_and_or && m().is_or(arg)) {                                              \
                 unsigned sz = to_app(arg)->get_num_args();                                      \
                 for (unsigned j = 0; j < sz; j++) {                                             \
                     expr * arg_arg = to_app(arg)->get_arg(j);                                   \

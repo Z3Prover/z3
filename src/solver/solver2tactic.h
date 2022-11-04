@@ -19,7 +19,7 @@ Notes:
 #pragma once
 
 #include "tactic/tactic.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 class solver;
 
 tactic * mk_solver2tactic(solver* s);

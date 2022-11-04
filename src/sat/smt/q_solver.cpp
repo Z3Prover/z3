@@ -53,7 +53,7 @@ namespace q {
         if (!m_flat.find(q, q_flat)) {
             if (expand(q)) {
                 for (expr* e : m_expanded) {
-                    sat::literal lit = ctx.internalize(e, l.sign(), false, false);
+                    sat::literal lit = ctx.internalize(e, l.sign(), false);
                     add_clause(~l, lit);
                 }
                 return;
@@ -62,7 +62,7 @@ namespace q {
         }
             
         if (is_ground(q_flat->get_expr())) {
-            auto lit = ctx.internalize(q_flat->get_expr(), l.sign(), false, false);
+            auto lit = ctx.internalize(q_flat->get_expr(), l.sign(), false);
             add_clause(~l, lit);
         }
         else {
@@ -163,7 +163,7 @@ namespace q {
         m_mbqi.init_search();
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
         SASSERT(is_forall(e) || is_exists(e));
         sat::bool_var v = ctx.get_si().add_bool_var(e);
         sat::literal lit = ctx.attach_lit(sat::literal(v, false), e);

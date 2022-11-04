@@ -124,8 +124,8 @@ namespace sat {
     }
 
     bool lut_finder::extract_lut(literal l1, literal l2) {
-        SASSERT(s.is_visited(l1.var()));
-        SASSERT(s.is_visited(l2.var()));
+        SASSERT(s.m_visited.is_visited(l1.var()));
+        SASSERT(s.m_visited.is_visited(l2.var()));
         m_missing.reset();
         unsigned mask = 0;
         for (unsigned i = 0; i < m_vars.size(); ++i) {

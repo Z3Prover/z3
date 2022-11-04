@@ -20,9 +20,8 @@ Author:
 
 namespace arith {
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
         init_internalize();
-        flet<bool> _is_learned(m_is_redundant, learned);
         internalize_atom(e);
         literal lit = ctx.expr2literal(e);
         if (sign)
@@ -30,9 +29,8 @@ namespace arith {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
+    void solver::internalize(expr* e) {
         init_internalize();
-        flet<bool> _is_learned(m_is_redundant, redundant);
         if (m.is_bool(e))
             internalize_atom(e);
         else
@@ -247,7 +245,7 @@ namespace arith {
                     ctx.push(push_back_vector(m_idiv_terms));
                     m_idiv_terms.push_back(n);
                     app_ref mod(a.mk_mod(n1, n2), m);
-                    internalize(mod, m_is_redundant);
+                    internalize(mod);
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }

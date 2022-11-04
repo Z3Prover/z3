@@ -45,6 +45,7 @@ public:
     unsigned size() const { return m_subst.size(); }
     void insert(expr * s, expr * def, proof * def_pr = nullptr, expr_dependency * def_dep = nullptr);
     void erase(expr * s);
+    expr* find(expr* s) { proof* pr; expr* def; VERIFY(find(s, def, pr)); SASSERT(def); return def; }
     bool find(expr * s, expr * & def, proof * & def_pr);
     bool find(expr * s, expr * & def, proof * & def_pr, expr_dependency * & def_dep);
     bool contains(expr * s);

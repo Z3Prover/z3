@@ -22,7 +22,7 @@ Notes:
 #include "ast/rewriter/th_rewriter.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/tactic.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "solver/solver_na2as.h"
 #include "tactic/fd_solver/pb2bv_solver.h"
 

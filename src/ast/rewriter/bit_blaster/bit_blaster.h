@@ -59,7 +59,7 @@ class bit_blaster : public bit_blaster_tpl<bit_blaster_cfg> {
 public:
     bit_blaster(ast_manager & m, bit_blaster_params const & params);
     bit_blaster_params const & get_params() const { return this->m_params; }
-    void set_flat(bool f) { m_rw.set_flat(f); }
+    void set_flat_and_or(bool f) { m_rw.set_flat_and_or(f); }
 };
 
 

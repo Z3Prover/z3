@@ -804,8 +804,8 @@ namespace dt {
     }
 
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        if (!visit_rec(m, e, sign, root, redundant)) 
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
+        if (!visit_rec(m, e, sign, root)) 
             return sat::null_literal;        
         auto lit = ctx.expr2literal(e);
         if (sign)
@@ -813,15 +813,15 @@ namespace dt {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
-        visit_rec(m, e, false, false, redundant);
+    void solver::internalize(expr* e) {
+        visit_rec(m, e, false, false);
     }
 
     bool solver::visit(expr* e) {
         if (visited(e))
             return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
-            ctx.internalize(e, m_is_redundant);
+            ctx.internalize(e);
             if (is_datatype(e))
                 mk_var(expr2enode(e));
             return true;

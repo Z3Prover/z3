@@ -125,8 +125,6 @@ namespace sat {
                     in_coi |= m_in_coi.contains(lit.index());                
             else if (js.is_binary_clause())
                 in_coi = m_in_coi.contains(js.get_literal().index());
-            else if (js.is_ternary_clause())
-                in_coi = m_in_coi.contains(js.get_literal1().index()) || m_in_coi.contains(js.get_literal2().index());
             else
                 UNREACHABLE(); // approach does not work for external justifications
             
@@ -224,10 +222,6 @@ namespace sat {
         case justification::BINARY:
             add_dependency(j.get_literal());
             break;
-        case justification::TERNARY:
-            add_dependency(j.get_literal1());
-            add_dependency(j.get_literal2());
-            break;
         case justification::CLAUSE: 
             for (auto lit : s.get_clause(j))
                 if (s.value(lit) == l_false)
@@ -257,11 +251,6 @@ namespace sat {
         case justification::BINARY:
             m_clause.push_back(l);
             m_clause.push_back(j.get_literal());
-            break;
-        case justification::TERNARY:
-            m_clause.push_back(l);
-            m_clause.push_back(j.get_literal1());
-            m_clause.push_back(j.get_literal2());
             break;
         case justification::CLAUSE:
             s.get_clause(j).mark_used();

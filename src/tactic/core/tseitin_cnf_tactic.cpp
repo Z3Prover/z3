@@ -52,7 +52,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
 
@@ -116,7 +116,7 @@ class tseitin_cnf_tactic : public tactic {
             m_rw(_m),
             m_num_aux_vars(0) {
             updt_params(p);
-            m_rw.set_flat(false);
+            m_rw.set_flat_and_or(false);
         }
         
         void updt_params(params_ref const & p) {

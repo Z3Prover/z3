@@ -911,6 +911,11 @@ br_status bv_rewriter::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_REWRITE2;
     }
 
+    if (arg1 == arg2) {
+        result = mk_numeral(0, bv_size);
+        return BR_DONE;
+    }
+
     return BR_FAILED;
 }
 
@@ -2246,14 +2251,52 @@ bool bv_rewriter::is_zero_bit(expr * x, unsigned idx) {
     return false;
 }
 
+br_status bv_rewriter::mk_mul_hoist(unsigned num_args, expr * const * args, expr_ref & result) {
+    if (num_args <= 1)
+        return BR_FAILED;
+    expr* z = nullptr, *u = nullptr;
+    for (unsigned i = 0; i < num_args; ++i) {
+        // ~x = -1 - x
+        if (m_util.is_bv_not(args[i], z)) {
+            unsigned sz = m_util.get_bv_size(z);
+            ptr_vector<expr> new_args(num_args, args);
+            rational p = rational(2).expt(sz) - 1;
+            new_args[i] = m_util.mk_bv_sub(mk_numeral(p, sz), z);
+            result = m_util.mk_bv_mul(num_args, new_args.data());
+            return BR_REWRITE3;
+        }
+        // shl(z, u) * x = shl(x * z, u)
+        if (m_util.is_bv_shl(args[i], z, u)) {
+            ptr_vector<expr> new_args(num_args, args);
+            new_args[i] = z;
+            result = m_util.mk_bv_mul(num_args, new_args.data());
+            result = m_util.mk_bv_shl(result, u);
+            return BR_REWRITE2;
+        }
+    }
+    return BR_FAILED;
+}
+
 br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_ref & result) {
     br_status st = mk_mul_core(num_args, args, result);
     if (st != BR_FAILED && st != BR_DONE)
         return st;
-    expr * x;
-    expr * y;
+    if (st == BR_DONE && is_mul(result)) {
+        st = mk_mul_hoist(to_app(result)->get_num_args(), to_app(result)->get_args(), result);
+        if (st != BR_FAILED)
+            return st;
+        st = BR_DONE;
+    }
+    if (st == BR_FAILED) {
+        st = mk_mul_hoist(num_args, args, result);
+        if (st != BR_FAILED)
+            return st;
+    }
+
+    expr* x, * y;
     if (st == BR_FAILED && num_args == 2) {
-        x = args[0]; y = args[1];
+        x = args[0]; 
+        y = args[1];
     }
     else if (st == BR_DONE && is_mul(result) && to_app(result)->get_num_args() == 2) {
         x = to_app(result)->get_arg(0);
@@ -2262,7 +2305,6 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
     else {
         return st;
     }
-
     if (m_mul2concat) {
         numeral v;
         unsigned bv_size;

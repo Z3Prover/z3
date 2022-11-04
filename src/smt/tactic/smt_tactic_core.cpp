@@ -26,7 +26,7 @@ Notes:
 #include "smt/smt_solver.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "solver/solver2tactic.h"
 #include "solver/solver.h"
 #include "solver/mus.h"

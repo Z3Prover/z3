@@ -30,7 +30,7 @@ namespace user_solver {
 
     void solver::add_expr(expr* e) {
         force_push();
-        ctx.internalize(e, false);
+        ctx.internalize(e);
         euf::enode* n = expr2enode(e);
         if (is_attached_to_var(n))
             return;
@@ -63,7 +63,7 @@ namespace user_solver {
             return;
         }
         force_push();
-        ctx.internalize(e, false);
+        ctx.internalize(e);
         m_next_split_expr = e;
         m_next_split_idx = idx;
         m_next_split_phase = phase;
@@ -162,7 +162,7 @@ namespace user_solver {
     }
 
     void solver::propagate_consequence(prop_info const& prop) {
-        sat::literal lit = ctx.internalize(prop.m_conseq, false, false, true);
+        sat::literal lit = ctx.internalize(prop.m_conseq, false, false);
         if (s().value(lit) != l_true) {
             s().assign(lit, mk_justification(m_qhead));
             ++m_stats.m_num_propagations;
@@ -250,8 +250,8 @@ namespace user_solver {
         return result;
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        if (!visit_rec(m, e, sign, root, redundant)) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
+        if (!visit_rec(m, e, sign, root)) {
             TRACE("array", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
@@ -263,15 +263,15 @@ namespace user_solver {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
-        visit_rec(m, e, false, false, redundant);
+    void solver::internalize(expr* e) {
+        visit_rec(m, e, false, false);
     }
 
     bool solver::visit(expr* e) {
         if (visited(e))
             return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
-            ctx.internalize(e, m_is_redundant);
+            ctx.internalize(e);
             return true;
         }
         m_stack.push_back(sat::eframe(e));

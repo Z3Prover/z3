@@ -561,6 +561,9 @@ namespace arith {
     void solver::dbg_finalize_model(model& mdl) {
         if (m_not_handled)
             return;
+
+        // this is already handled in general in euf_model.cpp
+        return;
         bool found_bad = false;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             if (!is_bool(v))
@@ -583,35 +586,8 @@ namespace arith {
             if (!found_bad && value == get_phase(n->bool_var()))
                 continue;
 
-            TRACE("arith",
-                ptr_vector<expr> nodes;
-                expr_mark marks;
-                nodes.push_back(n->get_expr());
-                for (unsigned i = 0; i < nodes.size(); ++i) {
-                    expr* r = nodes[i];
-                    if (marks.is_marked(r))
-                        continue;
-                    marks.mark(r);
-                    if (is_app(r))
-                        for (expr* arg : *to_app(r))
-                            nodes.push_back(arg);
-                    expr_ref rval(m);                    
-                    expr_ref mval = mdl(r);
-                    if (ctx.get_egraph().find(r))
-                        rval = mdl(ctx.get_egraph().find(r)->get_root()->get_expr());
-                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mval;
-                    if (rval != mval) tout << " " << rval;
-                    tout << "\n";
-                });
-            TRACE("arith",
-                tout << eval << " " << value << " " << ctx.bpp(n) << "\n";
-                tout << mdl << "\n";
-                s().display(tout););
-            IF_VERBOSE(0, 
-                       verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
-                       verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
-                       verbose_stream() << *b << "\n";);
-            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream(), mdl, n));
+            TRACE("arith", ctx.display_validation_failure(tout << *b << "\n", mdl, n));
+            IF_VERBOSE(0, ctx.display_validation_failure(verbose_stream() << *b << "\n", mdl, n));
             UNREACHABLE();
         }
     }
@@ -633,7 +609,7 @@ namespace arith {
         else if (v != euf::null_theory_var) {
             rational r = get_value(v);
             TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
-            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
+            SASSERT("integer variables should have integer values: " && (ctx.get_config().m_arith_ignore_int || !a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) 
                 r = floor(r);
             value = a.mk_numeral(r, o->get_sort());
@@ -976,7 +952,6 @@ namespace arith {
     sat::check_result solver::check() {
         force_push();
         m_model_is_initialized = false;
-        flet<bool> _is_learned(m_is_redundant, true);
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 
@@ -1198,7 +1173,7 @@ namespace arith {
             for (auto const& c : core)
                 m_core2.push_back(~c);
             m_core2.push_back(lit);
-            add_clause(m_core2, pma);
+            add_redundant(m_core2, pma);
         }
         else {
             auto* jst = euf::th_explain::propagate(*this, core, eqs, lit, pma);
@@ -1239,7 +1214,7 @@ namespace arith {
         for (literal& c : m_core)
             c.neg();
 
-        add_clause(m_core, explain(hint_type::farkas_h));
+        add_redundant(m_core, explain(hint_type::farkas_h));
     }
 
     bool solver::is_infeasible() const {

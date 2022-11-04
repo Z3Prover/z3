@@ -50,6 +50,11 @@ namespace realclosure {
     class manager;
 };
 
+namespace smt2 {
+    class parser;
+    void free_parser(parser*);
+};
+
 namespace api {
        
     class seq_expr_solver : public expr_solver {
@@ -232,6 +237,19 @@ namespace api {
         void invoke_error_handler(Z3_error_code c);
 
         void check_sorts(ast * n);
+
+
+        // ------------------------------------------------
+        //
+        // State reused by calls to Z3_eval_smtlib2_string
+        //
+        // ------------------------------------------------
+        //
+        // The m_parser field is reused by all calls of Z3_eval_smtlib2_string using this context.
+        // It is an optimization to save the cost of recreating these objects on each invocation.
+        //
+        // See https://github.com/Z3Prover/z3/pull/6422 for the motivation
+        smt2::parser*                m_parser = nullptr;
 
         // ------------------------
         //

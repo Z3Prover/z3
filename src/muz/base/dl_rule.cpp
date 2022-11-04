@@ -41,7 +41,7 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/scoped_proof.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_util.h"

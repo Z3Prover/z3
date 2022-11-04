@@ -21,7 +21,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule_set.h"
 #include "muz/base/dl_rule_transformer.h"
-#include "tactic/equiv_proof_converter.h"
+#include "ast/converters/equiv_proof_converter.h"
 
 namespace datalog {
     class mk_elim_term_ite : public rule_transformer::plugin {

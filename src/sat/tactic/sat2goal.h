@@ -31,7 +31,7 @@ Notes:
 #include "tactic/goal.h"
 #include "sat/sat_model_converter.h"
 #include "sat/sat_solver.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "sat/smt/atom2bool_var.h"
 
 class sat2goal {

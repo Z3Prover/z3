@@ -23,9 +23,9 @@ namespace xr {
         
         th_solver* clone(euf::solver& ctx) override;
 
-        sat::literal internalize(expr* e, bool sign, bool root, bool redundant)  override { UNREACHABLE(); return sat::null_literal; }
+        sat::literal internalize(expr* e, bool sign, bool root)  override { UNREACHABLE(); return sat::null_literal; }
 
-        void internalize(expr* e, bool redundant) override { UNREACHABLE(); }
+        void internalize(expr* e) override { UNREACHABLE(); }
 
 
         void asserted(sat::literal l) override;

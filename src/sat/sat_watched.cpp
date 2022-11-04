@@ -71,32 +71,6 @@ namespace sat {
         VERIFY(found);
     }
 
-    void erase_ternary_watch(watch_list& wlist, literal l1, literal l2) {
-        watched w(l1, l2);
-        watch_list::iterator it = wlist.begin(), end = wlist.end();
-        watch_list::iterator it2 = it;
-        bool found = false;
-        for (; it != end; ++it) {
-            if (!found && w == *it) {
-                found = true;
-            }
-            else {
-                *it2 = *it;
-                ++it2;    
-            }    
-        }
-        wlist.set_end(it2);
-#if 0
-        VERIFY(found);
-        for (watched const& w2 : wlist) {
-            if (w2 == w) {
-                std::cout << l1 << " " << l2 << "\n";
-            }
-            //VERIFY(w2 != w);
-        }
-#endif
-    }
-
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {
         watch_list::iterator end = wlist.end();
         for (; it != end; ++it, ++it2) 
@@ -117,9 +91,6 @@ namespace sat {
                 out << w.get_literal();
                 if (w.is_learned())
                     out << "*";
-                break;
-            case watched::TERNARY:
-                out << "(" << w.get_literal1() << " " << w.get_literal2() << ")";
                 break;
             case watched::CLAUSE:
                 out << "(" << w.get_blocked_literal() << " " << *(ca.get_clause(w.get_clause_offset())) << ")";

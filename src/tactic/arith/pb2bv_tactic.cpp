@@ -29,7 +29,7 @@ Notes:
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "tactic/tactical.h"
 #include "tactic/arith/bound_manager.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
 
@@ -866,7 +866,7 @@ private:
             m_used_dependencies(m),
             m_rw(*this) {
             updt_params(p);            
-            m_b_rw.set_flat(false); // no flattening otherwise will blowup the memory
+            m_b_rw.set_flat_and_or(false); // no flattening otherwise will blowup the memory
             m_b_rw.set_elim_and(true);
         }
 

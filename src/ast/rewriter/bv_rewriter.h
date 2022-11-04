@@ -100,6 +100,7 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_mul(expr* a, expr* b, expr_ref& result) { expr* args[2] = { a, b }; return mk_bv_mul(2, args, result); }
     br_status mk_bv_add(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_bv_mul(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_mul_hoist(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result);

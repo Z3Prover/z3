@@ -21,7 +21,7 @@ Author:
 #include "muz/dataflow/dataflow.h"
 #include "muz/dataflow/reachability.h"
 #include "ast/ast_pp.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_util.h"
 
 namespace datalog {
