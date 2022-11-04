@@ -5,7 +5,6 @@ z3_add_component(tactic
     goal_num_occurs.cpp
     goal_shared_occs.cpp
     goal_util.cpp
-    horn_subsume_model_converter.cpp
     probe.cpp
     tactical.cpp
     tactic.cpp
