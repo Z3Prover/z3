@@ -23,7 +23,6 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_functors.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "math/simplex/model_based_opt.h"
@@ -32,13 +31,13 @@ Revision History:
 #include "model/model_v2_pp.h"
 
 namespace mbp {
-    
+
     struct arith_project_plugin::imp {
 
-        ast_manager&      m;
+        ast_manager& m;
         arith_util        a;
-        bool              m_check_purified { true };  // check that variables are properly pure 
-        bool              m_apply_projection { false };
+        bool              m_check_purified = true;  // check that variables are properly pure 
+        bool              m_apply_projection = false;
 
 
         imp(ast_manager& m) :
@@ -48,10 +47,10 @@ namespace mbp {
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             rational w;
-            if (ts.find(x, w)) 
-                ts.insert(x, w + v);            
-            else 
-                ts.insert(x, v);             
+            if (ts.find(x, w))
+                ts.insert(x, w + v);
+            else
+                ts.insert(x, v);
         }
 
 
@@ -65,15 +64,17 @@ namespace mbp {
             rational c(0), mul(1);
             expr_ref t(m);
             opt::ineq_type ty = opt::t_le;
-            expr* e1, *e2;
-            DEBUG_CODE(expr_ref val(m); 
-                       eval(lit, val); 
-                       CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
-                       SASSERT(m.limit().is_canceled() || !m.is_false(val)););
-
-            if (!m.inc()) 
+            expr* e1, * e2;
+            DEBUG_CODE(expr_ref val(m);
+            eval(lit, val);
+            CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
+            if (m.is_false(val))
                 return false;
-            
+            SASSERT(m.limit().is_canceled() || !m.is_false(val)););
+
+            if (!m.inc())
+                return false;
+
             TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
             bool is_not = m.is_not(lit, lit);
             if (is_not) {
@@ -86,37 +87,35 @@ namespace mbp {
                 ty = is_not ? opt::t_lt : opt::t_le;
             }
             else if ((a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1))) {
-                linearize(mbo, eval,  mul, e1, c, fmls, ts, tids);
+                linearize(mbo, eval, mul, e1, c, fmls, ts, tids);
                 linearize(mbo, eval, -mul, e2, c, fmls, ts, tids);
-                ty = is_not ? opt::t_le: opt::t_lt;
+                ty = is_not ? opt::t_le : opt::t_lt;
             }
             else if (m.is_eq(lit, e1, e2) && !is_not && is_arith(e1)) {
-                linearize(mbo, eval,  mul, e1, c, fmls, ts, tids);
+                linearize(mbo, eval, mul, e1, c, fmls, ts, tids);
                 linearize(mbo, eval, -mul, e2, c, fmls, ts, tids);
                 ty = opt::t_eq;
-            }  
+            }
             else if (m.is_eq(lit, e1, e2) && is_not && is_arith(e1)) {
-                
+
                 rational r1, r2;
-                expr_ref val1 = eval(e1); 
+                expr_ref val1 = eval(e1);
                 expr_ref val2 = eval(e2);
-                //TRACE("qe", tout << mk_pp(e1, m) << " " << val1 << "\n";);
-                //TRACE("qe", tout << mk_pp(e2, m) << " " << val2 << "\n";);
                 if (!a.is_numeral(val1, r1)) return false;
                 if (!a.is_numeral(val2, r2)) return false;
                 SASSERT(r1 != r2);
                 if (r1 < r2) {
                     std::swap(e1, e2);
-                }                
+                }
                 ty = opt::t_lt;
-                linearize(mbo, eval,  mul, e1, c, fmls, ts, tids);
-                linearize(mbo, eval, -mul, e2, c, fmls, ts, tids);                
-            }                        
+                linearize(mbo, eval, mul, e1, c, fmls, ts, tids);
+                linearize(mbo, eval, -mul, e2, c, fmls, ts, tids);
+            }
             else if (m.is_distinct(lit) && !is_not && is_arith(to_app(lit)->get_arg(0))) {
                 expr_ref val(m);
                 rational r;
                 app* alit = to_app(lit);
-                vector<std::pair<expr*,rational> > nums;
+                vector<std::pair<expr*, rational> > nums;
                 for (expr* arg : *alit) {
                     val = eval(arg);
                     TRACE("qe", tout << mk_pp(arg, m) << " " << val << "\n";);
@@ -125,8 +124,8 @@ namespace mbp {
                 }
                 std::sort(nums.begin(), nums.end(), compare_second());
                 for (unsigned i = 0; i + 1 < nums.size(); ++i) {
-                    SASSERT(nums[i].second < nums[i+1].second);
-                    expr_ref fml(a.mk_lt(nums[i].first, nums[i+1].first), m);
+                    SASSERT(nums[i].second < nums[i + 1].second);
+                    expr_ref fml(a.mk_lt(nums[i].first, nums[i + 1].first), m);
                     if (!linearize(mbo, eval, fml, fmls, tids)) {
                         return false;
                     }
@@ -139,14 +138,14 @@ namespace mbp {
                 map<rational, expr*, rational::hash_proc, rational::eq_proc> values;
                 bool found_eq = false;
                 for (unsigned i = 0; !found_eq && i < to_app(lit)->get_num_args(); ++i) {
-                    expr* arg1 = to_app(lit)->get_arg(i), *arg2 = nullptr;
+                    expr* arg1 = to_app(lit)->get_arg(i), * arg2 = nullptr;
                     rational r;
                     expr_ref val = eval(arg1);
                     TRACE("qe", tout << mk_pp(arg1, m) << " " << val << "\n";);
                     if (!a.is_numeral(val, r)) return false;
                     if (values.find(r, arg2)) {
                         ty = opt::t_eq;
-                        linearize(mbo, eval,  mul, arg1, c, fmls, ts, tids);
+                        linearize(mbo, eval, mul, arg1, c, fmls, ts, tids);
                         linearize(mbo, eval, -mul, arg2, c, fmls, ts, tids);
                         found_eq = true;
                     }
@@ -169,27 +168,39 @@ namespace mbp {
         //
         // convert linear arithmetic term into an inequality for mbo.
         // 
-        void linearize(opt::model_based_opt& mbo, model_evaluator& eval, rational const& mul, expr* t, rational& c, 
-                       expr_ref_vector& fmls, obj_map<expr, rational>& ts, obj_map<expr, unsigned>& tids) {
-            expr* t1, *t2, *t3;
+        void linearize(opt::model_based_opt& mbo, model_evaluator& eval, rational const& mul, expr* t, rational& c,
+            expr_ref_vector& fmls, obj_map<expr, rational>& ts, obj_map<expr, unsigned>& tids) {
+            expr* t1, * t2, * t3;
             rational mul1;
             expr_ref val(m);
-            if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1)) 
-                linearize(mbo, eval, mul* mul1, t2, c, fmls, ts, tids);            
-            else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1)) 
-                linearize(mbo, eval, mul* mul1, t1, c, fmls, ts, tids);  
+
+            auto add_def = [&](expr* t1, rational const& m, vars& coeffs) {
+                obj_map<expr, rational> ts0;
+                rational mul0(1), c0(0);
+                linearize(mbo, eval, mul0, t1, c0, fmls, ts0, tids);
+                extract_coefficients(mbo, eval, ts0, tids, coeffs);
+                insert_mul(t, mul, ts);
+                return c0;
+            };
+
+            if (tids.contains(t))
+                insert_mul(t, mul, ts);
+            else if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1))
+                linearize(mbo, eval, mul * mul1, t2, c, fmls, ts, tids);
+            else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1))
+                linearize(mbo, eval, mul * mul1, t1, c, fmls, ts, tids);
             else if (a.is_uminus(t, t1))
                 linearize(mbo, eval, -mul, t1, c, fmls, ts, tids);
-            else if (a.is_numeral(t, mul1)) 
-                c += mul * mul1;            
+            else if (a.is_numeral(t, mul1))
+                c += mul * mul1;
             else if (a.is_add(t)) {
-                for (expr* arg : *to_app(t)) 
-                    linearize(mbo, eval, mul, arg, c, fmls, ts, tids);                
+                for (expr* arg : *to_app(t))
+                    linearize(mbo, eval, mul, arg, c, fmls, ts, tids);
             }
             else if (a.is_sub(t, t1, t2)) {
-                linearize(mbo, eval,  mul, t1, c, fmls, ts, tids);
+                linearize(mbo, eval, mul, t1, c, fmls, ts, tids);
                 linearize(mbo, eval, -mul, t2, c, fmls, ts, tids);
-            }          
+            }
 
             else if (m.is_ite(t, t1, t2, t3)) {
                 val = eval(t1);
@@ -204,17 +215,32 @@ namespace mbp {
                     linearize(mbo, eval, mul, t3, c, fmls, ts, tids);
                 }
                 else {
+                    IF_VERBOSE(1, verbose_stream() << "mbp failed on if: " << mk_pp(t, m) << " := " << val << "\n");
                     throw default_exception("mbp evaluation didn't produce a truth value");
                 }
+            }
+            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
+                // v = t1 mod mul1
+                vars coeffs;
+                rational c0 = add_def(t1, mul1, coeffs);
+                tids.insert(t, mbo.add_mod(coeffs, c0, mul1));
+
+            }
+            else if (a.is_idiv(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
+                // v = t1 div mul1
+                vars coeffs;
+                rational c0 = add_def(t1, mul1, coeffs);
+                tids.insert(t, mbo.add_div(coeffs, c0, mul1));
             }
             else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
                 rational r;
                 val = eval(t);
                 if (!a.is_numeral(val, r)) {
+                    IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(t, m) << " := " << val << "\n");
                     throw default_exception("mbp evaluation didn't produce an integer");
                 }
-                c += mul*r;
-                // t1 mod mul1 == r               
+                c += mul * r;
+
                 rational c0(-r), mul0(1);
                 obj_map<expr, rational> ts0;
                 linearize(mbo, eval, mul0, t1, c0, fmls, ts0, tids);
@@ -222,9 +248,8 @@ namespace mbp {
                 extract_coefficients(mbo, eval, ts0, tids, coeffs);
                 mbo.add_divides(coeffs, c0, mul1);
             }
-            else {
+            else
                 insert_mul(t, mul, ts);
-            }
         }
 
         bool is_numeral(expr* t, rational& r) {
@@ -232,8 +257,8 @@ namespace mbp {
         }
 
         struct compare_second {
-            bool operator()(std::pair<expr*, rational> const& a, 
-                            std::pair<expr*, rational> const& b) const {
+            bool operator()(std::pair<expr*, rational> const& a,
+                std::pair<expr*, rational> const& b) const {
                 return a.second < b.second;
             }
         };
@@ -243,14 +268,14 @@ namespace mbp {
         }
 
         rational n_sign(rational const& b) {
-            return rational(b.is_pos()?-1:1);
+            return rational(b.is_pos() ? -1 : 1);
         }
 
         bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
             vector<def> defs;
-            return project(model, vs, lits, defs, false) && vs.empty();            
+            return project(model, vs, lits, defs, false) && vs.empty();
         }
 
         typedef opt::model_based_opt::var var;
@@ -259,21 +284,21 @@ namespace mbp {
 
         expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
             expr_ref t(index2expr[v.m_id], m);
-            if (!v.m_coeff.is_one()) {
-                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
-            }
+            if (!v.m_coeff.is_one()) 
+                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);            
             return t;
         }
 
         bool project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, vector<def>& result, bool compute_def) {
             bool has_arith = false;
-            for (expr* v : vars) 
-                has_arith |= is_arith(v);            
-            if (!has_arith) 
-                return true;            
+            for (expr* v : vars)
+                has_arith |= is_arith(v);
+            if (!has_arith)
+                return true;
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
             eval.set_model_completion(true);
+            model.set_inline();
             compute_def |= m_apply_projection;
 
             opt::model_based_opt mbo;
@@ -281,7 +306,7 @@ namespace mbp {
             expr_ref_vector pinned(m);
             unsigned j = 0;
             TRACE("qe", tout << "vars: " << vars << "\n";
-                  for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
+            for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr* fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
@@ -294,8 +319,8 @@ namespace mbp {
             }
             fmls.shrink(j);
             TRACE("qe", tout << "formulas\n" << fmls << "\n";
-		                for (auto const& [e, id] : tids)
-		                    tout << mk_pp(e, m) << " -> " << id << "\n";);
+            for (auto const& [e, id] : tids)
+                tout << mk_pp(e, m) << " -> " << id << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -306,75 +331,87 @@ namespace mbp {
             // return those to fmls.
 
             expr_mark var_mark, fmls_mark;
-            for (app * v : vars) {
+            for (app* v : vars) {
                 var_mark.mark(v);
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
                     expr_ref val = eval(v);
                     if (!m.inc())
                         return false;
-                    if (!a.is_numeral(val, r))
+                    if (!a.is_numeral(val, r)) {
+                        IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(v, m) << " := " << val << "\n");
                         throw default_exception("evaluation did not produce a numeral");
+                    }
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
 
             // bail on variables in non-linear sub-terms
+            auto is_pure = [&](expr* e) {
+                expr* x, * y;
+                rational r;
+                if (a.is_mod(e, x, y) && a.is_numeral(y))
+                    return true;
+                if (a.is_idiv(e, x, y) && a.is_numeral(y, r) && r > 0)
+                    return true;
+                return false;
+            };
+
             for (auto& kv : tids) {
                 expr* e = kv.m_key;
-                if (is_arith(e) && !var_mark.is_marked(e)) 
-                    mark_rec(fmls_mark, e);                
+                if (is_arith(e) && !is_pure(e) && !var_mark.is_marked(e))
+                    mark_rec(fmls_mark, e);
             }
             if (m_check_purified) {
-                for (expr* fml : fmls) 
-                    mark_rec(fmls_mark, fml);                
+                for (expr* fml : fmls)
+                    mark_rec(fmls_mark, fml);
                 for (auto& kv : tids) {
                     expr* e = kv.m_key;
-                    if (!var_mark.is_marked(e)) 
-                        mark_rec(fmls_mark, e);                    
+                    if (!var_mark.is_marked(e) && !is_pure(e))
+                        mark_rec(fmls_mark, e);
                 }
             }
 
             ptr_vector<expr> index2expr;
-            for (auto& kv : tids) 
-                index2expr.setx(kv.m_value, kv.m_key, nullptr);            
+            for (auto& kv : tids)
+                index2expr.setx(kv.m_value, kv.m_key, nullptr);
 
             j = 0;
             unsigned_vector real_vars;
             for (app* v : vars) {
-                if (is_arith(v) && !fmls_mark.is_marked(v)) 
-                    real_vars.push_back(tids.find(v));                
-                else 
-                    vars[j++] = v;                
+                if (is_arith(v) && !fmls_mark.is_marked(v))
+                    real_vars.push_back(tids.find(v));
+                else
+                    vars[j++] = v;
             }
             vars.shrink(j);
-            
-            TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
-                  for (unsigned v : real_vars) tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
-                  mbo.display(tout););
+
+            TRACE("qe", tout << "remaining vars: " << vars << "\n";
+            for (unsigned v : real_vars) tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
+            mbo.display(tout););
             vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.data(), compute_def);
 
             vector<row> rows;
             mbo.get_live_rows(rows);
             rows2fmls(rows, index2expr, fmls);
             TRACE("qe", mbo.display(tout << "mbo result\n");
-                  for (auto const& d : defs) tout << "def: " << d << "\n";
-                  tout << fmls << "\n";);
-            
-            if (compute_def) 
-                optdefs2mbpdef(defs, index2expr, real_vars, result);     
+            for (auto const& d : defs) tout << "def: " << d << "\n";
+            tout << fmls << "\n";);
+
+            if (compute_def)
+                optdefs2mbpdef(defs, index2expr, real_vars, result);
             if (m_apply_projection && !apply_projection(eval, result, fmls))
                 return false;
 
             TRACE("qe",
                 for (auto const& [v, t] : result)
                     tout << v << " := " << t << "\n";
-                for (auto* f : fmls)
-                    tout << mk_pp(f, m) << " := " << eval(f) << "\n";
-                tout << "fmls:" << fmls << "\n";);
+            for (auto* f : fmls)
+                tout << mk_pp(f, m) << " := " << eval(f) << "\n";
+            tout << "fmls:" << fmls << "\n";);
             return true;
-        }        
+        }
 
         void optdefs2mbpdef(vector<opt::model_based_opt::def> const& defs, ptr_vector<expr> const& index2expr, unsigned_vector const& real_vars, vector<def>& result) {
             SASSERT(defs.size() == real_vars.size());
@@ -384,31 +421,93 @@ namespace mbp {
                 bool is_int = a.is_int(x);
                 expr_ref_vector ts(m);
                 expr_ref t(m);
-                for (var const& v : d.m_vars) 
-                    ts.push_back(var2expr(index2expr, v));                
+                for (var const& v : d.m_vars)
+                    ts.push_back(var2expr(index2expr, v));
                 if (!d.m_coeff.is_zero())
                     ts.push_back(a.mk_numeral(d.m_coeff, is_int));
                 if (ts.empty())
                     ts.push_back(a.mk_numeral(rational(0), is_int));
                 t = mk_add(ts);
-                if (!d.m_div.is_one() && is_int) 
-                    t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));                
-                else if (!d.m_div.is_one() && !is_int) 
-                    t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));                
+                if (!d.m_div.is_one() && is_int)
+                    t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
+                else if (!d.m_div.is_one() && !is_int)
+                    t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
                 result.push_back(def(expr_ref(x, m), t));
             }
         }
 
-        void rows2fmls(vector<row> const& rows, ptr_vector<expr> const& index2expr, expr_ref_vector& fmls) {
-            for (row const& r : rows) {
-                expr_ref_vector ts(m);
-                expr_ref t(m), s(m), val(m);
-                if (r.m_vars.empty()) {
+        expr_ref id2expr(u_map<row> const& def_vars, ptr_vector<expr> const& index2expr, unsigned id) {
+            row r;
+            if (def_vars.find(id, r))
+                return row2expr(def_vars, index2expr, r);
+            return expr_ref(index2expr[id], m);
+        }
+
+        expr_ref row2expr(u_map<row> const& def_vars, ptr_vector<expr> const& index2expr, row const& r) {
+            expr_ref_vector ts(m);
+            expr_ref t(m);
+            rational n;
+            for (var const& v : r.m_vars) {
+                t = id2expr(def_vars, index2expr, v.m_id);
+                if (a.is_numeral(t, n) && n == 0)
                     continue;
+                else if (a.is_numeral(t, n))
+                    t = a.mk_numeral(v.m_coeff * n, a.is_int(t));
+                else if (!v.m_coeff.is_one())
+                    t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
+                ts.push_back(t);
+            }
+            switch (r.m_type) {
+            case opt::t_mod:
+                if (ts.empty()) {
+                    t = a.mk_int(mod(r.m_coeff, r.m_mod));
+                    return t;
                 }
-                if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_mod) {
+                ts.push_back(a.mk_int(r.m_coeff));
+                t = mk_add(ts);
+                t = a.mk_mod(t, a.mk_int(r.m_mod));
+                return t;
+            case opt::t_div:
+                if (ts.empty()) {
+                    t = a.mk_int(div(r.m_coeff, r.m_mod));
+                    return t;
+                }
+                ts.push_back(a.mk_int(r.m_coeff));
+                t = mk_add(ts);
+                t = a.mk_idiv(t, a.mk_int(r.m_mod));
+                return t;
+            case opt::t_divides:
+                ts.push_back(a.mk_int(r.m_coeff));
+                return mk_add(ts);
+            default:
+                return mk_add(ts);
+            }
+        }
+
+        void rows2fmls(vector<row> const& rows, ptr_vector<expr> const& index2expr, expr_ref_vector& fmls) {
+
+            u_map<row> def_vars;
+            for (row const& r : rows) {
+                if (r.m_type == opt::t_mod)
+                    def_vars.insert(r.m_id, r);
+                else if (r.m_type == opt::t_div)
+                    def_vars.insert(r.m_id, r);
+            }
+
+            for (row const& r : rows) {
+                expr_ref t(m), s(m), val(m);
+
+                if (r.m_vars.empty())
+                    continue;
+                if (r.m_type == opt::t_mod)
+                    continue;
+                if (r.m_type == opt::t_div)
+                    continue;
+
+                if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && 
+                    (r.m_type == opt::t_eq || r.m_type == opt::t_le || r.m_type == opt::t_lt)) {
                     var const& v = r.m_vars[0];
-                    t = index2expr[v.m_id];
+                    t = id2expr(def_vars, index2expr, v.m_id);
                     if (!v.m_coeff.is_minus_one()) {
                         t = a.mk_mul(a.mk_numeral(-v.m_coeff, a.is_int(t)), t);
                     }
@@ -417,29 +516,22 @@ namespace mbp {
                     case opt::t_lt: t = a.mk_gt(t, s); break;
                     case opt::t_le: t = a.mk_ge(t, s); break;
                     case opt::t_eq: t = a.mk_eq(t, s); break;
-                    default: UNREACHABLE();
+                    default: UNREACHABLE(); break;
                     }
                     fmls.push_back(t);
                     continue;
                 }
-                for (var const& v : r.m_vars) {
-                    t = index2expr[v.m_id];
-                    if (!v.m_coeff.is_one()) {
-                        t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
-                    }
-                    ts.push_back(t);
-                }
-                t = mk_add(ts);
+                t = row2expr(def_vars, index2expr, r);
                 s = a.mk_numeral(-r.m_coeff, r.m_coeff.is_int() && a.is_int(t));
                 switch (r.m_type) {
                 case opt::t_lt: t = a.mk_lt(t, s); break;
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
-                case opt::t_mod:
-                    if (!r.m_coeff.is_zero()) {
-                        t = a.mk_sub(t, s);
-                    }
-                    t = a.mk_eq(a.mk_mod(t, a.mk_numeral(r.m_mod, true)), a.mk_int(0));
+                case opt::t_divides:
+                    t = a.mk_eq(a.mk_mod(t, a.mk_int(r.m_mod)), a.mk_int(0));
+                    break;
+                default:
+                    UNREACHABLE();
                     break;
                 }
                 fmls.push_back(t);
@@ -468,11 +560,11 @@ namespace mbp {
             SASSERT(validate_model(eval, fmls0));
 
             // extract linear constraints
-            
-            for (expr * fml : fmls) {
+
+            for (expr* fml : fmls) {
                 linearize(mbo, eval, fml, fmls, tids);
             }
-            
+
             // find optimal value
             value = mbo.maximize();
 
@@ -536,6 +628,7 @@ namespace mbp {
                     expr_ref val = eval(v);
                     if (!a.is_numeral(val, r)) {
                         TRACE("qe", tout << eval.get_model() << "\n";);
+                        IF_VERBOSE(1, verbose_stream() << "mbp failed on " << mk_pp(v, m) << " := " << val << "\n");
                         throw default_exception("mbp evaluation was only partial");
                     }
                     id = mbo.add_var(r, a.is_int(v));
@@ -543,7 +636,7 @@ namespace mbp {
                 }
                 CTRACE("qe", kv.m_value.is_zero(), tout << mk_pp(v, m) << " has coefficeint 0\n";);
                 if (!kv.m_value.is_zero()) {
-                    coeffs.push_back(var(id, kv.m_value));                
+                    coeffs.push_back(var(id, kv.m_value));
                 }
             }
         }
@@ -571,7 +664,7 @@ namespace mbp {
 
     };
 
-    arith_project_plugin::arith_project_plugin(ast_manager& m):project_plugin(m) {
+    arith_project_plugin::arith_project_plugin(ast_manager& m) :project_plugin(m) {
         m_imp = alloc(imp, m);
     }
 

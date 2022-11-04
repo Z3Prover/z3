@@ -37,7 +37,7 @@ namespace smt {
             return;
 
         SASSERT(is_fixed(v));
-        // WARNINING: it is not safe to use get_value(v) here, since
+        // WARNING: it is not safe to use get_value(v) here, since
         // get_value(v) may not satisfy v bounds at this point.
         if (!lower_bound(v).is_rational())
             return;
@@ -328,7 +328,6 @@ namespace smt {
             return;
         }
         context & ctx      = get_context();
-        region & r         = ctx.get_region();
         enode * _x         = get_enode(x);
         enode * _y         = get_enode(y);
         eq_vector const& eqs = antecedents.eqs();
@@ -336,7 +335,7 @@ namespace smt {
         justification * js = 
             ctx.mk_justification(
                 ext_theory_eq_propagation_justification(
-                    get_id(), r, 
+                    get_id(), ctx, 
                     lits.size(), lits.data(),
                     eqs.size(), eqs.data(),
                     _x, _y, 

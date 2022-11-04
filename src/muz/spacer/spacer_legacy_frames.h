@@ -5,6 +5,7 @@
 
   Notes: this file is included from the middle of spacer_context.h
 */
+#pragma once
 
 class legacy_frames
 {

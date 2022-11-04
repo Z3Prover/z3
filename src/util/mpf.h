@@ -49,7 +49,6 @@ public:
     mpf();
     mpf(unsigned ebits, unsigned sbits);
     mpf(mpf &&) = default;
-    ~mpf();
     mpf & operator=(mpf const & other) = delete;
     unsigned get_ebits() const { return ebits; }
     unsigned get_sbits() const { return sbits; }
@@ -64,7 +63,6 @@ public:
     typedef mpf numeral;
 
     mpf_manager();
-    ~mpf_manager();
 
     void reset(mpf & o, unsigned ebits, unsigned sbits) { set(o, ebits, sbits, 0); }
     void set(mpf & o, unsigned ebits, unsigned sbits, int value);
@@ -88,6 +86,8 @@ public:
 
     void neg(mpf & o);
     void neg(mpf const & x, mpf & o);
+    
+    void swap(mpf& a, mpf& b) { a.swap(b); }
 
     bool is_zero(mpf const & x);
     bool is_neg(mpf const & x);

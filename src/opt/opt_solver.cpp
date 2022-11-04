@@ -365,7 +365,7 @@ namespace opt {
         m = m_last_model.get();
     }
     
-    proof * opt_solver::get_proof() {
+    proof * opt_solver::get_proof_core() {
         return m_context.get_proof();
     }
     

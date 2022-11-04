@@ -47,8 +47,6 @@ public:
         return alloc(nnf_tactic, m_params);
     }
 
-    ~nnf_tactic() override {}
-
     char const* name() const override { return "nnf"; }
 
     void updt_params(params_ref const & p) override { m_params.append(p); }

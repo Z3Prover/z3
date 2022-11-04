@@ -70,7 +70,6 @@ public:
     result operator()(goal const & g) override {
         return !test<is_non_fp_qfnra_predicate>(g);
     }
-    ~is_fp_qfnra_probe() override {}
 };
 
 probe * mk_is_fp_qfnra_probe() {
@@ -145,8 +144,6 @@ public:
     result operator()(goal const & g) override {
         return !test<is_non_qffp_predicate>(g);
     }
-
-    ~is_qffp_probe() override {}
 };
 
 probe * mk_is_qffp_probe() {

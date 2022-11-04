@@ -376,7 +376,17 @@ bool macro_finder::expand_macros(unsigned num, justified_expr const * fmls, vect
     return found_new_macro;
 }
 
+void macro_finder::revert_unsafe_macros(vector<justified_expr>& new_fmls) {
+    auto& unsafe_macros = m_macro_manager.unsafe_macros();
+    for (auto* f : unsafe_macros) {
+        quantifier* q = m_macro_manager.get_macro_quantifier(f);
+        new_fmls.push_back(justified_expr(m, q, nullptr));
+    }
+    unsafe_macros.reset();
+}
+
 void macro_finder::operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {
+    m_macro_manager.unsafe_macros().reset();
     TRACE("macro_finder", tout << "processing macros...\n";);
     vector<justified_expr> _new_fmls;
     if (expand_macros(n, fmls, _new_fmls)) {
@@ -388,6 +398,7 @@ void macro_finder::operator()(unsigned n, justified_expr const* fmls, vector<jus
                 break;
         }
     }
+    revert_unsafe_macros(_new_fmls);
     new_fmls.append(_new_fmls);
 }
 

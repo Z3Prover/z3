@@ -30,8 +30,6 @@ namespace datalog {
     public:
         scale_model_converter(ast_manager& m): m(m), m_trail(m), a(m) {}
 
-        ~scale_model_converter() override {}
-
         void add_new2old(func_decl* new_f, func_decl* old_f) {
             m_trail.push_back(old_f);
             m_trail.push_back(new_f);

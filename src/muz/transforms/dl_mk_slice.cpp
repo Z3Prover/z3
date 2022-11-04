@@ -25,7 +25,7 @@ Revision History:
     Let x_i, y_i, z_i be indices into the vectors x, y, z.
 
     Suppose that positions in P and R are annotated with what is
-    slicable.
+    sliceable.
 
     Sufficient conditions for sliceability:
 
@@ -43,9 +43,9 @@ Revision History:
       and the positions where z_i is used in P and R are sliceable
 
 
-    A more refined approach may be using Gaussean elimination based
+    A more refined approach may be using Gaussian elimination based
     on x,z and eliminating variables from x,y (expressing them in terms
-    of a disjoint subeset of x,z).
+    of a disjoint subset of x,z).
 
 
 --*/
@@ -110,8 +110,6 @@ namespace datalog {
         obj_map<proof, proof*> m_new_proof;
         rule_unifier           m_unifier;
 
-
-        slice_proof_converter(slice_proof_converter const& other);
 
         void init_form2rule() {
             if (!m_sliceform2rule.empty()) {
@@ -262,7 +260,9 @@ namespace datalog {
             rm(ctx.get_rule_manager()),
             m_pinned_rules(rm),
             m_pinned_exprs(m),
-            m_unifier(ctx) {}
+            m_unifier(ctx) {
+            (void)m_ctx;
+        }
 
         void insert(rule* orig_rule, rule* slice_rule, unsigned sz, unsigned const* renaming) {
             m_rule2slice.insert(orig_rule, slice_rule);
@@ -270,6 +270,8 @@ namespace datalog {
             m_pinned_rules.push_back(slice_rule);
             m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
         }
+
+        slice_proof_converter(slice_proof_converter const& other) = delete;
 
         proof_ref operator()(ast_manager& m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);
@@ -441,7 +443,7 @@ namespace datalog {
 
     void mk_slice::filter_unique_vars(rule& r) {
         // 
-        // Variables that occur in multiple uinterpreted predicates are not sliceable.
+        // Variables that occur in multiple uninterpreted predicates are not sliceable.
         // 
         uint_set used_vars;
         for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {

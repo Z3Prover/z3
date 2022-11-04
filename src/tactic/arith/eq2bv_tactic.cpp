@@ -165,10 +165,6 @@ public:
         m_bounds(m) {
     }
 
-    ~eq2bv_tactic() override {
-    }
-        
-        
     void updt_params(params_ref const & p) override {
     }
     

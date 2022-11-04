@@ -49,7 +49,7 @@ namespace smt {
         unsigned m_in_region:1; // true if the object was allocated in a region.
     public:
         justification(bool in_region = true):m_mark(false), m_in_region(in_region) {}
-        virtual ~justification() {}
+        virtual ~justification() = default;
 
         /**
            \brief This method should return true if the method del_eh needs to be invoked 
@@ -95,6 +95,7 @@ namespace smt {
         virtual char const * get_name() const { return "unknown"; }
         
         virtual void display_debug_info(conflict_resolution & cr, std::ostream & out) { /* do nothing */ }
+
     };
 
     class justification_proof_wrapper : public justification {
@@ -118,7 +119,7 @@ namespace smt {
         unsigned        m_num_literals;
         literal *       m_literals;
     public:
-        unit_resolution_justification(region & r, justification * js, unsigned num_lits, literal const * lits);
+        unit_resolution_justification(context& ctx, justification * js, unsigned num_lits, literal const * lits);
 
         unit_resolution_justification(justification * js, unsigned num_lits, literal const * lits);
 
@@ -137,6 +138,7 @@ namespace smt {
         proof * mk_proof(conflict_resolution & cr) override;
 
         char const * get_name() const override { return "unit-resolution"; }
+
     };
 
     class eq_conflict_justification : public justification {
@@ -218,7 +220,7 @@ namespace smt {
         bool antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result);
 
     public:
-        simple_justification(region & r, unsigned num_lits, literal const * lits);
+        simple_justification(context& ctx, unsigned num_lits, literal const * lits);
 
         void get_antecedents(conflict_resolution & cr) override;
 
@@ -234,12 +236,11 @@ namespace smt {
         vector<parameter> m_params;
     public:
         simple_theory_justification(
-            family_id fid, region & r, 
+            family_id fid, context& ctx, 
             unsigned num_lits, literal const * lits,
             unsigned num_params, parameter* params):
-            simple_justification(r, num_lits, lits),
+            simple_justification(ctx, num_lits, lits),
             m_th_id(fid), m_params(num_params, params) {}
-        ~simple_theory_justification() override {}
 
         bool has_del_eh() const override { return !m_params.empty(); }
 
@@ -252,10 +253,10 @@ namespace smt {
     class theory_axiom_justification : public simple_theory_justification {
     public:
 
-        theory_axiom_justification(family_id fid, region & r,                                    
+        theory_axiom_justification(family_id fid, context& ctx,
                                    unsigned num_lits, literal const * lits, 
                                    unsigned num_params = 0, parameter* params = nullptr):
-            simple_theory_justification(fid, r, num_lits, lits, num_params, params)  {}
+            simple_theory_justification(fid, ctx, num_lits, lits, num_params, params)  {}
         
         void get_antecedents(conflict_resolution & cr) override {}
 
@@ -266,10 +267,11 @@ namespace smt {
 
     class theory_propagation_justification : public simple_theory_justification {
         literal        m_consequent;
+        void log(context& ctx);
     public:
-        theory_propagation_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, literal consequent, 
+        theory_propagation_justification(family_id fid, context& ctx, unsigned num_lits, literal const * lits, literal consequent, 
                                          unsigned num_params = 0, parameter* params = nullptr):
-            simple_theory_justification(fid, r, num_lits, lits, num_params, params), m_consequent(consequent) {}
+            simple_theory_justification(fid, ctx, num_lits, lits, num_params, params), m_consequent(consequent) { log(ctx); }
 
         proof * mk_proof(conflict_resolution & cr) override;
 
@@ -279,10 +281,11 @@ namespace smt {
     };
      
     class theory_conflict_justification : public simple_theory_justification {
+        void log(context& ctx);
     public:
-        theory_conflict_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
+        theory_conflict_justification(family_id fid, context& ctx, unsigned num_lits, literal const * lits, 
                                       unsigned num_params = 0, parameter* params = nullptr):
-            simple_theory_justification(fid, r, num_lits, lits, num_params, params) {}
+            simple_theory_justification(fid, ctx, num_lits, lits, num_params, params) { log(ctx); }
 
         proof * mk_proof(conflict_resolution & cr) override;
 
@@ -300,7 +303,7 @@ namespace smt {
         bool antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result);
 
     public:
-        ext_simple_justification(region & r, unsigned num_lits, literal const * lits, 
+        ext_simple_justification(context& ctx, unsigned num_lits, literal const * lits, 
                                  unsigned num_eqs, enode_pair const * eqs);
 
         void get_antecedents(conflict_resolution & cr) override;
@@ -319,12 +322,10 @@ namespace smt {
         vector<parameter> m_params;
 
     public:
-        ext_theory_simple_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
+        ext_theory_simple_justification(family_id fid, context& ctx, unsigned num_lits, literal const * lits, 
                                         unsigned num_eqs, enode_pair const * eqs, 
                                         unsigned num_params = 0, parameter* params = nullptr):
-            ext_simple_justification(r, num_lits, lits, num_eqs, eqs), m_th_id(fid), m_params(num_params, params) {}
-            
-        ~ext_theory_simple_justification() override {}
+            ext_simple_justification(ctx, num_lits, lits, num_eqs, eqs), m_th_id(fid), m_params(num_params, params) {}
 
         bool has_del_eh() const override { return !m_params.empty(); }
 
@@ -335,26 +336,33 @@ namespace smt {
 
     class ext_theory_propagation_justification : public ext_theory_simple_justification {
         literal        m_consequent;
+        void log(context& ctx);
     public:
-        ext_theory_propagation_justification(family_id fid, region & r, 
+        ext_theory_propagation_justification(family_id fid, context & ctx, 
                                              unsigned num_lits, literal const * lits, 
                                              unsigned num_eqs, enode_pair const * eqs,
                                              literal consequent,
                                              unsigned num_params = 0, parameter* params = nullptr):
-            ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), 
-            m_consequent(consequent) {}
+            ext_theory_simple_justification(fid, ctx, num_lits, lits, num_eqs, eqs, num_params, params), 
+            m_consequent(consequent) {
+            log(ctx);
+        }
 
         proof * mk_proof(conflict_resolution & cr) override;
 
         char const * get_name() const override { return "ext-theory-propagation"; }
+        
     };
 
     class ext_theory_conflict_justification : public ext_theory_simple_justification {
+        void log(context& ctx);
     public:
-        ext_theory_conflict_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
+        ext_theory_conflict_justification(family_id fid, context& ctx, unsigned num_lits, literal const * lits, 
                                           unsigned num_eqs, enode_pair const * eqs,
                                           unsigned num_params = 0, parameter* params = nullptr):
-            ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params) {}
+            ext_theory_simple_justification(fid, ctx, num_lits, lits, num_eqs, eqs, num_params, params) {
+            log(ctx);
+        }
 
         proof * mk_proof(conflict_resolution & cr) override;
 
@@ -364,19 +372,20 @@ namespace smt {
     class ext_theory_eq_propagation_justification : public ext_theory_simple_justification {
         enode *        m_lhs;
         enode *        m_rhs;
+        void log(context& ctx);
     public:
         ext_theory_eq_propagation_justification(
-            family_id fid, region & r, 
+            family_id fid, context& ctx, 
             unsigned num_lits, literal const * lits, 
             unsigned num_eqs, enode_pair const * eqs,
             enode * lhs, enode * rhs,
             unsigned num_params = 0, parameter* params = nullptr):
-            ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), m_lhs(lhs), m_rhs(rhs) {}
+            ext_theory_simple_justification(fid, ctx, num_lits, lits, num_eqs, eqs, num_params, params), m_lhs(lhs), m_rhs(rhs) { log(ctx); }
 
         ext_theory_eq_propagation_justification(
-            family_id fid, region & r, 
+            family_id fid, context& ctx, 
             enode * lhs, enode * rhs):
-            ext_theory_simple_justification(fid, r, 0, nullptr, 0, nullptr, 0, nullptr), m_lhs(lhs), m_rhs(rhs) {}
+            ext_theory_simple_justification(fid, ctx, 0, nullptr, 0, nullptr, 0, nullptr), m_lhs(lhs), m_rhs(rhs) { log(ctx); }
 
         
         proof * mk_proof(conflict_resolution & cr) override;

@@ -49,6 +49,13 @@ type context
 val mk_context : (string * string) list -> context
 
 (** Interaction logging for Z3
+    Interaction logs are used to record calls into the API into a text file.
+    The text file can be replayed using z3. It has to be the same version of z3
+    to ensure that low level codes emitted in a log are compatible with the
+    version of z3 replaying the log. The file suffix ".log" is understood
+    by z3 as the format of the file being an interaction log. You can use the
+    optional comman-line parameter "-log" to force z3 to treat an input file
+    as an interaction log.
     Note that this is a global, static log and if multiple Context
     objects are created, it logs the interaction with all of them. *)
 module Log :
@@ -927,10 +934,10 @@ end
 module FiniteDomain :
 sig
   (** Create a new finite domain sort. *)
-  val mk_sort : context -> Symbol.symbol -> int -> Sort.sort
+  val mk_sort : context -> Symbol.symbol -> int64 -> Sort.sort
 
   (** Create a new finite domain sort. *)
-  val mk_sort_s : context -> string -> int -> Sort.sort
+  val mk_sort_s : context -> string -> int64 -> Sort.sort
 
   (** Indicates whether the term is of an array sort. *)
   val is_finite_domain : Expr.expr -> bool
@@ -939,7 +946,7 @@ sig
   val is_lt : Expr.expr -> bool
 
   (** The size of the finite domain sort. *)
-  val get_size : Sort.sort -> int
+  val get_size : Sort.sort -> int64
 end
 
 
@@ -2078,7 +2085,7 @@ sig
   val mk_numeral_i : context -> int -> Sort.sort -> Expr.expr
 
   (** Create a numeral of FloatingPoint sort from a sign bit and two integers. *)
-  val mk_numeral_i_u : context -> bool -> int -> int -> Sort.sort -> Expr.expr
+  val mk_numeral_i_u : context -> bool -> int64 -> int64 -> Sort.sort -> Expr.expr
 
   (** Create a numeral of FloatingPoint sort from a string *)
   val mk_numeral_s : context -> string -> Sort.sort -> Expr.expr
@@ -2303,7 +2310,7 @@ sig
   val get_numeral_exponent_string : context -> Expr.expr -> bool -> string
 
   (** Return the exponent value of a floating-point numeral as a signed integer *)
-  val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int
+  val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int64
 
   (** Return the exponent of a floating-point numeral as a bit-vector expression. 
       Remark: NaN's do not have a bit-vector exponent, so they are invalid arguments. *)
@@ -2320,7 +2327,7 @@ sig
       Remark: This function extracts the significand bits, without the
       hidden bit or normalization. Throws an exception if the
       significand does not fit into an int. *)
-  val get_numeral_significand_uint : context -> Expr.expr -> bool * int
+  val get_numeral_significand_uint : context -> Expr.expr -> bool * int64
 
   (** Indicates whether a floating-point numeral is a NaN. *)
   val is_numeral_nan : context -> Expr.expr -> bool

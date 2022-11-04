@@ -105,7 +105,6 @@ namespace datalog {
     class rel_context_base : public engine_base {
     public:
         rel_context_base(ast_manager& m, char const* name): engine_base(m, name) {}
-        ~rel_context_base() override {}
         virtual relation_manager & get_rmanager() = 0;
         virtual const relation_manager & get_rmanager() const = 0;
         virtual relation_base & get_relation(func_decl * pred) = 0;
@@ -141,7 +140,6 @@ namespace datalog {
             context const& ctx;
         public:
             contains_pred(context& ctx): ctx(ctx) {}
-            ~contains_pred() override {}
 
             bool operator()(expr* e) override {
                 return ctx.is_predicate(e);
@@ -307,7 +305,7 @@ namespace datalog {
         void register_predicate(func_decl * pred, bool named);
 
         /**
-           Restrict reltaions to set of predicates.
+           Restrict relations to set of predicates.
          */
         void restrict_predicates(func_decl_set const& preds);
 

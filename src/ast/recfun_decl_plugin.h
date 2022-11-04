@@ -49,7 +49,7 @@ namespace recfun {
 
     class replace {
     public:
-        virtual ~replace() {}
+        virtual ~replace() = default;
         virtual void reset() = 0;
         virtual void insert(expr* d, expr* r) = 0;
         virtual expr_ref operator()(expr* e) = 0;

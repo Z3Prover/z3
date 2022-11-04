@@ -17,7 +17,5 @@ z3_add_component(solver
   PYG_FILES
     combined_solver_params.pyg
     parallel_params.pyg
-  PYG_FILES
-    solver_params.pyg
 
 )

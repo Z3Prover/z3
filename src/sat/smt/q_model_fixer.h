@@ -43,7 +43,7 @@ namespace q {
         ast_manager& m;
     public:
         projection_function(ast_manager& m) : m(m) {}
-        virtual ~projection_function() {}
+        virtual ~projection_function() = default;
         virtual expr* mk_lt(expr* a, expr* b) = 0;
         expr* mk_le(expr* a, expr* b) { return m.mk_not(mk_lt(b, a)); }
         virtual bool operator()(expr* a, expr* b) const = 0;
@@ -95,7 +95,6 @@ namespace q {
     public:
 
         model_fixer(euf::solver& ctx, solver& qs);
-        ~model_fixer() override {}
 
         /**
          * Update model in order to best satisfy quantifiers.

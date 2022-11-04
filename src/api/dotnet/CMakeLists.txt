@@ -19,7 +19,7 @@ add_custom_command(OUTPUT "${Z3_DOTNET_NATIVE_FILE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating ${Z3_DOTNET_NATIVE_FILE}"
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
 )
 
 # Generate Enumerations.cs
@@ -35,7 +35,7 @@ add_custom_command(OUTPUT "${Z3_DOTNET_CONST_FILE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating ${Z3_DOTNET_CONST_FILE}"
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
 )
 
 set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
@@ -59,7 +59,6 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     Context.cs
     DatatypeExpr.cs
     DatatypeSort.cs
-    Deprecated.cs
     EnumSort.cs
     Expr.cs
     FiniteDomainExpr.cs
@@ -76,7 +75,6 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     FuncInterp.cs
     Global.cs
     Goal.cs
-    IDecRefQueue.cs
     IntExpr.cs
     IntNum.cs
     IntSort.cs
@@ -89,6 +87,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     NativeFuncInterp.cs
     NativeModel.cs
     NativeSolver.cs
+    OnClause.cs
     Optimize.cs
     ParamDescrs.cs
     Params.cs

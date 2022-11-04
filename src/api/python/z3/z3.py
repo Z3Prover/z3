@@ -204,12 +204,13 @@ class Context:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
         self.ctx = Z3_mk_context_rc(conf)
+        self.owner = True
         self.eh = Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
         Z3_del_config(conf)
 
     def __del__(self):
-        if Z3_del_context is not None:
+        if Z3_del_context is not None and self.owner:
             Z3_del_context(self.ctx)
         self.ctx = None
         self.eh = None
@@ -5345,6 +5346,10 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+def DatatypeSort(name, ctx = None):
+    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype"""
+    ctx = _get_ctx(ctx)
+    return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
 
 def TupleSort(name, sorts, ctx=None):
     """Create a named tuple sort base on a set of underlying sorts
@@ -6648,7 +6653,7 @@ class ModelRef(Z3PPObject):
                 n = Z3_func_entry_get_num_args(x.ctx_ref(), e.entry)
                 v = AstVector()
                 for j in range(n):
-                    v.push(entry.arg_value(j))                    
+                    v.push(e.arg_value(j))                    
                 val = Z3_func_entry_get_value(x.ctx_ref(), e.entry)
                 Z3_func_interp_add_entry(x.ctx_ref(), fi2.f, v.vector, val)
             return
@@ -11296,6 +11301,45 @@ def TransitiveClosure(f):
     """
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
+def to_Ast(ptr,):
+    ast = Ast(ptr)
+    super(ctypes.c_void_p, ast).__init__(ptr)
+    return ast
+
+def to_ContextObj(ptr,):
+    ctx = ContextObj(ptr)
+    super(ctypes.c_void_p, ctx).__init__(ptr)
+    return ctx
+
+def to_AstVectorObj(ptr,):
+    v = AstVectorObj(ptr)
+    super(ctypes.c_void_p, v).__init__(ptr)    
+    return v
+
+# NB. my-hacky-class only works for a single instance of OnClause
+# it should be replaced with a proper correlation between OnClause
+# and object references that can be passed over the FFI.
+# for UserPropagator we use a global dictionary, which isn't great code.
+
+_my_hacky_class = None
+def on_clause_eh(ctx, p, clause):
+    onc = _my_hacky_class
+    p = _to_expr_ref(to_Ast(p), onc.ctx)
+    clause = AstVector(to_AstVectorObj(clause), onc.ctx)
+    onc.on_clause(p, clause)
+    
+_on_clause_eh = Z3_on_clause_eh(on_clause_eh)
+
+class OnClause:
+    def __init__(self, s, on_clause):
+        self.s = s
+        self.ctx = s.ctx
+        self.on_clause = on_clause
+        self.idx = 22
+        global _my_hacky_class
+        _my_hacky_class = self
+        Z3_solver_register_on_clause(self.ctx.ref(), self.s.solver, self.idx, _on_clause_eh)        
+        
 
 class PropClosures:
     def __init__(self):
@@ -11354,17 +11398,19 @@ def user_prop_pop(ctx, cb, num_scopes):
     prop.pop(num_scopes)
 
 
-def user_prop_fresh(id, ctx):
+def user_prop_fresh(ctx, _new_ctx):
     _prop_closures.set_threaded()
-    prop = _prop_closures.get(id)
-    new_prop = prop.fresh()
+    prop = _prop_closures.get(ctx)
+    nctx = Context()
+    Z3_del_context(nctx.ctx)
+    new_ctx = to_ContextObj(_new_ctx)
+    nctx.ctx = new_ctx
+    nctx.eh = Z3_set_error_handler(new_ctx, z3_error_handler)
+    nctx.owner = False
+    new_prop = prop.fresh(nctx)
     _prop_closures.set(new_prop.id, new_prop)
-    return ctypes.c_void_p(new_prop.id)
+    return new_prop.id
 
-def to_Ast(ptr,):
-    ast = Ast(ptr)
-    super(ctypes.c_void_p, ast).__init__(ptr)
-    return ast
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
@@ -11374,6 +11420,13 @@ def user_prop_fixed(ctx, cb, id, value):
     prop.fixed(id, value)
     prop.cb = None
 
+def user_prop_created(ctx, cb, id):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    id = _to_expr_ref(to_Ast(id), prop.ctx())
+    prop.created(id)
+    prop.cb = None
+    
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
@@ -11396,15 +11449,52 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.diseq(x, y)
     prop.cb = None
 
+# TODO The decision callback is not fully implemented.
+# It needs to handle the ast*, unsigned* idx, and Z3_lbool* 
+def user_prop_decide(ctx, cb, t_ref, idx_ref, phase_ref):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
+    t, idx, phase = prop.decide(t, idx, phase)
+    t_ref = t
+    idx_ref = idx
+    phase_ref = phase
+    prop.cb = None
+    
 
 _user_prop_push = Z3_push_eh(user_prop_push)
 _user_prop_pop = Z3_pop_eh(user_prop_pop)
 _user_prop_fresh = Z3_fresh_eh(user_prop_fresh)
 _user_prop_fixed = Z3_fixed_eh(user_prop_fixed)
+_user_prop_created = Z3_created_eh(user_prop_created)
 _user_prop_final = Z3_final_eh(user_prop_final)
 _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
+_user_prop_decide = Z3_decide_eh(user_prop_decide)
 
+
+def PropagateFunction(name, *sig):
+    """Create a function that gets tracked by user propagator.
+       Every term headed by this function symbol is tracked.
+       If a term is fixed and the fixed callback is registered a
+       callback is invoked that the term headed by this function is fixed.
+    """
+    sig = _get_args(sig)
+    if z3_debug():
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng = sig[arity]
+    if z3_debug():
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom = (Sort * arity)()
+    for i in range(arity):
+        if z3_debug():
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_solver_propagate_declare(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
+
+    
 
 class UserPropagateBase:
 
@@ -11420,19 +11510,16 @@ class UserPropagateBase:
         ensure_prop_closures()
         self.solver = s
         self._ctx = None
+        self.fresh_ctx = None
         self.cb = None
         self.id = _prop_closures.insert(self)
         self.fixed = None
         self.final = None
         self.eq = None
         self.diseq = None
+        self.created = None
         if ctx:
-            # TBD fresh is broken: ctx is not of the right type when we reach here.
-            self._ctx = Context()
-            #Z3_del_context(self._ctx.ctx)
-            #self._ctx.ctx = ctx
-            #self._ctx.eh = Z3_set_error_handler(ctx, z3_error_handler)
-            #Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
+            self.fresh_ctx = ctx
         if s:
             Z3_solver_propagate_init(self.ctx_ref(),
                                      s.solver,
@@ -11446,8 +11533,8 @@ class UserPropagateBase:
             self._ctx.ctx = None
 
     def ctx(self):
-        if self._ctx:
-            return self._ctx
+        if self.fresh_ctx:
+            return self.fresh_ctx
         else:
             return self.solver.ctx
 
@@ -11457,26 +11544,44 @@ class UserPropagateBase:
     def add_fixed(self, fixed):
         assert not self.fixed
         assert not self._ctx
-        Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
+        if self.solver:
+            Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
+    def add_created(self, created):
+        assert not self.created
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
+        self.created = created
+        
     def add_final(self, final):
         assert not self.final
         assert not self._ctx
-        Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
+        if self.solver:
+            Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
         assert not self.eq
         assert not self._ctx
-        Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
+        if self.solver:
+            Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
         assert not self.diseq
         assert not self._ctx
-        Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
+        if self.solver:
+            Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
+
+    def add_decide(self, decide):
+        assert not self.decide
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
+        self.decide = decide        
 
     def push(self):
         raise Z3Exception("push needs to be overwritten")
@@ -11484,14 +11589,24 @@ class UserPropagateBase:
     def pop(self, num_scopes):
         raise Z3Exception("pop needs to be overwritten")
 
-    def fresh(self):
+    def fresh(self, new_ctx):
         raise Z3Exception("fresh needs to be overwritten")
 
     def add(self, e):
-        assert self.solver
         assert not self._ctx
-        Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
-
+        if self.solver:
+            Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
+        else:
+            Z3_solver_propagate_register_cb(self.ctx_ref(), ctypes.c_void_p(self.cb), e.ast)
+        
+    #
+    # Tell the solver to perform the next split on a given term
+    # If the term is a bit-vector the index idx specifies the index of the Boolean variable being
+    # split on. A phase of true = 1/false = -1/undef = 0 = let solver decide is the last argument.
+    #
+    def next_split(self, t, idx, phase):
+        Z3_solver_next_split(self.ctx_ref(), ctypes.c_void_p(self.cb), t.ast, idx, phase)
+        
     #
     # Propagation can only be invoked as during a fixed or final callback.
     #
@@ -11503,5 +11618,5 @@ class UserPropagateBase:
         Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(
             self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
-    def conflict(self, deps):
-        self.propagate(BoolVal(False, self.ctx()), deps, eqs=[])
+    def conflict(self, deps = [], eqs = []):
+        self.propagate(BoolVal(False, self.ctx()), deps, eqs)

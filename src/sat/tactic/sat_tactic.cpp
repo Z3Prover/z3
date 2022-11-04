@@ -74,6 +74,8 @@ class sat_tactic : public tactic {
             TRACE("sat", tout << "result of checking: " << r << " "; 
                   if (r == l_undef) tout << m_solver->get_reason_unknown(); tout << "\n";
                   if (m_goal2sat.has_interpreted_funs()) tout << "has interpreted\n";);
+            if (r == l_undef)
+                g->set_reason_unknown(m_solver->get_reason_unknown());
             if (r == l_false) {
                 expr_dependency * lcore = nullptr;
                 if (produce_core) {

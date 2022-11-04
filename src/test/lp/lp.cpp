@@ -19,7 +19,7 @@
   --*/
 
 #include <limits>
-#if _LINUX_
+#ifndef _WINDOWS
 #include <dirent.h>
 #endif
 #include <algorithm>
@@ -1735,7 +1735,7 @@ void random_test() {
     }
 }
 
-#if _LINUX_
+#ifndef _WINDOWS
 void fill_file_names(vector<std::string> &file_names,  std::set<std::string> & minimums) {
     char *home_dir = getenv("HOME");
     if (home_dir == nullptr) {
@@ -1885,7 +1885,7 @@ void test_out_dir(std::string out_dir) {
 
 void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
     // todo: make it system independent
-    size_t last_slash_pos = a.find_last_of("/");
+    size_t last_slash_pos = a.find_last_of('/');
     if (last_slash_pos >= a.size()) {
         std::cout << "cannot find file name in " << a << std::endl;
         throw;
@@ -1899,7 +1899,7 @@ void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
 void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
 
 void solve_some_mps(argument_parser & args_parser) {
-    unsigned max_iters, time_limit;
+    unsigned max_iters = UINT_MAX, time_limit = UINT_MAX;
     get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
     unsigned successes = 0;
     unsigned failures = 0;
@@ -4072,7 +4072,7 @@ void test_lp_local(int argn, char**argv) {
     }
     
     if (args_parser.option_is_used("--solve_some_mps")) {
-#if _LINUX_
+#ifndef _WINDOWS
         solve_some_mps(args_parser);
 #endif
         ret = 0;

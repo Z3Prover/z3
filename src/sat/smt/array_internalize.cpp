@@ -122,7 +122,7 @@ namespace array {
             ctx.push(push_back_vector(m_minmaxdiffs));
             break;
         case OP_ARRAY_DEFAULT:
-            add_parent_default(find(n->get_arg(0)), n);
+            add_parent_default(find(n->get_arg(0)));
             break;
         case OP_ARRAY_MAP:
         case OP_SET_UNION:
@@ -251,6 +251,8 @@ namespace array {
         if (a.is_select(p->get_expr()))
             return p->get_arg(0)->get_root() == n->get_root();
         if (a.is_map(p->get_expr()))
+            return true;
+        if (a.is_store(p->get_expr()))
             return true;
         return false;
     }

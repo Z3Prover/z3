@@ -1867,9 +1867,7 @@ namespace smtfd {
             updt_params(p);
             add_toggle(m.mk_true());
         }
-        
-        ~solver() override {}
-        
+
         ::solver* translate(ast_manager& dst_m, params_ref const& p) override {
             solver* result = alloc(solver, m_indent, dst_m, p);
             if (m_fd_sat_solver) result->m_fd_sat_solver = m_fd_sat_solver->translate(dst_m, p);
@@ -2077,7 +2075,7 @@ namespace smtfd {
             return m_fd_sat_solver->get_model_converter();
         }
         
-        proof * get_proof() override { return nullptr; }
+        proof * get_proof_core() override { return nullptr; }
         std::string reason_unknown() const override { return m_reason_unknown; }
         void set_reason_unknown(char const* msg) override { m_reason_unknown = msg; }
         void get_labels(svector<symbol> & r) override { }

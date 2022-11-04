@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/params.h"
 #include "util/lbool.h"
+#include "util/mutex.h"
 #include "ast/ast.h"
 
 #define Z3_TRY try {
@@ -34,12 +35,12 @@ namespace api {
 
     // Generic wrapper for ref-count objects exposed by the API
     class object {
-        unsigned m_ref_count;
+        atomic<unsigned> m_ref_count;
         unsigned m_id;
         context& m_context;
     public:
         object(context& c);
-        virtual ~object() {}
+        virtual ~object() = default;
         unsigned ref_count() const { return m_ref_count; }
         unsigned id() const { return m_id; }
         void inc_ref();
@@ -87,7 +88,6 @@ inline lbool    to_lbool(Z3_lbool b) { return static_cast<lbool>(b); }
 struct Z3_params_ref : public api::object {
     params_ref m_params;
     Z3_params_ref(api::context& c): api::object(c) {}
-    ~Z3_params_ref() override {}
 };
 
 inline Z3_params_ref * to_params(Z3_params p) { return reinterpret_cast<Z3_params_ref *>(p); }
@@ -97,7 +97,6 @@ inline params_ref& to_param_ref(Z3_params p) { return p == nullptr ? const_cast<
 struct Z3_param_descrs_ref : public api::object {
     param_descrs m_descrs;
     Z3_param_descrs_ref(api::context& c): api::object(c) {}
-    ~Z3_param_descrs_ref() override {}
 };
 
 inline Z3_param_descrs_ref * to_param_descrs(Z3_param_descrs p) { return reinterpret_cast<Z3_param_descrs_ref *>(p); }

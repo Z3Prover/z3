@@ -39,13 +39,16 @@ Notes:
 */
 class check_sat_result {
 protected:
-    unsigned    m_ref_count;
-    lbool       m_status; 
+    ast_manager& m;
+    proof_ref_vector m_log;
+    proof_ref        m_proof;
+    unsigned    m_ref_count = 0;
+    lbool       m_status = l_undef; 
     model_converter_ref m_mc0;
-    double      m_time;
+    double      m_time = 0;
 public:
-    check_sat_result():m_ref_count(0), m_status(l_undef), m_time(0) {}
-    virtual ~check_sat_result() {}
+    check_sat_result(ast_manager& m): m(m), m_log(m), m_proof(m) {}
+    virtual ~check_sat_result() = default;
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
     lbool set_status(lbool r) { return m_status = r; }
@@ -59,7 +62,10 @@ public:
         get_model_core(m);
         if (m && mc0()) (*mc0())(m);
     }
-    virtual proof * get_proof() = 0;
+    void log_inference(proof* p) { m_log.push_back(p); }
+    void set_proof(proof* p) { m_proof = p; }
+    proof* get_proof();
+    virtual proof * get_proof_core() = 0;
     virtual std::string reason_unknown() const = 0;
     virtual void set_reason_unknown(char const* msg) = 0;
     void set_reason_unknown(event_handler& eh);
@@ -97,7 +103,7 @@ struct simple_check_sat_result : public check_sat_result {
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
     void get_model_core(model_ref & m) override;
-    proof * get_proof() override;
+    proof * get_proof_core() override;
     std::string reason_unknown() const override;
     void get_labels(svector<symbol> & r) override;
     void set_reason_unknown(char const* msg) override { m_unknown = msg; }

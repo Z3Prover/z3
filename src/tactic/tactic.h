@@ -35,7 +35,6 @@ class tactic : public user_propagator::core {
     unsigned m_ref_count;
 public:
     tactic():m_ref_count(0) {}
-    virtual ~tactic() {}
 
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
@@ -76,6 +75,10 @@ public:
     virtual tactic * translate(ast_manager & m) = 0;
 
     static void checkpoint(ast_manager& m);
+
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        throw default_exception("tactic does not support clause logging");
+    }
 
     void user_propagate_init(
         void* ctx,

@@ -52,7 +52,6 @@ namespace api {
             m_context(m, m_register_engine, p),
             m_trail(m) {}
 
-        ~fixedpoint_context() override {}
         family_id get_family_id() const override { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
         void set_state(void* state) {
             SASSERT(!m_state);

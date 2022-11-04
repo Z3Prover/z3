@@ -24,6 +24,7 @@ JS_API_PATH='../src/api/js'
 Z3PY_ENABLED=True
 DOTNET_ENABLED=True
 JAVA_ENABLED=True
+Z3OPTIONS_ENABLED=True
 DOTNET_API_SEARCH_PATHS=['../src/api/dotnet']
 JAVA_API_SEARCH_PATHS=['../src/api/java']
 SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
@@ -237,6 +238,7 @@ try:
     else:
         print('Javascript documentation disabled')
 
+
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file(
         doc_path('z3api.cfg.in'),
@@ -335,6 +337,7 @@ try:
 
         for modulename in (
                 'z3',
+                'z3.z3',
                 'z3.z3consts',
                 'z3.z3core',
                 'z3.z3num',

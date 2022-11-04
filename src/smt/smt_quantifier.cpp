@@ -606,9 +606,6 @@ namespace smt {
             m_active(false) {
         }
 
-        ~default_qm_plugin() override {
-        }
-
         void set_manager(quantifier_manager & qm) override {
             SASSERT(m_qm == nullptr);
             m_qm            = &qm;

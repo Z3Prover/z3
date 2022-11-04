@@ -107,11 +107,12 @@ namespace smt {
 
         ptr_vector<justification>   m_justifications;
 
-        unsigned                    m_final_check_idx; // circular counter used for implementing fairness
+        unsigned                    m_final_check_idx = 0; // circular counter used for implementing fairness
 
-        bool                        m_is_auxiliary { false }; // used to prevent unwanted information from being logged.
-        class parallel*             m_par { nullptr };
-        unsigned                    m_par_index { 0 };
+        bool                        m_is_auxiliary = false; // used to prevent unwanted information from being logged.
+        class parallel*             m_par = nullptr;
+        unsigned                    m_par_index = 0;
+        bool                        m_internalizing_assertions = false;
 
         // -----------------------------------
         //
@@ -777,8 +778,6 @@ namespace smt {
 
         bool has_lambda();
 
-        bool is_beta_redex(enode* p, enode* n) const;
-
         void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
@@ -892,6 +891,10 @@ namespace smt {
         void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
 
         void add_lit_occs(clause const& cls);
+
+        ast_pp_util m_lemma_visitor;
+        void dump_lemma(unsigned n, literal const* lits);
+        void dump_axiom(unsigned n, literal const* lits);
     public:        
 
         void ensure_internalized(expr* e);
@@ -1030,6 +1033,8 @@ namespace smt {
         bool assume_eq(enode * lhs, enode * rhs);
 
         bool is_shared(enode * n) const;
+
+        bool is_beta_redex(enode* p, enode* n) const;
 
         void assign_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             push_eq(lhs, rhs, js);
@@ -1700,6 +1705,12 @@ namespace smt {
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
 
         void get_units(expr_ref_vector& result);
+
+        bool on_clause_active() const { return m_clause_proof.on_clause_active(); }
+
+        void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+            m_clause_proof.register_on_clause(ctx, on_clause);
+        }
 
         /*
          * user-propagator

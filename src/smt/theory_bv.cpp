@@ -294,8 +294,7 @@ namespace smt {
                 m_trail_stack.push(add_var_pos_trail(b));
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
             }
-            else {
-                SASSERT(th_id == null_theory_id);
+            else if (th_id == null_theory_id) {
                 ctx.set_var_theory(l.var(), get_id());
                 SASSERT(ctx.get_var_theory(l.var()) == get_id());
                 bit_atom * b = new (get_region()) bit_atom();
@@ -600,6 +599,8 @@ namespace smt {
         TRACE("bv", tout << mk_bounded_pp(n, m) << "\n";);
         process_args(n);
         mk_enode(n);
+        m_bv2int.push_back(ctx.get_enode(n));
+        ctx.push_trail(push_back_vector<enode_vector>(m_bv2int));
         if (!ctx.relevancy()) 
             assert_bv2int_axiom(n);
     }
@@ -667,8 +668,9 @@ namespace smt {
         mk_enode(n);
         theory_var v = ctx.get_enode(n)->get_th_var(get_id()); 
         mk_bits(v);
-        mk_var(ctx.get_enode(n->get_arg(0)));
-
+        enode* k = ctx.get_enode(n->get_arg(0));
+        if (!is_attached_to_var(k))
+            mk_var(k);
         
         if (!ctx.relevancy()) 
             assert_int2bv_axiom(n);
@@ -883,6 +885,7 @@ namespace smt {
         find_wpos(v);
     }
 
+
     bool theory_bv::internalize_term_core(app * term) {
         SASSERT(term->get_family_id() == get_family_id());
         TRACE("bv", tout << "internalizing term: " << mk_bounded_pp(term, m) << "\n";);
@@ -896,6 +899,7 @@ namespace smt {
         case OP_BMUL:           internalize_mul(term); return true;
         case OP_BSDIV_I:        internalize_sdiv(term); return true;
         case OP_BUDIV_I:        internalize_udiv(term); return true;
+            // case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
         case OP_BSREM_I:        internalize_srem(term); return true;
         case OP_BUREM_I:        internalize_urem(term); return true;
         case OP_BSMOD_I:        internalize_smod(term); return true;
@@ -1390,6 +1394,13 @@ namespace smt {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_int2bv_axiom(n);
         }
+#if 0
+        else if (m_util.is_bv_udivi(n)) {
+            ctx.mark_as_relevant(n->get_arg(0));
+            ctx.mark_as_relevant(n->get_arg(1));
+            assert_udiv_quot_rem_axiom(n);
+        }
+#endif
         else if (ctx.e_internalized(n)) {
             enode * e    = ctx.get_enode(n);
             theory_var v = e->get_th_var(get_id());
@@ -1496,23 +1507,33 @@ namespace smt {
         unsigned sz  = m_bits[v1].size();
         bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
-        if (sz == 0) {
+        if (sz == 0 && !m_bv2int.empty()) {
             // int2bv(bv2int(x)) = x when int2bv(bv2int(x)) has same sort as x
             enode* n1 = get_enode(r1);
-            for (enode* bv2int : *n1) {
-                if (!m_util.is_bv2int(bv2int->get_expr())) 
-                    continue;
-                enode* bv2int_arg = bv2int->get_arg(0);
+            auto propagate_bv2int = [&](enode* bv2int) {
+                enode* bv2int_arg = get_arg(bv2int, 0);
                 for (enode* p : enode::parents(n1->get_root())) {
                     if (m_util.is_int2bv(p->get_expr()) && p->get_root() != bv2int_arg->get_root() && p->get_sort() == bv2int_arg->get_sort()) {                        
                         enode_pair_vector eqs;
-                        eqs.push_back({n1, p->get_arg(0) });
+                        eqs.push_back({n1, get_arg(p, 0) });
                         eqs.push_back({n1, bv2int});
                         justification * js = ctx.mk_justification(
-                            ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
+                            ext_theory_eq_propagation_justification(get_id(), ctx, 0, nullptr, eqs.size(), eqs.data(), p, bv2int_arg));
                         ctx.assign_eq(p, bv2int_arg, eq_justification(js));
                         break;
                     }                    
+                }
+            };
+
+            if (m_bv2int.size() < n1->get_class_size()) {
+                for (enode* bv2int : m_bv2int)
+                    if (bv2int->get_root() == n1->get_root())
+                        propagate_bv2int(bv2int);
+            }
+            else {
+                for (enode* bv2int : *n1) {
+                    if (m_util.is_bv2int(bv2int->get_expr())) 
+                        propagate_bv2int(bv2int);
                 }
             }
         }
@@ -1972,6 +1993,44 @@ namespace smt {
         }
         return true;
     }
+
+#if 0
+    void theory_bv::internalize_udiv_quot_rem(app* n) {
+        process_args(n);
+        mk_enode(n);
+        theory_var v = ctx.get_enode(n)->get_th_var(get_id()); 
+        mk_bits(v);
+        if (!ctx.relevancy()) 
+            assert_udiv_quot_rem_axiom(n);
+    }
+
+
+    void theory_bv::assert_udiv_quot_rem_axiom(app * q) {
+        // Axioms for quotient/remainder:
+        //      a = b*q + r
+        //      no-mul-overflow(b,q)
+        //      no-add-overflow(bq, r)
+        //      b != 0 => r < b
+        //      b = 0 => q = -1
+        expr* a, *b;
+        VERIFY(m_util.is_bv_udivi(q, a, b));
+        sort* srt = q->get_sort();
+        func_decl_ref rf(m.mk_func_decl(symbol("rem"), srt, srt, srt), m);
+        expr_ref r(m.mk_app(rf, a, b), m);
+        expr_ref bq(m_util.mk_bv_mul(b, q), m);
+        expr_ref bqr(m_util.mk_bv_add(bq, r), m);
+        literal eq = mk_literal(m.mk_eq(a, bqr));
+        literal obq = mk_literal(m_util.mk_bvumul_no_ovfl(b, q));
+        literal obqr = mk_literal(m_util.mk_ule(r, bqr));
+        literal b0 = mk_literal(m.mk_eq(b, m_util.mk_numeral(rational::zero(), srt)));
+        
+        ctx.mk_th_axiom(get_id(), 1, &eq);
+        ctx.mk_th_axiom(get_id(), 1, &obq);
+        ctx.mk_th_axiom(get_id(), 1, &obqr);
+        ctx.mk_th_axiom(get_id(), b0, ~mk_literal(m_util.mk_ule(b, r)));
+        ctx.mk_th_axiom(get_id(), ~b0, mk_literal(m.mk_eq(q, m_util.mk_numeral(rational(-1), srt))));
+    }
+#endif
 
 
 };

@@ -665,10 +665,6 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
                    params.size(), params.data());
     }
     ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
-    if (dump_lemmas()) {
-        symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
-        ctx.display_lemma_as_smt_problem(lits.size(), lits.data(), false_literal, logic);
-    }
 
 #if 0
     TRACE("arith",
@@ -707,11 +703,6 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
           for (literal lit : lits) ctx.display_literal_info(tout, lit);          
           tout << "\n";);
 
-    if (dump_lemmas()) {
-        symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
-        ctx.display_lemma_as_smt_problem(lits.size(), lits.data(), false_literal, logic);
-    }
-
     vector<parameter> params;
     if (m.proofs_enabled()) {
         params.push_back(parameter(symbol("farkas")));
@@ -723,7 +714,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
-                get_id(), ctx.get_region(), 
+                get_id(), ctx, 
                 lits.size(), lits.data(), 0, nullptr, params.size(), params.data())));
 
 }
@@ -1283,7 +1274,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
         expr_ref tmp(m);
         core.reset();
         for (; it != end; ++it) {
-            unsigned v = it->m_var;
+            unsigned v = it->var();
             if (is_simplex_edge(v)) {
                 unsigned edge_id = simplex2edge(v);
                 literal lit = m_graph.get_explanation(edge_id);

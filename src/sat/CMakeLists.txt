@@ -30,6 +30,7 @@ z3_add_component(sat
     sat_parallel.cpp
     sat_prob.cpp
     sat_probing.cpp
+    sat_proof_trim.cpp
     sat_scc.cpp
     sat_simplifier.cpp
     sat_solver.cpp
@@ -39,6 +40,7 @@ z3_add_component(sat
     util
     dd
     grobner
+    params
   PYG_FILES
     sat_asymm_branch_params.pyg
     sat_params.pyg

@@ -25,7 +25,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "ast/scoped_proof.h"
 #include "ast/bv_decl_plugin.h"
-#include "muz/rel/tbv.h"
+#include "util/tbv.h"
 #include <iostream>
 
 namespace datalog {

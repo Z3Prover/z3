@@ -34,6 +34,7 @@ namespace dd {
             s = mod2_e;
         m_semantics = s;
         m_mod2N = rational::power_of_two(power_of_2);
+        m_max_value = m_mod2N - 1;
         m_power_of_2 = power_of_2;
         unsigned_vector l2v;
         for (unsigned i = 0; i < num_vars; ++i) l2v.push_back(i);
@@ -50,6 +51,7 @@ namespace dd {
 
     void pdd_manager::reset(unsigned_vector const& level2var) {
         reset_op_cache();
+        m_factor_cache.reset();
         m_node_table.reset();
         m_nodes.reset();
         m_free_nodes.reset();
@@ -126,7 +128,7 @@ namespace dd {
      * Example: 2^4*x + 2 is non-zero for every x.
      */
 
-    bool pdd_manager::is_non_zero(PDD p) {
+    bool pdd_manager::is_never_zero(PDD p) {
         if (is_val(p))
             return !is_zero(p);
         if (m_semantics != mod2N_e)
@@ -163,7 +165,11 @@ namespace dd {
         return true;
     }
 
-    pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
+    pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
+        return pdd(apply(p.root, s.root, pdd_subst_val_op), this);
+    }
+
+    pdd pdd_manager::subst_val0(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
         typedef std::pair<unsigned, rational> pr;
         vector<pr> s(_s);        
         std::function<bool (pr const&, pr const&)> compare_level = 
@@ -171,9 +177,15 @@ namespace dd {
         std::sort(s.begin(), s.end(), compare_level);
         pdd r(one());
         for (auto const& q : s) 
-            r = (r*mk_var(q.first)) + q.second;            
-        return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
+            r = (r * mk_var(q.first)) + q.second;
+        return subst_val(p, r);
     }
+
+    pdd pdd_manager::subst_add(pdd const& s, unsigned v, rational const& val) {
+        pdd v_val = mk_var(v) + val;
+        return pdd(apply(s.root, v_val.root, pdd_subst_add_op), this);
+    }
+    
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -216,6 +228,7 @@ namespace dd {
             if (is_val(p) && is_val(q)) return imk_val(val(p) - val(q));
             if (m_semantics != mod2_e) break;
             op = pdd_add_op;
+            Z3_fallthrough;
         case pdd_add_op:
             if (is_zero(p)) return q;
             if (is_zero(q)) return p;
@@ -239,11 +252,15 @@ namespace dd {
             break;
         case pdd_subst_val_op:
             while (!is_val(q) && !is_val(p)) {
-                if (level(p) == level(q)) break;
-                if (level(p) < level(q)) q = lo(q);
-                else p = lo(p);
+                if (level(p) < level(q)) q = hi(q);
+                else break;
             }
             if (is_val(p) || is_val(q)) return p;            
+            break;
+        case pdd_subst_add_op:
+            if (is_one(p)) return q;
+            SASSERT(!is_val(p));
+            SASSERT(!is_val(q));
             break;
         default:
             UNREACHABLE();
@@ -345,7 +362,8 @@ namespace dd {
                         push(make_node(level_p, lo(n), read(1)));
                         r = make_node(level_p, bd, read(1));
                         npop = 7;
-                    } else {
+                    } 
+                    else {
                         push(make_node(level_p, n, ac));
                         r = make_node(level_p, bd, read(1));
                         npop = 6;
@@ -387,12 +405,33 @@ namespace dd {
         case pdd_subst_val_op:
             SASSERT(!is_val(p));
             SASSERT(!is_val(q));
-            SASSERT(level_p == level_q);
+            SASSERT(level_p >= level_q);
             push(apply_rec(lo(p), q, pdd_subst_val_op));   // lo := subst(lo(p), s)
             push(apply_rec(hi(p), q, pdd_subst_val_op));   // hi := subst(hi(p), s)
-            push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
-            r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
-            npop = 3;
+
+            if (level_p > level_q) {
+                r = make_node(level_p, read(2), read(1));
+                npop = 2;
+            }
+            else {
+                push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
+                r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
+                npop = 3;
+            }
+            break;
+        case pdd_subst_add_op:
+            SASSERT(!is_val(p));
+            SASSERT(!is_val(q));
+            SASSERT(level_p != level_q);
+            if (level_p < level_q) {
+                r = make_node(level_q, lo(q), p);                 // p*hi(q) + lo(q)
+                npop = 0;
+            }
+            else {
+                push(apply_rec(hi(p), q, pdd_subst_add_op));       // hi := add_subst(hi(p), q)
+                r = make_node(level_p, lo(p), read(1));            // r := hi*var(p) + lo(p)
+                npop = 1;
+            }
             break;
         default:
             r = null_pdd;
@@ -404,6 +443,7 @@ namespace dd {
         SASSERT(!m_free_nodes.contains(r));
         return r;
     }
+
 
     pdd pdd_manager::minus(pdd const& a) {
         if (m_semantics == mod2_e) {
@@ -440,6 +480,113 @@ namespace dd {
         pop(2);
         e1->m_result = r;
         return r;
+    }
+
+    /**
+     * Divide PDD by a constant value.
+     *
+     * IMPORTANT: Performs regular numerical division.
+     * For semantics 'mod2N_e', this means that 'c' must be an integer
+     * and all coefficients of 'a' must be divisible by 'c'.
+     *
+     * NOTE: Why do we not just use 'mul(a, inv(c))' instead?
+     * In case of semantics 'mod2N_e', an invariant is that all PDDs have integer coefficients.
+     * But such a multiplication would create nodes with non-integral coefficients.
+     */
+    pdd pdd_manager::div(pdd const& a, rational const& c) {
+        pdd res(zero_pdd, this);
+        VERIFY(try_div(a, c, res));
+        return res;
+    }
+
+    bool pdd_manager::try_div(pdd const& a, rational const& c, pdd& out_result) {
+        if (m_semantics == free_e) {
+            // Don't cache separately for the free semantics;
+            // use 'mul' so we can share results for a/c and a*(1/c).
+            out_result = mul(inv(c), a);
+            return true;
+        }
+        SASSERT(c.is_int());
+        bool first = true;
+        SASSERT(well_formed());
+        scoped_push _sp(*this);
+        while (true) {
+            try {
+                PDD res = div_rec(a.root, c, null_pdd);
+                if (res != null_pdd)
+                    out_result = pdd(res, this);
+                SASSERT(well_formed());
+                return res != null_pdd;
+            }
+            catch (const mem_out &) {
+                try_gc();
+                if (!first) throw;
+                first = false;
+            }
+        }
+    }
+
+    /// Returns null_pdd if one of the coefficients is not divisible by c.
+    pdd_manager::PDD pdd_manager::div_rec(PDD a, rational const& c, PDD c_pdd) {
+        SASSERT(m_semantics != free_e);
+        SASSERT(c.is_int());
+        if (is_zero(a))
+            return zero_pdd;
+        if (is_val(a)) {
+            rational r = val(a) / c;
+            if (r.is_int())
+                return imk_val(r);
+            else
+                return null_pdd;
+        }
+        if (c_pdd == null_pdd)
+            c_pdd = imk_val(c);
+        op_entry* e1 = pop_entry(a, c_pdd, pdd_div_const_op);
+        op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
+        if (check_result(e1, e2, a, c_pdd, pdd_div_const_op))
+            return e2->m_result;
+        push(div_rec(lo(a), c, c_pdd));
+        push(div_rec(hi(a), c, c_pdd));
+        PDD l = read(2);
+        PDD h = read(1);
+        PDD res = null_pdd;
+        if (l != null_pdd && h != null_pdd)
+            res = make_node(level(a), l, h);
+        pop(2);
+        e1->m_result = res;
+        return res;
+    }
+
+    pdd pdd_manager::pow(pdd const &p, unsigned j) {
+        return pdd(pow(p.root, j), this);
+    }
+
+    pdd_manager::PDD pdd_manager::pow(PDD p, unsigned j) {
+        if (j == 0)
+            return one_pdd;
+        else if (j == 1)
+            return p;
+        else if (is_zero(p))
+            return zero_pdd;
+        else if (is_one(p))
+            return one_pdd;
+        else if (is_val(p))
+            return imk_val(power(val(p), j));
+        else
+            return pow_rec(p, j);
+    }
+
+    pdd_manager::PDD pdd_manager::pow_rec(PDD p, unsigned j) {
+        SASSERT(j > 0);
+        if (j == 1)
+            return p;
+        // j even: pow(p,2*j')   =   pow(p*p,j')
+        // j odd:  pow(p,2*j'+1) = p*pow(p*p,j')
+        PDD q = pow_rec(apply(p, p, pdd_mul_op), j / 2);
+        if (j & 1) {
+            q = apply(q, p, pdd_mul_op);
+        }
+        return q;
     }
 
     //
@@ -691,27 +838,37 @@ namespace dd {
      * factor p into lc*v^degree + rest
      * such that degree(rest, v) < degree
      * Initial implementation is very naive
-     * - memoize intermediary results
      */
     void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
         unsigned level_v = m_var2level[v];
         if (degree == 0) {
-            lc = p;
-            rest = zero();
-        }
-        else if (level(p.root) < level_v) {
             lc = zero();
             rest = p;
+            return;
         }
-        else if (level(p.root) > level_v) {
+        if (level(p.root) < level_v) {
+            lc = zero();
+            rest = p;
+            return;
+        }
+        // Memoize nontrivial cases
+        auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+        factor_entry* e = &et->get_data();
+        if (e->is_valid()) {
+            lc = pdd(e->m_lc, this);
+            rest = pdd(e->m_rest, this);
+            return;
+        }
+
+        if (level(p.root) > level_v) {
             pdd lc1 = zero(), rest1 = zero();
             pdd vv = mk_var(p.var());
             factor(p.hi(), v, degree, lc,  rest);
             factor(p.lo(), v, degree, lc1, rest1);
-            lc   += lc1;
-            rest += rest1;
             lc   *= vv;
             rest *= vv;
+            lc   += lc1;
+            rest += rest1;
         }
         else {
             unsigned d = 0;
@@ -733,8 +890,228 @@ namespace dd {
                 rest = p;
             }
         }
+        et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+        e = &et->get_data();        
+        e->m_lc = lc.root;
+        e->m_rest = rest.root;
     }
 
+    bool pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc) {
+        pdd rest = lc;
+        factor(p, v, degree, lc, rest);
+        return rest.is_zero();
+     }
+
+    /**
+     * Apply function f to all coefficients of the polynomial.
+     * The function should be of type
+     *      rational const& -> rational
+     *      rational const& -> unsigned
+     * and should always return integers.
+     *
+     * NOTE: the operation is not cached.
+     */
+    template <class Fn>
+    pdd pdd_manager::map_coefficients(pdd const& p, Fn f) {
+        if (p.is_val()) {
+            return mk_val(rational(f(p.val())));
+        } else {
+            pdd x = mk_var(p.var());
+            pdd lo = map_coefficients(p.lo(), f);
+            pdd hi = map_coefficients(p.hi(), f);
+            return x*hi + lo;
+        }
+    }
+
+    /**
+     * Perform S-polynomial reduction on p by q,
+     * treating monomial with v as leading.
+     *
+     * p = a v^l + b = a' 2^j v^l + b
+     * q = c v^m + d = c' 2^j v^m + d
+     * such that
+     *      deg(v, p) = l, i.e., v does not divide a and there is no v^l in b
+     *      deg(v, q) = m, i.e., v does not divide c and there is no v^m in d
+     *      l >= m
+     *      j maximal, i.e., not both of a', c' are divisible by 2
+     *
+     * Then we reduce p by q:
+     *
+     *      r = c' p - a' v^(l-m) q
+     *        = b c' - a' d v^(l-m)
+     */
+    bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r) {
+        unsigned const l = p.degree(v);
+        unsigned const m = q.degree(v);
+        // no reduction
+        if (l < m || m == 0)
+            return false;
+               
+        pdd a = zero();
+        pdd b = zero();
+        pdd c = zero();
+        pdd d = zero();
+        p.factor(v, l, a, b);
+        q.factor(v, m, c, d);
+        unsigned const j = std::min(max_pow2_divisor(a), max_pow2_divisor(c));
+        SASSERT(j != UINT_MAX);  // should only be possible when both l and m are 0
+        rational const pow2j = rational::power_of_two(j);
+        pdd const aa = div(a, pow2j);
+        pdd const cc = div(c, pow2j);
+        pdd vv = pow(mk_var(v), l - m);
+        r = b * cc - aa * d * vv;
+        return true;
+    }
+
+    /**
+    * Reduce polynomial a with respect to b by eliminating terms using v
+    * 
+    * a := a1*v^l + a2
+    * b := b1*v^m + b2
+    * l >= m
+    * q, r := quot_rem(a1, b1) 
+    * that is:
+    *     q * b1 + r = a1
+    * r = 0
+    * result := reduce(v, q*b2*v^{l-m}, b) + reduce(v, a2, b)
+    */
+    pdd pdd_manager::reduce(unsigned v, pdd const& a, pdd const& b) {
+        unsigned const m = b.degree(v);
+        // no reduction
+        if (m == 0)
+            return a;
+                    
+        pdd b1 = zero();
+        pdd b2 = zero();
+        b.factor(v, m, b1, b2);
+
+        // TODO - generalize this case to when leading coefficient is not a value
+        if (m_semantics == mod2N_e && b1.is_val() && b1.val().is_odd() && !b1.is_one()) {
+            rational b_inv;
+            VERIFY(b1.val().mult_inverse(m_power_of_2, b_inv));
+            b1 = 1;
+            b2 *= b_inv;
+        }
+
+        return reduce(v, a, m, b1, b2);
+    }
+
+    pdd pdd_manager::reduce(unsigned v, pdd const& a, unsigned m, pdd const& b1, pdd const& b2) {
+        SASSERT(m > 0);
+        unsigned const l = a.degree(v);
+        if (l < m)
+            return a;
+
+        pdd a1 = zero();
+        pdd a2 = zero();
+        pdd q = zero();
+        pdd r = zero();
+        a.factor(v, l, a1, a2);
+
+        quot_rem(a1, b1, q, r);
+        if (r.is_zero()) {
+            SASSERT(q * b1 == a1);
+            a1 = -q * b2;
+            if (l > m)
+                a1 = reduce(v, a1 * pow(mk_var(v), l - m), m, b1, b2);
+        }
+        else
+            a1 = a1 * pow(mk_var(v), l);
+        a2 = reduce(v, a2, m, b1, b2);
+
+        return a1 + a2;
+    }
+
+    /**
+    * quotient/remainder of 'a' divided by 'b'  
+    * a := x*hi + lo
+    * x > level(b):
+    *    hi = q1*b + r1
+    *    lo = q2*b + r2
+    *    x*hi + lo = (x*q1 + q2)*b + (x*r1 + r2)
+    *    q := x*q1 + q2
+    *    r := x*r1 + r2
+    *  Some special cases.
+    *  General multi-variable polynomial division is TBD.
+    */
+    void pdd_manager::quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r) {
+        if (level(a.root) > level(b.root)) {
+            pdd q1(*this), q2(*this), r1(*this), r2(*this);
+            quot_rem(a.hi(), b, q1, r1);
+            quot_rem(a.lo(), b, q2, r2);
+            q = mk_var(a.var()) * q1 + q2;
+            r = mk_var(a.var()) * r1 + r2;
+        }
+        else if (level(a.root) < level(b.root)) {
+            q = zero();
+            r = a;
+        }
+        else if (a == b) {
+            q = one();
+            r = zero();
+        }
+        else if (a.is_val() && b.is_val() && divides(b.val(), a.val())) {
+            q = mk_val(a.val() / b.val());
+            r = zero();
+        }
+        else if (a.is_val() || b.is_val()) {
+            q = zero();
+            r = a;
+        }
+        else {
+            SASSERT(level(a.root) == level(b.root));
+            pdd q1(*this), q2(*this), r1(*this), r2(*this);
+            quot_rem(a.hi(), b.hi(), q1, r1);
+            quot_rem(a.lo(), b.lo(), q2, r2);
+            if (q1 == q2 && r1.is_zero() && r2.is_zero()) {
+                q = q1;
+                r = zero();
+            }
+            else {
+                q = zero();
+                r = a;
+            }
+        }
+    }
+
+    /**
+     * Returns the largest j such that 2^j divides p.
+     */
+    unsigned pdd_manager::max_pow2_divisor(PDD p) {
+        init_mark();
+        unsigned min_j = UINT_MAX;
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r)) {
+                continue;
+            }
+            set_mark(r);
+            if (is_zero(r)) {
+                // skip
+            }
+            else if (is_val(r)) {
+                rational const& c = val(r);
+                if (c.is_odd()) {
+                    m_todo.reset();
+                    return 0;
+                } else {
+                    unsigned j = c.trailing_zeros();
+                    min_j = std::min(j, min_j);
+                }
+            }
+            else {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+        }
+        return min_j;
+    }
+
+    unsigned pdd_manager::max_pow2_divisor(pdd const& p) {
+        return max_pow2_divisor(p.root);
+    }
 
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
@@ -762,6 +1139,32 @@ namespace dd {
             if (!is_zero(lo(p))) return false;
             p = hi(p);
         }
+    }
+
+    /** Determine whether p contains at most one variable. */
+    bool pdd_manager::is_univariate(PDD p) {
+        unsigned const lvl = level(p);
+        while (!is_val(p)) {
+            if (!is_val(lo(p)))
+                return false;
+            if (level(p) != lvl)
+                return false;
+            p = hi(p);
+        }
+        return true;
+    }
+
+    /**
+     * Push coefficients of univariate polynomial in order of ascending degree.
+     * Example:     a*x^2 + b*x + c    ==>    [ c, b, a ]
+     */
+    void pdd_manager::get_univariate_coefficients(PDD p, vector<rational>& coeff) {
+        SASSERT(is_univariate(p));
+        while (!is_val(p)) {
+            coeff.push_back(val(lo(p)));
+            p = hi(p);
+        }
+        coeff.push_back(val(p));
     }
 
     /*
@@ -832,9 +1235,8 @@ namespace dd {
         if (m_semantics == mod2N_e && (r < 0 || r >= m_mod2N)) 
             return imk_val(mod(r, m_mod2N));
         const_info info;
-        if (!m_mpq_table.find(r, info)) {
+        if (!m_mpq_table.find(r, info)) 
             init_value(info, r);
-        }      
         return info.m_node_index;
     }
 
@@ -1005,7 +1407,7 @@ namespace dd {
 
     unsigned pdd_manager::degree(PDD p, unsigned v) {
         init_mark();
-        unsigned level_v = level(v);
+        unsigned level_v = m_var2level[v];
         unsigned max_d = 0, d = 0;
         m_todo.push_back(p);
         while (!m_todo.empty()) {
@@ -1017,15 +1419,17 @@ namespace dd {
             else if (level(r) < level_v)
                 m_todo.pop_back();
             else if (level(r) == level_v) {
-                d = 1;
-                while (!is_val(hi(r)) && level(hi(r)) == level_v) {
+                d = 0;
+                do {
                     ++d;
+                    set_mark(r);
                     r = hi(r);
-                }
+                } while (!is_val(r) && level(r) == level_v);
                 max_d = std::max(d, max_d);
                 m_todo.pop_back();
             }
             else {
+                set_mark(r);
                 m_todo.push_back(lo(r));
                 m_todo.push_back(hi(r));
             }
@@ -1128,6 +1532,7 @@ namespace dd {
     }
 
     void pdd_manager::gc() {
+        m_gc_generation++;
         init_dmark();
         m_free_nodes.reset();
         SASSERT(well_formed());
@@ -1166,6 +1571,8 @@ namespace dd {
         for (op_entry* e : to_keep) {
             m_op_cache.insert(e);
         }
+
+        m_factor_cache.reset();
 
         m_node_table.reset();
         // re-populate node cache
@@ -1221,14 +1628,32 @@ namespace dd {
             rational c = abs(m.first);
             m.second.reverse();
             if (!c.is_one() || m.second.empty()) {
-                out << c;
+                if (m_semantics == mod2N_e && mod(-c, m_mod2N) < c)
+                    out << -mod(-c, m_mod2N);
+                else 
+                    out << c;
                 if (!m.second.empty()) out << "*";
             }
-            bool f = true;
+            unsigned v_prev = UINT_MAX;
+            unsigned pow = 0;
             for (unsigned v : m.second) {
-                if (!f) out << "*";
-                f = false;
-                out << "v" << v;
+                if (v == v_prev) {
+                    pow++;
+                    continue;
+                }
+                if (v_prev != UINT_MAX) {
+                    out << "v" << v_prev;
+                    if (pow > 1)
+                        out << "^" << pow;
+                    out << "*";
+                }
+                pow = 1;
+                v_prev = v;
+            }
+            if (v_prev != UINT_MAX) {
+                out << "v" << v_prev;
+                if (pow > 1)
+                    out << "^" << pow;
             }
         }
         if (first) out << "0";
@@ -1290,6 +1715,112 @@ namespace dd {
         m.dec_ref(r1); 
         return *this; 
     }
+
+    pdd& pdd::operator=(unsigned k) {
+        m.dec_ref(root);
+        root = m.mk_val(k).root;
+        m.inc_ref(root);
+        return *this;
+    }
+
+    pdd& pdd::operator=(rational const& k) {
+        m.dec_ref(root);
+        root = m.mk_val(k).root;
+        m.inc_ref(root);
+        return *this;
+    }
+
+    rational const& pdd::leading_coefficient() const {
+        pdd p = *this;
+        while (!p.is_val())
+            p = p.hi();
+        return p.val();
+    }
+
+    pdd pdd::shl(unsigned n) const {
+        return (*this) * rational::power_of_two(n);
+    }
+
+    /**
+     * \brief substitute variable v by r.
+     * This base line implementation is simplistic and does not use operator caching.
+     */
+    pdd pdd::subst_pdd(unsigned v, pdd const& r) const {
+        if (is_val())
+            return *this;
+        if (m.m_var2level[var()] < m.m_var2level[v])
+            return *this;
+        pdd l = lo().subst_pdd(v, r);
+        pdd h = hi().subst_pdd(v, r);
+        if (var() == v) 
+            return r*h + l;
+        else if (l == lo() && h == hi())
+            return *this;
+        else
+            return m.mk_var(var())*h + l;
+    }
+
+    std::pair<unsigned_vector, pdd> pdd::var_factors() const {
+        if (is_val())
+            return { unsigned_vector(), *this };
+        unsigned v = var();
+        if (lo().is_val()) {
+            if (!lo().is_zero())
+                return { unsigned_vector(), *this };
+            auto [vars, p] = hi().var_factors();
+            vars.push_back(v);
+            return {vars, p};
+        }
+        auto [lo_vars, q] = lo().var_factors();
+        if (lo_vars.empty())
+            return { unsigned_vector(), *this };
+        
+        unsigned_vector lo_and_hi;
+        auto merge = [&](unsigned_vector& lo_vars, unsigned_vector& hi_vars) {
+            unsigned ir = 0, jr = 0;
+            for (unsigned i = 0, j = 0; i < lo_vars.size() || j < hi_vars.size(); ) {
+                if (i == lo_vars.size()) 
+                    hi_vars[jr++] = hi_vars[j++];
+                else if (j == hi_vars.size()) 
+                    lo_vars[ir++] = lo_vars[i++];
+                else if (lo_vars[i] == hi_vars[j]) {
+                    lo_and_hi.push_back(lo_vars[i]);
+                    ++i;
+                    ++j;
+                }
+                else if (m.m_var2level[lo_vars[i]] > m.m_var2level[hi_vars[j]]) 
+                    hi_vars[jr++] = hi_vars[j++];
+                else 
+                    lo_vars[ir++] = lo_vars[i++];
+            }
+            lo_vars.shrink(ir);
+            hi_vars.shrink(jr);
+        };
+
+        auto mul = [&](unsigned_vector const& vars, pdd p) {
+            for (auto v : vars)
+                p *= m.mk_var(v);
+            return p;
+        };
+
+        auto [hi_vars, p] = hi().var_factors();
+        if (lo_vars.back() == v) {
+            lo_vars.pop_back();
+            merge(lo_vars, hi_vars);
+            lo_and_hi.push_back(v);
+            return { lo_and_hi, mul(lo_vars, q) + mul(hi_vars, p) };
+        }
+        if (hi_vars.empty())
+            return { unsigned_vector(), *this };
+        
+        merge(lo_vars, hi_vars);
+        hi_vars.push_back(v);
+        if (lo_and_hi.empty())
+            return { unsigned_vector(), *this };
+        else 
+            return { lo_and_hi, mul(lo_vars, q) + mul(hi_vars, p) };                
+    }
+
 
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 

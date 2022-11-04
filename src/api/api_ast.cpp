@@ -1178,7 +1178,7 @@ extern "C" {
             case OP_BSMOD: return Z3_OP_BSMOD;
             case OP_BSDIV0: return Z3_OP_BSDIV0;
             case OP_BUDIV0: return Z3_OP_BUDIV0;
-            case OP_BSREM0: return Z3_OP_BUREM0;
+            case OP_BSREM0: return Z3_OP_BSREM0;
             case OP_BUREM0: return Z3_OP_BUREM0;
             case OP_BSMOD0: return Z3_OP_BSMOD0;
             case OP_ULEQ:   return Z3_OP_ULEQ;

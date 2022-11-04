@@ -90,13 +90,26 @@ public:
     vector<macro_decl>::iterator end() const { return m_decls->end(); }
 };
 
+
+class proof_cmds {
+public:
+    virtual ~proof_cmds() {}
+    virtual void add_literal(expr* e) = 0;
+    virtual void end_assumption() = 0;
+    virtual void end_infer() = 0;
+    virtual void end_deleted() = 0;
+    virtual void updt_params(params_ref const& p) = 0;
+    virtual void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) = 0;
+};
+
+
 /**
    \brief Generic wrapper.
 */
 class object_ref {
     unsigned m_ref_count = 0;
 public:
-    virtual ~object_ref() {}
+    virtual ~object_ref() = default;
     virtual void finalize(cmd_context & ctx) = 0;
     void inc_ref(cmd_context & ctx) {
         m_ref_count++;
@@ -148,6 +161,7 @@ struct builtin_decl {
 
 class opt_wrapper : public check_sat_result {
 public:
+    opt_wrapper(ast_manager& m): check_sat_result(m) {}
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
@@ -172,6 +186,7 @@ public:
     bool owns_manager() const { return m_manager != nullptr; }
 };
 
+
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
     enum status {
@@ -189,6 +204,22 @@ public:
     public:
         scoped_watch(cmd_context & ctx):m_ctx(ctx) { m_ctx.m_watch.reset(); m_ctx.m_watch.start(); }
         ~scoped_watch() { m_ctx.m_watch.stop(); }
+    };
+
+    struct scoped_redirect {
+        cmd_context& m_ctx;
+        std::ostream& m_verbose;
+        std::ostream* m_warning;
+
+        scoped_redirect(cmd_context& ctx): m_ctx(ctx), m_verbose(verbose_stream()), m_warning(warning_stream()) {
+            set_warning_stream(&(*m_ctx.m_diagnostic));
+            set_verbose_stream(m_ctx.diagnostic_stream());
+        }
+
+        ~scoped_redirect() {
+            set_verbose_stream(m_verbose);
+            set_warning_stream(m_warning);
+        }
     };
 
     
@@ -209,6 +240,7 @@ protected:
     bool                         m_ignore_check = false;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
     bool                         m_exit_on_error = false;
     bool                         m_allow_duplicate_declarations = false;
+    scoped_ptr<proof_cmds>       m_proof_cmds;
 
     static std::ostringstream    g_error_stream;
 
@@ -380,6 +412,10 @@ public:
     ast_manager & get_ast_manager() override { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
+
+    proof_cmds* get_proof_cmds() { return m_proof_cmds.get(); }
+    solver* get_solver() { return m_solver.get(); }
+    void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
 
     void set_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }

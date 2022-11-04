@@ -39,6 +39,8 @@ class macro_finder {
 
     bool is_macro(expr * n, app_ref & head, expr_ref & def);
 
+    void revert_unsafe_macros(vector<justified_expr>& new_fmls);
+
 public:
     macro_finder(ast_manager & m, macro_manager & mm);
     ~macro_finder();

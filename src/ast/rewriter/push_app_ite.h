@@ -49,7 +49,6 @@ protected:
     bool is_target(func_decl * decl, unsigned num_args, expr * const * args) override;
 public:
     ng_push_app_ite_cfg(ast_manager& m): push_app_ite_cfg(m) {}
-    virtual ~ng_push_app_ite_cfg() {}
 };
 
 struct push_app_ite_rw : public rewriter_tpl<push_app_ite_cfg> {

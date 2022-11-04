@@ -24,7 +24,7 @@ Revision History:
 
 class ast_printer {
 public:
-    virtual ~ast_printer() {}
+    virtual ~ast_printer() = default;
     virtual void pp(sort * s, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void pp(func_decl * f, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const { UNREACHABLE(); }
@@ -45,7 +45,6 @@ public:
 
 class ast_printer_context : public ast_printer {
 public:
-    ~ast_printer_context() override {}
     virtual ast_manager & get_ast_manager() = 0;
     virtual std::ostream & regular_stream();
     virtual std::ostream & diagnostic_stream();

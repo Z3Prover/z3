@@ -144,6 +144,10 @@ namespace user_solver {
         bool get_case_split(sat::bool_var& var, lbool &phase) override;
         
         void asserted(sat::literal lit) override;
+        bool use_diseqs() const override { return (bool)m_diseq_eh; }
+        void new_eq_eh(euf::th_eq const& eq) override;
+        void new_diseq_eh(euf::th_eq const& de) override;
+
         sat::check_result check() override;
         void push_core() override;
         void pop_core(unsigned n) override;

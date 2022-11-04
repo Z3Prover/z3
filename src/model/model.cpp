@@ -225,6 +225,20 @@ struct model::top_sort : public ::top_sort<func_decl> {
     }
 };
 
+void model::evaluate_constants() {
+    for (auto& [k, p] : m_interp) {
+        auto & [i, e] = p;
+        if (m.is_value(e))
+            continue;
+        expr_ref val(m);
+        val = (*this)(e);
+        m.dec_ref(e);
+        m.inc_ref(val);
+        p.second = val;
+    }
+}
+
+
 void model::compress(bool force_inline) {
     if (m_cleaned) return;
 

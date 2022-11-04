@@ -75,7 +75,7 @@ static void display_model(sat::solver const & s) {
         case l_true: std::cout << i << " ";  break;
         }
     }
-    std::cout << "\n";
+    std::cout << "0\n";
 }
 
 static void display_core(sat::solver const& s, vector<sat::literal_vector> const& tracking_clauses) {

@@ -21,13 +21,18 @@ Revision History:
 #include "util/vector.h"
 #include "util/map.h"
 #include "util/small_object_allocator.h"
+#include "util/rational.h"
 
 namespace dd {
 
     class bdd;
+    class bddv;
+    class test_bdd;
 
     class bdd_manager {
         friend bdd;
+        friend bddv;
+        friend test_bdd;
 
         typedef unsigned BDD;
 
@@ -40,7 +45,8 @@ namespace dd {
             bdd_not_op = 5,
             bdd_and_proj_op = 6,
             bdd_or_proj_op = 7,
-            bdd_no_op = 8,
+	    bdd_cofactor_op = 8,
+            bdd_no_op = 9,
         };
 
         struct bdd_node {
@@ -141,6 +147,7 @@ namespace dd {
         BDD mk_not_rec(BDD b);
         BDD mk_ite_rec(BDD a, BDD b, BDD c);
         BDD mk_quant_rec(unsigned lvl, BDD b, bdd_op op);
+	BDD mk_cofactor_rec(BDD a, BDD b);
 
         void push(BDD b);
         void pop(unsigned num_scopes);
@@ -188,6 +195,7 @@ namespace dd {
         bdd mk_and(bdd const& a, bdd const& b);
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
+	bdd mk_cofactor(bdd const& a, bdd const& b);
 
         void reserve_var(unsigned v);
         bool well_formed();
@@ -199,10 +207,13 @@ namespace dd {
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
 
+        bool_vector mk_usub(bool_vector const& b);
+
+
     public:
         struct mem_out {};
 
-        bdd_manager(unsigned nodes);
+        bdd_manager(unsigned num_vars);
         ~bdd_manager();
 
         void set_max_num_nodes(unsigned n) { m_max_num_bdd_nodes = n; }
@@ -218,6 +229,39 @@ namespace dd {
         bdd mk_exists(unsigned v, bdd const& b);
         bdd mk_forall(unsigned v, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
+
+        /* BDD vector operations
+         * - Fixed-width arithmetic, i.e., modulo 2^size
+         * - The lowest index is the LSB
+         */
+        bdd mk_ule(bddv const& a, bddv const& b);
+        bdd mk_uge(bddv const& a, bddv const& b); // { return mk_ule(b, a); }
+        bdd mk_ult(bddv const& a, bddv const& b); // { return mk_ule(a, b) && !mk_eq(a, b); }
+        bdd mk_ugt(bddv const& a, bddv const& b); // { return mk_ult(b, a); }
+        bdd mk_sle(bddv const& a, bddv const& b);
+        bdd mk_sge(bddv const& a, bddv const& b); // { return mk_sle(b, a); }
+        bdd mk_slt(bddv const& a, bddv const& b); // { return mk_sle(a, b) && !mk_eq(a, b); }
+        bdd mk_sgt(bddv const& a, bddv const& b); // { return mk_slt(b, a); }
+        bdd mk_eq(bddv const& a, bddv const& b);
+        bdd mk_eq(bddv const& a, rational const& v);
+        bdd mk_eq(unsigned_vector const& vars, rational const& v);
+        bddv mk_num(rational const& n, unsigned num_bits);
+        bddv mk_ones(unsigned num_bits);
+        bddv mk_zero(unsigned num_bits);
+        bddv mk_var(unsigned num_bits, unsigned const* vars);
+        bddv mk_var(unsigned_vector const& vars);
+        bddv mk_add(bddv const& a, bddv const& b);
+        bddv mk_add(bddv const& a, std::function<bdd(unsigned)>& get_bit);
+        bddv mk_sub(bddv const& a, bddv const& b);
+        bddv mk_usub(bddv const& a);
+        bddv mk_mul(bddv const& a, bddv const& b);
+        bddv mk_mul(bddv const& a, bool_vector const& b);
+        bddv mk_mul(bddv const& a, rational const& val);
+        bddv mk_concat(bddv const& a, bddv const& b);
+        void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
+        bool is_constv(bddv const& a);
+        rational to_val(bddv const& a);
+
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
@@ -242,14 +286,16 @@ namespace dd {
         unsigned var() const { return m->var(root); }
 
         bool is_true() const { return root == bdd_manager::true_bdd; }
-        bool is_false() const { return root == bdd_manager::false_bdd; }        
+        bool is_false() const { return root == bdd_manager::false_bdd; }
+        bool is_const() const { return is_false() || is_true(); }
 
-        bdd operator!() { return m->mk_not(*this); }
-        bdd operator&&(bdd const& other) { return m->mk_and(*this, other); }
-        bdd operator||(bdd const& other) { return m->mk_or(*this, other); }
-        bdd operator^(bdd const& other) { return m->mk_xor(*this, other); }
+        bdd operator!() const { return m->mk_not(*this); }
+        bdd operator&&(bdd const& other) const { return m->mk_and(*this, other); }
+        bdd operator||(bdd const& other) const { return m->mk_or(*this, other); }
+        bdd operator^(bdd const& other) const { return m->mk_xor(*this, other); }
         bdd operator|=(bdd const& other) { return *this = *this || other; }
         bdd operator&=(bdd const& other) { return *this = *this && other; }
+	bdd cofactor(bdd const& cube) { return m->mk_cofactor(*this, cube); }
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(bdd const& other) const { return root == other.root; }
         bool operator!=(bdd const& other) const { return root != other.root; }
@@ -259,6 +305,79 @@ namespace dd {
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);
+
+    class bddv {
+        friend bdd_manager;
+
+        vector<bdd>  m_bits;
+        bdd_manager* m;
+
+        bddv(vector<bdd> const& bits, bdd_manager* m): m_bits(bits), m(m) { SASSERT(m); }
+        bddv(vector<bdd>&& bits, bdd_manager* m): m_bits(std::move(bits)), m(m) { SASSERT(m); }
+
+        bddv(bdd_manager* m): m_bits(), m(m) { SASSERT(m); }
+        bdd const& operator[](unsigned i) const { return m_bits[i]; }
+        bdd& operator[](unsigned i) { return m_bits[i]; }
+        void push_back(bdd const& a) { m_bits.push_back(a); }
+        void push_back(bdd&& a) { m_bits.push_back(std::move(a)); }
+        void shl();
+        void shr();
+
+    public:
+        unsigned size() const { return m_bits.size(); }
+        vector<bdd> const& bits() const { return m_bits; }
+
+        /* unsigned comparison operators */
+        bdd operator<=(bddv const& other) const { return m->mk_ule(*this, other); }  ///< unsigned comparison
+        bdd operator>=(bddv const& other) const { return m->mk_uge(*this, other); }  ///< unsigned comparison
+        bdd operator< (bddv const& other) const { return m->mk_ult(*this, other); }  ///< unsigned comparison
+        bdd operator> (bddv const& other) const { return m->mk_ugt(*this, other); }  ///< unsigned comparison
+        bdd operator<=(rational const& other) const { return m->mk_ule(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator>=(rational const& other) const { return m->mk_uge(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator< (rational const& other) const { return m->mk_ult(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator> (rational const& other) const { return m->mk_ugt(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+
+        /* signed comparison operators */
+        bdd sle(bddv const& other) const { return m->mk_sle(*this, other); }
+        bdd sge(bddv const& other) const { return m->mk_sge(*this, other); }
+        bdd slt(bddv const& other) const { return m->mk_slt(*this, other); }
+        bdd sgt(bddv const& other) const { return m->mk_sgt(*this, other); }
+
+        bdd all0() const;        
+        bdd all1() const;
+
+        bdd operator==(bddv const& other) const { return m->mk_eq(*this, other); }
+        bdd operator==(rational const& other) const { return m->mk_eq(*this, other); }
+        bdd operator!=(bddv const& other) const { return !m->mk_eq(*this, other); }
+        bdd operator!=(rational const& other) const { return !m->mk_eq(*this, other); }
+
+        bddv operator+(bddv const& other) const { return m->mk_add(*this, other); }
+        bddv operator+(rational const& other) const { return m->mk_add(*this, m->mk_num(other, size())); }
+        bddv operator-(bddv const& other) const { return m->mk_sub(*this, other); }
+        bddv operator-(rational const& other) const { return m->mk_sub(*this, m->mk_num(other, size())); }
+        bddv rev_sub(rational const& other) const { return m->mk_sub(m->mk_num(other, size()), *this); }
+        bddv operator*(bddv const& other) const { return m->mk_mul(*this, other); }
+        bddv operator*(rational const& other) const { return m->mk_mul(*this, other); }
+        bddv operator*(bool_vector const& other) const { return m->mk_mul(*this, other); }
+        bddv append(bddv const& other) const { return m->mk_concat(*this, other); }
+        void quot_rem(bddv const& divisor, bddv& quot, bddv& rem) const { m->mk_quot_rem(*this, divisor, quot, rem); }
+
+        bool is_const() const { return m->is_constv(*this); }
+        rational to_val() const { return m->to_val(*this); }
+    };
+
+    inline bdd operator<=(rational const& r, bddv const& a) { return a >= r; }  ///< unsigned comparison
+    inline bdd operator>=(rational const& r, bddv const& a) { return a <= r; }  ///< unsigned comparison
+    inline bdd operator< (rational const& r, bddv const& a) { return a > r; }  ///< unsigned comparison
+    inline bdd operator> (rational const& r, bddv const& a) { return a < r; }  ///< unsigned comparison
+    inline bdd operator==(rational const& r, bddv const& a) { return a == r; }
+    inline bdd operator!=(rational const& r, bddv const& a) { return a != r; }
+    inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
+    inline bddv operator+(rational const& r, bddv const& a) { return a + r; }
+    inline bddv operator-(rational const& r, bddv const& a) { return a.rev_sub(r); }
+    inline bdd operator<=(int i, bddv const& a) { return a >= rational(i); }
+    inline bdd operator<=(bddv const& a, int i) { return a <= rational(i); }
+
 
 }
 

@@ -22,7 +22,7 @@ Notes:
 
 class z3_exception {
 public:
-    virtual ~z3_exception() {}
+    virtual ~z3_exception() = default;
     virtual char const * msg() const = 0;
     virtual unsigned error_code() const;
     bool has_error_code() const;
@@ -42,7 +42,6 @@ public:
     struct fmt {};
     default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
-    ~default_exception() override {}
     char const * msg() const override;
 };
 

@@ -18,15 +18,18 @@
 #include "math/lp/nla_basics_lemmas.h"
 #include "math/lp/nla_order_lemmas.h"
 #include "math/lp/nla_monotone_lemmas.h"
+#include "math/lp/nla_grobner.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
 #include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_intervals.h"
-#include "math/grobner/pdd_solver.h"
 #include "nlsat/nlsat_solver.h"
 
+namespace nra {
+    class solver;
+}
 
 namespace nla {
 
@@ -139,6 +142,20 @@ struct pp_factorization {
 };
 
 class core {
+    friend struct common;
+    friend class new_lemma;
+    friend class grobner;
+    friend class order;
+    friend struct basics;
+    friend struct tangents;
+    friend class monotone;
+    friend struct nla_settings;
+    friend class intervals;
+    friend class horner;
+    friend class solver;
+    friend class monomial_bounds;
+    friend class nra::solver;
+
     struct stats {
         unsigned m_nla_explanations;
         unsigned m_nla_lemmas;
@@ -148,16 +165,18 @@ class core {
             memset(this, 0, sizeof(*this));
         }
     };
-    stats                    m_stats;
-    friend class new_lemma;
 
-    unsigned m_nlsat_delay { 50 };
-    unsigned m_nlsat_fails { 0 };
+    stats    m_stats;
+    unsigned m_nlsat_delay = 50;
+    unsigned m_nlsat_fails = 0;
+
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
-public:
+
     var_eqs<emonics>         m_evars;
+
     lp::lar_solver&          m_lar_solver;
+    reslimit&                m_reslim;
     vector<lemma> *          m_lemma_vec;
     lp::u_set                m_to_refine;
     tangents                 m_tangents;
@@ -166,24 +185,21 @@ public:
     monotone                 m_monotone;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
+    nla_settings             m_nla_settings;        
+
     horner                   m_horner;
-    nla_settings             m_nla_settings;    
-    dd::pdd_manager          m_pdd_manager;
-    dd::solver               m_pdd_grobner;
-private:
+    grobner                  m_grobner;
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable lp::u_set        m_active_var_set;
-    lp::u_set                m_rows;
+
     reslimit                 m_nra_lim;
-public:
-    reslimit&                m_reslim;
-    bool                     m_use_nra_model;
+
+    bool                     m_use_nra_model = false;
     nra::solver              m_nra;
-private:
-    bool                     m_cautious_patching;
-    lpvar                    m_patched_var;
-    monic const*             m_patched_monic;      
+    bool                     m_cautious_patching = true;
+    lpvar                    m_patched_var = 0;
+    monic const*             m_patched_monic = nullptr;      
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
 
@@ -205,6 +221,8 @@ public:
         m_active_var_set.resize(m_lar_solver.number_of_vars());
     }
     
+    unsigned get_var_weight(lpvar) const;
+
     reslimit& reslim() { return m_reslim; }  
     emonics& emons() { return m_emons; }
     const emonics& emons() const { return m_emons; }
@@ -243,12 +261,15 @@ public:
 
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 
-        return m_nla_settings.run_horner() && lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; 
+        return m_nla_settings.run_horner && lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency == 0; 
     }
 
     bool need_run_grobner() const { 
-        return m_nla_settings.run_grobner() && lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0; 
+        return m_nla_settings.run_grobner && lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency == 0; 
     }
+
+    void set_active_vars_weights(nex_creator&);
+    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     
     void incremental_linearization(bool);
     
@@ -450,31 +471,19 @@ public:
     lpvar map_to_root(lpvar) const;
     std::ostream& print_terms(std::ostream&) const;
     std::ostream& print_term(const lp::lar_term&, std::ostream&) const;
+
     template <typename T>
-    std::ostream& print_row(const T & row , std::ostream& out) const {
+    std::ostream& print_row(const T& row, std::ostream& out) const {
         vector<std::pair<rational, lpvar>> v;
         for (auto p : row) {
             v.push_back(std::make_pair(p.coeff(), p.var()));
         }
-        return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); },
-        out);        
+        return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); }, out);
     }
-    void run_grobner();
-    void find_nl_cluster();
-    void prepare_rows_and_active_vars();
-    void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
-    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
-    void display_matrix_of_m_rows(std::ostream & out) const;
-    void set_active_vars_weights(nex_creator&);
-    unsigned get_var_weight(lpvar) const;
-    void add_row_to_grobner(const vector<lp::row_cell<rational>> & row);    
-    bool check_pdd_eq(const dd::solver::equation*);
-    const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
-    dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*&);
-    void set_level2var_for_grobner();
-    void configure_grobner();
+    
     bool influences_nl_var(lpvar) const;
     bool is_nl_var(lpvar) const;
+    
     bool is_used_in_monic(lpvar) const;
     void patch_monomials();
     void patch_monomials_on_to_refine();

@@ -32,7 +32,6 @@ namespace nlsat {
         bool_vector      m_assigned;
     public:
         assignment(anum_manager & _m):m_values(_m) {}
-        virtual ~assignment() {}
         anum_manager & am() const { return m_values.m(); }
         void swap(assignment & other) {
             m_values.swap(other.m_values);

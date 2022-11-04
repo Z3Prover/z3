@@ -177,10 +177,10 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     if (!ctx.has_manager())
         throw cmd_exception("proof is not available");
 
-    if (ctx.ignore_check())
-        return;
     expr_ref pr(ctx.m());
     auto* chsr = ctx.get_check_sat_result();
+    if (!chsr && ctx.ignore_check())
+        return;
     if (!chsr)
         throw cmd_exception("proof is not available");
     pr = chsr->get_proof();
@@ -379,8 +379,6 @@ public:
         m_int_real_coercions(":int-real-coercions"),
         m_reproducible_resource_limit(":reproducible-resource-limit") {
     }
-    ~set_get_option_cmd() override {}
-
 };
 
 class set_option_cmd : public set_get_option_cmd {

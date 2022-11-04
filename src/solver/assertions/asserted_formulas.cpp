@@ -26,6 +26,7 @@ Revision History:
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
 #include "ast/occurs.h"
+#include "ast/bv_decl_plugin.h"
 #include "solver/assertions/asserted_formulas.h"
 
 
@@ -54,6 +55,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_elim_bvs_from_quantifiers(*this),
     m_cheap_quant_fourier_motzkin(*this),
     m_apply_bit2int(*this),
+    m_bv_size_reduce(*this),
     m_lift_ite(*this),
     m_ng_lift_ite(*this),
     m_find_macros(*this),
@@ -154,6 +156,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     force_push();
     proof_ref  in_pr(_in_pr, m), pr(_in_pr, m);
     expr_ref   r(e, m);
+    SASSERT(m.is_bool(e));
 
     if (inconsistent())
         return;
@@ -168,7 +171,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
             else
                 pr = m.mk_modus_ponens(in_pr, pr);
         }
-        TRACE("assert_expr_bug", tout << "after...\n" << r << "\n";);
+        TRACE("assert_expr_bug", tout << "after...\n" << r << "\n" << pr << "\n";);
     }
 
     m_has_quantifiers |= ::has_quantifiers(e);
@@ -204,6 +207,7 @@ void asserted_formulas::push_scope_core() {
     m_elim_term_ite.push();
     m_bv_sharing.push_scope();
     m_macro_manager.push_scope();
+    m_bv_size_reduce.push_scope();
     commit();
     TRACE("asserted_formulas_scopes", tout << "after push: " << m_scopes.size() << "\n");
 }
@@ -224,6 +228,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     TRACE("asserted_formulas_scopes", tout << "before pop " << num_scopes << " of " << m_scopes.size() << "\n";);
     m_bv_sharing.pop_scope(num_scopes);
     m_macro_manager.pop_scope(num_scopes);
+    m_bv_size_reduce.pop_scope(num_scopes);
     unsigned new_lvl    = m_scopes.size() - num_scopes;
     scope & s           = m_scopes[new_lvl];
     m_inconsistent      = s.m_inconsistent_old;
@@ -292,6 +297,7 @@ void asserted_formulas::reduce() {
     if (!invoke(m_find_macros)) return;
     if (!invoke(m_apply_quasi_macros)) return;
     if (!invoke(m_apply_bit2int)) return;
+    if (!invoke(m_bv_size_reduce)) return;
     if (!invoke(m_cheap_quant_fourier_motzkin)) return;
     if (!invoke(m_pattern_inference)) return;
     if (!invoke(m_max_bv_sharing_fn)) return;
@@ -715,6 +721,40 @@ void asserted_formulas::refine_inj_axiom_fn::simplify(justified_expr const& j, e
     }
 }
 
+
+void asserted_formulas::bv_size_reduce_fn::simplify(justified_expr const& j, expr_ref& n, proof_ref& p) {
+    bv_util bv(m);
+    expr* f = j.get_fml();
+    expr* a, *b, *x;
+    unsigned lo, hi;
+    rational r;
+    expr_ref new_term(m);
+    auto check_reduce = [&](expr* a, expr* b) {
+        if (bv.is_extract(a, lo, hi, x) && lo > 0 && hi + 1 == bv.get_bv_size(x) && bv.is_numeral(b, r) && r == 0) {
+            // insert x -> x[0,lo-1] ++ n into sub
+            new_term = bv.mk_concat(b, bv.mk_extract(lo - 1, 0, x));
+            m_sub.insert(x, new_term);
+            n = j.get_fml();
+            return true;
+        }
+        return false;
+    };
+    if (m.is_eq(f, a, b) && (check_reduce(a, b) || check_reduce(b, a))) {
+        // done
+    }
+    else {
+        n = j.get_fml();
+        m_sub(n);
+    }
+}
+
+void asserted_formulas::bv_size_reduce_fn::push_scope() {
+    m_sub.push_scope();
+}
+
+void asserted_formulas::bv_size_reduce_fn::pop_scope(unsigned n) {
+    m_sub.pop_scope(n);
+}
 
 unsigned asserted_formulas::get_total_size() const {
     expr_mark visited;

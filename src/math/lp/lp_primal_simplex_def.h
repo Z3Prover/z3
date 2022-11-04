@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include <string>
 #include "util/vector.h"
 #include "math/lp/lp_primal_simplex.h"

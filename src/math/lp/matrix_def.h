@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+#pragma once
 
 #include <cmath>
 #include <string>

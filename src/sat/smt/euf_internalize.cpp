@@ -159,15 +159,22 @@ namespace euf {
             v = si.add_bool_var(e);
             s().set_external(v);
             s().set_eliminated(v, false);
+            set_bool_var2expr(v, e);
+            m_var_trail.push_back(v);
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
-            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
+            th_proof_hint* ph1 = nullptr, * ph2 = nullptr;
+            if (use_drat()) {
+                ph1 = mk_smt_hint(symbol("tseitin"), ~lit, lit2);
+                ph2 = mk_smt_hint(symbol("tseitin"), lit, ~lit2);
+            }
+            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph1));
+            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id(), ph2));
             add_aux(~lit, lit2);
             add_aux(lit, ~lit2);
             lit = lit2;
         }
 
-        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
+        TRACE("euf", tout << "attach v" << v << " " << mk_bounded_pp(e, m) << "\n";);
         m_bool_var2expr.reserve(v + 1, nullptr);
         if (m_bool_var2expr[v] && m_egraph.find(e)) {
             if (m_egraph.find(e)->bool_var() != v) {
@@ -181,11 +188,11 @@ namespace euf {
             return lit;
         }
 
-        m_bool_var2expr[v] = e;
-        m_var_trail.push_back(v);        
+        set_bool_var2expr(v, e);      
         enode* n = m_egraph.find(e);
         if (!n) 
             n = mk_enode(e, 0, nullptr);
+        CTRACE("euf", n->bool_var() != sat::null_bool_var && n->bool_var() != v, display(tout << bpp(n) << " " << n->bool_var() << " vs " << v << "\n"));
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
@@ -211,10 +218,9 @@ namespace euf {
     void solver::add_not_distinct_axiom(app* e, enode* const* args) {
         SASSERT(m.is_distinct(e));
         unsigned sz = e->get_num_args();
-        sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
 
         if (sz <= 1) {
-            s().mk_clause(0, nullptr, st);
+            s().mk_clause(0, nullptr, mk_distinct_status(0, nullptr));
             return;
         }
 
@@ -229,7 +235,7 @@ namespace euf {
                 }
             }
             add_root(lits);
-            s().mk_clause(lits, st);
+            s().mk_clause(lits, mk_distinct_status(lits));
         }
         else {
             // g(f(x_i)) = x_i
@@ -247,13 +253,13 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(lit, st);
+                s().add_clause(lit, mk_distinct_status(lit));
                 eqs.push_back(mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
-            s().add_clause(lit, st);
+            s().add_clause(lit, mk_distinct_status(lit));
         }
     }
 
@@ -261,45 +267,47 @@ namespace euf {
         SASSERT(m.is_distinct(e));
         static const unsigned distinct_max_args = 32;
         unsigned sz = e->get_num_args();
-        sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
+        
         if (sz <= 1) 
-            return;
-        if (sz <= distinct_max_args) {
+            return;       
+        sort* srt = e->get_arg(0)->get_sort();
+        auto sort_sz = srt->get_num_elements();
+        if (sort_sz.is_finite() && sort_sz.size() < sz)
+            s().add_clause(0, nullptr, mk_tseitin_status(0, nullptr));
+        else if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = ~mk_literal(eq);
-                    s().add_clause(lit, st);
+                    s().add_clause(lit, mk_distinct_status(lit));
                 }
             }
         }
         else {
-            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n
-            sort* srt = e->get_arg(0)->get_sort();
+            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n            
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
             func_decl_ref f(m.mk_fresh_func_decl("dist-f", "", 1, &srt, u), m);
             for (unsigned i = 0; i < sz; ++i) {
                 expr_ref fapp(m.mk_app(f, e->get_arg(i)), m);
-                expr_ref fresh(m.mk_fresh_const("dist-value", u), m);
+                expr_ref fresh(m.mk_model_value(i, u), m);
                 enode* n = mk_enode(fresh, 0, nullptr);
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(lit, st);
+                s().add_clause(lit, mk_distinct_status(lit));
             }
         }
     }
 
     void solver::axiomatize_basic(enode* n) {
         expr* e = n->get_expr();
-        sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
         expr* c = nullptr, * th = nullptr, * el = nullptr;
         if (!m.is_bool(e) && m.is_ite(e, c, th, el)) {
             expr_ref eq_th = mk_eq(e, th);
             sat::literal lit_th = mk_literal(eq_th);
             if (th == el) {
-                s().add_clause(lit_th, st);
+                s().add_clause(lit_th, mk_tseitin_status(lit_th));
             }
             else {
                 sat::literal lit_c = mk_literal(c);
@@ -307,8 +315,8 @@ namespace euf {
                 sat::literal lit_el = mk_literal(eq_el);
                 add_root(~lit_c, lit_th);
                 add_root(lit_c, lit_el);
-                s().add_clause(~lit_c, lit_th, st);
-                s().add_clause(lit_c, lit_el, st);
+                s().add_clause(~lit_c, lit_th, mk_tseitin_status(~lit_c, lit_th));
+                s().add_clause(lit_c, lit_el, mk_tseitin_status(lit_c, lit_el));
             }
         }
         else if (m.is_distinct(e)) {
@@ -321,13 +329,13 @@ namespace euf {
                     eqs.push_back(eq);
                 }
             }
-            expr_ref fml(m.mk_or(eqs), m);
+            expr_ref fml = mk_or(eqs);
             sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             add_root(~dist, ~some_eq);
             add_root(dist, some_eq);
-            s().add_clause(~dist, ~some_eq, st);
-            s().add_clause(dist, some_eq, st);
+            s().add_clause(~dist, ~some_eq, mk_distinct_status(~dist, ~some_eq));
+            s().add_clause(dist, some_eq, mk_distinct_status(dist, some_eq));
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -338,8 +346,8 @@ namespace euf {
                 sat::literal lit2 = expr2literal(e2);
                 add_root(~lit1, lit2);
                 add_root(lit1, ~lit2);
-                s().add_clause(~lit1, lit2, st);
-                s().add_clause(lit1, ~lit2, st);
+                s().add_clause(~lit1, lit2, mk_distinct_status(~lit1, lit2));
+                s().add_clause(lit1, ~lit2, mk_distinct_status(lit1, ~lit2));
             }
         }
     }

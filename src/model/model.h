@@ -81,6 +81,8 @@ public:
     expr_ref get_inlined_const_interp(func_decl* f, bool force_inline);
     expr_ref unfold_as_array(expr* e);
 
+    void set_inline() { m_inline = true; }
+
     //
     // Primitives for building models
     //
@@ -91,6 +93,8 @@ public:
     model * translate(ast_translation & translator) const;
 
     void compress(bool force_inline = false);
+
+    void evaluate_constants();
 
     void set_model_completion(bool f) { m_mev.set_model_completion(f); }
     void updt_params(params_ref const & p);

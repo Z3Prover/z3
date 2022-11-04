@@ -60,6 +60,11 @@ namespace sat {
     class justification;
     class clause;
 
+    struct clause_eh {
+        virtual ~clause_eh() {}
+        virtual void on_clause(unsigned, literal const*, status) = 0;        
+    };
+
     class drat {
         struct stats {
             unsigned m_num_drup = 0;
@@ -73,6 +78,7 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
+        clause_eh* m_clause_eh = nullptr;
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
@@ -89,8 +95,8 @@ namespace sat {
         bool                    m_check_sat = false;
         bool                    m_check = false;
         bool                    m_activity = false;
-        bool                    m_trim = false;
         stats                   m_stats;
+
 
         void dump_activity();
         void dump(unsigned n, literal const* c, status st);
@@ -138,17 +144,9 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        // support for SMT - connect Boolean variables with AST nodes
-        // associate AST node id with Boolean variable v
-        void bool_def(bool_var v, unsigned n);
+        void set_clause_eh(clause_eh& clause_eh) { m_clause_eh = &clause_eh; }
 
-        // declare AST node n with 'name' and arguments arg
-        void def_begin(char id, unsigned n, std::string const& name);
-        void def_add_arg(unsigned arg);
-        void def_end();
-
-        // ad-hoc logging until a format is developed
-        void log_adhoc(std::function<void(std::ostream&)>& fn);
+        std::ostream* out() { return m_out; }
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);
@@ -175,8 +173,6 @@ namespace sat {
         svector<std::pair<literal, clause*>> const& units() { return m_units; }
         bool is_drup(unsigned n, literal const* c, literal_vector& units);
         solver& get_solver() { return s; }
-
-        svector<std::pair<clause&, status>> trim();
         
     };
 

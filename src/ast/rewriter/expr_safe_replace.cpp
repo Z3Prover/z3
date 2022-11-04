@@ -190,3 +190,17 @@ void expr_safe_replace::apply_substitution(expr* s, expr* def, expr_ref& t) {
     (*this)(t, t);
     reset();
 }
+
+void expr_safe_replace::push_scope() {
+    m_limit.push_back(m_src.size());
+}
+
+void expr_safe_replace::pop_scope(unsigned n) {
+    unsigned old_sz = m_limit[m_limit.size() - n];
+    if (old_sz != m_src.size()) {
+        m_cache.clear();
+        m_src.shrink(old_sz);
+        m_dst.shrink(old_sz);
+    }
+    m_limit.shrink(m_limit.size() - n);
+}

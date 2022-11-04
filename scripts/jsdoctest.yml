@@ -1,0 +1,49 @@
+variables:
+
+  Major: '4'
+  Minor: '9'
+  Patch: '2'
+  NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
+
+stages:
+- stage: Build
+  jobs:
+
+  - job: UbuntuDoc
+    displayName: "Ubuntu Doc build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+# TODO setup emscripten with no-install, then run
+    - script: npm --prefix=src/api/js ci
+    - script: npm --prefix=src/api/js run build:ts
+
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        cd ..
+    - script: |
+        set -e
+        eval `opam config env` 
+        cd doc
+        python mk_api_doc.py --mld --z3py-package-path=../build/python/z3 --js
+        mkdir api/html/ml
+        ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+        cd ..
+    - script: zip -r z3doc.zip doc/api
+    - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuDoc'
+        targetPath: $(Build.ArtifactStagingDirectory)
+

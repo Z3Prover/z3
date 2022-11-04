@@ -45,7 +45,6 @@ namespace q {
         arith_util   a;
     public:
         arith_projection(ast_manager& m) : projection_function(m), a(m) {}
-        ~arith_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
@@ -54,7 +53,6 @@ namespace q {
         bv_util bvu;
     public:
         ubv_projection(ast_manager& m) : projection_function(m), bvu(m) {}
-        ~ubv_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }
     };
@@ -255,7 +253,7 @@ namespace q {
         euf::enode* r = nullptr;
         auto& v2r = ctx.values2root();
         TRACE("q",
-              tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+              tout << "invert-app " << mk_pp(t, m) << " =\n" << mk_pp(value, m) << "\n";
               if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
               /*ctx.display(tout); */

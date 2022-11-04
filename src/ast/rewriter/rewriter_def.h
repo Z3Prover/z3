@@ -16,6 +16,8 @@ Author:
 Notes:
 
 --*/
+#pragma once
+
 #include "ast/rewriter/rewriter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"

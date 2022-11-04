@@ -1,9 +1,0 @@
-
-def_module_params('solver', 
-                  description='solver parameters',
-                  export=True,
-                  params=(('smtlib2_log', SYMBOL, '', "file to save solver interaction"),
-                          ('cancel_backup_file', SYMBOL, '', "file to save partial search state if search is canceled"),
-                          ('timeout', UINT, UINT_MAX, "timeout on the solver object; overwrites a global timeout"),
-                          ))
-                

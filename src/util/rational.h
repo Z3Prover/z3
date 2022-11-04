@@ -138,25 +138,25 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
-private:
-    rational & operator=(bool) {
-        UNREACHABLE(); return *this;
-    }
-    inline rational operator*(bool  r1) const {
-        UNREACHABLE();
-        return *this;
-    }
 
-public:
+    rational & operator=(bool) = delete;
+    rational operator*(bool  r1) const = delete;
+
     rational & operator=(int v) {
         m().set(m_val, v);
         return *this;
     }
-    rational & operator=(double v) { UNREACHABLE(); return *this; }
+    rational & operator=(double v) = delete;
 
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
     friend inline rational denominator(rational const & r) { rational result; m().get_denominator(r.m_val, result.m_val); return result; }
+
+    friend inline rational inv(rational const & r) {
+        rational result;
+        m().inv(r.m_val, result.m_val);
+        return result;
+    }
     
     rational & operator+=(rational const & r) { 
         m().add(m_val, r.m_val, m_val);
@@ -346,8 +346,13 @@ public:
     bool is_power_of_two(unsigned & shift) const {
         return m().is_power_of_two(m_val, shift);
     }
+    
+    bool is_power_of_two() const {
+        unsigned shift = 0;
+        return m().is_power_of_two(m_val, shift);
+    }
 
-    bool mult_inverse(unsigned num_bits, rational & result);
+    bool mult_inverse(unsigned num_bits, rational & result) const;
 
     static rational const & zero() {
         return m_zero;

@@ -77,9 +77,6 @@ public:
         m_rw(m, m.proofs_enabled(), m_cfg) {
     }
 
-    ~name_exprs_core() override {
-    }
-
     void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) override {
         m_cfg.m_def_exprs  = &new_defs;
         m_cfg.m_def_proofs = &new_def_proofs;
@@ -113,9 +110,6 @@ public:
         name_exprs_core(m, n, m_pred),
         m_pred(m) {
     }
-
-    ~name_quantifier_labels() override {
-    }
 };
 
 name_exprs * mk_quantifier_label_namer(ast_manager & m, defined_names & n) {
@@ -143,9 +137,6 @@ public:
     name_nested_formulas(ast_manager & m, defined_names & n):
         name_exprs_core(m, n, m_pred),
         m_pred(m) {
-    }
-
-    ~name_nested_formulas() override {
     }
 
     void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) override {

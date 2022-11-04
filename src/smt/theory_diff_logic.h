@@ -350,8 +350,6 @@ namespace smt {
 
         bool propagate_eqs() const { return m_params.m_arith_propagate_eqs; }
 
-        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
-
         theory_var expand(bool pos, theory_var v, rational & k);
 
         void new_eq_or_diseq(bool is_eq, theory_var v1, theory_var v2, justification& eq_just);

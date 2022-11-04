@@ -69,23 +69,23 @@ namespace arith {
                 m_nla->push();
             }
             smt_params_helper prms(s().params());
-            m_nla->settings().run_order() = prms.arith_nl_order();
-            m_nla->settings().run_tangents() = prms.arith_nl_tangents();
-            m_nla->settings().run_horner() = prms.arith_nl_horner();
-            m_nla->settings().horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();
-            m_nla->settings().horner_frequency() = prms.arith_nl_horner_frequency();
-            m_nla->settings().horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
-            m_nla->settings().run_grobner() = prms.arith_nl_grobner();
-            m_nla->settings().run_nra() = prms.arith_nl_nra();
-            m_nla->settings().grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
-            m_nla->settings().grobner_eqs_growth() = prms.arith_nl_grobner_eqs_growth();
-            m_nla->settings().grobner_expr_size_growth() = prms.arith_nl_grobner_expr_size_growth();
-            m_nla->settings().grobner_expr_degree_growth() = prms.arith_nl_grobner_expr_degree_growth();
-            m_nla->settings().grobner_max_simplified() = prms.arith_nl_grobner_max_simplified();
-            m_nla->settings().grobner_number_of_conflicts_to_report() = prms.arith_nl_grobner_cnfl_to_report();
-            m_nla->settings().grobner_quota() = prms.arith_nl_gr_q();
-            m_nla->settings().grobner_frequency() = prms.arith_nl_grobner_frequency();
-            m_nla->settings().expensive_patching() = false;
+            m_nla->settings().run_order = prms.arith_nl_order();
+            m_nla->settings().run_tangents = prms.arith_nl_tangents();
+            m_nla->settings().run_horner = prms.arith_nl_horner();
+            m_nla->settings().horner_subs_fixed = prms.arith_nl_horner_subs_fixed();
+            m_nla->settings().horner_frequency = prms.arith_nl_horner_frequency();
+            m_nla->settings().horner_row_length_limit = prms.arith_nl_horner_row_length_limit();
+            m_nla->settings().run_grobner = prms.arith_nl_grobner();
+            m_nla->settings().run_nra = prms.arith_nl_nra();
+            m_nla->settings().grobner_subs_fixed = prms.arith_nl_grobner_subs_fixed();
+            m_nla->settings().grobner_eqs_growth = prms.arith_nl_grobner_eqs_growth();
+            m_nla->settings().grobner_expr_size_growth = prms.arith_nl_grobner_expr_size_growth();
+            m_nla->settings().grobner_expr_degree_growth = prms.arith_nl_grobner_expr_degree_growth();
+            m_nla->settings().grobner_max_simplified = prms.arith_nl_grobner_max_simplified();
+            m_nla->settings().grobner_number_of_conflicts_to_report = prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->settings().grobner_quota = prms.arith_nl_gr_q();
+            m_nla->settings().grobner_frequency = prms.arith_nl_grobner_frequency();
+            m_nla->settings().expensive_patching = false;
         }
     }
 
@@ -98,6 +98,7 @@ namespace arith {
     void solver::found_underspecified(expr* n) {
         if (a.is_underspecified(n)) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
+            ctx.push(push_back_vector(m_underspecified));
             m_underspecified.push_back(to_app(n));
         }
         expr* e = nullptr, * x = nullptr, * y = nullptr;
@@ -243,6 +244,7 @@ namespace arith {
                     mk_abs_axiom(t);                
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
+                    ctx.push(push_back_vector(m_idiv_terms));
                     m_idiv_terms.push_back(n);
                     app_ref mod(a.mk_mod(n1, n2), m);
                     internalize(mod, m_is_redundant);

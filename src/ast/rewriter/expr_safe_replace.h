@@ -28,6 +28,7 @@ class expr_safe_replace {
     ast_manager& m;
     expr_ref_vector m_src;
     expr_ref_vector m_dst;
+    unsigned_vector m_limit = 0;
     ptr_vector<expr> m_todo, m_args;
     expr_ref_vector m_refs;
     std::unordered_map<expr*,expr*> m_cache;
@@ -48,5 +49,9 @@ public:
     void reset();
 
     bool empty() const { return m_src.empty(); }
+
+    void push_scope();
+
+    void pop_scope(unsigned n);
 };
 

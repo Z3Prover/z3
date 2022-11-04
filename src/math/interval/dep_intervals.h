@@ -7,7 +7,7 @@
 
   Abstract:
 
-    intervals with depedency tracking.
+    intervals with dependency tracking.
 
   Author:
   Nikolaj Bjorner (nbjorner)
@@ -222,7 +222,6 @@ public:
 
     template <enum with_deps_t wd>
     void mul(const rational& r, const interval& a, interval& b) const {
-        if (r.is_zero()) return;
         m_imanager.mul(r.to_mpq(), a, b);
         if (wd == with_deps) {
             auto lower_dep = a.m_lower_dep;

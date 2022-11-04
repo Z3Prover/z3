@@ -7,7 +7,7 @@
 
   Abstract:
 
-    intervals with depedency tracking.
+    intervals with dependency tracking.
 
   Author:
   Nikolaj Bjorner (nbjorner)

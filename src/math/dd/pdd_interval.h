@@ -17,6 +17,8 @@ Author:
 Revision History:
 
 --*/
+#pragma once
+
 #include "math/dd/dd_pdd.h"
 #include "math/interval/dep_intervals.h"
 
@@ -27,7 +29,33 @@ typedef dep_intervals::with_deps_t w_dep;
 class pdd_interval {
     dep_intervals& m_dep_intervals;
     std::function<void (unsigned, bool, scoped_dep_interval&)> m_var2interval;
-    
+
+    // retrieve intervals after distributing multiplication over addition.
+    template <w_dep wd>
+    void get_interval_distributed(pdd const& p, scoped_dep_interval& i, scoped_dep_interval& ret) {
+        bool deps = wd == w_dep::with_deps;
+        if (p.is_val()) {
+            if (deps)
+                m_dep_intervals.mul<dep_intervals::with_deps>(p.val(), i, ret);
+            else
+                m_dep_intervals.mul<dep_intervals::without_deps>(p.val(), i, ret);
+            return;
+        }
+        scoped_dep_interval hi(m()), lo(m()), t(m()), a(m());
+        get_interval_distributed<wd>(p.lo(), i, lo);
+        m_var2interval(p.var(), deps, a);
+        if (deps) {
+            m_dep_intervals.mul<dep_intervals::with_deps>(a, i, t);
+            get_interval_distributed<wd>(p.hi(), t, hi);
+            m_dep_intervals.add<dep_intervals::with_deps>(hi, lo, ret);
+        }
+        else {
+            m_dep_intervals.mul<dep_intervals::without_deps>(a, i, t);
+            get_interval_distributed<wd>(p.hi(), t, hi);
+            m_dep_intervals.add<dep_intervals::without_deps>(hi, lo, ret);
+        }
+    }
+
 public:
     
     pdd_interval(dep_intervals& d): m_dep_intervals(d) {}
@@ -57,5 +85,11 @@ public:
         }
     }
 
+    template <w_dep wd>
+    void get_interval_distributed(pdd const& p, scoped_dep_interval& ret) {
+        scoped_dep_interval i(m());
+        m_dep_intervals.set_interval_for_scalar(i, rational::one());        
+        get_interval_distributed<wd>(p, i, ret);
+    }
 };
 }

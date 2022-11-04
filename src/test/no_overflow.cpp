@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#ifdef _WINDOWS
 
 #include "api/z3.h"
 #include "util/trace.h"
@@ -112,7 +111,7 @@ void test_add(unsigned bvsize, bool is_signed) {
     t1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"x"), bv);
     t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
     test_ovfl = Z3_mk_bvadd_no_overflow(ctx, t1, t2, is_signed);
-    test_udfl = is_signed ? Z3_mk_bvadd_no_underflow(ctx, t1, t2) : NULL;
+    test_udfl = is_signed ? Z3_mk_bvadd_no_underflow(ctx, t1, t2) : nullptr;
 
     Z3_solver_push(ctx, s);
     Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
@@ -197,7 +196,7 @@ void test_sub(unsigned bvsize, bool is_signed) {
 
     t1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"x"), bv);
     t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
-    test_ovfl = is_signed ? Z3_mk_bvsub_no_overflow(ctx, t1, t2) : NULL;
+    test_ovfl = is_signed ? Z3_mk_bvsub_no_overflow(ctx, t1, t2) : nullptr;
     test_udfl = Z3_mk_bvsub_no_underflow(ctx, t1, t2, is_signed);
 
     Z3_solver_push(ctx, s);
@@ -359,7 +358,7 @@ void test_mul(unsigned bvsize, bool is_signed) {
     t1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"x"), bv);
     t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
     test_ovfl = Z3_mk_bvmul_no_overflow(ctx, t1, t2, is_signed);
-    test_udfl = is_signed ? Z3_mk_bvmul_no_underflow(ctx, t1, t2) : NULL;
+    test_udfl = is_signed ? Z3_mk_bvmul_no_underflow(ctx, t1, t2) : nullptr;
 
     Z3_solver_push(ctx, s);
     Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
@@ -586,7 +585,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
     Z3_ast t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
     Z3_ast real_test = (*params.no_overflow_func)(ctx, t1, t2, is_signed);
 
-    Z3_ast cond = NULL;
+    Z3_ast cond = nullptr;
     if (params.non_zero)
     {
         cond = Z3_mk_not(ctx, Z3_mk_eq(ctx, t2, Z3_mk_int(ctx, 0, bv)));
@@ -625,7 +624,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
     
     Z3_solver_push(ctx, s);
     Z3_ast equiv = Z3_mk_iff(ctx, real_test, check);
-    if (cond != NULL)
+    if (cond != nullptr)
     {
         equiv = Z3_mk_implies(ctx, cond, equiv);
     }
@@ -724,7 +723,3 @@ void tst_no_overflow() {
         }
     }
 }
-#else
-void tst_no_overflow() {
-}
-#endif

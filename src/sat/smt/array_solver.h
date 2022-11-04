@@ -50,7 +50,8 @@ namespace array {
         // void log_drat(array_justification const& c);
 
         struct var_data {
-            bool                m_prop_upward{ false };            
+            bool                m_prop_upward = false ;
+            bool                m_has_default = false;
             euf::enode_vector   m_lambdas;             // equivalent nodes that have beta reduction properties
             euf::enode_vector   m_parent_lambdas;      // parents that have beta reduction properties
             euf::enode_vector   m_parent_selects;      // parents that use array in select position
@@ -202,7 +203,7 @@ namespace array {
 
         // solving          
         void add_parent_select(theory_var v_child, euf::enode* select);
-        void add_parent_default(theory_var v_child, euf::enode* def);
+        void add_parent_default(theory_var v_child);
         void add_lambda(theory_var v, euf::enode* lambda);        
         void add_parent_lambda(theory_var v_child, euf::enode* lambda);
 
@@ -218,6 +219,7 @@ namespace array {
         bool should_prop_upward(var_data const& d) const;
         bool can_beta_reduce(euf::enode* n) const { return can_beta_reduce(n->get_expr()); }
         bool can_beta_reduce(expr* e) const;
+        bool check_lambdas();
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }

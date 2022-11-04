@@ -47,7 +47,7 @@ namespace bv {
             return true;
         unsigned num_vars = e->get_num_args();
         for (expr* arg : *e) 
-            if (!m.is_value(arg))
+            if (m.is_value(arg))
                 --num_vars;
         if (num_vars <= 1) 
             return true;
@@ -70,6 +70,55 @@ namespace bv {
         SASSERT(get_fixed_value(v, val));
         VERIFY(get_fixed_value(v, val));
         return expr_ref(bv.mk_numeral(val, get_bv_size(v)), m);
+    }
+
+    /**
+       \brief expose the multiplication circuit lazily.
+       It adds clauses for multiplier output one by one to enforce
+       the semantics of multipliers.
+     */
+
+    bool solver::check_lazy_mul(app* e, expr* arg_value, expr* mul_value) {
+        SASSERT(e->get_num_args() >= 2);
+        expr_ref_vector args(m), new_args(m), new_out(m);
+        lazy_mul* lz = nullptr;
+        rational v0, v1;
+        unsigned sz, diff = 0;
+        VERIFY(bv.is_numeral(arg_value, v0, sz));
+        VERIFY(bv.is_numeral(mul_value, v1));
+        for (diff = 0; diff < sz; ++diff) 
+            if (v0.get_bit(diff) != v1.get_bit(diff))
+                break;
+        SASSERT(diff < sz);
+        auto set_bits = [&](unsigned j, expr_ref_vector& bits) {
+            bits.reset();
+            for (unsigned i = 0; i < sz; ++i)
+                bits.push_back(bv.mk_bit2bool(e->get_arg(0), j));            
+        };
+        if (!m_lazymul.find(e, lz)) {
+            set_bits(0, args);
+            for (unsigned j = 1; j < e->get_num_args(); ++j) {
+                new_out.reset();
+                set_bits(j, new_args);
+                m_bb.mk_multiplier(sz, args.data(), new_args.data(), new_out);
+                new_out.swap(args);
+            }
+            lz = alloc(lazy_mul, e, args);
+            m_lazymul.insert(e, lz);
+            ctx.push(new_obj_trail(lz));
+            ctx.push(insert_obj_map(m_lazymul, e));
+        }
+        if (lz->m_out.size() == lz->m_bits)
+            return false;
+        for (unsigned i = lz->m_bits; i <= diff; ++i) {
+            sat::literal bit1 = mk_literal(lz->m_out.get(i));
+            sat::literal bit2 = mk_literal(bv.mk_bit2bool(e, i));
+            add_equiv(bit1, bit2);
+        }
+        ctx.push(value_trail(lz->m_bits));
+        IF_VERBOSE(1, verbose_stream() << "expand lazy mul " << mk_pp(e, m) << " to " << diff << "\n");
+        lz->m_bits = diff;
+        return false;
     }
 
     bool solver::check_mul(app* e) {
@@ -96,6 +145,12 @@ namespace bv {
         if (!check_mul_invertibility(e, args, r1))
             return false;
 
+#if 0
+        // unsound?
+
+        if (!check_lazy_mul(e, r1, r2))
+            return false;
+#endif
         // Some other possible approaches:
         // algebraic rules:
         // x*(y+z), and there are nodes for x*y or x*z -> x*(y+z) = x*y + x*z
@@ -177,18 +232,17 @@ namespace bv {
     bool solver::check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
         SASSERT(mul_value != arg_value);
         SASSERT(!(bv.is_zero(mul_value) && bv.is_zero(arg_value)));
-        if (bv.is_zero(arg_value)) {
+        if (bv.is_zero(arg_value) && false) {
             unsigned sz = n->get_num_args();
             expr_ref_vector args(m, sz, n->get_args());
             for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
-
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
                 args[i] = n->get_arg(i);                
                 add_unit(eq_internalize(r, arg_value));
             }
-            IF_VERBOSE(2, verbose_stream() << "delay internalize @" << s().scope_lvl() << "\n");
+            IF_VERBOSE(2, verbose_stream() << "delay internalize @" << s().scope_lvl() << " " << mk_pp(n, m) << "\n");
             return false;
         }
         if (bv.is_zero(mul_value)) {

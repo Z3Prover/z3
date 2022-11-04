@@ -68,10 +68,12 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto const& [qlit, fml, generation] : m_instantiations) {
+        for (auto const& [qlit, fml, inst, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
-            sat::literal lit = ctx.mk_literal(fml);
-            m_qs.add_clause(~qlit, ~lit);
+            sat::literal lit = ~ctx.mk_literal(fml);
+            auto* ph = ctx.use_drat()? q_proof_hint::mk(ctx, generation, ~qlit, lit, inst.size(), inst.data()) : nullptr;
+            m_qs.add_clause(~qlit, lit, ph);
+            m_qs.log_instantiation(~qlit, lit);
         }
         m_instantiations.reset();
         if (result != l_true)
@@ -111,6 +113,8 @@ namespace q {
     expr_ref mbqi::replace_model_value(expr* e) {
         auto const& v2r = ctx.values2root();
         euf::enode* r = nullptr;
+        if (m.is_bool(e))
+            return expr_ref(e, m);
         if (v2r.find(e, r))
             return choose_term(r);        
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -121,7 +125,11 @@ namespace q {
         }
         if (m.is_model_value(e))
             return expr_ref(m.mk_model_value(0, e->get_sort()), m);
-        return expr_ref(e, m);
+
+        expr_ref e1 = m_model->unfold_as_array(e);
+        if (e1 == e)
+            return e1;
+        return replace_model_value(e1);
     }
 
     expr_ref mbqi::choose_term(euf::enode* r) {
@@ -133,7 +141,7 @@ namespace q {
                 r = n;
             }
             else if (n->generation() == gen) {
-                if ((m_qs.random() % ++count) == 0)
+                if ((m_qs.random() % ++count) == 0 && has_quantifiers(n->get_expr()))
                     r = n;
             }
             if (count > m_max_choose_candidates)
@@ -187,6 +195,7 @@ namespace q {
         expr_ref_vector eqs(m);
         add_domain_bounds(mdl, qb);
         auto proj = solver_project(mdl, qb, eqs, false);
+        CTRACE("q", !proj, tout << "could not project " << qb.mbody << " " << eqs << "\n" << mdl);
         if (!proj)
             return false;
         add_instantiation(q, proj);
@@ -223,9 +232,30 @@ namespace q {
         TRACE("q", tout << "project: " << proj << "\n";);
         IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
-        unsigned generation = ctx.get_max_generation(proj);    
-        m_instantiations.push_back(instantiation_t(qlit, proj, generation));
+        unsigned generation = ctx.get_max_generation(proj);
+        expr_ref_vector inst = extract_binding(q);
+        m_instantiations.push_back(instantiation_t(qlit, proj, inst, generation));
     }
+
+    expr_ref_vector mbqi::extract_binding(quantifier* q) {
+        SASSERT(!ctx.use_drat() || !m_defs.empty());
+        if (m_defs.empty())
+            return expr_ref_vector(m);
+        expr_safe_replace sub(m);
+        for (unsigned i = m_defs.size(); i-- > 0; ) {
+            sub(m_defs[i].term);
+            sub.insert(m_defs[i].var, m_defs[i].term);
+        }
+        q_body* qb = q2body(q);
+        expr_ref_vector inst(m);
+        for (expr* v : qb->vars) {
+            expr_ref t(m);
+            sub(v, t);
+            inst.push_back(t);
+        }
+        return inst;
+    }
+
 
     void mbqi::add_universe_restriction(q_body& qb) {
         for (app* v : qb.vars) {
@@ -283,6 +313,7 @@ namespace q {
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         bool fmls_extracted = false;
+        m_defs.reset();
         TRACE("q",
               tout << "Project\n";
               tout << fmls << "\n";
@@ -306,27 +337,38 @@ namespace q {
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
                 for (expr* e : fmls)
-                    if (!m_model->is_true(e))
+                    if (!m_model->is_true(e)) {
+                        TRACE("q", tout << "not true: " << mk_pp(e, m) << " := " << (*m_model)(e) << "\n");
                         return expr_ref(nullptr, m);
+                    }
                 mbp::project_plugin proj(m);
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
             }
             if (!p)
-                continue;
-            if (!(*p)(*m_model, vars, fmls))
-                return expr_ref(nullptr, m);
+                continue; 
+            if (ctx.use_drat()) {
+                if (!p->project(*m_model, vars, fmls, m_defs)) 
+                    return expr_ref(m);                    
+            }
+            else if (!(*p)(*m_model, vars, fmls)) {
+                TRACE("q", tout << "theory projection failed\n");
+                return expr_ref(m);
+            }
         }
         for (app* v : vars) {
             expr_ref term(m);
             expr_ref val = (*m_model)(v);
-            val = m_model->unfold_as_array(val);
             term = replace_model_value(val);
-            rep.insert(v, term);        
+            TRACE("euf", tout << "replaced model value " << term << "\nfrom\n" << val << "\n");
+            rep.insert(v, term);
+            if (ctx.use_drat())
+                m_defs.push_back(mbp::def(expr_ref(v, m), term));
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
-        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";);
+        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";
+                    for (auto const& [v,t] : m_defs) tout << v << " := " << t << "\n");
         return mk_and(fmls);
     }
 
@@ -369,10 +411,13 @@ namespace q {
                 auto* n = nodes[i];
                 expr* e = n->get_expr();
                 expr* val = ctx.node2value(n);                
-                if (val && e->get_sort() == srt && !m.is_value(e) && !visited.is_marked(val)) {
+                if (val && e->get_sort() == srt && 
+                    !m.is_value(e) && 
+                    !visited.is_marked(val)) {
                     visited.mark(val);
+                    expr_ref value = replace_model_value(val);
                     veqs.push_back(m.mk_eq(v, e));
-                    meqs.push_back(m.mk_eq(v, val));
+                    meqs.push_back(m.mk_eq(v, value));
                     --bound;
                 }
             }
@@ -391,8 +436,11 @@ namespace q {
     void mbqi::add_domain_bounds(model& mdl, q_body& qb) {
         qb.domain_eqs.reset();
         m_model->reset_eval_cache();
-        for (app* v : qb.vars)
-            m_model->register_decl(v->get_decl(), mdl(v));
+        {
+            model::scoped_model_completion _sc(mdl, true);
+            for (app* v : qb.vars)
+                m_model->register_decl(v->get_decl(), mdl(v));
+        }
         ctx.model_updated(m_model);
         if (qb.var_args.empty())
             return;
@@ -401,7 +449,8 @@ namespace q {
             expr_ref _term = subst(t, qb.vars);
             app_ref  term(to_app(_term), m);
             expr_ref value = (*m_model)(term->get_arg(idx));
-            m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
+            if (m.is_value(value))
+                m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
         }
     }
 
@@ -431,6 +480,7 @@ namespace q {
             expr_ref _term = subst(e, qb.vars);
             app_ref  term(to_app(_term), m);
             expr_ref value = (*m_model)(term);
+            value = replace_model_value(value);
             expr* s = m_model_fixer.invert_app(term, value);
             rep.insert(term, s);
             expr_ref eq(m.mk_eq(term, s), m);
@@ -503,6 +553,14 @@ namespace q {
                 body = subst(q_flat->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
+                if (ctx.use_drat()) {
+                    m_defs.reset();
+                    for (unsigned i = 0; i < binding.size(); ++i) {
+                        expr_ref v(qb.vars.get(i), m);
+                        expr_ref t(binding.get(i), m);
+                        m_defs.push_back(mbp::def(v, t));
+                    }
+                }
                 add_instantiation(q, body);
                 ++num_bindings;
             }                
@@ -534,6 +592,7 @@ namespace q {
         binding.reset();
         auto const& nodes = ctx.get_egraph().nodes();
         m_model->reset_eval_cache();
+        model::scoped_model_completion _sc(*m_model, true);
         for (unsigned j = 0; j < offsets.size(); ++j) {
             unsigned offset = offsets[j];
             binding.push_back(nodes[offset]->get_expr());
@@ -596,8 +655,8 @@ namespace q {
     void mbqi::collect_statistics(statistics& st) const {
         if (m_solver)
             m_solver->collect_statistics(st);
-        st.update("q-num-instantiations", m_stats.m_num_instantiations);
-        st.update("q-num-checks", m_stats.m_num_checks);
+        st.update("q mbi instantiations", m_stats.m_num_instantiations);
+        st.update("q mbi num checks", m_stats.m_num_checks);
     }
 
 }

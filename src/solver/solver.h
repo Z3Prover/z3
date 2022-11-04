@@ -29,7 +29,7 @@ class model_converter;
 
 class solver_factory {
 public:
-    virtual ~solver_factory() {}
+    virtual ~solver_factory() = default;
     virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) = 0;
 };
 
@@ -52,8 +52,7 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-    solver() {}
-    ~solver() override {}
+    solver(ast_manager& m): check_sat_result(m) {}
 
     /**
     \brief Creates a clone of the solver.
@@ -114,7 +113,7 @@ public:
     virtual void set_phase(expr* e) = 0;
     virtual void move_to_front(expr* e) = 0; 
 
-    class phase { public: virtual ~phase() {} };
+    class phase { public: virtual ~phase() = default; };
     
     virtual phase* get_phase() = 0;
 
@@ -279,7 +278,7 @@ public:
     };
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
- 
+
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);

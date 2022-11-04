@@ -20,7 +20,7 @@ Author:
 
 class quantifier2macro_infos {
 public:
-    virtual ~quantifier2macro_infos() {}
+    virtual ~quantifier2macro_infos() = default;
     virtual quantifier_macro_info* operator()(quantifier* q) = 0;
 };
 
@@ -48,7 +48,7 @@ public:
         m_model(nullptr) {
     }
 
-    virtual ~base_macro_solver() {}
+    virtual ~base_macro_solver() = default;
 
     /**
        \brief Try to satisfy quantifiers in qs by using macro definitions.

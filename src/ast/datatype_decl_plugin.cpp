@@ -635,6 +635,28 @@ namespace datatype {
             }
         }
 
+        bool plugin::are_distinct(app * a, app * b) const {
+            if (a == b)
+                return false;
+            if (is_unique_value(a) && is_unique_value(b))
+                return true;
+            if (u().is_constructor(a) && u().is_constructor(b)) {
+                if (a->get_decl() != b->get_decl())
+                    return true;
+                for (unsigned i = a->get_num_args(); i-- > 0; ) {
+                    if (!is_app(a->get_arg(i)))
+                        continue;
+                    if (!is_app(b->get_arg(i)))
+                        continue;
+                    app* _a = to_app(a->get_arg(i));
+                    app* _b = to_app(b->get_arg(i));
+                    if (m_manager->are_distinct(_a, _b))
+                        return true;
+                }
+            }
+            return false;
+        }
+
         expr * plugin::get_some_value(sort * s) {
             SASSERT(u().is_datatype(s));
             func_decl * c = u().get_non_rec_constructor(s);
@@ -882,18 +904,16 @@ namespace datatype {
     bool util::is_well_founded(unsigned num_types, sort* const* sorts) {
         buffer<bool> well_founded(num_types, false);
         obj_map<sort, unsigned> sort2id;
-        for (unsigned i = 0; i < num_types; ++i) {
+        for (unsigned i = 0; i < num_types; ++i) 
             sort2id.insert(sorts[i], i);
-        }
         unsigned num_well_founded = 0, id = 0;
         bool changed;
         ptr_vector<sort> subsorts;
         do {
             changed = false;
             for (unsigned tid = 0; tid < num_types; tid++) {
-                if (well_founded[tid]) {
+                if (well_founded[tid]) 
                     continue;
-                }
                 sort* s = sorts[tid];
                 def const& d = get_def(s);
                 for (constructor const* c : d) {
@@ -901,9 +921,12 @@ namespace datatype {
                         subsorts.reset();
                         get_subsorts(a->range(), subsorts);
                         for (sort* srt : subsorts) {
-                            if (sort2id.find(srt, id) && !well_founded[id]) {
-                                goto next_constructor;
+                            if (sort2id.find(srt, id)) {
+                                if (!well_founded[id]) 
+                                    goto next_constructor;
                             }
+                            else if (is_datatype(srt))
+                                break;
                         }
                     }
                     changed = true;

@@ -23,6 +23,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "smt/smt_context.h"
 #include "smt/qi_queue.h"
+#include <iostream>
 
 namespace smt {
 
@@ -228,15 +229,12 @@ namespace smt {
 
 
         TRACE("qi_queue", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
-        TRACE("qi_queue_instance", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
         expr_ref  s_instance(m);
         proof_ref pr(m);
         m_context.get_rewriter()(instance, s_instance, pr);
 
         TRACE("qi_queue_bug", tout << "new instance after simplification:\n" << s_instance << "\n";);
         if (m.is_true(s_instance)) {
-            TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););
-
             STRACE("instance", tout <<  "Instance reduced to true\n";);
             stat -> inc_num_instances_simplify_true();
             if (m.has_trace_stream()) {
@@ -250,9 +248,11 @@ namespace smt {
         std::cout << "instantiate\n";
         enode_vector _bindings(num_bindings, bindings);
         for (auto * b : _bindings)
-            std::cout << enode_pp(b, m_context) << " ";
+            std::cout << mk_pp(b->get_expr(), m) << " ";
         std::cout << "\n";
         std::cout << mk_pp(q, m) << "\n";
+        std::cout << "instance\n";
+        std::cout << instance << "\n";
 #endif
    
         TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
@@ -303,6 +303,20 @@ namespace smt {
                 pr1                 = m.mk_modus_ponens(qi_pr, tr);
             }
             m_instances.push_back(pr1);
+        }
+        else if (m_context.on_clause_active()) {
+            expr_ref_vector bindings_e(m), args(m);
+            arith_util a(m);
+            expr_ref gen(a.mk_int(generation), m);
+            expr* gens[1] = { gen.get() };
+            for (unsigned i = 0; i < num_bindings; ++i) 
+                bindings_e.push_back(bindings[i]->get_expr());
+            args.push_back(m.mk_not(q));
+            args.push_back(instance);
+            args.push_back(m.mk_app(symbol("bind"), num_bindings, bindings_e.data(), m.mk_proof_sort()));
+            args.push_back(m.mk_app(symbol("gen"), 1, gens, m.mk_proof_sort()));
+            pr1 = m.mk_app(symbol("inst"), args.size(), args.data(), m.mk_proof_sort());
+            m_instances.push_back(pr1);            
         }
         TRACE("qi_queue", tout << mk_pp(lemma, m) << "\n#" << lemma->get_id() << ":=\n" << mk_ll_pp(lemma, m););
         m_stats.m_num_instances++;

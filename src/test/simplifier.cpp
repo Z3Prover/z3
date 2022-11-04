@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifdef _WINDOWS
 #include "api/z3.h"
 #include "api/z3_private.h"
 #include <iostream>
@@ -94,7 +93,8 @@ static void test_datatypes() {
     int_list = Z3_mk_list_sort(ctx, Z3_mk_string_symbol(ctx, "int_list"), int_ty,
                                &nil_decl, &is_nil_decl, &cons_decl, &is_cons_decl, &head_decl, &tail_decl);
                     
-    nil = Z3_mk_app(ctx, nil_decl, 0, 0);
+    (void) int_list;
+    nil = Z3_mk_app(ctx, nil_decl, 0, nullptr);
 
     Z3_ast a = Z3_simplify(ctx, Z3_mk_app(ctx, is_nil_decl, 1, &nil));
     ENSURE(a == Z3_mk_true(ctx));
@@ -133,7 +133,7 @@ static void test_skolemize_bug() {
     Z3_ast args[2] = { Z3_mk_eq(ctx, Z3_mk_add(ctx, 2, args1), xp), 
                        Z3_mk_ge(ctx, Z3_mk_add(ctx, 2, args2), n0) };
     Z3_ast f  = Z3_mk_and(ctx, 2, args);
-    Z3_ast f2 = Z3_mk_exists(ctx, 0, 0, 0, 1, &Real, &x_name, f);
+    Z3_ast f2 = Z3_mk_exists(ctx, 0, 0, nullptr, 1, &Real, &x_name, f);
     std::cout << Z3_ast_to_string(ctx, f2) << "\n";
     Z3_ast f3 = Z3_simplify(ctx, f2);
     std::cout << Z3_ast_to_string(ctx, f3) << "\n";
@@ -167,6 +167,7 @@ static void test_array() {
     Z3_ast n4 = Z3_mk_numeral(ctx, "4", i);
     Z3_ast s1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"s1"), i);
     Z3_ast s2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"s2"), i);
+    (void) s2;
     
     Z3_ast c1 = Z3_mk_const_array(ctx, i, n1);
     Z3_ast x1  = Z3_mk_store(ctx, Z3_mk_store(ctx, c1, n2, n3), n1, n4);
@@ -176,6 +177,7 @@ static void test_array() {
     Z3_ast xs[4] = { x1, x2, x3, x4};
     Z3_ast exy  = Z3_mk_eq(ctx, x2, x1);
     Z3_ast rxy  = Z3_simplify(ctx, exy);
+    (void)rxy;
 
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, rxy) << "\n";);
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3))) << "\n";);
@@ -196,6 +198,8 @@ static void test_array() {
 
     Z3_ast sel1 = Z3_mk_select(ctx, x1, n1);
     Z3_ast sel2 = Z3_mk_select(ctx, x1, n4);
+    (void)sel1;
+    (void)sel2;
 
     TRACE("simplifier", 
           tout << Z3_ast_to_string(ctx,  Z3_simplify(ctx, sel1)) << "\n";
@@ -214,8 +218,3 @@ void tst_simplifier() {
     test_bool();
     test_skolemize_bug();
 }
-
-#else
-void tst_simplifier() {
-}
-#endif

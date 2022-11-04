@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Version 4.9.next
+Version 4.next
 ================
 - Planned features
   - sat.euf 
@@ -9,6 +9,194 @@ Version 4.9.next
   - polysat
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
+
+Version 4.12.0
+==============
+- add clause logging API.
+  - The purpose of logging API and self-checking is to enable an array of use cases.
+    - proof mining (what instantiations did Z3 use)? 
+      - A refresh of the AxiomProfiler could use the logging API. 
+        The (brittle) trace feature should be deprecated.
+    - debugging
+      - a built-in self certifier implements a custom proof checker for 
+        the format used by the new solver (sat.euf=true).
+    - other potential options:
+      - integration into certified tool chains      
+      - interpolation 
+  - Z3_register_on_clause (also exposed over C++, Python and .Net)
+  - it applies to z3's main CDCL(T) core and a new CDCL(T) core (sat.euf=true).
+  - The added API function allows to register a callback for when clauses 
+    are inferred. More precisely, when clauses are assumed (as part of input), 
+    deleted, or deduced.
+    Clauses that are deduced by the CDCL SAT engine using standard 
+    inferences are marked as 'rup'.
+    Clauses that are deduced by theories are marked by default 
+    by 'smt', and when more detailed information
+    is available with proof hints or proof objects. 
+    Instantations are considered useful to track so they
+    are logged using terms of the form 
+
+         (inst (not (forall (x) body)) body[t/x] (bind t)), where
+
+    'inst' is a name of a function that produces a proof term representing 
+    the instantiation.
+- add options for proof logging, trimming, and checking for the new core.
+  - sat.smt.proof (symbol) add SMT proof to file (default: )
+  - sat.smt.proof.check (bool) check SMT proof while it is created (default: false)
+    - it applies a custom self-validator. The self-validator comprises of 
+      several small checkers and represent a best-effort validation mechanism. 
+      If there are no custom validators associated with inferences, or the custom 
+      validators fail to certify inferences, the self-validator falls back to 
+      invoking z3 (SMT) solving on the lemma.
+      - euf - propagations and conflicts from congruence closure 
+              (theory of equality and uninterpreted functions) are checked
+              based on a proof format that tracks uses of congruence closure and 
+              equalities. It only performs union find operations.
+      - tseitin - clausification steps are checked for Boolean operators.
+      - farkas, bound, implies_eq - arithmetic inferences that can be justified using 
+              a combination of Farkas lemma and cuts are checked.
+              Note: the arithmetic solver may produce proof hints that the proof 
+              checker cannot check. It is mainly a limitation
+              of the arithmetic solver not pulling relevant information. 
+              Ensuring a tight coupling with proof hints and the validator
+              capabilites is open ended future work and good material for theses. 
+      - bit-vector inferences - are treated as trusted 
+        (there is no validation, it always blindly succeeds)
+      - arrays, datatypes - there is no custom validation for 
+        other theories at present. Lemmas are validated using SMT.
+  - sat.smt.proof.check_rup (bool) apply forward RUP proof checking (default: true)
+    - this option can incur significant runtime overhead. 
+      Effective proof checking relies on first trimming proofs into a 
+      format where dependencies are tracked and then checking relevant inferences. 
+      Turn this option off if you just want to check theory inferences.                         
+- add options to validate proofs offline. It applies to proofs 
+  saved when sat.smt.proof is set to a valid file name.
+  - solver.proof.check (bool) check proof logs (default: true)
+    - the option sat.smt.proof_check_rup can be used to control what is checked
+  - solver.proof.save (bool) save proof log into a proof object 
+      that can be extracted using (get-proof) (default: false)
+    - experimental: saves a proof log into a term
+  - solver.proof.trim (bool) trim the offline proof and print the trimmed proof to the console
+    - experimental: performs DRUP trimming to reduce the set of hypotheses 
+      and inferences relevant to derive the empty clause.
+- JS support for Arrays, thanks to Walden Yan
+- More portable memory allocation, thanks to Nuno Lopes 
+  (avoid custom handling to calculate memory usage)
+
+- clause logging and proofs: many open-ended directions.
+  Many directions and functionality features remain in an open-ended state, 
+  subject to fixes, improvements, and contributions.
+  We list a few of them here:
+  - comprehensive efficient self-validators for arithmetic, and other theories
+  - an efficient proof checker when several theory solvers cooperate in a propagation or 
+    conflict. The theory combination case is currently delegated to the smt solver. 
+    The proper setup for integrating theory lemmas is in principle not complicated, 
+    but the implementation requires some changes.
+  - external efficient proof validators (based on certified tool chains) 
+    can be integrated over the API.
+  - dampening repeated clauses: A side-effect of conflict resolution is to 
+    log theory lemmas. It often happens that the theory lemma becomes
+    the conflict clause, that is then logged as rup. Thus, two clauses are 
+    logged.
+  - support for online trim so that proofs generated using clause logging can be used for SPACER
+    - SPACER also would benefit from more robust proof hints for arithmetic 
+      lemmas (bounds and implied equalities are sometimes not logged correctly)
+  - integration into axiom profiling through online and/or offline interfaces.
+    - an online interface attaches a callback with a running solver. This is available.
+    - an offline interface saves a clause proof to a file (currently just 
+      supported for sat.euf) and then reads the file in a separate process
+      The separate process attaches a callback on inferred clauses. 
+      This is currently not available but a relatively small feature.
+  - more detailed proof hints for the legacy solver clause logger. 
+    Other than quantifier instantiations, no detailed information is retained for 
+    theory clauses. 
+  - integration of pre-processing proofs with logging proofs. There is 
+    currently no supported bridge to create a end-to-end proof objects.
+
+
+Version 4.11.2
+==============
+- add error handling to fromString method in JavaScript
+- fix regression in default parameters for CDCL, thanks to Nuno Lopes
+- fix model evaluation bugs for as-array nested under functions (data-type constructors)
+- add rewrite simplifications for datatypes with a single constructor
+- add "Global Guidance" capability to SPACER, thanks to Arie Gurfinkel and Hari Gorvind.
+  The commit logs related to Global Guidance contain detailed information.
+- change proof logging format for the new core to use SMTLIB commands.
+  The format was so far an extension of DRAT used by SAT solvers, but not well compatible
+  with SMT format that is extensible. The resulting format is a mild extension of SMTLIB with
+  three extra commands assume, learn, del. They track input clauses, generated clauses and deleted clauses.
+  They are optionally augmented by proof hints. Two proof hints are used in the current version: "rup" and "farkas".
+  "rup" is used whent the generated clause can be justified by reverse unit propagation. "farkas" is used when
+  the clause can be justified by a combination of Farkas cutting planes. There is a built-in proof checker for the
+  format. Quantifier instantiations are also tracked as proof hints.
+  Other proof hints are to be added as the feature set is tested and developed. The fallback, buit-in,
+  self-checker uses z3 to check that the generated clause is a consequence. Note that this is generally
+  insufficient as generated clauses are in principle required to only be satisfiability preserving.
+  Proof checking and tranformation operations is overall open ended.
+  The log for the first commit introducing this change contains further information on the format.
+- fix to re-entrancy bug in user propagator (thanks to Clemens Eisenhofer).
+- handle _toExpr for quantified formulas in JS bindings
+
+Version 4.11.1
+==============
+- skipped
+
+Version 4.11.0
+==============
+- remove `Z3_bool`, `Z3_TRUE`, `Z3_FALSE` from the API. Use `bool`, `true`, `false` instead.
+- z3++.h no longer includes `<sstream>` as it did not use it.
+- add solver.axioms2files
+  - prints negated theory axioms to files. Each file should be unsat
+- add solver.lemmas2console
+  - prints lemmas to the console.
+- remove option smt.arith.dump_lemmas. It is replaced by solver.axioms2files
+- add option smt.bv.reduce_size. 
+  - it allows to apply incremental pre-processing of bit-vectors by identifying ranges that are known to be constant.
+    This rewrite is beneficial, for instance, when bit-vectors are constrained to have many high-level bits set to 0.
+- add feature to model-based projection for arithmetic to handle integer division.
+- add fromString method to JavaScript solver object.
+
+Version 4.10.2
+==============
+- fix regression #6194. It broke mod/rem/div reasoning.
+- fix user propagator scope management for equality callbacks.
+
+Version 4.10.1
+==============
+- fix implementation of mk_fresh in user propagator for Python API
+
+Version 4.10.0
+==============
+- Added API Z3_enable_concurrent_dec_ref to be set by interfaces that
+  use concurrent GC to manage reference counts. This feature is integrated
+  with the OCaml bindings and fixes a regression introduced when OCaml
+  transitioned to concurrent GC. Use of this feature for .Net and Java
+  bindings is not integrated for this release. They use external queues
+  that are unnecessarily complicated.
+- Added pre-declared abstract datatype declarations to the context so
+  that Z3_eval_smtlib2_string works with List examples.
+- Fixed Java linking for MacOS Arm64.
+- Added missing callback handlers in tactics for user-propagator,
+  Thanks to Clemens Eisenhofer
+- Tuning to Grobner arithmetic reasoning for smt.arith.solver=6
+  (currently the default in most cases). The check for consistency
+  modulo multiplication was updated in the following way:
+  - polynomial equalities are extracted from Simplex tableau rows using
+    a cone of influence algorithm. Rows where the basic variables were
+    unbounded were previously included. Following the legacy implementation
+    such rows are not included when building polynomial equations.
+  - equations are pre-solved if they are linear and can be split
+    into two groups one containing a single variable that has a
+    lower (upper) bound, the other with more than two variables
+    with upper (lower) bounds. This avoids losing bounds information
+    during completion.
+  - After (partial) completion, perform constant propagation for equalities
+    of the form x = 0
+  - After (partial) completion, perform factorization for factors of the
+    form x*y*p = 0 where x, are variables, p is linear.
+- Added support for declaring algebraic datatypes from the C++ interface.
+    
 
 Version 4.9.1
 =============

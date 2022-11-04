@@ -10,7 +10,7 @@ Pre-built binaries for stable and nightly releases are available from [here](htt
 Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
 [bindings for several programming languages][4]. 
 
-See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
+See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
 
 ## Build status
 
@@ -104,6 +104,19 @@ To clean Z3 you can delete the build directory and run the ``mk_make.py`` script
 Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
 file for details. It is recommended for most build tasks, 
 except for building OCaml bindings.
+
+## Building Z3 using vcpkg
+
+vcpkg is a full platform package manager, you can easily install libzmq with vcpkg.
+ 
+Execute:
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git
+./bootstrap-vcpkg.bat # For powershell
+./bootstrap-vcpkg.sh # For bash
+./vcpkg install z3
+```
 
 ## Dependencies
 Z3 itself has few dependencies. It uses C++ runtime libraries, including pthreads for multi-threading.

@@ -129,6 +129,15 @@ def _configure_z3():
     for key, val in cmake_options.items():
         if type(val) is bool:
             cmake_options[key] = str(val).upper()
+
+    # Allow command-line arguments to add and override Z3_ options
+    for i in range(len(sys.argv) - 1):
+        key = sys.argv[i]
+        if key.startswith("Z3_"):
+            val = sys.argv[i + 1].upper()
+            if val == "TRUE" or val == "FALSE":
+                cmake_options[key] = val
+                
     cmake_args = [ '-D' + key + '=' + value for key,value in cmake_options.items() ]
     args = [ 'cmake', *cmake_args, SRC_DIR ]
     if subprocess.call(args, env=build_env, cwd=BUILD_DIR) != 0:

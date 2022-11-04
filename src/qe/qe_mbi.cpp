@@ -127,6 +127,7 @@ namespace qe {
 
     mbi_result prop_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl)  {
         lbool r = m_solver->check_sat(lits);
+        TRACE("qe", tout << r << " " << lits << "\n");
         switch (r) {
         case l_false:
             lits.reset();
@@ -138,12 +139,10 @@ namespace qe {
             for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
                 func_decl* c = mdl->get_constant(i);
                 if (is_shared(c)) {
-                    if (m.is_true(mdl->get_const_interp(c))) {
+                    if (m.is_true(mdl->get_const_interp(c))) 
                         lits.push_back(m.mk_const(c));
-                    }
-                    else if (m.is_false(mdl->get_const_interp(c))) {
+                    else if (m.is_false(mdl->get_const_interp(c))) 
                         lits.push_back(m.mk_not(m.mk_const(c)));
-                    }
                 }
             }
             return mbi_sat;
@@ -172,7 +171,7 @@ namespace qe {
             if (m_atom_set.contains(a)) {
                 // continue
             }
-            else if (m.is_eq(a)) {
+            else if (m.is_eq(a) && !m.is_iff(a)) {
                 m_atoms.push_back(a);
                 m_atom_set.insert(a);
             }
@@ -536,6 +535,7 @@ namespace qe {
         th_rewriter rewrite(m);
         rewrite(a);
         rewrite(b);
+        TRACE("interpolator", tout << a << " " << b << "\n");        
         solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);

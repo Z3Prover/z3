@@ -353,7 +353,7 @@ namespace sat {
             candidate(bool_var v, double r): m_var(v), m_rating(r) {}
         };
         svector<candidate> m_candidates;
-        uint_set           m_select_lookahead_vars;
+        tracked_uint_set   m_select_lookahead_vars;
 
         double get_rating(bool_var v) const { return m_rating[v]; }
         double get_rating(literal l) const { return get_rating(l.var()); }

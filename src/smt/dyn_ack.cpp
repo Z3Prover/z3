@@ -346,7 +346,6 @@ namespace smt {
         dyn_ack_clause_del_eh(dyn_ack_manager & m):
             m(m) {
         }
-        ~dyn_ack_clause_del_eh() override {}
         void operator()(ast_manager & _m, clause * cls) override {
             m.del_clause_eh(cls);
             dealloc(this);

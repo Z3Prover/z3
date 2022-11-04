@@ -104,7 +104,7 @@ namespace q {
     * is created to ensure the justification trail is well-founded
     * during conflict resolution.
     */
-    sat::ext_justification_idx ematch::mk_justification(unsigned idx, clause& c, euf::enode* const* b) {
+    sat::ext_justification_idx ematch::mk_justification(unsigned idx, unsigned generation, clause& c, euf::enode* const* b) {
         void* mem = ctx.get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, &m_qs);
         bool sign = false;
@@ -113,21 +113,23 @@ namespace q {
         if (idx != UINT_MAX)
             lit = c[idx];
         m_explain.reset();
+        m_explain_cc.reset();
         ctx.get_egraph().begin_explain();
         ctx.reset_explain();
+        euf::cc_justification* cc = ctx.use_drat() ? &m_explain_cc : nullptr;
         for (auto const& [a, b] : m_evidence) {
             SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
             if (a->get_root() == b->get_root())
-                ctx.get_egraph().explain_eq<size_t>(m_explain, a, b);
+                ctx.get_egraph().explain_eq<size_t>(m_explain, cc, a, b);
             else
-                ctx.add_diseq_antecedent(m_explain, a, b);
+                ctx.add_diseq_antecedent(m_explain, cc, a, b);
         }
         ctx.get_egraph().end_explain();
 
         size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
         for (unsigned i = m_explain.size(); i-- > 0; )
             ev[i] = m_explain[i];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_explain.size(), ev);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, generation, m_explain.size(), ev);
         return constraint->to_index();
     }
 
@@ -361,7 +363,7 @@ namespace q {
         if (!is_owned) 
             binding = copy_nodes(c, binding); 
 
-        auto j_idx = mk_justification(idx, c, binding);     
+        auto j_idx = mk_justification(idx, max_generation, c, binding);     
 
         if (is_owned)
             propagate(ev == l_false, idx, j_idx);
@@ -372,16 +374,21 @@ namespace q {
     }
 
     void ematch::propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx) {
-        if (is_conflict) {
+        if (is_conflict) 
             ++m_stats.m_num_conflicts;
-            ctx.set_conflict(j_idx);
-        }
-        else {
+        else
             ++m_stats.m_num_propagations;
-            auto& j = justification::from_index(j_idx);
-            auto lit = instantiate(j.m_clause, j.m_binding, j.m_clause[idx]);
-            ctx.propagate(lit, j_idx);
-        }
+
+        auto& j = justification::from_index(j_idx);
+        sat::literal_vector lits;
+        lits.push_back(~j.m_clause.m_literal);
+        for (unsigned i = 0; i < j.m_clause.size(); ++i) 
+            lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i])); 
+        m_qs.log_instantiation(lits, &j);
+        euf::th_proof_hint* ph = nullptr;
+        if (ctx.use_drat()) 
+            ph = q_proof_hint::mk(ctx, j.m_generation, lits, j.m_clause.num_decls(), j.m_binding);
+        m_qs.add_clause(lits, ph);               
     }
 
     bool ematch::flush_prop_queue() {
@@ -407,7 +414,8 @@ namespace q {
 
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
         m_evidence.reset();
-        ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
+        ctx.propagate(lit, mk_justification(UINT_MAX, b.m_max_generation, c, b.nodes()));
+        m_qs.log_instantiation(~c.m_literal, lit);
     }
 
     sat::literal ematch::instantiate(clause& c, euf::enode* const* binding, lit const& l) {

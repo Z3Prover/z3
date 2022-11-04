@@ -16,7 +16,6 @@ emit some of the files required for Z3's different
 language bindings.
 """
 
-import mk_exception
 import argparse
 import logging
 import re
@@ -91,7 +90,7 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
 
 
 # Mapping to ML types
-Type2ML = { VOID : 'unit', VOID_PTR : 'ptr', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
+Type2ML = { VOID : 'unit', VOID_PTR : 'ptr', INT : 'int', UINT : 'int', INT64 : 'int64', UINT64 : 'int64', DOUBLE : 'float',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string', LBOOL : 'int' }
 
@@ -254,8 +253,10 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL or param_type(p) == INT64 or param_type(p) == UINT64:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
             return "int"
+        elif param_type(p) == INT64 or param_type(p) == UINT64:
+            return "int64"
         elif param_type(p) == STRING:
             return "string"
         else:
@@ -338,6 +339,10 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
   _elems.Check(ctx)
   return ceh
 
+def Z3_solver_register_on_clause(ctx, s, user_ctx, on_clause_eh, _elems = Elementaries(_lib.Z3_solver_register_on_clause)):
+    _elems.f(ctx, s, user_ctx, on_clause_eh)
+    _elems.Check(ctx)
+    
 def Z3_solver_propagate_init(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh, _elems = Elementaries(_lib.Z3_solver_propagate_init)):
     _elems.f(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh)
     _elems.Check(ctx)
@@ -774,6 +779,13 @@ def mk_java(java_src, java_dir, package_name):
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
                     java_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
+                    java_wrapper.write('  }\n')
+                elif param_type(param) == STRING:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Ljava/lang/String;");')
+                    java_wrapper.write('     jstring fval = jenv->NewStringUTF(_a%s);\n' % i)
+                    java_wrapper.write('     jenv->SetObjectField(a%s, fid, fval);\n' % i)
                     java_wrapper.write('  }\n')
                 else:
                     java_wrapper.write('  {\n')
@@ -1252,9 +1264,9 @@ def ml_unwrap(t, ts, s):
     elif t == UINT:
         return '(' + ts + ') Unsigned_int_val(' + s + ')'
     elif t == INT64:
-        return '(' + ts + ') Long_val(' + s + ')'
+        return '(' + ts + ') Int64_val(' + s + ')'
     elif t == UINT64:
-        return '(' + ts + ') Unsigned_long_val(' + s + ')'
+        return '(' + ts + ') Int64_val(' + s + ')'
     elif t == DOUBLE:
         return '(' + ts + ') Double_val(' + s + ')'
     elif ml_has_plus_type(ts):
@@ -1271,7 +1283,7 @@ def ml_set_wrap(t, d, n):
     elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == LBOOL:
         return d + ' = Val_int(' + n + ');'
     elif t == INT64 or t == UINT64:
-        return d + ' = Val_long(' + n + ');'
+        return d + ' = caml_copy_int64(' + n + ');'
     elif t == DOUBLE:
         return d + '= caml_copy_double(' + n + ');'
     elif t == STRING:
@@ -1307,7 +1319,8 @@ z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_eq',
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created',
-    'Z3_solver_propagate_decide'
+    'Z3_solver_propagate_decide',
+    'Z3_solver_register_on_clause'
     ])
 
 def mk_ml(ml_src_dir, ml_output_dir):
@@ -1698,8 +1711,8 @@ def def_APIs(api_files):
                 m = pat2.match(line)
                 if m:
                     eval(line)
-            except Exception:
-                raise mk_exec_header.MKException("Failed to process API definition: %s" % line)
+            except Exception as e:
+                error('ERROR: While processing: %s: %s\n' % (e, line))
 
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
@@ -1836,6 +1849,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
@@ -1847,11 +1861,13 @@ Z3_eq_eh    = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_
 Z3_created_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_decide_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 
+_lib.Z3_solver_register_on_clause.restype = None
 _lib.Z3_solver_propagate_init.restype = None
 _lib.Z3_solver_propagate_final.restype = None
 _lib.Z3_solver_propagate_fixed.restype = None
 _lib.Z3_solver_propagate_eq.restype = None
 _lib.Z3_solver_propagate_diseq.restype = None
+_lib.Z3_solver_propagate_decide.restype = None
 
 on_model_eh_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 _lib.Z3_optimize_register_model_eh.restype = None

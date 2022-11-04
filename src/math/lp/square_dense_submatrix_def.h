@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "util/vector.h"
 #include "math/lp/square_dense_submatrix.h"
 namespace lp {

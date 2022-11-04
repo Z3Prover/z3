@@ -23,7 +23,6 @@ z3_add_component(rel
     doc.cpp
     karr_relation.cpp
     rel_context.cpp
-    tbv.cpp
     udoc_relation.cpp
   COMPONENT_DEPENDENCIES
     muz

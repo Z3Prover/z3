@@ -102,10 +102,10 @@ public:
     }
 
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         scoped_watch _t_(m_pool.m_proof_watch);
         if (!m_proof.get()) {
-            m_proof = m_base->get_proof();
+            m_proof = m_base->get_proof_core();
             if (m_proof) {
                 elim_aux_assertions pc(m_pred);
                 pc(m, m_proof, m_proof);

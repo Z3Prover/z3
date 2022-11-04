@@ -17,6 +17,8 @@ Revision History:
 
 
 --*/
+#pragma once
+
 #include "math/lp/lp_settings.h"
 #ifdef Z3DEBUG
 #include "util/vector.h"

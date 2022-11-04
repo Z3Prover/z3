@@ -120,9 +120,16 @@ protected:
 
     void display_var(std::ostream & out, expr * var) const;
 
-    void display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials) const;
+    void display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials, std::function<void(std::ostream&, expr*)>& display_var) const;
 
-    void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
+
+    void display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials) const {
+        std::function<void(std::ostream& out, expr* v)> _fn = [&](std::ostream& out, expr* v) { display_var(out, v); };
+        display_monomials(out, num_monomials, monomials, _fn);
+    }
+
+
+    void display_equations(std::ostream & out, equation_set const & v, char const * header, std::function<void(std::ostream&, expr*)>& display_var) const;
 
     void del_equations(unsigned old_size);
 
@@ -281,11 +288,26 @@ public:
 
     void pop_scope(unsigned num_scopes);
 
-    void display_equation(std::ostream & out, equation const & eq) const;
+    void display_equation(std::ostream & out, equation const & eq) const {
+        std::function<void(std::ostream& out, expr* v)> _fn = [&](std::ostream& out, expr* v) { display_var(out, v); };
+        display_equation(out, eq, _fn);
+    }
 
-    void display_monomial(std::ostream & out, monomial const & m) const;
+    void display_monomial(std::ostream & out, monomial const & m) const {
+        std::function<void(std::ostream& out, expr* v)> _fn = [&](std::ostream& out, expr* v) { display_var(out, v); };
+        display_monomial(out, m, _fn);
+    }
+    
+    void display_equation(std::ostream & out, equation const & eq, std::function<void(std::ostream&, expr*)>& display_var) const;
 
-    void display(std::ostream & out) const;
+    void display_monomial(std::ostream & out, monomial const & m, std::function<void(std::ostream&, expr*)>& display_var) const;
+
+    void display(std::ostream & out) const {
+        std::function<void(std::ostream& out, expr* v)> _fn = [&](std::ostream& out, expr* v) { display_var(out, v); };
+        display(out, _fn);        
+    }
+    
+    void display(std::ostream & out, std::function<void(std::ostream&, expr*)>& display_var) const;
 };
 
 

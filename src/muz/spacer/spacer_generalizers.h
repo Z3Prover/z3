@@ -21,6 +21,7 @@ Revision History:
 
 #include "ast/arith_decl_plugin.h"
 #include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_expand_bnd_generalizer.h"
 
 namespace spacer {
 
@@ -29,7 +30,6 @@ namespace spacer {
 class lemma_sanity_checker : public lemma_generalizer {
   public:
     lemma_sanity_checker(context &ctx) : lemma_generalizer(ctx) {}
-    ~lemma_sanity_checker() override {}
     void operator()(lemma_ref &lemma) override;
 };
 
@@ -59,7 +59,6 @@ class lemma_bool_inductive_generalizer : public lemma_generalizer {
                                      bool array_only = false)
         : lemma_generalizer(ctx), m_failure_limit(failure_limit),
           m_array_only(array_only) {}
-    ~lemma_bool_inductive_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 
     void collect_statistics(statistics &st) const override;
@@ -83,7 +82,6 @@ class unsat_core_generalizer : public lemma_generalizer {
 
   public:
     unsat_core_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    ~unsat_core_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 
     void collect_statistics(statistics &st) const override;
@@ -96,14 +94,12 @@ class lemma_array_eq_generalizer : public lemma_generalizer {
 
   public:
     lemma_array_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    ~lemma_array_eq_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 };
 
 class lemma_eq_generalizer : public lemma_generalizer {
   public:
     lemma_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    ~lemma_eq_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 };
 
@@ -130,7 +126,6 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
 
   public:
     lemma_quantifier_generalizer(context &ctx, bool normalize_cube = true);
-    ~lemma_quantifier_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 
     void collect_statistics(statistics &st) const override;
@@ -174,12 +169,16 @@ class limit_num_generalizer : public lemma_generalizer {
 
   public:
     limit_num_generalizer(context &ctx, unsigned failure_limit);
-    ~limit_num_generalizer() override {}
 
     void operator()(lemma_ref &lemma) override;
 
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 };
-} // namespace spacer
 
+lemma_generalizer *
+alloc_lemma_inductive_generalizer(spacer::context &ctx,
+                                  bool only_array_eligible = false,
+                                  bool enable_literal_weakening = true);
+
+} // namespace spacer

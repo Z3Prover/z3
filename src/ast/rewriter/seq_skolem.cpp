@@ -26,10 +26,14 @@ skolem::skolem(ast_manager& m, th_rewriter& rw):
     m_suffix         = "seq.s.prefix";
     m_accept         = "aut.accept";
     m_tail           = "seq.tail";
+    m_left           = "seq.left";
+    m_right          = "seq.right";
     m_seq_first      = "seq.first";
     m_seq_last       = "seq.last";
     m_indexof_left   = "seq.idx.l";
     m_indexof_right  = "seq.idx.r";
+    m_lindexof_left   = "seq.lidx.l";
+    m_lindexof_right  = "seq.lidx.r";
     m_aut_step       = "aut.step";
     m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
     m_post           = "seq.post"; // (seq.post s l): suffix of string s of length k, based on extract starting at index i of length l
@@ -154,6 +158,20 @@ bool skolem::is_tail(expr* e, expr*& s) const {
 bool skolem::is_tail(expr* e, expr*& s, expr*& idx) const {
     return is_tail(e) && (s = to_app(e)->get_arg(0), idx = to_app(e)->get_arg(1), true);
 }
+
+bool skolem::is_left_or_right(expr* e, expr*& x, expr*& y, expr*& z) {
+    if (!is_skolem(m_left, e) && !is_skolem(m_right, e))
+        return false;
+    x = nullptr;
+    y = nullptr;
+    z = nullptr;
+    unsigned sz = to_app(e)->get_num_args();
+    if (sz > 0) x = to_app(e)->get_arg(0);
+    if (sz > 1) y = to_app(e)->get_arg(1);
+    if (sz > 2) z = to_app(e)->get_arg(2);
+    return true;
+}
+
 
 bool skolem::is_eq(expr* e, expr*& a, expr*& b) const {
     return is_skolem(m_eq, e) && (a = to_app(e)->get_arg(0), b = to_app(e)->get_arg(1), true);

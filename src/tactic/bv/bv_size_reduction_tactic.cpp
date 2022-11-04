@@ -112,6 +112,7 @@ public:
         unsigned bv_sz;
         expr * f, * lhs, * rhs;
 
+#if 0
         auto match_bitmask = [&](expr* lhs, expr* rhs) {
             unsigned lo, hi;
             expr* arg;
@@ -131,7 +132,8 @@ public:
             update_unsigned_upper(to_app(arg), val);
             return true;
         };
-            
+#endif
+
         for (unsigned i = 0; i < sz; i++) {
             bool negated = false;
             f = g.form(i);            

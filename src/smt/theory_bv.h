@@ -42,7 +42,7 @@ namespace smt {
 
         class atom {
         public:
-            virtual ~atom() {}
+            virtual ~atom() = default;
             virtual bool is_bit() const = 0;
         };
 
@@ -56,7 +56,6 @@ namespace smt {
         struct bit_atom : public atom {
             var_pos_occ * m_occs;
             bit_atom():m_occs(nullptr) {}
-            ~bit_atom() override {}
             bool is_bit() const override { return true; }
         };
 
@@ -64,7 +63,6 @@ namespace smt {
             literal    m_var;
             literal    m_def;
             le_atom(literal v, literal d):m_var(v), m_def(d) {}
-            ~le_atom() override {}
             bool is_bit() const override { return false; }
         };
 
@@ -114,6 +112,7 @@ namespace smt {
         svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
+        enode_vector             m_bv2int;
         typedef svector<theory_var> vars;
 
         typedef std::pair<numeral, unsigned> value_sort_pair;
@@ -189,6 +188,7 @@ namespace smt {
         void internalize_urem(app * n);
         void internalize_srem(app * n);
         void internalize_smod(app * n);
+        void internalize_udiv_quot_rem(app* n);
         void internalize_shl(app * n);
         void internalize_lshr(app * n);
         void internalize_ashr(app * n);
@@ -228,6 +228,8 @@ namespace smt {
         void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
         void assert_int2bv_axiom(app* n);
         void assert_bv2int_axiom(app* n);
+        void assert_udiv_quot_rem_axiom(app * n);
+
 
     protected:
         theory_var mk_var(enode * n) override;

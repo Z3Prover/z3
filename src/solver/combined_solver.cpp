@@ -115,7 +115,8 @@ private:
     }
 
 public:
-    combined_solver(solver * s1, solver * s2, params_ref const & p) {
+    combined_solver(solver * s1, solver * s2, params_ref const & p):
+        solver(s1->get_manager()) {
         m_solver1 = s1;
         m_solver2 = s2;
         updt_local_params(p);
@@ -318,11 +319,11 @@ public:
             return m_solver2->get_trail(max_level);
     }
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         if (m_use_solver1_results)
-            return m_solver1->get_proof();
+            return m_solver1->get_proof_core();
         else
-            return m_solver2->get_proof();
+            return m_solver2->get_proof_core();
     }
 
     std::string reason_unknown() const override {
@@ -343,7 +344,11 @@ public:
         else
             return m_solver2->get_labels(r);
     }
-    
+
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        switch_inc_mode();
+        m_solver2->register_on_clause(ctx, on_clause);
+    }    
 
     void user_propagate_init(
         void* ctx, 
@@ -398,7 +403,6 @@ class combined_solver_factory : public solver_factory {
     scoped_ptr<solver_factory> m_f2;
 public:
     combined_solver_factory(solver_factory * f1, solver_factory * f2):m_f1(f1), m_f2(f2) {}
-    ~combined_solver_factory() override {}
 
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_combined_solver((*m_f1)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),

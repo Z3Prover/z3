@@ -12,8 +12,8 @@ Abstract:
     - mu:         max-sat algorithm by Nina and Bacchus, AAAI 2014.
     - mus-mss:    based on dual refinement of bounds.
     - binary:     binary version of maxres
-    - rc2:        implementaion of rc2 heuristic using cardinality constraints
-    - rc2t:       implementaion of rc2 heuristic using totalizerx
+    - rc2:        implementation of rc2 heuristic using cardinality constraints
+    - rc2t:       implementation of rc2 heuristic using totalizerx
     - rc2-binary: hybrid of rc2 and binary maxres. Perform one step of binary maxres. 
                   If there are more than 16 soft constraints create a cardinality constraint.
 
@@ -27,7 +27,7 @@ Abstract:
     constraints the approach works like max-res.
     Given a (maximal) satisfying subset of the soft constraints
     the approach updates the upper bound if the current assignment
-    improves the current best assignmet.
+    improves the current best assignment.
     Furthermore, take the soft constraints that are complements
     to the current satisfying subset.
     E.g, if F are the hard constraints and
@@ -44,7 +44,7 @@ Abstract:
        If k of these soft clauses are false in the satisfying assignment
        for the updated F, then k of the original soft clauses are also false
        under the assignment.
-       In summary: any assignment to the new clauses that satsfies F has the
+       In summary: any assignment to the new clauses that satisfies F has the
        same cost.
     Claim:
        If there are no satisfying assignments to F, then the current best assignment
@@ -100,7 +100,6 @@ private:
     struct lns_maxcore : public lns_context {
         maxcore& i;
         lns_maxcore(maxcore& i) :i(i) {}
-        ~lns_maxcore() override {}
         void update_model(model_ref& mdl) override { i.update_assignment(mdl); }
         void relax_cores(vector<expr_ref_vector> const& cores) override { i.relax_cores(cores); }
         rational cost(model& mdl) override { return i.cost(mdl); }

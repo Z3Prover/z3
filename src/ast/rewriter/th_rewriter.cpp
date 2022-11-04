@@ -215,6 +215,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
+            if (false && k == OP_AND) {
+                st = m_a_rw.mk_and_core(num, args, result);
+                if (st != BR_FAILED)
+                    return st;
+            }
             if (k == OP_EQ && m_seq_rw.u().has_seq() && is_app(args[0]) &&
                 to_app(args[0])->get_family_id() == m_seq_rw.get_fid()) {
                 st = m_seq_rw.mk_eq_core(args[0], args[1], result);
@@ -821,7 +826,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         result = elim_unused_vars(m(), q1, params_ref());
 
 
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 
         result_pr = nullptr;
         if (m().proofs_enabled()) {
@@ -830,6 +834,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
         }
+
+        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
+
         SASSERT(old_q->get_sort() == result->get_sort());
         return true;
     }

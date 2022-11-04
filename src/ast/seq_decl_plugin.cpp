@@ -1107,6 +1107,31 @@ unsigned seq_util::rex::max_length(expr* r) const {
     return UINT_MAX;
 }
 
+/**
+   \brief determine if \c n is a range regular expression where the lower and upper bounds
+   are given by single characters.
+   Range expressions where lower and upper bounds are not single characters are either 
+   the empty language (when a bound is a string but not a single character) or symbolic
+   (when both bounds are not ground strings). The general is_range can be used to process
+   range expressions for these cases, but they don't correspond to mainstream regex usage.   
+ */
+bool seq_util::rex::is_range(expr const* n, unsigned& lo, unsigned& hi) const {
+    expr* _lo, *_hi;
+    zstring los, his;
+    if (!is_range(n, _lo, _hi))
+        return false;
+    if (!u.str.is_string(_lo, los))
+        return false;
+    if (!u.str.is_string(_hi, his))
+        return false;
+    if (los.length() != 1 || his.length() != 1)
+        return false;
+    lo = los[0];
+    hi = his[0];
+    return true;
+}
+
+
 sort* seq_util::rex::to_seq(sort* re) {
     (void)u;
     SASSERT(u.is_re(re));

@@ -24,6 +24,8 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "ast/for_each_expr.h"
 
+#include <iostream>
+
 namespace smt {
 
     /**
@@ -613,11 +615,15 @@ namespace smt {
 
     bool context::has_lambda() {
         for (auto const & [n, q] : m_lambdas) {
-            if (n->get_class_size() != 1) 
+            if (n->get_class_size() != 1) {
+                TRACE("context", tout << "class size " << n->get_class_size() << " " << enode_pp(n, *this) << "\n");
                 return true;
+            }
             for (enode* p : enode::parents(n)) 
-                if (!is_beta_redex(p, n)) 
+                if (!is_beta_redex(p, n)) {
+                    TRACE("context", tout << "not a beta redex " << enode_pp(p, *this) << "\n");
                     return true;
+                }
         }
         return false;
     }
@@ -1372,9 +1378,13 @@ namespace smt {
         TRACE("mk_clause", display_literals_verbose(tout << "creating clause: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
         m_clause_proof.add(num_lits, lits, k, j);
         switch (k) {
-        case CLS_AUX: 
-        case CLS_TH_AXIOM: {
+        case CLS_TH_AXIOM:
+            dump_axiom(num_lits, lits);
+            Z3_fallthrough;
+        case CLS_AUX: {
             literal_buffer simp_lits;
+            if (m_searching)
+                dump_lemma(num_lits, lits);
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits)) {
                 if (j && !j->in_region()) {
                     j->del_eh(m);
@@ -1384,11 +1394,13 @@ namespace smt {
             }
             DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
-                j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.data()));
+                j = mk_justification(unit_resolution_justification(*this, j, simp_lits.size(), simp_lits.data()));
             }
+              
             break;
         }
-        case CLS_TH_LEMMA: 
+        case CLS_TH_LEMMA:
+            dump_lemma(num_lits, lits);
             if (!simplify_aux_lemma_literals(num_lits, lits)) {
                 if (j && !j->in_region()) {
                     j->del_eh(m);
@@ -1398,7 +1410,10 @@ namespace smt {
             }
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
             // it is not necessary to create a unit_resolution_justification
-            break;        
+            break;
+        case CLS_LEARNED:
+            dump_lemma(num_lits, lits);
+            break;
         default:
             break;
         }
@@ -1503,6 +1518,29 @@ namespace smt {
         }} 
     }
 
+    void context::dump_axiom(unsigned n, literal const* lits) {
+        if (m_fparams.m_axioms2files) {
+            literal_buffer tmp;
+            neg_literals(n, lits, tmp);
+            SASSERT(tmp.size() == n);
+            display_lemma_as_smt_problem(tmp.size(), tmp.data(), false_literal, m_fparams.m_logic);
+        }
+    }
+
+    void context::dump_lemma(unsigned n, literal const* lits) {
+        if (m_fparams.m_lemmas2console) {
+            expr_ref fml(m);
+            expr_ref_vector fmls(m);
+            for (unsigned i = 0; i < n; ++i)
+                fmls.push_back(literal2expr(lits[i]));
+            fml = mk_or(fmls);
+            m_lemma_visitor.collect(fml);
+            m_lemma_visitor.display_skolem_decls(std::cout);
+            m_lemma_visitor.display_assert(std::cout, fml.get(), true);
+        }
+
+    }
+
     void context::mk_clause(literal l1, literal l2, justification * j) {
         literal ls[2] = { l1, l2 };
         mk_clause(2, ls, j);
@@ -1518,13 +1556,7 @@ namespace smt {
         TRACE("mk_th_axiom", display_literals_verbose(tout, num_lits, lits) << "\n";);
 
         if (m.proofs_enabled()) {
-            js = mk_justification(theory_axiom_justification(tid, m_region, num_lits, lits, num_params, params));
-        }
-        if (m_fparams.m_smtlib_dump_lemmas) {
-            literal_buffer tmp;
-            neg_literals(num_lits, lits, tmp);
-            SASSERT(tmp.size() == num_lits);
-            display_lemma_as_smt_problem(tmp.size(), tmp.data(), false_literal, m_fparams.m_logic);
+            js = mk_justification(theory_axiom_justification(tid, *this, num_lits, lits, num_params, params));
         }
         mk_clause(num_lits, lits, js, k);
     }
@@ -1594,9 +1626,11 @@ namespace smt {
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
-        else {
+        else if (pr && on_clause_active()) 
+            // support logging of quantifier instantiations and other more detailed information
+            mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
+        else 
             mk_clause(num_lits, lits, nullptr);
-        }
     }
 
     void context::mk_root_clause(literal l1, literal l2, proof * pr) {

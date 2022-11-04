@@ -146,7 +146,9 @@ final_check_status theory_user_propagator::final_check_eh() {
     catch (...) {
       throw default_exception("Exception thrown in \"final\"-callback");
     }
+    CTRACE("user_propagate", can_propagate(), tout << "can propagate\n");
     propagate();
+    CTRACE("user_propagate", ctx.inconsistent(), tout << "inconsistent\n");
     // check if it became inconsistent or something new was propagated/registered
     bool done = (sz1 == m_prop.size()) && (sz2 == m_expr2var.size()) && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
@@ -247,7 +249,11 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
 
     // get unassigned variable from enode
     var = enode_to_bool(new_enode, new_bit);
-
+    
+    if (var == null_bool_var)
+        // selected variable is already assigned
+        throw default_exception("expression in \"decide\" is already assigned");
+    
     // in case the callback did not decide on a truth value -> let Z3 decide
     is_pos = ctx.guess(var, phase);
 }
@@ -298,25 +304,31 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
     m_eqs.reset();
     for (expr* id : prop.m_ids)
         m_lits.append(m_id2justification[expr2var(id)]);
-    for (auto const& p : prop.m_eqs)
-        m_eqs.push_back(enode_pair(get_enode(expr2var(p.first)), get_enode(expr2var(p.second))));
-    DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
+    for (auto const& [a,b] : prop.m_eqs)
+        if (a != b)
+            m_eqs.push_back(enode_pair(get_enode(expr2var(a)), get_enode(expr2var(b))));
+    DEBUG_CODE(for (auto const& [a, b] : m_eqs) VERIFY(a->get_root() == b->get_root()););
     DEBUG_CODE(for (expr* e : prop.m_ids) VERIFY(m_fixed.contains(expr2var(e))););
     DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
     
-    TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n");
+    TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n";
+          for (auto const& [a,b] : m_eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
+          for (expr* e : prop.m_ids) tout << mk_pp(e, m) << "\n";
+          for (literal lit : m_lits) tout << lit << "\n");
     
     if (m.is_false(prop.m_conseq)) {
         js = ctx.mk_justification(
             ext_theory_conflict_justification(
-                get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
+                get_id(), ctx, m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
         ctx.set_conflict(js);
     }
     else {
+#if 1
         for (auto& lit : m_lits)
             lit.neg();
         for (auto const& [a,b] : m_eqs)
             m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+#endif
         
         literal lit; 
         if (has_quantifiers(prop.m_conseq)) {
@@ -329,8 +341,20 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         else 
             lit = mk_literal(prop.m_conseq);            
         ctx.mark_as_relevant(lit);
+
+#if 0
+        justification* js =
+            ctx.mk_justification(
+                ext_theory_propagation_justification(
+                    get_id(), ctx, m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), lit));
+
+        ctx.assign(lit, js);
+#endif
+        
+#if 1           
         m_lits.push_back(lit);
         ctx.mk_th_lemma(get_id(), m_lits);
+#endif
         TRACE("user_propagate", ctx.display(tout););
     }
 }
@@ -341,9 +365,9 @@ void theory_user_propagator::propagate_new_fixed(prop_info const& prop) {
 
 
 void theory_user_propagator::propagate() {
-    TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     if (m_qhead == m_prop.size() && m_to_add_qhead == m_to_add.size())
         return;
+    TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     force_push();
     
     unsigned qhead = m_to_add_qhead;

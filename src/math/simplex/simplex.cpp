@@ -41,6 +41,10 @@ namespace simplex {
         sparse_matrix_ops::kernel(M, K);
     }
 
+    void kernel_ffe(sparse_matrix<mpq_ext> &M, vector<vector<rational>> &K) {
+      sparse_matrix_ops::kernel_ffe(M, K);
+    }
+
     void ensure_rational_solution(simplex<mpq_ext>& S) {
         rational delta(1);
         for (unsigned i = 0; i < S.get_num_vars(); ++i) {

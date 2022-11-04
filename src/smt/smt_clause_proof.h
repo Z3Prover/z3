@@ -28,6 +28,7 @@ Revision History:
 
 #include "smt/smt_theory.h"
 #include "smt/smt_clause.h"
+#include "tactic/user_propagator_base.h"
 
 namespace smt {
     class context;
@@ -50,14 +51,17 @@ namespace smt {
             proof_ref       m_proof;
             info(status st, expr_ref_vector& v, proof* p): m_status(st), m_clause(v), m_proof(p, m_clause.m()) {}
         };
-        context&     ctx;
-        ast_manager& m;
+        context&        ctx;
+        ast_manager&    m;
         expr_ref_vector m_lits;
-        vector<info> m_trail;
+        vector<info>    m_trail;
+        bool            m_on_clause_active = false;
+        user_propagator::on_clause_eh_t m_on_clause_eh;
+        void*                           m_on_clause_ctx = nullptr;
         void update(status st, expr_ref_vector& v, proof* p);
         void update(clause& c, status st, proof* p);
         status kind2st(clause_kind k);
-        proof* justification2proof(justification* j);
+        proof* justification2proof(status st, justification* j);
     public:
         clause_proof(context& ctx);
         void shrink(clause& c, unsigned new_size);
@@ -67,6 +71,12 @@ namespace smt {
         void add(unsigned n, literal const* lits, clause_kind k, justification* j);
         void del(clause& c);
         proof_ref get_proof(bool inconsistent);
+        bool on_clause_active() const { return m_on_clause_active; }
+        void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+            m_on_clause_eh = on_clause;
+            m_on_clause_ctx = ctx;
+            m_on_clause_active = !!m_on_clause_eh;
+        }
     };
 
     std::ostream& operator<<(std::ostream& out, clause_proof::status st);

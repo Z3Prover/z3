@@ -66,7 +66,7 @@ class heap_trie {
         unsigned m_ref;
     public:
         node(node_t t): m_type(t), m_ref(0) {}
-        virtual ~node() {}
+        virtual ~node() = default;
         node_t type() const { return m_type; }
         void inc_ref() { ++m_ref; }
         void dec_ref() { SASSERT(m_ref > 0); --m_ref; }
@@ -80,7 +80,6 @@ class heap_trie {
         Value m_value;
     public:
         leaf(): node(leaf_t) {}
-        ~leaf() override {}
         Value const& get_value() const { return m_value; }
         void set_value(Value const& v) { m_value = v; }
         void display(std::ostream& out, unsigned indent) const override {
@@ -97,9 +96,6 @@ class heap_trie {
         children_t m_nodes;
     public:
         trie(): node(trie_t) {}
-
-        ~trie() override {
-        }
 
         node* find_or_insert(Key k, node* n) {
             for (unsigned i = 0; i < m_nodes.size(); ++i) {

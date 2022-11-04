@@ -464,7 +464,7 @@ namespace smt {
                 m.limit().inc();
             }
 
-            virtual ~auf_solver() {
+            ~auf_solver() override {
                 flush_nodes();
                 reset_eval_cache();
             }
@@ -1157,7 +1157,7 @@ namespace smt {
             ast_manager& m;
         public:
             qinfo(ast_manager& m) :m(m) {}
-            virtual ~qinfo() {}
+            virtual ~qinfo() = default;
             virtual char const* get_kind() const = 0;
             virtual bool is_equal(qinfo const* qi) const = 0;
             virtual void display(std::ostream& out) const { out << "[" << get_kind() << "]"; }
@@ -1180,7 +1180,6 @@ namespace smt {
             unsigned    m_var_j;
         public:
             f_var(ast_manager& m, func_decl* f, unsigned i, unsigned j) : qinfo(m), m_f(f), m_arg_i(i), m_var_j(j) {}
-            ~f_var() override {}
 
             char const* get_kind() const override {
                 return "f_var";
@@ -1261,7 +1260,6 @@ namespace smt {
                 f_var(m, f, i, j),
                 m_offset(offset, m) {
             }
-            ~f_var_plus_offset() override {}
 
             char const* get_kind() const override {
                 return "f_var_plus_offset";
@@ -1427,7 +1425,6 @@ namespace smt {
 
         public:
             select_var(ast_manager& m, app* s, unsigned i, unsigned j) :qinfo(m), m_array(m), m_select(s), m_arg_i(i), m_var_j(j) {}
-            ~select_var() override {}
 
             char const* get_kind() const override {
                 return "select_var";
@@ -1496,8 +1493,6 @@ namespace smt {
                 if (m_var_i > m_var_j)
                     std::swap(m_var_i, m_var_j);
             }
-
-            ~var_pair() override {}
 
             bool is_equal(qinfo const* qi) const override {
                 if (qi->get_kind() != get_kind())
@@ -1577,7 +1572,6 @@ namespace smt {
             var_expr_pair(ast_manager& m, unsigned i, expr* t) :
                 qinfo(m),
                 m_var_i(i), m_t(t, m) {}
-            ~var_expr_pair() override {}
 
             bool is_equal(qinfo const* qi) const override {
                 if (qi->get_kind() != get_kind())

@@ -49,8 +49,6 @@ namespace opt {
             m_trail(m),
             m_defs(m) {}
 
-        ~wmax() override {}
-
         lbool operator()() override {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);

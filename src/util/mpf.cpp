@@ -41,9 +41,6 @@ mpf::mpf(unsigned _ebits, unsigned _sbits):
     set(ebits, sbits);
 }
 
-mpf::~mpf() {
-}
-
 void mpf::swap(mpf & other) {
     unsigned tmp = ebits;
     ebits = other.ebits;
@@ -62,9 +59,6 @@ void mpf::swap(mpf & other) {
 mpf_manager::mpf_manager() :
     m_mpz_manager(m_mpq_manager),
     m_powers2(m_mpz_manager) {
-}
-
-mpf_manager::~mpf_manager() {
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, int value) {
@@ -200,22 +194,20 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
     // We expect [i].[f]P[e], where P means that the exponent is interpreted as 2^e instead of 10^e.
 
-    std::string v(value);
-
-    std::string f, e;
+    std::string_view  v(value);
     bool sgn = false;
 
-    if (v.substr(0, 1) == "-") {
+    if (v[0] == '-') {
         sgn = true;
         v = v.substr(1);
     }
-    else if (v.substr(0, 1) == "+")
+    else if (v[0] == '+')
         v = v.substr(1);
 
     size_t e_pos = v.find('p');
-    if (e_pos == std::string::npos) e_pos = v.find('P');
-    f = (e_pos != std::string::npos) ? v.substr(0, e_pos) : v;
-    e = (e_pos != std::string::npos) ? v.substr(e_pos+1) : "0";
+    if (e_pos == std::string_view::npos) e_pos = v.find('P');
+    auto f = (e_pos != std::string_view::npos) ? std::string(v.substr(0, e_pos)) : std::string(v);
+    auto e = (e_pos != std::string_view::npos) ? std::string(v.substr(e_pos+1)) : "0";
 
     TRACE("mpf_dbg", tout << "sgn = " << sgn << " f = " << f << " e = " << e << std::endl;);
 
@@ -1564,7 +1556,7 @@ std::string mpf_manager::to_string(mpf const & x) {
             if (m_mpq_manager.is_int(r))
                 ss << ".0";
             ss << " " << exponent;
-            res += ss.str();
+            res += std::move(ss).str();
         }
     }
 
@@ -1602,7 +1594,7 @@ std::string mpf_manager::to_string_raw(mpf const & x) {
     res += " ";
     std::stringstream ss("");
     ss << exp(x);
-    res += ss.str();
+    res += std::move(ss).str();
     if (is_normal(x))
         res += " N";
     else
@@ -1630,12 +1622,8 @@ std::string mpf_manager::to_string_hexfloat(mpf const & x) {
                                     std::ios_base::showpoint | std::ios_base::showpos);
     ss.setf(ff);
     ss.precision(13);
-#if defined(_WIN32) && _MSC_VER >= 1800
     ss << std::hexfloat << to_double(x);
-#else
-    ss << std::hex << (*reinterpret_cast<const unsigned long long *>(&(x)));
-#endif
-    return ss.str();
+    return std::move(ss).str();
 }
 
 std::string mpf_manager::to_string_binary(mpf const & x, unsigned upper_extra, unsigned lower_extra) {

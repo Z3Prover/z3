@@ -87,7 +87,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
         return val;
     }
     // Traverse constructors, and try to invoke get_fresh_value of one of the arguments (if the argument is not a sibling datatype of s).
-    // If the argumet is a sibling datatype of s, then
+    // If the argument is a sibling datatype of s, then
     // use get_last_fresh_value.
     ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
     for (func_decl * constructor : constructors) {

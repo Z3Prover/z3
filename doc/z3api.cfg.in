@@ -2171,7 +2171,6 @@ INCLUDE_FILE_PATTERNS  =
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
 PREDEFINED             = Z3_ast_opt:=Z3_ast \
-                         Z3_bool_opt:=Z3_bool \
                          Z3_func_interp_opt:=Z3_func_interp \
                          Z3_model_opt:=Z3_model \
                          __out_opt:=__out

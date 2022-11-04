@@ -52,8 +52,6 @@ class split_clause_tactic : public tactic {
         split_pc(ast_manager & m, app * cls, proof * pr):m_clause(cls, m), m_clause_pr(pr, m) {
         }
 
-        ~split_pc() override { }
-
         proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
             // Let m_clause be of the form (l_0 or ... or l_{num_source - 1})
             // Each source[i] proof is a proof for "false" using l_i as a hypothesis
@@ -86,9 +84,6 @@ public:
         split_clause_tactic * t = alloc(split_clause_tactic);
         t->m_largest_clause = m_largest_clause;
         return t;
-    }
-    
-    ~split_clause_tactic() override {
     }
 
     char const* name() const override { return "split_clause"; }

@@ -252,33 +252,20 @@ namespace Microsoft.Z3
             : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (byte)(models ? 1 : 0), (byte)(unsatCores ? 1 : 0), (byte)(proofs ? 1 : 0)))
         {
             Debug.Assert(ctx != null);
-        }
-
-        internal class DecRefQueue : IDecRefQueue
-        {
-            public DecRefQueue() : base() { }
-            public DecRefQueue(uint move_limit) : base(move_limit) { }
-            internal override void IncRef(Context ctx, IntPtr obj)
-            {
-                Native.Z3_goal_inc_ref(ctx.nCtx, obj);
-            }
-
-            internal override void DecRef(Context ctx, IntPtr obj)
-            {
-                Native.Z3_goal_dec_ref(ctx.nCtx, obj);
-            }
-        };        
+        }      
 
         internal override void IncRef(IntPtr o)
         {
-            Context.Goal_DRQ.IncAndClear(Context, o);
-            base.IncRef(o);
+            Native.Z3_goal_inc_ref(Context.nCtx, o);
         }
 
         internal override void DecRef(IntPtr o)
         {
-            Context.Goal_DRQ.Add(o);
-            base.DecRef(o);
+            lock (Context)
+            {
+                if (Context.nCtx != IntPtr.Zero)
+                    Native.Z3_goal_dec_ref(Context.nCtx, o);
+            }
         }
 
         #endregion

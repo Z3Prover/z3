@@ -39,9 +39,6 @@ public:
         return alloc(card2bv_tactic, m, m_params);
     }
 
-    ~card2bv_tactic() override {
-    }
-
     char const* name() const override { return "card2bv"; }
 
     void updt_params(params_ref const & p) override {

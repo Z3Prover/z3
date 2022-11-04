@@ -46,6 +46,7 @@ bld_rel/*
 bld_dbg_x64/*
 bld_rel_x64/*
 .vscode
+*build*/**
 # Auto generated files.
 config.log
 config.status
@@ -80,6 +81,8 @@ src/api/js/node_modules/
 src/api/js/build/
 src/api/js/**/*.__GENERATED__.*
 debug/*
+examples/python/z3
+examples/python/libz3.dll
 
 out/**
 *.bak
@@ -91,3 +94,4 @@ CMakeSettings.json
 # Editor temp files
 *.swp
 .DS_Store
+dbg/**

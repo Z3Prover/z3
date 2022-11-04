@@ -36,91 +36,113 @@ namespace smt {
         }
     }
 
-    proof* clause_proof::justification2proof(justification* j) {
-        return (m.proofs_enabled() && j) ? j->mk_proof(ctx.get_cr()) : nullptr;
+    proof* clause_proof::justification2proof(status st, justification* j) {
+        proof* r = nullptr;
+        if (j)
+            r = j->mk_proof(ctx.get_cr());
+        if (r) 
+            return r;
+        if (!m_on_clause_active)
+            return nullptr;
+        switch (st) {
+        case status::assumption:
+            return m.mk_const("assumption", m.mk_proof_sort());
+        case status::lemma:
+            return m.mk_const("rup", m.mk_proof_sort());
+        case status::th_lemma:
+        case status::th_assumption:
+            return m.mk_const("smt", m.mk_proof_sort());
+        case status::deleted:
+            return m.mk_const("del", m.mk_proof_sort());
+        }
+        UNREACHABLE();
+        return nullptr;
     }
 
     void clause_proof::add(clause& c) {
-        if (ctx.get_fparams().m_clause_proof) {  
-            justification* j = c.get_justification();
-            proof_ref pr(justification2proof(j), m);
-            CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
-            update(c, kind2st(c.get_kind()), pr);
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        justification* j = c.get_justification();
+        auto st = kind2st(c.get_kind());
+        proof_ref pr(justification2proof(st, j), m);
+        CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
+        update(c, st, pr);        
     }
 
     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
-        if (ctx.get_fparams().m_clause_proof) {              
-            proof_ref pr(justification2proof(j), m);
-            CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
-            m_lits.reset();
-            for (unsigned i = 0; i < n; ++i) {
-                m_lits.push_back(ctx.literal2expr(lits[i]));
-            }
-            update(kind2st(k), m_lits, pr);
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        auto st = kind2st(k);
+        proof_ref pr(justification2proof(st, j), m);
+        CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
+        m_lits.reset();
+        for (unsigned i = 0; i < n; ++i) 
+            m_lits.push_back(ctx.literal2expr(lits[i]));
+        update(st, m_lits, pr);
     }
 
 
     void clause_proof::shrink(clause& c, unsigned new_size) {
-        if (ctx.get_fparams().m_clause_proof) {            
-            m_lits.reset();
-            for (unsigned i = 0; i < new_size; ++i) {
-                m_lits.push_back(ctx.literal2expr(c[i]));
-            }
-            update(status::lemma, m_lits, nullptr);
-            for (unsigned i = new_size; i < c.get_num_literals(); ++i) {
-                m_lits.push_back(ctx.literal2expr(c[i]));
-            }
-            update(status::deleted, m_lits, nullptr);
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        m_lits.reset();
+        for (unsigned i = 0; i < new_size; ++i) 
+            m_lits.push_back(ctx.literal2expr(c[i]));
+        proof* p = justification2proof(status::lemma, nullptr);
+        update(status::lemma, m_lits, p);
+        for (unsigned i = new_size; i < c.get_num_literals(); ++i) 
+            m_lits.push_back(ctx.literal2expr(c[i]));
+        p = justification2proof(status::deleted, nullptr);
+        update(status::deleted, m_lits, p);
     }
 
     void clause_proof::add(literal lit, clause_kind k, justification* j) {
-        if (ctx.get_fparams().m_clause_proof) {
-            m_lits.reset();
-            m_lits.push_back(ctx.literal2expr(lit));
-            proof* pr = justification2proof(j);
-            update(kind2st(k), m_lits, pr);
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        m_lits.reset();
+        m_lits.push_back(ctx.literal2expr(lit));
+        auto st = kind2st(k);
+        proof* pr = justification2proof(st, j);
+        update(st, m_lits, pr);
     }
 
     void clause_proof::add(literal lit1, literal lit2, clause_kind k, justification* j) {
-        if (ctx.get_fparams().m_clause_proof) {
-            m_lits.reset();
-            m_lits.push_back(ctx.literal2expr(lit1));
-            m_lits.push_back(ctx.literal2expr(lit2));
-            proof* pr = justification2proof(j);
-            m_trail.push_back(info(kind2st(k), m_lits, pr));
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        m_lits.reset();
+        m_lits.push_back(ctx.literal2expr(lit1));
+        m_lits.push_back(ctx.literal2expr(lit2));
+        auto st = kind2st(k);
+        proof* pr = justification2proof(st, j);
+        update(st, m_lits, pr);
     }
 
 
     void clause_proof::del(clause& c) {
-        update(c, status::deleted, nullptr);
+        update(c, status::deleted, justification2proof(status::deleted, nullptr));
     }
 
     void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
         TRACE("clause_proof", tout << m_trail.size() << " " << st << " " << v << "\n";);
-        IF_VERBOSE(3, verbose_stream() << st << " " << v << "\n");
-        m_trail.push_back(info(st, v, p));
+        if (ctx.get_fparams().m_clause_proof)
+            m_trail.push_back(info(st, v, p));
+        if (m_on_clause_eh) 
+            m_on_clause_eh(m_on_clause_ctx, p, v.size(), v.data());        
     }
 
     void clause_proof::update(clause& c, status st, proof* p) {
-        if (ctx.get_fparams().m_clause_proof) {
-            m_lits.reset();
-            for (literal lit : c) {
-                m_lits.push_back(ctx.literal2expr(lit));
-            }
-            update(st, m_lits, p);
-        }
+        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+            return;
+        m_lits.reset();
+        for (literal lit : c) 
+            m_lits.push_back(ctx.literal2expr(lit));        
+        update(st, m_lits, p);        
     }
 
     proof_ref clause_proof::get_proof(bool inconsistent) {
         TRACE("context", tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
-        if (!ctx.get_fparams().m_clause_proof) {
+        if (!ctx.get_fparams().m_clause_proof) 
             return proof_ref(m);
-        }
         proof_ref_vector ps(m);
         for (auto& info : m_trail) {
             expr_ref fact = mk_or(info.m_clause);
@@ -143,12 +165,10 @@ namespace smt {
                 break;
             }
         }
-        if (inconsistent) {
+        if (inconsistent) 
             ps.push_back(m.mk_false());
-        }
-        else {
+        else 
             ps.push_back(m.mk_const("clause-trail-end", m.mk_bool_sort()));
-        }
         return proof_ref(m.mk_clause_trail(ps.size(), ps.data()), m);
     }
 

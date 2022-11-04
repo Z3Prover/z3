@@ -40,7 +40,7 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
     TRACE("nla_solver_details", c().print_row(row, tout););
-    if (row.size() > c().m_nla_settings.horner_row_length_limit()) {
+    if (row.size() > c().m_nla_settings.horner_row_length_limit) {
         TRACE("nla_solver_details", tout << "disregard\n";);
         return false;
     }
@@ -98,7 +98,7 @@ bool horner::lemmas_on_row(const T& row) {
 }
 
 bool horner::horner_lemmas() {
-    if (!c().m_nla_settings.run_horner()) {
+    if (!c().m_nla_settings.run_horner) {
         TRACE("nla_solver", tout << "not generating horner lemmas\n";);
         return false;
     }

@@ -98,7 +98,7 @@ namespace simplex {
             if (!t1.is_dead()) {
                 if (i != j) {
                     _row_entry & t2 = m_entries[j];
-                    t2.m_coeff.swap(t1.m_coeff);
+                    m.swap(t2.m_coeff, t1.m_coeff);
                     t2.m_var = t1.m_var;
                     t2.m_col_idx = t1.m_col_idx;
                     SASSERT(!t2.is_dead());
@@ -430,6 +430,25 @@ namespace simplex {
                 m.mul(it->m_coeff, n, it->m_coeff);
             }                     
         }                       
+    }
+
+    /**
+       \brief Set row <- n/row
+    */
+    template <typename Ext>
+    void sparse_matrix<Ext>::div(row r, numeral const &n) {
+      SASSERT(!m.is_zero(n));
+      if (m.is_one(n)) {
+        // no op
+      } else if (m.is_minus_one(n)) {
+        neg(r);
+      } else {
+        row_iterator it = row_begin(r);
+        row_iterator end = row_end(r);
+        for (; it != end; ++it) {
+          m.div(it->m_coeff, n, it->m_coeff);
+        }
+      }
     }
 
     /**

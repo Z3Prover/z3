@@ -999,7 +999,7 @@ namespace datalog {
     class relation_manager::auxiliary_table_transformer_fn {
         table_fact m_row;
     public:
-        virtual ~auxiliary_table_transformer_fn() {}
+        virtual ~auxiliary_table_transformer_fn() = default;
         virtual const table_signature & get_result_signature() const = 0;
         virtual void modify_fact(table_fact & f) const = 0;
 
@@ -1230,18 +1230,18 @@ namespace datalog {
 
 
     /**
-       An auixiliary class for functors that perform filtering. It performs the table traversal
+       An auxiliary class for functors that perform filtering. It performs the table traversal
        and only asks for each individual row whether it should be removed.
 
        When using this class in multiple inheritance, this class should not be inherited publicly
-       and should be mentioned as last. This should ensure that deteletion of the object will
+       and should be mentioned as last. This should ensure that deletion of the object will
        go well when initiated from a pointer to the first ancestor.
     */
     class relation_manager::auxiliary_table_filter_fn {
         table_fact m_row;
         svector<table_element> m_to_remove;
     public:
-        virtual ~auxiliary_table_filter_fn() {}
+        virtual ~auxiliary_table_filter_fn() = default;
         virtual bool should_remove(const table_fact & f) const = 0;
 
         void operator()(table_base & r) {
@@ -1589,8 +1589,6 @@ namespace datalog {
             m_union_fn = plugin.mk_union_fn(t, *m_aux_table, static_cast<table_base *>(nullptr));
         }
 
-        ~default_table_map_fn() override {}
-
         void operator()(table_base & t) override {
             SASSERT(t.get_signature()==m_aux_table->get_signature());
             if(!m_aux_table->empty()) {
@@ -1643,8 +1641,6 @@ namespace datalog {
             m_row.resize(get_result_signature().size());
             m_former_row.resize(get_result_signature().size());
         }
-
-        ~default_table_project_with_reduce_fn() override {}
 
         virtual void modify_fact(table_fact & f) const {
             unsigned ofs=1;

@@ -241,12 +241,14 @@ func_decl * macro_manager::get_macro_interpretation(unsigned i, expr_ref & inter
 struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
     ast_manager& m; 
     macro_manager& mm;
+    array_util a;
     expr_dependency_ref m_used_macro_dependencies; 
     expr_ref_vector m_trail;
 
     macro_expander_cfg(ast_manager& m, macro_manager& mm):
         m(m),
         mm(mm),
+        a(m),
         m_used_macro_dependencies(m),
         m_trail(m)
     {}
@@ -296,7 +298,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             return false;
         app * n = to_app(_n);
         quantifier * q = nullptr;
-        func_decl * d  = n->get_decl();
+        func_decl * d  = n->get_decl(), *d2 = nullptr;
         TRACE("macro_manager", tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
         if (mm.m_decl2macro.find(d, q)) {            
             app * head = nullptr;
@@ -342,6 +344,12 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             expr_dependency * ed = mm.m_decl2macro_dep.find(d); 
             m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, ed); 
             return true;
+        }
+        else if (a.is_as_array(d, d2) && mm.m_decl2macro.find(d2, q)) {
+            mm.unsafe_macros().insert(d2);
+        }
+        else if (a.is_map(d, d2) && mm.m_decl2macro.find(d2, q)) {
+            mm.unsafe_macros().insert(d2);
         }
         return false;
     }

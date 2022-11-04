@@ -274,7 +274,7 @@ namespace datalog {
         key_indexer(unsigned key_len, const unsigned * key_cols) 
             : m_key_cols(key_len, key_cols) {}
 
-        virtual ~key_indexer() {}
+        virtual ~key_indexer() = default;
 
         virtual void update(const sparse_table & t) {}
 
@@ -405,8 +405,6 @@ namespace datalog {
             }
             m_key_fact.resize(t.get_signature().size());
         }
-
-        ~full_signature_key_indexer() override {}
 
         query_result get_matching_offsets(const key_value & key) const override {
             unsigned key_len = m_key_cols.size();

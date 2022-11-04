@@ -25,7 +25,7 @@ Revision History:
 template<class T>
 class positive_boolean_algebra {
 public:
-    virtual ~positive_boolean_algebra() {}
+    virtual ~positive_boolean_algebra() = default;
     virtual T mk_false() = 0;
     virtual T mk_true() = 0;
     virtual T mk_and(T x, T y) = 0;
@@ -38,7 +38,6 @@ public:
 template<class T>
 class boolean_algebra : public positive_boolean_algebra<T> {
 public:
-    ~boolean_algebra() override {}
     virtual T mk_not(T x) = 0;
 };
 

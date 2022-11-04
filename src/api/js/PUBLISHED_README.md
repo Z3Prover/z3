@@ -103,7 +103,7 @@ function rcf_get_numerator_denominator(c: Z3_context, a: Z3_rcf_num): { n: Z3_rc
 When there is only a single out parameter, and the return value is not otherwise of interest, the parameter is not wrapped. For example, the C declaration
 
 ```c
-Z3_bool Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
+bool Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
 ```
 
 is represented in the TS bindings as

@@ -72,6 +72,13 @@ namespace euf {
         th_eq(theory_id id, theory_var v1, theory_var v2, expr* eq) :
             m_id(id), m_v1(v1), m_v2(v2), m_eq(eq), m_root(nullptr) {}
     };
+
+    // cc_justification contains the uses of congruence closure 
+    // It is the only information collected from justifications in order to
+    // reconstruct EUF proofs. Transitivity, Symmetry of equality are not
+    // tracked.
+    typedef std::tuple<app*,app*,uint64_t, bool> cc_justification_record;
+    typedef svector<cc_justification_record> cc_justification;
     
     class egraph {        
 
@@ -186,6 +193,8 @@ namespace euf {
         stats                  m_stats;
         bool                   m_uses_congruence = false;
         bool                   m_default_relevant = true;
+        uint64_t               m_congruence_timestamp = 0;
+
         std::vector<std::function<void(enode*,enode*)>>     m_on_merge;
         std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
@@ -226,10 +235,10 @@ namespace euf {
         void erase_from_table(enode* p);
 
         template <typename T>
-        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j);
+        void explain_eq(ptr_vector<T>& justifications, cc_justification* cc, enode* a, enode* b, justification const& j);
 
         template <typename T>
-        void explain_todo(ptr_vector<T>& justifications);
+        void explain_todo(ptr_vector<T>& justifications, cc_justification* cc);
 
         std::ostream& display(std::ostream& out, unsigned max_args, enode* n) const;
         
@@ -306,11 +315,11 @@ namespace euf {
         void end_explain();
         bool uses_congruence() const { return m_uses_congruence; }
         template <typename T>
-        void explain(ptr_vector<T>& justifications);
+        void explain(ptr_vector<T>& justifications, cc_justification* cc);
         template <typename T>
-        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b);
+        void explain_eq(ptr_vector<T>& justifications, cc_justification* cc, enode* a, enode* b);
         template <typename T>
-        unsigned explain_diseq(ptr_vector<T>& justifications, enode* a, enode* b);
+        unsigned explain_diseq(ptr_vector<T>& justifications, cc_justification* cc, enode* a, enode* b);
         enode_vector const& nodes() const { return m_nodes; }
 
         ast_manager& get_manager() { return m; }

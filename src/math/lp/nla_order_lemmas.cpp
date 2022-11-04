@@ -19,7 +19,7 @@ typedef lp::lar_term term;
 // a > b && c > 0 => ac > bc
 void order::order_lemma() {
     TRACE("nla_solver", );
-    if (!c().m_nla_settings.run_order()) {
+    if (!c().m_nla_settings.run_order) {
         TRACE("nla_solver", tout << "not generating order lemmas\n";);
         return;
     }

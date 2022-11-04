@@ -86,12 +86,11 @@ br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
 // l_true  -- all equal
 // l_false -- at least one disequal
 // l_undef -- don't know
-template<bool CHECK_DISEQ>
 lbool array_rewriter::compare_args(unsigned num_args, expr * const * args1, expr * const * args2) {
     for (unsigned i = 0; i < num_args; i++) {
         if (args1[i] == args2[i])
             continue;
-        if (CHECK_DISEQ && m().are_distinct(args1[i], args2[i]))
+        if (m().are_distinct(args1[i], args2[i]))
             return l_false;
         return l_undef;
     }
@@ -102,9 +101,7 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
     SASSERT(num_args >= 3);
 
     if (m_util.is_store(args[0])) {
-        lbool r = m_sort_store ? 
-            compare_args<true>(num_args - 2, args + 1, to_app(args[0])->get_args() + 1) :
-            compare_args<false>(num_args - 2, args + 1, to_app(args[0])->get_args() + 1);
+        lbool r = compare_args(num_args - 2, args + 1, to_app(args[0])->get_args() + 1);
         switch (r) {
         case l_true: {
             //
@@ -118,12 +115,11 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
             return BR_DONE;
         }
         case l_false:
-            SASSERT(m_sort_store);
             // 
             // store(store(a,i,v),j,w) -> store(store(a,j,w),i,v)
             // if i, j are different, lt(i,j)
-            // 
-            if (lex_lt(num_args-2, args+1, to_app(args[0])->get_args() + 1)) {
+            //
+            if (m_sort_store && lex_lt(num_args-2, args+1, to_app(args[0])->get_args() + 1)) {
                 ptr_buffer<expr> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
                 new_args.append(num_args-1, args+1);
@@ -134,6 +130,9 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
                 result = m().mk_app(get_fid(), OP_STORE, num_args, new_args.data());
                 return BR_REWRITE2;
             }
+            if (squash_store(num_args, args, result))
+                return BR_REWRITE2;
+
             break;
         case l_undef:
             break;
@@ -155,7 +154,7 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
     // store(a, i, select(a, i)) --> a
     //
     if (m_util.is_select(v) && 
-        compare_args<false>(num_args-1, args, to_app(v)->get_args())) {
+        l_true == compare_args(num_args-1, args, to_app(v)->get_args())) {
         result = args[0];
         return BR_DONE;
     }
@@ -163,19 +162,52 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
     return BR_FAILED;
 }
 
+bool array_rewriter::squash_store(unsigned n, expr* const* args, expr_ref& result) {
+    ptr_buffer<expr> parents, sargs;
+    expr* a = args[0];
+    while (m_util.is_store(a)) {
+        lbool r = compare_args(n - 2, args + 1, to_app(a)->get_args() + 1);
+        switch (r) {
+        case l_undef:
+            return false;
+        case l_true:
+            result = to_app(a)->get_arg(0);
+            for (unsigned i = parents.size(); i-- > 0; ) {
+                expr* p = parents[i];
+                sargs.reset();
+                sargs.push_back(result);
+                for (unsigned j = 1; j < to_app(p)->get_num_args(); ++j)
+                    sargs.push_back(to_app(p)->get_arg(j));
+                result = m_util.mk_store(sargs.size(), sargs.data());
+            }
+            sargs.reset();
+            sargs.push_back(result);
+            for (unsigned j = 1; j < n; ++j)
+                sargs.push_back(args[j]);
+            result = m_util.mk_store(sargs.size(), sargs.data());
+            return true;
+        case l_false:
+            parents.push_back(a);
+            a = to_app(a)->get_arg(0);
+            break;
+        }
+    }
+    return false;
+}
+
 
 br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(num_args >= 2);
     if (m_util.is_store(args[0])) {
         SASSERT(to_app(args[0])->get_num_args() == num_args+1);
-        switch (compare_args<true>(num_args - 1, args+1, to_app(args[0])->get_args()+1)) {
+        switch (compare_args(num_args - 1, args+1, to_app(args[0])->get_args()+1)) {
         case l_true:
             // select(store(a, I, v), I) --> v
             result = to_app(args[0])->get_arg(num_args);
             return BR_DONE;
         case l_false: {
             expr* arg0 = to_app(args[0])->get_arg(0);
-            while (m_util.is_store(arg0) && compare_args<true>(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false) {
+            while (m_util.is_store(arg0) && compare_args(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false) {
                 arg0 = to_app(arg0)->get_arg(0);
             }
             

@@ -21,11 +21,12 @@ Author:
 namespace sat {
     class sat_internalizer {
     public:
-        virtual ~sat_internalizer() {}
+        virtual ~sat_internalizer() = default;
         virtual bool is_bool_op(expr* e) const = 0;
         virtual literal internalize(expr* e, bool learned) = 0;
         virtual bool_var to_bool_var(expr* e) = 0;
         virtual bool_var add_bool_var(expr* e)  = 0;
+        virtual bool is_cached(app* t, literal l) const = 0;
         virtual void cache(app* t, literal l) = 0;
         virtual void uncache(literal l) = 0;
         virtual void push() = 0;

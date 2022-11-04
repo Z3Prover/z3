@@ -124,7 +124,7 @@ namespace opt {
     }
 
     context::context(ast_manager& m):
-        m(m),
+        opt_wrapper(m),
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),
@@ -697,9 +697,24 @@ namespace opt {
         }
     }
 
+    /**
+     * Set the solver to the SAT core.
+     * It requres:
+     * - either EUF is enabled or the query is finite domain.
+     * - it is a MaxSAT query because linear optimiation is not exposed over the EUF core.
+     *   - opt_solver relies on features from the legacy core.
+     * - the MaxSAT engine does not depend on old core features (branch and bound solver for MaxSAT)
+     * - proofs are not enabled
+     * Relaxation of these filters are possible by adding functionality to the new core.
+     * - Pareto optimizaiton might already be possible with EUF = true
+     * - optsmt needs to be disetangled from the legacy core
+     */
     void context::update_solver() {
         sat_params p(m_params);
         if (!p.euf() && (!m_enable_sat || !probe_fd())) 
+            return;
+        
+        if (!is_maxsat_query())
             return;
 
         if (m_maxsat_engine != symbol("maxres") &&
@@ -755,24 +770,29 @@ namespace opt {
         }        
     };
 
+    bool context::is_maxsat_query() {
+        for (objective& obj : m_objectives) 
+            if (obj.m_type != O_MAXSMT)
+                return false;
+        return true;
+    }
+
     bool context::probe_fd() {
         expr_fast_mark1 visited;
         is_fd proc(m);
-        try {
+        if (!is_maxsat_query())
+            return false;
+        try {            
             for (objective& obj : m_objectives) {
-                if (obj.m_type != O_MAXSMT) return false;
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
-                for (unsigned j = 0; j < ms.size(); ++j) {
+                for (unsigned j = 0; j < ms.size(); ++j) 
                     quick_for_each_expr(proc, visited, ms[j]);
-                }
             }
             unsigned sz = get_solver().get_num_assertions();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; i++) 
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
-            }
-            for (expr* f : m_hard_constraints) {
+            for (expr* f : m_hard_constraints) 
                 quick_for_each_expr(proc, visited, f);
-            }
         }
         catch (const is_fd::found_fd &) {
             return false;

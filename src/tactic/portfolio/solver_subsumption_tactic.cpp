@@ -131,8 +131,6 @@ public:
         return alloc(solver_subsumption_tactic, other_m, m_params);
     }
 
-    ~solver_subsumption_tactic() override {}
-
     char const* name() const override { return "solver_subsumption"; }
 
     void updt_params(params_ref const& p) override { 

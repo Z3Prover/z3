@@ -57,7 +57,7 @@ public:
 
     virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
     lar_base_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side), m_active(false), m_j(j) {}
-    virtual ~lar_base_constraint() {}
+    virtual ~lar_base_constraint() = default;
 
     lconstraint_kind kind() const { return m_kind; }
     mpq const& rhs() const { return m_right_side; }

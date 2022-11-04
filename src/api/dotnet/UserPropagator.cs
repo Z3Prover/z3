@@ -37,7 +37,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// Propagator context for .Net
     /// </summary>        
-    public class UserPropagator
+    public class UserPropagator : IDisposable
     {
         /// <summary>
         /// Delegate type for fixed callback
@@ -71,6 +71,7 @@ namespace Microsoft.Z3
         Solver solver;
         Context ctx;
         Z3_solver_callback callback = IntPtr.Zero;
+        int callbackNesting = 0;
         FixedEh fixed_eh;
         Action final_eh;
         EqEh eq_eh;
@@ -91,6 +92,7 @@ namespace Microsoft.Z3
 
         void Callback(Action fn, Z3_solver_callback cb)
         {
+            this.callbackNesting++;
             this.callback = cb;
             try
             {
@@ -102,7 +104,9 @@ namespace Microsoft.Z3
             }
             finally
             {
-                this.callback = IntPtr.Zero;
+                callbackNesting--;
+                if (callbackNesting == 0) // callbacks can be nested (e.g., internalizing new element in "created")
+                    this.callback = IntPtr.Zero;
             }
         }
 
@@ -201,10 +205,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Release provate memory.
+        /// Release private memory.
         /// </summary>            
         ~UserPropagator()
         {
+            Dispose();
+        }
+        
+        /// <summary>
+        /// Must be called. The object will not be garbage collected automatically even if the context is disposed
+        /// </summary>
+        public virtual void Dispose()
+        {
+            if (!gch.IsAllocated)
+                return;
             gch.Free();
             if (solver == null)
                 ctx.Dispose();
