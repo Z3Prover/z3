@@ -67,6 +67,7 @@ namespace euf {
         void extract_dep_graph(dep_eq_vector& eqs);
         void normalize();
         void apply_subst();
+        void save_subst();
 
     public:
 
@@ -78,7 +79,5 @@ namespace euf {
 
         void updt_params(params_ref const& p) override;
         void collect_statistics(statistics& st) const override;
-
-        model_converter_ref get_model_converter() override;
     };
 }

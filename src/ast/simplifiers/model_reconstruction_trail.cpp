@@ -21,10 +21,11 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
     // accumulate a set of dependent exprs, updating m_trail to exclude loose 
     // substitutions that use variables from the dependent expressions.
     ast_mark free_vars;
-    
+    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     add_vars(d, free_vars);
 
     added.push_back(d);
+
 
     for (auto& t : m_trail) {
         if (!t->m_active)
@@ -45,13 +46,12 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             continue;
         }
         
+        rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
         for (auto& d : added) {
             auto [f, dep1] = d();
-            expr_ref g(m);
-            expr_dependency_ref dep2(m);
-            (*t->m_replace)(f, g, dep2);
+            auto [g, dep2] = rp->replace_with_dep(f);
             d = dependent_expr(m, g, m.mk_join(dep1, dep2));
         }    
     }
@@ -69,9 +69,9 @@ model_converter_ref model_reconstruction_trail::get_model_converter() {
     // substituted variables by their terms.
     //
 
-    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
-    scoped_ptr<expr_substitution> subst = alloc(expr_substitution, m, true, false);
-    rp->set_substitution(subst.get());
+    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
+    expr_substitution subst(m, true, false);
+    rp->set_substitution(&subst);
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "dependent-expr-model");
     bool first = true;
     for (unsigned i = m_trail.size(); i-- > 0; ) {
@@ -83,19 +83,17 @@ model_converter_ref model_reconstruction_trail::get_model_converter() {
             first = false;
             for (auto const& [v, def] : t->m_subst->sub()) {
                 expr_dependency* dep = t->m_subst->dep(v);
-                subst->insert(v, def, dep);
+                subst.insert(v, def, dep);
                 mc->add(v, def);
             }
             continue;
         }
-        expr_dependency_ref new_dep(m);
-        expr_ref new_def(m);
 
         for (auto const& [v, def] : t->m_subst->sub()) {
-            rp->operator()(def, new_def, new_dep);
+            auto [new_def, new_dep] = rp->replace_with_dep(def);
             expr_dependency* dep = t->m_subst->dep(v);
             new_dep = m.mk_join(dep, new_dep);
-            subst->insert(v, new_def, new_dep);
+            subst.insert(v, new_def, new_dep);
             mc->add(v, new_def);
         }
 

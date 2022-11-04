@@ -367,7 +367,6 @@ bool any_of(S& set, T& p) {
             return true;
     return false;
 }
-// #define any_of(S, p) { for (auto const& s : S) if (p(s)) return true; return false; }
 
 /**
    \brief Iterator for the [0..sz[0]) X [0..sz[1]) X ... X [0..sz[n-1]).

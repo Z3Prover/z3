@@ -60,7 +60,7 @@ namespace euf {
         m_id2level.reset();
         m_id2level.resize(m_id2var.size(), UINT_MAX);
         m_subst_ids.reset();
-        m_subst = alloc(expr_substitution, m, true, false);
+        m_subst = alloc(expr_substitution, m, true, false);        
 
         auto is_explored = [&](unsigned id) {
             return m_id2level[id] != UINT_MAX;
@@ -105,30 +105,22 @@ namespace euf {
         }
     }
 
-    void solve_eqs::add_subst(dependent_eq const& eq) {
-        SASSERT(can_be_var(eq.var));
-        m_subst->insert(eq.var, eq.term, nullptr, eq.dep);
-        ++m_stats.m_num_elim_vars;
-    }
-
     void solve_eqs::normalize() {
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
-        m_subst->reset();
         rp->set_substitution(m_subst.get());
 
         std::sort(m_subst_ids.begin(), m_subst_ids.end(), [&](unsigned u, unsigned v) { return m_id2level[u] > m_id2level[v]; });
-
-        expr_dependency_ref new_dep(m);
-        expr_ref new_def(m);
 
         for (unsigned id : m_subst_ids) {
             if (!m.inc())
                 break;
             auto const& [v, def, dep] = m_next[id][0];
-            rp->operator()(def, new_def, new_dep);
+            auto [new_def, new_dep] = rp->replace_with_dep(def);
             m_stats.m_num_steps += rp->get_num_steps() + 1;
+            ++m_stats.m_num_elim_vars;
             new_dep = m.mk_join(dep, new_dep);
-            m_subst->insert(v, new_def, nullptr, new_dep);
+            m_subst->insert(v, new_def, new_dep);
+            SASSERT(can_be_var(v));
             // we updated the substitution, but we don't need to reset rp
             // because all cached values there do not depend on v.
         }
@@ -147,11 +139,10 @@ namespace euf {
             return;
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
         rp->set_substitution(m_subst.get());
-        expr_ref new_f(m);
-        expr_dependency_ref new_dep(m);
+
         for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
             auto [f, d] = m_fmls[i]();
-            rp->operator()(f, new_f, new_dep);
+            auto [new_f, new_dep] = rp->replace_with_dep(f);
             if (new_f == f)
                 continue;
             new_dep = m.mk_join(d, new_dep);
@@ -164,13 +155,27 @@ namespace euf {
         for (extract_eq* ex : m_extract_plugins)
             ex->pre_process(m_fmls);
 
-        // TODO add a loop.
-        dep_eq_vector eqs;
-        get_eqs(eqs);
-        extract_dep_graph(eqs);
-        extract_subst();
-        apply_subst();
+        unsigned count = 0;
+        do {
+            m_subst_ids.reset();
+            if (!m.inc())
+                return;
+            dep_eq_vector eqs;
+            get_eqs(eqs);
+            extract_dep_graph(eqs);
+            extract_subst();
+            apply_subst();
+            ++count;
+        } 
+        while (!m_subst_ids.empty() && count < 20);
+
         advance_qhead(m_fmls.size());
+        save_subst();
+    }
+
+    void solve_eqs::save_subst() {
+        if (!m_subst->empty())   
+            m_fmls.model_trail()->push(m_subst.detach(), {});        
     }
 
     void solve_eqs::filter_unsafe_vars() {
@@ -181,16 +186,7 @@ namespace euf {
                 m_unsafe_vars.mark(term);
     }
 
-    typedef generic_model_converter gmc;
 
-    model_converter_ref solve_eqs::get_model_converter() {
-        model_converter_ref mc = alloc(gmc, m, "solve-eqs");
-        for (unsigned id : m_subst_ids) {
-            auto* v = m_id2var[id];
-            static_cast<gmc*>(mc.get())->add(v, m_subst->find(v));
-        }
-        return mc;
-    }
 
     solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 
         dependent_expr_simplifier(m, fmls), m_rewriter(m) {

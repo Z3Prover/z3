@@ -33,13 +33,12 @@ Author:
 class model_reconstruction_trail {
 
     struct entry {
-        scoped_ptr<expr_replacer>     m_replace;
         scoped_ptr<expr_substitution> m_subst;
         vector<dependent_expr>        m_removed;
         bool                          m_active = true;
 
-        entry(expr_replacer* r, expr_substitution* s, vector<dependent_expr> const& rem) :
-            m_replace(r), m_subst(s), m_removed(rem) {}
+        entry(expr_substitution* s, vector<dependent_expr> const& rem) :
+            m_subst(s), m_removed(rem) {}
 
         bool is_loose() const { return !m_removed.empty(); }
 
@@ -64,7 +63,8 @@ class model_reconstruction_trail {
 
     bool intersects(ast_mark const& free_vars, dependent_expr const& d) {
         expr_ref term(d.fml(), d.get_manager());
-        return any_of(subterms::all(term), [&](expr* t) { return free_vars.is_marked(t); });
+        auto iter = subterms::all(term);
+        return any_of(iter, [&](expr* t) { return free_vars.is_marked(t); });
     }
 
     bool intersects(ast_mark const& free_vars, vector<dependent_expr> const& added) {
@@ -77,10 +77,10 @@ public:
         m(m), m_trail_stack(tr) {}
 
     /**
-    * add a new substitution to the stack
+    * add a new substitution to the trail
     */
-    void push(expr_replacer* r, vector<dependent_expr> const& removed) {
-        m_trail.push_back(alloc(entry, r, nullptr, removed));
+    void push(expr_substitution* s, vector<dependent_expr> const& removed) {
+        m_trail.push_back(alloc(entry, s, removed));
         m_trail_stack.push(push_back_vector(m_trail));
     }
 

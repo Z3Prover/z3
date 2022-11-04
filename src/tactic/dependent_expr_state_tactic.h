@@ -24,12 +24,16 @@ class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
     std::string     m_name;
     ref<dependent_expr_simplifier_factory>  m_factory;
     scoped_ptr<dependent_expr_simplifier>   m_simp;
+    trail_stack                             m_trail;
+    scoped_ptr<model_reconstruction_trail>  m_model_trail;
     goal_ref        m_goal;
     dependent_expr  m_dep;
 
     void init() {
         if (!m_simp)
             m_simp = m_factory->mk(m, m_params, *this);
+        if (!m_model_trail)
+            m_model_trail = alloc(model_reconstruction_trail, m, m_trail);
     }
 
 public:
@@ -60,6 +64,10 @@ public:
     bool inconsistent() override {
         return m_goal->inconsistent();
     }
+
+    model_reconstruction_trail* model_trail() override {
+        return m_model_trail.get();
+    }
         
     char const* name() const override { return m_name.c_str(); }
 
@@ -83,7 +91,7 @@ public:
         m_simp->reduce();
         m_goal->inc_depth();
         if (in->models_enabled())
-            in->set(m_simp->get_model_converter().get());
+            in->set(m_model_trail->get_model_converter().get());
         result.push_back(in.get());        
     }
 
