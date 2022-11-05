@@ -65,8 +65,8 @@ public:
         return m_goal->inconsistent();
     }
 
-    model_reconstruction_trail* model_trail() override {
-        return m_model_trail.get();
+    model_reconstruction_trail& model_trail() override {
+        return *m_model_trail;
     }
         
     char const* name() const override { return m_name.c_str(); }

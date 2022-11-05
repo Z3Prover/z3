@@ -34,8 +34,8 @@ int mpn_manager::compare(mpn_digit const * a, unsigned lnga,
 
     trace(a, lnga);
 
-    unsigned j = max(lnga, lngb) - 1;
-    for (; j != -1u && res == 0; j--) {
+    unsigned j = max(lnga, lngb);
+    for (; j-- > 0 && res == 0;) {
         mpn_digit const & u_j = (j < lnga) ? a[j] : zero;
         mpn_digit const & v_j = (j < lngb) ? b[j] : zero;
         if (u_j > v_j) 
@@ -310,7 +310,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
     mpn_double_digit q_hat, temp, r_hat;
     mpn_digit borrow;
 
-    for (unsigned j = m-1; j != -1u; j--) {
+    for (unsigned j = m; j-- > 0; ) {
         temp = (((mpn_double_digit)numer[j+n]) << DIGIT_BITS) | ((mpn_double_digit)numer[j+n-1]);
         q_hat = temp / (mpn_double_digit) denom[n-1];
         r_hat = temp % (mpn_double_digit) denom[n-1];
@@ -388,7 +388,7 @@ char * mpn_manager::to_string(mpn_digit const * a, unsigned lng, char * buf, uns
 
 void mpn_manager::display_raw(std::ostream & out, mpn_digit const * a, unsigned lng) const {
     out << "[";
-    for (unsigned i = lng-1; i != -1u; i-- ) { out << a[i]; if (i != 0) out << "|"; } 
+    for (unsigned i = lng; i-- > 0; ) { out << a[i]; if (i != 0) out << "|"; }
     out << "]";
 }
 

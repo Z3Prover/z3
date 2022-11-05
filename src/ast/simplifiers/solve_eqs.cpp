@@ -23,11 +23,18 @@ Author:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/solve_context_eqs.h"
 #include "ast/converters/generic_model_converter.h"
 #include "params/tactic_params.hpp"
 
 
 namespace euf {
+
+    void solve_eqs::get_eqs(dep_eq_vector& eqs) {
+        for (extract_eq* ex : m_extract_plugins)
+            for (unsigned i = m_qhead; i < m_fmls.size(); ++i)
+                ex->get_eqs(m_fmls[i], eqs);
+    }
 
     // initialize graph that maps variable ids to next ids
     void solve_eqs::extract_dep_graph(dep_eq_vector& eqs) {
@@ -35,10 +42,10 @@ namespace euf {
         m_id2var.reset();
         m_next.reset();
         unsigned sz = 0;
-        for (auto const& [v, t, d] : eqs)
+        for (auto const& [orig, v, t, d] : eqs)
             sz = std::max(sz, v->get_id());
         m_var2id.resize(sz + 1, UINT_MAX);
-        for (auto const& [v, t, d] : eqs) {
+        for (auto const& [orig, v, t, d] : eqs) {
             if (is_var(v) || !can_be_var(v))
                 continue;
             m_var2id[v->get_id()] = m_id2var.size();
@@ -91,7 +98,7 @@ namespace euf {
                     continue;
                 m_id2level[id] = curr_level++;
                 for (auto const& eq : m_next[j]) {
-                    auto const& [v, t, d] = eq;
+                    auto const& [orig, v, t, d] = eq;
                     if (!is_safe(curr_level, t))
                         continue;
                     m_next[j][0] = eq;
@@ -114,7 +121,7 @@ namespace euf {
         for (unsigned id : m_subst_ids) {
             if (!m.inc())
                 break;
-            auto const& [v, def, dep] = m_next[id][0];
+            auto const& [orig, v, def, dep] = m_next[id][0];
             auto [new_def, new_dep] = rp->replace_with_dep(def);
             m_stats.m_num_steps += rp->get_num_steps() + 1;
             ++m_stats.m_num_elim_vars;
@@ -134,7 +141,7 @@ namespace euf {
         });
     }
 
-    void solve_eqs::apply_subst() {
+    void solve_eqs::apply_subst(vector<dependent_expr>& old_fmls) {
         if (!m.inc())
             return;
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
@@ -146,6 +153,7 @@ namespace euf {
             if (new_f == f)
                 continue;
             new_dep = m.mk_join(d, new_dep);
+            old_fmls.push_back(m_fmls[i]);
             m_fmls.update(i, dependent_expr(m, new_f, new_dep));
         }
     }
@@ -157,6 +165,7 @@ namespace euf {
 
         unsigned count = 0;
         do {
+            vector<dependent_expr> old_fmls;
             m_subst_ids.reset();
             if (!m.inc())
                 return;
@@ -164,18 +173,30 @@ namespace euf {
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
-            apply_subst();
+            apply_subst(old_fmls);
             ++count;
         } 
         while (!m_subst_ids.empty() && count < 20);
+        save_subst({});
+
+        if (m_config.m_context_solve) {
+            vector<dependent_expr> old_fmls;
+            dep_eq_vector eqs;
+            m_subst_ids.reset();
+            solve_context_eqs context_solve(*this);
+            context_solve.collect_nested_equalities(eqs);
+            extract_dep_graph(eqs);
+            extract_subst();
+            apply_subst(old_fmls);
+            save_subst(old_fmls);
+        }
 
         advance_qhead(m_fmls.size());
-        save_subst();
     }
 
-    void solve_eqs::save_subst() {
+    void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
-            m_fmls.model_trail()->push(m_subst.detach(), {});        
+            m_fmls.model_trail().push(m_subst.detach(), old_fmls);        
     }
 
     void solve_eqs::filter_unsafe_vars() {

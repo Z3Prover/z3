@@ -18,8 +18,8 @@ Revision History:
 --*/
 #pragma once
 
-class expr; 
-class func_decl;
+#include "util/vector.h"
+#include "ast/ast.h"
 
 /**
    \brief Return true if n1 occurs in n2
@@ -30,5 +30,10 @@ bool occurs(expr * n1, expr * n2);
    \brief Return true if d is used in n
 */
 bool occurs(func_decl * d, expr * n);
+
+/**
+* \brief Mark sub-expressions of to_check by whether v occurs in these.
+*/
+void mark_occurs(ptr_vector<expr>& to_check, expr* v, expr_mark& occurs);
 
 

@@ -479,52 +479,11 @@ class solve_eqs_tactic : public tactic {
 
         ptr_vector<expr> m_todo;       
         void mark_occurs(expr_mark& occ, goal const& g, expr* v) {
-            expr_fast_mark2 visited;
-            occ.mark(v, true);
-            visited.mark(v, true);
-            for (unsigned j = 0; j < g.size(); ++j) {              
-                m_todo.push_back(g.form(j));
-            }
-            while (!m_todo.empty()) {
-                expr* e = m_todo.back();
-                if (visited.is_marked(e)) {
-                    m_todo.pop_back();
-                    continue;
-                }
-                if (is_app(e)) {
-                    bool does_occur = false;
-                    bool all_visited = true;
-                    for (expr* arg : *to_app(e)) {
-                        if (!visited.is_marked(arg)) {
-                            m_todo.push_back(arg);
-                            all_visited = false;
-                        }
-                        else {
-                            does_occur |= occ.is_marked(arg);
-                        }
-                    }
-                    if (all_visited) {
-                        occ.mark(e, does_occur);
-                        visited.mark(e, true);
-                        m_todo.pop_back();
-                    }
-                }
-                else if (is_quantifier(e)) {
-                    expr* body = to_quantifier(e)->get_expr();
-                    if (visited.is_marked(body)) {
-                        visited.mark(e, true);
-                        occ.mark(e, occ.is_marked(body));
-                        m_todo.pop_back();
-                    }
-                    else {
-                        m_todo.push_back(body);
-                    }
-                }
-                else {
-                    visited.mark(e, true);
-                    m_todo.pop_back();
-                }
-            }
+            SASSERT(m_todo.empty());
+            for (unsigned j = 0; j < g.size(); ++j)             
+                m_todo.push_back(g.form(j));            
+            ::mark_occurs(m_todo, v, occ);
+            SASSERT(m_todo.empty());
         }
 
         expr_mark m_compatible_tried;

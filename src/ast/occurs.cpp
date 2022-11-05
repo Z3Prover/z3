@@ -74,3 +74,46 @@ bool occurs(func_decl * d, expr * n) {
     return false;
 }
 
+void mark_occurs(ptr_vector<expr>& to_check, expr* v, expr_mark& occ) {
+    expr_fast_mark2 visited;
+    occ.mark(v, true);
+    visited.mark(v, true);
+    while (!to_check.empty()) {
+        expr* e = to_check.back();
+        if (visited.is_marked(e)) {
+            to_check.pop_back();
+            continue;
+        }
+        if (is_app(e)) {
+            bool does_occur = false;
+            bool all_visited = true;
+            for (expr* arg : *to_app(e)) {
+                if (!visited.is_marked(arg)) {
+                    to_check.push_back(arg);
+                    all_visited = false;
+                }
+                else 
+                    does_occur |= occ.is_marked(arg);                
+            }
+            if (all_visited) {
+                occ.mark(e, does_occur);
+                visited.mark(e, true);
+                to_check.pop_back();
+            }
+        }
+        else if (is_quantifier(e)) {
+            expr* body = to_quantifier(e)->get_expr();
+            if (visited.is_marked(body)) {
+                visited.mark(e, true);
+                occ.mark(e, occ.is_marked(body));
+                to_check.pop_back();
+            }
+            else 
+                to_check.push_back(body);            
+        }
+        else {
+            visited.mark(e, true);
+            to_check.pop_back();
+        }
+    }
+}

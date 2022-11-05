@@ -47,12 +47,13 @@ public:
     virtual dependent_expr const& operator[](unsigned i) = 0;
     virtual void update(unsigned i, dependent_expr const& j) = 0;
     virtual bool inconsistent() = 0;
+    virtual model_reconstruction_trail& model_trail() = 0;
 
     trail_stack    m_trail;
     void push() { m_trail.push_scope(); }
     void pop(unsigned n) { m_trail.pop_scope(n); }
 
-    virtual model_reconstruction_trail* model_trail() { return nullptr; }
+
 };
 
 /**

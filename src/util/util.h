@@ -368,6 +368,14 @@ bool any_of(S& set, T const& p) {
     return false;
 }
 
+template<typename S, typename T>
+bool all_of(S& set, T const& p) {
+    for (auto const& s : set)
+        if (!p(s))
+            return false;
+    return true;
+}
+
 /**
    \brief Iterator for the [0..sz[0]) X [0..sz[1]) X ... X [0..sz[n-1]).
    it contains the current value.
