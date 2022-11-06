@@ -473,6 +473,7 @@ namespace recfun {
         }
         
         void plugin::set_definition(replace& r, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
+            m_has_rec_defs |= !is_macro;
             u().set_definition(r, d, is_macro, n_vars, vars, rhs);
             for (case_def & c : d.get_def()->get_cases()) 
                 m_case_defs.insert(c.get_decl(), &c);
