@@ -76,7 +76,6 @@ namespace euf {
         };
 
         auto is_safe = [&](unsigned lvl, expr* t) {
-            for (auto* e : subterms::all(expr_ref(t, m)))
             for (auto* e : subterms::all(expr_ref(t, m), &m_todo, &m_visited)) 
                 if (is_var(e) && m_id2level[var2id(e)] < lvl)
                     return false;            
