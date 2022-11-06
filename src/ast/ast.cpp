@@ -2250,7 +2250,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     if (type_error) {
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
-               << ") passed to function " << mk_pp(decl, *this);
+               << ") passed to function " << mk_pp(decl, *this) << " ";
+        for (unsigned i = 0; i < num_args; ++i)
+            buffer << "\narg: " << mk_pp(args[i], *this) << "\n";
         throw ast_exception(std::move(buffer).str());
     }
     app * r = nullptr;
