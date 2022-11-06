@@ -37,6 +37,8 @@ namespace euf {
             auto [f, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y)) {
+                if (x == y)
+                    return;
                 if (is_uninterp_const(x))
                     eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(y, m), d));
                 if (is_uninterp_const(y))

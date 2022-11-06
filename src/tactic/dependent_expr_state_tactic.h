@@ -93,6 +93,10 @@ public:
         if (in->models_enabled())
             in->set(m_model_trail->get_model_converter().get());
         result.push_back(in.get());        
+
+        statistics st;
+        collect_statistics(st);
+        IF_VERBOSE(10, st.display_smt2(verbose_stream()));
     }
 
     void cleanup() override {

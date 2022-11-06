@@ -30,6 +30,7 @@ if every occurrence of v occurs in the same conjunctive context as eq.
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/occurs.h"
 #include "ast/simplifiers/solve_context_eqs.h"
 #include "ast/simplifiers/solve_eqs.h"
@@ -134,14 +135,6 @@ namespace euf {
         return false;
     }
 
-    void solve_context_eqs::init_contains(expr* v) {
-        m_contains_v.reset();
-        for (unsigned i = 0; i < m_fmls.size(); ++i)
-            m_todo.push_back(m_fmls[i].fml());
-        mark_occurs(m_todo, v, m_contains_v);
-        SASSERT(m_todo.empty());
-    }
-
     void solve_context_eqs::collect_nested_equalities(dep_eq_vector& eqs) {
         expr_mark visited;
         for (unsigned i = m_solve_eqs.m_qhead; i < m_fmls.size(); ++i)
@@ -149,7 +142,23 @@ namespace euf {
 
         unsigned j = 0;
         for (auto const& eq : eqs) {
-            init_contains(eq.var);
+           
+            m_contains_v.reset();
+
+            // first check if v is in term. If it is, then the substitution candidate is unsafe
+            m_todo.push_back(eq.term);
+            mark_occurs(m_todo, eq.var, m_contains_v);
+            SASSERT(m_todo.empty());
+            if (m_contains_v.is_marked(eq.term))
+                continue;
+
+            // then mark occurrences
+            for (unsigned i = 0; i < m_fmls.size(); ++i)
+                m_todo.push_back(m_fmls[i].fml());
+            mark_occurs(m_todo, eq.var, m_contains_v);
+            SASSERT(m_todo.empty());
+
+            // subject to occurrences, check if equality is safe
             if (is_safe_eq(eq.orig))
                 eqs[j++] = eq;
         }

@@ -425,6 +425,7 @@ class solve_eqs_tactic : public tactic {
                 else
                     pr = m().mk_modus_ponens(g.pr(idx), pr);
             }
+            IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(var, m()) << " -> " << mk_bounded_pp(def, m()) << "\n");
             m_subst->insert(var, def, pr, g.dep(idx));
         }
         
@@ -620,9 +621,11 @@ class solve_eqs_tactic : public tactic {
                     expr* arg = args.get(i), *lhs = nullptr, *rhs = nullptr;
                     if (m().is_eq(arg, lhs, rhs) && !m().is_bool(lhs)) {                
                         if (trivial_solve1(lhs, rhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
+                            IF_VERBOSE(11, verbose_stream() << "nested " << mk_bounded_pp(var.get(), m()) << " -> " << mk_bounded_pp(def, m()) << "\n");
                             insert_solution(g, idx, arg, var, def, pr);
                         }
                         else if (trivial_solve1(rhs, lhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
+                            IF_VERBOSE(11, verbose_stream() << "nested " << mk_bounded_pp(var.get(), m()) << " -> " << mk_bounded_pp(def, m()) << "\n");
                             insert_solution(g, idx, arg, var, def, pr);
                         }
                         else {
@@ -981,6 +984,10 @@ class solve_eqs_tactic : public tactic {
         unsigned get_num_eliminated_vars() const {
             return m_num_eliminated_vars;
         }
+
+        void collect_statistics(statistics& st) {
+            st.update("solve eqs elim vars", get_num_eliminated_vars());
+        }
         
         //
         // TBD: rewrite the tactic to first apply a topological sorting that
@@ -1033,6 +1040,9 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
+
+            
+            IF_VERBOSE(10, statistics st; collect_statistics(st); st.display_smt2(verbose_stream()));
         }
     };
     
@@ -1066,7 +1076,6 @@ public:
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
         (*m_imp)(in, result);
-        report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     
     void cleanup() override {
@@ -1085,7 +1094,7 @@ public:
     }
 
     void collect_statistics(statistics & st) const override {
-        st.update("eliminated vars", m_imp->get_num_eliminated_vars());
+        m_imp->collect_statistics(st);        
     }
 
     void reset_statistics() override {

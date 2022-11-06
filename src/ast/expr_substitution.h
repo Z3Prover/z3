@@ -59,6 +59,10 @@ public:
     std::ostream& display(std::ostream& out);
 };
 
+inline std::ostream& operator<<(std::ostream& out, expr_substitution& s) {
+    return s.display(out);
+}
+
 class scoped_expr_substitution {
     expr_substitution& m_subst;
     expr_ref_vector    m_trail;

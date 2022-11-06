@@ -50,6 +50,8 @@ namespace euf {
         vector<dep_eq_vector>         m_next;          // adjacency list for solved equations
         scoped_ptr<expr_substitution> m_subst;         // current substitution
         expr_mark                     m_unsafe_vars;   // expressions that cannot be replaced
+        ptr_vector<expr>              m_todo;
+        expr_mark                     m_visited;
 
         bool is_var(expr* e) const { return e->get_id() < m_var2id.size() && m_var2id[e->get_id()] != UINT_MAX; }
         unsigned var2id(expr* v) const { return m_var2id[v->get_id()]; }

@@ -49,6 +49,7 @@ z3_add_component(core_tactics
     reduce_invertible_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h
+    solve_eqs2_tactic.h
     special_relations_tactic.h
     split_clause_tactic.h
     symmetry_reduce_tactic.h

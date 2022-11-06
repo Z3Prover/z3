@@ -44,9 +44,7 @@ namespace euf {
         bool is_disjunctively_safe(unsigned recursion_depth, expr* f, bool sign, expr* e);
         bool contains_conjunctively(expr* f, bool sign, expr* e, signed_expressions& conjuncts);
         
-        void collect_nested_equalities(dependent_expr const& f, expr_mark& visited, dep_eq_vector& eqs);
-        void init_contains(expr* v);
-        
+        void collect_nested_equalities(dependent_expr const& f, expr_mark& visited, dep_eq_vector& eqs);        
 
     public:
         

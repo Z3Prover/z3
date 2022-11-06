@@ -20,6 +20,8 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/occurs.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/solve_eqs.h"
@@ -75,13 +77,15 @@ namespace euf {
 
         auto is_safe = [&](unsigned lvl, expr* t) {
             for (auto* e : subterms::all(expr_ref(t, m)))
+            for (auto* e : subterms::all(expr_ref(t, m), &m_todo, &m_visited)) 
                 if (is_var(e) && m_id2level[var2id(e)] < lvl)
-                    return false;
+                    return false;            
             return true;
         };
 
         unsigned init_level = UINT_MAX;
         unsigned_vector todo;
+        
         for (unsigned id = 0; id < m_id2var.size(); ++id) {
             if (is_explored(id))
                 continue;
@@ -96,14 +100,16 @@ namespace euf {
                 todo.pop_back();
                 if (is_explored(j))
                     continue;
-                m_id2level[id] = curr_level++;
+                m_id2level[j] = curr_level++;
                 for (auto const& eq : m_next[j]) {
                     auto const& [orig, v, t, d] = eq;
+                    SASSERT(j == var2id(v));
                     if (!is_safe(curr_level, t))
                         continue;
+                    SASSERT(!occurs(v, t));
                     m_next[j][0] = eq;
-                    m_subst_ids.push_back(id);                   
-                    for (expr* e : subterms::all(expr_ref(t, m))) 
+                    m_subst_ids.push_back(j);                   
+                    for (expr* e : subterms::all(expr_ref(t, m), &m_todo, &m_visited))
                         if (is_var(e) && !is_explored(var2id(e))) 
                             todo.push_back(var2id(e));   
                     break;
@@ -113,19 +119,20 @@ namespace euf {
     }
 
     void solve_eqs::normalize() {
-        scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
+        scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
         std::sort(m_subst_ids.begin(), m_subst_ids.end(), [&](unsigned u, unsigned v) { return m_id2level[u] > m_id2level[v]; });
 
         for (unsigned id : m_subst_ids) {
             if (!m.inc())
-                break;
+                return;
             auto const& [orig, v, def, dep] = m_next[id][0];
             auto [new_def, new_dep] = rp->replace_with_dep(def);
             m_stats.m_num_steps += rp->get_num_steps() + 1;
             ++m_stats.m_num_elim_vars;
             new_dep = m.mk_join(dep, new_dep);
+            IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(v, m) << " -> " << mk_bounded_pp(new_def, m) << "\n");
             m_subst->insert(v, new_def, new_dep);
             SASSERT(can_be_var(v));
             // we updated the substitution, but we don't need to reset rp
@@ -139,12 +146,14 @@ namespace euf {
             expr* def = m_subst->find(eq.var);
             tout << mk_pp(eq.var, m) << "\n----->\n" << mk_pp(def, m) << "\n\n";
         });
+
+
     }
 
     void solve_eqs::apply_subst(vector<dependent_expr>& old_fmls) {
         if (!m.inc())
             return;
-        scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, true);
+        scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
         for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
@@ -152,6 +161,7 @@ namespace euf {
             auto [new_f, new_dep] = rp->replace_with_dep(f);
             if (new_f == f)
                 continue;
+            m_rewriter(new_f);
             new_dep = m.mk_join(d, new_dep);
             old_fmls.push_back(m_fmls[i]);
             m_fmls.update(i, dependent_expr(m, new_f, new_dep));
@@ -164,29 +174,35 @@ namespace euf {
             ex->pre_process(m_fmls);
 
         unsigned count = 0;
+        vector<dependent_expr> old_fmls;
+        dep_eq_vector eqs;
         do {
-            vector<dependent_expr> old_fmls;
+            old_fmls.reset();
             m_subst_ids.reset();
-            if (!m.inc())
-                return;
-            dep_eq_vector eqs;
+            eqs.reset();
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
+            normalize();
             apply_subst(old_fmls);
             ++count;
         } 
-        while (!m_subst_ids.empty() && count < 20);
+        while (!m_subst_ids.empty() && count < 20 && m.inc());
+
+        if (!m.inc())
+            return;
+
         save_subst({});
 
-        if (m_config.m_context_solve) {
-            vector<dependent_expr> old_fmls;
-            dep_eq_vector eqs;
+        if (m_config.m_context_solve) {            
+            old_fmls.reset();
             m_subst_ids.reset();
+            eqs.reset();
             solve_context_eqs context_solve(*this);
             context_solve.collect_nested_equalities(eqs);
             extract_dep_graph(eqs);
             extract_subst();
+            normalize();
             apply_subst(old_fmls);
             save_subst(old_fmls);
         }
@@ -203,7 +219,7 @@ namespace euf {
         m_unsafe_vars.reset();
         recfun::util rec(m);
         for (func_decl* f : rec.get_rec_funs())
-            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m)))
+            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m), &m_todo, &m_visited))
                 m_unsafe_vars.mark(term);
     }
 

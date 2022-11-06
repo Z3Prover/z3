@@ -244,10 +244,29 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         result = buffer.back();
         return BR_DONE;
     default:
+#if 0
+        // stupid or removal. A very special case of circuit optimization.
+        expr* x, * y, * z, * u;
+        auto is_complement = [&](expr* a, expr* b) {
+            expr* c;
+            if (m().is_not(a, c) && c == b)
+                return true;
+            if (m().is_not(b, c) && c == a)
+                return true;
+            return false;
+        };
+
+        if (sz == 2 && m().is_and(buffer[0], x, y) && m().is_and(buffer[1], z, u) && x == z && is_complement(y, u)) {
+            result = x;
+            return BR_DONE;
+        }
+#endif
+
         if (m_local_ctx && m_local_ctx_cost <= m_local_ctx_limit) {
             if (local_ctx_simp(sz, buffer.data(), result)) 
                 return BR_DONE;
         }
+
         if (s) {
             ast_lt lt;
             std::sort(buffer.begin(), buffer.end(), lt);       
@@ -556,9 +575,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
                 return true;                                                                    \
             }                                                                                   \
             if (m_flat_and_or && m().is_or(arg)) {                                              \
-                unsigned sz = to_app(arg)->get_num_args();                                      \
-                for (unsigned j = 0; j < sz; j++) {                                             \
-                    expr * arg_arg = to_app(arg)->get_arg(j);                                   \
+                for (expr * arg_arg : *to_app(arg)) {                                           \
                     push_new_arg(arg_arg, new_args, neg_lits, pos_lits);                        \
                 }                                                                               \
             }                                                                                   \
