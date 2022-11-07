@@ -31,6 +31,9 @@ namespace polysat {
     class op_constraint;
     class signed_constraint;
 
+    using constraints = ptr_vector<constraint>;
+    using signed_constraints = vector<signed_constraint>;
+
     /// Normalized inequality:
     ///     lhs <= rhs, if !is_strict
     ///     lhs < rhs, otherwise
@@ -43,7 +46,6 @@ namespace polysat {
             lhs(lhs), rhs(rhs), is_strict(is_strict), src(src) {}
         signed_constraint as_signed_constraint() const;
     };
-
 
     class constraint {
         friend class constraint_manager;
@@ -125,7 +127,6 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
-
 
     class signed_constraint final {
     public:

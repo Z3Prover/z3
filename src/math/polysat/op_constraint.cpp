@@ -75,7 +75,11 @@ namespace polysat {
     }
 
     bool op_constraint::is_currently_false(solver& s, bool is_positive) const {
-        return is_always_false(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));        
+        return is_always_false(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));
+    }
+
+    bool op_constraint::is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const {
+        return is_always_false(is_positive, s.subst(sub, p()), s.subst(sub, q()), s.subst(sub, r()));
     }
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {
@@ -189,7 +193,7 @@ namespace polysat {
             // q = 0 -> p = r
             s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
         else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val())
-            // q != 0 & p > 0 => r < p 
+            // q != 0 & p > 0 => r < p
             s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
             rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1))
@@ -197,7 +201,7 @@ namespace polysat {
             s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned() - 1)), true);
         else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
             // q >= K -> r = 0
-            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);            
+            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
         // q = k -> r[i - k] = p[i] for K - k <= i < K
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
@@ -222,11 +226,11 @@ namespace polysat {
 
         if (p.is_val() && q.is_val() && r.is_val())
             return r == p * m.mk_val(rational::power_of_two(q.val().get_unsigned())) ? l_true : l_false;
-            
+
         if (q.is_val() && q.val() >= m.power_of_2() && r.is_val())
             return r.is_zero() ? l_true : l_false;
-                
-        // other cases when we know lower 
+
+        // other cases when we know lower
         // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.
         return l_undef;
     }
@@ -239,7 +243,7 @@ namespace polysat {
     * p = 0 => r = 0
     * q = 0 => r = 0
     * p[i] && q[i] = r[i]
-    * 
+    *
     * Possible other:
     * p = max_value => q = r
     * q = max_value => p = r
@@ -248,7 +252,7 @@ namespace polysat {
         auto pv = s.subst(p());
         auto qv = s.subst(q());
         auto rv = s.subst(r());
-        
+
         signed_constraint andc(this, true);
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             s.add_clause(~andc, s.ule(r(), p()), true);

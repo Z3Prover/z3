@@ -12,25 +12,24 @@ Author:
 
 --*/
 #pragma once
-#include "math/polysat/constraint.h"
 #include "math/polysat/clause.h"
-#include <iostream>
+#include "math/polysat/constraint.h"
+#include "math/polysat/op_constraint.h"
 
 namespace polysat {
 
-    class constraint;
-    class ule_constraint;
-    class umul_ovfl_constraint;
-    class smul_fl_constraint;
-    class op_constraint;
-    class signed_constraint;
+    class constraint_dedup {
+    public:
+        using constraint_hash = obj_ptr_hash<constraint>;
+        using constraint_eq = deref_eq<constraint>;
+        using constraint_table = ptr_hashtable<constraint, constraint_hash, constraint_eq>;
+        constraint_table constraints;
 
-    using constraint_hash = obj_ptr_hash<constraint>;
-    using constraint_eq = deref_eq<constraint>;
-    using constraint_table = ptr_hashtable<constraint, constraint_hash, constraint_eq>;
-
-    using constraints = ptr_vector<constraint>;
-    using signed_constraints = vector<signed_constraint>;
+        using op_constraint_args_eq = default_eq<op_constraint_args>;
+        using op_constraint_args_hash = obj_hash<op_constraint_args>;
+        using op_constraint_expr_map = map<op_constraint_args, pvar, op_constraint_args_hash, op_constraint_args_eq>;
+        op_constraint_expr_map op_constraint_expr;
+    };
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
@@ -40,11 +39,10 @@ namespace polysat {
 
         // Constraints indexed by their boolean variable
         ptr_vector<constraint> m_bv2constraint;
-        // Constraints that have a boolean variable, for deduplication
-        constraint_table m_constraint_table;
+
         scoped_ptr_vector<constraint> m_constraints;
 
-        // scoped_ptr<constraint_dedup> m_dedup;
+        constraint_dedup m_dedup;
 
         // Clause storage per level
         vector<vector<clause_ref>> m_clauses;

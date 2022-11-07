@@ -24,13 +24,6 @@ Author:
 
 namespace polysat {
 
-    // class constraint_dedup {
-    // public:
-    //     using op_constraint_args_eq = default_eq<op_constraint_args>;
-    //     using op_constraint_args_hash = obj_hash<op_constraint_args>;
-    //     map<op_constraint_args, pvar, op_constraint_args_hash, op_constraint_args_eq> op_constraint_vars;
-    // };
-
     constraint_manager::constraint_manager(solver& s): s(s) {}
 
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
@@ -155,14 +148,14 @@ namespace polysat {
     /** Look up constraint among stored constraints. */
     constraint* constraint_manager::dedup(constraint* c1) {
         constraint* c2 = nullptr;
-        if (m_constraint_table.find(c1, c2)) {
+        if (m_dedup.constraints.find(c1, c2)) {
             dealloc(c1);
             return c2;
         }
         else {
             SASSERT(!c1->has_bvar());
             ensure_bvar(c1);
-            m_constraint_table.insert(c1);
+            m_dedup.constraints.insert(c1);
             store(c1);
             return c1;
         }
@@ -289,10 +282,14 @@ namespace polysat {
     }
 
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
+        op_constraint_args const args(op_constraint::code::and_op, p, q);
         auto& m = p.manager();
+        auto it = m_dedup.op_constraint_expr.find_iterator(args);
+        if (it != m_dedup.op_constraint_expr.end())
+            return m.mk_var(it->m_value);
         unsigned sz = m.power_of_2();
-        // TODO: return existing r if we call again with the same arguments
         pdd r = m.mk_var(s.add_var(sz));
+        m_dedup.op_constraint_expr.insert(args, r.var());
         s.assign_eh(band(p, q, r), null_dependency);
         return r;
     }

@@ -12,7 +12,7 @@ Module Name:
     or:   r == p | q
     not:  r == ~p
     xor:  r == p ^ q
-    
+
 Author:
 
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
@@ -20,6 +20,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
+#include <optional>
 
 namespace polysat {
 
@@ -48,7 +49,7 @@ namespace polysat {
         void narrow_and(solver& s);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
 
-    public:        
+    public:
         ~op_constraint() override {}
         pdd const& p() const { return m_p; }
         pdd const& q() const { return m_q; }
@@ -57,7 +58,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         bool is_always_false(bool is_positive) const override;
         bool is_currently_false(solver& s, bool is_positive) const override;
-        bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const override { return false; }
+        bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
         inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;
@@ -65,6 +66,26 @@ namespace polysat {
         bool is_eq() const override { return false; }
 
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
+    };
+
+    struct op_constraint_args {
+        op_constraint::code op;
+        // NOTE: this is only optional because table2map requires a default constructor
+        std::optional<std::pair<pdd, pdd>> args;
+
+        op_constraint_args() = default;
+        op_constraint_args(op_constraint::code op, pdd lhs, pdd rhs)
+            : op(op), args({std::move(lhs), std::move(rhs)}) {}
+
+        bool operator==(op_constraint_args const& other) const {
+            return op == other.op && args == other.args;
+        }
+
+        unsigned hash() const {
+            unsigned const lhs_hash = args ? args->first.hash() : 0;
+            unsigned const rhs_hash = args ? args->second.hash() : 0;
+            return mk_mix(static_cast<unsigned>(op), lhs_hash, rhs_hash);
+        }
     };
 
 }
