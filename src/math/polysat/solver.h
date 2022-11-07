@@ -305,12 +305,10 @@ namespace polysat {
         * ~ovfl(b*quot)
         * rem < b or b = 0
         */
-        std::tuple<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
+        std::pair<pdd, pdd> quot_rem(pdd const& a, pdd const& b) { return m_constraints.quot_rem(a, b); }
 
-        /**
-         * Create expression for the logical right shift of p by q.
-         */
-        pdd lshr(pdd const& p, pdd const& q);
+        /** Create expression for the logical right shift of p by q. */
+        pdd lshr(pdd const& p, pdd const& q) { return m_constraints.lshr(p, q); }
 
         /** Create expression for the bit-wise negation of p. */
         pdd bnot(pdd const& p) { return m_constraints.bnot(p); }

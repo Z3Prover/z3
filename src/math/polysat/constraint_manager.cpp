@@ -277,19 +277,71 @@ namespace polysat {
         return ult(a + shift, b + shift);
     }
 
+    std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {
+        auto& m = a.manager();
+        unsigned sz = m.power_of_2();
+        if (a.is_val() && b.is_val()) {
+            // TODO: just evaluate?
+        }
+
+        constraint_dedup::quot_rem_args args({a, b});
+        auto it = m_dedup.quot_rem_expr.find_iterator(args);
+        if (it != m_dedup.quot_rem_expr.end())
+            return { m.mk_var(it->m_value.first), m.mk_var(it->m_value.second) };
+
+        pdd q = m.mk_var(s.add_var(sz));  // quotient
+        pdd r = m.mk_var(s.add_var(sz));  // remainder
+        m_dedup.quot_rem_expr.insert(args, { q.var(), r.var() });
+
+        // Axioms for quotient/remainder:
+        //      a = b*q + r
+        //      multiplication does not overflow in b*q
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r    (TODO: maybe the version with disjunction is easier for the solver; should compare later)
+        //      b ≠ 0  ==>  r < b
+        //      b = 0  ==>  q = -1
+        s.add_eq(a, b * q + r);
+        s.add_umul_noovfl(b, q);
+        s.add_ule(r, b*q+r);
+
+        auto c_eq = eq(b);
+        s.add_clause(c_eq, ult(r, b), false);
+        s.add_clause(~c_eq, eq(q + 1), false);
+
+        return {q, r};
+    }
+
+    pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
+        auto& m = p.manager();
+        unsigned sz = m.power_of_2();
+
+        op_constraint_args const args(op_constraint::code::lshr_op, p, q);
+        auto it = m_dedup.op_constraint_expr.find_iterator(args);
+        if (it != m_dedup.op_constraint_expr.end())
+            return m.mk_var(it->m_value);
+
+        pdd r = m.mk_var(s.add_var(sz));
+        m_dedup.op_constraint_expr.insert(args, r.var());
+
+        s.assign_eh(lshr(p, q, r), null_dependency);
+        return r;
+    }
+
     pdd constraint_manager::bnot(pdd const& p) {
         return -p - 1;
     }
 
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
-        op_constraint_args const args(op_constraint::code::and_op, p, q);
         auto& m = p.manager();
+        unsigned sz = m.power_of_2();
+
+        op_constraint_args const args(op_constraint::code::and_op, p, q);
         auto it = m_dedup.op_constraint_expr.find_iterator(args);
         if (it != m_dedup.op_constraint_expr.end())
             return m.mk_var(it->m_value);
-        unsigned sz = m.power_of_2();
+
         pdd r = m.mk_var(s.add_var(sz));
         m_dedup.op_constraint_expr.insert(args, r.var());
+
         s.assign_eh(band(p, q, r), null_dependency);
         return r;
     }

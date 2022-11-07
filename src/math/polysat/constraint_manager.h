@@ -29,6 +29,16 @@ namespace polysat {
         using op_constraint_args_hash = obj_hash<op_constraint_args>;
         using op_constraint_expr_map = map<op_constraint_args, pvar, op_constraint_args_hash, op_constraint_args_eq>;
         op_constraint_expr_map op_constraint_expr;
+
+        using quot_rem_args = std::optional<std::pair<pdd, pdd>>;  // NOTE: this is only wrapped in optional because table2map requires a default constructor
+        using quot_rem_args_eq = default_eq<quot_rem_args>;
+        struct quot_rem_args_hash {
+            unsigned operator()(quot_rem_args const& args) const {
+                return args ? combine_hash(args->first.hash(), args->second.hash()) : 0;
+            }
+        };
+        using quot_rem_expr_map = map<quot_rem_args, std::pair<pvar, pvar>, quot_rem_args_hash, quot_rem_args_eq>;
+        quot_rem_expr_map quot_rem_expr;
     };
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
@@ -99,6 +109,10 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i);
         signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
         signed_constraint band(pdd const& p, pdd const& q, pdd const& r);
+
+        std::pair<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
+
+        pdd lshr(pdd const& p, pdd const& q);
 
         pdd bnot(pdd const& p);
         pdd band(pdd const& p, pdd const& q);

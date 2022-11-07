@@ -133,39 +133,6 @@ namespace polysat {
         m_free_pvars.del_var_eh(v);
     }
 
-    std::tuple<pdd, pdd> solver::quot_rem(pdd const& a, pdd const& b) {
-        auto& m = a.manager();
-        unsigned sz = m.power_of_2();
-        if (a.is_val() && b.is_val()) {
-            // TODO: just evaluate?
-        }
-        pdd q = m.mk_var(add_var(sz));  // quotient
-        pdd r = m.mk_var(add_var(sz));  // remainder
-        // Axioms for quotient/remainder:
-        //      a = b*q + r
-        //      multiplication does not overflow in b*q
-        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r    (TODO: maybe the version with disjunction is easier for the solver; should compare later)
-        //      b ≠ 0  ==>  r < b
-        //      b = 0  ==>  q = -1
-        add_eq(a, b * q + r);
-        add_umul_noovfl(b, q);
-        add_ule(r, b*q+r);
-
-        auto c_eq = eq(b);
-        add_clause(c_eq, ult(r, b), false);
-        add_clause(~c_eq, eq(q + 1), false);
-
-        return std::tuple<pdd, pdd>(q, r);
-    }
-
-    pdd solver::lshr(pdd const& p, pdd const& q) {
-        auto& m = p.manager();
-        unsigned sz = m.power_of_2();
-        pdd r = m.mk_var(add_var(sz));
-        assign_eh(m_constraints.lshr(p, q, r), null_dependency);
-        return r;
-    }
-
     void solver::assign_eh(signed_constraint c, dependency dep) {
         backjump(base_level());
         SASSERT(at_base_level());
