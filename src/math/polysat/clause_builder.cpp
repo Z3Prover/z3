@@ -60,7 +60,6 @@ namespace polysat {
 
     void clause_builder::push(signed_constraint c) {
         SASSERT(c);
-        SASSERT(c->has_bvar());
         if (c.is_always_false())  // filter out trivial constraints such as "4 < 2"
             return;
         if (c.is_always_true()) {

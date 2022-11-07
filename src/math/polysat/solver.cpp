@@ -1245,8 +1245,6 @@ namespace polysat {
             if (m_search[i].is_boolean())
                 skip.insert(m_search[i].lit().var());
         for (auto c : m_constraints) {
-            if (!c->has_bvar())
-                continue;
             if (skip.contains(c->bvar()))
                 continue;
 

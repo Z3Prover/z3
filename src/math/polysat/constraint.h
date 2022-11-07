@@ -47,6 +47,7 @@ namespace polysat {
 
     class constraint {
         friend class constraint_manager;
+        friend class signed_constraint;
         friend class clause;
         friend class ule_constraint;
         friend class umul_ovfl_constraint;
@@ -58,13 +59,12 @@ namespace polysat {
         lbool               m_external_sign = l_undef;
         bool                m_is_active = false;
         bool                m_is_pwatched = false;
-        /** The boolean variable associated to this constraint, if any.
-         *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
-         *  Convention: the plain constraint corresponds the positive sat::literal.
-         */
+        /** The boolean variable associated to this constraint */
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
+
+        bool has_bvar() const { return m_bvar != sat::null_bool_var; }
 
     public:
         virtual ~constraint() {}
@@ -104,7 +104,6 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
         bool contains_var(pvar v) const { return m_vars.contains(v); }
-        bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { SASSERT(has_bvar()); return m_bvar; }
         std::string bvar2string() const;
         unsigned level(solver& s) const;
