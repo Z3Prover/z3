@@ -312,35 +312,23 @@ namespace polysat {
          */
         pdd lshr(pdd const& p, pdd const& q);
 
-        /**
-         * Create expression for the bit-wise negation of p.
-         */
-        pdd bnot(pdd const& p);
+        /** Create expression for the bit-wise negation of p. */
+        pdd bnot(pdd const& p) { return m_constraints.bnot(p); }
 
-        /**
-         * Create expression for bit-wise and of p, q.
-         */
-        pdd band(pdd const& p, pdd const& q);
+        /** Create expression for bit-wise and of p, q. */
+        pdd band(pdd const& p, pdd const& q) { return m_constraints.band(p, q); }
 
-        /**
-         * Create expression for bit-wise or of p, q.
-         */
-        pdd bor(pdd const& p, pdd const& q);
+        /** Create expression for bit-wise or of p, q. */
+        pdd bor(pdd const& p, pdd const& q) { return m_constraints.bor(p, q); }
 
-        /**
-         * Create expression for bit-wise xor of p, q.
-         */
-        pdd bxor(pdd const& p, pdd const& q);
+        /** Create expression for bit-wise xor of p, q. */
+        pdd bxor(pdd const& p, pdd const& q) { return m_constraints.bxor(p, q); }
 
-        /**
-         * Create expression for bit-wise nand of p, q.
-         */
-        pdd bnand(pdd const& p, pdd const& q);
+        /** Create expression for bit-wise nand of p, q. */
+        pdd bnand(pdd const& p, pdd const& q) { return m_constraints.bnand(p, q); }
 
-        /**
-         * Create expression for bit-wise nor of p, q.
-         */
-        pdd bnor(pdd const& p, pdd const& q);
+        /** Create expression for bit-wise nor of p, q. */
+        pdd bnor(pdd const& p, pdd const& q) { return m_constraints.bnor(p, q); }
 
         /**
          * Create polynomial constant.

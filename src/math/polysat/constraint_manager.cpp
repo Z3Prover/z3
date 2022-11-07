@@ -31,8 +31,7 @@ namespace polysat {
     //     map<op_constraint_args, pvar, op_constraint_args_hash, op_constraint_args_eq> op_constraint_vars;
     // };
 
-    constraint_manager::constraint_manager(bool_var_manager& bvars)
-        : m_bvars(bvars) /*, m_dedup(alloc(constraint_dedup))*/ {}
+    constraint_manager::constraint_manager(solver& s): s(s) {}
 
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
@@ -54,7 +53,7 @@ namespace polysat {
 
     void constraint_manager::ensure_bvar(constraint* c) {
         if (!c->has_bvar())
-            assign_bv2c(m_bvars.new_var(), c);
+            assign_bv2c(s.m_bvars.new_var(), c);
     }
 
     void constraint_manager::erase_bvar(constraint* c) {
@@ -101,11 +100,11 @@ namespace polysat {
 
         bool first = true;
         for (unsigned i = 0; i < cl.size(); ++i) {
-            if (m_bvars.is_false(cl[i]))
+            if (s.m_bvars.is_false(cl[i]))
                 continue;
             signed_constraint sc = s.lit2cnstr(cl[i]);
             if (value_propagate && sc.is_currently_false(s)) {
-                if (m_bvars.is_true(cl[i])) {
+                if (s.m_bvars.is_true(cl[i])) {
                     s.set_conflict(sc);
                     return;
                 }
@@ -113,7 +112,7 @@ namespace polysat {
                 continue;
             }
 
-            m_bvars.watch(cl[i]).push_back(&cl);
+            s.m_bvars.watch(cl[i]).push_back(&cl);
             std::swap(cl[!first], cl[i]);
             if (!first)
                 return;
@@ -121,10 +120,10 @@ namespace polysat {
         }
 
         if (first)
-            m_bvars.watch(cl[0]).push_back(&cl);
+            s.m_bvars.watch(cl[0]).push_back(&cl);
         if (cl.size() > 1)
-            m_bvars.watch(cl[1]).push_back(&cl);
-        if (m_bvars.is_true(cl[0]))
+            s.m_bvars.watch(cl[1]).push_back(&cl);
+        if (s.m_bvars.is_true(cl[0]))
             return;
         if (first)
             s.set_conflict(cl);
@@ -135,8 +134,8 @@ namespace polysat {
     void constraint_manager::unwatch(clause& cl) {
         if (cl.size() <= 1)
             return;
-        m_bvars.watch(~cl[0]).erase(&cl);
-        m_bvars.watch(~cl[1]).erase(&cl);
+        s.m_bvars.watch(~cl[0]).erase(&cl);
+        s.m_bvars.watch(~cl[1]).erase(&cl);
     }
 
     constraint_manager::~constraint_manager() {
@@ -285,4 +284,36 @@ namespace polysat {
         return ult(a + shift, b + shift);
     }
 
+    pdd constraint_manager::bnot(pdd const& p) {
+        return -p - 1;
+    }
+
+    pdd constraint_manager::band(pdd const& p, pdd const& q) {
+        auto& m = p.manager();
+        unsigned sz = m.power_of_2();
+        // TODO: return existing r if we call again with the same arguments
+        pdd r = m.mk_var(s.add_var(sz));
+        s.assign_eh(band(p, q, r), null_dependency);
+        return r;
+    }
+
+    pdd constraint_manager::bor(pdd const& p, pdd const& q) {
+        // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+        // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+        return (p + q) - band(p, q);
+    }
+
+    pdd constraint_manager::bxor(pdd const& p, pdd const& q) {
+        // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+        // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+        return (p + q) - 2*band(p, q);
+    }
+
+    pdd constraint_manager::bnand(pdd const& p, pdd const& q) {
+        return bnot(band(p, q));
+    }
+
+    pdd constraint_manager::bnor(pdd const& p, pdd const& q) {
+        return bnot(bor(p, q));
+    }
 }

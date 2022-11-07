@@ -36,7 +36,7 @@ namespace polysat {
     class constraint_manager {
         friend class constraint;
 
-        bool_var_manager& m_bvars;
+        solver& s;
 
         // Constraints indexed by their boolean variable
         ptr_vector<constraint> m_bv2constraint;
@@ -75,7 +75,7 @@ namespace polysat {
         void erase_bvar(constraint* c);
 
     public:
-        constraint_manager(bool_var_manager& bvars);
+        constraint_manager(solver& s);
         ~constraint_manager();
 
         void store(clause* cl, solver& s, bool value_propagate);
@@ -101,6 +101,13 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i);
         signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
         signed_constraint band(pdd const& p, pdd const& q, pdd const& r);
+
+        pdd bnot(pdd const& p);
+        pdd band(pdd const& p, pdd const& q);
+        pdd bor(pdd const& p, pdd const& q);
+        pdd bxor(pdd const& p, pdd const& q);
+        pdd bnand(pdd const& p, pdd const& q);
+        pdd bnor(pdd const& p, pdd const& q);
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
