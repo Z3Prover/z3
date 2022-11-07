@@ -68,15 +68,15 @@ namespace polysat {
     }
 
 
-    void constraint_manager::register_clause(clause* cl, solver& s) {
+    void constraint_manager::register_clause(clause* cl) {
         while (m_clauses.size() <= s.base_level())
             m_clauses.push_back({});
         m_clauses[s.base_level()].push_back(cl);
     }
 
-    void constraint_manager::store(clause* cl, solver& s, bool value_propagate) {
-        register_clause(cl, s);
-        watch(*cl, s, value_propagate);
+    void constraint_manager::store(clause* cl, bool value_propagate) {
+        register_clause(cl);
+        watch(*cl, value_propagate);
     }
 
     // Release constraints at the given level and above.
@@ -94,7 +94,7 @@ namespace polysat {
     // if clause is unsat then assign arbitrary
     // solver handles unsat clauses by creating a conflict.
     // solver also can propagate, but need to check that it does indeed.
-    void constraint_manager::watch(clause& cl, solver& s, bool value_propagate) {
+    void constraint_manager::watch(clause& cl, bool value_propagate) {
         if (cl.empty())
             return;
 
@@ -168,18 +168,18 @@ namespace polysat {
         }
     }
 
-    void constraint_manager::gc(solver& s) {
+    void constraint_manager::gc() {
         LOG_H1("gc");
-        gc_clauses(s);
-        gc_constraints(s);
+        gc_clauses();
+        gc_constraints();
     }
 
-    void constraint_manager::gc_clauses(solver& s) {
+    void constraint_manager::gc_clauses() {
         LOG_H3("gc_clauses");
         // place to gc redundant clauses
     }
 
-    void constraint_manager::gc_constraints(solver& s) {
+    void constraint_manager::gc_constraints() {
         LOG_H3("gc_constraints");
         uint_set used_vars;
         for (auto const& cls : m_clauses)

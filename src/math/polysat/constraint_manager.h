@@ -63,13 +63,13 @@ namespace polysat {
 
         constraint* dedup(constraint* c);
 
-        void gc_constraints(solver& s);
-        void gc_clauses(solver& s);
+        void gc_constraints();
+        void gc_clauses();
 
-        void watch(clause& cl, solver& s, bool value_propagate);
+        void watch(clause& cl, bool value_propagate);
         void unwatch(clause& cl);
 
-        void register_clause(clause* cl, solver& s);
+        void register_clause(clause* cl);
 
         void ensure_bvar(constraint* c);
         void erase_bvar(constraint* c);
@@ -78,13 +78,13 @@ namespace polysat {
         constraint_manager(solver& s);
         ~constraint_manager();
 
-        void store(clause* cl, solver& s, bool value_propagate);
+        void store(clause* cl, bool value_propagate);
 
         /// Release clauses at the given level and above.
         void release_level(unsigned lvl);
 
         /// Garbage-collect temporary constraints (i.e., those that do not have a boolean variable).
-        void gc(solver& s);
+        void gc();
         bool should_gc();
 
         constraint* lookup(sat::bool_var var) const;

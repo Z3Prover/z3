@@ -73,7 +73,7 @@ namespace polysat {
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
             else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
-            else if (m_constraints.should_gc()) m_constraints.gc(*this);
+            else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
             else decide();
@@ -1006,7 +1006,7 @@ namespace polysat {
             }
         }
         SASSERT(!clause.empty());
-        m_constraints.store(&clause, *this, true);
+        m_constraints.store(&clause, true);
 
         if (!clause.is_redundant()) {
             // for (at least) non-redundant clauses, we also need to watch the constraints

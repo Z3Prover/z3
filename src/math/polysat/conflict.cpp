@@ -600,7 +600,7 @@ namespace polysat {
                 if (needs_side_lemma(lit2))
                     todo.push_back(lit2);
             // Store and bool-propagate the lemma
-            s.m_constraints.store(lemma, s, false);
+            s.m_constraints.store(lemma, false);
             SASSERT(s.m_bvars.value(lit) != l_undef);
         }
         m_lemmas.reset();
