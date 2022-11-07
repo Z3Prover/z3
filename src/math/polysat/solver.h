@@ -22,6 +22,7 @@ Author:
 #include "math/polysat/boolean.h"
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
+#include "math/polysat/constraint_manager.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"

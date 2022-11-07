@@ -16,6 +16,7 @@ Notes:
 
 --*/
 #pragma once
+#include "math/polysat/clause.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/types.h"
 

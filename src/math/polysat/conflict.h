@@ -69,7 +69,7 @@ Lemma:       y < z or xz <= xy or O(x,y)
 --*/
 #pragma once
 #include "math/polysat/types.h"
-#include "math/polysat/constraint.h"
+#include "math/polysat/constraint_manager.h"
 #include "math/polysat/inference_logger.h"
 #include <initializer_list>
 

@@ -5,6 +5,7 @@ z3_add_component(polysat
     clause_builder.cpp
     conflict.cpp
     constraint.cpp
+    constraint_manager.cpp
     eq_explain.cpp
     explain.cpp
     forbidden_intervals.cpp
