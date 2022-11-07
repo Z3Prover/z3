@@ -84,7 +84,7 @@ namespace {
             if (lhs.val() <= rhs.val())
                 lhs = 0, rhs = 0;
             else
-                lhs = 1, rhs = 0;
+                lhs = 0, rhs = 0, is_positive = !is_positive;
             return;
         }
         // k <= p   -->   p - k <= - k - 1
@@ -100,9 +100,10 @@ namespace {
             rhs = 0;
             is_positive = !is_positive;
         }
-        // 2p + 1 <= 0   -->   1 <= 0
+        // 2p + 1 <= 0   -->   0 < 0
         if (rhs.is_zero() && lhs.is_never_zero()) {
-            lhs = 1;
+            lhs = 0;
+            is_positive = !is_positive;
             return;
         }
         // a*p + q <= 0   -->   p + a^-1*q <= 0   for a odd
