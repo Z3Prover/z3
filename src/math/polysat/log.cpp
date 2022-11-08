@@ -5,6 +5,7 @@
 #include <io.h>
 #undef min
 #endif
+#include <atomic>
 #include <utility>
 
 #include "util/util.h"
@@ -24,6 +25,12 @@ Other:
 */
 
 #if POLYSAT_LOGGING_ENABLED
+
+std::atomic<bool> g_log_enabled(true);
+
+void set_log_enabled(bool log_enabled) {
+  g_log_enabled = log_enabled;
+}
 
 static LogLevel get_max_log_level(std::string const& fn, std::string const& pretty_fn) {
   (void)fn;
@@ -45,20 +52,23 @@ static LogLevel get_max_log_level(std::string const& fn, std::string const& pret
 
 /// Filter log messages
 bool polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn) {
+  if (!g_log_enabled)
+    return false;
   LogLevel max_log_level = get_max_log_level(fn, pretty_fn);
   return msg_level <= max_log_level;
 }
 
+char const* color_red()    { return "\x1B[31m"; }
+char const* color_yellow() { return "\x1B[33m"; }
+char const* color_blue()   { return "\x1B[34m"; }
+char const* color_reset()  { return "\x1B[0m"; }
+
 static char const* level_color(LogLevel msg_level) {
   switch (msg_level) {
-    case LogLevel::Heading1:
-      return "[31m"; // red
-    case LogLevel::Heading2:
-      return "[33m"; // yellow
-    case LogLevel::Heading3:
-      return "[34m"; // blue
-    default:
-      return nullptr;
+    case LogLevel::Heading1: return color_red();
+    case LogLevel::Heading2: return color_yellow();
+    case LogLevel::Heading3: return color_blue();
+    default: return nullptr;
   }
 }
 

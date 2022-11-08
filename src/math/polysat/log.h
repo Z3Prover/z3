@@ -18,8 +18,15 @@
 #endif
 
 
+char const* color_blue();
+char const* color_yellow();
+char const* color_red();
+char const* color_reset();
+
+
 #if POLYSAT_LOGGING_ENABLED
 
+void set_log_enabled(bool log_enabled);
 
 class polysat_log_indent
 {
@@ -57,9 +64,8 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
       std::ostream& os = pair.first;                               \
       bool should_reset = pair.second;                             \
       os << x;                                                     \
-      if (should_reset) {                                          \
-        os << "\x1B[0m"; /* reset color */                         \
-      }                                                            \
+      if (should_reset)                                            \
+        os << color_reset();                                       \
       os << std::endl;                                             \
     }                                                              \
   } while (false)
@@ -87,6 +93,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
 #else  // POLYSAT_LOGGING_ENABLED
 
+void set_log_enabled(bool) {}
 
 #define LOG_(lvl, x)  \
   do {               \
