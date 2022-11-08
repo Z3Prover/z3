@@ -57,6 +57,68 @@ namespace {
 
 namespace polysat {
 
+    enum class test_result {
+        undefined,
+        ok,
+        wrong_answer,
+        wrong_model,
+        resource_out,  // solver hit the resource limit
+        error,
+    };
+
+    struct test_record {
+        std::string m_name;
+        unsigned m_index = 0;  ///< m_index-th check_sat() call in this unit test.
+        lbool m_answer;  ///< what the solver returned
+        lbool m_expected = l_undef;  ///< the answer we expect (l_undef if unspecified)
+        test_result m_result = test_result::undefined;
+        std::string m_error_message;
+
+        using clock_t = std::chrono::steady_clock;
+        clock_t::time_point start;
+        clock_t::time_point end;
+    };
+
+    vector<test_record> test_records;
+    bool const collect_test_records = true;
+
+    void display_test_records(vector<test_record> const& recs, std::ostream& out) {
+        out << "\n\nTest Results:\n";
+
+        size_t max_name_len = 0;
+        for (test_record const& r : recs)
+            max_name_len = std::max(max_name_len, r.m_name.length());
+
+        for (test_record const& r : recs) {
+            out << r.m_name;
+            if (r.m_index != 1)
+                out << " (" << r.m_index << ") ";
+            else
+                out << "     ";
+            for (size_t i = r.m_name.length(); i < max_name_len; ++i)
+                out << ' ';
+            // auto d = std::chrono::duration_cast<std::chrono::milliseconds>(r.end - r.start);
+            std::chrono::duration<double> d = r.end - r.start;
+            // d.count()
+            out << std::fixed << std::setprecision(1);
+            out << std::setw(4) << d.count() << "s ";
+            switch (r.m_answer) {
+            case l_undef: out << "      "; break;
+            case l_true:  out << "SAT   "; break;
+            case l_false: out << "UNSAT "; break;
+            }
+            switch (r.m_result) {
+            case test_result::undefined: out << "???"; break;
+            case test_result::ok: out << "ok"; break;
+            case test_result::wrong_answer: out << color_red() << "wrong answer, expected " << r.m_expected << color_reset(); break;
+            case test_result::wrong_model: out << color_red() << "wrong model" << color_reset(); break;
+            case test_result::resource_out: out << color_yellow() << "resource out" << color_reset(); break;
+            case test_result::error: out << color_red() << "error: " << r.m_error_message << color_reset(); break;
+            }
+            out << std::endl;
+        }
+    }
+
     // test resolve, factoring routines
     // auxiliary
 
@@ -67,10 +129,12 @@ namespace polysat {
     class scoped_solver : public solver_scope, public solver {
         std::string m_name;
         lbool m_last_result = l_undef;
+        test_record* m_record = nullptr;
+        unsigned m_record_idx = 0;
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            LOG("\n\n\n" << std::string(78, '#') << "\n\nSTART: " << m_name << "\n");
+            std::cout << "\n\n\n" << std::string(78, '#') << "\n\nSTART: " << m_name << "\n";
             set_max_conflicts(10);
         }
 
@@ -81,22 +145,76 @@ namespace polysat {
         }
 
         void check() {
-            m_last_result = check_sat();
-            LOG(m_name << ": " << m_last_result << "\n");
-            statistics st;
-            collect_statistics(st);
-            LOG(st << "\n" << *this << "\n");
-            std::cout << st << "\n";
+            test_records.push_back({});
+            m_record = &test_records.back();
+            m_record->m_name = m_name;
+            m_record->m_index = ++m_record_idx;
+            m_record->m_answer = l_undef;
+            m_record->m_expected = l_undef;
+            m_record->m_result = test_result::undefined;
+            m_record->m_error_message = "";
+            try {
+                m_record->start = test_record::clock_t::now();
+                m_last_result = check_sat();
+                m_record->end = test_record::clock_t::now();
+                std::cout << "DONE: " << m_name << ": " << m_last_result << "\n";
+                statistics st;
+                collect_statistics(st);
+                std::cout << st << "\n";
+
+                m_record->m_answer = m_last_result;
+                m_record->m_result = (m_last_result == l_undef) ? test_result::resource_out : test_result::ok;
+            }
+            catch(z3_exception const& e) {
+                m_record->end = test_record::clock_t::now();
+                char const* msg = e.msg();
+                if (!msg)
+                    msg = "(unknown z3_exception)";
+                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                m_record->m_result = test_result::error;
+                m_record->m_error_message = msg;
+                if (!collect_test_records)
+                    throw;
+            }
+            catch(std::exception const& e) {
+                m_record->end = test_record::clock_t::now();
+                char const* msg = e.what();
+                if (!msg)
+                    msg = "(unknown std::exception)";
+                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                m_record->m_result = test_result::error;
+                m_record->m_error_message = msg;
+                if (!collect_test_records)
+                    throw;
+            }
+            catch(...) {
+                m_record->end = test_record::clock_t::now();
+                char const* msg = "(unknown throwable)";
+                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                m_record->m_result = test_result::error;
+                m_record->m_error_message = msg;
+                if (!collect_test_records)
+                    throw;
+            }
         }
+        // TODO: all unit tests should save result somewhere, and then at the end we print a table
+        //       Highlight undef results
+        //       If low conflict limit doesn't work, increase automatically and try again?
 
         void expect_unsat() {
+            SASSERT_EQ(m_record->m_expected, l_undef);
+            m_record->m_expected = l_false;
             if (m_last_result != l_false && m_last_result != l_undef) {
+                m_record->m_result = test_result::wrong_answer;
                 LOG_H1("FAIL: " << m_name << ": expected UNSAT, got " << m_last_result << "!");
-                VERIFY(false);
+                if (!collect_test_records)
+                    VERIFY(false);
             }
         }
 
         void expect_sat(std::vector<std::pair<dd::pdd, unsigned>> const& expected_assignment = {}) {
+            SASSERT_EQ(m_record->m_expected, l_undef);
+            m_record->m_expected = l_true;
             if (m_last_result == l_true) {
                 for (auto const& p : expected_assignment) {
                     auto const& v_pdd = p.first;
@@ -104,14 +222,18 @@ namespace polysat {
                     SASSERT(v_pdd.is_monomial() && !v_pdd.is_val());
                     auto const v = v_pdd.var();
                     if (get_value(v) != expected_value) {
+                        m_record->m_result = test_result::wrong_model;
                         LOG_H1("FAIL: " << m_name << ": expected assignment v" << v << " := " << expected_value << ", got value " << get_value(v) << "!");
-                        VERIFY(false);
+                        if (!collect_test_records)
+                            VERIFY(false);
                     }
                 }
             }
             else if (m_last_result == l_false) {
+                m_record->m_result = test_result::wrong_answer;
                 LOG_H1("FAIL: " << m_name << ": expected SAT, got " << m_last_result << "!");
-                VERIFY(false);
+                if (!collect_test_records)
+                    VERIFY(false);
             }
         }
     };
@@ -354,12 +476,10 @@ namespace polysat {
             s.expect_sat();
         }
 
-        //
-	// -43 \/ 3 \/ 4 
+	    // -43 \/ 3 \/ 4
         //   -43: v3 + -1 != 0
         //   3: v3 == 0
         //   4: v3 <= v5
-
         static void test_clause_simplify1() {
             scoped_solver s(__func__);
             simplify_clause simp(s);
@@ -858,7 +978,7 @@ namespace polysat {
             auto const bound = rational::power_of_two(bw - 1);
 
             for (unsigned i = 0; i < 6; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto z = s.var(s.add_var(bw));
@@ -876,7 +996,7 @@ namespace polysat {
         static void test_ineq_axiom2(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 6; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto z = s.var(s.add_var(bw));
@@ -895,7 +1015,7 @@ namespace polysat {
         static void test_ineq_axiom3(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto a = s.var(s.add_var(bw));
@@ -915,7 +1035,7 @@ namespace polysat {
         static void test_ineq_axiom4(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto a = s.var(s.add_var(bw));
@@ -934,7 +1054,7 @@ namespace polysat {
         // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
         static void test_ineq_non_axiom4(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw - 1);
-            scoped_solver s(__func__);
+            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
             LOG("permutation: " << i);
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
@@ -959,7 +1079,7 @@ namespace polysat {
         static void test_ineq_axiom5(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto a = s.var(s.add_var(bw));
@@ -979,7 +1099,7 @@ namespace polysat {
         static void test_ineq_axiom6(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(__func__);
+                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto a = s.var(s.add_var(bw));
@@ -1430,69 +1550,78 @@ namespace polysat {
 void tst_polysat() {
     using namespace polysat;
 
+    if (collect_test_records) {
+        set_default_debug_action(debug_action::throw_exception);
+        set_log_enabled(false);
+    }
+
     test_polysat::test_clause_simplify1();
 
-    // test_polysat::test_add_conflicts();  // ok
-    // test_polysat::test_wlist();  // ok
-    // test_polysat::test_cjust();  // uses viable_fallback; weak lemmas
+    test_polysat::test_add_conflicts();  // ok
+    test_polysat::test_wlist();  // ok
+    test_polysat::test_cjust();  // uses viable_fallback; weak lemmas
     // test_polysat::test_subst();  // TODO: resource limit; needs polynomial superposition
-    // test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
+    // test_polysat::test_subst_signed();
+    test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
 
-    // test_polysat::test_l1();   // ok
-    // test_polysat::test_l2();   // ok but enumerates values
-    // test_polysat::test_l3();   // ok
-    // test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
-    // test_polysat::test_l4b();  // ok
-    // test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
-    // test_polysat::test_l6();   // ok (refine-equal-lin)
+    test_polysat::test_l1();   // ok
+    test_polysat::test_l2();   // ok but enumerates values
+    test_polysat::test_l3();   // ok
+    test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
+    test_polysat::test_l4b();  // ok
+    test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
+    test_polysat::test_l6();   // ok (refine-equal-lin)
 
-    // test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
-    // test_polysat::test_p2();    // ok (viable_fallback finds the correct value)
-    // test_polysat::test_p3();    // TODO: resource limit
+    test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
+    test_polysat::test_p2();    // ok (viable_fallback finds the correct value)
+    test_polysat::test_p3();    // TODO: resource limit
 
-    // test_polysat::test_ineq_basic1();  // ok
-    // test_polysat::test_ineq_basic2();  // ok
-    // test_polysat::test_ineq_basic3();  // ok
-    // test_polysat::test_ineq_basic4();  // TODO: resource limit
-    // test_polysat::test_ineq_basic5();  // works, but only because variable order changes after the conflict
-                                          // TODO: non-asserting lemma
-                                          // possible variable selection heuristic: start with the most restricted interval?
-                                          // (if we have a restricted and non-restricted variable; we should probably pick the restricted one first. hoping that we can propagate and uncover restrictions on the other variable.)
-    // test_polysat::test_ineq_basic6();  // same as ineq_basic5
+    test_polysat::test_ineq_basic1();  // ok
+    test_polysat::test_ineq_basic2();  // ok
+    test_polysat::test_ineq_basic3();  // ok
+    test_polysat::test_ineq_basic4();  // TODO: resource limit
+    test_polysat::test_ineq_basic5();  // works, but only because variable order changes after the conflict
+    //                                       TODO: non-asserting lemma
+    //                                       possible variable selection heuristic: start with the most restricted interval?
+    //                                       (if we have a restricted and non-restricted variable; we should probably pick the restricted one first. hoping that we can propagate and uncover restrictions on the other variable.)
+    test_polysat::test_ineq_basic6();  // same as ineq_basic5
 
-    // test_polysat::test_var_minimize();  // works but var_minimized isn't used (UNSAT before lemma is created)
+    test_polysat::test_var_minimize();  // works but var_minimized isn't used (UNSAT before lemma is created)
 
-    // test_polysat::test_ineq1();  // TODO: resource limit
-    // test_polysat::test_ineq2();  // TODO: resource limit
-    // test_polysat::test_monot();  // TODO: resource limit
-    // test_polysat::test_monot_bounds(2);  // weak conflicts
-    // test_polysat::test_monot_bounds(8);
-    // test_polysat::test_monot_bounds();  // TODO: resource limit
-    // test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant -- it's a problem with push/pop and that the "active" flag isn't maintained properly
-    // test_polysat::test_monot_bounds_simple(8);  // undef
-    // test_polysat::test_fixed_point_arith_div_mul_inverse();   // undef
+    test_polysat::test_ineq1();  // TODO: resource limit
+    test_polysat::test_ineq2();  // TODO: resource limit
+    test_polysat::test_monot();  // TODO: assertion failure; resource limit
+    test_polysat::test_monot_bounds(2);  // weak conflicts
+    test_polysat::test_monot_bounds(8);
+    test_polysat::test_monot_bounds();  // TODO: resource limit
+    test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant -- it's a problem with push/pop and that the "active" flag isn't maintained properly
+    test_polysat::test_monot_bounds_simple(8);  // undef
+    test_polysat::test_fixed_point_arith_div_mul_inverse();   // undef
 
-    // test_polysat::test_ineq_axiom1();
-    // test_polysat::test_ineq_axiom2();
-    // test_polysat::test_ineq_axiom3();
-    // test_polysat::test_ineq_axiom4();
-    // test_polysat::test_ineq_axiom5();
-    // test_polysat::test_ineq_axiom6();
-    // test_polysat::test_ineq_non_axiom1();  // assertion but looks otherwise ok
-    // test_polysat::test_ineq_non_axiom4(32, 5);  // assertions/undef
+    test_polysat::test_ineq_axiom1();
+    test_polysat::test_ineq_axiom2();
+    test_polysat::test_ineq_axiom3();
+    test_polysat::test_ineq_axiom4();
+    test_polysat::test_ineq_axiom5();
+    test_polysat::test_ineq_axiom6();
+    test_polysat::test_ineq_non_axiom1();  // assertion but looks otherwise ok
+    test_polysat::test_ineq_non_axiom4(32, 5);  // assertions/undef
 
-    // test_polysat::test_quot_rem_incomplete();
-    // test_polysat::test_quot_rem_fixed();
-    // test_polysat::test_band();
-    // test_polysat::test_quot_rem();
+    test_polysat::test_quot_rem_incomplete();
+    test_polysat::test_quot_rem_fixed();
+    test_polysat::test_band();
+    test_polysat::test_quot_rem();
 
-    // test_polysat::test_fi_zero();  // ok
-    // test_polysat::test_fi_nonzero();  // ok
-    // test_polysat::test_fi_nonmax();  // ok (viable_fallback chooses value for second variable)
-    // test_polysat::test_fi_disequal_mild();  // ok
+    test_polysat::test_fi_zero();  // ok
+    test_polysat::test_fi_nonzero();  // ok
+    test_polysat::test_fi_nonmax();  // ok (viable_fallback chooses value for second variable)
+    test_polysat::test_fi_disequal_mild();  // ok
 
     // test_fi::exhaustive();
     // test_fi::randomized();
+
+    if (collect_test_records)
+        display_test_records(test_records, std::cout);
 }
 
 
