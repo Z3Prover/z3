@@ -24,7 +24,7 @@ Notes:
 
 void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
-    m_flat_and_or          = p.flat();
+    m_flat_and_or          = p.flat_and_or();
     m_elim_and             = p.elim_and();
     m_elim_ite             = p.elim_ite();
     m_local_ctx            = p.local_ctx();
@@ -266,6 +266,15 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
             if (local_ctx_simp(sz, buffer.data(), result)) 
                 return BR_DONE;
         }
+
+#if 1
+        br_status st;
+        st = m_hoist.mk_or(buffer.size(), buffer.data(), result);
+        if (st == BR_DONE)
+            return BR_REWRITE1;
+        if (st != BR_FAILED)
+            return st;
+#endif
 
         if (s) {
             ast_lt lt;
