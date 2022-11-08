@@ -96,7 +96,8 @@ public:
         m_goal->inc_depth();
         if (in->models_enabled())
             in->add(m_model_trail->get_model_converter().get());
-        result.push_back(in.get());        
+        result.push_back(in.get());   
+        cleanup();
     }
 
     void cleanup() override {
