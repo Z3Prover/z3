@@ -33,7 +33,7 @@ inline tactic * mk_solve_eqs2_tactic(ast_manager& m, params_ref const& p = param
     return alloc(dependent_expr_state_tactic, m, p, alloc(solve_eqs2_tactic_factory), "solve-eqs");
 }
 
-#if 0
+#if 1
 inline tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = params_ref()) {
     return mk_solve_eqs2_tactic(m, p);
 }
@@ -41,7 +41,7 @@ inline tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = para
 
 
 /*
-  ADD_TACTIC("solve-eqs", "solve for variables.", "mk_solve_eqs2_tactic(m, p)")
+  ADD_TACTIC("solve-eqs2", "solve for variables.", "mk_solve_eqs2_tactic(m, p)")
 */
 
 

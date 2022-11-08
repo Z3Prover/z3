@@ -86,13 +86,13 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        if (in->proofs_enabled())
-            throw tactic_exception("tactic does not support low level proofs");
         init();
         statistics_report sreport(*this);
         tactic_report report(name(), *in);
         m_goal = in.get();
-        m_simp->reduce();
+        if (!in->proofs_enabled())
+            m_simp->reduce();
+        m_goal->elim_true();
         m_goal->inc_depth();
         if (in->models_enabled())
             in->add(m_model_trail->get_model_converter().get());

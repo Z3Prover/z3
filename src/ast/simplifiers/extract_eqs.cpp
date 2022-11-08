@@ -192,6 +192,8 @@ namespace euf {
                 ++i;
                 if (!is_uninterp_const(arg))
                     continue;
+                if (!a.is_real(arg))
+                    continue;
                 unsigned j = 0;
                 bool nonzero = true;
                 for (expr* arg2 : *to_app(x)) {
