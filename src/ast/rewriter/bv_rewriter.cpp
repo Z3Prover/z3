@@ -1513,11 +1513,14 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
     bool fused_numeral = false;
     bool expanded      = false;
     bool fused_extract = false;
+    bool eq_args = true;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
         expr * prev = nullptr;
-        if (i > 0)
+        if (i > 0) {
             prev = new_args.back();
+            eq_args &= prev == arg;
+        }
         if (is_numeral(arg, v1, sz1) && prev != nullptr && is_numeral(prev, v2, sz2)) {
             v2  *= rational::power_of_two(sz1);
             v2  += v1;
@@ -1526,10 +1529,8 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
             fused_numeral = true;
         }
         else if (m_flat && m_util.is_concat(arg)) {
-            unsigned num2 = to_app(arg)->get_num_args();
-            for (unsigned j = 0; j < num2; j++) {
-                new_args.push_back(to_app(arg)->get_arg(j));
-            }
+            for (expr* arg2 : *to_app(arg)) 
+                new_args.push_back(arg2);
             expanded = true;
         }
         else if (m_util.is_extract(arg) &&
@@ -1539,8 +1540,8 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
                  m_util.get_extract_low(prev) == m_util.get_extract_high(arg) + 1) {
             // (concat (extract[h1,l1] a) (extract[h2,l2] a)) --> (extract[h1,l2] a)  if l1 == h2+1
             expr * new_arg = m_mk_extract(m_util.get_extract_high(prev),
-                                               m_util.get_extract_low(arg),
-                                               to_app(arg)->get_arg(0));
+                                          m_util.get_extract_low(arg),
+                                          to_app(arg)->get_arg(0));
             new_args.pop_back();
             new_args.push_back(new_arg);
             fused_extract = true;
@@ -1549,14 +1550,26 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
             new_args.push_back(arg);
         }
     }
-    if (!fused_numeral && !expanded && !fused_extract)
+    if (!fused_numeral && !expanded && !fused_extract) {
+        expr* x, *y, *z;
+        if (eq_args) {
+            if (m().is_ite(new_args.back(), x, y, z)) {
+                ptr_buffer<expr> args1, args2;
+                for (expr* arg : new_args)
+                    args1.push_back(y), args2.push_back(z);
+                result = m().mk_ite(x, m_util.mk_concat(args1), m_util.mk_concat(args2));
+                return BR_REWRITE2;
+            }
+        }
         return BR_FAILED;
+
+    }
     SASSERT(!new_args.empty());
     if (new_args.size() == 1) {
         result = new_args.back();
         return fused_extract ? BR_REWRITE1 : BR_DONE;
     }
-    result = m_util.mk_concat(new_args.size(), new_args.data());
+    result = m_util.mk_concat(new_args);
     if (fused_extract)
         return BR_REWRITE2;
     else if (expanded)
@@ -2010,6 +2023,19 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
             new_args.push_back(m_util.mk_bv_not(a));
         }
         result = m_util.mk_concat(new_args.size(), new_args.data());
+        return BR_REWRITE2;
+    }
+
+    expr* x, *y, *z;
+    if (m().is_ite(arg, x, y, z) && m_util.is_numeral(y, val, bv_size)) {
+        val = bitwise_not(bv_size, val);
+        result = m().mk_ite(x, m_util.mk_numeral(val, bv_size), m_util.mk_bv_not(z));
+        return BR_REWRITE2;
+    }
+
+    if (m().is_ite(arg, x, y, z) && m_util.is_numeral(z, val, bv_size)) {
+        val = bitwise_not(bv_size, val);
+        result = m().mk_ite(x, m_util.mk_bv_not(y), m_util.mk_numeral(val, bv_size));
         return BR_REWRITE2;
     }
 
