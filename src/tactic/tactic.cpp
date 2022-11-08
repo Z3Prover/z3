@@ -75,6 +75,18 @@ void report_tactic_progress(char const * id, unsigned val) {
     }
 }
 
+statistics_report::~statistics_report() {
+    statistics st;
+    if (m_tactic)
+        m_tactic->collect_statistics(st);
+    else if (m_collector)
+        m_collector(st);
+    if (st.size() == 0)
+        return;
+    IF_VERBOSE(TACTIC_VERBOSITY_LVL, st.display_smt2(verbose_stream()));
+}
+
+
 void skip_tactic::operator()(goal_ref const & in, goal_ref_buffer& result) {
     result.push_back(in.get());
 }

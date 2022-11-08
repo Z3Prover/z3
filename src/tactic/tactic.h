@@ -115,6 +115,15 @@ public:
 
 void report_tactic_progress(char const * id, unsigned val);
 
+class statistics_report {
+    tactic* m_tactic = nullptr;
+    std::function<void(statistics& st)> m_collector;
+public:
+    statistics_report(tactic& t):m_tactic(&t) {}
+    statistics_report(std::function<void(statistics&)>& coll): m_collector(coll) {}
+    ~statistics_report();
+};
+
 class skip_tactic : public tactic {
 public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override;
