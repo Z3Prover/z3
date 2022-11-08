@@ -24,7 +24,7 @@ class tactic;
 
 tactic * mk_solve_eqs1_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-#if 0
+#if 1
 inline tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = params_ref()) {
     return mk_solve_eqs1_tactic(m, p);
 }
