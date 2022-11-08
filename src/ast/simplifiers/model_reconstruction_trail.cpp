@@ -26,7 +26,6 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
 
     added.push_back(d);
 
-
     for (auto& t : m_trail) {
         if (!t->m_active)
             continue;
@@ -69,6 +68,7 @@ model_converter_ref model_reconstruction_trail::get_model_converter() {
     // substituted variables by their terms.
     //
 
+    
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     expr_substitution subst(m, true, false);
     rp->set_substitution(&subst);

@@ -118,6 +118,8 @@ namespace euf {
     }
 
     void solve_eqs::normalize() {
+        if (m_subst_ids.empty())
+            return;
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
@@ -152,15 +154,18 @@ namespace euf {
     void solve_eqs::apply_subst(vector<dependent_expr>& old_fmls) {
         if (!m.inc())
             return;
+        if (m_subst_ids.empty())
+            return;
+        
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
         for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
             auto [f, d] = m_fmls[i]();
             auto [new_f, new_dep] = rp->replace_with_dep(f);
+            m_rewriter(new_f);
             if (new_f == f)
                 continue;
-            m_rewriter(new_f);
             new_dep = m.mk_join(d, new_dep);
             old_fmls.push_back(m_fmls[i]);
             m_fmls.update(i, dependent_expr(m, new_f, new_dep));
@@ -185,13 +190,12 @@ namespace euf {
             normalize();
             apply_subst(old_fmls);
             ++count;
+            save_subst({});
         } 
         while (!m_subst_ids.empty() && count < 20 && m.inc());
 
         if (!m.inc())
             return;
-
-        save_subst({});
 
         if (m_config.m_context_solve) {            
             old_fmls.reset();
@@ -211,7 +215,7 @@ namespace euf {
 
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
-            m_fmls.model_trail().push(m_subst.detach(), old_fmls);        
+            m_fmls.model_trail().push(m_subst.detach(), old_fmls);                
     }
 
     void solve_eqs::filter_unsafe_vars() {
@@ -222,11 +226,10 @@ namespace euf {
                 m_unsafe_vars.mark(term);
     }
 
-
-
     solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 
         dependent_expr_simplifier(m, fmls), m_rewriter(m) {
         register_extract_eqs(m, m_extract_plugins);
+        m_rewriter.set_flat_and_or(false);
     }
 
     void solve_eqs::updt_params(params_ref const& p) {

@@ -22,16 +22,19 @@ class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
     ast_manager&    m;
     params_ref      m_params;
     std::string     m_name;
-    ref<dependent_expr_simplifier_factory>  m_factory;
-    scoped_ptr<dependent_expr_simplifier>   m_simp;
-    trail_stack                             m_trail;
-    scoped_ptr<model_reconstruction_trail>  m_model_trail;
+    trail_stack     m_trail;
     goal_ref        m_goal;
     dependent_expr  m_dep;
+    statistics      m_st;
+    ref<dependent_expr_simplifier_factory>  m_factory;
+    scoped_ptr<dependent_expr_simplifier>   m_simp;
+    scoped_ptr<model_reconstruction_trail>  m_model_trail;
 
     void init() {
-        if (!m_simp)
+        if (!m_simp) {
             m_simp = m_factory->mk(m, m_params, *this);
+            m_st.reset();
+        }
         if (!m_model_trail)
             m_model_trail = alloc(model_reconstruction_trail, m, m_trail);
     }
@@ -43,7 +46,7 @@ public:
         m_params(p),
         m_name(name),
         m_factory(f),
-        m_simp(f->mk(m, p, *this)),
+        m_simp(nullptr),
         m_dep(m, m.mk_true(), nullptr)
     {}
 
@@ -86,30 +89,34 @@ public:
         if (in->proofs_enabled())
             throw tactic_exception("tactic does not support low level proofs");
         init();
+        statistics_report sreport(*this);
         tactic_report report(name(), *in);
         m_goal = in.get();
         m_simp->reduce();
         m_goal->inc_depth();
         if (in->models_enabled())
-            in->set(m_model_trail->get_model_converter().get());
+            in->add(m_model_trail->get_model_converter().get());
         result.push_back(in.get());        
-
-        statistics st;
-        collect_statistics(st);
-        IF_VERBOSE(10, st.display_smt2(verbose_stream()));
     }
 
     void cleanup() override {
+        if (m_simp) 
+            m_simp->collect_statistics(m_st);
+        m_simp = nullptr;
+        m_model_trail = nullptr;
     }
 
     void collect_statistics(statistics & st) const override {
-        if (m_simp)
+        if (m_simp) 
             m_simp->collect_statistics(st);
+        else
+            st.copy(m_st);
     }
     
     void reset_statistics() override {
         if (m_simp)
             m_simp->reset_statistics();
+        m_st.reset();
     }
 };
 

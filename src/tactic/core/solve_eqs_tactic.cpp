@@ -997,6 +997,8 @@ class solve_eqs_tactic : public tactic {
         //
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
             model_converter_ref mc;
+            std::function<void(statistics&)> coll = [&](statistics& st) { collect_statistics(st); };
+            statistics_report sreport(coll);
             tactic_report report("solve_eqs", *g);
             TRACE("goal", g->display(tout););
             m_produce_models = g->models_enabled();
@@ -1042,7 +1044,6 @@ class solve_eqs_tactic : public tactic {
             result.push_back(g.get());
 
             
-            IF_VERBOSE(10, statistics st; collect_statistics(st); st.display_smt2(verbose_stream()));
         }
     };
     
@@ -1103,6 +1104,6 @@ public:
     
 };
 
-tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p) {
+tactic * mk_solve_eqs1_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
 }
