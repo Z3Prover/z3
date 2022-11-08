@@ -24,6 +24,17 @@ Revision History:
 void enable_assertions(bool f);
 bool assertions_enabled();
 
+enum class debug_action {
+    ask,
+    cont,
+    abort,
+    stop,
+    throw_exception,
+    invoke_debugger,
+};
+debug_action get_default_debug_action();
+void set_default_debug_action(debug_action a);
+
 #include "util/error_codes.h"
 #include "util/warning.h"
 
