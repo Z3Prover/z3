@@ -195,7 +195,7 @@ jobs:
         setupCmd2: ''
         setupCmd3: ''
         bindings: '$(cmakePy)'
-        runTests: 'True'
+        runTests: 'False'
       x64:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
