@@ -66,14 +66,18 @@ namespace polysat {
     {}
 
     bool simplify_clause::apply(clause& cl) {
+        LOG_H1("Simplifying clause: " << cl);
+#if 0
         if (try_recognize_bailout(cl))
             return true;
+#endif
         if (try_equal_body_subsumptions(cl))
             return true;
         return false;
     }
 
     // If x != k appears among the new literals, all others are superfluous.
+    // TODO: this seems to work for lemmas coming from forbidden intervals, but in general it's too naive (esp. for side lemmas).
     bool simplify_clause::try_recognize_bailout(clause& cl) {
         LOG_H2("Try to find bailout literal");
         pvar v = null_var;

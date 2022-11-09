@@ -97,11 +97,13 @@ namespace polysat {
                 out << "     ";
             for (size_t i = r.m_name.length(); i < max_name_len; ++i)
                 out << ' ';
-            // auto d = std::chrono::duration_cast<std::chrono::milliseconds>(r.end - r.start);
             std::chrono::duration<double> d = r.end - r.start;
-            // d.count()
-            out << std::fixed << std::setprecision(1);
-            out << std::setw(4) << d.count() << "s ";
+            if (d.count() >= 0.15) {
+                out << std::fixed << std::setprecision(1);
+                out << std::setw(4) << d.count() << "s ";
+            }
+            else
+                out << "      ";
             switch (r.m_answer) {
             case l_undef: out << "      "; break;
             case l_true:  out << "SAT   "; break;
@@ -1558,7 +1560,8 @@ void tst_polysat() {
 
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
-    test_polysat::test_ineq_axiom5(32, 0);
+    // test_polysat::test_ineq1();
+    test_polysat::test_quot_rem();
     return;
 #endif
 
