@@ -93,7 +93,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
 #else  // POLYSAT_LOGGING_ENABLED
 
-void set_log_enabled(bool) {}
+inline void set_log_enabled(bool) {}
 
 #define LOG_(lvl, x)  \
   do {               \
