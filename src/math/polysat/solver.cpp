@@ -936,9 +936,8 @@ namespace polysat {
         for (auto lit : cl) {
             if (lit == lit0)
                 continue;
-            auto c = lit2cnstr(lit);
-            if (m_bvars.is_false(lit) || c.is_currently_false(*this))
-                lvl = std::max(lvl, c.level(*this));
+            SASSERT(m_bvars.is_false(lit));
+            lvl = std::max(lvl, m_bvars.level(lit));
         }
         return lvl;
     }

@@ -77,16 +77,6 @@ namespace polysat {
         return out.str();
     }
 
-    unsigned constraint::level(solver& s) const {
-        if (s.m_bvars.value(sat::literal(bvar())) != l_undef)
-            return s.m_bvars.level(bvar());
-        unsigned level = s.base_level();
-        for (auto v : vars())
-            if (s.is_assigned(v))
-                level = std::max(level, s.get_level(v));
-        return level;
-    }
-
     lbool signed_constraint::bvalue(solver& s) const {
         return get()->has_bvar() ? s.m_bvars.value(blit()) : l_undef;
     }

@@ -108,7 +108,6 @@ namespace polysat {
         bool contains_var(pvar v) const { return m_vars.contains(v); }
         sat::bool_var bvar() const { SASSERT(has_bvar()); return m_bvar; }
         std::string bvar2string() const;
-        unsigned level(solver& s) const;
 
         void set_external(bool sign) { m_external_sign = to_lbool(sign); }
         void unset_external() { m_external_sign = l_undef; }
@@ -159,7 +158,6 @@ namespace polysat {
         bool is_currently_false(solver& s, assignment_t const& sub) const { return get()->is_currently_false(s, sub, is_positive()); }
         bool is_currently_true(solver& s, assignment_t const& sub) const { return get()->is_currently_false(s, sub, is_negative()); }
         lbool bvalue(solver& s) const;
-        unsigned level(solver& s) const { return get()->level(s); }
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
