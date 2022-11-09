@@ -659,7 +659,7 @@ namespace polysat {
         LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(m_viable.is_viable(v, val));
         SASSERT(j.is_decision() || j.is_propagation());
-        SASSERT(j.level() == m_level);
+        SASSERT(j.level() <= m_level);
         SASSERT(!is_assigned(v));
         SASSERT(all_of(assignment(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
