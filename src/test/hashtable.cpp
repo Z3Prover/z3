@@ -26,8 +26,8 @@ Revision History:
 
 struct int_hash_proc { unsigned operator()(int x) const { return x * 3; } };
 typedef int_hashtable<int_hash_proc, default_eq<int> > int_set;
-typedef std::unordered_set<int, std::hash_compare<int, std::less<int> > > safe_int_set;
 // typedef safe_int_set int_set;
+typedef std::unordered_set<int> safe_int_set;
 
 inline bool contains(int_set & h, int i) {
     // return h.find(i) != h.end();
