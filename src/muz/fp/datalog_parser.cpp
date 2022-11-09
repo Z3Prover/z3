@@ -286,9 +286,8 @@ public:
 
 
     dtoken read_num() {
-        while(isdigit(m_curr_char)) {
+        while (isdigit(m_curr_char)) 
             save_and_next();
-        }        
         return TK_NUM;
     }
 
@@ -781,15 +780,29 @@ protected:
         symbol td1(td);
         expr_ref v1(m), v2(m);
         sort* s = nullptr;
-        dtoken tok2 = m_lexer->next_token();
-        if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
-            return unexpected(tok2, "built-in infix operator");
+        uint64_t num1(0), num3(0);
+        if (tok1 == TK_NUM) {
+            char const* data = m_lexer->get_token_data();
+            rational num(data);
+            if (!num.is_uint64()) 
+                return unexpected(tok1, "integer expected");
+            num1 = num.get_uint64();
         }
+        dtoken tok2 = m_lexer->next_token();
+        if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) 
+            return unexpected(tok2, "built-in infix operator");
         dtoken tok3 = m_lexer->next_token();
         td = m_lexer->get_token_data();
-        if (tok3 != TK_STRING && tok3 != TK_NUM && !(tok3 == TK_ID && m_vars.contains(td))) {
+        if (tok3 != TK_STRING && tok3 != TK_NUM && !(tok3 == TK_ID && m_vars.contains(td))) 
             return unexpected(tok3, "identifier");
+        if (tok3 == TK_NUM) {
+            char const* data = m_lexer->get_token_data();
+            rational num(data);
+            if (!num.is_uint64()) 
+                return unexpected(tok1, "integer expected");
+            num3 = num.get_uint64();
         }
+        
         symbol td2(td);
 
         if (tok1 == TK_ID) {
@@ -805,18 +818,21 @@ protected:
         if (!v1 && !v2) {
             return unexpected(tok3, "at least one argument should be a variable");
         }
-        if (v1) {
+        if (v1) 
             s = v1->get_sort();
-        }        
-        else {
+        else 
             s = v2->get_sort();
-        }
-        if (!v1) {
+         
+        if (tok1 == TK_NUM) 
+            v1 = mk_symbol_const(num1, s);
+
+        if (tok3 == TK_NUM)
+            v2 = mk_symbol_const(num3, s);
+        
+        if (!v1) 
             v1 = mk_const(td1, s);
-        }
-        if (!v2) {
+        if (!v2) 
             v2 = mk_const(td2, s);
-        }
 
         switch(tok2) {
         case TK_EQ:
@@ -1126,8 +1142,11 @@ protected:
         if (m_arith.is_int(s)) 
             return m_arith.mk_numeral(rational(el, rational::ui64()), s);
         else if (m_decl_util.try_get_size(s, sz)) {
-            if (el >= sz)
-                throw default_exception("numeric value out of bounds of domain");
+            if (el >= sz) {
+                std::ostringstream ous;
+                ous << "numeric value " << el << " is out of bounds of domain size " << sz;
+                throw default_exception(ous.str());
+            }
             return m_decl_util.mk_numeral(el, s);
         }
         else {
