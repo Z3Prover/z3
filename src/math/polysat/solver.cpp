@@ -19,6 +19,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/polysat_params.hpp"
+#include <variant>
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
@@ -398,7 +399,8 @@ namespace polysat {
             return;
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        vector<sat::literal> replay;
+        using replay_item = std::variant<sat::literal, pvar>;
+        vector<replay_item> replay;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -448,8 +450,16 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V("Undo assign_i: v" << v);
-                m_free_pvars.unassign_var_eh(v);
-                m_justification[v] = justification::unassigned();
+                unsigned active_level = get_level(v);
+
+                if (active_level <= target_level) {
+                    SASSERT(m_justification[v].is_propagation());
+                    replay.push_back(v);
+                }
+                else {
+                    m_free_pvars.unassign_var_eh(v);
+                    m_justification[v] = justification::unassigned();
+                }
                 m_search.pop();
                 break;
             }
@@ -477,9 +487,26 @@ namespace polysat {
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
         for (unsigned j = replay.size(); j-- > 0; ) {
-            sat::literal lit = replay[j];
-            m_trail.push_back(trail_instr_t::assign_bool_i);
-            m_search.push_boolean(lit);
+            replay_item item = replay[j];
+            std::visit([this](auto&& arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, sat::literal>) {
+                    sat::literal lit = arg;
+                    m_search.push_boolean(arg);
+                    m_trail.push_back(trail_instr_t::assign_bool_i);
+                }
+                else if constexpr (std::is_same_v<T, pvar>) {
+                    pvar v = arg;
+                    m_search.push_assignment(v, m_value[v]);
+                    m_trail.push_back(trail_instr_t::assign_i);
+                    // TODO: are the viable sets propagated properly?
+                    //      when substituting polynomials, it will now take into account the replayed variables, which may itself depend on previous propagations.
+                    //      will we get into trouble with cyclic dependencies?
+                    //      But we do want to take into account variables that are assigned but not yet propagated.
+                }
+                else
+                    static_assert(always_false<T>::value, "non-exhaustive visitor");
+            }, item);
         }
     }
 
@@ -567,11 +594,27 @@ namespace polysat {
         SASSERT(!is_assigned(v));
         SASSERT(m_viable.is_viable(v, val));
         m_free_pvars.del_var_eh(v);
+        // NOTE:
+        // The propagation v := val might depend on a lower level than the current level (m_level).
+        // This can happen if the constraints that cause the propagation have been bool-propagated at an earlier level,
+        // but appear later in the stack (cf. replay).
+        // The level of v should then also be the earlier level instead of m_level.
+        unsigned lvl = 0;
+        for (signed_constraint c : m_viable.get_constraints(v)) {
+            LOG("due to: " << lit_pp(*this, c));
+            if (!m_bvars.is_assigned(c.blit()))   // side condition, irrelevant because all vars are already in the main condition
+                continue;
+            SASSERT(m_bvars.is_assigned(c.blit()));
+            lvl = std::max(lvl, m_bvars.level(c.blit()));
+            for (pvar w : c->vars())
+                if (is_assigned(w))  // TODO: question of which variables are relevant. e.g., v1 > v0 implies v1 > 0 without dependency on v0. maybe add a lemma v1 > v0 --> v1 > 0 on the top level to reduce false variable dependencies? instead of handling such special cases separately everywhere.
+                    lvl = std::max(lvl, get_level(w));
+        }
         // NOTE: we do not have to check the univariate solver here.
         //       Since we propagate, this means at most the single value 'val' is viable.
         //       If it is not actually viable, the propagation loop will find out and enter the conflict state.
         //       (However, if we do check here, we might find the conflict earlier. Might be worth a try.)
-        assign_core(v, val, justification::propagation(m_level));
+        assign_core(v, val, justification::propagation(lvl));
     }
 
     /// Verify the value we're trying to assign against the univariate solver

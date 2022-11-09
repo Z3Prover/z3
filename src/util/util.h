@@ -401,7 +401,7 @@ std::size_t count_if(Container const& c, Predicate p)
     return std::count_if(begin(c), end(c), std::forward<Predicate>(p));
 }
 
-/// Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit
+/** Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit */
 template <typename Callable>
 class on_scope_exit final {
     Callable m_ef;
@@ -413,3 +413,7 @@ public:
         m_ef();
     }
 };
+
+/** Helper type for std::visit, see examples on https://en.cppreference.com/w/cpp/utility/variant/visit */
+template <typename T>
+struct always_false : std::false_type {};
