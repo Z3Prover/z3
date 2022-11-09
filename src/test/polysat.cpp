@@ -172,7 +172,7 @@ namespace polysat {
                 char const* msg = e.msg();
                 if (!msg)
                     msg = "(unknown z3_exception)";
-                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                std::cout << "\n\nEXCEPTION (z3_exception) during test: " << m_name << ": " << msg << "\n\n";
                 m_record->m_result = test_result::error;
                 m_record->m_error_message = msg;
                 if (!collect_test_records)
@@ -183,7 +183,7 @@ namespace polysat {
                 char const* msg = e.what();
                 if (!msg)
                     msg = "(unknown std::exception)";
-                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                std::cout << "\n\nEXCEPTION (std::exception) during test: " << m_name << ": " << msg << "\n\n";
                 m_record->m_result = test_result::error;
                 m_record->m_error_message = msg;
                 if (!collect_test_records)
@@ -192,7 +192,7 @@ namespace polysat {
             catch(...) {
                 m_record->end = test_record::clock_t::now();
                 char const* msg = "(unknown throwable)";
-                std::cout << "\n\nEXCEPTION during test: " << m_name << ": " << msg << "\n\n";
+                std::cout << "\n\nEXCEPTION (unknown throwable) during test: " << m_name << ": " << msg << "\n\n";
                 m_record->m_result = test_result::error;
                 m_record->m_error_message = msg;
                 if (!collect_test_records)
@@ -206,6 +206,8 @@ namespace polysat {
         void expect_unsat() {
             SASSERT_EQ(m_record->m_expected, l_undef);
             m_record->m_expected = l_false;
+            if (m_record->m_result == test_result::error)
+                return;
             if (m_last_result != l_false && m_last_result != l_undef) {
                 m_record->m_result = test_result::wrong_answer;
                 LOG_H1("FAIL: " << m_name << ": expected UNSAT, got " << m_last_result << "!");
@@ -217,6 +219,8 @@ namespace polysat {
         void expect_sat(std::vector<std::pair<dd::pdd, unsigned>> const& expected_assignment = {}) {
             SASSERT_EQ(m_record->m_expected, l_undef);
             m_record->m_expected = l_true;
+            if (m_record->m_result == test_result::error)
+                return;
             if (m_last_result == l_true) {
                 for (auto const& p : expected_assignment) {
                     auto const& v_pdd = p.first;
@@ -438,8 +442,6 @@ namespace polysat {
             s.add_ule(w, u);
             s.check();
             s.expect_sat();
-            SASSERT_EQ(s.get_value(u.var()), s.get_value(v.var()));
-            SASSERT_EQ(s.get_value(u.var()), s.get_value(w.var()));
         }
 
         // Unsatisfiable
@@ -1564,6 +1566,8 @@ void tst_polysat() {
     test_polysat::test_quot_rem();
     return;
 #endif
+
+    collect_test_records = true;
 
     if (collect_test_records) {
         set_default_debug_action(debug_action::throw_exception);
