@@ -80,7 +80,7 @@ namespace polysat {
     };
 
     vector<test_record> test_records;
-    bool const collect_test_records = true;
+    bool collect_test_records = true;
 
     void display_test_records(vector<test_record> const& recs, std::ostream& out) {
         out << "\n\nTest Results:\n";
@@ -134,7 +134,7 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << "\n\n\n" << std::string(78, '#') << "\n\nSTART: " << m_name << "\n";
+            std::cout << std::string(78, '#') << "\n\nSTART: " << m_name << "\n";
             set_max_conflicts(10);
         }
 
@@ -1075,44 +1075,50 @@ namespace polysat {
                 test_ineq_non_axiom4(bw, i);
         }
 
-        // a < xy & x <= b  & !Omega(x*y) => a < b*y
-        static void test_ineq_axiom5(unsigned bw = 32) {
+        // a < xy & x <= b & !Omega(b*y) => a < b*y
+        static void test_ineq_axiom5(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw/2);
-            for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
-                auto x = s.var(s.add_var(bw));
-                auto y = s.var(s.add_var(bw));
-                auto a = s.var(s.add_var(bw));
-                auto b = s.var(s.add_var(bw));
-                permute_args(i, x, y, a, b);
-                s.add_ult(a, x * y);
-                s.add_ule(x, b);
-                s.add_ult(x, bound);
-                s.add_ult(y, bound);
-                s.add_ule(b * y, a);
-                s.check();
-                s.expect_unsat();
-            }
+            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ult(a, x * y);
+            s.add_ule(x, b);
+            s.add_ult(b, bound);
+            s.add_ult(y, bound);
+            s.add_ule(b * y, a);
+            s.check();
+            s.expect_unsat();
         }
 
-        // a <= xy & x <= b & !Omega(x*y) => a <= b*y
-        static void test_ineq_axiom6(unsigned bw = 32) {
+        static void test_ineq_axiom5(unsigned bw = 32) {
+            for (unsigned i = 0; i < 24; ++i)
+                test_ineq_axiom5(bw, i);
+        }
+
+        // a <= xy & x <= b & !Omega(b*y) => a <= b*y
+        static void test_ineq_axiom6(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw/2);
-            for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
-                auto x = s.var(s.add_var(bw));
-                auto y = s.var(s.add_var(bw));
-                auto a = s.var(s.add_var(bw));
-                auto b = s.var(s.add_var(bw));
-                permute_args(i, x, y, a, b);
-                s.add_ule(a, x * y);
-                s.add_ule(x, b);
-                s.add_ult(x, bound);
-                s.add_ult(y, bound);
-                s.add_ult(b * y, a);
-                s.check();
-                s.expect_unsat();
-            }
+            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ule(a, x * y);
+            s.add_ule(x, b);
+            s.add_ult(b, bound);
+            s.add_ult(y, bound);
+            s.add_ult(b * y, a);
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_ineq_axiom6(unsigned bw = 32) {
+            for (unsigned i = 0; i < 24; ++i)
+                test_ineq_axiom6(bw, i);
         }
 
         static void test_quot_rem_incomplete() {
@@ -1549,6 +1555,12 @@ namespace polysat {
 
 void tst_polysat() {
     using namespace polysat;
+
+#if 0  // Enable this block to run a single unit test with detailed output.
+    collect_test_records = false;
+    test_polysat::test_ineq_axiom5(32, 0);
+    return;
+#endif
 
     if (collect_test_records) {
         set_default_debug_action(debug_action::throw_exception);
