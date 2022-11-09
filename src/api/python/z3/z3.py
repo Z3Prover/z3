@@ -10079,7 +10079,7 @@ def FPs(names, fpsort, ctx=None):
     >>> x.ebits()
     8
     >>> fpMul(RNE(), fpAdd(RNE(), x, y), z)
-    fpMul(RNE(), fpAdd(RNE(), x, y), z)
+    x + y * z
     """
     ctx = _get_ctx(ctx)
     if isinstance(names, str):
@@ -10186,9 +10186,9 @@ def fpAdd(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpAdd(rm, x, y)
-    fpAdd(RNE(), x, y)
-    >>> fpAdd(RTZ(), x, y) # default rounding mode is RTZ
     x + y
+    >>> fpAdd(RTZ(), x, y) # default rounding mode is RTZ
+    fpAdd(RTZ(), x, y)
     >>> fpAdd(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10203,7 +10203,7 @@ def fpSub(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpSub(rm, x, y)
-    fpSub(RNE(), x, y)
+    x - y
     >>> fpSub(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10218,7 +10218,7 @@ def fpMul(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpMul(rm, x, y)
-    fpMul(RNE(), x, y)
+    x * y
     >>> fpMul(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10233,7 +10233,7 @@ def fpDiv(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpDiv(rm, x, y)
-    fpDiv(RNE(), x, y)
+    x / y
     >>> fpDiv(rm, x, y).sort()
     FPSort(8, 24)
     """
