@@ -66,33 +66,34 @@ void PackedRow::get_reason(
     PackedRow& tmp_col2,
     literal prop) {
     tmp_col2.set_and(*this, cols_vals);
-    for (int i = 0; i < size; i++)
-        if (mp[i]) {
-            int64_t tmp = mp[i];
-            unsigned long at;
-            at = scan_fwd_64b(tmp);
-            int extra = 0;
-            while (at != 0) {
-                unsigned col = extra + at - 1 + i * 64;
-                SASSERT(operator[](col) == 1);
-                const unsigned var = col_to_var[col];
-                if (var == prop.var()) {
-                    tmp_clause.push_back(prop);
-                    std::swap(tmp_clause[0], tmp_clause.back());
-                }
-                else {
-                    bool val_bool = tmp_col2[col]; // NSB: double check if z3 use of sign is compatible
-                    tmp_clause.push_back(sat::literal(var, val_bool));
-                }
-
-                extra += at;
-                if (extra == 64)
-                    break;
-
-                tmp >>= at;
-                at = scan_fwd_64b(tmp);
+    for (int i = 0; i < size; i++) {
+        if (!mp[i])
+            continue;
+        int64_t tmp = mp[i];
+        unsigned long at;
+        at = scan_fwd_64b(tmp);
+        int extra = 0;
+        while (at != 0) {
+            unsigned col = extra + at - 1 + i * 64;
+            SASSERT(operator[](col) == 1);
+            const unsigned var = col_to_var[col];
+            if (var == prop.var()) {
+                tmp_clause.push_back(prop);
+                std::swap(tmp_clause[0], tmp_clause.back());
             }
+            else {
+                bool val_bool = tmp_col2[col]; // NSB: double check if z3 use of sign is compatible
+                tmp_clause.push_back(sat::literal(var, val_bool));
+            }
+
+            extra += at;
+            if (extra == 64)
+                break;
+
+            tmp >>= at;
+            at = scan_fwd_64b(tmp);
         }
+    }
 }
 
 gret PackedRow::propGause(
