@@ -279,6 +279,8 @@ void asserted_formulas::reduce() {
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
 
+    IF_VERBOSE(10, verbose_stream() << "(smt.simplify-begin :num-exprs " << get_total_size() << ")\n";);
+
     set_eliminate_and(false); // do not eliminate and before nnf.
     if (!invoke(m_propagate_values)) return;
     if (!invoke(m_find_macros)) return;

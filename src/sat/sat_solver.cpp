@@ -282,6 +282,7 @@ namespace sat {
         m_model_is_current = false;
         m_stats.m_mk_var++;
         bool_var v = m_justification.size();
+        
         if (!m_free_vars.empty()) {
             v = m_free_vars.back();
             m_free_vars.pop_back();
@@ -301,7 +302,7 @@ namespace sat {
         m_external.push_back(ext);
         m_var_scope.push_back(scope_lvl());
         m_touched.push_back(0);
-        m_activity.push_back(0);
+        m_activity.push_back(0); 
         m_mark.push_back(false);
         m_lit_mark.push_back(false);
         m_lit_mark.push_back(false);
@@ -1262,6 +1263,7 @@ namespace sat {
             if (check_inconsistent()) return l_false;
             if (m_config.m_force_cleanup) do_cleanup(true);
             TRACE("sat", display(tout););
+            TRACE("before_search", display(tout););
 
             if (m_config.m_gc_burst) {
                 // force gc
