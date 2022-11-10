@@ -990,27 +990,18 @@ void EGaussian::check_no_prop_or_unsat_rows() {
             }
         }
 
-        bool error = false;
         CTRACE("xor", bits_unset == 1, tout << "ERROR: row " << row << " is PROP but did not propagate!!!\n");
 
-        if (bits_unset == 0 && val) {
-            TRACE("xor", tout << "ERROR: row " << row << " is UNSAT but did not conflict!\n";);
-            error = true;
-        }
-        CTRACE("xor", error,
-            for (unsigned var = 0; var < m_solver.s().num_vars(); var++) {
-                const auto& ws = m_solver.m_gwatches[var];
-                for (const auto& w : ws) {
-                    if (w.matrix_num == matrix_no && w.row_n == row) {
-                        tout << "       gauss watched at var: " << var + 1 << " val: " << m_solver.s().value(var) << "\n";
-                    }
-                }
-            }
+        CTRACE("xor", (bits_unset == 0 && val),
+            tout << "ERROR: row " << row << " is UNSAT but did not conflict!\n";
             tout << "       matrix no: " << matrix_no << "\n"
-                << "       row: " << row << "\n"
-                << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
-                << "       dec level: " << m_solver.m_num_scopes << "\n";
-        );
+                 << "       row: " << row << "\n"
+                 << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
+                 << "       dec level: " << m_solver.m_num_scopes << "\n";
+            for (unsigned var = 0; var < m_solver.s().num_vars(); var++) 
+                for (const auto& w : m_solver.m_gwatches[var])
+                    if (w.matrix_num == matrix_no && w.row_n == row) 
+                        tout << "       gauss watched at var: " << var + 1 << " val: " << m_solver.s().value(var) << "\n";);
         
         SASSERT(bits_unset > 1 || (bits_unset == 0 && val == 0));
     }
