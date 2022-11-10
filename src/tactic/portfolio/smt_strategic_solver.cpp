@@ -44,7 +44,7 @@ Notes:
 #include "solver/solver2tactic.h"
 #include "solver/parallel_tactic.h"
 #include "solver/parallel_params.hpp"
-#include "tactic/tactic_params.hpp"
+#include "params/tactic_params.hpp"
 #include "parsers/smt2/smt2parser.h"
 
 

@@ -27,8 +27,8 @@ Revision History:
 #include "ast/rewriter/hoist_rewriter.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
-#include "tactic/tactic_params.hpp"
+#include "ast/converters/generic_model_converter.h"
+#include "params/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
@@ -977,14 +977,8 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_models) {
                 if (!mc.get())
                     mc = alloc(gmc, m(), "solve-eqs");
-                for (app* v : m_ordered_vars) {
-                    expr * def = nullptr;
-                    proof * pr;
-                    expr_dependency * dep = nullptr;
-                    m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def);
-                    static_cast<gmc*>(mc.get())->add(v, def);
-                }
+                for (app* v : m_ordered_vars) 
+                    static_cast<gmc*>(mc.get())->add(v, m_norm_subst->find(v));
             }
         }
         
@@ -1141,9 +1135,6 @@ public:
     
 };
 
-tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
-    if (r == nullptr)
-        return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
-    else
-        return clean(alloc(solve_eqs_tactic, m, p, r, false));
+tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
 }

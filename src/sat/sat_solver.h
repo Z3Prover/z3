@@ -28,6 +28,7 @@ Revision History:
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/scoped_limit_trail.h"
+#include "util/visit_helper.h"
 #include "sat/sat_types.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_watched.h"
@@ -48,6 +49,10 @@ Revision History:
 #include "sat/sat_solver_core.h"
 
 namespace pb {
+    class solver;
+};
+
+namespace xr {
     class solver;
 };
 
@@ -176,8 +181,7 @@ namespace sat {
         std::string             m_reason_unknown;
         bool                    m_trim = false;
 
-        svector<unsigned>       m_visited;
-        unsigned                m_visited_ts;
+        visit_helper            m_visited;
 
         struct scope {
             unsigned m_trail_lim;
@@ -221,6 +225,7 @@ namespace sat {
         friend class simplifier;
         friend class scc;
         friend class pb::solver;
+        friend class xr::solver;
         friend class anf_simplifier;
         friend class cut_simplifier;
         friend class parallel;
@@ -307,11 +312,6 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, sat::status st);
         void mk_bin_clause(literal l1, literal l2, bool learned) { mk_bin_clause(l1, l2, learned ? sat::status::redundant() : sat::status::asserted()); }
         bool propagate_bin_clause(literal l1, literal l2);
-#if ENABLE_TERNARY
-        clause * mk_ter_clause(literal * lits, status st);
-        bool attach_ter_clause(clause & c, status st);
-        bool propagate_ter_clause(clause& c);
-#endif
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool has_variables_to_reinit(clause const& c) const;
         bool has_variables_to_reinit(literal l1, literal l2) const;
@@ -347,16 +347,16 @@ namespace sat {
         void detach_bin_clause(literal l1, literal l2, bool learned);
         void detach_clause(clause & c);
         void detach_nary_clause(clause & c);
-        void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
         void push_reinit_stack(literal l1, literal l2);
-
-        void init_ts(unsigned n, svector<unsigned>& v, unsigned& ts);
-        void init_visited();
-        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
+        
+        void init_visited(unsigned lim = 1) { m_visited.init_visited(2 * num_vars(), lim); }
+        bool is_visited(sat::bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal lit) const { return m_visited.is_visited(lit.index()); }
+        unsigned num_visited(bool_var v) const { return m_visited.num_visited(v); }
+        void mark_visited(literal lit) { m_visited.mark_visited(lit.index()); }
         void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
-        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
-        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
+        void inc_visited(bool_var v) { m_visited.inc_visited(v); }
         bool all_distinct(literal_vector const& lits);
         bool all_distinct(clause const& cl);
 

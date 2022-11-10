@@ -15,6 +15,7 @@ Notes:
 --*/
 
 
+#include "sat/sat_xor_finder.h"
 #include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 
@@ -23,8 +24,8 @@ namespace xr {
 
     xor_matrix_finder::xor_matrix_finder(solver& s) : m_xor(s), m_sat(s.s()) { }
         
-    inline bool xor_matrix_finder::belong_same_matrix(const constraint& x) {
-        uint32_t comp_num = -1;
+    inline bool xor_matrix_finder::belong_same_matrix(const xor_clause& x) {
+        unsigned comp_num = -1;
         for (sat::bool_var v : x) {
             if (m_table[v] == l_undef) // Belongs to none, abort
                 return false;            
@@ -39,72 +40,73 @@ namespace xr {
     bool xor_matrix_finder::find_matrices(bool& can_detach) {
 
         SASSERT(!m_sat.inconsistent());
-#if 0
-        SASSERT(m_xor.gmatrices.empty());
+        SASSERT(m_xor.m_gmatrices.empty());
+        
         can_detach = true;
     
         m_table.clear();
-        m_table.resize(m_solver->nVars(), l_undef);
-        m_reverseTable.clear();
-        clash_vars_unused.clear();
+        m_table.resize(m_sat.num_vars(), l_undef);
+        m_reverseTable.reset();
+        clash_vars_unused.reset();
         m_matrix_no = 0;
         
-        XorFinder finder(NULL, solver);
+        for (auto& x: m_xor.m_xorclauses_unused) 
+            m_xor.m_xorclauses.push_back(x);
+        m_xor.m_xorclauses_unused.clear();
+        m_xor.clean_xor_clauses(m_xor.m_xorclauses); 
     
-        for (auto& x: m_solver->xorclauses_unused) 
-            m_xor.xorclauses.push_back(std::move(x));
-        m_xor.xorclauses_unused.clear();
-        m_xor.clauseCleaner->clean_xor_clauses(solver->xorclauses); 
-    
-        finder.grab_mem();
-        finder.move_xors_without_connecting_vars_to_unused();
-        if (!finder.xor_together_xors(m_solver->xorclauses)) 
+        m_xor.move_xors_without_connecting_vars_to_unused();
+        if (!m_xor.xor_together_xors(m_xor.m_xorclauses)) 
             return false;
     
-        finder.move_xors_without_connecting_vars_to_unused();
-        finder.clean_equivalent_xors(m_solver->xorclauses);
-        for (const auto& x: m_xor.xorclauses_unused)
-            clash_vars_unused.insert(x.clash_vars.begin(), x.clash_vars.end());
+        m_xor.move_xors_without_connecting_vars_to_unused();
+        m_xor.clean_equivalent_xors(m_xor.m_xorclauses);
+        for (const auto& c : m_xor.m_xorclauses_unused){
+            for (const auto& v : c) {
+                clash_vars_unused.insert(v);                
+            }
+        }
     
-        if (m_xor.xorclauses.size() < m_sat.get_config().m_min_gauss_xor_clauses) {
+        if (m_xor.m_xorclauses.size() < m_sat.get_config().m_xor_gauss_min_clauses) {
             can_detach = false;
             return true;
         }
     
         //Just one giant matrix.
-        // if (m_sat.get_config().m_xor_gauss_do_matrix_find)
-        if (!m_sat.get_config().m_xor_doMatrixFind) {
-            m_xor.gmatrices.push_back(new EGaussian(m_xor, 0, m_xor.xorclauses));
-            m_xor.gqueuedata.resize(m_xor.gmatrices.size());
+        if (!m_sat.get_config().m_xor_gauss_doMatrixFind) {
+            m_xor.m_gmatrices.push_back(alloc(EGaussian, m_xor, 0, m_xor.m_xorclauses));
+            m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
             return true;
         }
     
-        std::vector<uint32_t> newSet;
-        uint_set tomerge;
-        for (const constraint& x : m_xor.m_constraints) {
+        unsigned_vector newSet;
+        unsigned_vector tomerge;
+        for (const xor_clause& x : m_xor.m_xorclauses) {
             if (belong_same_matrix(x))
                 continue;
     
-            tomerge.clear();
+            tomerge.reset();
             newSet.clear();
-            for (uint32_t v : x) {
+            for (unsigned v : x) {
                 if (m_table[v] != l_undef)
-                    tomerge.insert(m_table[v]);
+                    tomerge.push_back(m_table[v]);
                 else
                     newSet.push_back(v);
             }
             if (tomerge.size() == 1) {
-                const uint32_t into = *tomerge.begin();
-                auto intoReverse = m_reverseTable.find(into);
-                for (uint32_t i = 0; i < newSet.size(); i++) {
-                    intoReverse->second.push_back(newSet[i]);
+                const unsigned into = *tomerge.begin();
+                unsigned_vector& intoReverse = m_reverseTable.find(into);
+                for (unsigned i = 0; i < newSet.size(); i++) {
+                    intoReverse.push_back(newSet[i]);
                     m_table[newSet[i]] = into;
                 }
                 continue;
             }
     
-            for (uint32_t v: tomerge) {
-                newSet.insert(newSet.end(), m_reverseTable[v].begin(), m_reverseTable[v].end());
+            for (unsigned v: tomerge) {
+                for (const auto& v2 : m_reverseTable[v]) {
+                    newSet.insert(v2);
+                }
                 m_reverseTable.erase(v);
             }
             for (auto j : newSet)
@@ -115,14 +117,13 @@ namespace xr {
     
         set_matrixes();
 
-#endif        
         return !m_sat.inconsistent();
     }
     
     unsigned xor_matrix_finder::set_matrixes() {
 
         svector<matrix_shape> matrix_shapes;
-        svector<ptr_vector<constraint>> xors_in_matrix(m_matrix_no);
+        vector<vector<xor_clause>> xors_in_matrix(m_matrix_no);
 
         for (unsigned i = 0; i < m_matrix_no; i++) {
             matrix_shapes.push_back(matrix_shape(i));
@@ -130,18 +131,18 @@ namespace xr {
             matrix_shapes[i].m_cols = m_reverseTable[i].size();
         }
 
-        for (constraint* x : m_xor.m_constraints) {
+        for (xor_clause& x : m_xor.m_xorclauses) {
             // take 1st variable to check which matrix it's in.
-            const uint32_t matrix = m_table[(*x)[0]];
+            const unsigned matrix = m_table[x[0]];
             SASSERT(matrix < m_matrix_no);
     
             //for stats
             matrix_shapes[matrix].m_rows ++;
-            matrix_shapes[matrix].m_sum_xor_sizes += x->get_size();
+            matrix_shapes[matrix].m_sum_xor_sizes += x.size();
             xors_in_matrix[matrix].push_back(x);
         }
       
-        m_xor.m_constraints.clear();
+        m_xor.m_xorclauses.clear();
     
         for (auto& m: matrix_shapes) 
             if (m.tot_size() > 0) 
@@ -182,7 +183,7 @@ namespace xr {
                        
             // if already detached, we MUST use the matrix
             for (const auto& x: xors_in_matrix[i]) {
-                if (x->is_detached()) {
+                if (x.m_detached) {
                     use_matrix = true;
                     break;
                 }
@@ -191,23 +192,23 @@ namespace xr {
             if (m_sat.get_config().m_xor_gauss_force_use_all_matrices) 
                 use_matrix = true;            
     
-#if 0
             if (use_matrix) {
-                m_xor.gmatrices.push_back(
+                m_xor.m_gmatrices.push_back(
                     alloc(EGaussian, m_xor, realMatrixNum, xors_in_matrix[i]));
-                m_xor.gqueuedata.resize(m_solver->gmatrices.size());
+                m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
     
                 realMatrixNum++;
-                SASSERT(m_xor.gmatrices.size() == realMatrixNum);
+                SASSERT(m_xor.m_gmatrices.size() == realMatrixNum);
             } 
             else {
                 for (auto& x: xors_in_matrix[i]) {
-                    m_xor.xorclauses_unused.push_back(x);
-                    clash_vars_unused.insert(x.clash_vars.begin(), x.clash_vars.end());
+                    m_xor.m_xorclauses_unused.push_back(x);
+                    for (const auto& v : x.m_clash_vars) {
+                        clash_vars_unused.insert(v);                        
+                    }
                 }
                 unusedMatrix++;
             }
-#endif
         }
         return realMatrixNum;
     }

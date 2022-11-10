@@ -23,7 +23,7 @@ Revision History:
 
 #pragma once
 
-#include "tactic/replace_proof_converter.h"
+#include "ast/converters/replace_proof_converter.h"
 
 class equiv_proof_converter : public proof_converter {
     ast_manager&            m;

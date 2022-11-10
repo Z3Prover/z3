@@ -445,10 +445,6 @@ namespace sat {
             return false;
         case justification::BINARY:
             return contains(c, j.get_literal());
-#if ENABLE_TERNARY
-        case justification::TERNARY:
-            return contains(c, j.get_literal1(), j.get_literal2());
-#endif
         case justification::CLAUSE:
             return contains(s.get_clause(j));
         default:

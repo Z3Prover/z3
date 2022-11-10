@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "ast/normal_forms/nnf.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 class nnf_tactic : public tactic {
     params_ref    m_params;

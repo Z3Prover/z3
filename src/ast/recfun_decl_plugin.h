@@ -203,8 +203,9 @@ namespace recfun {
             def const& get_def(func_decl* f) const { return *(m_defs[f]); }
             promise_def get_promise_def(func_decl* f) const { return promise_def(&u(), m_defs[f]); }
             def& get_def(func_decl* f) { return *(m_defs[f]); }
-            bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
+            bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }            
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
+            bool is_defined(func_decl* f) {return has_case_def(f) && !get_def(f).get_cases().empty(); }
 
             func_decl_ref_vector get_rec_funs() {
                 func_decl_ref_vector result(m());

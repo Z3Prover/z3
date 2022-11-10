@@ -23,7 +23,7 @@ Notes:
 #include "util/statistics.h"
 #include "util/event_handler.h"
 #include "util/timer.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 
 /**
    \brief Abstract interface for the result of a (check-sat) like command.

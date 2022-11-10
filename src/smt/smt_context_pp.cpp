@@ -166,7 +166,7 @@ namespace smt {
         unsigned num = get_num_bool_vars();
         for (unsigned v = 0; v < num; v++) {
             expr * n = m_bool_var2expr[v];
-            ast_def_ll_pp(out, m, n, get_pp_visited(), true, false);
+            ast_def_ll_pp(out << v << " ", m, n, get_pp_visited(), true, false);
         }
     }
 

@@ -107,7 +107,6 @@ namespace sat {
         m_combination |= (1 << mask); 
     }
 
-
     void xor_finder::add_xor(bool parity, clause& c) {
         DEBUG_CODE(for (clause* cp : m_clauses_to_remove) VERIFY(cp->was_used()););
         m_removed_clauses.append(m_clauses_to_remove);
@@ -122,8 +121,8 @@ namespace sat {
     }
 
     bool xor_finder::extract_xor(bool parity, clause& c, literal l1, literal l2) {
-        SASSERT(s.is_visited(l1.var()));
-        SASSERT(s.is_visited(l2.var()));
+        SASSERT(s.m_visited.is_visited(l1.var()));
+        SASSERT(s.m_visited.is_visited(l2.var()));
         m_missing.reset();
         unsigned mask = 0;
         for (unsigned i = 0; i < c.size(); ++i) {

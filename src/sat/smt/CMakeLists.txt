@@ -46,6 +46,7 @@ z3_add_component(sat_smt
     user_solver.cpp
     xor_matrix_finder.cpp
     xor_solver.cpp
+    xor_gaussian.cpp
   COMPONENT_DEPENDENCIES
     sat
     ast

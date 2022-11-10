@@ -904,6 +904,10 @@ template void euf::egraph::explain_todo(ptr_vector<size_t>& justifications, cc_j
 template void euf::egraph::explain_eq(ptr_vector<size_t>& justifications, cc_justification*, enode* a, enode* b);
 template unsigned euf::egraph::explain_diseq(ptr_vector<size_t>& justifications, cc_justification*, enode* a, enode* b);
 
+template void euf::egraph::explain(ptr_vector<expr_dependency>& justifications, cc_justification*);
+template void euf::egraph::explain_todo(ptr_vector<expr_dependency>& justifications, cc_justification*);
+template void euf::egraph::explain_eq(ptr_vector<expr_dependency>& justifications, cc_justification*, enode* a, enode* b);
+template unsigned euf::egraph::explain_diseq(ptr_vector<expr_dependency>& justifications, cc_justification*, enode* a, enode* b);
 
 
 #if 0

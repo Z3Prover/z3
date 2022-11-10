@@ -19,7 +19,7 @@ Notes:
 #pragma once
 
 #include "ast/fpa/fpa2bv_converter.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ast/fpa/bv2fpa_converter.h"
 
 class fpa2bv_model_converter : public model_converter {
