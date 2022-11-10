@@ -11,7 +11,7 @@ Author:
     Jakob Rath 2021-04-06
 
 --*/
-#include "math/polysat/explain.h"
+#include "math/polysat/superposition.h"
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 

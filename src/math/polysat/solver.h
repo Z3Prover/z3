@@ -27,7 +27,6 @@ Author:
 #include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"
 #include "math/polysat/restart.h"
-#include "math/polysat/explain.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
 #include "math/polysat/linear_solver.h"

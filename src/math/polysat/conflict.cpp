@@ -50,7 +50,7 @@ TODO:
 #include "math/polysat/inference_logger.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
-#include "math/polysat/explain.h"
+#include "math/polysat/superposition.h"
 #include "math/polysat/eq_explain.h"
 #include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/saturation.h"
