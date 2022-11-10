@@ -447,12 +447,10 @@ namespace xr {
             m_gmatrices[j]->update_matrix_no(j);
             m_gqueuedata[j] = m_gqueuedata[i];
             
-            for (unsigned var = 0; var < s().num_vars(); var++) {
-                for (gauss_watched& k : m_gwatches[var]) {
+            for (unsigned var = 0; var < s().num_vars(); var++) 
+                for (gauss_watched& k : m_gwatches[var]) 
                     if (k.matrix_num == i)
                         k.matrix_num = j;
-                }
-            }
             j++;
         }
         m_gqueuedata.shrink(j);
@@ -472,11 +470,9 @@ namespace xr {
         vector<xor_clause> cleaned;
         s().init_visited(2);
         
-        for (const xor_clause& x: m_xorclauses) {
-            for (unsigned v : x) {
+        for (const xor_clause& x: m_xorclauses) 
+            for (unsigned v : x) 
                 s().inc_visited(v);
-            }
-        }
     
         //has at least 1 var with occur of 2
         for (const xor_clause& x: m_xorclauses) {
@@ -559,12 +555,10 @@ namespace xr {
             m_occ_cnt.resize(s().num_vars(), 0);
         }
     
-        TRACE_CODE( 
-            TRACE("xor", tout << "XOR-ing together XORs. Starting with: " << "\n";);
-            for (const auto& x: xors) {
-                TRACE("xor", tout << "XOR before xor-ing together: " << x << "\n";);
-            };
-        );
+        TRACE("xor",
+            tout << "XOR-ing together XORs. Starting with: " << "\n";
+            for (const auto& x : xors)
+                tout << "XOR before xor-ing together: " << x << "\n";);
         
         SASSERT(!s().inconsistent());
         SASSERT(s().at_search_lvl());
