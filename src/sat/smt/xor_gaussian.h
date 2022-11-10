@@ -43,44 +43,6 @@ namespace xr {
     }
 #endif
 
-    class visited {
-        const unsigned&  m_num_vars;
-        
-        unsigned_vector  m_visited; 
-        unsigned         m_visited_begin = 0;
-        unsigned         m_visited_end = 0;
-        
-    public:
-        
-        visited(const unsigned& num_vars) : m_num_vars(num_vars) { }
-        
-        void init_ts(unsigned n, unsigned lim) {
-            SASSERT(lim > 0);
-            if (m_visited_end >= m_visited_end + lim) { // overflow
-                m_visited_begin = 0;
-                m_visited_end = lim;
-                m_visited.reset();
-            }
-            else {
-                m_visited_begin = m_visited_end;
-                m_visited_end = m_visited_end + lim;
-            }
-            while (m_visited.size() < n) 
-                m_visited.push_back(0);        
-        }
-        void init_visited(unsigned lim = 1) {
-            init_ts(2 * m_num_vars, lim);
-        }
-        void mark_visited(unsigned i) {
-            m_visited[i] = m_visited[i] = m_visited_begin;
-        }
-        void inc_visited(unsigned i) {
-            m_visited[i] = std::max(m_visited_begin, std::min(m_visited_end, m_visited[i] + 1));
-        }
-        bool is_visited(unsigned i) { return m_visited[i] >= m_visited_begin; }
-        unsigned num_visited(unsigned i) { return std::max(m_visited_begin, m_visited[i])  - m_visited_begin; }
-    };
-
     class justification {
         
         friend class solver;
@@ -153,17 +115,17 @@ namespace xr {
     };
     
     struct gauss_data {
-        bool do_eliminate;             // we do elimination when basic variable is invoked
-        unsigned new_resp_var;         // do elimination variable
-        unsigned new_resp_row ;        // do elimination row
-        sat::justification conflict;   // returning conflict
-        gauss_res status;              // status
-        unsigned currLevel;            // level at which the variable was decided on
+        bool do_eliminate;                                      // we do elimination when basic variable is invoked
+        unsigned new_resp_var;                                  // do elimination variable
+        unsigned new_resp_row ;                                 // do elimination row
+        sat::justification conflict = sat::justification(0);    // returning conflict
+        gauss_res status;                                       // status
+        unsigned currLevel;                                     // level at which the variable was decided on
 
-        unsigned num_props = 0;        // total gauss propagation time for DPLL
-        unsigned num_conflicts = 0;    // total gauss conflict time for DPLL
+        unsigned num_props = 0;                                 // total gauss propagation time for DPLL
+        unsigned num_conflicts = 0;                             // total gauss conflict time for DPLL
         unsigned disable_checks = 0;
-        bool disabled = false;         // decide to do gaussian elimination
+        bool disabled = false;                                  // decide to do gaussian elimination
 
         void reset() {
             do_eliminate = false;
@@ -172,64 +134,68 @@ namespace xr {
     };
     
     struct reason {
-        bool must_recalc = true;
-        literal propagated = sat::null_literal;
-        unsigned ID = 0;
-        literal_vector reason;
+        bool m_must_recalc = true;
+        literal m_propagated = sat::null_literal;
+        unsigned m_ID = 0;
+        literal_vector m_reason;
     };
     
     struct xor_clause {
         
-        bool rhs = false;
-        bool_var_vector clash_vars;
-        bool detached = false;
-        bool_var_vector vars;
+        bool m_rhs = false;
+        bool_var_vector m_clash_vars;
+        bool m_detached = false;
+        bool_var_vector m_vars;
         
         xor_clause() = default;
+        xor_clause(const xor_clause& c) = default;        
+        xor_clause(xor_clause&& c)  noexcept : m_rhs(c.m_rhs), m_clash_vars(std::move(c.m_clash_vars)), m_detached(c.m_detached), m_vars(std::move(c.m_vars)) { }
+        
+        ~xor_clause() = default;
+        
+        xor_clause& operator=(const xor_clause& c) = default;
     
-        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const bool_var_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const bool_var_vector& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
-                vars.push_back(cl[i]);
+                m_vars.push_back(cl[i]);
             }
         }
     
         template<typename T>
-        explicit xor_clause(const T& cl, const bool _rhs, const bool_var_vector& _clash_vars) : rhs(_rhs), clash_vars(_clash_vars) {
+        explicit xor_clause(const T& cl, const bool _rhs, const bool_var_vector& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
             for (unsigned i = 0; i < cl.size(); i++) {
-                vars.push_back(cl[i].var());
+                m_vars.push_back(cl[i].var());
             }
         }
     
-        explicit xor_clause(const bool_var_vector& cl, const bool _rhs, const unsigned clash_var) : rhs(_rhs) {
-            clash_vars.push_back(clash_var);
+        explicit xor_clause(const bool_var_vector& cl, const bool _rhs, const unsigned clash_var) : m_rhs(_rhs) {
+            m_clash_vars.push_back(clash_var);
             for (unsigned i = 0; i < cl.size(); i++) {
-                vars.push_back(cl[i]);
+                m_vars.push_back(cl[i]);
             }
         }
-    
-        ~xor_clause() { }
         
         unsigned_vector::const_iterator begin() const {
-            return vars.begin();
+            return m_vars.begin();
         }
     
         unsigned_vector::const_iterator end() const {
-            return vars.end();
+            return m_vars.end();
         }
     
         unsigned_vector::iterator begin() {
-            return vars.begin();
+            return m_vars.begin();
         }
     
         unsigned_vector::iterator end() {
-            return vars.end();
+            return m_vars.end();
         }
     
         bool operator<(const xor_clause& other) const {
-            uint64_t i = 0;
+            unsigned i = 0;
             while(i < other.size() && i < size()) {
-                if (other[i] != vars[i])
-                    return vars[i] < other[i];
+                if (other[i] != m_vars[i])
+                    return m_vars[i] < other[i];
                 i++;
             }
     
@@ -240,51 +206,49 @@ namespace xr {
         }
     
         const unsigned& operator[](const unsigned at) const {
-            return vars[at];
+            return m_vars[at];
         }
     
         unsigned& operator[](const unsigned at) {
-            return vars[at];
+            return m_vars[at];
         }
     
         void shrink(const unsigned newsize) {
-            vars.shrink(newsize);
+            m_vars.shrink(newsize);
         }
     
         bool_var_vector& get_vars() {
-            return vars;
+            return m_vars;
         }
     
         const bool_var_vector& get_vars() const {
-            return vars;
+            return m_vars;
         }
     
         unsigned size() const {
-            return vars.size();
+            return m_vars.size();
         }
     
         bool empty() const {
-            if (!vars.empty())
+            if (!m_vars.empty())
                 return false;
-            if (!clash_vars.empty())
+            if (!m_clash_vars.empty())
                 return false;
-            return !rhs;
+            return !m_rhs;
         }
     
-        void merge_clash(const xor_clause& other, unsigned_vector& seen) {
-            for (const auto& v: clash_vars) {
-                seen[v] = 1;
+        // add all elements in other.m_clash_vars that are not yet in m_clash_vars:
+        void merge_clash(const xor_clause& other, visit_helper& visited) {
+            visited.init_visited(m_clash_vars.size());
+            for (const bool_var& v: m_clash_vars) {
+                visited.mark_visited(v);
             }
     
-            for (const auto& v: other.clash_vars) {
-                if (!seen[v]) {
-                    seen[v] = 1;
-                    clash_vars.push_back(v);
+            for (const auto& v: other.m_clash_vars) {
+                if (!visited.is_visited(v)) {
+                    visited.mark_visited(v);
+                    m_clash_vars.push_back(v);
                 }
-            }
-    
-            for (const auto& v: clash_vars) {
-                seen[v] = 0;
             }
         }
     };
@@ -296,10 +260,10 @@ namespace xr {
             if (i + 1 < thisXor.size())
                 os << " + ";
         }
-        os << " =  " << std::boolalpha << thisXor.rhs << std::noboolalpha;
+        os << " =  " << std::boolalpha << thisXor.m_rhs << std::noboolalpha;
     
         os << " -- clash: ";
-        for (const auto& c: thisXor.clash_vars) {
+        for (const auto& c: thisXor.m_clash_vars) {
             os << c + 1 << ", ";
         }
     
@@ -390,7 +354,7 @@ namespace xr {
         }
     
         inline void clearBit(const unsigned i) {
-            mp[i/64] &= ~(1LL << (i%64));
+            mp[i / 64] &= ~(1LL << (i % 64));
         }
     
         inline void setBit(const unsigned i) {
@@ -433,7 +397,7 @@ namespace xr {
                 setBit(toset_var);
             }
     
-            rhs_internal = v.rhs;
+            rhs_internal = v.m_rhs;
         }
     
         // using find nonbasic and basic value
@@ -474,7 +438,7 @@ namespace xr {
     
     class PackedMatrix {
     public:
-        PackedMatrix() : mp(NULL), numRows(0), numCols(0) { }
+        PackedMatrix() : mp(nullptr), numRows(0), numCols(0) { }
     
         ~PackedMatrix() {
             #ifdef _WIN32
@@ -539,7 +503,7 @@ namespace xr {
             iterator(int64_t* _mp, const unsigned _numCols) : mp(_mp), numCols(_numCols) { }
                 
         public:
-            friend struct PackedMatrix;
+            friend class PackedMatrix;
     
             PackedRow operator*() {
                 return PackedRow(numCols, mp);
@@ -552,16 +516,16 @@ namespace xr {
     
             iterator operator+(const unsigned num) const {
                 iterator ret(*this);
-                ret.mp += (numCols+1)*num;
+                ret.mp += (numCols + 1) * num;
                 return ret;
             }
     
             unsigned operator-(const iterator& b) const {
-                return (mp - b.mp)/((numCols+1));
+                return (unsigned)(mp - b.mp) / (numCols + 1);
             }
     
             void operator+=(const unsigned num) {
-                mp += (numCols+1)*num;  // add by f4
+                mp += (numCols + 1) * num;  // add by f4
             }
     
             bool operator!=(const iterator& it) const {
@@ -698,7 +662,7 @@ namespace xr {
     
     
         PackedMatrix mat;
-        svector<char_vector> bdd_matrix;
+        svector<char_vector> bdd_matrix; // TODO: we will probably not need it
         unsigned_vector  var_to_col; ///var->col mapping. Index with VAR
         unsigned_vector col_to_var; ///col->var mapping. Index with COL
         unsigned num_rows = 0;

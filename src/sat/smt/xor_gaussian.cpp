@@ -133,19 +133,21 @@ gret PackedRow::propGause(
 
     //Calc value of row
     tmp_col2.set_and(*this, cols_vals);
-    const unsigned pop_t = tmp_col2.popcnt() + rhs();
+    const unsigned pop_t = tmp_col2.popcnt() + (unsigned)rhs();
 
     //Lazy prop
     if (pop == 1) {
-        for (int i = 0; i < size; i++) if (tmp_col.mp[i]) {
-            int at = scan_fwd_64b(tmp_col.mp[i]);
+        for (int i = 0; i < size; i++) {
+            if (tmp_col.mp[i]) {
+                int at = scan_fwd_64b(tmp_col.mp[i]);
 
-            // found prop
-            unsigned col = at-1 + i*64;
-            SASSERT(tmp_col[col] == 1);
-            const unsigned var = col_to_var[col];
-            ret_lit_prop = sat::literal(var, !(pop_t % 2));
-            return gret::prop;
+                // found prop
+                unsigned col = at-1 + i*64;
+                SASSERT(tmp_col[col] == 1);
+                const unsigned var = col_to_var[col];
+                ret_lit_prop = sat::literal(var, !(pop_t % 2));
+                return gret::prop;
+            }
         }
         UNREACHABLE();
     }
@@ -167,7 +169,8 @@ EGaussian::EGaussian(xr::solver& _solver, const unsigned _matrix_no, const vecto
 
 EGaussian::~EGaussian() {
     delete_gauss_watch_this_matrix();
-    for(auto& x: tofree) memory::deallocate(x);
+    for (auto& x: tofree) 
+        memory::deallocate(x);
     tofree.clear();
 
     delete cols_unset;
@@ -297,7 +300,7 @@ void EGaussian::fill_matrix() {
 }
 
 void EGaussian::delete_gauss_watch_this_matrix() {
-    for (size_t ii = 0; ii < m_solver.m_gwatches.size(); ii++) {
+    for (unsigned ii = 0; ii < m_solver.m_gwatches.size(); ii++) {
         clear_gwatches(ii);
     }
 }
@@ -451,14 +454,14 @@ void EGaussian::eliminate() {
 }
 
 sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
-    if (!xor_reasons[row].must_recalc) {
-        out_ID = xor_reasons[row].ID;
-        return &(xor_reasons[row].reason);
+    if (!xor_reasons[row].m_must_recalc) {
+        out_ID = xor_reasons[row].m_ID;
+        return &(xor_reasons[row].m_reason);
     }
 
     // Clean up previous one
     
-    svector<literal>& to_fill = xor_reasons[row].reason;
+    svector<literal>& to_fill = xor_reasons[row].m_reason;
     to_fill.clear();
 
     mat[row].get_reason(
@@ -466,10 +469,10 @@ sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
         col_to_var,
         *cols_vals,
         *tmp_col2,
-        xor_reasons[row].propagated);
+        xor_reasons[row].m_propagated);
     
-    xor_reasons[row].must_recalc = false;
-    xor_reasons[row].ID = out_ID;
+    xor_reasons[row].m_must_recalc = false;
+    xor_reasons[row].m_ID = out_ID;
     return &to_fill;
 }
 
@@ -670,8 +673,8 @@ bool EGaussian::find_truths(
             find_truth_ret_confl++;
             *j++ = *i;
 
-            xor_reasons[row_n].must_recalc = true;
-            xor_reasons[row_n].propagated = sat::null_literal;
+            xor_reasons[row_n].m_must_recalc = true;
+            xor_reasons[row_n].m_propagated = sat::null_literal;
             gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_n);
             gqd.status = gauss_res::confl;
             TRACE("xor", tout << "--> conflict";);
@@ -689,8 +692,8 @@ bool EGaussian::find_truths(
             TRACE("xor", tout << "--> propagation";);
             *j++ = *i;
 
-            xor_reasons[row_n].must_recalc = true;
-            xor_reasons[row_n].propagated = ret_lit_prop;
+            xor_reasons[row_n].m_must_recalc = true;
+            xor_reasons[row_n].m_propagated = ret_lit_prop;
             SASSERT(m_solver.s().value(ret_lit_prop.var()) == l_undef);
             prop_lit(gqd, row_n, ret_lit_prop);
 
@@ -901,8 +904,8 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         // update in this row non-basic variable
                         row_to_var_non_resp[row_i] = p;
 
-                        xor_reasons[row_i].must_recalc = true;
-                        xor_reasons[row_i].propagated = sat::null_literal;
+                        xor_reasons[row_i].m_must_recalc = true;
+                        xor_reasons[row_i].m_propagated = sat::null_literal;
                         gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_i);
                         gqd.status = gauss_res::confl;
 
@@ -925,8 +928,8 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         m_solver.m_gwatches[p].push_back(gauss_watched(row_i, matrix_no));
                         row_to_var_non_resp[row_i] = p;
 
-                        xor_reasons[row_i].must_recalc = true;
-                        xor_reasons[row_i].propagated = ret_lit_prop;
+                        xor_reasons[row_i].m_must_recalc = true;
+                        xor_reasons[row_i].m_propagated = ret_lit_prop;
                         SASSERT(m_solver.s().value(ret_lit_prop.var()) == l_undef);
                         prop_lit(gqd, row_i, ret_lit_prop);
 
@@ -1036,7 +1039,7 @@ void EGaussian::check_no_prop_or_unsat_rows() {
 }
 
 void EGaussian::check_watchlist_sanity() {
-    for (size_t i = 0; i < m_solver.s().num_vars(); i++) {
+    for (unsigned i = 0; i < m_solver.s().num_vars(); i++) {
         for (auto w: m_solver.m_gwatches[i]) {
             if (w.matrix_num == matrix_no) {
                 SASSERT(i < var_to_col.size());

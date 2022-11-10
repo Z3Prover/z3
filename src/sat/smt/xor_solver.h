@@ -44,22 +44,20 @@ namespace xr {
         bool_var_vector                m_removed_xorclauses_clash_vars;
         bool                           m_detached_xor_clauses = false;
         bool                           m_xor_clauses_updated = false;
-
         
         vector<svector<gauss_watched>> m_gwatches;
         ptr_vector<EGaussian>          m_gmatrices;
         svector<gauss_data>            m_gqueuedata;
         
-        xr::visited visited1;
-        xr::visited visited2;
+        visit_helper                   m_visited;
         
         // tmp
         bool_var_vector m_occurrences;
-        // unfortunately, we cannot use generic "visited" here, 
+        // unfortunately, we cannot use generic "m_visited" here, 
         // as the number of occurrences might be quite high 
         // and we need the list of occurrences
         unsigned_vector m_occ_cnt; 
-        bool_var_vector interesting;
+        bool_var_vector m_interesting;
         
         void force_push();
         void push_core();
@@ -111,7 +109,9 @@ namespace xr {
         bool init_all_matrices();
         
         void move_xors_without_connecting_vars_to_unused();
-        bool xor_together_xors(vector<xor_clause>& this_xors);
+        void clean_equivalent_xors(vector<xor_clause>& txors);
+        
+        bool xor_together_xors(vector<xor_clause>& xors);
         
         sat::justification mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i);
         

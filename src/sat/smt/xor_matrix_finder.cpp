@@ -60,7 +60,7 @@ namespace xr {
             return false;
     
         m_xor.move_xors_without_connecting_vars_to_unused();
-        finder.clean_equivalent_xors(m_xor.m_xorclauses);
+        m_xor.clean_equivalent_xors(m_xor.m_xorclauses);
         for (const auto& c : m_xor.m_xorclauses_unused){
             for (const auto& v : c) {
                 clash_vars_unused.insert(v);                
@@ -74,7 +74,7 @@ namespace xr {
     
         //Just one giant matrix.
         if (!m_sat.get_config().m_xor_gauss_doMatrixFind) {
-            m_xor.m_gmatrices.push_back(new EGaussian(&m_xor, 0, m_xor.m_xorclauses));
+            m_xor.m_gmatrices.push_back(alloc(EGaussian, m_xor, 0, m_xor.m_xorclauses));
             m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
             return true;
         }
@@ -183,7 +183,7 @@ namespace xr {
                        
             // if already detached, we MUST use the matrix
             for (const auto& x: xors_in_matrix[i]) {
-                if (x.detached) {
+                if (x.m_detached) {
                     use_matrix = true;
                     break;
                 }
@@ -194,7 +194,7 @@ namespace xr {
     
             if (use_matrix) {
                 m_xor.m_gmatrices.push_back(
-                    alloc(EGaussian, &m_xor, realMatrixNum, xors_in_matrix[i]));
+                    alloc(EGaussian, m_xor, realMatrixNum, xors_in_matrix[i]));
                 m_xor.m_gqueuedata.resize(m_xor.m_gmatrices.size());
     
                 realMatrixNum++;
@@ -203,7 +203,7 @@ namespace xr {
             else {
                 for (auto& x: xors_in_matrix[i]) {
                     m_xor.m_xorclauses_unused.push_back(x);
-                    for (const auto& v : x.clash_vars) {
+                    for (const auto& v : x.m_clash_vars) {
                         clash_vars_unused.insert(v);                        
                     }
                 }
