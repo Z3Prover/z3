@@ -166,7 +166,8 @@ namespace xr {
         
             if (m_gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, m_gqueuedata[i->matrix_num])) {
                 continue;
-            } else {
+            } 
+            else {
                 confl_in_gauss = true;
                 i++;
                 break;
@@ -227,9 +228,8 @@ namespace xr {
     // TODO: we should separate this parts from the euf_solver. Other non-euf theories might need it as well
     // Similar: Attaching "theory_var"s in non-euf/enode cases  
     void solver::force_push() {
-        for (; m_num_scopes > 0; --m_num_scopes) {
-            push_core();
-        }
+        for (; m_num_scopes > 0; --m_num_scopes) 
+            push_core();        
     }
     
     void solver::push_core() {
@@ -299,13 +299,13 @@ namespace xr {
                     xors[j++] = x;
                 } 
                 else {
-                    for (const auto& v : x.m_clash_vars) {
-                        m_removed_xorclauses_clash_vars.insert(v);                    
-                    }
+                    for (const auto& v : x.m_clash_vars) 
+                        m_removed_xorclauses_clash_vars.insert(v);                                        
                 }
             }
             xors.shrink(j);
-            if (inconsistent()) break;
+            if (inconsistent()) 
+                break;
             s().propagate(false);
         }
         
@@ -472,21 +472,21 @@ namespace xr {
         vector<xor_clause> cleaned;
         s().init_visited(2);
         
-        for(const xor_clause& x: m_xorclauses) {
+        for (const xor_clause& x: m_xorclauses) {
             for (unsigned v : x) {
                 s().inc_visited(v);
             }
         }
     
         //has at least 1 var with occur of 2
-        for(const xor_clause& x: m_xorclauses) {
-            if (xor_has_interesting_var(x) || x.m_detached) {
-                TRACE("xor", tout << "XOR has connecting var: " << x << "\n";);
+        for (const xor_clause& x: m_xorclauses) {
+            bool has_connecting_var = xor_has_interesting_var(x) || x.m_detached;
+            TRACE("xor", tout << "XOR " << (has_connecting_var?"":"has no") << "connecting var : " << x << ")\n");
+
+            if (has_connecting_var)                 
                 cleaned.push_back(x);
-            } else {
-                TRACE("xor", tout << "XOR has no connecting var: " << x << "\n";);
+            else 
                 m_xorclauses_unused.push_back(x);
-            }
         }
         
         m_xorclauses = cleaned;
@@ -495,9 +495,8 @@ namespace xr {
     void solver::clean_equivalent_xors(vector<xor_clause>& txors){
         if (!txors.empty()) {
             size_t orig_size = txors.size();
-            for (xor_clause& x: txors) {
-                std::sort(x.begin(), x.end());
-            }
+            for (xor_clause& x: txors) 
+                std::sort(x.begin(), x.end());            
             std::sort(txors.begin(), txors.end());
     
             unsigned sz = 1;
@@ -508,7 +507,8 @@ namespace xr {
                 if (jd.m_vars == id.m_vars && jd.m_rhs == id.m_rhs) {
                     jd.merge_clash(id, m_visited);
                     jd.m_detached |= id.m_detached;
-                } else {
+                } 
+                else {
                     j++;
                     j = i;
                     sz++;
@@ -527,27 +527,26 @@ namespace xr {
     
     void solver::clean_xor_no_prop(sat::literal_vector & ps, bool & rhs) {
         std::sort(ps.begin(), ps.end());
-        sat::literal p = sat::null_literal;
-        unsigned i = 0, j = 0;
-        for (; i != ps.size(); i++) {
-            SASSERT(!ps[i].sign());
-            if (ps[i].var() == p.var()) {
-                //added, but easily removed
+        sat::literal p_last = sat::null_literal;
+        unsigned j = 0;
+        for (auto p : ps) {
+            SASSERT(!p.sign());
+            if (p.var() == p_last.var()) {                
+                // added, but easily removed
                 j--;
-                p = sat::null_literal;
-                //Flip rhs if necessary
-                if (s().value(ps[i]) != l_undef) {
-                    rhs ^= s().value(ps[i]) == l_true;
-                }
-            } else if (s().value(ps[i]) == l_undef) {
-                //Add and remember as last one to have been added
-                ps[j++] = p = ps[i];
-            } else {
-                //modify rhs instead of adding
-                rhs ^= s().value(ps[i]) == l_true;
-            }
+                p_last = sat::null_literal;
+                // Flip rhs if necessary
+                if (s().value(p) != l_undef) 
+                    rhs ^= s().value(p) == l_true;                
+            } 
+            else if (s().value(p) == l_undef) 
+                // Add and remember as last one to have been added
+                ps[j++] = p_last = p;            
+            else 
+                // modify rhs instead of adding
+                rhs ^= s().value(p) == l_true;
         }
-        ps.resize(ps.size() - (i - j));
+        ps.shrink(j);
     }
     
     bool solver::xor_together_xors(vector<xor_clause>& xors) {

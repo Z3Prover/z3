@@ -18,7 +18,7 @@ Abstract:
 #include <set>
 #include <iterator>
 
-#include "xor_solver.h"
+#include "sat/smt/xor_solver.h"
 
 using std::ostream;
 using std::set;

@@ -13,11 +13,10 @@ Abstract:
 
 #pragma once
 
-#include "sat/smt/euf_solver.h"
-
 #include "util/debug.h"
 #include "util/sat_literal.h"
 #include "util/trace.h"
+#include "sat/smt/euf_solver.h"
 
 namespace xr {
     
