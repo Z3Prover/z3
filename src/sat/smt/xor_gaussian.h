@@ -145,7 +145,7 @@ namespace xr {
         bool m_rhs = false;
         bool_var_vector m_clash_vars;
         bool m_detached = false;
-        bool_var_vector m_vars;
+        bool_var_vector m_vars; // inherit from bool_var_vector?
         
         xor_clause() = default;
         xor_clause(const xor_clause& c) = default;        
@@ -155,24 +155,21 @@ namespace xr {
         
         xor_clause& operator=(const xor_clause& c) = default;
     
-        explicit xor_clause(const unsigned_vector& cl, const bool _rhs, const bool_var_vector& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
-            for (unsigned i = 0; i < cl.size(); i++) {
-                m_vars.push_back(cl[i]);
-            }
+        explicit xor_clause(const unsigned_vector& cl, bool _rhs, bool_var_vector const& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
+            for (auto v : cl)
+                m_vars.push_back(v);
         }
     
         template<typename T>
-        explicit xor_clause(const T& cl, const bool _rhs, const bool_var_vector& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
-            for (unsigned i = 0; i < cl.size(); i++) {
-                m_vars.push_back(cl[i].var());
-            }
+        explicit xor_clause(const T& cl, bool _rhs, bool_var_vector const& _clash_vars) : m_rhs(_rhs), m_clash_vars(_clash_vars) {
+            for (auto const& l : cl)
+                m_vars.push_back(l.var());
         }
     
-        explicit xor_clause(const bool_var_vector& cl, const bool _rhs, const unsigned clash_var) : m_rhs(_rhs) {
+        explicit xor_clause(const bool_var_vector& cl, const bool _rhs, unsigned clash_var) : m_rhs(_rhs) {
             m_clash_vars.push_back(clash_var);
-            for (unsigned i = 0; i < cl.size(); i++) {
-                m_vars.push_back(cl[i]);
-            }
+            for (auto v : cl)
+                m_vars.push_back(v);
         }
         
         unsigned_vector::const_iterator begin() const {
@@ -192,16 +189,13 @@ namespace xr {
         }
     
         bool operator<(const xor_clause& other) const {
-            unsigned i = 0;
-            while(i < other.size() && i < size()) {
+            for (unsigned i = 0; i < other.size() && i < size(); ++i) 
                 if (other[i] != m_vars[i])
                     return m_vars[i] < other[i];
-                i++;
-            }
     
-            if (other.size() != size()) {
+            if (other.size() != size()) 
                 return size() < other.size();
-            }
+            
             return false;
         }
     
@@ -240,9 +234,8 @@ namespace xr {
         // add all elements in other.m_clash_vars that are not yet in m_clash_vars:
         void merge_clash(const xor_clause& other, visit_helper& visited) {
             visited.init_visited(m_clash_vars.size());
-            for (const bool_var& v: m_clash_vars) {
-                visited.mark_visited(v);
-            }
+            for (const bool_var& v: m_clash_vars) 
+                visited.mark_visited(v);            
     
             for (const auto& v: other.m_clash_vars) {
                 if (!visited.is_visited(v)) {
@@ -263,9 +256,8 @@ namespace xr {
         os << " =  " << std::boolalpha << thisXor.m_rhs << std::noboolalpha;
     
         os << " -- clash: ";
-        for (const auto& c: thisXor.m_clash_vars) {
-            os << c + 1 << ", ";
-        }
+        for (const auto& c: thisXor.m_clash_vars) 
+            os << c + 1 << ", ";        
     
         return os;
     }
@@ -289,28 +281,26 @@ namespace xr {
         
         PackedRow() = delete;
         
+        // NSB review: why not mp[i] = b.mp[i]?
         PackedRow& operator=(const PackedRow& b) {
-            //start from -1, because that's wher RHS is
-            for (int i = -1; i < size; i++) {
+            //start from -1, because that's where RHS is
+            for (int i = -1; i < size; i++) 
                 *(mp + i) = *(b.mp + i);
-            }
-    
+                
             return *this;
         }
     
         PackedRow& operator^=(const PackedRow& b) {
-            //start from -1, because that's wher RHS is
-            for (int i = -1; i < size; i++) {
-                *(mp + i) ^= *(b.mp + i);
-            }
+            //start from -1, because that's where RHS is
+            for (int i = -1; i < size; i++) 
+                *(mp + i) ^= *(b.mp + i);            
     
             return *this;
         }
         
         void set_and(const PackedRow& a, const PackedRow& b) {
-            for (int i = 0; i < size; i++) {
-                *(mp + i) = *(a.mp + i) & *(b.mp + i);
-            }
+            for (int i = 0; i < size; i++) 
+                *(mp + i) = *(a.mp + i) & *(b.mp + i);            
         }
     
         unsigned set_and_until_popcnt_atleast2(const PackedRow& a, const PackedRow& b) {
@@ -325,9 +315,8 @@ namespace xr {
     
         void xor_in(const PackedRow& b) {
             rhs_internal ^= b.rhs_internal;
-            for (int i = 0; i < size; i++) {
-                *(mp + i) ^= *(b.mp + i);
-            }
+            for (int i = 0; i < size; i++) 
+                *(mp + i) ^= *(b.mp + i);            
         }
     
         inline const int64_t& rhs() const {
@@ -339,9 +328,8 @@ namespace xr {
         }
     
         inline bool isZero() const {
-            for (int i = 0; i < size; i++) {
-                if (mp[i]) return false;
-            }
+            for (int i = 0; i < size; i++) 
+                if (mp[i]) return false;            
             return true;
         }
     
@@ -429,17 +417,17 @@ namespace xr {
     
         unsigned popcnt() const {
             unsigned ret = 0;
-            for (int i = 0; i < size; i++) {
-                ret += get_num_1bits((uint64_t)mp[i]);
-            }
+            for (int i = 0; i < size; i++) 
+                ret += get_num_1bits((uint64_t)mp[i]);            
             return ret;
         }
     };
     
     class PackedMatrix {
     public:
-        PackedMatrix() : mp(nullptr), numRows(0), numCols(0) { }
+        PackedMatrix() { }
     
+        // NSB: rewview - are special memory allocations required?
         ~PackedMatrix() {
             #ifdef _WIN32
             _aligned_free((void*)mp);
@@ -547,9 +535,9 @@ namespace xr {
     
     private:
     
-        int64_t *mp;
-        int numRows;
-        int numCols;
+        int64_t* mp = nullptr;
+        int numRows = 0;
+        int numCols = 0;
     };
     
     class EGaussian {
@@ -690,9 +678,8 @@ namespace xr {
             return 0;
     
         unsigned pop = 0;
-        for (const auto& row: mat) {
-            pop += row.popcnt();
-        }
+        for (const auto& row: mat) 
+            pop += row.popcnt();        
         return (double)pop/(double)(num_rows*num_cols);
     }
     
