@@ -138,33 +138,28 @@ gret PackedRow::propGause(
     tmp_col2.set_and(*this, cols_vals);
     const unsigned pop_t = tmp_col2.popcnt() + (unsigned)rhs();
 
-    //Lazy prop
-    if (pop == 1) {
-        for (int i = 0; i < size; i++) {
-            if (tmp_col.mp[i]) {
-                int at = scan_fwd_64b(tmp_col.mp[i]);
+    SASSERT(pop == 1 || pop == 0);
 
-                // found prop
-                unsigned col = at-1 + i*64;
-                SASSERT(tmp_col[col] == 1);
-                const unsigned var = col_to_var[col];
-                ret_lit_prop = sat::literal(var, !(pop_t % 2));
-                return gret::prop;
-            }
-        }
-        UNREACHABLE();
+    if (pop == 0) {
+        if (pop_t % 2 == 0)
+            return gret::nothing_satisfied;
+        else
+            return gret::confl;
     }
 
-    //Only SAT & UNSAT left.
-    SASSERT(pop == 0);
+    for (int i = 0; i < size; i++) if (tmp_col.mp[i]) {
+        int at = scan_fwd_64b(tmp_col.mp[i]);
 
-    //Satisfied
-    if (pop_t % 2 == 0) {
-        return gret::nothing_satisfied;
+        // found prop
+        unsigned col = at - 1 + i * 64;
+        SASSERT(tmp_col[col] == 1);
+        unsigned var = col_to_var[col];
+        ret_lit_prop = sat::literal(var, 1 == pop_t % 2);
+        return gret::prop;
     }
 
-    //Conflict
-    return gret::confl;
+    UNREACHABLE();
+    return gret::nothing_satisfied;
 }
 
 EGaussian::EGaussian(xr::solver& _solver, const unsigned _matrix_no, const vector<xor_clause>& _xorclauses) : 
@@ -226,7 +221,7 @@ void EGaussian::select_columnorder() {
     unsigned largest_used_var = 0;
 
     for (const xor_clause& x : m_xorclauses) {
-        for (const unsigned v : x) {
+        for (unsigned v : x) {
             SASSERT(m_solver.s().value(v) == l_undef);
             if (var_to_col[v] == unassigned_col) {
                 vars_needed.push_back(v);
@@ -236,12 +231,12 @@ void EGaussian::select_columnorder() {
         }
     }
 
-    if (vars_needed.size() >= UINT32_MAX / 2 - 1) {
+    if (vars_needed.size() >= UINT32_MAX / 2 - 1) 
         throw default_exception("Matrix has too many rows");
-    }
-    if (m_xorclauses.size() >= UINT32_MAX / 2 - 1) {
+    
+    if (m_xorclauses.size() >= UINT32_MAX / 2 - 1) 
         throw default_exception("Matrix has too many rows");
-    }
+    
     var_to_col.resize(largest_used_var + 1);
 
 
@@ -253,15 +248,15 @@ void EGaussian::select_columnorder() {
     col_to_var.clear();
     for (unsigned v : vars_needed) {
         SASSERT(var_to_col[v] == unassigned_col - 1);
+        var_to_col[v] = col_to_var.size();
         col_to_var.push_back(v);
-        var_to_col[v] = col_to_var.size() - 1;
     }
 
     // for the ones that were not in the order_heap, but are marked in var_to_col
     for (unsigned v = 0; v < var_to_col.size(); v++) {
         if (var_to_col[v] == unassigned_col - 1) {
+            var_to_col[v] = col_to_var.size();
             col_to_var.push_back(v);
-            var_to_col[v] = col_to_var.size() - 1;
         }
     }
 }
@@ -303,9 +298,8 @@ void EGaussian::fill_matrix() {
 }
 
 void EGaussian::delete_gauss_watch_this_matrix() {
-    for (unsigned ii = 0; ii < m_solver.m_gwatches.size(); ii++) {
-        clear_gwatches(ii);
-    }
+    for (unsigned i = 0; i < m_solver.m_gwatches.size(); i++) 
+        clear_gwatches(i);    
 }
 
 void EGaussian::clear_gwatches(const unsigned var) {
@@ -316,10 +310,10 @@ void EGaussian::clear_gwatches(const unsigned var) {
     }
     
     unsigned j = 0;
-    for (auto& w : m_solver.m_gwatches[var]) {
+    for (auto& w : m_solver.m_gwatches[var]) 
         if (w.matrix_num != matrix_no) 
             m_solver.m_gwatches[var][j++] = w;
-    }
+
     m_solver.m_gwatches[var].shrink(j);
 }
 
@@ -371,35 +365,25 @@ bool EGaussian::full_init(bool& created) {
 
     xor_reasons.resize(num_rows);
     unsigned num_64b = num_cols/64+(bool)(num_cols%64);
-    for (auto& x: tofree) {
+    
+    for (auto& x: tofree) 
         memory::deallocate(x);
-    }
+    
     tofree.clear();
-    dealloc(cols_unset);
-    dealloc(cols_vals);
-    dealloc(tmp_col);
-    dealloc(tmp_col2);
 
-    int64_t* x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
-    tofree.push_back(x);
-    cols_unset = alloc(PackedRow, num_64b, x);
+    auto add_packed_row = [&](PackedRow*& p) {
+        int64_t* x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
+        tofree.push_back(x);
+        dealloc(p);
+        p = alloc(PackedRow, num_64b, x);
+        p->rhs() = 0;
+    };
 
-    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
-    tofree.push_back(x);
-    cols_vals = alloc(PackedRow, num_64b, x);
+    add_packed_row(cols_unset);
+    add_packed_row(cols_vals);
+    add_packed_row(tmp_col);
+    add_packed_row(tmp_col2);
 
-    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
-    tofree.push_back(x);
-    tmp_col = alloc(PackedRow, num_64b, x);
-
-    x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
-    tofree.push_back(x);
-    tmp_col2 = alloc(PackedRow, num_64b, x);
-
-    cols_vals->rhs() = 0;
-    cols_unset->rhs() = 0;
-    tmp_col->rhs() = 0;
-    tmp_col2->rhs() = 0;
     after_init_density = get_density();
 
     initialized = true;
@@ -422,9 +406,8 @@ void EGaussian::eliminate() {
 
         //Find first "1" in column.
         for (; row_with_1_in_col != end_row_it; ++row_with_1_in_col, row_with_1_in_col_n++) {
-            if ((*row_with_1_in_col)[col]) {
-                break;
-            }
+            if ((*row_with_1_in_col)[col]) 
+                break;            
         }
 
         //We have found a "1" in this column
@@ -582,20 +565,16 @@ gret EGaussian::init_adjust_matrix() {
 // Delete this row because we have already add to xor clause, nothing to do anymore
 void EGaussian::delete_gausswatch(const unsigned row_n) {
     // clear nonbasic value watch list
-    bool debug_find = false;
     svector<gauss_watched>& ws_t = m_solver.m_gwatches[row_to_var_non_resp[row_n]];
 
-    for (int tmpi = ws_t.size(); tmpi-- > 0;) {
-        if (ws_t[tmpi].row_n == row_n
-            && ws_t[tmpi].matrix_num == matrix_no
-        ) {
-            ws_t[tmpi] = *ws_t.end();
+    for (unsigned i = ws_t.size(); i-- > 0;) {
+        if (ws_t[i].row_n == row_n && ws_t[i].matrix_num == matrix_no) {
+            ws_t[i] = *ws_t.end();
             ws_t.shrink(1);
-            debug_find = true;
-            break;
+            return;
         }
     }
-    SASSERT(debug_find);
+    UNREACHABLE();
 }
 
 unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
@@ -614,9 +593,9 @@ unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
     }
 
     //should we??
-    if (nMaxInd != 1) {
+    if (nMaxInd != 1) 
         std::swap((*cl)[1], (*cl)[nMaxInd]);
-    }
+    
     return nMaxLevel;
 }
 
@@ -1042,54 +1021,47 @@ void EGaussian::check_no_prop_or_unsat_rows() {
 }
 
 void EGaussian::check_watchlist_sanity() {
-    for (unsigned i = 0; i < m_solver.s().num_vars(); i++) {
-        for (auto w: m_solver.m_gwatches[i]) {
-            if (w.matrix_num == matrix_no) {
-                SASSERT(i < var_to_col.size());
-            }
-        }
-    }
+    for (unsigned i = 0; i < m_solver.s().num_vars(); i++) 
+        for (auto w: m_solver.m_gwatches[i]) 
+            VERIFY(w.matrix_num != matrix_no || i < var_to_col.size());
 }
 
 void EGaussian::check_tracked_cols_only_one_set() {
     unsigned_vector row_resp_for_var(num_rows, l_undef);
     for (unsigned col = 0; col < num_cols; col++) {
         unsigned var = col_to_var[col];
-        if (var_has_resp_row[var]) {
-            unsigned num_ones = 0;
-            unsigned found_row = l_undef;
-            for (unsigned row = 0; row < num_rows; row++) {
-                if (mat[row][col]) {
-                    num_ones++;
-                    found_row = row;
-                }
-            }
-            if (num_ones == 0) {
-                TRACE("xor", tout 
-                << "mat[" << matrix_no << "] "
-                << "WARNING: Tracked col " << col
-                << " var: " << var+1
-                << " has 0 rows' bit set to 1..."
-                << "\n";);
-            }
-            if (num_ones > 1) {
-                TRACE("xor", tout << "mat[" << matrix_no << "] "
-                << "ERROR: Tracked col " << col
-                << " var: " << var+1
-                << " has " << num_ones << " rows' bit set to 1!!\n";);
-                SASSERT(false);
-            }
-            if (num_ones == 1) {
-                if (row_resp_for_var[found_row] != l_undef) {
-                    TRACE("xor", tout << "ERROR One row can only be responsible for one col"
-                    << " but row " << found_row << " is responsible for"
-                    << " var: " << row_resp_for_var[found_row] + 1
-                    << " and var: " << var+1 << "\n";);
-                    SASSERT(false);
-                }
-                row_resp_for_var[found_row] = var;
+        if (!var_has_resp_row[var])
+            continue;
+
+        unsigned num_ones = 0;
+        unsigned found_row = l_undef;
+        for (unsigned row = 0; row < num_rows; row++) {
+            if (mat[row][col]) {
+                num_ones++;
+                found_row = row;
             }
         }
+        CTRACE("xor", num_ones == 0, tout
+            << "mat[" << matrix_no << "] "
+            << "WARNING: Tracked col " << col
+            << " var: " << var + 1
+            << " has 0 rows' bit set to 1..."
+            << "\n";);
+
+        CTRACE("xor", num_ones > 1, tout << "mat[" << matrix_no << "] "
+            << "ERROR: Tracked col " << col
+            << " var: " << var + 1
+            << " has " << num_ones << " rows' bit set to 1!!\n";);
+
+        CTRACE("xor", (num_ones == 1) && (row_resp_for_var[found_row] != l_undef),
+            tout << "ERROR One row can only be responsible for one col"
+            << " but row " << found_row << " is responsible for"
+            << " var: " << row_resp_for_var[found_row] + 1
+            << " and var: " << var + 1 << "\n";);
+
+        VERIFY(num_ones == 1);
+        VERIFY(row_resp_for_var[found_row] == l_undef);
+        row_resp_for_var[found_row] = var;
     }
 }
 
@@ -1100,8 +1072,7 @@ void EGaussian::check_invariants() {
     TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.m_num_scopes << "\n";);
 }
 
-bool EGaussian::check_row_satisfied(const unsigned row) {
-    bool ret = true;
+bool EGaussian::check_row_satisfied(unsigned row) {
     bool fin = mat[row].rhs();
     for (unsigned i = 0; i < num_cols; i++) {
         if (mat[row][i]) {
@@ -1109,12 +1080,12 @@ bool EGaussian::check_row_satisfied(const unsigned row) {
             auto val = m_solver.s().value(var);
             if (val == l_undef) {
                 TRACE("xor", tout << "Var " << var+1 << " col: " << i << " is undef!\n";);
-                ret = false;
+                return false;
             }
             fin ^= val == l_true;
         }
     }
-    return ret && !fin;
+    return !fin;
 }
 
 bool EGaussian::must_disable(gauss_data& gqd) {
@@ -1127,12 +1098,10 @@ bool EGaussian::must_disable(gauss_data& gqd) {
         if (egcalled > 200 && useful < limit)
             return true;
     }
-
     return false;
 }
 
 void EGaussian::move_back_xor_clauses() {
-    for (const auto& x: m_xorclauses) {
-        m_solver.m_xorclauses.push_back(std::move(x));
-    }
+    for (const auto& x: m_xorclauses) 
+        m_solver.m_xorclauses.push_back(std::move(x));    
 }
