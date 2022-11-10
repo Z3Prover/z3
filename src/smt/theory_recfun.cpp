@@ -102,9 +102,8 @@ namespace smt {
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
         // TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
-        if (u().is_defined(n) && u().has_defs()) {
+        if (u().is_defined(n) && u().has_defs()) 
             push_case_expand(n);
-        }
     }
 
     void theory_recfun::push_scope_eh() {
@@ -418,7 +417,7 @@ namespace smt {
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
-        if (u().has_defs() || !m_disabled_guards.empty()) {
+        if (u().has_rec_defs() || !m_disabled_guards.empty()) {
             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
             TRACEFN("add_theory_assumption " << dlimit);
             assumptions.push_back(dlimit);

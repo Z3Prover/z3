@@ -147,18 +147,22 @@ namespace smt {
         for (auto& info : m_trail) {
             expr_ref fact = mk_or(info.m_clause);
             proof* pr = info.m_proof;
+            expr* args[2] = { pr, fact };
+            unsigned num_args = 2, offset = 0;
+            if (!pr) 
+                offset = 1;
             switch (info.m_status) {
             case status::assumption:
-                ps.push_back(m.mk_assumption_add(pr, fact)); 
+                ps.push_back(m.mk_app(symbol("assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
                 break;
             case status::lemma:
-                ps.push_back(m.mk_lemma_add(pr, fact)); 
+                ps.push_back(m.mk_app(symbol("lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
                 break;
             case status::th_assumption:
-                ps.push_back(m.mk_th_assumption_add(pr, fact)); 
+                ps.push_back(m.mk_app(symbol("th-assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
                 break;
             case status::th_lemma:
-                ps.push_back(m.mk_th_lemma_add(pr, fact)); 
+                ps.push_back(m.mk_app(symbol("th-lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
                 break;
             case status::deleted:
                 ps.push_back(m.mk_redundant_del(fact));

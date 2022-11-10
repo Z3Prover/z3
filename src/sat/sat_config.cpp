@@ -46,7 +46,7 @@ namespace sat {
         else if (s == symbol("static"))
             m_restart = RS_STATIC;
         else
-            throw sat_param_exception("invalid restart strategy");
+            throw sat_param_exception("invalid restart strategy. Use ema (default), luby, geometric, static");
 
         m_fast_glue_avg = p.restart_emafastglue();
         m_slow_glue_avg = p.restart_emaslowglue();

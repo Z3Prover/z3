@@ -34,6 +34,8 @@ Author:
 #include "util/params.h"
 #include "ast/converters/model_converter.h"
 #include "ast/simplifiers/dependent_expr.h"
+#include "ast/simplifiers/model_reconstruction_trail.h"
+
 
 
 /**
@@ -46,6 +48,12 @@ public:
     virtual dependent_expr const& operator[](unsigned i) = 0;
     virtual void update(unsigned i, dependent_expr const& j) = 0;
     virtual bool inconsistent() = 0;
+    virtual model_reconstruction_trail& model_trail() = 0;
+
+    trail_stack    m_trail;
+    void push() { m_trail.push_scope(); }
+    void pop(unsigned n) { m_trail.pop_scope(n); }
+
 };
 
 /**
@@ -55,20 +63,21 @@ class dependent_expr_simplifier {
 protected:
     ast_manager&          m;
     dependent_expr_state& m_fmls;
-    unsigned       m_qhead = 0;          // pointer into last processed formula in m_fmls
-    unsigned       m_num_scopes = 0;
-    trail_stack    m_trail;    
-    void advance_qhead(unsigned sz) { if (m_num_scopes > 0) m_trail.push(value_trail(m_qhead)); m_qhead = sz; }
+    trail_stack&          m_trail;
+    unsigned              m_qhead = 0;          // pointer into last processed formula in m_fmls
+
+    unsigned num_scopes() const { return m_trail.get_num_scopes(); }
+
+    void advance_qhead(unsigned sz) { if (num_scopes() > 0) m_trail.push(value_trail(m_qhead)); m_qhead = sz; }
 public:
-    dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s) {}
+    dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
     virtual ~dependent_expr_simplifier() {}
-    virtual void push() { m_num_scopes++; m_trail.push_scope(); }
-    virtual void pop(unsigned n) { m_num_scopes -= n; m_trail.pop_scope(n); }
+    virtual void push() { }
+    virtual void pop(unsigned n) { }
     virtual void reduce() = 0;
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
-    virtual model_converter_ref get_model_converter() { return model_converter_ref(); }
 };
 
 /**

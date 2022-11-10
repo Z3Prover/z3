@@ -109,12 +109,12 @@ namespace bv {
         };
         if (lo > 0 && !b.contains(lo)) {
             b.insert(lo); 
-            if (m_num_scopes > 0)
+            if (num_scopes() > 0)
                 m_trail.push(remove_set(b, lo));
         }
         if (hi + 1 < sz && !b.contains(hi + 1)) {
             b.insert(hi + 1); 
-            if (m_num_scopes > 0)
+            if (num_scopes() > 0)
                 m_trail.push(remove_set(b, hi+ 1));
         }
     }

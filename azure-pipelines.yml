@@ -202,7 +202,7 @@ jobs:
         setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
         setupCmd3: 'set /P JlCxxDir=<tmp.env'
         bindings:  '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx $(cmakeJava) $(cmakeNet) $(cmakePy) -DCMAKE_BUILD_TYPE=RelWithDebInfo'
-        runTests:  'True'
+        runTests:  'False'
       arm64:
         arch: 'amd64_arm64'
         setupCmd1: ''

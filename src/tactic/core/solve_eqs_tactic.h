@@ -22,10 +22,17 @@ Revision History:
 class ast_manager;
 class tactic;
 
-tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+tactic * mk_solve_eqs1_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+#if 0
+inline tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+    return mk_solve_eqs1_tactic(m, p);
+}
+#endif
 
 /*
-  ADD_TACTIC("solve-eqs", "eliminate variables by solving equations.", "mk_solve_eqs_tactic(m, p)")
+  ADD_TACTIC("solve-eqs", "eliminate variables by solving equations.", "mk_solve_eqs1_tactic(m, p)")
 */
 
 

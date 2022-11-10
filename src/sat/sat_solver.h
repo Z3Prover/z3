@@ -353,10 +353,8 @@ namespace sat {
         void init_visited(unsigned lim = 1) { m_visited.init_visited(2 * num_vars(), lim); }
         bool is_visited(sat::bool_var v) const { return is_visited(literal(v, false)); }
         bool is_visited(literal lit) const { return m_visited.is_visited(lit.index()); }
-        unsigned num_visited(bool_var v) const { return m_visited.num_visited(v); }
         void mark_visited(literal lit) { m_visited.mark_visited(lit.index()); }
         void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
-        void inc_visited(bool_var v) { m_visited.inc_visited(v); }
         bool all_distinct(literal_vector const& lits);
         bool all_distinct(clause const& cl);
 

@@ -213,7 +213,7 @@ namespace euf {
                 old_value = nullptr;
             }
         };
-        if (m_num_scopes > 0)
+        if (num_scopes() > 0)
             m_trail.push(vtrail(m_canonical, n->get_id()));
         m_canonical.setx(n->get_id(), e);
         m_epochs.setx(n->get_id(), m_epoch, 0);

@@ -4,6 +4,7 @@ z3_add_component(simplifiers
     euf_completion.cpp
     extract_eqs.cpp
     model_reconstruction_trail.cpp
+    solve_context_eqs.cpp
     solve_eqs.cpp
   COMPONENT_DEPENDENCIES
     euf

@@ -21,6 +21,7 @@ Notes:
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
@@ -136,22 +137,23 @@ private:
 };
 
 static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
-    params_ref simp2_p = p;
+    params_ref simp2_p = p, flat_and_or_p = p;
+    flat_and_or_p.set_bool("flat_and_or", false);
     simp2_p.set_bool("pull_cheap_ite", true);
     simp2_p.set_bool("push_ite_bv", false);
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
-
     simp2_p.set_bool("ite_extra_rules", true);
     simp2_p.set_bool("mul2concat", true);
+    simp2_p.set_bool("flat_and_or", false);
 
     params_ref ctx_simp_p;
     ctx_simp_p.set_uint("max_depth", 32);
     ctx_simp_p.set_uint("max_steps", 5000000);
 
     return and_then(
-        mk_simplify_tactic(m),
-        mk_propagate_values_tactic(m),
+        using_params(mk_simplify_tactic(m), flat_and_or_p),
+        using_params(mk_propagate_values_tactic(m), flat_and_or_p),
         if_no_proofs(if_no_unsat_cores(mk_bv_bound_chk_tactic(m))),
         //using_params(mk_ctx_simplify_tactic(m_m), ctx_simp_p),
         mk_solve_eqs_tactic(m),
@@ -163,8 +165,10 @@ static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
 }
 
 static tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
-    return and_then(mk_simplify_tactic(m),
-                    mk_propagate_values_tactic(m),
+    params_ref simp2_p = p, flat_and_or_p = p;
+    flat_and_or_p.set_bool("flat_and_or", false);
+    return and_then(using_params(mk_simplify_tactic(m), flat_and_or_p),
+                    using_params(mk_propagate_values_tactic(m), flat_and_or_p),
                     mk_solve_eqs_tactic(m),
                     mk_elim_uncnstr_tactic(m),
                     if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),

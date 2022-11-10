@@ -29,22 +29,36 @@ namespace euf {
     class basic_extract_eq : public extract_eq {
         ast_manager& m;
         bool m_ite_solver = true;
+        bool m_allow_bool = true;
+
 
     public:
         basic_extract_eq(ast_manager& m) : m(m) {}
+
+        virtual void set_allow_booleans(bool f) {
+            m_allow_bool = f;
+        }
+
 
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             auto [f, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y)) {
+                if (x == y)
+                    return;
+                if (!m_allow_bool && m.is_bool(x))
+                    return;
                 if (is_uninterp_const(x))
-                    eqs.push_back(dependent_eq(to_app(x), expr_ref(y, m), d));
+                    eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(y, m), d));
                 if (is_uninterp_const(y))
-                    eqs.push_back(dependent_eq(to_app(y), expr_ref(x, m), d));
+                    eqs.push_back(dependent_eq(e.fml(), to_app(y), expr_ref(x, m), d));
             }
             expr* c, * th, * el, * x1, * y1, * x2, * y2;
             if (m_ite_solver && m.is_ite(f, c, th, el)) {
                 if (m.is_eq(th, x1, y1) && m.is_eq(el, x2, y2)) {
+                    if (!m_allow_bool && m.is_bool(x1))
+                        return;
+
                     if (x1 == y2 && is_uninterp_const(x1))
                         std::swap(x2, y2);
                     if (x2 == y2 && is_uninterp_const(x2))
@@ -52,13 +66,15 @@ namespace euf {
                     if (x2 == y1 && is_uninterp_const(x2))
                         std::swap(x1, y1);
                     if (x1 == x2 && is_uninterp_const(x1)) 
-                        eqs.push_back(dependent_eq(to_app(x1), expr_ref(m.mk_ite(c, y1, y2), m), d));                    
+                        eqs.push_back(dependent_eq(e.fml(), to_app(x1), expr_ref(m.mk_ite(c, y1, y2), m), d));
                 }
             }
+            if (!m_allow_bool)
+                return;
             if (is_uninterp_const(f))
-                eqs.push_back(dependent_eq(to_app(f), expr_ref(m.mk_true(), m), d));
+                eqs.push_back(dependent_eq(e.fml(), to_app(f), expr_ref(m.mk_true(), m), d));
             if (m.is_not(f, x) && is_uninterp_const(x))
-                eqs.push_back(dependent_eq(to_app(x), expr_ref(m.mk_false(), m), d));
+                eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(m.mk_false(), m), d));
         }
 
         void updt_params(params_ref const& p) {
@@ -76,7 +92,7 @@ namespace euf {
 
 
         // solve u mod r1 = y -> u = r1*mod!1 + y
-        void solve_mod(expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+        void solve_mod(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             expr* u, * z;
             rational r1, r2;
             if (!a.is_mod(x, u, z))
@@ -87,7 +103,11 @@ namespace euf {
                 return;
             expr_ref term(m);
             term = a.mk_add(a.mk_mul(z, m.mk_fresh_const("mod", a.mk_int())), y);
-            solve_eq(u, term, d, eqs);
+
+            if (is_uninterp_const(u))
+                eqs.push_back(dependent_eq(orig, to_app(u), term, d));
+            else
+                solve_eq(orig, u, term, d, eqs);
         }
 
         /***
@@ -96,7 +116,7 @@ namespace euf {
         *    -1*x + Y = Z -> x = Y - Z
         *    a*x + Y = Z  -> x = (Z - Y)/a for is-real(x)        
         */
-        void solve_add(expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+        void solve_add(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             if (!a.is_add(x))
                 return;
             expr* u, * z;
@@ -115,18 +135,18 @@ namespace euf {
             for (expr* arg : *to_app(x)) {
                 if (is_uninterp_const(arg)) {
                     mk_term(i);
-                    eqs.push_back(dependent_eq(to_app(arg), term, d));
+                    eqs.push_back(dependent_eq(orig, to_app(arg), term, d));
                 }
                 else if (a.is_mul(arg, u, z) && a.is_numeral(u, r) && is_uninterp_const(z)) {
                     if (r == -1) {
                         mk_term(i);
                         term = a.mk_uminus(term);
-                        eqs.push_back(dependent_eq(to_app(z), term, d));
+                        eqs.push_back(dependent_eq(orig, to_app(z), term, d));
                     }
                     else if (a.is_real(arg) && r != 0) {
                         mk_term(i);
                         term = a.mk_div(term, u);
-                        eqs.push_back(dependent_eq(to_app(z), term, d));
+                        eqs.push_back(dependent_eq(orig, to_app(z), term, d));
                     }
                 }
                 else if (a.is_real(arg) && a.is_mul(arg)) {
@@ -155,7 +175,7 @@ namespace euf {
                         }
                         mk_term(i);
                         term = a.mk_div(term, a.mk_mul(args.size(), args.data()));
-                        eqs.push_back(dependent_eq(to_app(xarg), term, d));
+                        eqs.push_back(dependent_eq(orig, to_app(xarg), term, d));
                     }
                 }
                 ++i;
@@ -165,7 +185,7 @@ namespace euf {
         /***
         * Solve for x * Y = Z, where Y != 0 -> x = Z / Y
         */
-        void solve_mul(expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+        void solve_mul(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             if (!a.is_mul(x))
                 return;
             rational r;
@@ -174,6 +194,8 @@ namespace euf {
             for (expr* arg : *to_app(x)) {
                 ++i;
                 if (!is_uninterp_const(arg))
+                    continue;
+                if (!a.is_real(arg))
                     continue;
                 unsigned j = 0;
                 bool nonzero = true;
@@ -193,7 +215,7 @@ namespace euf {
                         args.push_back(arg2);
                 }
                 term = a.mk_div(y, a.mk_mul(args));
-                eqs.push_back(dependent_eq(to_app(arg), term, d));
+                eqs.push_back(dependent_eq(orig, to_app(arg), term, d));
             }
         }
 
@@ -214,22 +236,24 @@ namespace euf {
             }
         }
 
-        void solve_eq(expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
-            solve_add(x, y, d, eqs);
-            solve_mod(x, y, d, eqs);
-            solve_mul(x, y, d, eqs);
+        void solve_eq(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            solve_add(orig, x, y, d, eqs);
+            solve_mod(orig, x, y, d, eqs);
+            solve_mul(orig, x, y, d, eqs);
         }
 
     public:
+
         arith_extract_eq(ast_manager& m) : m(m), a(m), m_args(m) {}
+
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             if (!m_enabled)
                 return;
             auto [f, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y) && a.is_int_real(x)) {
-                solve_eq(x, y, d, eqs);
-                solve_eq(y, x, d, eqs);
+                solve_eq(f, x, y, d, eqs);
+                solve_eq(f, y, x, d, eqs);
             }
         }
 
@@ -237,10 +261,8 @@ namespace euf {
             if (!m_enabled)
                 return;
             m_nonzero.reset();
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-                auto [f, d] = fmls[i]();
-                add_pos(f);
-            }
+            for (unsigned i = 0; i < fmls.size(); ++i) 
+                add_pos(fmls[i].fml());            
         }
 
 

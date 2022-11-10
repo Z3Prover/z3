@@ -442,17 +442,18 @@ namespace recfun {
             return promise_def(&u(), d);
         }
 
-        void plugin::inherit(decl_plugin* other, ast_translation& tr) {
-            for (auto [k, v] : static_cast<plugin*>(other)->m_defs) {
+        void plugin::inherit(decl_plugin* _other, ast_translation& tr) {
+            plugin* other = static_cast<plugin*>(_other);
+            for (auto [k, v] : other->m_defs) {
                 func_decl_ref f(tr(k), tr.to());
                 if (m_defs.contains(f))
                     continue;
                 def* d = v->copy(u(), tr);
                 m_defs.insert(f, d);
                 for (case_def & c : d->get_cases())
-                    m_case_defs.insert(c.get_decl(), &c);
-                    
+                    m_case_defs.insert(c.get_decl(), &c);                    
             }
+            m_has_rec_defs = other->m_has_rec_defs;
         }
 
         promise_def plugin::ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
@@ -473,6 +474,7 @@ namespace recfun {
         }
         
         void plugin::set_definition(replace& r, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
+            m_has_rec_defs |= !is_macro;
             u().set_definition(r, d, is_macro, n_vars, vars, rhs);
             for (case_def & c : d.get_def()->get_cases()) 
                 m_case_defs.insert(c.get_decl(), &c);

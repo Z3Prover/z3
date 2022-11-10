@@ -165,6 +165,7 @@ namespace recfun {
             mutable scoped_ptr<util> m_util;
             def_map                  m_defs;       // function->def
             case_def_map             m_case_defs;  // case_pred->def
+            bool                     m_has_rec_defs = false;
             
             ast_manager & m() { return *m_manager; }
 
@@ -200,6 +201,7 @@ namespace recfun {
 
             bool has_def(func_decl* f) const { return m_defs.contains(f); }
             bool has_defs() const;
+            bool has_rec_defs() const { return m_has_rec_defs; }
             def const& get_def(func_decl* f) const { return *(m_defs[f]); }
             promise_def get_promise_def(func_decl* f) const { return promise_def(&u(), m_defs[f]); }
             def& get_def(func_decl* f) { return *(m_defs[f]); }
@@ -248,6 +250,8 @@ namespace recfun {
 
         //<! don't use native theory if recursive function declarations are not populated with defs
         bool has_defs() const { return m_plugin->has_defs(); }
+
+        bool has_rec_defs() const { return m_plugin->has_rec_defs(); }
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range, bool is_generated);

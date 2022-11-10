@@ -1593,6 +1593,18 @@ namespace smt {
             TRACE("gate_clause", tout << mk_ll_pp(pr, m););
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
+        else if (m_clause_proof.on_clause_active()) {
+            ptr_buffer<expr> new_lits;
+            for (unsigned i = 0; i < num_lits; i++) {
+                literal l      = lits[i];
+                bool_var v     = l.var();
+                expr * atom    = m_bool_var2expr[v]; 
+                new_lits.push_back(l.sign() ? m.mk_not(atom) : atom);
+            }
+            // expr* fact = m.mk_or(new_lits);
+            proof* pr = m.mk_app(symbol("tseitin"), new_lits.size(), new_lits.data(), m.mk_proof_sort());
+            mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
+        }
         else {
             mk_clause(num_lits, lits, nullptr);
         }

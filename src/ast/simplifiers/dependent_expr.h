@@ -68,6 +68,12 @@ public:
         m_fml = nullptr;
         m_dep = nullptr;
     }
+
+    ast_manager& get_manager() const { return m; }
+
+    expr* fml() const { return m_fml; }
+
+    expr_dependency* dep() const { return m_dep; }
     
     std::tuple<expr*, expr_dependency*> operator()() const { 
         return { m_fml, m_dep }; 

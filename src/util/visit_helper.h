@@ -45,5 +45,5 @@ public:
         m_visited[v] = std::min(m_visited_end, std::max(m_visited_begin, m_visited[v]) + 1);
     }
     bool is_visited(unsigned v) const { return m_visited[v] > m_visited_begin; }
-    unsigned num_visited(unsigned v) const { return std::max(m_visited_begin, m_visited[v]) - m_visited_begin; }
+    unsigned num_visited(unsigned v) { return std::max(m_visited_begin, m_visited[v]) - m_visited_begin; }
 };
