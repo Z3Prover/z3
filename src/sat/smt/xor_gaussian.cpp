@@ -1046,9 +1046,10 @@ void EGaussian::check_tracked_cols_only_one_set() {
             << " var: " << row_resp_for_var[found_row] + 1
             << " and var: " << var + 1 << "\n";);
 
-        VERIFY(num_ones == 1);
-        VERIFY(row_resp_for_var[found_row] == l_undef);
-        row_resp_for_var[found_row] = var;
+        if (num_ones == 1) {
+            VERIFY(row_resp_for_var[found_row] == l_undef);
+            row_resp_for_var[found_row] = var;
+        }
     }
 }
 
