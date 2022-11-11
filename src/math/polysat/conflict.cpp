@@ -365,35 +365,6 @@ namespace polysat {
         // - l_false constraints are disallowed in the conflict (as before).
     }
 
-#if 0
-    void conflict::bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len) {
-        if (c.is_always_false()) {
-            VERIFY(false);  // TODO: this case can probably happen, but needs special attention
-        }
-        // Build lemma: premises ==> c
-        clause_builder cb(s);
-        for (unsigned i = 0; i < premises_len; ++i) {
-            SASSERT_EQ(premises[i].bvalue(s), l_true);
-            cb.push(~premises[i]);
-        }
-        SASSERT_EQ(c.bvalue(s), l_undef);
-        cb.push(c);
-        clause_ref lemma = cb.build();
-        SASSERT(lemma);
-        lemma->set_redundant(true);
-        set_side_lemma(c, lemma);
-        // TODO: we must "simulate" the propagation but don't want to put the literal onto the search stack.
-        s.assign_propagate(c.blit(), *lemma);
-        // s.m_search.pop();  // doesn't work... breaks m_trail and backjumping
-        SASSERT_EQ(c.bvalue(s), l_true);
-        // insert(c);
-    }
-
-    void conflict::bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises) {
-        bool_propagate(c, std::data(premises), premises.size());
-    }
-#endif
-
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
         m_literals.remove(c.blit().index());
@@ -414,19 +385,6 @@ namespace polysat {
         m_vars_occurring.reset();
         m_kind = conflict_kind_t::ok;
     }
-
-#if 0
-    clause* conflict::side_lemma(sat::literal lit) const {
-        unsigned const idx = lit.to_uint();
-        return m_lemmas.get(idx, {}).get();
-    }
-
-    void conflict::set_side_lemma(sat::literal lit, clause_ref lemma) {
-        SASSERT_EQ(side_lemma(lit), nullptr);
-        unsigned const idx = lit.to_uint();
-        m_lemmas.insert(idx, std::move(lemma));
-    }
-#endif
 
     void conflict::resolve_bool(sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
@@ -578,34 +536,6 @@ namespace polysat {
 #endif
         return std::move(m_narrow_queue);
     }
-
-#if 0
-    void conflict::learn_side_lemmas() {
-        auto needs_side_lemma = [this](sat::literal lit) -> bool {
-            return s.m_bvars.value(lit) == l_undef && side_lemma(lit);
-        };
-        sat::literal_vector todo;
-        for (auto c : *this)
-            if (needs_side_lemma(c.blit()))
-                todo.push_back(c.blit());
-        while (!todo.empty()) {
-            sat::literal lit = todo.back();
-            todo.pop_back();
-            if (s.m_bvars.value(lit) != l_undef)
-                continue;
-            clause* lemma = side_lemma(lit);
-            SASSERT(lemma);
-            // Need to add the full derivation tree
-            for (auto lit2 : *lemma)
-                if (needs_side_lemma(lit2))
-                    todo.push_back(lit2);
-            // Store and bool-propagate the lemma
-            s.m_constraints.store(lemma, false);
-            SASSERT(s.m_bvars.value(lit) != l_undef);
-        }
-        m_lemmas.reset();
-    }
-#endif
 
     bool conflict::minimize_vars(signed_constraint c) {
         if (m_vars.empty())
