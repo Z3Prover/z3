@@ -270,7 +270,36 @@ class elim_uncnstr_tactic : public tactic {
             }
             return nullptr;
         }
-        
+
+        /**
+         * if (c, x, x') -> fresh
+         * x := fresh
+         * x' := fresh
+         * 
+         * if (x, x', e) -> fresh
+         * x := true
+         * x' := fresh
+         * 
+         * if (x, t, x') -> fresh
+         * x := false
+         * x' := fresh
+         * 
+         * not x -> fresh
+         * x := not fresh
+         * 
+         * x & x' -> fresh
+         * x := fresh
+         * x' := true
+         * 
+         * x or x' -> fresh
+         * x := fresh
+         * x' := false
+         *
+         * x = t -> fresh
+         * x := if(fresh, t, diff(t))
+         * where diff is a diagnonalization function available in domains of size > 1.
+         *
+         */
         app * process_basic_app(func_decl * f, unsigned num, expr * const * args) {
             SASSERT(f->get_family_id() == m().get_basic_family_id());
             switch (f->get_decl_kind()) {
@@ -434,6 +463,10 @@ class elim_uncnstr_tactic : public tactic {
             }
             return nullptr;
         }
+
+        /**
+         * similar as for bit-vectors
+         */
         
         app * process_arith_app(func_decl * f, unsigned num, expr * const * args) {
             
@@ -466,7 +499,7 @@ class elim_uncnstr_tactic : public tactic {
                     add_defs(num, args, r, m_bv_util.mk_numeral(rational(1), s));
                 return r;
             }
-            // c * v (c is even) case
+            // c * v (c is odd) case
             unsigned bv_size;
             rational val;
             rational inv;
@@ -595,7 +628,46 @@ class elim_uncnstr_tactic : public tactic {
             }
             return nullptr;
         }
-        
+
+        /**
+         * x + t -> fresh
+         * x := fresh - t
+         * 
+         * x * x' * x'' -> fresh
+         * x := fresh
+         * x', x'' := 1
+         * 
+         * c * x -> fresh, c is odd
+         * x := fresh*c^-1
+         *
+         * x[sz-1:0] -> fresh
+         * x := fresh
+         * 
+         * x[hi:lo] -> fresh
+         * x := fresh1 ++ fresh ++ fresh2
+         * 
+         * x udiv x', x sdiv x' -> fresh
+         * x' := 1
+         * x := fresh
+         * 
+         * x ++ x' ++ x'' -> fresh
+         * x   := fresh[hi1:lo1]
+         * x'  := fresh[hi2:lo2]
+         * x'' := fresh[hi3:lo3]
+         * 
+         * x <= t -> fresh or t == MAX
+         * x := if(fresh, t, t + 1)
+         * t <= x -> fresh or t == MIN
+         * x := if(fresh, t, t - 1)
+         * 
+         * ~x -> fresh
+         * x := ~fresh
+         * 
+         * x | y -> fresh
+         * x := fresh
+         * y := 0
+         * 
+         */        
         app * process_bv_app(func_decl * f, unsigned num, expr * const * args) {
             SASSERT(f->get_family_id() == m_bv_util.get_family_id());
             switch (f->get_decl_kind()) {
@@ -646,6 +718,15 @@ class elim_uncnstr_tactic : public tactic {
                 return nullptr;
             }
         }
+
+        /**
+         * F[select(x, i)] -> F[fresh]
+         * x := const(fresh)
+
+         * F[store(x, ..., x')] -> F[fresh]
+         * x' := select(x, ...)
+         * x := fresh
+         */
         
         app * process_array_app(func_decl * f, unsigned num, expr * const * args) {
             SASSERT(f->get_family_id() == m_ar_util.get_family_id());
@@ -676,7 +757,11 @@ class elim_uncnstr_tactic : public tactic {
                 return nullptr;
             }
         }
-        
+
+        /**
+         *   head(x) -> fresh
+         *   x := cons(fresh, arb)
+         */
         app * process_datatype_app(func_decl * f, unsigned num, expr * const * args) {
             if (m_dt_util.is_accessor(f)) {
                 SASSERT(num == 1);
