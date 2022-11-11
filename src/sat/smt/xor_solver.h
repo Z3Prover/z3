@@ -58,6 +58,7 @@ namespace xr {
         // and we need the list of occurrences
         unsigned_vector m_occ_cnt; 
         bool_var_vector m_interesting;
+        bool_var_vector m_tmp_vars_xor_two;
         
         void force_push();
         void push_core();
@@ -70,7 +71,33 @@ namespace xr {
         
         void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
         
+        unsigned xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var);
+        
         bool inconsistent() const { return s().inconsistent(); }
+        
+        // TODO: CMS watches the literals directly; Z3 their negation. "_neg_" just for now to avoid confusion
+        bool is_neg_watched(sat::watch_list& l, size_t idx) const {
+            return l.contains(sat::watched((sat::ext_constraint_idx)idx));
+        }
+        
+        bool is_neg_watched(literal lit, size_t idx) const {
+            return s().get_wlist(lit).contains(sat::watched((sat::ext_constraint_idx)idx));
+        }
+        
+        void unwatch_neg_literal(literal lit, size_t idx) {
+            s().get_wlist(lit).erase(sat::watched(idx));
+            SASSERT(!is_neg_watched(lit, idx));
+        }
+        
+        void watch_neg_literal(sat::watch_list& l, size_t idx) {
+            SASSERT(!is_neg_watched(l, idx));
+            l.push_back(sat::watched(idx));
+        }
+        
+        void watch_neg_literal(literal lit, size_t idx) {
+            watch_neg_literal(s().get_wlist(lit), idx);
+        }
+
         
     public:
         solver(euf::solver& ctx);

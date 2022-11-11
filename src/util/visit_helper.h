@@ -41,8 +41,9 @@ public:
     }
     
     void mark_visited(unsigned v) { m_visited[v] = m_visited_begin + 1; }
-    void inc_visited(unsigned v) {
-        m_visited[v] = std::min(m_visited_end, std::max(m_visited_begin, m_visited[v]) + 1);
+    void inc_visited(unsigned v) { inc_visited(v, 1); }
+    void inc_visited(unsigned v, unsigned by) {
+        m_visited[v] = std::min(m_visited_end, std::max(m_visited_begin, m_visited[v]) + by);
     }
     bool is_visited(unsigned v) const { return m_visited[v] > m_visited_begin; }
     unsigned num_visited(unsigned v) const { return std::max(m_visited_begin, m_visited[v]) - m_visited_begin; }

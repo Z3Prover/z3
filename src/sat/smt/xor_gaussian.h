@@ -231,8 +231,8 @@ namespace xr {
         }
     
         // add all elements in other.m_clash_vars that are not yet in m_clash_vars:
-        void merge_clash(const xor_clause& other, visit_helper& visited) {
-            visited.init_visited(m_clash_vars.size());
+        void merge_clash(const xor_clause& other, visit_helper& visited, unsigned num_vars) {
+            visited.init_visited(num_vars);
             for (const bool_var& v: m_clash_vars) 
                 visited.mark_visited(v);            
     
