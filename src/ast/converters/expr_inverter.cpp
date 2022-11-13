@@ -270,7 +270,7 @@ class bv_expr_inverter : public iexpr_inverter {
 
     bool process_bv_mul(func_decl* f, unsigned num, expr* const* args, expr_ref& r) {
         if (num == 0)
-            return nullptr;
+            return false;
         if (uncnstr(num, args)) {
             sort* s = args[0]->get_sort();
             mk_fresh_uncnstr_var_for(f, r);
