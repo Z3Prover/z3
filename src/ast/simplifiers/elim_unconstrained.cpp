@@ -55,6 +55,12 @@ elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fml
     m_inverter.set_is_var(is_var);
 }
 
+bool elim_unconstrained::is_var_lt(int v1, int v2) const {
+    node const& n1 = get_node(v1);
+    node const& n2 = get_node(v2);
+    return n1.m_refcount < n2.m_refcount;
+}
+
 
 void elim_unconstrained::eliminate() {
 
@@ -62,34 +68,39 @@ void elim_unconstrained::eliminate() {
         expr_ref r(m), side_cond(m);
         int v = m_heap.erase_min();
         node& n = get_node(v);
-        IF_VERBOSE(11, verbose_stream() << mk_pp(n.m_orig, m) << " @ " << n.m_refcount << "\n");
+        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(n.m_orig, m) << " @ " << n.m_refcount << "\n");
         if (n.m_refcount == 0)
             continue;
         if (n.m_refcount > 1)
             return;
 
-        if (n.m_parents.empty())
+        if (n.m_parents.empty()) {
+            --n.m_refcount;
             continue;
+        }
         expr* e = get_parent(v);
         for (expr* p : n.m_parents)
-            IF_VERBOSE(11, verbose_stream() << "parent " << mk_pp(p, m) << "\n");
-        if (!is_app(e))
+            IF_VERBOSE(11, verbose_stream() << "parent " << mk_bounded_pp(p, m) << "\n");
+        if (!e || !is_app(e) || !is_ground(e)) {
+            --n.m_refcount;
             continue;
-        if (!is_ground(e))
-            continue;
+        }
         app* t = to_app(e);
         m_args.reset();
         for (expr* arg : *to_app(t))
             m_args.push_back(get_node(arg).m_term);
-        if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) 
+        if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) {
+            --n.m_refcount;
             continue;
+        }
+        --n.m_refcount;
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         n.m_refcount = 0;
         SASSERT(r);
-        m_trail.push_back(r);
         gc(e);
 
+        m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
         get_node(e).m_refcount++;
         IF_VERBOSE(11, verbose_stream() << mk_pp(e, m) << "\n");
@@ -107,10 +118,6 @@ expr* elim_unconstrained::get_parent(unsigned n) const {
     for (expr* p : get_node(n).m_parents)
         if (get_node(p).m_refcount > 0 && get_node(p).m_term == get_node(p).m_orig)
             return p;
-    IF_VERBOSE(0, verbose_stream() << "term " << mk_pp(get_node(n).m_term, m) << "\n");
-    for (expr* p : get_node(n).m_parents)
-        IF_VERBOSE(0, verbose_stream() << "parent " << mk_pp(p, m) << "\n");
-    UNREACHABLE();
     return nullptr;
 }
 /**
@@ -123,6 +130,7 @@ void elim_unconstrained::init_nodes() {
     m_trail.append(terms);
     m_heap.reset();
     m_frozen.reset();
+    m_root.reset();
 
     // initialize nodes for terms in the original goal
     init_terms(terms);
@@ -159,11 +167,13 @@ void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
 
     m_nodes.reserve(max_id + 1);
     m_heap.reserve(max_id + 1);
+    m_root.reserve(max_id + 1, UINT_MAX);
 
     for (expr* e : subterms_postorder::all(terms)) {
+        m_root.setx(e->get_id(), e->get_id(), UINT_MAX);
         node& n = get_node(e);
         if (n.m_term)
-            continue;
+            continue;        
         n.m_orig = e;
         n.m_term = e;
         n.m_refcount = 0;
