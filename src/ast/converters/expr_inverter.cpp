@@ -40,7 +40,7 @@ class basic_expr_inverter : public iexpr_inverter {
 
         mk_fresh_uncnstr_var_for(f, r);
         if (m_mc)
-            add_def(v, m.mk_ite(t, t, d));
+            add_def(v, m.mk_ite(r, t, d));
 
         return true;
     }
@@ -352,8 +352,11 @@ class bv_expr_inverter : public iexpr_inverter {
         // parity can be defined using a "giant" ite expression.
         //
 
+#if 0
+        for (unsigned i = 0; i < num; ++i)
             if (uncnstr(args[i]))
                 IF_VERBOSE(11, verbose_stream() << "MISSED mult-unconstrained " << mk_bounded_pp(args[i], m) << "\n");
+#endif
 
         return false;
     }
@@ -550,6 +553,7 @@ class bv_expr_inverter : public iexpr_inverter {
     }
 
     bool mk_diff(expr* t, expr_ref& r) override {
+        SASSERT(bv.is_bv(t));
         r = bv.mk_bv_not(t);
         return true;
     }
@@ -806,6 +810,7 @@ void expr_inverter::set_is_var(std::function<bool(expr*)>& is_var) {
 }
 
 void expr_inverter::set_model_converter(generic_model_converter* mc) {
+    m_mc = mc;
     for (auto* p : m_inverters)
         if (p)
             p->set_model_converter(mc);
