@@ -56,7 +56,7 @@ public:
      *
      */
 
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
         SASSERT(f->get_family_id() == m.get_basic_family_id());
         switch (f->get_decl_kind()) {
         case OP_ITE:
