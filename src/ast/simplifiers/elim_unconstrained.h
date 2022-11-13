@@ -58,14 +58,10 @@ class elim_unconstrained : public dependent_expr_simplifier {
     void inc_ref(expr* t) { ++get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.increased(t->get_id()); }
     void dec_ref(expr* t) { --get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.decreased(t->get_id()); }
     void gc(expr* t);
-
     expr* get_parent(unsigned n) const;
     void init_refcounts();
     void dec_refcounts(expr* t);
-
-    void add_term(expr* t);
     void init_terms(expr_ref_vector const& terms);
-
     void init_nodes();
     void eliminate();
     void reconstruct_terms();

@@ -103,12 +103,6 @@ void elim_unconstrained::eliminate() {
     }
 }
 
-void elim_unconstrained::add_term(expr* t) {
-    expr_ref_vector terms(m);
-    terms.push_back(t);
-    init_terms(terms);
-}
-
 expr* elim_unconstrained::get_parent(unsigned n) const {
     for (expr* p : get_node(n).m_parents)
         if (get_node(p).m_refcount > 0 && get_node(p).m_term == get_node(p).m_orig)
@@ -128,20 +122,23 @@ void elim_unconstrained::init_nodes() {
         terms.push_back(m_fmls[i].fml());
     m_trail.append(terms);
     m_heap.reset();
+    m_frozen.reset();
 
+    // initialize nodes for terms in the original goal
     init_terms(terms);
 
+    // top-level terms have reference count > 0
     for (expr* e : terms)
         inc_ref(e);
 
-    // freeze subterms before the head.
+    // freeze subterms before the already processed head
     terms.reset();
     for (unsigned i = 0; i < m_qhead; ++i)
         terms.push_back(m_fmls[i].fml());
     for (expr* e : subterms::all(terms))
         m_frozen.mark(e, true);    
 
-    
+    // freeze subterms that occur with recursive function definitions
     recfun::util rec(m);
     if (rec.has_rec_defs()) {
         for (func_decl* f : rec.get_rec_funs()) {
@@ -152,6 +149,9 @@ void elim_unconstrained::init_nodes() {
     }
 }
 
+/**
+* Create nodes for all terms in the goal
+*/
 void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
     unsigned max_id = 0;
     for (expr* e : subterms::all(terms))
