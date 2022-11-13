@@ -22,9 +22,32 @@ Author:
 #include "ast/converters/expr_inverter.h"
 
 class basic_expr_inverter : public iexpr_inverter {
+    iexpr_inverter& inv;
+
+    bool process_eq(func_decl* f, expr* arg1, expr* arg2, expr_ref& r) {
+        expr* v;
+        expr* t;
+        if (uncnstr(arg1)) 
+            v = arg1, t = arg2;        
+        else if (uncnstr(arg2)) 
+            v = arg2, t = arg1;        
+        else
+            return false;
+
+        expr_ref d(m);
+        if (!inv.mk_diff(t, d))
+            return false;
+
+        mk_fresh_uncnstr_var_for(f, r);
+        if (m_mc)
+            add_def(v, m.mk_ite(t, t, d));
+
+        return true;
+    }
+
 public:
 
-    basic_expr_inverter(ast_manager& m) : iexpr_inverter(m) {}
+    basic_expr_inverter(ast_manager& m, iexpr_inverter& inv) : iexpr_inverter(m), inv(inv) {}
 
     /**
      * if (c, x, x') -> fresh
@@ -104,7 +127,7 @@ public:
             return false;
         case OP_EQ:
             SASSERT(num == 2);
-            // return process_eq(f, args[0], args[1]);
+            return process_eq(f, args[0], args[1], r);
         default:
             return false;
         }        
@@ -726,7 +749,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
     auto* b = alloc(bv_expr_inverter, m);
     auto* ar = alloc(array_expr_inverter, m, *this);
     auto* dt = alloc(dt_expr_inverter, m);
-    m_inverters.setx(m.get_basic_family_id(), alloc(basic_expr_inverter, m), nullptr);
+    m_inverters.setx(m.get_basic_family_id(), alloc(basic_expr_inverter, m, *this), nullptr);
     m_inverters.setx(a->get_fid(), a, nullptr);
     m_inverters.setx(b->get_fid(), b, nullptr);
     m_inverters.setx(ar->get_fid(), ar, nullptr);
