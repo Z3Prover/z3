@@ -213,6 +213,7 @@ public:
         m_occs(m, true /* track atoms */),
         m_params(p) {
         updt_params_core(p);
+        m_r.set_flat_and_or(false);
     }
 
     tactic * translate(ast_manager & m) override {
