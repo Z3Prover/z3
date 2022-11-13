@@ -81,9 +81,9 @@ void elim_unconstrained::eliminate() {
         m_args.reset();
         for (expr* arg : *to_app(t))
             m_args.push_back(get_node(arg).m_term);
-        if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond))
+        if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) 
             continue;
-
+        SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         n.m_refcount = 0;
         SASSERT(r);
