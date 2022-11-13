@@ -40,12 +40,11 @@ public:
     
     virtual bool operator()(func_decl* f, unsigned n, expr* const* args, expr_ref& new_expr, expr_ref& side_cond) = 0;
     virtual bool mk_diff(expr* t, expr_ref& r) = 0;
+    virtual family_id get_fid() const = 0;
 };
 
 class expr_inverter : public iexpr_inverter {
     ptr_vector<iexpr_inverter> m_inverters;
-
-    bool is_converted(func_decl* f, unsigned num, expr* const* args);
 
 public:
     expr_inverter(ast_manager& m);
@@ -54,4 +53,5 @@ public:
     bool mk_diff(expr* t, expr_ref& r) override;
     void set_is_var(std::function<bool(expr*)>& is_var) override; 
     void set_model_converter(generic_model_converter* mc) override;
+    family_id get_fid() const override { return null_family_id;  }
 };

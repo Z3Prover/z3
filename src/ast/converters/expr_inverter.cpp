@@ -49,6 +49,8 @@ public:
 
     basic_expr_inverter(ast_manager& m, iexpr_inverter& inv) : iexpr_inverter(m), inv(inv) {}
 
+    family_id get_fid() const override { return m.get_basic_family_id(); }
+
     /**
      * if (c, x, x') -> fresh
      * x := fresh
@@ -147,7 +149,7 @@ public:
 
     arith_expr_inverter(ast_manager& m) : iexpr_inverter(m), a(m) {}
 
-    family_id get_fid() const { return a.get_family_id(); }
+    family_id get_fid() const override { return a.get_family_id(); }
 
     bool process_le_ge(func_decl* f, expr* arg1, expr* arg2, bool le, expr_ref& r) {
         expr* v;
@@ -350,6 +352,9 @@ class bv_expr_inverter : public iexpr_inverter {
         // parity can be defined using a "giant" ite expression.
         //
 
+            if (uncnstr(args[i]))
+                IF_VERBOSE(11, verbose_stream() << "MISSED mult-unconstrained " << mk_bounded_pp(args[i], m) << "\n");
+
         return false;
     }
 
@@ -462,7 +467,7 @@ class bv_expr_inverter : public iexpr_inverter {
     public:
         bv_expr_inverter(ast_manager& m) : iexpr_inverter(m), bv(m) {}
 
-        family_id get_fid() const { return bv.get_family_id(); }
+        family_id get_fid() const override { return bv.get_family_id(); }
 
     /**
      * x + t -> fresh
@@ -567,7 +572,7 @@ class array_expr_inverter : public iexpr_inverter {
 public:
     array_expr_inverter(ast_manager& m, iexpr_inverter& s) : iexpr_inverter(m), a(m), inv(s) {}
 
-    family_id get_fid() const { return a.get_family_id(); }
+    family_id get_fid() const override { return a.get_family_id(); }
 
     bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
         SASSERT(f->get_family_id() == a.get_family_id());
@@ -631,7 +636,7 @@ public:
 
     dt_expr_inverter(ast_manager& m) : iexpr_inverter(m), dt(m) {}
 
-    family_id get_fid() const { return dt.get_family_id(); }
+    family_id get_fid() const override { return dt.get_family_id(); }
     /**
      *   head(x) -> fresh
      *   x := cons(fresh, arb)
@@ -745,20 +750,16 @@ void iexpr_inverter::add_defs(unsigned num, expr* const* args, expr* u, expr* id
 
 
 expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
-    auto* a = alloc(arith_expr_inverter, m);
-    auto* b = alloc(bv_expr_inverter, m);
-    auto* ar = alloc(array_expr_inverter, m, *this);
-    auto* dt = alloc(dt_expr_inverter, m);
-    m_inverters.setx(m.get_basic_family_id(), alloc(basic_expr_inverter, m, *this), nullptr);
-    m_inverters.setx(a->get_fid(), a, nullptr);
-    m_inverters.setx(b->get_fid(), b, nullptr);
-    m_inverters.setx(ar->get_fid(), ar, nullptr);
-    m_inverters.setx(dt->get_fid(), dt, nullptr);
+    auto add = [&](iexpr_inverter* i) {
+        m_inverters.setx(i->get_fid(), i, nullptr);
+    };
+    add(alloc(arith_expr_inverter, m));
+    add(alloc(bv_expr_inverter, m));
+    add(alloc(array_expr_inverter, m, *this));
+    add(alloc(dt_expr_inverter, m));
+    add(alloc(basic_expr_inverter, m, *this));
 }
 
-bool expr_inverter::is_converted(func_decl* f, unsigned num, expr* const* args) {
-    return false;
-}
 
 bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& new_expr, expr_ref& side_cond) {
     if (num == 0)
@@ -770,9 +771,6 @@ bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, ex
 
     family_id fid = f->get_family_id();
     if (fid == null_family_id)
-        return false;
-            
-    if (is_converted(f, num, args))
         return false;
 
     auto* p = m_inverters.get(fid, nullptr);
