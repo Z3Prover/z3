@@ -15,6 +15,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2022-11-2.
 
 --*/
+#pragma once
 #include "tactic/tactic.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 

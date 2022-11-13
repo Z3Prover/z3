@@ -17,7 +17,6 @@ z3_add_component(core_tactics
     pb_preprocess_tactic.cpp
     propagate_values_tactic.cpp
     reduce_args_tactic.cpp
-    reduce_invertible_tactic.cpp
     simplify_tactic.cpp
     solve_eqs_tactic.cpp
     special_relations_tactic.cpp
@@ -39,6 +38,7 @@ z3_add_component(core_tactics
     dom_simplify_tactic.h
     elim_term_ite_tactic.h
     elim_uncnstr_tactic.h
+    elim_uncnstr2_tactic.h
     euf_completion_tactic.h
     injectivity_tactic.h
     nnf_tactic.h
@@ -46,7 +46,6 @@ z3_add_component(core_tactics
     pb_preprocess_tactic.h
     propagate_values_tactic.h
     reduce_args_tactic.h
-    reduce_invertible_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h
     solve_eqs2_tactic.h

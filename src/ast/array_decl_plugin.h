@@ -207,6 +207,10 @@ public:
         return mk_store(args.size(), args.data());
     }
 
+    app* mk_store(ptr_buffer<expr> const& args) const {
+        return mk_store(args.size(), args.data());
+    }
+
     app * mk_select(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }

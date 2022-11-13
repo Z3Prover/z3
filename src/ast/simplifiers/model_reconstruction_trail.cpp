@@ -30,6 +30,9 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
         if (!t->m_active)
             continue;
 
+        if (t->m_hide)
+            continue;
+        
         // updates that have no intersections with current variables are skipped
         if (!t->intersects(free_vars)) 
             continue;        
@@ -78,6 +81,11 @@ model_converter_ref model_reconstruction_trail::get_model_converter() {
         auto* t = m_trail[i];
         if (!t->m_active)
             continue;
+
+        if (t->m_hide) {
+            mc->hide(t->m_hide);
+            continue;
+        }
 
         if (first) {
             first = false;

@@ -200,9 +200,15 @@ public:
 };
 
 class subterms_postorder {
+    bool            m_include_bound;
     expr_ref_vector m_es;
+    subterms_postorder(expr_ref_vector const& es, bool include_bound);
+    subterms_postorder(expr_ref const& e, bool include_bound);
+    
+
 public:
     class iterator {
+        bool            m_include_bound = false;
         expr_ref_vector m_es;
         expr_mark       m_visited, m_seen; 
         void next();
@@ -214,8 +220,10 @@ public:
         bool operator==(iterator const& other) const;
         bool operator!=(iterator const& other) const;
     };
-    subterms_postorder(expr_ref_vector const& es);
-    subterms_postorder(expr_ref const& e);
+    static subterms_postorder all(expr_ref_vector const& es) { return subterms_postorder(es, true); }
+    static subterms_postorder ground(expr_ref_vector const& es) { return subterms_postorder(es, false); }
+    static subterms_postorder all(expr_ref const& e) { return subterms_postorder(e, true); }
+    static subterms_postorder ground(expr_ref const& e) { return subterms_postorder(e, false); }
     iterator begin();
     iterator end();
 };

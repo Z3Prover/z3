@@ -35,10 +35,13 @@ class model_reconstruction_trail {
     struct entry {
         scoped_ptr<expr_substitution> m_subst;
         vector<dependent_expr>        m_removed;
+        func_decl*                    m_hide = nullptr;
         bool                          m_active = true;
 
         entry(expr_substitution* s, vector<dependent_expr> const& rem) :
             m_subst(s), m_removed(rem) {}
+
+        entry(func_decl* h) : m_hide(h) {}
 
         bool is_loose() const { return !m_removed.empty(); }
 
@@ -48,8 +51,6 @@ class model_reconstruction_trail {
                     return true;
             return false;
         }
-
-
     };
 
     ast_manager&             m;
@@ -81,6 +82,14 @@ public:
     */
     void push(expr_substitution* s, vector<dependent_expr> const& removed) {
         m_trail.push_back(alloc(entry, s, removed));
+        m_trail_stack.push(push_back_vector(m_trail));       
+    }
+
+    /**
+    * add declaration to hide
+    */
+    void push(func_decl* f) {
+        m_trail.push_back(alloc(entry, f));
         m_trail_stack.push(push_back_vector(m_trail));
     }
 

@@ -120,11 +120,11 @@ bool subterms::iterator::operator!=(iterator const& other) const {
 }
 
 
-subterms_postorder::subterms_postorder(expr_ref_vector const& es): m_es(es) {}
-subterms_postorder::subterms_postorder(expr_ref const& e) : m_es(e.m()) { if (e) m_es.push_back(e); }
+subterms_postorder::subterms_postorder(expr_ref_vector const& es, bool include_bound): m_include_bound(include_bound), m_es(es) {}
+subterms_postorder::subterms_postorder(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) { if (e) m_es.push_back(e); }
 subterms_postorder::iterator subterms_postorder::begin() { return iterator(*this, true); }
 subterms_postorder::iterator subterms_postorder::end() { return iterator(*this, false); }
-subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_es(f.m_es) {
+subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_include_bound(f.m_include_bound), m_es(f.m_es) {
     if (!start) m_es.reset();
     next();
 }
@@ -151,6 +151,13 @@ void subterms_postorder::iterator::next() {
                     m_es.push_back(arg);
                     all_visited = false;
                 }
+            }
+        }
+        else if (is_quantifier(e) && m_include_bound) {
+            expr* body = to_quantifier(e)->get_expr();
+            if (!m_visited.is_marked(body)) {
+                m_es.push_back(body);
+                all_visited = false;
             }
         }
         if (all_visited) {

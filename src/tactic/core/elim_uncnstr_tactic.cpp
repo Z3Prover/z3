@@ -856,9 +856,8 @@ class elim_uncnstr_tactic : public tactic {
     
     void init_mc(bool produce_models) {
         m_mc = nullptr;
-        if (produce_models) {
-            m_mc = alloc(mc, m(), "elim_uncstr");
-        }
+        if (produce_models) 
+            m_mc = alloc(mc, m(), "elim_uncstr");        
     }
     
     void init_rw(bool produce_proofs) {
@@ -872,7 +871,7 @@ class elim_uncnstr_tactic : public tactic {
         m_vars.reset();
         collect_occs p;
         p(*g, m_vars);
-        if (m_vars.empty() || recfun::util(m()).has_defs()) {
+        if (m_vars.empty() || recfun::util(m()).has_rec_defs()) {
             result.push_back(g.get());
             // did not increase depth since it didn't do anything.
             return;

@@ -22,6 +22,7 @@ Notes:
 #include "ast/converters/model_converter.h"
 
 class generic_model_converter : public model_converter {
+public:
     enum instruction { HIDE, ADD };
     struct entry {
         func_decl_ref m_f;
@@ -30,6 +31,7 @@ class generic_model_converter : public model_converter {
         entry(func_decl* f, expr* d, ast_manager& m, instruction i):
             m_f(f, m), m_def(d, m), m_instruction(i) {}
     };
+private:
     ast_manager& m;
     std::string  m_orig;
     vector<entry> m_entries;
@@ -67,6 +69,8 @@ public:
     void set_env(ast_pp_util* visitor) override;
 
     void get_units(obj_map<expr, bool>& units) override;
+
+    vector<entry> const& entries() const { return m_entries; }
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;
