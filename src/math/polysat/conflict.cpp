@@ -38,6 +38,8 @@ TODO:
     - it is not sound to do minimization for each constraint separately, if there are multiple constraints.
     - condition `c.is_currently_false(s, a)` is too weak (need also `c.bvalue(s) == l_true`?)
 
+- we are missing a stopping criterion like "first UIP" in  SAT solving. Currently we always resolve backwards until the decision.
+
 --*/
 
 #include "math/polysat/conflict.h"
@@ -152,6 +154,7 @@ namespace polysat {
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
+            SASSERT_EQ(m_max_jump_level, UINT_MAX);
         }
         return is_empty;
     }
@@ -166,6 +169,7 @@ namespace polysat {
         m_narrow_queue.reset();
         m_kind = conflict_kind_t::ok;
         m_level = UINT_MAX;
+        m_max_jump_level = UINT_MAX;
         SASSERT(empty());
     }
 
@@ -333,6 +337,31 @@ namespace polysat {
         for (sat::literal lit : *lemma) {
             LOG("   " << lit_pp(s, lit));
         }
+        // Two kinds of side lemmas:
+        // 1. If all constraints are false, then the side lemma is an alternative conflict lemma.
+        //      => we should at least jump back to the second-highest level in the lemma (could be lower, if so justified by another lemma)
+        // 2. If there is an undef constraint, then it is is a justification for this new constraint.
+        //    (Can there be more than one undef constraint? Should not happen for these lemmas.)
+        //      => TODO: (unclear) jump at least to the max level in the lemma and hope the propagation helps there? or ignore it for jump level computation?
+        unsigned max_level = 0;  // highest level in lemma
+        unsigned jump_level = 0;  // second-highest level in lemma
+        bool has_unassigned = false;
+        for (sat::literal lit : *lemma) {
+            if (!s.m_bvars.is_assigned(lit)) {
+                has_unassigned = true;
+                continue;
+            }
+            unsigned const lit_level = s.m_bvars.level(lit);
+            if (lit_level > max_level) {
+                jump_level = max_level;
+                max_level = lit_level;
+            } else if (max_level > lit_level && lit_level > jump_level) {
+                jump_level = lit_level;
+            }
+        }
+        if (has_unassigned)
+            jump_level = max_level;
+        m_max_jump_level = std::min(m_max_jump_level, jump_level);
         m_lemmas.push_back(std::move(lemma));
         // If possible, we should set the new constraint to l_true;
         // and re-enable the assertions marked with "tag:true_by_side_lemma".

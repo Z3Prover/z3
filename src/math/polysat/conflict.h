@@ -105,6 +105,9 @@ namespace polysat {
 
         // Additional lemmas that justify new constraints generated during conflict resolution
         clause_ref_vector m_lemmas;
+        // The maximal level on which none of the side lemmas is falsified.
+        // (If we backjump to a level higher than max_jump_level, at least one side lemma will be false.)
+        unsigned m_max_jump_level = UINT_MAX;
 
         // Store constraints that should be narrowed after backjumping.
         // This allows us to perform propagations that are missed by the two-watched-variables scheme,
@@ -227,6 +230,11 @@ namespace polysat {
 
         /** Move the accumulated side lemmas out of the conflict */
         clause_ref_vector take_side_lemmas();
+        /**
+         * Backjump at least to this level (or possibly to a lower level),
+         * to ensure all side lemmas can be propagated.
+         */
+        unsigned max_jump_level() const { return m_max_jump_level; }
 
         clause_ref_vector const& side_lemmas() const { return m_lemmas; }
 
