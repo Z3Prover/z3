@@ -51,6 +51,8 @@ namespace api {
     }
 
     void context::del_object(api::object* o) {
+        if (!o)
+            return;
 #ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
             lock_guard lock(m_mux);
