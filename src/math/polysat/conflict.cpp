@@ -570,7 +570,10 @@ namespace polysat {
             out << " bail vars";
         for (auto v : m_bail_vars)
             out << " v" << v;
-        // TODO: side lemmas?
+        if (!m_lemmas.empty())
+            out << " side lemmas";
+        for (clause const* lemma : m_lemmas)
+            out << " " << show_deref(lemma);
         return out;
     }
 }
