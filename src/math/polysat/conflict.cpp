@@ -401,7 +401,7 @@ namespace polysat {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
-        SASSERT(s.m_bvars.is_value_propagation(lit));
+        SASSERT(s.m_bvars.is_evaluation(lit));
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
 

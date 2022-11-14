@@ -22,10 +22,13 @@ namespace polysat {
 
         enum class kind_t {
             unassigned,
-            bool_propagation,
-            value_propagation,
-            assumption,
             decision,
+            /// input constraint
+            assumption,
+            /// propagated due to boolean clause
+            bool_propagation,
+            /// evaluated under pvar assignment
+            evaluation,
         };
 
         svector<sat::bool_var>      m_unused;   // previously deleted variables that can be reused by new_var();
@@ -57,8 +60,8 @@ namespace polysat {
         bool is_decision(sat::literal lit) const { return is_decision(lit.var()); }
         bool is_bool_propagation(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::bool_propagation; }
         bool is_bool_propagation(sat::literal lit) const { return is_bool_propagation(lit.var()); }
-        bool is_value_propagation(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::value_propagation; }
-        bool is_value_propagation(sat::literal lit) const { return is_value_propagation(lit.var()); }
+        bool is_evaluation(sat::bool_var var) const { SASSERT(invariant(var)); return m_kind[var] == kind_t::evaluation; }
+        bool is_evaluation(sat::literal lit) const { return is_evaluation(lit.var()); }
         lbool value(sat::bool_var var) const { return value(sat::literal(var)); }
         lbool value(sat::literal lit) const { return m_value[lit.index()]; }
         bool is_true(sat::literal lit) const { return value(lit) == l_true; }
@@ -86,7 +89,7 @@ namespace polysat {
             switch (k) {
             case kind_t::unassigned: return out << "unassigned";
             case kind_t::bool_propagation: return out << "bool propagation";
-            case kind_t::value_propagation: return out << "value propagation";
+            case kind_t::evaluation: return out << "evaluation";
             case kind_t::assumption: return out << "assumption";
             case kind_t::decision: return out << "decision";
             }

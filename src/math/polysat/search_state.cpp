@@ -50,7 +50,7 @@ namespace polysat {
                     out << "\n\t" << rpad(4, l2) << ": " << rpad(16, s.lit2cnstr(l2)) << "   " << bool_justification_pp(s.m_bvars, l2);
                 }
             }
-            else if (s.m_bvars.is_value_propagation(lit)) {
+            else if (s.m_bvars.is_evaluation(lit)) {
                 out << " evaluated";
             }
             else {

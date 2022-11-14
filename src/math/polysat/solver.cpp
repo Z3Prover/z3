@@ -733,7 +733,7 @@ namespace polysat {
                 if (m_bvars.is_bool_propagation(var))
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
                 else {
-                    SASSERT(m_bvars.is_value_propagation(var));
+                    SASSERT(m_bvars.is_evaluation(var));
                     m_conflict.resolve_with_assignment(lit);
                 }
             }
@@ -1188,7 +1188,7 @@ namespace polysat {
                 out << "assert";
             else if (s.m_bvars.is_bool_propagation(lit))
                 out << "bprop";
-            else if (s.m_bvars.is_value_propagation(lit))
+            else if (s.m_bvars.is_evaluation(lit))
                 out << "eval";
             else if (s.m_bvars.is_decision(lit))
                 out << "decide";
