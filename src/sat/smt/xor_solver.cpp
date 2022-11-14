@@ -300,7 +300,7 @@ namespace xr {
                     xors[j++] = x;
                 } 
                 else {
-                    for (const auto& v : x.m_clash_vars) 
+                    for (const bool_var& v : x.m_clash_vars)
                         m_removed_xorclauses_clash_vars.insert(v);                                        
                 }
             }
@@ -317,14 +317,14 @@ namespace xr {
     bool solver::clean_one_xor(xor_clause& x) {
     
         unsigned j = 0;
-        for (auto const& v : x.m_clash_vars)
+        for (const bool_var & v : x.m_clash_vars)
             if (s().value(v) == l_undef)
                 x.m_clash_vars[j++] = v;
         
         x.m_clash_vars.shrink(j);
     
         j = 0;
-        for (auto const& v : x) {
+        for (const bool_var& v : x) {
             if (s().value(v) != l_undef)
                 x.m_rhs  ^= s().value(v) == l_true;
             else
@@ -348,9 +348,9 @@ namespace xr {
                 return false;
             }
             case 2: {
-                sat::literal_vector vec(x.size());
+                literal_vector vec(x.size());
                 for (const auto& v : x.m_vars)
-                    vec.push_back(sat::literal(v));
+                    vec.push_back(literal(v));
                 add_xor_clause(vec, x.m_rhs, true);
                 return false;
             }
@@ -590,7 +590,7 @@ namespace xr {
             const auto& ws = s().get_wlist(i);
             for (const auto& w: ws) {
                 if (w.is_binary_clause()/* TODO: Does redundancy information exist in Z3? Can we use learned instead of "!w.red()"?*/ && !w.is_learned()) {
-                    sat::bool_var v = w.get_literal().var();
+                    bool_var v = w.get_literal().var();
                     s().mark_visited(v);
                 }
             }
@@ -646,7 +646,7 @@ namespace xr {
                     }
                 }
                 SASSERT(at == 2);
-                ws.resize(i2);
+                ws.shrink(i2);
     
                 xor_clause& x0 = xors[indexes[0]];
                 xor_clause& x1 = xors[indexes[1]];
@@ -704,7 +704,7 @@ namespace xr {
                     changed = true;
                     xors.push_back(x_new);
                     for (bool_var v2 : x_new) {
-                        sat::literal l(v2, false);
+                        literal l(v2, false);
                         watch_neg_literal(l, xors.size() - 1);
                         SASSERT(m_occ_cnt[l.var()] >= 1);
                         if (m_occ_cnt[l.var()] == 2 && !s().is_visited(l.var())) {
