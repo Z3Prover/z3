@@ -867,6 +867,8 @@ class elim_uncnstr_tactic : public tactic {
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         TRACE("goal", g->display(tout););
+        std::function<void(statistics&)> coll = [&](statistics& st) { collect_statistics(st); };
+        statistics_report sreport(coll);
         tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
         collect_occs p;
@@ -959,7 +961,6 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
         run(g, result);
-        report_tactic_progress(":num-elim-apps", m_num_elim_apps);
     }
     
     void cleanup() override {
@@ -969,7 +970,7 @@ public:
     }
 
     void collect_statistics(statistics & st) const override {
-        st.update("eliminated applications", m_num_elim_apps);
+        st.update("elim-unconstrained", m_num_elim_apps);
     }
     
     void reset_statistics() override {

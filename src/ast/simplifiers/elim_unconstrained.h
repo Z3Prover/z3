@@ -72,7 +72,7 @@ public:
 
     void reduce() override;
 
-    void collect_statistics(statistics& st) const override { st.update("elim-unconstr", m_stats.m_num_eliminated); }
+    void collect_statistics(statistics& st) const override { st.update("elim-unconstrained", m_stats.m_num_eliminated); }
 
     void reset_statistics() override { m_stats.reset(); }
 };

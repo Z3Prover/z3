@@ -96,6 +96,7 @@ void elim_unconstrained::eliminate() {
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         n.m_refcount = 0;
+        m_trail.push_back(r);
         SASSERT(r);
         gc(e);
 
@@ -250,7 +251,9 @@ void elim_unconstrained::reconstruct_terms() {
 }
 
 void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
-    for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+
+    unsigned sz = m_fmls.size();
+    for (unsigned i = m_qhead; i < sz; ++i) {
         auto [f, d] = m_fmls[i]();
         node& n = get_node(f);
         expr* g = n.m_term;
