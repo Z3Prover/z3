@@ -30,9 +30,9 @@ static const unsigned unassigned_col = UINT32_MAX;
 
 ///returns popcnt
 unsigned PackedRow::find_watchVar(
-    sat::literal_vector& tmp_clause,
+    literal_vector& tmp_clause,
     const unsigned_vector& col_to_var,
-    char_vector &var_has_resp_row,
+    bool_vector &var_has_resp_row,
     unsigned& non_resp_var) {
     unsigned popcnt = 0;
     non_resp_var = UINT_MAX;
@@ -98,7 +98,7 @@ void PackedRow::get_reason(
 
 gret PackedRow::propGause(
     const unsigned_vector& col_to_var,
-    char_vector &var_has_resp_row,
+    bool_vector &var_has_resp_row,
     unsigned& new_resp_var,
     PackedRow& tmp_col,
     PackedRow& tmp_col2,
@@ -273,16 +273,13 @@ void EGaussian::fill_matrix() {
     }
     mat.resize(num_rows, num_cols); // initial gaussian matrix
 
-    bdd_matrix.clear();
     for (unsigned row = 0; row < num_rows; row++) {
         const xor_clause& c = m_xorclauses[row];
         mat[row].set(c, var_to_col, num_cols);
         char_vector line;
         line.resize(num_rows, 0);
         line[row] = 1;
-        bdd_matrix.push_back(line);
     }
-    SASSERT(bdd_matrix.size() == num_rows);
 
     // reset
     var_has_resp_row.clear();
@@ -294,7 +291,7 @@ void EGaussian::fill_matrix() {
     //reset satisfied_xor state
     SASSERT(m_solver.m_num_scopes == 0);
     satisfied_xors.clear();
-    satisfied_xors.resize(num_rows, 0);
+    satisfied_xors.resize(num_rows, false);
 }
 
 void EGaussian::delete_gauss_watch_this_matrix() {
@@ -346,7 +343,6 @@ bool EGaussian::full_init(bool& created) {
             case gret::prop:
                 SASSERT(m_solver.m_num_scopes == 0);
                 m_solver.s().propagate(false); // TODO: Can we really do this here?
-                // m_solver.ok = m_solver.propagate<false>().isNull();
                 if (inconsistent()) {
                     TRACE("xor", tout << "eliminate & adjust matrix during init lead to UNSAT\n";);
                     return false;
@@ -394,42 +390,38 @@ bool EGaussian::full_init(bool& created) {
 }
 
 void EGaussian::eliminate() {
-    PackedMatrix::iterator end_row_it = mat.begin() + num_rows;
-    PackedMatrix::iterator rowI = mat.begin();
+    // TODO: Why twice? gauss_jordan_elim
+    const unsigned end_row = num_rows;
+    unsigned rowI = 0;
     unsigned row_i = 0;
     unsigned col = 0;
 
     // Gauss-Jordan Elimination
     while (row_i != num_rows && col != num_cols) {
-        PackedMatrix::iterator row_with_1_in_col = rowI;
+        unsigned row_with_1_in_col = rowI;
         unsigned row_with_1_in_col_n = row_i;
 
-        //Find first "1" in column.
-        for (; row_with_1_in_col != end_row_it; ++row_with_1_in_col, row_with_1_in_col_n++) {
-            if ((*row_with_1_in_col)[col]) 
+        // Find first "1" in column.
+        for (; row_with_1_in_col < end_row; ++row_with_1_in_col, row_with_1_in_col_n++) {
+            if (mat[row_with_1_in_col][col])
                 break;            
         }
 
-        //We have found a "1" in this column
-        if (row_with_1_in_col != end_row_it) {
-            var_has_resp_row[col_to_var[col]] = 1;
+        // We have found a "1" in this column
+        if (row_with_1_in_col < end_row) {
+            var_has_resp_row[col_to_var[col]] = true;
 
             // swap row row_with_1_in_col and rowIt
-            if (row_with_1_in_col != rowI) {
-                (*rowI).swapBoth(*row_with_1_in_col);
-                std::swap(bdd_matrix[row_i], bdd_matrix[row_with_1_in_col_n]);
-            }
+            if (row_with_1_in_col != rowI)
+                mat[rowI].swapBoth(mat[row_with_1_in_col]);
 
             // XOR into *all* rows that have a "1" in column COL
             // Since we XOR into *all*, this is Gauss-Jordan (and not just Gauss)
             unsigned k = 0;
-            for (PackedMatrix::iterator k_row = mat.begin()
-                ; k_row != end_row_it
-                ; ++k_row, k++
-            ) {
+            for (unsigned k_row = 0; k_row < end_row; ++k_row, k++) {
                 // xor rows K and I
-                if (k_row != rowI && (*k_row)[col]) {
-                    (*k_row).xor_in(*rowI);
+                if (k_row != rowI && mat[k_row][col]) {
+                    mat[k_row].xor_in(mat[rowI]);
                 }
             }
             row_i++;
@@ -439,7 +431,7 @@ void EGaussian::eliminate() {
     }
 }
 
-sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
+literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
     if (!xor_reasons[row].m_must_recalc) {
         out_ID = xor_reasons[row].m_ID;
         return &(xor_reasons[row].m_reason);
@@ -447,7 +439,7 @@ sat::literal_vector* EGaussian::get_reason(const unsigned row, int& out_ID) {
 
     // Clean up previous one
     
-    svector<literal>& to_fill = xor_reasons[row].m_reason;
+    literal_vector& to_fill = xor_reasons[row].m_reason;
     to_fill.clear();
 
     mat[row].get_reason(
@@ -493,7 +485,7 @@ gret EGaussian::init_adjust_matrix() {
                 }
                 TRACE("xor", tout << "-> empty on row: " << row_i;);
                 TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
-                satisfied_xors[row_i] = 1;
+                satisfied_xors[row_i] = true;
                 break;
 
             //Unit (i.e. toplevel unit)
@@ -508,13 +500,13 @@ gret EGaussian::init_adjust_matrix() {
 
                 TRACE("xor", tout << "-> UNIT during adjust: " << tmp_clause[0];);
                 TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
-                satisfied_xors[row_i] = 1;
+                satisfied_xors[row_i] = true;
                 SASSERT(check_row_satisfied(row_i));
 
                 //adjusting
                 row.setZero(); // reset this row all zero
                 row_to_var_non_resp.push_back(UINT32_MAX);
-                var_has_resp_row[tmp_clause[0].var()] = 0;
+                var_has_resp_row[tmp_clause[0].var()] = false;
                 return gret::prop;
             }
 
@@ -535,7 +527,7 @@ gret EGaussian::init_adjust_matrix() {
                 row.setZero();
 
                 row_to_var_non_resp.push_back(UINT32_MAX); // delete non-basic value in this row
-                var_has_resp_row[tmp_clause[0].var()] = 0; // delete basic value in this row
+                var_has_resp_row[tmp_clause[0].var()] = false; // delete basic value in this row
                 break;
             }
 
@@ -579,7 +571,7 @@ void EGaussian::delete_gausswatch(const unsigned row_n) {
 
 unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
     int ID;
-    auto cl = get_reason(row_n, ID);
+    literal_vector* cl = get_reason(row_n, ID);
     unsigned nMaxLevel = gqd.currLevel;
     unsigned nMaxInd = 1;
 
@@ -634,8 +626,8 @@ bool EGaussian::find_truths(
         //var has a responsible row, so THIS row must be it!
         //since if a var has a responsible row, only ONE row can have a 1 there
         was_resp_var = true;
-        var_has_resp_row[row_to_var_non_resp[row_n]] = 1;
-        var_has_resp_row[var] = 0;
+        var_has_resp_row[row_to_var_non_resp[row_n]] = true;
+        var_has_resp_row[var] = false;
     }
 
     unsigned new_resp_var;
@@ -663,8 +655,8 @@ bool EGaussian::find_truths(
             TRACE("xor", tout << "--> conflict";);
             
             if (was_resp_var) { // recover
-                var_has_resp_row[row_to_var_non_resp[row_n]] = 0;
-                var_has_resp_row[var] = 1;
+                var_has_resp_row[row_to_var_non_resp[row_n]] = false;
+                var_has_resp_row[var] = true;
             }
 
             return false;
@@ -684,12 +676,12 @@ bool EGaussian::find_truths(
             gqd.status = gauss_res::prop;
 
             if (was_resp_var) { // recover
-                var_has_resp_row[row_to_var_non_resp[row_n]] = 0;
-                var_has_resp_row[var] = 1;
+                var_has_resp_row[row_to_var_non_resp[row_n]] = false;
+                var_has_resp_row[var] = true;
             }
 
             TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n;);
-            satisfied_xors[row_n] = 1;
+            satisfied_xors[row_n] = true;
             SASSERT(check_row_satisfied(row_n));
             return true;
         }
@@ -719,8 +711,8 @@ bool EGaussian::find_truths(
                 //so elimination will be needed
 
                 //clear old one, add new resp
-                var_has_resp_row[row_to_var_non_resp[row_n]] = 0;
-                var_has_resp_row[new_resp_var] = 1;
+                var_has_resp_row[row_to_var_non_resp[row_n]] = false;
+                var_has_resp_row[new_resp_var] = true;
 
                 // store the eliminate variable & row
                 gqd.new_resp_var = new_resp_var;
@@ -742,12 +734,12 @@ bool EGaussian::find_truths(
             find_truth_ret_satisfied++;
             ws[j++] = ws[i];
             if (was_resp_var) { // recover
-                var_has_resp_row[row_to_var_non_resp[row_n]] = 0;
-                var_has_resp_row[var] = 1;
+                var_has_resp_row[row_to_var_non_resp[row_n]] = false;
+                var_has_resp_row[var] = true;
             }
 
             TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n;);
-            satisfied_xors[row_n] = 1;
+            satisfied_xors[row_n] = true;
             SASSERT(check_row_satisfied(row_n));
             return true;
 
@@ -843,7 +835,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                 << " is being watched on var: " << orig_non_resp_var + 1
                 << " i.e. it must contain '1' for this var's column";);
 
-            SASSERT(satisfied_xors[row_i] == 0);
+            SASSERT(!satisfied_xors[row_i]);
             (*rowI).xor_in(*(mat.begin() + new_resp_row_n));
 
             elim_xored_rows++;
@@ -919,7 +911,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         gqd.status = gauss_res::prop;
 
                         TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i;);
-                        satisfied_xors[row_i] = 1;
+                        satisfied_xors[row_i] = true;
                         SASSERT(check_row_satisfied(row_i));
                         break;
                     }
@@ -946,7 +938,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                         row_to_var_non_resp[row_i] = p;
 
                         TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i;);
-                        satisfied_xors[row_i] = 1;
+                        satisfied_xors[row_i] = true;
                         SASSERT(check_row_satisfied(row_i));
                         break;
                     default:

@@ -336,11 +336,6 @@ namespace xr {
             case 0:
                 if (x.m_rhs)
                     s().set_conflict();
-                /*TODO: Implement
-                if (inconsistent()) {
-                    SASSERT(m_solver.unsat_cl_ID == 0);
-                    m_solver.unsat_cl_ID = solver->clauseID;
-                }*/
                 return false;
             case 1: {
                 s().assign_scoped(sat::literal(x[0], !x.m_rhs));
@@ -589,10 +584,8 @@ namespace xr {
         for (unsigned i = 0; i < 2 * s().num_vars(); i++) {
             const auto& ws = s().get_wlist(i);
             for (const auto& w: ws) {
-                if (w.is_binary_clause()/* TODO: Does redundancy information exist in Z3? Can we use learned instead of "!w.red()"?*/ && !w.is_learned()) {
-                    bool_var v = w.get_literal().var();
-                    s().mark_visited(v);
-                }
+                if (w.is_binary_clause()/* TODO: Does redundancy information exist in Z3? Can we use learned instead of "!w.red()"?*/ && !w.is_learned())
+                    s().mark_visited(w.get_literal().var());
             }
         }
     
@@ -601,7 +594,7 @@ namespace xr {
             if (cl->red() || cl->used_in_xor()) {
                 continue;
             }*/
-            // TODO: maybe again instead
+            // TODO: maybe again this instead
             if (cl->is_learned())
                 continue;
             for (literal l: *cl)
