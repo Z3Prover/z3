@@ -151,31 +151,32 @@ namespace xr {
         bool confl_in_gauss = false;
         SASSERT(m_gwatches.size() > p.var());
         svector<gauss_watched>& ws = m_gwatches[p.var()];
-        gauss_watched* i = ws.begin();
-        gauss_watched* j = i;
-        const gauss_watched* end = ws.end();
+        unsigned i = 0, j = 0;
+        const unsigned end = ws.size();
         
-        for (; i != end; i++) {
-            if (m_gqueuedata[i->matrix_num].disabled || !m_gmatrices[i->matrix_num]->is_initialized())
+        for (; i < end; i++) {
+            const unsigned matrix_num = ws[i].matrix_num; 
+            const unsigned row_n = ws[i].row_n; 
+            if (m_gqueuedata[matrix_num].disabled || !m_gmatrices[matrix_num]->is_initialized())
                 continue; //remove watch and continue
         
-            m_gqueuedata[i->matrix_num].new_resp_var = UINT_MAX;
-            m_gqueuedata[i->matrix_num].new_resp_row = UINT_MAX;
-            m_gqueuedata[i->matrix_num].do_eliminate = false;
-            m_gqueuedata[i->matrix_num].currLevel = currLevel;
+            m_gqueuedata[matrix_num].new_resp_var = UINT_MAX;
+            m_gqueuedata[matrix_num].new_resp_row = UINT_MAX;
+            m_gqueuedata[matrix_num].do_eliminate = false;
+            m_gqueuedata[matrix_num].currLevel = currLevel;
         
-            if (m_gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, m_gqueuedata[i->matrix_num])) {
+            if (m_gmatrices[matrix_num]->find_truths(ws, i, j, p.var(), row_n, m_gqueuedata[matrix_num])) {
                 continue;
             } 
             else {
                 confl_in_gauss = true;
-                i++;
+                i++; // TODO: That's strange, but this is really written this was in CMS
                 break;
             }
         }
         
-        for (; i != end; i++) 
-            *j++ = *i;
+        for (; i < end; i++) 
+            ws[j++] = ws[i];
         ws.shrink((unsigned)(i - j));
         
         for (unsigned g = 0; g < m_gqueuedata.size(); g++) {
@@ -299,7 +300,7 @@ namespace xr {
                     xors[j++] = x;
                 } 
                 else {
-                    for (const auto& v : x.m_clash_vars) 
+                    for (const bool_var& v : x.m_clash_vars)
                         m_removed_xorclauses_clash_vars.insert(v);                                        
                 }
             }
@@ -316,14 +317,14 @@ namespace xr {
     bool solver::clean_one_xor(xor_clause& x) {
     
         unsigned j = 0;
-        for (auto const& v : x.m_clash_vars)
+        for (const bool_var & v : x.m_clash_vars)
             if (s().value(v) == l_undef)
                 x.m_clash_vars[j++] = v;
         
         x.m_clash_vars.shrink(j);
     
         j = 0;
-        for (auto const& v : x) {
+        for (const bool_var& v : x) {
             if (s().value(v) != l_undef)
                 x.m_rhs  ^= s().value(v) == l_true;
             else
@@ -335,11 +336,6 @@ namespace xr {
             case 0:
                 if (x.m_rhs)
                     s().set_conflict();
-                /*TODO: Implement
-                if (inconsistent()) {
-                    SASSERT(m_solver.unsat_cl_ID == 0);
-                    m_solver.unsat_cl_ID = solver->clauseID;
-                }*/
                 return false;
             case 1: {
                 s().assign_scoped(sat::literal(x[0], !x.m_rhs));
@@ -347,9 +343,9 @@ namespace xr {
                 return false;
             }
             case 2: {
-                sat::literal_vector vec(x.size());
+                literal_vector vec(x.size());
                 for (const auto& v : x.m_vars)
-                    vec.push_back(sat::literal(v));
+                    vec.push_back(literal(v));
                 add_xor_clause(vec, x.m_rhs, true);
                 return false;
             }
@@ -490,23 +486,24 @@ namespace xr {
     
     void solver::clean_equivalent_xors(vector<xor_clause>& txors){
         if (!txors.empty()) {
-            size_t orig_size = txors.size();
             for (xor_clause& x: txors) 
                 std::sort(x.begin(), x.end());            
             std::sort(txors.begin(), txors.end());
     
+            m_visited.init_visited(s().num_vars());
+            
             unsigned sz = 1;
             unsigned j = 0;
             for (unsigned i = 1; i < txors.size(); i++) {
                 auto& jd = txors[j];
                 auto& id = txors[i];
                 if (jd.m_vars == id.m_vars && jd.m_rhs == id.m_rhs) {
-                    jd.merge_clash(id, m_visited);
+                    jd.merge_clash(id, m_visited, s().num_vars());
                     jd.m_detached |= id.m_detached;
                 } 
                 else {
                     j++;
-                    j = i;
+                    txors[j] = txors[i];
                     sz++;
                 }
             }
@@ -566,8 +563,8 @@ namespace xr {
     
         unsigned xored = 0;
         SASSERT(m_occurrences.empty());
-    #if 0
-        //Link in xors into watchlist
+    
+        // Link in xors into watchlist
         for (unsigned i = 0; i < xors.size(); i++) {
             const xor_clause& x = xors[i];
             for (bool_var v: x) {
@@ -577,22 +574,18 @@ namespace xr {
                 m_occ_cnt[v]++;
     
                 sat::literal l(v, false);
-                SASSERT(s()->watches.size() > l.toInt());
-                m_watches[l].push(Watched(i, WatchType::watch_idx_t));
-                m_watches.smudge(l);
+                watch_neg_literal(l, i);
             }
         }
     
-        //Don't XOR together over variables that are in regular clauses
+        // Don't XOR together over variables that are in regular clauses
         s().init_visited();
         
         for (unsigned i = 0; i < 2 * s().num_vars(); i++) {
             const auto& ws = s().get_wlist(i);
             for (const auto& w: ws) {
-                if (w.is_binary_clause()/* TODO: Does redundancy information exist in Z3? Can we use learned instead of "!w.red()"?*/ && !w.is_learned()) {
-                    sat::bool_var v = w.get_literal().var();
-                    s().mark_visited(v);
-                }
+                if (w.is_binary_clause()/* TODO: Does redundancy information exist in Z3? Can we use learned instead of "!w.red()"?*/ && !w.is_learned())
+                    s().mark_visited(w.get_literal().var());
             }
         }
     
@@ -601,19 +594,19 @@ namespace xr {
             if (cl->red() || cl->used_in_xor()) {
                 continue;
             }*/
-            // TODO: maybe again instead
+            // TODO: maybe again this instead
             if (cl->is_learned())
                 continue;
             for (literal l: *cl)
                 s().mark_visited(l.var());
         }
     
-        //until fixedpoint
+        // until fixedpoint
         bool changed = true;
         while (changed) {
             changed = false;
             m_interesting.clear();
-            for (const unsigned l : m_occurrences) {
+            for (const bool_var l : m_occurrences) {
                 if (m_occ_cnt[l] == 2 && !s().is_visited(l)) {
                     m_interesting.push_back(l);
                 }
@@ -621,7 +614,7 @@ namespace xr {
     
             while (!m_interesting.empty()) {
     
-                //Pop and check if it can be XOR-ed together
+                // Pop and check if it can be XOR-ed together
                 const unsigned v = m_interesting.back();
                 m_interesting.resize(m_interesting.size()-1);
                 if (m_occ_cnt[v] != 2)
@@ -630,48 +623,49 @@ namespace xr {
                 unsigned indexes[2];
                 unsigned at = 0;
                 size_t i2 = 0;
-                //SASSERT(watches.size() > literal(v, false).index());
-                vector<sat::watched> ws = s().get_wlist(literal(v, false));
+                sat::watch_list& ws = s().get_wlist(literal(v, false));
     
                 //Remove the 2 indexes from the watchlist
                 for (unsigned i = 0; i < ws.size(); i++) {
                     const sat::watched& w = ws[i];
-                    if (!w.isIdx()) {
+                    if (!w.is_ext_constraint()) {
+                        // TODO: Check!!! Is this fine?
                         ws[i2++] = ws[i];
-                    } else if (!xors[w.get_idx()].empty()) {
+                    } 
+                    else if (!xors[w.get_ext_constraint_idx()].empty()) {
                         SASSERT(at < 2);
-                        indexes[at] = w.get_idx();
+                        indexes[at] = w.get_ext_constraint_idx();
                         at++;
                     }
                 }
                 SASSERT(at == 2);
-                ws.resize(i2);
+                ws.shrink(i2);
     
                 xor_clause& x0 = xors[indexes[0]];
                 xor_clause& x1 = xors[indexes[1]];
                 unsigned clash_var;
                 unsigned clash_num = xor_two(&x0, &x1, clash_var);
     
-                //If they are equivalent
+                // If they are equivalent
                 if (x0.size() == x1.size()
                     && x0.m_rhs == x1.m_rhs
-                    && clash_num == x0.size()
-                ) {
+                    && clash_num == x0.size()) {
+                    
                     TRACE("xor", tout 
-                    << "x1: " << x0 << " -- at idx: " << indexes[0] 
-                    << "and  x2: " << x1 << " -- at idx: " << indexes[1] 
-                    << "are equivalent.\n");
+                        << "x1: " << x0 << " -- at idx: " << indexes[0] 
+                        << "and  x2: " << x1 << " -- at idx: " << indexes[1] 
+                        << "are equivalent.\n");
     
-                    //Update clash values & detached values
-                    x1.merge_clash(x0, m_visited);
+                    // Update clash values & detached values
+                    x1.merge_clash(x0, m_visited, s().num_vars());
                     x1.m_detached |= x0.m_detached;
     
                     TRACE("xor", tout << "after merge: " << x1 <<  " -- at idx: " << indexes[1] << "\n";);
     
                     x0 = xor_clause();
     
-                    //Re-attach the other, remove the occur of the one we deleted
-                    s().m_watches[Lit(v, false)].push(Watched(indexes[1], WatchType::watch_idx_t));
+                    // Re-attach the other, remove the occurrence of the one we deleted
+                    watch_neg_literal(ws, indexes[1]);
     
                     for (unsigned v2: x1) {
                         sat::literal l(v2, false);
@@ -682,29 +676,29 @@ namespace xr {
                         }
                     }
                 } else if (clash_num > 1 || x0.m_detached || x1.m_detached) {
-                    //add back to ws, can't do much
-                    ws.push(Watched(indexes[0], WatchType::watch_idx_t));
-                    ws.push(Watched(indexes[1], WatchType::watch_idx_t));
+                    // add back to watch-list, can't do much
+                    watch_neg_literal(ws, indexes[0]);
+                    watch_neg_literal(ws, indexes[1]);
                     continue;
                 } else {
                     m_occ_cnt[v] -= 2;
                     SASSERT(m_occ_cnt[v] == 0);
     
                     xor_clause x_new(m_tmp_vars_xor_two, x0.m_rhs ^ x1.m_rhs, clash_var);
-                    x_new.merge_clash(x0, m_visited);
-                    x_new.merge_clash(x1, m_visited);
+                    x_new.merge_clash(x0, m_visited, s().num_vars());
+                    x_new.merge_clash(x1, m_visited, s().num_vars());
     
                     TRACE("xor", tout 
-                    << "x1: " << x0 << " -- at idx: " << indexes[0] << "\n" 
-                    << "x2: " << x1 << " -- at idx: " << indexes[1] << "\n"
-                    << "clashed on var: " << clash_var+1 << "\n"
-                    << "final: " << x_new <<  " -- at idx: " << xors.size() << "\n";);
+                        << "x1: " << x0 << " -- at idx: " << indexes[0] << "\n" 
+                        << "x2: " << x1 << " -- at idx: " << indexes[1] << "\n"
+                        << "clashed on var: " << clash_var+1 << "\n"
+                        << "final: " << x_new <<  " -- at idx: " << xors.size() << "\n";);
     
                     changed = true;
                     xors.push_back(x_new);
-                    for(uint32_t v2: x_new) {
-                        sat::literal l(v2, false);
-                        s().watches[l].push(Watched(xors.size()-1, WatchType::watch_idx_t));
+                    for (bool_var v2 : x_new) {
+                        literal l(v2, false);
+                        watch_neg_literal(l, xors.size() - 1);
                         SASSERT(m_occ_cnt[l.var()] >= 1);
                         if (m_occ_cnt[l.var()] == 2 && !s().is_visited(l.var())) {
                             m_interesting.push_back(l.var());
@@ -717,17 +711,101 @@ namespace xr {
             }
         }
     
-        //Clear
+        // Clear
         for (const bool_var l : m_occurrences) { 
             m_occ_cnt[l] = 0;
+            // Caution: Merged smudge- (from watched literals) and occurrences-list
+            clean_occur_from_idx(literal(l, false));
         }
         m_occurrences.clear();
     
-        clean_occur_from_idx_types_only_smudged();
         clean_xors_from_empty(xors);
-        #endif
     
         return !s().inconsistent();
+    }
+    
+    
+    // Remove all watches coming from xor solver
+    // TODO: Differentiate if the watch came from another theory (not xor)!!
+    void solver::clean_occur_from_idx(const literal l) {
+        vector<sat::watched>& ws = s().get_wlist(~l); // the same polarity that was added
+        unsigned i = 0, j = 0;
+        const unsigned end = ws.size();
+        for (; i < end; i++) {
+            if (!ws[i].is_ext_constraint()) {
+                ws[j++] = ws[i];
+            }
+        }
+        ws.shrink(i - j);
+    }
+    
+    // Removes all xor clauses that do not contain any variables 
+    // (and have rhs = false; i.e., are trivially satisfied) and move them to unused
+    void solver::clean_xors_from_empty(vector<xor_clause>& thisxors) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < thisxors.size(); i++) {
+            xor_clause& x = thisxors[i];
+            if (x.empty() && !x.m_rhs) {
+                if (!x.m_clash_vars.empty()) {
+                    m_xorclauses_unused.push_back(x);
+                }
+            } else {
+                thisxors[j++] = thisxors[i];
+            }
+        }
+        thisxors.shrink(j);
+    }
+    
+    // Merge two xor clauses; the resulting clause is in m_tmp_vars_xor_two and the variable where it was glued is in clash_var
+    // returns 0 if no common variable was found, 1 if there was exactly one and 2 if there are more
+    // only 1 is successful
+    unsigned solver::xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var) {
+        m_tmp_vars_xor_two.clear();
+        if (x1_p->size() > x2_p->size())
+            std::swap(x1_p, x2_p);
+        
+        const xor_clause& x1 = *x1_p;
+        const xor_clause& x2 = *x2_p;
+    
+        m_visited.init_visited(s().num_vars(), 2);
+        
+        unsigned clash_num = 0;
+        for (bool_var v : x1) {
+            SASSERT(!m_visited.is_visited(v));
+            m_visited.inc_visited(v);
+        }
+    
+        bool_var i_x2;
+        bool early_abort = false;
+        for (i_x2 = 0; i_x2 < x2.size(); i_x2++) {
+            bool_var v = x2[i_x2];
+            SASSERT(m_visited.num_visited(v) < 2);
+            if (!m_visited.is_visited(v)) {
+                m_tmp_vars_xor_two.push_back(v);
+            } 
+            else {
+                clash_var = v;
+                if (clash_num > 0 && clash_num != i_x2) {
+                    //early abort, it's never gonna be good
+                    clash_num++;
+                    early_abort = true;
+                    break;
+                }
+                clash_num++;
+            }
+            
+            m_visited.inc_visited(v, 2);
+        }
+    
+        if (!early_abort) {
+            for (bool_var v: x1) {
+                if (m_visited.num_visited(v) < 2) {
+                    m_tmp_vars_xor_two.push_back(v);
+                }
+            }
+        }
+    
+        return clash_num;
     }
     
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const  {

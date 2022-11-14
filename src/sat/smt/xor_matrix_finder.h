@@ -28,7 +28,7 @@ namespace xr {
     class xor_matrix_finder {
         
         struct matrix_shape {
-            matrix_shape(uint32_t matrix_num) : m_num(matrix_num) {}
+            matrix_shape(unsigned matrix_num) : m_num(matrix_num) {}
         
             matrix_shape() {}
         
@@ -39,12 +39,12 @@ namespace xr {
             double m_density = 0;
         
             uint64_t tot_size() const {
-                return (uint64_t)m_rows*(uint64_t)m_cols;
+                return (uint64_t)m_rows * (uint64_t)m_cols;
             }
         };
 
         struct sorter {
-            bool operator () (const matrix_shape& left, const matrix_shape& right) {
+            bool operator()(const matrix_shape& left, const matrix_shape& right) {
                 return left.m_sum_xor_sizes < right.m_sum_xor_sizes;
             }
         };

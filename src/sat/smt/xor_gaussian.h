@@ -231,8 +231,8 @@ namespace xr {
         }
     
         // add all elements in other.m_clash_vars that are not yet in m_clash_vars:
-        void merge_clash(const xor_clause& other, visit_helper& visited) {
-            visited.init_visited(m_clash_vars.size());
+        void merge_clash(const xor_clause& other, visit_helper& visited, unsigned num_vars) {
+            visited.init_visited(num_vars);
             for (const bool_var& v: m_clash_vars) 
                 visited.mark_visited(v);            
     
@@ -356,8 +356,8 @@ namespace xr {
             int64_t* __restrict mp1 = mp - 1;
             int64_t* __restrict mp2 = b.mp - 1;
     
-            unsigned i = size+1;
-            while(i != 0) {
+            unsigned i = size + 1;
+            while (i != 0) {
                 std::swap(*mp1, *mp2);
                 mp1++;
                 mp2++;
@@ -391,13 +391,13 @@ namespace xr {
         unsigned find_watchVar(
             sat::literal_vector& tmp_clause,
             const unsigned_vector& col_to_var,
-            char_vector &var_has_resp_row,
+            bool_vector &var_has_resp_row,
             unsigned& non_resp_var);
     
         // using find nonbasic value after watch list is enter
         gret propGause(
             const unsigned_vector& col_to_var,
-            char_vector &var_has_resp_row,
+            bool_vector &var_has_resp_row,
             unsigned& new_resp_var,
             PackedRow& tmp_col,
             PackedRow& tmp_col2,
@@ -551,14 +551,15 @@ namespace xr {
     
         ///returns FALSE in case of conflict
         bool find_truths(
-            gauss_watched*& i,
-            gauss_watched*& j,
+            svector<gauss_watched>& ws,
+            unsigned& i,
+            unsigned& j,
             const unsigned var,
             const unsigned row_n,
             gauss_data& gqd
         );
     
-        sat::literal_vector* get_reason(const unsigned row, int& out_ID);
+        literal_vector* get_reason(const unsigned row, int& out_ID);
     
         // when basic variable is touched , eliminate one col
         void eliminate_col(
@@ -634,23 +635,22 @@ namespace xr {
         bool cancelled_since_val_update = true;
         unsigned last_val_update = 0;
     
-        //Is the clause at this ROW satisfied already?
-        //satisfied_xors[row] tells me that
-        // TODO: Are characters enough?
-        char_vector satisfied_xors;
+        // Is the clause at this ROW satisfied already?
+        // satisfied_xors[row] tells me that
+        // TODO: Maybe compress further
+        bool_vector satisfied_xors;
     
         // Someone is responsible for this column if TRUE
-        ///we always WATCH this variable
-        char_vector var_has_resp_row;
+        // we always WATCH this variable
+        bool_vector var_has_resp_row;
     
-        ///row_to_var_non_resp[ROW] gives VAR it's NOT responsible for
-        ///we always WATCH this variable
+        // row_to_var_non_resp[ROW] gives VAR it's NOT responsible for
+        // we always WATCH this variable
         unsigned_vector row_to_var_non_resp;
     
     
         PackedMatrix mat;
-        svector<char_vector> bdd_matrix; // TODO: we will probably not need it
-        unsigned_vector  var_to_col; ///var->col mapping. Index with VAR
+        unsigned_vector var_to_col; ///var->col mapping. Index with VAR
         unsigned_vector col_to_var; ///col->var mapping. Index with COL
         unsigned num_rows = 0;
         unsigned num_cols = 0;
@@ -669,7 +669,7 @@ namespace xr {
     
     inline void EGaussian::canceling() {
         cancelled_since_val_update = true;
-        memset(satisfied_xors.data(), 0, satisfied_xors.size());
+        memset(satisfied_xors.data(), false, satisfied_xors.size());
     }
     
     inline double EGaussian::get_density() {
