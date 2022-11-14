@@ -75,14 +75,14 @@ void elim_unconstrained::eliminate() {
             return;
 
         if (n.m_parents.empty()) {
-            --n.m_refcount;
+            n.m_refcount = 0;
             continue;
         }
         expr* e = get_parent(v);
         for (expr* p : n.m_parents)
             IF_VERBOSE(11, verbose_stream() << "parent " << mk_bounded_pp(p, m) << "\n");
         if (!e || !is_app(e) || !is_ground(e)) {
-            --n.m_refcount;
+            n.m_refcount = 0;
             continue;
         }
         app* t = to_app(e);
@@ -90,10 +90,9 @@ void elim_unconstrained::eliminate() {
         for (expr* arg : *to_app(t))
             m_args.push_back(get_node(arg).m_term);
         if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) {
-            --n.m_refcount;
+            n.m_refcount = 0;
             continue;
         }
-        --n.m_refcount;
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         n.m_refcount = 0;

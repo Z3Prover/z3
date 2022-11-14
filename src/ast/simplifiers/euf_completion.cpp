@@ -98,7 +98,7 @@ namespace euf {
             if (g != f) {
                 m_fmls.update(i, dependent_expr(m, g, dep));
                 m_stats.m_num_rewrites++;
-                IF_VERBOSE(10, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
+                IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
             }
             CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
@@ -174,7 +174,7 @@ namespace euf {
         bool change = false;
         for (expr* arg : *to_app(f)) {
             m_eargs.push_back(get_canonical(arg, d));
-            change = arg != m_eargs.back();
+            change |= arg != m_eargs.back();
         }
 
         if (!change) 
