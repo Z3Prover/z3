@@ -82,8 +82,6 @@ namespace polysat {
     enum class conflict_kind_t {
         // standard conflict resolution
         ok,
-        // bailout lemma because no appropriate conflict resolution method applies
-        bailout,
         // conflict contains the final lemma;
         // backtrack to and revert the last relevant decision
         // NOTE: this is currently used for the forbidden intervals lemmas.
@@ -147,9 +145,7 @@ namespace polysat {
         unsigned level() const { return m_level; }
 
         conflict_kind_t kind() const { return m_kind; }
-        bool is_bailout() const { return m_kind == conflict_kind_t::bailout; }
         bool is_backtracking() const { return m_kind == conflict_kind_t::backtrack; }
-        void set_bailout();
         void set_backtrack();
 
         bool is_relevant_pvar(pvar v) const;

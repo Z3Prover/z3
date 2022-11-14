@@ -76,9 +76,6 @@ namespace polysat {
         switch (core.kind()) {
         case conflict_kind_t::ok:
             break;
-        case conflict_kind_t::bailout:
-            out_indent() << "(bailout)\n";
-            break;
         case conflict_kind_t::backtrack:
             out_indent() << "(backtrack)\n";
             break;

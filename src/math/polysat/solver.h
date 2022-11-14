@@ -52,7 +52,6 @@ namespace polysat {
             unsigned m_num_decisions;
             unsigned m_num_propagations;
             unsigned m_num_conflicts;
-            unsigned m_num_bailouts;
             unsigned m_num_restarts;
             unsigned m_num_viable_fallback;  ///< how often did we query the univariate solver
             void reset() { memset(this, 0, sizeof(*this)); }

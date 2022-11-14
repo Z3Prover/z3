@@ -694,7 +694,6 @@ namespace polysat {
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                // if (!m_conflict.contains_pvar(v) && !m_conflict.is_bailout()) {
                 if (!m_conflict.is_relevant_pvar(v)) {
                     m_search.pop_assignment();
                     continue;
@@ -1217,7 +1216,6 @@ namespace polysat {
         st.update("polysat iterations",      m_stats.m_num_iterations);
         st.update("polysat decisions",       m_stats.m_num_decisions);
         st.update("polysat conflicts",       m_stats.m_num_conflicts);
-        st.update("polysat bailouts",        m_stats.m_num_bailouts);
         st.update("polysat propagations",    m_stats.m_num_propagations);
         st.update("polysat restarts",        m_stats.m_num_restarts);
         st.update("polysat viable fallback", m_stats.m_num_viable_fallback);

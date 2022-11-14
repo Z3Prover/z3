@@ -24,10 +24,6 @@ TODO:
     - bailout lemma if no method applies (log these cases in particular because it indicates where we are missing something)
     - force a restart if we get a bailout lemma or non-asserting conflict?
 
-- store the side lemmas as well (but only those that justify a constraint in the final lemma, recursively)
-
-- consider case if v is both in vars and bail_vars (do we need to keep it in bail_vars even if we can eliminate it from vars?)
-
 - Find a way to use resolve_value with forbidden interval lemmas.
   Then get rid of conflict_kind_t::backtrack and m_relevant_vars.
   Maybe:
@@ -173,12 +169,6 @@ namespace polysat {
         SASSERT(empty());
     }
 
-    void conflict::set_bailout() {
-        SASSERT(m_kind == conflict_kind_t::ok);
-        m_kind = conflict_kind_t::bailout;
-        s.m_stats.m_num_bailouts++;
-    }
-
     void conflict::set_backtrack() {
         SASSERT(m_kind == conflict_kind_t::ok);
         SASSERT(m_relevant_vars.empty());
@@ -190,8 +180,6 @@ namespace polysat {
         switch (m_kind) {
         case conflict_kind_t::ok:
             return contains_pvar(v);
-        case conflict_kind_t::bailout:
-            return true;
         case conflict_kind_t::backtrack:
             return pvar_occurs_in_constraints(v) || m_relevant_vars.contains(v);
         }
@@ -431,9 +419,6 @@ namespace polysat {
 
     bool conflict::resolve_value(pvar v) {
 
-        if (is_bailout())
-            return false;
-
         if (is_backtracking()) {
             for (auto const& c : s.m_viable.get_constraints(v))
                 for (pvar v : c->vars()) {
@@ -462,12 +447,9 @@ namespace polysat {
         if (m_resolver->try_resolve_value(v, *this))
             return true;
 
-        // No conflict resolution plugin succeeded => give up and bail out
-        set_bailout();
         // Need to keep the variable in case of decision
         if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);
-        logger().log("Bailout");
         return false;
     }
 
