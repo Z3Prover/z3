@@ -153,7 +153,6 @@ namespace polysat {
         if (is_empty) {
             SASSERT(m_literals.empty());
             SASSERT(m_vars.empty());
-            SASSERT(m_bail_vars.empty());
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
@@ -164,7 +163,6 @@ namespace polysat {
     void conflict::reset() {
         m_literals.reset();
         m_vars.reset();
-        m_bail_vars.reset();
         m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_vars_occurring.reset();
@@ -372,7 +370,6 @@ namespace polysat {
         SASSERT(!empty());
         m_literals.reset();
         m_vars.reset();
-        m_bail_vars.reset();
         m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_vars_occurring.reset();
@@ -410,9 +407,10 @@ namespace polysat {
 
         // If evaluation depends on a decision,
         // then we rather keep the more general constraint c instead of inserting "x = v"
+        // TODO: the old implementation based on bail_vars is broken because it may skip relevant decisions.
+        //       is there a way to keep the same effect by adding a side lemma at this point?
         bool has_decision = false;
 #if 0
-        // TODO: this is problematic; may skip relevant decisions
         for (pvar v : c->vars())
             if (s.is_assigned(v) && s.m_justification[v].is_decision())
                 m_bail_vars.insert(v), has_decision = true;
@@ -447,9 +445,6 @@ namespace polysat {
 
         SASSERT(contains_pvar(v));
         auto const& j = s.m_justification[v];
-
-        if (j.is_decision() && m_bail_vars.contains(v))   // TODO: what if also m_vars.contains(v)? might have a chance at elimination
-            return false;
 
         s.inc_activity(v);
         m_vars.remove(v);
@@ -565,10 +560,6 @@ namespace polysat {
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
-            out << " v" << v;
-        if (!m_bail_vars.empty())
-            out << " bail vars";
-        for (auto v : m_bail_vars)
             out << " v" << v;
         if (!m_lemmas.empty())
             out << " side lemmas";

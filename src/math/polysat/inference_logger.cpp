@@ -73,10 +73,6 @@ namespace polysat {
             out_indent() << assignment_pp(s, v, s.get_value(v)) << "\n";
             m_used_vars.insert(v);
         }
-        for (auto v : core.bail_vars()) {
-            out_indent() << assignment_pp(s, v, s.get_value(v)) << " (bail)\n";
-            m_used_vars.insert(v);
-        }
         switch (core.kind()) {
         case conflict_kind_t::ok:
             break;

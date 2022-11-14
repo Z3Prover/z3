@@ -100,7 +100,6 @@ namespace polysat {
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
-        uint_set m_bail_vars;               // decision variables that are only used to evaluate a constraint; see resolve_with_assignment.
         uint_set m_relevant_vars;           // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
@@ -144,7 +143,6 @@ namespace polysat {
         const_iterator end() const;
 
         uint_set const& vars() const { return m_vars; }
-        uint_set const& bail_vars() const { return m_bail_vars; }
 
         unsigned level() const { return m_level; }
 
@@ -171,7 +169,7 @@ namespace polysat {
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
-        bool contains_pvar(pvar v) const { return m_vars.contains(v) || m_bail_vars.contains(v); }
+        bool contains_pvar(pvar v) const { return m_vars.contains(v); }
         bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
         uint_set const& vars_occurring_in_constraints() const { return m_vars_occurring; }
 
