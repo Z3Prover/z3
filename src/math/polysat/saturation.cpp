@@ -97,13 +97,13 @@ namespace polysat {
         if (!inserting)
             return false;
 
+        // TODO: add as a side lemma instead of changing the conflict
         core.remove_all();
         for (auto d : m_new_constraints)
             core.insert_eval(d);
         if (c.bvalue(s) != l_false)  // conflict is due to the evaluation of c, so it depends on the variable values
             core.insert_vars(c);
         core.insert_eval(~c);
-        core.set_backjump();
         core.logger().log(inf_name);
         LOG("Core " << core);
         return true;        

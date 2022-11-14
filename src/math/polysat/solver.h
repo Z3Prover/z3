@@ -210,7 +210,6 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void backjump_lemma();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
         void backjump_and_learn(unsigned jump_level, clause& lemma);

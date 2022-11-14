@@ -90,9 +90,6 @@ namespace polysat {
         //       we should find a way to use resolve_value with these lemmas,
         //       to properly eliminate value propagations. (see todo notes above)
         backtrack,
-        // conflict contains the final lemma;
-        // force backjumping without further conflict resolution because a good lemma has been found
-        backjump,
     };
 
     class conflict {
@@ -154,10 +151,8 @@ namespace polysat {
         conflict_kind_t kind() const { return m_kind; }
         bool is_bailout() const { return m_kind == conflict_kind_t::bailout; }
         bool is_backtracking() const { return m_kind == conflict_kind_t::backtrack; }
-        bool is_backjumping() const { return m_kind == conflict_kind_t::backjump; }
         void set_bailout();
         void set_backtrack();
-        void set_backjump();
 
         bool is_relevant_pvar(pvar v) const;
         bool is_relevant(sat::literal lit) const;

@@ -707,10 +707,6 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
-                if (m_conflict.is_backjumping()) {
-                    backjump_lemma();
-                    return;
-                }
                 m_search.pop_assignment();
             }
             else {
@@ -747,6 +743,7 @@ namespace polysat {
         report_unsat();
     }
 
+#if 0
     /**
      * Simple backjumping for lemmas:
      * jump to the level where the lemma can be (bool-)propagated,
@@ -775,6 +772,7 @@ namespace polysat {
         jump_level = std::max(jump_level, base_level());
         backjump_and_learn(jump_level, *lemma);
     }
+#endif
 
     /**
      * Revert a decision that caused a conflict.

@@ -86,9 +86,6 @@ namespace polysat {
         case conflict_kind_t::backtrack:
             out_indent() << "(backtrack)\n";
             break;
-        case conflict_kind_t::backjump:
-            out_indent() << "(backjump)\n";
-            break;
         }
         for (clause* lemma : core.side_lemmas()) {
             out_indent() << "Side lemma: " << *lemma << "\n";

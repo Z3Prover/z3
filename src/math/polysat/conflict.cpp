@@ -187,10 +187,6 @@ namespace polysat {
         m_kind = conflict_kind_t::backtrack;
 
     }
-    void conflict::set_backjump() {
-        SASSERT(m_kind == conflict_kind_t::ok);
-        m_kind = conflict_kind_t::backjump;
-    }
 
     bool conflict::is_relevant_pvar(pvar v) const {
         switch (m_kind) {
@@ -200,9 +196,6 @@ namespace polysat {
             return true;
         case conflict_kind_t::backtrack:
             return pvar_occurs_in_constraints(v) || m_relevant_vars.contains(v);
-        case conflict_kind_t::backjump:
-            UNREACHABLE();  // we don't follow the regular loop when backjumping
-            return false;
         }
         UNREACHABLE();
         return false;
@@ -411,9 +404,6 @@ namespace polysat {
         SASSERT(s.m_bvars.is_value_propagation(lit));
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
-
-        if (is_backjumping())
-            return;
 
         unsigned const lvl = s.m_bvars.level(lit);
         signed_constraint c = s.lit2cnstr(lit);
