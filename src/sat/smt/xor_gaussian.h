@@ -551,8 +551,9 @@ namespace xr {
     
         ///returns FALSE in case of conflict
         bool find_truths(
-            gauss_watched*& i,
-            gauss_watched*& j,
+            svector<gauss_watched>& ws,
+            unsigned& i,
+            unsigned& j,
             const unsigned var,
             const unsigned row_n,
             gauss_data& gqd

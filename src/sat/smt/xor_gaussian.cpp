@@ -600,8 +600,9 @@ unsigned EGaussian::get_max_level(const gauss_data& gqd, const unsigned row_n) {
 }
 
 bool EGaussian::find_truths(
-    gauss_watched*& i,
-    gauss_watched*& j,
+    svector<gauss_watched>& ws,
+    unsigned& i,
+    unsigned& j,
     const unsigned var,
     const unsigned row_n,
     gauss_data& gqd) {
@@ -622,7 +623,7 @@ bool EGaussian::find_truths(
     if (satisfied_xors[row_n]) {
         TRACE("xor", tout << "-> xor satisfied as per satisfied_xors[row_n]";);
         SASSERT(check_row_satisfied(row_n));
-        *j++ = *i;
+        ws[j++] = ws[i];
         find_truth_ret_satisfied_precheck++;
         return true;
     }
@@ -653,7 +654,7 @@ bool EGaussian::find_truths(
     switch (ret) {
         case gret::confl: {
             find_truth_ret_confl++;
-            *j++ = *i;
+            ws[j++] = ws[i];
 
             xor_reasons[row_n].m_must_recalc = true;
             xor_reasons[row_n].m_propagated = sat::null_literal;
@@ -672,7 +673,7 @@ bool EGaussian::find_truths(
         case gret::prop: {
             find_truth_ret_prop++;
             TRACE("xor", tout << "--> propagation";);
-            *j++ = *i;
+            ws[j++] = ws[i];
 
             xor_reasons[row_n].m_must_recalc = true;
             xor_reasons[row_n].m_propagated = ret_lit_prop;
@@ -739,8 +740,7 @@ bool EGaussian::find_truths(
             TRACE("xor", tout << "--> satisfied";);
 
             find_truth_ret_satisfied++;
-            // printf("%d:This row is nothing( maybe already true)     n",row_n);
-            *j++ = *i;
+            ws[j++] = ws[i];
             if (was_resp_var) { // recover
                 var_has_resp_row[row_to_var_non_resp[row_n]] = 0;
                 var_has_resp_row[var] = 1;

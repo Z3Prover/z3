@@ -71,6 +71,8 @@ namespace xr {
         
         void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
         
+        void clean_occur_from_idx(const literal l);
+        void clean_xors_from_empty(vector<xor_clause>& thisxors);
         unsigned xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var);
         
         bool inconsistent() const { return s().inconsistent(); }
@@ -81,11 +83,11 @@ namespace xr {
         }
         
         bool is_neg_watched(literal lit, size_t idx) const {
-            return s().get_wlist(lit).contains(sat::watched((sat::ext_constraint_idx)idx));
+            return s().get_wlist(~lit).contains(sat::watched((sat::ext_constraint_idx)idx));
         }
         
         void unwatch_neg_literal(literal lit, size_t idx) {
-            s().get_wlist(lit).erase(sat::watched(idx));
+            s().get_wlist(~lit).erase(sat::watched(idx));
             SASSERT(!is_neg_watched(lit, idx));
         }
         
@@ -95,7 +97,7 @@ namespace xr {
         }
         
         void watch_neg_literal(literal lit, size_t idx) {
-            watch_neg_literal(s().get_wlist(lit), idx);
+            watch_neg_literal(s().get_wlist(~lit), idx);
         }
 
         

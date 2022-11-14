@@ -151,20 +151,21 @@ namespace xr {
         bool confl_in_gauss = false;
         SASSERT(m_gwatches.size() > p.var());
         svector<gauss_watched>& ws = m_gwatches[p.var()];
-        gauss_watched* i = ws.begin(); // TODO: Convert to index or iterator-for 
-        gauss_watched* j = i;
-        const gauss_watched* end = ws.end();
+        unsigned i = 0, j = 0;
+        const unsigned end = ws.size();
         
-        for (; i != end; i++) {
-            if (m_gqueuedata[i->matrix_num].disabled || !m_gmatrices[i->matrix_num]->is_initialized())
+        for (; i < end; i++) {
+            const unsigned matrix_num = ws[i].matrix_num; 
+            const unsigned row_n = ws[i].row_n; 
+            if (m_gqueuedata[matrix_num].disabled || !m_gmatrices[matrix_num]->is_initialized())
                 continue; //remove watch and continue
         
-            m_gqueuedata[i->matrix_num].new_resp_var = UINT_MAX;
-            m_gqueuedata[i->matrix_num].new_resp_row = UINT_MAX;
-            m_gqueuedata[i->matrix_num].do_eliminate = false;
-            m_gqueuedata[i->matrix_num].currLevel = currLevel;
+            m_gqueuedata[matrix_num].new_resp_var = UINT_MAX;
+            m_gqueuedata[matrix_num].new_resp_row = UINT_MAX;
+            m_gqueuedata[matrix_num].do_eliminate = false;
+            m_gqueuedata[matrix_num].currLevel = currLevel;
         
-            if (m_gmatrices[i->matrix_num]->find_truths(i, j, p.var(), i->row_n, m_gqueuedata[i->matrix_num])) {
+            if (m_gmatrices[matrix_num]->find_truths(ws, i, j, p.var(), row_n, m_gqueuedata[matrix_num])) {
                 continue;
             } 
             else {
@@ -174,8 +175,8 @@ namespace xr {
             }
         }
         
-        for (; i != end; i++) 
-            *j++ = *i;
+        for (; i < end; i++) 
+            ws[j++] = ws[i];
         ws.shrink((unsigned)(i - j));
         
         for (unsigned g = 0; g < m_gqueuedata.size(); g++) {
@@ -490,7 +491,6 @@ namespace xr {
     
     void solver::clean_equivalent_xors(vector<xor_clause>& txors){
         if (!txors.empty()) {
-            size_t orig_size = txors.size();
             for (xor_clause& x: txors) 
                 std::sort(x.begin(), x.end());            
             std::sort(txors.begin(), txors.end());
@@ -508,7 +508,7 @@ namespace xr {
                 } 
                 else {
                     j++;
-                    j = i;
+                    txors[j] = txors[i];
                     sz++;
                 }
             }
@@ -580,8 +580,6 @@ namespace xr {
     
                 sat::literal l(v, false);
                 watch_neg_literal(l, i);
-                // TODO: What's that for? 
-                //  m_watches.smudge(l);
             }
         }
     
@@ -615,7 +613,7 @@ namespace xr {
         while (changed) {
             changed = false;
             m_interesting.clear();
-            for (const unsigned l : m_occurrences) {
+            for (const bool_var l : m_occurrences) {
                 if (m_occ_cnt[l] == 2 && !s().is_visited(l)) {
                     m_interesting.push_back(l);
                 }
@@ -723,16 +721,51 @@ namespace xr {
         // Clear
         for (const bool_var l : m_occurrences) { 
             m_occ_cnt[l] = 0;
+            // Caution: Merged smudge- (from watched literals) and occurrences-list
+            clean_occur_from_idx(literal(l, false));
         }
         m_occurrences.clear();
     
-        // TODO: Implement
-        //clean_occur_from_idx_types_only_smudged();
-        //clean_xors_from_empty(xors);
+        clean_xors_from_empty(xors);
     
         return !s().inconsistent();
     }
     
+    
+    // Remove all watches coming from xor solver
+    // TODO: Differentiate if the watch came from another theory (not xor)!!
+    void solver::clean_occur_from_idx(const literal l) {
+        vector<sat::watched>& ws = s().get_wlist(~l); // the same polarity that was added
+        unsigned i = 0, j = 0;
+        const unsigned end = ws.size();
+        for (; i < end; i++) {
+            if (!ws[i].is_ext_constraint()) {
+                ws[j++] = ws[i];
+            }
+        }
+        ws.shrink(i - j);
+    }
+    
+    // Removes all xor clauses that do not contain any variables 
+    // (and have rhs = false; i.e., are trivially satisfied) and move them to unused
+    void solver::clean_xors_from_empty(vector<xor_clause>& thisxors) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < thisxors.size(); i++) {
+            xor_clause& x = thisxors[i];
+            if (x.empty() && !x.m_rhs) {
+                if (!x.m_clash_vars.empty()) {
+                    m_xorclauses_unused.push_back(x);
+                }
+            } else {
+                thisxors[j++] = thisxors[i];
+            }
+        }
+        thisxors.shrink(j);
+    }
+    
+    // Merge two xor clauses; the resulting clause is in m_tmp_vars_xor_two and the variable where it was glued is in clash_var
+    // returns 0 if no common variable was found, 1 if there was exactly one and 2 if there are more
+    // only 1 is successful
     unsigned solver::xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var) {
         m_tmp_vars_xor_two.clear();
         if (x1_p->size() > x2_p->size())
