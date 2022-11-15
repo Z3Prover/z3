@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    solve_eqs2_tactic.h
+    solve_eqs_tactic.h
 
 Abstract:
 
