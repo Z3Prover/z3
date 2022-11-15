@@ -154,9 +154,11 @@ namespace euf {
                 return e1.var->get_id() < e2.var->get_id(); });
         unsigned j = 0;
         expr* last_var = nullptr;
+        bool was_unsafe = false;
         for (auto const& eq : eqs) {
 
             SASSERT(!m.is_bool(eq.var));
+
 
             if (eq.var != last_var) {
 
@@ -167,8 +169,11 @@ namespace euf {
                 mark_occurs(m_todo, eq.var, m_contains_v);
                 SASSERT(m_todo.empty());
                 last_var = eq.var;
-                if (m_contains_v.is_marked(eq.term))
+                was_unsafe = false;
+                if (m_contains_v.is_marked(eq.term)) {
+                    was_unsafe = true;
                     continue;
+                }
 
                 // then mark occurrences
                 for (unsigned i = 0; i < m_fmls.size(); ++i)
@@ -178,7 +183,9 @@ namespace euf {
             }
             else if (m_contains_v.is_marked(eq.term))
                 continue;
-
+            else if (was_unsafe) 
+                continue;
+            
             // subject to occurrences, check if equality is safe
             if (is_safe_eq(eq.orig)) 
                 eqs[j++] = eq;
