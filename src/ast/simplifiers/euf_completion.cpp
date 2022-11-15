@@ -90,7 +90,8 @@ namespace euf {
             return;
         }
 
-        for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+        unsigned sz = m_fmls.size();
+        for (unsigned i = m_qhead; i < sz; ++i) {
             auto [f, d] = m_fmls[i]();
             
             expr_dependency_ref dep(d, m);
