@@ -1489,6 +1489,7 @@ namespace smt {
         m_approximates_large_bvs(false) {
         memset(m_eq_activity, 0, sizeof(m_eq_activity));
         memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
+        m_bb.set_flat_and_or(false);
     }
 
     theory_bv::~theory_bv() {
