@@ -197,7 +197,7 @@ namespace euf {
         if (!m.inc())
             return;
 
-        if (m_config.m_context_solve) {            
+        if (m_config.m_context_solve && false) {            
             old_fmls.reset();
             m_subst_ids.reset();
             eqs.reset();
