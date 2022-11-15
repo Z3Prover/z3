@@ -94,7 +94,7 @@ namespace xr {
                     newSet.push_back(v);
             }
             if (tomerge.size() == 1) {
-                const unsigned into = *tomerge.begin();
+                unsigned into = *tomerge.begin();
                 unsigned_vector& intoReverse = m_reverseTable.find(into);
                 for (unsigned i = 0; i < newSet.size(); i++) {
                     intoReverse.push_back(newSet[i]);
@@ -104,9 +104,8 @@ namespace xr {
             }
     
             for (unsigned v: tomerge) {
-                for (const auto& v2 : m_reverseTable[v]) {
+                for (const auto& v2 : m_reverseTable[v]) 
                     newSet.insert(v2);
-                }
                 m_reverseTable.erase(v);
             }
             for (auto j : newSet)
@@ -133,7 +132,7 @@ namespace xr {
 
         for (xor_clause& x : m_xor.m_xorclauses) {
             // take 1st variable to check which matrix it's in.
-            const unsigned matrix = m_table[x[0]];
+            unsigned matrix = m_table[x[0]];
             SASSERT(matrix < m_matrix_no);
     
             //for stats

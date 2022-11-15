@@ -606,11 +606,9 @@ namespace xr {
         while (changed) {
             changed = false;
             m_interesting.clear();
-            for (const bool_var l : m_occurrences) {
-                if (m_occ_cnt[l] == 2 && !s().is_visited(l)) {
+            for (const bool_var l : m_occurrences) 
+                if (m_occ_cnt[l] == 2 && !s().is_visited(l)) 
                     m_interesting.push_back(l);
-                }
-            }
     
             while (!m_interesting.empty()) {
     
@@ -622,7 +620,7 @@ namespace xr {
     
                 unsigned indexes[2];
                 unsigned at = 0;
-                size_t i2 = 0;
+                unsigned i2 = 0;
                 sat::watch_list& ws = s().get_wlist(literal(v, false));
     
                 //Remove the 2 indexes from the watchlist
@@ -632,6 +630,9 @@ namespace xr {
                         // TODO: Check!!! Is this fine?
                         ws[i2++] = ws[i];
                     } 
+                    // NSB code review get_ext_constraint_idx() is a pointer.
+                    // If it corresponds to an index in the watch list, use a helper function
+                    // to convert it.
                     else if (!xors[w.get_ext_constraint_idx()].empty()) {
                         SASSERT(at < 2);
                         indexes[at] = w.get_ext_constraint_idx();
