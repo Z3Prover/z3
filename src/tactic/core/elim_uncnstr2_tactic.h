@@ -30,7 +30,7 @@ public:
 };
 
 inline tactic * mk_elim_uncnstr2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(elim_uncnstr2_tactic_factory), "elim-unconstr2");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(elim_uncnstr2_tactic_factory), "elim-uncnstr2");
 }
 
 

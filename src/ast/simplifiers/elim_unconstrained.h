@@ -23,9 +23,9 @@ Author:
 class elim_unconstrained : public dependent_expr_simplifier {
 
     struct node {
-        unsigned         m_refcount;
-        expr*            m_term;
-        expr*            m_orig;
+        unsigned         m_refcount = 0;
+        expr*            m_term = nullptr;
+        expr*            m_orig = nullptr;
         ptr_vector<expr> m_parents;
     };
     struct var_lt {
@@ -52,11 +52,12 @@ class elim_unconstrained : public dependent_expr_simplifier {
     bool is_var_lt(int v1, int v2) const;
     node& get_node(unsigned n) { return m_nodes[n]; }
     node const& get_node(unsigned n) const { return m_nodes[n]; }
-    node& get_node(expr* t) { return m_nodes[m_root[t->get_id()]]; }
-    node const& get_node(expr* t) const { return m_nodes[m_root[t->get_id()]]; }
+    node& get_node(expr* t) { return m_nodes[root(t)]; }
+    unsigned root(expr* t) const { return m_root[t->get_id()]; }
+    node const& get_node(expr* t) const { return m_nodes[root(t)]; }
     unsigned get_refcount(expr* t) const { return get_node(t).m_refcount; }
-    void inc_ref(expr* t) { ++get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.increased(t->get_id()); }
-    void dec_ref(expr* t) { --get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.decreased(t->get_id()); }
+    void inc_ref(expr* t) { ++get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.increased(root(t)); }
+    void dec_ref(expr* t) { --get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.decreased(root(t)); }
     void gc(expr* t);
     expr* get_parent(unsigned n) const;
     void init_terms(expr_ref_vector const& terms);

@@ -47,11 +47,9 @@ Author:
 
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
     dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m) {
-
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_frozen.is_marked(e) && get_node(e).m_refcount == 1;
+        return is_uninterp_const(e) && !m_frozen.is_marked(e) && get_node(e).m_refcount <= 1;
     };
-
     m_inverter.set_is_var(is_var);
 }
 
@@ -60,7 +58,6 @@ bool elim_unconstrained::is_var_lt(int v1, int v2) const {
     node const& n2 = get_node(v2);
     return n1.m_refcount < n2.m_refcount;
 }
-
 
 void elim_unconstrained::eliminate() {
 
@@ -79,8 +76,7 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         expr* e = get_parent(v);
-        for (expr* p : n.m_parents)
-            IF_VERBOSE(11, verbose_stream() << "parent " << mk_bounded_pp(p, m) << "\n");
+        IF_VERBOSE(11, for (expr* p : n.m_parents) verbose_stream() << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
         if (!e || !is_app(e) || !is_ground(e)) {
             n.m_refcount = 0;
             continue;
@@ -90,6 +86,7 @@ void elim_unconstrained::eliminate() {
         for (expr* arg : *to_app(t))
             m_args.push_back(get_node(arg).m_term);
         if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) {
+            IF_VERBOSE(11, verbose_stream() << "not inverted " << mk_bounded_pp(e, m) << "\n");
             n.m_refcount = 0;
             continue;
         }
@@ -103,12 +100,12 @@ void elim_unconstrained::eliminate() {
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
         get_node(e).m_refcount++;
-        IF_VERBOSE(11, verbose_stream() << mk_pp(e, m) << "\n");
-        SASSERT(!m_heap.contains(e->get_id()));
+        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << "\n");
+        SASSERT(!m_heap.contains(root(e)));
         if (is_uninterp_const(r)) 
-            m_heap.insert(e->get_id());                    
+            m_heap.insert(root(e));                    
 
-        IF_VERBOSE(11, verbose_stream() << mk_pp(n.m_orig, m) << " " << mk_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n");
+        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(n.m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
 
         SASSERT(!side_cond && "not implemented to add side conditions\n");
     }
@@ -178,7 +175,7 @@ void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
         n.m_term = e;
         n.m_refcount = 0;
         if (is_uninterp_const(e))
-            m_heap.insert(e->get_id());
+            m_heap.insert(root(e));
         if (is_quantifier(e)) {
             expr* body = to_quantifier(e)->get_expr();
             get_node(body).m_parents.push_back(e);

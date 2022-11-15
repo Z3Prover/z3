@@ -72,6 +72,8 @@ namespace euf {
 
         void updt_params(params_ref const& p) override;
 
+        void collect_param_descrs(param_descrs& r) override;
+
         void collect_statistics(statistics& st) const override;
 
     };

@@ -31,7 +31,6 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
-#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"

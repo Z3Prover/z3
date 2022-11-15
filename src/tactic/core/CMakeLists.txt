@@ -18,7 +18,6 @@ z3_add_component(core_tactics
     propagate_values_tactic.cpp
     reduce_args_tactic.cpp
     simplify_tactic.cpp
-    solve_eqs_tactic.cpp
     special_relations_tactic.cpp
     split_clause_tactic.cpp
     symmetry_reduce_tactic.cpp
@@ -48,7 +47,6 @@ z3_add_component(core_tactics
     reduce_args_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h
-    solve_eqs2_tactic.h
     special_relations_tactic.h
     split_clause_tactic.h
     symmetry_reduce_tactic.h

@@ -20,7 +20,6 @@ Notes:
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
-#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/distribute_forall_tactic.h"
 #include "tactic/core/der_tactic.h"
 #include "tactic/core/reduce_args_tactic.h"

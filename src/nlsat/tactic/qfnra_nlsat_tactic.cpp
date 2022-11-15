@@ -27,7 +27,6 @@ Notes:
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
-#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/elim_term_ite_tactic.h"
 
 tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {

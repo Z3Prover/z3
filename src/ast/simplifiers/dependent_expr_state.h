@@ -61,9 +61,9 @@ public:
  */
 class dependent_expr_simplifier {
 protected:
-    ast_manager&          m;
+    ast_manager& m;
     dependent_expr_state& m_fmls;
-    trail_stack&          m_trail;
+    trail_stack& m_trail;
     unsigned              m_qhead = 0;          // pointer into last processed formula in m_fmls
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
@@ -78,6 +78,7 @@ public:
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
+    virtual void collect_param_descrs(param_descrs& r) {}
 };
 
 /**

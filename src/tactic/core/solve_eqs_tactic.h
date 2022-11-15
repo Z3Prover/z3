@@ -1,37 +1,47 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    solve_eqs_tactic.h
+    solve_eqs2_tactic.h
 
 Abstract:
 
-    Tactic for solving equations and performing gaussian elimination.
+    Tactic for solving variables
 
 Author:
 
-    Leonardo de Moura (leonardo) 2011-12-29.
-
-Revision History:
+    Nikolaj Bjorner (nbjorner) 2022-10-30
 
 --*/
 #pragma once
 
 #include "util/params.h"
-class ast_manager;
-class tactic;
+#include "tactic/tactic.h"
+#include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/solve_eqs.h"
 
-tactic * mk_solve_eqs1_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-#if 0
+class solve_eqs2_tactic_factory : public dependent_expr_simplifier_factory {
+public:
+    dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) override {
+        return alloc(euf::solve_eqs, m, s);
+    }
+};
+
+inline tactic * mk_solve_eqs2_tactic(ast_manager& m, params_ref const& p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p, alloc(solve_eqs2_tactic_factory), "solve-eqs");
+}
+
+#if 1
 inline tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p = params_ref()) {
-    return mk_solve_eqs1_tactic(m, p);
+    return mk_solve_eqs2_tactic(m, p);
 }
 #endif
 
+
 /*
-  ADD_TACTIC("solve-eqs", "eliminate variables by solving equations.", "mk_solve_eqs1_tactic(m, p)")
+  ADD_TACTIC("solve-eqs", "solve for variables.", "mk_solve_eqs2_tactic(m, p)")
 */
 
 

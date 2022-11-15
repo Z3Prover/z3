@@ -22,7 +22,6 @@ Notes:
 #include "tactic/arith/propagate_ineqs_tactic.h"
 #include "tactic/arith/normalize_bounds_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
-#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/arith/add_bounds_tactic.h"
 #include "tactic/arith/pb2bv_tactic.h"

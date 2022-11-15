@@ -21,7 +21,6 @@ Notes:
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
-#include "tactic/core/solve_eqs2_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
