@@ -823,6 +823,10 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
 
     elim_called++;
 
+    // NSB code review: can't we use mat[row_i]
+    // and for (unsigned row_i = 0; row_i < mat.size(); ++row_i)
+    // replace occurrences of *rowI by mat[row_i]
+    // 
     while (rowI != end) {
         //Row has a '1' in eliminating column, and it's not the row responsible
         if (new_resp_row_n != row_i && (*rowI)[new_resp_col]) {
