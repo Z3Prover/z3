@@ -183,22 +183,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
-                family_id s_fid = args[0]->get_sort()->get_family_id();
-                if (s_fid == m_a_rw.get_fid())
-                    st = m_a_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_bv_rw.get_fid())
-                    st = m_bv_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_dt_rw.get_fid())
-                    st = m_dt_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_f_rw.get_fid())
-                    st = m_f_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_ar_rw.get_fid())
-                    st = m_ar_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_seq_rw.get_fid())
-                    st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-                if (st != BR_FAILED)
-                    return st;
-                st = apply_tamagotchi(args[0], args[1], result);
+                st = reduce_eq(args[0], args[1], result);
                 if (st != BR_FAILED)
                     return st;
             }
@@ -695,9 +680,35 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     expr_ref mk_app(func_decl* f, unsigned num_args, expr* const* args) {
         expr_ref result(m());
         proof_ref pr(m());
-        if (BR_FAILED == reduce_app(f, num_args, args, result, pr)) {
+        if (BR_FAILED == reduce_app(f, num_args, args, result, pr)) 
             result = m().mk_app(f, num_args, args);
-        }
+        return result;
+    }
+
+    br_status reduce_eq(expr* a, expr* b, expr_ref& result) {
+        family_id s_fid = a->get_sort()->get_family_id();
+        br_status st = BR_FAILED;
+        if (s_fid == m_a_rw.get_fid())
+            st = m_a_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_bv_rw.get_fid())
+            st = m_bv_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_dt_rw.get_fid())
+            st = m_dt_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_f_rw.get_fid())
+            st = m_f_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_ar_rw.get_fid())
+            st = m_ar_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_seq_rw.get_fid())
+            st = m_seq_rw.mk_eq_core(a, b, result);
+        if (st != BR_FAILED)
+            return st;
+        return apply_tamagotchi(a, b, result);        
+    }
+
+    expr_ref mk_eq(expr* a, expr* b) {
+        expr_ref result(m());
+        if (BR_FAILED == reduce_eq(a, b, result)) 
+            result = m().mk_eq(a, b);
         return result;
     }
 
@@ -897,6 +908,10 @@ struct th_rewriter::imp : public rewriter_tpl<th_rewriter_cfg> {
         return m_cfg.mk_app(f, sz, args);
     }
 
+    expr_ref mk_eq(expr* a, expr* b) {
+        return m_cfg.mk_eq(a, b);
+    }
+
     void set_solver(expr_solver* solver) {
         m_cfg.m_seq_rw.set_solver(solver);
     }
@@ -928,7 +943,6 @@ void th_rewriter::set_flat_and_or(bool f) {
     m_imp->cfg().m_b_rw.set_flat_and_or(f);
 }
 
-
 th_rewriter::~th_rewriter() {
     dealloc(m_imp);
 }
@@ -940,7 +954,6 @@ unsigned th_rewriter::get_cache_size() const {
 unsigned th_rewriter::get_num_steps() const {
     return m_imp->get_num_steps();
 }
-
 
 void th_rewriter::cleanup() {
     ast_manager & m = m_imp->m();
@@ -989,6 +1002,10 @@ void th_rewriter::reset_used_dependencies() {
 
 expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args) {
     return m_imp->mk_app(f, num_args, args);
+}
+
+expr_ref th_rewriter::mk_eq(expr* a, expr* b) {
+    return m_imp->mk_eq(a, b);
 }
 
 void th_rewriter::set_solver(expr_solver* solver) {

@@ -99,6 +99,7 @@ public:
         if (!in->proofs_enabled())
             m_simp->reduce();
         m_goal->elim_true();
+        m_goal->elim_redundancies();
         m_goal->inc_depth();
         if (in->models_enabled())
             in->add(m_model_trail->get_model_converter().get());

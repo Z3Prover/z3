@@ -19,6 +19,7 @@ Notes:
 #include "params/bv_rewriter_params.hpp"
 #include "ast/rewriter/bv_rewriter.h"
 #include "ast/rewriter/poly_rewriter_def.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_lt.h"
 
@@ -2386,7 +2387,8 @@ br_status bv_rewriter::mk_bit2bool(expr * lhs, expr * rhs, expr_ref & result) {
 
     expr* a = nullptr, *b = nullptr, *c = nullptr;
     if (m().is_ite(lhs, a, b, c)) {
-        result = m().mk_ite(a, m().mk_eq(b, rhs), m().mk_eq(c, rhs));
+        bool_rewriter rw(m());
+        result = rw.mk_ite(a, rw.mk_eq(b, rhs), rw.mk_eq(c, rhs));
         return BR_REWRITE2;
     }
     
