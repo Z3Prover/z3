@@ -150,13 +150,32 @@ namespace euf {
         for (unsigned i = m_solve_eqs.m_qhead; i < m_fmls.size(); ++i)
             collect_nested_equalities(m_fmls[i], visited, eqs);
 
+        if (eqs.empty())
+            return;
+        
         std::stable_sort(eqs.begin(), eqs.end(), [&](dependent_eq const& e1, dependent_eq const& e2) {
                 return e1.var->get_id() < e2.var->get_id(); });
+
+        // quickly weed out variables that occur in more than two assertions.
+        unsigned_vector refcount;
+        {
+            expr_mark visited;
+            for (unsigned i = m_solve_eqs.m_qhead; i < m_fmls.size(); ++i) {
+                visited.reset();
+                expr* f = m_fmls[i].fml();
+                for (expr* t : subterms::all(expr_ref(f, m), &m_todo, &visited)) 
+                    refcount.setx(t->get_id(), refcount.get(t->get_id(), 0) + 1, 0);
+            }
+        }
+
         unsigned j = 0;
         expr* last_var = nullptr;
         bool was_unsafe = false;
         for (auto const& eq : eqs) {
 
+            if (refcount.get(eq.var->get_id(), 0) > 1)                 
+                continue;
+            
             SASSERT(!m.is_bool(eq.var));
 
 
