@@ -121,6 +121,7 @@ namespace polysat {
     }
 
     void solver::del_var() {
+        NOT_IMPLEMENTED_YET();  // need to take care of helper variables in learned constraints, arising e.g. from bitwise "and"-terms.
         // TODO also remove v from all learned constraints.
         pvar v = m_value.size() - 1;
         m_viable.pop_var();
@@ -427,7 +428,12 @@ namespace polysat {
                 break;
             }
             case trail_instr_t::add_var_i: {
+                // NOTE: currently we cannot delete variables during solving,
+                // since lemmas may introduce new helper variables if they use operations like bitwise and or pseudo-inverse.
+                // For easier experimentation with new lemmas, we simply keep all variables for now.
+#if 0
                 del_var();
+#endif
                 break;
             }
             case trail_instr_t::inc_level_i: {
