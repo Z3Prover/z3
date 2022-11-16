@@ -74,8 +74,11 @@ namespace euf {
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto [f,d] = m_fmls[i]();
             auto* n = mk_enode(f);
-            if (m.is_eq(f)) 
+            if (m.is_eq(f)) {
                 m_egraph.merge(n->get_arg(0), n->get_arg(1), d);
+                m_nodes.push_back(n->get_arg(0));
+                m_nodes.push_back(n->get_arg(1));
+            }
             if (m.is_not(f)) 
                 m_egraph.merge(n->get_arg(0), m_ff, d);
             else 
@@ -97,8 +100,6 @@ namespace euf {
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto [f, d] = m_fmls[i]();
             
-            if (m.is_and(f))
-                IF_VERBOSE(0, verbose_stream() << "is-and " << mk_bounded_pp(f, m) << "\n");
             expr_dependency_ref dep(d, m);
             expr_ref g = canonize_fml(f, dep);
             if (g != f) {
@@ -106,30 +107,25 @@ namespace euf {
                 m_stats.m_num_rewrites++;
                 IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
                 expr* x, * y;
-                if (m.is_eq(g, x, y) && find(x) != find(y))
+                if (m.is_eq(g, x, y) && new_eq(x, y))
                     m_has_new_eq = true;
                 if (m.is_and(g) && !m_has_new_eq)
                     for (expr* arg : *to_app(g))
                         if (m.is_eq(arg, x, y))
-                            m_has_new_eq |= find(x) != find(y);
-                        else
+                            m_has_new_eq |= new_eq(x, y);
+                        else if (!m.is_true(arg))
                             m_has_new_eq = true;
-                if (m.is_and(g))
-                    IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(g, m, 3) << "\n");
             }
             CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
-        if (m_has_new_eq)
-            IF_VERBOSE(0, verbose_stream() << "new round\n");
         if (!m_has_new_eq)
             advance_qhead(m_fmls.size());
     }
 
-    enode* completion::find(expr* e) {
-        enode* r = m_egraph.find(e);
-        if (r)
-            return r;
-        return mk_enode(e);
+    bool completion::new_eq(expr* a, expr* b) {
+        enode* na = m_egraph.find(a);
+        enode* nb = m_egraph.find(b);
+        return !na || !nb || na->get_root() != nb->get_root();
     }
 
     enode* completion::mk_enode(expr* e) {
@@ -254,8 +250,6 @@ namespace euf {
         enode* r = n->get_root();
         d = m.mk_join(d, explain_eq(n, r));
         d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));  
-        if (!m_canonical.get(r->get_id())) 
-            IF_VERBOSE(0, verbose_stream() << r->get_id() << " " << m_egraph.bpp(n) << " " << m_egraph.bpp(r) << "\n");
         SASSERT(m_canonical.get(r->get_id()));
         return m_canonical.get(r->get_id());
     }
@@ -320,6 +314,8 @@ namespace euf {
     void completion::map_canonical() {
         m_todo.reset();
         enode_vector roots;
+        if (m_nodes.empty())
+            return;
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
             enode* n = m_nodes[i]->get_root();
             if (n->is_marked1())
@@ -332,8 +328,6 @@ namespace euf {
                     rep = k;
             m_reps.setx(n->get_id(), rep, nullptr);
 
-            if (n->get_id() == 87507)
-                IF_VERBOSE(0, verbose_stream() << "set-canon " << n->get_id() << "\n");
             TRACE("euf_completion", tout << "rep " << m_egraph.bpp(n) << " -> " << m_egraph.bpp(rep) << "\n";
                          for (enode* k : enode_class(n)) tout << m_egraph.bpp(k) << "\n";);
             m_todo.push_back(n->get_expr());

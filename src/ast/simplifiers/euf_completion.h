@@ -43,7 +43,7 @@ namespace euf {
         bool                   m_has_new_eq = false;
 
         enode* mk_enode(expr* e);
-        enode* find(expr* e);
+        bool new_eq(expr* a, expr* b);
         expr_ref mk_and(expr* a, expr* b);
         void add_egraph();
         void map_canonical();
