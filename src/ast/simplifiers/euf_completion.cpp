@@ -58,22 +58,25 @@ namespace euf {
     }
 
     void completion::reduce() {
-        ++m_epoch;
-        add_egraph();
-        map_canonical();
-        read_egraph();
+        do {
+            ++m_epoch;
+            m_has_new_eq = false;
+            add_egraph();
+            map_canonical();
+            read_egraph();
+        }
+        while (m_has_new_eq);
     }
 
     void completion::add_egraph() {
         m_nodes.reset();
         unsigned sz = m_fmls.size();
-        expr* x, *y;
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto [f,d] = m_fmls[i]();
             auto* n = mk_enode(f);
-            if (m.is_eq(f, x, y)) 
+            if (m.is_eq(f)) 
                 m_egraph.merge(n->get_arg(0), n->get_arg(1), d);
-            if (m.is_not(f, x)) 
+            if (m.is_not(f)) 
                 m_egraph.merge(n->get_arg(0), m_ff, d);
             else 
                 m_egraph.merge(n, m_tt, d);
@@ -94,16 +97,39 @@ namespace euf {
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto [f, d] = m_fmls[i]();
             
+            if (m.is_and(f))
+                IF_VERBOSE(0, verbose_stream() << "is-and " << mk_bounded_pp(f, m) << "\n");
             expr_dependency_ref dep(d, m);
             expr_ref g = canonize_fml(f, dep);
             if (g != f) {
                 m_fmls.update(i, dependent_expr(m, g, dep));
                 m_stats.m_num_rewrites++;
                 IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
+                expr* x, * y;
+                if (m.is_eq(g, x, y) && find(x) != find(y))
+                    m_has_new_eq = true;
+                if (m.is_and(g) && !m_has_new_eq)
+                    for (expr* arg : *to_app(g))
+                        if (m.is_eq(arg, x, y))
+                            m_has_new_eq |= find(x) != find(y);
+                        else
+                            m_has_new_eq = true;
+                if (m.is_and(g))
+                    IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(g, m, 3) << "\n");
             }
             CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
-        advance_qhead(m_fmls.size());
+        if (m_has_new_eq)
+            IF_VERBOSE(0, verbose_stream() << "new round\n");
+        if (!m_has_new_eq)
+            advance_qhead(m_fmls.size());
+    }
+
+    enode* completion::find(expr* e) {
+        enode* r = m_egraph.find(e);
+        if (r)
+            return r;
+        return mk_enode(e);
     }
 
     enode* completion::mk_enode(expr* e) {
@@ -139,23 +165,54 @@ namespace euf {
 
     expr_ref completion::canonize_fml(expr* f, expr_dependency_ref& d) {
 
+        auto is_nullary = [&](expr* e) {
+            return is_app(e) && to_app(e)->get_num_args() == 0;
+        };
         expr* x, * y;
         if (m.is_eq(f, x, y)) {
             expr_ref x1 = canonize(x, d);
             expr_ref y1 = canonize(y, d);
 
+            if (is_nullary(x)) {
+                SASSERT(x1 == x);
+                x1 = get_canonical(x, d);
+            }
+            if (is_nullary(y)) {
+                SASSERT(y1 == y);
+                y1 = get_canonical(y, d);
+            }
+
+            if (x == y)
+                return expr_ref(m.mk_true(), m);
+
             if (x == x1 && y == y1)
                 return expr_ref(f, m);
+
+            if (is_nullary(x) && is_nullary(y)) 
+                return mk_and(m_rewriter.mk_eq(x, x1), m_rewriter.mk_eq(y, x1));
+
+            if (x == x1 && is_nullary(x))
+                return m_rewriter.mk_eq(y1, x1);
+
+            if (y == y1 && is_nullary(y))
+                return m_rewriter.mk_eq(x1, y1);
+            
+            if (is_nullary(x))
+                return mk_and(m_rewriter.mk_eq(x, x1), m_rewriter.mk_eq(y1, x1));
+            
+            if (is_nullary(y))
+                return mk_and(m_rewriter.mk_eq(y, y1), m_rewriter.mk_eq(x1, y1));
+            
             if (x1 == y1)
                 return expr_ref(m.mk_true(), m);
             else {
                 expr* c = get_canonical(x, d);
                 if (c == x1)
-                    return expr_ref(m.mk_eq(y1, c), m);
+                    return m_rewriter.mk_eq(y1, c);
                 else if (c == y1)
-                    return expr_ref(m.mk_eq(x1, c), m);
+                    return m_rewriter.mk_eq(x1, c);
                 else
-                    return expr_ref(m.mk_and(m.mk_eq(x1, c), m.mk_eq(y1, c)), m);
+                    return mk_and(m_rewriter.mk_eq(x1, c), m_rewriter.mk_eq(y1, c));
             }
         }
 
@@ -165,6 +222,14 @@ namespace euf {
         }
 
         return canonize(f, d);
+    }
+
+    expr_ref completion::mk_and(expr* a, expr* b) {
+        if (m.is_true(a))
+            return expr_ref(b, m);
+        if (m.is_true(b))
+            return expr_ref(a, m);
+        return expr_ref(m.mk_and(a, b), m);
     }
 
     expr_ref completion::canonize(expr* f, expr_dependency_ref& d) {
@@ -188,7 +253,10 @@ namespace euf {
         enode* n = m_egraph.find(f);
         enode* r = n->get_root();
         d = m.mk_join(d, explain_eq(n, r));
-        d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));        
+        d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));  
+        if (!m_canonical.get(r->get_id())) 
+            IF_VERBOSE(0, verbose_stream() << r->get_id() << " " << m_egraph.bpp(n) << " " << m_egraph.bpp(r) << "\n");
+        SASSERT(m_canonical.get(r->get_id()));
         return m_canonical.get(r->get_id());
     }
     
@@ -214,6 +282,7 @@ namespace euf {
                 old_value = nullptr;
             }
         };
+        SASSERT(e);
         if (num_scopes() > 0)
             m_trail.push(vtrail(m_canonical, n->get_id()));
         m_canonical.setx(n->get_id(), e);
@@ -263,6 +332,8 @@ namespace euf {
                     rep = k;
             m_reps.setx(n->get_id(), rep, nullptr);
 
+            if (n->get_id() == 87507)
+                IF_VERBOSE(0, verbose_stream() << "set-canon " << n->get_id() << "\n");
             TRACE("euf_completion", tout << "rep " << m_egraph.bpp(n) << " -> " << m_egraph.bpp(rep) << "\n";
                          for (enode* k : enode_class(n)) tout << m_egraph.bpp(k) << "\n";);
             m_todo.push_back(n->get_expr());
@@ -323,7 +394,8 @@ namespace euf {
                 }
             }
         }
-    }        
+    }    
+   
 }
 
 

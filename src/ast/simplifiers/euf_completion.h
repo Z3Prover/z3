@@ -40,10 +40,14 @@ namespace euf {
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
         stats                  m_stats;
+        bool                   m_has_new_eq = false;
 
         enode* mk_enode(expr* e);
+        enode* find(expr* e);
+        expr_ref mk_and(expr* a, expr* b);
         void add_egraph();
         void map_canonical();
+        void saturate();
         void read_egraph();
         expr_ref canonize(expr* f, expr_dependency_ref& dep);
         expr_ref canonize_fml(expr* f, expr_dependency_ref& dep);
