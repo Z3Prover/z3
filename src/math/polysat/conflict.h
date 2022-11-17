@@ -79,17 +79,6 @@ namespace polysat {
     class conflict_iterator;
     class conflict_resolver;
 
-    enum class conflict_kind_t {
-        // standard conflict resolution
-        ok,
-        // conflict contains the final lemma;
-        // backtrack to and revert the last relevant decision
-        // NOTE: this is currently used for the forbidden intervals lemmas.
-        //       we should find a way to use resolve_value with these lemmas,
-        //       to properly eliminate value propagations. (see todo notes above)
-        backtrack,
-    };
-
     class conflict {
         solver& s;
         scoped_ptr<inference_logger> m_logger;
@@ -98,7 +87,6 @@ namespace polysat {
         // current conflict core consists of m_literals and m_vars
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
-        uint_set m_relevant_vars;           // tracked for cone of influence but not directly involved in conflict resolution
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
         uint_set m_vars_occurring;          // set of variables that occur in at least one of the constraints in m_literals
@@ -113,8 +101,6 @@ namespace polysat {
         // This allows us to perform propagations that are missed by the two-watched-variables scheme,
         // e.g., because one of the watched variables is unassigned but irrelevant (e.g., x is irrelevant in x*y if y := 0).
         sat::literal_vector m_narrow_queue;
-
-        conflict_kind_t m_kind = conflict_kind_t::ok;
 
         // Level at which the conflict was discovered
         unsigned m_level = UINT_MAX;
@@ -140,10 +126,6 @@ namespace polysat {
         uint_set const& vars() const { return m_vars; }
 
         unsigned level() const { return m_level; }
-
-        conflict_kind_t kind() const { return m_kind; }
-        bool is_backtracking() const { return m_kind == conflict_kind_t::backtrack; }
-        void set_backtrack();
 
         bool is_relevant_pvar(pvar v) const;
         bool is_relevant(sat::literal lit) const;

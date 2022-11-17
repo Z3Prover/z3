@@ -73,13 +73,6 @@ namespace polysat {
             out_indent() << assignment_pp(s, v, s.get_value(v)) << "\n";
             m_used_vars.insert(v);
         }
-        switch (core.kind()) {
-        case conflict_kind_t::ok:
-            break;
-        case conflict_kind_t::backtrack:
-            out_indent() << "(backtrack)\n";
-            break;
-        }
         for (clause* lemma : core.side_lemmas()) {
             out_indent() << "Side lemma: " << *lemma << "\n";
             for (sat::literal lit : *lemma)

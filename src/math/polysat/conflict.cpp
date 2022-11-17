@@ -25,7 +25,6 @@ TODO:
     - force a restart if we get a bailout lemma or non-asserting conflict?
 
 - Find a way to use resolve_value with forbidden interval lemmas.
-  Then get rid of conflict_kind_t::backtrack and m_relevant_vars.
   Maybe:
     x := a, y := b, z has no viable value
     - assume y was propagated
@@ -162,33 +161,17 @@ namespace polysat {
     void conflict::reset() {
         m_literals.reset();
         m_vars.reset();
-        m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_vars_occurring.reset();
         m_lemmas.reset();
         m_narrow_queue.reset();
-        m_kind = conflict_kind_t::ok;
         m_level = UINT_MAX;
         m_max_jump_level = UINT_MAX;
         SASSERT(empty());
     }
 
-    void conflict::set_backtrack() {
-        SASSERT(m_kind == conflict_kind_t::ok);
-        SASSERT(m_relevant_vars.empty());
-        m_kind = conflict_kind_t::backtrack;
-
-    }
-
     bool conflict::is_relevant_pvar(pvar v) const {
-        switch (m_kind) {
-        case conflict_kind_t::ok:
-            return contains_pvar(v);
-        case conflict_kind_t::backtrack:
-            return pvar_occurs_in_constraints(v) || m_relevant_vars.contains(v);
-        }
-        UNREACHABLE();
-        return false;
+        return contains_pvar(v);
     }
 
     bool conflict::is_relevant(sat::literal lit) const {
@@ -270,7 +253,11 @@ namespace polysat {
         }
         else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
-            set_backtrack();
+            // set_backtrack();  // TODO: add the FI-lemma as a side lemma.
+            //                            The FI-lemma should not be the new core, because that will break variable dependencies.
+            //                            Alternatively, we'll need different types of variable dependencies. (one where v=n is in the core, another which only ensures that we don't skip v during backtracking).
+            //                            But since we now also propagate evaluated literals at the right (earlier) levels,
+            //                            we don't need to follow the variable assignments backwards to find the backjumping level for the FI-lemma.
             VERIFY(s.m_viable.resolve(v, *this));
         }
         SASSERT(!empty());
@@ -337,6 +324,9 @@ namespace polysat {
         for (sat::literal lit : *lemma) {
             LOG("   " << lit_pp(s, lit));
         }
+        // TODO: call clause simplifier here?
+        //       maybe it reduces the level we have to consider.
+
         // Two kinds of side lemmas:
         // 1. If all constraints are false, then the side lemma is an alternative conflict lemma.
         //      => we should at least jump back to the second-highest level in the lemma (could be lower, if so justified by another lemma)
@@ -387,10 +377,8 @@ namespace polysat {
         SASSERT(!empty());
         m_literals.reset();
         m_vars.reset();
-        m_relevant_vars.reset();
         m_var_occurrences.reset();
         m_vars_occurring.reset();
-        m_kind = conflict_kind_t::ok;
     }
 
     void conflict::resolve_bool(sat::literal lit, clause const& cl) {
@@ -447,16 +435,6 @@ namespace polysat {
     }
 
     bool conflict::resolve_value(pvar v) {
-
-        if (is_backtracking()) {
-            for (auto const& c : s.m_viable.get_constraints(v))
-                for (pvar v : c->vars()) {
-                    m_relevant_vars.insert(v);
-                    logger().log_var(v);
-                }
-            return false;
-        }
-
         SASSERT(contains_pvar(v));
         auto const& j = s.m_justification[v];
 
