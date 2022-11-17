@@ -158,28 +158,29 @@ namespace polysat {
     /**
      * Enforce basic axioms for r == p >> q:
      *
-     * q >= k -> r[i] = 0 for i > K - k
-     * q >= K -> r = 0
-     * q >= k -> r <= 2^{K-k-1}
-     * q = k -> r[i - k] = p[i] for i <= K - k
-     * r <= p
-     * q != 0 => r <= p
-     * q = 0 => r = p
+     *      q >= K  ->  r = 0
+     *      q >= k  ->  r[i] = 0 for K - k <= i < K     (bit indices range from 0 to K-1, inclusive)
+     *      q >= k  ->  r <= 2^{K-k} - 1
+     *      q = k   ->  r[i] = p[i+k] for 0 <= i < K - k
+     *      r <= p
+     *      q != 0  ->  r <= p      (subsumed by previous axiom)
+     *      q != 0  /\  p > 0 ->  r < p
+     *      q = 0   ->  r = p
      *
      * when q is a constant, several axioms can be enforced at activation time.
      *
      * Enforce also inferences and bounds
      *
-     * TODO use also
+     * TODO: use also
      * s.m_viable.min_viable();
      * s.m_viable.max_viable()
      * when r, q are variables.
      */
     void op_constraint::narrow_lshr(solver& s) {
-        auto pv = s.subst(p());
-        auto qv = s.subst(q());
-        auto rv = s.subst(r());
-        unsigned K = p().manager().power_of_2();
+        auto const pv = s.subst(p());
+        auto const qv = s.subst(q());
+        auto const rv = s.subst(r());
+        unsigned const K = p().manager().power_of_2();
 
         signed_constraint lshr(this, true);
 
@@ -192,26 +193,23 @@ namespace polysat {
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
             // q = 0 -> p = r
             s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
-        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val())
-            // q != 0 & p > 0 => r < p
+        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && rv.val() >= pv.val())
+            // q != 0 & p > 0 -> r < p
             s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
-            rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1))
-            // q >= k -> r <= 2^{K-k-1}
-            s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned() - 1)), true);
-        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
-            // q >= K -> r = 0
-            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
-        // q = k -> r[i - k] = p[i] for K - k <= i < K
+            rv.val() > rational::power_of_two(K - qv.val().get_unsigned()) - 1)
+            // q >= k -> r <= 2^{K-k} - 1
+            s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned()) - 1), true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
-            unsigned k = qv.val().get_unsigned();
-            for (unsigned i = K - k; i < K; ++i) {
-                if (rv.val().get_bit(i - k) && !pv.val().get_bit(i)) {
-                    s.add_clause(~lshr, ~s.eq(q(), k), ~s.bit(r(), i - k), s.bit(p(), i), true);
+            unsigned const k = qv.val().get_unsigned();
+            // q = k  ->  r[i] = p[i+k] for 0 <= i < K - k
+            for (unsigned i = 0; i < K - k; ++i) {
+                if (rv.val().get_bit(i) && !pv.val().get_bit(i + k)) {
+                    s.add_clause(~lshr, ~s.eq(q(), k), ~s.bit(r(), i), s.bit(p(), i + k), true);
                     return;
                 }
-                if (!rv.val().get_bit(i - k) && pv.val().get_bit(i)) {
-                    s.add_clause(~lshr, ~s.eq(q(), k), s.bit(r(), i - k), ~s.bit(p(), i), true);
+                if (!rv.val().get_bit(i) && pv.val().get_bit(i + k)) {
+                    s.add_clause(~lshr, ~s.eq(q(), k), s.bit(r(), i), ~s.bit(p(), i + k), true);
                     return;
                 }
             }
@@ -224,6 +222,9 @@ namespace polysat {
     /** Evaluate constraint: r == p >> q */
     lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) {
         auto& m = p.manager();
+
+        if (q.is_zero() && p == r)
+            return l_true;
 
         if (q.is_val() && q.val() >= m.power_of_2() && r.is_val())
             return to_lbool(r.is_zero());
