@@ -221,17 +221,22 @@ namespace polysat {
         }
     }
 
+    /** Evaluate constraint: r == p >> q */
     lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) {
         auto& m = p.manager();
 
-        if (p.is_val() && q.is_val() && r.is_val())
-            return r == p * m.mk_val(rational::power_of_two(q.val().get_unsigned())) ? l_true : l_false;
-
         if (q.is_val() && q.val() >= m.power_of_2() && r.is_val())
-            return r.is_zero() ? l_true : l_false;
+            return to_lbool(r.is_zero());
 
-        // other cases when we know lower
-        // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.
+        if (p.is_val() && q.is_val() && r.is_val()) {
+            SASSERT(q.val().is_unsigned());  // otherwise, previous condition should have been triggered
+            // TODO: use right-shift operation instead of division
+            auto divisor = rational::power_of_two(q.val().get_unsigned());
+            return to_lbool(r.val() == div(p.val(), divisor));
+        }
+
+        // TODO: other cases when we know lower bound of q,
+        //       e.g, q = 2^k*q1 + q2, where q2 is a constant.
         return l_undef;
     }
 
