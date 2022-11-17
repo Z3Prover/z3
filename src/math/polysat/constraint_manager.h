@@ -82,6 +82,9 @@ namespace polysat {
         void ensure_bvar(constraint* c);
         void erase_bvar(constraint* c);
 
+        signed_constraint mk_op_constraint(op_constraint::code op, pdd const& p, pdd const& q, pdd const& r);
+        pdd mk_op_term(op_constraint::code op, pdd const& p, pdd const& q);
+
     public:
         constraint_manager(solver& s);
         ~constraint_manager();
@@ -107,14 +110,11 @@ namespace polysat {
         signed_constraint smul_ovfl(pdd const& p, pdd const& q);
         signed_constraint smul_udfl(pdd const& p, pdd const& q);
         signed_constraint bit(pdd const& p, unsigned i);
-        signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
-        signed_constraint band(pdd const& p, pdd const& q, pdd const& r);
 
         std::pair<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
-        pdd lshr(pdd const& p, pdd const& q);
-
         pdd bnot(pdd const& p);
+        pdd lshr(pdd const& p, pdd const& q);
         pdd band(pdd const& p, pdd const& q);
         pdd bor(pdd const& p, pdd const& q);
         pdd bxor(pdd const& p, pdd const& q);

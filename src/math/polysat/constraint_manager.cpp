@@ -243,12 +243,8 @@ namespace polysat {
         return { dedup(alloc(smul_fl_constraint, *this, a, b, false)), true };
     }
 
-    signed_constraint constraint_manager::lshr(pdd const& p, pdd const& q, pdd const& r) {
-        return { dedup(alloc(op_constraint, *this, op_constraint::code::lshr_op, p, q, r)), true };
-    }
-
-    signed_constraint constraint_manager::band(pdd const& p, pdd const& q, pdd const& r) {
-        return { dedup(alloc(op_constraint, *this, op_constraint::code::and_op, p, q, r)), true };
+    signed_constraint constraint_manager::mk_op_constraint(op_constraint::code op, pdd const& p, pdd const& q, pdd const& r) {
+        return { dedup(alloc(op_constraint, *this, op, p, q, r)), true };
     }
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
@@ -310,31 +306,15 @@ namespace polysat {
         return {q, r};
     }
 
-    pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
-        auto& m = p.manager();
-        unsigned sz = m.power_of_2();
-
-        op_constraint_args const args(op_constraint::code::lshr_op, p, q);
-        auto it = m_dedup.op_constraint_expr.find_iterator(args);
-        if (it != m_dedup.op_constraint_expr.end())
-            return m.mk_var(it->m_value);
-
-        pdd r = m.mk_var(s.add_var(sz));
-        m_dedup.op_constraint_expr.insert(args, r.var());
-
-        s.assign_eh(lshr(p, q, r), null_dependency);
-        return r;
-    }
-
     pdd constraint_manager::bnot(pdd const& p) {
         return -p - 1;
     }
 
-    pdd constraint_manager::band(pdd const& p, pdd const& q) {
+    pdd constraint_manager::mk_op_term(op_constraint::code op, pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
 
-        op_constraint_args const args(op_constraint::code::and_op, p, q);
+        op_constraint_args const args(op, p, q);
         auto it = m_dedup.op_constraint_expr.find_iterator(args);
         if (it != m_dedup.op_constraint_expr.end())
             return m.mk_var(it->m_value);
@@ -342,8 +322,16 @@ namespace polysat {
         pdd r = m.mk_var(s.add_var(sz));
         m_dedup.op_constraint_expr.insert(args, r.var());
 
-        s.assign_eh(band(p, q, r), null_dependency);
+        s.assign_eh(mk_op_constraint(op, p, q, r), null_dependency);
         return r;
+    }
+
+    pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
+        return mk_op_term(op_constraint::code::lshr_op, p, q);
+    }
+
+    pdd constraint_manager::band(pdd const& p, pdd const& q) {
+        return mk_op_term(op_constraint::code::and_op, p, q);
     }
 
     pdd constraint_manager::bor(pdd const& p, pdd const& q) {
