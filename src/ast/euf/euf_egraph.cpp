@@ -451,7 +451,7 @@ namespace euf {
             add_literal(n1, false);
         if (n1->is_equality() && n1->value() == l_false)
             new_diseq(n1);
-        remove_parents(r1, r2);
+        remove_parents(r1);
         push_eq(r1, n1, r2->num_parents());
         merge_justification(n1, n2, j);
         for (enode* c : enode_class(n1)) 
@@ -464,8 +464,8 @@ namespace euf {
             cb(r2, r1);
     }
 
-    void egraph::remove_parents(enode* r1, enode* r2) {
-        for (enode* p : enode_parents(r1)) {
+    void egraph::remove_parents(enode* r) {
+        for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
             if (p->merge_enabled()) {

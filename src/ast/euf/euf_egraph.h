@@ -220,7 +220,7 @@ namespace euf {
         void merge_th_eq(enode* n, enode* root);
         void merge_justification(enode* n1, enode* n2, justification j);
         void reinsert_parents(enode* r1, enode* r2);
-        void remove_parents(enode* r1, enode* r2);
+        void remove_parents(enode* r);
         void unmerge_justification(enode* n1);
         void reinsert_equality(enode* p);
         void update_children(enode* n);

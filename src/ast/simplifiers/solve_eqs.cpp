@@ -129,7 +129,8 @@ namespace euf {
                             todo.push_back(var2id(e));
                     }
                     m_todo.reset();
-                    
+                    visited.reset();
+
                     if (!is_safe) {
                         todo.shrink(todo_sz);
                         continue;

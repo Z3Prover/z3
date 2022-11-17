@@ -80,18 +80,22 @@ namespace euf {
         };
 
         for (unsigned i = m_qhead; i < sz; ++i) {
-            auto [f,d] = m_fmls[i]();
-            auto* n = mk_enode(f);
-            if (m.is_eq(f)) {
-                m_egraph.merge(n->get_arg(0), n->get_arg(1), d);
-                add_children(n->get_arg(0));
-                add_children(n->get_arg(1));
+            expr* x, * y;
+            auto [f, d] = m_fmls[i]();
+            if (m.is_eq(f, x, y)) {
+                enode* a = mk_enode(x);
+                enode* b = mk_enode(y);
+                m_egraph.merge(a, b, d);
+                add_children(a);
+                add_children(b);
             }
-            if (m.is_not(f)) {
-                m_egraph.merge(n->get_arg(0), m_ff, d);
-                add_children(n->get_arg(0));
+            else if (m.is_not(f, f)) {
+                enode* n = mk_enode(f);
+                m_egraph.merge(n, m_ff, d);
+                add_children(n);
             }
             else {
+                enode* n = mk_enode(f);
                 m_egraph.merge(n, m_tt, d);
                 add_children(n);
             }
