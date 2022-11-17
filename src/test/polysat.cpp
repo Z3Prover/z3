@@ -4,6 +4,7 @@
 #include "parsers/smt2/smt2parser.h"
 #include "util/util.h"
 #include <vector>
+#include <signal.h>
 
 namespace {
     using namespace dd;
@@ -1557,6 +1558,15 @@ namespace polysat {
 }  // namespace polysat
 
 
+static void STD_CALL polysat_on_ctrl_c(int) {
+    signal(SIGINT, SIG_DFL);
+    using namespace polysat;
+    if (!test_records.empty())
+        test_records.pop_back();  // last record is likely incomplete
+    display_test_records(test_records, std::cout);
+    raise(SIGINT);
+}
+
 void tst_polysat() {
     using namespace polysat;
 
@@ -1570,6 +1580,7 @@ void tst_polysat() {
     collect_test_records = true;
 
     if (collect_test_records) {
+        signal(SIGINT, polysat_on_ctrl_c);
         set_default_debug_action(debug_action::throw_exception);
         set_log_enabled(false);
     }
@@ -1645,7 +1656,6 @@ void tst_polysat() {
 
 
 #include "ast/bv_decl_plugin.h"
-#include <signal.h>
 
 polysat::scoped_solver* g_solver = nullptr;
 
@@ -1657,7 +1667,7 @@ static void display_statistics() {
     }
 }
 
-static void STD_CALL on_ctrl_c(int) {
+static void STD_CALL polysat_argv_on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     display_statistics();
     raise(SIGINT);
@@ -1668,7 +1678,7 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     // assume they are simple bit-vector equations (and inequations)
     // convert to solver state.
 
-    signal(SIGINT, on_ctrl_c);
+    signal(SIGINT, polysat_argv_on_ctrl_c);
 
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " FILE\n";
