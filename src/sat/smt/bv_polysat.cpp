@@ -37,6 +37,7 @@ namespace bv {
         case OP_BADD:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
         case OP_BSUB:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
         case OP_BLSHR:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.lshr(p, q); }); break;
+        case OP_BSHL:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.shl(p, q); }); break;
         case OP_BAND:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.band(p, q); }); break;
         case OP_BOR:              polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bor(p, q); }); break;
         case OP_BXOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxor(p, q); }); break;
@@ -81,7 +82,6 @@ namespace bv {
         case OP_BSDIV_I:            
         case OP_BSREM_I:                        
         case OP_BSMOD_I:
-        case OP_BSHL:            
         case OP_BASHR:
         case OP_BCOMP:
         case OP_SIGN_EXT:

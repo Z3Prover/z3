@@ -55,6 +55,16 @@ Notes:
     The try_recognize_bailout returns true, but fails to simplify any other literal.
     Overall, why return true immediately if there are other literals that subsume each-other?
 
+
+
+    TODO: connect disjoint intervals
+        For example, rewrite:
+            p < a  \/  b <= p
+            <=>  ~ (a <= p < b)
+            <=>  ~ (p - a < b - a)
+            <=>  p - a >= b - a
+        (similar for other combinations of <, <=)
+
 --*/
 #include "math/polysat/solver.h"
 #include "math/polysat/simplify_clause.h"

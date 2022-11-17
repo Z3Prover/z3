@@ -115,6 +115,7 @@ namespace polysat {
 
         pdd bnot(pdd const& p);
         pdd lshr(pdd const& p, pdd const& q);
+        pdd shl(pdd const& p, pdd const& q);
         pdd band(pdd const& p, pdd const& q);
         pdd bor(pdd const& p, pdd const& q);
         pdd bxor(pdd const& p, pdd const& q);

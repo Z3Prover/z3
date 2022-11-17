@@ -330,6 +330,10 @@ namespace polysat {
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
 
+    pdd constraint_manager::shl(pdd const& p, pdd const& q) {
+        return mk_op_term(op_constraint::code::shl_op, p, q);
+    }
+
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
         return mk_op_term(op_constraint::code::and_op, p, q);
     }

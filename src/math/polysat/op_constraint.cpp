@@ -45,12 +45,18 @@ namespace polysat {
         default:
             break;
         }
+        // The following can currently not be used as standalone constraints
+        SASSERT(c != code::or_op);
+        SASSERT(c != code::xor_op);
+        SASSERT(c != code::not_op);
     }
 
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
         switch (m_op) {
         case code::lshr_op:
             return eval_lshr(p, q, r);
+        case code::shl_op:
+            return eval_shl(p, q, r);
         case code::and_op:
             return eval_and(p, q, r);
         default:
@@ -133,6 +139,9 @@ namespace polysat {
         case code::lshr_op:
             narrow_lshr(s);
             break;
+        case code::shl_op:
+            narrow_shl(s);
+            break;
         case code::and_op:
             narrow_and(s);
             break;
@@ -182,7 +191,7 @@ namespace polysat {
         auto const rv = s.subst(r());
         unsigned const K = p().manager().power_of_2();
 
-        signed_constraint lshr(this, true);
+        signed_constraint const lshr(this, true);
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             // r <= p
@@ -242,18 +251,94 @@ namespace polysat {
     }
 
     /**
-    * Produce lemmas:
-    * p & q <= p
-    * p & q <= q
-    * p = q => p & q = r
-    * p = 0 => r = 0
-    * q = 0 => r = 0
-    * p[i] && q[i] = r[i]
-    *
-    * Possible other:
-    * p = max_value => q = r
-    * q = max_value => p = r
-    */
+     * Enforce axioms for constraint: r == p << q
+     *
+     *      q >= K  ->  r = 0
+     *      q >= k  ->  r = 0  \/  r >= 2^k
+     *      q >= k  ->  r[i] = 0 for i < k
+     *      q = k   ->  r[i+k] = p[i] for 0 <= i < K - k
+     *      r != 0  ->  r >= p
+     *      q = 0   ->  r = p
+     */
+    void op_constraint::narrow_shl(solver& s) {
+        auto const pv = s.subst(p());
+        auto const qv = s.subst(q());
+        auto const rv = s.subst(r());
+        unsigned const K = p().manager().power_of_2();
+
+        signed_constraint const shl(this, true);
+
+        if (pv.is_val() && !pv.is_zero() && !pv.is_one() && rv.is_val() && !rv.is_zero() && rv.val() < pv.val())
+            // r != 0  ->  r >= p
+            // r = 0 \/ r >= p      (equivalent)
+            // r-1 >= p-1           (equivalent unit constraint to better support narrowing)
+            s.add_clause(~shl, s.ule(p() - 1, r() - 1), true);
+        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
+            // q >= K  ->  r = 0
+            s.add_clause(~shl, ~s.ule(K, q()), s.eq(r()), true);
+        else if (qv.is_zero() && pv.is_val() && rv.is_val() && rv != pv)
+            // q = 0  ->  r = p
+            s.add_clause(~shl, ~s.eq(q()), s.eq(r(), p()), true);
+        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
+            !rv.is_zero() && rv.val() < rational::power_of_two(qv.val().get_unsigned()))
+            // q >= k  ->  r = 0  \/  r >= 2^k  (intuitive version)
+            // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
+            s.add_clause(~shl, ~s.ule(qv.val(), q()), s.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r() - 1), true);
+        else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
+            unsigned const k = qv.val().get_unsigned();
+            // q = k  ->  r[i+k] = p[i] for 0 <= i < K - k
+            for (unsigned i = 0; i < K - k; ++i) {
+                if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
+                    s.add_clause(~shl, ~s.eq(q(), k), ~s.bit(r(), i + k), s.bit(p(), i), true);
+                    return;
+                }
+                if (!rv.val().get_bit(i + k) && pv.val().get_bit(i)) {
+                    s.add_clause(~shl, ~s.eq(q(), k), s.bit(r(), i + k), ~s.bit(p(), i), true);
+                    return;
+                }
+            }
+        }
+        else {
+            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+        }
+    }
+
+    /** Evaluate constraint: r == p << q */
+    lbool op_constraint::eval_shl(pdd const& p, pdd const& q, pdd const& r) {
+        auto& m = p.manager();
+
+        if (q.is_zero() && p == r)
+            return l_true;
+
+        if (q.is_val() && q.val() >= m.power_of_2() && r.is_val())
+            return to_lbool(r.is_zero());
+
+        if (p.is_val() && q.is_val() && r.is_val()) {
+            SASSERT(q.val().is_unsigned());  // otherwise, previous condition should have been triggered
+            // TODO: use left-shift operation instead of multiplication?
+            auto factor = rational::power_of_two(q.val().get_unsigned());
+            return to_lbool(r == p * m.mk_val(factor));
+        }
+
+        // TODO: other cases when we know lower bound of q,
+        //       e.g, q = 2^k*q1 + q2, where q2 is a constant.
+        //       (bounds should be tracked by viable, then just use min_viable here)
+        return l_undef;
+    }
+
+    /**
+     * Produce lemmas:
+     * p & q <= p
+     * p & q <= q
+     * p = q => p & q = r
+     * p = 0 => r = 0
+     * q = 0 => r = 0
+     * p[i] && q[i] = r[i]
+     *
+     * Possible other:
+     * p = max_value => q = r
+     * q = max_value => p = r
+     */
     void op_constraint::narrow_and(solver& s) {
         auto pv = s.subst(p());
         auto qv = s.subst(q());
@@ -291,6 +376,7 @@ namespace polysat {
         }
     }
 
+    /** Evaluate constraint: r == p & q */
     lbool op_constraint::eval_and(pdd const& p, pdd const& q, pdd const& r) {
         if ((p.is_zero() || q.is_zero()) && r.is_zero())
             return l_true;
