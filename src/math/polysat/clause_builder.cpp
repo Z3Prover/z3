@@ -55,7 +55,7 @@ namespace polysat {
 
 
     void clause_builder::push(sat::literal lit) {
-        push(m_solver->m_constraints.lookup(lit));
+        push(m_solver->lit2cnstr(lit));
     }
 
     void clause_builder::push(signed_constraint c) {
@@ -72,5 +72,16 @@ namespace polysat {
         }       
 #endif
         m_literals.push_back(c.blit());
+    }
+
+    void clause_builder::insert_eval(sat::literal lit) {
+        insert_eval(m_solver->lit2cnstr(lit));
+    }
+
+    void clause_builder::insert_eval(signed_constraint c) {
+        if (c.bvalue(*m_solver) == l_undef) {
+            m_solver->assign_eval(~c.blit());
+        }
+        push(c);
     }
 }

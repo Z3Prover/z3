@@ -43,9 +43,21 @@ namespace polysat {
         /// Returns nullptr if the clause is a tautology and should not be added to the solver.
         clause_ref build();
 
+        /// Insert constraints into the clause.
         void push(sat::literal lit);
         void push(signed_constraint c);
         void push(inequality const& i) { push(i.as_signed_constraint()); }
+        // TODO: remove push
+        void insert(sat::literal lit) { push(lit); }
+        void insert(signed_constraint c) { push(c); }
+        void insert(inequality const& i) { insert(i.as_signed_constraint()); }
+
+        /// Inserting constraints into the clause.
+        /// If they are not yet on the search stack, add them as evaluated to false.
+        /// \pre Constraint must be false in the current assignment.
+        void insert_eval(sat::literal lit);
+        void insert_eval(signed_constraint c);
+        void insert_eval(inequality const& i) { insert_eval(i.as_signed_constraint()); }
 
         using const_iterator = decltype(m_literals)::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }

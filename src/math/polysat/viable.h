@@ -108,9 +108,10 @@ namespace polysat {
         dd::find_t find_viable(pvar v, rational & val);
 
         /**
-        * Retrieve the unsat core for v.
-        * \pre there are no viable values for v
-        */
+         * Retrieve the unsat core for v,
+         * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
+         * \pre there are no viable values for v
+         */
         bool resolve(pvar v, conflict& core);
 
         /** Log all viable values for the given variable.

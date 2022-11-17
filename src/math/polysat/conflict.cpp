@@ -253,11 +253,6 @@ namespace polysat {
         }
         else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
-            // set_backtrack();  // TODO: add the FI-lemma as a side lemma.
-            //                            The FI-lemma should not be the new core, because that will break variable dependencies.
-            //                            Alternatively, we'll need different types of variable dependencies. (one where v=n is in the core, another which only ensures that we don't skip v during backtracking).
-            //                            But since we now also propagate evaluated literals at the right (earlier) levels,
-            //                            we don't need to follow the variable assignments backwards to find the backjumping level for the FI-lemma.
             VERIFY(s.m_viable.resolve(v, *this));
         }
         SASSERT(!empty());
@@ -320,9 +315,10 @@ namespace polysat {
     void conflict::add_lemma(clause_ref lemma) {
         SASSERT(lemma);
         lemma->set_redundant(true);
-        LOG("Side lemma: " << *lemma);
+        LOG_H3("Side lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
-            LOG("   " << lit_pp(s, lit));
+            LOG(lit_pp(s, lit));
+            SASSERT(s.m_bvars.value(lit) != l_true);
         }
         // TODO: call clause simplifier here?
         //       maybe it reduces the level we have to consider.
@@ -351,6 +347,7 @@ namespace polysat {
         }
         if (has_unassigned)
             jump_level = max_level;
+        LOG("Jump level: " << jump_level);
         m_max_jump_level = std::min(m_max_jump_level, jump_level);
         m_lemmas.push_back(std::move(lemma));
         // If possible, we should set the new constraint to l_true;

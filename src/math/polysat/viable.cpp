@@ -643,6 +643,7 @@ namespace polysat {
         // If there is a full interval, all others would have been removed
         SASSERT(!e->interval.is_full() || e->next() == e);
         SASSERT(e->interval.is_full() || all_of(*e, [](entry const& f) { return !f.interval.is_full(); }));
+        clause_builder lemma(s);
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
@@ -694,26 +695,19 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                core.insert_eval(c);
+                lemma.insert_eval(~c);
             }
             for (auto sc : e->side_cond)
-                core.insert_eval(sc);
+                lemma.insert_eval(~sc);
+            lemma.insert(~e->src);
             core.insert(e->src);
             e = n;
         }
         while (e != first);
+
+        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
+        core.add_lemma(lemma.build());
         core.logger().log(inf_fi(*this, v));
-
-        // TODO: should not be here, too general
-        for (auto c : core) {
-            if (c.bvalue(s) == l_false) {
-                UNREACHABLE();  // an invariant of the new conflict state is that bvalue of all inserted constraints is l_true (cf. assertion in conflict::insert)
-                core.set(~c);
-                core.logger().log("");
-                break;
-            }
-        }
-
         return true;
     }
 

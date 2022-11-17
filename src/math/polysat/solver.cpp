@@ -959,8 +959,10 @@ namespace polysat {
 
     void solver::assign_eval(sat::literal lit) {
         // SASSERT(lit2cnstr(lit).is_currently_true(*this));  // "morally" this should hold, but currently fails because of pop_assignment during resolve_conflict
+        SASSERT(!lit2cnstr(lit).is_currently_false(*this));
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
+        // TODO: level might be too low! because pop_assignment may already have removed necessary variables (cf. comment on assertion above).
         for (auto v : lit2cnstr(lit)->vars())
             if (is_assigned(v))
                 level = std::max(get_level(v), level);
