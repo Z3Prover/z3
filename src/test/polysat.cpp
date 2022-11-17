@@ -490,9 +490,9 @@ namespace polysat {
             clause_builder cb(s);
             auto u = s.var(s.add_var(4));
             auto v = s.var(s.add_var(4));
-            cb.push(s.eq(u));
-            cb.push(~s.eq(u - 1));
-            cb.push(s.ule(u, v));
+            cb.insert(s.eq(u));
+            cb.insert(~s.eq(u - 1));
+            cb.insert(s.ule(u, v));
             auto cl = cb.build();
             simp.apply(*cl);
             std::cout << *cl << "\n";

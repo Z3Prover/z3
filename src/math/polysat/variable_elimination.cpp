@@ -103,10 +103,10 @@ namespace polysat {
 
             clause_builder cb(s);
             for (auto [w, wv] : a)
-                cb.push(~s.eq(s.var(w), wv));
-            cb.push(~c);
-            cb.push(~c_target);
-            cb.push(c_new);
+                cb.insert(~s.eq(s.var(w), wv));
+            cb.insert(~c);
+            cb.insert(~c_target);
+            cb.insert(c_new);
             core.add_lemma(cb.build());
         }
     }

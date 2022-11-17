@@ -44,12 +44,8 @@ namespace polysat {
         clause_ref build();
 
         /// Insert constraints into the clause.
-        void push(sat::literal lit);
-        void push(signed_constraint c);
-        void push(inequality const& i) { push(i.as_signed_constraint()); }
-        // TODO: remove push
-        void insert(sat::literal lit) { push(lit); }
-        void insert(signed_constraint c) { push(c); }
+        void insert(sat::literal lit);
+        void insert(signed_constraint c);
         void insert(inequality const& i) { insert(i.as_signed_constraint()); }
 
         /// Inserting constraints into the clause.

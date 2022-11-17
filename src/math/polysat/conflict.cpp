@@ -308,7 +308,7 @@ namespace polysat {
     void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
-            cb.push(cs[i]);
+            cb.insert(cs[i]);
         add_lemma(cb.build());
     }
 
@@ -467,13 +467,11 @@ namespace polysat {
         clause_builder lemma(s);
 
         for (auto c : *this)
-            lemma.push(~c);
+            lemma.insert(~c);
 
         for (unsigned v : m_vars) {
             auto eq = s.eq(s.var(v), s.get_value(v));
-            if (eq.bvalue(s) == l_undef)
-                s.assign_eval(eq.blit());
-            lemma.push(~eq);
+            lemma.insert_eval(~eq);
         }
         s.decay_activity();
 

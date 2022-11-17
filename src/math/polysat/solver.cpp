@@ -1033,12 +1033,8 @@ namespace polysat {
 
     void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {
         clause_builder cb(*this);
-        for (unsigned i = 0; i < n; ++i) {
-            signed_constraint c = cs[i];
-            if (c.is_always_false())
-                continue;
-            cb.push(c);
-        }
+        for (unsigned i = 0; i < n; ++i)
+            cb.insert(cs[i]);
         clause_ref clause = cb.build();
         if (clause) {
             clause->set_redundant(is_redundant);
