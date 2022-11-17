@@ -491,13 +491,6 @@ namespace polysat {
 
         clause_builder lemma(s);
 
-#if 0
-        if (m_literals.size() == 1) {
-            auto c = *begin();
-            minimize_vars(c);
-        }
-#endif
-
         for (auto c : *this)
             lemma.push(~c);
 
@@ -533,6 +526,8 @@ namespace polysat {
         return std::move(m_narrow_queue);
     }
 
+#if 0
+    // TODO: convert minimize_vars into a clause simplifier
     bool conflict::minimize_vars(signed_constraint c) {
         if (m_vars.empty())
             return false;
@@ -563,6 +558,7 @@ namespace polysat {
         LOG("reduced " << m_vars);
         return true;
     }
+#endif
 
     std::ostream& conflict::display(std::ostream& out) const {
         char const* sep = "";

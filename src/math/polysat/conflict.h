@@ -120,12 +120,6 @@ namespace polysat {
         unsigned m_level = UINT_MAX;
 
         void set_impl(signed_constraint c);
-        bool minimize_vars(signed_constraint c);
-
-#if 0
-        void set_side_lemma(signed_constraint c, clause_ref lemma) { SASSERT(c); set_side_lemma(c.blit(), std::move(lemma)); }
-        void set_side_lemma(sat::literal lit, clause_ref lemma);
-#endif
 
     public:
         conflict(solver& s);
@@ -172,11 +166,6 @@ namespace polysat {
         bool pvar_occurs_in_constraints(pvar v) const { return v < m_var_occurrences.size() && m_var_occurrences[v] > 0; }
         uint_set const& vars_occurring_in_constraints() const { return m_vars_occurring; }
 
-#if 0
-        clause* side_lemma(signed_constraint c) const { SASSERT(c); return side_lemma(c.blit()); }
-        clause* side_lemma(sat::literal lit) const;
-#endif
-
         /**
          * Insert constraint c into conflict state.
          *
@@ -195,16 +184,6 @@ namespace polysat {
         void add_lemma(std::initializer_list<signed_constraint> cs);
         void add_lemma(signed_constraint const* cs, size_t cs_len);
         void add_lemma(clause_ref lemma);
-
-#if 0
-        /**
-         * Derive new constraint c by bool-propagation from premises c1, ..., cn;
-         * as if c was unit-propagated by the lemma c1 /\ ... /\ cn ==> c.
-         * Does not add c to the conflict state.
-         */
-        void bool_propagate(signed_constraint c, signed_constraint const* premises, unsigned premises_len);
-        void bool_propagate(signed_constraint c, std::initializer_list<signed_constraint> premises);
-#endif
 
         /** Remove c from core */
         void remove(signed_constraint c);
