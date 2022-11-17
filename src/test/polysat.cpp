@@ -979,22 +979,24 @@ namespace polysat {
             }
         }
 
-        static void test_ineq_non_axiom1(unsigned bw = 32) {
+        static void test_ineq_non_axiom1(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw - 1);
+            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            permute_args(i, x, y, z);
+            s.add_ult(x * y, x * z);
+            s.add_ule(z, y);
+            //s.add_ult(x, bound);
+            //s.add_ult(y, bound);
+            s.check();
+            s.expect_sat();
+        }
 
-            for (unsigned i = 0; i < 6; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
-                auto x = s.var(s.add_var(bw));
-                auto y = s.var(s.add_var(bw));
-                auto z = s.var(s.add_var(bw));
-                permute_args(i, x, y, z);
-                s.add_ult(x * y, x * z);
-                s.add_ule(z, y);
-                //s.add_ult(x, bound);
-                //s.add_ult(y, bound);
-                s.check();
-                s.expect_sat();
-            }
+        static void test_ineq_non_axiom1(unsigned bw = 32) {
+            for (unsigned i = 0; i < 6; ++i)
+                test_ineq_non_axiom1(32, i);
         }
 
         // xy <= xz & !Omega(x*y) => y <= z or x = 0
@@ -1573,7 +1575,9 @@ void tst_polysat() {
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     // test_polysat::test_ineq1();
-    test_polysat::test_quot_rem();
+    // test_polysat::test_quot_rem();
+    test_polysat::test_ineq_non_axiom1(32, 3);
+    // test_polysat::test_monot(5);
     return;
 #endif
 
@@ -1621,12 +1625,12 @@ void tst_polysat() {
     test_polysat::test_ineq1();  // TODO: resource limit
     test_polysat::test_ineq2();  // TODO: resource limit
     test_polysat::test_monot();  // TODO: assertion failure; resource limit
-    test_polysat::test_monot_bounds(2);  // weak conflicts
+    test_polysat::test_monot_bounds(2);
     test_polysat::test_monot_bounds(8);
-    test_polysat::test_monot_bounds();  // TODO: resource limit
-    test_polysat::test_monot_bounds_full();  // TODO: triggers assertion in watchlist invariant -- it's a problem with push/pop and that the "active" flag isn't maintained properly
-    test_polysat::test_monot_bounds_simple(8);  // undef
-    test_polysat::test_fixed_point_arith_div_mul_inverse();   // undef
+    test_polysat::test_monot_bounds();
+    test_polysat::test_monot_bounds_full();
+    test_polysat::test_monot_bounds_simple(8);
+    test_polysat::test_fixed_point_arith_div_mul_inverse();
 
     test_polysat::test_ineq_axiom1();
     test_polysat::test_ineq_axiom2();
@@ -1634,18 +1638,18 @@ void tst_polysat() {
     test_polysat::test_ineq_axiom4();
     test_polysat::test_ineq_axiom5();
     test_polysat::test_ineq_axiom6();
-    test_polysat::test_ineq_non_axiom1();  // assertion but looks otherwise ok
-    test_polysat::test_ineq_non_axiom4(32, 5);  // assertions/undef
+    test_polysat::test_ineq_non_axiom1();
+    test_polysat::test_ineq_non_axiom4();
 
     test_polysat::test_quot_rem_incomplete();
     test_polysat::test_quot_rem_fixed();
     test_polysat::test_band();
     test_polysat::test_quot_rem();
 
-    test_polysat::test_fi_zero();  // ok
-    test_polysat::test_fi_nonzero();  // ok
-    test_polysat::test_fi_nonmax();  // ok (viable_fallback chooses value for second variable)
-    test_polysat::test_fi_disequal_mild();  // ok
+    test_polysat::test_fi_zero();
+    test_polysat::test_fi_nonzero();
+    test_polysat::test_fi_nonmax();
+    test_polysat::test_fi_disequal_mild();
 
     // test_fi::exhaustive();
     // test_fi::randomized();
