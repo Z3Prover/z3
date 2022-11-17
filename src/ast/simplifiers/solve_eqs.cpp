@@ -75,13 +75,6 @@ namespace euf {
             return m_id2level[id] != UINT_MAX;
         };
 
-        auto is_safe = [&](unsigned lvl, expr* t) {
-            for (auto* e : subterms::all(expr_ref(t, m), &m_todo, &m_visited)) 
-                if (is_var(e) && m_id2level[var2id(e)] < lvl)
-                    return false;            
-            return true;
-        };
-
         unsigned init_level = UINT_MAX;
         unsigned_vector todo;
         
@@ -94,26 +87,59 @@ namespace euf {
             init_level -= m_id2var.size() + 1;
             unsigned curr_level = init_level;
             todo.push_back(id);
+            
             while (!todo.empty()) {
                 unsigned j = todo.back();
                 todo.pop_back();
                 if (is_explored(j))
                     continue;
                 m_id2level[j] = curr_level++;
+
                 for (auto const& eq : m_next[j]) {
                     auto const& [orig, v, t, d] = eq;
                     SASSERT(j == var2id(v));
-                    if (!is_safe(curr_level, t))
+                    bool is_safe = true;
+                    unsigned todo_sz = todo.size();
+
+                    // determine if substitution is safe.
+                    // all time-stamps must be at or above current level
+                    // unexplored variables that are part of substitution are appended to work list.
+                    SASSERT(m_todo.empty());
+                    m_todo.push_back(t);
+                    expr_fast_mark1 visited;
+                    while (!m_todo.empty()) {
+                        expr* e = m_todo.back();
+                        m_todo.pop_back();
+                        if (visited.is_marked(e))
+                            continue;
+                        visited.mark(e, true);
+                        if (is_app(e)) {
+                            for (expr* arg : *to_app(e))
+                                m_todo.push_back(arg);
+                        }
+                        else if (is_quantifier(e))
+                            m_todo.push_back(to_quantifier(e)->get_expr());
+                        if (!is_var(e))
+                            continue;
+                        if (m_id2level[var2id(e)] < curr_level) {
+                            is_safe = false;
+                            break;
+                        }
+                        if (!is_explored(var2id(e)))
+                            todo.push_back(var2id(e));
+                    }
+                    m_todo.reset();
+                    
+                    if (!is_safe) {
+                        todo.shrink(todo_sz);
                         continue;
+                    }
                     SASSERT(!occurs(v, t));
                     m_next[j][0] = eq;
                     m_subst_ids.push_back(j);                   
-                    for (expr* e : subterms::all(expr_ref(t, m), &m_todo, &m_visited))
-                        if (is_var(e) && !is_explored(var2id(e))) 
-                            todo.push_back(var2id(e));   
                     break;
                 }
-            }            
+            }                   
         }
     }
 

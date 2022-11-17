@@ -147,7 +147,8 @@ namespace euf {
 
     void solve_context_eqs::collect_nested_equalities(dep_eq_vector& eqs) {
         expr_mark visited;
-        for (unsigned i = m_solve_eqs.m_qhead; i < m_fmls.size(); ++i)
+        unsigned sz = m_fmls.size();
+        for (unsigned i = m_solve_eqs.m_qhead; i < sz; ++i)
             collect_nested_equalities(m_fmls[i], visited, eqs);
 
         if (eqs.empty())
@@ -156,15 +157,37 @@ namespace euf {
         std::stable_sort(eqs.begin(), eqs.end(), [&](dependent_eq const& e1, dependent_eq const& e2) {
                 return e1.var->get_id() < e2.var->get_id(); });
 
-        // quickly weed out variables that occur in more than two assertions.
-        unsigned_vector refcount;
+
+        // record the first and last occurrence of variables
+        // if the first and last occurrence coincide, the variable occurs in only one formula.
+        // otherwise it occurs in multiple formulas and should not be considered for solving.
+        unsigned_vector occurs1(m.get_num_asts() + 1, sz);
+        unsigned_vector occurs2(m.get_num_asts() + 1, sz);
+
+        struct visitor {
+            unsigned_vector& occurrence;
+            unsigned i = 0;
+            unsigned sz = 0;
+            visitor(unsigned_vector& occurrence) : occurrence(occurrence), i(0), sz(0) {}
+            void operator()(expr* t) {
+                occurrence.setx(t->get_id(), i, sz);
+            }
+        };
+
         {
-            expr_mark visited;
-            for (unsigned i = m_solve_eqs.m_qhead; i < m_fmls.size(); ++i) {
-                visited.reset();
-                expr* f = m_fmls[i].fml();
-                for (expr* t : subterms::all(expr_ref(f, m), &m_todo, &visited)) 
-                    refcount.setx(t->get_id(), refcount.get(t->get_id(), 0) + 1, 0);
+            visitor visitor1(occurs1);
+            visitor visitor2(occurs2);
+            visitor1.sz = sz;
+            visitor2.sz = sz;
+            expr_fast_mark1 fast_visited;
+            for (unsigned i = 0; i < sz; ++i) {
+                visitor1.i = i;
+                quick_for_each_expr(visitor1, fast_visited, m_fmls[i].fml());
+            }
+            fast_visited.reset();
+            for (unsigned i = sz; i-- > 0; ) {
+                visitor2.i = i;
+                quick_for_each_expr(visitor2, fast_visited, m_fmls[i].fml());
             }
         }
 
@@ -172,12 +195,16 @@ namespace euf {
         expr* last_var = nullptr;
         bool was_unsafe = false;
         for (auto const& eq : eqs) {
-
-            if (refcount.get(eq.var->get_id(), 0) > 1)                 
+            if (!eq.var)
+                continue;
+            unsigned occ1 = occurs1.get(eq.var->get_id(), sz);
+            unsigned occ2 = occurs2.get(eq.var->get_id(), sz);
+            if (occ1 >= sz)
+                continue;
+            if (occ1 != occ2)
                 continue;
             
             SASSERT(!m.is_bool(eq.var));
-
 
             if (eq.var != last_var) {
 
@@ -195,8 +222,7 @@ namespace euf {
                 }
 
                 // then mark occurrences
-                for (unsigned i = 0; i < m_fmls.size(); ++i)
-                    m_todo.push_back(m_fmls[i].fml());
+                m_todo.push_back(m_fmls[occ1].fml());
                 mark_occurs(m_todo, eq.var, m_contains_v);
                 SASSERT(m_todo.empty());
             }

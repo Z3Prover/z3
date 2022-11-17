@@ -33,7 +33,7 @@ namespace euf {
         egraph                 m_egraph;
         enode*                 m_tt, *m_ff;
         ptr_vector<expr>       m_todo;
-        enode_vector           m_args, m_reps, m_nodes;
+        enode_vector           m_args, m_reps, m_nodes_to_canonize;
         expr_ref_vector        m_canonical, m_eargs;
         expr_dependency_ref_vector m_deps;
         unsigned               m_epoch = 0;
@@ -43,11 +43,11 @@ namespace euf {
         bool                   m_has_new_eq = false;
 
         enode* mk_enode(expr* e);
-        bool new_eq(expr* a, expr* b);
+        bool is_new_eq(expr* a, expr* b);
+        void update_has_new_eq(expr* g);
         expr_ref mk_and(expr* a, expr* b);
         void add_egraph();
         void map_canonical();
-        void saturate();
         void read_egraph();
         expr_ref canonize(expr* f, expr_dependency_ref& dep);
         expr_ref canonize_fml(expr* f, expr_dependency_ref& dep);
