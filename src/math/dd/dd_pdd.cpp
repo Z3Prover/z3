@@ -185,7 +185,20 @@ namespace dd {
         pdd v_val = mk_var(v) + val;
         return pdd(apply(s.root, v_val.root, pdd_subst_add_op), this);
     }
-    
+
+    bool pdd_manager::subst_get(pdd const& s, unsigned v, rational& out_val) {
+        unsigned level_v = m_var2level[v];
+        PDD p = s.root;
+        while (/* !is_val(p) && */ level(p) > level_v) {
+            SASSERT(is_val(lo(p)));
+            p = hi(p);
+        }
+        if (!is_val(p) && level(p) == level_v) {
+            out_val = val(lo(p));
+            return true;
+        }
+        return false;
+    }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;

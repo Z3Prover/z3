@@ -10,7 +10,7 @@ Abstract:
     Poly DD package
 
     It is a mild variant of ZDDs. 
-    In PDDs arithmetic is either standard or using mod 2 (over GF2).
+    In PDDs arithmetic is either standard or using mod 2^n.
 
     Non-leaf nodes are of the form x*hi + lo
     where 
@@ -343,6 +343,7 @@ namespace dd {
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
         pdd subst_val(pdd const& a, pdd const& s);
         pdd subst_add(pdd const& s, unsigned v, rational const& val);
+        bool subst_get(pdd const& s, unsigned v, rational& out_val);
         bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
         pdd reduce(unsigned v, pdd const& a, pdd const& b);
         void quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r);
@@ -459,7 +460,8 @@ namespace dd {
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
-        pdd subst_add(unsigned var, rational const& val) { return m.subst_add(*this, var, val); }
+        pdd subst_add(unsigned var, rational const& val) const { return m.subst_add(*this, var, val); }
+        bool subst_get(unsigned var, rational& out_val) const { return m.subst_get(*this, var, out_val); }
 
         /**
          * \brief substitute variable v by r.
