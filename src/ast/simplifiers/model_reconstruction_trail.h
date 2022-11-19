@@ -35,22 +35,35 @@ class model_reconstruction_trail {
     struct entry {
         scoped_ptr<expr_substitution> m_subst;
         vector<dependent_expr>        m_removed;
-        func_decl*                    m_hide = nullptr;
+        func_decl_ref                 m_decl;
+        expr_ref                      m_def;
         bool                          m_active = true;
 
-        entry(expr_substitution* s, vector<dependent_expr> const& rem) :
-            m_subst(s), m_removed(rem) {}
 
-        entry(func_decl* h) : m_hide(h) {}
+        entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
+            m_subst(s), m_removed(rem), m_decl(m), m_def(m) {}
+
+        entry(ast_manager& m, func_decl* h) : m_decl(h, m), m_def(m) {}
+
+        entry(ast_manager& m, func_decl* f, expr* def, vector<dependent_expr> const& rem) :
+            m_decl(f, m), m_def(def, m), m_removed(rem) {}
 
         bool is_loose() const { return !m_removed.empty(); }
 
         bool intersects(ast_mark const& free_vars) const {
+            if (is_hide())
+                return false;
+            if (is_def())
+                return free_vars.is_marked(m_decl);
             for (auto const& [k, v] : m_subst->sub())
                 if (free_vars.is_marked(k))
                     return true;
             return false;
         }
+
+        bool is_hide() const { return m_decl && !m_def; }
+        bool is_def() const { return m_decl && m_def; }
+        bool is_subst() const { return !m_decl; }
     };
 
     ast_manager&             m;
@@ -81,7 +94,7 @@ public:
     * add a new substitution to the trail
     */
     void push(expr_substitution* s, vector<dependent_expr> const& removed) {
-        m_trail.push_back(alloc(entry, s, removed));
+        m_trail.push_back(alloc(entry, m, s, removed));
         m_trail_stack.push(push_back_vector(m_trail));       
     }
 
@@ -89,7 +102,15 @@ public:
     * add declaration to hide
     */
     void push(func_decl* f) {
-        m_trail.push_back(alloc(entry, f));
+        m_trail.push_back(alloc(entry, m, f));
+        m_trail_stack.push(push_back_vector(m_trail));
+    }
+
+    /**
+     * add definition
+     */
+    void push(func_decl* f, expr* def, vector<dependent_expr> const& removed) {
+        m_trail.push_back(alloc(entry, m, f, def, removed));
         m_trail_stack.push(push_back_vector(m_trail));
     }
 

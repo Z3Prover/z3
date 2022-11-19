@@ -30,8 +30,9 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
         if (!t->m_active)
             continue;
 
-        if (t->m_hide)
+        if (t->is_hide())
             continue;
+
         
         // updates that have no intersections with current variables are skipped
         if (!t->intersects(free_vars)) 
@@ -48,6 +49,9 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             continue;
         }
         
+        if (t->is_def())
+            NOT_IMPLEMENTED_YET();
+
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
@@ -63,48 +67,23 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
  * retrieve the current model converter corresponding to chaining substitutions from the trail.
  */
 model_converter_ref model_reconstruction_trail::get_model_converter() {
-
-    //
-    // walk the trail from the back
-    // add substitutions from the back to the generic model converter
-    // after they have been normalized using a global replace that replaces 
-    // substituted variables by their terms.
-    //
-
     
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     expr_substitution subst(m, true, false);
     rp->set_substitution(&subst);
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "dependent-expr-model");
-    bool first = true;
-    for (unsigned i = m_trail.size(); i-- > 0; ) {
+    for (unsigned i = 0; i < m_trail.size(); ++i) {
         auto* t = m_trail[i];
         if (!t->m_active)
             continue;
-
-        if (t->m_hide) {
-            mc->hide(t->m_hide);
-            continue;
-        }
-
-        if (first) {
-            first = false;
-            for (auto const& [v, def] : t->m_subst->sub()) {
-                expr_dependency* dep = t->m_subst->dep(v);
-                subst.insert(v, def, dep);
+        else if (t->is_hide()) 
+            mc->hide(t->m_decl);
+        else if (t->is_def()) 
+            mc->add(t->m_decl, t->m_def);
+        else {
+            for (auto const& [v, def] : t->m_subst->sub())
                 mc->add(v, def);
-            }
-            continue;
-        }
-
-        for (auto const& [v, def] : t->m_subst->sub()) {
-            auto [new_def, new_dep] = rp->replace_with_dep(def);
-            expr_dependency* dep = t->m_subst->dep(v);
-            new_dep = m.mk_join(dep, new_dep);
-            subst.insert(v, new_def, new_dep);
-            mc->add(v, new_def);
-        }
-
+        }        
     }
     return model_converter_ref(mc.get());
 
