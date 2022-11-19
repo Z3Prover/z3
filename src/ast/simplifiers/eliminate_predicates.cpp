@@ -18,9 +18,17 @@ The simplifier
     and we can obbtain {a, C}, {b, C} {~a, ~b, D } similar to propositional case.
     Instead the case is handled by predicate elimination when p only occurs positively 
     outside of {~p, a} {~p, b} {p, ~a, ~b} 
+    The SAT based definition detection scheme creates clauses 
+    {a}, {b}, {~a,~b}, C, D and checks for an unsat core.
+    The core {a}, {b}, {~a, ~b} maps back to a definition for p
+    Then {p, C}, {~p, D} clauses are replaced based on the definition.
+    (a task for a "Kitten"?)
+  - Handle various permutations of variables that are arguments to p?
   - other SMT-based macro detection could be made here as well.
     The (legacy) macro finder is not very flexible and could be replaced
     by a module building on this one. 
+
+
 - eliminates predicates p(x) that occur at most once in each clause and the
   number of occurrences is small.
 
@@ -76,6 +84,7 @@ struct eliminate_predicates::macro_expander_cfg : public default_rewriter_cfg {
 
     /**
     * adapted from macro_manager.cpp
+    * Perhaps hoist and combine?
     */
     bool reduce_quantifier(quantifier* old_q,
         expr* new_body,
@@ -131,6 +140,7 @@ struct eliminate_predicates::macro_expander_cfg : public default_rewriter_cfg {
             r = rr;
             m_trail.push_back(rr);
             m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, dep);
+            // skip proof terms for simplifiers
             return true;
         }
         
