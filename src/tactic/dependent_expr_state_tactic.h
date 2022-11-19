@@ -60,9 +60,15 @@ public:
         m_dep = dependent_expr(m, m_goal->form(i), m_goal->dep(i));
         return m_dep;
     }
+    
     void update(unsigned i, dependent_expr const& j) override {
         auto [f, d] = j();
         m_goal->update(i, f, nullptr, d);
+    }
+    
+    void add(dependent_expr const& j) override {
+        auto [f, d] = j();
+        m_goal->assert_expr(f, nullptr, d);
     }
 
     bool inconsistent() override {
