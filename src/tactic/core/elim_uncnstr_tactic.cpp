@@ -121,7 +121,7 @@ class elim_uncnstr_tactic : public tactic {
             SASSERT(uncnstr(v));
             SASSERT(to_app(v)->get_num_args() == 0);
             if (m_mc)
-                m_mc->add(to_app(v)->get_decl(), def);
+                m_mc->add(v, def);
         }
         
         void add_defs(unsigned num, expr * const * args, expr * u, expr * identity) {

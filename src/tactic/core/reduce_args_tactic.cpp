@@ -414,7 +414,7 @@ struct reduce_args_tactic::imp {
             for (auto const& [t, new_def] : *map) {
                 f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
-                app * new_t = m.mk_app(new_def, new_args.size(), new_args.data());
+                app * new_t = m.mk_app(new_def, new_args);
                 if (def == nullptr) {
                     def = new_t;
                 }
@@ -429,7 +429,7 @@ struct reduce_args_tactic::imp {
                     if (new_eqs.size() == 1)
                         cond = new_eqs[0];
                     else
-                        cond = m.mk_and(new_eqs.size(), new_eqs.data());
+                        cond = m.mk_and(new_eqs);
                     def = m.mk_ite(cond, new_t, def);
                 }
             }
