@@ -131,7 +131,7 @@ class der {
     ptr_vector<var>  m_inx2var;
     unsigned_vector  m_order;
     expr_ref_vector  m_subst_map;
-    expr_ref_buffer  m_new_args;
+    expr_ref_vector  m_new_args;
 
     /**
        \brief Return true if e can be viewed as a variable disequality. 
@@ -145,9 +145,11 @@ class der {
     */
     bool is_var_diseq(expr * e, unsigned num_decls, var *& v, expr_ref & t);
 
+    bool is_var_eq(expr* e, unsigned num_decls, var*& v, expr_ref& t);
+
     void get_elimination_order();
     void create_substitution(unsigned sz);
-    void apply_substitution(quantifier * q, expr_ref_vector& ors, expr_ref & r);
+    void apply_substitution(quantifier * q, expr_ref_vector& lits, bool is_or, expr_ref & r);
 
     void reduce1(quantifier * q, expr_ref & r, proof_ref & pr);
 
