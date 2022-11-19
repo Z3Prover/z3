@@ -357,8 +357,6 @@ void eliminate_predicates::try_resolve(func_decl* p) {
             ++num_neg;
 
     TRACE("elim_predicates", tout << "try resolve " << p->get_name() << " " << num_pos << " " << num_neg << "\n");
-    // TODO - probe for a definition
-    // generally, probe for binary clause equivalences in binary implication graph
     
     if (num_pos >= 4 && num_neg >= 2)
         return;
