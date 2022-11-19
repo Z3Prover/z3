@@ -175,12 +175,6 @@ namespace macro_manager_ns {
 /**
    \brief Mark all func_decls used in exprs as forbidden.
 */
-void macro_manager::mark_forbidden(unsigned n, expr * const * exprs) {
-    expr_mark visited;
-    macro_manager_ns::proc p(m_forbidden_set, m_forbidden);
-    for (unsigned i = 0; i < n; i++)
-        for_each_expr(p, visited, exprs[i]);
-}
 
 void macro_manager::mark_forbidden(unsigned n, justified_expr const * exprs) {
     expr_mark visited;
