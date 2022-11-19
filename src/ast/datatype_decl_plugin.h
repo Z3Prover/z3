@@ -253,6 +253,7 @@ namespace datatype {
             ptr_vector<constructor> get_constructors(symbol const& s) const;
             ptr_vector<accessor> get_accessors(symbol const& s) const;
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
+            bool is_declared(symbol const& n) const { return m_defs.contains(n); }
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
 
@@ -375,6 +376,7 @@ namespace datatype {
         bool is_constructor_of(unsigned num_params, parameter const* params, func_decl* f);
         void reset();
         bool is_declared(sort* s) const;
+        bool is_declared(symbol const& n) const;
         void display_datatype(sort *s, std::ostream& strm);
         bool is_fully_interp(sort * s) const;
         sort_ref_vector datatype_params(sort * s) const;
