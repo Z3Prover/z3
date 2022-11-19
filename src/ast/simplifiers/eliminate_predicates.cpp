@@ -357,7 +357,6 @@ void eliminate_predicates::try_resolve(func_decl* p) {
             ++num_neg;
 
     TRACE("elim_predicates", tout << "try resolve " << p->get_name() << " " << num_pos << " " << num_neg << "\n");
-    IF_VERBOSE(0, verbose_stream() << "try resolve " << p->get_name() << " " << num_pos << " " << num_neg << "\n");
     // TODO - probe for a definition
     // generally, probe for binary clause equivalences in binary implication graph
     
@@ -436,7 +435,6 @@ void eliminate_predicates::update_model(func_decl* p) {
         def = mk_and(fmls);
     }
 
-    IF_VERBOSE(0, verbose_stream() << p->get_name() << " " << def << "\n");
     rewrite(def);
     m_fmls.model_trail().push(p, def, deleted);
 }
@@ -478,7 +476,6 @@ expr_ref eliminate_predicates::create_residue_formula(func_decl* p, clause& cl) 
             names.push_back(symbol(i));
         fml = m.mk_exists(num_bound, cl.m_bound.data(), names.data(), fml, 1);
     }
-    IF_VERBOSE(0, verbose_stream() << fml << "\n");
     return fml;
 }
 
