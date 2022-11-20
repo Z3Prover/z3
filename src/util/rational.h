@@ -55,6 +55,8 @@ public:
     explicit rational(double  z) { UNREACHABLE(); }
     
     explicit rational(char const * v) { m().set(m_val, v); }
+    
+    explicit rational(unsigned const * v, unsigned sz) { m().set(m_val, sz, v); }
 
     struct i64 {};
     rational(int64_t i, i64) { m().set(m_val, i); }

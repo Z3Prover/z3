@@ -29,6 +29,7 @@ namespace polysat {
         unsigned_vector m_inverse_constants;
         unsigned_vector m_rest_constants;
         
+        pdd get_hamming_distance(pdd p);
         pdd get_odd(pdd p); // add lemma "2^pv(v) * v' = v"
         optional<pdd> get_inverse(pdd v); // add lemma "v' * v'^-1 = 1 (where v' is the odd part of v)"
         void add_dyadic_valuation(pvar v, unsigned k); // add lemma "pv(v) = k" ==> "pv_v = k"

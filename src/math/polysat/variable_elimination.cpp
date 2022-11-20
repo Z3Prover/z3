@@ -19,6 +19,45 @@ Author:
 
 namespace polysat {
     
+    pdd free_variable_elimination::get_hamming_distance(pdd p) {
+        SASSERT(p.power_of_2() >= 8); // TODO: Implement special cases for smaller bit-width
+        // TODO: Check correctness; especially if the bit-width is not multiple of 8  
+        // TODO: Prove by bit-blasting in Z3
+        // https://en.wikipedia.org/wiki/Hamming_weight
+        const unsigned char pattern_55 = 0x55; // 01010101
+        const unsigned char pattern_33 = 0x33; // 00110011
+        const unsigned char pattern_0f = 0x0f; // 00001111
+        const unsigned char pattern_01 = 0x01; // 00000001
+        
+        unsigned to_alloc = (p.power_of_2() + sizeof(unsigned) - 1) / sizeof(unsigned);
+        unsigned to_alloc_bits = to_alloc * sizeof(unsigned);
+        
+        // Cache this?
+        auto* scaled_55 = (unsigned*)alloca(to_alloc_bits);
+        auto* scaled_33 = (unsigned*)alloca(to_alloc_bits);
+        auto* scaled_0f = (unsigned*)alloca(to_alloc_bits);
+        auto* scaled_01 = (unsigned*)alloca(to_alloc_bits);
+        
+        memset(scaled_55, pattern_55, to_alloc_bits);
+        memset(scaled_33, pattern_33, to_alloc_bits);
+        memset(scaled_0f, pattern_0f, to_alloc_bits);
+        memset(scaled_01, pattern_01, to_alloc_bits);
+        
+        rational rational_scaled_55(scaled_55, to_alloc);
+        rational rational_scaled_33(scaled_33, to_alloc);
+        rational rational_scaled_0f(scaled_0f, to_alloc);
+        rational rational_scaled_01(scaled_01, to_alloc);
+        
+        auto& m = p.manager();
+        
+        pdd w = p - s.band(s.lshr(p, m.one()), m.mk_val(rational_scaled_55));
+        w = s.band(w, m.mk_val(rational_scaled_33)) + s.band(s.lshr(w, m.mk_val(2)), m.mk_val(rational_scaled_33));
+        w = s.band(w + s.lshr(w, m.mk_val(4)), m.mk_val(rational_scaled_0f));
+        unsigned final_shift = p.power_of_2() - 8;
+        final_shift = (final_shift + 7) / 8 * 8; // ceil final_shift to the next multiple of 8
+        return s.lshr(w * m.mk_val(rational_scaled_01), m.mk_val(final_shift));
+    }
+    
     pdd free_variable_elimination::get_odd(pdd p) {
         SASSERT(p.is_val() || p.is_var()); // For now
         
@@ -26,8 +65,8 @@ namespace polysat {
             const rational& v = p.val();
             unsigned d = v.trailing_zeros(); 
             if (!d)
-                return s.sz2pdd(p.power_of_2()).mk_val(v);
-            return s.sz2pdd(p.power_of_2()).mk_val(div(v, rational::power_of_two(d))); // TODO: Is there no shift?
+                return p.manager().mk_val(v);
+            return p.manager().mk_val(div(v, rational::power_of_two(d))); // TODO: Is there no shift?
         }
         pvar v = p.var();
         if (m_rest_constants.size() > v && m_rest_constants[v] != -1)
@@ -45,7 +84,7 @@ namespace polysat {
         SASSERT(p.is_val() || p.is_var()); // For now
         
         if (p.is_val()) {
-            pdd i = s.sz2pdd(p.power_of_2()).zero();
+            pdd i = p.manager().zero();
             if (!inv(p, i))
                 return {};
             return optional<pdd>(i);
@@ -56,7 +95,7 @@ namespace polysat {
         
         pvar inv = s.add_var(s.var(v).power_of_2());
         m_inverse_constants.setx(v, inv, -1);
-        s.add_clause(s.eq(s.var(inv) * s.var(v), s.sz2pdd(s.var(v).power_of_2()).one()), false);
+        s.add_clause(s.eq(s.var(inv) * s.var(v), p.manager().one()), false);
         return optional<pdd>(s.var(inv));
     }
     
@@ -64,43 +103,69 @@ namespace polysat {
     void free_variable_elimination::add_dyadic_valuation(pvar v, unsigned k) {
         pvar pv;
         pvar pv2;
+        bool new_var = false;
         if (m_pv_constants.size() <= v || m_pv_constants[v] == -1) {
             pv = s.add_var(s.var(v).power_of_2()); // TODO: What's a good value? Unfortunately we cannot use a integer
             pv2 = s.add_var(s.var(v).power_of_2());
             m_pv_constants.setx(v, pv, -1);
             m_pv_power_constants.setx(v, pv2, -1);
+            new_var = true;
         }
         else {
             pv = m_pv_constants[v];
             pv2 = m_pv_power_constants[v];
         }
         
+        pdd p = s.var(v);
+        auto& m = p.manager();
+        
+        bool e = get_log_enabled();
+        set_log_enabled(false);
+                
+#if 0
+        // explicit bit extraction and <=
+        signed_constraint c1 = s.eq(rational::power_of_two(p.power_of_2() - k - 1) * p, m.zero());
+        signed_constraint c2 = s.ule(m.mk_val(k), s.var(pv));
+        s.add_clause(~c1, c2, false);
+        s.add_clause(c1, ~c2, false);
+        
+        if (new_var) {
+            s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
+        }
+#elif 1
+        // computing the complete function by hamming-distance
+        get_hamming_distance();
+#else
+        // Naive approach with bit-and
         // (pv = k && pv2 = 2^k) <==> ((v & (2^(k + 1) - 1)) = 2^k) 
         
         rational mask = rational::power_of_two(k + 1) - 1;
-        pdd masked = s.band(s.var(v), s.sz2pdd(s.var(v).power_of_2()).mk_val(mask));
+        pdd masked = s.band(s.var(v), s.var(v).manager().mk_val(mask));
         std::pair<pdd, pdd> odd_part = s.quot_rem(s.var(v), s.var(pv2));
         
         signed_constraint c1 = s.eq(s.var(pv), k);
         signed_constraint c2 = s.eq(s.var(pv2), rational::power_of_two(k));
         signed_constraint c3 = s.eq(masked, rational::power_of_two(k));
-        bool e = get_log_enabled();
-        set_log_enabled(false);
+        
         s.add_clause(c1, ~c3, false);
         s.add_clause(c2, ~c3, false);
         s.add_clause(~c1, ~c2, c3, false);
         
         s.add_clause(s.eq(odd_part.second, 0), false); // The division has to be exact
+#endif
+        
         set_log_enabled(e);
     }
     
     std::pair<pdd, pdd> free_variable_elimination::get_dyadic_valuation(pdd p, unsigned short lower, unsigned short upper) {
         SASSERT(p.is_val() || p.is_var()); // For now
+        SASSERT(lower == 0);
+        SASSERT(upper == p.power_of_2()); // Maybe we don't need all. However, for simplicity have this now
         
         if (p.is_val()) {
             rational pv(p.val().trailing_zeros());
             rational pv2 = rational::power_of_two(p.val().trailing_zeros());
-            return { s.sz2pdd(p.power_of_2()).mk_val(pv), s.sz2pdd(p.power_of_2()).mk_val(pv2) };
+            return { m.mk_val(pv), m.mk_val(pv2) };
         }
         
         pvar v = p.var();
