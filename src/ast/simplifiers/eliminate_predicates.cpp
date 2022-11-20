@@ -22,6 +22,7 @@ The simplifier
     {a}, {b}, {~a,~b}, C, D and checks for an unsat core.
     The core {a}, {b}, {~a, ~b} maps back to a definition for p
     Then {p, C}, {~p, D} clauses are replaced based on the definition.
+    Claim: {C, D} is a consequence when we have created resolvents {C,X}, {D,Y}, where X => p => Y => X
     (a task for a "Kitten"?)
   - Handle various permutations of variables that are arguments to p?
   - other SMT-based macro detection could be made here as well.
@@ -45,6 +46,7 @@ forbidden from macros vs forbidden from elimination
 --*/
 
 
+#include "util/uint_set.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
@@ -56,7 +58,6 @@ forbidden from macros vs forbidden from elimination
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/simplifiers/eliminate_predicates.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "ast/macros/macro_util.h"
 
 
 /**
@@ -196,6 +197,49 @@ void eliminate_predicates::add_use_list(clause& cl) {
 }
 
 /**
+* Check that all arguments are distinct variables that are bound.
+*/
+
+bool eliminate_predicates::can_be_macro_head(app* head, unsigned num_bound) {
+    uint_set indices;
+    if (head->get_decl()->is_associative())
+        return false;
+    for (expr* arg : *head) {
+        if (!is_var(arg))
+            return false;
+        unsigned idx = to_var(arg)->get_idx();
+        if (indices.contains(idx))
+            return false;
+        if (idx >= num_bound)
+            return false;
+        indices.insert(idx);
+    }
+    return true;
+}
+
+expr_ref eliminate_predicates::bind_free_variables_in_def(clause& cl, app* head, expr* def) {
+    unsigned num_bound = cl.m_bound.size();
+    if (head->get_num_args() == num_bound)
+        return expr_ref(def, m);
+
+    // head(x) <=> forall yx', x = x' => def(yx')
+    svector<symbol> names;
+    expr_ref_vector ors(m);
+    expr_ref result(m);
+    ors.push_back(def);
+
+    for (unsigned i = 0; i < num_bound; ++i)
+        names.push_back(symbol(i));
+    for (expr* arg : *head) {
+        unsigned idx = to_var(arg)->get_idx();
+        ors.push_back(m.mk_not(m.mk_eq(arg, m.mk_var(idx + num_bound, arg->get_sort()))));
+    }
+    result = mk_or(ors);
+    result = m.mk_forall(num_bound, cl.m_bound.data(), names.data(), result);
+    rewrite(result);
+    return result;
+}
+/**
 * cheap/simplistic heuristic to find definitions that are based on binary clauses
 * (or (head x) (not (def x))
 * (or (not (head x)) (def x))
@@ -204,13 +248,12 @@ bool eliminate_predicates::try_find_binary_definition(func_decl* p, app_ref& hea
     if (m_disable_macro.is_marked(p))
         return false;
     expr_mark binary_pos, binary_neg;
-    macro_util mutil(m);
     obj_map<expr, expr_dependency*> deps;
-    auto is_def_predicate = [&](expr* atom) {
-        return is_app(atom) && to_app(atom)->get_decl() == p && mutil.is_macro_head(atom, p->get_arity());
+    auto is_def_predicate = [&](clause& cl, expr* atom) {
+        return is_app(atom) && to_app(atom)->get_decl() == p && can_be_macro_head(to_app(atom), cl.m_bound.size());
     };
     auto add_def = [&](clause& cl, expr* atom1, bool sign1, expr* atom2, bool sign2) {
-        if (is_def_predicate(atom1) && !sign1) {
+        if (is_def_predicate(cl, atom1) && !sign1) {
             if (sign2)
                 binary_neg.mark(atom2);
             else
@@ -233,10 +276,10 @@ bool eliminate_predicates::try_find_binary_definition(func_decl* p, app_ref& hea
         auto const& [atom1, sign1] = cl.m_literals[i];
         auto const& [atom2, sign2] = cl.m_literals[j];
         expr_dependency* d = nullptr;
-        if (is_def_predicate(atom1) && sign1) {
+        if (is_def_predicate(cl, atom1) && sign1) {
             if (sign2 && binary_pos.is_marked(atom2) && is_macro_safe(atom2) && !occurs(p, atom2)) {
                 head = to_app(atom1);
-                def = m.mk_not(atom2);
+                def = bind_free_variables_in_def(cl, head, m.mk_not(atom2));
                 dep = cl.m_dep;
                 if (deps.find(atom1, d))
                     dep = m.mk_join(dep, d);                    
@@ -244,7 +287,7 @@ bool eliminate_predicates::try_find_binary_definition(func_decl* p, app_ref& hea
             }
             if (!sign2 && binary_neg.is_marked(atom2) && is_macro_safe(atom2) && !occurs(p, atom2)) {
                 head = to_app(atom1);
-                def = atom2;
+                def = bind_free_variables_in_def(cl, head, atom2);
                 dep = cl.m_dep;
                 if (deps.find(atom1, d))
                     dep = m.mk_join(dep, d);
