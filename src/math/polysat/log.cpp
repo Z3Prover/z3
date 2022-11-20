@@ -32,6 +32,10 @@ void set_log_enabled(bool log_enabled) {
   g_log_enabled = log_enabled;
 }
 
+bool get_log_enabled() {
+  return g_log_enabled;
+}
+
 static LogLevel get_max_log_level(std::string const& fn, std::string const& pretty_fn) {
   (void)fn;
   (void)pretty_fn;

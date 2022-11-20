@@ -48,7 +48,7 @@ namespace polysat {
 
         void narrow_shl(solver& s);
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
-
+        
         void narrow_and(solver& s);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
 

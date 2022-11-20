@@ -224,6 +224,7 @@ namespace polysat {
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
         void add_clause(clause& clause);
+        void add_clause(signed_constraint c, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
@@ -309,7 +310,7 @@ namespace polysat {
 
         /** Create expression for the logical left shift of p by q. */
         pdd shl(pdd const& p, pdd const& q) { return m_constraints.shl(p, q); }
-
+        
         /** Create expression for the bit-wise negation of p. */
         pdd bnot(pdd const& p) { return m_constraints.bnot(p); }
 

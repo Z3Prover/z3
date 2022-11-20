@@ -27,6 +27,7 @@ char const* color_reset();
 #if POLYSAT_LOGGING_ENABLED
 
 void set_log_enabled(bool log_enabled);
+bool get_log_enabled();
 
 class polysat_log_indent
 {

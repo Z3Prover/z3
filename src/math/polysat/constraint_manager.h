@@ -81,7 +81,7 @@ namespace polysat {
 
         void ensure_bvar(constraint* c);
         void erase_bvar(constraint* c);
-
+        
         signed_constraint mk_op_constraint(op_constraint::code op, pdd const& p, pdd const& q, pdd const& r);
         pdd mk_op_term(op_constraint::code op, pdd const& p, pdd const& q);
 

@@ -277,10 +277,12 @@ namespace polysat {
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
         if (a.is_val() && b.is_val()) {
-            // TODO: just evaluate?
+            rational r;
+            rational q = machine_div_rem(a.val(), b.val(), r);
+            return { m.mk_val(r), m.mk_val(q) };
         }
 
-        constraint_dedup::quot_rem_args args({a, b});
+        constraint_dedup::quot_rem_args args({ a, b });
         auto it = m_dedup.quot_rem_expr.find_iterator(args);
         if (it != m_dedup.quot_rem_expr.end())
             return { m.mk_var(it->m_value.first), m.mk_var(it->m_value.second) };
@@ -297,13 +299,13 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         s.add_eq(a, b * q + r);
         s.add_umul_noovfl(b, q);
-        s.add_ule(r, b*q+r);
+        s.add_ule(r, b * q + r);
 
         auto c_eq = eq(b);
         s.add_clause(c_eq, ult(r, b), false);
         s.add_clause(~c_eq, eq(q + 1), false);
 
-        return {q, r};
+        return { q, r };
     }
 
     pdd constraint_manager::bnot(pdd const& p) {

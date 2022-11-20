@@ -1042,6 +1042,11 @@ namespace polysat {
         }
     }
 
+    void solver::add_clause(signed_constraint c, bool is_redundant) {
+        signed_constraint cs[1] = { c };
+        add_clause(1, cs, is_redundant);
+    }
+
     void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
         signed_constraint cs[2] = { c1, c2 };
         add_clause(2, cs, is_redundant);
