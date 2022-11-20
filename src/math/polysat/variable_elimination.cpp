@@ -132,9 +132,9 @@ namespace polysat {
         if (new_var) {
             s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
         }
-#elif 1
+#elif 0
         // computing the complete function by hamming-distance
-        get_hamming_distance();
+        //get_hamming_distance();
 #else
         // Naive approach with bit-and
         // (pv = k && pv2 = 2^k) <==> ((v & (2^(k + 1) - 1)) = 2^k) 
@@ -165,7 +165,7 @@ namespace polysat {
         if (p.is_val()) {
             rational pv(p.val().trailing_zeros());
             rational pv2 = rational::power_of_two(p.val().trailing_zeros());
-            return { m.mk_val(pv), m.mk_val(pv2) };
+            return { p.manager().mk_val(pv), p.manager().mk_val(pv2) };
         }
         
         pvar v = p.var();
