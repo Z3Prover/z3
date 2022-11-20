@@ -105,7 +105,7 @@ extern "C" {
         symbol sname = to_symbol(name);
 
         if (mk_c(c)->get_dt_plugin()->is_declared(sname)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "enumeration sort name is already declared");
             RETURN_Z3(nullptr);
         }
 
