@@ -80,12 +80,8 @@ namespace polysat {
         return is_always_false(is_positive, p(), q(), r());
     }
 
-    bool op_constraint::is_currently_false(solver& s, bool is_positive) const {
-        return is_always_false(is_positive, s.subst(p()), s.subst(q()), s.subst(r()));
-    }
-
-    bool op_constraint::is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const {
-        return is_always_false(is_positive, s.subst(sub, p()), s.subst(sub, q()), s.subst(sub, r()));
+    bool op_constraint::is_currently_false(assignment const& a, bool is_positive) const {
+        return is_always_false(is_positive, a.apply_to(p()), a.apply_to(q()), a.apply_to(r()));
     }
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {

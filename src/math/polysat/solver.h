@@ -31,6 +31,7 @@ Author:
 #include "math/polysat/justification.h"
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
+#include "math/polysat/assignment.h"
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
@@ -58,6 +59,7 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        friend class assignment;
         friend class constraint;
         friend class ule_constraint;
         friend class umul_ovfl_constraint;
@@ -125,8 +127,6 @@ namespace polysat {
         unsigned_vector          m_size;     // store size of variables (bit width)
 
         search_state             m_search;
-        assignment_t const& assignment() const { return m_search.assignment(); }
-        pdd subst(assignment_t const& sub, pdd const& p) const;
 
         unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
         unsigned                 m_level = 0;
@@ -150,7 +150,6 @@ namespace polysat {
             m_qhead_trail.pop_back();
         }
 
-
         unsigned size(pvar v) const { return m_size[v]; }
 
         /**
@@ -161,7 +160,9 @@ namespace polysat {
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
-        dd::pdd_manager& var2pdd(pvar v);
+        dd::pdd_manager& var2pdd(pvar v) const;
+
+        assignment const& assignment() const { return m_search.assignment(); }
 
         void push_level();
         void pop_levels(unsigned num_levels);
@@ -235,8 +236,8 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
-        bool lemma_invariant(clause const& lemma, assignment_t const& assignment);
-        bool lemma_invariant_part1(clause const& lemma, assignment_t const& assignment, sat::literal_vector& out_todo);
+        bool lemma_invariant(clause const& lemma, polysat::assignment const& a);
+        bool lemma_invariant_part1(clause const& lemma, polysat::assignment const& a, sat::literal_vector& out_todo);
         bool lemma_invariant_part2(sat::literal_vector const& todo);
         bool wlist_invariant();
         bool assignment_invariant();
@@ -429,7 +430,7 @@ namespace polysat {
 
     };  // class solver
 
-    class assignments_pp {
+    class assignments_pp {  // TODO: can probably remove this now.
         solver const& s;
     public:
         assignments_pp(solver const& s): s(s) {}

@@ -17,7 +17,7 @@ Notes:
 
    Rewrite rules to simplify expressions.
    In the following let k, k1, k2 be values.
-  
+
    - k1 <= k2       ==>   0 <= 0 if k1 <= k2
    - k1 <= k2       ==>   1 <= 0 if k1 >  k2
    - 0 <= p         ==>   0 <= 0
@@ -39,7 +39,7 @@ Notes:
 
 TODO: clause simplifications:
 
-   - p + k <= p  ==> p + k <= k & p != 0   for k != 0  
+   - p + k <= p  ==> p + k <= k & p != 0   for k != 0
    - p*q = 0     ==> p = 0 or q = 0        applies to any factoring
    - 2*p <= 2*q  ==> (p >= 2^n-1 & q < 2^n-1) or (p >= 2^n-1 = q >= 2^n-1 & p <= q)
                  ==> (p >= 2^n-1 => q < 2^n-1 or p <= q) &
@@ -50,7 +50,7 @@ TODO: clause simplifications:
 
 Note:
      case p <= p + k is already covered because we test (lhs - rhs).is_val()
-      
+
      It can be seen as an instance of lemma 5.2 of Supratik and John.
 
 --*/
@@ -168,7 +168,7 @@ namespace polysat {
     void ule_constraint::narrow(solver& s, bool is_positive, bool first) {
         auto p = s.subst(lhs());
         auto q = s.subst(rhs());
-        
+
         signed_constraint sc(this, is_positive);
 
         LOG_H3("Narrowing " << sc);
@@ -215,29 +215,23 @@ namespace polysat {
         return is_always_false(is_positive, lhs(), rhs());
     }
 
-    bool ule_constraint::is_currently_false(solver& s, bool is_positive) const {
-        auto p = s.subst(lhs());
-        auto q = s.subst(rhs());
-        return is_always_false(is_positive, p, q);
-    }
-
-    bool ule_constraint::is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const { 
-        auto p = s.subst(sub, lhs());
-        auto q = s.subst(sub, rhs());
+    bool ule_constraint::is_currently_false(assignment const& a, bool is_positive) const {
+        auto p = a.apply_to(lhs());
+        auto q = a.apply_to(rhs());
         return is_always_false(is_positive, p, q);
     }
 
     inequality ule_constraint::as_inequality(bool is_positive) const {
         if (is_positive)
             return inequality(lhs(), rhs(), false, this);
-        else 
+        else
             return inequality(rhs(), lhs(), true, this);
     }
 
     unsigned ule_constraint::hash() const {
     	return mk_mix(lhs().hash(), rhs().hash(), kind());
     }
-    
+
     bool ule_constraint::operator==(constraint const& other) const {
         return other.is_ule() && lhs() == other.to_ule().lhs() && rhs() == other.to_ule().rhs();
     }

@@ -77,8 +77,8 @@ namespace polysat {
         return is_always_false(is_positive, m_p, m_q);
     }
 
-    bool umul_ovfl_constraint::is_currently_false(solver& s, bool is_positive) const {
-        return is_always_false(is_positive, s.subst(p()), s.subst(q()));
+    bool umul_ovfl_constraint::is_currently_false(assignment const& a, bool is_positive) const {
+        return is_always_false(is_positive, a.apply_to(p()), a.apply_to(q()));
     }
 
     void umul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {    

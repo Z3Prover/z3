@@ -97,7 +97,7 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    dd::pdd_manager& solver::var2pdd(pvar v) {
+    dd::pdd_manager& solver::var2pdd(pvar v) const {
         return sz2pdd(size(v));
     }
 
@@ -693,15 +693,14 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        search_iterator search_it(m_search);
-        while (search_it.next()) {
-            auto& item = *search_it;
-            search_it.set_resolved();
+        for (unsigned i = m_search.size(); i-- > 0; ) {
+            auto& item = m_search[i];
+            m_search.set_resolved(i);
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
                 if (!m_conflict.is_relevant_pvar(v)) {
-                    m_search.pop_assignment();
+                    // m_search.pop_assignment();
                     continue;
                 }
                 LOG_H2("Working on " << search_item_pp(m_search, item));
@@ -712,7 +711,7 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
-                m_search.pop_assignment();
+                // m_search.pop_assignment();
             }
             else {
                 // Resolve over boolean literal
@@ -834,25 +833,17 @@ namespace polysat {
 
     void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
 #ifndef NDEBUG
-        assignment_t old_assignment;
-        // We can't use solver::assignment() here because we already used search_sate::pop_assignment().
-        // TODO: fix search_state design; it should show a consistent state.
-        search_iterator search_it(m_search);
-        while (search_it.next()) {
-            auto& item = *search_it;
-            if (item.is_assignment()) {
-                pvar v = item.var();
-                old_assignment.push_back({v, get_value(v)});
-            }
-        }
+        polysat::assignment old_assignment = assignment().clone();
         sat::literal_vector lemma_invariant_todo;
         SASSERT(lemma_invariant_part1(lemma, old_assignment, lemma_invariant_todo));
         // SASSERT(lemma_invariant(lemma, old_assignment));
 #endif
         clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
         sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
+
         m_conflict.reset();
         backjump(jump_level);
+
         for (sat::literal lit : narrow_queue) {
             switch (m_bvars.value(lit)) {
             case l_true:
@@ -899,10 +890,12 @@ namespace polysat {
         }
     }
 
-    bool solver::lemma_invariant_part1(clause const& lemma, assignment_t const& assignment, sat::literal_vector& out_todo) {
+    bool solver::lemma_invariant_part1(clause const& lemma, polysat::assignment const& a, sat::literal_vector& out_todo) {
         SASSERT(out_todo.empty());
         LOG("Lemma: " << lemma);
-        // LOG("assignment: " << assignment);
+        LOG("assignment: " << a);
+        // TODO: fix
+#if 0
         for (sat::literal lit : lemma) {
             auto const c = lit2cnstr(lit);
             bool const currently_false = c.is_currently_false(*this, assignment);
@@ -912,25 +905,42 @@ namespace polysat {
             else
                 SASSERT(m_bvars.value(lit) == l_false || currently_false);
         }
+#endif
         return true;
     }
 
     bool solver::lemma_invariant_part2(sat::literal_vector const& todo) {
+        LOG("todo: " << todo);
         // Check that undef literals are now propagated by the side lemmas.
+        //
+        // Unfortunately, this isn't always possible.
+        // Consider if the first side lemma contains a constraint that comes from a boolean decision:
+        //
+        //      76: v10 + v7 + -1*v0 + -1 == 0      [ l_true decide@5 pwatched active ]
+        //
+        // When we now backtrack behind the decision level of the literal, then we cannot propagate the side lemma,
+        // and some literals of the main lemma may still be undef at this point.
+        //
+        // So it seems that using constraints from a non-asserting lemma makes the new lemma also non-asserting (if it isn't already).
+#if 1
         for (sat::literal lit : todo)
             SASSERT(m_bvars.value(lit) == l_false);
+#endif
         return true;
     }
 
-    bool solver::lemma_invariant(clause const& lemma, assignment_t const& old_assignment) {
+    bool solver::lemma_invariant(clause const& lemma, polysat::assignment const& old_assignment) {
         LOG("Lemma: " << lemma);
         // LOG("old_assignment: " << old_assignment);
+        // TODO: fix
+#if 0
         for (sat::literal lit : lemma) {
             auto const c = lit2cnstr(lit);
             bool const currently_false = c.is_currently_false(*this, old_assignment);
             LOG("  " << lit_pp(*this, lit) << "    currently_false? " << currently_false);
             SASSERT(m_bvars.value(lit) == l_false || currently_false);
         }
+#endif
         return true;
     }
 
@@ -1167,9 +1177,7 @@ namespace polysat {
     }
 
     std::ostream& assignments_pp::display(std::ostream& out) const {
-        for (auto const& [var, val] : s.assignment())
-            out << assignment_pp(s, var, val) << " ";
-        return out;
+        return out << s.assignment();
     }
 
     std::ostream& assignment_pp::display(std::ostream& out) const {
@@ -1279,18 +1287,7 @@ namespace polysat {
     }
 
     pdd solver::subst(pdd const& p) const {
-        unsigned sz = p.manager().power_of_2();
-        pdd const& s = m_search.assignment(sz);
-        return p.subst_val(s);
-    }
-
-    pdd solver::subst(assignment_t const& sub, pdd const& p) const {
-        unsigned sz = p.manager().power_of_2();
-        pdd s = p.manager().mk_val(1);
-        for (auto const& [var, val] : sub)
-            if (size(var) == sz)
-                s = p.manager().subst_add(s, var, val);
-        return p.subst_val(s);
+        return assignment().apply_to(p);
     }
 
     /** Check that boolean assignment and constraint evaluation are consistent */

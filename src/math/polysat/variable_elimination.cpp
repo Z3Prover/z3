@@ -60,14 +60,14 @@ namespace polysat {
         LOG("lc: " << lc);
         LOG("rest: " << rest);
 
-        assignment_t a;
-        pdd const lcs = eval(lc, core, a);
+        substitution sub(m);
+        pdd const lcs = eval(lc, core, sub);
         LOG("lcs: " << lcs);
         pdd lci = m.zero();
         if (!inv(lcs, lci))
             return;
 
-        pdd const rs = s.subst(a, rest);
+        pdd const rs = sub.apply_to(rest);
         pdd const vs = -rs * lci;  // this is the polynomial that computes v
         LOG("vs: " << vs);
         SASSERT(!vs.free_vars().contains(v));
@@ -102,7 +102,7 @@ namespace polysat {
                 continue;
 
             clause_builder cb(s);
-            for (auto [w, wv] : a)
+            for (auto [w, wv] : sub)
                 cb.insert(~s.eq(s.var(w), wv));
             cb.insert(~c);
             cb.insert(~c_target);
@@ -112,19 +112,19 @@ namespace polysat {
     }
 
     // Evaluate p under assignments in the core.
-    pdd free_variable_elimination::eval(pdd const& p, conflict& core, assignment_t& out_assignment) {
+    pdd free_variable_elimination::eval(pdd const& p, conflict& core, substitution& out_sub) {
         // TODO: this should probably be a helper method on conflict.
         // TODO: recognize constraints of the form "v1 == 27" to be used in the assignment?
         //       (but maybe useful evaluations are always part of core.vars() anyway?)
 
-        assignment_t& a = out_assignment;
-        SASSERT(a.empty());
+        substitution& sub = out_sub;
+        SASSERT(sub.empty());
 
         for (auto v : p.free_vars())
             if (core.contains_pvar(v))
-                a.push_back({v, s.get_value(v)});
+                sub.add(v, s.get_value(v));
 
-        pdd q = s.subst(a, p);
+        pdd q = sub.apply_to(p);
 
         // TODO: like in the old conflict::minimize_vars, we can now try to remove unnecessary variables from a.
 

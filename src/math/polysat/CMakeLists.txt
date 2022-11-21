@@ -1,5 +1,6 @@
 z3_add_component(polysat
   SOURCES
+    assignment.cpp
     boolean.cpp
     clause.cpp
     clause_builder.cpp

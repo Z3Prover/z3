@@ -15,8 +15,6 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 
-// TODO: rename file
-
 namespace polysat {
 
     struct inference_sup : public inference {
@@ -37,8 +35,8 @@ namespace polysat {
         SASSERT(c1.is_currently_true(s));
         SASSERT(c2.is_currently_false(s));
         LOG_H3("Resolving upon v" << v);
-        LOG("c1: " << c1);
-        LOG("c2: " << c2);
+        LOG("c1: " << lit_pp(s, c1));
+        LOG("c2: " << lit_pp(s, c2));
         pdd a = c1.eq();
         pdd b = c2.eq();
         unsigned degree_a = a.degree();
