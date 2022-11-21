@@ -324,7 +324,7 @@ namespace polysat {
         pdd r = m.mk_var(s.add_var(sz));
         m_dedup.op_constraint_expr.insert(args, r.var());
 
-        s.assign_eh(mk_op_constraint(op, p, q, r), null_dependency);
+        s.add_clause(mk_op_constraint(op, p, q, r), false);
         return r;
     }
 
