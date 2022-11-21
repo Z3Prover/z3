@@ -21,8 +21,12 @@ namespace polysat {
     
     pdd free_variable_elimination::get_hamming_distance(pdd p) {
         SASSERT(p.power_of_2() >= 8); // TODO: Implement special cases for smaller bit-width
-        // TODO: Check correctness; especially if the bit-width is not multiple of 8  
-        // TODO: Prove by bit-blasting in Z3
+        // The trick works only for multiples of 8 (because of the final multiplication).
+        // Maybe it can be changed to work for all sizes
+        SASSERT(p.power_of_2() % 8 == 0); 
+        
+        // Proven for 8, 16, 24, 32 by bit-blasting in Z3
+        
         // https://en.wikipedia.org/wiki/Hamming_weight
         const unsigned char pattern_55 = 0x55; // 01010101
         const unsigned char pattern_33 = 0x33; // 00110011
@@ -53,9 +57,9 @@ namespace polysat {
         pdd w = p - s.band(s.lshr(p, m.one()), m.mk_val(rational_scaled_55));
         w = s.band(w, m.mk_val(rational_scaled_33)) + s.band(s.lshr(w, m.mk_val(2)), m.mk_val(rational_scaled_33));
         w = s.band(w + s.lshr(w, m.mk_val(4)), m.mk_val(rational_scaled_0f));
-        unsigned final_shift = p.power_of_2() - 8;
-        final_shift = (final_shift + 7) / 8 * 8; // ceil final_shift to the next multiple of 8
-        return s.lshr(w * m.mk_val(rational_scaled_01), m.mk_val(final_shift));
+        //unsigned final_shift = p.power_of_2() - 8;
+        //final_shift = (final_shift + 7) / 8 * 8 - 1; // ceil final_shift to the next multiple of 8
+        return s.lshr(w * m.mk_val(rational_scaled_01), m.mk_val(p.power_of_2() - 8));
     }
     
     pdd free_variable_elimination::get_odd(pdd p) {
@@ -99,8 +103,11 @@ namespace polysat {
         return optional<pdd>(s.var(inv));
     }
     
+#define PV_MOD 2
+    
     // symbolic version of "max_pow2_divisor" for checking if it is exactly "k"
     void free_variable_elimination::add_dyadic_valuation(pvar v, unsigned k) {
+        // TODO: works for all values except 0; how to deal with this case?
         pvar pv;
         pvar pv2;
         bool new_var = false;
@@ -121,9 +128,10 @@ namespace polysat {
         
         bool e = get_log_enabled();
         set_log_enabled(false);
-                
-#if 0
-        // explicit bit extraction and <=
+
+        // For testing some different implementations
+#if PV_MOD == 1
+        // brute-force bit extraction and <=
         signed_constraint c1 = s.eq(rational::power_of_two(p.power_of_2() - k - 1) * p, m.zero());
         signed_constraint c2 = s.ule(m.mk_val(k), s.var(pv));
         s.add_clause(~c1, c2, false);
@@ -132,11 +140,32 @@ namespace polysat {
         if (new_var) {
             s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
         }
-#elif 0
+#elif PV_MOD == 2
+        // symbolic "maximal divisible"
+        signed_constraint c1 = s.eq(s.shl(s.lshr(p, s.var(pv)), s.var(pv)), p);
+        signed_constraint c2 = ~s.eq(s.shl(s.lshr(p, s.var(pv + 1)), s.var(pv + 1)), p);
+        
+        signed_constraint z = ~s.eq(p, p.manager().zero());
+        
+        // v != 0 ==> [(v >> pv) << pv == v && (v >> pv + 1) << pv + 1 != v]
+        s.add_clause(~z, c1, false);
+        s.add_clause(~z, c2, false);
+        
+        if (new_var) {
+            s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
+        }
+#elif PV_MOD == 3
         // computing the complete function by hamming-distance
-        //get_hamming_distance();
-#else
-        // Naive approach with bit-and
+        // proven equivalent with case 2 via bit-blasting for small sizes
+        s.add_clause(s.eq(s.var(pv), get_hamming_distance(s.bxor(p, p - 1)) - 1), false);
+        
+        // in case v == 0 ==> pv == k - 1 (we don't care)
+        
+        if (new_var) {
+            s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
+        }
+#elif PV_MOD == 4
+        // brute-force bit-and
         // (pv = k && pv2 = 2^k) <==> ((v & (2^(k + 1) - 1)) = 2^k) 
         
         rational mask = rational::power_of_two(k + 1) - 1;
@@ -177,6 +206,11 @@ namespace polysat {
             if (lower >= prev_lower && upper <= prev_upper)
                 return { s.var(m_pv_constants[v]), s.var(m_pv_power_constants[v]) }; // exists already in the required range
         }
+#if PV_MOD == 2 || PV_MOD == 3
+        LOG("Adding valuation function for variable " << v);
+        add_dyadic_valuation(v, 0);
+        m_has_validation_of_range.setx(v, (unsigned)UCHAR_MAX << 16, 0);
+#else
         LOG("Adding valuation function for variable " << v  << " in [" << lower << "; " << upper << ")");
         m_has_validation_of_range.setx(v, lower | (unsigned)upper << 16, 0);
         for (unsigned i = lower; i < prev_lower; i++) {
@@ -185,6 +219,7 @@ namespace polysat {
         for (unsigned i = prev_upper; i < upper; i++) {
             add_dyadic_valuation(v, i);
         }
+#endif
         return { s.var(m_pv_constants[v]), s.var(m_pv_power_constants[v]) };
     }
     
