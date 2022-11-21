@@ -29,6 +29,9 @@ namespace polysat {
         unsigned_vector m_inverse_constants;
         unsigned_vector m_rest_constants;
         
+        unsigned_vector m_occ;
+        unsigned_vector m_occ_cnt;
+        
         pdd get_hamming_distance(pdd p);
         pdd get_odd(pdd p); // add lemma "2^pv(v) * v' = v"
         optional<pdd> get_inverse(pdd v); // add lemma "v' * v'^-1 = 1 (where v' is the odd part of v)"
@@ -39,9 +42,10 @@ namespace polysat {
         void find_lemma(pvar v, signed_constraint c, conflict& core);
         pdd eval(pdd const& p, conflict& core, assignment_t& out_assignment);
         bool inv(pdd const& p, pdd& out_p_inv);
+        bool is_multiple(const pdd& p1, const pdd& p2, pdd &out);
     public:
         free_variable_elimination(solver& s): s(s) {}
         void find_lemma(conflict& core);
-    };
+};
 
 }

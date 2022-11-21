@@ -76,11 +76,11 @@ namespace polysat {
         if (m_rest_constants.size() > v && m_rest_constants[v] != -1)
             return s.var(m_rest_constants[v]);
         
-        get_dyadic_valuation(p);
+        pdd power = get_dyadic_valuation(p).second;
         
         pvar rest = s.add_var(p.power_of_2());
         m_rest_constants.setx(v, rest, -1);
-        s.add_clause(s.eq(s.var(m_pv_power_constants[v]) * s.var(rest), p), false);
+        s.add_clause(s.eq(power * s.var(rest), p), false);
         return s.var(rest);
     }
     
@@ -250,9 +250,26 @@ namespace polysat {
     }
 
     void free_variable_elimination::find_lemma(pvar v, signed_constraint c, conflict& core) {
-        vector<signed_constraint> to_check;
+        
+        LOG_H3("Free Variable Elimination for v" << v << " using equation " << c);
+        pdd const& p = c.eq();
+        SASSERT_EQ(p.degree(v), 1);
+        auto& m = p.manager();
+        pdd fac = m.zero();
+        pdd rest = m.zero();
+        p.factor(v, 1, fac, rest);
+        if (rest.is_val())
+            return;
+        
+        SASSERT(!fac.free_vars().contains(v));
+        SASSERT(!rest.free_vars().contains(v));
+
+        LOG("fac: " << fac);
+        LOG("rest: " << rest);
+        
         // Find another constraint where we want to substitute v
         for (signed_constraint c_target : core) {
+            
             if (c == c_target)
                 continue;
             if (c_target.vars().size() <= 1)
@@ -264,55 +281,16 @@ namespace polysat {
             //  For now, just restrict to ule_constraint.
             if (!c_target->is_ule()) // TODO: Remove?
                 continue;
-            if (c_target->to_ule().lhs().degree(v) > 1 || // TODO: Invert non-linear parts?
+            if (c_target->to_ule().lhs().degree(v) > 1 || // TODO: Invert non-linear variable?
                 c_target->to_ule().rhs().degree(v) > 1)
                 continue;
             
-            // TODO: Eliminate without inversion? 2x = y && 2x <= z
+            signed_constraint p1 = s.ule(m.zero(), m.zero()); 
+            signed_constraint p2 = s.ule(m.zero(), m.zero());
             
-            to_check.push_back(c_target);
-        }
-        if (to_check.empty())
-            return;
-        
-        LOG_H3("Free Variable Elimination for v" << v << " using equation " << c);
-        pdd const& p = c.eq();
-        SASSERT_EQ(p.degree(v), 1);
-        auto& m = p.manager();
-        pdd lc = m.zero();
-        pdd rest = m.zero();
-        p.factor(v, 1, lc, rest);
-        if (rest.is_val())
-            return;
-        // lc * v + rest == p == 0
-        // v == -1 * rest * lc^-1
-
-        SASSERT(!lc.free_vars().contains(v));
-        SASSERT(!rest.free_vars().contains(v));
-
-        LOG("lc: " << lc);
-        LOG("rest: " << rest);
-
-        //pdd rs = rest;
-        
-        if (!lc.is_val() && !lc.is_var())
-            // TODO: We could introduce a new variable "new_var = lc" and add the valuation for this new variable
-            return;
-        
-        pdd coeff_odd = get_odd(lc); // a'
-        
-        LOG("coeff_odd: " << coeff_odd);
-        
-        optional<pdd> coeff_odd_inv = get_inverse(coeff_odd); // a'^-1
-        if (!coeff_odd_inv)
-            return; // For sure not invertible
-        
-        LOG("coeff_odd_inv: " << *coeff_odd_inv);
-        
-        // Find another constraint where we want to substitute v
-        for (signed_constraint c_target : to_check) {
+            pdd new_lhs = p.manager().zero();
+            pdd new_rhs = p.manager().zero();
             
-            // Move the variable to eliminate to one side
             pdd fac_lhs = m.zero(); 
             pdd fac_rhs = m.zero(); 
             pdd rest_lhs = m.zero(); 
@@ -320,40 +298,71 @@ namespace polysat {
             c_target->to_ule().lhs().factor(v, 1, fac_lhs, rest_lhs);
             c_target->to_ule().rhs().factor(v, 1, fac_rhs, rest_rhs);
             
+            LOG_H3("With constraint " << lit_pp(s, c_target) << ":");
             LOG("c_target: " << lit_pp(s, c_target));
-            LOG("c_target (lhs): " << c_target->to_ule().lhs());
-            LOG("c_target (rhs): " << c_target->to_ule().rhs());
             LOG("fac_lhs: " << fac_lhs);
             LOG("rest_lhs: " << rest_lhs);
             LOG("fac_rhs: " << fac_rhs);
             LOG("rest_rhs: " << rest_rhs);
             
-            if (!fac_lhs.is_val() && !fac_lhs.is_var())
-                return; // TODO: Again, we might bind this to a variable
-            if (!fac_rhs.is_val() && !fac_rhs.is_var())
-                return;
-            // TODO: Maybe only replace one side if the other is not invertible...
+            pdd pv_equality = p.manager().zero();
+            pdd lhs_multiple = p.manager().zero(); 
+            pdd rhs_multiple = p.manager().zero(); 
+            pdd coeff_odd = p.manager().zero();
+            optional<pdd> fac_odd_inv;
             
-            pdd pv_equality = get_dyadic_valuation(lc).first;
-            pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
-            pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
+            bool is_multiple1 = is_multiple(fac_lhs, fac, new_lhs);
+            bool is_multiple2 = is_multiple(fac_rhs, fac, new_rhs);
             
-            pdd odd_fac_lhs = get_odd(fac_lhs);
-            pdd odd_fac_rhs = get_odd(fac_rhs);
-            pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
-            pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
+            if (!is_multiple1 || !is_multiple2) {
+                if (!fac.is_val() && !fac.is_var())
+                    // TODO: We could introduce a new variable "new_var = lc" and add the valuation for this new variable
+                    continue;
+                if (!fac_lhs.is_val() && !fac_lhs.is_var())
+                    continue;
+                if (!fac_rhs.is_val() && !fac_rhs.is_var())
+                    continue;
+                
+                pv_equality = get_dyadic_valuation(fac).first;
+                LOG("pv_equality " << pv_equality);
+                coeff_odd = get_odd(fac); // a'
+                LOG("coeff_odd: " << coeff_odd);
+                fac_odd_inv = get_inverse(coeff_odd); // a'^-1
+                if (!fac_odd_inv)
+                    continue; // factor is for sure not invertible
+                LOG("coeff_odd_inv: " << *fac_odd_inv);
+            }
             
-            LOG("pv_equality " << pv_equality);
-            LOG("pv_lhs: " << pv_lhs);
-            LOG("odd_fac_lhs: " << odd_fac_lhs);
-            LOG("power_diff_lhs: " << power_diff_lhs);
-            LOG("pv_rhs: " << pv_rhs);
-            LOG("odd_fac_rhs: " << odd_fac_rhs);
-            LOG("power_diff_rhs: " << power_diff_rhs);
+            if (!is_multiple1) { // Sometimes we can simply unify the two equations
+                pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
+                pdd odd_fac_lhs = get_odd(fac_lhs);
+                pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
+                
+                LOG("pv_lhs: " << pv_lhs);
+                LOG("odd_fac_lhs: " << odd_fac_lhs);
+                LOG("power_diff_lhs: " << power_diff_lhs);
+                new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_rhs;
+                p1 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_lhs).first);
+            }
+            else
+                new_lhs = -rest * new_lhs + rest_lhs;
             
-            signed_constraint c_new = s.ule(
-                    -rest * *coeff_odd_inv * power_diff_lhs * odd_fac_lhs + rest_lhs,
-                    -rest * *coeff_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs);
+            if (!is_multiple2) {
+                pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
+                pdd odd_fac_rhs = get_odd(fac_rhs);
+                pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
+                
+                LOG("pv_rhs: " << pv_rhs);
+                LOG("odd_fac_rhs: " << odd_fac_rhs);
+                LOG("power_diff_rhs: " << power_diff_rhs);
+                new_rhs = -rest * *fac_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs;
+                p2 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_rhs).first);
+            }
+            else
+                new_rhs = -rest * new_rhs + rest_rhs;
+            
+            signed_constraint c_new = s.ule(new_lhs , new_rhs );
+            
             if (c_target.is_negative())
                 c_new.negate();
             LOG("c_new:    " << lit_pp(s, c_new));
@@ -363,14 +372,17 @@ namespace polysat {
             //       E.g., if the new clause could derive c_new at a lower decision level.
             if (c_new.bvalue(s) == l_true)
                 continue;
-
+            
+            LOG("p1:    " << p1);
+            LOG("p2:    " << p2);
+                        
             clause_builder cb(s);
             /*for (auto [w, wv] : a)
                 cb.push(~s.eq(s.var(w), wv));*/
             cb.insert(~c);
             cb.insert(~c_target);
-            cb.insert(~s.ule(get_dyadic_valuation(lc).first, get_dyadic_valuation(fac_lhs).first));
-            cb.insert(~s.ule(get_dyadic_valuation(lc).first, get_dyadic_valuation(fac_rhs).first));
+            cb.insert(~p1);
+            cb.insert(~p2);
             cb.insert(c_new);
             ref<clause> c = cb.build();
             if (c) // Can we get tautologies this way?
@@ -408,6 +420,64 @@ namespace polysat {
         if (!p.val().mult_inverse(p.power_of_2(), iv))
             return false;
         out_p_inv = p.manager().mk_val(iv);
+        return true;
+    }
+    
+    
+    bool free_variable_elimination::is_multiple(const pdd& p1, const pdd& p2, pdd& out){
+        LOG("Check if there is an easy way to unify " << p1 << " and " << p2);
+        if (p1.is_zero()) {
+            out = p1.manager().zero();
+            return true;
+        }
+        if (p2.is_one()) {
+            out = p1;
+            return true;
+        }
+        if (!p1.is_monomial() || !p2.is_monomial())
+            // TODO: Actually, this could work as well. (4a*d + 6b*c*d) is a multiple of (2a + 3b*c) although none of them is a monomial
+            return false;
+        
+        dd::pdd_monomial p1m = *p1.begin();
+        dd::pdd_monomial p2m = *p2.begin();
+        
+        unsigned tz1 = p1m.coeff.trailing_zeros();
+        unsigned tz2 = p2m.coeff.trailing_zeros();
+        
+        if (tz2 > tz1)
+            return false; // The constant coefficient is not invertible
+        
+        rational odd = div(p2m.coeff, rational::power_of_two(tz2));
+        rational inv;
+        bool succ = odd.mult_inverse(p1.power_of_2() - tz2, inv);
+        SASSERT(succ); // we divided by the even part so it has to be odd/invertible
+        inv *= div(p1m.coeff, rational::power_of_two(tz2));
+        
+        m_occ_cnt.reserve(s.m_vars.size(), (unsigned)0); // TODO: Are there duplicates in the list (e.g., v1 * v1)?)
+        
+        for (const auto& v1 : p1m.vars) {
+            if (m_occ_cnt[v1] == 0)
+                m_occ.push_back(v1);
+            m_occ_cnt[v1]++;
+        }
+        for (const auto& v2 : p2m.vars) {
+            if (m_occ_cnt[v2] == 0) {
+                for (const auto& occ : m_occ)
+                    m_occ_cnt[occ] = 0;
+                m_occ.clear();
+                return false; // p2 contains more v2 than p1
+            }
+            m_occ_cnt[v2]--;
+        }
+        
+        out = p1.manager().mk_val(inv);
+        for (const auto& occ : m_occ) {
+            for (unsigned i = 0; i < m_occ_cnt[occ]; i++)
+                out *= s.var(occ);
+            m_occ_cnt[occ] = 0;
+        }
+        m_occ.clear();
+        LOG("Found multiple: " << out);
         return true;
     }
 
