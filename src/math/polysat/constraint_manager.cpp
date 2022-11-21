@@ -329,14 +329,23 @@ namespace polysat {
     }
 
     pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
+        if (p.is_val() && q.is_val() && q.val().is_unsigned()) {
+            return p.manager().mk_val(div(p.val(), rational::power_of_two(q.val().get_unsigned())));
+        }
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
 
     pdd constraint_manager::shl(pdd const& p, pdd const& q) {
+        if (p.is_val() && q.is_val() && q.val().is_unsigned()) {
+            return p.manager().mk_val(p.val() * rational::power_of_two(q.val().get_unsigned()));
+        }
         return mk_op_term(op_constraint::code::shl_op, p, q);
     }
 
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
+        if (p.is_val() && q.is_val()) {
+            return p.manager().mk_val(bitwise_and(p.val(), q.val()));
+        }
         return mk_op_term(op_constraint::code::and_op, p, q);
     }
 
