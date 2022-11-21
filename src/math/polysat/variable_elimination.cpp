@@ -264,6 +264,10 @@ namespace polysat {
             //  For now, just restrict to ule_constraint.
             if (!c_target->is_ule()) // TODO: Remove?
                 continue;
+            if (c_target->to_ule().lhs().degree(v) > 1 || // TODO: Invert non-linear parts?
+                c_target->to_ule().rhs().degree(v) > 1)
+                continue;
+            
             // TODO: Eliminate without inversion? 2x = y && 2x <= z
             
             to_check.push_back(c_target);
@@ -291,65 +295,65 @@ namespace polysat {
 
         //pdd rs = rest;
         
-        if (!lc.is_val() && lc.is_var())
+        if (!lc.is_val() && !lc.is_var())
             // TODO: We could introduce a new variable "new_var = lc" and add the valuation for this new variable
             return;
         
         pdd coeff_odd = get_odd(lc); // a'
-        optional<pdd> lci = get_inverse(coeff_odd); // a'^-1
-        if (!lci)
+        
+        LOG("coeff_odd: " << coeff_odd);
+        
+        optional<pdd> coeff_odd_inv = get_inverse(coeff_odd); // a'^-1
+        if (!coeff_odd_inv)
             return; // For sure not invertible
         
-        LOG("lci: " << lci);
+        LOG("coeff_odd_inv: " << *coeff_odd_inv);
         
-        /*assignment_t a;
-        pdd const lcs = eval(lc, core, a);
-        LOG("lcs: " << lcs);
-        pdd lci = m.zero();
-        if (!inv(lcs, lci))
-            return;
-            
-        pdd lci = m.zero();
-
-        pdd const rs = s.subst(a, rest);
-        */
-        
-        /*pdd const vs = -rs * lci;  // this is the polynomial that computes v
-        LOG("vs: " << vs);
-        SASSERT(!vs.free_vars().contains(v));*/
-
         // Find another constraint where we want to substitute v
         for (signed_constraint c_target : to_check) {
             
             // Move the variable to eliminate to one side
-            pdd fac = m.zero(); 
-            pdd fac2 = m.zero(); 
-            pdd rest2 = m.zero(); 
-            pdd rest3 = m.zero(); 
-            c_target->to_ule().lhs().factor(v, 1, fac, rest2);
-            c_target->to_ule().rhs().factor(v, 1, fac2, rest3);
-            
-            rest2 = rest3 - rest2;
-            fac = fac - fac2;
+            pdd fac_lhs = m.zero(); 
+            pdd fac_rhs = m.zero(); 
+            pdd rest_lhs = m.zero(); 
+            pdd rest_rhs = m.zero(); 
+            c_target->to_ule().lhs().factor(v, 1, fac_lhs, rest_lhs);
+            c_target->to_ule().rhs().factor(v, 1, fac_rhs, rest_rhs);
             
             LOG("c_target: " << lit_pp(s, c_target));
-            LOG("fac: " << fac);
-            LOG("rest2: " << rest2);
+            LOG("c_target (lhs): " << c_target->to_ule().lhs());
+            LOG("c_target (rhs): " << c_target->to_ule().rhs());
+            LOG("fac_lhs: " << fac_lhs);
+            LOG("rest_lhs: " << rest_lhs);
+            LOG("fac_rhs: " << fac_rhs);
+            LOG("rest_rhs: " << rest_rhs);
             
-            if (!fac.is_val() && !fac.is_var())
+            if (!fac_lhs.is_val() && !fac_lhs.is_var())
                 return; // TODO: Again, we might bind this to a variable
+            if (!fac_rhs.is_val() && !fac_rhs.is_var())
+                return;
+            // TODO: Maybe only replace one side if the other is not invertible...
             
-            pdd pv2 = get_dyadic_valuation(fac).first;
-            pdd pv1 = get_dyadic_valuation(lc).first;  
-            pdd odd_fac = get_odd(fac);
-            pdd power_diff = s.shl(m.one(), pv2 - pv1);
+            pdd pv_equality = get_dyadic_valuation(lc).first;
+            pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
+            pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
             
-            LOG("pv2: " << pv2);
-            LOG("pv1: " << pv1);
-            LOG("odd_fac: " << odd_fac);
-            LOG("power_diff: " << power_diff);
+            pdd odd_fac_lhs = get_odd(fac_lhs);
+            pdd odd_fac_rhs = get_odd(fac_rhs);
+            pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
+            pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
             
-            signed_constraint c_new = s.ule(-rest * lci * power_diff * odd_fac, rest2);
+            LOG("pv_equality " << pv_equality);
+            LOG("pv_lhs: " << pv_lhs);
+            LOG("odd_fac_lhs: " << odd_fac_lhs);
+            LOG("power_diff_lhs: " << power_diff_lhs);
+            LOG("pv_rhs: " << pv_rhs);
+            LOG("odd_fac_rhs: " << odd_fac_rhs);
+            LOG("power_diff_rhs: " << power_diff_rhs);
+            
+            signed_constraint c_new = s.ule(
+                    -rest * *coeff_odd_inv * power_diff_lhs * odd_fac_lhs + rest_lhs,
+                    -rest * *coeff_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs);
             if (c_target.is_negative())
                 c_new.negate();
             LOG("c_new:    " << lit_pp(s, c_new));
@@ -365,7 +369,8 @@ namespace polysat {
                 cb.push(~s.eq(s.var(w), wv));*/
             cb.insert(~c);
             cb.insert(~c_target);
-            cb.insert(~s.ule(get_dyadic_valuation(lc).first, get_dyadic_valuation(fac).first));
+            cb.insert(~s.ule(get_dyadic_valuation(lc).first, get_dyadic_valuation(fac_lhs).first));
+            cb.insert(~s.ule(get_dyadic_valuation(lc).first, get_dyadic_valuation(fac_rhs).first));
             cb.insert(c_new);
             ref<clause> c = cb.build();
             if (c) // Can we get tautologies this way?
