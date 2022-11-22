@@ -701,6 +701,7 @@ namespace polysat {
                 lemma.insert_eval(~sc);
             lemma.insert(~e->src);
             core.insert(e->src);
+            core.insert_vars(e->src);
             e = n;
         }
         while (e != first);
