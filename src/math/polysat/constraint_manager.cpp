@@ -276,10 +276,24 @@ namespace polysat {
     std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
-        if (a.is_val() && b.is_val()) {
-            // TODO: just evaluate?
+        if (b.is_zero()) {
+            // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
+            return {m.mk_val(m.max_value()), a};
         }
-
+        if (a.is_val() && b.is_val()) {
+            rational const av = a.val();
+            rational const bv = b.val();
+            SASSERT(!bv.is_zero());
+            rational rv;
+            rational qv = machine_div_rem(av, bv, rv);
+            pdd q = m.mk_val(qv);
+            pdd r = m.mk_val(rv);
+            SASSERT_EQ(a, b * q + r);
+            SASSERT(b.val()*q.val() + r.val() <= m.max_value());
+            SASSERT(r.val() <= (b*q+r).val());
+            SASSERT(r.val() < b.val());
+            return {std::move(q), std::move(r)};
+        }
         constraint_dedup::quot_rem_args args({a, b});
         auto it = m_dedup.quot_rem_expr.find_iterator(args);
         if (it != m_dedup.quot_rem_expr.end())
@@ -292,18 +306,27 @@ namespace polysat {
         // Axioms for quotient/remainder:
         //      a = b*q + r
         //      multiplication does not overflow in b*q
-        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r    (TODO: maybe the version with disjunction is easier for the solver; should compare later)
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
         s.add_eq(a, b * q + r);
         s.add_umul_noovfl(b, q);
-        s.add_ule(r, b*q+r);
+        // r <= b*q+r
+        //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
+        // b*q <= -r-1
+        s.add_ule(b*q, -r-1);
+#if 0
+        // b*q <= b*q+r
+        //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
+        // r <= - b*q - 1
+        s.add_ule(r, -b*q-1);  // redundant, but may help propagation
+#endif
 
         auto c_eq = eq(b);
         s.add_clause(c_eq, ult(r, b), false);
         s.add_clause(~c_eq, eq(q + 1), false);
 
-        return {q, r};
+        return {std::move(q), std::move(r)};
     }
 
     pdd constraint_manager::bnot(pdd const& p) {
