@@ -208,10 +208,6 @@ namespace polysat {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         LOG("Literal " << lit_pp(*this, lit));
         signed_constraint c = lit2cnstr(lit);
-        SASSERT(c);
-        // TODO: review active and activate_constraint
-        if (c->is_active())
-            return;
         activate_constraint(c);
         auto& wlist = m_bvars.watch(~lit);
         unsigned i = 0, j = 0, sz = wlist.size();
@@ -262,11 +258,9 @@ namespace polysat {
                 return true;
             }
         }
-        // at most one poly variable remains unassigned.
+        // at most one pvar remains unassigned
         if (m_bvars.is_assigned(c->bvar())) {
             // constraint state: bool-propagated
-            // // constraint is active, propagate it
-            // SASSERT(c->is_active());   // TODO: what exactly does 'active' mean now ... use 'pwatched' and similar instead, to make meaning explicit?
             signed_constraint sc(c, m_bvars.value(c->bvar()) == l_true);
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
@@ -275,9 +269,7 @@ namespace polysat {
             }
             sc.narrow(*this, false);
         } else {
-            // constraint state: active but unassigned (bvalue undef, but pwatch is set and active; e.g., new constraints generated for lemmas)
-            // // constraint is not yet active, try to evaluate it
-            // SASSERT(!c->is_active());
+            // constraint state: active but unassigned (bvalue undef, but pwatch is set; e.g., new constraints generated for lemmas)
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
                 // Wait for the remaining variable to be assigned
@@ -423,7 +415,6 @@ namespace polysat {
             case trail_instr_t::pwatch_i: {
                 constraint* c = m_pwatch_trail.back();
                 erase_pwatch(c);
-                c->set_active(false);   // TODO: review meaning of "active"
                 m_pwatch_trail.pop_back();
                 break;
             }
@@ -474,9 +465,6 @@ namespace polysat {
                 signed_constraint c = lit2cnstr(lit);
                 LOG_V("Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
-
-                if (c->is_active())
-                    deactivate_constraint(c);
 
                 if (active_level <= target_level)
                     replay.push_back(lit);
@@ -922,7 +910,7 @@ namespace polysat {
         // Unfortunately, this isn't always possible.
         // Consider if the first side lemma contains a constraint that comes from a boolean decision:
         //
-        //      76: v10 + v7 + -1*v0 + -1 == 0      [ l_true decide@5 pwatched active ]
+        //      76: v10 + v7 + -1*v0 + -1 == 0      [ l_true decide@5 pwatched ]
         //
         // When we now backtrack behind the decision level of the literal, then we cannot propagate the side lemma,
         // and some literals of the main lemma may still be undef at this point.
@@ -1005,9 +993,7 @@ namespace polysat {
     void solver::activate_constraint(signed_constraint c) {
         SASSERT(c);
         LOG("Activating constraint: " << c);
-        SASSERT(m_bvars.value(c.blit()) == l_true);
-        SASSERT(!c->is_active());
-        c->set_active(true);
+        SASSERT_EQ(m_bvars.value(c.blit()), l_true);
         add_pwatch(c.get());
         if (c->vars().size() == 1)
             m_viable_fallback.push_constraint(c->var(0), c);
@@ -1015,12 +1001,6 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
 #endif
-    }
-
-    /// Deactivate constraint
-    void solver::deactivate_constraint(signed_constraint c) {
-        LOG_V("Deactivating constraint: " << c.blit());
-        c->set_active(false);
     }
 
     void solver::backjump(unsigned new_level) {
@@ -1222,8 +1202,6 @@ namespace polysat {
         }
         if (c->is_pwatched())
             out << " pwatched";
-        if (c->is_active())
-            out << " active";
         if (c->is_external())
             out << " ext";
         out << " ]";

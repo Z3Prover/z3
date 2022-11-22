@@ -59,7 +59,6 @@ namespace polysat {
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
-        bool                m_is_active = false;
         bool                m_is_pwatched = false;
         /** The boolean variable associated to this constraint */
         sat::bool_var       m_bvar = sat::null_bool_var;
@@ -113,9 +112,6 @@ namespace polysat {
         void unset_external() { m_external_sign = l_undef; }
         bool is_external() const { return m_external_sign != l_undef; }
         bool external_sign() const { SASSERT(is_external()); return m_external_sign == l_true; }
-
-        bool is_active() const { return m_is_active; }
-        void set_active(bool f) { m_is_active = f; }
 
         bool is_pwatched() const { return m_is_pwatched; }
         void set_pwatched(bool f) { m_is_pwatched = f; }
