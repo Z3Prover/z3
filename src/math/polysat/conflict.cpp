@@ -209,8 +209,7 @@ namespace polysat {
         }
         else {
             // Constraint c conflicts with the variable assignment
-            // SASSERT(c.bvalue(s) == l_true);  // "morally" the bvalue should always be true. But (at least for now) some literals may be undef when they are only justified by a side lemma.
-                                                // TODO: maybe we can set them to true (without putting them on the search stack). But need to make sure to set them to false when finalizing the conflict; and before backjumping/learning. (tag:true_by_side_lemma)
+            SASSERT_EQ(c.bvalue(s), l_true);
             SASSERT(c.is_currently_false(s));
             insert(c);
             insert_vars(c);
@@ -223,7 +222,7 @@ namespace polysat {
         m_level = s.m_level;
         for (auto lit : cl) {
             auto c = s.lit2cnstr(lit);
-            SASSERT(c.bvalue(s) == l_false);
+            SASSERT_EQ(c.bvalue(s), l_false);
             insert(~c);
         }
         SASSERT(!empty());
@@ -269,7 +268,7 @@ namespace polysat {
         if (c.is_always_true())
             return;
         LOG("Inserting " << lit_pp(s, c));
-        // SASSERT_EQ(c.bvalue(s), l_true);  // TODO: see comment in 'set_impl' (tag:true_by_side_lemma)
+        SASSERT_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
@@ -433,27 +432,22 @@ namespace polysat {
 
     bool conflict::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
-        auto const& j = s.m_justification[v];
+        SASSERT(s.m_justification[v].is_propagation());
 
         s.inc_activity(v);
-        m_vars.remove(v);
 
-        if (j.is_propagation()) {
-            for (auto const& c : s.m_viable.get_constraints(v))
-                insert_eval(c);
-            for (auto const& i : s.m_viable.units(v)) {
-                insert_eval(s.eq(i.lo(), i.lo_val()));
-                insert_eval(s.eq(i.hi(), i.hi_val()));
-            }
+        m_vars.remove(v);
+        for (auto const& c : s.m_viable.get_constraints(v))
+            insert(c);
+        for (auto const& i : s.m_viable.units(v)) {
+            insert(s.eq(i.lo(), i.lo_val()));
+            insert(s.eq(i.hi(), i.hi_val()));
         }
         logger().log(inf_resolve_value(s, v));
 
         if (m_resolver->try_resolve_value(v, *this))
             return true;
 
-        // Need to keep the variable in case of decision
-        if (s.is_assigned(v) && j.is_decision())
-            m_vars.insert(v);
         return false;
     }
 

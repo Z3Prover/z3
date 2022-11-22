@@ -700,18 +700,25 @@ namespace polysat {
                 // Resolve over variable assignment
                 pvar v = item.var();
                 if (!m_conflict.is_relevant_pvar(v)) {
-                    // m_search.pop_assignment();
                     continue;
                 }
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
                 justification& j = m_justification[v];
-                if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
+                if (j.is_decision()) {
+                    if (j.level() <= base_level())
+                        break;
                     revert_decision(v);
                     return;
                 }
-                // m_search.pop_assignment();
+                if (j.level() <= base_level())  // propagation level may be out of order (cf. replay)
+                    continue;
+                m_conflict.resolve_value(v);
+                // if (j.level() > base_level() &&  /* !m_conflict.resolve_value(v) && */ j.is_decision()) {
+                //     revert_decision(v);
+                //     return;
+                // }
             }
             else {
                 // Resolve over boolean literal
@@ -724,11 +731,10 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
-                if (m_bvars.level(var) <= base_level()) {
-                    // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
-                    //       Thus we can only skip base level literals here, instead of aborting the loop.
+                // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
+                //       Thus we can only skip base level literals here, instead of aborting the loop.
+                if (m_bvars.level(var) <= base_level())
                     continue;
-                }
                 SASSERT(!m_bvars.is_assumption(var));
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
@@ -968,12 +974,11 @@ namespace polysat {
     }
 
     void solver::assign_eval(sat::literal lit) {
-        // SASSERT(lit2cnstr(lit).is_currently_true(*this));  // "morally" this should hold, but currently fails because of pop_assignment during resolve_conflict
-        SASSERT(!lit2cnstr(lit).is_currently_false(*this));
+        signed_constraint const c = lit2cnstr(lit);
+        SASSERT(c.is_currently_true(*this));
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
-        // TODO: level might be too low! because pop_assignment may already have removed necessary variables (cf. comment on assertion above).
-        for (auto v : lit2cnstr(lit)->vars())
+        for (auto v : c->vars())
             if (is_assigned(v))
                 level = std::max(get_level(v), level);
         m_bvars.eval(lit, level);
