@@ -63,6 +63,8 @@ namespace polysat {
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
+        void propagate(pvar v, rational const& val);
+
     public:
         viable(solver& s);
 

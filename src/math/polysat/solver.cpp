@@ -981,6 +981,16 @@ namespace polysat {
         m_search.push_boolean(lit);
     }
 
+    /** Push c onto \Gamma, unless it is already true. */
+    void solver::try_assign_eval(signed_constraint c) {
+        sat::literal const lit = c.blit();
+        if (m_bvars.is_assigned(lit))
+            return;
+        if (c.is_always_true())
+            return;
+        assign_eval(lit);
+    }
+
     /**
     * Activate constraint immediately
     * Activation and de-activation of constraints follows the scope controlled by push/pop.

@@ -167,6 +167,8 @@ namespace polysat {
         void push_level();
         void pop_levels(unsigned num_levels);
 
+        void try_assign_eval(signed_constraint c);
+
         void assign_propagate(sat::literal lit, clause& reason);
         void assign_decision(sat::literal lit);
         void assign_eval(sat::literal lit);
