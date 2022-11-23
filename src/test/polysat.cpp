@@ -90,6 +90,12 @@ namespace polysat {
         for (test_record const& r : recs)
             max_name_len = std::max(max_name_len, r.m_name.length());
 
+        size_t n_total = recs.size();
+        size_t n_sat = 0;
+        size_t n_unsat = 0;
+        size_t n_wrong = 0;
+        size_t n_error = 0;
+
         for (test_record const& r : recs) {
             out << r.m_name;
             if (r.m_index != 1)
@@ -111,15 +117,40 @@ namespace polysat {
             case l_false: out << "UNSAT "; break;
             }
             switch (r.m_result) {
-            case test_result::undefined: out << "???"; break;
-            case test_result::ok: out << "ok"; break;
-            case test_result::wrong_answer: out << color_red() << "wrong answer, expected " << r.m_expected << color_reset(); break;
-            case test_result::wrong_model: out << color_red() << "wrong model" << color_reset(); break;
-            case test_result::resource_out: out << color_yellow() << "resource out" << color_reset(); break;
-            case test_result::error: out << color_red() << "error: " << r.m_error_message << color_reset(); break;
+            case test_result::undefined:
+                out << "???";
+                break;
+            case test_result::ok:
+                out << "ok";
+                if (r.m_answer == l_true)
+                    n_sat++;
+                if (r.m_answer == l_false)
+                    n_unsat++;
+                break;
+            case test_result::wrong_answer:
+                out << color_red() << "wrong answer, expected " << r.m_expected << color_reset();
+                n_wrong++;
+                break;
+            case test_result::wrong_model:
+                out << color_red() << "wrong model" << color_reset();
+                n_wrong++;
+                break;
+            case test_result::resource_out:
+                out << color_yellow() << "resource out" << color_reset();
+                break;
+            case test_result::error:
+                out << color_red() << "error: " << r.m_error_message << color_reset();
+                n_error++;
+                break;
             }
             out << std::endl;
         }
+        out << n_total << " tests, " << (n_sat + n_unsat) << " ok (" << n_sat << " sat, " << n_unsat << " unsat)";
+        if (n_wrong)
+            out << ", " << color_red() << n_wrong << " wrong!" << color_reset();
+        if (n_error)
+            out << ", " << color_red() << n_error << " error" << color_reset();
+        out << std::endl;
     }
 
     // test resolve, factoring routines
