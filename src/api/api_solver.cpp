@@ -406,7 +406,11 @@ extern "C" {
             params.validate(r);
             to_solver_ref(s)->updt_params(params);
         }
-        to_solver(s)->m_params.append(params);
+        auto& solver = *to_solver(s);        
+        solver.m_params.append(params);
+        
+        if (solver.m_cmd_context && solver.m_cmd_context->get_proof_cmds())
+            solver.m_cmd_context->get_proof_cmds()->updt_params(solver.m_params);
 
         init_solver_log(c, s);
         
@@ -937,8 +941,10 @@ extern "C" {
             install_proof_cmds(*solver.m_cmd_context);            
         }
 
-        if (!solver.m_cmd_context->get_proof_cmds()) 
+        if (!solver.m_cmd_context->get_proof_cmds()) {
             init_proof_cmds(*solver.m_cmd_context);
+            solver.m_cmd_context->get_proof_cmds()->updt_params(solver.m_params);            
+        }
         solver.m_cmd_context->get_proof_cmds()->register_on_clause(user_context, _on_clause);
         Z3_CATCH;   
     }
