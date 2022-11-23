@@ -372,7 +372,7 @@ namespace arith {
         enode* n = ctx.get_enode(atom);
         theory_var w = mk_var(n);
         ctx.attach_th_var(n, this, w);
-        ctx.get_egraph().set_merge_enabled(n, false);
+        ctx.get_egraph().set_cgc_enabled(n, false);
         if (is_int(v) && !r.is_int()) 
             r = (k == lp_api::upper_t) ? floor(r) : ceil(r);        
         api_bound* b = mk_var_bound(lit, v, k, r);

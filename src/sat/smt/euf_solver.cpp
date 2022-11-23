@@ -316,13 +316,23 @@ namespace euf {
             SASSERT(!l.sign());
             m_egraph.explain_eq<size_t>(m_explain, cc, n->get_arg(0), n->get_arg(1));
             break;
-        case constraint::kind_t::lit:
+        case constraint::kind_t::lit: {
             e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
+            enode* ante = j.node();
             SASSERT(n);
             SASSERT(m.is_bool(n->get_expr()));
-            m_egraph.explain_eq<size_t>(m_explain, cc, n, (l.sign() ? mk_false() : mk_true()));
+            SASSERT(ante->get_root() == n->get_root());
+            m_egraph.explain_eq<size_t>(m_explain, cc, n, ante);
+            if (!m.is_true(ante->get_expr()) && !m.is_false(ante->get_expr())) {
+                bool_var v = ante->bool_var();
+                lbool val = ante->value();
+                SASSERT(val != l_undef);
+                literal ante(v, val == l_false);
+                m_explain.push_back(to_ptr(ante));
+            }
             break;
+        }
         default:
             IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
             UNREACHABLE();
@@ -345,24 +355,30 @@ namespace euf {
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
-        bool sign = l.sign();   
-        m_egraph.set_value(n, sign ? l_false : l_true, justification::external(to_ptr(l)));
+        bool sign = l.sign();
+        lbool old_value = n->value();
+        lbool new_value = sign ? l_false : l_true;
+        m_egraph.set_value(n, new_value, justification::external(to_ptr(l)));
+        if (old_value == l_undef && n->cgc_enabled()) {
+            for (enode* k : enode_class(n)) {
+                if (k->bool_var() == sat::null_bool_var)
+                    continue;
+                if (k->value() == new_value)
+                    continue;
+                auto& c = lit_constraint(n);
+                propagate(literal(k->bool_var(), sign), c.to_index());
+                if (k->value() == l_undef)
+                    m_egraph.set_value(k, new_value, justification::external(to_ptr(l)));
+                else
+                    return;
+            }
+        }
         for (auto const& th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
 
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-        if (n->value_conflict()) {
-            euf::enode* nb = sign ? mk_false() : mk_true();
-            euf::enode* r = n->get_root();
-            euf::enode* rb = sign ? mk_true() : mk_false();
-            sat::literal rl(r->bool_var(), r->value() == l_false);
-            m_egraph.merge(n, nb, c);
-            m_egraph.merge(r, rb, to_ptr(rl));
-            SASSERT(m_egraph.inconsistent());
-            return;
-        }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
@@ -374,8 +390,16 @@ namespace euf {
                 m_egraph.new_diseq(n);
             else                 
                 m_egraph.merge(n->get_arg(0), n->get_arg(1), c);            
-        }    
+        }
     }
+
+    constraint& solver::lit_constraint(enode* n) {
+        void* mem = get_region().allocate(sat::constraint_base::obj_size(sizeof(constraint)));
+        auto* c = new (sat::constraint_base::ptr2mem(mem)) constraint(n);
+        sat::constraint_base::initialize(mem, this);
+        return *c;
+    }
+
 
 
     bool solver::unit_propagate() {
@@ -412,37 +436,44 @@ namespace euf {
 
     void solver::propagate_literals() {
         for (; m_egraph.has_literal() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_literal()) {
-            auto [n, is_eq] = m_egraph.get_literal();
+            auto [n, ante] = m_egraph.get_literal();
             expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
             bool_var v = n->bool_var();
             SASSERT(m.is_bool(e));
             size_t cnstr;
-            literal lit;  
-            if (is_eq) {
+            literal lit;
+            if (!ante) {
                 VERIFY(m.is_eq(e, a, b));
                 cnstr = eq_constraint().to_index();
                 lit = literal(v, false);
             }
             else {
-                lbool val = n->get_root()->value();
-                if (val == l_undef && m.is_false(n->get_root()->get_expr()))
-                    val = l_false;
-                if (val == l_undef && m.is_true(n->get_root()->get_expr()))
-                    val = l_true;
-                a = e;
-                b = (val == l_true) ? m.mk_true() : m.mk_false();
-                SASSERT(val != l_undef);
-                cnstr = lit_constraint().to_index();
+                //
+                // There are the following three cases for propagation of literals
+                // 
+                // 1. n == ante is true from equallity, ante = true/false
+                // 2. n == ante is true from equality, value(ante) != l_undef
+                // 3. value(n) != l_undef, ante = true/false, merge_tf is set on n
+                //
+                lbool val = ante->value();
+                if (val == l_undef) {
+                    SASSERT(m.is_value(ante->get_expr()));
+                    val = m.is_true(ante->get_expr()) ? l_true : l_false;
+                }
+                auto& c = lit_constraint(ante);
+                cnstr = c.to_index();
                 lit = literal(v, val == l_false);
             }
             unsigned lvl = s().scope_lvl();
 
-            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << is_eq << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
-            if (s().value(lit) == l_false && m_ackerman) 
+            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
+            if (s().value(lit) == l_false && m_ackerman && a && b) 
                 m_ackerman->cg_conflict_eh(a, b);
             switch (s().value(lit)) {
             case l_true:
+                if (n->merge_tf() && !m.is_value(n->get_root()->get_expr())) 
+                    m_egraph.merge(n, ante, to_ptr(lit));
                 break;
             case l_undef:
             case l_false:
@@ -889,7 +920,7 @@ namespace euf {
         if (m.is_eq(e) && !m.is_iff(e))
             ok = false;
         euf::enode* n = get_enode(e);
-        if (n && n->merge_enabled())
+        if (n && n->cgc_enabled())
             ok = false;
         
         (void)ok;
@@ -938,7 +969,7 @@ namespace euf {
             case constraint::kind_t::eq:
                 return out << "euf equality propagation";
             case constraint::kind_t::lit:
-                return out << "euf literal propagation";
+                return out << "euf literal propagation " << m_egraph.bpp(c.node()) ;                
             default:
                 UNREACHABLE();
                 return out;

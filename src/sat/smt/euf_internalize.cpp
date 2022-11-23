@@ -74,10 +74,8 @@ namespace euf {
         }
         if (auto* ext = expr2solver(e))
             return ext->internalize(e, sign, root);
-        if (!visit_rec(m, e, sign, root)) {
-            TRACE("euf", tout << "visit-rec\n";);          
+        if (!visit_rec(m, e, sign, root)) 
             return sat::null_literal;
-        }
         SASSERT(get_enode(e));
         if (m.is_bool(e))
             return literal(si.to_bool_var(e), sign);
@@ -119,7 +117,7 @@ namespace euf {
         SASSERT(!get_enode(e));
         if (auto* s = expr2solver(e)) 
             s->internalize(e);        
-        else 
+        else
             attach_node(mk_enode(e, num, m_args.data()));        
         return true;
     }
@@ -188,6 +186,7 @@ namespace euf {
             return lit;
         }
 
+
         set_bool_var2expr(v, e);      
         enode* n = m_egraph.find(e);
         if (!n) 
@@ -195,8 +194,8 @@ namespace euf {
         CTRACE("euf", n->bool_var() != sat::null_bool_var && n->bool_var() != v, display(tout << bpp(n) << " " << n->bool_var() << " vs " << v << "\n"));
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
-        if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
-            m_egraph.set_merge_enabled(n, false);
+        if (si.is_bool_op(e)) 
+            m_egraph.set_cgc_enabled(n, false);
         lbool val = s().value(lit);
         if (val != l_undef) 
             m_egraph.set_value(n, val, justification::external(to_ptr(val == l_true ? lit : ~lit)));
@@ -349,15 +348,6 @@ namespace euf {
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
             s().set_phase(lit1);
-            expr_ref e2(m.mk_eq(el, th), m);
-            enode* n2 = m_egraph.find(e2);
-            if (n2) {
-                sat::literal lit2 = expr2literal(e2);
-                add_root(~lit1, lit2);
-                add_root(lit1, ~lit2);
-                s().add_clause(~lit1, lit2, mk_distinct_status(~lit1, lit2));
-                s().add_clause(lit1, ~lit2, mk_distinct_status(lit1, ~lit2));
-            }
         }
     }
 
@@ -476,26 +466,15 @@ namespace euf {
         return n;
     }
 
-    euf::enode* solver::mk_enode(expr* e, unsigned n, enode* const* args) { 
-        euf::enode* r = m_egraph.mk(e, m_generation, n, args); 
-        for (unsigned i = 0; i < n; ++i)
-            ensure_merged_tf(args[i]);
-        return r;
-    }
+    euf::enode* solver::mk_enode(expr* e, unsigned num, enode* const* args) {
 
-    void solver::ensure_merged_tf(euf::enode* n) {
-        switch (n->value()) {
-        case l_undef:
-            break;
-        case l_true:
-            if (n->get_root() != mk_true())
-                m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
-            break;
-        case l_false:
-            if (n->get_root() != mk_false())
-                m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
-            break;
-        }
+        if (si.is_bool_op(e))
+            num = 0;
+        
+        enode* n = m_egraph.mk(e, m_generation, num, args);
+        if (si.is_bool_op(e)) 
+            m_egraph.set_cgc_enabled(n, false);
+        return n;
     }
 
 }

@@ -211,8 +211,8 @@ namespace euf {
             if (x == y)
                 return expr_ref(m.mk_true(), m);
 
-            if (x == x1 && y == y1)
-                return expr_ref(f, m);
+            if (x == x1 && y == y1) 
+                return m_rewriter.mk_eq(x, y);
 
             if (is_nullary(x) && is_nullary(y)) 
                 return mk_and(m_rewriter.mk_eq(x, x1), m_rewriter.mk_eq(y, x1));
@@ -268,7 +268,8 @@ namespace euf {
             m_eargs.push_back(get_canonical(arg, d));
             change |= arg != m_eargs.back();
         }
-
+        if (m.is_eq(f))
+            return m_rewriter.mk_eq(m_eargs.get(0), m_eargs.get(1));
         if (!change) 
             return expr_ref(f, m);        
         else

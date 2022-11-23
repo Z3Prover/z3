@@ -707,6 +707,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     expr_ref mk_eq(expr* a, expr* b) {
         expr_ref result(m());
+        if (a->get_id() > b->get_id()) 
+            std::swap(a, b);
         if (BR_FAILED == reduce_eq(a, b, result)) 
             result = m().mk_eq(a, b);
         return result;

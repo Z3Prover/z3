@@ -101,7 +101,8 @@ namespace euf {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         struct update_record {
-            struct toggle_merge {};
+            struct toggle_cgc {};
+            struct toggle_merge_tf {};
             struct add_th_var {};
             struct replace_th_var {};
             struct new_lit {};
@@ -114,7 +115,7 @@ namespace euf {
             struct lbl_set {};
             struct update_children {};
             struct set_relevant {};
-            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, is_update_children,
+            enum class tag_t { is_set_parent, is_add_node, is_toggle_cgc, is_toggle_merge_tf, is_update_children,
                     is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
                     is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
                     is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant };
@@ -136,8 +137,10 @@ namespace euf {
                 tag(tag_t::is_set_parent), r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
             update_record(enode* n) :
                 tag(tag_t::is_add_node), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
-            update_record(enode* n, toggle_merge) :
-                tag(tag_t::is_toggle_merge), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(enode* n, toggle_cgc) :
+                tag(tag_t::is_toggle_cgc), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(enode* n, toggle_merge_tf) :
+                tag(tag_t::is_toggle_merge_tf), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
             update_record(enode* n, unsigned id, add_th_var) :
                 tag(tag_t::is_add_th_var), r1(n), n1(nullptr), r2_num_parents(id) {}
             update_record(enode* n, theory_id id, theory_var v, replace_th_var) :
@@ -186,7 +189,7 @@ namespace euf {
         justification          m_justification;
         unsigned               m_new_lits_qhead = 0;
         unsigned               m_new_th_eqs_qhead = 0;
-        svector<enode_bool_pair>  m_new_lits;
+        svector<enode_pair>    m_new_lits;
         svector<th_eq>         m_new_th_eqs;
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
@@ -210,7 +213,7 @@ namespace euf {
         
         void add_th_diseqs(theory_id id, theory_var v1, enode* r);
         bool th_propagates_diseqs(theory_id id) const;
-        void add_literal(enode* n, bool is_eq);
+        void add_literal(enode* n, enode* ante);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args);
@@ -229,7 +232,7 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
-        void toggle_merge_enabled(enode* n, bool backtracking);
+        void toggle_cgc_enabled(enode* n, bool backtracking);
 
         enode_bool_pair insert_table(enode* p);
         void erase_from_table(enode* p);
@@ -289,7 +292,7 @@ namespace euf {
         void       add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq);
         bool       has_literal() const { return m_new_lits_qhead < m_new_lits.size(); }
         bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
-        enode_bool_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
+        enode_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
         th_eq      get_th_eq() const { return m_new_th_eqs[m_new_th_eqs_qhead]; }
         void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
@@ -299,7 +302,9 @@ namespace euf {
 
         void add_th_var(enode* n, theory_var v, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
-        void set_merge_enabled(enode* n, bool enable_merge);
+        void set_cgc_enabled(enode* n, bool enable_cgc);
+        void set_merge_tf_enabled(enode* n, bool enable_merge_tf);
+        
         void set_value(enode* n, lbool value, justification j);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
         void set_relevant(enode* n);

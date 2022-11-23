@@ -36,8 +36,10 @@ namespace euf {
         }
         m_expr2enode.setx(f->get_id(), n, nullptr);
         push_node(n);
-        for (unsigned i = 0; i < num_args; ++i)
-            set_merge_enabled(args[i], true);
+        for (unsigned i = 0; i < num_args; ++i) {
+            set_cgc_enabled(args[i], true);
+            set_merge_tf_enabled(args[i], true);            
+        }
         return n;
     }
 
@@ -78,9 +80,8 @@ namespace euf {
 
     void egraph::reinsert_equality(enode* p) {
         SASSERT(p->is_equality());
-        if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) {
-            add_literal(p, true);
-        }
+        if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
+            add_literal(p, nullptr);
     }
 
     void egraph::force_push() {
@@ -116,18 +117,16 @@ namespace euf {
             m_on_make(n);
         if (num_args == 0)             
             return n;
-        if (m.is_eq(f)) {
+        if (m.is_eq(f) && !m.is_iff(f)) {
             n->set_is_equality();
-            update_children(n);
             reinsert_equality(n);
         }
-        else {
-            auto [n2, comm] = insert_table(n);
-            if (n2 == n) 
-                update_children(n);        
-            else 
-                merge(n, n2, justification::congruence(comm, m_congruence_timestamp++));
-        }
+        auto [n2, comm] = insert_table(n);
+        if (n2 == n) 
+            update_children(n);        
+        else 
+            merge(n, n2, justification::congruence(comm, m_congruence_timestamp++));
+
         return n;
     }
 
@@ -158,11 +157,11 @@ namespace euf {
         ++m_stats.m_num_th_diseqs;
     }
 
-    void egraph::add_literal(enode* n, bool is_eq) {
+    void egraph::add_literal(enode* n, enode* ante) {
         TRACE("euf_verbose", tout << "lit: " << n->get_expr_id() << "\n";);
-        m_new_lits.push_back(enode_bool_pair(n, is_eq));
+        m_new_lits.push_back(enode_pair(n, ante));
         m_updates.push_back(update_record(update_record::new_lit()));
-        if (is_eq) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
+        if (!ante) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
     }
 
     void egraph::new_diseq(enode* n) {
@@ -173,7 +172,7 @@ namespace euf {
         enode* r2 = arg2->get_root();
         TRACE("euf", tout << "new-diseq:  " << bpp(r1) << " " << bpp(r2) << ": " << r1->has_th_vars() << " " << r2->has_th_vars() << "\n";);
         if (r1 == r2) {
-            add_literal(n, true);
+            add_literal(n, nullptr);
             return;
         }
         if (!r1->has_th_vars())
@@ -264,10 +263,26 @@ namespace euf {
             root->del_th_var(tid);
     }
 
-    void egraph::set_merge_enabled(enode* n, bool enable_merge) {
-        if (enable_merge != n->merge_enabled()) {
-            toggle_merge_enabled(n, false);
-            m_updates.push_back(update_record(n, update_record::toggle_merge()));
+    void egraph::set_merge_tf_enabled(enode* n, bool enable_merge_tf) {
+        if (!m.is_bool(n->get_sort()))
+            return;
+        if (enable_merge_tf != n->merge_tf()) {
+            n->set_merge_tf(enable_merge_tf);
+            m_updates.push_back(update_record(n, update_record::toggle_merge_tf()));
+            if (enable_merge_tf && n->value() != l_undef && !m.is_value(n->get_root()->get_expr())) {
+                expr* b = n->value() == l_true ? m.mk_true() : m.mk_false();
+                enode* tf = find(b);
+                if (!tf) 
+                    tf = mk(b, 0, 0, nullptr);
+                add_literal(n, tf);
+            }
+        }
+    }
+
+    void egraph::set_cgc_enabled(enode* n, bool enable_merge) {
+        if (enable_merge != n->cgc_enabled()) {
+            toggle_cgc_enabled(n, false);
+            m_updates.push_back(update_record(n, update_record::toggle_cgc()));
         }
     }
 
@@ -278,9 +293,9 @@ namespace euf {
         m_updates.push_back(update_record(n, update_record::set_relevant()));
     }
 
-    void egraph::toggle_merge_enabled(enode* n, bool backtracking) {
-       bool enable_merge = !n->merge_enabled();
-       n->set_merge_enabled(enable_merge);         
+    void egraph::toggle_cgc_enabled(enode* n, bool backtracking) {
+       bool enable_merge = !n->cgc_enabled();
+       n->set_cgc_enabled(enable_merge);         
        if (n->num_args() > 0) {
            if (enable_merge) {
                auto [n2, comm] = insert_table(n);
@@ -290,7 +305,7 @@ namespace euf {
            else if (n->is_cgr())
                erase_from_table(n);
        }
-       VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
+       VERIFY(n->num_args() == 0 || !n->cgc_enabled() || m_table.contains(n));
     }
 
     void egraph::set_value(enode* n, lbool value, justification j) {  
@@ -300,6 +315,8 @@ namespace euf {
             n->set_value(value);
             n->m_lit_justification = j;
             m_updates.push_back(update_record(n, update_record::value_assignment()));
+            if (n->is_equality() && n->value() == l_false) 
+                new_diseq(n);
         }
     }
 
@@ -352,8 +369,11 @@ namespace euf {
             case update_record::tag_t::is_add_node:
                 undo_node();
                 break;
-            case update_record::tag_t::is_toggle_merge:
-                toggle_merge_enabled(p.r1, true);
+            case update_record::tag_t::is_toggle_cgc:
+                toggle_cgc_enabled(p.r1, true);
+                break;
+            case update_record::tag_t::is_toggle_merge_tf:
+                p.r1->set_merge_tf(!p.r1->merge_tf());
                 break;
             case update_record::tag_t::is_set_parent:
                 undo_eq(p.r1, p.n1, p.r2_num_parents);
@@ -419,7 +439,7 @@ namespace euf {
 
     void egraph::merge(enode* n1, enode* n2, justification j) {
 
-        if (!n1->merge_enabled() && !n2->merge_enabled())
+        if (!n1->cgc_enabled() && !n2->cgc_enabled())
             return;
         SASSERT(n1->get_sort() == n2->get_sort());
         enode* r1 = n1->get_root();
@@ -436,6 +456,7 @@ namespace euf {
             set_conflict(n1, n2, j);
             return;
         }
+        
         if (r1->value() != r2->value() && r1->value() != l_undef && r2->value() != l_undef) {
             SASSERT(m.is_bool(r1->get_expr()));
             set_conflict(n1, n2, j);
@@ -448,9 +469,11 @@ namespace euf {
         }
 
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
-            add_literal(n1, false);
-        if (n1->is_equality() && n1->value() == l_false)
-            new_diseq(n1);
+            add_literal(n1, r2);
+        if (r2->value() != l_undef && n1->value() == l_undef) 
+            add_literal(n1, r2);
+        else if (r1->value() != l_undef && n2->value() == l_undef) 
+            add_literal(n2, r1);
         remove_parents(r1);
         push_eq(r1, n1, r2->num_parents());
         merge_justification(n1, n2, j);
@@ -468,7 +491,7 @@ namespace euf {
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
-            if (p->merge_enabled()) {
+            if (p->cgc_enabled()) {
                 if (!p->is_cgr())
                     continue;
                 SASSERT(m_table.contains_ptr(p));
@@ -486,8 +509,8 @@ namespace euf {
             if (!p->is_marked1())
                 continue;
             p->unmark1();
-            TRACE("euf", tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->merge_enabled() << "\n";);
-            if (p->merge_enabled()) {
+            TRACE("euf", tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->cgc_enabled() << "\n";);
+            if (p->cgc_enabled()) {
                 auto [p_other, comm] = insert_table(p);
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
                 TRACE("euf", tout << "other " << bpp(p_other) << "\n";);
@@ -531,9 +554,9 @@ namespace euf {
         for (auto it = begin; it != end; ++it) {
             enode* p = *it;
             TRACE("euf", tout << "erase " << bpp(p) << "\n";);
-            SASSERT(!p->merge_enabled() || m_table.contains_ptr(p));
-            SASSERT(!p->merge_enabled() || p->is_cgr());
-            if (p->merge_enabled())
+            SASSERT(!p->cgc_enabled() || m_table.contains_ptr(p));
+            SASSERT(!p->cgc_enabled() || p->is_cgr());
+            if (p->cgc_enabled())
                 erase_from_table(p);
         }
 
@@ -541,7 +564,7 @@ namespace euf {
             c->m_root = r1;
 
         for (enode* p : enode_parents(r1)) 
-            if (p->merge_enabled() && (p->is_cgr() || !p->congruent(p->m_cg))) 
+            if (p->cgc_enabled() && (p->is_cgr() || !p->congruent(p->m_cg))) 
                 insert_table(p);                    
         r2->m_parents.shrink(r2_num_parents);
         unmerge_justification(n1);
@@ -783,7 +806,7 @@ namespace euf {
         for (enode* n : m_nodes)
             n->invariant(*this);
         for (enode* n : m_nodes)
-            if (n->merge_enabled() && n->num_args() > 0 && (!m_table.find(n) || n->get_root() != m_table.find(n)->get_root())) {
+            if (n->cgc_enabled() && n->num_args() > 0 && (!m_table.find(n) || n->get_root() != m_table.find(n)->get_root())) {
                 CTRACE("euf", !m_table.find(n), tout << "node is not in table\n";);
                 CTRACE("euf", m_table.find(n), tout << "root " << bpp(n->get_root()) << " table root " << bpp(m_table.find(n)->get_root()) << "\n";);
                 TRACE("euf", display(tout << bpp(n) << " is not closed under congruence\n"););
@@ -818,7 +841,7 @@ namespace euf {
             }
         };
         if (n->bool_var() != sat::null_bool_var) 
-            out << "[b" << n->bool_var() << " := " << value_of() << (n->merge_tf() ? "" : " no merge") << "] ";
+            out << "[b" << n->bool_var() << " := " << value_of() << (n->cgc_enabled() ? "" : " no-cgc") << (n->merge_tf()? " merge-tf" : "") << "] ";
         if (n->has_th_vars()) {
             out << "[t";
             for (auto const& v : enode_th_vars(n))
@@ -873,7 +896,8 @@ namespace euf {
             n2->set_value(n1->value());
             n2->m_bool_var = n1->m_bool_var;
             n2->m_commutative = n1->m_commutative;
-            n2->m_merge_enabled = n1->m_merge_enabled;
+            n2->m_cgc_enabled = n1->m_cgc_enabled;
+            n2->m_merge_tf_enabled = n1->m_merge_tf_enabled;
             n2->m_is_equality = n1->m_is_equality;            
         }
         for (unsigned i = 0; i < src.m_nodes.size(); ++i) {             

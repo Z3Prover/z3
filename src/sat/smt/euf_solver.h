@@ -45,9 +45,12 @@ namespace euf {
         enum class kind_t { conflict, eq, lit };
     private:
         kind_t m_kind;
+        enode* m_node = nullptr;
     public:
         constraint(kind_t k) : m_kind(k) {}
+        constraint(enode* n): m_kind(kind_t::lit), m_node(n) {}
         kind_t kind() const { return m_kind; }
+        enode* node() const { SASSERT(kind() == kind_t::lit); return m_node; }
         static constraint& from_idx(size_t z) {
             return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z));
         }
@@ -171,7 +174,6 @@ namespace euf {
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
         bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
-        void ensure_merged_tf(euf::enode* n);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -250,7 +252,7 @@ namespace euf {
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
-        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
+        constraint& lit_constraint(enode* n);
 
         // user propagator
         void check_for_user_propagator() {
