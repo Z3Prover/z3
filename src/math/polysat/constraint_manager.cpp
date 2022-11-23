@@ -62,9 +62,11 @@ namespace polysat {
 
 
     void constraint_manager::register_clause(clause* cl) {
-        while (m_clauses.size() <= s.base_level())
+        unsigned clause_level = s.base_level();
+        clause_level = 0;  // TODO: s.base_level() may be too high, if the clause is propagated at an earlier level. For now just use 0.
+        while (m_clauses.size() <= clause_level)
             m_clauses.push_back({});
-        m_clauses[s.base_level()].push_back(cl);
+        m_clauses[clause_level].push_back(cl);
     }
 
     void constraint_manager::store(clause* cl, bool value_propagate) {
