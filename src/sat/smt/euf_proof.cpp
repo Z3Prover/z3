@@ -34,11 +34,11 @@ namespace euf {
         if (!get_config().m_lemmas2console &&
             !s().get_config().m_smt_proof_check &&
             !m_on_clause &&
-            !s().get_config().m_smt_proof.is_non_empty_string())
+            !m_config.m_proof_log.is_non_empty_string())
             return;
         
-        if (s().get_config().m_smt_proof.is_non_empty_string())
-            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
+        if (m_config.m_proof_log.is_non_empty_string())
+            m_proof_out = alloc(std::ofstream, m_config.m_proof_log.str(), std::ios_base::out);
         get_drat().set_clause_eh(*this);
         m_proof_initialized = true;        
     }
