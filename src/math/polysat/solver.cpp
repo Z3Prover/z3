@@ -693,14 +693,18 @@ namespace polysat {
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
                 justification const& j = m_justification[v];
+                // NOTE: propagation level may be out of order (cf. replay), but decisions are always in order
+                if (j.level() <= base_level()) {
+                    if (j.is_decision()) {
+                        report_unsat();
+                        return;
+                    }
+                    continue;
+                }
                 if (j.is_decision()) {
-                    if (j.level() <= base_level())
-                        break;
                     revert_decision(v);
                     return;
                 }
-                if (j.level() <= base_level())  // propagation level may be out of order (cf. replay)
-                    continue;
                 m_conflict.resolve_value(v);
             }
             else {
@@ -714,17 +718,20 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
+                // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
+                //       Thus we can only skip base level literals here, instead of aborting the loop.
+                if (m_bvars.level(var) <= base_level()) {
+                    if (m_bvars.is_decision(var)) {
+                        report_unsat();  // decisions are always in order
+                        return;
+                    }
+                    continue;
+                }
                 SASSERT(!m_bvars.is_assumption(var));
                 if (m_bvars.is_decision(var)) {
-                    if (m_bvars.level(var) <= base_level())
-                        break;
                     revert_bool_decision(lit);
                     return;
                 }
-                // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
-                //       Thus we can only skip base level literals here, instead of aborting the loop.
-                if (m_bvars.level(var) <= base_level())
-                    continue;
                 if (m_bvars.is_bool_propagation(var))
                     // TODO: this could be a propagation at an earlier level.
                     //       do we really want to resolve these eagerly?
