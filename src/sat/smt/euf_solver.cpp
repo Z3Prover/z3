@@ -365,11 +365,12 @@ namespace euf {
                     continue;
                 if (k->value() == new_value)
                     continue;
+                literal litk(k->bool_var(), sign);
+                if (s().value(litk) == l_true)
+                    continue;
                 auto& c = lit_constraint(n);
-                propagate(literal(k->bool_var(), sign), c.to_index());
-                if (k->value() == l_undef)
-                    m_egraph.set_value(k, new_value, justification::external(to_ptr(l)));
-                else
+                propagate(litk, c.to_index());
+                if (s().value(litk) == l_false)
                     return;
             }
         }
@@ -591,15 +592,18 @@ namespace euf {
             euf::enode* n = m_egraph.nodes()[i];
             if (!m.is_bool(n->get_expr()) || !is_shared(n))
                 continue;
-            if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
+            if (n->value() == l_true && n->cgc_enabled() && !m.is_true(n->get_root()->get_expr())) {
+                TRACE("euf", tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
                 merged = true;                    
             }
-            if (n->value() == l_false && !m.is_false(n->get_root()->get_expr())) {
+            if (n->value() == l_false && n->cgc_enabled() && !m.is_false(n->get_root()->get_expr())) {
+                TRACE("euf", tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
                 merged = true;
             }
         }
+        CTRACE("euf", merged, tout << "shared bools merged\n");
         return merged;
     }
 
