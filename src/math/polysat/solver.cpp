@@ -496,6 +496,15 @@ namespace polysat {
                     //      when substituting polynomials, it will now take into account the replayed variables, which may itself depend on previous propagations.
                     //      will we get into trouble with cyclic dependencies?
                     //      But we do want to take into account variables that are assigned but not yet propagated.
+                    //      Possible solutions:
+                    //      - keep the replay queue outside of this method?
+                    //        prioritize putting stuff on the stack from the replay queue.
+                    //        this might however introduce new propagations in between? maybe that is ok?
+                    //      - when evaluating/narrowing instead of passing the full assignment,
+                    //        we pass a "dependency level" which is basically an index into the search stack.
+                    //        then we get an assignment up to that dependency level.
+                    //        each literal can only depend on entries with lower dependency level
+                    //        (that is the invariant that propagations are justified by a prefix of the search stack.)
                 }
                 else
                     static_assert(always_false<T>::value, "non-exhaustive visitor");
