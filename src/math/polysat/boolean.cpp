@@ -66,25 +66,25 @@ namespace polysat {
     }
 
     void bool_var_manager::propagate(sat::literal lit, unsigned lvl, clause& reason) {
-        LOG("Propagate literal " << lit << " @ " << lvl << " by " << reason);
+        LOG("Propagate " << lit << " @ " << lvl << " by " << reason);
         assign(kind_t::bool_propagation, lit, lvl, &reason);
         SASSERT(is_bool_propagation(lit));
     }
 
     void bool_var_manager::eval(sat::literal lit, unsigned lvl) {
-        LOG_V("Eval literal " << lit << " @ " << lvl);
+        LOG_V("Evaluate " << lit << " @ " << lvl);
         assign(kind_t::evaluation, lit, lvl, nullptr);
         SASSERT(is_evaluation(lit));
     }
 
     void bool_var_manager::assumption(sat::literal lit, unsigned lvl, dependency dep) {
-        LOG("Asserted " << lit << " @ " << lvl);
+        LOG("Assert " << lit << " @ " << lvl);
         assign(kind_t::assumption, lit, lvl, nullptr, dep);
         SASSERT(is_assumption(lit));
     }
 
     void bool_var_manager::decision(sat::literal lit, unsigned lvl) {
-        LOG("Decided " << lit << " @ " << lvl);
+        LOG("Decide " << lit << " @ " << lvl);
         assign(kind_t::decision, lit, lvl, nullptr);
         SASSERT(is_decision(lit));
     }

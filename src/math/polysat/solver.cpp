@@ -518,7 +518,6 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        SASSERT(can_pdecide());  // if !can_pdecide(), all boolean literals have been propagated...
         if (can_bdecide())
             bdecide();
         else
@@ -533,11 +532,17 @@ namespace polysat {
         };
 
         LOG_H2("Decide on non-asserting lemma: " << lemma);
+        for (sat::literal lit : lemma) {
+            LOG(lit_pp(*this, lit));
+        }
         sat::literal choice = sat::null_literal;
         for (sat::literal lit : lemma) {
             switch (m_bvars.value(lit)) {
             case l_true:
                 // Clause is satisfied; nothing to do here
+                // Happens when all other branches of the lemma have been tried.
+                // The last branch is entered due to propagation, while the lemma is still on the stack as a decision point.
+                LOG("Skip decision (clause already satisfied)");
                 return;
             case l_false:
                 break;
@@ -548,10 +553,9 @@ namespace polysat {
             }
         }
         LOG("Choice is " << lit_pp(*this, choice));
-        // SASSERT(2 <= count_if(lemma, [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
         SASSERT(choice != sat::null_literal);
-        // TODO: is the case after backtracking correct?
-        //       => the backtracking code has to handle this. making sure that the decision literal is set to false.
+        SASSERT(2 <= count_if(lemma, [this](sat::literal lit) { return !m_bvars.is_assigned(lit); }));
+        SASSERT(can_pdecide());  // if !can_pdecide(), all boolean literals have been evaluated
         push_level();
         assign_decision(choice);
     }
@@ -950,7 +954,6 @@ namespace polysat {
                 LOG_H3("Main lemma is not asserting: " << *best_lemma);
                 for (sat::literal lit : *best_lemma) {
                     LOG(lit_pp(*this, lit));
-                    // SASSERT(m_bvars.value(lit) != l_true);
                 }
                 m_lemmas.push_back(best_lemma);
                 m_trail.push_back(trail_instr_t::add_lemma_i);
