@@ -71,8 +71,8 @@ namespace polysat {
         bool try_resolve_value(pvar v, conflict& core) {
             if (m_poly_sup.perform(v, core))
                 return true;
-            if (m_saturate.perform(v, core))
-                return true;
+            // if (m_saturate.perform(v, core))
+            //     return true;
             return false;
         }
 
