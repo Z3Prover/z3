@@ -40,15 +40,15 @@ namespace polysat {
         case l_true: return display(out);
         case l_false: return display(out << "~");
         case l_undef: return display(out << "?");
-        }       
+        }
         return out;
     }
 
     std::ostream& umul_ovfl_constraint::display(std::ostream& out) const {
-        return out << "ovfl*(" << m_p << ", " << m_q << ")";       
+        return out << "ovfl*(" << m_p << ", " << m_q << ")";
     }
 
-    lbool umul_ovfl_constraint::eval(pdd const& p, pdd const& q) const {
+    lbool umul_ovfl_constraint::eval(pdd const& p, pdd const& q) {
         if (p.is_zero() || q.is_zero() || p.is_one() || q.is_one())
             return l_false;
 
@@ -61,30 +61,18 @@ namespace polysat {
         return l_undef;
     }
 
-    bool umul_ovfl_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q) const {
-        switch (eval(p, q)) {
-        case l_true: return !is_positive;
-        case l_false: return is_positive;
-        default: return false;
-        }
+    lbool umul_ovfl_constraint::eval() const {
+        return eval(p(), q());
     }
 
-    bool umul_ovfl_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q) const {
-        return is_always_false(!is_positive, p, q);
+    lbool umul_ovfl_constraint::eval(assignment const& a) const {
+        return eval(a.apply_to(p()), a.apply_to(q()));
     }
 
-    bool umul_ovfl_constraint::is_always_false(bool is_positive) const {
-        return is_always_false(is_positive, m_p, m_q);
-    }
-
-    bool umul_ovfl_constraint::is_currently_false(assignment const& a, bool is_positive) const {
-        return is_always_false(is_positive, a.apply_to(p()), a.apply_to(q()));
-    }
-
-    void umul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {    
+    void umul_ovfl_constraint::narrow(solver& s, bool is_positive, bool first) {
         auto p1 = s.subst(p());
         auto q1 = s.subst(q());
-        
+
         if (is_always_false(is_positive, p1, q1)) {
             s.set_conflict({ this, is_positive });
             return;
@@ -94,19 +82,19 @@ namespace polysat {
 
         if (try_viable(s, is_positive, p(), q(), p1, q1))
             return;
-        
+
         if (narrow_bound(s, is_positive, p(), q(), p1, q1))
             return;
         if (narrow_bound(s, is_positive, q(), p(), q1, p1))
             return;
 
-        
+
     }
 
     /**
-    * if p constant, q, propagate inequality   
-    */
-    bool umul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, 
+     * if p constant, q, propagate inequality
+     */
+    bool umul_ovfl_constraint::narrow_bound(solver& s, bool is_positive,
         pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
 
         if (!p.is_val())
@@ -118,13 +106,13 @@ namespace polysat {
         auto bound = ceil((max + 1) / p.val());
 
         //
-        // the clause that explains bound <= q or bound > q 
-        // 
+        // the clause that explains bound <= q or bound > q
+        //
         // Ovfl(p, q)  & p <= p.val() => q >= bound
-        // ~Ovfl(p, q) & p >= p.val() => q < bound 
+        // ~Ovfl(p, q) & p >= p.val() => q < bound
         //
 
-        signed_constraint sc(this, is_positive);       
+        signed_constraint sc(this, is_positive);
         signed_constraint premise = is_positive ? s.ule(p0, p.val()) : s.ule(p.val(), p0);
         signed_constraint conseq = is_positive ? s.ule(bound, q0) : s.ult(q0, bound);
 

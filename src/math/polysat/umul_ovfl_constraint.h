@@ -25,21 +25,21 @@ namespace polysat {
 
         umul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
         void simplify();
-        bool is_always_false(bool is_positive, pdd const& p, pdd const& q) const;
-        bool is_always_true(bool is_positive, pdd const& p, pdd const& q) const;
+        static bool is_always_true(bool is_positive, pdd const& p, pdd const& q) { return eval(p, q) == to_lbool(is_positive); }
+        static bool is_always_false(bool is_positive, pdd const& p, pdd const& q) { return is_always_true(!is_positive, p, q); }
+        static lbool eval(pdd const& p, pdd const& q);
         bool narrow_bound(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q);
         bool try_viable(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q);
-        lbool eval(pdd const& p, pdd const& q) const;
-        
+
     public:
         ~umul_ovfl_constraint() override {}
         pdd const& p() const { return m_p; }
         pdd const& q() const { return m_q; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        bool is_always_false(bool is_positive) const override;
+        lbool eval() const override;
+        lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
-        bool is_currently_false(assignment const& a, bool is_positive) const override;
 
         inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;

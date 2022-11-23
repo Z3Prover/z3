@@ -189,36 +189,30 @@ namespace polysat {
         s.m_viable.intersect(p, q, sc);
     }
 
-    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) {
+    // Evaluate lhs <= rhs
+    lbool ule_constraint::eval(pdd const& lhs, pdd const& rhs) {
         // NOTE: don't assume simplifications here because we also call this on partially substituted constraints
-        if (is_positive) {
-            // lhs <= rhs
-            if (rhs.is_zero())
-                return lhs.is_never_zero();  // p <= 0 implies p == 0
-            return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
-        }
-        else {
-            // lhs > rhs
-            if (lhs.is_zero())
-                return true;  // 0 > ... is always false
-            if (lhs == rhs)
-                return true;  // p > p
-            if (rhs.is_max())
-                return true;  // p > -1
-            if (lhs.is_one() && rhs.is_never_zero())
-                return true;  // 1 > p implies p == 0
-            return lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val();
-        }
+        if (lhs.is_zero())
+            return l_true;      // 0 <= p
+        if (lhs == rhs)
+            return l_true;      // p <= p
+        if (rhs.is_max())
+            return l_true;      // p <= -1
+        if (rhs.is_zero() && lhs.is_never_zero())
+            return l_false;     // p <= 0 implies p == 0
+        if (lhs.is_one() && rhs.is_never_zero())
+            return l_true;      // 1 <= p implies p != 0
+        if (lhs.is_val() && rhs.is_val())
+            return to_lbool(lhs.val() <= rhs.val());
+        return l_undef;
+   }
+
+    lbool ule_constraint::eval() const {
+        return eval(lhs(), rhs());
     }
 
-    bool ule_constraint::is_always_false(bool is_positive) const {
-        return is_always_false(is_positive, lhs(), rhs());
-    }
-
-    bool ule_constraint::is_currently_false(assignment const& a, bool is_positive) const {
-        auto p = a.apply_to(lhs());
-        auto q = a.apply_to(rhs());
-        return is_always_false(is_positive, p, q);
+    lbool ule_constraint::eval(assignment const& a) const {
+        return eval(a.apply_to(lhs()), a.apply_to(rhs()));
     }
 
     inequality ule_constraint::as_inequality(bool is_positive) const {

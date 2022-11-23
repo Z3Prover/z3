@@ -38,9 +38,6 @@ namespace polysat {
         pdd m_r;
 
         op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r);
-        void simplify() {}
-        bool is_always_false(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const;
-        bool is_always_true(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const;
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
 
         void narrow_lshr(solver& s);
@@ -59,8 +56,8 @@ namespace polysat {
         pdd const& r() const { return m_r; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        bool is_always_false(bool is_positive) const override;
-        bool is_currently_false(assignment const& a, bool is_positive) const override;
+        lbool eval() const override;
+        lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
         inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;

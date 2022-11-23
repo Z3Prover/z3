@@ -51,6 +51,14 @@ namespace polysat {
         SASSERT(c != code::not_op);
     }
 
+    lbool op_constraint::eval() const {
+        return eval(p(), q(), r());
+    }
+
+    lbool op_constraint::eval(assignment const& a) const {
+        return eval(a.apply_to(p()), a.apply_to(q()), a.apply_to(r()));
+    }
+
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
         switch (m_op) {
         case code::lshr_op:
@@ -62,26 +70,6 @@ namespace polysat {
         default:
             return l_undef;
         }
-    }
-
-    bool op_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const {
-        switch (eval(p, q, r)) {
-        case l_true: return !is_positive;
-        case l_false: return is_positive;
-        default: return false;
-        }
-    }
-
-    bool op_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const {
-        return is_always_false(!is_positive, p, q, r);
-    }
-
-    bool op_constraint::is_always_false(bool is_positive) const {
-        return is_always_false(is_positive, p(), q(), r());
-    }
-
-    bool op_constraint::is_currently_false(assignment const& a, bool is_positive) const {
-        return is_always_false(is_positive, a.apply_to(p()), a.apply_to(q()), a.apply_to(r()));
     }
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {
@@ -399,4 +387,5 @@ namespace polysat {
             break;
         }
     }
+
 }

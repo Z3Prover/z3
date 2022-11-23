@@ -24,8 +24,8 @@ Author:
 
 namespace polysat {
 
-    bool constraint::is_currently_false(solver& s, bool is_positive) const {
-        return is_currently_false(s.assignment(), is_positive);
+    lbool constraint::eval(solver const& s) const {
+        return eval(s.assignment());
     }
 
     bool signed_constraint::is_eq() const {

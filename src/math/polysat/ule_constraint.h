@@ -27,7 +27,9 @@ namespace polysat {
 
         ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
         static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
-        static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs);
+        static bool is_always_true(bool is_positive, pdd const& lhs, pdd const& rhs) { return eval(lhs, rhs) == to_lbool(is_positive); }
+        static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) { return is_always_true(!is_positive, lhs, rhs); }
+        static lbool eval(pdd const& lhs, pdd const& rhs);
 
     public:
         ~ule_constraint() override {}
@@ -36,8 +38,8 @@ namespace polysat {
         static std::ostream& display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs);
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        bool is_always_false(bool is_positive) const override;
-        bool is_currently_false(assignment const& a, bool is_positive) const override;
+        lbool eval() const override;
+        lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
         inequality as_inequality(bool is_positive) const override;
         unsigned hash() const override;
