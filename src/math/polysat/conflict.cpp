@@ -305,7 +305,7 @@ namespace polysat {
     void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
-            cb.insert(cs[i]);
+            cb.insert_eval(cs[i]);
         add_lemma(cb.build());
     }
 
