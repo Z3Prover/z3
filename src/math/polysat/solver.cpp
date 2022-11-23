@@ -943,19 +943,27 @@ namespace polysat {
         LOG("best_lemma: " << *best_lemma);
 
         if (best_score.literals_at_max_level() > 1) {
-            LOG("Main lemma is not asserting: " << *best_lemma);
-            SASSERT(!all_of(*best_lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); }));
-            m_lemmas.push_back(best_lemma);
-            m_trail.push_back(trail_instr_t::add_lemma_i);
-            // TODO: currently we forget non-asserting lemmas when backjumping over them.
-            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
-            //       even if the lemma should instead be waiting for propagations.
-            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
-            //       The same could even be done in general for all lemmas, instead of distinguishing between
-            //       asserting and non-asserting lemmas.
-            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
-            //       depending on which pvars are assigned.)
-            SASSERT(can_bdecide());
+            // NOTE: at this point it is possible that the best_lemma is non-asserting.
+            //       We need to double-check, because the backjump level may not be exact (see comment on checking is_conflict above).
+            bool const is_asserting = all_of(*best_lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
+            if (!is_asserting) {
+                LOG_H3("Main lemma is not asserting: " << *best_lemma);
+                for (sat::literal lit : *best_lemma) {
+                    LOG(lit_pp(*this, lit));
+                    // SASSERT(m_bvars.value(lit) != l_true);
+                }
+                m_lemmas.push_back(best_lemma);
+                m_trail.push_back(trail_instr_t::add_lemma_i);
+                // TODO: currently we forget non-asserting lemmas when backjumping over them.
+                //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
+                //       even if the lemma should instead be waiting for propagations.
+                //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
+                //       The same could even be done in general for all lemmas, instead of distinguishing between
+                //       asserting and non-asserting lemmas.
+                //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
+                //       depending on which pvars are assigned.)
+                SASSERT(can_bdecide());
+            }
         }
     }  // backjump_and_learn
 
@@ -1046,6 +1054,12 @@ namespace polysat {
         for (auto v : c->vars())
             if (is_assigned(v))
                 level = std::max(get_level(v), level);
+        // TODO: the level computed here is not exact, because evaluation of constraints may not depend on all variables that occur in the constraint.
+        //       For example, consider x := 0 @ 1 and y := 0 @ 3. Then x*y == 0 eval@3, even though we can already evaluate it at level 1.
+        //       To get the exact level:
+        //       - consider the levels get_level(var) for var in c->vars().
+        //       - the maximum of these is the estimate we start with (and which we currently use)
+        //       - successively reduce the level, as long as the constraint still evaluates
         m_bvars.eval(lit, level);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
