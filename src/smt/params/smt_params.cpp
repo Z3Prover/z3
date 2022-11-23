@@ -64,6 +64,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_axioms2files = sp.axioms2files();
     m_lemmas2console = sp.lemmas2console();
     m_instantiations2console = sp.instantiations2console();
+    m_proof_log = sp.proof_log();
 }
 
 void smt_params::updt_params(params_ref const & p) {
@@ -126,6 +127,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_ematching);
     DISPLAY_PARAM(m_induction);
     DISPLAY_PARAM(m_clause_proof);
+    DISPLAY_PARAM(m_proof_log);
 
     DISPLAY_PARAM(m_case_split_strategy);
     DISPLAY_PARAM(m_rel_case_split_order);
