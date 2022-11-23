@@ -158,6 +158,8 @@ namespace euf {
     }
 
     void egraph::add_literal(enode* n, enode* ante) {
+        if (n->bool_var() == sat::null_bool_var)
+            return;
         TRACE("euf_verbose", tout << "lit: " << n->get_expr_id() << "\n";);
         m_new_lits.push_back(enode_pair(n, ante));
         m_updates.push_back(update_record(update_record::new_lit()));
@@ -272,9 +274,8 @@ namespace euf {
             if (enable_merge_tf && n->value() != l_undef && !m.is_value(n->get_root()->get_expr())) {
                 expr* b = n->value() == l_true ? m.mk_true() : m.mk_false();
                 enode* tf = find(b);
-                if (!tf) 
-                    tf = mk(b, 0, 0, nullptr);
-                add_literal(n, tf);
+                if (tf) 
+                    add_literal(n, tf);
             }
         }
     }

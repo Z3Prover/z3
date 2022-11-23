@@ -348,6 +348,8 @@ namespace euf {
                 continue;
             if (!is_relevant(n))
                 continue;
+            if (n->bool_var() == sat::null_bool_var)
+                continue;
             bool tt = l_true == s().value(n->bool_var());
             if (tt && !mdl.is_false(e))
                 continue;
