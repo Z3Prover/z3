@@ -79,9 +79,10 @@ namespace polysat {
         pdd power = get_dyadic_valuation(p).second;
         
         pvar rest = s.add_var(p.power_of_2());
+        pdd rest_pdd = p.manager().mk_var(rest);
         m_rest_constants.setx(v, rest, -1);
-        s.add_clause(s.eq(power * s.var(rest), p), false);
-        return s.var(rest);
+        s.add_clause(s.eq(power * rest_pdd, p), false);
+        return rest_pdd;
     }
     
     optional<pdd> free_variable_elimination::get_inverse(pdd p) {
@@ -97,10 +98,11 @@ namespace polysat {
         if (m_inverse_constants.size() > v && m_inverse_constants[v] != -1)
             return optional<pdd>(s.var(m_inverse_constants[v]));
         
-        pvar inv = s.add_var(s.var(v).power_of_2());
+        pvar inv = s.add_var(p.power_of_2());
+        pdd inv_pdd = p.manager().mk_var(inv);
         m_inverse_constants.setx(v, inv, -1);
-        s.add_clause(s.eq(s.var(inv) * s.var(v), p.manager().one()), false);
-        return optional<pdd>(s.var(inv));
+        s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
+        return optional<pdd>(inv_pdd);
     }
     
 #define PV_MOD 2
@@ -108,23 +110,25 @@ namespace polysat {
     // symbolic version of "max_pow2_divisor" for checking if it is exactly "k"
     void free_variable_elimination::add_dyadic_valuation(pvar v, unsigned k) {
         // TODO: works for all values except 0; how to deal with this case?
+        pdd p = s.var(v);
+        auto& m = p.manager();
+        
         pvar pv;
         pvar pv2;
         bool new_var = false;
         if (m_pv_constants.size() <= v || m_pv_constants[v] == -1) {
-            pv = s.add_var(s.var(v).power_of_2()); // TODO: What's a good value? Unfortunately we cannot use a integer
-            pv2 = s.add_var(s.var(v).power_of_2());
+            pv = s.add_var(m.power_of_2()); // TODO: What's a good value? Unfortunately we cannot use a integer
+            pv2 = s.add_var(m.power_of_2());
             m_pv_constants.setx(v, pv, -1);
             m_pv_power_constants.setx(v, pv2, -1);
+            m.mk_var(pv);
+            m.mk_var(pv2);
             new_var = true;
         }
         else {
             pv = m_pv_constants[v];
             pv2 = m_pv_power_constants[v];
         }
-        
-        pdd p = s.var(v);
-        auto& m = p.manager();
         
         bool e = get_log_enabled();
         set_log_enabled(false);
@@ -250,7 +254,6 @@ namespace polysat {
     }
 
     void free_variable_elimination::find_lemma(pvar v, signed_constraint c, conflict& core) {
-        
         LOG_H3("Free Variable Elimination for v" << v << " using equation " << c);
         pdd const& p = c.eq();
         SASSERT_EQ(p.degree(v), 1);
@@ -424,7 +427,7 @@ namespace polysat {
     }
     
     
-    bool free_variable_elimination::is_multiple(const pdd& p1, const pdd& p2, pdd& out){
+    bool free_variable_elimination::is_multiple(const pdd& p1, const pdd& p2, pdd& out) {
         LOG("Check if there is an easy way to unify " << p1 << " and " << p2);
         if (p1.is_zero()) {
             out = p1.manager().zero();
@@ -437,7 +440,6 @@ namespace polysat {
         if (!p1.is_monomial() || !p2.is_monomial())
             // TODO: Actually, this could work as well. (4a*d + 6b*c*d) is a multiple of (2a + 3b*c) although none of them is a monomial
             return false;
-        
         dd::pdd_monomial p1m = *p1.begin();
         dd::pdd_monomial p2m = *p2.begin();
         
