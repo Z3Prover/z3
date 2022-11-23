@@ -73,8 +73,8 @@ namespace polysat {
             out_indent() << assignment_pp(s, v, s.get_value(v)) << "\n";
             m_used_vars.insert(v);
         }
-        for (clause* lemma : core.side_lemmas()) {
-            out_indent() << "Side lemma: " << *lemma << "\n";
+        for (clause* lemma : core.lemmas()) {
+            out_indent() << "Lemma: " << *lemma << "\n";
             for (sat::literal lit : *lemma)
                 out_indent() << "    " << lit_pp(s, lit) << "\n";
         }
