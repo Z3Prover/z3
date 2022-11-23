@@ -202,8 +202,8 @@ namespace polysat {
     }
 
     /**
-    * Propagate assignment to a Boolean variable
-    */
+     * Propagate assignment to a Boolean variable
+     */
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         LOG("Literal " << lit_pp(*this, lit));
@@ -220,8 +220,8 @@ namespace polysat {
     }
 
     /**
-    * Propagate assignment to a pvar
-    */
+     * Propagate assignment to a pvar
+     */
     void solver::propagate(pvar v) {
         LOG_H2("Propagate " << assignment_pp(*this, v, get_value(v)));
         SASSERT(!m_locked_wlist);
@@ -896,27 +896,28 @@ namespace polysat {
         // We must do so before backjump() when the search stack is still intact.
         lemma_score best_score = lemma_score::max();
         clause* best_lemma = nullptr;
-        for (clause* lemma : lemmas) {
+
+        auto appraise_lemma = [&](clause* lemma) {
             m_simplify_clause.apply(*lemma);
             auto score = compute_lemma_score(*lemma);
-            if (!score)
-                continue;
-            if (*score < best_score) {
+            if (score && *score < best_score) {
                 best_score = *score;
                 best_lemma = lemma;
             }
-        }
-        // In case no (good) lemma has been found, build the fallback lemma from the conflict state.
+        };
+
+        for (clause* lemma : lemmas)
+            appraise_lemma(lemma);
         if (!best_lemma || best_score.jump_level() > max_jump_level) {
+            // No (good) lemma has been found, so build the fallback lemma from the conflict state.
             lemmas.push_back(m_conflict.build_lemma());
-            clause* lemma = lemmas.back();
-            m_simplify_clause.apply(*lemma);
-            auto score = compute_lemma_score(*lemma);
-            SASSERT(score);
-            best_score = *score;
-            best_lemma = lemma;
+            appraise_lemma(lemmas.back());
         }
+        SASSERT(best_score < lemma_score::max());
+        SASSERT(best_lemma);
+
         unsigned const jump_level = best_score.jump_level();
+        SASSERT(jump_level <= max_jump_level);
 
         m_conflict.reset();
         backjump(jump_level);
