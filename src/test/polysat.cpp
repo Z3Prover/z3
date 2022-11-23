@@ -9,6 +9,17 @@
 namespace {
     using namespace dd;
 
+    template <typename... Args>
+    std::string concat(Args... args) {
+        std::stringstream s;
+        int dummy[sizeof...(Args)] = {
+            // use dummy initializer list to sequence stream writes, cf. https://en.cppreference.com/w/cpp/language/parameter_pack
+            (s << args, 0)...
+        };
+        (void)dummy;
+        return s.str();
+    }
+
     void permute_args(unsigned k, pdd& a, pdd& b, pdd& c) {
         SASSERT(k < 6);
         unsigned i = k % 3;
@@ -276,6 +287,29 @@ namespace polysat {
         }
     };
 
+    template <typename Test, typename... Args>
+    void run(Test tst, Args... args)
+    {
+        bool got_exception = false;
+        try {
+            tst(args...);
+        }
+        catch(z3_exception const& e) {
+            // TODO: collect in record
+            got_exception = true;
+        }
+        catch(std::exception const& e) {
+            // TODO: collect in record
+            got_exception = true;
+        }
+        catch(...) {
+            got_exception = true;
+        }
+        if (got_exception && !collect_test_records)
+            throw;
+    }
+
+    #define RUN(tst) run([]() { tst; })
 
     class test_polysat {
     public:
@@ -581,7 +615,7 @@ namespace polysat {
          * We do overflow checks by doubling the base bitwidth here.
          */
         static void test_monot(unsigned base_bw = 5) {
-            scoped_solver s(std::string{__func__} + "(" + std::to_string(base_bw) + ")");
+            scoped_solver s(concat(__func__, "(", base_bw, ")"));
 
             auto max_int_const = rational::power_of_two(base_bw) - 1;
 
@@ -1226,49 +1260,51 @@ namespace polysat {
             s.check();
         }
 
-        static void test_band(unsigned bw = 32) {
-            {
-                scoped_solver s(__func__);
-                auto p = s.var(s.add_var(bw));
-                auto q = s.var(s.add_var(bw));
-                s.add_diseq(p - s.band(p, q));
-                s.add_diseq(p - q);
-                s.check();
-                s.expect_sat();
-            }
-            {
-                scoped_solver s(__func__);
-                auto p = s.var(s.add_var(bw));
-                auto q = s.var(s.add_var(bw));
-                s.add_ult(p, s.band(p, q));
-                s.check();
-                s.expect_unsat();
-            }
-            {
-                scoped_solver s(__func__);
-                auto p = s.var(s.add_var(bw));
-                auto q = s.var(s.add_var(bw));
-                s.add_ult(q, s.band(p, q));
-                s.check();
-                s.expect_unsat();
-            }
-            {
-                scoped_solver s(__func__);
-                auto p = s.var(s.add_var(bw));
-                auto q = s.var(s.add_var(bw));
-                s.add_ule(p, s.band(p, q));
-                s.check();
-                s.expect_sat();
-            }
-            {
-                scoped_solver s(__func__);
-                auto p = s.var(s.add_var(bw));
-                auto q = s.var(s.add_var(bw));
-                s.add_ule(p, s.band(p, q));
-                s.add_diseq(p - s.band(p, q));
-                s.check();
-                s.expect_unsat();
-            }
+        static void test_band1(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_diseq(p - s.band(p, q));
+            s.add_diseq(p - q);
+            s.check();
+            s.expect_sat();
+        }
+
+        static void test_band2(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ult(p, s.band(p, q));
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_band3(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ult(q, s.band(p, q));
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_band4(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            s.check();
+            s.expect_sat();
+        }
+
+        static void test_band5(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            s.add_diseq(p - s.band(p, q));
+            s.check();
+            s.expect_unsat();
         }
 
         static void test_fi_zero() {
@@ -1475,10 +1511,15 @@ void tst_polysat() {
 
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
+    // test_polysat::test_l2();
     // test_polysat::test_ineq1();
     // test_polysat::test_quot_rem();
-    test_polysat::test_ineq_non_axiom1(32, 3);
-    // test_polysat::test_monot(5);
+    // test_polysat::test_ineq_non_axiom1(32, 3);
+    // test_polysat::test_monot_bounds_full();
+    // test_polysat::test_band2();
+    // test_polysat::test_quot_rem_incomplete();
+    // test_polysat::test_monot();
+    test_polysat::test_fixed_point_arith_div_mul_inverse();
     return;
 #endif
 
@@ -1490,67 +1531,68 @@ void tst_polysat() {
         set_log_enabled(false);
     }
 
-    test_polysat::test_clause_simplify1();
+    RUN(test_polysat::test_clause_simplify1());
 
-    test_polysat::test_add_conflicts();  // ok
-    test_polysat::test_wlist();  // ok
-    test_polysat::test_cjust();  // uses viable_fallback; weak lemmas
-    // test_polysat::test_subst();  // TODO: resource limit; needs polynomial superposition
-    // test_polysat::test_subst_signed();
-    test_polysat::test_pop_conflict();  // ok now (had bad conflict/pop interaction)
+    RUN(test_polysat::test_add_conflicts());
+    RUN(test_polysat::test_wlist());
+    RUN(test_polysat::test_cjust());
+    // RUN(test_polysat::test_subst());
+    // RUN(test_polysat::test_subst_signed());
+    RUN(test_polysat::test_pop_conflict());
 
-    test_polysat::test_l1();   // ok
-    test_polysat::test_l2();   // ok but enumerates values
-    test_polysat::test_l3();   // ok
-    test_polysat::test_l4();   // ok now (had assertion failure in conflict::insert)
-    test_polysat::test_l4b();  // ok
-    test_polysat::test_l5();   // inefficient conflicts (needs equality reasoning)
-    test_polysat::test_l6();   // ok (refine-equal-lin)
+    RUN(test_polysat::test_l1());
+    RUN(test_polysat::test_l2());
+    RUN(test_polysat::test_l3());
+    RUN(test_polysat::test_l4());
+    RUN(test_polysat::test_l4b());
+    RUN(test_polysat::test_l5());
+    RUN(test_polysat::test_l6());
 
-    test_polysat::test_p1();    // ok (conflict @0 by viable_fallback)
-    test_polysat::test_p2();    // ok (viable_fallback finds the correct value)
-    test_polysat::test_p3();    // TODO: resource limit
+    RUN(test_polysat::test_p1());
+    RUN(test_polysat::test_p2());
+    RUN(test_polysat::test_p3());
 
-    test_polysat::test_ineq_basic1();  // ok
-    test_polysat::test_ineq_basic2();  // ok
-    test_polysat::test_ineq_basic3();  // ok
-    test_polysat::test_ineq_basic4();  // TODO: resource limit
-    test_polysat::test_ineq_basic5();  // works, but only because variable order changes after the conflict
-    //                                       TODO: non-asserting lemma
-    //                                       possible variable selection heuristic: start with the most restricted interval?
-    //                                       (if we have a restricted and non-restricted variable; we should probably pick the restricted one first. hoping that we can propagate and uncover restrictions on the other variable.)
-    test_polysat::test_ineq_basic6();  // same as ineq_basic5
+    RUN(test_polysat::test_ineq_basic1());
+    RUN(test_polysat::test_ineq_basic2());
+    RUN(test_polysat::test_ineq_basic3());
+    RUN(test_polysat::test_ineq_basic4());
+    RUN(test_polysat::test_ineq_basic5());
+    RUN(test_polysat::test_ineq_basic6());
 
-    test_polysat::test_var_minimize();  // works but var_minimized isn't used (UNSAT before lemma is created)
+    RUN(test_polysat::test_var_minimize()); // works but var_minimize isn't used (UNSAT before lemma is created)
 
-    test_polysat::test_ineq1();  // TODO: resource limit
-    test_polysat::test_ineq2();  // TODO: resource limit
-    test_polysat::test_monot();  // TODO: assertion failure; resource limit
-    test_polysat::test_monot_bounds(2);
-    test_polysat::test_monot_bounds(8);
-    test_polysat::test_monot_bounds();
-    test_polysat::test_monot_bounds_full();
-    test_polysat::test_monot_bounds_simple(8);
-    test_polysat::test_fixed_point_arith_div_mul_inverse();
+    RUN(test_polysat::test_ineq1());
+    RUN(test_polysat::test_ineq2());
+    RUN(test_polysat::test_monot());
+    RUN(test_polysat::test_monot_bounds(2));
+    RUN(test_polysat::test_monot_bounds(8));
+    RUN(test_polysat::test_monot_bounds());
+    RUN(test_polysat::test_monot_bounds_full());
+    RUN(test_polysat::test_monot_bounds_simple(8));
+    RUN(test_polysat::test_fixed_point_arith_div_mul_inverse());
 
-    test_polysat::test_ineq_axiom1();
-    test_polysat::test_ineq_axiom2();
-    test_polysat::test_ineq_axiom3();
-    test_polysat::test_ineq_axiom4();
-    test_polysat::test_ineq_axiom5();
-    test_polysat::test_ineq_axiom6();
-    test_polysat::test_ineq_non_axiom1();
-    test_polysat::test_ineq_non_axiom4();
+    RUN(test_polysat::test_ineq_axiom1());
+    RUN(test_polysat::test_ineq_axiom2());
+    RUN(test_polysat::test_ineq_axiom3());
+    RUN(test_polysat::test_ineq_axiom4());
+    RUN(test_polysat::test_ineq_axiom5());
+    RUN(test_polysat::test_ineq_axiom6());
+    RUN(test_polysat::test_ineq_non_axiom1());
+    RUN(test_polysat::test_ineq_non_axiom4());
 
-    test_polysat::test_quot_rem_incomplete();
-    test_polysat::test_quot_rem_fixed();
-    test_polysat::test_band();
-    test_polysat::test_quot_rem();
+    RUN(test_polysat::test_quot_rem_incomplete());
+    RUN(test_polysat::test_quot_rem_fixed());
+    RUN(test_polysat::test_band1());
+    RUN(test_polysat::test_band2());
+    RUN(test_polysat::test_band3());
+    RUN(test_polysat::test_band4());
+    RUN(test_polysat::test_band5());
+    RUN(test_polysat::test_quot_rem());
 
-    test_polysat::test_fi_zero();
-    test_polysat::test_fi_nonzero();
-    test_polysat::test_fi_nonmax();
-    test_polysat::test_fi_disequal_mild();
+    RUN(test_polysat::test_fi_zero());
+    RUN(test_polysat::test_fi_nonzero());
+    RUN(test_polysat::test_fi_nonmax());
+    RUN(test_polysat::test_fi_disequal_mild());
 
     // test_fi::exhaustive();
     // test_fi::randomized();
