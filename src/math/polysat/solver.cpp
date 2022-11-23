@@ -462,7 +462,6 @@ namespace polysat {
             }
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
-                signed_constraint c = lit2cnstr(lit);
                 LOG_V("Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
@@ -693,7 +692,7 @@ namespace polysat {
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
-                justification& j = m_justification[v];
+                justification const& j = m_justification[v];
                 if (j.is_decision()) {
                     if (j.level() <= base_level())
                         break;
@@ -703,10 +702,6 @@ namespace polysat {
                 if (j.level() <= base_level())  // propagation level may be out of order (cf. replay)
                     continue;
                 m_conflict.resolve_value(v);
-                // if (j.level() > base_level() &&  /* !m_conflict.resolve_value(v) && */ j.is_decision()) {
-                //     revert_decision(v);
-                //     return;
-                // }
             }
             else {
                 // Resolve over boolean literal
@@ -719,21 +714,23 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit << " is " << lit2cnstr(lit));
                 LOG("Conflict: " << m_conflict);
+                SASSERT(!m_bvars.is_assumption(var));
+                if (m_bvars.is_decision(var)) {
+                    if (m_bvars.level(var) <= base_level())
+                        break;
+                    revert_bool_decision(lit);
+                    return;
+                }
                 // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
                 //       Thus we can only skip base level literals here, instead of aborting the loop.
                 if (m_bvars.level(var) <= base_level())
                     continue;
-                SASSERT(!m_bvars.is_assumption(var));
-                if (m_bvars.is_decision(var)) {
-                    revert_bool_decision(lit);
-                    return;
-                }
                 if (m_bvars.is_bool_propagation(var))
+                    // TODO: this could be a propagation at an earlier level.
+                    //       do we really want to resolve these eagerly?
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
-                else {
-                    SASSERT(m_bvars.is_evaluation(var));
+                else
                     m_conflict.resolve_with_assignment(lit);
-                }
             }
         }
         LOG("End of resolve_conflict loop");
@@ -784,6 +781,7 @@ namespace polysat {
      *
      */
     void solver::revert_decision(pvar v) {
+#if 0
         rational val = m_value[v];
         LOG_H2("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
@@ -798,9 +796,13 @@ namespace polysat {
 
         unsigned jump_level = get_level(v) - 1;
         backjump_and_learn(jump_level, *lemma);
+#endif
+        unsigned max_jump_level = get_level(v) - 1;
+        backjump_and_learn(max_jump_level);
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
+#if 0
         LOG_H2("Reverting decision: " << lit_pp(*this, lit));
         sat::bool_var const var = lit.var();
 
@@ -823,16 +825,136 @@ namespace polysat {
         // If there is more than one undef choice left in that lemma,
         // then the next bdecide will take care of that (after all outstanding propagations).
         SASSERT(can_bdecide());
+#endif
+        unsigned max_jump_level = m_bvars.level(lit) - 1;
+        backjump_and_learn(max_jump_level);
     }
 
+    std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
+        unsigned max_level = 0;     // highest level in lemma
+        unsigned at_max_level = 0;  // how many literals at the highest level in lemma
+        unsigned snd_level = 0;     // second-highest level in lemma
+        for (sat::literal lit : lemma) {
+            SASSERT(m_bvars.is_assigned(lit));  // any new constraints should have been assign_eval'd
+            if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
+                return std::nullopt;
+
+            unsigned const lit_level = m_bvars.level(lit);
+            if (lit_level > max_level) {
+                snd_level = max_level;
+                max_level = lit_level;
+                at_max_level = 1;
+            } else if (lit_level == max_level) {
+                at_max_level++;
+            } else if (max_level > lit_level && lit_level > snd_level) {
+                snd_level = lit_level;
+            }
+        }
+        SASSERT(lemma.empty() || at_max_level > 0);
+        // The MCSAT paper distinguishes between "UIP clauses" and "semantic split clauses".
+        // It is the same as our distinction between "asserting" and "non-asserting" lemmas.
+        // - UIP clause: a single literal on the highest decision level in the lemma.
+        //               Do the standard backjumping known from SAT solving (back to second-highest level in the lemma, propagate it there).
+        // - Semantic split clause: multiple literals on the highest level in the lemma.
+        //                          Backtrack to "highest level - 1" and split on the lemma there.
+        // For now, we follow the same convention for computing the jump levels.
+        unsigned jump_level;
+        if (at_max_level <= 1)
+            jump_level = snd_level;
+        else
+            jump_level = (max_level == 0) ? 0 : (max_level - 1);
+        return {{jump_level, at_max_level}};
+    }
+
+    void solver::backjump_and_learn(unsigned max_jump_level) {
+        sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
+        clause_ref_vector lemmas = m_conflict.take_lemmas();
+
+        // Select the "best" lemma
+        // - lowest jump level
+        // - lowest number of literals at the highest level
+        // We must do so before backjump() when the search stack is still intact.
+        lemma_score best_score = lemma_score::max();
+        clause* best_lemma = nullptr;
+        for (clause* lemma : lemmas) {
+            m_simplify_clause.apply(*lemma);
+            auto score = compute_lemma_score(*lemma);
+            if (!score)
+                continue;
+            if (*score < best_score) {
+                best_score = *score;
+                best_lemma = lemma;
+            }
+        }
+        // In case no (good) lemma has been found, build the fallback lemma from the conflict state.
+        if (!best_lemma || best_score.jump_level() > max_jump_level) {
+            lemmas.push_back(m_conflict.build_lemma());
+            clause* lemma = lemmas.back();
+            m_simplify_clause.apply(*lemma);
+            auto score = compute_lemma_score(*lemma);
+            SASSERT(score);
+            best_score = *score;
+            best_lemma = lemma;
+        }
+        unsigned const jump_level = best_score.jump_level();
+
+        m_conflict.reset();
+        backjump(jump_level);
+
+        for (sat::literal lit : narrow_queue) {
+            LOG("Narrow queue: " << lit_pp(*this, lit));
+            switch (m_bvars.value(lit)) {
+            case l_true:
+                lit2cnstr(lit).narrow(*this, false);
+                break;
+            case l_false:
+                lit2cnstr(~lit).narrow(*this, false);
+                break;
+            case l_undef:
+                /* do nothing */
+                break;
+            default:
+                UNREACHABLE();
+            }
+        }
+
+        for (clause* lemma : lemmas) {
+            add_clause(*lemma);
+            // NOTE: currently, the backjump level is an overapproximation,
+            //       since the level of evaluated constraints may not be exact (see TODO in assign_eval).
+            // For this reason, we may actually get a conflict at this point
+            // (because the actual jump_level of the lemma may be lower that best_level.)
+            if (is_conflict()) {
+                // until this is fixed (if possible; and there may be other causes of conflict at this point),
+                // we just forget about the remaining lemmas and restart conflict analysis.
+                return;
+            }
+            SASSERT(!is_conflict());  // TODO: is this true in general? No lemma by itself should lead to a conflict here. But can there be conflicting asserting lemmas?
+        }
+
+        LOG("best_score: " << best_score);
+        LOG("best_lemma: " << *best_lemma);
+
+        if (best_score.literals_at_max_level() > 1) {
+            LOG("Main lemma is not asserting: " << *best_lemma);
+            SASSERT(!all_of(*best_lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); }));
+            m_lemmas.push_back(best_lemma);
+            m_trail.push_back(trail_instr_t::add_lemma_i);
+            // TODO: currently we forget non-asserting lemmas when backjumping over them.
+            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
+            //       even if the lemma should instead be waiting for propagations.
+            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
+            //       The same could even be done in general for all lemmas, instead of distinguishing between
+            //       asserting and non-asserting lemmas.
+            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
+            //       depending on which pvars are assigned.)
+            SASSERT(can_bdecide());
+        }
+    }  // backjump_and_learn
+
+#if 0
     void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
-#ifndef NDEBUG
-        polysat::assignment old_assignment = assignment().clone();
-        sat::literal_vector lemma_invariant_todo;
-        SASSERT(lemma_invariant_part1(lemma, old_assignment, lemma_invariant_todo));
-        // SASSERT(lemma_invariant(lemma, old_assignment));
-#endif
-        clause_ref_vector side_lemmas = m_conflict.take_side_lemmas();
+        clause_ref_vector lemmas = m_conflict.take_lemmas();
         sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
 
         m_conflict.reset();
@@ -853,14 +975,15 @@ namespace polysat {
                 UNREACHABLE();
             }
         }
-        for (auto cl : side_lemmas) {
+        for (clause* cl : lemmas) {
             m_simplify_clause.apply(*cl);
             add_clause(*cl);
         }
-        SASSERT(lemma_invariant_part2(lemma_invariant_todo));
         learn_lemma(lemma);
     }
+#endif
 
+#if 0
     void solver::learn_lemma(clause& lemma) {
         SASSERT(!lemma.empty());
         m_simplify_clause.apply(lemma);
@@ -883,60 +1006,7 @@ namespace polysat {
             SASSERT(can_bdecide());
         }
     }
-
-    bool solver::lemma_invariant_part1(clause const& lemma, polysat::assignment const& a, sat::literal_vector& out_todo) {
-        SASSERT(out_todo.empty());
-        LOG("Lemma: " << lemma);
-        LOG("assignment: " << a);
-        // TODO: fix
-#if 0
-        for (sat::literal lit : lemma) {
-            auto const c = lit2cnstr(lit);
-            bool const currently_false = c.is_currently_false(*this, assignment);
-            LOG("  " << lit_pp(*this, lit) << "    currently_false? " << currently_false);
-            if (!currently_false && m_bvars.value(lit) == l_undef)
-                out_todo.push_back(lit);  // undefs might only be set false after the side lemmas are propagated, so check them later.
-            else
-                SASSERT(m_bvars.value(lit) == l_false || currently_false);
-        }
 #endif
-        return true;
-    }
-
-    bool solver::lemma_invariant_part2(sat::literal_vector const& todo) {
-        LOG("todo: " << todo);
-        // Check that undef literals are now propagated by the side lemmas.
-        //
-        // Unfortunately, this isn't always possible.
-        // Consider if the first side lemma contains a constraint that comes from a boolean decision:
-        //
-        //      76: v10 + v7 + -1*v0 + -1 == 0      [ l_true decide@5 pwatched ]
-        //
-        // When we now backtrack behind the decision level of the literal, then we cannot propagate the side lemma,
-        // and some literals of the main lemma may still be undef at this point.
-        //
-        // So it seems that using constraints from a non-asserting lemma makes the new lemma also non-asserting (if it isn't already).
-#if 1
-        for (sat::literal lit : todo)
-            SASSERT(m_bvars.value(lit) == l_false);
-#endif
-        return true;
-    }
-
-    bool solver::lemma_invariant(clause const& lemma, polysat::assignment const& old_assignment) {
-        LOG("Lemma: " << lemma);
-        // LOG("old_assignment: " << old_assignment);
-        // TODO: fix
-#if 0
-        for (sat::literal lit : lemma) {
-            auto const c = lit2cnstr(lit);
-            bool const currently_false = c.is_currently_false(*this, old_assignment);
-            LOG("  " << lit_pp(*this, lit) << "    currently_false? " << currently_false);
-            SASSERT(m_bvars.value(lit) == l_false || currently_false);
-        }
-#endif
-        return true;
-    }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = 0;

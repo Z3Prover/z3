@@ -91,11 +91,8 @@ namespace polysat {
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
         uint_set m_vars_occurring;          // set of variables that occur in at least one of the constraints in m_literals
 
-        // Additional lemmas that justify new constraints generated during conflict resolution
+        // Lemmas that been accumulated during conflict resolution
         clause_ref_vector m_lemmas;
-        // The maximal level on which none of the side lemmas is falsified.
-        // (If we backjump to a level higher than max_jump_level, at least one side lemma will be false.)
-        unsigned m_max_jump_level = UINT_MAX;
 
         // Store constraints that should be narrowed after backjumping.
         // This allows us to perform propagations that are missed by the two-watched-variables scheme,
@@ -189,15 +186,10 @@ namespace polysat {
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();
 
-        /** Move the accumulated side lemmas out of the conflict */
-        clause_ref_vector take_side_lemmas();
-        /**
-         * Backjump at least to this level (or possibly to a lower level),
-         * to ensure all side lemmas can be propagated.
-         */
-        unsigned max_jump_level() const { return m_max_jump_level; }
+        /** Move the accumulated lemmas out of the conflict */
+        clause_ref_vector take_lemmas();
 
-        clause_ref_vector const& side_lemmas() const { return m_lemmas; }
+        clause_ref_vector const& lemmas() const { return m_lemmas; }
 
         /** Move the literals to be narrowed out of the conflict */
         sat::literal_vector take_narrow_queue();

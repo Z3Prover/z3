@@ -46,6 +46,52 @@ namespace polysat {
         bool        m_log_conflicts = false;
     };
 
+    /**
+     * A metric to evaluate lemmas from conflict analysis.
+     * Lower is better.
+     *
+     * Comparison criterion:
+     * - Lowest jump level has priority, because otherwise, some of the accumulated lemmas may still be false after backjumping.
+     * - To break ties on jump level, choose clause with the fewest literals at its highest decision level;
+     *   to limit case splits.
+     */
+    class lemma_score {
+        unsigned m_jump_level;
+        unsigned m_literals_at_max_level;
+
+    public:
+        lemma_score(unsigned jump_level, unsigned at_max_level)
+            : m_jump_level(jump_level), m_literals_at_max_level(at_max_level)
+        { }
+
+        unsigned jump_level() const { return m_jump_level; }
+        unsigned literals_at_max_level() const { return m_literals_at_max_level; }
+
+        static lemma_score max() {
+            return {UINT_MAX, UINT_MAX};
+        }
+
+        bool operator==(lemma_score const& other) const {
+            return m_jump_level == other.m_jump_level
+                && m_literals_at_max_level == other.m_literals_at_max_level;
+        }
+        bool operator!=(lemma_score const& other) const { return !operator==(other); }
+
+        bool operator<(lemma_score const& other) const {
+            return m_jump_level < other.m_jump_level
+                || (m_jump_level == other.m_jump_level && m_literals_at_max_level < other.m_literals_at_max_level);
+        }
+        bool operator>(lemma_score const& other) const { return other.operator<(*this); }
+        bool operator<=(lemma_score const& other) const { return operator==(other) || operator<(other); }
+        bool operator>=(lemma_score const& other) const { return operator==(other) || operator>(other); }
+
+        std::ostream& display(std::ostream& out) const {
+            return out << "jump_level=" << m_jump_level << " at_max_level=" << m_literals_at_max_level;
+        }
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, lemma_score const& ls) { return ls.display(out); }
+
     class solver {
 
         struct stats {
@@ -214,6 +260,8 @@ namespace polysat {
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
         void backjump_and_learn(unsigned jump_level, clause& lemma);
+        void backjump_and_learn(unsigned max_jump_level);
+        std::optional<lemma_score> compute_lemma_score(clause const& lemma);
 
         // activity of variables based on standard VSIDS
         unsigned m_activity_inc = 128;
@@ -237,9 +285,6 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
-        bool lemma_invariant(clause const& lemma, polysat::assignment const& a);
-        bool lemma_invariant_part1(clause const& lemma, polysat::assignment const& a, sat::literal_vector& out_todo);
-        bool lemma_invariant_part2(sat::literal_vector const& todo);
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();

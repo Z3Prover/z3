@@ -153,7 +153,6 @@ namespace polysat {
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
-            SASSERT_EQ(m_max_jump_level, UINT_MAX);
         }
         return is_empty;
     }
@@ -166,7 +165,6 @@ namespace polysat {
         m_lemmas.reset();
         m_narrow_queue.reset();
         m_level = UINT_MAX;
-        m_max_jump_level = UINT_MAX;
         SASSERT(empty());
     }
 
@@ -314,50 +312,13 @@ namespace polysat {
     void conflict::add_lemma(clause_ref lemma) {
         SASSERT(lemma);
         lemma->set_redundant(true);
-        LOG_H3("Side lemma: " << *lemma);
+        LOG_H3("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             SASSERT(s.m_bvars.value(lit) != l_true);
         }
-        // TODO: call clause simplifier here?
-        //       maybe it reduces the level we have to consider.
-
-        // Two kinds of side lemmas:
-        // 1. If all constraints are false, then the side lemma is an alternative conflict lemma.
-        //      => we should at least jump back to the second-highest level in the lemma (could be lower, if so justified by another lemma)
-        // 2. If there is an undef constraint, then it is is a justification for this new constraint.
-        //    (Can there be more than one undef constraint? Should not happen for these lemmas.)
-        //      => TODO: (unclear) jump at least to the max level in the lemma and hope the propagation helps there? or ignore it for jump level computation?
-        unsigned max_level = 0;  // highest level in lemma
-        unsigned jump_level = 0;  // second-highest level in lemma
-        bool has_unassigned = false;
-        for (sat::literal lit : *lemma) {
-            if (!s.m_bvars.is_assigned(lit)) {
-                has_unassigned = true;
-                continue;
-            }
-            unsigned const lit_level = s.m_bvars.level(lit);
-            if (lit_level > max_level) {
-                jump_level = max_level;
-                max_level = lit_level;
-            } else if (max_level > lit_level && lit_level > jump_level) {
-                jump_level = lit_level;
-            }
-        }
-        if (has_unassigned)
-            jump_level = max_level;
-        LOG("Jump level: " << jump_level);
-        m_max_jump_level = std::min(m_max_jump_level, jump_level);
         m_lemmas.push_back(std::move(lemma));
-        // If possible, we should set the new constraint to l_true;
-        // and re-enable the assertions marked with "tag:true_by_side_lemma".
-        // Or we adjust the conflict invariant:
-        // - l_true constraints is the default case as before,
-        // - l_undef constraints are new and justified by some side lemma, but
-        //   should be treated by the conflict resolution methods like l_true
-        //   constraints,
-        // - l_false constraints are disallowed in the conflict (as before).
-    }
+   }
 
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
@@ -475,7 +436,7 @@ namespace polysat {
         return lemma.build();
     }
 
-    clause_ref_vector conflict::take_side_lemmas() {
+    clause_ref_vector conflict::take_lemmas() {
 #ifndef NDEBUG
         on_scope_exit check_empty([this]() {
             SASSERT(m_lemmas.empty());
@@ -536,7 +497,7 @@ namespace polysat {
         for (auto v : m_vars)
             out << " v" << v;
         if (!m_lemmas.empty())
-            out << " side lemmas";
+            out << " lemmas";
         for (clause const* lemma : m_lemmas)
             out << " " << show_deref(lemma);
         return out;
