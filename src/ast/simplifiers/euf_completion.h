@@ -46,6 +46,7 @@ namespace euf {
         bool is_new_eq(expr* a, expr* b);
         void update_has_new_eq(expr* g);
         expr_ref mk_and(expr* a, expr* b);
+        void propagate_values();
         void add_egraph();
         void map_canonical();
         void read_egraph();

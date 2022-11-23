@@ -780,6 +780,10 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             }
         }
     }
+    if (m_order_eq && lhs->get_id() > rhs->get_id()) {
+        result = m().mk_eq(rhs, lhs);
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 

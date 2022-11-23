@@ -52,10 +52,11 @@ Notes:
 class bool_rewriter {
     ast_manager &  m_manager;
     hoist_rewriter m_hoist;
-    bool           m_flat_and_or;
-    bool           m_local_ctx;
-    bool           m_elim_and;
-    bool           m_blast_distinct;
+    bool           m_flat_and_or = false;
+    bool           m_local_ctx = false;
+    bool           m_elim_and = false;
+    bool           m_blast_distinct = false;
+    bool           m_order_eq = false;
     unsigned       m_blast_distinct_threshold;
     bool           m_ite_extra_rules;
     unsigned       m_local_ctx_limit;
@@ -90,6 +91,7 @@ public:
     bool elim_and() const { return m_elim_and; }
     void set_elim_and(bool f) { m_elim_and = f; }
     void reset_local_ctx_cost() { m_local_ctx_cost = 0; }
+    void set_order_eq(bool f) { m_order_eq = f; }
     
     void updt_params(params_ref const & p);
 

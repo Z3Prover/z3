@@ -40,6 +40,7 @@ public:
     static void get_param_descrs(param_descrs & r);
 
     void set_flat_and_or(bool f);
+    void set_order_eq(bool f);
 
     unsigned get_cache_size() const;
     unsigned get_num_steps() const;

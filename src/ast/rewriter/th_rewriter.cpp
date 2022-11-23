@@ -707,9 +707,10 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     expr_ref mk_eq(expr* a, expr* b) {
         expr_ref result(m());
-        if (a->get_id() > b->get_id()) 
-            std::swap(a, b);
-        if (BR_FAILED == reduce_eq(a, b, result)) 
+        br_status st = reduce_eq(a, b, result);
+        if (BR_FAILED == st)
+            st = m_b_rw.mk_eq_core(a, b, result);
+        if (BR_FAILED == st)
             result = m().mk_eq(a, b);
         return result;
     }
@@ -943,6 +944,10 @@ void th_rewriter::get_param_descrs(param_descrs & r) {
 
 void th_rewriter::set_flat_and_or(bool f) {
     m_imp->cfg().m_b_rw.set_flat_and_or(f);
+}
+
+void th_rewriter::set_order_eq(bool f) {
+    m_imp->cfg().m_b_rw.set_order_eq(f);
 }
 
 th_rewriter::~th_rewriter() {
