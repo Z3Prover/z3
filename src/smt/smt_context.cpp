@@ -1346,7 +1346,6 @@ namespace smt {
                     TRACE("add_diseq", display_eq_detail(tout, bool_var2enode(v)););
                     if (!add_diseq(get_enode(lhs), get_enode(rhs)) && !inconsistent()) {
                         literal n_eq = literal(l.var(), true);
-                        IF_VERBOSE(0, verbose_stream() << "eq-conflict @" << m_scope_lvl << "\n");
                         set_conflict(b_justification(mk_justification(eq_propagation_justification(get_enode(lhs), get_enode(rhs)))), n_eq);
                     }
                 }
