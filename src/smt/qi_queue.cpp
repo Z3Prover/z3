@@ -304,7 +304,7 @@ namespace smt {
             }
             m_instances.push_back(pr1);
         }
-        else if (m_context.on_clause_active()) {
+        else if (m_context.clause_proof_active()) {
             expr_ref_vector bindings_e(m), args(m);
             arith_util a(m);
             expr_ref gen(a.mk_int(generation), m);

@@ -18,7 +18,17 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 
 namespace smt {
-    clause_proof::clause_proof(context& ctx): ctx(ctx), m(ctx.get_manager()), m_lits(m) {}
+    
+    clause_proof::clause_proof(context& ctx):
+        ctx(ctx), m(ctx.get_manager()), m_lits(m), m_pp(m) {
+        auto proof_log = ctx.get_fparams().m_proof_log;
+        m_enabled = ctx.get_fparams().m_clause_proof || proof_log.is_non_empty_string();
+        if (proof_log.is_non_empty_string()) {
+            m_pp_out = alloc(std::ofstream, proof_log.str());
+            if (!*m_pp_out)
+                throw default_exception(std::string("Could not open file ") + proof_log.str());
+        }
+    }
 
     clause_proof::status clause_proof::kind2st(clause_kind k) {
         switch (k) {
@@ -42,7 +52,7 @@ namespace smt {
             r = j->mk_proof(ctx.get_cr());
         if (r) 
             return r;
-        if (!m_on_clause_active)
+        if (!is_enabled())
             return nullptr;
         switch (st) {
         case status::assumption:
@@ -60,7 +70,7 @@ namespace smt {
     }
 
     void clause_proof::add(clause& c) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         justification* j = c.get_justification();
         auto st = kind2st(c.get_kind());
@@ -70,7 +80,7 @@ namespace smt {
     }
 
     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         auto st = kind2st(k);
         proof_ref pr(justification2proof(st, j), m);
@@ -83,7 +93,7 @@ namespace smt {
 
 
     void clause_proof::shrink(clause& c, unsigned new_size) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         m_lits.reset();
         for (unsigned i = 0; i < new_size; ++i) 
@@ -97,7 +107,7 @@ namespace smt {
     }
 
     void clause_proof::add(literal lit, clause_kind k, justification* j) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         m_lits.reset();
         m_lits.push_back(ctx.literal2expr(lit));
@@ -107,7 +117,7 @@ namespace smt {
     }
 
     void clause_proof::add(literal lit1, literal lit2, clause_kind k, justification* j) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         m_lits.reset();
         m_lits.push_back(ctx.literal2expr(lit1));
@@ -117,9 +127,41 @@ namespace smt {
         update(st, m_lits, pr);
     }
 
+    void clause_proof::propagate(literal lit, justification const& jst, literal_vector const& ante) {
+        if (!is_enabled())
+            return;
+        m_lits.reset();
+        for (literal l : ante)
+            m_lits.push_back(ctx.literal2expr(~l));
+        m_lits.push_back(ctx.literal2expr(lit));
+        proof_ref pr(m.mk_app(symbol("smt"), 0, nullptr, m.mk_proof_sort()), m);
+        update(clause_proof::status::th_lemma, m_lits, pr);
+    }
 
     void clause_proof::del(clause& c) {
         update(c, status::deleted, justification2proof(status::deleted, nullptr));
+    }
+
+    std::ostream& clause_proof::display_literals(std::ostream& out, expr_ref_vector const& v) {
+        for (expr* e : v)
+            if (m.is_not(e, e))                
+                m_pp.display_expr_def(out << " (not ", e) << ")";
+            else
+                m_pp.display_expr_def(out << " ", e);
+        return out;
+    }
+
+    std::ostream& clause_proof::display_hint(std::ostream& out, proof* p) {
+        if (p)
+            m_pp.display_expr_def(out << " ", p);
+        return out;
+    }
+
+    void clause_proof::declare(std::ostream& out, expr* e) {
+        m_pp.collect(e);
+        m_pp.display_decls(out);
+        m.is_not(e, e);
+        m_pp.define_expr(out, e);
     }
 
     void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
@@ -128,10 +170,32 @@ namespace smt {
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
             m_on_clause_eh(m_on_clause_ctx, p, v.size(), v.data());        
+        if (m_pp_out) {
+            auto& out = *m_pp_out;
+            for (auto* e : v)
+                declare(out, e);
+            switch (st) {
+            case clause_proof::status::assumption:
+                display_literals(out << "(assume", v) << ")\n";
+                break;
+            case clause_proof::status::lemma:
+            case clause_proof::status::th_lemma:
+            case clause_proof::status::th_assumption:
+                if (p)
+                    declare(out, p);
+                display_hint(display_literals(out << "(infer", v), p) << ")\n";
+                break;
+            case clause_proof::status::deleted:
+                display_literals(out << "(del", v) << ")\n";
+                break;
+            default:
+                UNREACHABLE();
+            }
+        }
     }
 
     void clause_proof::update(clause& c, status st, proof* p) {
-        if (!ctx.get_fparams().m_clause_proof && !m_on_clause_active) 
+        if (!is_enabled())
             return;
         m_lits.reset();
         for (literal lit : c) 

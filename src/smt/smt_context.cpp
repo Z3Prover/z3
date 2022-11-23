@@ -284,7 +284,7 @@ namespace smt {
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
-              /*display(tout, j);*/
+              display(tout, j);
               );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
@@ -639,7 +639,6 @@ namespace smt {
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
                             m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
-
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     // It is not necessary to reinsert the equality to the congruence table
@@ -1347,6 +1346,7 @@ namespace smt {
                     TRACE("add_diseq", display_eq_detail(tout, bool_var2enode(v)););
                     if (!add_diseq(get_enode(lhs), get_enode(rhs)) && !inconsistent()) {
                         literal n_eq = literal(l.var(), true);
+                        IF_VERBOSE(0, verbose_stream() << "eq-conflict @" << m_scope_lvl << "\n");
                         set_conflict(b_justification(mk_justification(eq_propagation_justification(get_enode(lhs), get_enode(rhs)))), n_eq);
                     }
                 }
@@ -3732,6 +3732,7 @@ namespace smt {
         flet<bool> l(m_searching, true);
         TRACE("after_init_search", display(tout););
         IF_VERBOSE(2, verbose_stream() << "(smt.searching)\n";);
+        log_stats();
         TRACE("search_lite", tout << "searching...\n";);
         lbool    status            = l_undef;
         unsigned curr_lvl          = m_scope_lvl;

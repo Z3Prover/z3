@@ -1593,7 +1593,7 @@ namespace smt {
             TRACE("gate_clause", tout << mk_ll_pp(pr, m););
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
-        else if (m_clause_proof.on_clause_active()) {
+        else if (clause_proof_active()) {
             ptr_buffer<expr> new_lits;
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l      = lits[i];
@@ -1638,7 +1638,7 @@ namespace smt {
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
-        else if (pr && on_clause_active()) 
+        else if (pr && clause_proof_active()) 
             // support logging of quantifier instantiations and other more detailed information
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         else 
