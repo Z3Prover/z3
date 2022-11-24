@@ -54,6 +54,10 @@ public:
         {}
 
         std::ostream& display(std::ostream& out) const;
+
+        expr* atom(unsigned i) const { return m_literals[i].first; }
+        bool sign(unsigned i) const { return m_literals[i].second; }
+        bool is_unit() const { return m_literals.size() == 1; }
     };
 private:
     struct stats {
@@ -102,11 +106,12 @@ private:
 
     bool try_find_binary_definition(func_decl* p, app_ref& head, expr_ref& def, expr_dependency_ref& dep);
     void try_resolve_definition(func_decl* p);
-    void insert_macro(app_ref& head, expr_ref& def, expr_dependency_ref& dep);
+    void insert_macro(app* head, expr* def, expr_dependency* dep);
     bool has_macro(func_decl* p, app_ref& head, expr_ref& def, expr_dependency_ref& dep);
     expr_ref bind_free_variables_in_def(clause& cl, app* head, expr* def);
-    bool can_be_macro_head(app* head, unsigned num_bound);
+    bool can_be_macro_head(expr* head, unsigned num_bound);
     bool is_macro_safe(expr* e);
+    void try_find_macro(clause& cl);
 
     void try_resolve(func_decl* p);
     void update_model(func_decl* p);
