@@ -24,6 +24,11 @@ Other:
 - code diverges on coding conventions.
 */
 
+char const* color_red()    { return "\x1B[31m"; }
+char const* color_yellow() { return "\x1B[33m"; }
+char const* color_blue()   { return "\x1B[34m"; }
+char const* color_reset()  { return "\x1B[0m"; }
+
 #if POLYSAT_LOGGING_ENABLED
 
 std::atomic<bool> g_log_enabled(true);
@@ -57,11 +62,6 @@ bool polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_f
   LogLevel max_log_level = get_max_log_level(fn, pretty_fn);
   return msg_level <= max_log_level;
 }
-
-char const* color_red()    { return "\x1B[31m"; }
-char const* color_yellow() { return "\x1B[33m"; }
-char const* color_blue()   { return "\x1B[34m"; }
-char const* color_reset()  { return "\x1B[0m"; }
 
 static char const* level_color(LogLevel msg_level) {
   switch (msg_level) {
