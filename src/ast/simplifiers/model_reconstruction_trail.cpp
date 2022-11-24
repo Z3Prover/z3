@@ -13,6 +13,7 @@ Author:
 
 
 #include "ast/for_each_expr.h"
+#include "ast/rewriter/macro_replacer.h"
 #include "ast/simplifiers/model_reconstruction_trail.h"
 #include "ast/converters/generic_model_converter.h"
 
@@ -32,11 +33,10 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
 
         if (t->is_hide())
             continue;
-
         
         // updates that have no intersections with current variables are skipped
         if (!t->intersects(free_vars)) 
-            continue;        
+            continue;    
 
         // loose entries that intersect with free vars are deleted from the trail
         // and their removed formulas are added to the resulting constraints.
@@ -49,8 +49,29 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             continue;
         }
         
-        if (t->is_def())
-            NOT_IMPLEMENTED_YET();
+        
+        if (t->is_def()) {
+            macro_replacer mrp(m);
+            app_ref head(m);            
+            func_decl* d = t->m_decl;
+            ptr_buffer<expr> args;
+            for (unsigned i = 0; i < d->get_arity(); ++i)
+                args.push_back(m.mk_var(i, d->get_domain(i)));
+            head = m.mk_app(d, args);
+            mrp.insert(head, t->m_def, t->m_dep);
+            dependent_expr de(m, t->m_def, t->m_dep);
+            add_vars(de, free_vars);
+
+            for (auto& d : added) {
+                auto [f, dep1] = d();
+                expr_ref g(m);
+                expr_dependency_ref dep2(m);
+                mrp(f, g, dep2);
+                d = dependent_expr(m, g, m.mk_join(dep1, dep2));
+            }
+            continue;
+        }
+
 
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
@@ -59,6 +80,7 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             auto [f, dep1] = d();
             auto [g, dep2] = rp->replace_with_dep(f);
             d = dependent_expr(m, g, m.mk_join(dep1, dep2));
+            add_vars(d, free_vars);
         }    
     }
 }

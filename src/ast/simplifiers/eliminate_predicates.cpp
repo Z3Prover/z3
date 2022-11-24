@@ -58,105 +58,7 @@ forbidden from macros vs forbidden from elimination
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/simplifiers/eliminate_predicates.h"
 #include "ast/rewriter/th_rewriter.h"
-
-
-/**
-* Rewriting formulas using macro definitions.
-*/
-struct eliminate_predicates::macro_expander_cfg : public default_rewriter_cfg {
-    ast_manager& m;
-    eliminate_predicates& ep;
-    expr_dependency_ref& m_used_macro_dependencies;
-    expr_ref_vector m_trail;
-
-    macro_expander_cfg(ast_manager& m, eliminate_predicates& ep, expr_dependency_ref& deps) :
-        m(m),
-        ep(ep),
-        m_used_macro_dependencies(deps),
-        m_trail(m)
-    {}
-
-    bool rewrite_patterns() const { return false; }
-    bool flat_assoc(func_decl* f) const { return false; }
-    br_status reduce_app(func_decl* f, unsigned num, expr* const* args, expr_ref& result, proof_ref& result_pr) {
-        result_pr = nullptr;
-        return BR_FAILED;
-    }
-
-    /**
-    * adapted from macro_manager.cpp
-    * Perhaps hoist and combine?
-    */
-    bool reduce_quantifier(quantifier* old_q,
-        expr* new_body,
-        expr* const* new_patterns,
-        expr* const* new_no_patterns,
-        expr_ref& result,
-        proof_ref& result_pr) {
-
-        bool erase_patterns = false;
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_patterns(); i++) 
-            if (old_q->get_pattern(i) != new_patterns[i])
-                erase_patterns = true;
-        
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_no_patterns(); i++) 
-            if (old_q->get_no_pattern(i) != new_no_patterns[i])
-                erase_patterns = true;
-        
-        if (erase_patterns) 
-            result = m.update_quantifier(old_q, 0, nullptr, 0, nullptr, new_body);
-        
-        if (erase_patterns && m.proofs_enabled()) 
-            result_pr = m.mk_rewrite(old_q, result);
-        
-        return erase_patterns;
-    }
-
-    bool get_subst(expr* _n, expr*& r, proof*& p) {
-        if (!is_app(_n))
-            return false;
-        p = nullptr;
-        app* n = to_app(_n);
-        quantifier* q = nullptr;
-        func_decl* d = n->get_decl(), * d2 = nullptr;
-        app_ref head(m);
-        expr_ref def(m);
-        expr_dependency_ref dep(m);
-        if (ep.has_macro(d, head, def, dep)) {
-            unsigned num = head->get_num_args();
-            ptr_buffer<expr> subst_args;
-            subst_args.resize(num, 0);
-            // TODO: we can exploit that variables occur in "non-standard" order
-            // that is in order (:var 0) (:var 1) (:var 2)
-            // then substitution just takes n->get_args() instead of this renaming.
-            for (unsigned i = 0; i < num; i++) {
-                var* v = to_var(head->get_arg(i));
-                VERIFY(v->get_idx() < num);
-                unsigned nidx = num - v->get_idx() - 1;
-                SASSERT(subst_args[nidx] == 0);
-                subst_args[nidx] = n->get_arg(i);
-            }
-            var_subst s(m);
-            expr_ref rr = s(def, num, subst_args.data());
-            r = rr;
-            m_trail.push_back(rr);
-            m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, dep);
-            // skip proof terms for simplifiers
-            return true;
-        }
-        
-        return false;
-    }
-};
-
-struct eliminate_predicates::macro_expander_rw : public rewriter_tpl<eliminate_predicates::macro_expander_cfg> {
-    eliminate_predicates::macro_expander_cfg m_cfg;
-
-    macro_expander_rw(ast_manager& m, eliminate_predicates& ep, expr_dependency_ref& deps) :
-        rewriter_tpl<eliminate_predicates::macro_expander_cfg>(m, false, m_cfg),
-        m_cfg(m, ep, deps)
-    {}
-};
+#include "ast/rewriter/macro_replacer.h"
 
 
 std::ostream& eliminate_predicates::clause::display(std::ostream& out) const {
@@ -200,10 +102,18 @@ void eliminate_predicates::add_use_list(clause& cl) {
 * Check that all arguments are distinct variables that are bound.
 */
 
-bool eliminate_predicates::can_be_macro_head(app* head, unsigned num_bound) {
-    uint_set indices;
-    if (head->get_decl()->is_associative())
+bool eliminate_predicates::can_be_macro_head(expr* _head, unsigned num_bound) {
+    if (!is_app(_head))
         return false;
+    app* head = to_app(_head);
+    func_decl* f = head->get_decl();
+    if (m_disable_macro.is_marked(f))
+        return false;
+    if (m_is_macro.is_marked(f))
+        return false;
+    if (f->is_associative())
+        return false;
+    uint_set indices;
     for (expr* arg : *head) {
         if (!is_var(arg))
             return false;
@@ -315,7 +225,7 @@ bool eliminate_predicates::is_macro_safe(expr* e) {
     return true;
 }
 
-void eliminate_predicates::insert_macro(app_ref& head, expr_ref& def, expr_dependency_ref& dep) {
+void eliminate_predicates::insert_macro(app* head, expr* def, expr_dependency* dep) {
     unsigned num = head->get_num_args();
     ptr_buffer<expr> vars, subst_args;
     subst_args.resize(num, nullptr);
@@ -330,13 +240,17 @@ void eliminate_predicates::insert_macro(app_ref& head, expr_ref& def, expr_depen
         vars[i] = w;
     }
     var_subst sub(m, false);
-    def = sub(def, subst_args.size(), subst_args.data());
-    head = m.mk_app(head->get_decl(), vars);
-    auto* info = alloc(macro_def, head, def, dep);
+    app_ref _head(m);
+    expr_ref _def(m);
+    expr_dependency_ref _dep(dep, m);
+    _def = sub(def, subst_args.size(), subst_args.data());
+    _head = m.mk_app(head->get_decl(), vars);
+    
+    auto* info = alloc(macro_def, _head, _def, _dep);
     m_macros.insert(head->get_decl(), info);
-    m_fmls.model_trail().push(head->get_decl(), def, {});
+    m_fmls.model_trail().push(head->get_decl(), _def, _dep, {}); // augment with definition for head
     m_is_macro.mark(head->get_decl(), true);
-    TRACE("elim_predicates", tout << "insert " << head << " " << def << "\n");
+    TRACE("elim_predicates", tout << "insert " << _head << " " << _def << "\n");
     ++m_stats.m_num_macros;
 }
 
@@ -348,20 +262,124 @@ void eliminate_predicates::try_resolve_definition(func_decl* p) {
         insert_macro(head, def, dep);    
 }
 
-bool eliminate_predicates::has_macro(func_decl* p, app_ref& head, expr_ref& def, expr_dependency_ref& dep) {
-    macro_def* md = nullptr;
-    if (m_macros.find(p, md)) {
-        head = md->m_head;
-        def = md->m_def;
-        dep = md->m_dep;
-        return true;
+/**
+* Port of macros handled by macro_finder/macro_util
+*/
+void eliminate_predicates::try_find_macro(clause& cl) {
+    if (!cl.m_alive)
+        return;
+    expr* x, * y;
+    auto can_be_def = [&](expr* _x, expr* y) {
+        if (!is_app(_x))
+            return false;
+        app* x = to_app(_x);
+        return 
+            can_be_macro_head(x, cl.m_bound.size()) &&
+            is_macro_safe(y) &&
+            x->get_num_args() == cl.m_bound.size() &&
+            !occurs(x->get_decl(), y);
+    };
+    // (= (f x) t)
+    if (cl.is_unit() && !cl.sign(0) && m.is_eq(cl.atom(0), x, y)) {
+        if (can_be_def(x, y)) {
+            insert_macro(to_app(x), y, cl.m_dep);
+            cl.m_alive = false;
+            return;
+        }
+        if (can_be_def(y, x)) {
+            insert_macro(to_app(y), x, cl.m_dep);
+            cl.m_alive = false;
+            return;
+        }
     }
-    return false;
+    // not (= (p x) t) -> (p x) = (not t)
+    if (cl.is_unit() && cl.sign(0) && m.is_iff(cl.atom(0), x, y)) {
+        if (can_be_def(x, y)) {
+            insert_macro(to_app(x), m.mk_not(y), cl.m_dep);
+            cl.m_alive = false;
+            return;
+        }
+        if (can_be_def(y, x)) {
+            insert_macro(to_app(y), m.mk_not(x), cl.m_dep);
+            cl.m_alive = false;
+            return;
+        }
+    }
+
+    // pseudo-macros: 
+    // (iff (= (f x) t) cond)
+    // rewrites to (f x) = (if cond t else (k x))
+    // add clause (not (= (k x) t))
+    // 
+    // we will call them _conditioned_ macros
+
+    auto can_be_conditioned = [&](expr* f, expr* t, expr* cond) {
+        return 
+            can_be_def(f, t) &&
+            !occurs(to_app(f)->get_decl(), cond) &&
+            is_macro_safe(cond);
+    };
+
+    auto make_conditioned = [&](app* f, expr* t, expr* cond) {
+        func_decl* df = f->get_decl();
+        app_ref def(m), k(m), fml(m);
+        func_decl_ref fn(m);
+        fn = m.mk_fresh_func_decl(df->get_arity(), df->get_domain(), df->get_range());
+        m_fmls.model_trail().push(fn); // hide definition of fn
+        k = m.mk_app(fn, f->get_num_args(), f->get_args());        
+        def = m.mk_ite(cond, t, k);
+        insert_macro(f, def, cl.m_dep);
+        cl.m_alive = false;
+        fml = m.mk_not(m.mk_eq(k, t));
+        init_clause(fml, cl.m_dep, UINT_MAX);
+        
+    };
+    if (cl.is_unit() && !cl.sign(0) && m.is_iff(cl.atom(0), x, y)) {
+        expr* z, * u;
+        if (m.is_eq(x, z, u) && can_be_conditioned(z, u, y)) {
+            make_conditioned(to_app(z), u, y);
+            return;
+        }
+        if (m.is_eq(x, u, z) && can_be_conditioned(z, u, y)) {
+            make_conditioned(to_app(z), u, y);
+            return;
+        }
+        if (m.is_eq(y, z, u) && can_be_conditioned(z, u, x)) {
+            make_conditioned(to_app(z), u, x);
+            return;
+        }
+        if (m.is_eq(y, u, z) && can_be_conditioned(z, u, x)) {
+            make_conditioned(to_app(z), u, x);
+            return;
+        }
+    }
+
+    //
+    // other macros handled by macro_finder:
+    //
+
+    // arithmetic/bit-vectors
+    // (= (+ (f x) s) t) 
+    // becomes (= (f x) (- t s))
+
+    //
+    // macro_finder also has:
+    // (>= (+ (f x) s) t)
+    // becomes (= (f x) (- t s (k x))
+    // add (>= (k x) 0)
+    // why is this a real improvement?
+    // 
+    // To review: quasi-macros
+    // (= (f x y (+ x y)) s), where x y are all bound variables.
+    // then ...?
 }
+
 
 void eliminate_predicates::find_definitions() {
     for (auto* p : m_predicates)
         try_resolve_definition(p);
+    for (auto* cl : m_clauses)
+        try_find_macro(*cl);
 }
 
 void eliminate_predicates::rewrite(expr_ref& t) {
@@ -374,13 +392,16 @@ void eliminate_predicates::reduce_definitions() {
     if (m_macros.empty())
         return;
     
+    macro_replacer macro_expander(m);
+    for (auto const& [k, v] : m_macros) 
+        macro_expander.insert(v->m_head, v->m_def, v->m_dep);
+    
     for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
         auto [f, d] = m_fmls[i]();
         expr_ref fml(f, m), new_fml(m);
         expr_dependency_ref dep(m);
         while (true) {
-            macro_expander_rw macro_expander(m, *this, dep);
-            macro_expander(fml, new_fml);
+            macro_expander(fml, new_fml, dep);
             if (new_fml == fml)
                 break;
             rewrite(new_fml);
@@ -464,6 +485,7 @@ void eliminate_predicates::try_resolve(func_decl* p) {
 void eliminate_predicates::update_model(func_decl* p) {
     expr_ref_vector fmls(m);
     expr_ref def(m);
+    expr_dependency_ref dep(m);
     unsigned numpos = 0, numneg = 0;
     vector<dependent_expr> deleted;
     for (auto* pos : m_use_list.get(p, false)) 
@@ -475,19 +497,23 @@ void eliminate_predicates::update_model(func_decl* p) {
 
     if (numpos < numneg) {
         for (auto* pos : m_use_list.get(p, false))
-            if (pos->m_alive)
+            if (pos->m_alive) {
                 fmls.push_back(create_residue_formula(p, *pos));
+                dep = m.mk_join(dep, pos->m_dep);
+            }
         def = mk_or(fmls);
     }
     else {
         for (auto* neg : m_use_list.get(p, true))
-            if (neg->m_alive)
+            if (neg->m_alive) {
                 fmls.push_back(mk_not(m, create_residue_formula(p, *neg)));
+                dep = m.mk_join(dep, neg->m_dep);
+            }
         def = mk_and(fmls);
     }
 
     rewrite(def);
-    m_fmls.model_trail().push(p, def, deleted);
+    m_fmls.model_trail().push(p, def, dep, deleted);
 }
 
 /**

@@ -37,16 +37,17 @@ class model_reconstruction_trail {
         vector<dependent_expr>        m_removed;
         func_decl_ref                 m_decl;
         expr_ref                      m_def;
+        expr_dependency_ref           m_dep;
         bool                          m_active = true;
 
 
         entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
-            m_subst(s), m_removed(rem), m_decl(m), m_def(m) {}
+            m_subst(s), m_removed(rem), m_decl(m), m_def(m), m_dep(m) {}
 
-        entry(ast_manager& m, func_decl* h) : m_decl(h, m), m_def(m) {}
+        entry(ast_manager& m, func_decl* h) : m_decl(h, m), m_def(m), m_dep(m) {}
 
-        entry(ast_manager& m, func_decl* f, expr* def, vector<dependent_expr> const& rem) :
-            m_decl(f, m), m_def(def, m), m_removed(rem) {}
+        entry(ast_manager& m, func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& rem) :
+            m_decl(f, m), m_def(def, m), m_removed(rem), m_dep(dep, m) {}
 
         bool is_loose() const { return !m_removed.empty(); }
 
@@ -109,8 +110,8 @@ public:
     /**
      * add definition
      */
-    void push(func_decl* f, expr* def, vector<dependent_expr> const& removed) {
-        m_trail.push_back(alloc(entry, m, f, def, removed));
+    void push(func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& removed) {
+        m_trail.push_back(alloc(entry, m, f, def, dep, removed));
         m_trail_stack.push(push_back_vector(m_trail));
     }
 
