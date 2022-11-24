@@ -474,6 +474,33 @@ namespace euf {
         enode* n = m_egraph.mk(e, m_generation, num, args);
         if (si.is_bool_op(e)) 
             m_egraph.set_cgc_enabled(n, false);
+
+        //
+        // (if p th el) (non-Boolean case) produces clauses 
+        //     (=> p (= (if p th el) th))
+        // and (=> (not p) (= (if p th el) el))
+        // The clauses establish equalities between the ite term and 
+        // the th or el sub-terms.
+        // 
+        if (m.is_ite(e))
+            num = 0;
+
+        //
+        // To track congruences of Boolean children under non-Boolean 
+        // functions set the merge_tf flag to true.
+        //
+        for (unsigned i = 0; i < num; ++i) {
+            if (!m.is_bool(args[i]->get_sort()))
+                continue;
+            bool was_enabled = args[i]->merge_tf();
+            m_egraph.set_merge_tf_enabled(args[i], true);
+            if (!was_enabled && n->value() != l_undef && !m.is_value(n->get_root()->get_expr())) {
+                if (n->value() == l_true)
+                    m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
+                else
+                    m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
+            }
+        }
         return n;
     }
 

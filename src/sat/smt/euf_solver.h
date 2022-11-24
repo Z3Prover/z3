@@ -146,7 +146,6 @@ namespace euf {
 
         constraint* m_conflict = nullptr;
         constraint* m_eq = nullptr;
-        constraint* m_lit = nullptr;
 
         // proofs 
         bool                             m_proof_initialized = false;
@@ -266,7 +265,6 @@ namespace euf {
         ~solver() override {
             if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
             if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
-            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
             m_trail.reset();
         }
 

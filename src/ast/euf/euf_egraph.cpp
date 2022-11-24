@@ -36,10 +36,8 @@ namespace euf {
         }
         m_expr2enode.setx(f->get_id(), n, nullptr);
         push_node(n);
-        for (unsigned i = 0; i < num_args; ++i) {
-            set_cgc_enabled(args[i], true);
-            set_merge_tf_enabled(args[i], true);            
-        }
+        for (unsigned i = 0; i < num_args; ++i) 
+            set_cgc_enabled(args[i], true);                             
         return n;
     }
 
@@ -271,12 +269,6 @@ namespace euf {
         if (enable_merge_tf != n->merge_tf()) {
             n->set_merge_tf(enable_merge_tf);
             m_updates.push_back(update_record(n, update_record::toggle_merge_tf()));
-            if (enable_merge_tf && n->value() != l_undef && !m.is_value(n->get_root()->get_expr())) {
-                expr* b = n->value() == l_true ? m.mk_true() : m.mk_false();
-                enode* tf = find(b);
-                if (tf) 
-                    add_literal(n, tf);
-            }
         }
     }
 
