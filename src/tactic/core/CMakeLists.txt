@@ -45,6 +45,7 @@ z3_add_component(core_tactics
     occf_tactic.h
     pb_preprocess_tactic.h
     propagate_values_tactic.h
+    propagate_values2_tactic.h
     reduce_args_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h

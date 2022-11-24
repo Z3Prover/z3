@@ -61,10 +61,6 @@ namespace euf {
     }
 
     void completion::reduce() {
-
-        propagate_values();
-        if (m_fmls.inconsistent())
-            return;
         m_has_new_eq = true;
         for (unsigned rounds = 0; m_has_new_eq && rounds <= 3 && !m_fmls.inconsistent(); ++rounds) {
             ++m_epoch;
@@ -74,81 +70,6 @@ namespace euf {
             read_egraph();
             IF_VERBOSE(11, verbose_stream() << "(euf.completion :rounds " << rounds << ")\n");
         }
-    }
-
-    /**
-    * Propagate writes into values first. It is cheaper to propagate values directly than using
-    * the E-graph. The E-graph suffers from the following overhead: it prefers interpreted nodes
-    * as roots and therefore the "merge" function ignores the heuristic of choosing the node to appoint root
-    * as the one with the fewest parents. Merging a constant value with multiple terms then has a compounding
-    * quadratic time overhead since the parents of the value are removed and re-inserted into the congruence
-    * table repeatedly and with growing size (exceeding the n*log(n) overhead when choosing the root to 
-    * have the fewest parents).
-    */
-    void completion::propagate_values() {
-        shared_occs shared(m, true);
-        expr_substitution subst(m, true, false);
-        expr* x, * y;
-        expr_ref_buffer args(m);
-        auto add_shared = [&]() {
-            shared_occs_mark visited;
-            shared.reset();
-            for (unsigned i = 0; i < m_fmls.size(); ++i)
-                shared(m_fmls[i].fml(), visited);
-        };
-
-        auto add_sub = [&](dependent_expr const& de) {
-            auto const& [f, dep] = de();
-            if (m.is_not(f, x) && shared.is_shared(x))
-                subst.insert(x, m.mk_false(), dep);
-            else if (shared.is_shared(f))
-                subst.insert(f, m.mk_true(), dep);
-            if (m.is_eq(f, x, y) && m.is_value(x) && shared.is_shared(y))
-                subst.insert(y, x, dep);
-            else if (m.is_eq(f, x, y) && m.is_value(y) && shared.is_shared(x))
-                subst.insert(x, y, dep);
-        };
-
-        auto process_fml = [&](unsigned i) {
-            expr* f = m_fmls[i].fml();
-            expr_dependency* dep = m_fmls[i].dep();
-            expr_ref fml(m);
-            proof_ref pr(m);
-            m_rewriter(f, fml, pr);
-            if (fml != f) {
-                dep = m.mk_join(dep, m_rewriter.get_used_dependencies());
-                m_fmls.update(i, dependent_expr(m, fml, dep));
-                ++m_stats.m_num_rewrites;
-            }
-            m_rewriter.reset_used_dependencies();
-            add_sub(m_fmls[i]);
-        };
-
-        unsigned rw = m_stats.m_num_rewrites + 1;
-        for (unsigned r = 0; r < 4 && rw != m_stats.m_num_rewrites; ++r) {            
-            rw = m_stats.m_num_rewrites;
-            add_shared();
-            subst.reset();
-            m_rewriter.reset();
-            m_rewriter.set_substitution(&subst);
-            for (unsigned i = 0; i < m_qhead; ++i)
-                add_sub(m_fmls[i]);
-            for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i)
-                process_fml(i);
-            add_shared();
-            subst.reset();
-            m_rewriter.reset();
-            m_rewriter.set_substitution(&subst);
-            for (unsigned i = 0; i < m_qhead; ++i)
-                add_sub(m_fmls[i]);
-            for (unsigned i = m_fmls.size(); i-- > m_qhead && !m_fmls.inconsistent();)
-                process_fml(i);
-            if (subst.empty())
-                break;
-        }
-        
-        m_rewriter.set_substitution(nullptr);        
-        m_rewriter.reset();
     }
 
     void completion::add_egraph() {

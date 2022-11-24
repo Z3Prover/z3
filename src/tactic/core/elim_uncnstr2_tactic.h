@@ -20,7 +20,6 @@ Author:
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/elim_unconstrained.h"
-#include "ast/simplifiers/elim_unconstrained.h"
 
 class elim_uncnstr2_tactic_factory : public dependent_expr_simplifier_factory {
 public:
