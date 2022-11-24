@@ -102,8 +102,13 @@ public:
         statistics_report sreport(*this);
         tactic_report report(name(), *in);
         m_goal = in.get();
-        if (!in->proofs_enabled())
-            m_simp->reduce();
+        try {
+            if (!in->proofs_enabled())
+                m_simp->reduce();
+        }
+        catch (rewriter_exception& ex) {
+            throw tactic_exception(ex.msg());
+        }
         m_goal->elim_true();
         m_goal->elim_redundancies();
         m_goal->inc_depth();
