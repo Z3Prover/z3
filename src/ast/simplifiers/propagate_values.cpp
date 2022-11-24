@@ -96,7 +96,6 @@ void propagate_values::reduce() {
     
     m_rewriter.set_substitution(nullptr);        
     m_rewriter.reset();
-
     advance_qhead(m_fmls.size());
 }
 

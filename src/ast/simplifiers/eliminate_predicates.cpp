@@ -52,6 +52,8 @@ forbidden from macros vs forbidden from elimination
 #include "ast/ast_util.h"
 #include "ast/for_each_ast.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/occurs.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/var_subst.h"
@@ -331,9 +333,11 @@ void eliminate_predicates::try_find_macro(clause& cl) {
         insert_macro(f, def, cl.m_dep);
         cl.m_alive = false;
         fml = m.mk_not(m.mk_eq(k, t));
-        init_clause(fml, cl.m_dep, UINT_MAX);
-        
+        clause* new_cl = init_clause(fml, cl.m_dep, UINT_MAX);
+        add_use_list(*new_cl);
+        m_clauses.push_back(new_cl);        
     };
+
     if (cl.is_unit() && !cl.sign(0) && m.is_iff(cl.atom(0), x, y)) {
         expr* z, * u;
         if (m.is_eq(x, z, u) && can_be_conditioned(z, u, y)) {
@@ -357,10 +361,111 @@ void eliminate_predicates::try_find_macro(clause& cl) {
     //
     // other macros handled by macro_finder:
     //
-
     // arithmetic/bit-vectors
     // (= (+ (f x) s) t) 
     // becomes (= (f x) (- t s))
+    //
+    // TBD:
+    // (= (+ (* -1 (f x)) x) t)
+    // becomes (= (f x) (- (- t s)))
+
+    bv_util bv(m);
+    arith_util a(m);
+    auto is_add = [&](expr * e) {
+        rational n;
+        return a.is_add(e) || bv.is_bv_add(e);
+    };
+
+    auto sub = [&](expr* t, expr* s) {
+        if (a.is_int_real(t))
+            return expr_ref(a.mk_sub(t, s), m);
+        else
+            return expr_ref(bv.mk_bv_sub(t, s), m);
+    };
+
+    auto subtract = [&](expr* t, app* s, unsigned i) {
+        expr_ref result(t, m);
+        unsigned j = 0;
+        for (expr* arg : *s) {
+            ++j;
+            if (i != j)
+                result = sub(result, arg);
+        }
+        return result;
+    };
+
+    auto uminus = [&](expr* t) {
+        if (a.is_int_real(t))
+            return expr_ref(a.mk_uminus(t), m);
+        else
+            return expr_ref(bv.mk_bv_neg(t), m);
+    };
+
+    auto is_inverse = [&](expr*& t) {
+        expr* x, * y;
+        rational n;
+        if (a.is_mul(t, x, y) && a.is_numeral(x, n) && n == -1) {
+            t = y;
+            return true;
+        }
+        if (bv.is_bv_mul(t, x, y) && bv.is_numeral(x, n) && n + 1 == rational::power_of_two(bv.get_bv_size(t))) {
+            t = y;
+            return true;
+        }
+        return false;
+    };
+
+    auto find_arith_macro = [&](expr* x, expr* y) {
+        if (!is_add(x))
+            return false;
+
+        if (!is_macro_safe(y))
+            return false;
+
+        unsigned i = 0;
+        for (expr* arg : *to_app(x)) {
+            ++i;
+            bool inv = is_inverse(arg);
+            if (!can_be_macro_head(arg, cl.m_bound.size()))
+                continue;            
+            app* head = to_app(arg);
+            func_decl* f = head->get_decl();
+            if (head->get_num_args() != cl.m_bound.size())
+                continue;
+            if (occurs(f, y))
+                continue;
+            unsigned j = 0;
+            for (expr* arg2 : *head) {
+                ++j;
+                if (i == j)
+                    continue;
+                if (occurs(f, arg2))
+                    goto next;
+                if (!is_macro_safe(arg2))
+                    goto next;
+            }
+            {
+                // arg = y - x - arg;
+                expr_ref y1 = subtract(y, to_app(x), i);
+                if (inv) 
+                    y1 = uminus(y1);                
+                insert_macro(to_app(arg), y1, cl.m_dep);
+                cl.m_alive = false;
+                return true;
+            }
+        next:
+            ;
+        }
+        return false;
+    };
+
+    if (cl.is_unit() && !cl.sign(0) && m.is_eq(cl.atom(0), x, y)) {
+        if (find_arith_macro(x, y))
+            return;
+        if (find_arith_macro(y, x))
+            return;
+    }
+
 
     //
     // macro_finder also has:
