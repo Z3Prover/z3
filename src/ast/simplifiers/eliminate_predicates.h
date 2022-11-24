@@ -92,9 +92,6 @@ private:
     der_rewriter          m_der;
     th_rewriter           m_rewriter;
     obj_map<func_decl, macro_def*> m_macros;
-
-    struct macro_expander_cfg;
-    struct macro_expander_rw;
     
     void rewrite(expr_ref& t);
 
