@@ -468,12 +468,13 @@ namespace euf {
 
     euf::enode* solver::mk_enode(expr* e, unsigned num, enode* const* args) {
 
+        //
+        // Don't track congruences of Boolean connectives or arguments.
+        // The assignments to associated literals is sufficient
+        // 
+
         if (si.is_bool_op(e))
             num = 0;
-        
-        enode* n = m_egraph.mk(e, m_generation, num, args);
-        if (si.is_bool_op(e)) 
-            m_egraph.set_cgc_enabled(n, false);
 
         //
         // (if p th el) (non-Boolean case) produces clauses 
@@ -484,6 +485,10 @@ namespace euf {
         // 
         if (m.is_ite(e))
             num = 0;
+        
+        enode* n = m_egraph.mk(e, m_generation, num, args);
+        if (si.is_bool_op(e)) 
+            m_egraph.set_cgc_enabled(n, false);
 
         //
         // To track congruences of Boolean children under non-Boolean 
