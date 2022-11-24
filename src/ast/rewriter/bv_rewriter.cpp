@@ -2388,7 +2388,9 @@ br_status bv_rewriter::mk_bit2bool(expr * lhs, expr * rhs, expr_ref & result) {
     expr* a = nullptr, *b = nullptr, *c = nullptr;
     if (m().is_ite(lhs, a, b, c)) {
         bool_rewriter rw(m());
-        result = rw.mk_ite(a, rw.mk_eq(b, rhs), rw.mk_eq(c, rhs));
+        expr_ref e1(rw.mk_eq(b, rhs), m());
+        expr_ref e2(rw.mk_eq(c, rhs), m());
+        result = rw.mk_ite(a, e1, e2);
         return BR_REWRITE2;
     }
     
