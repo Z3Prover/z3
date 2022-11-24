@@ -36,7 +36,7 @@ void propagate_values::reduce() {
     shared_occs shared(m, true);
     expr_substitution subst(m, true, false);
     expr* x, * y;
-    expr_ref_buffer args(m);
+
     auto add_shared = [&]() {
         shared_occs_mark visited;
         shared.reset();
@@ -50,15 +50,16 @@ void propagate_values::reduce() {
             subst.insert(x, m.mk_false(), dep);
         else if (shared.is_shared(f))
             subst.insert(f, m.mk_true(), dep);
-        if (m.is_eq(f, x, y) && m.is_value(x) && shared.is_shared(y))
-            subst.insert(y, x, dep);
-        else if (m.is_eq(f, x, y) && m.is_value(y) && shared.is_shared(x))
-            subst.insert(x, y, dep);
+        if (m.is_eq(f, x, y)) {
+            if (m.is_value(x) && shared.is_shared(y))
+                subst.insert(y, x, dep);
+            else if (m.is_value(y) && shared.is_shared(x))
+                subst.insert(x, y, dep);
+        }
     };
     
     auto process_fml = [&](unsigned i) {
-        expr* f = m_fmls[i].fml();
-        expr_dependency* dep = m_fmls[i].dep();
+        auto [f, dep] = m_fmls[i]();
         expr_ref fml(m);
         proof_ref pr(m);
         m_rewriter(f, fml, pr);
@@ -70,24 +71,23 @@ void propagate_values::reduce() {
         m_rewriter.reset_used_dependencies();
         add_sub(m_fmls[i]);
     };
+
+    auto init_sub = [&]() {
+        add_shared();
+        subst.reset();
+        m_rewriter.reset();
+        m_rewriter.set_substitution(&subst);
+        for (unsigned i = 0; i < m_qhead; ++i)
+            add_sub(m_fmls[i]);
+    };
     
     unsigned rw = m_stats.m_num_rewrites + 1;
     for (unsigned r = 0; r < m_max_rounds && rw != m_stats.m_num_rewrites; ++r) {            
         rw = m_stats.m_num_rewrites;
-        add_shared();
-        subst.reset();
-        m_rewriter.reset();
-        m_rewriter.set_substitution(&subst);
-        for (unsigned i = 0; i < m_qhead; ++i)
-            add_sub(m_fmls[i]);
+        init_sub();
         for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i)
             process_fml(i);
-        add_shared();
-        subst.reset();
-        m_rewriter.reset();
-        m_rewriter.set_substitution(&subst);
-        for (unsigned i = 0; i < m_qhead; ++i)
-            add_sub(m_fmls[i]);
+        init_sub();
         for (unsigned i = m_fmls.size(); i-- > m_qhead && !m_fmls.inconsistent();)
             process_fml(i);
         if (subst.empty())
@@ -107,6 +107,7 @@ void propagate_values::collect_statistics(statistics& st) const {
 void propagate_values::updt_params(params_ref const& p) {
     tactic_params tp(p);
     m_max_rounds = p.get_uint("max_rounds", tp.propagate_values_max_rounds());
+    m_rewriter.updt_params(p);
 }
 
 void propagate_values::collect_param_descrs(param_descrs& r) {
