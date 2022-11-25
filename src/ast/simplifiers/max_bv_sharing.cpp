@@ -19,7 +19,7 @@ Author
 Revision History:
 
 --*/
-#include "tactic/tactical.h"
+
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "util/obj_pair_hashtable.h"
