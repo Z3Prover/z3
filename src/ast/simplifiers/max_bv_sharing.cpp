@@ -62,7 +62,7 @@ class max_bv_sharing : public dependent_expr_simplifier {
 
         bool max_steps_exceeded(unsigned num_steps) const { 
             if (memory::get_allocation_size() > m_max_memory)
-                throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+                throw rewriter_exception(Z3_MAX_MEMORY_MSG);
             return num_steps > m_max_steps;
         }
 
