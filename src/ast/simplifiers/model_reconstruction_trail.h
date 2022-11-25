@@ -29,6 +29,7 @@ Author:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/simplifiers/dependent_expr.h"
 #include "ast/converters/model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 class model_reconstruction_trail {
 
@@ -125,5 +126,10 @@ public:
     * retrieve the current model converter corresponding to chaining substitutions from the trail.
     */
     model_converter_ref get_model_converter();
+
+    /**
+    * Append new updates to model converter, update the current index into the trail in the process.
+    */
+    void append(generic_model_converter& mc, unsigned& index);
 };
 

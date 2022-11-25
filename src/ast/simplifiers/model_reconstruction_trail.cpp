@@ -18,9 +18,12 @@ Author:
 #include "ast/converters/generic_model_converter.h"
 
 
+// accumulate a set of dependent exprs, updating m_trail to exclude loose 
+// substitutions that use variables from the dependent expressions.
+// TODO: add filters to skip sections of the trail that do not touch the current free variables.
+
 void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependent_expr>& added) {
-    // accumulate a set of dependent exprs, updating m_trail to exclude loose 
-    // substitutions that use variables from the dependent expressions.
+
     ast_mark free_vars;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     add_vars(d, free_vars);
@@ -47,8 +50,7 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             m_trail_stack.push(value_trail(t->m_active));
             t->m_active = false;      
             continue;
-        }
-        
+        }        
         
         if (t->is_def()) {
             macro_replacer mrp(m);
@@ -72,7 +74,6 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             continue;
         }
 
-
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
@@ -89,25 +90,29 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
  * retrieve the current model converter corresponding to chaining substitutions from the trail.
  */
 model_converter_ref model_reconstruction_trail::get_model_converter() {
-    
-    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
-    expr_substitution subst(m, true, false);
-    rp->set_substitution(&subst);
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "dependent-expr-model");
-    for (unsigned i = 0; i < m_trail.size(); ++i) {
+    unsigned i = 0;
+    append(*mc, i);
+    return model_converter_ref(mc.get());
+}
+
+/**
+* Append model conversions starting at index i
+*/
+void model_reconstruction_trail::append(generic_model_converter& mc, unsigned& i) {
+    for (; i < m_trail.size(); ++i) {
         auto* t = m_trail[i];
         if (!t->m_active)
             continue;
-        else if (t->is_hide()) 
-            mc->hide(t->m_decl);
-        else if (t->is_def()) 
-            mc->add(t->m_decl, t->m_def);
+        else if (t->is_hide())
+            mc.hide(t->m_decl);
+        else if (t->is_def())
+            mc.add(t->m_decl, t->m_def);
         else {
             for (auto const& [v, def] : t->m_subst->sub())
-                mc->add(v, def);
-        }        
+                mc.add(v, def);
+        }
     }
-    return model_converter_ref(mc.get());
-
 }
+
 
