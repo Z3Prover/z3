@@ -253,7 +253,7 @@ public:
     void reduce() override {
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        for (unsigned idx = 0; idx < m_fmls.size() && !m_fmls.inconsistent(); idx++) {
+        for (unsigned idx = m_qhead; idx < m_fmls.size() && !m_fmls.inconsistent(); idx++) {
             auto [curr, d] = m_fmls[idx]();
             m_rw(curr, new_curr, new_pr);
             // Proof reconstruction: new_pr = m.mk_modus_ponens(old_pr, new_pr);
@@ -261,6 +261,7 @@ public:
             m_fmls.update(idx, dependent_expr(m, new_curr, d));            
         }
         m_rw.cfg().cleanup();
+        advance_qhead(m_fmls.size());
     }        
 };
 
