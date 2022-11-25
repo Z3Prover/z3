@@ -1,5 +1,6 @@
 z3_add_component(simplifiers
   SOURCES
+    bit_blaster.cpp
     bv_slice.cpp
     card2bv.cpp
     elim_unconstrained.cpp
