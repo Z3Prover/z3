@@ -6,6 +6,7 @@ z3_add_component(simplifiers
     eliminate_predicates.cpp
     euf_completion.cpp
     extract_eqs.cpp
+    max_bv_sharing.cpp
     model_reconstruction_trail.cpp
     propagate_values.cpp
     solve_context_eqs.cpp

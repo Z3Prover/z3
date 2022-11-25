@@ -11,7 +11,6 @@ z3_add_component(bv_tactics
     bv_slice_tactic.cpp
     dt2bv_tactic.cpp
     elim_small_bv_tactic.cpp
-    max_bv_sharing_tactic.cpp
   COMPONENT_DEPENDENCIES
     bit_blaster
     core_tactics

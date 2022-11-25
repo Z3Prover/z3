@@ -3,7 +3,7 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    max_bv_sharing_tactic.cpp
+    max_bv_sharing.cpp
 
 Abstract:
 
@@ -12,7 +12,7 @@ Abstract:
     This rewriter is particularly useful for reducing
     the number of Adders and Multipliers before "bit-blasting".
 
-Author:
+Author
 
     Leonardo de Moura (leonardo) 2011-12-29.
 
@@ -23,9 +23,10 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "util/obj_pair_hashtable.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/ast_lt.h"
 
-class max_bv_sharing_tactic : public tactic {
+class max_bv_sharing : public dependent_expr_simplifier {
     
     struct rw_cfg : public default_rewriter_cfg {
         typedef std::pair<expr *, expr *> expr_pair;
@@ -224,64 +225,22 @@ class max_bv_sharing_tactic : public tactic {
         }
     };
 
-    struct imp {
-        rw                m_rw;
-        unsigned          m_num_steps;
+    rw                m_rw;
+    unsigned          m_num_steps = 0;
         
-        imp(ast_manager & m, params_ref const & p):
-            m_rw(m, p) {
-        }
-        
-        ast_manager & m() const { return m_rw.m(); }
-                
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result) {
-            tactic_report report("max-bv-sharing", *g);
-            bool produce_proofs = g->proofs_enabled();
-            
-            expr_ref   new_curr(m());
-            proof_ref  new_pr(m());
-            unsigned size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
-                if (g->inconsistent())
-                    break;
-                expr * curr = g->form(idx);
-                m_rw(curr, new_curr, new_pr);
-                m_num_steps += m_rw.get_num_steps();
-                
-                if (produce_proofs) {
-                    proof * pr = g->pr(idx);
-                    new_pr     = m().mk_modus_ponens(pr, new_pr);
-                }
-                g->update(idx, new_curr, new_pr, g->dep(idx));
-            }
-            m_rw.cfg().cleanup();
-            g->inc_depth();
-            result.push_back(g.get());
-        }
-    };
-    
-    imp *      m_imp;
+
     params_ref m_params;
+
 public:
-    max_bv_sharing_tactic(ast_manager & m, params_ref const & p):
-        m_params(p) {
-        m_imp = alloc(imp, m, p);
-    }
-
-    tactic * translate(ast_manager & m) override {
-        return alloc(max_bv_sharing_tactic, m, m_params);
-    }
-        
-    ~max_bv_sharing_tactic() override {
-        dealloc(m_imp);
-    }
-
-    char const* name() const override { return "max_bv_sharing"; }
+    max_bv_sharing(ast_manager & m, params_ref const & p, dependent_expr_state& fmls):
+        dependent_expr_simplifier(m, fmls),
+        m_params(p),
+        m_rw(m, p) {
+    }       
 
     void updt_params(params_ref const & p) override {
         m_params.append(p);
-        m_imp->m_rw.cfg().updt_params(m_params);
+        m_rw.cfg().updt_params(m_params);
     }
 
     void collect_param_descrs(param_descrs & r) override {
@@ -290,21 +249,22 @@ public:
         r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
-    
-    void operator()(goal_ref const & in, 
-                    goal_ref_buffer & result) override {
-        (*m_imp)(in, result);
-    }
-    
-    void cleanup() override {
-        ast_manager & m = m_imp->m();
-        params_ref p = std::move(m_params);
-        m_imp->~imp();
-        new (m_imp) imp(m, p);
-    }
+
+    void reduce() override {
+        expr_ref   new_curr(m);
+        proof_ref  new_pr(m);
+        for (unsigned idx = 0; idx < m_fmls.size() && !m_fmls.inconsistent(); idx++) {
+            auto [curr, d] = m_fmls[idx]();
+            m_rw(curr, new_curr, new_pr);
+            // Proof reconstruction: new_pr = m.mk_modus_ponens(old_pr, new_pr);
+            m_num_steps += m_rw.get_num_steps();            
+            m_fmls.update(idx, dependent_expr(m, new_curr, d));            
+        }
+        m_rw.cfg().cleanup();
+    }        
 };
 
-tactic * mk_max_bv_sharing_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(max_bv_sharing_tactic, m, p));
+dependent_expr_simplifier * mk_max_bv_sharing(ast_manager & m, params_ref const & p, dependent_expr_state& fmls) {
+    return alloc(max_bv_sharing, m, p, fmls);    
 }
 
