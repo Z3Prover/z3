@@ -15,4 +15,5 @@ z3_add_component(simplifiers
   COMPONENT_DEPENDENCIES
     euf
     rewriter
+    bit_blaster
 )

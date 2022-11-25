@@ -49,7 +49,7 @@ void card2bv::reduce() {
     for (func_decl* f : fns)
         m_fmls.model_trail().hide(f);    
 
-    advance_qhead(m_fmls.size());
+     advance_qhead(m_fmls.size());
 }
 
 void card2bv::collect_statistics(statistics& st) const {
