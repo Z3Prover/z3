@@ -102,7 +102,7 @@ public:
     /**
     * add declaration to hide
     */
-    void push(func_decl* f) {
+    void hide(func_decl* f) {
         m_trail.push_back(alloc(entry, m, f));
         m_trail_stack.push(push_back_vector(m_trail));
     }

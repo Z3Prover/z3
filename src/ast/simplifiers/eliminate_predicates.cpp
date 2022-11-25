@@ -327,7 +327,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
         app_ref def(m), k(m), fml(m);
         func_decl_ref fn(m);
         fn = m.mk_fresh_func_decl(df->get_arity(), df->get_domain(), df->get_range());
-        m_fmls.model_trail().push(fn); // hide definition of fn
+        m_fmls.model_trail().hide(fn); // hide definition of fn
         k = m.mk_app(fn, f->get_num_args(), f->get_args());        
         def = m.mk_ite(cond, t, k);
         insert_macro(f, def, cl.m_dep);

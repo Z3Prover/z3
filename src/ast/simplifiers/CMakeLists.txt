@@ -1,6 +1,7 @@
 z3_add_component(simplifiers
   SOURCES
     bv_slice.cpp
+    card2bv.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
     euf_completion.cpp

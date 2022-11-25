@@ -285,7 +285,7 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
     for (auto const& entry : mc.entries()) {
         switch (entry.m_instruction) {
         case generic_model_converter::instruction::HIDE:
-            trail.push(entry.m_f);
+            trail.hide(entry.m_f);
             break;
         case generic_model_converter::instruction::ADD:
             break;
