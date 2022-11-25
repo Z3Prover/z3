@@ -262,7 +262,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         if (Z3.is_lambda(contextPtr, ast)) {
           return new LambdaImpl(ast);
         }
-        return new QuantifierImpl(ast);
+        return new NonLambdaQuantifierImpl(ast);
       }
       const sortKind = check(Z3.get_sort_kind(contextPtr, Z3.get_sort(contextPtr, ast)));
       switch (sortKind) {
@@ -379,7 +379,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function isBool(obj: unknown): obj is Bool<Name> {
-      const r = obj instanceof BoolImpl;
+      const r = obj instanceof ExprImpl && obj.sort.kind() === Z3_sort_kind.Z3_BOOL_SORT;
       r && _assertContext(obj);
       return r;
     }
@@ -2544,6 +2544,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    function ast_from_string(s: string): Ast<Name> {
+      const sort_names: Z3_symbol[] = [];
+      const sorts: Z3_sort[] = [];
+      const decl_names: Z3_symbol[] = [];
+      const decls: Z3_func_decl[] = [];
+      const v = new AstVectorImpl(check(Z3.parse_smtlib2_string(
+        contextPtr,
+        s,
+        sort_names,
+        sorts,
+        decl_names,
+        decls,
+      )));
+      if (v.length() !== 1) {
+        throw new Error('Expected exactly one AST. Instead got ' + v.length() + ': ' + v.sexpr());
+      }
+      return v.get(0);
+    }
+
     const ctx: Context<Name> = {
       ptr: contextPtr,
       name,
@@ -2664,6 +2683,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Select,
       Store,
       Extract,
+
+      /////////////
+      // Loading //
+      /////////////
+      ast_from_string
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;

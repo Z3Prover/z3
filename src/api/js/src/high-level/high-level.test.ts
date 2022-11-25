@@ -3,6 +3,7 @@ import asyncToArray from 'iter-tools/methods/async-to-array';
 import { CoercibleToArrayIndexType, init, killThreads, NonEmptySortArray, SortToExprMap } from '../jest';
 import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel, SMTArraySort, BitVecSort, SMTArray, Sort } from './types';
 import { expectType } from 'ts-expect';
+import { Quantifier } from '../../build/high-level';
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -507,6 +508,11 @@ describe('high-level', () => {
       const [x, y] = Z3.Int.consts('x y');
 
       const conjecture = Z3.ForAll([x, y], x.neq(y).implies(x.lt(y).or(x.gt(y))));
+      expect(Z3.isBool(conjecture)).toBeTruthy();
+      expect(conjecture.var_name(0)).toBe('x');
+      expect(conjecture.var_sort(0).eqIdentity(Z3.Int.sort())).toBeTruthy();
+      expect(conjecture.var_name(1)).toBe('y');
+      expect(conjecture.var_sort(1).eqIdentity(Z3.Int.sort())).toBeTruthy();
       await prove(conjecture);
     });
 
@@ -515,10 +521,12 @@ describe('high-level', () => {
 
       const [x, y, z] = Z3.Int.consts('x y z');
 
-      const conjecture = Z3.Not(x.gt(y)).implies(
-        Z3.Exists([z], Z3.Not(z.lt(x)).and(Z3.Not(z.gt(y)))), // Can be trivially discovered with z = x or x = y
-      );
+      const quantifier = Z3.Exists([z], Z3.Not(z.lt(x)).and(Z3.Not(z.gt(y))));
+      expect(Z3.isBool(quantifier)).toBeTruthy();
+      expect(quantifier.var_name(0)).toBe('z');
+      expect(quantifier.var_sort(0).eqIdentity(Z3.Int.sort())).toBeTruthy();
 
+      const conjecture = Z3.Not(x.gt(y)).implies(quantifier); // Can be trivially discovered with z = x or x = y
       await prove(conjecture);
     });
 
@@ -529,9 +537,32 @@ describe('high-level', () => {
       const L = Z3.Lambda([x, y], x.add(y));
       expect(Z3.isArraySort(L.sort)).toBeTruthy();
       expect(Z3.isArray(L)).toBeFalsy();
+      expect(L.var_name(0)).toBe('x');
+      expect(L.var_sort(0).eqIdentity(Z3.Int.sort())).toBeTruthy();
+      expect(L.var_name(1)).toBe('y');
+      expect(L.var_sort(1).eqIdentity(Z3.Int.sort())).toBeTruthy();
 
       const conjecture = L.select(Z3.Int.val(2), Z3.Int.val(5)).eq(Z3.Int.val(7));
       await prove(conjecture);
+    });
+
+    it('Loading Quantifier Preserves Type', async () => {
+      const Z3 = api.Context('main');
+
+      const [x, y, z] = Z3.Int.consts('x y z');
+      const quantifier = Z3.Exists([z], Z3.Not(z.lt(x)).and(Z3.Not(z.gt(y))));
+      expect(Z3.isBool(quantifier)).toBeTruthy();
+
+      const solver = new Z3.Solver();
+      solver.add(quantifier);
+
+      const dumped_str = solver.toString();
+
+      const solver2 = new Z3.Solver();
+      solver2.fromString(dumped_str);
+      const quantifier2 = solver2.assertions().get(0) as unknown as Quantifier;
+      expect(Z3.isBool(quantifier2)).toBeTruthy();
+      expect(quantifier2.var_name(0)).toBe('z');
     });
   });
 

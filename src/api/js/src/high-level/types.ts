@@ -589,6 +589,8 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
 
   Extract<Bits extends number>(hi: number, lo: number, val: BitVec<Bits, Name>): BitVec<number, Name>;
+
+  ast_from_string(s: string): Ast<Name>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -612,6 +614,7 @@ export interface Ast<Name extends string = 'main', Ptr = unknown> {
   sexpr(): string;
 
   hash(): number;
+
 }
 
 /** @hidden */
