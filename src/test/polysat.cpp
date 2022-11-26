@@ -1635,6 +1635,7 @@ void tst_polysat() {
     // test_polysat::test_band5_clause();
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
+    test_polysat::test_ineq_basic4();
     // test_polysat::test_l2();
     // test_polysat::test_ineq1();
     test_polysat::test_ineq2();
@@ -1661,6 +1662,8 @@ void tst_polysat() {
         set_default_debug_action(debug_action::throw_exception);
         set_log_enabled(false);
     }
+
+    return;
 
     RUN(test_polysat::test_clause_simplify1());
 
