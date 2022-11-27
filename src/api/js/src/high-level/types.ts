@@ -5,14 +5,13 @@ import {
   Z3_context,
   Z3_decl_kind,
   Z3_func_decl,
+  Z3_func_entry,
   Z3_func_interp,
   Z3_model,
-  Z3_pattern,
   Z3_probe,
   Z3_solver,
   Z3_sort,
   Z3_sort_kind,
-  Z3_symbol,
   Z3_tactic,
 } from '../low-level';
 
@@ -153,7 +152,10 @@ export interface Context<Name extends string = 'main'> {
   isSort(obj: unknown): obj is Sort<Name>;
 
   /** @category Functions */
-  isFuncDecl(obj: unknown): obj is FuncDecl<Name>;
+  isFuncDecl(obj: unknown): obj is FuncDecl<Name>
+
+  /** @category Functions */
+  isFuncInterp(obj: unknown): obj is FuncInterp<Name>;
 
   /** @category Functions */
   isApp(obj: unknown): boolean;
@@ -587,10 +589,13 @@ export interface Context<Name extends string = 'main'> {
   ): SMTArray<Name, DomainSort, RangeSort>;
 
   /** @category Operations */
-
   Extract<Bits extends number>(hi: number, lo: number, val: BitVec<Bits, Name>): BitVec<number, Name>;
 
+  /** @category Operations */
   ast_from_string(s: string): Ast<Name>;
+
+  /** @category Operations */
+  substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -696,6 +701,8 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   get(constant: Expr<Name>): Expr<Name>;
 
   get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
+
+  updateValue(x: FuncDecl<Name> | Expr<Name>, a: Ast<Name> | FuncInterp<Name>): void;
 }
 
 /**
@@ -741,12 +748,38 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
 /**
  * @category Functions
  */
+export interface FuncEntry<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'FuncEntry';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_func_entry;
+
+  numArgs(): number;
+
+  argValue(i: number): Expr<Name>;
+
+  value(): Expr<Name>;
+
+}
+/**
+ * @category Functions
+ */
 export interface FuncInterp<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'FuncInterp';
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_func_interp;
+
+  elseValue(): Expr<Name>;
+
+  numEntries(): number;
+
+  arity(): number;
+
+  entry(i: number): FuncEntry<Name>;
+
 }
 
 /** @hidden */

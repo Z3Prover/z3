@@ -156,7 +156,7 @@ describe('high-level', () => {
   });
 
   describe('booleans', () => {
-    it("proves De Morgan's Law", async () => {
+    it('proves De Morgan\'s Law', async () => {
       const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
 
@@ -644,5 +644,46 @@ describe('high-level', () => {
 
       expect(await solver.check()).toStrictEqual('sat');
     });
+  });
+
+  describe('Substitution', () => {
+
+    it('basic variable substitution', async () => {
+      const { Int, substitute } = api.Context('main');
+      const x = Int.const('x');
+      const y = Int.const('y');
+      const z = Int.const('z');
+
+      const expr = x.add(y);
+      const subst = substitute(expr, [x, z]);
+      expect(subst.eqIdentity(z.add(y))).toBeTruthy();
+    });
+
+    it('term substitution', async () => {
+      const { Int, substitute } = api.Context('main');
+      const x = Int.const('x');
+      const y = Int.const('y');
+      const z = Int.const('z');
+
+      const expr = x.add(y).mul(Int.val(1).sub(x.add(y)));
+      const subst = substitute(expr, [x.add(y), z]);
+      expect(subst.eqIdentity(z.mul(Int.val(1).sub(z)))).toBeTruthy();
+    });
+  });
+
+  describe('Model', () => {
+
+    it ('Assigning constants', async () => {
+      const { Int, Model } = api.Context('main');
+      const m = new Model();
+
+      const [x, y] = Int.consts('x y');
+
+      m.updateValue(x, Int.val(6));
+      m.updateValue(y, Int.val(12));
+
+      expect(m.eval(x.add(y)).eqIdentity(Int.val(18))).toBeTruthy();
+    });
+
   });
 });

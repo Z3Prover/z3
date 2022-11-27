@@ -33,7 +33,7 @@ import {
   Z3_tactic,
   Z3_pattern,
   Z3_app,
-  Z3_params,
+  Z3_params, Z3_func_entry,
 } from '../low-level';
 import {
   AnyAst,
@@ -81,7 +81,7 @@ import {
   Z3Error,
   Z3HighLevel,
   CoercibleToArith,
-  NonEmptySortArray,
+  NonEmptySortArray, FuncEntry,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
 
@@ -92,19 +92,19 @@ const asyncMutex = new Mutex();
 function isCoercibleRational(obj: any): obj is CoercibleRational {
   // prettier-ignore
   const r = (
-        (obj !== null &&
-            (typeof obj === 'object' || typeof obj === 'function')) &&
-        (obj.numerator !== null &&
-            (typeof obj.numerator === 'number' || typeof obj.numerator === 'bigint')) &&
-        (obj.denominator !== null &&
-            (typeof obj.denominator === 'number' || typeof obj.denominator === 'bigint'))
-    );
+    (obj !== null &&
+      (typeof obj === 'object' || typeof obj === 'function')) &&
+    (obj.numerator !== null &&
+      (typeof obj.numerator === 'number' || typeof obj.numerator === 'bigint')) &&
+    (obj.denominator !== null &&
+      (typeof obj.denominator === 'number' || typeof obj.denominator === 'bigint'))
+  );
   r &&
-    assert(
-      (typeof obj!.numerator !== 'number' || Number.isSafeInteger(obj!.numerator)) &&
-        (typeof obj!.denominator !== 'number' || Number.isSafeInteger(obj!.denominator)),
-      'Fraction numerator and denominator must be integers',
-    );
+  assert(
+    (typeof obj!.numerator !== 'number' || Number.isSafeInteger(obj!.numerator)) &&
+    (typeof obj!.denominator !== 'number' || Number.isSafeInteger(obj!.denominator)),
+    'Fraction numerator and denominator must be integers',
+  );
   return r;
 }
 
@@ -148,7 +148,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     if (typeof key === 'string') {
       Z3.global_param_set(key, value.toString());
     } else {
-      assert(value === undefined, "Can't provide a Record and second parameter to set_param at the same time");
+      assert(value === undefined, 'Can\'t provide a Record and second parameter to set_param at the same time');
       Object.entries(key).forEach(([key, value]) => setParam(key, value));
     }
   }
@@ -348,6 +348,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isFuncDecl(obj: unknown): obj is FuncDecl<Name> {
       const r = obj instanceof FuncDeclImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFuncInterp(obj: unknown): obj is FuncInterp<Name> {
+      const r = obj instanceof FuncInterpImpl;
       r && _assertContext(obj);
       return r;
     }
@@ -809,7 +815,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function Distinct(...exprs: CoercibleToExpr<Name>[]): Bool<Name> {
-      assert(exprs.length > 0, "Can't make Distinct ouf of nothing");
+      assert(exprs.length > 0, 'Can\'t make Distinct ouf of nothing');
 
       return new BoolImpl(
         check(
@@ -1170,18 +1176,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         throw new Error('Array store requires both index and value arguments');
       }
       if (args.length === 2) {
-        return _toExpr(check(Z3.mk_store(contextPtr, array.ast, args[0].ast, args[1].ast))) as SMTArray<
-          Name,
+        return _toExpr(check(Z3.mk_store(contextPtr, array.ast, args[0].ast, args[1].ast))) as SMTArray<Name,
           DomainSort,
-          RangeSort
-        >;
+          RangeSort>;
       }
       const _idxs = args.slice(0, args.length - 1).map(arg => arg.ast);
-      return _toExpr(check(Z3.mk_store_n(contextPtr, array.ast, _idxs, args[args.length - 1].ast))) as SMTArray<
-        Name,
+      return _toExpr(check(Z3.mk_store_n(contextPtr, array.ast, _idxs, args[args.length - 1].ast))) as SMTArray<Name,
         DomainSort,
-        RangeSort
-      >;
+        RangeSort>;
     }
 
     class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
@@ -1337,20 +1339,20 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return this.values();
       }
 
-      *entries(): IterableIterator<[number, FuncDecl<Name>]> {
+      * entries(): IterableIterator<[number, FuncDecl<Name>]> {
         const length = this.length();
         for (let i = 0; i < length; i++) {
           yield [i, this.get(i)];
         }
       }
 
-      *keys(): IterableIterator<number> {
+      * keys(): IterableIterator<number> {
         for (const [key] of this.entries()) {
           yield key;
         }
       }
 
-      *values(): IterableIterator<FuncDecl<Name>> {
+      * values(): IterableIterator<FuncDecl<Name>> {
         for (const [, value] of this.entries()) {
           yield value;
         }
@@ -1427,6 +1429,60 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         assert(false, 'Number, declaration or constant expected');
       }
 
+      /*
+      COPY from python to Typescript
+
+      def update_value(self, x, value):
+        if is_expr(x):
+            x = x.decl()
+        if is_func_decl(x) and x.arity() != 0 and isinstance(value, FuncInterp):
+            fi1 = value.f
+            fi2 = Z3_add_func_interp(x.ctx_ref(), self.model, x.ast, value.else_value().ast);
+            fi2 = FuncInterp(fi2, x.ctx)
+            for i in range(value.num_entries()):
+                e = value.entry(i)
+                n = Z3_func_entry_get_num_args(x.ctx_ref(), e.entry)
+                v = AstVector()
+                for j in range(n):
+                    v.push(e.arg_value(j))
+                val = Z3_func_entry_get_value(x.ctx_ref(), e.entry)
+                Z3_func_interp_add_entry(x.ctx_ref(), fi2.f, v.vector, val)
+            return
+        if not is_func_decl(x) or x.arity() != 0:
+            raise Z3Exception("Expecting 0-ary function or constant expression")
+        value = _py2expr(value)
+        Z3_add_const_interp(x.ctx_ref(), self.model, x.ast, value.ast)
+       */
+      updateValue(x: FuncDecl<Name> | Expr<Name>, a: Ast<Name> | FuncInterp<Name>): void {
+        _assertContext(x);
+        _assertContext(a);
+        if (isExpr(x)) {
+          x = x.decl();
+        }
+        if (isFuncDecl(x) && x.arity() !== 0 && isFuncInterp(a)) {
+          const fi = check(Z3.add_func_interp(contextPtr, this.ptr, x.ptr, a.elseValue().ptr as Z3_ast));
+          const funcInterp = new FuncInterpImpl(fi);
+          for (let i = 0; i < a.numEntries(); i++) {
+            const e = a.entry(i);
+            const n = check(Z3.func_entry_get_num_args(contextPtr, e.ptr));
+            const v = new AstVectorImpl();
+            for (let j = 0; j < n; j++) {
+              v.push(e.argValue(j));
+            }
+            const val = check(Z3.func_entry_get_value(contextPtr, e.ptr));
+            check(Z3.func_interp_add_entry(contextPtr, funcInterp.ptr, v.ptr, val));
+          }
+          return;
+        }
+        if (!isFuncDecl(x) || x.arity() !== 0) {
+          throw new Z3Error('Expecting 0-ary function or constant expression');
+        }
+        if (!isAst(a)) {
+          throw new Z3Error('Only func declarations can be assigned to func interpretations');
+        }
+        check(Z3.add_const_interp(contextPtr, this.ptr, x.ptr, a.ast));
+      }
+
       private getInterp(expr: FuncDecl<Name> | Expr<Name>): Expr<Name> | FuncInterp<Name> | null {
         assert(isFuncDecl(expr) || isConst(expr), 'Declaration expected');
         if (isConst(expr)) {
@@ -1455,6 +1511,31 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class FuncEntryImpl implements FuncEntry<Name> {
+      declare readonly __typename: FuncEntry['__typename'];
+
+      readonly ctx: Context<Name>;
+
+      constructor(readonly ptr: Z3_func_entry) {
+        this.ctx = ctx;
+        Z3.func_entry_inc_ref(contextPtr, ptr);
+        cleanup.register(this, () => Z3.func_entry_dec_ref(contextPtr, ptr));
+      }
+
+      numArgs() {
+        return check(Z3.func_entry_get_num_args(contextPtr, this.ptr));
+      }
+
+      argValue(i: number): Expr<Name> {
+        return _toExpr(check(Z3.func_entry_get_arg(contextPtr, this.ptr, i)));
+      }
+
+      value(): Expr<Name> {
+        return _toExpr(check(Z3.func_entry_get_value(contextPtr, this.ptr)));
+      }
+
+    }
+
     class FuncInterpImpl implements FuncInterp<Name> {
       declare readonly __typename: FuncInterp['__typename'];
       readonly ctx: Context<Name>;
@@ -1463,6 +1544,22 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ctx = ctx;
         Z3.func_interp_inc_ref(contextPtr, ptr);
         cleanup.register(this, () => Z3.func_interp_dec_ref(contextPtr, ptr));
+      }
+
+      elseValue(): Expr<Name> {
+        return _toExpr(check(Z3.func_interp_get_else(contextPtr, this.ptr)));
+      }
+
+      numEntries(): number {
+        return check(Z3.func_interp_get_num_entries(contextPtr, this.ptr));
+      }
+
+      arity(): number {
+        return check(Z3.func_interp_get_arity(contextPtr, this.ptr));
+      }
+
+      entry(i: number): FuncEntry<Name> {
+        return new FuncEntryImpl(check(Z3.func_interp_get_entry(contextPtr, this.ptr, i)));
       }
     }
 
@@ -1504,11 +1601,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class FuncDeclImpl<DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>
       extends AstImpl<Z3_func_decl>
-      implements FuncDecl<Name>
-    {
+      implements FuncDecl<Name> {
       declare readonly __typename: FuncDecl['__typename'];
 
-      get ast() {
+      get ast(): Z3_ast {
         return Z3.func_decl_to_ast(contextPtr, this.ptr);
       }
 
@@ -1585,8 +1681,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class ExprImpl<Ptr extends Z3_ast, S extends Sort<Name> = AnySort<Name>>
       extends AstImpl<Ptr>
-      implements Expr<Name>
-    {
+      implements Expr<Name> {
       declare readonly __typename: Expr['__typename'];
 
       get sort(): S {
@@ -1752,7 +1847,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             } else if (isIntSort(otherS) && isRealSort(this)) {
               return ToReal(other);
             }
-            assert(false, "Can't cast Real to IntSort without loss");
+            assert(false, 'Can\'t cast Real to IntSort without loss');
           } else if (isBool(other)) {
             if (isIntSort(this)) {
               return If(other, 1, 0);
@@ -1764,7 +1859,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         } else {
           if (typeof other !== 'boolean') {
             if (isIntSort(this)) {
-              assert(!isCoercibleRational(other), "Can't cast fraction to IntSort");
+              assert(!isCoercibleRational(other), 'Can\'t cast fraction to IntSort');
               return Int.val(other);
             }
             return Real.val(other);
@@ -1999,7 +2094,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           _assertContext(other);
           return other;
         }
-        assert(!isCoercibleRational(other), "Can't convert rational to BitVec");
+        assert(!isCoercibleRational(other), 'Can\'t convert rational to BitVec');
         return BitVec.val(other, this.size());
       }
     }
@@ -2210,8 +2305,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class ArraySortImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends SortImpl
-      implements SMTArraySort<Name, DomainSort, RangeSort>
-    {
+      implements SMTArraySort<Name, DomainSort, RangeSort> {
       declare readonly __typename: SMTArraySort['__typename'];
 
       domain(): DomainSort[0] {
@@ -2229,8 +2323,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class ArrayImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends ExprImpl<Z3_ast, ArraySortImpl<DomainSort, RangeSort>>
-      implements SMTArray<Name, DomainSort, RangeSort>
-    {
+      implements SMTArray<Name, DomainSort, RangeSort> {
       declare readonly __typename: 'Array' | 'Lambda';
 
       domain(): DomainSort[0] {
@@ -2259,13 +2352,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class QuantifierImpl<
-        QVarSorts extends NonEmptySortArray<Name>,
-        QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
+    class QuantifierImpl<QVarSorts extends NonEmptySortArray<Name>,
+      QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
       >
       extends ExprImpl<Z3_ast, QSort>
-      implements Quantifier<Name, QVarSorts, QSort>
-    {
+      implements Quantifier<Name, QVarSorts, QSort> {
       declare readonly __typename: Quantifier['__typename'];
 
       is_forall(): boolean {
@@ -2323,8 +2414,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     class NonLambdaQuantifierImpl<QVarSorts extends NonEmptySortArray<Name>>
       extends QuantifierImpl<QVarSorts, BoolSort<Name>>
-      implements Quantifier<Name, QVarSorts, BoolSort<Name>>, Bool<Name>
-    {
+      implements Quantifier<Name, QVarSorts, BoolSort<Name>>, Bool<Name> {
       declare readonly __typename: 'NonLambdaQuantifier';
 
       not(): Bool<Name> {
@@ -2355,10 +2445,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     // isBool will return false which is unlike the python API (but like the C API)
     class LambdaImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends QuantifierImpl<DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
-      implements
-        SMTArray<Name, DomainSort, RangeSort>,
-        Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
-    {
+      implements SMTArray<Name, DomainSort, RangeSort>,
+        Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>> {
       declare readonly __typename: 'Lambda';
 
       domain(): DomainSort[0] {
@@ -2405,20 +2493,20 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return this.values();
       }
 
-      *entries(): IterableIterator<[number, Item]> {
+      * entries(): IterableIterator<[number, Item]> {
         const length = this.length();
         for (let i = 0; i < length; i++) {
           yield [i, this.get(i)];
         }
       }
 
-      *keys(): IterableIterator<number> {
+      * keys(): IterableIterator<number> {
         for (let [key] of this.entries()) {
           yield key;
         }
       }
 
-      *values(): IterableIterator<Item> {
+      * values(): IterableIterator<Item> {
         for (let [, value] of this.entries()) {
           yield value;
         }
@@ -2503,7 +2591,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.ast_map_size(contextPtr, this.ptr);
       }
 
-      *entries(): IterableIterator<[Key, Value]> {
+      * entries(): IterableIterator<[Key, Value]> {
         for (const key of this.keys()) {
           yield [key, this.get(key)];
         }
@@ -2513,7 +2601,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(Z3.ast_map_keys(contextPtr, this.ptr));
       }
 
-      *values(): IterableIterator<Value> {
+      * values(): IterableIterator<Value> {
         for (const [_, value] of this.entries()) {
           yield value;
         }
@@ -2542,6 +2630,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       sexpr(): string {
         return check(Z3.ast_map_to_string(contextPtr, this.ptr));
       }
+    }
+
+    function substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name> {
+      _assertContext(t);
+      const from: Z3_ast[] = [];
+      const to: Z3_ast[] = [];
+      for (const [f, t] of substitutions) {
+        _assertContext(f);
+        _assertContext(t);
+        from.push(f.ast);
+        to.push(t.ast);
+      }
+      return _toExpr(check(Z3.substitute(contextPtr, t.ast, from, to)));
     }
 
     function ast_from_string(s: string): Ast<Name> {
@@ -2584,6 +2685,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isAst,
       isSort,
       isFuncDecl,
+      isFuncInterp,
       isApp,
       isConst,
       isExpr,
@@ -2684,10 +2786,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Store,
       Extract,
 
+      substitute,
+
       /////////////
       // Loading //
       /////////////
-      ast_from_string
+      ast_from_string,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;
