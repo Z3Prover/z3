@@ -916,7 +916,7 @@ namespace polysat {
         SASSERT(best_score < lemma_score::max());
         SASSERT(best_lemma);
 
-        unsigned const jump_level = best_score.jump_level();
+        unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         SASSERT(jump_level <= max_jump_level);
 
         m_conflict.reset();
@@ -1108,6 +1108,7 @@ namespace polysat {
     }
 
     void solver::backjump(unsigned new_level) {
+        SASSERT(new_level >= base_level());
         if (m_level != new_level) {
             LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
             pop_levels(m_level - new_level);
