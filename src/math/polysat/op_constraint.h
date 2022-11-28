@@ -59,7 +59,6 @@ namespace polysat {
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
-        inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return false; }

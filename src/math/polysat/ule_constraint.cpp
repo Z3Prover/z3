@@ -215,13 +215,6 @@ namespace polysat {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
     }
 
-    inequality ule_constraint::as_inequality(bool is_positive) const {
-        if (is_positive)
-            return inequality(lhs(), rhs(), false, this);
-        else
-            return inequality(rhs(), lhs(), true, this);
-    }
-
     unsigned ule_constraint::hash() const {
     	return mk_mix(lhs().hash(), rhs().hash(), kind());
     }
