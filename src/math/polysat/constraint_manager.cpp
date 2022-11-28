@@ -311,17 +311,17 @@ namespace polysat {
         //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
-        s.add_eq(a, b * q + r);
-        s.add_umul_noovfl(b, q);
+        s.add_clause(eq(b * q + r - a), false);
+        s.add_clause(~umul_ovfl(b, q), false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        s.add_ule(b*q, -r-1);
+        s.add_clause(ule(b*q, -r-1), false);
 #if 0
         // b*q <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // r <= - b*q - 1
-        s.add_ule(r, -b*q-1);  // redundant, but may help propagation
+        s.add_clause(ule(r, -b*q-1), false);  // redundant, but may help propagation
 #endif
 
         auto c_eq = eq(b);
@@ -347,7 +347,7 @@ namespace polysat {
         pdd r = m.mk_var(s.add_var(sz));
         m_dedup.op_constraint_expr.insert(args, r.var());
 
-        s.assign_eh(mk_op_constraint(op, p, q, r), null_dependency);
+        s.add_clause(mk_op_constraint(op, p, q, r), false);
         return r;
     }
 

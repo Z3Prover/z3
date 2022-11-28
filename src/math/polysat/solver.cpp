@@ -62,6 +62,10 @@ namespace polysat {
     }
 
     lbool solver::check_sat() {
+#ifndef NDEBUG
+        SASSERT(!m_is_solving);
+        flet<bool> save_(m_is_solving, true);
+#endif
         LOG("Starting");
         while (should_search()) {
             m_stats.m_num_iterations++;
@@ -136,6 +140,8 @@ namespace polysat {
     }
 
     void solver::assign_eh(signed_constraint c, dependency dep) {
+        // This method is part of the external interface and should not be used to create internal constraints during solving.
+        SASSERT(!m_is_solving);
         backjump(base_level());
         SASSERT(at_base_level());
         SASSERT(c);
@@ -184,8 +190,8 @@ namespace polysat {
         if (!can_propagate())
             return;
 #ifndef NDEBUG
-        SASSERT(!m_propagating);
-        flet<bool> save_(m_propagating, true);
+        SASSERT(!m_is_propagating);
+        flet<bool> save_(m_is_propagating, true);
 #endif
         push_qhead();
         while (can_propagate()) {
@@ -1150,6 +1156,11 @@ namespace polysat {
             clause->set_redundant(is_redundant);
             add_clause(*clause);
         }
+    }
+
+    void solver::add_clause(signed_constraint c1, bool is_redundant) {
+        signed_constraint cs[1] = { c1 };
+        add_clause(1, cs, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {

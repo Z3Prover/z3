@@ -165,7 +165,8 @@ namespace polysat {
         vector<constraints>      m_pwatch;        // watch list datastructure into constraints.
 #ifndef NDEBUG
         std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is being propagated
-        bool                     m_propagating = false;  // set to true during propagation
+        bool                     m_is_propagating = false;  // set to true during propagation
+        bool                     m_is_solving = false;  // set to true during solving
 #endif
 
         unsigned_vector          m_activity;
@@ -274,6 +275,7 @@ namespace polysat {
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
         void add_clause(clause& clause);
+        void add_clause(signed_constraint c1, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
@@ -417,7 +419,7 @@ namespace polysat {
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
-        /** Create and activate polynomial constraints. */
+        /** Create and activate constraints */
         void add_eq(pdd const& p, dependency dep = null_dependency)                         { assign_eh(eq(p), dep); }
         void add_eq(pdd const& p, pdd const& q, dependency dep = null_dependency)           { assign_eh(eq(p, q), dep); }
         void add_eq(pdd const& p, rational const& q, dependency dep = null_dependency)      { assign_eh(eq(p, q), dep); }
