@@ -40,6 +40,7 @@ Notes:
 #include "muz/fp/horn_tactic.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver/inc_sat_solver.h"
+#include "sat/sat_solver/sat_smt_solver.h"
 #include "ast/rewriter/bv_rewriter.h"
 #include "solver/solver2tactic.h"
 #include "solver/parallel_tactic.h"
