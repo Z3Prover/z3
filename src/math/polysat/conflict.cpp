@@ -57,7 +57,7 @@ TODO:
 namespace polysat {
 
     class conflict_resolver {
-        inf_saturate m_saturate;
+        saturation m_saturate;
         ex_polynomial_superposition m_poly_sup;
         free_variable_elimination m_free_variable_elimination;
 
