@@ -116,7 +116,7 @@ namespace polysat {
         m_trail.pop_back();
     }
 
-    bool viable::intersect(pdd const & p, pdd const & q, signed_constraint const& sc) {
+    bool viable::intersect(pdd const& p, pdd const& q, signed_constraint const& sc) {
         pvar v = null_var;
         bool first = true;
         bool prop = false;
