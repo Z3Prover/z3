@@ -49,7 +49,7 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   : never;
 
 /** @hidden */
-export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
+export type CoercibleFromMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
   ? Arith<Name>
   : S extends number | CoercibleRational
   ? RatNum<Name>
@@ -152,7 +152,7 @@ export interface Context<Name extends string = 'main'> {
   isSort(obj: unknown): obj is Sort<Name>;
 
   /** @category Functions */
-  isFuncDecl(obj: unknown): obj is FuncDecl<Name>
+  isFuncDecl(obj: unknown): obj is FuncDecl<Name>;
 
   /** @category Functions */
   isFuncInterp(obj: unknown): obj is FuncInterp<Name>;
@@ -378,7 +378,7 @@ export interface Context<Name extends string = 'main'> {
     condition: Bool<Name> | boolean,
     onTrue: OnTrueRef,
     onFalse: OnFalseRef,
-  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
+  ): CoercibleFromMap<OnTrueRef | OnFalseRef, Name>;
 
   /** @category Operations */
   Distinct(...args: CoercibleToExpr<Name>[]): Bool<Name>;
@@ -619,7 +619,6 @@ export interface Ast<Name extends string = 'main', Ptr = unknown> {
   sexpr(): string;
 
   hash(): number;
-
 }
 
 /** @hidden */
@@ -702,7 +701,12 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
 
   get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 
-  updateValue(x: FuncDecl<Name> | Expr<Name>, a: Ast<Name> | FuncInterp<Name>): void;
+  updateValue(decl: FuncDecl<Name> | Expr<Name>, a: Ast<Name> | FuncInterp<Name>): void;
+
+  addFuncInterp<DomainSort extends Sort<Name>[] = Sort<Name>[], RangeSort extends Sort<Name> = Sort<Name>>(
+    decl: FuncDecl<Name, DomainSort, RangeSort>,
+    defaultValue: CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
+  ): FuncInterp<Name>;
 }
 
 /**
@@ -760,8 +764,8 @@ export interface FuncEntry<Name extends string = 'main'> {
   argValue(i: number): Expr<Name>;
 
   value(): Expr<Name>;
-
 }
+
 /**
  * @category Functions
  */
@@ -780,6 +784,7 @@ export interface FuncInterp<Name extends string = 'main'> {
 
   entry(i: number): FuncEntry<Name>;
 
+  addEntry(args: Expr<Name>[], value: Expr<Name>): void;
 }
 
 /** @hidden */

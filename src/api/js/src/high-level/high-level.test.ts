@@ -1,6 +1,13 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
-import { CoercibleToArrayIndexType, init, killThreads, NonEmptySortArray, SortToExprMap } from '../jest';
+import {
+  CoercibleToArrayIndexType,
+  CoercibleFromMap,
+  init,
+  killThreads,
+  NonEmptySortArray,
+  SortToExprMap,
+} from '../jest';
 import { Arith, Bool, Model, Z3AssertionError, Z3HighLevel, SMTArraySort, BitVecSort, SMTArray, Sort } from './types';
 import { expectType } from 'ts-expect';
 import { Quantifier } from '../../build/high-level';
@@ -156,7 +163,7 @@ describe('high-level', () => {
   });
 
   describe('booleans', () => {
-    it('proves De Morgan\'s Law', async () => {
+    it("proves De Morgan's Law", async () => {
       const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
 
@@ -647,7 +654,6 @@ describe('high-level', () => {
   });
 
   describe('Substitution', () => {
-
     it('basic variable substitution', async () => {
       const { Int, substitute } = api.Context('main');
       const x = Int.const('x');
@@ -672,8 +678,7 @@ describe('high-level', () => {
   });
 
   describe('Model', () => {
-
-    it ('Assigning constants', async () => {
+    it('Assigning constants', async () => {
       const { Int, Model } = api.Context('main');
       const m = new Model();
 
@@ -685,5 +690,19 @@ describe('high-level', () => {
       expect(m.eval(x.add(y)).eqIdentity(Int.val(18))).toBeTruthy();
     });
 
+    it('Creating Func Interpretations', async () => {
+      const { Int, Function, Model } = api.Context('main');
+      const m = new Model();
+
+      const f = Function.declare('f', Int.sort(), Int.sort(), Int.sort());
+
+      const f_interp = m.addFuncInterp(f, 0);
+      f_interp.addEntry([Int.val(1), Int.val(2)], Int.val(3));
+      f_interp.addEntry([Int.val(4), Int.val(5)], Int.val(6));
+
+      expect(m.eval(f.call(1, 2)).eqIdentity(Int.val(3))).toBeTruthy();
+      expect(m.eval(f.call(4, 5)).eqIdentity(Int.val(6))).toBeTruthy();
+      expect(m.eval(f.call(0, 0)).eqIdentity(Int.val(0))).toBeTruthy();
+    });
   });
 });
