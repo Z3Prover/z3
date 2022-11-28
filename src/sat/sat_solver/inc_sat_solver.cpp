@@ -721,7 +721,8 @@ private:
         if (m_solver.inconsistent()) 
             return l_false;        
         m_pc.reset();
-        m_goal2sat(m, sz, fmls, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        m_goal2sat(sz, fmls);
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
         return check_uninterpreted();
@@ -798,7 +799,8 @@ private:
             fmls.append(sz, asms);
             for (unsigned i = 0; i < get_num_assumptions(); ++i)
                 fmls.push_back(get_assumption(i));
-            m_goal2sat.assumptions(m, fmls.size(), fmls.data(), m_params, m_solver, m_map, m_dep2asm, is_incremental());
+            m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+            m_goal2sat.assumptions(fmls.size(), fmls.data());
             extract_assumptions(fmls.size(), fmls.data());
             return l_true;
         }

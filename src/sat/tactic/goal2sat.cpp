@@ -1060,14 +1060,19 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
     (*m_imp)(g);    
 }
 
-void goal2sat::operator()(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external) {
-    init(m, p, t, map, dep2asm, default_external);
+void goal2sat::operator()(unsigned n, expr* const* fmls) {
+    SASSERT(m_imp);
     (*m_imp)(n, fmls);
 }
 
-void goal2sat::assumptions(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external) {
-    init(m, p, t, map, dep2asm, default_external);
+void goal2sat::assumptions(unsigned n, expr* const* fmls) {
+    SASSERT(m_imp);
     m_imp->assumptions(n, fmls);
+}
+
+sat::literal goal2sat::internalize(expr* a) {
+    SASSERT(m_imp);
+    return m_imp->internalize(a);
 }
 
 

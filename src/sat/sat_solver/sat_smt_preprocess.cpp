@@ -15,8 +15,7 @@ Author:
 
 --*/
 
-#include "sat/sat_params.hpp"
-#include "sat/sat_solver/sat_smt_preprocess.h"
+
 #include "ast/simplifiers/bit_blaster.h"
 #include "ast/simplifiers/max_bv_sharing.h"
 #include "ast/simplifiers/card2bv.h"
@@ -24,6 +23,8 @@ Author:
 #include "ast/simplifiers/rewriter_simplifier.h"
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/simplifiers/eliminate_predicates.h"
+#include "sat/sat_params.hpp"
+#include "sat/sat_solver/sat_smt_preprocess.h"
 
 void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st) {
     params_ref simp1_p = p;

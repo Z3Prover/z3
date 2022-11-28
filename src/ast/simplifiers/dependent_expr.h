@@ -18,6 +18,7 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/ast_translation.h"
 
 class dependent_expr {
     ast_manager& m;
@@ -31,6 +32,15 @@ public:
         SASSERT(fml);
         m.inc_ref(fml);
         m.inc_ref(d);
+    }
+
+    dependent_expr(ast_translation& tr, dependent_expr const& src) :
+        m(tr.to()) {
+        m_fml = tr(src.fml());
+        m.inc_ref(m_fml);
+        expr_dependency_translation dtr(tr);
+        m_dep = dtr(src.dep());
+        m.inc_ref(m_dep);
     }
     
     dependent_expr& operator=(dependent_expr const& other) {

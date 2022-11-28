@@ -67,12 +67,13 @@ public:
     */
     void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
-    void operator()(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external = false);
+    void operator()(unsigned n, expr* const* fmls);
 
     void init(ast_manager& m, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external);
 
+    void assumptions(unsigned n, expr* const* fmls);
 
-    void assumptions(ast_manager& m, unsigned n, expr* const* fmls, params_ref const & p, sat::solver_core & t, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external = false);
+    sat::literal internalize(expr* a);
 
     void get_interpreted_funs(func_decl_ref_vector& funs);
 
