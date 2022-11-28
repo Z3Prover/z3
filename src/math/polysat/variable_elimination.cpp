@@ -107,7 +107,7 @@ namespace polysat {
             cb.insert(~c);
             cb.insert(~c_target);
             cb.insert(c_new);
-            core.add_lemma(cb.build());
+            core.add_lemma("variable elimination", cb.build());
         }
     }
 

@@ -726,7 +726,7 @@ namespace polysat {
         while (e != first);
 
         SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
-        core.add_lemma(lemma.build());
+        core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;
     }

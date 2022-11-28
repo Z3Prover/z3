@@ -160,9 +160,9 @@ namespace polysat {
         void insert_eval(signed_constraint c);
 
         /** Add a side lemma to the conflict; to be learned in addition to the main lemma after conflict resolution finishes. */
-        void add_lemma(std::initializer_list<signed_constraint> cs);
-        void add_lemma(signed_constraint const* cs, size_t cs_len);
-        void add_lemma(clause_ref lemma);
+        void add_lemma(char const* name, std::initializer_list<signed_constraint> cs);
+        void add_lemma(char const* name, signed_constraint const* cs, size_t cs_len);
+        void add_lemma(char const* name, clause_ref lemma);
 
         /** Remove c from core */
         void remove(signed_constraint c);

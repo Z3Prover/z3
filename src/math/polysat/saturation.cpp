@@ -81,7 +81,7 @@ namespace polysat {
         SASSERT(c.bvalue(s) != l_true);
 
         m_lemma.insert(c);
-        core.add_lemma(m_lemma.build());  // TODO: log with name m_rule
+        core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
 

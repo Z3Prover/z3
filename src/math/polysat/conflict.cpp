@@ -298,26 +298,27 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
-    void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
-        add_lemma(std::data(cs), cs.size());
+    void conflict::add_lemma(char const* name, std::initializer_list<signed_constraint> cs) {
+        add_lemma(name, std::data(cs), cs.size());
     }
 
-    void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
+    void conflict::add_lemma(char const* name, signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
             cb.insert_eval(cs[i]);
-        add_lemma(cb.build());
+        add_lemma(name, cb.build());
     }
 
-    void conflict::add_lemma(clause_ref lemma) {
+    void conflict::add_lemma(char const* name, clause_ref lemma) {
+        LOG_H3("Lemma " << (name ? name : "<unknown>") << ": " << show_deref(lemma));
         SASSERT(lemma);
         lemma->set_redundant(true);
-        LOG_H3("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             SASSERT(s.m_bvars.value(lit) != l_true);
         }
         m_lemmas.push_back(std::move(lemma));
+        // TODO: pass to inference_logger (with name)
    }
 
     void conflict::remove(signed_constraint c) {
