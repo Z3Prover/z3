@@ -86,7 +86,6 @@ import {
   FuncEntry,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
-import { Func } from '../../scripts/parse-api';
 
 const FALLBACK_PRECISION = 17;
 
