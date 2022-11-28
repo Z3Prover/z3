@@ -237,7 +237,7 @@ namespace euf {
             save_subst(old_fmls);
         }
 
-        advance_qhead(m_fmls.size());
+        advance_qhead();
     }
 
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {

@@ -36,7 +36,6 @@ generic_model_converter::~generic_model_converter() {
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);
     VERIFY(d->get_range() == e->get_sort());
-    m_first_idx.insert_if_not_there(d, m_entries.size());
     m_entries.push_back(entry(d, e, m, ADD));
 }
 

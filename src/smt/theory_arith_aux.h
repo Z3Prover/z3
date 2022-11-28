@@ -2223,12 +2223,12 @@ namespace smt {
                 continue;
             }
             TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
-            m_assume_eq_candidates.push_back(std::make_pair(other, v));
+            m_assume_eq_candidates.push_back({ other , v }); 
             result = true;
         }
 
         if (result)
-            ctx.push_trail(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
     }
 

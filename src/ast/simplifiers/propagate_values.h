@@ -36,7 +36,7 @@ class propagate_values : public dependent_expr_simplifier {
     unsigned               m_max_rounds = 4;
 
 public:
-    propagate_values(ast_manager& m, dependent_expr_state& fmls);
+    propagate_values(ast_manager& m, params_ref const& p, dependent_expr_state& fmls);
     void reduce() override;
     void collect_statistics(statistics& st) const override;
     void reset_statistics() override { m_stats.reset(); }

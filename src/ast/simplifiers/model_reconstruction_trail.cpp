@@ -15,6 +15,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/macro_replacer.h"
 #include "ast/simplifiers/model_reconstruction_trail.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/converters/generic_model_converter.h"
 
 
@@ -22,13 +23,11 @@ Author:
 // substitutions that use variables from the dependent expressions.
 // TODO: add filters to skip sections of the trail that do not touch the current free variables.
 
-void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependent_expr>& added) {
-
+void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st) {
     ast_mark free_vars;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
-    add_vars(d, free_vars);
-
-    added.push_back(d);
+    for (unsigned i = qhead; i < st.size(); ++i) 
+        add_vars(st[i], free_vars);
 
     for (auto& t : m_trail) {
         if (!t->m_active)
@@ -44,9 +43,10 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
         // loose entries that intersect with free vars are deleted from the trail
         // and their removed formulas are added to the resulting constraints.
         if (t->is_loose()) {
-            added.append(t->m_removed); 
-            for (auto r : t->m_removed) 
-                add_vars(r, free_vars);            
+            for (auto r : t->m_removed) {
+                add_vars(r, free_vars);
+                st.add(r);
+            }
             m_trail_stack.push(value_trail(t->m_active));
             t->m_active = false;      
             continue;
@@ -64,12 +64,12 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
             dependent_expr de(m, t->m_def, t->m_dep);
             add_vars(de, free_vars);
 
-            for (auto& d : added) {
-                auto [f, dep1] = d();
+            for (unsigned i = qhead; i < st.size(); ++i) {
+                auto [f, dep1] = st[i]();
                 expr_ref g(m);
                 expr_dependency_ref dep2(m);
                 mrp(f, g, dep2);
-                d = dependent_expr(m, g, m.mk_join(dep1, dep2));
+                st.update(i, dependent_expr(m, g, m.mk_join(dep1, dep2)));
             }
             continue;
         }
@@ -77,11 +77,12 @@ void model_reconstruction_trail::replay(dependent_expr const& d, vector<dependen
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
-        for (auto& d : added) {
-            auto [f, dep1] = d();
+        for (unsigned i = qhead; i < st.size(); ++i) {
+            auto [f, dep1] = st[i]();
             auto [g, dep2] = rp->replace_with_dep(f);
-            d = dependent_expr(m, g, m.mk_join(dep1, dep2));
+            dependent_expr d(m, g, m.mk_join(dep1, dep2));
             add_vars(d, free_vars);
+            st.update(i, d);
         }    
     }
 }
@@ -116,3 +117,7 @@ void model_reconstruction_trail::append(generic_model_converter& mc, unsigned& i
 }
 
 
+void model_reconstruction_trail::append(generic_model_converter& mc) {
+    m_trail_stack.push(value_trail(m_trail_index));
+    append(mc, m_trail_index);
+}

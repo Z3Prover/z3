@@ -26,7 +26,7 @@ Author:
 class propagate_values2_tactic_factory : public dependent_expr_simplifier_factory {
 public:
     dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) override {
-        return alloc(propagate_values, m, s);
+        return alloc(propagate_values, m, p, s);
     }
 };
 

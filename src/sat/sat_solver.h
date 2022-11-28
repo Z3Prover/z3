@@ -485,6 +485,7 @@ namespace sat {
         // -----------------------
     public:
         lbool check(unsigned num_lits = 0, literal const* lits = nullptr);
+        lbool check(literal_vector const& lits) { return check(lits.size(), lits.data()); }
 
         // retrieve model if solver return sat
         model const & get_model() const { return m_model; }

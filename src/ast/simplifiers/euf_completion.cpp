@@ -128,7 +128,7 @@ namespace euf {
             CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
         if (!m_has_new_eq)
-            advance_qhead(m_fmls.size());
+            advance_qhead();
     }
 
     bool completion::is_new_eq(expr* a, expr* b) {

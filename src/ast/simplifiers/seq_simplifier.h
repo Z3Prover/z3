@@ -38,6 +38,7 @@ public:
                 break;
             s->reduce();
         }
+        advance_qhead();        
     }
     
     void collect_statistics(statistics& st) const override {

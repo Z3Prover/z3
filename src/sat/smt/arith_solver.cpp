@@ -893,11 +893,11 @@ namespace arith {
             theory_var other = m_model_eqs.insert_if_not_there(v);
             TRACE("arith", tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
             if (!is_equal(other, v))
-                m_assume_eq_candidates.push_back(std::make_pair(v, other));
+                m_assume_eq_candidates.push_back({ v, other });
         }
 
         if (m_assume_eq_candidates.size() > old_sz)
-            ctx.push(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push(restore_vector(m_assume_eq_candidates, old_sz));
 
         return delayed_assume_eqs();
     }

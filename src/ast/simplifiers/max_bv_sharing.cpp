@@ -261,7 +261,7 @@ public:
             m_fmls.update(idx, dependent_expr(m, new_curr, d));            
         }
         m_rw.cfg().cleanup();
-        advance_qhead(m_fmls.size());
+        advance_qhead();
     }        
 };
 

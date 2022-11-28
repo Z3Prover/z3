@@ -35,7 +35,6 @@ private:
     ast_manager& m;
     std::string  m_orig;
     vector<entry> m_entries;
-    obj_map<func_decl, unsigned> m_first_idx;
 
     expr_ref simplify_def(entry const& e);
 
@@ -71,6 +70,8 @@ public:
     void get_units(obj_map<expr, bool>& units) override;
 
     vector<entry> const& entries() const { return m_entries; }
+
+    void shrink(unsigned j) { m_entries.shrink(j); }
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;

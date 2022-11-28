@@ -101,6 +101,10 @@ typedef sref_buffer<model_converter> model_converter_ref_buffer;
 
 model_converter * concat(model_converter * mc1, model_converter * mc2);
 
+inline model_converter * concat(model_converter * mc1, model_converter * mc2, model_converter* mc3) {
+    return concat(mc1, concat(mc2, mc3));
+}
+
 model_converter * model2model_converter(model * m);
 
 model_converter * model_and_labels2model_converter(model * m, labels_vec const &r);

@@ -302,5 +302,5 @@ void elim_unconstrained::reduce() {
     vector<dependent_expr> old_fmls;
     assert_normalized(old_fmls);
     update_model_trail(*mc, old_fmls);
-    advance_qhead(m_fmls.size());
+    advance_qhead();
 }

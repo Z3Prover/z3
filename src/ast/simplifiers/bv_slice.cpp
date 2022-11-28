@@ -24,7 +24,7 @@ namespace bv {
     void slice::reduce() {
         process_eqs();
         apply_subst();
-        advance_qhead(m_fmls.size());
+        advance_qhead();
     }
 
     void slice::process_eqs() {

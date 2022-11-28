@@ -61,7 +61,7 @@ void bit_blaster::reduce() {
     }
     m_rewriter.cleanup();
     
-    advance_qhead(m_fmls.size());
+    advance_qhead();
 }
 
 

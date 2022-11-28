@@ -1515,7 +1515,7 @@ public:
         }
             
         if (num_candidates > 0) {
-            ctx().push_trail(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx().push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         }
 
         return delayed_assume_eqs();

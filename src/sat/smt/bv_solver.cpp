@@ -419,7 +419,7 @@ namespace bv {
         }
 
         ctx.push(value_trail(m_lit_tail));
-        ctx.push(restore_size_trail(m_proof_literals));
+        ctx.push(restore_vector(m_proof_literals));
 
         sat::literal_vector lits;
         switch (c.m_kind) {

@@ -84,7 +84,7 @@ namespace euf {
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
         if (conseq != sat::null_literal)
             m_proof_literals.push_back(~conseq);
         m_proof_literals.append(r);
@@ -101,8 +101,8 @@ namespace euf {
         SASSERT(a->get_decl() == b->get_decl());
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
-        push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
+        push(restore_vector(m_proof_literals));
+        push(restore_vector(m_explain_cc));
 
         for (auto lit : ante)
             m_proof_literals.push_back(~lit);
@@ -121,7 +121,7 @@ namespace euf {
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
 
         for (unsigned i = 0; i < 3; ++i)
             m_proof_literals.push_back(~clause[i]);
@@ -171,7 +171,7 @@ namespace euf {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
 
         for (unsigned i = 0; i < nl; ++i)
             m_proof_literals.push_back(~lits[i]);
@@ -190,7 +190,7 @@ namespace euf {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
         
         for (unsigned i = 0; i < nl; ++i)
             if (sat::null_literal != lits[i]) {
@@ -203,11 +203,11 @@ namespace euf {
             }
 
         push(value_trail(m_eq_tail));
-        push(restore_size_trail(m_proof_eqs));
+        push(restore_vector(m_proof_eqs));
         m_proof_eqs.append(ne, eqs);
         
         push(value_trail(m_deq_tail));
-        push(restore_size_trail(m_proof_deqs));
+        push(restore_vector(m_proof_deqs));
         m_proof_deqs.append(nd, deqs);
         
         m_lit_head = m_lit_tail;

@@ -225,7 +225,7 @@ namespace euf {
         m_egraph.begin_explain();
         m_explain.reset();
         if (use_drat() && !probing) {
-            push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
+            push(restore_vector(m_explain_cc));
         }
         auto* ext = sat::constraint_base::to_extension(idx);
         th_proof_hint* hint = nullptr;

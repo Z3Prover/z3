@@ -31,6 +31,8 @@ Author:
 #include "ast/converters/model_converter.h"
 #include "ast/converters/generic_model_converter.h"
 
+class dependent_expr_state;
+
 class model_reconstruction_trail {
 
     struct entry {
@@ -40,7 +42,6 @@ class model_reconstruction_trail {
         expr_ref                      m_def;
         expr_dependency_ref           m_dep;
         bool                          m_active = true;
-
 
         entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
             m_subst(s), m_removed(rem), m_decl(m), m_def(m), m_dep(m) {}
@@ -71,6 +72,7 @@ class model_reconstruction_trail {
     ast_manager&             m;
     trail_stack&             m_trail_stack;
     scoped_ptr_vector<entry> m_trail;
+    unsigned                 m_trail_index = 0;
 
     void add_vars(dependent_expr const& d, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(d.fml(), d.get_manager())))
@@ -87,6 +89,10 @@ class model_reconstruction_trail {
         return any_of(added, [&](dependent_expr const& d) { return intersects(free_vars, d); });
     }
 
+    /**
+    * Append new updates to model converter, update the current index into the trail in the process.
+    */
+    void append(generic_model_converter& mc, unsigned& index);
 public:
 
     model_reconstruction_trail(ast_manager& m, trail_stack& tr): 
@@ -120,16 +126,17 @@ public:
     * register a new depedent expression, update the trail 
     * by removing substitutions that are not equivalence preserving.
     */
-    void replay(dependent_expr const& d, vector<dependent_expr>& added);
-
+    void replay(unsigned qhead, dependent_expr_state& fmls);
+    
     /**
     * retrieve the current model converter corresponding to chaining substitutions from the trail.
     */
     model_converter_ref get_model_converter();
 
+
     /**
-    * Append new updates to model converter, update the current index into the trail in the process.
+    * Append new updates to model converter, update m_trail_index in the process.
     */
-    void append(generic_model_converter& mc, unsigned& index);
+    void append(generic_model_converter& mc);
 };
 

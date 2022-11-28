@@ -25,11 +25,12 @@ Notes:
 #include "ast/shared_occs.h"
 #include "ast/simplifiers/propagate_values.h"
 
-propagate_values::propagate_values(ast_manager& m, dependent_expr_state& fmls):
+propagate_values::propagate_values(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
     dependent_expr_simplifier(m, fmls),
     m_rewriter(m) {
     m_rewriter.set_order_eq(true);
     m_rewriter.set_flat_and_or(false);
+    updt_params(p);
 }
 
 void propagate_values::reduce() {
@@ -96,7 +97,7 @@ void propagate_values::reduce() {
     
     m_rewriter.set_substitution(nullptr);        
     m_rewriter.reset();
-    advance_qhead(m_fmls.size());
+    advance_qhead();
 }
 
 void propagate_values::collect_statistics(statistics& st) const {

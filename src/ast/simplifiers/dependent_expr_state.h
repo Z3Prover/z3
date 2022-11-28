@@ -69,7 +69,7 @@ protected:
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
 
-    void advance_qhead(unsigned sz) { if (num_scopes() > 0) m_trail.push(value_trail(m_qhead)); m_qhead = sz; }
+    void advance_qhead() { if (num_scopes() > 0) m_trail.push(value_trail(m_qhead)); m_qhead = m_fmls.size(); }
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
     virtual ~dependent_expr_simplifier() {}
@@ -80,6 +80,7 @@ public:
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
     virtual void collect_param_descrs(param_descrs& r) {}
+    unsigned qhead() const { return m_qhead; }
 };
 
 /**
