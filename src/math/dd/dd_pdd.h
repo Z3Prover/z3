@@ -315,6 +315,11 @@ namespace dd {
         pdd_manager(unsigned num_vars, semantics s = free_e, unsigned power_of_2 = 0);
         ~pdd_manager();
 
+        pdd_manager(pdd_manager const&) = delete;
+        pdd_manager(pdd_manager&&) = delete;
+        pdd_manager& operator=(pdd_manager const&) = delete;
+        pdd_manager& operator=(pdd_manager&&) = delete;
+
         semantics get_semantics() const { return m_semantics; }
 
         void reset(unsigned_vector const& level2var);
@@ -416,8 +421,9 @@ namespace dd {
         bool is_linear() const { return m.is_linear(root); }
         bool is_var() const { return m.is_var(root); }
         bool is_max() const { return m.is_max(root); }
-        /** Polynomial is of the form a * x + b for numerals a, b. */
+        /** Polynomial is of the form a * x + b for some numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
+        /** Polynomial is of the form a * x for some numeral a. */
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
         bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
         bool is_binary() const { return m.is_binary(root); }
