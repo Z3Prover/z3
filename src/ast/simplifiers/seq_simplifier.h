@@ -48,7 +48,7 @@ public:
     
     void reset_statistics() override {
         for (auto* s : m_simplifiers)
-            s->reset_statistics(st);
+            s->reset_statistics();
     }
     
     void updt_params(params_ref const& p) override {
