@@ -248,7 +248,8 @@ namespace polysat {
      * Return true if a new watch was found; or false to keep the existing one.
      */
     bool solver::propagate(pvar v, constraint* c) {
-        LOG_H3("Propagate " << m_vars[v] << " in " << constraint_pp(c, m_bvars.value(c->bvar())));
+        lbool const bvalue = m_bvars.value(c->bvar());
+        LOG_H3("Propagate " << m_vars[v] << " in " << constraint_pp(c, bvalue));
         SASSERT(is_assigned(v));
         SASSERT(!c->vars().empty());
         unsigned idx = 0;
@@ -265,9 +266,9 @@ namespace polysat {
             }
         }
         // at most one pvar remains unassigned
-        if (m_bvars.is_assigned(c->bvar())) {
+        if (bvalue != l_undef) {
             // constraint state: bool-propagated
-            signed_constraint sc(c, m_bvars.value(c->bvar()) == l_true);
+            signed_constraint sc(c, bvalue == l_true);
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
                 if (!is_assigned(other_v))
@@ -1105,8 +1106,25 @@ namespace polysat {
         LOG("Activating constraint: " << c);
         SASSERT_EQ(m_bvars.value(c.blit()), l_true);
         add_pwatch(c.get());
+        pvar v = null_var;
         if (c->vars().size() == 1)
-            m_viable_fallback.push_constraint(c->var(0), c);
+            // If there is exactly one variable in c, then c is always univariate.
+            v = c->vars()[0];
+        else {
+            // Otherwise, check if exactly one variable in c remains unassigned.
+            for (pvar w : c->vars()) {
+                if (is_assigned(w))
+                    continue;
+                if (v != null_var) {
+                    // two or more unassigned vars; abort
+                    v = null_var;
+                    break;
+                }
+                v = w;
+            }
+        }
+        if (v != null_var)
+            m_viable_fallback.push_constraint(v, c);
         c.narrow(*this, true);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
