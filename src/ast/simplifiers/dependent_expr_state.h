@@ -55,7 +55,7 @@ public:
     void push() { m_trail.push_scope(); }
     void pop(unsigned n) { m_trail.pop_scope(n); }
     unsigned qhead() const { return m_qhead; }
-    void advance_qhead() { m_qhead = size(); }
+    void advance_qhead() { if (m_trail.get_num_scopes() > 0) m_trail.push(value_trail(m_qhead));  m_qhead = size(); }
     unsigned num_exprs() {
         expr_fast_mark1 visited;
         unsigned r = 0;

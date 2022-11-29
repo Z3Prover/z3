@@ -259,6 +259,9 @@ public:
         m_map.push();
         m_preprocess_state.push();
         m_preprocess.push();
+        m_trail.push(restore_vector(m_assumptions));
+        m_trail.push(restore_vector(m_fmls));
+        m_trail.push(value_trail(m_mc_size));
     }
 
     void pop(unsigned n) override {
@@ -618,9 +621,6 @@ private:
             return l_true;
 
         unsigned qhead = m_preprocess_state.qhead();
-        m_trail.push(restore_vector(m_assumptions));
-        m_trail.push(restore_vector(m_fmls));
-        m_trail.push(value_trail(m_mc_size));
         TRACE("sat", tout << "qhead " << qhead << "\n");
 
         m_internalized_converted = false;
