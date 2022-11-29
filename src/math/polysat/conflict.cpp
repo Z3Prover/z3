@@ -57,13 +57,13 @@ TODO:
 namespace polysat {
 
     class conflict_resolver {
-        saturation m_saturate;
+        saturation m_saturation;
         ex_polynomial_superposition m_poly_sup;
         free_variable_elimination m_free_variable_elimination;
 
     public:
         conflict_resolver(solver& s)
-            : m_saturate(s)
+            : m_saturation(s)
             , m_poly_sup(s)
             , m_free_variable_elimination(s)
         {}
@@ -71,8 +71,8 @@ namespace polysat {
         bool try_resolve_value(pvar v, conflict& core) {
             if (m_poly_sup.perform(v, core))
                 return true;
-            // if (m_saturate.perform(v, core))
-            //     return true;
+            if (m_saturation.perform(v, core))
+                return true;
             return false;
         }
 

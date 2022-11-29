@@ -1059,7 +1059,7 @@ namespace polysat {
         // xy < xz and !Omega(x*y) => y < z
         static void test_ineq_axiom1(unsigned bw = 32, std::optional<unsigned> perm = std::nullopt) {
             if (perm) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(*perm));
+                scoped_solver s(concat(__func__, " bw=", bw, " perm=", *perm));
                 auto const bound = rational::power_of_two(bw/2);
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
@@ -1544,7 +1544,8 @@ void tst_polysat() {
 
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
-    test_polysat::test_pop_conflict();
+    // test_polysat::test_ineq_axiom1(32, 1);
+    // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
     // test_polysat::test_ineq1();
     // test_polysat::test_quot_rem();

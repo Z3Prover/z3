@@ -80,7 +80,7 @@ namespace polysat {
         //     return false;
         SASSERT(c.bvalue(s) != l_true);
 
-        m_lemma.insert(c);
+        m_lemma.insert_eval(c);
         core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
@@ -91,7 +91,7 @@ namespace polysat {
     }
 
     void saturation::insert_omega(pdd const& x, pdd const& y) {
-        m_lemma.insert(s.umul_ovfl(x, y));
+        m_lemma.insert_eval(s.umul_ovfl(x, y));
     }
 
     /*
