@@ -550,6 +550,16 @@ namespace dd {
         bool operator!=(pdd_iterator const& other) const { return m_nodes != other.m_nodes; }
     };
 
+    class val_pp {
+        pdd_manager const& m;
+        rational const& val;
+        bool require_parens;
+    public:
+        val_pp(pdd_manager const& m, rational const& val, bool require_parens): m(m), val(val), require_parens(require_parens) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, val_pp const& v) { return v.display(out); }
 }
 
 
