@@ -37,6 +37,7 @@ class propagate_values : public dependent_expr_simplifier {
 
 public:
     propagate_values(ast_manager& m, params_ref const& p, dependent_expr_state& fmls);
+    char const* name() const override { return "propagate-values2"; }
     void reduce() override;
     void collect_statistics(statistics& st) const override;
     void reset_statistics() override { m_stats.reset(); }

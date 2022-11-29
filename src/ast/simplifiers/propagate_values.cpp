@@ -78,7 +78,7 @@ void propagate_values::reduce() {
         subst.reset();
         m_rewriter.reset();
         m_rewriter.set_substitution(&subst);
-        for (unsigned i = 0; i < m_qhead; ++i)
+        for (unsigned i = 0; i < m_fmls.qhead(); ++i)
             add_sub(m_fmls[i]);
     };
     
@@ -86,10 +86,10 @@ void propagate_values::reduce() {
     for (unsigned r = 0; r < m_max_rounds && rw != m_stats.m_num_rewrites; ++r) {            
         rw = m_stats.m_num_rewrites;
         init_sub();
-        for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i)
+        for (unsigned i = m_fmls.qhead(); i < m_fmls.size() && !m_fmls.inconsistent(); ++i)
             process_fml(i);
         init_sub();
-        for (unsigned i = m_fmls.size(); i-- > m_qhead && !m_fmls.inconsistent();)
+        for (unsigned i = m_fmls.size(); i-- > m_fmls.qhead() && !m_fmls.inconsistent();)
             process_fml(i);
         if (subst.empty())
             break;
@@ -97,7 +97,6 @@ void propagate_values::reduce() {
     
     m_rewriter.set_substitution(nullptr);        
     m_rewriter.reset();
-    advance_qhead();
 }
 
 void propagate_values::collect_statistics(statistics& st) const {

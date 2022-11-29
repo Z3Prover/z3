@@ -34,6 +34,7 @@ class card2bv : public dependent_expr_simplifier {
 
 public:
     card2bv(ast_manager& m, params_ref const& p, dependent_expr_state& fmls);
+    char const* name() const override { return "card2bv"; }
     void reduce() override;
     void collect_statistics(statistics& st) const override;
     void reset_statistics() override { m_stats.reset(); }

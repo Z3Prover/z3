@@ -33,12 +33,14 @@ public:
         m_rewriter(m) {
         updt_params(p);
     }
+
+    char const* name() const override { return "simplifier"; }
         
     void reduce() override {
         m_num_steps = 0;
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        for (unsigned idx = m_qhead; idx < m_fmls.size(); idx++) {
+        for (unsigned idx = m_fmls.qhead(); idx < m_fmls.size(); idx++) {
             if (m_fmls.inconsistent())
                 break;
             auto d = m_fmls[idx];
@@ -46,7 +48,6 @@ public:
             m_num_steps += m_rewriter.get_num_steps();
             m_fmls.update(idx, dependent_expr(m, new_curr, d.dep()));            
         }
-        advance_qhead();
     }
     void collect_statistics(statistics& st) const override { st.update("simplifier", m_num_steps); }
     void reset_statistics() override { m_num_steps = 0; }

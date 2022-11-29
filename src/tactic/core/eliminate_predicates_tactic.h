@@ -17,9 +17,9 @@ Author:
 #pragma once
 
 #include "util/params.h"
+#include "ast/simplifiers/eliminate_predicates.h"
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
-#include "ast/simplifiers/eliminate_predicates.h"
 
 
 class eliminate_predicates_tactic_factory : public dependent_expr_simplifier_factory {
@@ -30,7 +30,7 @@ public:
 };
 
 inline tactic * mk_eliminate_predicates_tactic(ast_manager& m, params_ref const& p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(eliminate_predicates_tactic_factory), "elim-predicates");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(eliminate_predicates_tactic_factory));
 }
 
 /*

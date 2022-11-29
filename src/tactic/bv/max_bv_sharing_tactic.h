@@ -32,7 +32,7 @@ public:
 };
 
 inline tactic* mk_max_bv_sharing_tactic(ast_manager& m, params_ref const& p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(max_bv_sharing_tactic_factory), "max-bv-sharing");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(max_bv_sharing_tactic_factory));
 }
 
 /*

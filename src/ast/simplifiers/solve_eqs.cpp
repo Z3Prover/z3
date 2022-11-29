@@ -34,7 +34,7 @@ namespace euf {
 
     void solve_eqs::get_eqs(dep_eq_vector& eqs) {
         for (extract_eq* ex : m_extract_plugins)
-            for (unsigned i = m_qhead; i < m_fmls.size(); ++i)
+            for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i)
                 ex->get_eqs(m_fmls[i], eqs);
     }
 
@@ -187,7 +187,7 @@ namespace euf {
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
-        for (unsigned i = m_qhead; i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
+        for (unsigned i = m_fmls.qhead(); i < m_fmls.size() && !m_fmls.inconsistent(); ++i) {
             auto [f, d] = m_fmls[i]();
             auto [new_f, new_dep] = rp->replace_with_dep(f);
             m_rewriter(new_f);
@@ -236,8 +236,6 @@ namespace euf {
             apply_subst(old_fmls);
             save_subst(old_fmls);
         }
-
-        advance_qhead();
     }
 
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {

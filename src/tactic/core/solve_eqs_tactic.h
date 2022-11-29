@@ -30,7 +30,7 @@ public:
 };
 
 inline tactic * mk_solve_eqs_tactic(ast_manager& m, params_ref const& p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(solve_eqs_tactic_factory), "solve-eqs");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(solve_eqs_tactic_factory));
 }
 
 /*

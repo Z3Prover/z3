@@ -58,6 +58,7 @@ namespace euf {
         expr_dependency* explain_conflict();
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
+        char const* name() const override { return "euf-reduce"; }
         void push() override { m_egraph.push(); dependent_expr_simplifier::push(); }
         void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_egraph.pop(n); }
         void reduce() override;

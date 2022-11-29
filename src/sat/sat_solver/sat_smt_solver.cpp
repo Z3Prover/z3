@@ -130,7 +130,7 @@ class sat_smt_solver : public solver {
     trail_stack&                m_trail;
     dependency2assumptions      m_dep;
     goal2sat                    m_goal2sat;
-    expr_ref_vector             m_assumptions, m_core, m_ors, m_aux_fmls;
+    expr_ref_vector             m_assumptions, m_core, m_ors, m_aux_fmls, m_internalized_fmls;
     atom2bool_var               m_map;
     generic_model_converter_ref m_mc;
     unsigned                    m_mc_size = 0;
@@ -140,9 +140,8 @@ class sat_smt_solver : public solver {
     // access formulas after they have been pre-processed and handled by the sat solver.
     // this allows to access the internal state of the SAT solver and carry on partial results.
     bool                        m_internalized_converted = false; // have internalized formulas been converted back
-    expr_ref_vector             m_internalized_fmls;      // formulas in internalized format
 
-    bool is_internalized() const { return m_preprocess.qhead() == m_fmls.size(); }
+    bool is_internalized() const { return m_preprocess_state.qhead() == m_fmls.size(); }
     
 public:
     sat_smt_solver(ast_manager& m, params_ref const& p):
@@ -152,16 +151,12 @@ public:
         m_trail(m_preprocess_state.m_trail),
         m_dep(m, m_trail),
         m_solver(p, m.limit()),
-        m_assumptions(m),
-        m_core(m),
-        m_ors(m),
-        m_aux_fmls(m),
+        m_assumptions(m), m_core(m), m_ors(m), m_aux_fmls(m), m_internalized_fmls(m),
         m_map(m),
-        m_internalized_fmls(m) {
+        m_mc(alloc(generic_model_converter, m, "sat-smt-solver")) {
         updt_params(p);
         init_preprocess();
         m_solver.set_incremental(true);
-        m_mc = alloc(generic_model_converter, m, "sat-smt-solver");
     }
 
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
@@ -214,7 +209,7 @@ public:
         expr_ref_vector assumptions(m);
         for (unsigned i = 0; i < sz; ++i)
             assumptions.push_back(ensure_literal(_assumptions[i]));
-        TRACE("sat", tout << _assumptions << "\n";);
+        TRACE("sat", tout << assumptions << "\n";);
         lbool r = internalize_formulas();
         if (r != l_true)
             return r;
@@ -267,8 +262,7 @@ public:
     }
 
     void pop(unsigned n) override {
-        if (n > m_trail.get_num_scopes())     // allow inc_sat_solver to
-            n = m_trail.get_num_scopes();     // take over for another solver.       
+        n = std::min(n, m_trail.get_num_scopes()); // allow sat_smt_solver to take over for another solver.       
 
         m_preprocess.pop(n);
         m_preprocess_state.pop(n);
@@ -357,7 +351,7 @@ public:
         m_solver.updt_params(m_params);
         m_solver.set_incremental(true);
         m_preprocess.updt_params(m_params);
-        if (sp.euf())
+        if (sp.smt())
             ensure_euf();
     }
     
@@ -537,7 +531,7 @@ public:
 
     void convert_internalized() {
         m_solver.pop_to_base_level();
-        if (!is_internalized() && m_preprocess.qhead() > 0) 
+        if (!is_internalized() && m_preprocess_state.qhead() > 0) 
             internalize_formulas();        
         if (!is_internalized() || m_internalized_converted) 
             return;
@@ -623,15 +617,19 @@ private:
         if (is_internalized())
             return l_true;
 
-        unsigned qhead = m_preprocess.qhead();
+        unsigned qhead = m_preprocess_state.qhead();
         m_trail.push(restore_vector(m_assumptions));
         m_trail.push(restore_vector(m_fmls));
         m_trail.push(value_trail(m_mc_size));
+        TRACE("sat", tout << "qhead " << qhead << "\n");
 
         m_internalized_converted = false;
 
         m_preprocess_state.replay(qhead);         
         m_preprocess.reduce();
+        if (!m.inc())
+            return l_undef;
+        m_preprocess_state.advance_qhead();
         m_preprocess_state.append(*m_mc);
         m_solver.pop_to_base_level();
         m_aux_fmls.reset();
@@ -695,7 +693,7 @@ private:
         mdl = nullptr;
         if (!m_solver.model_is_current()) 
             return;
-        if (m_fmls.size() > m_preprocess.qhead()) 
+        if (m_fmls.size() > m_preprocess_state.qhead()) 
             return;
         TRACE("sat", m_solver.display_model(tout););
         CTRACE("sat", m_sat_mc, m_sat_mc->display(tout););

@@ -44,7 +44,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
     simp2_p.set_bool("flat_and_or", false);
     
     sat_params sp(p);
-    if (sp.euf()) {
+    if (sp.euf() || sp.smt()) {
         s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
         s.add_simplifier(alloc(propagate_values, m, p, st));
         //

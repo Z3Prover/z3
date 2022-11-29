@@ -22,7 +22,6 @@ Author:
 class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
     ast_manager&    m;
     params_ref      m_params;
-    std::string     m_name;
     trail_stack     m_trail;
     goal_ref        m_goal;
     dependent_expr  m_dep;
@@ -42,10 +41,9 @@ class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
 
 public:
 
-    dependent_expr_state_tactic(ast_manager& m, params_ref const& p, dependent_expr_simplifier_factory* f, char const* name):
+    dependent_expr_state_tactic(ast_manager& m, params_ref const& p, dependent_expr_simplifier_factory* f):
         m(m),
         m_params(p),
-        m_name(name),
         m_factory(f),
         m_simp(nullptr),
         m_dep(m, m.mk_true(), nullptr)
@@ -79,7 +77,7 @@ public:
         return *m_model_trail;
     }
         
-    char const* name() const override { return m_name.c_str(); }
+    char const* name() const override { return m_simp?m_simp->name():"null"; }
 
     void updt_params(params_ref const & p) override {
         m_params.append(p);
@@ -93,7 +91,7 @@ public:
     }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(dependent_expr_state_tactic, m, m_params, m_factory.get(), name());
+        return alloc(dependent_expr_state_tactic, m, m_params, m_factory.get());
     }
 
     void operator()(goal_ref const & in, 
@@ -105,10 +103,12 @@ public:
         try {
             if (!in->proofs_enabled())
                 m_simp->reduce();
+            if (m.inc())
+                advance_qhead();
         }
         catch (rewriter_exception& ex) {
             throw tactic_exception(ex.msg());
-        }
+        }       
         m_goal->elim_true();
         m_goal->elim_redundancies();
         m_goal->inc_depth();

@@ -33,7 +33,7 @@ public:
         m_rewriter(m, p) {
         updt_params(p);
     }
-
+    char const* name() const override { return "bit-blaster"; }
     void updt_params(params_ref const & p) override;
     void collect_param_descrs(param_descrs & r) override;
     void reduce() override;

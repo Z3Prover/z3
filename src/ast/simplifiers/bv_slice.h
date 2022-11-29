@@ -47,7 +47,7 @@ namespace bv {
     public:
 
         slice(ast_manager& m, dependent_expr_state& fmls) : dependent_expr_simplifier(m, fmls), m_bv(m), m_rewriter(m) {}
-
+        char const* name() const override { return "bv-slice"; }
         void push() override { dependent_expr_simplifier::push(); }
         void pop(unsigned n) override { dependent_expr_simplifier::pop(n); }
         void reduce() override;

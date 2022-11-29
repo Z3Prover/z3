@@ -28,5 +28,5 @@ public:
 };
 
 tactic * mk_euf_completion_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(euf_completion_tactic_factory), "euf-completion");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(euf_completion_tactic_factory));
 }

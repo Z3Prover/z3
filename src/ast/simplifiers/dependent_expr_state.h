@@ -41,6 +41,7 @@ Author:
    abstract interface to state updated by simplifiers.
  */
 class dependent_expr_state {
+    unsigned m_qhead = 0;
 public:
     virtual ~dependent_expr_state() {}
     virtual unsigned size() const = 0;
@@ -53,8 +54,15 @@ public:
     trail_stack    m_trail;
     void push() { m_trail.push_scope(); }
     void pop(unsigned n) { m_trail.pop_scope(n); }
-
-
+    unsigned qhead() const { return m_qhead; }
+    void advance_qhead() { m_qhead = size(); }
+    unsigned num_exprs() {
+        expr_fast_mark1 visited;
+        unsigned r = 0;
+        for (unsigned i = 0; i < size(); i++) 
+            r += get_num_exprs((*this)[i].fml(), visited);
+        return r;
+    }
 };
 
 /**
@@ -65,14 +73,13 @@ protected:
     ast_manager& m;
     dependent_expr_state& m_fmls;
     trail_stack& m_trail;
-    unsigned              m_qhead = 0;          // pointer into last processed formula in m_fmls
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
 
-    void advance_qhead() { if (num_scopes() > 0) m_trail.push(value_trail(m_qhead)); m_qhead = m_fmls.size(); }
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
     virtual ~dependent_expr_simplifier() {}
+    virtual char const* name() const = 0;
     virtual void push() { }
     virtual void pop(unsigned n) { }
     virtual void reduce() = 0;
@@ -80,7 +87,8 @@ public:
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
     virtual void collect_param_descrs(param_descrs& r) {}
-    unsigned qhead() const { return m_qhead; }
+    ast_manager& get_manager() { return m; }
+    dependent_expr_state& get_fmls() { return m_fmls; }
 };
 
 /**

@@ -501,7 +501,7 @@ void eliminate_predicates::reduce_definitions() {
     for (auto const& [k, v] : m_macros) 
         macro_expander.insert(v->m_head, v->m_def, v->m_dep);
     
-    for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
         auto [f, d] = m_fmls[i]();
         expr_ref fml(f, m), new_fml(m);
         expr_dependency_ref dep(m);
@@ -779,7 +779,7 @@ eliminate_predicates::clause* eliminate_predicates::init_clause(expr* f, expr_de
 * eliminations.
 */
 void eliminate_predicates::init_clauses() {
-    for (unsigned i = 0; i < m_qhead; ++i)
+    for (unsigned i = 0; i < m_fmls.qhead(); ++i)
         m_to_exclude.push_back(m_fmls[i].fml());
     recfun::util rec(m);
     if (rec.has_rec_defs()) 
@@ -788,7 +788,7 @@ void eliminate_predicates::init_clauses() {
     
     process_to_exclude(m_disable_macro);
 
-    for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
         clause* cl = init_clause(i);
         add_use_list(*cl);
         m_clauses.push_back(cl);

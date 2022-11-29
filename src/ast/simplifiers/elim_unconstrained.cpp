@@ -138,7 +138,7 @@ void elim_unconstrained::init_nodes() {
 
     // freeze subterms before the already processed head
     terms.reset();
-    for (unsigned i = 0; i < m_qhead; ++i)
+    for (unsigned i = 0; i < m_fmls.qhead(); ++i)
         terms.push_back(m_fmls[i].fml());
     for (expr* e : subterms::all(terms))
         m_frozen.mark(e, true);    
@@ -216,7 +216,7 @@ void elim_unconstrained::gc(expr* t) {
  */
 void elim_unconstrained::reconstruct_terms() {
     expr_ref_vector terms(m);
-    for (unsigned i = m_qhead; i < m_fmls.size(); ++i)
+    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i)
         terms.push_back(m_fmls[i].fml());    
 
     for (expr* e : subterms_postorder::all(terms)) {
@@ -250,7 +250,7 @@ void elim_unconstrained::reconstruct_terms() {
 void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 
     unsigned sz = m_fmls.size();
-    for (unsigned i = m_qhead; i < sz; ++i) {
+    for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
         auto [f, d] = m_fmls[i]();
         node& n = get_node(f);
         expr* g = n.m_term;
@@ -302,5 +302,4 @@ void elim_unconstrained::reduce() {
     vector<dependent_expr> old_fmls;
     assert_normalized(old_fmls);
     update_model_trail(*mc, old_fmls);
-    advance_qhead();
 }

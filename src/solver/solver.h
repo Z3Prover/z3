@@ -35,7 +35,7 @@ public:
 
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
 
-solver* mk_smt2_solver(ast_manager& m, params_ref const& p);
+solver* mk_smt2_solver(ast_manager& m, params_ref const& p, symbol const& logic = symbol::null);
 
 /**
    \brief Abstract interface for making solvers available in the Z3

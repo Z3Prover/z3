@@ -80,7 +80,7 @@ namespace euf {
                 m_nodes_to_canonize.push_back(ch);
         };
 
-        for (unsigned i = m_qhead; i < sz; ++i) {
+        for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
             expr* x, * y;
             auto [f, d] = m_fmls[i]();
             if (m.is_eq(f, x, y)) {
@@ -114,7 +114,7 @@ namespace euf {
         }
 
         unsigned sz = m_fmls.size();
-        for (unsigned i = m_qhead; i < sz; ++i) {
+        for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
             auto [f, d] = m_fmls[i]();
             
             expr_dependency_ref dep(d, m);
@@ -127,8 +127,6 @@ namespace euf {
             }
             CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
-        if (!m_has_new_eq)
-            advance_qhead();
     }
 
     bool completion::is_new_eq(expr* a, expr* b) {

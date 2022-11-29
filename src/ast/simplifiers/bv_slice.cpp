@@ -24,11 +24,10 @@ namespace bv {
     void slice::reduce() {
         process_eqs();
         apply_subst();
-        advance_qhead();
     }
 
     void slice::process_eqs() {
-        for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+        for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
             auto const [f, d] = m_fmls[i]();
             process_eq(f);
         }  
@@ -137,7 +136,7 @@ namespace bv {
         expr_ref_vector cache(m), pin(m);
         ptr_vector<expr> todo, args;
         expr* c;
-        for (unsigned i = m_qhead; i < m_fmls.size(); ++i) {
+        for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
             auto const [f, d] = m_fmls[i]();
             todo.push_back(f);
             pin.push_back(f);

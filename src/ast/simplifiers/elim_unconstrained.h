@@ -71,6 +71,8 @@ public:
 
     elim_unconstrained(ast_manager& m, dependent_expr_state& fmls);
 
+    char const* name() const override { return "elim-unconstrained"; }
+
     void reduce() override;
 
     void collect_statistics(statistics& st) const override { st.update("elim-unconstrained", m_stats.m_num_eliminated); }

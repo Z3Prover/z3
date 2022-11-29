@@ -37,7 +37,7 @@ void bit_blaster::reduce() {
     expr_ref   new_curr(m);
     proof_ref  new_pr(m);
     bool change = false;
-    for (unsigned idx = m_qhead; idx < m_fmls.size(); idx++) {
+    for (unsigned idx = m_fmls.qhead(); idx < m_fmls.size(); idx++) {
         if (m_fmls.inconsistent())
             break;
         auto [curr, d] = m_fmls[idx]();
@@ -60,8 +60,6 @@ void bit_blaster::reduce() {
             m_fmls.model_trail().push(f, v, nullptr, {});
     }
     m_rewriter.cleanup();
-    
-    advance_qhead();
 }
 
 

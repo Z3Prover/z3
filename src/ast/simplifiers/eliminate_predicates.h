@@ -129,6 +129,8 @@ public:
     eliminate_predicates(ast_manager& m, dependent_expr_state& fmls);
 
     ~eliminate_predicates() override { reset(); }
+
+    char const* name() const override { return "elim-predicates"; }
     
     void reduce() override;
 

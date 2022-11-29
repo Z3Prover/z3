@@ -148,7 +148,7 @@ namespace euf {
     void solve_context_eqs::collect_nested_equalities(dep_eq_vector& eqs) {
         expr_mark visited;
         unsigned sz = m_fmls.size();
-        for (unsigned i = m_solve_eqs.m_qhead; i < sz; ++i)
+        for (unsigned i = m_fmls.qhead(); i < sz; ++i)
             collect_nested_equalities(m_fmls[i], visited, eqs);
 
         if (eqs.empty())

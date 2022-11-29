@@ -629,7 +629,7 @@ namespace q {
 
     void mbqi::init_solver() {
         if (!m_solver)
-            m_solver = mk_smt2_solver(m, m_no_drat_params);
+            m_solver = mk_smt2_solver(m, m_no_drat_params, symbol::null);
     }
 
     void mbqi::init_search() {

@@ -17,16 +17,46 @@ Author:
 
 #pragma once
 
+#include "util/stopwatch.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 
 
 class seq_simplifier : public dependent_expr_simplifier {
     scoped_ptr_vector<dependent_expr_simplifier> m_simplifiers;
 
+    struct collect_stats {
+        stopwatch       m_watch;
+        double          m_start_memory = 0;
+        dependent_expr_simplifier& s;
+        collect_stats(dependent_expr_simplifier& s) : 
+            m_start_memory(static_cast<double>(memory::get_allocation_size()) / static_cast<double>(1024 * 1024)), 
+            s(s) {
+            m_watch.start();
+        }
+        ~collect_stats() {
+            m_watch.stop();
+            double end_memory = static_cast<double>(memory::get_allocation_size()) / static_cast<double>(1024 * 1024);
+            IF_VERBOSE(10,
+                statistics st;
+                verbose_stream() << "(" << s.name()
+                << " :num-exprs " << s.get_fmls().num_exprs()
+                << " :num-asts " << s.get_manager().get_num_asts()
+                << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
+                << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
+                << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
+                << ")" << "\n";
+            s.collect_statistics(st);
+            verbose_stream() << st);
+        }
+    };
+
 public:
+    
     seq_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
         dependent_expr_simplifier(m, fmls) {
     }
+
+    char const* name() const override { return "and-then"; }
     
     void add_simplifier(dependent_expr_simplifier* s) {
         m_simplifiers.push_back(s);
@@ -36,9 +66,11 @@ public:
         for (auto* s : m_simplifiers) {
             if (m_fmls.inconsistent())
                 break;
+            if (!m.inc())
+                break;
+            collect_stats _cs(*s);
             s->reduce();
-        }
-        advance_qhead();        
+        }      
     }
     
     void collect_statistics(statistics& st) const override {

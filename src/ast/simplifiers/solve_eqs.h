@@ -68,6 +68,8 @@ namespace euf {
 
         solve_eqs(ast_manager& m, dependent_expr_state& fmls);
 
+        char const* name() const override { return "solve-eqs"; }
+
         void reduce() override;
 
         void updt_params(params_ref const& p) override;

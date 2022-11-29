@@ -31,7 +31,7 @@ public:
 };
 
 inline tactic * mk_propagate_values2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(propagate_values2_tactic_factory), "propagate-values2");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(propagate_values2_tactic_factory));
 }
 
 

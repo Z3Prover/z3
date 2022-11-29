@@ -29,5 +29,5 @@ public:
 };
 
 tactic* mk_bv_slice_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(bv_slice_factory), "bv-slice");
+    return alloc(dependent_expr_state_tactic, m, p, alloc(bv_slice_factory));
 }
