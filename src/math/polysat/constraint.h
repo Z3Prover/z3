@@ -15,7 +15,7 @@ Author:
 #include "math/polysat/boolean.h"
 #include "math/polysat/types.h"
 #include "math/polysat/interval.h"
-#include "math/polysat/search_state.h"
+#include "math/polysat/assignment.h"
 #include "math/polysat/univariate/univariate_solver.h"
 #include <iostream>
 
@@ -59,7 +59,6 @@ namespace polysat {
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
-        bool                m_is_active = false;
         bool                m_is_pwatched = false;
         /** The boolean variable associated to this constraint */
         sat::bool_var       m_bvar = sat::null_bool_var;
@@ -84,12 +83,18 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
 
-        virtual bool is_always_false(bool is_positive) const = 0;
-        virtual bool is_currently_false(solver& s, bool is_positive) const = 0;
-        virtual bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const = 0;
-        bool is_always_true(bool is_positive) const { return is_always_false(!is_positive); }
-        bool is_currently_true(solver& s, bool is_positive) const { return is_currently_false(s, !is_positive); }
-        bool is_currently_true(solver& s, assignment_t const& sub, bool is_positive) const { return is_currently_false(s, sub, !is_positive); }
+        /** Evaluate the positive-polarity constraint under the empty assignment */
+        virtual lbool eval() const = 0;
+        /** Evaluate the positive-polarity constraint under the given assignment */
+        virtual lbool eval(assignment const& a) const = 0;
+        /** Evaluate the positive-polarity constraint under the solver's current assignment */
+        lbool eval(solver const& s) const;
+        bool is_always_true(bool is_positive) const { return eval() == to_lbool(is_positive); }
+        bool is_always_false(bool is_positive) const { return is_always_true(!is_positive); }
+        bool is_currently_true(assignment const& a, bool is_positive) const { return eval(a) == to_lbool(is_positive); }
+        bool is_currently_false(assignment const& a, bool is_positive) const { return is_currently_true(a, !is_positive); }
+        bool is_currently_true(solver const& s, bool is_positive) const { return eval(s) == to_lbool(is_positive); }
+        bool is_currently_false(solver const& s, bool is_positive) const { return is_currently_true(s, !is_positive); }
 
         virtual void narrow(solver& s, bool is_positive, bool first) = 0;
         virtual inequality as_inequality(bool is_positive) const = 0;
@@ -113,9 +118,6 @@ namespace polysat {
         void unset_external() { m_external_sign = l_undef; }
         bool is_external() const { return m_external_sign != l_undef; }
         bool external_sign() const { SASSERT(is_external()); return m_external_sign == l_true; }
-
-        bool is_active() const { return m_is_active; }
-        void set_active(bool f) { m_is_active = f; }
 
         bool is_pwatched() const { return m_is_pwatched; }
         void set_pwatched(bool f) { m_is_pwatched = f; }
@@ -151,12 +153,18 @@ namespace polysat {
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
 
+        /** Evaluate the constraint under the empty assignment */
+        lbool eval() const { return is_positive() ? get()->eval() : ~get()->eval(); }
+        /** Evaluate the constraint under the given assignment */
+        lbool eval(assignment const& a) const  { return is_positive() ? get()->eval(a) : ~get()->eval(a); }
+        /** Evaluate the constraint under the solver's current assignment */
+        lbool eval(solver const& s) const  { return is_positive() ? get()->eval(s) : ~get()->eval(s); }
         bool is_always_false() const { return get()->is_always_false(is_positive()); }
-        bool is_always_true() const { return get()->is_always_false(is_negative()); }
-        bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
-        bool is_currently_true(solver& s) const { return get()->is_currently_false(s, is_negative()); }
-        bool is_currently_false(solver& s, assignment_t const& sub) const { return get()->is_currently_false(s, sub, is_positive()); }
-        bool is_currently_true(solver& s, assignment_t const& sub) const { return get()->is_currently_false(s, sub, is_negative()); }
+        bool is_always_true() const { return get()->is_always_true(is_positive()); }
+        bool is_currently_false(assignment const& a) const { return get()->is_currently_false(a, is_positive()); }
+        bool is_currently_true(assignment const& a) const { return get()->is_currently_true(a, is_positive()); }
+        bool is_currently_false(solver const& s) const { return get()->is_currently_false(s, is_positive()); }
+        bool is_currently_true(solver const& s) const { return get()->is_currently_true(s, is_positive()); }
         lbool bvalue(solver& s) const;
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }

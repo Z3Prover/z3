@@ -132,7 +132,7 @@ namespace polysat {
             rational val;
             switch (find_viable(v, val)) {
             case dd::find_t::singleton:
-                s.assign_propagate(v, val);
+                propagate(v, val);
                 prop = true;
                 break;
             case dd::find_t::empty:
@@ -148,6 +148,24 @@ namespace polysat {
             goto try_viable;
         }
         return prop;
+    }
+
+    void viable::propagate(pvar v, rational const& val) {
+        // NOTE: all propagations must be justified by a prefix of \Gamma,
+        //       otherwise dependencies may be missed during conflict resolution.
+        //       The propagation reason for v := val consists of the following constraints:
+        //       - source constraint (already on \Gamma)
+        //       - side conditions
+        //       - i.lo() == i.lo_val() for each unit interval i
+        //       - i.hi() == i.hi_val() for each unit interval i
+        for (auto const& c : get_constraints(v)) {
+            s.try_assign_eval(c);
+        }
+        for (auto const& i : units(v)) {
+            s.try_assign_eval(s.eq(i.lo(), i.lo_val()));
+            s.try_assign_eval(s.eq(i.hi(), i.hi_val()));
+        }
+        s.assign_propagate(v, val);
     }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
@@ -187,6 +205,7 @@ namespace polysat {
     }
 
     bool viable::intersect(pvar v, entry* ne) {
+        SASSERT(!s.is_assigned(v));
         entry* e = m_units[v];
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
@@ -701,6 +720,7 @@ namespace polysat {
                 lemma.insert_eval(~sc);
             lemma.insert(~e->src);
             core.insert(e->src);
+            core.insert_vars(e->src);
             e = n;
         }
         while (e != first);

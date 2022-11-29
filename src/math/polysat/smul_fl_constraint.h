@@ -26,7 +26,7 @@ namespace polysat {
 
         void simplify();
         smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
-        
+
     public:
         ~smul_fl_constraint() override {}
         bool is_overflow() const { return m_is_overflow; }
@@ -34,10 +34,9 @@ namespace polysat {
         pdd const& q() const { return m_q; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
-        bool is_always_false(bool is_positive) const override { return false; }
+        lbool eval() const override { return l_undef; }  // TODO
+        lbool eval(assignment const& a) const override { return l_undef; }  // TODO
         void narrow(solver& s, bool is_positive, bool first) override;
-        bool is_currently_false(solver & s, bool is_positive) const override { return false; }
-        bool is_currently_false(solver& s, assignment_t const& sub, bool is_positive) const override { return false; }
 
         inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
         unsigned hash() const override;

@@ -133,9 +133,9 @@ namespace polysat {
                 cl[j++] = cl[i];
             else {
                 DEBUG_CODE({
-                    auto a = s.assignment();
-                    a.push_back({v, k});
-                    SASSERT(s.lit2cnstr(lit).is_currently_false(s, a));
+                    auto a = s.assignment().clone();
+                    a.push(v, k);
+                    SASSERT(s.lit2cnstr(lit).is_currently_false(a));
                 });
             }
         }

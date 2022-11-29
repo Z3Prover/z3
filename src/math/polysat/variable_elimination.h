@@ -40,7 +40,7 @@ namespace polysat {
         std::pair<pdd, pdd> get_dyadic_valuation(pdd p);
         void find_lemma(pvar v, conflict& core);
         void find_lemma(pvar v, signed_constraint c, conflict& core);
-        pdd eval(pdd const& p, conflict& core, assignment_t& out_assignment);
+        pdd eval(pdd const& p, conflict& core, substitution& out_sub);
         bool inv(pdd const& p, pdd& out_p_inv);
         bool is_multiple(const pdd& p1, const pdd& p2, pdd &out);
     public:

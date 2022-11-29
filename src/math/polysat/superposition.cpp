@@ -15,8 +15,6 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 
-// TODO: rename file
-
 namespace polysat {
 
     struct inference_sup : public inference {
@@ -37,8 +35,8 @@ namespace polysat {
         SASSERT(c1.is_currently_true(s));
         SASSERT(c2.is_currently_false(s));
         LOG_H3("Resolving upon v" << v);
-        LOG("c1: " << c1);
-        LOG("c2: " << c2);
+        LOG("c1: " << lit_pp(s, c1));
+        LOG("c2: " << lit_pp(s, c2));
         pdd a = c1.eq();
         pdd b = c2.eq();
         unsigned degree_a = a.degree();
@@ -51,8 +49,6 @@ namespace polysat {
             return {};
         // Only keep result if the degree in c2 was reduced.
         // (this condition might be too strict, but we use it for now to prevent looping)
-        // TODO: check total degree; only keep if total degree smaller or equal.
-        //       can always do this if c1 is linear.
         if (b.degree(v) <= r.degree(v))
             return {};
         if (a.degree(v) <= r.degree(v))
@@ -76,7 +72,6 @@ namespace polysat {
             SASSERT(c1.is_currently_true(s));
             SASSERT(c2.is_currently_false(s));
             SASSERT_EQ(c1.bvalue(s), l_true);
-            // SASSERT_EQ(c2.bvalue(s), l_true);  // TODO: should always be l_true but currently it's not guaranteed if c2 was derived via side lemma (tag:true_by_side_lemma)
             SASSERT(c2.bvalue(s) != l_false);
 
             signed_constraint c = resolve1(v, c1, c2);
@@ -84,37 +79,25 @@ namespace polysat {
                 continue;
             SASSERT(c.is_currently_false(s));
 
-            // TODO: move this case distinction into conflict::add_lemma?
-            char const* inf_name = "?";
+            // char const* inf_name = "?";
             switch (c.bvalue(s)) {
             case l_false:
-                // new conflict state based on propagation and theory conflict
-                core.remove_all();
-                core.insert(c1);
-                core.insert(c2);
-                core.insert(~c);
-                core.log_inference(inference_sup("l_false", v, c2, c1));
+                core.add_lemma({c, ~c1, ~c2});
+                // core.log_inference(inference_sup("l_false", v, c2, c1));
                 return l_true;
             case l_undef:
-                inf_name = "l_undef";
-                // c evaluates to false,
-                // c should be unit-propagated to l_true by c1 /\ c2 ==> c
+                // inf_name = "l_undef";
                 core.add_lemma({c, ~c1, ~c2});
-                core.log_inference(inference_sup("l_undef lemma", v, c2, c1));
-                // SASSERT_EQ(l_true, c.bvalue(s));   // not true anymore (TODO: but it should be) (tag:true_by_side_lemma)
+                // core.log_inference(inference_sup("l_undef lemma", v, c2, c1));
                 break;
             case l_true:
-                // c is just another constraint on the search stack; could be equivalent or better
-                inf_name = "l_true";
                 break;
             default:
                 UNREACHABLE();
                 break;
             }
-
-            // c alone (+ variables) is now enough to represent the conflict.
-            core.set(c);
-            core.log_inference(inference_sup(inf_name, v, c2, c1));
+            // // c alone (+ variables) is now enough to represent the conflict.
+            // core.log_inference(inference_sup(inf_name, v, c2, c1));
             return c->contains_var(v) ? l_undef : l_true;
         }
         return l_false;

@@ -31,6 +31,7 @@ Author:
 #include "math/polysat/justification.h"
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
+#include "math/polysat/assignment.h"
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
@@ -45,6 +46,52 @@ namespace polysat {
         bool        m_log_conflicts = false;
     };
 
+    /**
+     * A metric to evaluate lemmas from conflict analysis.
+     * Lower is better.
+     *
+     * Comparison criterion:
+     * - Lowest jump level has priority, because otherwise, some of the accumulated lemmas may still be false after backjumping.
+     * - To break ties on jump level, choose clause with the fewest literals at its highest decision level;
+     *   to limit case splits.
+     */
+    class lemma_score {
+        unsigned m_jump_level;
+        unsigned m_literals_at_max_level;
+
+    public:
+        lemma_score(unsigned jump_level, unsigned at_max_level)
+            : m_jump_level(jump_level), m_literals_at_max_level(at_max_level)
+        { }
+
+        unsigned jump_level() const { return m_jump_level; }
+        unsigned literals_at_max_level() const { return m_literals_at_max_level; }
+
+        static lemma_score max() {
+            return {UINT_MAX, UINT_MAX};
+        }
+
+        bool operator==(lemma_score const& other) const {
+            return m_jump_level == other.m_jump_level
+                && m_literals_at_max_level == other.m_literals_at_max_level;
+        }
+        bool operator!=(lemma_score const& other) const { return !operator==(other); }
+
+        bool operator<(lemma_score const& other) const {
+            return m_jump_level < other.m_jump_level
+                || (m_jump_level == other.m_jump_level && m_literals_at_max_level < other.m_literals_at_max_level);
+        }
+        bool operator>(lemma_score const& other) const { return other.operator<(*this); }
+        bool operator<=(lemma_score const& other) const { return operator==(other) || operator<(other); }
+        bool operator>=(lemma_score const& other) const { return operator==(other) || operator>(other); }
+
+        std::ostream& display(std::ostream& out) const {
+            return out << "jump_level=" << m_jump_level << " at_max_level=" << m_literals_at_max_level;
+        }
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, lemma_score const& ls) { return ls.display(out); }
+
     class solver {
 
         struct stats {
@@ -58,6 +105,7 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        friend class assignment;
         friend class constraint;
         friend class ule_constraint;
         friend class umul_ovfl_constraint;
@@ -125,8 +173,6 @@ namespace polysat {
         unsigned_vector          m_size;     // store size of variables (bit width)
 
         search_state             m_search;
-        assignment_t const& assignment() const { return m_search.assignment(); }
-        pdd subst(assignment_t const& sub, pdd const& p) const;
 
         unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
         unsigned                 m_level = 0;
@@ -150,7 +196,6 @@ namespace polysat {
             m_qhead_trail.pop_back();
         }
 
-
         unsigned size(pvar v) const { return m_size[v]; }
 
         /**
@@ -161,16 +206,19 @@ namespace polysat {
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
-        dd::pdd_manager& var2pdd(pvar v);
+        dd::pdd_manager& var2pdd(pvar v) const;
+
+        assignment const& assignment() const { return m_search.assignment(); }
 
         void push_level();
         void pop_levels(unsigned num_levels);
+
+        void try_assign_eval(signed_constraint c);
 
         void assign_propagate(sat::literal lit, clause& reason);
         void assign_decision(sat::literal lit);
         void assign_eval(sat::literal lit);
         void activate_constraint(signed_constraint c);
-        void deactivate_constraint(signed_constraint c);
         unsigned level(sat::literal lit, clause const& cl);
 
         void assign_propagate(pvar v, rational const& val);
@@ -212,6 +260,8 @@ namespace polysat {
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
         void backjump_and_learn(unsigned jump_level, clause& lemma);
+        void backjump_and_learn(unsigned max_jump_level);
+        std::optional<lemma_score> compute_lemma_score(clause const& lemma);
 
         // activity of variables based on standard VSIDS
         unsigned m_activity_inc = 128;
@@ -236,9 +286,6 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
-        bool lemma_invariant(clause const& lemma, assignment_t const& assignment);
-        bool lemma_invariant_part1(clause const& lemma, assignment_t const& assignment, sat::literal_vector& out_todo);
-        bool lemma_invariant_part2(sat::literal_vector const& todo);
         bool wlist_invariant();
         bool assignment_invariant();
         bool verify_sat();
@@ -430,7 +477,7 @@ namespace polysat {
 
     };  // class solver
 
-    class assignments_pp {
+    class assignments_pp {  // TODO: can probably remove this now.
         solver const& s;
     public:
         assignments_pp(solver const& s): s(s) {}

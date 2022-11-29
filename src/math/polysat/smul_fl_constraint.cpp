@@ -40,7 +40,7 @@ namespace polysat {
         case l_true: return display(out);
         case l_false: return display(out << "~");
         case l_undef: return display(out << "?");
-        }       
+        }
         return out;
     }
 
@@ -48,12 +48,12 @@ namespace polysat {
         if (m_is_overflow)
             return out << "sovfl*(" << m_p << ", " << m_q << ")";
         else
-            return out << "sudfl*(" << m_p << ", " << m_q << ")";            
+            return out << "sudfl*(" << m_p << ", " << m_q << ")";
     }
 
     /**
      * TODO - verify the rules for small bit-widths.
-     * 
+     *
      *  sovfl(p,q) => p >= 2, q >= 2
      *  sovfl(p,q) => p >s 0 <=> q >s 0
      *  sovfl(p,q) & p >s 0 => p*q < 0 or ovfl(p,q)
@@ -67,8 +67,8 @@ namespace polysat {
      * sudfl(p, q) & p >s 0 => p*q > 0 or ovfl(p, -q)
      * sudfl(p, q) & q >s 0 => p*q > 0 or ovfl(-p, q)
      *
-     * ~sudfl(p, q) & p >s 0 & q <s 0 => ~ovfl(p, -q) & p*q <s 0 
-     * ~sudfl(p, q) & p <s 0 & q >s 0 => ~ovfl(-p, q) & p*q <s 0 
+     * ~sudfl(p, q) & p >s 0 & q <s 0 => ~ovfl(p, -q) & p*q <s 0
+     * ~sudfl(p, q) & p <s 0 & q >s 0 => ~ovfl(-p, q) & p*q <s 0
      */
     void smul_fl_constraint::narrow(solver& s, bool is_positive, bool first) {
         if (!first)
@@ -103,8 +103,8 @@ namespace polysat {
                 s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.umul_ovfl(p(), -q()), false);
                 s.add_clause(sc, ~s.sgt(p(), 0), ~s.slt(q(), 0), s.slt(p()*q(), 0), false);
                 s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.umul_ovfl(-p(), q()), false);
-                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.slt(p()*q(), 0), false);                
-            }                
+                s.add_clause(sc, ~s.slt(p(), 0), ~s.sgt(q(), 0), s.slt(p()*q(), 0), false);
+            }
         }
     }
 

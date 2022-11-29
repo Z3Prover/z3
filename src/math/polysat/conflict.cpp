@@ -71,8 +71,8 @@ namespace polysat {
         bool try_resolve_value(pvar v, conflict& core) {
             if (m_poly_sup.perform(v, core))
                 return true;
-            if (m_saturate.perform(v, core))
-                return true;
+            // if (m_saturate.perform(v, core))
+            //     return true;
             return false;
         }
 
@@ -153,7 +153,6 @@ namespace polysat {
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
-            SASSERT_EQ(m_max_jump_level, UINT_MAX);
         }
         return is_empty;
     }
@@ -166,7 +165,6 @@ namespace polysat {
         m_lemmas.reset();
         m_narrow_queue.reset();
         m_level = UINT_MAX;
-        m_max_jump_level = UINT_MAX;
         SASSERT(empty());
     }
 
@@ -209,8 +207,7 @@ namespace polysat {
         }
         else {
             // Constraint c conflicts with the variable assignment
-            // SASSERT(c.bvalue(s) == l_true);  // "morally" the bvalue should always be true. But (at least for now) some literals may be undef when they are only justified by a side lemma.
-                                                // TODO: maybe we can set them to true (without putting them on the search stack). But need to make sure to set them to false when finalizing the conflict; and before backjumping/learning. (tag:true_by_side_lemma)
+            SASSERT_EQ(c.bvalue(s), l_true);
             SASSERT(c.is_currently_false(s));
             insert(c);
             insert_vars(c);
@@ -223,7 +220,7 @@ namespace polysat {
         m_level = s.m_level;
         for (auto lit : cl) {
             auto c = s.lit2cnstr(lit);
-            SASSERT(c.bvalue(s) == l_false);
+            SASSERT_EQ(c.bvalue(s), l_false);
             insert(~c);
         }
         SASSERT(!empty());
@@ -269,7 +266,7 @@ namespace polysat {
         if (c.is_always_true())
             return;
         LOG("Inserting " << lit_pp(s, c));
-        // SASSERT_EQ(c.bvalue(s), l_true);  // TODO: see comment in 'set_impl' (tag:true_by_side_lemma)
+        SASSERT_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
@@ -308,57 +305,20 @@ namespace polysat {
     void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
-            cb.insert(cs[i]);
+            cb.insert_eval(cs[i]);
         add_lemma(cb.build());
     }
 
     void conflict::add_lemma(clause_ref lemma) {
         SASSERT(lemma);
         lemma->set_redundant(true);
-        LOG_H3("Side lemma: " << *lemma);
+        LOG_H3("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             SASSERT(s.m_bvars.value(lit) != l_true);
         }
-        // TODO: call clause simplifier here?
-        //       maybe it reduces the level we have to consider.
-
-        // Two kinds of side lemmas:
-        // 1. If all constraints are false, then the side lemma is an alternative conflict lemma.
-        //      => we should at least jump back to the second-highest level in the lemma (could be lower, if so justified by another lemma)
-        // 2. If there is an undef constraint, then it is is a justification for this new constraint.
-        //    (Can there be more than one undef constraint? Should not happen for these lemmas.)
-        //      => TODO: (unclear) jump at least to the max level in the lemma and hope the propagation helps there? or ignore it for jump level computation?
-        unsigned max_level = 0;  // highest level in lemma
-        unsigned jump_level = 0;  // second-highest level in lemma
-        bool has_unassigned = false;
-        for (sat::literal lit : *lemma) {
-            if (!s.m_bvars.is_assigned(lit)) {
-                has_unassigned = true;
-                continue;
-            }
-            unsigned const lit_level = s.m_bvars.level(lit);
-            if (lit_level > max_level) {
-                jump_level = max_level;
-                max_level = lit_level;
-            } else if (max_level > lit_level && lit_level > jump_level) {
-                jump_level = lit_level;
-            }
-        }
-        if (has_unassigned)
-            jump_level = max_level;
-        LOG("Jump level: " << jump_level);
-        m_max_jump_level = std::min(m_max_jump_level, jump_level);
         m_lemmas.push_back(std::move(lemma));
-        // If possible, we should set the new constraint to l_true;
-        // and re-enable the assertions marked with "tag:true_by_side_lemma".
-        // Or we adjust the conflict invariant:
-        // - l_true constraints is the default case as before,
-        // - l_undef constraints are new and justified by some side lemma, but
-        //   should be treated by the conflict resolution methods like l_true
-        //   constraints,
-        // - l_false constraints are disallowed in the conflict (as before).
-    }
+   }
 
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));
@@ -433,27 +393,22 @@ namespace polysat {
 
     bool conflict::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
-        auto const& j = s.m_justification[v];
+        SASSERT(s.m_justification[v].is_propagation());
 
         s.inc_activity(v);
-        m_vars.remove(v);
 
-        if (j.is_propagation()) {
-            for (auto const& c : s.m_viable.get_constraints(v))
-                insert_eval(c);
-            for (auto const& i : s.m_viable.units(v)) {
-                insert_eval(s.eq(i.lo(), i.lo_val()));
-                insert_eval(s.eq(i.hi(), i.hi_val()));
-            }
+        m_vars.remove(v);
+        for (auto const& c : s.m_viable.get_constraints(v))
+            insert(c);
+        for (auto const& i : s.m_viable.units(v)) {
+            insert(s.eq(i.lo(), i.lo_val()));
+            insert(s.eq(i.hi(), i.hi_val()));
         }
         logger().log(inf_resolve_value(s, v));
 
         if (m_resolver->try_resolve_value(v, *this))
             return true;
 
-        // Need to keep the variable in case of decision
-        if (s.is_assigned(v) && j.is_decision())
-            m_vars.insert(v);
         return false;
     }
 
@@ -481,7 +436,7 @@ namespace polysat {
         return lemma.build();
     }
 
-    clause_ref_vector conflict::take_side_lemmas() {
+    clause_ref_vector conflict::take_lemmas() {
 #ifndef NDEBUG
         on_scope_exit check_empty([this]() {
             SASSERT(m_lemmas.empty());
@@ -542,7 +497,7 @@ namespace polysat {
         for (auto v : m_vars)
             out << " v" << v;
         if (!m_lemmas.empty())
-            out << " side lemmas";
+            out << " lemmas";
         for (clause const* lemma : m_lemmas)
             out << " " << show_deref(lemma);
         return out;

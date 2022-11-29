@@ -18,6 +18,7 @@ Author:
 #include "util/scoped_ptr_vector.h"
 #include "util/var_queue.h"
 #include "util/ref_vector.h"
+#include "util/sat_literal.h"
 #include "math/dd/dd_pdd.h"
 #include "math/dd/dd_bdd.h"
 #include "math/dd/dd_fdd.h"
@@ -25,6 +26,8 @@ Author:
 namespace polysat {
 
     class solver;
+    class clause;
+
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;
