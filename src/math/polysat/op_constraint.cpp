@@ -311,15 +311,15 @@ namespace polysat {
     }
 
     /**
-     * Produce lemmas:
-     * p & q <= p
-     * p & q <= q
-     * p = q => p & q = r
-     * p = 0 => r = 0
-     * q = 0 => r = 0
+     * Produce lemmas for constraint: r == p & q
+     * r <= p
+     * r <= q
+     * p = q => r = p
      * p[i] && q[i] = r[i]
      *
      * Possible other:
+     * r = 0 && q = 2^k-1 => p >= 2^k
+     * r = 0 && p = 2^k-1 => q >= 2^k
      * p = max_value => q = r
      * q = max_value => p = r
      */
@@ -335,10 +335,6 @@ namespace polysat {
             s.add_clause(~andc, s.ule(r(), q()), true);
         else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
             s.add_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
-        else if (pv.is_zero() && rv.is_val() && !rv.is_zero())
-            s.add_clause(~andc, ~s.eq(p()), s.eq(r()), true);
-        else if (qv.is_zero() && rv.is_val() && !rv.is_zero())
-            s.add_clause(~andc, ~s.eq(q()), s.eq(r()), true);
         else if (pv.is_val() && qv.is_val() && rv.is_val()) {
             unsigned K = p().manager().power_of_2();
             for (unsigned i = 0; i < K; ++i) {
