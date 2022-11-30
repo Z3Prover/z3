@@ -48,7 +48,6 @@ namespace polysat {
         // The following can currently not be used as standalone constraints
         SASSERT(c != code::or_op);
         SASSERT(c != code::xor_op);
-        SASSERT(c != code::not_op);
     }
 
     lbool op_constraint::eval() const {
@@ -74,9 +73,9 @@ namespace polysat {
 
     std::ostream& op_constraint::display(std::ostream& out, lbool status) const {
         switch (status) {
-        case l_true: return display(out);
-        case l_false: return display(out << "~");
-        default: return display(out << "?");
+        case l_true: return display(out, "==");
+        case l_false: return display(out, "!=");
+        default: return display(out, "?=");
         }
     }
 
@@ -102,10 +101,11 @@ namespace polysat {
     }
 
     std::ostream& op_constraint::display(std::ostream& out) const {
-        if (m_op == code::not_op)
-            return out << r() << " == ~" << p();
-        else
-            return out << r() << " == " << p() << " " << m_op << " " << q();
+        return display(out, l_true);
+    }
+
+    std::ostream& op_constraint::display(std::ostream& out, char const* eq) const {
+        return out << r() << " " << eq << " " << p() << " " << m_op << " " << q();
     }
 
     /**

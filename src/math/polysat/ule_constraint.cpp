@@ -162,7 +162,7 @@ namespace polysat {
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        return out << m_lhs << (is_eq() ? " == " : " <= ") << m_rhs;
+        return display(out, l_true, m_lhs, m_rhs);
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive, bool first) {

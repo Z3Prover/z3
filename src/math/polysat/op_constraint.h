@@ -28,7 +28,7 @@ namespace polysat {
 
     class op_constraint final : public constraint {
     public:
-        enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op, not_op };
+        enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op };
     protected:
         friend class constraint_manager;
 
@@ -48,6 +48,8 @@ namespace polysat {
 
         void narrow_and(solver& s);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
+
+        std::ostream& display(std::ostream& out, char const* eq) const;
 
     public:
         ~op_constraint() override {}
