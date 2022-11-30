@@ -653,6 +653,7 @@ namespace polysat {
             if (c) {
                 LOG("Violated constraint: " << c);
                 lemma = c.produce_lemma(*this, a);
+                LOG("Produced lemma: " << show_deref(lemma));
             }
         }
         SASSERT(m_search.size() == old_size);

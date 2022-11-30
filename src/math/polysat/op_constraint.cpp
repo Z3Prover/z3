@@ -331,14 +331,13 @@ namespace polysat {
      * r <= q
      * p = q => r = p
      * p[i] && q[i] = r[i]
-     *
-     * Possible other:
-     * r = 0 && q = 2^k-1 => p >= 2^k
-     * r = 0 && p = 2^k-1 => q >= 2^k
-     * p = max_value => q = r
-     * q = max_value => p = r
+     * p = 2^K - 1 => q = r
+     * q = 2^K - 1 => p = r
+     * r = 0 && p = 2^k - 1 => q >= 2^k   (or: q > p)
+     * r = 0 && q = 2^k - 1 => p >= 2^k   (or: p > q)
      */
     clause_ref op_constraint::lemma_and(solver& s, assignment const& a) {
+        auto& m = p().manager();
         auto pv = a.apply_to(p());
         auto qv = a.apply_to(q());
         auto rv = a.apply_to(r());
@@ -347,11 +346,19 @@ namespace polysat {
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             return s.mk_clause(~andc, s.ule(r(), p()), true);
-        else if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
+        if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
             return s.mk_clause(~andc, s.ule(r(), q()), true);
-        else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
+        if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
             return s.mk_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
-        else if (pv.is_val() && qv.is_val() && rv.is_val()) {
+        if (pv.is_val() && qv.is_val() && rv.is_val()) {
+            if (pv.val() == m.max_value() && qv != rv)
+                return s.mk_clause(~andc, ~s.eq(p(), m.max_value()), s.eq(q(), r()), true);
+            if (qv.val() == m.max_value() && pv != rv)
+                return s.mk_clause(~andc, ~s.eq(q(), m.max_value()), s.eq(p(), r()), true);
+            if (rv.is_zero() && (pv.val() + 1).is_power_of_two() && qv.val() <= pv.val())
+                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.ult(q(), p()), true);
+            if (rv.is_zero() && (qv.val() + 1).is_power_of_two() && pv.val() <= qv.val())
+                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.ult(p(), q()), true);
             unsigned K = p().manager().power_of_2();
             for (unsigned i = 0; i < K; ++i) {
                 bool pb = pv.val().get_bit(i);
@@ -370,6 +377,11 @@ namespace polysat {
                 return {};
             }
         }
+        // Propagate r if p or q are 0
+        if (pv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
+            return s.mk_clause(~andc, s.ule(r(), p()), true);
+        if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
+            return s.mk_clause(~andc, s.ule(r(), q()), true);
         return {};
     }
 
