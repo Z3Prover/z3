@@ -75,8 +75,8 @@ namespace xr {
             return true;
         }
     
-        // Separate xor constraints in multiple gaussian matrixes
-        // Two xor clauses have to belong to the same matrix if they share at least one variable
+        // Assign xor constraints to (multiple) gaussian matrixes
+        // If two xor clauses share variables, the clauses have to be together in at least one matrix
         bool_var_vector newSet;
         uint_set to_merge;
         unsigned matrix_no = 0;
@@ -147,18 +147,13 @@ namespace xr {
         }
       
         m_xor.m_xorclauses.clear();
-    
-        for (auto& m: matrix_shapes) 
-            if (m.tot_size() > 0) 
-                m.m_density = (double)m.m_sum_xor_sizes / (double)(m.tot_size());
-                    
+        
      
         std::sort(matrix_shapes.begin(), matrix_shapes.end(), m_sorter);
     
         unsigned realMatrixNum = 0;
         unsigned unusedMatrix = 0;
         unsigned too_few_rows_matrix = 0;
-        unsigned unused_matrix_printed = 0;
         for (unsigned a = matrix_no; a-- > 0; ) {
             matrix_shape& m = matrix_shapes[a];
             unsigned i = m.m_num;

@@ -36,11 +36,6 @@ namespace xr {
             unsigned m_rows = 0;
             unsigned m_cols = 0;
             unsigned m_sum_xor_sizes = 0;
-            double m_density = 0;
-        
-            uint64_t tot_size() const {
-                return (uint64_t)m_rows * (uint64_t)m_cols;
-            }
         };
 
         struct sorter {
