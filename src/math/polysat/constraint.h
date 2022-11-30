@@ -84,6 +84,12 @@ namespace polysat {
         bool is_currently_false(solver const& s, bool is_positive) const { return is_currently_true(s, !is_positive); }
 
         virtual void narrow(solver& s, bool is_positive, bool first) = 0;
+        /**
+         * If possible, produce a lemma that contradicts the given assignment.
+         * This method should not modify the solver's search state.
+         * TODO: don't pass the solver, but an interface that only allows creation of constraints
+         */
+        virtual clause_ref produce_lemma(solver& s, assignment const& a, bool is_positive) { return {}; }
 
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
@@ -153,6 +159,7 @@ namespace polysat {
         bool is_currently_true(solver const& s) const { return get()->is_currently_true(s, is_positive()); }
         lbool bvalue(solver& s) const;
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
+        clause_ref produce_lemma(solver& s, assignment const& a) { return get()->produce_lemma(s, a, is_positive()); }
 
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(s, us, dep, is_positive()); }
 
