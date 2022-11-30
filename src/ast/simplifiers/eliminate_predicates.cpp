@@ -135,7 +135,7 @@ bool eliminate_predicates::can_be_macro_head(expr* _head, unsigned num_bound) {
  * f(x,y,x+y+3,1) where x, y are the only bound variables
  */
 
-bool eliminate_predicates::can_be_quasi_macro_head(expr* head, unsigned num_bound) {
+bool eliminate_predicates::can_be_quasi_macro_head(expr* _head, unsigned num_bound) {
     if (!is_app(_head))
         return false;
     app* head = to_app(_head);
@@ -149,15 +149,15 @@ bool eliminate_predicates::can_be_quasi_macro_head(expr* head, unsigned num_boun
     uint_set indices;
     for (expr* arg : *head) {
         if (!is_var(arg))
-            return continue;
+            continue;
         unsigned idx = to_var(arg)->get_idx();
         if (indices.contains(idx))
-            return continue;
+            continue;
         if (idx >= num_bound)
             return false;
         indices.insert(idx);
     }
-    return indices.size() == num_bound;
+    return indices.num_elems() == num_bound;
 }
 
 
