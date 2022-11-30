@@ -782,101 +782,19 @@ namespace polysat {
         report_unsat();
     }
 
-#if 0
-    /**
-     * Simple backjumping for lemmas:
-     * jump to the level where the lemma can be (bool-)propagated,
-     * even without reverting the last decision.
-     */
-    void solver::backjump_lemma() {
-        clause_ref lemma = m_conflict.build_lemma();
-        LOG_H2("backjump_lemma: " << show_deref(lemma));
-        SASSERT(lemma);
-
-        // find second-highest level of the literals in the lemma
-        unsigned max_level = 0;
-        unsigned jump_level = 0;
-        for (auto lit : *lemma) {
-            if (!m_bvars.is_assigned(lit))
-                continue;
-            unsigned lit_level = m_bvars.level(lit);
-            if (lit_level > max_level) {
-                jump_level = max_level;
-                max_level = lit_level;
-            } else if (max_level > lit_level && lit_level > jump_level) {
-                jump_level = lit_level;
-            }
-        }
-
-        jump_level = std::max(jump_level, base_level());
-        backjump_and_learn(jump_level, *lemma);
-    }
-#endif
-
-    /**
-     * Revert a decision that caused a conflict.
-     * Variable v was assigned by a decision at position i in the search stack.
-     *
-     * C & v = val is conflict.
-     *
-     * C => v != val
-     *
-     * l1 \/ l2 \/ ... \/ lk \/ v != val
-     *
-     */
     void solver::revert_decision(pvar v) {
-#if 0
-        rational val = m_value[v];
-        LOG_H2("Reverting decision: pvar " << v << " := " << val);
-        SASSERT(m_justification[v].is_decision());
-
-        clause_ref lemma = m_conflict.build_lemma();
-        SASSERT(lemma);
-
-        if (lemma->empty()) {
-            report_unsat();
-            return;
-        }
-
-        unsigned jump_level = get_level(v) - 1;
-        backjump_and_learn(jump_level, *lemma);
-#endif
         unsigned max_jump_level = get_level(v) - 1;
         backjump_and_learn(max_jump_level);
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
-#if 0
-        LOG_H2("Reverting decision: " << lit_pp(*this, lit));
-        sat::bool_var const var = lit.var();
-
-        clause_ref lemma_ref = m_conflict.build_lemma();
-        SASSERT(lemma_ref);
-        clause& lemma = *lemma_ref;
-
-        SASSERT(!lemma.empty());
-        SASSERT(count(lemma, ~lit) > 0);
-        SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_false(lit1); }));
-        SASSERT(all_of(lemma, [this, var](sat::literal lit1) { return var == lit1.var() || m_bvars.level(lit1) < m_bvars.level(var); }));
-
-        unsigned jump_level = m_bvars.level(var) - 1;
-        backjump_and_learn(jump_level, lemma);
-        // At this point, the lemma is asserting for ~lit,
-        // and has been propagated by learn_lemma/add_clause.
-        SASSERT(all_of(lemma, [this](sat::literal lit1) { return m_bvars.is_assigned(lit1); }));
-        // so the regular propagation loop will propagate ~lit.
-        // Recall that lit comes from a non-asserting lemma.
-        // If there is more than one undef choice left in that lemma,
-        // then the next bdecide will take care of that (after all outstanding propagations).
-        SASSERT(can_bdecide());
-#endif
         unsigned max_jump_level = m_bvars.level(lit) - 1;
         backjump_and_learn(max_jump_level);
     }
 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
         unsigned max_level = 0;     // highest level in lemma
-        unsigned at_max_level = 0;  // how many literals at the highest level in lemma
+        unsigned lits_at_max_level = 0;  // how many literals at the highest level in lemma
         unsigned snd_level = 0;     // second-highest level in lemma
         for (sat::literal lit : lemma) {
             SASSERT(m_bvars.is_assigned(lit));  // any new constraints should have been assign_eval'd
@@ -887,14 +805,14 @@ namespace polysat {
             if (lit_level > max_level) {
                 snd_level = max_level;
                 max_level = lit_level;
-                at_max_level = 1;
-            } else if (lit_level == max_level) {
-                at_max_level++;
-            } else if (max_level > lit_level && lit_level > snd_level) {
-                snd_level = lit_level;
+                lits_at_max_level = 1;
             }
+            else if (lit_level == max_level)
+                lits_at_max_level++;
+            else if (max_level > lit_level && lit_level > snd_level)
+                snd_level = lit_level;
         }
-        SASSERT(lemma.empty() || at_max_level > 0);
+        SASSERT(lemma.empty() || lits_at_max_level > 0);
         // The MCSAT paper distinguishes between "UIP clauses" and "semantic split clauses".
         // It is the same as our distinction between "asserting" and "non-asserting" lemmas.
         // - UIP clause: a single literal on the highest decision level in the lemma.
@@ -903,11 +821,11 @@ namespace polysat {
         //                          Backtrack to "highest level - 1" and split on the lemma there.
         // For now, we follow the same convention for computing the jump levels.
         unsigned jump_level;
-        if (at_max_level <= 1)
+        if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
             jump_level = (max_level == 0) ? 0 : (max_level - 1);
-        return {{jump_level, at_max_level}};
+        return {{jump_level, lits_at_max_level}};
     }
 
     void solver::backjump_and_learn(unsigned max_jump_level) {
