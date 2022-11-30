@@ -927,62 +927,6 @@ namespace polysat {
         }
     }  // backjump_and_learn
 
-#if 0
-    void solver::backjump_and_learn(unsigned jump_level, clause& lemma) {
-        clause_ref_vector lemmas = m_conflict.take_lemmas();
-        sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
-
-        m_conflict.reset();
-        backjump(jump_level);
-
-        for (sat::literal lit : narrow_queue) {
-            switch (m_bvars.value(lit)) {
-            case l_true:
-                lit2cnstr(lit).narrow(*this, false);
-                break;
-            case l_false:
-                lit2cnstr(~lit).narrow(*this, false);
-                break;
-            case l_undef:
-                /* do nothing */
-                break;
-            default:
-                UNREACHABLE();
-            }
-        }
-        for (clause* cl : lemmas) {
-            m_simplify_clause.apply(*cl);
-            add_clause(*cl);
-        }
-        learn_lemma(lemma);
-    }
-#endif
-
-#if 0
-    void solver::learn_lemma(clause& lemma) {
-        SASSERT(!lemma.empty());
-        m_simplify_clause.apply(lemma);
-        add_clause(lemma);  // propagates undef literals, if possible
-        // At this point, all literals in lemma have been value- or bool-propated, if possible.
-        // So if the lemma is/was asserting, all its literals are now assigned.
-        bool is_asserting = all_of(lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
-        if (!is_asserting) {
-            LOG("Lemma is not asserting!");
-            m_lemmas.push_back(&lemma);
-            m_trail.push_back(trail_instr_t::add_lemma_i);
-            // TODO: currently we forget non-asserting lemmas when backjumping over them.
-            //       We surely don't want to keep them in m_lemmas because then we will start doing case splits
-            //       even the lemma should instead be waiting for propagations.
-            //       We could instead watch its pvars and re-insert into m_lemmas when all but one are assigned.
-            //       The same could even be done in general for all lemmas, instead of distinguishing between
-            //       asserting and non-asserting lemmas.
-            //       (Note that the same lemma can be asserting in one branch of the search but non-asserting in another,
-            //       depending on which pvars are assigned.)
-            SASSERT(can_bdecide());
-        }
-    }
-#endif
-
     unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = 0;
         for (auto lit : cl) {
