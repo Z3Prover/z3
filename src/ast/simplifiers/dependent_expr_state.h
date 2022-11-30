@@ -118,7 +118,7 @@ protected:
         dependent_expr_simplifier& s;
         unsigned m_index = 0;
         bool at_end = false;
-        unsigned index() const { return at_end ? s.qtail() : m_index; }
+        unsigned index() const { return at_end ? s.qtail() : std::min(m_index, s.qtail()); }
         iterator(dependent_expr_simplifier& s, unsigned i) : s(s), m_index(i), at_end(i == s.qtail()) {}
         bool operator==(iterator const& other) const { return index() == other.index(); }
         bool operator!=(iterator const& other) const { return !(*this == other); }
