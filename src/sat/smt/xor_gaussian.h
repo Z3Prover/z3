@@ -476,11 +476,11 @@ namespace xr {
         }
     
         inline PackedRow operator[](const unsigned i) {
-            return PackedRow(numCols, mp+i*(numCols+1));
+            return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
         inline PackedRow operator[](const unsigned i) const {
-            return PackedRow(numCols, mp+i*(numCols+1));
+            return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
         class iterator {
@@ -497,7 +497,7 @@ namespace xr {
             }
     
             iterator& operator++() {
-                mp += (numCols+1);
+                mp += numCols + 1;
                 return *this;
             }
     
@@ -529,9 +529,17 @@ namespace xr {
         }
     
         inline iterator end() {
-            return iterator(mp+numRows*(numCols+1), numCols);
+            return iterator(mp+numRows* (numCols + 1), numCols);
+        }
+        
+        inline unsigned num_rows() const {
+            return numRows;
         }
     
+        inline unsigned num_cols() const {
+            return numCols;
+        }
+        
     private:
     
         int64_t* mp = nullptr;

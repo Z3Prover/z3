@@ -71,7 +71,7 @@ namespace xr {
                 lastlit_added = to_add;
             }
     
-            // TODO: Implement the following function. Unfortunately, it is needed
+            // TODO: Implement the following function. Unfortunately, it is needed (every xor constraint is also present as an ordinary CNF; e.g., if there is only a single xor constraint no GJ elimination will be performed)
             // add_xor_clause_inter_cleaned_cut(xorlits, attach);
             if (s().inconsistent())
                 break;
@@ -109,11 +109,15 @@ namespace xr {
         if (rhs)
             ps[0].neg();
     
-        add_every_combination_xor(ps, attach);
+        //add_every_combination_xor(ps, attach); TODO: Blasts xors; ignored for now
         if (ps.size() > 2) {
             m_xor_clauses_updated = true;
             m_xorclauses.push_back(xor_clause(ps, rhs, m_tmp_xor_clash_vars));
             m_xorclauses_orig.push_back(xor_clause(ps, rhs, m_tmp_xor_clash_vars));
+        }
+        else {
+            // TODO: This completely ignore xors of size <= 2. The case of 2 has to be treated with more care
+            add_simple_xor_constraint(xor_clause(ps, rhs, m_tmp_xor_clash_vars));
         }
     }
 
@@ -170,7 +174,7 @@ namespace xr {
             } 
             else {
                 confl_in_gauss = true;
-                i++; // TODO: That's strange, but this is really written this was in CMS
+                i++;
                 break;
             }
         }
@@ -280,7 +284,8 @@ namespace xr {
     std::ostream& solver::display(std::ostream& out) const {
         return out;
     }
-    
+
+    // simplify xors by triggering (unit)propagation until nothing changes anymore
     bool solver::clean_xor_clauses(vector<xor_clause>& xors) {     
         SASSERT(!inconsistent());
         
@@ -313,7 +318,51 @@ namespace xr {
         return !inconsistent();
     }
     
+    // Adds xor constraints of size 0, 1 and 2. In case the constraint is larger the function returns true
+    bool solver::add_simple_xor_constraint(const xor_clause& constraint) {
+        SASSERT(!inconsistent());
+        switch (constraint.size()) {
+            case 0:
+                if (constraint.m_rhs)
+                    s().set_conflict();
+                return false;
+            case 1: {
+                s().assign_scoped(sat::literal(constraint[0], !constraint.m_rhs));
+                s().propagate(false);
+                return false;
+            }
+            case 2: {
+                /*literal_vector vec(constraint.size());
+                for (const auto& v : constraint.m_vars)
+                    vec.push_back(literal(v));
+                add_xor_clause(vec, constraint.m_rhs, true);*/
+
+                /*m_ctx->e_internalize(m_ctx->bool_var2expr(constraint[0]));
+                m_ctx->e_internalize(m_ctx->bool_var2expr(constraint[1]));
+                expr* e = m_ctx->mk_eq(m_ctx->bool_var2enode(constraint[0]), m_ctx->bool_var2enode(constraint[1]));
+                literal l = m_ctx->expr2literal(e);
+                if (constraint.m_rhs)
+                    l.neg();
+                s().add_clause(l, sat::status::th(false, get_id()));*/
+                literal l1(constraint[0]);
+                literal l2(constraint[1]);
+                if (constraint.m_rhs) { // not equal
+                    s().add_clause(l1, l2, sat::status::th(false, get_id()));
+                    s().add_clause(~l1, ~l2, sat::status::th(false, get_id()));
+                }
+                else { // equal
+                    s().add_clause(l1, ~l2, sat::status::th(false, get_id()));
+                    s().add_clause(~l1, l2, sat::status::th(false, get_id()));
+                }
+                return false;
+            }
+            default:
+                return true;
+        }
+    }
     
+    // throw away all assigned clash-variables and simplify xor-clause with respect to current assignment
+    // may add conflict or propagate
     bool solver::clean_one_xor(xor_clause& x) {
     
         unsigned j = 0;
@@ -331,29 +380,10 @@ namespace xr {
                 x[j++] = v;
         }
         x.shrink(j);
-        SASSERT(!inconsistent());
-        switch (x.size()) {
-            case 0:
-                if (x.m_rhs)
-                    s().set_conflict();
-                return false;
-            case 1: {
-                s().assign_scoped(sat::literal(x[0], !x.m_rhs));
-                s().propagate(false);
-                return false;
-            }
-            case 2: {
-                literal_vector vec(x.size());
-                for (const auto& v : x.m_vars)
-                    vec.push_back(literal(v));
-                add_xor_clause(vec, x.m_rhs, true);
-                return false;
-            }
-            default:
-                return true;
-        }
+        return add_simple_xor_constraint(x);
     }
     
+    // reset all data-structures. Resets m_xorclauses from m_xorclauses_orig
     bool solver::clear_gauss_matrices(const bool destruct) {
         // TODO: Include; ignored for now. Maybe we can ignore the detached clauses
         /*if (!destruct) {
@@ -483,7 +513,8 @@ namespace xr {
         
         m_xorclauses = cleaned;
     }
-    
+
+    // As the name suggests: Checks if there are (syntactically) equivalent xors and removes all these duplicates
     void solver::clean_equivalent_xors(vector<xor_clause>& txors){
         if (!txors.empty()) {
             for (xor_clause& x: txors) 
@@ -495,8 +526,8 @@ namespace xr {
             unsigned sz = 1;
             unsigned j = 0;
             for (unsigned i = 1; i < txors.size(); i++) {
-                auto& jd = txors[j];
-                auto& id = txors[i];
+                xor_clause& jd = txors[j];
+                xor_clause& id = txors[i];
                 if (jd.m_vars == id.m_vars && jd.m_rhs == id.m_rhs) {
                     jd.merge_clash(id, m_visited, s().num_vars());
                     jd.m_detached |= id.m_detached;
@@ -518,6 +549,7 @@ namespace xr {
         return sat::justification::mk_ext_justification(level, constraint->to_index()); 
     }
     
+    // sort xors, eliminate duplicates, and eliminate negations by flipping rhs
     void solver::clean_xor_no_prop(sat::literal_vector & ps, bool & rhs) {
         std::sort(ps.begin(), ps.end());
         sat::literal p_last = sat::null_literal;
@@ -728,7 +760,7 @@ namespace xr {
     // Remove all watches coming from xor solver
     // TODO: Differentiate if the watch came from another theory (not xor)!!
     void solver::clean_occur_from_idx(const literal l) {
-        vector<sat::watched>& ws = s().get_wlist(~l); // the same polarity that was added
+        vector<sat::watched>& ws = s().get_wlist(l); // the same polarity that was added
         unsigned i = 0, j = 0;
         const unsigned end = ws.size();
         for (; i < end; i++) {

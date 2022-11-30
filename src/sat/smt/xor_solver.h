@@ -75,6 +75,8 @@ namespace xr {
         void clean_xors_from_empty(vector<xor_clause>& thisxors);
         unsigned xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var);
         
+        bool add_simple_xor_constraint(const xor_clause& constraint);
+        
         bool inconsistent() const { return s().inconsistent(); }
         
         // TODO: CMS watches the literals directly; Z3 their negation. "_neg_" just for now to avoid confusion
@@ -83,11 +85,11 @@ namespace xr {
         }
         
         bool is_neg_watched(literal lit, size_t idx) const {
-            return s().get_wlist(~lit).contains(sat::watched((sat::ext_constraint_idx)idx));
+            return s().get_wlist(lit).contains(sat::watched((sat::ext_constraint_idx)idx));
         }
         
         void unwatch_neg_literal(literal lit, size_t idx) {
-            s().get_wlist(~lit).erase(sat::watched(idx));
+            s().get_wlist(lit).erase(sat::watched(idx));
             SASSERT(!is_neg_watched(lit, idx));
         }
         
@@ -97,10 +99,25 @@ namespace xr {
         }
         
         void watch_neg_literal(literal lit, size_t idx) {
-            watch_neg_literal(s().get_wlist(~lit), idx);
+            watch_neg_literal(s().get_wlist(lit), idx);
         }
 
-        
+        static std::string toString(literal l) {
+            return (std::stringstream() << l).str();
+        }
+
+        static std::string toString(const literal& l) {
+            return (std::stringstream() << l).str();
+        }
+
+        static std::string toString(const literal_vector& l) {
+            return (std::stringstream() << l).str();
+        }
+
+        static std::string toString(const bool_var_vector & l) {
+            return (std::stringstream() << l).str();
+        }
+
     public:
         solver(euf::solver& ctx);
         solver(ast_manager& m, euf::theory_id id);

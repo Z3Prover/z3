@@ -816,27 +816,27 @@ bool EGaussian::inconsistent() const {
 
 void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
     const unsigned new_resp_row_n = gqd.new_resp_row;
-    PackedMatrix::iterator rowI = mat.begin();
-    PackedMatrix::iterator end = mat.end();
     const unsigned new_resp_col = var_to_col[gqd.new_resp_var];
+    unsigned row_size = mat.num_rows();
     unsigned row_i = 0;
 
     elim_called++;
 
-    while (rowI != end) {
+    while (row_i < row_size) {
         //Row has a '1' in eliminating column, and it's not the row responsible
-        if (new_resp_row_n != row_i && (*rowI)[new_resp_col]) {
+        PackedRow row = mat[row_i];
+        if (new_resp_row_n != row_i && row[new_resp_col]) {
 
             // detect orignal non-basic watch list change or not
             unsigned orig_non_resp_var = row_to_var_non_resp[row_i];
             unsigned orig_non_resp_col = var_to_col[orig_non_resp_var];
-            SASSERT((*rowI)[orig_non_resp_col]);
+            SASSERT(row[orig_non_resp_col]);
             TRACE("xor", tout << "--> This row " << row_i
                 << " is being watched on var: " << orig_non_resp_var + 1
                 << " i.e. it must contain '1' for this var's column";);
 
             SASSERT(!satisfied_xors[row_i]);
-            (*rowI).xor_in(*(mat.begin() + new_resp_row_n));
+            row.xor_in(*(mat.begin() + new_resp_row_n));
 
             elim_xored_rows++;
 
@@ -844,7 +844,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
             //      (it's the only '1' in that column).
             //      But non-responsible can be eliminated. So let's check that
             //      and then deal with it if we have to
-            if (!(*rowI)[orig_non_resp_col]) {
+            if (!row[orig_non_resp_col]) {
 
                 // Delete orignal non-responsible var from watch list
                 if (orig_non_resp_var != gqd.new_resp_var) {
@@ -857,7 +857,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
 
                 literal ret_lit_prop;
                 unsigned new_non_resp_var = 0;
-                const gret ret = (*rowI).propGause(
+                const gret ret = row.propGause(
                     col_to_var,
                     var_has_resp_row,
                     new_non_resp_var,
@@ -950,7 +950,6 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                 TRACE("xor", tout << "--> OK, this row " << row_i << " still contains '1', can still be responsible";);
             }
         }
-        ++rowI;
         row_i++;
     }
 
