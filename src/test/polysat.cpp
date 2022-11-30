@@ -257,8 +257,7 @@ namespace polysat {
 
         void check() {
             auto* rec = test_records.active_or_new_record();
-            rec->m_finished = true;
-            m_last_finished = rec;
+            m_last_finished = nullptr;
             SASSERT(rec->m_answer == l_undef);
             SASSERT(rec->m_expected == l_undef);
             SASSERT(rec->m_result == test_result::undefined);
@@ -270,6 +269,8 @@ namespace polysat {
                 });
                 m_last_result = check_sat();
             }
+            rec->m_finished = true;
+            m_last_finished = rec;
             std::cout << "DONE: " << m_name << ": " << m_last_result << "\n";
             statistics st;
             collect_statistics(st);
