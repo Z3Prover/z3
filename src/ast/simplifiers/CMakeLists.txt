@@ -3,6 +3,7 @@ z3_add_component(simplifiers
     bit_blaster.cpp
     bv_slice.cpp
     card2bv.cpp
+    dependent_expr_state.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
     euf_completion.cpp

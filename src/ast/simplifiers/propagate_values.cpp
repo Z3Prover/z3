@@ -41,7 +41,7 @@ void propagate_values::reduce() {
     auto add_shared = [&]() {
         shared_occs_mark visited;
         shared.reset();
-        for (unsigned i = 0; i < m_fmls.size(); ++i)
+        for (unsigned i = 0; i < qtail(); ++i)
             shared(m_fmls[i].fml(), visited);
     };
     
@@ -78,7 +78,7 @@ void propagate_values::reduce() {
         subst.reset();
         m_rewriter.reset();
         m_rewriter.set_substitution(&subst);
-        for (unsigned i = 0; i < m_fmls.qhead(); ++i)
+        for (unsigned i = 0; i < qhead(); ++i)
             add_sub(m_fmls[i]);
     };
     
@@ -86,10 +86,10 @@ void propagate_values::reduce() {
     for (unsigned r = 0; r < m_max_rounds && rw != m_stats.m_num_rewrites; ++r) {            
         rw = m_stats.m_num_rewrites;
         init_sub();
-        for (unsigned i = m_fmls.qhead(); i < m_fmls.size() && !m_fmls.inconsistent(); ++i)
+        for (unsigned i = qhead(); i < qtail() && !m_fmls.inconsistent(); ++i)
             process_fml(i);
         init_sub();
-        for (unsigned i = m_fmls.size(); i-- > m_fmls.qhead() && !m_fmls.inconsistent();)
+        for (unsigned i = qtail(); i-- > qhead() && !m_fmls.inconsistent();)
             process_fml(i);
         if (subst.empty())
             break;

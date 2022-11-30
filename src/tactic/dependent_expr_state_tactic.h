@@ -42,6 +42,7 @@ class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
 public:
 
     dependent_expr_state_tactic(ast_manager& m, params_ref const& p, dependent_expr_simplifier_factory* f):
+        dependent_expr_state(m),
         m(m),
         m_params(p),
         m_factory(f),
@@ -52,7 +53,7 @@ public:
     /**
     * size(), [](), update() and inconsisent() implement the abstract interface of dependent_expr_state
     */
-    unsigned size() const override { return m_goal->size(); }
+    unsigned qtail() const override { return m_goal->size(); }
 
     dependent_expr const& operator[](unsigned i) override {
         m_dep = dependent_expr(m, m_goal->form(i), m_goal->dep(i));
@@ -60,11 +61,15 @@ public:
     }
     
     void update(unsigned i, dependent_expr const& j) override {
+        if (inconsistent())
+            return;
         auto [f, d] = j();
         m_goal->update(i, f, nullptr, d);
     }
     
     void add(dependent_expr const& j) override {
+        if (inconsistent())
+            return;
         auto [f, d] = j();
         m_goal->assert_expr(f, nullptr, d);
     }

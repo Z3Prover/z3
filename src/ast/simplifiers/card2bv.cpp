@@ -29,7 +29,7 @@ void card2bv::reduce() {
                         
     expr_ref new_f1(m), new_f2(m);
     proof_ref new_pr(m);
-    for (unsigned idx = m_fmls.qhead(); !m_fmls.inconsistent() && idx < m_fmls.size(); idx++) {
+    for (unsigned idx = qhead(); !m_fmls.inconsistent() && idx < qtail(); idx++) {
         auto [f, d] = m_fmls[idx]();
         rw1(f, new_f1);        
         rw2(false, new_f1, new_f2, new_pr);        

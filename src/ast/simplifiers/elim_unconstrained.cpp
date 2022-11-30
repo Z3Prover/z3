@@ -48,7 +48,7 @@ Author:
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
     dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m) {
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_frozen.is_marked(e) && get_node(e).m_refcount <= 1;
+        return is_uninterp_const(e) && !m_fmls.frozen(e) && get_node(e).m_refcount <= 1;
     };
     m_inverter.set_is_var(is_var);
 }
@@ -121,12 +121,14 @@ expr* elim_unconstrained::get_parent(unsigned n) const {
  * initialize node structure
  */
 void elim_unconstrained::init_nodes() {
+
+    m_fmls.freeze_suffix();
+
     expr_ref_vector terms(m);
-    for (unsigned i = 0; i < m_fmls.size(); ++i)
+    for (unsigned i = qhead(); i < qtail(); ++i)
         terms.push_back(m_fmls[i].fml());
     m_trail.append(terms);
     m_heap.reset();
-    m_frozen.reset();
     m_root.reset();
 
     // initialize nodes for terms in the original goal
@@ -135,23 +137,6 @@ void elim_unconstrained::init_nodes() {
     // top-level terms have reference count > 0
     for (expr* e : terms)
         inc_ref(e);
-
-    // freeze subterms before the already processed head
-    terms.reset();
-    for (unsigned i = 0; i < m_fmls.qhead(); ++i)
-        terms.push_back(m_fmls[i].fml());
-    for (expr* e : subterms::all(terms))
-        m_frozen.mark(e, true);    
-
-    // freeze subterms that occur with recursive function definitions
-    recfun::util rec(m);
-    if (rec.has_rec_defs()) {
-        for (func_decl* f : rec.get_rec_funs()) {
-            expr* rhs = rec.get_def(f).get_rhs();
-            for (expr* t : subterms::all(expr_ref(rhs, m)))
-                m_frozen.mark(t);
-        }
-    }
 }
 
 /**
@@ -216,7 +201,7 @@ void elim_unconstrained::gc(expr* t) {
  */
 void elim_unconstrained::reconstruct_terms() {
     expr_ref_vector terms(m);
-    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i)
+    for (unsigned i = qhead(); i < qtail(); ++i)
         terms.push_back(m_fmls[i].fml());    
 
     for (expr* e : subterms_postorder::all(terms)) {
@@ -249,8 +234,8 @@ void elim_unconstrained::reconstruct_terms() {
 
 void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 
-    unsigned sz = m_fmls.size();
-    for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
+    unsigned sz = qtail();
+    for (unsigned i = qhead(); i < sz; ++i) {
         auto [f, d] = m_fmls[i]();
         node& n = get_node(f);
         expr* g = n.m_term;

@@ -26,7 +26,7 @@ Author:
 void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st) {
     ast_mark free_vars;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
-    for (unsigned i = qhead; i < st.size(); ++i) 
+    for (unsigned i = qhead; i < st.qtail(); ++i) 
         add_vars(st[i], free_vars);
 
     for (auto& t : m_trail) {
@@ -64,7 +64,7 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
             dependent_expr de(m, t->m_def, t->m_dep);
             add_vars(de, free_vars);
 
-            for (unsigned i = qhead; i < st.size(); ++i) {
+            for (unsigned i = qhead; i < st.qtail(); ++i) {
                 auto [f, dep1] = st[i]();
                 expr_ref g(m);
                 expr_dependency_ref dep2(m);
@@ -77,7 +77,7 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
-        for (unsigned i = qhead; i < st.size(); ++i) {
+        for (unsigned i = qhead; i < st.qtail(); ++i) {
             auto [f, dep1] = st[i]();
             auto [g, dep2] = rp->replace_with_dep(f);
             dependent_expr d(m, g, m.mk_join(dep1, dep2));

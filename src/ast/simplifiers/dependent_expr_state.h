@@ -42,27 +42,54 @@ Author:
  */
 class dependent_expr_state {
     unsigned m_qhead = 0;
+    bool     m_suffix_frozen = false;
+    bool     m_recfun_frozen = false;
+    ast_mark m_frozen;
+    func_decl_ref_vector m_frozen_trail;
+    void freeze_prefix();
+    void freeze_recfun();
+    void freeze_terms(expr* term, bool only_as_array, ast_mark& visited);
+    void freeze(expr* term);
+    void freeze(func_decl* f);
+    struct thaw : public trail {
+        unsigned sz;
+        dependent_expr_state& st;
+        thaw(dependent_expr_state& st) : sz(st.m_frozen_trail.size()), st(st) {}
+        void undo() override {
+            for (unsigned i = st.m_frozen_trail.size(); i-- > sz; )
+                st.m_frozen.mark(st.m_frozen_trail.get(i), false);
+            st.m_frozen_trail.shrink(sz);
+        }
+    };
 public:
+    dependent_expr_state(ast_manager& m) : m_frozen_trail(m) {}
     virtual ~dependent_expr_state() {}
-    virtual unsigned size() const = 0;
+    unsigned qhead() const { return m_qhead; }
+    virtual unsigned qtail() const = 0;
     virtual dependent_expr const& operator[](unsigned i) = 0;
     virtual void update(unsigned i, dependent_expr const& j) = 0;
     virtual void add(dependent_expr const& j) = 0;
     virtual bool inconsistent() = 0;
     virtual model_reconstruction_trail& model_trail() = 0;
+    virtual void flatten_suffix() {}
 
     trail_stack    m_trail;
-    void push() { m_trail.push_scope(); }
-    void pop(unsigned n) { m_trail.pop_scope(n); }
-    unsigned qhead() const { return m_qhead; }
-    void advance_qhead() { if (m_trail.get_num_scopes() > 0) m_trail.push(value_trail(m_qhead));  m_qhead = size(); }
-    unsigned num_exprs() {
-        expr_fast_mark1 visited;
-        unsigned r = 0;
-        for (unsigned i = 0; i < size(); i++) 
-            r += get_num_exprs((*this)[i].fml(), visited);
-        return r;
+    void push() {
+        m_trail.push_scope(); 
+        m_trail.push(value_trail(m_qhead)); 
+        m_trail.push(thaw(*this));
     }
+    void pop(unsigned n) { m_trail.pop_scope(n);  }
+    
+    void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_qhead = qtail(); }
+    unsigned num_exprs();
+
+    /**
+    * Freeze internal functions
+    */
+    bool frozen(func_decl* f) const { return m_frozen.is_marked(f); }
+    bool frozen(expr* f) const { return is_app(f) && m_frozen.is_marked(to_app(f)->get_decl()); }
+    void freeze_suffix();
 };
 
 /**
@@ -75,6 +102,9 @@ protected:
     trail_stack& m_trail;
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
+
+    unsigned qhead() const { return m_fmls.qhead(); }
+    unsigned qtail() const { return m_fmls.qtail(); }
 
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}

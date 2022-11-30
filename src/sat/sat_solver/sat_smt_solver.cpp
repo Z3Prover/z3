@@ -17,9 +17,6 @@ Author:
 
 Notes:
 
- - proper handling of dependencies + pre-processing 
-   - literals used in dependencies should not be eliminated by pre-processing routines
-     This has to be enforced.
  - add translation for preprocess state.
    - If the pre-processors are stateful, they need to be properly translated.
  - add back get_consequences, maybe or just have them handled by inc_sat_solver
@@ -55,9 +52,9 @@ class sat_smt_solver : public solver {
     struct dep_expr_state : public dependent_expr_state {
         sat_smt_solver& s;
         model_reconstruction_trail m_reconstruction_trail;
-        dep_expr_state(sat_smt_solver& s):s(s), m_reconstruction_trail(s.m, m_trail) {}
+        dep_expr_state(sat_smt_solver& s):dependent_expr_state(s.m), s(s), m_reconstruction_trail(s.m, m_trail) {}
         ~dep_expr_state() override {}
-        virtual unsigned size() const override { return s.m_fmls.size(); }
+        virtual unsigned qtail() const override { return s.m_fmls.size(); }
         dependent_expr const& operator[](unsigned i) override { return s.m_fmls[i]; }
         void update(unsigned i, dependent_expr const& j) override { s.m_fmls[i] = j; }
         void add(dependent_expr const& j) override { s.m_fmls.push_back(j); }
@@ -65,6 +62,28 @@ class sat_smt_solver : public solver {
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
         void append(generic_model_converter& mc) { model_trail().append(mc); }
         void replay(unsigned qhead) { m_reconstruction_trail.replay(qhead, *this); }
+        void flatten_suffix() override {
+            expr_mark seen;
+            unsigned j = qhead();
+            for (unsigned i = qhead(); i < qtail(); ++i) {
+                expr* f = s.m_fmls[i].fml();
+                if (seen.is_marked(f))
+                    continue;
+                seen.mark(f, true);
+                if (s.m.is_true(f))
+                    continue;
+                if (s.m.is_and(f)) {
+                    auto* d = s.m_fmls[i].dep();
+                    for (expr* arg : *to_app(f))
+                        s.m_fmls.push_back(dependent_expr(s.m, arg, d));
+                    continue;
+                }
+                if (i != j)
+                    s.m_fmls[j] = s.m_fmls[i];
+                ++j;
+            }
+            s.m_fmls.shrink(j);
+        }
     };
 
     struct dependency2assumptions {
@@ -253,7 +272,6 @@ public:
     }
 
     void push_internal() {   
-        m_trail.push_scope();
         m_solver.user_push();
         m_goal2sat.user_push();
         m_map.push();
@@ -272,7 +290,6 @@ public:
         m_map.pop(n);
         m_goal2sat.user_pop(n);
         m_solver.user_pop(n);
-        m_trail.pop_scope(n);
         m_mc->shrink(m_mc_size);
     }
 

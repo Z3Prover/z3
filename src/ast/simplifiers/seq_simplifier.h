@@ -70,6 +70,7 @@ public:
                 break;
             collect_stats _cs(*s);
             s->reduce();
+            m_fmls.flatten_suffix();
         }      
     }
     

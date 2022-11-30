@@ -88,7 +88,7 @@ private:
     };
 
     scoped_ptr_vector<clause>    m_clauses;
-    ast_mark              m_disable_elimination, m_disable_macro, m_predicate_decls, m_is_macro;
+    ast_mark              m_disable_elimination, m_predicate_decls, m_is_macro;
     ptr_vector<func_decl> m_predicates;
     ptr_vector<expr>      m_to_exclude;
     stats                 m_stats;

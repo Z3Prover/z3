@@ -45,7 +45,6 @@ class elim_unconstrained : public dependent_expr_simplifier {
     heap<var_lt>             m_heap;
     expr_ref_vector          m_trail;
     ptr_vector<expr>         m_args;
-    expr_mark                m_frozen;
     stats                    m_stats;
     unsigned_vector          m_root;
 

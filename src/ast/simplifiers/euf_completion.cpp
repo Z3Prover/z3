@@ -74,13 +74,13 @@ namespace euf {
 
     void completion::add_egraph() {
         m_nodes_to_canonize.reset();
-        unsigned sz = m_fmls.size();
+        unsigned sz = qtail();
         auto add_children = [&](enode* n) {                
             for (auto* ch : enode_args(n))
                 m_nodes_to_canonize.push_back(ch);
         };
 
-        for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
+        for (unsigned i = qhead(); i < sz; ++i) {
             expr* x, * y;
             auto [f, d] = m_fmls[i]();
             if (m.is_eq(f, x, y)) {
@@ -113,8 +113,8 @@ namespace euf {
             return;
         }
 
-        unsigned sz = m_fmls.size();
-        for (unsigned i = m_fmls.qhead(); i < sz; ++i) {
+        unsigned sz = qtail();
+        for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, d] = m_fmls[i]();
             
             expr_dependency_ref dep(d, m);

@@ -109,7 +109,7 @@ bool eliminate_predicates::can_be_macro_head(expr* _head, unsigned num_bound) {
         return false;
     app* head = to_app(_head);
     func_decl* f = head->get_decl();
-    if (m_disable_macro.is_marked(f))
+    if (m_fmls.frozen(f))
         return false;
     if (m_is_macro.is_marked(f))
         return false;
@@ -157,7 +157,7 @@ expr_ref eliminate_predicates::bind_free_variables_in_def(clause& cl, app* head,
 * (or (not (head x)) (def x))
 */
 bool eliminate_predicates::try_find_binary_definition(func_decl* p, app_ref& head, expr_ref& def, expr_dependency_ref& dep) {
-    if (m_disable_macro.is_marked(p))
+    if (m_fmls.frozen(p))
         return false;
     expr_mark binary_pos, binary_neg;
     obj_map<expr, expr_dependency*> deps;
@@ -501,7 +501,7 @@ void eliminate_predicates::reduce_definitions() {
     for (auto const& [k, v] : m_macros) 
         macro_expander.insert(v->m_head, v->m_def, v->m_dep);
     
-    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
+    for (unsigned i = qhead(); i < qtail(); ++i) {
         auto [f, d] = m_fmls[i]();
         expr_ref fml(f, m), new_fml(m);
         expr_dependency_ref dep(m);
@@ -524,7 +524,7 @@ void eliminate_predicates::reduce_definitions() {
 void eliminate_predicates::try_resolve(func_decl* p) {
     if (m_disable_elimination.is_marked(p))
         return;
-    if (m_disable_macro.is_marked(p))
+    if (m_fmls.frozen(p))
         return;
     
     unsigned num_pos = 0, num_neg = 0;
@@ -717,30 +717,20 @@ void eliminate_predicates::try_resolve() {
 /**
 * Process the terms m_to_exclude, walk all subterms.
 * Uninterpreted function declarations in these terms are added to 'exclude_set'
-* Uninterpreted function declarations from as-array terms are added to 'm_disable_macro'
 */
 void eliminate_predicates::process_to_exclude(ast_mark& exclude_set) {
     ast_mark visited;
-    array_util a(m);
-
     struct proc {        
-        array_util& a;
         ast_mark&   to_exclude;
-        ast_mark&   to_disable;
-        proc(array_util& a, ast_mark& f, ast_mark& d) : 
-            a(a), to_exclude(f), to_disable(d) {}
+        proc(ast_mark& f) : 
+            to_exclude(f) {}
         void operator()(func_decl* f) {
             if (is_uninterp(f))
                 to_exclude.mark(f, true);
         }
-        void operator()(app* e) {
-            func_decl* f;
-            if (a.is_as_array(e, f) && is_uninterp(f))
-                to_disable.mark(f, true);
-        }
         void operator()(ast* s) {}
     };
-    proc proc(a, exclude_set, m_disable_macro);
+    proc proc(exclude_set);
 
     for (expr* e : m_to_exclude)
         for_each_ast(proc, visited, e);
@@ -779,16 +769,10 @@ eliminate_predicates::clause* eliminate_predicates::init_clause(expr* f, expr_de
 * eliminations.
 */
 void eliminate_predicates::init_clauses() {
-    for (unsigned i = 0; i < m_fmls.qhead(); ++i)
-        m_to_exclude.push_back(m_fmls[i].fml());
-    recfun::util rec(m);
-    if (rec.has_rec_defs()) 
-        for (auto& d : rec.get_rec_funs())
-            m_to_exclude.push_back(rec.get_def(d).get_rhs());
-    
-    process_to_exclude(m_disable_macro);
 
-    for (unsigned i = m_fmls.qhead(); i < m_fmls.size(); ++i) {
+    m_fmls.freeze_suffix();
+
+    for (unsigned i = qhead(); i < qtail(); ++i) {
         clause* cl = init_clause(i);
         add_use_list(*cl);
         m_clauses.push_back(cl);
@@ -821,7 +805,6 @@ void eliminate_predicates::reset() {
     m_predicates.reset();
     m_predicate_decls.reset();
     m_to_exclude.reset();
-    m_disable_macro.reset();
     m_disable_elimination.reset();
     m_is_macro.reset();
     for (auto const& [k, v] : m_macros)

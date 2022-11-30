@@ -258,7 +258,7 @@ namespace euf {
             if (!m_enabled)
                 return;
             m_nonzero.reset();
-            for (unsigned i = 0; i < fmls.size(); ++i) 
+            for (unsigned i = 0; i < fmls.qtail(); ++i) 
                 add_pos(fmls[i].fml());            
         }
 

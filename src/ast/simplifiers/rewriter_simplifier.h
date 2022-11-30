@@ -40,7 +40,7 @@ public:
         m_num_steps = 0;
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        for (unsigned idx = m_fmls.qhead(); idx < m_fmls.size(); idx++) {
+        for (unsigned idx = qhead(); idx < qtail(); idx++) {
             if (m_fmls.inconsistent())
                 break;
             auto d = m_fmls[idx];

@@ -42,7 +42,7 @@ namespace euf {
 
     bool solve_context_eqs::is_safe_eq(expr* e) {
         m_and_pos.reset(); m_and_neg.reset(); m_or_pos.reset(); m_or_neg.reset();        
-        for (unsigned i = 0; i < m_fmls.size(); ++i)
+        for (unsigned i = 0; i < m_fmls.qtail(); ++i)
             if (!is_safe_eq(m_fmls[i].fml(), e))
                 return false;
         return true;
@@ -147,7 +147,7 @@ namespace euf {
 
     void solve_context_eqs::collect_nested_equalities(dep_eq_vector& eqs) {
         expr_mark visited;
-        unsigned sz = m_fmls.size();
+        unsigned sz = m_fmls.qtail();
         for (unsigned i = m_fmls.qhead(); i < sz; ++i)
             collect_nested_equalities(m_fmls[i], visited, eqs);
 
