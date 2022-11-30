@@ -1014,12 +1014,14 @@ namespace opt {
         return dst;
     }
 
+    // -x + lo <= 0
     void model_based_opt::add_lower_bound(unsigned x, rational const& lo) {
         vector<var> coeffs;
         coeffs.push_back(var(x, rational::minus_one()));
         add_constraint(coeffs, lo, t_le);
     }
 
+    // x - hi <= 0
     void model_based_opt::add_upper_bound(unsigned x, rational const& hi) {
         vector<var> coeffs;
         coeffs.push_back(var(x, rational::one()));
@@ -1442,8 +1444,9 @@ namespace opt {
         for (unsigned ri : mod_rows) {
             rational a = get_coefficient(ri, x);
             replace_var(ri, x, rational::zero());
+            rational rMod = m_rows[ri].m_mod;
 
-            // add w = b mod K
+            // add w = b mod rMod
             vector<var> coeffs = m_rows[ri].m_vars;
             rational coeff = m_rows[ri].m_coeff;
             unsigned v = m_rows[ri].m_id;
@@ -1451,16 +1454,43 @@ namespace opt {
 
             unsigned w = UINT_MAX;
             rational offset(0);
-            if (coeffs.empty() || K == 1)
-                offset = mod(coeff, K);
+            if (coeffs.empty() || rMod == 1)
+                offset = mod(coeff, rMod);
             else
-                w = add_mod(coeffs, coeff, K);
+                w = add_mod(coeffs, coeff, rMod);
 
 
             rational w_value = w == UINT_MAX ? offset : m_var2value[w];
 
-            // add v = a*z + w - V, for k = (a*z_value + w_value) div K
-            // claim: (= (mod x K) (- x (* K (div x K)))))) is a theorem for every x, K != 0
+#if 1
+            // V := (a * z_value - w_value) div rMod
+            // V*rMod <= a*z + w < (V+1)*rMod
+            // v = a*z + w - V*rMod
+            SASSERT(a * z_value - w_value >= 0);
+            rational V = div(a * z_value + w_value, rMod);
+            vector<var> mod_coeffs;
+            SASSERT(V >= 0);
+            SASSERT(a * z_value + w_value >= V*rMod);
+            SASSERT((V+1)*rMod > a*z_value + w_value);
+            // -a*z - w + V*rMod <= 0
+            mod_coeffs.push_back(var(z, -a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, -rational::one()));
+            add_constraint(mod_coeffs, V*rMod - offset, t_le);
+            mod_coeffs.reset();
+            // a*z + w - (V+1)*rMod + 1 <= 0
+            mod_coeffs.push_back(var(z, a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
+            add_constraint(mod_coeffs, -(V+1)*rMod + offset + 1, t_le); 
+            mod_coeffs.reset();
+            // -v + a*z + w - V*rMod = 0
+            mod_coeffs.push_back(var(v, rational::minus_one()));
+            mod_coeffs.push_back(var(z, a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
+            add_constraint(mod_coeffs, offset - V*rMod, t_eq);
+
+#else
+            // add v = a*z + w - V, for V = v_value - a * z_value - w_value
+            // claim: (= (mod x rMod) (- x (* rMod (div x rMod)))))) is a theorem for every x, rMod != 0
             rational V = v_value - a * z_value - w_value;
             vector<var> mod_coeffs;
             mod_coeffs.push_back(var(v, rational::minus_one()));
@@ -1468,7 +1498,8 @@ namespace opt {
             if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
             add_constraint(mod_coeffs, V + offset, t_eq);
             add_lower_bound(v, rational::zero());
-            add_upper_bound(v, K - 1);
+            add_upper_bound(v, rMod - 1);
+#endif
 
             retire_row(ri);
             vs.push_back(v);

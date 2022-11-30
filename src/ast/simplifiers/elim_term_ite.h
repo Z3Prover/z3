@@ -15,19 +15,21 @@ Author:
 #pragma once
 
 #include "ast/simplifiers/dependent_expr_state.h"
-#include "ast/rewriter/elim_term_ite.h"
+#include "ast/normal_forms/elim_term_ite.h""
 
 
 class elim_term_ite_simplifier : public dependent_expr_simplifier {
-    elim_term_ite m_elim;
-    
+    defined_names    m_df;
+    elim_term_ite_rw m_rewriter;
+
 public:
     elim_term_ite_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
         dependent_expr_simplifier(m, fmls),
-        m_elim_term_ite(m) {
+        m_df(m),
+        m_rewriter(m, m_df) {
     }
 
-    char const* name() const override { return "distribute-forall"; }
+    char const* name() const override { return "elim-term-ite"; }
         
     void reduce() override {
         if (!m_fmls.has_quantifiers())
@@ -42,8 +44,8 @@ public:
         }
     }
 
-    void push() override { dependent_expr_simplifier::push(); m_rewriter.push(); }
+    void push() override { dependent_expr_simplifier::push(); m_df.push(); m_rewriter.push(); }
     
-    void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_rewriter.pop(n); } 
+    void pop(unsigned n) override { m_rewriter.pop(n); m_df.pop(n); dependent_expr_simplifier::pop(n); }
 };
 

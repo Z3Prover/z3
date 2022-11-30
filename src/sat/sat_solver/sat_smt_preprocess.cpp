@@ -31,27 +31,15 @@ Author:
 #include "ast/simplifiers/elim_bounds.h"
 #include "ast/simplifiers/bit2int.h"
 #include "ast/simplifiers/bv_elim.h"
+#include "ast/simplifiers/push_ite.h"
+#include "ast/simplifiers/elim_term_ite.h"
+#include "ast/simplifiers/flatten_clauses.h"
 #include "sat/sat_params.hpp"
 #include "smt/params/smt_params.h"
 #include "sat/sat_solver/sat_smt_preprocess.h"
 #include "qe/lite/qe_lite.h"
 
 void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st) {
-    params_ref simp1_p = p;
-    simp1_p.set_bool("som", true);
-    simp1_p.set_bool("pull_cheap_ite", true);
-    simp1_p.set_bool("push_ite_bv", false);
-    simp1_p.set_bool("local_ctx", true);
-    simp1_p.set_uint("local_ctx_limit", 10000000);
-    simp1_p.set_bool("flat", true); // required by som
-    simp1_p.set_bool("hoist_mul", false); // required by som
-    simp1_p.set_bool("elim_and", true);
-    simp1_p.set_bool("blast_distinct", true);
-    simp1_p.set_bool("flat_and_or", false);
-    
-    params_ref simp2_p = p;
-    simp2_p.set_bool("flat", false);
-    simp2_p.set_bool("flat_and_or", false);
     
     sat_params sp(p);
     smt_params smtp(p);
@@ -70,6 +58,10 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
         if (smtp.m_eliminate_bounds) s.add_simplifier(alloc(elim_bounds_simplifier, m, p, st));
         if (smtp.m_simplify_bit2int) s.add_simplifier(alloc(bit2int_simplifier, m, p, st));
         if (smtp.m_bb_quantifiers) s.add_simplifier(alloc(bv::elim_simplifier, m, p, st));
+        if (smtp.m_eliminate_term_ite && smtp.m_lift_ite != lift_ite_kind::LI_FULL) s.add_simplifier(alloc(elim_term_ite_simplifier, m, p, st));        
+        if (smtp.m_lift_ite != lift_ite_kind::LI_NONE) s.add_simplifier(alloc(push_ite_simplifier, m, p, st, smtp.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE));
+        if (smtp.m_ng_lift_ite != lift_ite_kind::LI_NONE) s.add_simplifier(alloc(ng_push_ite_simplifier, m, p, st, smtp.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE));
+        s.add_simplifier(alloc(flatten_clauses, m, p, st));
         //
         // add: 
         // euf_completion?
@@ -77,17 +69,27 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
         // add: make it externally programmable
         // 
 #if 0
-    ?? if (!invoke(m_lift_ite)) return;
-    m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
-    m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
-    ?? if (!invoke(m_ng_lift_ite)) return;
-    if (!invoke(m_elim_term_ite)) return;
     if (!invoke(m_apply_quasi_macros)) return;
-    if (!invoke(m_flatten_clauses)) return;
 #endif
 
     }
     else {
+        params_ref simp1_p = p;
+        simp1_p.set_bool("som", true);
+        simp1_p.set_bool("pull_cheap_ite", true);
+        simp1_p.set_bool("push_ite_bv", false);
+        simp1_p.set_bool("local_ctx", true);
+        simp1_p.set_uint("local_ctx_limit", 10000000);
+        simp1_p.set_bool("flat", true); // required by som
+        simp1_p.set_bool("hoist_mul", false); // required by som
+        simp1_p.set_bool("elim_and", true);
+        simp1_p.set_bool("blast_distinct", true);
+        simp1_p.set_bool("flat_and_or", false);
+
+        params_ref simp2_p = p;
+        simp2_p.set_bool("flat", false);
+        simp2_p.set_bool("flat_and_or", false);
+
         s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
         s.add_simplifier(alloc(propagate_values, m, p, st));
         s.add_simplifier(alloc(card2bv, m, p, st));

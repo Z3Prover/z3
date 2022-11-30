@@ -151,8 +151,10 @@ std::ostream& model_reconstruction_trail::display(std::ostream& out) const {
             out << t->m_decl->get_name() << " <- " << mk_pp(t->m_def, m) << "\n";
         else {
             for (auto const& [v, def] : t->m_subst->sub())
-                out << mk_pp(v, m) << " <- " << mk_pp(def, m) << "\n";
+                out << mk_pp(v, m) << " <- " << mk_pp(def, m) << "\n";            
         }
+        for (auto const& d : t->m_removed)
+            out << "rm: " << d << "\n";
     }
     return out;
 }

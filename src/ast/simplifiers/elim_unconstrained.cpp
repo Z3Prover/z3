@@ -249,6 +249,16 @@ void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 
 void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<dependent_expr> const& old_fmls) {
     auto& trail = m_fmls.model_trail();
+
+    for (auto const& entry : mc.entries()) {
+        switch (entry.m_instruction) {
+        case generic_model_converter::instruction::HIDE:
+            trail.hide(entry.m_f);
+            break;
+        case generic_model_converter::instruction::ADD:
+            break;
+        }
+    }
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     scoped_ptr<expr_substitution> sub = alloc(expr_substitution, m, true, false);
     rp->set_substitution(sub.get());
@@ -265,16 +275,6 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
         }
     }
     trail.push(sub.detach(), old_fmls);
-
-    for (auto const& entry : mc.entries()) {
-        switch (entry.m_instruction) {
-        case generic_model_converter::instruction::HIDE:
-            trail.hide(entry.m_f);
-            break;
-        case generic_model_converter::instruction::ADD:
-            break;
-        }
-    }
 }
 
 void elim_unconstrained::reduce() {

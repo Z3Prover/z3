@@ -64,7 +64,7 @@ public:
     }
         
     void reduce() override {
-        TRACE("simplifier", tout << m_fmls << "\n");
+        TRACE("simplifier", tout << m_fmls);
         for (auto* s : m_simplifiers) {
             if (m_fmls.inconsistent())
                 break;
@@ -74,7 +74,7 @@ public:
             collect_stats _cs(*s);
             s->reduce();
             m_fmls.flatten_suffix();
-            TRACE("simplifier", tout << s->name() << "\n" << m_fmls << "\n");
+            TRACE("simplifier", tout << s->name() << "\n" << m_fmls);
         }      
     }
     
