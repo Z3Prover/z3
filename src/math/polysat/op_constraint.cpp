@@ -375,6 +375,9 @@ namespace polysat {
         case code::lshr_op:
             us.add_lshr(p_coeff, q_coeff, r_coeff, !is_positive, dep);
             break;
+        case code::shl_op:
+            us.add_shl(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            break;
         case code::and_op:
             us.add_and(p_coeff, q_coeff, r_coeff, !is_positive, dep);
             break;
