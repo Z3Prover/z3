@@ -225,6 +225,7 @@ namespace polysat {
 
     test_record_manager test_records;
     bool collect_test_records = true;
+    unsigned test_max_conflicts = 10;
 
     // test resolve, factoring routines
     // auxiliary
@@ -242,7 +243,7 @@ namespace polysat {
         scoped_solver(std::string name): solver(lim), m_name(name) {
             std::cout << std::string(78, '#') << "\n\n";
             std::cout << "START: " << m_name << "\n";
-            set_max_conflicts(10);
+            set_max_conflicts(test_max_conflicts);
 
             test_records.begin_batch(name);
         }
@@ -330,9 +331,16 @@ namespace polysat {
         }
     };
 
+    std::string run_filter;
+
     template <typename Test, typename... Args>
-    void run(Test tst, Args... args)
+    void run(char const* name, Test tst, Args... args)
     {
+        if (!run_filter.empty()) {
+            std::string sname = name;
+            if (sname.find(run_filter) == std::string::npos)
+                return;
+        }
         try {
             tst(args...);
         }
@@ -353,7 +361,7 @@ namespace polysat {
         }
     }
 
-    #define RUN(tst) run([]() { tst; })
+    #define RUN(tst) run(#tst, []() { tst; })
 
     class test_polysat {
     public:
@@ -1550,7 +1558,8 @@ void tst_polysat() {
 
 #if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
-    test_polysat::test_band1();
+    test_max_conflicts = 50;
+    test_polysat::test_band5();
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
@@ -1564,6 +1573,10 @@ void tst_polysat() {
     // test_polysat::test_fixed_point_arith_div_mul_inverse();
     return;
 #endif
+
+    // If non-empty, only run tests whose name contains the run_filter
+    run_filter = "band";
+    test_max_conflicts = 10;
 
     collect_test_records = true;
 
