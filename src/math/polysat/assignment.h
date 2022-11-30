@@ -56,6 +56,7 @@ namespace polysat {
         substitution add(pvar var, rational const& value) const;
         pdd apply_to(pdd const& p) const;
 
+        bool contains(pvar var) const;
         bool value(pvar var, rational& out_value) const;
 
         bool empty() const { return m_subst.is_one(); }
@@ -96,6 +97,9 @@ namespace polysat {
 
         pdd apply_to(pdd const& p) const;
 
+        bool contains(pvar var) const;
+        bool value(pvar var, rational& out_value) const;
+        rational value(pvar var) const { rational val; VERIFY(value(var, val)); return val; }
         bool empty() const { return pairs().empty(); }
         substitution const& subst(unsigned sz) const;
         vector<assignment_item_t> const& pairs() const { return m_pairs; }
