@@ -27,7 +27,7 @@ namespace bv {
     }
 
     void slice::process_eqs() {
-        for (unsigned i = qhead(); i < qtail(); ++i) {
+        for (unsigned i : indices()) {
             auto const [f, d] = m_fmls[i]();
             process_eq(f);
         }  
@@ -136,7 +136,7 @@ namespace bv {
         expr_ref_vector cache(m), pin(m);
         ptr_vector<expr> todo, args;
         expr* c;
-        for (unsigned i = qhead(); i < qtail(); ++i) {
+        for (unsigned i : indices()) {
             auto const [f, d] = m_fmls[i]();
             todo.push_back(f);
             pin.push_back(f);

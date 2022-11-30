@@ -86,7 +86,7 @@ void propagate_values::reduce() {
     for (unsigned r = 0; r < m_max_rounds && m.inc() && rw != m_stats.m_num_rewrites; ++r) {            
         rw = m_stats.m_num_rewrites;
         init_sub();
-        for (unsigned i = qhead(); i < qtail() && m.inc() && !m_fmls.inconsistent(); ++i)
+        for (unsigned i : indices())
             process_fml(i);
         init_sub();
         for (unsigned i = qtail(); i-- > qhead() && m.inc() && !m_fmls.inconsistent();)

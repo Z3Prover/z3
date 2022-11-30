@@ -37,13 +37,11 @@ void bit_blaster::reduce() {
     expr_ref   new_curr(m);
     proof_ref  new_pr(m);
     bool change = false;
-    for (unsigned idx = qhead(); idx < qtail(); idx++) {
-        if (m_fmls.inconsistent())
-            break;
+    for (unsigned idx : indices()) {
         auto [curr, d] = m_fmls[idx]();
-        m_rewriter(curr, new_curr, new_pr);
-        m_num_steps += m_rewriter.get_num_steps();
+        m_rewriter(curr, new_curr, new_pr);        
         if (curr != new_curr) {
+            m_num_steps += m_rewriter.get_num_steps();
             change = true;                    
             TRACE("bit_blaster", tout << mk_pp(curr, m) << " -> " << new_curr << "\n";);
             m_fmls.update(idx, dependent_expr(m, new_curr, d));

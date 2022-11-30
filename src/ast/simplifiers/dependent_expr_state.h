@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    abstraction for simplification of depenent expression states.
+    abstraction for simplification of dependent expression states.
     A dependent_expr_state is an interface to a set of dependent expressions.
     Dependent expressions are formulas together with a set of dependencies that are coarse grained 
     proof hints or justifications for them. Input assumptions can be self-justified.
