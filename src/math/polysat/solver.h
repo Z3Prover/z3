@@ -274,12 +274,22 @@ namespace polysat {
         void report_unsat();
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
+
         void add_clause(clause& clause);
         void add_clause(signed_constraint c1, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
-        void add_clause(unsigned n, signed_constraint* cs, bool is_redundant);
+        void add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
+        void add_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
+
+        // Create a clause without adding it to the solver.
+        clause_ref mk_clause(signed_constraint c1, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
+        clause_ref mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
+        clause_ref mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
 

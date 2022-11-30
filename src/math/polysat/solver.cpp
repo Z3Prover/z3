@@ -1100,35 +1100,58 @@ namespace polysat {
         }
     }
 
-    void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {
-        clause_builder cb(*this);
-        for (unsigned i = 0; i < n; ++i)
-            cb.insert(cs[i]);
-        clause_ref clause = cb.build();
-        if (clause) {
-            clause->set_redundant(is_redundant);
+    void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
+        clause_ref clause = mk_clause(n, cs, is_redundant);
+        if (clause)
             add_clause(*clause);
-        }
+    }
+
+    void solver::add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
+        add_clause(cs.size(), std::data(cs), is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, bool is_redundant) {
-        signed_constraint cs[1] = { c1 };
-        add_clause(1, cs, is_redundant);
+        add_clause({ c1 }, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
-        signed_constraint cs[2] = { c1, c2 };
-        add_clause(2, cs, is_redundant);
+        add_clause({ c1, c2 }, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant) {
-        signed_constraint cs[3] = { c1, c2, c3 };
-        add_clause(3, cs, is_redundant);
+        add_clause({ c1, c2, c3 }, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant) {
-        signed_constraint cs[4] = { c1, c2, c3, c4 };
-        add_clause(4, cs, is_redundant);
+        add_clause({ c1, c2, c3, c4 }, is_redundant);
+    }
+
+    clause_ref solver::mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
+        return mk_clause(cs.size(), std::data(cs), is_redundant);
+    }
+
+    clause_ref solver::mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
+        clause_builder cb(*this);
+        for (unsigned i = 0; i < n; ++i)
+            cb.insert(cs[i]);
+        cb.set_redundant(is_redundant);
+        return cb.build();
+    }
+
+    clause_ref solver::mk_clause(signed_constraint c1, bool is_redundant) {
+        return mk_clause({ c1 }, is_redundant);
+    }
+
+    clause_ref solver::mk_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
+        return mk_clause({ c1, c2 }, is_redundant);
+    }
+
+    clause_ref solver::mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant) {
+        return mk_clause({ c1, c2, c3 }, is_redundant);
+    }
+
+    clause_ref solver::mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant) {
+        return mk_clause({ c1, c2, c3, c4 }, is_redundant);
     }
 
     void solver::push() {
