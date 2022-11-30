@@ -39,7 +39,7 @@ def init_project_def():
     add_lib('macros', ['rewriter'], 'ast/macros')
     add_lib('model',  ['macros'])
     add_lib('converters', ['model'], 'ast/converters')
-    add_lib('simplifiers', ['euf', 'rewriter', 'bit_blaster', 'converters'], 'ast/simplifiers')
+    add_lib('simplifiers', ['euf', 'normal_forms', 'bit_blaster', 'converters'], 'ast/simplifiers')
     add_lib('tactic', ['simplifiers'])
     add_lib('solver', ['params', 'model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
