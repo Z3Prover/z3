@@ -1678,7 +1678,7 @@ namespace dd {
         unsigned pow;
         if (val.is_power_of_two(pow) && pow > 10)
             return out << "2^" << pow;
-        else if ((val + 1).is_power_of_two(pow) && pow > 10) {
+        else if (val < m.max_value() && (val + 1).is_power_of_two(pow) && pow > 10) {
             if (require_parens)
                 out << "(";
             out << "2^" << pow << "-1";
