@@ -19,9 +19,6 @@ Notes:
 #include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 
-#include <iostream>
-
-
 namespace xr {
 
     xor_matrix_finder::xor_matrix_finder(solver& s) : m_xor(s), m_sat(s.s()) { }
@@ -81,7 +78,7 @@ namespace xr {
         // Separate xor constraints in multiple gaussian matrixes
         // Two xor clauses have to belong to the same matrix if they share at least one variable
         bool_var_vector newSet;
-        unsigned_vector to_merge;
+        uint_set to_merge;
         unsigned matrix_no = 0;
         
         m_table.clear();
@@ -89,7 +86,6 @@ namespace xr {
         m_reverseTable.reset();
         
         for (const xor_clause& x : m_xor.m_xorclauses) {
-            std::cout  << x << std::endl;
             
             if (belong_same_matrix(x))
                 continue;
@@ -98,11 +94,11 @@ namespace xr {
             newSet.clear();
             for (bool_var v : x) {
                 if (m_table[v] != (unsigned)-1)
-                    to_merge.push_back(m_table[v]);
+                    to_merge.insert(m_table[v]);
                 else
                     newSet.push_back(v);
             }
-            if (to_merge.size() == 1) {
+            if (to_merge.num_elems() == 1) {
                 const unsigned into = *to_merge.begin();
                 unsigned_vector& intoReverse = m_reverseTable[into];
                 for (unsigned i = 0; i < newSet.size(); i++) {
