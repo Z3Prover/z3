@@ -633,15 +633,32 @@ namespace polysat {
     /// Verify the value we're trying to assign against the univariate solver
     void solver::assign_verify(pvar v, rational val, justification j) {
         SASSERT(j.is_decision() || j.is_propagation());
-        // First, check evaluation of the currently-univariate constraints
-        // TODO: we should add a better way to test constraints under assignments, without modifying the solver state.
-        m_value[v] = val;
-        m_search.push_assignment(v, val);
-        m_justification[v] = j;
-        bool is_valid = m_viable_fallback.check_constraints(v);
-        m_search.pop();
-        m_justification[v] = justification::unassigned();
-        if (!is_valid) {
+        signed_constraint c;
+        {
+            // Fake the assignment v := val so we can check the constraints using the new value.
+            m_value[v] = val;
+            m_search.push_assignment(v, val);
+            m_justification[v] = j;
+            on_scope_exit _undo([&](){
+                m_search.pop();
+                m_justification[v] = justification::unassigned();
+            });
+
+            // Check evaluation of the currently-univariate constraints.
+            c = m_viable_fallback.find_violated_constraint(v);
+
+            if (c) {
+                LOG("Violated constraint: " << c);
+                // op_constraints produce lemmas rather than forbidden intervals, so give it an opportunity to
+                // produce a lemma before invoking the fallback solver.
+                if (c->is_op()) {
+                    c.narrow(*this, false);
+                    if (is_conflict())
+                        return;
+                }
+            }
+        }
+        if (c) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
             ++m_stats.m_num_viable_fallback;
             // Try to find a valid replacement value
