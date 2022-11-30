@@ -6,6 +6,8 @@
 #include <vector>
 #include <signal.h>
 
+// TODO: collect stats on how often each inference rule is used, so we can see which ones are useful or if any are useless/untested
+
 namespace {
     using namespace dd;
 
@@ -262,6 +264,7 @@ namespace polysat {
             SASSERT(rec->m_expected == l_undef);
             SASSERT(rec->m_result == test_result::undefined);
             SASSERT(rec->m_error_message == "");
+            SASSERT(!rec->m_finished);
             {
                 rec->m_start = test_record::clock_t::now();
                 on_scope_exit end_timer([rec]() {
@@ -1471,6 +1474,8 @@ namespace polysat {
                         VERIFY(false);
                     }
                 }
+                // TODO: now try to extend lo/hi one by one to find out how "bad" our interval really is.
+                //              (probably slow so maybe add a flag to enable/disable that.)
                 e = e->next();
             }
             while (e != first);
@@ -1543,8 +1548,9 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 0  // Enable this block to run a single unit test with detailed output.
+#if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
+    test_polysat::test_band1();
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();

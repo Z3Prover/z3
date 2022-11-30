@@ -633,30 +633,35 @@ namespace polysat {
     /// Verify the value we're trying to assign against the univariate solver
     void solver::assign_verify(pvar v, rational val, justification j) {
         SASSERT(j.is_decision() || j.is_propagation());
+#ifndef NDEBUG
+        unsigned const old_size = m_search.size();
+#endif
         signed_constraint c;
+        clause_ref lemma;
         {
             // Fake the assignment v := val so we can check the constraints using the new value.
-            m_value[v] = val;
+            // NOTE: we modify the global state here because cloning the assignment is expensive.
             m_search.push_assignment(v, val);
-            m_justification[v] = j;
+            assignment_t const& a = m_search.assignment();
             on_scope_exit _undo([&](){
                 m_search.pop();
-                m_justification[v] = justification::unassigned();
             });
 
             // Check evaluation of the currently-univariate constraints.
-            c = m_viable_fallback.find_violated_constraint(v);
+            c = m_viable_fallback.find_violated_constraint(a, v);
 
             if (c) {
                 LOG("Violated constraint: " << c);
-                // op_constraints produce lemmas rather than forbidden intervals, so give it an opportunity to
-                // produce a lemma before invoking the fallback solver.
-                if (c->is_op()) {
-                    c.narrow(*this, false);
-                    if (is_conflict())
-                        return;
-                }
+                lemma = c.produce_lemma(*this, a);
             }
+        }
+        SASSERT(m_search.size() == old_size);
+        SASSERT(!m_search.assignment().contains(v));
+        if (lemma) {
+            add_clause(*lemma);
+            SASSERT(!is_conflict());  // if we have a conflict here, we could have produced this lemma already earlier
+            if (can_propagate())
+                return;
         }
         if (c) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
@@ -699,7 +704,7 @@ namespace polysat {
         // Decision should satisfy all univariate constraints.
         // Propagation might violate some other constraint; but we will notice that in the propagation loop when v is propagated.
         // TODO: on the other hand, checking constraints here would have us discover some conflicts earlier.
-        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(v));
+        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(assignment(), v));
 #if ENABLE_LINEAR_SOLVER
         // TODO: convert justification into a format that can be tracked in a dependency core.
         m_linear_solver.set_value(v, val, UINT_MAX);

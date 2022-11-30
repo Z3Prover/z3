@@ -250,8 +250,8 @@ namespace polysat {
 
         // Check whether all constraints for 'v' are satisfied;
         // or find an arbitrary violated constraint.
-        bool check_constraints(pvar v) { return !find_violated_constraint(v); }
-        signed_constraint find_violated_constraint(pvar v);
+        bool check_constraints(assignment const& a, pvar v) { return !find_violated_constraint(a, v); }
+        signed_constraint find_violated_constraint(assignment const& a, pvar v);
 
         dd::find_t find_viable(pvar v, rational& out_val);
         signed_constraints unsat_core(pvar v);

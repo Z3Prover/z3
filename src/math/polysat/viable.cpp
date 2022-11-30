@@ -837,15 +837,15 @@ namespace polysat {
         m_constraints[v].pop_back();
     }
 
-    signed_constraint viable_fallback::find_violated_constraint(pvar v) {
+    signed_constraint viable_fallback::find_violated_constraint(assignment const& a, pvar v) {
         for (signed_constraint const c : m_constraints[v]) {
             // for this check, all variables need to be assigned
-            DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(s.is_assigned(w)); });
-            if (c.is_currently_false(s)) {
-                LOG(assignment_pp(s, v, s.get_value(v)) << " violates constraint " << lit_pp(s, c));
+            DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(a.contains(w)); });
+            if (c.is_currently_false(a)) {
+                LOG(assignment_pp(s, v, a.value(v)) << " violates constraint " << lit_pp(s, c));
                 return c;
             }
-            SASSERT(c.is_currently_true(s));
+            SASSERT(c.is_currently_true(a));
         }
         return {};
     }
