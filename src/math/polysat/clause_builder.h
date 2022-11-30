@@ -28,6 +28,7 @@ namespace polysat {
         /// True iff clause contains a literal that is always true
         /// (only this specific case of tautology is covered by this flag)
         bool                  m_is_tautology = false;
+        bool                  m_redundant = clause::redundant_default;
 
     public:
         clause_builder(solver& s);
@@ -36,8 +37,10 @@ namespace polysat {
         clause_builder& operator=(clause_builder const& s) = delete;
         clause_builder& operator=(clause_builder&& s) = default;
 
-        bool empty() const { return m_literals.empty() && !m_is_tautology; }
+        bool empty() const { return m_literals.empty() && !m_is_tautology && m_redundant == clause::redundant_default; }
         void reset();
+
+        void set_redundant(bool r) { m_redundant = r; }
 
         /// Build the clause. This will reset the clause builder so it can be reused.
         /// Returns nullptr if the clause is a tautology and should not be added to the solver.

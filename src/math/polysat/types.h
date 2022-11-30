@@ -28,6 +28,9 @@ namespace polysat {
     class solver;
     class clause;
 
+    using clause_ref = ref<clause>;
+    using clause_ref_vector = sref_vector<clause>;
+
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;

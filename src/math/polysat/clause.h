@@ -20,10 +20,6 @@ namespace polysat {
     class signed_constraint;
     class simplify_clause;
 
-    class clause;
-    using clause_ref = ref<clause>;
-    using clause_ref_vector = sref_vector<clause>;
-
     /// Disjunction of constraints represented by boolean literals
     // NB code review:
     // right, ref-count is unlikely the right mechanism.
@@ -31,11 +27,14 @@ namespace polysat {
     // and deleted when they exist the arena.
     //
     class clause {
+    public:
+        static inline const bool redundant_default = true;
+    private:
         friend class constraint_manager;
         friend class simplify_clause;
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
-        bool m_redundant = true;
+        bool m_redundant = redundant_default;
         sat::literal_vector m_literals;
 
 
