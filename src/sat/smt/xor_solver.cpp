@@ -489,6 +489,7 @@ namespace xr {
         return std::any_of(x.begin(), x.end(), [&](bool_var v) { return s().num_visited(v) > 1; });
     }
     
+    // moves all non-detached (as those are anyway relevant) xor clauses which variables occur in no other xor clause to unused 
     void solver::move_xors_without_connecting_vars_to_unused() {
         if (m_xorclauses.empty()) 
             return;
@@ -497,13 +498,13 @@ namespace xr {
         s().init_visited(2);
         
         for (const xor_clause& x: m_xorclauses) 
-            for (unsigned v : x) 
+            for (bool_var v : x) 
                 s().inc_visited(v);
     
         //has at least 1 var with occur of 2
         for (const xor_clause& x: m_xorclauses) {
-            bool has_connecting_var = xor_has_interesting_var(x) || x.m_detached;
-            TRACE("xor", tout << "XOR " << (has_connecting_var?"":"has no") << "connecting var : " << x << ")\n");
+            bool has_connecting_var = x.m_detached || xor_has_interesting_var(x);
+            TRACE("xor", tout << "XOR " << (has_connecting_var ? "" : "has no") << "connecting var : " << x << ")\n");
 
             if (has_connecting_var)                 
                 cleaned.push_back(x);

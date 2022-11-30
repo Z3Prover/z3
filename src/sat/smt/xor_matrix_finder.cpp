@@ -34,6 +34,7 @@ namespace xr {
             else if (comp_num != m_table[v]) // Another var in this XOR belongs to another component                
                 return false;            
         }
+        // All variables in the xor clause belongs to the same matrix
         return true;
     }
     
@@ -48,7 +49,6 @@ namespace xr {
         m_table.resize(m_sat.num_vars(), l_undef);
         m_reverseTable.reset();
         clash_vars_unused.reset();
-        m_matrix_no = 0;
         
         for (auto& x: m_xor.m_xorclauses_unused) 
             m_xor.m_xorclauses.push_back(x);
@@ -79,23 +79,27 @@ namespace xr {
             return true;
         }
     
-        unsigned_vector newSet;
-        unsigned_vector tomerge;
+        // Separate xor constraints in multiple gaussian matrixes
+        // Two xor clauses have to belong to the same matrix if they share at least one variable
+        bool_var_vector newSet;
+        unsigned_vector to_merge;
+        unsigned matrix_no = 0;
+        
         for (const xor_clause& x : m_xor.m_xorclauses) {
             if (belong_same_matrix(x))
                 continue;
     
-            tomerge.reset();
+            to_merge.reset();
             newSet.clear();
-            for (unsigned v : x) {
+            for (bool_var v : x) {
                 if (m_table[v] != l_undef)
-                    tomerge.push_back(m_table[v]);
+                    to_merge.push_back(m_table[v]);
                 else
                     newSet.push_back(v);
             }
-            if (tomerge.size() == 1) {
-                const unsigned into = *tomerge.begin();
-                unsigned_vector& intoReverse = m_reverseTable.find(into);
+            if (to_merge.size() == 1) {
+                const unsigned into = *to_merge.begin();
+                unsigned_vector& intoReverse = m_reverseTable[into];
                 for (unsigned i = 0; i < newSet.size(); i++) {
                     intoReverse.push_back(newSet[i]);
                     m_table[newSet[i]] = into;
@@ -103,29 +107,28 @@ namespace xr {
                 continue;
             }
     
-            for (unsigned v: tomerge) {
+            for (unsigned v: to_merge) {
                 for (const auto& v2 : m_reverseTable[v]) {
                     newSet.insert(v2);
                 }
                 m_reverseTable.erase(v);
             }
             for (auto j : newSet)
-                m_table[j] = m_matrix_no;
-            m_reverseTable[m_matrix_no] = newSet;
-            m_matrix_no++;
+                m_table[j] = matrix_no;
+            m_reverseTable.insert(matrix_no++, newSet);
         }
     
-        set_matrixes();
+        set_matrixes(matrix_no);
 
         return !m_sat.inconsistent();
     }
     
-    unsigned xor_matrix_finder::set_matrixes() {
+    unsigned xor_matrix_finder::set_matrixes(unsigned matrix_no) {
 
         svector<matrix_shape> matrix_shapes;
-        vector<vector<xor_clause>> xors_in_matrix(m_matrix_no);
+        vector<vector<xor_clause>> xors_in_matrix(matrix_no);
 
-        for (unsigned i = 0; i < m_matrix_no; i++) {
+        for (unsigned i = 0; i < matrix_no; i++) {
             matrix_shapes.push_back(matrix_shape(i));
             matrix_shapes[i].m_num = i;
             matrix_shapes[i].m_cols = m_reverseTable[i].size();
@@ -134,7 +137,7 @@ namespace xr {
         for (xor_clause& x : m_xor.m_xorclauses) {
             // take 1st variable to check which matrix it's in.
             const unsigned matrix = m_table[x[0]];
-            SASSERT(matrix < m_matrix_no);
+            SASSERT(matrix < matrix_no);
     
             //for stats
             matrix_shapes[matrix].m_rows ++;
@@ -155,7 +158,7 @@ namespace xr {
         unsigned unusedMatrix = 0;
         unsigned too_few_rows_matrix = 0;
         unsigned unused_matrix_printed = 0;
-        for (unsigned a = m_matrix_no; a-- > 0; ) {
+        for (unsigned a = matrix_no; a-- > 0; ) {
             matrix_shape& m = matrix_shapes[a];
             unsigned i = m.m_num;
             if (m.m_rows == 0) 

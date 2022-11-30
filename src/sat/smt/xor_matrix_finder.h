@@ -51,13 +51,12 @@ namespace xr {
         
         u_map<unsigned_vector> m_reverseTable; //matrix -> vars
         unsigned_vector        m_table; //var -> matrix
-        unsigned               m_matrix_no = 0;
         sorter                 m_sorter;
         solver&                m_xor;
         sat::solver&           m_sat;
         
         
-        unsigned set_matrixes();
+        unsigned set_matrixes(unsigned matrix_no);
         
         inline bool belong_same_matrix(const xor_clause& x);
         
