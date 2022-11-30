@@ -129,6 +129,38 @@ bool eliminate_predicates::can_be_macro_head(expr* _head, unsigned num_bound) {
     return true;
 }
 
+/**
+ * a quasi macro head is of the form 
+ * f(x,x)   where x is the only bound variable
+ * f(x,y,x+y+3,1) where x, y are the only bound variables
+ */
+
+bool eliminate_predicates::can_be_quasi_macro_head(expr* head, unsigned num_bound) {
+    if (!is_app(_head))
+        return false;
+    app* head = to_app(_head);
+    func_decl* f = head->get_decl();
+    if (m_fmls.frozen(f))
+        return false;
+    if (m_is_macro.is_marked(f))
+        return false;
+    if (f->is_associative())
+        return false;
+    uint_set indices;
+    for (expr* arg : *head) {
+        if (!is_var(arg))
+            return continue;
+        unsigned idx = to_var(arg)->get_idx();
+        if (indices.contains(idx))
+            return continue;
+        if (idx >= num_bound)
+            return false;
+        indices.insert(idx);
+    }
+    return indices.size() == num_bound;
+}
+
+
 expr_ref eliminate_predicates::bind_free_variables_in_def(clause& cl, app* head, expr* def) {
     unsigned num_bound = cl.m_bound.size();
     if (head->get_num_args() == num_bound)
@@ -365,7 +397,6 @@ void eliminate_predicates::try_find_macro(clause& cl) {
     // (= (+ (f x) s) t) 
     // becomes (= (f x) (- t s))
     //
-    // TBD:
     // (= (+ (* -1 (f x)) x) t)
     // becomes (= (f x) (- (- t s)))
 
@@ -473,10 +504,13 @@ void eliminate_predicates::try_find_macro(clause& cl) {
     // becomes (= (f x) (- t s (k x))
     // add (>= (k x) 0)
     // why is this a real improvement?
-    // 
+    //
+    
+    //
     // To review: quasi-macros
-    // (= (f x y (+ x y)) s), where x y are all bound variables.
-    // then ...?
+    // (= (f x y (+ x y)) s), where x y are all bound variables.    
+    // then replace (f x y z) by (if (= z (+ x y)) s (f' x y))
+    //
 }
 
 
@@ -501,21 +535,18 @@ void eliminate_predicates::reduce_definitions() {
     for (auto const& [k, v] : m_macros) 
         macro_expander.insert(v->m_head, v->m_def, v->m_dep);
     
-    for (unsigned i = qhead(); i < qtail(); ++i) {
+    for (unsigned i : indices()) {
         auto [f, d] = m_fmls[i]();
         expr_ref fml(f, m), new_fml(m);
-        expr_dependency_ref dep(m);
+        expr_dependency_ref dep(d, m);
         while (true) {
-            macro_expander(fml, new_fml, dep);
+            macro_expander(fml, dep, new_fml, dep);
             if (new_fml == fml)
                 break;
             rewrite(new_fml);
             fml = new_fml;
         }
-        if (fml != f) {
-            dep = m.mk_join(d, dep);
-            m_fmls.update(i, dependent_expr(m, fml, dep));
-        }
+        m_fmls.update(i, dependent_expr(m, fml, dep));
     }
     reset();
     init_clauses();
@@ -772,7 +803,7 @@ void eliminate_predicates::init_clauses() {
 
     m_fmls.freeze_suffix();
 
-    for (unsigned i = qhead(); i < qtail(); ++i) {
+    for (unsigned i : indices()) {
         clause* cl = init_clause(i);
         add_use_list(*cl);
         m_clauses.push_back(cl);
@@ -816,6 +847,8 @@ void eliminate_predicates::reset() {
 
 
 void eliminate_predicates::reduce() {
+    if (!m_fmls.has_quantifiers())
+        return;
     reset();
     init_clauses();
     find_definitions();

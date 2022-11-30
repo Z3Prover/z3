@@ -17,4 +17,5 @@ z3_add_component(simplifiers
     euf
     rewriter
     bit_blaster
+    normal_forms
 )

@@ -40,16 +40,14 @@ public:
         m_num_steps = 0;
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        for (unsigned idx = qhead(); idx < qtail(); idx++) {
-            if (m_fmls.inconsistent())
-                break;
+        for (unsigned idx : indices()) {
             auto d = m_fmls[idx];
             m_rewriter(d.fml(), new_curr, new_pr);
             m_num_steps += m_rewriter.get_num_steps();
             m_fmls.update(idx, dependent_expr(m, new_curr, d.dep()));            
         }
     }
-    void collect_statistics(statistics& st) const override { st.update("simplifier", m_num_steps); }
+    void collect_statistics(statistics& st) const override { st.update("simplifier-steps", m_num_steps); }
     void reset_statistics() override { m_num_steps = 0; }
     void updt_params(params_ref const& p) override { m_params.append(p); m_rewriter.updt_params(m_params); }
     void collect_param_descrs(param_descrs& r) override { th_rewriter::get_param_descrs(r); }

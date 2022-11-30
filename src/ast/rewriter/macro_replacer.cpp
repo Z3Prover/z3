@@ -125,9 +125,28 @@ void macro_replacer::insert(app* head, expr* def, expr_dependency* dep) {
     m_map.insert(f, std::tuple(head, def, dep));
 }
 
-void macro_replacer::operator()(expr* t, expr_ref& result, expr_dependency_ref& dep) {
-    macro_replacer_rw exp(m, *this, dep);
+void macro_replacer::operator()(expr* t, expr_dependency* dep_in, expr_ref& result, expr_dependency_ref& dep_out) {
+    expr_dependency_ref _dep_in(dep_in, m);
+    macro_replacer_rw exp(m, *this, dep_out);
     exp(t, result);
+    if (!dep_in)
+        return;
+    // update dependencies if needed
+    m_dep_exprs.reset();
+    m.linearize(dep_in, m_dep_exprs);
+    unsigned sz = m_trail.size();
+    for (expr*& d : m_dep_exprs) {
+        exp(d, result);
+        if (result != d) {
+            d = result.get();
+            m_trail.push_back(result);
+        }
+    }
+    if (sz != m_trail.size()) {
+        dep_in = m.mk_join(m_dep_exprs.size(), m_dep_exprs.data());
+        m_trail.shrink(sz);
+    }
+    dep_out = m.mk_join(dep_in, dep_out);
 }
 
 bool macro_replacer::has_macro(func_decl* f, app_ref& head, expr_ref& def, expr_dependency_ref& dep) {

@@ -68,8 +68,9 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
                 auto [f, dep1] = st[i]();
                 expr_ref g(m);
                 expr_dependency_ref dep2(m);
-                mrp(f, g, dep2);
-                st.update(i, dependent_expr(m, g, m.mk_join(dep1, dep2)));
+                mrp(f, dep1, g, dep2);
+                CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
+                st.update(i, dependent_expr(m, g, dep2));
             }
             continue;
         }
@@ -77,10 +78,28 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
         rp->set_substitution(t->m_subst.get());
         // rigid entries:
         // apply substitution to added in case of rigid model convertions
+        ptr_vector<expr> dep_exprs;
+        expr_ref_vector trail(m);
         for (unsigned i = qhead; i < st.qtail(); ++i) {
             auto [f, dep1] = st[i]();
             auto [g, dep2] = rp->replace_with_dep(f);
+            if (dep1) {
+                dep_exprs.reset();
+                trail.reset();
+                m.linearize(dep1, dep_exprs);                
+                for (auto*& d : dep_exprs) {
+                    auto [h, dep3] = rp->replace_with_dep(d);
+                    if (h != d) {
+                        trail.push_back(h);
+                        d = h;
+                        dep2 = m.mk_join(dep2, dep3);
+                    }
+                }
+                if (!trail.empty()) 
+                    dep1 = m.mk_join(dep_exprs.size(), dep_exprs.data());                
+            }
             dependent_expr d(m, g, m.mk_join(dep1, dep2));
+            CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
             add_vars(d, free_vars);
             st.update(i, d);
         }    
@@ -120,4 +139,20 @@ void model_reconstruction_trail::append(generic_model_converter& mc, unsigned& i
 void model_reconstruction_trail::append(generic_model_converter& mc) {
     m_trail_stack.push(value_trail(m_trail_index));
     append(mc, m_trail_index);
+}
+
+std::ostream& model_reconstruction_trail::display(std::ostream& out) const {
+    for (auto* t : m_trail) {
+        if (!t->m_active)
+            continue;
+        else if (t->is_hide())
+            out << "hide " << t->m_decl->get_name() << "\n";
+        else if (t->is_def())
+            out << t->m_decl->get_name() << " <- " << mk_pp(t->m_def, m) << "\n";
+        else {
+            for (auto const& [v, def] : t->m_subst->sub())
+                out << mk_pp(v, m) << " <- " << mk_pp(def, m) << "\n";
+        }
+    }
+    return out;
 }

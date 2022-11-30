@@ -46,7 +46,8 @@ class seq_simplifier : public dependent_expr_simplifier {
                 << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
                 << ")" << "\n";
             s.collect_statistics(st);
-            verbose_stream() << st);
+            if (st.size() > 0)
+                st.display_smt2(verbose_stream()));
         }
     };
 
@@ -63,14 +64,17 @@ public:
     }
         
     void reduce() override {
+        TRACE("simplifier", tout << m_fmls << "\n");
         for (auto* s : m_simplifiers) {
             if (m_fmls.inconsistent())
                 break;
             if (!m.inc())
                 break;
+            s->reset_statistics();
             collect_stats _cs(*s);
             s->reduce();
             m_fmls.flatten_suffix();
+            TRACE("simplifier", tout << s->name() << "\n" << m_fmls << "\n");
         }      
     }
     

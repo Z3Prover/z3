@@ -35,6 +35,8 @@ Revision History:
 #include "tactic/tactical.h"
 #include "qe/mbp/mbp_solve_plugin.h"
 #include "qe/lite/qe_lite.h"
+#include "tactic/dependent_expr_state_tactic.h"
+
 
 namespace qel {
 
@@ -2407,122 +2409,50 @@ void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_re
 }
 
 namespace {
-class qe_lite_tactic : public tactic {
-    ast_manager&             m;
-    params_ref               m_params;
-    qe_lite                  m_qe;
+    class qe_lite_simplifier : public dependent_expr_simplifier {
+        params_ref               m_params;
+        qe_lite                  m_qe;
+    public:
+        qe_lite_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st) :
+            dependent_expr_simplifier(m, st),
+            m_qe(m, p, true) {
+            updt_params(p);
+        }
 
-    void checkpoint() {
-        tactic::checkpoint(m);
-    }
+        char const* name() const override { return "qe-lite"; }
 
-#if 0
-    void debug_diff(expr* a, expr* b) {
-        ptr_vector<expr> as, bs;
-        as.push_back(a);
-        bs.push_back(b);
-        expr* a1, *a2, *b1, *b2;
-        while (!as.empty()) {
-            a = as.back();
-            b = bs.back();
-            as.pop_back();
-            bs.pop_back();
-            if (a == b) {
-                continue;
-            }
-            else if (is_forall(a) && is_forall(b)) {
-                as.push_back(to_quantifier(a)->get_expr());
-                bs.push_back(to_quantifier(b)->get_expr());
-            }
-            else if (m.is_and(a, a1, a2) && m.is_and(b, b1, b2)) {
-                as.push_back(a1);
-                as.push_back(a2);
-                bs.push_back(b1);
-                bs.push_back(b2);
-            }
-            else if (m.is_eq(a, a1, a2) && m.is_eq(b, b1, b2)) {
-                as.push_back(a1);
-                as.push_back(a2);
-                bs.push_back(b1);
-                bs.push_back(b2);
-            }
-            else {
-                TRACE("qe", tout << mk_pp(a, m) << " != " << mk_pp(b, m) << "\n";);
+        void updt_params(params_ref const& p) override {
+            m_params.append(p);
+        }
+
+        void reduce() override {
+            if (!m_fmls.has_quantifiers())
+                return;
+            proof_ref new_pr(m);
+            expr_ref new_f(m);
+            for (unsigned i : indices()) {
+                expr* f = m_fmls[i].fml();
+                if (!has_quantifiers(f))
+                    continue;
+                new_f = f;
+                m_qe(new_f, new_pr);
+                m_fmls.update(i, dependent_expr(m, new_f, m_fmls[i].dep()));
             }
         }
-    }
-#endif
+    };
 
-public:
-    qe_lite_tactic(ast_manager & m, params_ref const & p):
-        m(m),
-        m_params(p),
-        m_qe(m, p, true) {}
-
-    char const* name() const override { return "qe_lite"; }
-
-    tactic * translate(ast_manager & m) override {
-        return alloc(qe_lite_tactic, m, m_params);
-    }
-
-    void updt_params(params_ref const & p) override {
-        m_params.append(p);
-        // m_imp->updt_params(p);
-    }
-
-    void collect_param_descrs(param_descrs & r) override {
-        // m_imp->collect_param_descrs(r);
-    }
-
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result) override {
-        tactic_report report("qe-lite", *g);
-        proof_ref new_pr(m);
-        expr_ref new_f(m);
-
-        unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++) {
-            checkpoint();
-            if (g->inconsistent())
-                break;
-            expr * f = g->form(i);
-            if (!has_quantifiers(f))
-                continue;
-            new_f = f;
-            m_qe(new_f, new_pr);
-            if (new_pr) {
-                expr* fact = m.get_fact(new_pr);
-                if (to_app(fact)->get_arg(0) != to_app(fact)->get_arg(1)) {
-                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
-                }
-                else {
-                    new_pr = g->pr(i);
-                }
-            }
-            if (f != new_f) {
-                TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n" << new_pr << "\n";);
-                g->update(i, new_f, new_pr, g->dep(i));
-            }
+    class qe_lite_tactic_factory : public dependent_expr_simplifier_factory {
+    public:
+        dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) override {
+            return alloc(qe_lite_simplifier, m, p, s);
         }
-        g->inc_depth();
-        result.push_back(g.get());
-    }
-
-    void collect_statistics(statistics & st) const override {
-        // m_imp->collect_statistics(st);
-    }
-
-    void reset_statistics() override {
-        // m_imp->reset_statistics();
-    }
-
-    void cleanup() override {
-        m_qe.~qe_lite();
-        new (&m_qe) qe_lite(m, m_params, true);
-    }
-};
+    };
 }
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(qe_lite_tactic, m, p);
+    return alloc(dependent_expr_state_tactic, m, p, alloc(qe_lite_tactic_factory));
+}
+
+dependent_expr_simplifier* mk_qe_lite_simplifer(ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+    return alloc(qe_lite_simplifier, m, p, st);
 }

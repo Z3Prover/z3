@@ -34,7 +34,7 @@ namespace euf {
 
     void solve_eqs::get_eqs(dep_eq_vector& eqs) {
         for (extract_eq* ex : m_extract_plugins)
-            for (unsigned i = qhead(); i < qtail(); ++i)
+            for (unsigned i : indices())
                 ex->get_eqs(m_fmls[i], eqs);
     }
 
@@ -99,6 +99,9 @@ namespace euf {
                     auto const& [orig, v, t, d] = eq;
                     SASSERT(j == var2id(v));
                     bool is_safe = true;
+                    if (m_fmls.frozen(v))
+                        continue;
+                    
                     unsigned todo_sz = todo.size();
 
                     // determine if substitution is safe.
@@ -187,7 +190,7 @@ namespace euf {
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
-        for (unsigned i = qhead(); i < qtail() && !m_fmls.inconsistent(); ++i) {
+        for (unsigned i : indices()) {
             auto [f, d] = m_fmls[i]();
             auto [new_f, new_dep] = rp->replace_with_dep(f);
             m_rewriter(new_f);

@@ -22,9 +22,19 @@ Author:
 #include "ast/simplifiers/propagate_values.h"
 #include "ast/simplifiers/rewriter_simplifier.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/bv_slice.h"
 #include "ast/simplifiers/eliminate_predicates.h"
+#include "ast/simplifiers/elim_unconstrained.h"
+#include "ast/simplifiers/pull_nested_quantifiers.h"
+#include "ast/simplifiers/distribute_forall.h"
+#include "ast/simplifiers/refine_inj_axiom.h"
+#include "ast/simplifiers/elim_bounds.h"
+#include "ast/simplifiers/bit2int.h"
+#include "ast/simplifiers/bv_elim.h"
 #include "sat/sat_params.hpp"
+#include "smt/params/smt_params.h"
 #include "sat/sat_solver/sat_smt_preprocess.h"
+#include "qe/lite/qe_lite.h"
 
 void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st) {
     params_ref simp1_p = p;
@@ -44,18 +54,38 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
     simp2_p.set_bool("flat_and_or", false);
     
     sat_params sp(p);
+    smt_params smtp(p);
     if (sp.euf() || sp.smt()) {
         s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
         s.add_simplifier(alloc(propagate_values, m, p, st));
+        s.add_simplifier(alloc(euf::solve_eqs, m, st));
+        s.add_simplifier(alloc(elim_unconstrained, m, st));
+        if (smtp.m_macro_finder || smtp.m_quasi_macros) s.add_simplifier(alloc(eliminate_predicates, m, st));
+        if (smtp.m_qe_lite) s.add_simplifier(mk_qe_lite_simplifer(m, p, st));
+        if (smtp.m_pull_nested_quantifiers) s.add_simplifier(alloc(pull_nested_quantifiers_simplifier, m, p, st));
+        if (smtp.m_max_bv_sharing) s.add_simplifier(mk_max_bv_sharing(m, p, st));
+        if (smtp.m_refine_inj_axiom) s.add_simplifier(alloc(refine_inj_axiom_simplifier, m, p, st));
+        if (smtp.m_bv_size_reduce) s.add_simplifier(alloc(bv::slice, m, st));
+        if (smtp.m_distribute_forall) s.add_simplifier(alloc(distribute_forall_simplifier, m, p, st));
+        if (smtp.m_eliminate_bounds) s.add_simplifier(alloc(elim_bounds_simplifier, m, p, st));
+        if (smtp.m_simplify_bit2int) s.add_simplifier(alloc(bit2int_simplifier, m, p, st));
+        if (smtp.m_bb_quantifiers) s.add_simplifier(alloc(bv::elim_simplifier, m, p, st));
         //
         // add: 
-        // solve_eqs
-        // elim_predicates
-        // elim_uncnstr
         // euf_completion?
         //
-        // add: make it externally configurable
+        // add: make it externally programmable
         // 
+#if 0
+    ?? if (!invoke(m_lift_ite)) return;
+    m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
+    m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
+    ?? if (!invoke(m_ng_lift_ite)) return;
+    if (!invoke(m_elim_term_ite)) return;
+    if (!invoke(m_apply_quasi_macros)) return;
+    if (!invoke(m_flatten_clauses)) return;
+#endif
+
     }
     else {
         s.add_simplifier(alloc(rewriter_simplifier, m, p, st));

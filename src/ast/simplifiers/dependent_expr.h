@@ -18,6 +18,7 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 
 class dependent_expr {
@@ -88,4 +89,20 @@ public:
     std::tuple<expr*, expr_dependency*> operator()() const { 
         return { m_fml, m_dep }; 
     }
+
+    std::ostream& display(std::ostream& out) const {
+        return out << mk_pp(m_fml, m);
+        if (m_dep) {
+            out << "\n <- ";
+            ptr_vector<expr> deps;            
+            m.linearize(m_dep, deps);
+            for (expr* arg : deps)
+                out << mk_pp(arg, m) << " ";
+        }
+        return out;
+    }
 };
+
+inline std::ostream& operator<<(std::ostream& out, dependent_expr const& d) {
+    return d.display(out);
+}

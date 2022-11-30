@@ -44,6 +44,7 @@ class dependent_expr_state {
     unsigned m_qhead = 0;
     bool     m_suffix_frozen = false;
     bool     m_recfun_frozen = false;
+    lbool    m_has_quantifiers = l_undef;
     ast_mark m_frozen;
     func_decl_ref_vector m_frozen_trail;
     void freeze_prefix();
@@ -81,7 +82,7 @@ public:
     }
     void pop(unsigned n) { m_trail.pop_scope(n);  }
     
-    void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_qhead = qtail(); }
+    void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_has_quantifiers = l_undef;  m_qhead = qtail(); }
     unsigned num_exprs();
 
     /**
@@ -90,7 +91,15 @@ public:
     bool frozen(func_decl* f) const { return m_frozen.is_marked(f); }
     bool frozen(expr* f) const { return is_app(f) && m_frozen.is_marked(to_app(f)->get_decl()); }
     void freeze_suffix();
+
+    virtual std::ostream& display(std::ostream& out) const { return out; }
+
+    bool has_quantifiers();
 };
+
+inline std::ostream& operator<<(std::ostream& out, dependent_expr_state& st) {
+    return st.display(out);
+}
 
 /**
    Shared interface of simplifiers. 
@@ -105,6 +114,26 @@ protected:
 
     unsigned qhead() const { return m_fmls.qhead(); }
     unsigned qtail() const { return m_fmls.qtail(); }
+    struct iterator {
+        dependent_expr_simplifier& s;
+        unsigned m_index = 0;
+        bool at_end = false;
+        unsigned index() const { return at_end ? s.qtail() : m_index; }
+        iterator(dependent_expr_simplifier& s, unsigned i) : s(s), m_index(i), at_end(i == s.qtail()) {}
+        bool operator==(iterator const& other) const { return index() == other.index(); }
+        bool operator!=(iterator const& other) const { return !(*this == other); }
+        iterator& operator++() { if (!s.m.inc() || s.m_fmls.inconsistent()) at_end = true; else ++m_index; return *this; }
+        unsigned operator*() const { return m_index; }
+    };
+
+    struct index_set {
+        dependent_expr_simplifier& s;
+        iterator begin() { return iterator(s, s.qhead()); }
+        iterator end() { return iterator(s, s.qtail()); }
+        index_set(dependent_expr_simplifier& s) : s(s) {}
+    };
+
+    index_set indices() { return index_set(*this); }
 
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}

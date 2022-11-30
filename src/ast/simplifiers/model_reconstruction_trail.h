@@ -138,5 +138,7 @@ public:
     * Append new updates to model converter, update m_trail_index in the process.
     */
     void append(generic_model_converter& mc);
+
+    std::ostream& display(std::ostream& out) const;
 };
 

@@ -60,6 +60,17 @@ class sat_smt_solver : public solver {
         void add(dependent_expr const& j) override { s.m_fmls.push_back(j); }
         bool inconsistent() override { return s.m_solver.inconsistent(); }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+        std::ostream& display(std::ostream& out) const override {
+            unsigned i = 0;
+            for (auto const& d : s.m_fmls) {
+                if (i == qhead())
+                    out << "---- head ---\n";
+                out << d << "\n";
+                ++i;
+            }
+            m_reconstruction_trail.display(out);
+            return out;
+        }
         void append(generic_model_converter& mc) { model_trail().append(mc); }
         void replay(unsigned qhead) { m_reconstruction_trail.replay(qhead, *this); }
         void flatten_suffix() override {
@@ -421,12 +432,10 @@ public:
     }
 
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
-        if (!is_internalized()) {
-            lbool r = internalize_formulas();
-            if (r != l_true) {
-                IF_VERBOSE(0, verbose_stream() << "internalize produced " << r << "\n");
-                return expr_ref_vector(m);
-            }
+        lbool r = internalize_formulas();
+        if (r != l_true) {
+            IF_VERBOSE(0, verbose_stream() << "internalize produced " << r << "\n");
+            return expr_ref_vector(m);
         }
         convert_internalized();
         if (m_solver.inconsistent())
@@ -551,8 +560,7 @@ public:
 
     void convert_internalized() {
         m_solver.pop_to_base_level();
-        if (!is_internalized() && m_preprocess_state.qhead() > 0) 
-            internalize_formulas();        
+        internalize_formulas();        
         if (!is_internalized() || m_internalized_converted) 
             return;
         sat2goal s2g;
@@ -723,9 +731,8 @@ private:
         
         for (unsigned v = 0; v < var2expr.size(); ++v) {
             expr * n = var2expr.get(v);
-            if (!n || !is_uninterp_const(n)) {
-                continue;
-            }
+            if (!n || !is_uninterp_const(n)) 
+                continue;            
             switch (sat::value_at(v, ll_m)) {
             case l_true:
                 mdl->register_decl(to_app(n)->get_decl(), m.mk_true());
@@ -747,9 +754,8 @@ private:
     
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
 
-        if (!gparams::get_ref().get_bool("model_validate", false)) {
-            return;
-        }
+        if (!gparams::get_ref().get_bool("model_validate", false)) 
+            return;        
         IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
         eval.set_model_completion(true);

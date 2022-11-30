@@ -24,7 +24,7 @@ unsigned dependent_expr_state::num_exprs() {
 }
 
 void dependent_expr_state::freeze(func_decl* f) {
-    if (m_frozen.is_marked(f))
+    if (m_frozen.is_marked(f) || !is_uninterp(f))
         return;
     m_frozen_trail.push_back(f);
     m_frozen.mark(f, true);
@@ -106,4 +106,14 @@ void dependent_expr_state::freeze_suffix() {
         }
         freeze_terms(d.fml(), true, visited);
     }
+}
+
+bool dependent_expr_state::has_quantifiers() {
+    if (m_has_quantifiers != l_undef)
+        return m_has_quantifiers == l_true;
+    bool found = false;
+    for (unsigned i = qhead(); i < qtail(); ++i) 
+        found |= ::has_quantifiers((*this)[i].fml());
+    m_has_quantifiers = found ? l_true : l_false;
+    return m_has_quantifiers == l_true;
 }

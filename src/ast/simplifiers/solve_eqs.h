@@ -32,6 +32,10 @@ namespace euf {
         struct stats {
             unsigned m_num_steps = 0;
             unsigned m_num_elim_vars = 0;
+            void reset() {
+                m_num_steps = 0;
+                m_num_elim_vars = 0;
+            }
         };
 
         struct config {
@@ -77,6 +81,8 @@ namespace euf {
         void collect_param_descrs(param_descrs& r) override;
 
         void collect_statistics(statistics& st) const override;
+
+        void reset_statistics() override { m_stats.reset(); }
 
     };
 }

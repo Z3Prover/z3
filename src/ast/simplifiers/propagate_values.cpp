@@ -83,13 +83,13 @@ void propagate_values::reduce() {
     };
     
     unsigned rw = m_stats.m_num_rewrites + 1;
-    for (unsigned r = 0; r < m_max_rounds && rw != m_stats.m_num_rewrites; ++r) {            
+    for (unsigned r = 0; r < m_max_rounds && m.inc() && rw != m_stats.m_num_rewrites; ++r) {            
         rw = m_stats.m_num_rewrites;
         init_sub();
-        for (unsigned i = qhead(); i < qtail() && !m_fmls.inconsistent(); ++i)
+        for (unsigned i = qhead(); i < qtail() && m.inc() && !m_fmls.inconsistent(); ++i)
             process_fml(i);
         init_sub();
-        for (unsigned i = qtail(); i-- > qhead() && !m_fmls.inconsistent();)
+        for (unsigned i = qtail(); i-- > qhead() && m.inc() && !m_fmls.inconsistent();)
             process_fml(i);
         if (subst.empty())
             break;
