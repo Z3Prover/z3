@@ -19,6 +19,8 @@ Notes:
 #include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 
+#include <iostream>
+
 
 namespace xr {
 
@@ -27,7 +29,7 @@ namespace xr {
     inline bool xor_matrix_finder::belong_same_matrix(const xor_clause& x) {
         unsigned comp_num = -1;
         for (sat::bool_var v : x) {
-            if (m_table[v] == l_undef) // Belongs to none, abort
+            if (m_table[v] == (unsigned)-1) // Belongs to none, abort
                 return false;            
             if (comp_num == -1) // Belongs to this one                
                 comp_num = m_table[v];            
@@ -44,10 +46,7 @@ namespace xr {
         SASSERT(m_xor.m_gmatrices.empty());
         
         can_detach = true;
-    
-        m_table.clear();
-        m_table.resize(m_sat.num_vars(), l_undef);
-        m_reverseTable.reset();
+        
         clash_vars_unused.reset();
         
         for (auto& x: m_xor.m_xorclauses_unused) 
@@ -85,14 +84,20 @@ namespace xr {
         unsigned_vector to_merge;
         unsigned matrix_no = 0;
         
+        m_table.clear();
+        m_table.resize(m_sat.num_vars(), (unsigned)-1);
+        m_reverseTable.reset();
+        
         for (const xor_clause& x : m_xor.m_xorclauses) {
+            std::cout  << x << std::endl;
+            
             if (belong_same_matrix(x))
                 continue;
     
             to_merge.reset();
             newSet.clear();
             for (bool_var v : x) {
-                if (m_table[v] != l_undef)
+                if (m_table[v] != (unsigned)-1)
                     to_merge.push_back(m_table[v]);
                 else
                     newSet.push_back(v);
