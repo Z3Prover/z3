@@ -1344,12 +1344,31 @@ namespace polysat {
             s.expect_sat();
         }
 
+        /**
+         * p <= p & q
+         * p != p & q
+         * is unsatisfiable.
+         */
         static void test_band5(unsigned bw = 32) {
             scoped_solver s(concat(__func__, " bw=", bw));
             auto p = s.var(s.add_var(bw));
             auto q = s.var(s.add_var(bw));
             s.add_ule(p, s.band(p, q));
-            s.add_diseq(p - s.band(p, q));
+            s.add_diseq(p, s.band(p, q));
+            // Immediate solution with clause: p <= r /\ r <= p  ==>  p = r
+            // s.add_clause({ ~s.ule(p, s.band(p, q)), ~s.ule(s.band(p, q), p), s.eq(p, s.band(p, q)) }, true);
+            s.check();
+            s.expect_unsat();
+        }
+
+        /** Like test_band5, but represent disequality as clause of less-than constraints */
+        static void test_band5_clause(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            // Rewrite p - q > 0  -->  p < q || q < p
+            s.add_clause({ s.ult(p, s.band(p, q)), s.ult(s.band(p, q), p) }, false);
             s.check();
             s.expect_unsat();
         }
@@ -1556,10 +1575,11 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 1  // Enable this block to run a single unit test with detailed output.
+#if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
     test_polysat::test_band5();
+    // test_polysat::test_band5_clause();
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
@@ -1575,7 +1595,7 @@ void tst_polysat() {
 #endif
 
     // If non-empty, only run tests whose name contains the run_filter
-    run_filter = "band";
+    run_filter = "";
     test_max_conflicts = 10;
 
     collect_test_records = true;
@@ -1643,6 +1663,7 @@ void tst_polysat() {
     RUN(test_polysat::test_band3());
     RUN(test_polysat::test_band4());
     RUN(test_polysat::test_band5());
+    RUN(test_polysat::test_band5_clause());
     RUN(test_polysat::test_quot_rem());
 
     RUN(test_polysat::test_fi_zero());
