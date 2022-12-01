@@ -28,7 +28,11 @@ class flatten_clauses : public dependent_expr_simplifier {
 
     bool is_literal(expr* a) {
         m.is_not(a, a);
-        return !is_app(a) || to_app(a)->get_num_args() == 0;        
+        if (m.is_eq(a) && !m.is_iff(a))
+            return true;
+        if (!is_app(a))
+            return true;
+        return to_app(a)->get_family_id() != m.get_basic_family_id();
     }
 
     bool is_reducible(expr* a, expr* b) {
@@ -49,14 +53,14 @@ public:
     }
         
     void reduce() override {
-        bool change = true;
-        
-        while (change) {
-            change = false;
+        unsigned nf = m_num_flat + 1;        
+        while (nf != m_num_flat) {
+            nf = m_num_flat;
             for (unsigned idx : indices()) {
                 auto de = m_fmls[idx];
                 expr* f = de.fml(), *a, *b, *c;
                 bool decomposed = false;
+                // (or a (not (or b_i)) => and_i (or a (not b_i))
                 if (m.is_or(f, a, b) && m.is_not(b, b) && m.is_or(b) && is_reducible(a, b)) 
                     decomposed = true;
                 else if (m.is_or(f, b, a) && m.is_not(b, b) && m.is_or(b) && is_reducible(a, b))
@@ -65,10 +69,10 @@ public:
                     for (expr* arg : *to_app(b)) 
                         m_fmls.add(dependent_expr(m, m.mk_or(a, mk_not(m, arg)), de.dep()));
                     m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
-                    change = true;
                     ++m_num_flat;
                     continue;
                 }
+                // (or a (and b_i)) => and_i (or a b_i)
                 if (m.is_or(f, a, b) && m.is_and(b) && is_reducible(a, b))
                     decomposed = true;
                 else if (m.is_or(f, b, a) && m.is_and(b) && is_reducible(a, b))
@@ -77,7 +81,24 @@ public:
                     for (expr * arg : *to_app(b))
                         m_fmls.add(dependent_expr(m, m.mk_or(a, arg), de.dep()));
                     m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
-                    change = true;
+                    ++m_num_flat;
+                    continue;
+                }
+                // not (and a (or b_i)) => and_i (not a) or (not b_i)
+                if (m.is_not(f, c) && m.is_and(c, a, b) && m.is_or(b) && is_reducible(a, b))
+                    decomposed = true;
+                else if (m.is_not(f, c) && m.is_and(c, b, a) && m.is_or(b) && is_reducible(a, b))
+                    decomposed = true;
+                if (decomposed) {
+                    expr* na = mk_not(m, a);
+                    for (expr* arg : *to_app(b))
+                        m_fmls.add(dependent_expr(m, m.mk_or(na, arg), de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
+                    ++m_num_flat;
+                    continue;
+                }
+                if (m.is_implies(f, a, b)) {
+                    m_fmls.update(idx, dependent_expr(m, m.mk_or(mk_not(m, a), b), de.dep()));
                     ++m_num_flat;
                     continue;
                 }
@@ -85,7 +106,6 @@ public:
                     m_fmls.add(dependent_expr(m, m.mk_or(mk_not(m, a), b), de.dep()));
                     m_fmls.add(dependent_expr(m, m.mk_or(a, c), de.dep()));
                     m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
-                    change = true;
                     ++m_num_flat;
                     continue;
                 }

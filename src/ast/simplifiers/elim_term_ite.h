@@ -15,7 +15,7 @@ Author:
 #pragma once
 
 #include "ast/simplifiers/dependent_expr_state.h"
-#include "ast/normal_forms/elim_term_ite.h""
+#include "ast/normal_forms/elim_term_ite.h"
 
 
 class elim_term_ite_simplifier : public dependent_expr_simplifier {
@@ -32,13 +32,9 @@ public:
     char const* name() const override { return "elim-term-ite"; }
         
     void reduce() override {
-        if (!m_fmls.has_quantifiers())
-            return;
         expr_ref r(m);
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
-            if (!has_quantifiers(d.fml()))
-                continue;
             m_rewriter(d.fml(), r);
             m_fmls.update(idx, dependent_expr(m, r, d.dep()));
         }

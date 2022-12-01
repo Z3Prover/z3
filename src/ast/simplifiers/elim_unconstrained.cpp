@@ -130,6 +130,7 @@ void elim_unconstrained::init_nodes() {
     m_trail.append(terms);
     m_heap.reset();
     m_root.reset();
+    m_nodes.reset();
 
     // initialize nodes for terms in the original goal
     init_terms(terms);
@@ -159,6 +160,7 @@ void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
         n.m_orig = e;
         n.m_term = e;
         n.m_refcount = 0;
+        
         if (is_uninterp_const(e))
             m_heap.insert(root(e));
         if (is_quantifier(e)) {
@@ -250,6 +252,8 @@ void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<dependent_expr> const& old_fmls) {
     auto& trail = m_fmls.model_trail();
 
+    // fresh declarations are added first since 
+    // model reconstruction proceeds in reverse order of stack.
     for (auto const& entry : mc.entries()) {
         switch (entry.m_instruction) {
         case generic_model_converter::instruction::HIDE:

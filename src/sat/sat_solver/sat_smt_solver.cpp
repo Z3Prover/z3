@@ -63,7 +63,7 @@ class sat_smt_solver : public solver {
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
             for (auto const& d : s.m_fmls) {
-                if (i == qhead())
+                if (i > 0 && i == qhead())
                     out << "---- head ---\n";
                 out << d << "\n";
                 ++i;

@@ -38,7 +38,6 @@ public:
             m_fmls.update(idx, dependent_expr(m, r, d.dep()));
         }
     }
-
 };
 
 
