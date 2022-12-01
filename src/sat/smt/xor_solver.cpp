@@ -769,7 +769,7 @@ namespace xr {
                 ws[j++] = ws[i];
             }
         }
-        ws.shrink(i - j);
+        ws.shrink(j);
     }
     
     // Removes all xor clauses that do not contain any variables 
