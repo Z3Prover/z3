@@ -103,7 +103,7 @@ namespace q {
         void ensure_ground_enodes(clause const& c);
 
         void instantiate(binding& b);
-        sat::literal instantiate(clause& c, euf::enode* const* binding, lit const& l);
+        sat::literal instantiate(clause& c, unsigned generation, euf::enode* const* binding, lit const& l);
 
         // register as callback into egraph.
         void on_merge(euf::enode* root, euf::enode* other);          
