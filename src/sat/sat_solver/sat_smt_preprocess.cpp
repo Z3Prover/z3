@@ -34,6 +34,7 @@ Author:
 #include "ast/simplifiers/push_ite.h"
 #include "ast/simplifiers/elim_term_ite.h"
 #include "ast/simplifiers/flatten_clauses.h"
+#include "ast/simplifiers/cnf_nnf.h"
 #include "sat/sat_params.hpp"
 #include "smt/params/smt_params.h"
 #include "sat/sat_solver/sat_smt_preprocess.h"
@@ -48,6 +49,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
         s.add_simplifier(alloc(propagate_values, m, p, st));
         s.add_simplifier(alloc(euf::solve_eqs, m, st));
         s.add_simplifier(alloc(elim_unconstrained, m, st));
+        if (smtp.m_nnf_cnf) s.add_simplifier(alloc(cnf_nnf_simplifier, m, p, st));
         if (smtp.m_macro_finder || smtp.m_quasi_macros) s.add_simplifier(alloc(eliminate_predicates, m, st));
         if (smtp.m_qe_lite) s.add_simplifier(mk_qe_lite_simplifer(m, p, st));
         if (smtp.m_pull_nested_quantifiers) s.add_simplifier(alloc(pull_nested_quantifiers_simplifier, m, p, st));
@@ -62,6 +64,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
         if (smtp.m_lift_ite != lift_ite_kind::LI_NONE) s.add_simplifier(alloc(push_ite_simplifier, m, p, st, smtp.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE));
         if (smtp.m_ng_lift_ite != lift_ite_kind::LI_NONE) s.add_simplifier(alloc(ng_push_ite_simplifier, m, p, st, smtp.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE));
         s.add_simplifier(alloc(flatten_clauses, m, p, st));
+        
         //
         // add: 
         // euf_completion?
