@@ -188,7 +188,9 @@ struct static_features {
     void get_feature_vector(vector<double> & result);
     bool has_uf() const;
     unsigned num_theories() const; 
-    unsigned num_non_uf_theories() const; 
+    unsigned num_non_uf_theories() const;
+
+    bool is_dense() const;
 
 };
 

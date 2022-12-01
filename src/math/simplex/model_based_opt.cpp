@@ -1462,11 +1462,14 @@ namespace opt {
 
             rational w_value = w == UINT_MAX ? offset : m_var2value[w];
 
-#if 1
-            // V := (a * z_value - w_value) div rMod
+#if 0
+            // V := (a * z_value + w_value) div rMod
             // V*rMod <= a*z + w < (V+1)*rMod
             // v = a*z + w - V*rMod
-            SASSERT(a * z_value - w_value >= 0);
+            SASSERT(a > 0);
+            SASSERT(z_value >= 0);
+            SASSERT(w_value >= 0);
+            SASSERT(a * z_value + w_value >= 0);
             rational V = div(a * z_value + w_value, rMod);
             vector<var> mod_coeffs;
             SASSERT(V >= 0);

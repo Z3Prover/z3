@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "ast/static_features.h"
 #include "smt/params/dyn_ack_params.h"
 #include "smt/params/qi_params.h"
 #include "smt/params/theory_arith_params.h"
@@ -254,6 +255,49 @@ struct smt_params : public preprocessor_params,
     void display(std::ostream & out) const;
 
     void validate_string_solver(symbol const& s) const;
+
+    void setup_QF_UF();
+
+    void setup_QF_RDL();
+
+    void setup_QF_RDL(static_features & st);
+
+    void setup_QF_IDL();
+
+    void setup_QF_IDL(static_features & st);
+
+    void setup_QF_LRA();
+
+    void setup_QF_LRA(static_features const& st);
+
+    void setup_QF_LIA();
+
+    void setup_QF_LIA(static_features const& st);
+
+    void setup_QF_UFLIA();
+
+    void setup_QF_UFLRA();
+
+    void setup_QF_BV();
+
+    void setup_QF_AUFBV();
+
+    void setup_QF_AX();
+
+    void setup_QF_AX(static_features const& st);
+
+    void setup_QF_AUFLIA();
+
+    void setup_QF_AUFLIA(static_features const& st);
+
+    void setup_AUFLIA(bool simple_array);
+
+    void setup_AUFLIA(static_features const & st);
+
+    void setup_AUFLIRA(bool simple_array);
+
+    void setup_LRA();
+            
 };
 
 

@@ -212,11 +212,7 @@ namespace smt {
     }
 
     void setup::setup_QF_UF() {
-        m_params.m_relevancy_lvl           = 0;
-        m_params.m_nnf_cnf                 = false;
-        m_params.m_restart_strategy        = RS_LUBY;
-        m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
-        m_params.m_random_initial_activity = IA_RANDOM;
+        m_params.setup_QF_UF();
     }
 
     void setup::setup_QF_DT() {
@@ -240,18 +236,8 @@ namespace smt {
     }
 
     void setup::setup_QF_RDL() {
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false;
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_RDL();
         setup_mi_arith();
-    }
-
-    static bool is_dense(static_features const & st) {
-        return 
-            st.m_num_uninterpreted_constants < 1000 &&
-            (st.m_num_arith_eqs + st.m_num_arith_ineqs) > st.m_num_uninterpreted_constants * 9;
     }
 
     static bool is_in_diff_logic(static_features const & st) {
@@ -285,7 +271,7 @@ namespace smt {
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_nnf_cnf             = false;
-        if (is_dense(st)) {
+        if (st.is_dense()) {
             m_params.m_restart_strategy = RS_GEOMETRIC;
             m_params.m_restart_adaptive = false;
             m_params.m_phase_selection  = PS_CACHING;
@@ -327,12 +313,7 @@ namespace smt {
 
     void setup::setup_QF_IDL() {
         TRACE("setup", tout << "setup_QF_IDL()\n";);
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false;
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_arith_small_lemma_size = 30;
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_IDL();
         setup_lra_arith();
     }
 
@@ -353,11 +334,11 @@ namespace smt {
         m_params.m_nnf_cnf             = false;
         if (st.m_num_uninterpreted_constants > 5000)
             m_params.m_relevancy_lvl   = 2;
-        else if (st.m_cnf && !is_dense(st))
+        else if (st.m_cnf && !st.is_dense())
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE2;
         else
             m_params.m_phase_selection = PS_CACHING;
-        if (is_dense(st) && st.m_num_bin_clauses + st.m_num_units == st.m_num_clauses) {
+        if (st.is_dense() && st.m_num_bin_clauses + st.m_num_units == st.m_num_clauses) {
             m_params.m_restart_adaptive    = false;
             m_params.m_restart_strategy    = RS_GEOMETRIC;
         }
@@ -373,7 +354,7 @@ namespace smt {
         if (m_manager.proofs_enabled()) {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         }
-        else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
+        else if (!m_params.m_arith_auto_config_simplex && st.is_dense()) {
             TRACE("setup", tout << "using dense diff logic...\n";);
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE;
             if (st.arith_k_sum_is_small())
@@ -418,7 +399,7 @@ namespace smt {
         if (st.m_num_uninterpreted_functions == 0) {
             m_params.m_arith_eq2ineq        = true;
             m_params.m_arith_propagate_eqs  = false;
-            if (is_dense(st)) {
+            if (st.is_dense()) {
                 m_params.m_arith_small_lemma_size = 128;
                 m_params.m_lemma_gc_half          = true;
                 m_params.m_restart_strategy       = RS_GEOMETRIC;
@@ -449,35 +430,13 @@ namespace smt {
 
     void setup::setup_QF_LRA() {
         TRACE("setup", tout << "setup_QF_LRA()\n";);
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false;
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_eliminate_term_ite  = true;
-        m_params.m_nnf_cnf             = false;
-        m_params.m_phase_selection       = PS_THEORY;
+        m_params.setup_QF_LRA();
         setup_lra_arith();
     }
 
     void setup::setup_QF_LRA(static_features const & st) {
         check_no_uninterpreted_functions(st, "QF_LRA");
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false;
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_eliminate_term_ite  = true;
-        m_params.m_nnf_cnf             = false;
-        if (numerator(st.m_arith_k_sum) > rational(2000000) && denominator(st.m_arith_k_sum) > rational(500)) {
-            m_params.m_relevancy_lvl       = 2;
-            m_params.m_relevancy_lemma     = false;
-        }
-        m_params.m_phase_selection       = PS_THEORY;
-        if (!st.m_cnf) {
-            m_params.m_restart_strategy      = RS_GEOMETRIC;
-            m_params.m_arith_stronger_lemmas = false;
-            m_params.m_restart_adaptive      = false;
-        }
-        m_params.m_arith_small_lemma_size = 32;
+        m_params.setup_QF_LRA(st);
         setup_lra_arith();
     }
 
@@ -487,56 +446,20 @@ namespace smt {
 
     void setup::setup_QF_LIA() {
         TRACE("setup", tout << "setup_QF_LIA(st)\n";);
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false; 
-        m_params.m_arith_propagate_eqs = false; 
-        m_params.m_nnf_cnf             = false;        
+        m_params.setup_QF_LIA();
         setup_lra_arith();
     }
 
     void setup::setup_QF_LIA(static_features const & st) {
         check_no_uninterpreted_functions(st, "QF_LIA");
         TRACE("setup", tout << "QF_LIA setup\n";);
-
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_eq2ineq       = true;
-        m_params.m_arith_reflect       = false; 
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_nnf_cnf             = false;
-        if (st.m_max_ite_tree_depth > 50) {
-            m_params.m_arith_eq2ineq        = false;
-            m_params.m_pull_cheap_ite       = true;
-            m_params.m_arith_propagate_eqs  = true;
-            m_params.m_relevancy_lvl        = 2; 
-            m_params.m_relevancy_lemma      = false;
-        }
-        else if (st.m_num_clauses == st.m_num_units) {
-            m_params.m_arith_gcd_test         = false;
-            m_params.m_arith_branch_cut_ratio = 4;
-            m_params.m_relevancy_lvl          = 2; 
-            m_params.m_arith_eq2ineq          = true;
-            m_params.m_eliminate_term_ite     = true;
-        } 
-        else {
-            m_params.m_eliminate_term_ite   = true;
-            m_params.m_restart_adaptive     = false;
-            m_params.m_restart_strategy     = RS_GEOMETRIC;
-            m_params.m_restart_factor       = 1.5;
-        }
-        if (st.m_num_bin_clauses + st.m_num_units == st.m_num_clauses && st.m_cnf && st.m_arith_k_sum > rational(100000)) {
-            m_params.m_arith_bound_prop      = bound_prop_mode::BP_NONE;
-            m_params.m_arith_stronger_lemmas = false;
-        }
+        m_params.setup_QF_LIA(st);
         setup_lra_arith();
     }
 
     void setup::setup_QF_UFLIA() {
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_reflect       = false; 
-        m_params.m_nnf_cnf             = false;
-        m_params.m_arith_propagation_threshold = 1000;
         setup_lra_arith();
+        m_params.setup_QF_UFLIA();
     }
 
     void setup::setup_QF_UFLIA(static_features & st) {
@@ -548,103 +471,49 @@ namespace smt {
     }
 
     void setup::setup_QF_UFLRA() {
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_reflect       = false; 
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_UFLRA();
         setup_lra_arith();
     }
 
     void setup::setup_QF_BV() {
         TRACE("setup", tout << "qf-bv\n";);
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_reflect       = false; 
-        m_params.m_bv_cc               = false;
-        m_params.m_bb_ext_gates        = true;
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_BV();
         m_context.register_plugin(alloc(smt::theory_bv, m_context));
     }
 
     void setup::setup_QF_AUFBV() {
-        m_params.m_array_mode          = AR_SIMPLE;
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_bv_cc               = false;
-        m_params.m_bb_ext_gates        = true;
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_AUFBV();
         m_context.register_plugin(alloc(smt::theory_bv, m_context));
         setup_arrays();
     }
 
     void setup::setup_QF_AX() {
         TRACE("setup", tout << "QF_AX\n";);
-        m_params.m_array_mode          = AR_SIMPLE;
-        m_params.m_nnf_cnf             = false;
+        m_params.setup_QF_AX();
         setup_arrays();
     }
 
     void setup::setup_QF_AX(static_features const & st) {
-        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
-        m_params.m_nnf_cnf             = false;
-        if (st.m_num_clauses == st.m_num_units) {
-            m_params.m_relevancy_lvl       = 0;
-            m_params.m_phase_selection     = PS_ALWAYS_FALSE;
-        }
-        else {
-            m_params.m_relevancy_lvl       = 2;
-        }
+        m_params.setup_QF_AX(st);
         setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA() {
         TRACE("QF_AUFLIA", tout << "no static features\n";);
-        m_params.m_array_mode          = AR_SIMPLE;
-        m_params.m_nnf_cnf             = false;
-        m_params.m_relevancy_lvl       = 2;
-        m_params.m_restart_strategy    = RS_GEOMETRIC;
-        m_params.m_restart_factor      = 1.5;
-        m_params.m_phase_selection     = PS_CACHING_CONSERVATIVE2;
+        m_params.setup_QF_AUFLIA();
         setup_i_arith();
         setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA(static_features const & st) {
-        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
-        if (st.m_has_real)
-            throw default_exception("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
-        m_params.m_nnf_cnf             = false;
-        if (st.m_num_clauses == st.m_num_units) {
-            TRACE("QF_AUFLIA", tout << "using relevancy: 0\n";);
-            m_params.m_relevancy_lvl       = 0;
-            m_params.m_phase_selection     = PS_ALWAYS_FALSE;
-        }
-        else {
-            m_params.m_relevancy_lvl           = 0; // it was 2, for some reason 2 doesn't work anymore TODO: investigate
-            m_params.m_restart_strategy        = RS_GEOMETRIC;
-            m_params.m_restart_factor          = 1.5;
-            m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
-            m_params.m_random_initial_activity = IA_ZERO;
-        }
+        m_params.setup_QF_AUFLIA(st);
         setup_i_arith();
         setup_arrays();
     }
 
     void setup::setup_AUFLIA(bool simple_array) {
         TRACE("setup", tout << "AUFLIA\n";);
-        m_params.m_array_mode              = simple_array ? AR_SIMPLE : AR_FULL;
-        m_params.m_pi_use_database         = true;
-        m_params.m_phase_selection         = PS_ALWAYS_FALSE;
-        m_params.m_restart_strategy        = RS_GEOMETRIC;
-        m_params.m_restart_factor          = 1.5;
-        m_params.m_eliminate_bounds        = true;
-        m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_qi_lazy_threshold       = 20;
-        m_params.m_mbqi                    = true; // enabling MBQI and MACRO_FINDER by default :-)
-
-        // MACRO_FINDER is a horrible for AUFLIA and UFNIA benchmarks (boogie benchmarks in general)
-        // It destroys the existing patterns.
-        // m_params.m_macro_finder            = true; 
-        
-        if (m_params.m_ng_lift_ite == lift_ite_kind::LI_NONE)
-            m_params.m_ng_lift_ite = lift_ite_kind::LI_CONSERVATIVE;
+        m_params.setup_AUFLIA(simple_array);
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
         m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         setup_arrays();
@@ -653,29 +522,13 @@ namespace smt {
     void setup::setup_AUFLIA(static_features const & st) {
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
-        m_params.m_qi_eager_threshold      = st.m_num_quantifiers_with_patterns == 0 ? 5 : 7;
+        m_params.setup_AUFLIA(st);
         setup_AUFLIA();
     }
 
     void setup::setup_AUFLIRA(bool simple_array) {
         TRACE("setup", tout << "AUFLIRA\n";);
-        m_params.m_array_mode              = simple_array ? AR_SIMPLE : AR_FULL;
-        m_params.m_phase_selection         = PS_ALWAYS_FALSE;
-        m_params.m_eliminate_bounds        = true;
-        m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_qi_eager_threshold      = 5;
-        // Added for MBQI release
-        m_params.m_qi_lazy_threshold       = 20;
-        // 
-        m_params.m_macro_finder            = true;
-        if (m_params.m_ng_lift_ite == lift_ite_kind::LI_NONE)
-            m_params.m_ng_lift_ite         = lift_ite_kind::LI_CONSERVATIVE;
-        m_params.m_pi_max_multi_patterns   = 10; //<< it was used for SMT-COMP
-        m_params.m_array_lazy_ieq          = true;
-        m_params.m_array_lazy_ieq_delay    = 4;
-        //
-        m_params.m_mbqi                    = true; // enabling MBQI by default :-)
-        // 
+        m_params.setup_AUFLIRA(simple_array);
         setup_mi_arith();
         setup_arrays(); 
     }
@@ -697,10 +550,7 @@ namespace smt {
     }
 
     void setup::setup_LRA() {
-        m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_reflect       = false;
-        m_params.m_arith_propagate_eqs = false;
-        m_params.m_eliminate_term_ite  = true;
+        m_params.setup_LRA();
         setup_mi_arith();
     }
 
