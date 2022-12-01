@@ -62,6 +62,8 @@ namespace polysat {
         insert(m_solver->lit2cnstr(lit));
     }
 
+    // TODO: in the final version, we may also skip assumptions (and even literals propagated at the base level),
+    //       provided we correctly track external dependencies/level for the clause.
     void clause_builder::insert(signed_constraint c) {
         SASSERT(c);
         if (c.is_always_false())  // filter out trivial constraints such as "4 < 2"

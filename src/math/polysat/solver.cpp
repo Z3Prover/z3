@@ -770,7 +770,7 @@ namespace polysat {
                     }
                     continue;
                 }
-                SASSERT(!m_bvars.is_assumption(var));
+                SASSERT(!m_bvars.is_assumption(var));   // TODO: "assumption" is basically "propagated by unit clause" (or "at base level"); except we do not explicitly store the unit clause.
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
                     return;
@@ -896,9 +896,10 @@ namespace polysat {
             if (is_conflict()) {
                 // until this is fixed (if possible; and there may be other causes of conflict at this point),
                 // we just forget about the remaining lemmas and restart conflict analysis.
+                // TODO: we could also insert the remaining lemmas into the conflict and keep them for later.
                 return;
             }
-            SASSERT(!is_conflict());  // TODO: is this true in general? No lemma by itself should lead to a conflict here. But can there be conflicting asserting lemmas?
+            SASSERT(!is_conflict());
         }
 
         LOG("best_score: " << best_score);
@@ -1041,6 +1042,8 @@ namespace polysat {
         SASSERT(!clause.empty());
         m_constraints.store(&clause, true);
 
+        // TODO: we shouldn't add pwatch here immediately, because this may be called during propagate(v); which means the watchlist for v is locked.
+        //       rather, put the clause into a pwatch queue, and add_pwatch in the next solver iteration?
         if (!clause.is_redundant()) {
             // for (at least) non-redundant clauses, we also need to watch the constraints
             // so we can discover when the clause should propagate

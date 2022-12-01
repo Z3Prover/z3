@@ -24,6 +24,11 @@ Other:
 - code diverges on coding conventions.
 */
 
+/*
+  TODO: add "conditional" logs, i.e., the messages are held back and only printed when a non-conditional message is logged.
+        Purpose: reduce noise, e.g., when printing prerequisites for transformations that do not always apply.
+*/
+
 char const* color_red()    { return "\x1B[31m"; }
 char const* color_yellow() { return "\x1B[33m"; }
 char const* color_blue()   { return "\x1B[34m"; }
@@ -33,8 +38,12 @@ char const* color_reset()  { return "\x1B[0m"; }
 
 std::atomic<bool> g_log_enabled(true);
 
+bool get_log_enabled() {
+    return g_log_enabled;
+}
+
 void set_log_enabled(bool log_enabled) {
-  g_log_enabled = log_enabled;
+    g_log_enabled = log_enabled;
 }
 
 static LogLevel get_max_log_level(std::string const& fn, std::string const& pretty_fn) {
