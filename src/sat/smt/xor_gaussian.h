@@ -229,7 +229,15 @@ namespace xr {
                 return false;
             return !m_rhs;
         }
-    
+
+        bool is_true() const {
+            return empty() && !m_rhs;
+        }
+
+        bool is_false() const {
+            return empty() && m_rhs;
+        }
+
         // add all elements in other.m_clash_vars that are not yet in m_clash_vars:
         void merge_clash(const xor_clause& other, visit_helper& visited, unsigned num_vars) {
             visited.init_visited(num_vars);
