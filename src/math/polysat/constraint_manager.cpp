@@ -275,12 +275,16 @@ namespace polysat {
         return ult(a + shift, b + shift);
     }
 
+    /** unsigned quotient/remainder */
     std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
         if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
             return {m.mk_val(m.max_value()), a};
+        }
+        if (b.is_one()) {
+            return {a, m.zero()};
         }
         if (a.is_val() && b.is_val()) {
             rational const av = a.val();
@@ -296,6 +300,13 @@ namespace polysat {
             SASSERT(r.val() < b.val());
             return {std::move(q), std::move(r)};
         }
+#if 0
+        unsigned pow;
+        if (b.is_val() && b.val().is_power_of_two(pow)) {
+            // TODO: q = a >> b.val()
+            //       r = 0 \circ a[pow:]  ???
+        }
+#endif
         constraint_dedup::quot_rem_args args({a, b});
         auto it = m_dedup.quot_rem_expr.find_iterator(args);
         if (it != m_dedup.quot_rem_expr.end())
