@@ -265,16 +265,15 @@ namespace xr {
         
         friend class PackedMatrix;
         friend class EGaussian;
-        friend std::ostream& operator<<(std::ostream& os, const PackedRow& m);
 
         PackedRow(const unsigned _size, int64_t* const _mp) :
             mp(_mp+1),
             rhs_internal(*_mp), 
             size(_size) {}
        
-           int64_t* __restrict const mp;
-           int64_t& rhs_internal;
-           const int size;
+        int64_t* __restrict const mp;
+        int64_t& rhs_internal;
+        const int size;
         
     public:
         
@@ -295,6 +294,10 @@ namespace xr {
                 *(mp + i) ^= *(b.mp + i);            
     
             return *this;
+        }
+
+        int get_size() const {
+            return size;
         }
         
         void set_and(const PackedRow& a, const PackedRow& b) {
@@ -583,8 +586,6 @@ namespace xr {
         void check_watchlist_sanity();
         void move_back_xor_clauses();
     
-        vector<xor_clause> m_xorclauses;
-    
     private:
         xr::solver& m_solver;   // original sat solver
     
@@ -609,7 +610,6 @@ namespace xr {
         void fill_matrix();
         void select_columnorder();
         gret init_adjust_matrix(); // adjust matrix, include watch, check row is zero, etc.
-        double get_density();
     
         //Helper functions
         void prop_lit(const gauss_data& gqd, const unsigned row_i, const sat::literal ret_lit_prop);
@@ -632,8 +632,6 @@ namespace xr {
         unsigned elim_ret_confl = 0;
         unsigned elim_ret_satisfied = 0;
         unsigned elim_ret_fnewwatch = 0;
-        double before_init_density = 0;
-        double after_init_density = 0;
         
         ///////////////
         // Internal data
@@ -642,7 +640,9 @@ namespace xr {
         bool initialized = false;
         bool cancelled_since_val_update = true;
         unsigned last_val_update = 0;
-    
+
+        vector<xor_clause> m_xorclauses;
+
         // Is the clause at this ROW satisfied already?
         // satisfied_xors[row] tells me that
         // TODO: Maybe compress further
@@ -679,17 +679,7 @@ namespace xr {
         cancelled_since_val_update = true;
         memset(satisfied_xors.data(), false, satisfied_xors.size());
     }
-    
-    inline double EGaussian::get_density() {
-        if (num_rows*num_cols == 0)
-            return 0;
-    
-        unsigned pop = 0;
-        for (const auto& row: mat) 
-            pop += row.popcnt();        
-        return (double)pop/(double)(num_rows*num_cols);
-    }
-    
+
     inline void EGaussian::update_matrix_no(unsigned n) {
         matrix_no = n;
     }

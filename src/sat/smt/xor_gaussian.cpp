@@ -314,6 +314,9 @@ void EGaussian::clear_gwatches(const unsigned var) {
     m_solver.m_gwatches[var].shrink(j);
 }
 
+// Simplify matrix by applying gaussian elimination
+// This is only done at search level. We therefore can safely remove/replace "redundant" xor-clauses by unit/binary-clauses
+// Furthermore, initializes additional datastructures (e.g., for doing variable lookup)
 bool EGaussian::full_init(bool& created) {
     SASSERT(!inconsistent());
     SASSERT(m_solver.m_num_scopes == 0);
@@ -321,12 +324,12 @@ bool EGaussian::full_init(bool& created) {
     created = true;
 
     unsigned trail_before;
-    while (true) {
+    do {
         trail_before = m_solver.s().trail_size();
         m_solver.clean_xor_clauses(m_xorclauses);
 
         fill_matrix();
-        before_init_density = get_density();
+
         if (num_rows == 0 || num_cols == 0) {
             created = false;
             return !inconsistent();
@@ -351,11 +354,9 @@ bool EGaussian::full_init(bool& created) {
             default:
                 break;
         }
-        
-        //Let's exit if nothing new happened
-        if (m_solver.s().trail_size() == trail_before)
-            break;
-    }
+
+    } while (m_solver.s().trail_size() != trail_before); // Exit if nothing new happened
+
     DEBUG_CODE(check_watchlist_sanity(););
     TRACE("xor", tout << "initialised matrix " << matrix_no << "\n");
 
@@ -380,13 +381,22 @@ bool EGaussian::full_init(bool& created) {
     add_packed_row(tmp_col);
     add_packed_row(tmp_col2);
 
-    after_init_density = get_density();
-
     initialized = true;
     update_cols_vals_set(true);
     DEBUG_CODE(check_invariants(););
     
     return !inconsistent();
+}
+
+static void print_matrix(ostream& out, PackedMatrix& mat) {
+    for (unsigned rowIdx = 0; rowIdx < mat.num_rows(); rowIdx++) {
+        const PackedRow& row = mat[rowIdx];
+        for(int i = 0; i < row.get_size() * 64; i++) {
+            out << (int)row[i];
+        }
+        out << " -- rhs: " << row.rhs() << " -- row:" << rowIdx << "\n";
+    }
+    out << "\n";
 }
 
 void EGaussian::eliminate() {
@@ -395,6 +405,8 @@ void EGaussian::eliminate() {
     unsigned rowI = 0;
     unsigned row_i = 0;
     unsigned col = 0;
+
+    TRACE("xor", print_matrix(tout, mat));
 
     // Gauss-Jordan Elimination
     while (row_i != num_rows && col != num_cols) {
@@ -428,6 +440,7 @@ void EGaussian::eliminate() {
             ++rowI;
         }
         col++;
+        TRACE("xor", print_matrix(tout, mat));
     }
 }
 
@@ -477,7 +490,6 @@ gret EGaussian::init_adjust_matrix() {
 
                 // conflict
                 if (row.rhs()) {
-                    // TODO: Is this enough? What's the justification?
                     m_solver.s().set_conflict();
                     TRACE("xor", tout << "-> empty clause during init_adjust_matrix";);
                     TRACE("xor", tout << "-> conflict on row: " << row_i;);
@@ -763,7 +775,6 @@ inline void EGaussian::update_cols_vals_set(const literal lit1) {
 void EGaussian::update_cols_vals_set(bool force) {
     SASSERT(initialized);
 
-    //cancelled_since_val_update = true;
     if (cancelled_since_val_update || force) {
         cols_vals->setZero();
         cols_unset->setOne();
