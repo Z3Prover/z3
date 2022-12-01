@@ -279,7 +279,6 @@ namespace xr {
         
         PackedRow() = delete;
         
-        // NSB review: why not mp[i] = b.mp[i]?
         PackedRow& operator=(const PackedRow& b) {
             //start from -1, because that's where RHS is
             for (int i = -1; i < size; i++) 
@@ -429,7 +428,6 @@ namespace xr {
     public:
         PackedMatrix() { }
     
-        // NSB: rewview - are special memory allocations required?
         ~PackedMatrix() {
             #ifdef _WIN32
             _aligned_free((void*)mp);
@@ -478,11 +476,11 @@ namespace xr {
             return *this;
         }
     
-        inline PackedRow operator[](const unsigned i) {
+        inline PackedRow operator[](unsigned i) {
             return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
-        inline PackedRow operator[](const unsigned i) const {
+        inline PackedRow operator[](unsigned i) const {
             return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
@@ -490,7 +488,7 @@ namespace xr {
             int64_t* mp;
             const unsigned numCols;
             
-            iterator(int64_t* _mp, const unsigned _numCols) : mp(_mp), numCols(_numCols) { }
+            iterator(int64_t* _mp, unsigned _numCols) : mp(_mp), numCols(_numCols) { }
                 
         public:
             friend class PackedMatrix;
@@ -504,7 +502,7 @@ namespace xr {
                 return *this;
             }
     
-            iterator operator+(const unsigned num) const {
+            iterator operator+(unsigned num) const {
                 iterator ret(*this);
                 ret.mp += (numCols + 1) * num;
                 return ret;
@@ -554,7 +552,7 @@ namespace xr {
     public:
         EGaussian(
             solver& solver,
-            const unsigned matrix_no,
+            unsigned matrix_no,
             const vector<xor_clause>& xorclauses
         );
         ~EGaussian();
@@ -565,12 +563,12 @@ namespace xr {
             svector<gauss_watched>& ws,
             unsigned& i,
             unsigned& j,
-            const unsigned var,
-            const unsigned row_n,
+            unsigned var,
+            unsigned row_n,
             gauss_data& gqd
         );
     
-        literal_vector* get_reason(const unsigned row, int& out_ID);
+        literal_vector* get_reason(unsigned row, int& out_ID);
     
         // when basic variable is touched , eliminate one col
         void eliminate_col(
@@ -590,20 +588,20 @@ namespace xr {
         xr::solver& m_solver;   // original sat solver
     
         //Cleanup
-        void clear_gwatches(const unsigned var);
+        void clear_gwatches(unsigned var);
         void delete_gauss_watch_this_matrix();
-        void delete_gausswatch(const unsigned  row_n);
+        void delete_gausswatch(unsigned row_n);
     
         //Invariant checks, debug
         void check_no_prop_or_unsat_rows();
         void check_tracked_cols_only_one_set();
-        bool check_row_satisfied(const unsigned row);
-        void check_row_not_in_watch(const unsigned v, const unsigned row_num) const;
+        bool check_row_satisfied(unsigned row);
+        void check_row_not_in_watch(unsigned v, unsigned row_num) const;
     
         //Reason generation
         vector<reason> xor_reasons;
         sat::literal_vector tmp_clause;
-        unsigned get_max_level(const gauss_data& gqd, const unsigned row_n);
+        unsigned get_max_level(const gauss_data& gqd, unsigned row_n);
     
         //Initialisation
         void eliminate();
@@ -612,7 +610,7 @@ namespace xr {
         gret init_adjust_matrix(); // adjust matrix, include watch, check row is zero, etc.
     
         //Helper functions
-        void prop_lit(const gauss_data& gqd, const unsigned row_i, const sat::literal ret_lit_prop);
+        void prop_lit(const gauss_data& gqd, unsigned row_i, const literal ret_lit_prop);
         bool inconsistent() const;
 
         ///////////////

@@ -102,22 +102,6 @@ namespace xr {
             watch_neg_literal(s().get_wlist(lit), idx);
         }
 
-        static std::string toString(literal l) {
-            return (std::stringstream() << l).str();
-        }
-
-        static std::string toString(const literal& l) {
-            return (std::stringstream() << l).str();
-        }
-
-        static std::string toString(const literal_vector& l) {
-            return (std::stringstream() << l).str();
-        }
-
-        static std::string toString(const bool_var_vector & l) {
-            return (std::stringstream() << l).str();
-        }
-
     public:
         solver(euf::solver& ctx);
         solver(ast_manager& m, euf::theory_id id);
