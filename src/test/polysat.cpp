@@ -241,7 +241,10 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            if (!collect_test_records) {
+            if (collect_test_records) {
+                std::cout << m_name << ":";
+                std::cout.flush();
+            } else {
                 std::cout << std::string(78, '#') << "\n\n";
                 std::cout << "START: " << m_name << "\n";
             }
@@ -252,6 +255,8 @@ namespace polysat {
 
         ~scoped_solver() {
             test_records.end_batch();
+            if (collect_test_records)
+                std::cout << "\n";
         }
 
         void set_max_conflicts(unsigned c) {
@@ -261,6 +266,10 @@ namespace polysat {
         }
 
         void check() {
+            if (collect_test_records) {
+                std::cout << " ...";
+                std::cout.flush();
+            }
             auto* rec = test_records.active_or_new_record();
             m_last_finished = nullptr;
             SASSERT(rec->m_answer == l_undef);
@@ -277,7 +286,10 @@ namespace polysat {
             }
             rec->m_finished = true;
             m_last_finished = rec;
-            std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
+            if (collect_test_records)
+                std::cout << " " << m_last_result;
+            else
+                std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
             statistics st;
             collect_statistics(st);
             if (!collect_test_records)
