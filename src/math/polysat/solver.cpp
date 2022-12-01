@@ -76,6 +76,7 @@ namespace polysat {
             IF_LOGGING(m_viable.log());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
+            else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
             else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
@@ -335,6 +336,25 @@ namespace polysat {
 #endif
     }
 
+    /** Enqueue constraint c to perform add_pwatch(c) on the next solver iteration */
+    void solver::enqueue_pwatch(constraint* c) {
+        SASSERT(c);
+        if (c->is_pwatched())
+            return;
+        m_pwatch_queue.push_back(c);
+    }
+
+    bool solver::should_add_pwatch() const {
+        return !m_pwatch_queue.empty();
+    }
+
+    void solver::add_pwatch() {
+        for (constraint* c : m_pwatch_queue) {
+            add_pwatch(c);
+        }
+        m_pwatch_queue.reset();
+    }
+
     void solver::add_pwatch(constraint* c) {
         SASSERT(c);
         if (c->is_pwatched())
@@ -349,8 +369,10 @@ namespace polysat {
         if (vars.size() > 1)
             add_pwatch(c, vars[1]);
         c->set_pwatched(true);
+#if 0
         m_pwatch_trail.push_back(c);
         m_trail.push_back(trail_instr_t::pwatch_i);
+#endif
     }
 
     void solver::add_pwatch(constraint* c, pvar v) {
@@ -419,12 +441,15 @@ namespace polysat {
                 m_lemmas.pop_back();
                 break;
             }
+#if 0
+            // NOTE: erase_pwatch should be called when the constraint is deleted from the solver.
             case trail_instr_t::pwatch_i: {
                 constraint* c = m_pwatch_trail.back();
                 erase_pwatch(c);
                 m_pwatch_trail.pop_back();
                 break;
             }
+#endif
             case trail_instr_t::add_var_i: {
                 // NOTE: currently we cannot delete variables during solving,
                 // since lemmas may introduce new helper variables if they use operations like bitwise and or pseudo-inverse.
@@ -1042,15 +1067,10 @@ namespace polysat {
         SASSERT(!clause.empty());
         m_constraints.store(&clause, true);
 
-        // TODO: we shouldn't add pwatch here immediately, because this may be called during propagate(v); which means the watchlist for v is locked.
-        //       rather, put the clause into a pwatch queue, and add_pwatch in the next solver iteration?
-        if (!clause.is_redundant()) {
-            // for (at least) non-redundant clauses, we also need to watch the constraints
-            // so we can discover when the clause should propagate
-            // TODO: check if we also need pwatch for redundant clauses
-            for (sat::literal lit : clause)
-                add_pwatch(m_constraints.lookup(lit.var()));
-        }
+        // Defer add_pwatch until the next solver iteration, because during propagation of a variable v the watchlist for v is locked.
+        // NOTE: for non-redundant clauses, pwatching its constraints is required for soundness.
+        for (sat::literal lit : clause)
+            enqueue_pwatch(lit2cnstr(lit).get());
     }
 
     void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {

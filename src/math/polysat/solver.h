@@ -180,7 +180,10 @@ namespace polysat {
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
+        constraints              m_pwatch_queue;
+#if 0
         constraints              m_pwatch_trail;
+#endif
 
         ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
@@ -234,6 +237,9 @@ namespace polysat {
         void propagate(pvar v);
         bool propagate(pvar v, constraint* c);
         bool propagate(sat::literal lit, clause& cl);
+        void enqueue_pwatch(constraint* c);
+        bool should_add_pwatch() const;
+        void add_pwatch();
         void add_pwatch(constraint* c);
         void add_pwatch(constraint* c, pvar v);
         void erase_pwatch(pvar v, constraint* c);
