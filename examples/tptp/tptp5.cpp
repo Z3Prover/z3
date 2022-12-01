@@ -2313,7 +2313,8 @@ static void display_smt2(std::ostream& out) {
     for (size_t i = 0; i < asms.size(); ++i) {
         z3::expr fml = asms[i];
         if (fml.is_and()) {
-            asms.set(i, fml.arg(0));
+            z3::expr arg0 = fml.arg(0);
+            asms.set(i, arg0);
             for (unsigned j = 1; j < fml.num_args(); ++j)
                 asms.push_back(fml.arg(j));
             --i;
