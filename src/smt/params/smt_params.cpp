@@ -292,6 +292,18 @@ void smt_params::setup_QF_LIA(static_features const& st) {
     }
 }
 
+void smt_params::setup_QF_UFIDL() {
+    m_relevancy_lvl = 0;
+    m_arith_reflect = false;
+    m_nnf_cnf = false;
+    m_arith_eq_bounds = true;
+    m_arith_eq2ineq = true;
+    // m_params.m_phase_selection  = PS_THEORY;
+    m_restart_strategy = RS_GEOMETRIC;
+    m_restart_factor = 1.5;
+    m_restart_adaptive = false;
+}
+
 void smt_params::setup_QF_UFLIA() {
     m_relevancy_lvl       = 0;
     m_arith_reflect       = false; 

@@ -377,15 +377,7 @@ namespace smt {
 
     void setup::setup_QF_UFIDL() {
         TRACE("setup", tout << "setup_QF_UFIDL()\n";);
-        m_params.m_relevancy_lvl    = 0;
-        m_params.m_arith_reflect    = false;
-        m_params.m_nnf_cnf          = false;
-        m_params.m_arith_eq_bounds  = true;
-        m_params.m_arith_eq2ineq    = true;
-        // m_params.m_phase_selection  = PS_THEORY;
-        m_params.m_restart_strategy = RS_GEOMETRIC;
-        m_params.m_restart_factor   = 1.5;
-        m_params.m_restart_adaptive = false;
+        m_params.setup_QF_UFIDL();
         setup_lra_arith();
     }
 
@@ -623,8 +615,6 @@ namespace smt {
             break;
         }
     }
-
-
 
     void setup::setup_arith() {
         static_features    st(m_manager);
