@@ -34,8 +34,6 @@ public:
         proof_ref pr(m);
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
-            if (!has_quantifiers(d.fml()))
-                continue;
             m_rewriter(d.fml(), r, pr);
             m_fmls.update(idx, dependent_expr(m, r, d.dep()));
         }
