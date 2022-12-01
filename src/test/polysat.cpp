@@ -186,7 +186,7 @@ namespace polysat {
     }
 
     void test_record_manager::display(std::ostream& out) const {
-        out << "\n\nTest Results:\n";
+        out << "\n\n\nTest Results:\n\n";
 
         size_t max_name_len = 0;
         for (test_record const* r : m_records) {
@@ -215,12 +215,12 @@ namespace polysat {
             if (r->m_result == test_result::error)
                 n_error++;
         }
-        out << n_total << " tests, " << (n_sat + n_unsat) << " ok (" << n_sat << " sat, " << n_unsat << " unsat)";
+        out << "\n" << n_total << " tests, " << (n_sat + n_unsat) << " ok (" << n_sat << " sat, " << n_unsat << " unsat)";
         if (n_wrong)
             out << ", " << color_red() << n_wrong << " wrong!" << color_reset();
         if (n_error)
             out << ", " << color_red() << n_error << " error" << color_reset();
-        out << std::endl;
+        out << "\n" << std::endl;
     }
 
     test_record_manager test_records;
@@ -241,8 +241,10 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << std::string(78, '#') << "\n\n";
-            std::cout << "START: " << m_name << "\n";
+            if (!collect_test_records) {
+                std::cout << std::string(78, '#') << "\n\n";
+                std::cout << "START: " << m_name << "\n";
+            }
             set_max_conflicts(test_max_conflicts);
 
             test_records.begin_batch(name);
@@ -275,10 +277,11 @@ namespace polysat {
             }
             rec->m_finished = true;
             m_last_finished = rec;
-            std::cout << "DONE: " << m_name << ": " << m_last_result << "\n";
+            std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
             statistics st;
             collect_statistics(st);
-            std::cout << st << "\n";
+            if (!collect_test_records)
+                std::cout << st << "\n";
 
             rec->m_answer = m_last_result;
             rec->m_result = (m_last_result == l_undef) ? test_result::resource_out : test_result::ok;
