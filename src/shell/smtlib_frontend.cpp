@@ -44,12 +44,12 @@ static void display_statistics() {
     lock_guard lock(*display_stats_mux);
     clock_t end_time = clock();
     if (g_cmd_context && g_display_statistics) {
-        std::cout.flush();
-        std::cerr.flush();
         if (g_cmd_context) {
             g_cmd_context->set_regular_stream("stdout");
             g_cmd_context->display_statistics(true, ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         }
+        std::cout.flush();
+        std::cerr.flush();
     }
 }
 
