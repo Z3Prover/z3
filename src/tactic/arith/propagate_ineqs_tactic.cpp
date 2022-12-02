@@ -135,9 +135,7 @@ struct propagate_ineqs_tactic::imp {
         mpq c_mpq_val;
         if (m_util.is_add(t)) {
             rational c_val;
-            unsigned num = to_app(t)->get_num_args();
-            for (unsigned i = 0; i < num; i++) {
-                expr * mon = to_app(t)->get_arg(i);
+            for (expr* mon : *to_app(t)) {
                 expr * c, * x;
                 if (m_util.is_mul(mon, c, x) && m_util.is_numeral(c, c_val)) {
                     nm.set(c_mpq_val, c_val.to_mpq());
