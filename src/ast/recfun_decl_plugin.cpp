@@ -408,6 +408,7 @@ namespace recfun {
     void promise_def::set_definition(replace& r, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
         SASSERT(n_vars == d->get_arity());
                     
+        d->m_is_macro = is_macro;
         is_imm_pred is_i(*u);
         d->compute_cases(*u, r, is_i, is_macro, n_vars, vars, rhs);
     }

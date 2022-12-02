@@ -117,6 +117,7 @@ namespace recfun {
         func_decl_ref       m_decl; //!< generic declaration
         expr_ref            m_rhs;  //!< definition
         family_id           m_fid;
+        bool                m_is_macro;
 
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range, bool is_generated);
 
@@ -138,6 +139,7 @@ namespace recfun {
 
         bool is_fun_macro() const { return m_cases.size() == 1; }
         bool is_fun_defined() const { return !is_fun_macro(); }
+        bool is_macro() const { return m_is_macro; }
 
         def* copy(util& dst, ast_translation& tr);
 
