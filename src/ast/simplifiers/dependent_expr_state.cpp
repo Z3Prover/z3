@@ -65,14 +65,22 @@ void dependent_expr_state::freeze_terms(expr* e, bool only_as_array, ast_mark& v
 */
 
 void dependent_expr_state::freeze_recfun() {
-    if (m_recfun_frozen)
-        return;
-    m_recfun_frozen = true;
     auto& m = m_frozen_trail.get_manager();
     recfun::util rec(m);
+    if (!rec.has_rec_defs())
+        return;
+    unsigned sz = rec.get_rec_funs().size();
+    if (m_num_recfun >= sz)
+        return;
+    
     ast_mark visited;
-    for (func_decl* f : rec.get_rec_funs())
-        freeze_terms(rec.get_def(f).get_rhs(), false, visited);
+    for (func_decl* f : rec.get_rec_funs()) {
+        auto& d = rec.get_def(f);
+        if (!d.is_macro()) 
+            freeze_terms(d.get_rhs(), false, visited);
+    }
+    m_trail.push(value_trail(m_num_recfun));
+    m_num_recfun = sz;
 }
 
 /**

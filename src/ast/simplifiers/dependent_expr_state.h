@@ -43,7 +43,7 @@ Author:
 class dependent_expr_state {
     unsigned m_qhead = 0;
     bool     m_suffix_frozen = false;
-    bool     m_recfun_frozen = false;
+    unsigned m_num_recfun = 0;
     lbool    m_has_quantifiers = l_undef;
     ast_mark m_frozen;
     func_decl_ref_vector m_frozen_trail;
