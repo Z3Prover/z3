@@ -22,6 +22,7 @@ Notes:
 
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/shared_occs.h"
 
 
 class propagate_values : public dependent_expr_simplifier {
@@ -34,6 +35,11 @@ class propagate_values : public dependent_expr_simplifier {
     th_rewriter            m_rewriter;
     stats                  m_stats;
     unsigned               m_max_rounds = 4;
+    shared_occs            m_shared;
+    expr_substitution      m_subst;
+
+    void process_fml(unsigned i);
+    void add_sub(dependent_expr const& de);
 
 public:
     propagate_values(ast_manager& m, params_ref const& p, dependent_expr_state& fmls);
