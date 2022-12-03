@@ -9,9 +9,7 @@ Module Name:
     ashr: r == p >>a q
     lshl: r == p << q
     and:  r == p & q
-    or:   r == p | q
     not:  r == ~p
-    xor:  r == p ^ q
 
 Author:
 
@@ -51,6 +49,10 @@ namespace polysat {
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
 
         std::ostream& display(std::ostream& out, char const* eq) const;
+
+        void activate(solver& s);
+
+        void activate_and(solver& s);
 
     public:
         ~op_constraint() override {}

@@ -110,9 +110,12 @@ namespace polysat {
         if (is_currently_true(s, is_positive))
             return;
 
+        if (first)
+            activate(s);
+
         if (clause_ref lemma = produce_lemma(s, s.assignment()))
             s.add_clause(*lemma);
-
+        
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
     }
@@ -143,6 +146,22 @@ namespace polysat {
             NOT_IMPLEMENTED_YET();
             return {};
         }
+    }
+
+    void op_constraint::activate(solver& s) {
+        switch (m_op) {
+        case code::lshr_op:
+            break;
+        case code::shl_op:
+            // TODO: if shift amount is constant p << k, then add p << k == p*2^k
+            break;
+        case code::and_op:
+            // handle masking of high order bits
+            activate_and(s);
+            break;
+        default:
+            break;
+        }        
     }
 
     unsigned op_constraint::hash() const {
@@ -316,6 +335,31 @@ namespace polysat {
         return l_undef;
     }
 
+    void op_constraint::activate_and(solver& s) {
+        auto x = p(), y = q();
+        if (x.is_val())
+            std::swap(x, y);
+        if (!y.is_val())
+            return;
+        auto& m = x.manager();
+        auto yv = y.val();
+        if (!(yv + 1).is_power_of_two())
+            return;
+        signed_constraint const andc(this, true);
+        if (yv == m.max_value()) 
+            s.add_clause(~andc, s.eq(x, r()), false);
+        else if (yv == 0)
+            s.add_clause(~andc, s.eq(r()), false);
+        else {
+            unsigned K = m.power_of_2();
+            unsigned k = yv.get_num_bits();
+            SASSERT(k < K);
+            rational exp = rational::power_of_two(K - k);
+            s.add_clause(~andc, s.eq(x * exp, r() * exp), false);
+            s.add_clause(~andc, s.ule(r(), y), false);  // maybe always activate these constraints regardless?
+        }        
+    }
+
     /**
      * Produce lemmas for constraint: r == p & q
      * r <= p
@@ -354,7 +398,7 @@ namespace polysat {
             if (qv.val() == m.max_value() && pv != rv)
                 return s.mk_clause(~andc, ~s.eq(q(), m.max_value()), s.eq(p(), r()), true);
 
-            unsigned K = p().manager().power_of_2();
+            unsigned K = m.power_of_2();
             // p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
             // TODO
             // if ((pv.val() + 1).is_power_of_two() ...)
