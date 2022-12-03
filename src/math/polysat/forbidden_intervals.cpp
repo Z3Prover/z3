@@ -285,12 +285,6 @@ namespace polysat {
     * Match  e1 + t <= e2, with t = a1*y
     * condition for empty/full: e2 == -1    
     */
-    // NSB - bug?
-    // what happens when a1 != 1 and a1 != -1?
-    // if a1 is even is this still correct?
-    // example: match_linear1 12 v81 + -1*v20*v12 == 0 [v81 + 1 ; v81[ := [1;0[ v20 + -532 == 0 v81 == 0
-    // from bench25.smt2
-    // 
     bool forbidden_intervals::match_linear1(signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1, 
         rational const & a2, pdd const& b2, pdd const& e2,
