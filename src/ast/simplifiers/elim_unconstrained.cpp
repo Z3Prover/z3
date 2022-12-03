@@ -96,14 +96,17 @@ void elim_unconstrained::eliminate() {
         m_trail.push_back(r);
         SASSERT(r);
         gc(e);
+        init_children(e, r);
 
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
         get_node(e).m_refcount++;
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << "\n");
         SASSERT(!m_heap.contains(root(e)));
-        if (is_uninterp_const(r)) 
-            m_heap.insert(root(e));                    
+        if (is_uninterp_const(r))
+            m_heap.insert(root(e));
+        else
+            m_created_compound = true;
 
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(n.m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
 
@@ -174,6 +177,24 @@ void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
                 inc_ref(arg);
             }
         }
+    }
+}
+
+void elim_unconstrained::init_children(expr* e, expr* r) {
+    expr_ref_vector children(m);
+    SASSERT(e != r);
+    if (is_quantifier(r))
+        children.push_back(to_quantifier(r)->get_expr());
+    else if (is_app(r))
+        children.append(to_app(r)->get_num_args(), to_app(r)->get_args());
+    else
+        return;
+    if (children.empty())
+        return;
+    init_terms(children);
+    for (expr* arg : children) {
+        get_node(arg).m_parents.push_back(e);
+        inc_ref(arg);
     }
 }
 
@@ -284,10 +305,15 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
 void elim_unconstrained::reduce() {
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
-    init_nodes();
-    eliminate();
-    reconstruct_terms();
-    vector<dependent_expr> old_fmls;
-    assert_normalized(old_fmls);
-    update_model_trail(*mc, old_fmls);
+    m_created_compound = true;
+    for (unsigned rounds = 0; m_created_compound && rounds < 3; ++rounds) {
+        m_created_compound = false;
+        init_nodes();
+        eliminate();
+        reconstruct_terms();
+        vector<dependent_expr> old_fmls;
+        assert_normalized(old_fmls);
+        update_model_trail(*mc, old_fmls);
+    }
+
 }

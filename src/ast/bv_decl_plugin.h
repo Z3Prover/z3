@@ -411,6 +411,11 @@ public:
     app * mk_numeral(rational const & val, sort* s) const;
     app * mk_numeral(rational const & val, unsigned bv_size) const;
     app * mk_numeral(uint64_t u, unsigned bv_size) const { return mk_numeral(rational(u, rational::ui64()), bv_size); }
+    app * mk_zero(sort* s) const { return mk_numeral(rational::zero(), s); }
+    app * mk_zero(unsigned bv_size) const { return mk_numeral(rational::zero(), bv_size); }
+    app * mk_one(sort* s) const { return mk_numeral(rational::one(), s); }
+    app * mk_one(unsigned bv_size) const { return mk_numeral(rational::one(), bv_size); }
+
     sort * mk_sort(unsigned bv_size);
 
     unsigned get_bv_size(sort const * s) const {

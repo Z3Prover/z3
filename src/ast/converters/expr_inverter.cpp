@@ -300,7 +300,7 @@ class bv_expr_inverter : public iexpr_inverter {
             sort* s = args[0]->get_sort();
             mk_fresh_uncnstr_var_for(f, r);
             if (m_mc)
-                add_defs(num, args, r, bv.mk_numeral(rational(1), s));
+                add_defs(num, args, r, bv.mk_one(s));
             return true;
         }
         // c * v (c is odd) case
@@ -335,7 +335,7 @@ class bv_expr_inverter : public iexpr_inverter {
             }
             mk_fresh_uncnstr_var_for(f, r);
             if (sh > 0)
-                r = bv.mk_concat(bv.mk_extract(sz - sh - 1, 0, r), bv.mk_numeral(0, sh));
+                r = bv.mk_concat(bv.mk_extract(sz - sh - 1, 0, r), bv.mk_zero(sh));
 
             if (m_mc) {
                 rational inv_r;
@@ -376,10 +376,10 @@ class bv_expr_inverter : public iexpr_inverter {
         else {
             ptr_buffer<expr> args;
             if (high < bv_size - 1)
-                args.push_back(bv.mk_numeral(rational(0), bv_size - high - 1));
+                args.push_back(bv.mk_zero(bv_size - high - 1));
             args.push_back(r);
             if (low > 0)
-                args.push_back(bv.mk_numeral(rational(0), low));
+                args.push_back(bv.mk_zero(low));
             add_def(arg, bv.mk_concat(args.size(), args.data()));
         }
         return true;
@@ -391,7 +391,7 @@ class bv_expr_inverter : public iexpr_inverter {
             mk_fresh_uncnstr_var_for(f, r);
             if (m_mc) {
                 add_def(arg1, r);
-                add_def(arg2, bv.mk_numeral(rational(1), s));
+                add_def(arg2, bv.mk_one(s));
             }
             return true;
         }
@@ -419,13 +419,22 @@ class bv_expr_inverter : public iexpr_inverter {
     }
 
     bool process_bv_le(func_decl* f, expr* arg1, expr* arg2, bool is_signed, expr_ref& r) {
+        unsigned bv_sz = bv.get_bv_size(arg1);
+        if (uncnstr(arg1) && uncnstr(arg2)) {
+            mk_fresh_uncnstr_var_for(f, r);
+            if (m_mc) {
+                add_def(arg1, m.mk_ite(r, bv.mk_zero(bv_sz), bv.mk_one(bv_sz)));
+                add_def(arg2, bv.mk_zero(bv_sz));
+            }
+            return true;
+        }
         if (uncnstr(arg1)) {
             // v <= t
             expr* v = arg1;
             expr* t = arg2;
             // v <= t --->  (u or t == MAX)   u is fresh
             //     add definition v = ite(u or t == MAX, t, t+1)
-            unsigned bv_sz = bv.get_bv_size(arg1);
+            
             rational MAX;
             if (is_signed)
                 MAX = rational::power_of_two(bv_sz - 1) - rational(1);
@@ -434,7 +443,7 @@ class bv_expr_inverter : public iexpr_inverter {
             mk_fresh_uncnstr_var_for(f, r);
             r = m.mk_or(r, m.mk_eq(t, bv.mk_numeral(MAX, bv_sz)));
             if (m_mc)
-                add_def(v, m.mk_ite(r, t, bv.mk_bv_add(t, bv.mk_numeral(rational(1), bv_sz))));
+                add_def(v, m.mk_ite(r, t, bv.mk_bv_add(t, bv.mk_one(bv_sz))));
             return true;
         }
         if (uncnstr(arg2)) {
@@ -443,7 +452,6 @@ class bv_expr_inverter : public iexpr_inverter {
             expr* t = arg1;
             // v >= t --->  (u ot t == MIN)  u is fresh
             //    add definition v = ite(u or t == MIN, t, t-1)
-            unsigned bv_sz = bv.get_bv_size(arg1);
             rational MIN;
             if (is_signed)
                 MIN = -rational::power_of_two(bv_sz - 1);
@@ -452,7 +460,7 @@ class bv_expr_inverter : public iexpr_inverter {
             mk_fresh_uncnstr_var_for(f, r);
             r = m.mk_or(r, m.mk_eq(t, bv.mk_numeral(MIN, bv_sz)));
             if (m_mc)
-                add_def(v, m.mk_ite(r, t, bv.mk_bv_sub(t, bv.mk_numeral(rational(1), bv_sz))));
+                add_def(v, m.mk_ite(r, t, bv.mk_bv_sub(t, bv.mk_one(bv_sz))));
             return true;
         }
         return false;
@@ -465,6 +473,18 @@ class bv_expr_inverter : public iexpr_inverter {
         if (m_mc)
             add_def(e, bv.mk_bv_not(r));
         return true;
+    }
+
+    bool process_shift(func_decl* f, expr* arg1, expr* arg2, expr_ref& r) {
+        if (uncnstr(arg1) && uncnstr(arg2)) {
+            mk_fresh_uncnstr_var_for(f, r);
+            if (m_mc) {
+                add_def(arg1, r);
+                add_def(arg2, bv.mk_zero(arg2->get_sort()));
+            }
+            return true;
+        }
+        return false;
     }
 
     public:
@@ -543,10 +563,23 @@ class bv_expr_inverter : public iexpr_inverter {
                 sort* s = args[0]->get_sort();
                 mk_fresh_uncnstr_var_for(f, r);
                 if (m_mc)
-                    add_defs(num, args, r, bv.mk_numeral(rational(0), s));
+                    add_defs(num, args, r, bv.mk_zero(s));
                 return true;
             }
             return false;
+        case OP_BAND:
+            if (num > 0 && uncnstr(num, args)) {
+                sort* s = args[0]->get_sort();
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc)
+                    add_defs(num, args, r, bv.mk_numeral(rational::power_of_two(bv.get_bv_size(s)) - 1, s));
+                return true;
+            }
+            return false;
+        case OP_BSHL:
+        case OP_BASHR:
+        case OP_BLSHR:
+            return process_shift(f, args[0], args[1], r);
         default:
             return false;
         }
@@ -599,6 +632,7 @@ public:
                 }
                 return true;
             }
+            return false;
         default:
             return false;
         }

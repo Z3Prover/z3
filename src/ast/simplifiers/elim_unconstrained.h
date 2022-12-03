@@ -47,6 +47,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
     ptr_vector<expr>         m_args;
     stats                    m_stats;
     unsigned_vector          m_root;
+    bool                     m_created_compound = false;
 
     bool is_var_lt(int v1, int v2) const;
     node& get_node(unsigned n) { return m_nodes[n]; }
@@ -58,6 +59,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
     void inc_ref(expr* t) { ++get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.increased(root(t)); }
     void dec_ref(expr* t) { --get_node(t).m_refcount; if (is_uninterp_const(t)) m_heap.decreased(root(t)); }
     void gc(expr* t);
+    void init_children(expr* e, expr* r);
     expr* get_parent(unsigned n) const;
     void init_terms(expr_ref_vector const& terms);
     void init_nodes();

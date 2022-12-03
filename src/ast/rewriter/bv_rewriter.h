@@ -173,6 +173,10 @@ public:
     bool is_bv(expr * t) const { return m_util.is_bv(t); }
     expr * mk_numeral(numeral const & v, unsigned sz) { return m_util.mk_numeral(v, sz); }
     expr * mk_numeral(unsigned v, unsigned sz) { return m_util.mk_numeral(numeral(v), sz); }
+    app * mk_zero(sort* s) { return m_util.mk_zero(s); }
+    app * mk_one(sort* s) { return m_util.mk_one(s); }
+    app * mk_zero(unsigned sz) { return m_util.mk_zero(sz); }
+    app * mk_one(unsigned sz) { return m_util.mk_one(sz); }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     void mk_app(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
