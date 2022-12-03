@@ -411,6 +411,9 @@ namespace polysat {
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
+        signed_constraint odd(pdd const& p) { return ~even(p); }
+        signed_constraint even(pdd const& p) { return parity(p, 1); }
+        signed_constraint parity(pdd const& p, unsigned k) { return eq(p*rational::power_of_two(p.manager().power_of_2() - k)); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }

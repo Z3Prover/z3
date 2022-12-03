@@ -26,6 +26,7 @@ TODO: when we check that 'x' is "unary":
 #include "math/polysat/saturation.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
+#include "math/polysat/umul_ovfl_constraint.h"
 
 namespace polysat {
 
@@ -72,7 +73,12 @@ namespace polysat {
         SASSERT(all_of(m_lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
 
         // Ensure lemma is a conflict lemma
-        if (c.bvalue(s) != l_false && !c.is_currently_false(s))
+        // 
+        // NSB - review is it enough to propagate a new literal even if it is not false?
+        // unit propagation does not require conflicts.
+        // it should just avoid redundant propagation on literals that are true
+        // 
+        if (!is_forced_false(c))
             return false;
 
         // TODO: ??? this means that c is already on the search stack, so presumably the lemma won't help. Should check whether this case occurs.
@@ -88,6 +94,38 @@ namespace polysat {
     bool saturation::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
         return propagate(core, crit1, crit2, c);
+    }
+
+    bool saturation::is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c) {
+        
+        if (is_non_overflow(x, y)) {
+            c = ~s.umul_ovfl(x, y);
+            return true;
+        }
+
+        // TODO: do we really search the stack or can we just create the literal s.umul_ovfl(x, y)
+        // and check if it is assigned, or not even create the literal but look up whether it is assigned?
+        // constraint_manager uses m_dedup, alloc
+        // but to probe whether a literal occurs these are not needed.
+        // m_dedup.constraints.contains(&c);
+        
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            if (si.is_resolved())
+                continue;
+            auto d = s.lit2cnstr(si.lit());
+            if (!d->is_umul_ovfl() || !d.is_negative())
+                continue;
+            auto const& ovfl = d->to_umul_ovfl();
+            if (x != ovfl.p() && x != ovfl.q())
+                continue;
+            if (y != ovfl.p() && y != ovfl.q())
+                continue;
+            c = d;
+            return true;
+        }
+        return false;
     }
 
     void saturation::insert_omega(pdd const& x, pdd const& y) {
@@ -154,6 +192,21 @@ namespace polysat {
     }
 
     /**
+     * Match [x] a*x + b <= y, val(y) = 0
+     */
+    bool saturation::is_AxB_eq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        y = i.rhs();
+        if (!y.is_val() || y.val() != 0)
+            return false;
+        pdd aa = a, bb = b;
+        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, aa, bb), aa == a && bb == b);
+    }
+
+    bool saturation::verify_AxB_eq_0(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
+        return y.is_val() && y.val() == 0 && i.rhs() == y && i.lhs() == a * s.var(x) + b;
+    }
+
+    /**
      * Match [coeff*x] coeff*x*Y where x is a variable
      */
     bool saturation::is_coeffxY(pdd const& x, pdd const& p, pdd& y) {
@@ -206,6 +259,42 @@ namespace polysat {
         return xy.degree(x) == 1 && xy.factor(x, 1, y);
     }
 
+    // 
+    // overall comment: we use value propagation to check if p is val
+    // but we could also use literal propagation and establish there is a literal p = 0 that is true.
+    // in this way the value of p doesn't have to be fixed.
+    // 
+    // is_forced_diseq already creates a literal.
+    // is_non_overflow also creates a literal, it is not yet used consistently
+    // 
+    // The condition that p = val may be indirect.
+    // it could be a literal
+    // it could be by propagation of literals
+    // Example:
+    //  -35: v90 + v89*v43 + -1*v87 != 0     [ l_false bprop@0 pwatched ]
+    //   36: ovfl*(v43, v89)                 [ l_false bprop@0 pwatched ]
+    // -218: v90 + -1*v87 + -1 != 0          [ l_false eval@6 pwatched ]
+    // 
+    // what should we "pay" to establish this condition?
+    // or do we just afford us to add this lemma?
+    // 
+
+    bool saturation::is_forced_eq(pdd const& p, rational const& val) {
+        rational pv;
+        if (s.try_eval(p, pv) && pv == val)
+            return true;
+        return false;
+    }
+
+    bool saturation::is_forced_diseq(pdd const& p, int i, signed_constraint& c) {
+        c = s.eq(p, i);
+        return is_forced_false(c);
+    }
+
+    bool saturation::is_forced_false(signed_constraint const& c) {
+        return c.bvalue(s) == l_false || c.is_currently_false(s);
+    }
+
     /**
      * Implement the inferences
      *  [x] yx < zx   ==>  Ω*(x,y) \/ y < z
@@ -218,6 +307,7 @@ namespace polysat {
         pdd z = x;
         if (!is_xY_l_xZ(v, xy_l_xz, y, z))
             return false;
+        // TODO - use is_non_overflow(x, y, non_ovfl) instead?
         if (!is_non_overflow(x, y))
             return false;
         if (!xy_l_xz.is_strict() && s.get_value(v).is_zero())
@@ -349,21 +439,8 @@ namespace polysat {
     }
 
     /**
-     * TODO - add saturation based on Bench25 and other
      * p <= k & p*x + q = 0 & q = 0 => p = 0 or x = 0 or x >= 2^K/k
-     * p <= k & p*x = 0 => p = 0 or x = 0 or x >= 2^K/k
-     *
-     * TODO
-     * p*x = 0 => p = 0 or even(x)
-     * Generaly:
-     * p*x = 0 => p = 0 or x = 0 or parity(x) + parity(y) >= K 
-     * (if we use the convention parity(0) = K, then we can just write
-     * p*x = 0 => parity(x) + parity(y) >= K)
-     *
-     * TODO
-     * x*y = k & ~ovfl(x,y) & x = j => y = k/j where j is a divisor of k
      */
-
     bool saturation::try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] ax + b <= y & y = 0 & b = 0 & a <= k => x = 0 or a = 0 or x >= 2^K/k");
         auto& m = s.var2pdd(x);
@@ -371,19 +448,21 @@ namespace polysat {
         pdd a = m.zero();
         pdd b = m.zero();
         pdd k = m.zero();
+        pdd X = s.var(x);
         rational b_val, y_val;
-        if (!is_AxB_l_Y(x, axb_l_y, a, b, y))
+        if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
-        if (a.is_one())
+
+        if (!is_forced_eq(b, 0))
             return false;
-        if (!s.try_eval(b, b_val))
-            return false;
-        if (b_val != 0)
-            return false;
-        if (!s.try_eval(y, y_val))
-            return false;
-        if (y_val != 0)
-            return false;
+
+#if 0
+        // we could also use x.val(), a.val() if they exist and enforce bounds
+        if (s.try_eval(a, a_val) && s.try_eval(X, x_val) && a_val*x_val != 0) {
+
+        }
+#endif        
+
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
@@ -397,13 +476,95 @@ namespace polysat {
                 continue;
             if (!k.is_val())
                 continue;
-            if (k.val() == 0)
+            if (k.val() <= 1)
                 continue;
-            // propagate(core, axb_l_y, a_l_k, b = 0, y = 0 => x = 0 or a = 0 or x >= 2^K/k)
-        }
 
+            //
+            // TODO: if there are multiple upper bounds, select the smallest?
+            //
+
+            // a bit late in the game to check this.
+            signed_constraint x_eq_0, a_eq_0;
+            if (!is_forced_diseq(X, 0, x_eq_0))
+                return false;
+            if (!is_forced_diseq(a, 0, a_eq_0))
+                return false;
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(b));
+            m_lemma.insert(~s.eq(y));
+            m_lemma.insert(x_eq_0);
+            m_lemma.insert(a_eq_0);
+            return propagate(core, axb_l_y, a_l_k, s.ule(ceil(m.two_to_N() / k.val()), X));
+            // should we check if a = 0, x = 0 evaluate to false?
+            // given that the lemma is not propagating should we otherwise force case splitting to choose
+            // x = 0 or x >= 2^K/k
+        }
         return false;
     }
+
+
+    /*
+     * x*y = 1 & ~ovfl(x,y) => x = 1 
+     */
+    bool saturation::try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] ax + b <= y & y = 0 & b = -1 & ~ovfl(a,x) => x = 1");
+        auto& m = s.var2pdd(x);
+        pdd y = m.zero();
+        pdd a = m.zero();
+        pdd b = m.zero();
+        rational b_val, y_val;
+        if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
+            return false;
+        if (!is_forced_eq(b, -1))
+            return false;
+        pdd X = s.var(x);
+        signed_constraint non_ovfl;
+        if (is_non_overflow(a, X, non_ovfl)) {
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(b, rational(-1)));
+            m_lemma.insert(~s.eq(y));
+            m_lemma.insert(~non_ovfl);
+            return propagate(core, axb_l_y, axb_l_y, s.eq(X, 1));
+        }
+        return false;
+    }
+
+    /**
+     * a*x = 0 => a = 0 or even(x)
+     */
+    bool saturation::try_mul_odd(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] ax = 0 => a = 0 or even(x)");
+        auto& m = s.var2pdd(x);
+        pdd y = m.zero();
+        pdd a = m.zero();
+        pdd b = m.zero();
+        pdd X = s.var(x);
+        signed_constraint a_eq_0;
+        if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
+            return false;
+        if (!is_forced_eq(b, 0))
+            return false;
+        if (!is_forced_diseq(a, 0, a_eq_0))
+            return false;
+        m_lemma.reset();
+        m_lemma.insert(s.eq(y));
+        m_lemma.insert(~s.eq(b));
+        m_lemma.insert(a_eq_0);
+        return propagate(core, axb_l_y, axb_l_y, s.even(X));
+    }
+
+    /*
+     * TODO
+     * Generally:
+     * p*x = 0 => p = 0 or x = 0 or parity(x) + parity(y) >= K 
+     * (if we use the convention parity(0) = K, then we can just write
+     * p*x = 0 => parity(x) + parity(y) >= K)
+     *
+     * Maybe also
+     * x*y = k => \/_{j is such that there is j', j*j' = k} x = j
+     * x*y = k & ~ovfl(x,y) & x = j => y = k/j where j is a divisor of k
+     */
+
 
     /**
      * [x] p(x) <= q(x) where value(p) > value(q)
