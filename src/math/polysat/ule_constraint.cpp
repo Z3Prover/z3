@@ -87,12 +87,25 @@ namespace {
                 lhs = 0, rhs = 0, is_positive = !is_positive;
             return;
         }
+
+#if 0
+        // !(k <= p) -> p <= k - 1
+        
+        if (!is_positive && lhs.is_val() && lhs.val() > 0) {
+            pdd k = lhs;
+            lhs = rhs;
+            rhs = k - 1;
+            is_positive = true;
+        }
+#endif
         // k <= p   -->   p - k <= - k - 1
         if (lhs.is_val()) {
             pdd k = lhs;
             lhs = rhs - k;
             rhs = - k - 1;
         }
+        // NSB: why this?
+
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
         if (rhs.is_val() && (rhs + 2).is_zero()) {
