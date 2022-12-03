@@ -1080,7 +1080,7 @@ namespace polysat {
     }
 
     void solver::add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
-        add_clause(cs.size(), std::data(cs), is_redundant);
+        add_clause(static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, bool is_redundant) {
@@ -1100,7 +1100,7 @@ namespace polysat {
     }
 
     clause_ref solver::mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
-        return mk_clause(cs.size(), std::data(cs), is_redundant);
+        return mk_clause(static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
     }
 
     clause_ref solver::mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
@@ -1125,6 +1125,10 @@ namespace polysat {
 
     clause_ref solver::mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant) {
         return mk_clause({ c1, c2, c3, c4 }, is_redundant);
+    }
+
+    clause_ref solver::mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, signed_constraint c5, bool is_redundant) {
+        return mk_clause({ c1, c2, c3, c4, c5 }, is_redundant);
     }
 
     void solver::push() {

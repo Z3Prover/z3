@@ -37,17 +37,12 @@ namespace polysat {
 
         switch (c) {
         case code::and_op:
-        case code::or_op:
-        case code::xor_op:
             if (p.index() > q.index())
                 std::swap(m_p, m_q);
             break;
         default:
             break;
         }
-        // The following can currently not be used as standalone constraints
-        SASSERT(c != code::or_op);
-        SASSERT(c != code::xor_op);
     }
 
     lbool op_constraint::eval() const {
@@ -89,10 +84,6 @@ namespace polysat {
             return out << "<<";
         case op_constraint::code::and_op:
             return out << "&";
-        case op_constraint::code::or_op:
-            return out << "|";
-        case op_constraint::code::xor_op:
-            return out << "^";
         default:
             UNREACHABLE();
             return out;
@@ -333,8 +324,8 @@ namespace polysat {
      * p[i] && q[i] = r[i]
      * p = 2^K - 1 => q = r
      * q = 2^K - 1 => p = r
-     * r = 0 && p = 2^k - 1 => q >= 2^k   (or: q > p)
-     * r = 0 && q = 2^k - 1 => p >= 2^k   (or: p > q)
+     * r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
+     * r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k   
      */
     clause_ref op_constraint::lemma_and(solver& s, assignment const& a) {
         auto& m = p().manager();
@@ -344,21 +335,29 @@ namespace polysat {
 
         signed_constraint const andc(this, true);
 
+        // r <= p
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             return s.mk_clause(~andc, s.ule(r(), p()), true);
+        // r <= q
         if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
             return s.mk_clause(~andc, s.ule(r(), q()), true);
+        // p = q => r = p
         if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
             return s.mk_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
         if (pv.is_val() && qv.is_val() && rv.is_val()) {
+            // p = -1 => r = q
             if (pv.val() == m.max_value() && qv != rv)
                 return s.mk_clause(~andc, ~s.eq(p(), m.max_value()), s.eq(q(), r()), true);
+            // q = -1 => r = p
             if (qv.val() == m.max_value() && pv != rv)
                 return s.mk_clause(~andc, ~s.eq(q(), m.max_value()), s.eq(p(), r()), true);
-            if (rv.is_zero() && (pv.val() + 1).is_power_of_two() && qv.val() <= pv.val())
-                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.ult(q(), p()), true);
+            // r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
+            if ((pv.val() + 1).is_power_of_two() && rv.val() > pv.val())
+                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.eq(q()), s.ult(p(), q()), true);
+            // r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k
             if (rv.is_zero() && (qv.val() + 1).is_power_of_two() && pv.val() <= qv.val())
-                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.ult(p(), q()), true);
+                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.eq(p()),s.ult(q(), p()), true);
+            
             unsigned K = p().manager().power_of_2();
             for (unsigned i = 0; i < K; ++i) {
                 bool pb = pv.val().get_bit(i);

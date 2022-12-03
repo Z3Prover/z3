@@ -28,7 +28,7 @@ namespace polysat {
 
     class op_constraint final : public constraint {
     public:
-        enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op };
+        enum class code { lshr_op, ashr_op, shl_op, and_op };
     protected:
         friend class constraint_manager;
 
