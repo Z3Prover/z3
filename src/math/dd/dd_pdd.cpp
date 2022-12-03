@@ -1685,7 +1685,7 @@ namespace dd {
             if (require_parens)
                 out << ")";
             return out;
-        } else
+        } else 
             return out << m.normalize(val);
     }
 
