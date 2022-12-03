@@ -324,6 +324,12 @@ namespace polysat {
     }
 
     /**
+     * TODO - add saturation based on Bench25 and other
+     * p <= k & p*v + q = 0 & q = 0 => p = 0 or v = 0 or v >= 2^K/k
+     * p <= k & p*v = 0  => p = 0 or v = 0 or v >= 2^K/k
+     */
+
+    /**
      * [x] p(x) <= q(x) where value(p) > value(q)
      *     ==> q <= value(q) => p <= value(q)
      *
