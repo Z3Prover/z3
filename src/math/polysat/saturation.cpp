@@ -325,8 +325,18 @@ namespace polysat {
 
     /**
      * TODO - add saturation based on Bench25 and other
-     * p <= k & p*v + q = 0 & q = 0 => p = 0 or v = 0 or v >= 2^K/k
-     * p <= k & p*v = 0  => p = 0 or v = 0 or v >= 2^K/k
+     * p <= k & p*x + q = 0 & q = 0 => p = 0 or x = 0 or x >= 2^K/k
+     * p <= k & p*x = 0 => p = 0 or x = 0 or x >= 2^K/k
+     *
+     * TODO
+     * p*x = 0 => p = 0 or even(x)
+     * Generaly:
+     * p*x = 0 => p = 0 or x = 0 or parity(x) + parity(y) >= K 
+     * (if we use the convention parity(0) = K, then we can just write
+     * p*x = 0 => parity(x) + parity(y) >= K)
+     *
+     * TODO
+     * x*y = k & ~ovfl(x,y) & x = j => y = k/j where j is a divisor of k
      */
 
     /**
