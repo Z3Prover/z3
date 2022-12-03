@@ -129,6 +129,31 @@ namespace polysat {
     }
 
     /**
+     * Match [x] a*x <= y
+     */
+    bool saturation::is_Ax_l_Y(pvar x, inequality const& i, pdd& a, pdd& y) {
+        y = i.rhs();
+        return is_xY(x, i.lhs(), a);
+    }
+
+    bool saturation::verify_Ax_l_Y(pvar x, inequality const& i, pdd const& a, pdd const& y) {
+        return i.rhs() == y && i.lhs() == a * s.var(x);
+    }
+
+    /**
+     * Match [x] a*x + b <= y
+     */
+    bool saturation::is_AxB_l_Y(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        y = i.rhs();
+        pdd aa = a, bb = b;
+        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, aa, bb), aa == a && bb == b);
+    }
+
+    bool saturation::verify_AxB_l_Y(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
+        return i.rhs() == y && i.lhs() == a * s.var(x) + b;
+    }
+
+    /**
      * Match [coeff*x] coeff*x*Y where x is a variable
      */
     bool saturation::is_coeffxY(pdd const& x, pdd const& p, pdd& y) {
@@ -338,6 +363,47 @@ namespace polysat {
      * TODO
      * x*y = k & ~ovfl(x,y) & x = j => y = k/j where j is a divisor of k
      */
+
+    bool saturation::try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] ax + b <= y & y = 0 & b = 0 & a <= k => x = 0 or a = 0 or x >= 2^K/k");
+        auto& m = s.var2pdd(x);
+        pdd y = m.zero();
+        pdd a = m.zero();
+        pdd b = m.zero();
+        pdd k = m.zero();
+        rational b_val, y_val;
+        if (!is_AxB_l_Y(x, axb_l_y, a, b, y))
+            return false;
+        if (a.is_one())
+            return false;
+        if (!s.try_eval(b, b_val))
+            return false;
+        if (b_val != 0)
+            return false;
+        if (!s.try_eval(y, y_val))
+            return false;
+        if (y_val != 0)
+            return false;
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            if (si.is_resolved())
+                continue;
+            auto d = s.lit2cnstr(si.lit());
+            if (!d->is_ule())
+                continue;
+            auto a_l_k = inequality::from_ule(d);
+            if (a_l_k.lhs() != a)
+                continue;
+            if (!k.is_val())
+                continue;
+            if (k.val() == 0)
+                continue;
+            // propagate(core, axb_l_y, a_l_k, b = 0, y = 0 => x = 0 or a = 0 or x >= 2^K/k)
+        }
+
+        return false;
+    }
 
     /**
      * [x] p(x) <= q(x) where value(p) > value(q)

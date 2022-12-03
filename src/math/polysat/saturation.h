@@ -44,6 +44,7 @@ namespace polysat {
         bool try_ugt_z(pvar z, conflict& core, inequality const& c);
         bool try_ugt_z(pvar z, conflict& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
 
+        bool try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_tangent(pvar v, conflict& core, inequality const& c);
 
         // c := lhs ~ v
@@ -61,8 +62,16 @@ namespace polysat {
         bool verify_Xy_l_XZ(pvar y, inequality const& c, pdd const& x, pdd const& z);
 
         // c := Y ~ Ax
-        bool is_Y_l_Ax(pvar x, inequality const& d, pdd& a, pdd& y);
-        bool verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y);
+        bool is_Y_l_Ax(pvar x, inequality const& c, pdd& a, pdd& y);
+        bool verify_Y_l_Ax(pvar x, inequality const& c, pdd const& a, pdd const& y);
+
+        // c := Ax ~ Y
+        bool is_Ax_l_Y(pvar x, inequality const& c, pdd& a, pdd& y);
+        bool verify_Ax_l_Y(pvar x, inequality const& c, pdd const& a, pdd const& y);
+
+        // c := Ax + B ~ Y
+        bool is_AxB_l_Y(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
+        bool verify_AxB_l_Y(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);
 
         // c := Y*X ~ z*X
         bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);
