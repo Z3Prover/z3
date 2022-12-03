@@ -324,6 +324,8 @@ namespace polysat {
      * p[i] && q[i] = r[i]
      * p = 2^K - 1 => q = r
      * q = 2^K - 1 => p = r
+     * p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
+     * q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
      * r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
      * r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k   
      */
@@ -351,6 +353,14 @@ namespace polysat {
             // q = -1 => r = p
             if (qv.val() == m.max_value() && pv != rv)
                 return s.mk_clause(~andc, ~s.eq(q(), m.max_value()), s.eq(p(), r()), true);
+
+            unsigned K = p().manager().power_of_2();
+            // p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
+            // TODO
+            // if ((pv.val() + 1).is_power_of_two() ...)
+
+            // q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
+
             // r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
             if ((pv.val() + 1).is_power_of_two() && rv.val() > pv.val())
                 return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.eq(q()), s.ult(p(), q()), true);
@@ -358,7 +368,6 @@ namespace polysat {
             if (rv.is_zero() && (qv.val() + 1).is_power_of_two() && pv.val() <= qv.val())
                 return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.eq(p()),s.ult(q(), p()), true);
             
-            unsigned K = p().manager().power_of_2();
             for (unsigned i = 0; i < K; ++i) {
                 bool pb = pv.val().get_bit(i);
                 bool qb = qv.val().get_bit(i);
