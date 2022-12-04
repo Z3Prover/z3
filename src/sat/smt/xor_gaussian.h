@@ -398,7 +398,7 @@ namespace xr {
         }
     
         // using find nonbasic and basic value
-        unsigned find_watchVar(
+        unsigned population_cnt(
             sat::literal_vector& tmp_clause,
             const unsigned_vector& col_to_var,
             bool_vector &var_has_resp_row,
@@ -432,6 +432,7 @@ namespace xr {
         }
     };
     
+    // A gaussian matrix (only the very basic data)
     class PackedMatrix {
     public:
         PackedMatrix() { }
@@ -556,6 +557,7 @@ namespace xr {
         int numCols = 0;
     };
     
+    // A single gaussian matrix
     class EGaussian {
     public:
         EGaussian(
@@ -596,7 +598,7 @@ namespace xr {
         xr::solver& m_solver;   // original sat solver
     
         //Cleanup
-        void clear_gwatches(unsigned var);
+        void clear_gwatches(bool_var var);
         void delete_gauss_watch_this_matrix();
         void delete_gausswatch(unsigned row_n);
     

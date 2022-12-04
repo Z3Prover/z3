@@ -146,6 +146,8 @@ namespace xr {
     sat::justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
         if (m_gmatrices.empty()) 
             return sat::justification(-1);
+        m_gwatches.resize(s().num_vars());
+        
         for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
             if (m_gqueuedata[i].disabled || !m_gmatrices[i]->is_initialized()) continue;
             m_gqueuedata[i].reset();
@@ -156,11 +158,11 @@ namespace xr {
         SASSERT(m_gwatches.size() > p.var());
         svector<gauss_watched>& ws = m_gwatches[p.var()];
         unsigned i = 0, j = 0;
-        const unsigned end = ws.size();
+        unsigned end = ws.size();
         
         for (; i < end; i++) {
-            const unsigned matrix_num = ws[i].matrix_num; 
-            const unsigned row_n = ws[i].row_n; 
+            unsigned matrix_num = ws[i].matrix_num; 
+            unsigned row_n = ws[i].row_n; 
             if (m_gqueuedata[matrix_num].disabled || !m_gmatrices[matrix_num]->is_initialized())
                 continue; //remove watch and continue
         
@@ -169,10 +171,7 @@ namespace xr {
             m_gqueuedata[matrix_num].do_eliminate = false;
             m_gqueuedata[matrix_num].currLevel = currLevel;
         
-            if (m_gmatrices[matrix_num]->find_truths(ws, i, j, p.var(), row_n, m_gqueuedata[matrix_num])) {
-                continue;
-            } 
-            else {
+            if (!m_gmatrices[matrix_num]->find_truths(ws, i, j, p.var(), row_n, m_gqueuedata[matrix_num])) {
                 confl_in_gauss = true;
                 i++;
                 break;
@@ -181,7 +180,7 @@ namespace xr {
         
         for (; i < end; i++) 
             ws[j++] = ws[i];
-        ws.shrink((unsigned)(i - j));
+        ws.shrink(j);
         
         for (unsigned g = 0; g < m_gqueuedata.size(); g++) {
             if (m_gqueuedata[g].disabled || !m_gmatrices[g]->is_initialized())
@@ -285,7 +284,7 @@ namespace xr {
         return out;
     }
 
-    // simplify xors by triggering (unit)propagation until nothing changes anymore
+    // simplify xors based on current assignments by triggering (unit)propagation until nothing changes anymore
     bool solver::clean_xor_clauses(vector<xor_clause>& xors) {     
         SASSERT(!inconsistent());
         
@@ -375,7 +374,7 @@ namespace xr {
         j = 0;
         for (const bool_var& v : x) {
             if (s().value(v) != l_undef)
-                x.m_rhs  ^= s().value(v) == l_true;
+                x.m_rhs ^= s().value(v) == l_true;
             else
                 x[j++] = v;
         }
@@ -415,6 +414,8 @@ namespace xr {
     bool solver::find_and_init_all_matrices() {
         if (!m_xor_clauses_updated/* && (!m_detached_xor_clauses || !assump_contains_xor_clash())*/)
             return true;
+        
+        m_gwatches.resize(s().num_vars());
         
         bool can_detach;
         if (!clear_gauss_matrices(false)) 
@@ -575,6 +576,8 @@ namespace xr {
         ps.shrink(j);
     }
     
+    // Creates bigger xors by gluing together xors (x1 + x2 + x3 = 0 & x3 + x4 + x5 = 0 ==> x1 + x2 + x4 + x5 = 0) and removing the glued variable
+    // This can be done if the glued variable (x3) occurs in exactly two different xor clauses and nowhere else 
     bool solver::xor_together_xors(vector<xor_clause>& xors) {
         
         if (xors.empty())
@@ -592,7 +595,7 @@ namespace xr {
         
         SASSERT(!s().inconsistent());
         SASSERT(s().at_search_lvl());
-        const size_t origsize = xors.size();
+        unsigned origsize = xors.size();
     
         SASSERT(m_occurrences.empty());
 

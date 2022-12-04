@@ -29,11 +29,12 @@ using namespace xr;
 static const unsigned unassigned_col = UINT32_MAX;
 
 ///returns popcnt
-unsigned PackedRow::find_watchVar(
-    literal_vector& tmp_clause,
+unsigned PackedRow::population_cnt(
+    literal_vector &tmp_clause,
     const unsigned_vector& col_to_var,
     bool_vector &var_has_resp_row,
     unsigned& non_resp_var) {
+    
     unsigned popcnt = 0;
     non_resp_var = UINT_MAX;
     tmp_clause.clear();
@@ -44,18 +45,14 @@ unsigned PackedRow::find_watchVar(
             unsigned var = col_to_var[i];
             tmp_clause.push_back(sat::literal(var, false));
 
-            if (!var_has_resp_row[var]) {
+            if (!var_has_resp_row[var])
                 non_resp_var = var;
-            } else {
-                //What??? WARNING
-                //This var already has a responsible for it...
-                //How can it be 1???
+            else
                 std::swap(tmp_clause[0], tmp_clause.back());
-            }
         }
     }
     SASSERT(tmp_clause.size() == popcnt);
-    SASSERT(popcnt == 0 || var_has_resp_row[ tmp_clause[0].var() ]) ;
+    SASSERT(popcnt == 0 || var_has_resp_row[tmp_clause[0].var()]) ;
     return popcnt;
 }
 
@@ -261,6 +258,7 @@ void EGaussian::select_columnorder() {
     }
 }
 
+// Sets up some of the required datastructures to apply initial elimination (e.g., like the matrix itself and an empty list of gaussian watchlist)
 void EGaussian::fill_matrix() {
     var_to_col.clear();
 
@@ -268,9 +266,9 @@ void EGaussian::fill_matrix() {
     select_columnorder();
     num_rows = m_xorclauses.size();
     num_cols = col_to_var.size();
-    if (num_rows == 0 || num_cols == 0) {
+    if (num_rows == 0 || num_cols == 0)
         return;
-    }
+    
     mat.resize(num_rows, num_cols); // initial gaussian matrix
 
     for (unsigned row = 0; row < num_rows; row++) {
@@ -294,12 +292,14 @@ void EGaussian::fill_matrix() {
     satisfied_xors.resize(num_rows, false);
 }
 
+// deletes all gaussian watches from the matrix for all variables
 void EGaussian::delete_gauss_watch_this_matrix() {
     for (unsigned i = 0; i < m_solver.m_gwatches.size(); i++) 
         clear_gwatches(i);    
 }
 
-void EGaussian::clear_gwatches(unsigned var) {
+// deletes all gaussian watches from the matrix for the given variable
+void EGaussian::clear_gwatches(bool_var var) {
     //if there is only one matrix, don't check, just empty it
     if (m_solver.m_gmatrices.empty()) {
         m_solver.m_gwatches[var].clear();
@@ -345,7 +345,7 @@ bool EGaussian::full_init(bool& created) {
                 return false;
             case gret::prop:
                 SASSERT(m_solver.m_num_scopes == 0);
-                m_solver.s().propagate(false); // TODO: Can we really do this here?
+                m_solver.s().propagate(false);
                 if (inconsistent()) {
                     TRACE("xor", tout << "eliminate & adjust matrix during init lead to UNSAT\n";);
                     return false;
@@ -361,7 +361,7 @@ bool EGaussian::full_init(bool& created) {
     TRACE("xor", tout << "initialised matrix " << matrix_no << "\n");
 
     xor_reasons.resize(num_rows);
-    unsigned num_64b = num_cols/64+(bool)(num_cols%64);
+    unsigned num_64b = num_cols / 64 + (bool)(num_cols % 64);
     
     for (auto& x: tofree) 
         memory::deallocate(x);
@@ -394,11 +394,11 @@ static void print_matrix(ostream& out, PackedMatrix& mat) {
         for(int i = 0; i < row.get_size() * 64; i++) {
             out << (int)row[i];
         }
-        out << " -- rhs: " << row.rhs() << " -- row:" << rowIdx << "\n";
+        out << " -- rhs: " << row.rhs() << " -- row: " << rowIdx << "\n";
     }
-    out << "\n";
 }
 
+// Applies Gaussian-Jordan elimination (search level). This function does not add conflicts/propagate/... Just reduces the matrix
 void EGaussian::eliminate() {
     // TODO: Why twice? gauss_jordan_elim
     unsigned end_row = num_rows;
@@ -406,6 +406,8 @@ void EGaussian::eliminate() {
     unsigned row_i = 0;
     unsigned col = 0;
 
+    //print_matrix(std::cout, mat);
+    //std::cout << std::endl;
     TRACE("xor", print_matrix(tout, mat));
 
     // Gauss-Jordan Elimination
@@ -441,7 +443,10 @@ void EGaussian::eliminate() {
         }
         col++;
         TRACE("xor", print_matrix(tout, mat));
+        //print_matrix(std::cout, mat);
+        //std::cout << std::endl;
     }
+    //std::cout << "-------------" << std::endl;
 }
 
 literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
@@ -467,6 +472,7 @@ literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
     return &to_fill;
 }
 
+// Creates binary clauses, assigns variables, adds conflicts based on the (reduced) gaussian-matrix. Also sets up the gaussian watchlist
 gret EGaussian::init_adjust_matrix() {
     SASSERT(m_solver.s().at_search_lvl());
     SASSERT(row_to_var_non_resp.empty());
@@ -479,7 +485,7 @@ gret EGaussian::init_adjust_matrix() {
         if (row_i >= num_rows)
             break;
         unsigned non_resp_var;
-        unsigned popcnt = row.find_watchVar(tmp_clause, col_to_var, var_has_resp_row, non_resp_var);
+        unsigned popcnt = row.population_cnt(tmp_clause, col_to_var, var_has_resp_row, non_resp_var);
 
         switch (popcnt) {
 
@@ -610,6 +616,7 @@ bool EGaussian::find_truths(
     unsigned var,
     unsigned row_n,
     gauss_data& gqd) {
+    
     SASSERT(gqd.status != gauss_res::confl);
     SASSERT(initialized);
 

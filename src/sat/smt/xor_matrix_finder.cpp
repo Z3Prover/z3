@@ -57,11 +57,9 @@ namespace xr {
     
         m_xor.move_xors_without_connecting_vars_to_unused();
         m_xor.clean_equivalent_xors(m_xor.m_xorclauses);
-        for (const auto& c : m_xor.m_xorclauses_unused){
-            for (const auto& v : c) {
-                clash_vars_unused.insert(v);                
-            }
-        }
+        for (const auto& c : m_xor.m_xorclauses_unused) 
+            for (const auto& v : c) 
+                clash_vars_unused.insert(v);
     
         if (m_xor.m_xorclauses.size() < m_sat.get_config().m_xor_gauss_min_clauses) {
             can_detach = false;

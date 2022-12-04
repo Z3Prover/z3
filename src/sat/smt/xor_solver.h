@@ -78,29 +78,6 @@ namespace xr {
         bool add_simple_xor_constraint(const xor_clause& constraint);
         
         bool inconsistent() const { return s().inconsistent(); }
-        
-        // TODO: CMS watches the literals directly; Z3 their negation. "_neg_" just for now to avoid confusion
-        bool is_neg_watched(sat::watch_list& l, size_t idx) const {
-            return l.contains(sat::watched((sat::ext_constraint_idx)idx));
-        }
-        
-        bool is_neg_watched(literal lit, size_t idx) const {
-            return s().get_wlist(lit).contains(sat::watched((sat::ext_constraint_idx)idx));
-        }
-        
-        void unwatch_neg_literal(literal lit, size_t idx) {
-            s().get_wlist(lit).erase(sat::watched(idx));
-            SASSERT(!is_neg_watched(lit, idx));
-        }
-        
-        void watch_neg_literal(sat::watch_list& l, size_t idx) {
-            SASSERT(!is_neg_watched(l, idx));
-            l.push_back(sat::watched(idx));
-        }
-        
-        void watch_neg_literal(literal lit, size_t idx) {
-            watch_neg_literal(s().get_wlist(lit), idx);
-        }
 
     public:
         solver(euf::solver& ctx);
