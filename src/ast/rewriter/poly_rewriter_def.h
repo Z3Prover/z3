@@ -292,7 +292,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
                 new_add_args.push_back(mk_mul_app(c, to_app(var)->get_arg(i)));
             }
             result = mk_add_app(new_add_args.size(), new_add_args.data());
-            TRACE("mul_bug", tout << "result: " << mk_bounded_pp(result, m,5) << "\n";);
+            TRACE("mul_bug", tout << "result: " << mk_bounded_pp(result, M(), 5) << "\n";);
             return BR_REWRITE2;
         }
     }

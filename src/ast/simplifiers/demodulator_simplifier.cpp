@@ -115,11 +115,12 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
 
         SASSERT(lhs->get_decl() == f);
 
-        TRACE("demodulator", tout << "Matching with demodulator: " << mk_pp(lhs, m) << std::endl; );
+        TRACE("demodulator", tout << "Matching with demodulator: " << mk_pp(lhs, m) << "\n");
 
         if (m_match_subst(lhs, rhs, args.data(), np)) {
-            TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n";);
-            m_dependencies.insert(i);
+            TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
+            if (dep(i))
+                m_dependencies.insert(i);
             return true;
         }
     }

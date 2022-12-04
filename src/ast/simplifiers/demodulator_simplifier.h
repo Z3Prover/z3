@@ -54,7 +54,6 @@ class demodulator_simplifier : public dependent_expr_simplifier {
 
  public:
      demodulator_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st);
-     void reduce() override;
 
-    
+     void reduce() override;    
 };

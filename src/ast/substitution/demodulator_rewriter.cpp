@@ -669,53 +669,6 @@ void demodulator_rewriter::reschedule_processed(func_decl * f) {
     }
 }
 
-bool demodulator_match_subst::can_rewrite(expr * n, expr * lhs) {
-    // this is a quick check, we just traverse d and check if there is an expression in d that is an instance of lhs of n'.
-    // we cannot use the trick used for m_processed, since the main loop would not terminate.
-
-    ptr_vector<expr> stack;
-    expr *           curr;
-    expr_mark        visited;
-
-    stack.push_back(n);
-
-    while (!stack.empty()) {
-        curr = stack.back();
-
-        if (visited.is_marked(curr)) {
-            stack.pop_back();
-            continue;
-        }
-
-        switch(curr->get_kind()) {
-        case AST_VAR:
-            visited.mark(curr, true);
-            stack.pop_back();
-            break;
-
-        case AST_APP:
-            if (for_each_expr_args(stack, visited, to_app(curr)->get_num_args(), to_app(curr)->get_args())) {
-                if ((*this)(lhs, curr))
-                    return true;
-                visited.mark(curr, true);
-                stack.pop_back();
-            }
-            break;
-
-        case AST_QUANTIFIER:
-            if (visited.is_marked(to_quantifier(curr)->get_expr())) 
-                stack.pop_back();
-            else
-                stack.push_back(to_quantifier(curr)->get_expr());
-            break;
-        default:
-            UNREACHABLE();
-        }
-    }
-
-    return false;
-}
-
 void demodulator_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
     // use m_back_idx to find all demodulators d in m_fwd_idx that contains f {
 
@@ -829,6 +782,46 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
 demodulator_match_subst::demodulator_match_subst(ast_manager & m):
     m(m),
     m_subst(m) {
+}
+
+bool demodulator_match_subst::can_rewrite(expr* n, expr* lhs) {
+    // this is a quick check, we just traverse d and check if there is an expression in d that is an instance of lhs of n'.
+    // we cannot use the trick used for m_processed, since the main loop would not terminate.
+    ptr_vector<expr> stack;
+    expr* curr;
+    expr_mark        visited;
+
+    stack.push_back(n);
+    while (!stack.empty()) {
+        curr = stack.back();
+        if (visited.is_marked(curr)) {
+            stack.pop_back();
+            continue;
+        }
+        switch (curr->get_kind()) {
+        case AST_VAR:
+            visited.mark(curr, true);
+            stack.pop_back();
+            break;
+        case AST_APP:
+            if (for_each_expr_args(stack, visited, to_app(curr)->get_num_args(), to_app(curr)->get_args())) {
+                if ((*this)(lhs, curr))
+                    return true;
+                visited.mark(curr, true);
+                stack.pop_back();
+            }
+            break;
+        case AST_QUANTIFIER:
+            if (visited.is_marked(to_quantifier(curr)->get_expr()))
+                stack.pop_back();
+            else
+                stack.push_back(to_quantifier(curr)->get_expr());
+            break;
+        default:
+            UNREACHABLE();
+        }
+    }
+    return false;
 }
 
 /**
