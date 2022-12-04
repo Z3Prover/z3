@@ -64,20 +64,11 @@ namespace polysat {
             return s.ule(lhs, rhs);
     }
 
-    bool saturation::propagate(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint const c) {
-        auto crit1 = _crit1.as_signed_constraint();
-        auto crit2 = _crit2.as_signed_constraint();
-        m_lemma.insert(~crit1);
-        if (crit1 != crit2)
-            m_lemma.insert(~crit2);
 
-        LOG("critical " << m_rule << " " << crit1);
-        LOG("consequent " << c << " value: " << c.bvalue(s) << " is-false: " << c.is_currently_false(s));
+    bool saturation::propagate(conflict& core, inequality const& crit, signed_constraint c) {
+        if (is_forced_true(c))
+            return false;
 
-        SASSERT(all_of(m_lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
-
-        // Ensure lemma is a conflict lemma
-        // 
         // NSB - review is it enough to propagate a new literal even if it is not false?
         // unit propagation does not require conflicts.
         // it should just avoid redundant propagation on literals that are true
@@ -90,7 +81,34 @@ namespace polysat {
         // The effective level of the propagation is the level of all the other literals. If their level is below the
         // last decision level (conflict level) we expect the propagation to be useful.
         // The current assumptions on how conflict lemmas are used do not accomodate propagation it seems.
-        // 
+        //
+
+        m_lemma.insert(~crit.as_signed_constraint());
+        SASSERT(all_of(m_lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
+
+        // NSB review question: insert_eval: Is this right?
+        m_lemma.insert_eval(c);
+        core.add_lemma(m_rule, m_lemma.build());
+        return true;
+    }
+
+    bool saturation::add_conflict(conflict& core, inequality const& crit1, signed_constraint c) {
+        return add_conflict(core, crit1, crit1, c);
+    }
+
+    bool saturation::add_conflict(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint const c) {
+        auto crit1 = _crit1.as_signed_constraint();
+        auto crit2 = _crit2.as_signed_constraint();
+        m_lemma.insert(~crit1);
+        if (crit1 != crit2)
+            m_lemma.insert(~crit2);
+
+        LOG("critical " << m_rule << " " << crit1);
+        LOG("consequent " << c << " value: " << c.bvalue(s) << " is-false: " << c.is_currently_false(s));
+
+        SASSERT(all_of(m_lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
+
+        // Ensure lemma is a conflict lemma
         if (!is_forced_false(c)) 
             return false;
 
@@ -102,11 +120,6 @@ namespace polysat {
         m_lemma.insert_eval(c);
         core.add_lemma(m_rule, m_lemma.build());
         return true;
-    }
-
-    bool saturation::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs) {
-        signed_constraint c = ineq(is_strict, lhs, rhs);
-        return propagate(core, crit1, crit2, c);
     }
 
     bool saturation::is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c) {
@@ -274,7 +287,7 @@ namespace polysat {
     // in this way the value of p doesn't have to be fixed.
     // 
     // is_forced_diseq already creates a literal.
-    // is_non_overflow also creates a literal, it is not yet used consistently
+    // is_non_overflow also creates a literal
     // 
     // The condition that p = val may be indirect.
     // it could be a literal
@@ -304,6 +317,10 @@ namespace polysat {
         return c.bvalue(s) == l_false || c.is_currently_false(s);
     }
 
+    bool saturation::is_forced_true(signed_constraint const& c) {
+        return c.bvalue(s) == l_true || c.is_currently_true(s);
+    }
+
     /**
      * Implement the inferences
      *  [x] yx < zx   ==>  Ω*(x,y) \/ y < z
@@ -326,7 +343,7 @@ namespace polysat {
         m_lemma.insert(~non_ovfl);
         if (!xy_l_xz.is_strict())
             m_lemma.insert_eval(s.eq(x));
-        return propagate(core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict(), y, z);
+        return add_conflict(core, xy_l_xz, ineq(xy_l_xz.is_strict(), y, z));
     }
 
     /**
@@ -367,7 +384,7 @@ namespace polysat {
         pdd const& z_prime = l_y.lhs();
         m_lemma.reset();
         m_lemma.insert(~non_ovfl);
-        return propagate(core, l_y, yx_l_zx, yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x);
+        return add_conflict(core, l_y, yx_l_zx, ineq(yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x));
     }
 
     /**
@@ -407,7 +424,7 @@ namespace polysat {
             return false;
         m_lemma.reset();
         m_lemma.insert(~non_ovfl);
-        return propagate(core, yx_l_zx, z_l_y, z_l_y.is_strict() || yx_l_zx.is_strict(), y * x, y_prime * x);
+        return add_conflict(core, yx_l_zx, z_l_y, ineq(z_l_y.is_strict() || yx_l_zx.is_strict(), y * x, y_prime * x));
     }
 
     /**
@@ -448,14 +465,17 @@ namespace polysat {
             return false;
         m_lemma.reset();
         m_lemma.insert(~non_ovfl);
-        return propagate(core, y_l_ax, x_l_z, x_l_z.is_strict() || y_l_ax.is_strict(), y, a * z);
+        return add_conflict(core, y_l_ax, x_l_z, ineq(x_l_z.is_strict() || y_l_ax.is_strict(), y, a * z));
     }
 
     /**
-     * a <= k & a*x + b = 0 & b = 0 => a = 0 or x = 0 or x >= 2^K/k
+     * [x] a <= k & a*x + b = 0 & b = 0 => a = 0 or x = 0 or x >= 2^K/k
+     * [x] x <= k & a*x + b = 0 & b = 0 => x = 0 or a = 0 or a >= 2^K/k
+     * Better:
+     * [x] a*x + b = 0 & b = 0 => a = 0 or x = 0 or Ω*(a, x)     
      */
     bool saturation::try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] ax + b <= y & y = 0 & b = 0 & a <= k => x = 0 or a = 0 or x >= 2^K/k");
+        set_rule("[x] a*x + b = 0 & b = 0 => a = 0 or x = 0 or Omega(a, x)");
         auto& m = s.var2pdd(x);
         pdd y = m.zero();
         pdd a = m.zero();
@@ -470,56 +490,21 @@ namespace polysat {
         if (!is_forced_eq(b, 0))
             return false;
 
+        if (a.leading_coefficient() == m.max_value())
+            a = -a;
+        signed_constraint x_eq_0, a_eq_0;
+        if (!is_forced_diseq(X, 0, x_eq_0))
+            return false;
+        if (!is_forced_diseq(a, 0, a_eq_0))
+            return false;
 
-#if 0
-        // we could also use x.val(), a.val() if they exist and enforce bounds
-        rational a_val, x_val;
-        if (s.try_eval(a, a_val) && s.try_eval(X, x_val) && a_val*x_val != 0) {
-            IF_VERBOSE(0, verbose_stream() << " mul bounds " << axb_l_y.as_signed_constraint() << "\n");
-        }
-#endif        
-
-        pdd minus_a = -a;
-
-        for (auto si : s.m_search) {
-            if (!si.is_boolean())
-                continue;
-            if (si.is_resolved())
-                continue;
-            auto d = s.lit2cnstr(si.lit());
-            if (!d->is_ule())
-                continue;
-            auto a_l_k = inequality::from_ule(d);
-            if (a_l_k.lhs() != a && a_l_k.lhs() != minus_a)
-                continue;
-            k = a_l_k.rhs();
-            if (!k.is_val())
-                continue;
-            if (k.val() <= 1)
-                continue;
-
-            //
-            // TODO: if there are multiple upper bounds, select the smallest?
-            //
-
-            // a bit late in the game to check this.
-            signed_constraint x_eq_0, a_eq_0;
-            if (!is_forced_diseq(X, 0, x_eq_0))
-                return false;
-            if (!is_forced_diseq(a, 0, a_eq_0))
-                return false;
-
-            m_lemma.reset();
-            m_lemma.insert(~s.eq(b));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(x_eq_0);
-            m_lemma.insert(a_eq_0);
-            return propagate(core, axb_l_y, a_l_k, s.ule(ceil(m.two_to_N() / k.val()), X));
-            // should we check if a = 0, x = 0 evaluate to false?
-            // given that the lemma is not propagating should we otherwise force case splitting to choose
-            // x = 0 or x >= 2^K/k
-        }
-        return false;
+        IF_VERBOSE(0, verbose_stream() << "mult-bounds " << a << " " << axb_l_y.as_signed_constraint() << " \n");
+        m_lemma.reset();
+        m_lemma.insert(~s.eq(b));
+        m_lemma.insert(~s.eq(y));
+        m_lemma.insert(x_eq_0);
+        m_lemma.insert(a_eq_0);
+        return propagate(core, axb_l_y, s.umul_ovfl(a, X));
     }
 
 
@@ -544,7 +529,7 @@ namespace polysat {
         m_lemma.insert(~s.eq(b, rational(-1)));
         m_lemma.insert(~s.eq(y));
         m_lemma.insert(~non_ovfl);
-        return propagate(core, axb_l_y, axb_l_y, s.eq(X, 1));
+        return propagate(core, axb_l_y, s.eq(X, 1));
     }
 
     /**
@@ -568,7 +553,7 @@ namespace polysat {
         m_lemma.insert(s.eq(y));
         m_lemma.insert(~s.eq(b));
         m_lemma.insert(a_eq_0);
-        return propagate(core, axb_l_y, axb_l_y, s.even(X));
+        return propagate(core, axb_l_y, s.even(X));
     }
 
     /*
@@ -633,7 +618,7 @@ namespace polysat {
                 return false;
             m_lemma.insert_eval(~d);
             auto conseq = s.ult(r_val, c.rhs());
-            return propagate(core, c, c, conseq);
+            return add_conflict(core, c, conseq);
         }
         else {
             auto d = s.ule(c.rhs(), r_val);
@@ -641,7 +626,7 @@ namespace polysat {
                 return false;
             m_lemma.insert_eval(~d);
             auto conseq = s.ule(c.lhs(), r_val);
-            return propagate(core, c, c, conseq);
+            return add_conflict(core, c, conseq);
         }
     }
 

@@ -831,10 +831,16 @@ namespace polysat {
         unsigned max_level = 0;     // highest level in lemma
         unsigned lits_at_max_level = 0;  // how many literals at the highest level in lemma
         unsigned snd_level = 0;     // second-highest level in lemma
+        bool is_propagation = false;
         for (sat::literal lit : lemma) {
             SASSERT(m_bvars.is_assigned(lit));  // any new constraints should have been assign_eval'd
             if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
                 return std::nullopt;
+            if (!m_bvars.is_assigned(lit)) {
+                SASSERT(!is_propagation);
+                is_propagation = true;
+                continue;
+            }
 
             unsigned const lit_level = m_bvars.level(lit);
             if (lit_level > max_level) {
@@ -856,6 +862,8 @@ namespace polysat {
         //                          Backtrack to "highest level - 1" and split on the lemma there.
         // For now, we follow the same convention for computing the jump levels.
         unsigned jump_level;
+        if (is_propagation)
+            jump_level = max_level;
         if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
