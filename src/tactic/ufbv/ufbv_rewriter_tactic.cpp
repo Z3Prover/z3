@@ -55,15 +55,12 @@ public:
         demodulator_rewriter dem(m_manager);
 
         expr_ref_vector forms(m_manager), new_forms(m_manager);
-        proof_ref_vector proofs(m_manager), new_proofs(m_manager);
 
         unsigned size = g->size();
-        for (unsigned i = 0; i < size; i++) {
+        for (unsigned i = 0; i < size; i++) 
             forms.push_back(g->form(i));
-            proofs.push_back(g->pr(i));
-        }
 
-        dem(forms.size(), forms.data(), new_forms);
+        dem(forms, new_forms);
 
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++)

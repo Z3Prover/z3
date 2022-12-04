@@ -111,11 +111,12 @@ class demodulator_rewriter final {
     typedef array_map<expr*, expr_bool_pair, plugin> expr_map;
     
     typedef std::pair<expr *, expr *> expr_pair;
+    typedef std::pair<app *, expr* > app_expr_pair;
     typedef obj_hashtable<expr> expr_set;    
     typedef obj_map<func_decl, expr_set *> back_idx_map;
     typedef obj_hashtable<quantifier> quantifier_set;
     typedef obj_map<func_decl, quantifier_set *> fwd_idx_map;
-    typedef obj_map<quantifier, expr_pair> demodulator2lhs_rhs;
+    typedef obj_map<quantifier, app_expr_pair> demodulator2lhs_rhs;
     typedef expr_map rewrite_cache_map;
 
     /**
@@ -172,20 +173,22 @@ class demodulator_rewriter final {
     rewrite_cache_map   m_rewrite_cache;
     expr_ref_buffer     m_new_exprs;
     
-    void insert_fwd_idx(expr * large, expr * small, quantifier * demodulator);
+    void insert_fwd_idx(app * large, expr * small, quantifier * demodulator);
     void remove_fwd_idx(func_decl * f, quantifier * demodulator);
+    void insert_bwd_idx(expr* q);
+    void remove_bwd_idx(expr* q);
     bool check_fwd_idx_consistency();
     void show_fwd_idx(std::ostream & out);
     bool is_demodulator(expr * e, app_ref & large, expr_ref & small) const;
     bool can_rewrite(expr * n, expr * lhs);
     
     expr * rewrite(expr * n);
-    bool rewrite1(func_decl * f, expr_ref_vector & m_new_args, expr_ref & np);
+    bool rewrite1(func_decl * f, expr_ref_vector const & args, expr_ref & np);
     bool rewrite_visit_children(app * a);
     void rewrite_cache(expr * e, expr * new_e, bool done);
     void reschedule_processed(func_decl * f);
     void reschedule_demodulators(func_decl * f, expr * np);
-    unsigned max_var_id(expr * e);
+    unsigned max_var_id(expr_ref_vector const& es);
 
     // is_smaller returns -1 for e1<e2, 0 for e1==e2 and +1 for e1>e2.
     int is_smaller(expr * e1, expr * e2) const;
@@ -197,7 +200,7 @@ public:
     demodulator_rewriter(ast_manager & m);
     ~demodulator_rewriter();
     
-    void operator()(unsigned n, expr * const * exprs, expr_ref_vector & new_exprs);
+    void operator()(expr_ref_vector const& exprs, expr_ref_vector & new_exprs);
 
     /**
       Given a demodulator (aka rewrite rule) of the form
