@@ -400,7 +400,8 @@ static void print_matrix(ostream& out, PackedMatrix& mat) {
 
 // Applies Gaussian-Jordan elimination (search level). This function does not add conflicts/propagate/... Just reduces the matrix
 void EGaussian::eliminate() {
-    // TODO: Why twice? gauss_jordan_elim
+    SASSERT(m_solver.s().at_search_lvl());
+    
     unsigned end_row = num_rows;
     unsigned rowI = 0;
     unsigned row_i = 0;

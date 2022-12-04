@@ -94,6 +94,7 @@ namespace xr {
                 rhs ^= true;
                 lit.neg();
             }
+            s().set_external(lit.var());
         }
         clean_xor_no_prop(ps, rhs);
     
@@ -131,11 +132,10 @@ namespace xr {
         if (m_prop_queue_head == m_prop_queue.size())
             return false;
         force_push();
-        m_ctx->push(value_trail<unsigned>(m_prop_queue_head));
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             sat::literal const p = m_prop_queue[m_prop_queue_head];
             sat::justification conflict = gauss_jordan_elim(p, m_num_scopes);
-            if (conflict.is_none()) {
+            if (!conflict.is_none()) {
                 m_prop_queue_head = m_prop_queue.size();
                 s().set_conflict(conflict);
             }
@@ -238,6 +238,7 @@ namespace xr {
     
     void solver::push_core() {
         m_prop_queue_lim.push_back(m_prop_queue.size());
+        m_prop_queue_head_queue.push_back(m_prop_queue_head);
         //m_justifications_lim.push_back(m_justifications.size());
     }
     
@@ -246,6 +247,9 @@ namespace xr {
         unsigned old_sz = m_prop_queue_lim.size() - num_scopes;
         m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
         m_prop_queue_lim.shrink(old_sz);
+        
+        m_prop_queue_head = m_prop_queue_head_queue[old_sz];
+        m_prop_queue_head_queue.shrink(old_sz);
         
         /*old_sz = m_justifications_lim.size() - num_scopes;
         unsigned lim = m_justifications_lim[old_sz];
@@ -583,6 +587,11 @@ namespace xr {
         if (xors.empty())
             return !s().inconsistent();
         
+        if (s().is_incremental()) { // TODO: What should we do in this case?
+            clean_xors_from_empty(xors);
+            return !s().inconsistent();
+        }
+                        
         if (m_occ_cnt.size() != s().num_vars()) {
             m_occ_cnt.clear();
             m_occ_cnt.resize(s().num_vars(), 0);
@@ -613,25 +622,7 @@ namespace xr {
             }
         }
     
-        s().init_visited();
-
-        // We can only eliminate variables that are non-external and not used in clauses.
-        // Don't XOR together over variables that are external
-        for (unsigned i = 0; i < s().num_vars(); i++)
-            if (s().is_external(i))
-                s().mark_visited(i);
-
-        // Don't XOR together over variables that are in irredundant clauses
-        // learned clauses are redundant.
-        for (unsigned i = 0; i < 2 * s().num_vars(); i++) 
-            for (const auto& w: s().get_wlist(i)) 
-                if (w.is_binary_clause() && !w.is_learned())
-                    s().mark_visited(w.get_literal().var());
-    
-        for (const auto& cl: s().clauses()) 
-            if (!cl->is_learned())
-                for (literal l: *cl)
-                    s().mark_visited(l.var());
+        mark_non_removable_atoms();
     
         // until fixedpoint
         bool changed = true;
@@ -731,8 +722,6 @@ namespace xr {
         return !s().inconsistent();
     }
     
-    
-    
     // Removes all xor clauses that do not contain any variables 
     // (and have rhs = false; i.e., are trivially satisfied) and move them to unused
     void solver::clean_xors_from_empty(vector<xor_clause>& thisxors) {
@@ -746,6 +735,44 @@ namespace xr {
                 thisxors[j++] = x;
         }
         thisxors.shrink(j);
+    }
+    
+    // marks all elements that may NOT be removed by merging xors
+    void solver::mark_non_removable_atoms() {
+        s().init_visited();
+        
+        // We can only eliminate variables that are non-external and not used in clauses.
+        // Don't XOR together over variables that are external
+        for (bool_var v = 0; v < s().num_vars(); v++) {
+            if (!s().is_external(v)) // We can ignore this case, as all variables in xor-clauses are marked as external for sure
+                continue;
+            if (is_theory_atom(v))
+                s().mark_visited(v);
+        }
+        
+        // Don't XOR together over variables that are in irredundant clauses
+        // learned clauses are redundant.
+        for (unsigned i = 0; i < 2 * s().num_vars(); i++) 
+            for (const auto& w: s().get_wlist(i)) 
+                if (w.is_binary_clause() && !w.is_learned())
+                    s().mark_visited(w.get_literal().var());
+        
+        for (const auto& cl: s().clauses()) 
+            if (!cl->is_learned())
+                for (literal l: *cl)
+                    s().mark_visited(l.var());
+    }
+
+    bool solver::is_theory_atom(bool_var v) const {
+        if (m_ctx == nullptr)
+            return false; // there is no other solver 
+        
+        euf::enode* n = m_ctx->bool_var2enode(v);
+        if (!n)
+            return false;
+        
+        auto th_vars = euf::enode_th_vars(n);
+        return std::any_of(th_vars.begin(), th_vars.end(), [&](const euf::th_var_list& thv) { return m_ctx->fid2solver(thv.get_id()); });
     }
     
     // Merge two xor clauses; the resulting clause is in m_tmp_vars_xor_two and the variable where it was glued is in clash_var

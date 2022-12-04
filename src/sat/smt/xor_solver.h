@@ -31,7 +31,9 @@ namespace xr {
 
         literal_vector            m_prop_queue;
         unsigned_vector           m_prop_queue_lim;
+        
         unsigned                  m_prop_queue_head = 0;
+        unsigned_vector           m_prop_queue_head_queue;
         // ptr_vector<justification> m_justifications;
         // unsigned_vector           m_justifications_lim;
 
@@ -73,6 +75,9 @@ namespace xr {
         
         void clean_occur_from_idx(const literal l);
         void clean_xors_from_empty(vector<xor_clause>& thisxors);
+        
+        bool is_theory_atom(bool_var v) const;
+        void mark_non_removable_atoms();
         unsigned xor_two(xor_clause const* x1_p, xor_clause const* x2_p, bool_var& clash_var);
         
         bool add_simple_xor_constraint(const xor_clause& constraint);
