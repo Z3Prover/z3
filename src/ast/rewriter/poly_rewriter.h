@@ -36,6 +36,7 @@ protected:
     bool                    m_hoist_mul;
     bool                    m_ast_order;
     bool                    m_hoist_ite;
+    ast_manager& M() { return Config::m; }
 
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }

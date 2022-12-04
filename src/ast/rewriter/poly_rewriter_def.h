@@ -51,7 +51,7 @@ expr * poly_rewriter<Config>::mk_add_app(unsigned num_args, expr * const * args)
     switch (num_args) {
     case 0: return mk_numeral(numeral(0));
     case 1: return args[0];
-    default: return m.mk_app(get_fid(), add_decl_kind(), num_args, args);
+    default: return M().mk_app(get_fid(), add_decl_kind(), num_args, args);
     }
 }
 
