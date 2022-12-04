@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "ast/rewriter/demodulator_rewriter.h"
+#include "ast/substitution/demodulator_rewriter.h"
 #include "tactic/ufbv/ufbv_rewriter_tactic.h"
 
 class demodulator_rewriter_tactic : public tactic {
@@ -28,7 +28,7 @@ public:
     demodulator_rewriter_tactic(ast_manager & m, params_ref const & p):
         m_manager(m), m_params(p) {}
 
-    char const* name() const override { return "ufbv"; }
+    char const* name() const override { return "ufbv-rewriter"; }
 
     tactic * translate(ast_manager & m) override {
         return alloc(demodulator_rewriter_tactic, m, m_params);
@@ -63,8 +63,8 @@ public:
         dem(forms, new_forms);
 
         g->reset();
-        for (unsigned i = 0; i < new_forms.size(); i++)
-            g->assert_expr(new_forms.get(i), nullptr, nullptr);
+        for (expr* fml : new_forms)
+            g->assert_expr(fml, nullptr, nullptr);
 
         // CMW: Remark: The demodulator could potentially
         // remove all references to a variable.

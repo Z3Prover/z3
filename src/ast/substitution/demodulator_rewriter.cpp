@@ -25,7 +25,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
-#include "ast/rewriter/demodulator_rewriter.h"
+#include "ast/substitution/demodulator_rewriter.h"
 
 demodulator_rewriter::demodulator_rewriter(ast_manager & m):
     m(m),
@@ -284,33 +284,30 @@ bool demodulator_rewriter::rewrite1(func_decl * f, expr_ref_vector const & args,
 }
 
 bool demodulator_rewriter::rewrite_visit_children(app * a) {
-    bool res=true;
-    unsigned j = a->get_num_args();
-    while (j > 0) {
-        expr * e = a->get_arg(--j);
-        if (!m_rewrite_cache.contains(e) || !m_rewrite_cache.get(e).second) {
-            bool recursive = false;
-            unsigned sz = m_rewrite_todo.size();
-            expr * v = e;
-            if (m_rewrite_cache.contains(e)) {
-                expr_bool_pair const & ebp = m_rewrite_cache.get(e);
-                if (ebp.second) {
-                    v = ebp.first;
-                }
+    bool res = true;
+    for (expr* e : *a) {
+        if (m_rewrite_cache.contains(e) && m_rewrite_cache.get(e).second)
+            continue;
+        bool recursive = false;
+        unsigned sz = m_rewrite_todo.size();
+        expr * v = e;
+        if (m_rewrite_cache.contains(e)) {
+            expr_bool_pair const & ebp = m_rewrite_cache.get(e);
+            if (ebp.second) 
+                v = ebp.first;
+        }
+        for (unsigned i = sz; i-- > 0;) {
+            if (m_rewrite_todo[i] == v) {
+                recursive = true;
+                TRACE("demodulator", tout << "Detected demodulator cycle: " <<
+                      mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
+                rewrite_cache(e, v, true);
+                break;
             }
-            for (unsigned i = sz; i-- > 0;) {
-                if (m_rewrite_todo[i] == v) {
-                    recursive = true;
-                    TRACE("demodulator", tout << "Detected demodulator cycle: " <<
-                        mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
-                    rewrite_cache(e, v, true);
-                    break;
-                }
-            }
-            if (!recursive) {
-                m_rewrite_todo.push_back(e);
-                res = false;
-            }
+        }
+        if (!recursive) {
+            m_rewrite_todo.push_back(e);
+            res = false;
         }
     }
     return res;

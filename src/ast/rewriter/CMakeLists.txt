@@ -11,7 +11,6 @@ z3_add_component(rewriter
     cached_var_subst.cpp
     char_rewriter.cpp
     datatype_rewriter.cpp
-    demodulator_rewriter.cpp
     der.cpp
     distribute_forall.cpp
     dl_rewriter.cpp
