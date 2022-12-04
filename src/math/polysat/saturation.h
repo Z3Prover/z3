@@ -28,7 +28,6 @@ namespace polysat {
 
         void set_rule(char const* r) { m_rule = r; }
 
-        void insert_omega(pdd const& x, pdd const& y);
         bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
         bool propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint c);

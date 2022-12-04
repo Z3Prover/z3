@@ -128,10 +128,6 @@ namespace polysat {
         return false;
     }
 
-    void saturation::insert_omega(pdd const& x, pdd const& y) {
-        m_lemma.insert_eval(s.umul_ovfl(x, y));
-    }
-
     /*
      * Match [v] .. <= v
      */
@@ -305,15 +301,16 @@ namespace polysat {
         pdd x = s.var(v);
         pdd y = x;
         pdd z = x;
+        signed_constraint non_ovfl;
+
         if (!is_xY_l_xZ(v, xy_l_xz, y, z))
-            return false;
-        // TODO - use is_non_overflow(x, y, non_ovfl) instead?
-        if (!is_non_overflow(x, y))
             return false;
         if (!xy_l_xz.is_strict() && s.get_value(v).is_zero())
             return false;
+        if (!is_non_overflow(x, y, non_ovfl))
+            return false;
         m_lemma.reset();
-        insert_omega(x, y);
+        m_lemma.insert(~non_ovfl);
         if (!xy_l_xz.is_strict())
             m_lemma.insert_eval(s.eq(x));
         return propagate(core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict(), y, z);
@@ -351,11 +348,12 @@ namespace polysat {
         SASSERT(is_l_v(v, l_y));
         SASSERT(verify_Xy_l_XZ(v, yx_l_zx, x, z));
         pdd const y = s.var(v);
-        if (!is_non_overflow(x, y))
+        signed_constraint non_ovfl;
+        if (!is_non_overflow(x, y, non_ovfl))
             return false;
         pdd const& z_prime = l_y.lhs();
         m_lemma.reset();
-        insert_omega(x, y);
+        m_lemma.insert(~non_ovfl);
         return propagate(core, l_y, yx_l_zx, yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x);
     }
 
@@ -391,10 +389,11 @@ namespace polysat {
         SASSERT(is_g_v(z, z_l_y));
         SASSERT(verify_YX_l_zX(z, yx_l_zx, x, y));
         pdd const& y_prime = z_l_y.rhs();
-        if (!is_non_overflow(x, y_prime))
+        signed_constraint non_ovfl;
+        if (!is_non_overflow(x, y_prime, non_ovfl))
             return false;
         m_lemma.reset();
-        insert_omega(x, y_prime);
+        m_lemma.insert(~non_ovfl);
         return propagate(core, yx_l_zx, z_l_y, z_l_y.is_strict() || yx_l_zx.is_strict(), y * x, y_prime * x);
     }
 
@@ -431,10 +430,11 @@ namespace polysat {
         SASSERT(is_g_v(x, x_l_z));
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
         pdd const& z = x_l_z.rhs();
-        if (!is_non_overflow(a, z))
+        signed_constraint non_ovfl;
+        if (!is_non_overflow(a, z, non_ovfl))
             return false;
         m_lemma.reset();
-        insert_omega(a, z);
+        m_lemma.insert(~non_ovfl);
         return propagate(core, y_l_ax, x_l_z, x_l_z.is_strict() || y_l_ax.is_strict(), y, a * z);
     }
 
@@ -512,21 +512,19 @@ namespace polysat {
         pdd y = m.zero();
         pdd a = m.zero();
         pdd b = m.zero();
-        rational b_val, y_val;
+        pdd X = s.var(x);
+        signed_constraint non_ovfl;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
         if (!is_forced_eq(b, -1))
             return false;
-        pdd X = s.var(x);
-        signed_constraint non_ovfl;
-        if (is_non_overflow(a, X, non_ovfl)) {
-            m_lemma.reset();
-            m_lemma.insert(~s.eq(b, rational(-1)));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(~non_ovfl);
-            return propagate(core, axb_l_y, axb_l_y, s.eq(X, 1));
-        }
-        return false;
+        if (!is_non_overflow(a, X, non_ovfl)) 
+            return false;
+        m_lemma.reset();
+        m_lemma.insert(~s.eq(b, rational(-1)));
+        m_lemma.insert(~s.eq(y));
+        m_lemma.insert(~non_ovfl);
+        return propagate(core, axb_l_y, axb_l_y, s.eq(X, 1));
     }
 
     /**
