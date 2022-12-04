@@ -1988,6 +1988,10 @@ bool bv_rewriter::distribute_concat(decl_kind k, unsigned n, expr* const* args, 
             expr* e = to_app(arg)->get_arg(0);
             unsigned sz1 = get_bv_size(e);
             unsigned sz2 = get_bv_size(arg);
+            if (sz1 == sz2) {
+                result = m.mk_app(get_fid(), k, n, args);
+                return true;
+            }
             expr_ref_vector args1(m), args2(m);
             for (unsigned j = 0; j < n; ++j) {
                 args1.push_back(m_mk_extract(sz2 - 1, sz2 - sz1, args[j]));
