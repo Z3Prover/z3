@@ -407,7 +407,6 @@ namespace polysat {
                 fi.side_cond.push_back(s.eq(b1, e1));
             if (b2 != e2)
                 fi.side_cond.push_back(s.eq(b2, e2));
-            IF_VERBOSE(0, verbose_stream() << fi.interval << " " << fi.side_cond << "\n");            
             return true;
         }
         return false;

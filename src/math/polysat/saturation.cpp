@@ -39,6 +39,10 @@ namespace polysat {
             if (c.is_currently_true(s))
                 continue;
             auto i = inequality::from_ule(c);
+#if 0
+            if (try_mul_bounds(v, core, i))
+                return true;
+#endif
             if (try_ugt_x(v, core, i))
                 return true;
             if (try_ugt_y(v, core, i))
@@ -192,10 +196,10 @@ namespace polysat {
      */
     bool saturation::is_AxB_eq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
         y = i.rhs();
-        if (!y.is_val() || y.val() != 0)
+        rational y_val;
+        if (!s.try_eval(y, y_val) || y_val != 0)
             return false;
-        pdd aa = a, bb = b;
-        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, aa, bb), aa == a && bb == b);
+        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, a, b), true);
     }
 
     bool saturation::verify_AxB_eq_0(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
@@ -453,13 +457,17 @@ namespace polysat {
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
 
+        IF_VERBOSE(0, verbose_stream() << " mul bounds " << x << " " << axb_l_y.as_signed_constraint() << "\n");
+
         if (!is_forced_eq(b, 0))
             return false;
 
-#if 0
-        // we could also use x.val(), a.val() if they exist and enforce bounds
-        if (s.try_eval(a, a_val) && s.try_eval(X, x_val) && a_val*x_val != 0) {
 
+#if 1
+        // we could also use x.val(), a.val() if they exist and enforce bounds
+        rational a_val, x_val;
+        if (s.try_eval(a, a_val) && s.try_eval(X, x_val) && a_val*x_val != 0) {
+            IF_VERBOSE(0, verbose_stream() << " mul bounds " << axb_l_y.as_signed_constraint() << "\n");
         }
 #endif        
 
@@ -489,6 +497,10 @@ namespace polysat {
                 return false;
             if (!is_forced_diseq(a, 0, a_eq_0))
                 return false;
+
+            IF_VERBOSE(0, verbose_stream() << " mul bounds " << axb_l_y.as_signed_constraint() << "\n");
+            return false;
+
             m_lemma.reset();
             m_lemma.insert(~s.eq(b));
             m_lemma.insert(~s.eq(y));
