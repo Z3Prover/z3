@@ -81,8 +81,17 @@ namespace polysat {
         // NSB - review is it enough to propagate a new literal even if it is not false?
         // unit propagation does not require conflicts.
         // it should just avoid redundant propagation on literals that are true
+        //
+        // Furthermore propagation cannot be used when the resolved variable comes from 
+        // forbidden interval conflicts. The propagated literal effectively adds a new and simpler bound
+        // on the non-viable variable. This bound then enables tighter non-viability conflicts.
+        // Effectively c is forced false, but it is forced false within the context of constraints used for viability.
+        //
+        // The effective level of the propagation is the level of all the other literals. If their level is below the
+        // last decision level (conflict level) we expect the propagation to be useful.
+        // The current assumptions on how conflict lemmas are used do not accomodate propagation it seems.
         // 
-        if (!is_forced_false(c))
+        if (!is_forced_false(c)) 
             return false;
 
         // TODO: ??? this means that c is already on the search stack, so presumably the lemma won't help. Should check whether this case occurs.
@@ -443,7 +452,7 @@ namespace polysat {
     }
 
     /**
-     * p <= k & p*x + q = 0 & q = 0 => p = 0 or x = 0 or x >= 2^K/k
+     * a <= k & a*x + b = 0 & b = 0 => a = 0 or x = 0 or x >= 2^K/k
      */
     bool saturation::try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] ax + b <= y & y = 0 & b = 0 & a <= k => x = 0 or a = 0 or x >= 2^K/k");
@@ -456,20 +465,21 @@ namespace polysat {
         rational b_val, y_val;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
-
-        IF_VERBOSE(0, verbose_stream() << " mul bounds " << x << " " << axb_l_y.as_signed_constraint() << "\n");
-
+        if (a.is_val())
+            return false;        
         if (!is_forced_eq(b, 0))
             return false;
 
 
-#if 1
+#if 0
         // we could also use x.val(), a.val() if they exist and enforce bounds
         rational a_val, x_val;
         if (s.try_eval(a, a_val) && s.try_eval(X, x_val) && a_val*x_val != 0) {
             IF_VERBOSE(0, verbose_stream() << " mul bounds " << axb_l_y.as_signed_constraint() << "\n");
         }
 #endif        
+
+        pdd minus_a = -a;
 
         for (auto si : s.m_search) {
             if (!si.is_boolean())
@@ -480,8 +490,9 @@ namespace polysat {
             if (!d->is_ule())
                 continue;
             auto a_l_k = inequality::from_ule(d);
-            if (a_l_k.lhs() != a)
+            if (a_l_k.lhs() != a && a_l_k.lhs() != minus_a)
                 continue;
+            k = a_l_k.rhs();
             if (!k.is_val())
                 continue;
             if (k.val() <= 1)
@@ -497,9 +508,6 @@ namespace polysat {
                 return false;
             if (!is_forced_diseq(a, 0, a_eq_0))
                 return false;
-
-            IF_VERBOSE(0, verbose_stream() << " mul bounds " << axb_l_y.as_signed_constraint() << "\n");
-            return false;
 
             m_lemma.reset();
             m_lemma.insert(~s.eq(b));

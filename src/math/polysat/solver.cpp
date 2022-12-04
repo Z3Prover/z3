@@ -823,6 +823,10 @@ namespace polysat {
         backjump_and_learn(max_jump_level);
     }
 
+    //
+    // NSB review: this code assumes that these lemmas are false.
+    // It does not allow saturation to add unit propagation into freshly created literals.
+    // 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
         unsigned max_level = 0;     // highest level in lemma
         unsigned lits_at_max_level = 0;  // how many literals at the highest level in lemma

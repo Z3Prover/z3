@@ -68,8 +68,14 @@ namespace polysat {
             , m_free_variable_elimination(s)
         {}
 
+        // 
+        // NSB review: the plugins need not be mutually exclusive
+        // Shouldn't saturation and superposition be allowed independently?
+        // If they create propagations or conflict lemmas we select the 
+        // tightest propagation as part of backjumping.
+        // 
         bool try_resolve_value(pvar v, conflict& core) {
-            if (m_poly_sup.perform(v, core))
+            if (m_poly_sup.perform(v, core)) 
                 return true;
             if (m_saturation.perform(v, core))
                 return true;
@@ -252,6 +258,10 @@ namespace polysat {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             VERIFY(s.m_viable.resolve(v, *this));
         }
+        // NSB review:
+        // Saturation is not invoked on forbidden interval conflicts.
+        // We miss propagations.
+        // m_resolver->try_resolve_value(v, *this);
         SASSERT(!empty());
     }
 
@@ -407,6 +417,11 @@ namespace polysat {
         }
         logger().log(inf_resolve_value(s, v));
 
+        //
+        // NSB review: if try_resolve_value returns true, it adds propagations or conflict lemmas.
+        // the return value should not influence resolution. Indeed the code in solver.cpp
+        // just ignores the return value. It seems this function should not have a return value.
+        // 
         if (m_resolver->try_resolve_value(v, *this))
             return true;
 
