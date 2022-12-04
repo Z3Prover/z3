@@ -27,32 +27,73 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/substitution/demodulator_rewriter.h"
 
-demodulator_rewriter::demodulator_rewriter(ast_manager & m):
-    m(m),
-    m_match_subst(m),
-    m_bsimp(m),
-    m_todo(m),
-    m_in_processed(m),
-    m_new_args(m), 
-    m_rewrite_todo(m),
-    m_rewrite_cache(m),
-    m_new_exprs(m) {
-    params_ref p;
-    p.set_bool("elim_and", true);
-    m_bsimp.updt_params(p);
+
+class var_set_proc {
+    uint_set & m_set;
+public:
+    var_set_proc(uint_set &s):m_set(s) {}
+    void operator()(var * n) { m_set.insert(n->get_idx()); }
+    void operator()(quantifier * n) {}
+    void operator()(app * n) {}
+};
+
+int demodulator_util::is_subset(expr * e1, expr * e2) const {
+    uint_set ev1, ev2;
+
+    if (m.is_value(e1))
+        return 1; // values are always a subset!
+
+    var_set_proc proc1(ev1);
+    for_each_expr(proc1, e1);
+    var_set_proc proc2(ev2);
+    for_each_expr(proc2, e2);
+
+    return (ev1==ev2          ) ? +2 : // We return +2 if the sets are equal.
+           (ev1.subset_of(ev2)) ? +1 :
+           (ev2.subset_of(ev1)) ? -1 :
+                                   0 ;
 }
 
-demodulator_rewriter::~demodulator_rewriter() {
-    reset_dealloc_values(m_fwd_idx);
-    reset_dealloc_values(m_back_idx);
-    for (auto & kv : m_demodulator2lhs_rhs) {
-        m.dec_ref(kv.m_key);
-        m.dec_ref(kv.m_value.first);
-        m.dec_ref(kv.m_value.second);
+int demodulator_util::is_smaller(expr * e1, expr * e2) const {
+    unsigned sz1 = 0, sz2 = 0;
+
+    // values are always smaller!
+    if (m.is_value(e1))
+        return +1;
+    else if (m.is_value(e2))
+        return -1;
+
+    // interpreted stuff is always better than uninterpreted.
+    if (!is_uninterp(e1) && is_uninterp(e2))
+        return +1;
+    else if (is_uninterp(e1) && !is_uninterp(e2))
+        return -1;
+
+    // two uninterpreted functions are ordered first by the number of
+    // arguments, then by their id.
+    if (is_uninterp(e1) && is_uninterp(e2)) {
+        if (to_app(e1)->get_num_args() < to_app(e2)->get_num_args())
+            return +1;
+        else if (to_app(e1)->get_num_args() > to_app(e2)->get_num_args())
+            return -1;
+        else {
+            unsigned a = to_app(e1)->get_decl()->get_id();
+            unsigned b = to_app(e2)->get_decl()->get_id();
+            if (a < b)
+                return +1;
+            else if (a > b)
+                return -1;
+        }
     }
+    sz1 = get_depth(e1);
+    sz2 = get_depth(e2);
+
+    return (sz1 == sz2) ?  0 :
+           (sz1  < sz2) ? +1 :
+                          -1 ;
 }
 
-bool demodulator_rewriter::is_demodulator(expr * e, app_ref & large, expr_ref & small) const {
+bool demodulator_util::is_demodulator(expr * e, app_ref & large, expr_ref & small) const {
     if (!is_forall(e)) {
         return false;
     }
@@ -109,71 +150,6 @@ bool demodulator_rewriter::is_demodulator(expr * e, app_ref & large, expr_ref & 
     return false;
 }
 
-class var_set_proc {
-    uint_set & m_set;
-public:
-    var_set_proc(uint_set &s):m_set(s) {}
-    void operator()(var * n) { m_set.insert(n->get_idx()); }
-    void operator()(quantifier * n) {}
-    void operator()(app * n) {}
-};
-
-int demodulator_rewriter::is_subset(expr * e1, expr * e2) const {
-    uint_set ev1, ev2;
-
-    if (m.is_value(e1))
-        return 1; // values are always a subset!
-
-    var_set_proc proc1(ev1);
-    for_each_expr(proc1, e1);
-    var_set_proc proc2(ev2);
-    for_each_expr(proc2, e2);
-
-    return (ev1==ev2          ) ? +2 : // We return +2 if the sets are equal.
-           (ev1.subset_of(ev2)) ? +1 :
-           (ev2.subset_of(ev1)) ? -1 :
-                                   0 ;
-}
-
-int demodulator_rewriter::is_smaller(expr * e1, expr * e2) const {
-    unsigned sz1 = 0, sz2 = 0;
-
-    // values are always smaller!
-    if (m.is_value(e1))
-        return +1;
-    else if (m.is_value(e2))
-        return -1;
-
-    // interpreted stuff is always better than uninterpreted.
-    if (!is_uninterp(e1) && is_uninterp(e2))
-        return +1;
-    else if (is_uninterp(e1) && !is_uninterp(e2))
-        return -1;
-
-    // two uninterpreted functions are ordered first by the number of
-    // arguments, then by their id.
-    if (is_uninterp(e1) && is_uninterp(e2)) {
-        if (to_app(e1)->get_num_args() < to_app(e2)->get_num_args())
-            return +1;
-        else if (to_app(e1)->get_num_args() > to_app(e2)->get_num_args())
-            return -1;
-        else {
-            unsigned a = to_app(e1)->get_decl()->get_id();
-            unsigned b = to_app(e2)->get_decl()->get_id();
-            if (a < b)
-                return +1;
-            else if (a > b)
-                return -1;
-        }
-    }
-    sz1 = get_depth(e1);
-    sz2 = get_depth(e2);
-
-    return (sz1 == sz2) ?  0 :
-           (sz1  < sz2) ? +1 :
-                          -1 ;
-}
-
 class max_var_id_proc {
     unsigned    m_max_var_id;
 public:
@@ -187,12 +163,201 @@ public:
     unsigned get_max() { return m_max_var_id; }
 };
 
-unsigned demodulator_rewriter::max_var_id(expr_ref_vector const& es) {
+unsigned demodulator_util::max_var_id(expr* e) {
+    max_var_id_proc proc;
+    for_each_expr(proc, e);
+    return proc.get_max();
+}
+
+unsigned demodulator_util::max_var_id(expr_ref_vector const& es) {
     max_var_id_proc proc;
     for (expr* e : es) 
         for_each_expr(proc, e);
     return proc.get_max();
 }
+
+
+// ------------------
+
+demodulator_rewriter_util::demodulator_rewriter_util(ast_manager& m):
+    m(m),
+    m_th_rewriter(m),
+    m_rewrite_todo(m),
+    m_rewrite_cache(m),
+    m_new_exprs(m),
+    m_new_args(m)
+{}
+
+expr_ref demodulator_rewriter_util::rewrite(expr * n) {
+
+    TRACE("demodulator", tout << "rewrite: " << mk_pp(n, m) << std::endl; );
+    app * a;
+
+    SASSERT(m_rewrite_todo.empty());
+    m_new_exprs.reset();
+    m_rewrite_cache.reset();
+
+    m_rewrite_todo.push_back(n);
+    while (!m_rewrite_todo.empty()) {
+        TRACE("demodulator_stack", tout << "STACK: " << std::endl;
+              for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
+                  tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
+                  " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
+              );
+
+        expr * e = m_rewrite_todo.back();
+        expr_ref actual(e, m);
+
+        if (m_rewrite_cache.contains(e)) {
+            const expr_bool_pair &ebp = m_rewrite_cache.get(e);
+            if (ebp.second) {
+                m_rewrite_todo.pop_back();
+                continue;
+            }
+            else {
+                actual = ebp.first;
+            }
+        }
+
+        switch (actual->get_kind()) {
+        case AST_VAR:
+            rewrite_cache(e, actual, true);
+            m_rewrite_todo.pop_back();
+            break;
+        case AST_APP:
+            a = to_app(actual);
+            if (rewrite_visit_children(a)) {
+                func_decl * f = a->get_decl();
+                m_new_args.reset();
+                bool all_untouched = true;
+                for (expr* o_child : *a) {
+                    expr * n_child;
+                    SASSERT(m_rewrite_cache.contains(o_child) && m_rewrite_cache.get(o_child).second);
+                    expr_bool_pair const & ebp = m_rewrite_cache.get(o_child);
+                    n_child = ebp.first;
+                    if (n_child != o_child)
+                        all_untouched = false;
+                    m_new_args.push_back(n_child);
+                }
+                expr_ref np(m);
+                if (m_rewrite1(f, m_new_args, np)) {
+                    rewrite_cache(e, np, false);
+                    // No pop.
+                } 
+                else {
+                    if (all_untouched) {
+                        rewrite_cache(e, actual, true);
+                    }
+                    else {
+                        expr_ref na(m);
+                        na = m_th_rewriter.mk_app(f, m_new_args);
+                        TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
+                              tout << m_new_args << "\n";
+                              tout << "=====>\n";
+                              tout << "na:\n " << na << "\n";);
+                        rewrite_cache(e, na, true);
+                    }
+                    m_rewrite_todo.pop_back();
+                }
+            }
+            break;
+        case AST_QUANTIFIER: {
+            expr * body = to_quantifier(actual)->get_expr();
+            if (m_rewrite_cache.contains(body)) {
+                const expr_bool_pair ebp = m_rewrite_cache.get(body);
+                SASSERT(ebp.second);
+                expr * new_body = ebp.first;
+                quantifier_ref q(m);
+                q = m.update_quantifier(to_quantifier(actual), new_body);
+                m_new_exprs.push_back(q);
+                expr_ref new_q = elim_unused_vars(m, q, params_ref());
+                m_new_exprs.push_back(new_q);
+                rewrite_cache(e, new_q, true);
+                m_rewrite_todo.pop_back();
+            } else {
+                m_rewrite_todo.push_back(body);
+            }
+            break;
+        }
+        default:
+            UNREACHABLE();
+        }
+    }
+
+    SASSERT(m_rewrite_cache.contains(n));
+    const expr_bool_pair & ebp = m_rewrite_cache.get(n);
+    SASSERT(ebp.second);
+    expr * r = ebp.first;
+
+    TRACE("demodulator", tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
+
+    return expr_ref(r, m);
+}
+
+bool demodulator_rewriter_util::rewrite_visit_children(app * a) {
+    bool res = true;
+    for (expr* e : *a) {
+        if (m_rewrite_cache.contains(e) && m_rewrite_cache.get(e).second)
+            continue;
+        bool recursive = false;
+        expr * v = e;
+        if (m_rewrite_cache.contains(e)) {
+            auto const & [t, marked] = m_rewrite_cache.get(e);
+            if (marked) 
+                v = t;
+        }
+        for (expr* t : m_rewrite_todo) {
+            if (t == v) {
+                recursive = true;
+                TRACE("demodulator", tout << "Detected demodulator cycle: " <<
+                      mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
+                rewrite_cache(e, v, true);
+                break;
+            }
+        }
+        if (!recursive) {
+            m_rewrite_todo.push_back(e);
+            res = false;
+        }
+    }
+    return res;
+}
+
+void demodulator_rewriter_util::rewrite_cache(expr * e, expr * new_e, bool done) {
+    m_rewrite_cache.insert(e, expr_bool_pair(new_e, done));
+}
+
+
+
+// ------------------
+
+demodulator_rewriter::demodulator_rewriter(ast_manager & m):
+    m(m),
+    m_match_subst(m),
+    m_util(m),
+    m_bsimp(m),
+    m_todo(m),
+    m_in_processed(m),
+    m_new_args(m), 
+    m_rewrite_todo(m),
+    m_rewrite_cache(m),
+    m_new_exprs(m) {
+    params_ref p;
+    p.set_bool("elim_and", true);
+    m_bsimp.updt_params(p);
+}
+
+demodulator_rewriter::~demodulator_rewriter() {
+    reset_dealloc_values(m_fwd_idx);
+    reset_dealloc_values(m_back_idx);
+    for (auto & kv : m_demodulator2lhs_rhs) {
+        m.dec_ref(kv.m_key);
+        m.dec_ref(kv.m_value.first);
+        m.dec_ref(kv.m_value.second);
+    }
+}
+
+
 
 void demodulator_rewriter::insert_fwd_idx(app * large, expr * small, quantifier * demodulator) {
     SASSERT(demodulator);
@@ -265,17 +430,18 @@ bool demodulator_rewriter::rewrite1(func_decl * f, expr_ref_vector const & args,
 
     for (quantifier* d : *set) {
 
-        auto const& [large, rhs] = m_demodulator2lhs_rhs[d];
+        auto const& [lhs, rhs] = m_demodulator2lhs_rhs[d];
         
-        if (large->get_num_args() != args.size())
+        if (lhs->get_num_args() != args.size())
             continue;
         
         TRACE("demodulator_bug", tout << "Matching with demodulator: " << mk_pp(d, m) << std::endl; );
         
-        SASSERT(large->get_decl() == f);
+        SASSERT(lhs->get_decl() == f);
         
-        if (m_match_subst(large, rhs, args.data(), np)) {
+        if (m_match_subst(lhs, rhs, args.data(), np)) {
             TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << mk_pp(np, m) << "\n";);
+            m_new_exprs.push_back(np);
             return true;
         }
     }
@@ -289,15 +455,14 @@ bool demodulator_rewriter::rewrite_visit_children(app * a) {
         if (m_rewrite_cache.contains(e) && m_rewrite_cache.get(e).second)
             continue;
         bool recursive = false;
-        unsigned sz = m_rewrite_todo.size();
         expr * v = e;
         if (m_rewrite_cache.contains(e)) {
-            expr_bool_pair const & ebp = m_rewrite_cache.get(e);
-            if (ebp.second) 
-                v = ebp.first;
+            auto const & [t, marked] = m_rewrite_cache.get(e);
+            if (marked) 
+                v = t;
         }
-        for (unsigned i = sz; i-- > 0;) {
-            if (m_rewrite_todo[i] == v) {
+        for (expr* t : m_rewrite_todo) {
+            if (t == v) {
                 recursive = true;
                 TRACE("demodulator", tout << "Detected demodulator cycle: " <<
                       mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
@@ -504,7 +669,7 @@ void demodulator_rewriter::reschedule_processed(func_decl * f) {
     }
 }
 
-bool demodulator_rewriter::can_rewrite(expr * n, expr * lhs) {
+bool demodulator_match_subst::can_rewrite(expr * n, expr * lhs) {
     // this is a quick check, we just traverse d and check if there is an expression in d that is an instance of lhs of n'.
     // we cannot use the trick used for m_processed, since the main loop would not terminate.
 
@@ -530,7 +695,7 @@ bool demodulator_rewriter::can_rewrite(expr * n, expr * lhs) {
 
         case AST_APP:
             if (for_each_expr_args(stack, visited, to_app(curr)->get_num_args(), to_app(curr)->get_args())) {
-                if (m_match_subst(lhs, curr))
+                if ((*this)(lhs, curr))
                     return true;
                 visited.mark(curr, true);
                 stack.pop_back();
@@ -582,7 +747,7 @@ void demodulator_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
         func_decl_ref df(l->get_decl(), m);
             
         // Now we know there is an occurrence of f in d
-        if (!can_rewrite(d, lhs)) 
+        if (!m_match_subst.can_rewrite(d, lhs)) 
             continue;
 
         TRACE("demodulator", tout << "Rescheduling: " << std::endl << mk_pp(d, m) << std::endl);
@@ -602,7 +767,7 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
     for (expr* e : exprs) 
         m_todo.push_back(e);
 
-    m_match_subst.reserve(max_var_id(exprs));
+    m_match_subst.reserve(m_util.max_var_id(exprs));
 
     while (!m_todo.empty()) {
         // let n be the next formula in m_todo.
@@ -618,7 +783,7 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
 
         app_ref large(m);
         expr_ref small(m);
-        if (!is_demodulator(np, large, small)) {
+        if (!m_util.is_demodulator(np, large, small)) {
             // insert n' into m_processed
             m_processed.insert(np);
             m_in_processed.push_back(np);
@@ -661,7 +826,7 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
 }
 
 
-demodulator_rewriter::match_subst::match_subst(ast_manager & m):
+demodulator_match_subst::demodulator_match_subst(ast_manager & m):
     m(m),
     m_subst(m) {
 }
@@ -693,7 +858,7 @@ struct match_args_aux_proc {
     void operator()(app * n) {}
 };
 
-bool demodulator_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
+bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
     m_cache.reset();
     m_todo.reset();
 
@@ -809,7 +974,7 @@ bool demodulator_rewriter::match_subst::match_args(app * lhs, expr * const * arg
 }
 
 
-bool demodulator_rewriter::match_subst::operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs) {
+bool demodulator_match_subst::operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs) {
     
     if (match_args(lhs, args)) {
         if (m_all_args_eq) {
@@ -824,7 +989,7 @@ bool demodulator_rewriter::match_subst::operator()(app * lhs, expr * rhs, expr *
     return false;
 }
 
-bool demodulator_rewriter::match_subst::operator()(expr * t, expr * i) {
+bool demodulator_match_subst::operator()(expr * t, expr * i) {
     m_cache.reset();
     m_todo.reset();
     if (is_var(t))

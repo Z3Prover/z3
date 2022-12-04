@@ -24,6 +24,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/substitution/substitution.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "util/obj_hashtable.h"
 #include "util/obj_pair_hashtable.h"
 #include "util/array_map.h"
@@ -92,6 +93,92 @@ The code in spc_rewriter.* does something like that. We cannot reuse this code d
 for the superposion engine in Z3, but we can adapt it for our needs in the preprocessor.
    
 */
+class demodulator_util {
+    ast_manager& m;
+    int is_subset(expr*, expr*) const;
+    int is_smaller(expr*, expr*) const;
+ public:
+    demodulator_util(ast_manager& m):m(m) {}
+    bool is_demodulator(expr* e, app_ref& large, expr_ref & small) const;
+    unsigned max_var_id(expr* e);
+    unsigned max_var_id(expr_ref_vector const& e);
+};
+
+/**
+   \brief Custom matcher & substitution application
+*/
+class demodulator_match_subst {
+    typedef std::pair<expr *, expr *>      expr_pair;
+    typedef obj_pair_hashtable<expr, expr> cache;
+    
+    void reset();
+    
+    ast_manager &         m;
+    substitution          m_subst;
+    cache                 m_cache;
+    svector<expr_pair>    m_todo;
+    bool                  m_all_args_eq;
+    
+    bool match_args(app * t, expr * const * args);
+    
+public:
+    demodulator_match_subst(ast_manager & m);
+
+    void reserve(unsigned max_vid) { m_subst.reserve(2, max_vid+1); }
+    /**
+       \brief Let f be the top symbol of lhs. If (f args) is an
+       instance of lhs, that is, there is a substitution s
+       s.t. s[lhs] = (f args), then return true and store s[rhs]
+       into new_rhs.  Where s[t] represents the application of the
+       substitution s into t.
+       
+       Assumptions, the variables in lhs and (f args) are assumed to be distinct.
+       So, (f x y) matches (f y x). 
+       Moreover, the result should be in terms of the variables in (f args).
+    */
+    bool operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs);
+    
+    /**
+       \brief Return true if \c i is an instance of \c t.
+    */
+    bool operator()(expr * t, expr * i);
+
+    bool can_rewrite(expr* n, expr* lhs);
+};
+
+class demodulator_rewriter_util {
+    ast_manager& m;
+    std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)> m_rewrite1;
+
+    typedef std::pair<expr *, bool> expr_bool_pair;
+
+    class plugin {
+        ast_manager& m;
+    public:
+        plugin(ast_manager& m): m(m) { }        
+        void ins_eh(expr* k, expr_bool_pair v) { m.inc_ref(k); m.inc_ref(v.first); }
+        void del_eh(expr* k, expr_bool_pair v) { m.dec_ref(k); m.dec_ref(v.first); }
+        static unsigned to_int(expr const * k) { return k->get_id(); }
+    };
+    typedef array_map<expr*, expr_bool_pair, plugin> expr_map;
+
+    typedef expr_map rewrite_cache_map;
+
+    th_rewriter         m_th_rewriter;
+    expr_ref_buffer     m_rewrite_todo;
+    rewrite_cache_map   m_rewrite_cache;
+    expr_ref_buffer     m_new_exprs;
+    expr_ref_vector     m_new_args;
+
+    bool rewrite_visit_children(app * a);
+    void rewrite_cache(expr * e, expr * new_e, bool done);
+
+public:
+    demodulator_rewriter_util(ast_manager& m);
+    void set_rewrite1(std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)>& fn) { m_rewrite1 = fn; }
+    expr_ref rewrite(expr * n);    
+};
+
 class demodulator_rewriter final {
     class rewrite_proc;
     class add_back_idx_proc;
@@ -119,47 +206,10 @@ class demodulator_rewriter final {
     typedef obj_map<quantifier, app_expr_pair> demodulator2lhs_rhs;
     typedef expr_map rewrite_cache_map;
 
-    /**
-       \brief Custom matcher & substitution application
-    */
-    class match_subst {
-        typedef std::pair<expr *, expr *>      expr_pair;
-        typedef obj_pair_hashtable<expr, expr> cache;
-
-        void reset();
-
-        ast_manager &         m;
-        substitution          m_subst;
-        cache                 m_cache;
-        svector<expr_pair>    m_todo;
-        bool                  m_all_args_eq;
-     
-        bool match_args(app * t, expr * const * args);
-   
-    public:
-        match_subst(ast_manager & m);
-        void reserve(unsigned max_vid) { m_subst.reserve(2, max_vid+1); }
-        /**
-           \brief Let f be the top symbol of lhs. If (f args) is an
-           instance of lhs, that is, there is a substitution s
-           s.t. s[lhs] = (f args), then return true and store s[rhs]
-           into new_rhs.  Where s[t] represents the application of the
-           substitution s into t.
-
-           Assumptions, the variables in lhs and (f args) are assumed to be distinct.
-           So, (f x y) matches (f y x). 
-           Moreover, the result should be in terms of the variables in (f args).
-        */
-        bool operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs);
-        
-        /**
-           \brief Return true if \c i is an instance of \c t.
-        */
-        bool operator()(expr * t, expr * i);
-    };
 
     ast_manager &       m;
-    match_subst         m_match_subst;
+    demodulator_match_subst m_match_subst;
+    demodulator_util    m_util;
     bool_rewriter       m_bsimp;
     fwd_idx_map         m_fwd_idx;
     back_idx_map        m_back_idx;
@@ -179,7 +229,6 @@ class demodulator_rewriter final {
     void remove_bwd_idx(expr* q);
     bool check_fwd_idx_consistency();
     void show_fwd_idx(std::ostream & out);
-    bool is_demodulator(expr * e, app_ref & large, expr_ref & small) const;
     bool can_rewrite(expr * n, expr * lhs);
     
     expr * rewrite(expr * n);
@@ -188,13 +237,6 @@ class demodulator_rewriter final {
     void rewrite_cache(expr * e, expr * new_e, bool done);
     void reschedule_processed(func_decl * f);
     void reschedule_demodulators(func_decl * f, expr * np);
-    unsigned max_var_id(expr_ref_vector const& es);
-
-    // is_smaller returns -1 for e1<e2, 0 for e1==e2 and +1 for e1>e2.
-    int is_smaller(expr * e1, expr * e2) const;
-
-    // is_subset returns -1 for e1 subset e2, +1 for e2 subset e1, 0 else.
-    int is_subset(expr * e1, expr * e2) const;
 
 public:
     demodulator_rewriter(ast_manager & m);

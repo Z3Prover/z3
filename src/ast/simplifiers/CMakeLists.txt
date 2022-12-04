@@ -3,6 +3,7 @@ z3_add_component(simplifiers
     bit_blaster.cpp
     bv_slice.cpp
     card2bv.cpp
+    demodulator_simplifier.cpp
     dependent_expr_state.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
@@ -18,4 +19,5 @@ z3_add_component(simplifiers
     rewriter
     bit_blaster
     normal_forms
+    substitution
 )
