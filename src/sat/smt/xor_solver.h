@@ -100,7 +100,7 @@ namespace xr {
         
         void asserted(sat::literal l) override;
         bool unit_propagate() override;
-        sat::justification gauss_jordan_elim(const sat::literal p, const unsigned currLevel);
+        sat::justification gauss_jordan_elim(literal p);
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override;
 
         void pre_simplify() override;

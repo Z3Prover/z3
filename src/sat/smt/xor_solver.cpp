@@ -12,6 +12,8 @@ Abstract:
 
 --*/
 
+#include <iostream>
+
 #include "sat/smt/xor_matrix_finder.h"
 #include "sat/smt/xor_solver.h"
 #include "sat/sat_simplifier_params.hpp"
@@ -133,8 +135,10 @@ namespace xr {
             return false;
         force_push();
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
-            sat::literal const p = m_prop_queue[m_prop_queue_head];
-            sat::justification conflict = gauss_jordan_elim(p, m_num_scopes);
+            literal p = m_prop_queue[m_prop_queue_head];
+            std::cout << "Propagating: " << p.var() << " = " << !p.sign() << std::endl;
+            SASSERT(s().lvl(p) == s().scope_lvl());
+            sat::justification conflict = gauss_jordan_elim(p);
             if (!conflict.is_none()) {
                 m_prop_queue_head = m_prop_queue.size();
                 s().set_conflict(conflict);
@@ -143,7 +147,7 @@ namespace xr {
         return true;
     }
     
-    sat::justification solver::gauss_jordan_elim(const sat::literal p, const unsigned currLevel) {
+    sat::justification solver::gauss_jordan_elim(literal p) {
         if (m_gmatrices.empty()) 
             return sat::justification(-1);
         m_gwatches.resize(s().num_vars());
@@ -169,7 +173,7 @@ namespace xr {
             m_gqueuedata[matrix_num].new_resp_var = UINT_MAX;
             m_gqueuedata[matrix_num].new_resp_row = UINT_MAX;
             m_gqueuedata[matrix_num].do_eliminate = false;
-            m_gqueuedata[matrix_num].currLevel = currLevel;
+            m_gqueuedata[matrix_num].currLevel = s().scope_lvl();
         
             if (!m_gmatrices[matrix_num]->find_truths(ws, i, j, p.var(), row_n, m_gqueuedata[matrix_num])) {
                 confl_in_gauss = true;
@@ -187,7 +191,7 @@ namespace xr {
                 continue;
         
             if (m_gqueuedata[g].do_eliminate) {
-                m_gmatrices[g]->eliminate_col(p.var(), m_gqueuedata[g]);
+                m_gmatrices[g]->eliminate_column(p.var(), m_gqueuedata[g]);
                 confl_in_gauss |= (m_gqueuedata[g].status == gauss_res::confl);
             }
         }
@@ -243,7 +247,6 @@ namespace xr {
     }
     
     void solver::pop_core(unsigned num_scopes) {
-        SASSERT(m_num_scopes == 0);
         unsigned old_sz = m_prop_queue_lim.size() - num_scopes;
         m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
         m_prop_queue_lim.shrink(old_sz);

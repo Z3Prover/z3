@@ -395,14 +395,14 @@ namespace xr {
     
         // using find nonbasic and basic value
         unsigned population_cnt(
-            sat::literal_vector& tmp_clause,
-            const unsigned_vector& col_to_var,
-            bool_vector &var_has_resp_row,
+            literal_vector& tmp_clause,
+            const unsigned_vector& column_to_var,
+            const bool_vector &var_has_resp_row,
             unsigned& non_resp_var);
     
         // using find nonbasic value after watch list is enter
         gret propGause(
-            const unsigned_vector& col_to_var,
+            const unsigned_vector& column_to_var,
             bool_vector &var_has_resp_row,
             unsigned& new_resp_var,
             PackedRow& tmp_col,
@@ -577,7 +577,7 @@ namespace xr {
         literal_vector* get_reason(unsigned row, int& out_ID);
     
         // when basic variable is touched , eliminate one col
-        void eliminate_col(
+        void eliminate_column(
             unsigned p,
             gauss_data& gqd
         );
@@ -654,6 +654,7 @@ namespace xr {
     
         // Someone is responsible for this column if TRUE
         // we always WATCH this variable
+        // A variable is responsible if there is only one row that has a 1 there
         bool_vector var_has_resp_row;
     
         // row_to_var_non_resp[ROW] gives VAR it's NOT responsible for
@@ -668,8 +669,8 @@ namespace xr {
         unsigned m_num_cols = 0;
     
         //quick lookup
-        PackedRow* cols_vals = nullptr;
-        PackedRow* cols_unset = nullptr;
+        PackedRow* cols_vals = nullptr; // the current model for the variable in the respective column. Only correct if the respective element in cols_unset is 0 (lazily -> update_cols_vals_set)
+        PackedRow* cols_unset = nullptr; // initially a sequence of 1. If the variable at the respective colum in the matrix is assigned it is set to 0 (lazily -> update_cols_vals_set) 
         PackedRow* tmp_col = nullptr;
         PackedRow* tmp_col2 = nullptr;
         

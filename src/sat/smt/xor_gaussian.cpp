@@ -28,22 +28,22 @@ using namespace xr;
 ///returns popcnt
 unsigned PackedRow::population_cnt(
     literal_vector &tmp_clause,
-    const unsigned_vector& col_to_var,
-    bool_vector &var_has_resp_row,
+    const unsigned_vector& column_to_var,
+    const bool_vector &var_has_resp_row,
     unsigned& non_resp_var) {
     
     unsigned popcnt = 0;
     non_resp_var = UINT_MAX;
     tmp_clause.clear();
 
-    for(int i = 0; i < size*64; i++) {
+    for (int i = 0; i < size * 64; i++) {
         if ((*this)[i]) {
             popcnt++;
-            unsigned var = col_to_var[i];
-            tmp_clause.push_back(sat::literal(var, false));
+            bool_var v = column_to_var[i];
+            tmp_clause.push_back(literal(v, false));
 
-            if (!var_has_resp_row[var])
-                non_resp_var = var;
+            if (!var_has_resp_row[v])
+                non_resp_var = v;
             else
                 std::swap(tmp_clause[0], tmp_clause.back());
         }
@@ -91,7 +91,7 @@ void PackedRow::get_reason(
 }
 
 gret PackedRow::propGause(
-    const unsigned_vector& col_to_var,
+    const unsigned_vector& column_to_var,
     bool_vector &var_has_resp_row,
     unsigned& new_resp_var,
     PackedRow& tmp_col,
@@ -104,24 +104,26 @@ gret PackedRow::propGause(
     
     //Find new watch
     if (pop >= 2) {
-        for (int i = 0; i < size; i++) if (tmp_col.mp[i]) {
+        for (int i = 0; i < size; i++) {
+            if (!tmp_col.mp[i]) 
+                continue;
             int64_t tmp = tmp_col.mp[i];
             unsigned long at;
             at = scan_fwd_64b(tmp);
             int extra = 0;
             while (at != 0) {
-                unsigned col = extra + at-1 + i*64;
-                unsigned var = col_to_var[col];
+                unsigned col = extra + (at - 1) + i * 64;
+                unsigned var = column_to_var[col];
                 // found new non-basic variable, let's watch it
                 if (!var_has_resp_row[var]) {
                     new_resp_var = var;
                     return gret::nothing_fnewwatch;
                 }
-
+    
                 extra += at;
                 if (extra == 64)
                     break;
-
+    
                 tmp >>= at;
                 at = scan_fwd_64b(tmp);
             }
@@ -147,8 +149,8 @@ gret PackedRow::propGause(
         // found prop
         unsigned col = at - 1 + i * 64;
         SASSERT(tmp_col[col] == 1);
-        unsigned var = col_to_var[col];
-        ret_lit_prop = sat::literal(var, 1 == pop_t % 2);
+        unsigned var = column_to_var[col];
+        ret_lit_prop = literal(var, 1 == pop_t % 2);
         return gret::prop;
     }
 
@@ -257,7 +259,7 @@ void EGaussian::fill_matrix() {
     delete_gauss_watch_this_matrix();
 
     //reset satisfied_xor state
-    SASSERT(m_solver.m_num_scopes == 0);
+    SASSERT(m_solver.s().at_search_lvl());
     satisfied_xors.clear();
     satisfied_xors.resize(m_num_rows, false);
 }
@@ -289,7 +291,7 @@ void EGaussian::clear_gwatches(bool_var var) {
 // Furthermore, initializes additional datastructures (e.g., for doing variable lookup)
 bool EGaussian::full_init(bool& created) {
     SASSERT(!inconsistent());
-    SASSERT(m_solver.m_num_scopes == 0);
+    SASSERT(m_solver.s().at_search_lvl());
     SASSERT(initialized == false);
     created = true;
 
@@ -314,7 +316,6 @@ bool EGaussian::full_init(bool& created) {
             case gret::confl:
                 return false;
             case gret::prop:
-                SASSERT(m_solver.m_num_scopes == 0);
                 m_solver.s().propagate(false);
                 if (inconsistent()) {
                     TRACE("xor", tout << "eliminate & adjust matrix during init lead to UNSAT\n";);
@@ -373,7 +374,6 @@ void EGaussian::eliminate() {
     SASSERT(m_solver.s().at_search_lvl());
     
     unsigned end_row = m_num_rows;
-    unsigned rowI = 0;
     unsigned row_i = 0;
     unsigned col = 0;
 
@@ -383,11 +383,11 @@ void EGaussian::eliminate() {
 
     // Gauss-Jordan Elimination
     while (row_i != m_num_rows && col != m_num_cols) {
-        unsigned row_with_1_in_col = rowI;
+        unsigned row_with_1_in_col = row_i;
         unsigned row_with_1_in_col_n = row_i;
 
         // Find first "1" in column.
-        for (; row_with_1_in_col < end_row; ++row_with_1_in_col, row_with_1_in_col_n++) {
+        for (; row_with_1_in_col < end_row; row_with_1_in_col++, row_with_1_in_col_n++) {
             if (m_mat[row_with_1_in_col][col])
                 break;            
         }
@@ -397,20 +397,18 @@ void EGaussian::eliminate() {
             var_has_resp_row[m_column_to_var[col]] = true;
 
             // swap row row_with_1_in_col and rowIt
-            if (row_with_1_in_col != rowI)
-                m_mat[rowI].swapBoth(m_mat[row_with_1_in_col]);
+            if (row_with_1_in_col != row_i)
+                m_mat[row_i].swapBoth(m_mat[row_with_1_in_col]);
 
             // XOR into *all* rows that have a "1" in column COL
             // Since we XOR into *all*, this is Gauss-Jordan (and not just Gauss)
-            unsigned k = 0;
-            for (unsigned k_row = 0; k_row < end_row; ++k_row, k++) {
+            for (unsigned k_row = 0; k_row < end_row; k_row++) {
                 // xor rows K and I
-                if (k_row != rowI && m_mat[k_row][col]) {
-                    m_mat[k_row].xor_in(m_mat[rowI]);
+                if (k_row != row_i && m_mat[k_row][col]) {
+                    m_mat[k_row].xor_in(m_mat[row_i]);
                 }
             }
             row_i++;
-            ++rowI;
         }
         col++;
         TRACE("xor", print_matrix(tout, m_mat));
@@ -597,7 +595,7 @@ bool EGaussian::find_truths(
         << "mat[" << matrix_no << "] find_truths\n"
         << "-> row: " << row_n << "\n"
         << "-> var: " << var+1 << "\n"
-        << "-> dec lev:" << m_solver.m_num_scopes);
+        << "-> dec lev:" << m_solver.s().search_lvl());
     SASSERT(row_n < m_num_rows);
     SASSERT(satisfied_xors.size() > row_n);
 
@@ -622,7 +620,7 @@ bool EGaussian::find_truths(
 
     unsigned new_resp_var;
     literal ret_lit_prop;
-    const gret ret = m_mat[row_n].propGause(
+    gret ret = m_mat[row_n].propGause(
         m_column_to_var,
         var_has_resp_row,
         new_resp_var,
@@ -787,7 +785,7 @@ void EGaussian::update_cols_vals_set(bool force) {
 
 void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop) {
     unsigned level;
-    if (gqd.currLevel == m_solver.m_num_scopes) 
+    if (gqd.currLevel == m_solver.s().search_lvl()) 
         level = gqd.currLevel;
     else 
         level = get_max_level(gqd, row_i);
@@ -799,14 +797,18 @@ bool EGaussian::inconsistent() const {
     return m_solver.s().inconsistent();
 }
 
-void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
+void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
     unsigned new_resp_row_n = gqd.new_resp_row;
     unsigned new_resp_col = m_var_to_column[gqd.new_resp_var];
     unsigned row_size = m_mat.num_rows();
     unsigned row_i = 0;
 
     elim_called++;
-
+    
+    print_matrix(std::cout, m_mat);
+    std::cout << std::endl;
+    TRACE("xor", print_matrix(tout, m_mat));
+    
     while (row_i < row_size) {
         //Row has a '1' in eliminating column, and it's not the row responsible
         PackedRow row = m_mat[row_i];
@@ -857,7 +859,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                 switch (ret) {
                     case gret::confl: {
                         elim_ret_confl++;
-                        TRACE("xor", tout << "---> conflict during eliminate_col's fixup";);
+                        TRACE("xor", tout << "---> conflict during eliminate_column's fixup";);
                         m_solver.m_gwatches[p].push_back(gauss_watched(row_i, matrix_no));
 
                         // update in this row non-basic variable
@@ -872,7 +874,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                     }
                     case gret::prop: {
                         elim_ret_prop++;
-                        TRACE("xor", tout << "---> propagation during eliminate_col's fixup";);
+                        TRACE("xor", tout << "---> propagation during eliminate_column's fixup";);
 
                         // if conflicted already, just update non-basic variable
                         if (gqd.status == gauss_res::confl) {
@@ -936,6 +938,10 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
             }
         }
         row_i++;
+        
+        print_matrix(std::cout, m_mat);
+        std::cout << std::endl;
+        TRACE("xor", print_matrix(tout, m_mat));
     }
 
 }
@@ -973,7 +979,7 @@ void EGaussian::check_no_prop_or_unsat_rows() {
             tout << "       matrix no: " << matrix_no << "\n"
                  << "       row: " << row << "\n"
                  << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
-                 << "       dec level: " << m_solver.m_num_scopes << "\n";
+                 << "       dec level: " << m_solver.s().search_lvl() << "\n";
             for (unsigned var = 0; var < m_solver.s().num_vars(); var++) 
                 for (const auto& w : m_solver.m_gwatches[var])
                     if (w.matrix_num == matrix_no && w.row_n == row) 
@@ -1033,7 +1039,7 @@ void EGaussian::check_invariants() {
     if (!initialized) return;
     check_tracked_cols_only_one_set();
     check_no_prop_or_unsat_rows();
-    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.m_num_scopes << "\n";);
+    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.s().search_lvl() << "\n";);
 }
 
 bool EGaussian::check_row_satisfied(unsigned row) {
