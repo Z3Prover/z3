@@ -197,7 +197,7 @@ public:
     demodulator_rewriter(ast_manager & m);
     ~demodulator_rewriter();
     
-    void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    void operator()(unsigned n, expr * const * exprs, expr_ref_vector & new_exprs);
 
     /**
       Given a demodulator (aka rewrite rule) of the form

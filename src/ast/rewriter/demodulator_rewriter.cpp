@@ -616,15 +616,8 @@ void demodulator_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
     }
 }
 
-void demodulator_rewriter::operator()(unsigned n, expr * const * exprs, proof * const * prs, 
-                               expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
-    if (m.proofs_enabled()) {
-        TRACE("tactic", tout << "PRE_DEMODULATOR=true is not supported when proofs are enabled.";);
-        // Let us not waste time with proof production
-        new_exprs.append(n, exprs);
-        new_prs.append(n, prs);
-        return;
-    }
+void demodulator_rewriter::operator()(unsigned n, expr * const * exprs, 
+                               expr_ref_vector & new_exprs) {
 
     TRACE("demodulator", tout << "before demodulator:\n";
                          for ( unsigned i = 0 ; i < n ; i++ )

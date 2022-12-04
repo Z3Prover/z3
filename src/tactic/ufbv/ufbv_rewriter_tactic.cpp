@@ -41,14 +41,16 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_produce_models(r);
-        insert_produce_proofs(r);
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         tactic_report report("ufbv-rewriter", *g);
         fail_if_unsat_core_generation("ufbv-rewriter", g);
 
-        bool produce_proofs = g->proofs_enabled();
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
 
         demodulator_rewriter dem(m_manager);
 
@@ -61,11 +63,11 @@ public:
             proofs.push_back(g->pr(i));
         }
 
-        dem(forms.size(), forms.data(), proofs.data(), new_forms, new_proofs);
+        dem(forms.size(), forms.data(), new_forms);
 
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++)
-            g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : nullptr, nullptr);
+            g->assert_expr(new_forms.get(i), nullptr, nullptr);
 
         // CMW: Remark: The demodulator could potentially
         // remove all references to a variable.
