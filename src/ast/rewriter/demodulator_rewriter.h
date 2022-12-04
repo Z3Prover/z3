@@ -3,7 +3,7 @@ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
-    demodulator.h
+    demodulator_rewriter.h
 
 Abstract:
 
@@ -16,6 +16,7 @@ Author:
 Revision History:
 
     Christoph M. Wintersteiger (cwinter) 2012-10-24: Moved from demodulator.h to ufbv_rewriter.h
+    Nikolaj Bjorner (nbjorner) 2022-12-4: Moved to rewriter and renamed to demodulator_rewriter.h
 
 --*/
 #pragma once
@@ -91,7 +92,7 @@ The code in spc_rewriter.* does something like that. We cannot reuse this code d
 for the superposion engine in Z3, but we can adapt it for our needs in the preprocessor.
    
 */
-class ufbv_rewriter final {
+class demodulator_rewriter final {
     class rewrite_proc;
     class add_back_idx_proc;
     class remove_back_idx_proc;
@@ -193,8 +194,8 @@ class ufbv_rewriter final {
     int is_subset(expr * e1, expr * e2) const;
 
 public:
-    ufbv_rewriter(ast_manager & m);
-    ~ufbv_rewriter();
+    demodulator_rewriter(ast_manager & m);
+    ~demodulator_rewriter();
     
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 

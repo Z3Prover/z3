@@ -17,21 +17,21 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/ufbv/ufbv_rewriter.h"
+#include "ast/rewriter/demodulator_rewriter.h"
 #include "tactic/ufbv/ufbv_rewriter_tactic.h"
 
-class ufbv_rewriter_tactic : public tactic {
+class demodulator_rewriter_tactic : public tactic {
     ast_manager & m_manager;
     params_ref    m_params;
 
 public:
-    ufbv_rewriter_tactic(ast_manager & m, params_ref const & p):
+    demodulator_rewriter_tactic(ast_manager & m, params_ref const & p):
         m_manager(m), m_params(p) {}
 
     char const* name() const override { return "ufbv"; }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(ufbv_rewriter_tactic, m, m_params);
+        return alloc(demodulator_rewriter_tactic, m, m_params);
     }
 
     void updt_params(params_ref const & p) override {
@@ -50,7 +50,7 @@ public:
 
         bool produce_proofs = g->proofs_enabled();
 
-        ufbv_rewriter dem(m_manager);
+        demodulator_rewriter dem(m_manager);
 
         expr_ref_vector forms(m_manager), new_forms(m_manager);
         proof_ref_vector proofs(m_manager), new_proofs(m_manager);
@@ -79,5 +79,5 @@ public:
 };
 
 tactic * mk_ufbv_rewriter_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(ufbv_rewriter_tactic, m, p);
+    return alloc(demodulator_rewriter_tactic, m, p);
 }
