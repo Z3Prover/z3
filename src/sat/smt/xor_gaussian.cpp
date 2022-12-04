@@ -25,9 +25,6 @@ using std::set;
 
 using namespace xr;
 
-// if variable is not in Gaussian matrix, assign unknown column
-static const unsigned unassigned_col = UINT32_MAX;
-
 ///returns popcnt
 unsigned PackedRow::population_cnt(
     literal_vector &tmp_clause,
@@ -174,55 +171,29 @@ EGaussian::~EGaussian() {
     delete tmp_col2;
 }
 
-/*class ColSorter {
-    
-    xr::solver* m_solver;
-    
-public:
-        
-    explicit ColSorter(xr::solver* _solver) : m_solver(_solver) {
-        for (const auto& ass: m_solver.assumptions) {
-            literal p = m_solver.map_outer_to_inter(ass.lit_outer);
-            if (p.var() < m_solver.s().num_vars()) {
-                assert(m_solver.seen.size() > p.var());
-                m_solver.seen[p.var()] = 1;
-            }
-        }
+struct ColSorter {
+    sat::solver* m_solver;
+    explicit ColSorter(sat::solver* _solver) : m_solver(_solver) { }
+    // a < b
+    bool operator()(bool_var a, bool_var b) {
+        return !m_solver->is_assumption(a) && m_solver->is_assumption(b);
     }
+};
 
-    void finishup() {
-        for (const auto& ass: m_solver.assumptions) {
-            literal p = m_solver.map_outer_to_inter(ass.lit_outer);
-            if (p.var() < m_solver.s().num_vars())
-                m_solver.seen[p.var()] = 0;
-        }
-    }
-
-    bool operator()(unsigned a, unsigned b) {
-        SASSERT(m_solver.seen.size() > a);
-        SASSERT(m_solver.seen.size() > b);
-        if (m_solver.seen[b] && !m_solver.seen[a])
-            return true;
-
-        if (!m_solver.seen[b] && m_solver.seen[a])
-            return false;
-
-        return false;
-    }
-};*/
-
-void EGaussian::select_columnorder() {
-    var_to_col.clear();
-    var_to_col.resize(m_solver.s().num_vars(), unassigned_col);
-    unsigned_vector vars_needed;
+// Populates the mapping from variables to columns and vice-versa
+// The order has assumption variables at the end (otw. probably ordered by index)
+void EGaussian::select_column_order() {
+    m_var_to_column.clear();
+    m_var_to_column.resize(m_solver.s().num_vars(), UINT32_MAX);
+    bool_var_vector vars_needed;
     unsigned largest_used_var = 0;
 
     for (const xor_clause& x : m_xorclauses) {
-        for (unsigned v : x) {
+        for (bool_var v : x) {
             SASSERT(m_solver.s().value(v) == l_undef);
-            if (var_to_col[v] == unassigned_col) {
+            if (m_var_to_column[v] == UINT32_MAX) {
                 vars_needed.push_back(v);
-                var_to_col[v] = unassigned_col - 1;
+                m_var_to_column[v] = UINT32_MAX - 1;
                 largest_used_var = std::max(largest_used_var, v);
             }
         }
@@ -234,48 +205,47 @@ void EGaussian::select_columnorder() {
     if (m_xorclauses.size() >= UINT32_MAX / 2 - 1) 
         throw default_exception("Matrix has too many rows");
     
-    var_to_col.resize(largest_used_var + 1);
+    m_var_to_column.resize(largest_used_var + 1);
 
 
-    /*TODO: for assumption variables; ignored right now
-    ColSorter c(m_solver);
+    // Sort assumption variables to the end
+    ColSorter c(&m_solver.s());
     std::sort(vars_needed.begin(), vars_needed.end(), c);
-    c.finishup();*/
 
-    col_to_var.clear();
-    for (unsigned v : vars_needed) {
-        SASSERT(var_to_col[v] == unassigned_col - 1);
-        var_to_col[v] = col_to_var.size();
-        col_to_var.push_back(v);
+    m_column_to_var.clear();
+    for (bool_var v : vars_needed) {
+        SASSERT(m_var_to_column[v] == UINT32_MAX - 1);
+        m_var_to_column[v] = m_column_to_var.size();
+        m_column_to_var.push_back(v);
     }
 
     // for the ones that were not in the order_heap, but are marked in var_to_col
-    for (unsigned v = 0; v < var_to_col.size(); v++) {
-        if (var_to_col[v] == unassigned_col - 1) {
-            var_to_col[v] = col_to_var.size();
-            col_to_var.push_back(v);
+    for (unsigned v = 0; v < m_var_to_column.size(); v++) {
+        if (m_var_to_column[v] == UINT32_MAX - 1) {
+            m_var_to_column[v] = m_column_to_var.size();
+            m_column_to_var.push_back(v);
         }
     }
 }
 
 // Sets up some of the required datastructures to apply initial elimination (e.g., like the matrix itself and an empty list of gaussian watchlist)
 void EGaussian::fill_matrix() {
-    var_to_col.clear();
+    m_var_to_column.clear();
 
     // decide which variable in matrix column and the number of rows
-    select_columnorder();
-    num_rows = m_xorclauses.size();
-    num_cols = col_to_var.size();
-    if (num_rows == 0 || num_cols == 0)
+    select_column_order();
+    m_num_rows = m_xorclauses.size();
+    m_num_cols = m_column_to_var.size();
+    if (m_num_rows == 0 || m_num_cols == 0)
         return;
     
-    mat.resize(num_rows, num_cols); // initial gaussian matrix
+    m_mat.resize(m_num_rows, m_num_cols); // initial gaussian matrix
 
-    for (unsigned row = 0; row < num_rows; row++) {
+    for (unsigned row = 0; row < m_num_rows; row++) {
         const xor_clause& c = m_xorclauses[row];
-        mat[row].set(c, var_to_col, num_cols);
+        m_mat[row].set(c, m_var_to_column, m_num_cols);
         char_vector line;
-        line.resize(num_rows, 0);
+        line.resize(m_num_rows, 0);
         line[row] = 1;
     }
 
@@ -289,7 +259,7 @@ void EGaussian::fill_matrix() {
     //reset satisfied_xor state
     SASSERT(m_solver.m_num_scopes == 0);
     satisfied_xors.clear();
-    satisfied_xors.resize(num_rows, false);
+    satisfied_xors.resize(m_num_rows, false);
 }
 
 // deletes all gaussian watches from the matrix for all variables
@@ -330,7 +300,7 @@ bool EGaussian::full_init(bool& created) {
 
         fill_matrix();
 
-        if (num_rows == 0 || num_cols == 0) {
+        if (m_num_rows == 0 || m_num_cols == 0) {
             created = false;
             return !inconsistent();
         }
@@ -360,8 +330,8 @@ bool EGaussian::full_init(bool& created) {
     DEBUG_CODE(check_watchlist_sanity(););
     TRACE("xor", tout << "initialised matrix " << matrix_no << "\n");
 
-    xor_reasons.resize(num_rows);
-    unsigned num_64b = num_cols / 64 + (bool)(num_cols % 64);
+    xor_reasons.resize(m_num_rows);
+    unsigned num_64b = m_num_cols / 64 + (bool)(m_num_cols % 64);
     
     for (auto& x: tofree) 
         memory::deallocate(x);
@@ -402,52 +372,52 @@ static void print_matrix(ostream& out, PackedMatrix& mat) {
 void EGaussian::eliminate() {
     SASSERT(m_solver.s().at_search_lvl());
     
-    unsigned end_row = num_rows;
+    unsigned end_row = m_num_rows;
     unsigned rowI = 0;
     unsigned row_i = 0;
     unsigned col = 0;
 
-    //print_matrix(std::cout, mat);
-    //std::cout << std::endl;
-    TRACE("xor", print_matrix(tout, mat));
+    print_matrix(std::cout, m_mat);
+    std::cout << std::endl;
+    TRACE("xor", print_matrix(tout, m_mat));
 
     // Gauss-Jordan Elimination
-    while (row_i != num_rows && col != num_cols) {
+    while (row_i != m_num_rows && col != m_num_cols) {
         unsigned row_with_1_in_col = rowI;
         unsigned row_with_1_in_col_n = row_i;
 
         // Find first "1" in column.
         for (; row_with_1_in_col < end_row; ++row_with_1_in_col, row_with_1_in_col_n++) {
-            if (mat[row_with_1_in_col][col])
+            if (m_mat[row_with_1_in_col][col])
                 break;            
         }
 
         // We have found a "1" in this column
         if (row_with_1_in_col < end_row) {
-            var_has_resp_row[col_to_var[col]] = true;
+            var_has_resp_row[m_column_to_var[col]] = true;
 
             // swap row row_with_1_in_col and rowIt
             if (row_with_1_in_col != rowI)
-                mat[rowI].swapBoth(mat[row_with_1_in_col]);
+                m_mat[rowI].swapBoth(m_mat[row_with_1_in_col]);
 
             // XOR into *all* rows that have a "1" in column COL
             // Since we XOR into *all*, this is Gauss-Jordan (and not just Gauss)
             unsigned k = 0;
             for (unsigned k_row = 0; k_row < end_row; ++k_row, k++) {
                 // xor rows K and I
-                if (k_row != rowI && mat[k_row][col]) {
-                    mat[k_row].xor_in(mat[rowI]);
+                if (k_row != rowI && m_mat[k_row][col]) {
+                    m_mat[k_row].xor_in(m_mat[rowI]);
                 }
             }
             row_i++;
             ++rowI;
         }
         col++;
-        TRACE("xor", print_matrix(tout, mat));
-        //print_matrix(std::cout, mat);
-        //std::cout << std::endl;
+        TRACE("xor", print_matrix(tout, m_mat));
+        print_matrix(std::cout, m_mat);
+        std::cout << std::endl;
     }
-    //std::cout << "-------------" << std::endl;
+    std::cout << "-------------" << std::endl;
 }
 
 literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
@@ -461,9 +431,9 @@ literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
     literal_vector& to_fill = xor_reasons[row].m_reason;
     to_fill.clear();
 
-    mat[row].get_reason(
+    m_mat[row].get_reason(
         to_fill,
-        col_to_var,
+        m_column_to_var,
         *cols_vals,
         *tmp_col2,
         xor_reasons[row].m_propagated);
@@ -477,16 +447,16 @@ literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
 gret EGaussian::init_adjust_matrix() {
     SASSERT(m_solver.s().at_search_lvl());
     SASSERT(row_to_var_non_resp.empty());
-    SASSERT(satisfied_xors.size() >= num_rows);
+    SASSERT(satisfied_xors.size() >= m_num_rows);
     TRACE("xor", tout << "mat[" << matrix_no << "] init adjusting matrix";);
 
     unsigned row_i = 0;       // row index
     unsigned adjust_zero = 0; //  elimination row
-    for (PackedRow row : mat) {
-        if (row_i >= num_rows)
+    for (PackedRow row : m_mat) {
+        if (row_i >= m_num_rows)
             break;
         unsigned non_resp_var;
-        unsigned popcnt = row.population_cnt(tmp_clause, col_to_var, var_has_resp_row, non_resp_var);
+        unsigned popcnt = row.population_cnt(tmp_clause, m_column_to_var, var_has_resp_row, non_resp_var);
 
         switch (popcnt) {
 
@@ -511,7 +481,7 @@ gret EGaussian::init_adjust_matrix() {
             case 1:
             {
                 TRACE("xor", tout << "Unit XOR during init_adjust_matrix, vars: " << tmp_clause;);
-                bool xorEqualFalse = !mat[row_i].rhs();
+                bool xorEqualFalse = !m_mat[row_i].rhs();
                 tmp_clause[0] = literal(tmp_clause[0].var(), xorEqualFalse);
                 SASSERT(m_solver.s().value(tmp_clause[0].var()) == l_undef);
                 
@@ -533,7 +503,7 @@ gret EGaussian::init_adjust_matrix() {
             case 2: 
             {
                 TRACE("xor", tout << "Binary XOR during init_adjust_matrix, vars: " << tmp_clause;);
-                bool xorEqualFalse = !mat[row_i].rhs();
+                bool xorEqualFalse = !m_mat[row_i].rhs();
 
                 tmp_clause[0] = tmp_clause[0].unsign();
                 tmp_clause[1] = tmp_clause[1].unsign();
@@ -567,8 +537,8 @@ gret EGaussian::init_adjust_matrix() {
     }
     SASSERT(row_to_var_non_resp.size() == row_i - adjust_zero);
 
-    mat.resizeNumRows(row_i - adjust_zero);
-    num_rows = row_i - adjust_zero;
+    m_mat.resizeNumRows(row_i - adjust_zero);
+    m_num_rows = row_i - adjust_zero;
 
     return gret::nothing_satisfied;
 }
@@ -628,7 +598,7 @@ bool EGaussian::find_truths(
         << "-> row: " << row_n << "\n"
         << "-> var: " << var+1 << "\n"
         << "-> dec lev:" << m_solver.m_num_scopes);
-    SASSERT(row_n < num_rows);
+    SASSERT(row_n < m_num_rows);
     SASSERT(satisfied_xors.size() > row_n);
 
     // this XOR is already satisfied
@@ -652,8 +622,8 @@ bool EGaussian::find_truths(
 
     unsigned new_resp_var;
     literal ret_lit_prop;
-    const gret ret = mat[row_n].propGause(
-        col_to_var,
+    const gret ret = m_mat[row_n].propGause(
+        m_column_to_var,
         var_has_resp_row,
         new_resp_var,
         *tmp_col,
@@ -773,11 +743,10 @@ bool EGaussian::find_truths(
     return true;
 }
 
-inline void EGaussian::update_cols_vals_set(const literal lit1) {
-    cols_unset->clearBit(var_to_col[lit1.var()]);
-    if (!lit1.sign()) {
-        cols_vals->setBit(var_to_col[lit1.var()]);
-    }
+inline void EGaussian::update_cols_vals_set(literal lit) {
+    cols_unset->clearBit(m_var_to_column[lit.var()]);
+    if (!lit.sign())
+        cols_vals->setBit(m_var_to_column[lit.var()]);
 }
 
 void EGaussian::update_cols_vals_set(bool force) {
@@ -787,13 +756,12 @@ void EGaussian::update_cols_vals_set(bool force) {
         cols_vals->setZero();
         cols_unset->setOne();
 
-        for (unsigned col = 0; col < col_to_var.size(); col++) {
-            unsigned var = col_to_var[col];
+        for (unsigned col = 0; col < m_column_to_var.size(); col++) {
+            unsigned var = m_column_to_var[col];
             if (m_solver.s().value(var) != l_undef) {
                 cols_unset->clearBit(col);
-                if (m_solver.s().value(var) == l_true) {
+                if (m_solver.s().value(var) == l_true)
                     cols_vals->setBit(col);
-                }
             }
         }
         last_val_update = m_solver.s().trail_size();
@@ -802,24 +770,22 @@ void EGaussian::update_cols_vals_set(bool force) {
     }
 
     SASSERT(m_solver.s().trail_size() >= last_val_update);
-    for(unsigned i = last_val_update; i < m_solver.s().trail_size(); i++) {
-        sat::bool_var var = m_solver.s().trail_literal(i).var();
-        if (var_to_col.size() <= var) {
+    for (unsigned i = last_val_update; i < m_solver.s().trail_size(); i++) {
+        bool_var var = m_solver.s().trail_literal(i).var();
+        if (m_var_to_column.size() <= var)
             continue;
-        }
-        unsigned col = var_to_col[var];
-        if (col != unassigned_col) {
+        unsigned col = m_var_to_column[var];
+        if (col != UINT32_MAX) {
             SASSERT(m_solver.s().value(var) != l_undef);
             cols_unset->clearBit(col);
-            if (m_solver.s().value(var) == l_true) {
+            if (m_solver.s().value(var) == l_true)
                 cols_vals->setBit(col);
-            }
         }
     }
     last_val_update = m_solver.s().trail_size();
 }
 
-void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, const literal ret_lit_prop) {
+void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop) {
     unsigned level;
     if (gqd.currLevel == m_solver.m_num_scopes) 
         level = gqd.currLevel;
@@ -835,27 +801,27 @@ bool EGaussian::inconsistent() const {
 
 void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
     unsigned new_resp_row_n = gqd.new_resp_row;
-    unsigned new_resp_col = var_to_col[gqd.new_resp_var];
-    unsigned row_size = mat.num_rows();
+    unsigned new_resp_col = m_var_to_column[gqd.new_resp_var];
+    unsigned row_size = m_mat.num_rows();
     unsigned row_i = 0;
 
     elim_called++;
 
     while (row_i < row_size) {
         //Row has a '1' in eliminating column, and it's not the row responsible
-        PackedRow row = mat[row_i];
+        PackedRow row = m_mat[row_i];
         if (new_resp_row_n != row_i && row[new_resp_col]) {
 
             // detect orignal non-basic watch list change or not
             unsigned orig_non_resp_var = row_to_var_non_resp[row_i];
-            unsigned orig_non_resp_col = var_to_col[orig_non_resp_var];
+            unsigned orig_non_resp_col = m_var_to_column[orig_non_resp_var];
             SASSERT(row[orig_non_resp_col]);
             TRACE("xor", tout << "--> This row " << row_i
                 << " is being watched on var: " << orig_non_resp_var + 1
                 << " i.e. it must contain '1' for this var's column";);
 
             SASSERT(!satisfied_xors[row_i]);
-            row.xor_in(*(mat.begin() + new_resp_row_n));
+            row.xor_in(*(m_mat.begin() + new_resp_row_n));
 
             elim_xored_rows++;
 
@@ -877,7 +843,7 @@ void EGaussian::eliminate_col(unsigned p, gauss_data& gqd) {
                 literal ret_lit_prop;
                 unsigned new_non_resp_var = 0;
                 const gret ret = row.propGause(
-                    col_to_var,
+                    m_column_to_var,
                     var_has_resp_row,
                     new_non_resp_var,
                     *tmp_col,
@@ -987,12 +953,12 @@ void EGaussian::check_row_not_in_watch(unsigned v, unsigned row_num) const {
 void EGaussian::check_no_prop_or_unsat_rows() {
     TRACE("xor", tout << "mat[" << matrix_no << "] checking invariants...";);
 
-    for (unsigned row = 0; row < num_rows; row++) {
+    for (unsigned row = 0; row < m_num_rows; row++) {
         unsigned bits_unset = 0;
-        bool val = mat[row].rhs();
-        for (unsigned col = 0; col < num_cols; col++) {
-            if (mat[row][col]) {
-                unsigned var = col_to_var[col];
+        bool val = m_mat[row].rhs();
+        for (unsigned col = 0; col < m_num_cols; col++) {
+            if (m_mat[row][col]) {
+                unsigned var = m_column_to_var[col];
                 if (m_solver.s().value(var) == l_undef) 
                     bits_unset++;
                 else 
@@ -1020,20 +986,20 @@ void EGaussian::check_no_prop_or_unsat_rows() {
 void EGaussian::check_watchlist_sanity() {
     for (unsigned i = 0; i < m_solver.s().num_vars(); i++) 
         for (auto w: m_solver.m_gwatches[i]) 
-            VERIFY(w.matrix_num != matrix_no || i < var_to_col.size());
+            VERIFY(w.matrix_num != matrix_no || i < m_var_to_column.size());
 }
 
 void EGaussian::check_tracked_cols_only_one_set() {
-    unsigned_vector row_resp_for_var(num_rows, l_undef);
-    for (unsigned col = 0; col < num_cols; col++) {
-        unsigned var = col_to_var[col];
+    unsigned_vector row_resp_for_var(m_num_rows, l_undef);
+    for (unsigned col = 0; col < m_num_cols; col++) {
+        unsigned var = m_column_to_var[col];
         if (!var_has_resp_row[var])
             continue;
 
         unsigned num_ones = 0;
         unsigned found_row = l_undef;
-        for (unsigned row = 0; row < num_rows; row++) {
-            if (mat[row][col]) {
+        for (unsigned row = 0; row < m_num_rows; row++) {
+            if (m_mat[row][col]) {
                 num_ones++;
                 found_row = row;
             }
@@ -1071,10 +1037,10 @@ void EGaussian::check_invariants() {
 }
 
 bool EGaussian::check_row_satisfied(unsigned row) {
-    bool fin = mat[row].rhs();
-    for (unsigned i = 0; i < num_cols; i++) {
-        if (mat[row][i]) {
-            unsigned var = col_to_var[i];
+    bool fin = m_mat[row].rhs();
+    for (unsigned i = 0; i < m_num_cols; i++) {
+        if (m_mat[row][i]) {
+            unsigned var = m_column_to_var[i];
             auto val = m_solver.s().value(var);
             if (val == l_undef) {
                 TRACE("xor", tout << "Var " << var+1 << " col: " << i << " is undef!\n";);

@@ -328,37 +328,37 @@ namespace xr {
                 *(mp + i) ^= *(b.mp + i);            
         }
     
-        inline const int64_t& rhs() const {
+        const int64_t& rhs() const {
             return rhs_internal;
         }
     
-        inline int64_t& rhs() {
+        int64_t& rhs() {
             return rhs_internal;
         }
     
-        inline bool isZero() const {
+        bool isZero() const {
             for (int i = 0; i < size; i++) 
                 if (mp[i]) return false;            
             return true;
         }
     
-        inline void setZero() {
+        void setZero() {
             memset(mp, 0, sizeof(int64_t)*size);
         }
     
-        inline void setOne() {
+        void setOne() {
             memset(mp, 0xff, sizeof(int64_t)*size);
         }
     
-        inline void clearBit(const unsigned i) {
+        void clearBit(unsigned i) {
             mp[i / 64] &= ~(1LL << (i % 64));
         }
     
-        inline void setBit(const unsigned i) {
+        void setBit(unsigned i) {
             mp[i / 64] |= (1LL << (i % 64));
         }
     
-        inline void invert_rhs(const bool b = true) {
+        void invert_rhs(bool b = true) {
             rhs_internal ^= (int)b;
         }
     
@@ -380,18 +380,14 @@ namespace xr {
         }
     
         template<class T>
-        void set(
-            const T& v,
-            const unsigned_vector& var_to_col,
-            const unsigned num_cols) {
+        void set(const T& v, const unsigned_vector& var_to_column, unsigned num_cols) {
+            
             SASSERT(size == ((int)num_cols/64) + ((bool)(num_cols % 64)));
     
             setZero();
             for (unsigned i = 0; i != v.size(); i++) {
-                const unsigned toset_var = var_to_col[v[i]];
-                SASSERT(toset_var != UINT32_MAX);
-    
-                setBit(toset_var);
+                SASSERT(var_to_column[v[i]] != UINT32_MAX);
+                setBit(var_to_column[v[i]]);
             }
     
             rhs_internal = v.m_rhs;
@@ -417,7 +413,7 @@ namespace xr {
         );
     
         void get_reason(
-            sat::literal_vector& tmp_clause,
+            literal_vector& tmp_clause,
             const unsigned_vector& col_to_var,
             PackedRow& cols_vals,
             PackedRow& tmp_col2,
@@ -469,7 +465,7 @@ namespace xr {
     
         PackedMatrix& operator=(const PackedMatrix& b) {
             if (numRows*(numCols+1) < b.numRows*(b.numCols+1)) {
-                size_t size = sizeof(int64_t) * b.numRows*(b.numCols+1);
+                unsigned size = sizeof(int64_t) * b.numRows * (b.numCols + 1);
                 #ifdef _WIN32
                 _aligned_free((void*)mp);
                 mp =  (int64_t*)_aligned_malloc(size, 16);
@@ -480,16 +476,16 @@ namespace xr {
             }
             numRows = b.numRows;
             numCols = b.numCols;
-            memcpy(mp, b.mp, sizeof(int)*numRows*(numCols+1));
+            memcpy(mp, b.mp, sizeof(int) * numRows * (numCols + 1));
     
             return *this;
         }
     
-        inline PackedRow operator[](unsigned i) {
+        PackedRow operator[](unsigned i) {
             return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
-        inline PackedRow operator[](unsigned i) const {
+        PackedRow operator[](unsigned i) const {
             return PackedRow(numCols, mp + i * (numCols + 1));
         }
     
@@ -521,7 +517,7 @@ namespace xr {
                 return (unsigned)(mp - b.mp) / (numCols + 1);
             }
     
-            void operator+=(const unsigned num) {
+            void operator+=(unsigned num) {
                 mp += (numCols + 1) * num;  // add by f4
             }
     
@@ -534,19 +530,19 @@ namespace xr {
             }
         };
     
-        inline iterator begin() {
+        iterator begin() {
             return iterator(mp, numCols);
         }
     
-        inline iterator end() {
-            return iterator(mp+numRows* (numCols + 1), numCols);
+        iterator end() {
+            return iterator(mp + numRows * (numCols + 1), numCols);
         }
         
-        inline unsigned num_rows() const {
+        unsigned num_rows() const {
             return numRows;
         }
     
-        inline unsigned num_cols() const {
+        unsigned num_cols() const {
             return numCols;
         }
         
@@ -616,11 +612,11 @@ namespace xr {
         //Initialisation
         void eliminate();
         void fill_matrix();
-        void select_columnorder();
+        void select_column_order();
         gret init_adjust_matrix(); // adjust matrix, include watch, check row is zero, etc.
     
         //Helper functions
-        void prop_lit(const gauss_data& gqd, unsigned row_i, const literal ret_lit_prop);
+        void prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop);
         bool inconsistent() const;
 
         ///////////////
@@ -665,18 +661,19 @@ namespace xr {
         unsigned_vector row_to_var_non_resp;
     
     
-        PackedMatrix mat;
-        unsigned_vector var_to_col; ///var->col mapping. Index with VAR
-        unsigned_vector col_to_var; ///col->var mapping. Index with COL
-        unsigned num_rows = 0;
-        unsigned num_cols = 0;
+        PackedMatrix m_mat;
+        unsigned_vector m_var_to_column; // which column represents which variable in the matrix?
+        bool_var_vector m_column_to_var; // which variable is in each column of the matrix?
+        unsigned m_num_rows = 0;
+        unsigned m_num_cols = 0;
     
         //quick lookup
         PackedRow* cols_vals = nullptr;
         PackedRow* cols_unset = nullptr;
         PackedRow* tmp_col = nullptr;
         PackedRow* tmp_col2 = nullptr;
-        void update_cols_vals_set(const sat::literal lit1);
+        
+        void update_cols_vals_set(literal lit);
     
         //Data to free (with delete[] x)
         // TODO: This are always 4 equally sized elements; merge them into one block  
