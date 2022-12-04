@@ -104,7 +104,7 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
     if (!m_index.find_fwd(f, set))
         return false;
 
-    TRACE("demodulator", tout << "trying to rewrite: " << f->get_name() << " args:\n" << m_new_args << "\n";);
+    TRACE("demodulator", tout << "trying to rewrite: " << f->get_name() << " args:\n" << args << "\n";);
 
     for (unsigned i : *set) {
 
@@ -115,7 +115,7 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
 
         SASSERT(lhs->get_decl() == f);
 
-        TRACE("demodulator", tout << "Matching with demodulator: " << mk_pp(d, m) << std::endl; );
+        TRACE("demodulator", tout << "Matching with demodulator: " << mk_pp(lhs, m) << std::endl; );
 
         if (m_match_subst(lhs, rhs, args.data(), np)) {
             TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n";);
@@ -154,7 +154,7 @@ void demodulator_simplifier::reschedule_demodulators(func_decl* f, expr* lhs) {
             continue;        
         if (!m_match_subst.can_rewrite(fml(i), lhs))
             continue;
-        func_decl* f = p.first->get_decl();
+        SASSERT(f == p.first->get_decl());
         m_index.remove_fwd(f, i);
         m_index.remove_bwd(fml(i), i);
         m_todo.push_back(i);

@@ -111,8 +111,6 @@ class demodulator_match_subst {
     typedef std::pair<expr *, expr *>      expr_pair;
     typedef obj_pair_hashtable<expr, expr> cache;
     
-    void reset();
-    
     ast_manager &         m;
     substitution          m_subst;
     cache                 m_cache;
@@ -229,7 +227,6 @@ class demodulator_rewriter final {
     void remove_bwd_idx(expr* q);
     bool check_fwd_idx_consistency();
     void show_fwd_idx(std::ostream & out);
-    bool can_rewrite(expr * n, expr * lhs);
     
     expr * rewrite(expr * n);
     bool rewrite1(func_decl * f, expr_ref_vector const & args, expr_ref & np);

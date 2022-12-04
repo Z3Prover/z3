@@ -847,12 +847,9 @@ struct match_args_aux_proc {
                 SASSERT(r.get_offset() == 1);
                 throw no_match();
             }
-            else {
-                m_subst.insert(n, 0, expr_offset(n, 1));
-            }
         }
-        else
-            throw no_match();
+        else 
+            m_subst.insert(n, 0, expr_offset(n, 1));        
     }
     void operator()(quantifier * n) { throw no_match(); }
     void operator()(app * n) {}
