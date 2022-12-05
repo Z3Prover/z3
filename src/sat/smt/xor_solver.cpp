@@ -247,6 +247,9 @@ namespace xr {
         m_prop_queue_lim.push_back(m_prop_queue.size());
         m_prop_queue_head_queue.push_back(m_prop_queue_head);
         //m_justifications_lim.push_back(m_justifications.size());
+
+        if (m_region)
+            m_region->push_scope();
     }
     
     void solver::pop_core(unsigned num_scopes) {
@@ -264,6 +267,9 @@ namespace xr {
         }
         m_justifications_lim.shrink(old_sz);
         m_justifications.shrink(old_sz);*/
+
+        if (m_region)
+            m_region->pop_scope(num_scopes);
     }
     
     void solver::push() {
