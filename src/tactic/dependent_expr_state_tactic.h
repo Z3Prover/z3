@@ -20,19 +20,22 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 
 class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
+public:
+    using factoryTy = dependent_expr_simplifier(*(*)(ast_manager& m, params_ref const& p, dependent_expr_state& s));
+private:
     ast_manager&    m;
     params_ref      m_params;
     trail_stack     m_trail;
     goal_ref        m_goal;
     dependent_expr  m_dep;
     statistics      m_st;
-    ref<dependent_expr_simplifier_factory>  m_factory;
+    factoryTy       m_factory;
     scoped_ptr<dependent_expr_simplifier>   m_simp;
     scoped_ptr<model_reconstruction_trail>  m_model_trail;
 
     void init() {
         if (!m_simp) {
-            m_simp = m_factory->mk(m, m_params, *this);
+            m_simp = m_factory(m, m_params, *this);
             m_st.reset();
         }
         if (!m_model_trail)
@@ -41,12 +44,11 @@ class dependent_expr_state_tactic : public tactic, public dependent_expr_state {
 
 public:
 
-    dependent_expr_state_tactic(ast_manager& m, params_ref const& p, dependent_expr_simplifier_factory* f):
+    dependent_expr_state_tactic(ast_manager& m, params_ref const& p, factoryTy f):
         dependent_expr_state(m),
         m(m),
         m_params(p),
         m_factory(f),
-        m_simp(nullptr),
         m_dep(m, m.mk_true(), nullptr)
     {}
 
@@ -96,7 +98,7 @@ public:
     }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(dependent_expr_state_tactic, m, m_params, m_factory.get());
+        return alloc(dependent_expr_state_tactic, m, m_params, m_factory);
     }
 
     void operator()(goal_ref const & in, 

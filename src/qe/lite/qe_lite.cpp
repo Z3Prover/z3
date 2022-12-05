@@ -2440,17 +2440,11 @@ namespace {
             }
         }
     };
-
-    class qe_lite_tactic_factory : public dependent_expr_simplifier_factory {
-    public:
-        dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) override {
-            return alloc(qe_lite_simplifier, m, p, s);
-        }
-    };
 }
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(qe_lite_tactic_factory));
+    return alloc(dependent_expr_state_tactic, m, p,
+                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(qe_lite_simplifier, m, p, s); });
 }
 
 dependent_expr_simplifier* mk_qe_lite_simplifer(ast_manager& m, params_ref const& p, dependent_expr_state& st) {

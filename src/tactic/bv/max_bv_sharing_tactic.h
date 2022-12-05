@@ -24,15 +24,8 @@ Revision History:
 #include "ast/simplifiers/max_bv_sharing.h"
 #include "tactic/dependent_expr_state_tactic.h"
 
-class max_bv_sharing_tactic_factory : public dependent_expr_simplifier_factory {
-public:
-    dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) override {
-        return mk_max_bv_sharing(m, p, s);
-    }
-};
-
 inline tactic* mk_max_bv_sharing_tactic(ast_manager& m, params_ref const& p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p, alloc(max_bv_sharing_tactic_factory));
+    return alloc(dependent_expr_state_tactic, m, p, mk_max_bv_sharing);
 }
 
 /*

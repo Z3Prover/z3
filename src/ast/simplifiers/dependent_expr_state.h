@@ -149,21 +149,3 @@ public:
     ast_manager& get_manager() { return m; }
     dependent_expr_state& get_fmls() { return m_fmls; }
 };
-
-/**
-   Factory interface for creating simplifiers. 
-   The use of a factory allows delaying the creation of the dependent_expr_state
-   argument until the point where the expression simplifier is created.
-   This is used in tactics where the dependent_expr_state is a reference to the
-   new tactic. 
-
-   Alternatively have a clone method on dependent_expr_simplifier.
- */
-class dependent_expr_simplifier_factory {
-    unsigned m_ref = 0;
-public:
-    virtual dependent_expr_simplifier* mk(ast_manager& m, params_ref const& p, dependent_expr_state& s) = 0;
-    virtual ~dependent_expr_simplifier_factory() {}
-    void inc_ref() { ++m_ref; }
-    void dec_ref() { if (--m_ref == 0) dealloc(this); }
-};
