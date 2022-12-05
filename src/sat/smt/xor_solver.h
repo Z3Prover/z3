@@ -37,6 +37,8 @@ namespace xr {
         // ptr_vector<justification> m_justifications;
         // unsigned_vector           m_justifications_lim;
 
+        optional<region>          m_region;
+
         bool_var_vector                m_tmp_xor_clash_vars;
              
         vector<xor_clause>             m_xorclauses;
@@ -52,7 +54,7 @@ namespace xr {
         svector<gauss_data>            m_gqueuedata;
         
         visit_helper                   m_visited;
-        
+
         // tmp
         bool_var_vector m_occurrences;
         // unfortunately, we cannot use generic "m_visited" here, 
@@ -65,6 +67,10 @@ namespace xr {
         void force_push();
         void push_core();
         void pop_core(unsigned num_scopes);
+
+        region& get_region() {
+            return m_ctx != nullptr ? m_ctx->get_region() : *m_region;
+        }
 
         bool xor_has_interesting_var(const xor_clause& x);
         
@@ -125,7 +131,7 @@ namespace xr {
         
         bool xor_together_xors(vector<xor_clause>& xors);
         
-        sat::justification mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i);
+        sat::justification mk_justification(int level, unsigned matrix_no, unsigned row_i);
         
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;

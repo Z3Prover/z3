@@ -22,11 +22,14 @@ Abstract:
 namespace xr {
     
     solver::solver(euf::solver& ctx) :
-        solver(ctx.get_manager(), ctx.get_manager().mk_family_id("xor")) {
-        m_ctx = &ctx;
-    }
+        euf::th_solver(
+                ctx.get_manager(), symbol("xor"),
+                ctx.get_manager().mk_family_id("xor")),
+        m_ctx(&ctx), m_region() { }
 
-    solver::solver(ast_manager& m, euf::theory_id id) : euf::th_solver(m, symbol("xor"), id) { }
+    solver::solver(ast_manager& m, euf::theory_id id) :
+        euf::th_solver(m, symbol("xor"), id),
+        m_ctx(nullptr), m_region(region()) { }
     
     solver::~solver() {
         /*for (justification* j : m_justifications) {
@@ -551,8 +554,8 @@ namespace xr {
         }
     }
     
-    sat::justification solver::mk_justification(const int level, const unsigned int matrix_no, const unsigned int row_i) {
-        void* mem = m_ctx->get_region().allocate(justification::get_obj_size());
+    sat::justification solver::mk_justification(int level, unsigned matrix_no, unsigned row_i) {
+        void* mem = get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, this);
         auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(matrix_no, row_i);
         return sat::justification::mk_ext_justification(level, constraint->to_index()); 

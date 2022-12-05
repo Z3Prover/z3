@@ -98,11 +98,12 @@ gret PackedRow::propGause(
     PackedRow& tmp_col2,
     PackedRow& cols_vals,
     PackedRow& cols_unset,
-    sat::literal& ret_lit_prop) {
+    literal& ret_lit_prop) {
     
     unsigned pop = tmp_col.set_and_until_popcnt_atleast2(*this, cols_unset);
     
-    //Find new watch
+    // There are still at least 2 unassigned elements in the matrix row
+    // Find new watch ==> a variable not yet having a row responsible for it
     if (pop >= 2) {
         for (int i = 0; i < size; i++) {
             if (!tmp_col.mp[i]) 
@@ -130,7 +131,7 @@ gret PackedRow::propGause(
         }
     }
 
-    //Calc value of row
+    // Calc value of row by bitwise-anding the current model and the row
     tmp_col2.set_and(*this, cols_vals);
     unsigned pop_t = tmp_col2.popcnt() + (unsigned)rhs();
 
@@ -153,7 +154,7 @@ gret PackedRow::propGause(
         unsigned col = (at - 1) + i * 64;
         SASSERT(tmp_col[col] == 1);
         unsigned var = column_to_var[col];
-        ret_lit_prop = literal(var,pop_t % 2);
+        ret_lit_prop = literal(var, !(pop_t % 2));
         return gret::prop;
     }
 
@@ -1049,7 +1050,7 @@ bool EGaussian::check_row_satisfied(unsigned row) {
     bool fin = m_mat[row].rhs();
     for (unsigned i = 0; i < m_num_cols; i++) {
         if (m_mat[row][i]) {
-            unsigned var = m_column_to_var[i];
+            bool_var var = m_column_to_var[i];
             auto val = m_solver.s().value(var);
             if (val == l_undef) {
                 TRACE("xor", tout << "Var " << var+1 << " col: " << i << " is undef!\n";);
