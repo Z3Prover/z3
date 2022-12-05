@@ -32,6 +32,7 @@ z3_add_component(core_tactics
     cofactor_term_ite_tactic.h
     collect_statistics_tactic.h
     ctx_simplify_tactic.h
+    demodulator_tactic.h
     der_tactic.h
     distribute_forall_tactic.h
     dom_simplify_tactic.h

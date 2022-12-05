@@ -852,19 +852,45 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
     m_cache.reset();
     m_todo.reset();
 
+    auto fill_commutative = [&](app* lhs, expr * const* args) {
+        if (!lhs->get_decl()->is_commutative())
+            return false;
+        if (lhs->get_num_args() != 2)
+            return false;
+        expr* l1 = lhs->get_arg(0);
+        expr* l2 = lhs->get_arg(1);
+        expr* r1 = args[0];
+        expr* r2 = args[1];
+        
+        if (is_app(l1) && is_app(r1) && to_app(l1)->get_decl() != to_app(r1)->get_decl()) {
+            m_all_args_eq = false;
+            m_todo.push_back(expr_pair(l1, r2));
+            m_todo.push_back(expr_pair(l2, r1));
+            return true;
+        }
+        if (is_app(l2) && is_app(r2) && to_app(l2)->get_decl() != to_app(r2)->get_decl()) {
+            m_all_args_eq = false;
+            m_todo.push_back(expr_pair(l1, r2));
+            m_todo.push_back(expr_pair(l2, r1));
+            return true;
+        }
+        return false;
+    };
     // fill todo-list, and perform quick success/failure tests
     m_all_args_eq = true;
     unsigned num_args = lhs->get_num_args();
-    for (unsigned i = 0; i < num_args; i++) {
-        expr * t_arg = lhs->get_arg(i);
-        expr * i_arg = args[i];
-        if (t_arg != i_arg)
-            m_all_args_eq = false;
-        if (is_app(t_arg) && is_app(i_arg) && to_app(t_arg)->get_decl() != to_app(i_arg)->get_decl()) {
-            // quick failure...
-            return false;
+    if (!fill_commutative(lhs, args)) {
+        for (unsigned i = 0; i < num_args; i++) {
+            expr * t_arg = lhs->get_arg(i);
+            expr * i_arg = args[i];
+            if (t_arg != i_arg)
+                m_all_args_eq = false;
+            if (is_app(t_arg) && is_app(i_arg) && to_app(t_arg)->get_decl() != to_app(i_arg)->get_decl()) {
+                // quick failure...
+                return false;
+            }
+            m_todo.push_back(expr_pair(t_arg, i_arg));
         }
-        m_todo.push_back(expr_pair(t_arg, i_arg));
     }
 
     if (m_all_args_eq) {
@@ -875,48 +901,47 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
     m_subst.reset();
 
     while (!m_todo.empty()) {
-        expr_pair const & p = m_todo.back();
+        auto const & [a, b] = m_todo.back();
 
-        if (is_var(p.first)) {
+        if (is_var(a)) {
             expr_offset r;
-            if (m_subst.find(to_var(p.first), 0, r)) {
-                if (r.get_expr() != p.second)
+            if (m_subst.find(to_var(a), 0, r)) {
+                if (r.get_expr() != b)
                     return false;
             }
             else {
-                m_subst.insert(to_var(p.first), 0, expr_offset(p.second, 1));
+                m_subst.insert(to_var(a), 0, expr_offset(b, 1));
             }
             m_todo.pop_back();
             continue;
         }
 
-        if (is_var(p.second))
+        if (is_var(b))
             return false;
 
         // we may have nested quantifiers.
-        if (is_quantifier(p.first) || is_quantifier(p.second))
+        if (is_quantifier(a) || is_quantifier(b))
             return false;
 
-        SASSERT(is_app(p.first) && is_app(p.second));
+        SASSERT(is_app(a) && is_app(b));
 
-        if (to_app(p.first)->is_ground() && !to_app(p.second)->is_ground())
+        if (to_app(a)->is_ground() && !to_app(b)->is_ground())
             return false;
 
-        if (p.first == p.second && to_app(p.first)->is_ground()) {
-            SASSERT(to_app(p.second)->is_ground());
+        if (a == b && to_app(a)->is_ground()) {
             m_todo.pop_back();
             continue;
         }
 
-        if (m_cache.contains(p)) {
+        if (m_cache.contains(expr_pair(a, b))) {
             m_todo.pop_back();
             continue;
         }
 
-        if (p.first == p.second) {
-            // p.first and p.second is not ground...
+        if (a == b) {
+            // a and b is not ground...
 
-            // Traverse p.first and check whether every variable X:0 in p.first
+            // Traverse a and check whether every variable X:0 in a
             //       1) is unbounded (then we bind X:0 -> X:1)
             //       2) or, is already bounded to X:1
             // If that is, the case, we execute:
@@ -927,10 +952,10 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
             //     return false;
             match_args_aux_proc proc(m_subst);
             try {
-                for_each_expr(proc, p.first);
+                for_each_expr(proc, a);
                 // succeeded
                 m_todo.pop_back();
-                m_cache.insert(p);
+                m_cache.insert(expr_pair(a, b));
                 continue;
             }
             catch (const match_args_aux_proc::no_match &) {
@@ -938,8 +963,8 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
             }
         }
 
-        app * n1 = to_app(p.first);
-        app * n2 = to_app(p.second);
+        app * n1 = to_app(a);
+        app * n2 = to_app(b);
 
         if (n1->get_decl() != n2->get_decl())
             return false;
@@ -953,12 +978,13 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
         if (num_args1 == 0)
             continue;
 
-        m_cache.insert(p);
-        unsigned j = num_args1;
-        while (j > 0) {
-            --j;
+        m_cache.insert(expr_pair(a, b));
+ 
+        if (fill_commutative(n1, n2->get_args())) 
+            continue;
+
+        for (unsigned j = num_args1; j-- > 0; ) 
             m_todo.push_back(expr_pair(n1->get_arg(j), n2->get_arg(j)));
-        }
     }
     return true;
 }

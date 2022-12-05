@@ -71,8 +71,20 @@ void demodulator_index::remove_bwd(expr* e, unsigned i) {
     for_each_expr(p, e);
 }
 
+std::ostream& demodulator_index::display(std::ostream& out) const {
+    out << "forward\n";
+    for (auto& [k, v] : m_fwd_index)
+        out << mk_pp(k, m) << " : " << *v << "\n";
+    out << "backward\n";
+    for (auto& [k, v] : m_bwd_index)
+        out << mk_pp(k, m) << " : " << *v << "\n";
+    return out;
+}
+
+
 demodulator_simplifier::demodulator_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st):
     dependent_expr_simplifier(m, st),
+    m_index(m),
     m_util(m),
     m_match_subst(m),
     m_rewriter(m),
@@ -104,18 +116,19 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
     if (!m_index.find_fwd(f, set))
         return false;
 
-    TRACE("demodulator", tout << "trying to rewrite: " << f->get_name() << " args:\n" << args << "\n";);
+    TRACE("demodulator", tout << "trying to rewrite: " << f->get_name() << " args:" << args << "\n"; m_index.display(tout));
 
     for (unsigned i : *set) {
 
         auto const& [lhs, rhs] = m_rewrites[i];
+
+        TRACE("demodulator", tout << "Matching with demodulator: " << i << " " << mk_pp(lhs, m) << "\n");
 
         if (lhs->get_num_args() != args.size())
             continue;
 
         SASSERT(lhs->get_decl() == f);
 
-        TRACE("demodulator", tout << "Matching with demodulator: " << mk_pp(lhs, m) << "\n");
 
         if (m_match_subst(lhs, rhs, args.data(), np)) {
             TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
@@ -186,6 +199,7 @@ void demodulator_simplifier::reduce() {
         rewrite(i);
         if (m_util.is_demodulator(fml(i), large, small)) {
             func_decl* f = large->get_decl();
+            TRACE("demodulator", tout << i << " " << mk_pp(fml(i), m) << ": " << large << " ==> " << small << "\n");
             reschedule_processed(f);
             reschedule_demodulators(f, large);
             m_index.insert_fwd(f, i);

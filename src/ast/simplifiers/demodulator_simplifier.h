@@ -18,19 +18,22 @@ Author:
 #include "util/uint_set.h"
 
 class demodulator_index {
+    ast_manager& m;
     obj_map<func_decl, uint_set*> m_fwd_index, m_bwd_index; 
     void add(func_decl* f, unsigned i, obj_map<func_decl, uint_set*>& map);
     void del(func_decl* f, unsigned i, obj_map<func_decl, uint_set*>& map);
  public:
+    demodulator_index(ast_manager& m): m(m) {}
     ~demodulator_index();
     void reset();
     void insert_fwd(func_decl* f, unsigned i) { add(f, i, m_fwd_index); }
     void remove_fwd(func_decl* f, unsigned i) { del(f, i, m_fwd_index); }
     void insert_bwd(expr* e, unsigned i);
     void remove_bwd(expr* e, unsigned i);
-    bool find_fwd(func_decl* f, uint_set*& s) { return m_bwd_index.find(f, s); }
-    bool find_bwd(func_decl* f, uint_set*& s) { return m_fwd_index.find(f, s); }
+    bool find_fwd(func_decl* f, uint_set*& s) { return m_fwd_index.find(f, s); }
+    bool find_bwd(func_decl* f, uint_set*& s) { return m_bwd_index.find(f, s); }
     bool empty() const { return m_fwd_index.empty(); }
+    std::ostream& display(std::ostream& out) const;
 };
 
 class demodulator_simplifier : public dependent_expr_simplifier {
@@ -56,4 +59,6 @@ class demodulator_simplifier : public dependent_expr_simplifier {
      demodulator_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st);
 
      void reduce() override;    
+
+     char const* name() const override { return "demodulator"; }
 };
