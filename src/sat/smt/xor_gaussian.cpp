@@ -64,12 +64,12 @@ void PackedRow::get_reason(
         if (!mp[i])
             continue;
         int64_t tmp = mp[i];
-        unsigned long at;
+        int at;
         at = scan_fwd_64b(tmp);
         int extra = 0;
         while (at != 0) {
-            unsigned col = extra + at - 1 + i * 64;
-            SASSERT(operator[](col) == 1);
+            unsigned col = extra + (at - 1) + i * 64;
+            SASSERT((*this)[col] == 1);
             unsigned var = col_to_var[col];
             if (var == prop.var()) {
                 tmp_clause.push_back(prop);
@@ -108,7 +108,7 @@ gret PackedRow::propGause(
             if (!tmp_col.mp[i]) 
                 continue;
             int64_t tmp = tmp_col.mp[i];
-            unsigned long at;
+            int at;
             at = scan_fwd_64b(tmp);
             int extra = 0;
             while (at != 0) {
@@ -143,14 +143,17 @@ gret PackedRow::propGause(
             return gret::confl;
     }
 
-    for (int i = 0; i < size; i++) if (tmp_col.mp[i]) {
+    for (int i = 0; i < size; i++) { 
+        if (!tmp_col.mp[i])
+            continue;
+        
         int at = scan_fwd_64b(tmp_col.mp[i]);
-
+        
         // found prop
-        unsigned col = at - 1 + i * 64;
+        unsigned col = (at - 1) + i * 64;
         SASSERT(tmp_col[col] == 1);
         unsigned var = column_to_var[col];
-        ret_lit_prop = literal(var, 1 == pop_t % 2);
+        ret_lit_prop = literal(var,pop_t % 2);
         return gret::prop;
     }
 
