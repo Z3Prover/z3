@@ -421,6 +421,8 @@ namespace polysat {
         signed_constraint ule(rational const& p, pdd const& q) { return ule(q.manager().mk_val(p), q); }
         signed_constraint ule(pdd const& p, int n) { return ule(p, rational(n)); }
         signed_constraint ule(int n, pdd const& p) { return ule(rational(n), p); }
+        signed_constraint uge(pdd const& p, pdd const& q) { return ule(q, p); }
+        signed_constraint uge(pdd const& p, rational const& q) { return ule(q, p); }
         signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
         signed_constraint ult(pdd const& p, rational const& q) { return ult(p, p.manager().mk_val(q)); }
         signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }

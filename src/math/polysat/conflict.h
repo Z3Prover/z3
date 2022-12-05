@@ -181,7 +181,7 @@ namespace polysat {
         void resolve_with_assignment(sat::literal lit);
 
         /** Perform resolution with "v = value <- ..." */
-        bool resolve_value(pvar v);
+        void resolve_value(pvar v);
 
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();

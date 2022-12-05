@@ -74,12 +74,11 @@ namespace polysat {
         // If they create propagations or conflict lemmas we select the 
         // tightest propagation as part of backjumping.
         // 
-        bool try_resolve_value(pvar v, conflict& core) {
+        void try_resolve_value(pvar v, conflict& core) {
             if (m_poly_sup.perform(v, core)) 
-                return true;
+                return;
             if (m_saturation.perform(v, core))
-                return true;
-            return false;
+                return;
         }
 
         // Analyse current conflict core to extract additional lemmas
@@ -402,7 +401,7 @@ namespace polysat {
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
 
-    bool conflict::resolve_value(pvar v) {
+    void conflict::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
         SASSERT(s.m_justification[v].is_propagation());
 
@@ -422,10 +421,7 @@ namespace polysat {
         // the return value should not influence resolution. Indeed the code in solver.cpp
         // just ignores the return value. It seems this function should not have a return value.
         // 
-        if (m_resolver->try_resolve_value(v, *this))
-            return true;
-
-        return false;
+        m_resolver->try_resolve_value(v, *this);
     }
 
     clause_ref conflict::build_lemma() {

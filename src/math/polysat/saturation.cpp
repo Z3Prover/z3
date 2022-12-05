@@ -471,18 +471,19 @@ namespace polysat {
     /**
      * [x] a <= k & a*x + b = 0 & b = 0 => a = 0 or x = 0 or x >= 2^K/k
      * [x] x <= k & a*x + b = 0 & b = 0 => x = 0 or a = 0 or a >= 2^K/k
-     * Better:
+     * Better?
      * [x] a*x + b = 0 & b = 0 => a = 0 or x = 0 or Ω*(a, x)     
+     * We need up to four versions of this for all sign combinations of a, x
      */
     bool saturation::try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] a*x + b = 0 & b = 0 => a = 0 or x = 0 or Omega(a, x)");
+        set_rule("[x] a*x + b = 0 & b = 0 => a = 0 or x = 0 or ovfl(a, x)");
         auto& m = s.var2pdd(x);
         pdd y = m.zero();
         pdd a = m.zero();
         pdd b = m.zero();
         pdd k = m.zero();
         pdd X = s.var(x);
-        rational b_val, y_val;
+        rational k_val;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
         if (a.is_val())
@@ -490,21 +491,81 @@ namespace polysat {
         if (!is_forced_eq(b, 0))
             return false;
 
-        if (a.leading_coefficient() == m.max_value())
-            a = -a;
         signed_constraint x_eq_0, a_eq_0;
         if (!is_forced_diseq(X, 0, x_eq_0))
             return false;
         if (!is_forced_diseq(a, 0, a_eq_0))
             return false;
 
-        IF_VERBOSE(0, verbose_stream() << "mult-bounds " << a << " " << axb_l_y.as_signed_constraint() << " \n");
-        m_lemma.reset();
-        m_lemma.insert(~s.eq(b));
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(x_eq_0);
-        m_lemma.insert(a_eq_0);
-        return propagate(core, axb_l_y, s.umul_ovfl(a, X));
+        auto prop1 = [&](signed_constraint c) {
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(b));
+            m_lemma.insert(~s.eq(y));
+            m_lemma.insert(x_eq_0);
+            m_lemma.insert(a_eq_0);
+            return propagate(core, axb_l_y, c);
+        };
+
+        auto prop2 = [&](signed_constraint ante, signed_constraint c) {
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(b));
+            m_lemma.insert(~s.eq(y));
+            m_lemma.insert(x_eq_0);
+            m_lemma.insert(a_eq_0);
+            m_lemma.insert(~ante);
+            return propagate(core, axb_l_y, c);
+        };
+
+        pdd minus_a = -a;
+        pdd minus_X = -X;
+        pdd Y = X;
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            if (si.is_resolved())
+                continue;
+            auto d = s.lit2cnstr(si.lit());
+            if (!d->is_ule())
+                continue;
+            auto u_l_k = inequality::from_ule(d);
+            // a <= k or x <= k
+            k = u_l_k.rhs();
+            if (!k.is_val())
+                continue;
+            k_val = k.val();
+            if (u_l_k.is_strict())
+                k_val -= 1;
+            if (k_val <= 1)
+                continue;
+            if (u_l_k.lhs() == a || u_l_k.lhs() == minus_a) 
+                Y = X;
+            else if (u_l_k.lhs() == X || u_l_k.lhs() == minus_X) 
+                Y = a;
+            else
+                continue;
+            //
+            // NSB review: should we handle cases where k_val >= 2^{K-1}, but exploit that x*y = 0 iff -x*y = 0?
+            // 
+            IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y.as_signed_constraint() << " " << u_l_k.as_signed_constraint() << " \n");
+            rational bound = ceil(rational::power_of_two(m.power_of_2()) / k_val);
+            if (prop2(d, s.uge(Y, bound)))
+                return true;
+            if (prop2(d, s.uge(-Y, bound)))
+                return true;                     
+        }
+
+        IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y.as_signed_constraint() << " \n");
+        IF_VERBOSE(0, verbose_stream() << core << "\n"); 
+        if (prop1(s.umul_ovfl(a, X)))
+            return true;
+        if (prop1(s.umul_ovfl(a, -X)))
+            return true;
+        if (prop1(s.umul_ovfl(-a, X)))
+            return true;
+        if (prop1(s.umul_ovfl(-a, -X)))
+            return true;
+
+        return false;
     }
 
 
