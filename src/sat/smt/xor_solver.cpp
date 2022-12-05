@@ -82,7 +82,7 @@ namespace xr {
         }
     }
     
-    void solver::add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach) {
+    void solver::add_xor_clause(const literal_vector& lits, bool rhs, const bool attach) {
         // TODO: make overload in which "lits" ==> svector<sat::bool_var>; however, first implement missing function "add_xor_clause_inter_cleaned_cut"
         if (s().inconsistent())
             return;
@@ -90,8 +90,8 @@ namespace xr {
         SASSERT(!attach || m_prop_queue_head == m_prop_queue.size());
         SASSERT(s().at_search_lvl());
     
-        sat::literal_vector ps(lits);
-        for (sat::literal& lit: ps) {
+        literal_vector ps(lits);
+        for (literal& lit: ps) {
             if (lit.sign()) {
                 rhs ^= true;
                 lit.neg();
@@ -559,9 +559,9 @@ namespace xr {
     }
     
     // sort xors, eliminate duplicates, and eliminate negations by flipping rhs
-    void solver::clean_xor_no_prop(sat::literal_vector & ps, bool & rhs) {
+    void solver::clean_xor_no_prop(literal_vector & ps, bool & rhs) {
         std::sort(ps.begin(), ps.end());
-        sat::literal p_last = sat::null_literal;
+        literal p_last = sat::null_literal;
         unsigned j = 0;
         for (auto p : ps) {
             SASSERT(!p.sign());

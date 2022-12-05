@@ -598,7 +598,7 @@ bool EGaussian::find_truths(
         << "mat[" << matrix_no << "] find_truths\n"
         << "-> row: " << row_n << "\n"
         << "-> var: " << var+1 << "\n"
-        << "-> dec lev:" << m_solver.s().search_lvl());
+        << "-> dec lev:" << m_solver.s().scope_lvl());
     SASSERT(row_n < m_num_rows);
     SASSERT(satisfied_xors.size() > row_n);
 
@@ -641,7 +641,7 @@ bool EGaussian::find_truths(
 
             xor_reasons[row_n].m_must_recalc = true;
             xor_reasons[row_n].m_propagated = sat::null_literal;
-            gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_n);
+            gqd.conflict = m_solver.mk_justification(m_solver.s().scope_lvl(), matrix_no, row_n);
             gqd.status = gauss_res::confl;
             TRACE("xor", tout << "--> conflict";);
             
@@ -788,7 +788,7 @@ void EGaussian::update_cols_vals_set(bool force) {
 
 void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop) {
     unsigned level;
-    if (gqd.currLevel == m_solver.s().search_lvl()) 
+    if (gqd.currLevel == m_solver.s().scope_lvl()) 
         level = gqd.currLevel;
     else 
         level = get_max_level(gqd, row_i);
@@ -870,7 +870,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
 
                         xor_reasons[row_i].m_must_recalc = true;
                         xor_reasons[row_i].m_propagated = sat::null_literal;
-                        gqd.conflict = m_solver.mk_justification(m_solver.s().search_lvl(), matrix_no, row_i);
+                        gqd.conflict = m_solver.mk_justification(m_solver.s().scope_lvl(), matrix_no, row_i);
                         gqd.status = gauss_res::confl;
 
                         break;
@@ -982,7 +982,7 @@ void EGaussian::check_no_prop_or_unsat_rows() {
             tout << "       matrix no: " << matrix_no << "\n"
                  << "       row: " << row << "\n"
                  << "       non-resp var: " << row_to_var_non_resp[row] + 1 << "\n"
-                 << "       dec level: " << m_solver.s().search_lvl() << "\n";
+                 << "       dec level: " << m_solver.s().scope_lvl() << "\n";
             for (unsigned var = 0; var < m_solver.s().num_vars(); var++) 
                 for (const auto& w : m_solver.m_gwatches[var])
                     if (w.matrix_num == matrix_no && w.row_n == row) 
@@ -1042,7 +1042,7 @@ void EGaussian::check_invariants() {
     if (!initialized) return;
     check_tracked_cols_only_one_set();
     check_no_prop_or_unsat_rows();
-    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.s().search_lvl() << "\n";);
+    TRACE("xor", tout << "mat[" << matrix_no << "] " << "Checked invariants. Dec level: " << m_solver.s().scope_lvl() << "\n";);
 }
 
 bool EGaussian::check_row_satisfied(unsigned row) {

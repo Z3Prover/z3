@@ -68,10 +68,10 @@ namespace xr {
 
         bool xor_has_interesting_var(const xor_clause& x);
         
-        void clean_xor_no_prop(sat::literal_vector& ps, bool& rhs);
+        void clean_xor_no_prop(literal_vector& ps, bool& rhs);
         void add_every_combination_xor(const sat::literal_vector& lits, const bool attach);
         
-        void add_xor_clause(const sat::literal_vector& lits, bool rhs, const bool attach);
+        void add_xor_clause(const literal_vector& lits, bool rhs, const bool attach);
         
         void clean_occur_from_idx(const literal l);
         void clean_xors_from_empty(vector<xor_clause>& thisxors);
