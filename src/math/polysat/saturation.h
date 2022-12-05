@@ -46,6 +46,7 @@ namespace polysat {
         bool try_ugt_z(pvar z, conflict& core, inequality const& c);
         bool try_ugt_z(pvar z, conflict& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
 
+        bool try_parity(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_odd(pvar x, conflict& core, inequality const& axb_l_y);
@@ -102,6 +103,8 @@ namespace polysat {
         bool is_forced_eq(pdd const& p, int i) { return is_forced_eq(p, rational(i)); }
         
         bool is_forced_diseq(pdd const& p, int i, signed_constraint& c);
+
+        bool is_forced_odd(pdd const& p, signed_constraint& c);
 
         bool is_forced_false(signed_constraint const& sc);
 

@@ -43,6 +43,10 @@ namespace polysat {
             if (try_mul_bounds(v, core, i))
                 return true;
 #endif
+#if 0
+            if (try_parity(v, core, i))
+                return true;
+#endif
             if (try_ugt_x(v, core, i))
                 return true;
             if (try_ugt_y(v, core, i))
@@ -88,6 +92,9 @@ namespace polysat {
 
         // NSB review question: insert_eval: Is this right?
         m_lemma.insert_eval(c);
+        IF_VERBOSE(0, verbose_stream() << "propagate " << m_rule << " ";
+                   for (auto& lit : m_lemma) verbose_stream() << s.lit2cnstr(lit) << " ";
+                   verbose_stream() << "\n");
         core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
@@ -311,6 +318,11 @@ namespace polysat {
     bool saturation::is_forced_diseq(pdd const& p, int i, signed_constraint& c) {
         c = s.eq(p, i);
         return is_forced_false(c);
+    }
+
+    bool saturation::is_forced_odd(pdd const& p, signed_constraint& c) {
+        c = s.odd(p);
+        return is_forced_true(c);
     }
 
     bool saturation::is_forced_false(signed_constraint const& c) {
@@ -571,6 +583,7 @@ namespace polysat {
 
     /*
      * x*y = 1 & ~ovfl(x,y) => x = 1 
+     * x*y = -1 & ~ovfl(-x,y) => -x = 1 
      */
     bool saturation::try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] ax + b <= y & y = 0 & b = -1 & ~ovfl(a,x) => x = 1");
@@ -590,11 +603,74 @@ namespace polysat {
         m_lemma.insert(~s.eq(b, rational(-1)));
         m_lemma.insert(~s.eq(y));
         m_lemma.insert(~non_ovfl);
-        return propagate(core, axb_l_y, s.eq(X, 1));
+        if (propagate(core, axb_l_y, s.eq(X, 1)))
+            return true;
+        if (propagate(core, axb_l_y, s.eq(a, 1)))
+            return true;
+        return false;
+    }
+
+    /**
+     * odd(x*y) => odd(x) 
+     * even(x) => even(x*y)
+     *
+     * parity(x) <= parity(x*y)
+     * parity(x) = k & parity(x*y) = k + j => parity(y) = j
+     * parity(x) = k & parity(y) = j => parity(x*y) = k + j
+     *
+     * odd(x) & even(y) => x + y != 0
+     *
+     * General rule:
+     * 
+     * a*x + y = 0 => min(K, parity(a) + parity(x)) = parity(y)
+     *
+     * Currently implemented special case: a*x + y = 0 => (odd(b) <=> odd(a) & odd(x))
+     *
+     * general rule can be obtained by adding an
+     * 'is_forced_parity(x, p, x_has_parity_p)'
+     * 
+     * Should we also check 'is_forced_parity(a*x, p, ax_has_parity_p)'
+     * if a*x has a parity but not a, x?
+     * 
+     */
+    bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
+        auto& m = s.var2pdd(x);
+        pdd y = m.zero();
+        pdd a = m.zero();
+        pdd b = m.zero();
+        pdd X = s.var(x);
+        signed_constraint a_is_odd, x_is_odd, b_is_odd;
+        if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
+            return false;
+        if (a.is_val())
+            return false;
+        if (!is_forced_odd(b, b_is_odd)) {
+            if (!is_forced_odd(a, a_is_odd))
+                return false;
+            if (!is_forced_odd(X, x_is_odd))
+                return false;
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(y));
+            m_lemma.insert(~a_is_odd);
+            m_lemma.insert(~x_is_odd);
+            if (propagate(core, axb_l_y, s.odd(b)))
+                return true;
+            return false;
+        }
+        m_lemma.reset();
+        m_lemma.insert(~s.eq(y));
+        m_lemma.insert(~b_is_odd);
+        if (propagate(core, axb_l_y, s.odd(a)))
+            return true;
+        if (propagate(core, axb_l_y, s.odd(X)))
+            return true;
+        return false;        
     }
 
     /**
      * a*x = 0 => a = 0 or even(x)
+     * a*x = 0 => a = 0 or x = 0 or even(a)
      */
     bool saturation::try_mul_odd(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] ax = 0 => a = 0 or even(x)");
@@ -603,7 +679,7 @@ namespace polysat {
         pdd a = m.zero();
         pdd b = m.zero();
         pdd X = s.var(x);
-        signed_constraint a_eq_0;
+        signed_constraint a_eq_0, x_eq_0;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
         if (!is_forced_eq(b, 0))
@@ -614,15 +690,18 @@ namespace polysat {
         m_lemma.insert(s.eq(y));
         m_lemma.insert(~s.eq(b));
         m_lemma.insert(a_eq_0);
-        return propagate(core, axb_l_y, s.even(X));
+        if (propagate(core, axb_l_y, s.even(X)))
+            return true;
+        if (!is_forced_diseq(X, 0, x_eq_0))
+            return false;
+        m_lemma.insert(x_eq_0);
+        if (propagate(core, axb_l_y, s.even(a)))
+            return true;
+        return false;
     }
 
     /*
      * TODO
-     * Generally:
-     * p*x = 0 => p = 0 or x = 0 or parity(x) + parity(y) >= K 
-     * (if we use the convention parity(0) = K, then we can just write
-     * p*x = 0 => parity(x) + parity(y) >= K)
      *
      * Maybe also
      * x*y = k => \/_{j is such that there is j', j*j' = k} x = j
