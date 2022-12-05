@@ -867,8 +867,7 @@ class elim_uncnstr_tactic : public tactic {
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         TRACE("goal", g->display(tout););
-        std::function<void(statistics&)> coll = [&](statistics& st) { collect_statistics(st); };
-        statistics_report sreport(coll);
+        statistics_report sreport([&](statistics& st) { collect_statistics(st); });
         tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
         collect_occs p;

@@ -120,7 +120,7 @@ class statistics_report {
     std::function<void(statistics& st)> m_collector;
 public:
     statistics_report(tactic& t):m_tactic(&t) {}
-    statistics_report(std::function<void(statistics&)>& coll): m_collector(coll) {}
+    statistics_report(std::function<void(statistics&)>&& coll): m_collector(std::move(coll)) {}
     ~statistics_report();
 };
 
