@@ -5,13 +5,40 @@ Module Name:
 
     propagate_values2_tactic.h
 
-Abstract:
-
-    Tactic for propagating equalities (= t v) where v is a value
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2022-11-24
+
+Tactic Documentation:
+
+## Tactic propagate-values
+
+### Short Description:
+
+Tactic for propagating equalities `(= t v)` where `v` is a value
+
+### Long Description
+
+In a context where terms are equated to constants it is invariably beneficial to 
+replace terms, that can be compound, with the constants and then simplify the resulting formulas.
+The propagate-values tactic accomplishes the task of replacing such terms.
+
+### Example
+ 
+```z3
+(declare-const x Int)
+(declare-const y Int)
+(declare-fun f (Int) Int)
+(assert (= 1 (f (+ x y))))
+(assert (= 2 x))
+(assert (> (f (+ 2 y)) y))
+(apply propagate-values)
+```
+
+### Notes
+
+* supports unsat cores
+
 
 --*/
 #pragma once
