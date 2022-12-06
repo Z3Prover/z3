@@ -200,6 +200,15 @@ namespace polysat {
         }
 
         s.m_viable.intersect(p, q, sc);
+
+        if (first && !is_positive) {
+            if (!p.is_val()) 
+                // -1 > q
+                s.add_clause(~sc, s.ult(q, -1), false);
+            if (!q.is_val())
+                // p > 0
+                s.add_clause(~sc, s.ult(0, q), false);
+        }
     }
 
     // Evaluate lhs <= rhs
