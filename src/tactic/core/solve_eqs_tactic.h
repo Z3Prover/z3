@@ -42,7 +42,7 @@ It also allows solving for uninterpreted constants that only appear in a single 
 
 ### Example
 
-```z3
+```
 (declare-const x Int)
 (declare-const y Int)
 (declare-const z Int)
