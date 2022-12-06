@@ -5,7 +5,10 @@ Tactic documentation generator script
 
 import os
 import re
+import sys
+import subprocess
 
+BUILD_DIR='../build'
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 OUTPUT_DIRECTORY = os.path.join(os.getcwd(), 'api')
 
@@ -14,10 +17,30 @@ def doc_path(path):
 
 is_doc = re.compile("Tactic Documentation")
 is_doc_end = re.compile("\-\-\*\/")
+is_tac_name = re.compile("## Tactic (.*)")
 
+def extract_params(ous, tac):
+    z3_exe = BUILD_DIR + "/z3"
+    out = subprocess.Popen([z3_exe, f"-tactics:{tac}"], stdout=subprocess.PIPE).communicate()[0]
+    if not out:
+        return
+    out = out.decode(sys.stdout.encoding)
+    ous.write("#### Parameters\n")
+    ous.write("```\n")
+    for line in out:
+        ous.write(line.replace("\r",""))
+    ous.write("\n")
+    ous.write("```\n")
+    
 def generate_tactic_doc(ous, f, ins):
+    tac_name = None
     for line in ins:
+        m = is_tac_name.search(line)
+        if m:
+            tac_name = m.group(1)
         if is_doc_end.search(line):
+            if tac_name:
+                extract_params(ous, tac_name)
             break
         ous.write(line)
 
