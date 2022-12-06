@@ -47,7 +47,6 @@ Once all negations are pushed inside, the resulting formula is in NNF.
   (apply nnf)
 ```
 
-This would convert the formula (not (or (> x 0) (< x 0))) to (and (<= x 0) (>= x 0)), which is in NNF.
 
 ### Notes
 
