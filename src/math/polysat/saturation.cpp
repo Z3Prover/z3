@@ -643,8 +643,6 @@ namespace polysat {
         signed_constraint a_is_odd, x_is_odd, b_is_odd;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
-        if (a.is_val())
-            return false;
         if (!is_forced_odd(b, b_is_odd)) {
             if (!is_forced_odd(a, a_is_odd))
                 return false;

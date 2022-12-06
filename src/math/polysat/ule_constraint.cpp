@@ -184,6 +184,9 @@ namespace polysat {
 
         signed_constraint sc(this, is_positive);
 
+        if (sc.bvar() == 31) {
+            IF_VERBOSE(0, verbose_stream() << "Narrow " << sc << " with " << p << " " << q << "\n");
+        }
         LOG_H3("Narrowing " << sc);
         LOG_V("Assignment: " << assignments_pp(s));
         LOG_V("Substituted LHS: " << lhs() << " := " << p);
