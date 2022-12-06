@@ -279,7 +279,7 @@ namespace euf {
             }
             else if (m.is_not(f, f))
                 todo.push_back({ !s, depth, f });
-            else if (!s && 1 == depth % 2) {
+            else if (!s && 1 <= depth) {
                 for (extract_eq* ex : m_solve_eqs.m_extract_plugins) {
                     ex->set_allow_booleans(false);
                     ex->get_eqs(dependent_expr(m, f, df.dep()), eqs);
