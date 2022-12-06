@@ -35,7 +35,7 @@ everywhere by `f(x + y)`. It depends on a set of theory specific equality solver
 * Arithmetic equations
   * It solves `x mod k = s` to `x = k * m' + s`, where m'` is a fresh constant. 
   * It finds variables with unit coefficients in integer linear equations.
-  * It solves for `x * Y = Z$ under the side-condition `Y != 0` as `x = Z/Y`.
+  * It solves for `x * Y = Z` under the side-condition `Y != 0` as `x = Z/Y`.
  
 It also allows solving for uninterpreted constants that only appear in a single disjuction. For example, 
 `(or (= x (+ 5 y)) (= y (+ u z)))` allows solving for `x`. 
