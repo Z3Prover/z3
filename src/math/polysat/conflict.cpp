@@ -74,7 +74,7 @@ namespace polysat {
         // If they create propagations or conflict lemmas we select the 
         // tightest propagation as part of backjumping.
         // 
-        void try_resolve_value(pvar v, conflict& core) {
+        void infer_lemmas_for_value(pvar v, conflict& core) {
             if (m_poly_sup.perform(v, core)) 
                 return;
             if (m_saturation.perform(v, core))
@@ -257,10 +257,8 @@ namespace polysat {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             VERIFY(s.m_viable.resolve(v, *this));
         }
-        // NSB review:
-        // Saturation is not invoked on forbidden interval conflicts.
-        // We miss propagations.
-        // m_resolver->try_resolve_value(v, *this);
+
+        // NSB TODO - disabled: revert_decision(v);
         SASSERT(!empty());
     }
 
@@ -401,6 +399,10 @@ namespace polysat {
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
 
+    void conflict::revert_decision(pvar v) {
+        m_resolver->infer_lemmas_for_value(v, *this);
+    }
+
     void conflict::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
         SASSERT(s.m_justification[v].is_propagation());
@@ -415,13 +417,8 @@ namespace polysat {
             insert(s.eq(i.hi(), i.hi_val()));
         }
         logger().log(inf_resolve_value(s, v));
-
-        //
-        // NSB review: if try_resolve_value returns true, it adds propagations or conflict lemmas.
-        // the return value should not influence resolution. Indeed the code in solver.cpp
-        // just ignores the return value. It seems this function should not have a return value.
-        // 
-        m_resolver->try_resolve_value(v, *this);
+        
+        revert_decision(v);
     }
 
     clause_ref conflict::build_lemma() {

@@ -770,6 +770,7 @@ namespace polysat {
                     continue;
                 }
                 if (j.is_decision()) {
+                    // NSB TODO - disabled m_conflict.revert_decision(v);
                     revert_decision(v);
                     return;
                 }

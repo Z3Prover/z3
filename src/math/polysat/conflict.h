@@ -183,6 +183,9 @@ namespace polysat {
         /** Perform resolution with "v = value <- ..." */
         void resolve_value(pvar v);
 
+        /** Revert decision, add auxiliary lemmas for the decision variable **/
+        void revert_decision(pvar v);
+
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();
 

@@ -88,13 +88,16 @@ namespace polysat {
         //
 
         m_lemma.insert(~crit.as_signed_constraint());
-        SASSERT(all_of(m_lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
+
+        IF_VERBOSE(10, verbose_stream() << "propagate " << m_rule << " ";
+                   for (auto lit : m_lemma) verbose_stream() << s.lit2cnstr(lit) << " ";
+                   verbose_stream() << c << "\n";
+                   );
+
+        SASSERT(all_of(m_lemma, [this](sat::literal lit) { return is_forced_false(s.lit2cnstr(lit)); }));
 
         // NSB review question: insert_eval: Is this right?
         m_lemma.insert_eval(c);
-        IF_VERBOSE(0, verbose_stream() << "propagate " << m_rule << " ";
-                   for (auto& lit : m_lemma) verbose_stream() << s.lit2cnstr(lit) << " ";
-                   verbose_stream() << "\n");
         core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
@@ -640,28 +643,33 @@ namespace polysat {
         pdd a = m.zero();
         pdd b = m.zero();
         pdd X = s.var(x);
-        signed_constraint a_is_odd, x_is_odd, b_is_odd;
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
-        if (!is_forced_odd(b, b_is_odd)) {
-            if (!is_forced_odd(a, a_is_odd))
+        signed_constraint b_is_odd = s.odd(b);
+        signed_constraint a_is_odd = s.odd(a);
+        signed_constraint x_is_odd = s.odd(X);
+        if (!b_is_odd.is_currently_true(s)) {
+            if (!a_is_odd.is_currently_true(s))
                 return false;
-            if (!is_forced_odd(X, x_is_odd))
+            if (!x_is_odd.is_currently_true(s))
                 return false;
             m_lemma.reset();
             m_lemma.insert(~s.eq(y));
             m_lemma.insert(~a_is_odd);
             m_lemma.insert(~x_is_odd);
-            if (propagate(core, axb_l_y, s.odd(b)))
+            if (propagate(core, axb_l_y, b_is_odd))
                 return true;
             return false;
         }
         m_lemma.reset();
         m_lemma.insert(~s.eq(y));
         m_lemma.insert(~b_is_odd);
-        if (propagate(core, axb_l_y, s.odd(a)))
+        if (propagate(core, axb_l_y, a_is_odd))
             return true;
-        if (propagate(core, axb_l_y, s.odd(X)))
+        m_lemma.reset();
+        m_lemma.insert(~s.eq(y));
+        m_lemma.insert(~b_is_odd);
+        if (propagate(core, axb_l_y, x_is_odd))
             return true;
         return false;        
     }
