@@ -233,17 +233,16 @@ namespace xr {
         auto& j = justification::from_index(idx);
 
         int32_t ID;
-        literal_vector* cl = m_gmatrices[j.get_matrix_idx()]->get_reason(j.get_row_idx(), ID);
+        literal_vector const& ante = m_gmatrices[j.get_matrix_idx()]->get_reason(j.get_row_idx(), ID);
         std::cout << "Justification from matrix " << j.get_matrix_idx() << " on row " << j.get_row_idx() << " (ID: " << ID << "):\n";
-        for (unsigned i = 0; i < cl->size(); i++) {
-            std::cout << (*cl)[i] << "(" << s().value((*cl)[i]) << ") ";
-        }
+        for (auto lit : ante) 
+            std::cout << lit << "(" << s().value(lit) << ") ";
         std::cout << std::endl;
 
-        r.append(*cl);
+        r.append(ante);
 
         std::cout << "Overall assignments: ";
-        m_gmatrices[j.get_matrix_idx()]->output_variable_assignment(std::cout, &s());
+        m_gmatrices[j.get_matrix_idx()]->display_assignment(std::cout, s());
     }
     
     sat::check_result solver::check() {

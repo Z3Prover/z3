@@ -2789,10 +2789,11 @@ namespace sat {
         return idx;
     }
 
-    void solver::process_antecedent(literal antecedent, unsigned & num_marks) {
+    void solver::process_antecedent(literal antecedent, unsigned & num_marks) {        
         bool_var var     = antecedent.var();
         unsigned var_lvl = lvl(var);
         SASSERT(var < num_vars());
+        SASSERT(value(antecedent) == l_true);
         TRACE("sat_verbose", tout << "process " << var << "@" << var_lvl << " marked " << is_marked(var) << " conflict " << m_conflict_lvl << "\n";);
         if (!is_marked(var) && var_lvl > 0) {
             mark(var);
@@ -2823,6 +2824,7 @@ namespace sat {
         auto idx = js.get_ext_justification_idx();
         m_ext_antecedents.reset();
         m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing);
+        DEBUG_CODE(for (auto lit : m_ext_antecedents) SASSERT(value(lit) == l_true););
     }
 
     bool solver::is_two_phase() const {

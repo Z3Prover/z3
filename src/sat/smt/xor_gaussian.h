@@ -574,7 +574,7 @@ namespace xr {
             gauss_data& gqd
         );
     
-        literal_vector* get_reason(unsigned row, int& out_ID);
+        literal_vector& get_reason(unsigned row, int& out_ID);
     
         // when basic variable is touched , eliminate one col
         void eliminate_column(
@@ -590,21 +590,21 @@ namespace xr {
         void check_watchlist_sanity();
         void move_back_xor_clauses();
 
-        void output_variable_assignment(std::ostream& out, sat::solver* s) {
+        void display_assignment(std::ostream& out, sat::solver& s) {
             for (unsigned i = 0; i < m_num_cols; i++) {
-                out << "v" << m_column_to_var[i] << "=" << (s->value(m_column_to_var[i]) == l_undef ? "?" : (s->value(m_column_to_var[i]) == l_true ? "1" : "0")) << " ";
+                out << "v" << m_column_to_var[i] << "=" << (s.value(m_column_to_var[i]) == l_undef ? "?" : (s.value(m_column_to_var[i]) == l_true ? "1" : "0")) << " ";
             }
             out << std::endl;
             for (unsigned i = 0; i < m_num_cols; i++) {
                 out << "v" << m_column_to_var[i] << "=";
-                if (s->get_justification(m_column_to_var[i]).is_none())
+                if (s.get_justification(m_column_to_var[i]).is_none())
                     out << "d";
-                else if (s->get_justification(m_column_to_var[i]).is_binary_clause())
+                else if (s.get_justification(m_column_to_var[i]).is_binary_clause())
                     out << "b";
-                else if (s->get_justification(m_column_to_var[i]).is_clause())
+                else if (s.get_justification(m_column_to_var[i]).is_clause())
                     out << "c";
                 else
-                    out << "j" << s->get_justification(m_column_to_var[i]).get_ext_justification_idx();
+                    out << "j" << s.get_justification(m_column_to_var[i]).get_ext_justification_idx();
                 out << " ";
             }
             out << std::endl;

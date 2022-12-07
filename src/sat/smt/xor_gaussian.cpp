@@ -54,7 +54,7 @@ unsigned PackedRow::population_cnt(
 }
 
 // Gets the reason why the literal "prop" was propagated
-void PackedRow::get_reason(literal_vector& tmp_clause, const unsigned_vector& column_to_var, PackedRow& cols_vals, PackedRow& tmp_col2, literal prop) {
+void PackedRow::get_reason(literal_vector& antecedents, const unsigned_vector& column_to_var, PackedRow& cols_vals, PackedRow& tmp_col2, literal prop) {
 
     tmp_col2.set_and(*this, cols_vals);
     for (int i = 0; i < size; i++) {
@@ -69,11 +69,11 @@ void PackedRow::get_reason(literal_vector& tmp_clause, const unsigned_vector& co
             SASSERT((*this)[col] == 1);
             unsigned var = column_to_var[col];
             if (var == prop.var()) {
-                tmp_clause.push_back(~prop); // TODO: Why not negated?
-                std::swap(tmp_clause[0], tmp_clause.back());
+                antecedents.push_back(prop); 
+                std::swap(antecedents[0], antecedents.back());
             }
-            else
-                tmp_clause.push_back(literal(var, tmp_col2[col])); // NSB: double check if z3 use of sign is compatible
+            else 
+                antecedents.push_back(literal(var, !tmp_col2[col]));
 
             extra += at;
             if (extra == 64)
@@ -416,10 +416,10 @@ void EGaussian::eliminate() {
     std::cout << "-------------" << std::endl;
 }
 
-literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
+literal_vector& EGaussian::get_reason(unsigned row, int& out_ID) {
     if (!xor_reasons[row].m_must_recalc) {
         out_ID = xor_reasons[row].m_ID;
-        return &(xor_reasons[row].m_reason);
+        return xor_reasons[row].m_reason;
     }
 
     // Clean up previous one
@@ -436,7 +436,7 @@ literal_vector* EGaussian::get_reason(unsigned row, int& out_ID) {
     
     xor_reasons[row].m_must_recalc = false;
     xor_reasons[row].m_ID = out_ID;
-    return &to_fill;
+    return to_fill;
 }
 
 // Creates binary clauses, assigns variables, adds conflicts based on the (reduced) gaussian-matrix. Also sets up the gaussian watchlist
@@ -556,12 +556,12 @@ void EGaussian::delete_gausswatch(unsigned row_n) {
 
 unsigned EGaussian::get_max_level(const gauss_data& gqd, unsigned row_n) {
     int ID;
-    literal_vector* cl = get_reason(row_n, ID);
+    literal_vector& ante = get_reason(row_n, ID);
     unsigned nMaxLevel = gqd.currLevel;
     unsigned nMaxInd = 1;
 
-    for (unsigned i = 1; i < cl->size(); i++) {
-        literal l = (*cl)[i];
+    for (unsigned i = ante.size(); i-- > 0; ) {
+        literal l = ante[i];
         unsigned nLevel = m_solver.s().lvl(l);
         if (nLevel > nMaxLevel) {
             nMaxLevel = nLevel;
@@ -571,7 +571,7 @@ unsigned EGaussian::get_max_level(const gauss_data& gqd, unsigned row_n) {
 
     //should we??
     if (nMaxInd != 1) 
-        std::swap((*cl)[1], (*cl)[nMaxInd]);
+        std::swap(ante[1], ante[nMaxInd]);
     
     return nMaxLevel;
 }
