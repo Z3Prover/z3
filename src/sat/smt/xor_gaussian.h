@@ -46,19 +46,19 @@ namespace xr {
         
         friend class solver;
         
-        unsigned matrix_num;
-        unsigned row_num;
+        unsigned m_matrix_idx;
+        unsigned m_row_idx;
     
         //XOR
-        justification(const unsigned matrix_num, const unsigned row_num):
-            matrix_num(matrix_num),
-            row_num(row_num) { 
-            SASSERT(matrix_num != -1);
-            SASSERT(row_num != -1);
+        justification(unsigned matrix_idx, unsigned row_idx):
+            m_matrix_idx(matrix_idx),
+            m_row_idx(row_idx) {
+            SASSERT(matrix_idx != -1);
+            SASSERT(row_idx != -1);
         }
         
     public:
-        justification() : matrix_num(-1), row_num(-1) {}
+        justification() : m_matrix_idx(-1), m_row_idx(-1) {}
         
         void deallocate(small_object_allocator& a) { a.deallocate(get_obj_size(), sat::constraint_base::mem2base_ptr(this)); }
         sat::ext_constraint_idx to_index() const { return sat::constraint_base::mem2base(this); }
@@ -67,20 +67,20 @@ namespace xr {
         }
         static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
     
-        unsigned get_matrix_num() const {
-            return matrix_num;
+        unsigned get_matrix_idx() const {
+            return m_matrix_idx;
         }
     
-        unsigned get_row_num() const {
-            return row_num;
+        unsigned get_row_idx() const {
+            return m_row_idx;
         }
     
         bool isNull() const {
-            return matrix_num == -1;
+            return m_matrix_idx == -1;
         }
     
         bool operator==(const justification other) const {
-            return matrix_num == other.matrix_num && row_num == other.row_num;
+            return m_matrix_idx == other.m_matrix_idx && m_row_idx == other.m_row_idx;
         }
     
         bool operator!=(const justification other) const {
@@ -90,7 +90,7 @@ namespace xr {
     
     inline std::ostream& operator<<(std::ostream& os, const justification& pb) {
         if (!pb.isNull()) {
-            return os << " xor reason, matrix= " << pb.get_matrix_num() << " row: " << pb.get_row_num();
+            return os << " xor reason, matrix= " << pb.get_matrix_idx() << " row: " << pb.get_row_idx();
         }
         return os << " NULL";
     }
@@ -198,15 +198,15 @@ namespace xr {
             return false;
         }
     
-        const unsigned& operator[](const unsigned at) const {
+        const unsigned& operator[](unsigned at) const {
             return m_vars[at];
         }
     
-        unsigned& operator[](const unsigned at) {
+        unsigned& operator[](unsigned at) {
             return m_vars[at];
         }
     
-        void shrink(const unsigned newsize) {
+        void shrink(unsigned newsize) {
             m_vars.shrink(newsize);
         }
     
@@ -274,8 +274,8 @@ namespace xr {
         friend class PackedMatrix;
         friend class EGaussian;
 
-        PackedRow(const unsigned _size, int64_t* const _mp) :
-            mp(_mp+1),
+        PackedRow(unsigned _size, int64_t* const _mp) :
+            mp(_mp + 1),
             rhs_internal(*_mp), 
             size(_size) {}
        
@@ -375,7 +375,7 @@ namespace xr {
             }
         }
     
-        inline bool operator[](const unsigned i) const {
+        inline bool operator[](unsigned i) const {
             return (mp[i / 64] >> (i % 64)) & 1;
         }
     
@@ -414,7 +414,7 @@ namespace xr {
     
         void get_reason(
             literal_vector& tmp_clause,
-            const unsigned_vector& col_to_var,
+            const unsigned_vector& column_to_var,
             PackedRow& cols_vals,
             PackedRow& tmp_col2,
             literal prop
@@ -441,7 +441,7 @@ namespace xr {
             #endif
         }
     
-        void resize(const unsigned num_rows, unsigned num_cols) {
+        void resize(unsigned num_rows, unsigned num_cols) {
             num_cols = num_cols / 64 + (bool)(num_cols % 64);
             if (numRows * (numCols + 1) < (int)num_rows * ((int)num_cols + 1)) {
                 size_t size = sizeof(int64_t) * num_rows*(num_cols+1);
@@ -458,7 +458,7 @@ namespace xr {
             numCols = num_cols;
         }
     
-        void resizeNumRows(const unsigned num_rows) {
+        void resizeNumRows(unsigned num_rows) {
             SASSERT((int)num_rows <= numRows);
             numRows = num_rows;
         }
@@ -564,12 +564,12 @@ namespace xr {
         ~EGaussian();
         bool is_initialized() const;
     
-        ///returns FALSE in case of conflict
+        // returns FALSE in case of conflict
         bool find_truths(
             svector<gauss_watched>& ws,
             unsigned& i,
             unsigned& j,
-            unsigned var,
+            bool_var var,
             unsigned row_n,
             gauss_data& gqd
         );
@@ -589,6 +589,26 @@ namespace xr {
         void update_matrix_no(unsigned n);
         void check_watchlist_sanity();
         void move_back_xor_clauses();
+
+        void output_variable_assignment(std::ostream& out, sat::solver* s) {
+            for (unsigned i = 0; i < m_num_cols; i++) {
+                out << "v" << m_column_to_var[i] << "=" << (s->value(m_column_to_var[i]) == l_undef ? "?" : (s->value(m_column_to_var[i]) == l_true ? "1" : "0")) << " ";
+            }
+            out << std::endl;
+            for (unsigned i = 0; i < m_num_cols; i++) {
+                out << "v" << m_column_to_var[i] << "=";
+                if (s->get_justification(m_column_to_var[i]).is_none())
+                    out << "d";
+                else if (s->get_justification(m_column_to_var[i]).is_binary_clause())
+                    out << "b";
+                else if (s->get_justification(m_column_to_var[i]).is_clause())
+                    out << "c";
+                else
+                    out << "j" << s->get_justification(m_column_to_var[i]).get_ext_justification_idx();
+                out << " ";
+            }
+            out << std::endl;
+        }
     
     private:
         xr::solver& m_solver;   // original sat solver
@@ -652,9 +672,13 @@ namespace xr {
         // TODO: Maybe compress further
         bool_vector satisfied_xors;
     
-        // Someone is responsible for this column if TRUE
+        // Someone is responsible for this column if the respective entry is true
         // we always WATCH this variable
         // A variable is responsible if there is only one row that has a 1 there
+        // v1 v2 v3
+        // 1  0  1
+        // 0  1  1
+        // "row 0" is responsible for v1, "row 1" is responsible for v2
         bool_vector var_has_resp_row;
     
         // row_to_var_non_resp[ROW] gives VAR it's NOT responsible for

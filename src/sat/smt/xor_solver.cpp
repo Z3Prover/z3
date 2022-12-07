@@ -227,9 +227,24 @@ namespace xr {
         return sat::justification(-1);
     }
     
-    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx,
-                                 sat::literal_vector & r, bool probing) {
-        
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx,
+                                 literal_vector & r, bool probing) {
+
+        auto& j = justification::from_index(idx);
+
+        int32_t ID;
+        literal_vector* cl = m_gmatrices[j.get_matrix_idx()]->get_reason(j.get_row_idx(), ID);
+        std::cout << "Justification from matrix " << j.get_matrix_idx() << " on row " << j.get_row_idx() << " (ID: " << ID << "):\n";
+        for (unsigned i = 0; i < cl->size(); i++) {
+            std::cout << (*cl)[i] << "(" << s().value((*cl)[i]) << ") ";
+            (*cl)[i].neg();
+        }
+        std::cout << std::endl;
+
+        r.append(*cl);
+
+        std::cout << "Overall assignments: ";
+        m_gmatrices[j.get_matrix_idx()]->output_variable_assignment(std::cout, &s());
     }
     
     sat::check_result solver::check() {
@@ -342,7 +357,7 @@ namespace xr {
                     s().set_conflict();
                 return false;
             case 1: {
-                s().assign_scoped(sat::literal(constraint[0], !constraint.m_rhs));
+                s().assign_scoped(literal(constraint[0], !constraint.m_rhs));
                 s().propagate(false);
                 return false;
             }

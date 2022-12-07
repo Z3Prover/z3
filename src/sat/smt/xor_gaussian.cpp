@@ -53,12 +53,9 @@ unsigned PackedRow::population_cnt(
     return popcnt;
 }
 
-void PackedRow::get_reason(
-    sat::literal_vector& tmp_clause,
-    const unsigned_vector& col_to_var,
-    PackedRow& cols_vals,
-    PackedRow& tmp_col2,
-    literal prop) {
+// Gets the reason why the literal "prop" was propagated
+void PackedRow::get_reason(literal_vector& tmp_clause, const unsigned_vector& column_to_var, PackedRow& cols_vals, PackedRow& tmp_col2, literal prop) {
+
     tmp_col2.set_and(*this, cols_vals);
     for (int i = 0; i < size; i++) {
         if (!mp[i])
@@ -70,15 +67,13 @@ void PackedRow::get_reason(
         while (at != 0) {
             unsigned col = extra + (at - 1) + i * 64;
             SASSERT((*this)[col] == 1);
-            unsigned var = col_to_var[col];
+            unsigned var = column_to_var[col];
             if (var == prop.var()) {
-                tmp_clause.push_back(prop);
+                tmp_clause.push_back(~prop); // TODO: Why not negated?
                 std::swap(tmp_clause[0], tmp_clause.back());
             }
-            else {
-                bool val_bool = tmp_col2[col]; // NSB: double check if z3 use of sign is compatible
-                tmp_clause.push_back(sat::literal(var, val_bool));
-            }
+            else
+                tmp_clause.push_back(literal(var, tmp_col2[col])); // NSB: double check if z3 use of sign is compatible
 
             extra += at;
             if (extra == 64)
@@ -408,9 +403,8 @@ void EGaussian::eliminate() {
             // Since we XOR into *all*, this is Gauss-Jordan (and not just Gauss)
             for (unsigned k_row = 0; k_row < end_row; k_row++) {
                 // xor rows K and I
-                if (k_row != row_i && m_mat[k_row][col]) {
+                if (k_row != row_i && m_mat[k_row][col])
                     m_mat[k_row].xor_in(m_mat[row_i]);
-                }
             }
             row_i++;
         }
@@ -586,7 +580,7 @@ bool EGaussian::find_truths(
     svector<gauss_watched>& ws,
     unsigned& i,
     unsigned& j,
-    unsigned var,
+    bool_var var,
     unsigned row_n,
     gauss_data& gqd) {
     
@@ -683,8 +677,6 @@ bool EGaussian::find_truths(
             TRACE("xor", tout << "--> found new watch: " << new_resp_var+1;);
 
             find_truth_ret_fnewwatch++;
-            // printf("%d:This row is find new watch:%d => orig %d p:%d    n",row_n ,
-            // new_resp_var,orig_basic , p);
 
             if (was_resp_var) {
                 /// clear watchlist, because only one responsible value in watchlist
@@ -785,6 +777,17 @@ void EGaussian::update_cols_vals_set(bool force) {
         }
     }
     last_val_update = m_solver.s().trail_size();
+
+    std::cout << "Col-Unassigned: ";
+    for (int i = 0; i < 64 * cols_unset->size; ++i) {
+        std::cout << (*cols_unset)[i];
+    }
+    std::cout << "\n";
+    std::cout << "Col-Values:     ";
+    for (int i = 0; i < 64 * cols_vals->size; ++i) {
+        std::cout << (*cols_vals)[i];
+    }
+    std::cout << std::endl;
 }
 
 void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop) {
