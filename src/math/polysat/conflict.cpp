@@ -322,7 +322,11 @@ namespace polysat {
         lemma->set_redundant(true);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
-            SASSERT(s.m_bvars.value(lit) != l_true);
+            // NOTE: it can happen that the literal's bvalue is l_true at this point.
+            //       E.g., lit has been assigned to true on the search stack but not yet propagated.
+            //       A propagation before lit will cause a conflict, and by chance the viable conflict will contain lit.
+            //       (in that case, the evaluation of lit in the current assignment must be false, and it would have caused a conflict by itself when propagated.)
+            SASSERT(s.m_bvars.value(lit) != l_true || !s.lit2cnstr(lit).is_currently_true(s));
         }
         m_lemmas.push_back(std::move(lemma));
         // TODO: pass to inference_logger (with name)
