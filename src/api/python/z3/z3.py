@@ -1194,7 +1194,7 @@ def _coerce_expr_merge(s, a):
         else:
             if z3_debug():
                 _z3_assert(s1.ctx == s.ctx, "context mismatch")
-                _z3_assert(False, "sort mismatch")
+                _z3_assert(False, "sort mismatch")        
     else:
         return s
 
@@ -1207,6 +1207,11 @@ def _coerce_exprs(a, b, ctx=None):
         a = StringVal(a, b.ctx)
     if isinstance(b, str) and isinstance(a, SeqRef):
         b = StringVal(b, a.ctx)
+    if isinstance(a, float) and isinstance(b, ArithRef):
+        a = RealVal(a, b.ctx)
+    if isinstance(b, float) and isinstance(a, ArithRef):
+        b = RealVal(b, a.ctx)
+
     s = None
     s = _coerce_expr_merge(s, a)
     s = _coerce_expr_merge(s, b)
