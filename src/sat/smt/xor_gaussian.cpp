@@ -373,7 +373,7 @@ std::ostream& PackedMatrix::display_sparse(std::ostream& out) const {
         bool first = true;
         for (int i = 0; i < row.get_size() * 64; ++i) {
             if (row[i]) {
-                if (first && row.rhs())
+                if (first && !row.rhs())
                     out << -i-1 << " ";
                 else
                     out << i+1 << " ";
