@@ -1460,7 +1460,7 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
     SASSERT(is_nonneg(a));
-    if (is_small(a) && sz <= 63) {
+    if (is_small(a) && sz < 63) {
         int64_t mask = (static_cast<int64_t>(1) << sz) - static_cast<int64_t>(1);
         set_i64(c, (~ i64(a)) & mask);
     }
