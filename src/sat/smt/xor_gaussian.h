@@ -587,7 +587,7 @@ namespace xr {
         );
         void canceling();
         bool full_init(bool& created);
-        void update_cols_vals_set(bool force = false);
+        void update_cols_vals_set(bool force);
         bool must_disable(gauss_data& gqd);
         void check_invariants();
         void update_matrix_no(unsigned n);

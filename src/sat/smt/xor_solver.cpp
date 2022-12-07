@@ -139,7 +139,7 @@ namespace xr {
         force_push();
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             literal p = m_prop_queue[m_prop_queue_head];
-            std::cout << "Propagating: " << p.var() << " = " << !p.sign() << std::endl;
+            std::cout << "Propagating: " << p.var() << " := " << !p.sign() << std::endl;
             SASSERT(s().lvl(p) == s().scope_lvl());
             sat::justification conflict = gauss_jordan_elim(p);
             if (!conflict.is_none()) {
@@ -158,7 +158,7 @@ namespace xr {
         for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
             if (m_gqueuedata[i].disabled || !m_gmatrices[i]->is_initialized()) continue;
             m_gqueuedata[i].reset();
-            m_gmatrices[i]->update_cols_vals_set();
+            m_gmatrices[i]->update_cols_vals_set(false);
         }
         
         bool confl_in_gauss = false;

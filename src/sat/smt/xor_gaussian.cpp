@@ -606,10 +606,10 @@ bool EGaussian::find_truths(
     // printf("dd Watch variable : %d  ,  Wathch row num %d    n", p , row_n);
 
     TRACE("xor", tout 
-        << "mat[" << matrix_no << "] find_truths\n"
-        << "-> row: " << row_n << "\n"
-        << "-> var: " << var+1 << "\n"
-        << "-> dec lev:" << m_solver.s().scope_lvl());
+          << "mat[" << matrix_no << "] find_truths\n"
+          << "-> row: " << row_n << "\n"
+          << "-> var: " << var+1 << "\n"
+          << "-> dec lev:" << m_solver.s().scope_lvl() << "\n");
     SASSERT(row_n < m_num_rows);
     SASSERT(satisfied_xors.size() > row_n);
 
@@ -654,7 +654,7 @@ bool EGaussian::find_truths(
             xor_reasons[row_n].m_propagated = sat::null_literal;
             gqd.conflict = m_solver.mk_justification(m_solver.s().scope_lvl(), matrix_no, row_n);
             gqd.status = gauss_res::confl;
-            TRACE("xor", tout << "--> conflict";);
+            TRACE("xor", tout << "--> conflict\n");
             
             if (was_resp_var) { // recover
                 var_has_resp_row[row_to_var_non_resp[row_n]] = false;
@@ -776,9 +776,11 @@ void EGaussian::update_cols_vals_set(bool force) {
         }
         last_val_update = m_solver.s().trail_size();
         cancelled_since_val_update = false;
+        TRACE("xor", tout << "last val update set to " << last_val_update << "\n");         
         return;
     }
 
+    TRACE("xor", tout << last_val_update << " " << m_solver.s().trail_size() << "\n");
     SASSERT(m_solver.s().trail_size() >= last_val_update);
     for (unsigned i = last_val_update; i < m_solver.s().trail_size(); i++) {
         bool_var var = m_solver.s().trail_literal(i).var();
