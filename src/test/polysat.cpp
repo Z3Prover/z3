@@ -1591,7 +1591,7 @@ void tst_polysat() {
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
-    test_polysat::test_ineq1();
+    // test_polysat::test_ineq1();
     // test_polysat::test_quot_rem();
     // test_polysat::test_ineq_non_axiom1(32, 3);
     // test_polysat::test_monot_bounds_full();
@@ -1599,6 +1599,7 @@ void tst_polysat() {
     // test_polysat::test_quot_rem_incomplete();
     // test_polysat::test_monot();
     // test_polysat::test_fixed_point_arith_div_mul_inverse();
+    test_polysat::test_monot_bounds_simple(8);
     return;
 #endif
 

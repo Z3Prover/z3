@@ -121,10 +121,9 @@ namespace polysat {
         if (!is_forced_false(c)) 
             return false;
 
-        // TODO: ??? this means that c is already on the search stack, so presumably the lemma won't help. Should check whether this case occurs.
-        // if (c.bvalue(s) == l_true)
-        //     return false;
-        SASSERT(c.bvalue(s) != l_true);
+        // Constraint c is already on the search stack, so the lemma will not derive anything new.
+        if (c.bvalue(s) == l_true)
+            return false;
 
         m_lemma.insert_eval(c);
         core.add_lemma(m_rule, m_lemma.build());
@@ -354,7 +353,7 @@ namespace polysat {
         if (!is_non_overflow(x, y, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         if (!xy_l_xz.is_strict())
             m_lemma.insert_eval(s.eq(x));
         return add_conflict(core, xy_l_xz, ineq(xy_l_xz.is_strict(), y, z));
@@ -397,7 +396,7 @@ namespace polysat {
             return false;
         pdd const& z_prime = l_y.lhs();
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, l_y, yx_l_zx, ineq(yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x));
     }
 
@@ -437,7 +436,7 @@ namespace polysat {
         if (!is_non_overflow(x, y_prime, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, yx_l_zx, z_l_y, ineq(z_l_y.is_strict() || yx_l_zx.is_strict(), y * x, y_prime * x));
     }
 
@@ -478,7 +477,7 @@ namespace polysat {
         if (!is_non_overflow(a, z, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, y_l_ax, x_l_z, ineq(x_l_z.is_strict() || y_l_ax.is_strict(), y, a * z));
     }
 
@@ -602,9 +601,9 @@ namespace polysat {
         if (!is_non_overflow(a, X, non_ovfl)) 
             return false;
         m_lemma.reset();
-        m_lemma.insert(~s.eq(b, rational(-1)));
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~s.eq(b, rational(-1)));
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~non_ovfl);
         if (propagate(core, axb_l_y, s.eq(X, 1)))
             return true;
         if (propagate(core, axb_l_y, s.eq(a, 1)))
