@@ -19,12 +19,17 @@ is_doc = re.compile("Tactic Documentation")
 is_doc_end = re.compile("\-\-\*\/")
 is_tac_name = re.compile("## Tactic (.*)")
 
+def is_ws(s):
+    return all([0 for ch in s if ch != ' ' and ch != '\n'])
+
 def extract_params(ous, tac):
     z3_exe = BUILD_DIR + "/z3"
     out = subprocess.Popen([z3_exe, f"-tacticsmd:{tac}"], stdout=subprocess.PIPE).communicate()[0]
     if not out:
         return
     out = out.decode(sys.stdout.encoding)
+    if is_ws(out):
+        return
     ous.write("### Parameters\n\n")
     for line in out:
         ous.write(line.replace("\r",""))

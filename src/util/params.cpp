@@ -167,6 +167,8 @@ struct param_descrs::imp {
             names.push_back(kv.m_key);
         }
         std::sort(names.begin(), names.end(), symlt());
+        if (names.empty())
+            return;
         if (markdown) {
             out << " Parameter | Type | Description | Default\n";
             out << " ----------|------|-------------|--------\n";            
