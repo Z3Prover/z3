@@ -241,10 +241,9 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            if (collect_test_records) {
-                std::cout << m_name << ":";
-                std::cout.flush();
-            } else {
+            if (collect_test_records)
+                std::cout << m_name << std::flush;
+            else {
                 std::cout << std::string(78, '#') << "\n\n";
                 std::cout << "START: " << m_name << "\n";
             }
@@ -266,10 +265,8 @@ namespace polysat {
         }
 
         void check() {
-            if (collect_test_records) {
-                std::cout << " ...";
-                std::cout.flush();
-            }
+            if (collect_test_records)
+                std::cout << " ..." << std::flush;
             auto* rec = test_records.active_or_new_record();
             m_last_finished = nullptr;
             SASSERT(rec->m_answer == l_undef);
@@ -287,7 +284,7 @@ namespace polysat {
             rec->m_finished = true;
             m_last_finished = rec;
             if (collect_test_records)
-                std::cout << " " << m_last_result;
+                std::cout << " " << m_last_result << std::flush;
             else
                 std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
             statistics st;
@@ -1258,7 +1255,6 @@ namespace polysat {
         static void test_quot_rem_incomplete() {
             unsigned bw = 4;
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto quot = s.var(s.add_var(bw));
             auto rem = s.var(s.add_var(bw));
             auto a = s.value(rational(2), bw);
@@ -1278,7 +1274,6 @@ namespace polysat {
         static void test_quot_rem_fixed() {
             unsigned bw = 4;
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto a = s.value(rational(2), bw);
             auto b = s.value(rational(5), bw);
             auto [quot, rem] = s.quot_rem(a, b);
@@ -1289,24 +1284,22 @@ namespace polysat {
 
         static void test_quot_rem(unsigned bw = 32) {
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto a = s.var(s.add_var(bw));
             auto quot = s.var(s.add_var(bw));
             auto rem = s.var(s.add_var(bw));
             auto x = a * 123;
             auto y = 123;
             // quot = udiv(a*123, 123)
-            s.add_eq(quot * y + rem - x);
-            s.add_diseq(a - quot);
-            s.add_umul_noovfl(quot, y);
-            s.add_ult(rem, x);
+            s.add_eq(x, quot * y + rem);  // 123*a = q*123 + r
+            s.add_diseq(a, quot);         // a != quot
+            s.add_umul_noovfl(quot, y);   // 123*quot < 2^K
+            s.add_ult(rem, x);            // r < 123*a  ???
             s.check();
-            s.expect_sat();
+            s.expect_sat();  // dubious
         }
 
         static void test_quot_rem2(unsigned bw = 32) {
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto q = s.var(s.add_var(bw));
             auto r = s.var(s.add_var(bw));
             auto idx = s.var(s.add_var(bw));
@@ -1593,12 +1586,12 @@ void tst_polysat() {
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    test_polysat::test_band5();
+    // test_polysat::test_band5();
     // test_polysat::test_band5_clause();
     // test_polysat::test_ineq_axiom1(32, 1);
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
-    // test_polysat::test_ineq1();
+    test_polysat::test_ineq1();
     // test_polysat::test_quot_rem();
     // test_polysat::test_ineq_non_axiom1(32, 3);
     // test_polysat::test_monot_bounds_full();
@@ -1662,6 +1655,23 @@ void tst_polysat() {
     RUN(test_polysat::test_fixed_point_arith_mul_div_inverse());
     RUN(test_polysat::test_fixed_point_arith_div_mul_inverse());
 
+    RUN(test_polysat::test_quot_rem_incomplete());
+    RUN(test_polysat::test_quot_rem_fixed());
+    RUN(test_polysat::test_quot_rem());
+    RUN(test_polysat::test_quot_rem2());
+
+    RUN(test_polysat::test_band1());
+    RUN(test_polysat::test_band2());
+    RUN(test_polysat::test_band3());
+    RUN(test_polysat::test_band4());
+    RUN(test_polysat::test_band5());
+    RUN(test_polysat::test_band5_clause());
+
+    RUN(test_polysat::test_fi_zero());
+    RUN(test_polysat::test_fi_nonzero());
+    RUN(test_polysat::test_fi_nonmax());
+    RUN(test_polysat::test_fi_disequal_mild());
+
     RUN(test_polysat::test_ineq_axiom1());
     RUN(test_polysat::test_ineq_axiom2());
     RUN(test_polysat::test_ineq_axiom3());
@@ -1670,21 +1680,6 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
     RUN(test_polysat::test_ineq_non_axiom4());
-
-    RUN(test_polysat::test_quot_rem_incomplete());
-    RUN(test_polysat::test_quot_rem_fixed());
-    RUN(test_polysat::test_band1());
-    RUN(test_polysat::test_band2());
-    RUN(test_polysat::test_band3());
-    RUN(test_polysat::test_band4());
-    RUN(test_polysat::test_band5());
-    RUN(test_polysat::test_band5_clause());
-    RUN(test_polysat::test_quot_rem());
-
-    RUN(test_polysat::test_fi_zero());
-    RUN(test_polysat::test_fi_nonzero());
-    RUN(test_polysat::test_fi_nonmax());
-    RUN(test_polysat::test_fi_disequal_mild());
 
     // test_fi::exhaustive();
     // test_fi::randomized();
