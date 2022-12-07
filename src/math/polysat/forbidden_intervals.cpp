@@ -128,7 +128,7 @@ namespace polysat {
         return true;
     }
 
-    static char* _last_function = "";
+    static char const* _last_function = "";
     
     bool forbidden_intervals::get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi) {
         
