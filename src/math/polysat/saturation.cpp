@@ -96,8 +96,7 @@ namespace polysat {
 
         SASSERT(all_of(m_lemma, [this](sat::literal lit) { return is_forced_false(s.lit2cnstr(lit)); }));
 
-        // NSB review question: insert_eval: Is this right?
-        m_lemma.insert_eval(c);
+        m_lemma.insert(c);
         core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
@@ -514,20 +513,20 @@ namespace polysat {
 
         auto prop1 = [&](signed_constraint c) {
             m_lemma.reset();
-            m_lemma.insert(~s.eq(b));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(x_eq_0);
-            m_lemma.insert(a_eq_0);
+            m_lemma.insert_eval(~s.eq(b));
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(x_eq_0);
+            m_lemma.insert_eval(a_eq_0);
             return propagate(core, axb_l_y, c);
         };
 
         auto prop2 = [&](signed_constraint ante, signed_constraint c) {
             m_lemma.reset();
-            m_lemma.insert(~s.eq(b));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(x_eq_0);
-            m_lemma.insert(a_eq_0);
-            m_lemma.insert(~ante);
+            m_lemma.insert_eval(~s.eq(b));
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(x_eq_0);
+            m_lemma.insert_eval(a_eq_0);
+            m_lemma.insert_eval(~ante);
             return propagate(core, axb_l_y, c);
         };
 
@@ -648,27 +647,34 @@ namespace polysat {
         signed_constraint b_is_odd = s.odd(b);
         signed_constraint a_is_odd = s.odd(a);
         signed_constraint x_is_odd = s.odd(X);
+#if 0
+        LOG_H1("try_parity: " << X << " on: " << lit_pp(s, axb_l_y.as_signed_constraint()));
+        LOG("y: " << y << "   a: " << a << "   b: " << b);
+        LOG("b_is_odd: " << lit_pp(s, b_is_odd));
+        LOG("a_is_odd: " << lit_pp(s, a_is_odd));
+        LOG("x_is_odd: " << lit_pp(s, x_is_odd));
+#endif
         if (!b_is_odd.is_currently_true(s)) {
             if (!a_is_odd.is_currently_true(s))
                 return false;
             if (!x_is_odd.is_currently_true(s))
                 return false;
             m_lemma.reset();
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(~a_is_odd);
-            m_lemma.insert(~x_is_odd);
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~a_is_odd);
+            m_lemma.insert_eval(~x_is_odd);
             if (propagate(core, axb_l_y, b_is_odd))
                 return true;
             return false;
         }
         m_lemma.reset();
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~b_is_odd);
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~b_is_odd);
         if (propagate(core, axb_l_y, a_is_odd))
             return true;
         m_lemma.reset();
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~b_is_odd);
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~b_is_odd);
         if (propagate(core, axb_l_y, x_is_odd))
             return true;
         return false;        
@@ -693,14 +699,14 @@ namespace polysat {
         if (!is_forced_diseq(a, 0, a_eq_0))
             return false;
         m_lemma.reset();
-        m_lemma.insert(s.eq(y));
-        m_lemma.insert(~s.eq(b));
-        m_lemma.insert(a_eq_0);
+        m_lemma.insert_eval(s.eq(y));
+        m_lemma.insert_eval(~s.eq(b));
+        m_lemma.insert_eval(a_eq_0);
         if (propagate(core, axb_l_y, s.even(X)))
             return true;
         if (!is_forced_diseq(X, 0, x_eq_0))
             return false;
-        m_lemma.insert(x_eq_0);
+        m_lemma.insert_eval(x_eq_0);
         if (propagate(core, axb_l_y, s.even(a)))
             return true;
         return false;

@@ -824,17 +824,12 @@ namespace polysat {
         backjump_and_learn(max_jump_level);
     }
 
-    //
-    // NSB review: this code assumes that these lemmas are false.
-    // It does not allow saturation to add unit propagation into freshly created literals.
-    // 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
-        unsigned max_level = 0;     // highest level in lemma
-        unsigned lits_at_max_level = 0;  // how many literals at the highest level in lemma
-        unsigned snd_level = 0;     // second-highest level in lemma
-        bool is_propagation = false;
+        unsigned max_level = 0;             // highest level in lemma
+        unsigned lits_at_max_level = 0;     // how many literals at the highest level in lemma
+        unsigned snd_level = 0;             // second-highest level in lemma
+        bool is_propagation = false;        // whether there is an unassigned literal (at most one)
         for (sat::literal lit : lemma) {
-            SASSERT(m_bvars.is_assigned(lit));  // any new constraints should have been assign_eval'd
             if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
                 return std::nullopt;
             if (!m_bvars.is_assigned(lit)) {
@@ -861,15 +856,19 @@ namespace polysat {
         //               Do the standard backjumping known from SAT solving (back to second-highest level in the lemma, propagate it there).
         // - Semantic split clause: multiple literals on the highest level in the lemma.
         //                          Backtrack to "highest level - 1" and split on the lemma there.
-        // For now, we follow the same convention for computing the jump levels.
+        // For now, we follow the same convention for computing the jump levels,
+        // but we support an additional type of clause:
+        // - Propagation clause: a single literal is unassigned and should be propagated after backjumping.
+        //                       backjump to max_level so we can propagate
         unsigned jump_level;
+        unsigned branching_factor = lits_at_max_level;
         if (is_propagation)
-            jump_level = max_level;
-        if (lits_at_max_level <= 1)
+            jump_level = max_level, branching_factor = 1;
+        else if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
             jump_level = (max_level == 0) ? 0 : (max_level - 1);
-        return {{jump_level, lits_at_max_level}};
+        return {{jump_level, branching_factor}};
     }
 
     void solver::backjump_and_learn(unsigned max_jump_level) {
@@ -886,6 +885,10 @@ namespace polysat {
         auto appraise_lemma = [&](clause* lemma) {
             m_simplify_clause.apply(*lemma);
             auto score = compute_lemma_score(*lemma);
+            if (score)
+                LOG("    score: "  << *score);
+            else
+                LOG("    score: <none>");
             if (score && *score < best_score) {
                 best_score = *score;
                 best_lemma = lemma;
@@ -904,6 +907,9 @@ namespace polysat {
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         SASSERT(jump_level <= max_jump_level);
+
+        LOG("best_score: " << best_score);
+        LOG("best_lemma: " << *best_lemma);
 
         m_conflict.reset();
         backjump(jump_level);
@@ -940,10 +946,7 @@ namespace polysat {
             SASSERT(!is_conflict());
         }
 
-        LOG("best_score: " << best_score);
-        LOG("best_lemma: " << *best_lemma);
-
-        if (best_score.literals_at_max_level() > 1) {
+        if (best_score.branching_factor() > 1) {
             // NOTE: at this point it is possible that the best_lemma is non-asserting.
             //       We need to double-check, because the backjump level may not be exact (see comment on checking is_conflict above).
             bool const is_asserting = all_of(*best_lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
@@ -1269,7 +1272,8 @@ namespace polysat {
         out << lpad(4, lit) << ": " << rpad(30, c);
         if (!c)
             return out;
-        out << "  [ " << s.m_bvars.value(lit);
+        out << "  [ b:" << rpad(7, s.m_bvars.value(lit));
+        out << " p:" << rpad(7, c.eval(s));
         if (s.m_bvars.is_assigned(lit)) {
             out << ' ';
             if (s.m_bvars.is_assumption(lit))

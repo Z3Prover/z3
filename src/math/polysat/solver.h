@@ -52,20 +52,19 @@ namespace polysat {
      *
      * Comparison criterion:
      * - Lowest jump level has priority, because otherwise, some of the accumulated lemmas may still be false after backjumping.
-     * - To break ties on jump level, choose clause with the fewest literals at its highest decision level;
-     *   to limit case splits.
+     * - To break ties on jump level, choose clause with the lowest branching factor.
      */
     class lemma_score {
         unsigned m_jump_level;
-        unsigned m_literals_at_max_level;
+        unsigned m_branching_factor;    // how many literals will be unassigned after backjumping to jump_level
 
     public:
-        lemma_score(unsigned jump_level, unsigned at_max_level)
-            : m_jump_level(jump_level), m_literals_at_max_level(at_max_level)
+        lemma_score(unsigned jump_level, unsigned bf)
+            : m_jump_level(jump_level), m_branching_factor(bf)
         { }
 
         unsigned jump_level() const { return m_jump_level; }
-        unsigned literals_at_max_level() const { return m_literals_at_max_level; }
+        unsigned branching_factor() const { return m_branching_factor; }
 
         static lemma_score max() {
             return {UINT_MAX, UINT_MAX};
@@ -73,20 +72,20 @@ namespace polysat {
 
         bool operator==(lemma_score const& other) const {
             return m_jump_level == other.m_jump_level
-                && m_literals_at_max_level == other.m_literals_at_max_level;
+                && m_branching_factor == other.m_branching_factor;
         }
         bool operator!=(lemma_score const& other) const { return !operator==(other); }
 
         bool operator<(lemma_score const& other) const {
             return m_jump_level < other.m_jump_level
-                || (m_jump_level == other.m_jump_level && m_literals_at_max_level < other.m_literals_at_max_level);
+                || (m_jump_level == other.m_jump_level && m_branching_factor < other.m_branching_factor);
         }
         bool operator>(lemma_score const& other) const { return other.operator<(*this); }
         bool operator<=(lemma_score const& other) const { return operator==(other) || operator<(other); }
         bool operator>=(lemma_score const& other) const { return operator==(other) || operator>(other); }
 
         std::ostream& display(std::ostream& out) const {
-            return out << "jump_level=" << m_jump_level << " at_max_level=" << m_literals_at_max_level;
+            return out << "jump_level=" << m_jump_level << " branching_factor=" << m_branching_factor;
         }
     };
 
@@ -413,6 +412,7 @@ namespace polysat {
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
         signed_constraint odd(pdd const& p) { return ~even(p); }
         signed_constraint even(pdd const& p) { return parity(p, 1); }
+        /** parity(p) >= k   (<=> p * 2^(K-k) == 0) */
         signed_constraint parity(pdd const& p, unsigned k) { return eq(p*rational::power_of_two(p.manager().power_of_2() - k)); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }

@@ -51,11 +51,17 @@ namespace polysat {
         void insert(signed_constraint c);
         void insert(inequality const& i) { insert(i.as_signed_constraint()); }
 
-        /// Inserting constraints into the clause.
-        /// If they are not yet on the search stack, add them as evaluated to false.
-        /// \pre Constraint must be false in the current assignment.
-        void insert_eval(sat::literal lit);
-        void insert_eval(signed_constraint c);
+        /// Insert constraints into the clause.
+        /// If they are not yet on the search stack, add them as evaluated to the given status.
+        /// \pre Constraint must evaluate to true or false according to the given status in the current assignment.
+        void insert_eval(sat::literal lit, bool status);
+        void insert_eval(signed_constraint c, bool status);
+
+        /// Insert constraints into the clause.
+        /// If they are not yet on the search stack, add them as evaluated to \b false.
+        /// \pre Constraint must be \b false in the current assignment.
+        void insert_eval(sat::literal lit) { insert_eval(lit, false); }
+        void insert_eval(signed_constraint c) { insert_eval(c, false); }
         void insert_eval(inequality const& i) { insert_eval(i.as_signed_constraint()); }
 
         using const_iterator = decltype(m_literals)::const_iterator;
