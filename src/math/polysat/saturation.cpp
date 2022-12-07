@@ -644,6 +644,10 @@ namespace polysat {
         pdd X = s.var(x);
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
+        if (a.is_max() && b.is_var())  // x == y, we propagate values in each direction and don't need a lemma
+            return false;
+        if (a.is_one() && (-b).is_var())  // y == x
+            return false;
         signed_constraint b_is_odd = s.odd(b);
         signed_constraint a_is_odd = s.odd(a);
         signed_constraint x_is_odd = s.odd(X);
