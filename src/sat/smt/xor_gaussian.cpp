@@ -380,6 +380,7 @@ std::ostream& PackedMatrix::display_sparse(std::ostream& out) const {
                 first = false;
             }
         }
+        out << "\n";
     }
     return out;
 }
