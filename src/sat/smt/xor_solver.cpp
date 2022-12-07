@@ -310,9 +310,8 @@ namespace xr {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        out << "xor clauses: " << m_xorclauses.size() << "\n";
-        for (auto const& x : m_xorclauses)
-            out << x << "\n";
+        for (auto* mat : m_gmatrices) 
+            mat->display(out);        
         return out;
     }
 

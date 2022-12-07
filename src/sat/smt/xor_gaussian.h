@@ -530,11 +530,11 @@ namespace xr {
             }
         };
     
-        iterator begin() {
+        iterator begin() const {
             return iterator(mp, numCols);
         }
     
-        iterator end() {
+        iterator end() const {
             return iterator(mp + numRows * (numCols + 1), numCols);
         }
         
@@ -545,6 +545,10 @@ namespace xr {
         unsigned num_cols() const {
             return numCols;
         }
+
+        std::ostream& display_dense(std::ostream& out) const;
+        
+        std::ostream& display_sparse(std::ostream& out) const;
         
     private:
     
@@ -609,6 +613,8 @@ namespace xr {
             }
             out << std::endl;
         }
+
+        std::ostream& display(std::ostream& out) const { return m_mat.display_sparse(out); }
     
     private:
         xr::solver& m_solver;   // original sat solver

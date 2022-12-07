@@ -358,15 +358,32 @@ bool EGaussian::full_init(bool& created) {
     return !inconsistent();
 }
 
-static void print_matrix(ostream& out, PackedMatrix& mat) {
-    for (unsigned rowIdx = 0; rowIdx < mat.num_rows(); rowIdx++) {
-        const PackedRow& row = mat[rowIdx];
-        for(int i = 0; i < row.get_size() * 64; i++) {
+std::ostream& PackedMatrix::display_dense(std::ostream& out) const {
+    for (unsigned rowIdx = 0; rowIdx < num_rows(); rowIdx++) {
+        const PackedRow& row = (*this)[rowIdx];
+        for(int i = 0; i < row.get_size() * 64; i++) 
             out << (int)row[i];
-        }
         out << " -- rhs: " << row.rhs() << " -- row: " << rowIdx << "\n";
     }
+    return out;
 }
+
+std::ostream& PackedMatrix::display_sparse(std::ostream& out) const {
+    for (auto const& row : *this) {
+        bool first = true;
+        for (int i = 0; i < row.get_size() * 64; ++i) {
+            if (row[i]) {
+                if (first && row.rhs())
+                    out << -i-1 << " ";
+                else
+                    out << i+1 << " ";
+                first = false;
+            }
+        }
+    }
+    return out;
+}
+
 
 // Applies Gaussian-Jordan elimination (search level). This function does not add conflicts/propagate/... Just reduces the matrix
 void EGaussian::eliminate() {
@@ -376,10 +393,9 @@ void EGaussian::eliminate() {
     unsigned row_i = 0;
     unsigned col = 0;
 
-    print_matrix(std::cout, m_mat);
-    std::cout << std::endl;
-    TRACE("xor", print_matrix(tout, m_mat));
-
+    m_mat.display_dense(std::cout) << std::endl;
+    TRACE("xor", m_mat.display_dense(tout) << "\n");
+    
     // Gauss-Jordan Elimination
     while (row_i != m_num_rows && col != m_num_cols) {
         unsigned row_with_1_in_col = row_i;
@@ -409,9 +425,8 @@ void EGaussian::eliminate() {
             row_i++;
         }
         col++;
-        TRACE("xor", print_matrix(tout, m_mat));
-        print_matrix(std::cout, m_mat);
-        std::cout << std::endl;
+        TRACE("xor", m_mat.display_dense(tout) << "\n");
+        m_mat.display_dense(std::cout) << "\n";        
     }
     std::cout << "-------------" << std::endl;
 }
@@ -811,10 +826,10 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
     unsigned row_i = 0;
 
     elim_called++;
-    
-    print_matrix(std::cout, m_mat);
-    std::cout << std::endl;
-    TRACE("xor", print_matrix(tout, m_mat));
+
+
+    m_mat.display_dense(std::cout) << "\n";
+    TRACE("xor", m_mat.display_dense(tout) << "\n");
     
     while (row_i < row_size) {
         //Row has a '1' in eliminating column, and it's not the row responsible
@@ -945,10 +960,9 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
             }
         }
         row_i++;
-        
-        print_matrix(std::cout, m_mat);
-        std::cout << std::endl;
-        TRACE("xor", print_matrix(tout, m_mat));
+
+        m_mat.display_dense(std::cout) << "\n";
+        TRACE("xor", m_mat.display_dense(tout) << "\n");        
     }
 
 }
@@ -1082,3 +1096,5 @@ void EGaussian::move_back_xor_clauses() {
     for (const auto& x: m_xorclauses) 
         m_solver.m_xorclauses.push_back(std::move(x));    
 }
+
+
