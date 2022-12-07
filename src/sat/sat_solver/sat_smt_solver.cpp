@@ -86,7 +86,7 @@ class sat_smt_solver : public solver {
                 if (s.m.is_and(f)) {
                     auto* d = s.m_fmls[i].dep();
                     for (expr* arg : *to_app(f))
-                        s.m_fmls.push_back(dependent_expr(s.m, arg, d));
+                        s.m_fmls.push_back(dependent_expr(s.m, arg, nullptr, d));
                     continue;
                 }
                 if (i != j)
@@ -349,18 +349,18 @@ public:
             return a;
         expr* new_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
         expr* fml = m.mk_iff(new_dep, a);
-        m_fmls.push_back(dependent_expr(m, fml, nullptr));
+        m_fmls.push_back(dependent_expr(m, fml, nullptr, nullptr));
         m_dep.insert(a, new_dep);
         return new_dep;
     }
 
     void assert_expr_core2(expr * t, expr * a) override {
         a = ensure_literal(a);
-        m_fmls.push_back(dependent_expr(m, t, m.mk_leaf(a)));
+        m_fmls.push_back(dependent_expr(m, t, nullptr, m.mk_leaf(a)));
     }
 
     void assert_expr_core(expr * t) override {
-        m_fmls.push_back(dependent_expr(m, t, nullptr));
+        m_fmls.push_back(dependent_expr(m, t, nullptr, nullptr));
     }
 
     ast_manager& get_manager() const override { return m; }

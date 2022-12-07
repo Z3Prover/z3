@@ -23,15 +23,15 @@ Reduce the number of arguments of function applications, when for all occurrence
 
 ### Long Description
 
-Example, suppose we have a function `f` with `2` arguments. 
-There are 1000 applications of this function, but the first argument is always "a", "b" or "c".
-Thus, we replace the `f(t1, t2)` with 
+Example, suppose we have a function $f$ with 2 arguments. 
+There are 1000 applications of this function, but the first argument is always $a$, $b$ or $c$.
+Thus, we replace the $f(t_1, t_2)$ with 
 
-*      `f_a(t2)`   if   `t1 = a`
-*      `f_b(t2)`   if   `t2 = b`
-*      `f_c(t2)`   if   `t2 = c`
+* $f_a(t_2)$   if   $t_1 = a$
+* $f_b(t_2)$   if   $t_2 = b$
+* $f_c(t_2)$   if   $t_2 = c$
 
-Since `f_a`, `f_b`, `f_c` are new symbols, satisfiability is preserved.
+Since $f_a$, $f_b$, $f_c$ are new symbols, satisfiability is preserved.
    
 This transformation is very similar in spirit to the Ackermman's reduction. 
 

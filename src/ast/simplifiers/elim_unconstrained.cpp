@@ -258,13 +258,13 @@ void elim_unconstrained::reconstruct_terms() {
 void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 
     for (unsigned i : indices()) {
-        auto [f, d] = m_fmls[i]();
+        auto [f, p, d] = m_fmls[i]();
         node& n = get_node(f);
         expr* g = n.m_term;
         if (f == g)
             continue;
         old_fmls.push_back(m_fmls[i]);
-        m_fmls.update(i, dependent_expr(m, g, d));
+        m_fmls.update(i, dependent_expr(m, g, nullptr, d));
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
         TRACE("elim_unconstrained", tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
     }

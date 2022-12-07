@@ -33,12 +33,16 @@ public:
         
     void reduce() override {
         expr_ref r(m);
+        proof_ref pr(m);
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
-            m_rewriter(d.fml(), r);
-            m_fmls.update(idx, dependent_expr(m, r, d.dep()));
+            m_rewriter(d.fml(), r, pr);
+            if (d.fml() != r)
+                m_fmls.update(idx, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
         }
     }
+
+    bool supports_proofs() const override { return true; }
 
     void push() override { dependent_expr_simplifier::push(); m_df.push(); m_rewriter.push(); }
     

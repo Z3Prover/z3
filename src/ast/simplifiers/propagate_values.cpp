@@ -35,13 +35,13 @@ propagate_values::propagate_values(ast_manager& m, params_ref const& p, dependen
 
 void propagate_values::process_fml(unsigned i) {
     if (!m_subst.empty()) {
-        auto [f, dep] = m_fmls[i]();
+        auto [f, p, dep] = m_fmls[i]();
         expr_ref fml(m);
         proof_ref pr(m);
         m_rewriter(f, fml, pr);
         if (fml != f) {
             dep = m.mk_join(dep, m_rewriter.get_used_dependencies());
-            m_fmls.update(i, dependent_expr(m, fml, dep));
+            m_fmls.update(i, dependent_expr(m, fml, mp(p, pr), dep));
             ++m_stats.m_num_rewrites;
         }
         m_rewriter.reset_used_dependencies();
@@ -51,7 +51,7 @@ void propagate_values::process_fml(unsigned i) {
 
 void propagate_values::add_sub(dependent_expr const& de) {
     expr* x, * y;
-    auto const& [f, dep] = de();
+    auto const& [f, p, dep] = de();
     if (m.is_not(f, x) && m_shared.is_shared(x))
         m_subst.insert(x, m.mk_false(), dep);
     if (m_shared.is_shared(f))

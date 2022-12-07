@@ -536,7 +536,7 @@ void eliminate_predicates::reduce_definitions() {
         macro_expander.insert(v->m_head, v->m_def, v->m_dep);
     
     for (unsigned i : indices()) {
-        auto [f, d] = m_fmls[i]();
+        auto [f, p, d] = m_fmls[i]();
         expr_ref fml(f, m), new_fml(m);
         expr_dependency_ref dep(d, m);
         while (true) {
@@ -546,7 +546,7 @@ void eliminate_predicates::reduce_definitions() {
             rewrite(new_fml);
             fml = new_fml;
         }
-        m_fmls.update(i, dependent_expr(m, fml, dep));
+        m_fmls.update(i, dependent_expr(m, fml, nullptr, dep));
     }
     reset();
     init_clauses();
@@ -770,7 +770,7 @@ void eliminate_predicates::process_to_exclude(ast_mark& exclude_set) {
 
 
 eliminate_predicates::clause* eliminate_predicates::init_clause(unsigned i) {
-    auto [f, d] = m_fmls[i]();
+    auto [f, p, d] = m_fmls[i]();
     return init_clause(f, d, i);
 }
 
@@ -821,12 +821,12 @@ void eliminate_predicates::decompile() {
         if (cl->m_fml_index != UINT_MAX) {
             if (cl->m_alive)
                 continue;
-            dependent_expr de(m, m.mk_true(), nullptr);
+            dependent_expr de(m, m.mk_true(), nullptr, nullptr);
             m_fmls.update(cl->m_fml_index, de);
         }
         else if (cl->m_alive) {
             expr_ref new_cl = cl->m_fml;
-            dependent_expr de(m, new_cl, cl->m_dep);
+            dependent_expr de(m, new_cl, nullptr, cl->m_dep);
             m_fmls.add(de);
         }        
     }

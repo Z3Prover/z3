@@ -48,12 +48,11 @@ public:
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         for (unsigned idx : indices()) {
-            auto [curr, d] = m_fmls[idx]();
+            auto [curr, p, d] = m_fmls[idx]();
             m_rewriter(curr, new_curr, new_pr);
-            // Proof reconstruction: new_pr = m.mk_modus_ponens(old_pr, new_pr);
             if (new_curr != curr) {
                 m_num_steps += m_rewriter.get_num_steps();
-                m_fmls.update(idx, dependent_expr(m, new_curr, d));
+                m_fmls.update(idx, dependent_expr(m, new_curr, mp(p, new_pr), d));
             }
         }
     }

@@ -48,12 +48,13 @@ public:
             push_todo.reset();
             push_todo_prs.reset();
             apply_nnf(d.fml(), push_todo, push_todo_prs, r, pr);
-            m_fmls.update(i, dependent_expr(m, r, d.dep()));
+            m_fmls.update(i, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
             for (expr* f : push_todo) {
                 if (!m.inc())
                     break;
                 m_rewriter(f, r, pr);
-                m_fmls.add(dependent_expr(m, r, d.dep()));
+                if (f != r)
+                    m_fmls.add(dependent_expr(m, r, pr, d.dep()));
             }
         }
     }

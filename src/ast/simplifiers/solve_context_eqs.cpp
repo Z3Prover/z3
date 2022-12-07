@@ -282,7 +282,7 @@ namespace euf {
             else if (!s && 1 <= depth) {
                 for (extract_eq* ex : m_solve_eqs.m_extract_plugins) {
                     ex->set_allow_booleans(false);
-                    ex->get_eqs(dependent_expr(m, f, df.dep()), eqs);
+                    ex->get_eqs(dependent_expr(m, f, nullptr, df.dep()), eqs);
                     ex->set_allow_booleans(true);
                 }
             }

@@ -39,7 +39,7 @@ namespace euf {
         }
 
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
-            auto [f, d] = e();
+            auto [f, p, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y)) {
                 if (x == y)
@@ -246,7 +246,7 @@ namespace euf {
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             if (!m_enabled)
                 return;
-            auto [f, d] = e();
+            auto [f, p, d] = e();
             expr* x, * y;
             if (m.is_eq(f, x, y) && a.is_int_real(x)) {
                 solve_eq(f, x, y, d, eqs);

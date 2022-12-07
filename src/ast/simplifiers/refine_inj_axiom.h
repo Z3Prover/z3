@@ -38,7 +38,7 @@ public:
         for (unsigned idx : indices()) {
             expr* f = m_fmls[idx].fml();
             if (is_quantifier(f) && simplify_inj_axiom(m, to_quantifier(f), r)) 
-                m_fmls.update(idx, dependent_expr(m, r, m_fmls[idx].dep()));            
+                m_fmls.update(idx, dependent_expr(m, r, nullptr, m_fmls[idx].dep()));            
         }
     }
 };

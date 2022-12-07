@@ -49,7 +49,7 @@ public:
         m(m),
         m_params(p),
         m_factory(f),
-        m_dep(m, m.mk_true(), nullptr)
+        m_dep(m, m.mk_true(), nullptr, nullptr)
     {}
 
     /**
@@ -58,22 +58,22 @@ public:
     unsigned qtail() const override { return m_goal->size(); }
 
     dependent_expr const& operator[](unsigned i) override {
-        m_dep = dependent_expr(m, m_goal->form(i), m_goal->dep(i));
+        m_dep = dependent_expr(m, m_goal->form(i), m_goal->pr(i), m_goal->dep(i));
         return m_dep;
     }
     
     void update(unsigned i, dependent_expr const& j) override {
         if (inconsistent())
             return;
-        auto [f, d] = j();
-        m_goal->update(i, f, nullptr, d);
+        auto [f, p, d] = j();
+        m_goal->update(i, f, p, d);
     }
     
     void add(dependent_expr const& j) override {
         if (inconsistent())
             return;
-        auto [f, d] = j();
-        m_goal->assert_expr(f, nullptr, d);
+        auto [f, p, d] = j();
+        m_goal->assert_expr(f, p, d);
     }
 
     bool inconsistent() override {
@@ -108,7 +108,7 @@ public:
         tactic_report report(name(), *in);
         m_goal = in.get();
         try {
-            if (!in->proofs_enabled())
+            if (!in->proofs_enabled() || m_simp->supports_proofs())
                 m_simp->reduce();
             if (m.inc())
                 advance_qhead();

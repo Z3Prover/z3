@@ -30,12 +30,12 @@ void card2bv::reduce() {
     expr_ref new_f1(m), new_f2(m);
     proof_ref new_pr(m);
     for (unsigned idx : indices()) {
-        auto [f, d] = m_fmls[idx]();
+        auto [f, p, d] = m_fmls[idx]();
         rw1(f, new_f1);        
         rw2(false, new_f1, new_f2, new_pr);        
         if (new_f2 != f) {
             TRACE("card2bv", tout << "Rewriting " << new_f1 << "\n" << new_f2 << "\n");
-            m_fmls.update(idx, dependent_expr(m, new_f2, d));
+            m_fmls.update(idx, dependent_expr(m, new_f2, mp(p, new_pr), d));
             ++m_stats.m_num_rewrites;
         }
     }
@@ -43,7 +43,7 @@ void card2bv::reduce() {
     expr_ref_vector fmls(m);
     rw2.flush_side_constraints(fmls);
     for (expr* e : fmls)
-        m_fmls.add(dependent_expr(m, e, nullptr));
+        m_fmls.add(dependent_expr(m, e, nullptr, nullptr));
 
     func_decl_ref_vector const& fns = rw2.fresh_constants();
     for (func_decl* f : fns)

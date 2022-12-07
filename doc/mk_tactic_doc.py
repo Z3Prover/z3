@@ -21,16 +21,14 @@ is_tac_name = re.compile("## Tactic (.*)")
 
 def extract_params(ous, tac):
     z3_exe = BUILD_DIR + "/z3"
-    out = subprocess.Popen([z3_exe, f"-tactics:{tac}"], stdout=subprocess.PIPE).communicate()[0]
+    out = subprocess.Popen([z3_exe, f"-tacticsmd:{tac}"], stdout=subprocess.PIPE).communicate()[0]
     if not out:
         return
     out = out.decode(sys.stdout.encoding)
-    ous.write("#### Parameters\n")
-    ous.write("```\n")
+    ous.write("### Parameters\n\n")
     for line in out:
         ous.write(line.replace("\r",""))
     ous.write("\n")
-    ous.write("```\n")
     
 def generate_tactic_doc(ous, f, ins):
     tac_name = None

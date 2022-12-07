@@ -135,6 +135,8 @@ protected:
 
     index_set indices() { return index_set(*this); }
 
+    proof* mp(proof* a, proof* b) { return (a && b) ? m.mk_modus_ponens(a, b) : nullptr;  }
+
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
     virtual ~dependent_expr_simplifier() {}
@@ -146,6 +148,7 @@ public:
     virtual void reset_statistics() {}
     virtual void updt_params(params_ref const& p) {}
     virtual void collect_param_descrs(param_descrs& r) {}
+    virtual bool supports_proofs() const { return false; }
     ast_manager& get_manager() { return m; }
     dependent_expr_state& get_fmls() { return m_fmls; }
 };

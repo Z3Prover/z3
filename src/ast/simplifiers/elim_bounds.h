@@ -38,7 +38,7 @@ public:
             if (!has_quantifiers(d.fml()))
                 continue;
             m_rewriter(d.fml(), r);
-            m_fmls.update(idx, dependent_expr(m, r, d.dep()));
+            m_fmls.update(idx, dependent_expr(m, r, nullptr, d.dep()));
         }
     }
 };

@@ -67,8 +67,8 @@ public:
                     decomposed = true;
                 if (decomposed) {
                     for (expr* arg : *to_app(b)) 
-                        m_fmls.add(dependent_expr(m, m.mk_or(a, mk_not(m, arg)), de.dep()));
-                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
+                        m_fmls.add(dependent_expr(m, nullptr, m.mk_or(a, mk_not(m, arg)), de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, nullptr, m.mk_true(), nullptr));
                     ++m_num_flat;
                     continue;
                 }
@@ -79,8 +79,8 @@ public:
                     decomposed = true;
                 if (decomposed) {
                     for (expr * arg : *to_app(b))
-                        m_fmls.add(dependent_expr(m, m.mk_or(a, arg), de.dep()));
-                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
+                        m_fmls.add(dependent_expr(m, nullptr, m.mk_or(a, arg), de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, nullptr, m.mk_true(), nullptr));
                     ++m_num_flat;
                     continue;
                 }
@@ -92,20 +92,20 @@ public:
                 if (decomposed) {
                     expr* na = mk_not(m, a);
                     for (expr* arg : *to_app(b))
-                        m_fmls.add(dependent_expr(m, m.mk_or(na, arg), de.dep()));
-                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
+                        m_fmls.add(dependent_expr(m, m.mk_or(na, arg), nullptr, de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr, nullptr));
                     ++m_num_flat;
                     continue;
                 }
                 if (m.is_implies(f, a, b)) {
-                    m_fmls.update(idx, dependent_expr(m, m.mk_or(mk_not(m, a), b), de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, m.mk_or(mk_not(m, a), b), nullptr, de.dep()));
                     ++m_num_flat;
                     continue;
                 }
                 if (m.is_ite(f, a, b, c)) {
-                    m_fmls.add(dependent_expr(m, m.mk_or(mk_not(m, a), b), de.dep()));
-                    m_fmls.add(dependent_expr(m, m.mk_or(a, c), de.dep()));
-                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr));
+                    m_fmls.add(dependent_expr(m, m.mk_or(mk_not(m, a), b), nullptr, de.dep()));
+                    m_fmls.add(dependent_expr(m, m.mk_or(a, c), nullptr, de.dep()));
+                    m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr, nullptr));
                     ++m_num_flat;
                     continue;
                 }

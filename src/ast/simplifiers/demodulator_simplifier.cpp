@@ -108,7 +108,7 @@ void demodulator_simplifier::rewrite(unsigned i) {
     expr_dependency_ref d(dep(i), m);
     for (unsigned j : m_dependencies)
         d = m.mk_join(d, dep(j));
-    m_fmls.update(i, dependent_expr(m, r, d));
+    m_fmls.update(i, dependent_expr(m, r, nullptr, d));
 }
 
 bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np) {

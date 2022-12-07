@@ -35,7 +35,8 @@ public:
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
             m_push(d.fml(), r);
-            m_fmls.update(idx, dependent_expr(m, r, d.dep()));
+            if (r != d.fml())
+                m_fmls.update(idx, dependent_expr(m, r, nullptr, d.dep()));
         }
     }
 };
@@ -58,7 +59,7 @@ public:
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
             m_push(d.fml(), r);
-            m_fmls.update(idx, dependent_expr(m, r, d.dep()));
+            m_fmls.update(idx, dependent_expr(m, r, nullptr, d.dep()));
         }
     }
 };

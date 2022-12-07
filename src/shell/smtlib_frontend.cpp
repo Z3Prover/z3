@@ -88,14 +88,17 @@ void help_tactics() {
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
 
-void help_tactic(char const* name) {
+void help_tactic(char const* name, bool markdown) {
     cmd_context ctx;
     for (auto cmd : ctx.tactics()) {
         if (cmd->get_name() == name) {
             tactic_ref t = cmd->mk(ctx.m());
             param_descrs descrs;
             t->collect_param_descrs(descrs);
-            descrs.display(std::cout, 4);
+            if (markdown)
+                descrs.display_markdown(std::cout);
+            else
+                descrs.display(std::cout, 4);
         }
     }
 }

@@ -82,7 +82,7 @@ namespace euf {
 
         for (unsigned i = qhead(); i < sz; ++i) {
             expr* x, * y;
-            auto [f, d] = m_fmls[i]();
+            auto [f, p, d] = m_fmls[i]();
             if (m.is_eq(f, x, y)) {
                 enode* a = mk_enode(x);
                 enode* b = mk_enode(y);
@@ -108,19 +108,19 @@ namespace euf {
 
         if (m_egraph.inconsistent()) {
             auto* d = explain_conflict();
-            dependent_expr de(m, m.mk_false(), d);
+            dependent_expr de(m, m.mk_false(), nullptr, d);
             m_fmls.update(0, de);
             return;
         }
 
         unsigned sz = qtail();
         for (unsigned i = qhead(); i < sz; ++i) {
-            auto [f, d] = m_fmls[i]();
+            auto [f, p, d] = m_fmls[i]();
             
             expr_dependency_ref dep(d, m);
             expr_ref g = canonize_fml(f, dep);
             if (g != f) {
-                m_fmls.update(i, dependent_expr(m, g, dep));
+                m_fmls.update(i, dependent_expr(m, g, nullptr, dep));
                 m_stats.m_num_rewrites++;
                 IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
                 update_has_new_eq(g);

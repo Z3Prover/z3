@@ -61,16 +61,17 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
                 args.push_back(m.mk_var(i, d->get_domain(i)));
             head = m.mk_app(d, args);
             mrp.insert(head, t->m_def, t->m_dep);
-            dependent_expr de(m, t->m_def, t->m_dep);
+            dependent_expr de(m, t->m_def, nullptr, t->m_dep);
             add_vars(de, free_vars);
 
             for (unsigned i = qhead; i < st.qtail(); ++i) {
-                auto [f, dep1] = st[i]();
+                auto [f, p, dep1] = st[i]();
                 expr_ref g(m);
                 expr_dependency_ref dep2(m);
                 mrp(f, dep1, g, dep2);
                 CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
-                st.update(i, dependent_expr(m, g, dep2));
+                if (f != g)
+                    st.update(i, dependent_expr(m, g, nullptr, dep2));
             }
             continue;
         }
@@ -81,7 +82,7 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
         ptr_vector<expr> dep_exprs;
         expr_ref_vector trail(m);
         for (unsigned i = qhead; i < st.qtail(); ++i) {
-            auto [f, dep1] = st[i]();
+            auto [f, p, dep1] = st[i]();
             auto [g, dep2] = rp->replace_with_dep(f);
             if (dep1) {
                 dep_exprs.reset();
@@ -98,7 +99,7 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
                 if (!trail.empty()) 
                     dep1 = m.mk_join(dep_exprs.size(), dep_exprs.data());                
             }
-            dependent_expr d(m, g, m.mk_join(dep1, dep2));
+            dependent_expr d(m, g, nullptr, m.mk_join(dep1, dep2));
             CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
             add_vars(d, free_vars);
             st.update(i, d);

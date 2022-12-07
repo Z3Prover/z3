@@ -2431,12 +2431,13 @@ namespace {
             proof_ref new_pr(m);
             expr_ref new_f(m);
             for (unsigned i : indices()) {
-                expr* f = m_fmls[i].fml();
+                auto [f, p, d] = m_fmls[i]();
                 if (!has_quantifiers(f))
                     continue;
                 new_f = f;
                 m_qe(new_f, new_pr);
-                m_fmls.update(i, dependent_expr(m, new_f, m_fmls[i].dep()));
+                if (f != new_f) 
+                    m_fmls.update(i, dependent_expr(m, new_f, mp(p, new_pr), d));
             }
         }
     };

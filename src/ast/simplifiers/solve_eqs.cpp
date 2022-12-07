@@ -191,14 +191,15 @@ namespace euf {
         rp->set_substitution(m_subst.get());
 
         for (unsigned i : indices()) {
-            auto [f, d] = m_fmls[i]();
+            auto [f, p, d] = m_fmls[i]();
             auto [new_f, new_dep] = rp->replace_with_dep(f);
-            m_rewriter(new_f);
+            proof_ref new_pr(m);
+            m_rewriter(new_f, new_f, new_pr);
             if (new_f == f)
                 continue;
             new_dep = m.mk_join(d, new_dep);
             old_fmls.push_back(m_fmls[i]);
-            m_fmls.update(i, dependent_expr(m, new_f, new_dep));
+            m_fmls.update(i, dependent_expr(m, new_f, mp(p, new_pr), new_dep));
         }
     }
     

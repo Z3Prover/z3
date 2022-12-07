@@ -40,7 +40,9 @@ public:
         for (unsigned idx : indices()) {
             auto d = m_fmls[idx];
             m_pull(d.fml(), new_curr, new_pr);
-            m_fmls.update(idx, dependent_expr(m, new_curr, d.dep()));
+            m_fmls.update(idx, dependent_expr(m, new_curr, mp(d.pr(), new_pr), d.dep()));
         }
     }
+
+    bool supports_proofs() const override { return true; }
 };
