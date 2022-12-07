@@ -237,7 +237,6 @@ namespace xr {
         std::cout << "Justification from matrix " << j.get_matrix_idx() << " on row " << j.get_row_idx() << " (ID: " << ID << "):\n";
         for (unsigned i = 0; i < cl->size(); i++) {
             std::cout << (*cl)[i] << "(" << s().value((*cl)[i]) << ") ";
-            (*cl)[i].neg();
         }
         std::cout << std::endl;
 
