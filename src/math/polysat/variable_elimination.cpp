@@ -390,7 +390,7 @@ namespace polysat {
             cb.insert(c_new);
             ref<clause> c = cb.build();
             if (c) // Can we get tautologies this way?
-                core.add_lemma(c);
+                core.add_lemma("variable elimination", cb.build());
         }
     }
 

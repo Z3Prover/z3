@@ -85,7 +85,11 @@ namespace polysat {
          */
         bool intersect(pvar v, signed_constraint const& c);
 
-        bool intersect(pdd const & p, pdd const & q, signed_constraint const& c);
+        /**
+         * Extract remaining variable v from p and q and try updating viable state for v.
+         * NOTE: does not require a particular constraint type (e.g., we call this for ule_constraint and umul_ovfl_constraint)
+         */
+        bool intersect(pdd const& p, pdd const& q, signed_constraint const& c);
 
         /**
          * Check whether variable v has any viable values left according to m_viable.
@@ -98,10 +102,9 @@ namespace polysat {
         bool is_viable(pvar v, rational const& val);
 
         /*
-        * Extract min and max viable values for v
-        */
+         * Extract min and max viable values for v
+         */
         rational min_viable(pvar v);
-
         rational max_viable(pvar v);
 
         /**
@@ -245,8 +248,10 @@ namespace polysat {
         void push_constraint(pvar v, signed_constraint const& c);
         void pop_constraint();
 
-        // Check whether all constraints for 'v' are satisfied.
-        bool check_constraints(pvar v);
+        // Check whether all constraints for 'v' are satisfied;
+        // or find an arbitrary violated constraint.
+        bool check_constraints(assignment const& a, pvar v) { return !find_violated_constraint(a, v); }
+        signed_constraint find_violated_constraint(assignment const& a, pvar v);
 
         dd::find_t find_viable(pvar v, rational& out_val);
         signed_constraints unsat_core(pvar v);

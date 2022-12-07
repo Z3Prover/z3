@@ -29,6 +29,18 @@ char const* color_reset();
 void set_log_enabled(bool log_enabled);
 bool get_log_enabled();
 
+class scoped_set_log_enabled {
+    bool m_prev;
+public:
+    scoped_set_log_enabled(bool enabled) {
+      m_prev = get_log_enabled();
+      set_log_enabled(enabled);
+    }
+    ~scoped_set_log_enabled() {
+      set_log_enabled(m_prev);
+    }
+};
+
 class polysat_log_indent
 {
   int m_amount;
@@ -96,6 +108,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
 inline void set_log_enabled(bool) {}
 inline bool get_log_enabled() { return false; }
+class scoped_set_log_enabled {};
 
 #define LOG_(lvl, x)  \
   do {               \

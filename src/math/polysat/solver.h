@@ -133,7 +133,7 @@ namespace polysat {
         friend class assignments_pp;
         friend class ex_polynomial_superposition;
         friend class free_variable_elimination;
-        friend class inf_saturate;
+        friend class saturation;
         friend class constraint_manager;
         friend class scoped_solverv;
         friend class test_polysat;
@@ -165,7 +165,8 @@ namespace polysat {
         vector<constraints>      m_pwatch;        // watch list datastructure into constraints.
 #ifndef NDEBUG
         std::optional<pvar>      m_locked_wlist;  // restrict watch list modification while it is being propagated
-        bool                     m_propagating = false;  // set to true during propagation
+        bool                     m_is_propagating = false;  // set to true during propagation
+        bool                     m_is_solving = false;  // set to true during solving
 #endif
 
         unsigned_vector          m_activity;
@@ -179,7 +180,10 @@ namespace polysat {
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
+        constraints              m_pwatch_queue;
+#if 0
         constraints              m_pwatch_trail;
+#endif
 
         ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
@@ -233,6 +237,9 @@ namespace polysat {
         void propagate(pvar v);
         bool propagate(pvar v, constraint* c);
         bool propagate(sat::literal lit, clause& cl);
+        void enqueue_pwatch(constraint* c);
+        bool should_add_pwatch() const;
+        void add_pwatch();
         void add_pwatch(constraint* c);
         void add_pwatch(constraint* c, pvar v);
         void erase_pwatch(pvar v, constraint* c);
@@ -273,12 +280,23 @@ namespace polysat {
         void report_unsat();
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
+
         void add_clause(clause& clause);
-        void add_clause(signed_constraint c, bool is_redundant);
+        void add_clause(signed_constraint c1, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
-        void add_clause(unsigned n, signed_constraint* cs, bool is_redundant);
+        void add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
+        void add_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
+
+        // Create a clause without adding it to the solver.
+        clause_ref mk_clause(signed_constraint c1, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
+        clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, signed_constraint c5, bool is_redundant);
+        clause_ref mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
+        clause_ref mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
 
@@ -393,6 +411,9 @@ namespace polysat {
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
+        signed_constraint odd(pdd const& p) { return ~even(p); }
+        signed_constraint even(pdd const& p) { return parity(p, 1); }
+        signed_constraint parity(pdd const& p, unsigned k) { return eq(p*rational::power_of_two(p.manager().power_of_2() - k)); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
@@ -400,9 +421,13 @@ namespace polysat {
         signed_constraint ule(rational const& p, pdd const& q) { return ule(q.manager().mk_val(p), q); }
         signed_constraint ule(pdd const& p, int n) { return ule(p, rational(n)); }
         signed_constraint ule(int n, pdd const& p) { return ule(rational(n), p); }
+        signed_constraint uge(pdd const& p, pdd const& q) { return ule(q, p); }
+        signed_constraint uge(pdd const& p, rational const& q) { return ule(q, p); }
         signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
         signed_constraint ult(pdd const& p, rational const& q) { return ult(p, p.manager().mk_val(q)); }
         signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }
+        signed_constraint ult(int p, pdd const& q) { return ult(rational(p), q); }
+        signed_constraint ult(pdd const& p, int q) { return ult(p, rational(q)); }
         signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
         signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
         signed_constraint slt(pdd const& p, rational const& q) { return slt(p, p.manager().mk_val(q)); }
@@ -418,7 +443,7 @@ namespace polysat {
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
-        /** Create and activate polynomial constraints. */
+        /** Create and activate constraints */
         void add_eq(pdd const& p, dependency dep = null_dependency)                         { assign_eh(eq(p), dep); }
         void add_eq(pdd const& p, pdd const& q, dependency dep = null_dependency)           { assign_eh(eq(p, q), dep); }
         void add_eq(pdd const& p, rational const& q, dependency dep = null_dependency)      { assign_eh(eq(p, q), dep); }

@@ -116,7 +116,7 @@ namespace polysat {
         m_trail.pop_back();
     }
 
-    bool viable::intersect(pdd const & p, pdd const & q, signed_constraint const& sc) {
+    bool viable::intersect(pdd const& p, pdd const& q, signed_constraint const& sc) {
         pvar v = null_var;
         bool first = true;
         bool prop = false;
@@ -205,7 +205,7 @@ namespace polysat {
     }
 
     bool viable::intersect(pvar v, entry* ne) {
-        SASSERT(!s.is_assigned(v));
+        // SASSERT(!s.is_assigned(v));  // TODO: do we get unsoundness if this condition is violated? (see comment on cyclic dependencies in solver::pop_levels)
         entry* e = m_units[v];
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
@@ -726,7 +726,7 @@ namespace polysat {
         while (e != first);
 
         SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
-        core.add_lemma(lemma.build());
+        core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;
     }
@@ -837,17 +837,17 @@ namespace polysat {
         m_constraints[v].pop_back();
     }
 
-    bool viable_fallback::check_constraints(pvar v) {
-        for (auto const& c : m_constraints[v]) {
+    signed_constraint viable_fallback::find_violated_constraint(assignment const& a, pvar v) {
+        for (signed_constraint const c : m_constraints[v]) {
             // for this check, all variables need to be assigned
-            DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(s.is_assigned(w)); });
-            if (c.is_currently_false(s)) {
-                LOG(assignment_pp(s, v, s.get_value(v)) << " violates constraint " << lit_pp(s, c));
-                return false;
+            DEBUG_CODE(for (pvar w : c->vars()) { SASSERT(a.contains(w)); });
+            if (c.is_currently_false(a)) {
+                LOG(assignment_pp(s, v, a.value(v)) << " violates constraint " << lit_pp(s, c));
+                return c;
             }
-            SASSERT(c.is_currently_true(s));
+            SASSERT(c.is_currently_true(a));
         }
-        return true;
+        return {};
     }
 
     dd::find_t viable_fallback::find_viable(pvar v, rational& out_val) {
@@ -869,6 +869,7 @@ namespace polysat {
 
         auto const& cs = m_constraints[v];
         for (unsigned i = cs.size(); i-- > 0; ) {
+            LOG("Univariate constraint: " << cs[i]);
             cs[i].add_to_univariate_solver(s, *us, i);
         }
 

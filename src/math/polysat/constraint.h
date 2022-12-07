@@ -34,19 +34,6 @@ namespace polysat {
     using constraints = ptr_vector<constraint>;
     using signed_constraints = vector<signed_constraint>;
 
-    /// Normalized inequality:
-    ///     lhs <= rhs, if !is_strict
-    ///     lhs < rhs, otherwise
-    struct inequality {
-        pdd lhs;
-        pdd rhs;
-        bool is_strict;
-        constraint const* src;  // TODO: should be signed_constraint now
-        inequality(pdd const & lhs, pdd const & rhs, bool is_strict, constraint const* src):
-            lhs(lhs), rhs(rhs), is_strict(is_strict), src(src) {}
-        signed_constraint as_signed_constraint() const;
-    };
-
     class constraint {
         friend class constraint_manager;
         friend class signed_constraint;
@@ -97,7 +84,12 @@ namespace polysat {
         bool is_currently_false(solver const& s, bool is_positive) const { return is_currently_true(s, !is_positive); }
 
         virtual void narrow(solver& s, bool is_positive, bool first) = 0;
-        virtual inequality as_inequality(bool is_positive) const = 0;
+        /**
+         * If possible, produce a lemma that contradicts the given assignment.
+         * This method should not modify the solver's search state.
+         * TODO: don't pass the solver, but an interface that only allows creation of constraints
+         */
+        virtual clause_ref produce_lemma(solver& s, assignment const& a, bool is_positive) { return {}; }
 
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
@@ -167,7 +159,7 @@ namespace polysat {
         bool is_currently_true(solver const& s) const { return get()->is_currently_true(s, is_positive()); }
         lbool bvalue(solver& s) const;
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
-        inequality as_inequality() const { return get()->as_inequality(is_positive()); }
+        clause_ref produce_lemma(solver& s, assignment const& a) { return get()->produce_lemma(s, a, is_positive()); }
 
         void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(s, us, dep, is_positive()); }
 
@@ -196,7 +188,8 @@ namespace polysat {
             return combine_hash(get_ptr_hash(get()), bool_hash()(is_positive()));
         }
         bool operator==(signed_constraint const& other) const {
-            return get() == other.get() && is_positive() == other.is_positive();
+            SASSERT_EQ(blit() == other.blit(), get() == other.get() && is_positive() == other.is_positive());
+            return blit() == other.blit();
         }
         bool operator!=(signed_constraint const& other) const { return !operator==(other); }
 
@@ -211,6 +204,25 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) {
         return c.display(out);
     }
+
+    /// Normalized inequality:
+    ///     lhs <= rhs, if !is_strict
+    ///     lhs < rhs, otherwise
+    class inequality {
+        pdd m_lhs;
+        pdd m_rhs;
+        signed_constraint m_src;
+
+        inequality(pdd lhs, pdd rhs, signed_constraint src):
+            m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_src(std::move(src)) {}
+
+    public:
+        static inequality from_ule(signed_constraint src);
+        pdd const& lhs() const { return m_lhs; }
+        pdd const& rhs() const { return m_rhs; }
+        bool is_strict() const { return m_src.is_negative(); }
+        signed_constraint as_signed_constraint() const { return m_src; }
+    };
 
     class constraint_pp {
         constraint const* c;

@@ -1629,26 +1629,26 @@ namespace dd {
     std::ostream& pdd_manager::display(std::ostream& out, pdd const& b) {
         auto mons = to_monomials(b);
         bool first = true;
-        for (auto& m : mons) {
+        for (auto& [a, vs] : mons) {
             if (!first)
                 out << " ";
-            if (m.first.is_neg()) 
+            if (a.is_neg())
                 out << "- ";
             else if (!first)
                 out << "+ ";
             first = false;
-            rational c = abs(m.first);
-            m.second.reverse();
-            if (!c.is_one() || m.second.empty()) {
+            rational c = abs(a);
+            vs.reverse();
+            if (!c.is_one() || vs.empty()) {
                 if (m_semantics == mod2N_e)
-                    out << normalize(c);
+                    out << val_pp(*this, c, !vs.empty());
                 else
                     out << c;
-                if (!m.second.empty()) out << "*";
+                if (!vs.empty()) out << "*";
             }
             unsigned v_prev = UINT_MAX;
             unsigned pow = 0;
-            for (unsigned v : m.second) {
+            for (unsigned v : vs) {
                 if (v == v_prev) {
                     pow++;
                     continue;
@@ -1670,6 +1670,23 @@ namespace dd {
         }
         if (first) out << "0";
         return out;
+    }
+
+    std::ostream& val_pp::display(std::ostream& out) const {
+        if (m.get_semantics() != pdd_manager::mod2N_e)
+            return out << val;
+        unsigned pow;
+        if (val.is_power_of_two(pow) && pow > 10)
+            return out << "2^" << pow;
+        else if (val < m.max_value() && (val + 1).is_power_of_two(pow) && pow > 10) {
+            if (require_parens)
+                out << "(";
+            out << "2^" << pow << "-1";
+            if (require_parens)
+                out << ")";
+            return out;
+        } else 
+            return out << m.normalize(val);
     }
 
     bool pdd_manager::well_formed() {

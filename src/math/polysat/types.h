@@ -28,6 +28,9 @@ namespace polysat {
     class solver;
     class clause;
 
+    using clause_ref = ref<clause>;
+    using clause_ref_vector = sref_vector<clause>;
+
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;
@@ -47,7 +50,10 @@ namespace polysat {
     inline const dependency null_dependency = dependency(UINT_MAX);
     typedef svector<dependency> dependency_vector;
 
-    inline bool operator<(dependency const& d1, dependency const& d2) { return d1.val() < d2.val();  }
+    inline bool operator< (dependency const& d1, dependency const& d2) { return d1.val() <  d2.val(); }
+    inline bool operator<=(dependency const& d1, dependency const& d2) { return d1.val() <= d2.val(); }
+    inline bool operator> (dependency const& d1, dependency const& d2) { return d1.val() >  d2.val(); }
+    inline bool operator>=(dependency const& d1, dependency const& d2) { return d1.val() >= d2.val(); }
     inline bool operator==(dependency const& d1, dependency const& d2) { return d1.val() == d2.val(); }
     inline bool operator!=(dependency const& d1, dependency const& d2) { return d1.val() != d2.val(); }
 

@@ -72,23 +72,19 @@ namespace polysat {
             SASSERT(c1.is_currently_true(s));
             SASSERT(c2.is_currently_false(s));
             SASSERT_EQ(c1.bvalue(s), l_true);
-            SASSERT(c2.bvalue(s) != l_false);
+            SASSERT_EQ(c2.bvalue(s), l_true);
 
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
             SASSERT(c.is_currently_false(s));
 
-            // char const* inf_name = "?";
             switch (c.bvalue(s)) {
             case l_false:
-                core.add_lemma({c, ~c1, ~c2});
-                // core.log_inference(inference_sup("l_false", v, c2, c1));
+                core.add_lemma("superposition l_false", {c, ~c1, ~c2});
                 return l_true;
             case l_undef:
-                // inf_name = "l_undef";
-                core.add_lemma({c, ~c1, ~c2});
-                // core.log_inference(inference_sup("l_undef lemma", v, c2, c1));
+                core.add_lemma("superposition l_undef", {c, ~c1, ~c2});
                 break;
             case l_true:
                 break;

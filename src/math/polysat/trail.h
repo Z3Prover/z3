@@ -20,7 +20,7 @@ namespace polysat {
         qhead_i,
         lemma_qhead_i,
         add_lemma_i,
-        pwatch_i,
+        // pwatch_i,
         add_var_i,
         inc_level_i,
         viable_add_i,

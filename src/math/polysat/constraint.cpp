@@ -37,8 +37,13 @@ namespace polysat {
         return m_constraint->to_ule().lhs();
     }
 
-    signed_constraint inequality::as_signed_constraint() const {
-        return signed_constraint(const_cast<constraint*>(src), !is_strict);
+    inequality inequality::from_ule(signed_constraint src)
+    {
+        ule_constraint& c = src->to_ule();
+        if (src.is_positive())
+            return inequality(c.lhs(), c.rhs(), src);
+        else
+            return inequality(c.rhs(), c.lhs(), src);
     }
 
     ule_constraint& constraint::to_ule() {

@@ -87,12 +87,25 @@ namespace {
                 lhs = 0, rhs = 0, is_positive = !is_positive;
             return;
         }
+
+#if 0
+        // !(k <= p) -> p <= k - 1
+        
+        if (!is_positive && lhs.is_val() && lhs.val() > 0) {
+            pdd k = lhs;
+            lhs = rhs;
+            rhs = k - 1;
+            is_positive = true;
+        }
+#endif
         // k <= p   -->   p - k <= - k - 1
         if (lhs.is_val()) {
             pdd k = lhs;
             lhs = rhs - k;
             rhs = - k - 1;
         }
+        // NSB: why this?
+
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
         if (rhs.is_val() && (rhs + 2).is_zero()) {
@@ -162,7 +175,7 @@ namespace polysat {
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        return out << m_lhs << (is_eq() ? " == " : " <= ") << m_rhs;
+        return display(out, l_true, m_lhs, m_rhs);
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive, bool first) {
@@ -187,6 +200,15 @@ namespace polysat {
         }
 
         s.m_viable.intersect(p, q, sc);
+
+        if (first && !is_positive) {
+            if (!p.is_val()) 
+                // -1 > q
+                s.add_clause(~sc, s.ult(q, -1), false);
+            if (!q.is_val())
+                // p > 0
+                s.add_clause(~sc, s.ult(0, q), false);
+        }
     }
 
     // Evaluate lhs <= rhs
@@ -213,13 +235,6 @@ namespace polysat {
 
     lbool ule_constraint::eval(assignment const& a) const {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
-    }
-
-    inequality ule_constraint::as_inequality(bool is_positive) const {
-        if (is_positive)
-            return inequality(lhs(), rhs(), false, this);
-        else
-            return inequality(rhs(), lhs(), true, this);
     }
 
     unsigned ule_constraint::hash() const {

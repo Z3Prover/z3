@@ -9,9 +9,7 @@ Module Name:
     ashr: r == p >>a q
     lshl: r == p << q
     and:  r == p & q
-    or:   r == p | q
     not:  r == ~p
-    xor:  r == p ^ q
 
 Author:
 
@@ -28,7 +26,7 @@ namespace polysat {
 
     class op_constraint final : public constraint {
     public:
-        enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op, not_op };
+        enum class code { lshr_op, ashr_op, shl_op, and_op };
     protected:
         friend class constraint_manager;
 
@@ -39,15 +37,22 @@ namespace polysat {
 
         op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r);
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
+        clause_ref produce_lemma(solver& s, assignment const& a);
 
-        void narrow_lshr(solver& s);
+        clause_ref lemma_lshr(solver& s, assignment const& a);
         static lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r);
 
-        void narrow_shl(solver& s);
+        clause_ref lemma_shl(solver& s, assignment const& a);
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
-        
-        void narrow_and(solver& s);
+
+        clause_ref lemma_and(solver& s, assignment const& a);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
+
+        std::ostream& display(std::ostream& out, char const* eq) const;
+
+        void activate(solver& s);
+
+        void activate_and(solver& s);
 
     public:
         ~op_constraint() override {}
@@ -59,7 +64,7 @@ namespace polysat {
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
-        inequality as_inequality(bool is_positive) const override { throw default_exception("is not an inequality"); }
+        virtual clause_ref produce_lemma(solver& s, assignment const& a, bool is_positive) override;
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return false; }

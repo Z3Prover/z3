@@ -137,7 +137,6 @@ namespace polysat {
         return s.m_viable.intersect(p0, q0, sc);
     }
 
-
     unsigned umul_ovfl_constraint::hash() const {
     	return mk_mix(p().hash(), q().hash(), kind());
     }

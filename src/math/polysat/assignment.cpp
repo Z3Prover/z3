@@ -31,6 +31,11 @@ namespace polysat {
         return p.subst_val(m_subst);
     }
 
+    bool substitution::contains(pvar var) const {
+        rational out_value;
+        return value(var, out_value);
+    }
+
     bool substitution::value(pvar var, rational& out_value) const {
         return m_subst.subst_get(var, out_value);
     }
@@ -47,6 +52,14 @@ namespace polysat {
                 a.m_subst.set(i, alloc(substitution, *m_subst[i]));
         a.m_subst_trail = m_subst_trail;
         return a;
+    }
+
+    bool assignment::contains(pvar var) const {
+        return subst(s().size(var)).contains(var);
+    }
+
+    bool assignment::value(pvar var, rational& out_value) const {
+        return subst(s().size(var)).value(var, out_value);
     }
 
     substitution& assignment::subst(unsigned sz) {

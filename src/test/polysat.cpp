@@ -6,6 +6,8 @@
 #include <vector>
 #include <signal.h>
 
+// TODO: collect stats on how often each inference rule is used, so we can see which ones are useful or if any are useless/untested
+
 namespace {
     using namespace dd;
 
@@ -78,91 +80,152 @@ namespace polysat {
         error,
     };
 
+    template <typename T>
+    T* with_default(T* value, T* default_value) {
+        return value ? value : default_value;
+    }
+
     struct test_record {
         std::string m_name;
         unsigned m_index = 0;  ///< m_index-th check_sat() call in this unit test.
-        lbool m_answer;  ///< what the solver returned
+        lbool m_answer = l_undef;  ///< what the solver returned
         lbool m_expected = l_undef;  ///< the answer we expect (l_undef if unspecified)
         test_result m_result = test_result::undefined;
         std::string m_error_message;
+        bool m_finished = false;
 
         using clock_t = std::chrono::steady_clock;
-        clock_t::time_point start;
-        clock_t::time_point end;
+        clock_t::time_point m_start;
+        clock_t::time_point m_end;
+
+        void set_error(char const* msg) {
+            m_result = test_result::error;
+            m_error_message = msg;
+            m_finished = true;
+        }
+
+        std::ostream& display(std::ostream& out, unsigned name_width = 0) const;
     };
 
-    vector<test_record> test_records;
-    bool collect_test_records = true;
+    std::ostream& operator<<(std::ostream& out, test_record const& r) { return r.display(out); }
 
-    void display_test_records(vector<test_record> const& recs, std::ostream& out) {
-        out << "\n\nTest Results:\n";
+    class test_record_manager {
+        scoped_ptr_vector<test_record> m_records;
+
+        std::string m_name;
+        unsigned m_index = 0;
+
+    public:
+        void begin_batch(std::string name);
+        void end_batch();
+        test_record* new_record();
+        test_record* active_or_new_record();
+        void display(std::ostream& out) const;
+    };
+
+    void test_record_manager::begin_batch(std::string name) {
+        end_batch();
+        if (m_name != name) {
+            m_name = name;
+            m_index = 0;
+        }
+    }
+
+    void test_record_manager::end_batch() {
+        // Kick out unfinished records (they have the wrong name)
+        while (!m_records.empty() && !m_records.back()->m_finished)
+            m_records.pop_back();
+    }
+
+    test_record* test_record_manager::new_record() {
+        auto* rec = alloc(test_record);
+        rec->m_name = m_name;
+        rec->m_index = ++m_index;
+        m_records.push_back(rec);
+        return rec;
+    }
+
+    test_record* test_record_manager::active_or_new_record() {
+        if (m_records.empty() || m_records.back()->m_finished)
+            return new_record();
+        else
+            return m_records.back();
+    }
+
+    std::ostream& test_record::display(std::ostream& out, unsigned name_width) const {
+        if (!m_finished)
+            out << "UNFINISHED ";
+        out << m_name;
+        if (m_index != 1)
+            out << " (" << m_index << ") ";
+        else
+            out << "     ";
+        for (size_t i = m_name.length(); i < name_width; ++i)
+            out << ' ';
+        std::chrono::duration<double> d = m_end - m_start;
+        if (d.count() >= 0.15) {
+            out << std::fixed << std::setprecision(1);
+            out << std::setw(4) << d.count() << "s ";
+        }
+        else
+            out << "      ";
+        switch (m_answer) {
+        case l_undef: out << "      "; break;
+        case l_true:  out << "SAT   "; break;
+        case l_false: out << "UNSAT "; break;
+        }
+        switch (m_result) {
+        case test_result::undefined: out << "???"; break;
+        case test_result::ok: out << "ok"; break;
+        case test_result::wrong_answer: out << color_red() << "wrong answer, expected " << m_expected << color_reset(); break;
+        case test_result::wrong_model: out << color_red() << "wrong model" << color_reset(); break;
+        case test_result::resource_out: out << color_yellow() << "resource out" << color_reset(); break;
+        case test_result::error: out << color_red() << "error: " << m_error_message << color_reset(); break;
+        }
+        return out;
+    }
+
+    void test_record_manager::display(std::ostream& out) const {
+        out << "\n\n\nTest Results:\n\n";
 
         size_t max_name_len = 0;
-        for (test_record const& r : recs)
-            max_name_len = std::max(max_name_len, r.m_name.length());
+        for (test_record const* r : m_records) {
+            if (!r->m_finished)
+                continue;
+            max_name_len = std::max(max_name_len, r->m_name.length());
+        }
 
-        size_t n_total = recs.size();
+        size_t n_total = m_records.size();
         size_t n_sat = 0;
         size_t n_unsat = 0;
         size_t n_wrong = 0;
         size_t n_error = 0;
 
-        for (test_record const& r : recs) {
-            out << r.m_name;
-            if (r.m_index != 1)
-                out << " (" << r.m_index << ") ";
-            else
-                out << "     ";
-            for (size_t i = r.m_name.length(); i < max_name_len; ++i)
-                out << ' ';
-            std::chrono::duration<double> d = r.end - r.start;
-            if (d.count() >= 0.15) {
-                out << std::fixed << std::setprecision(1);
-                out << std::setw(4) << d.count() << "s ";
-            }
-            else
-                out << "      ";
-            switch (r.m_answer) {
-            case l_undef: out << "      "; break;
-            case l_true:  out << "SAT   "; break;
-            case l_false: out << "UNSAT "; break;
-            }
-            switch (r.m_result) {
-            case test_result::undefined:
-                out << "???";
-                break;
-            case test_result::ok:
-                out << "ok";
-                if (r.m_answer == l_true)
-                    n_sat++;
-                if (r.m_answer == l_false)
-                    n_unsat++;
-                break;
-            case test_result::wrong_answer:
-                out << color_red() << "wrong answer, expected " << r.m_expected << color_reset();
-                n_wrong++;
-                break;
-            case test_result::wrong_model:
-                out << color_red() << "wrong model" << color_reset();
-                n_wrong++;
-                break;
-            case test_result::resource_out:
-                out << color_yellow() << "resource out" << color_reset();
-                break;
-            case test_result::error:
-                out << color_red() << "error: " << r.m_error_message << color_reset();
-                n_error++;
-                break;
-            }
+        for (test_record const* r : m_records) {
+            if (!r->m_finished)
+                continue;
+            r->display(out, max_name_len);
             out << std::endl;
+            if (r->m_result == test_result::ok && r->m_answer == l_true)
+                n_sat++;
+            if (r->m_result == test_result::ok && r->m_answer == l_false)
+                n_unsat++;
+            if (r->m_result == test_result::wrong_answer || r->m_result == test_result::wrong_model)
+                n_wrong++;
+            if (r->m_result == test_result::error)
+                n_error++;
         }
-        out << n_total << " tests, " << (n_sat + n_unsat) << " ok (" << n_sat << " sat, " << n_unsat << " unsat)";
+        out << "\n" << n_total << " tests, " << (n_sat + n_unsat) << " ok (" << n_sat << " sat, " << n_unsat << " unsat)";
         if (n_wrong)
             out << ", " << color_red() << n_wrong << " wrong!" << color_reset();
         if (n_error)
             out << ", " << color_red() << n_error << " error" << color_reset();
-        out << std::endl;
+        out << "\n" << std::endl;
     }
+
+    test_record_manager test_records;
+    bool collect_test_records = true;
+    unsigned test_max_conflicts = 10;
 
     // test resolve, factoring routines
     // auxiliary
@@ -174,13 +237,26 @@ namespace polysat {
     class scoped_solver : public solver_scope, public solver {
         std::string m_name;
         lbool m_last_result = l_undef;
-        test_record* m_record = nullptr;
-        unsigned m_record_idx = 0;
+        test_record* m_last_finished = nullptr;
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << std::string(78, '#') << "\n\nSTART: " << m_name << "\n";
-            set_max_conflicts(10);
+            if (collect_test_records) {
+                std::cout << m_name << ":";
+                std::cout.flush();
+            } else {
+                std::cout << std::string(78, '#') << "\n\n";
+                std::cout << "START: " << m_name << "\n";
+            }
+            set_max_conflicts(test_max_conflicts);
+
+            test_records.begin_batch(name);
+        }
+
+        ~scoped_solver() {
+            test_records.end_batch();
+            if (collect_test_records)
+                std::cout << "\n";
         }
 
         void set_max_conflicts(unsigned c) {
@@ -190,69 +266,49 @@ namespace polysat {
         }
 
         void check() {
-            test_records.push_back({});
-            m_record = &test_records.back();
-            m_record->m_name = m_name;
-            m_record->m_index = ++m_record_idx;
-            m_record->m_answer = l_undef;
-            m_record->m_expected = l_undef;
-            m_record->m_result = test_result::undefined;
-            m_record->m_error_message = "";
-            try {
-                m_record->start = test_record::clock_t::now();
+            if (collect_test_records) {
+                std::cout << " ...";
+                std::cout.flush();
+            }
+            auto* rec = test_records.active_or_new_record();
+            m_last_finished = nullptr;
+            SASSERT(rec->m_answer == l_undef);
+            SASSERT(rec->m_expected == l_undef);
+            SASSERT(rec->m_result == test_result::undefined);
+            SASSERT(rec->m_error_message == "");
+            SASSERT(!rec->m_finished);
+            {
+                rec->m_start = test_record::clock_t::now();
+                on_scope_exit end_timer([rec]() {
+                    rec->m_end = test_record::clock_t::now();
+                });
                 m_last_result = check_sat();
-                m_record->end = test_record::clock_t::now();
-                std::cout << "DONE: " << m_name << ": " << m_last_result << "\n";
-                statistics st;
-                collect_statistics(st);
+            }
+            rec->m_finished = true;
+            m_last_finished = rec;
+            if (collect_test_records)
+                std::cout << " " << m_last_result;
+            else
+                std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
+            statistics st;
+            collect_statistics(st);
+            if (!collect_test_records)
                 std::cout << st << "\n";
 
-                m_record->m_answer = m_last_result;
-                m_record->m_result = (m_last_result == l_undef) ? test_result::resource_out : test_result::ok;
-            }
-            catch(z3_exception const& e) {
-                m_record->end = test_record::clock_t::now();
-                char const* msg = e.msg();
-                if (!msg)
-                    msg = "(unknown z3_exception)";
-                std::cout << "\n\nEXCEPTION (z3_exception) during test: " << m_name << ": " << msg << "\n\n";
-                m_record->m_result = test_result::error;
-                m_record->m_error_message = msg;
-                if (!collect_test_records)
-                    throw;
-            }
-            catch(std::exception const& e) {
-                m_record->end = test_record::clock_t::now();
-                char const* msg = e.what();
-                if (!msg)
-                    msg = "(unknown std::exception)";
-                std::cout << "\n\nEXCEPTION (std::exception) during test: " << m_name << ": " << msg << "\n\n";
-                m_record->m_result = test_result::error;
-                m_record->m_error_message = msg;
-                if (!collect_test_records)
-                    throw;
-            }
-            catch(...) {
-                m_record->end = test_record::clock_t::now();
-                char const* msg = "(unknown throwable)";
-                std::cout << "\n\nEXCEPTION (unknown throwable) during test: " << m_name << ": " << msg << "\n\n";
-                m_record->m_result = test_result::error;
-                m_record->m_error_message = msg;
-                if (!collect_test_records)
-                    throw;
-            }
+            rec->m_answer = m_last_result;
+            rec->m_result = (m_last_result == l_undef) ? test_result::resource_out : test_result::ok;
         }
-        // TODO: all unit tests should save result somewhere, and then at the end we print a table
-        //       Highlight undef results
-        //       If low conflict limit doesn't work, increase automatically and try again?
 
         void expect_unsat() {
-            SASSERT_EQ(m_record->m_expected, l_undef);
-            m_record->m_expected = l_false;
-            if (m_record->m_result == test_result::error)
+            auto* rec = m_last_finished;
+            SASSERT(rec);
+            SASSERT_EQ(rec->m_expected, l_undef);
+            SASSERT_EQ(rec->m_answer, m_last_result);
+            rec->m_expected = l_false;
+            if (rec->m_result == test_result::error)
                 return;
             if (m_last_result != l_false && m_last_result != l_undef) {
-                m_record->m_result = test_result::wrong_answer;
+                rec->m_result = test_result::wrong_answer;
                 LOG_H1("FAIL: " << m_name << ": expected UNSAT, got " << m_last_result << "!");
                 if (!collect_test_records)
                     VERIFY(false);
@@ -260,9 +316,12 @@ namespace polysat {
         }
 
         void expect_sat(std::vector<std::pair<dd::pdd, unsigned>> const& expected_assignment = {}) {
-            SASSERT_EQ(m_record->m_expected, l_undef);
-            m_record->m_expected = l_true;
-            if (m_record->m_result == test_result::error)
+            auto* rec = m_last_finished;
+            SASSERT(rec);
+            SASSERT_EQ(rec->m_expected, l_undef);
+            SASSERT_EQ(rec->m_answer, m_last_result);
+            rec->m_expected = l_true;
+            if (rec->m_result == test_result::error)
                 return;
             if (m_last_result == l_true) {
                 for (auto const& p : expected_assignment) {
@@ -271,7 +330,7 @@ namespace polysat {
                     SASSERT(v_pdd.is_monomial() && !v_pdd.is_val());
                     auto const v = v_pdd.var();
                     if (get_value(v) != expected_value) {
-                        m_record->m_result = test_result::wrong_model;
+                        rec->m_result = test_result::wrong_model;
                         LOG_H1("FAIL: " << m_name << ": expected assignment v" << v << " := " << expected_value << ", got value " << get_value(v) << "!");
                         if (!collect_test_records)
                             VERIFY(false);
@@ -279,7 +338,7 @@ namespace polysat {
                 }
             }
             else if (m_last_result == l_false) {
-                m_record->m_result = test_result::wrong_answer;
+                rec->m_result = test_result::wrong_answer;
                 LOG_H1("FAIL: " << m_name << ": expected SAT, got " << m_last_result << "!");
                 if (!collect_test_records)
                     VERIFY(false);
@@ -287,29 +346,37 @@ namespace polysat {
         }
     };
 
+    std::string run_filter;
+
     template <typename Test, typename... Args>
-    void run(Test tst, Args... args)
+    void run(char const* name, Test tst, Args... args)
     {
-        bool got_exception = false;
+        if (!run_filter.empty()) {
+            std::string sname = name;
+            if (sname.find(run_filter) == std::string::npos)
+                return;
+        }
         try {
             tst(args...);
         }
         catch(z3_exception const& e) {
-            // TODO: collect in record
-            got_exception = true;
+            test_records.active_or_new_record()->set_error(with_default(e.msg(), "unknown z3_exception"));
+            if (!collect_test_records)
+                throw;
         }
         catch(std::exception const& e) {
-            // TODO: collect in record
-            got_exception = true;
+            test_records.active_or_new_record()->set_error(with_default(e.what(), "unknown std::exception"));
+            if (!collect_test_records)
+                throw;
         }
         catch(...) {
-            got_exception = true;
+            test_records.active_or_new_record()->set_error("unknown throwable");
+            if (!collect_test_records)
+                throw;
         }
-        if (got_exception && !collect_test_records)
-            throw;
     }
 
-    #define RUN(tst) run([]() { tst; })
+    #define RUN(tst) run(#tst, []() { tst; })
 
     class test_polysat {
     public:
@@ -702,13 +769,12 @@ namespace polysat {
          *
          * We do overflow checks by doubling the base bitwidth here.
          */
-        static void test_fixed_point_arith_mul_div_inverse() {
+        static void test_fixed_point_arith_mul_div_inverse(unsigned base_bw = 5) {
             scoped_solver s(__func__);
 
-            auto baseBw = 5;
-            auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+            auto max_int_const = rational::power_of_two(base_bw) - 1;
 
-            auto bw = 2 * baseBw;
+            auto bw = 2 * base_bw;
             auto max_int = s.var(s.add_var(bw));
             s.add_eq(max_int - max_int_const);
 
@@ -720,8 +786,9 @@ namespace polysat {
             s.add_ult(0, b); // b > 0
 
             // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
+            auto sf_val = div(max_int_const, rational(3));
             auto sf = s.var(s.add_var(bw));
-            s.add_eq(sf - (max_int_const/3));
+            s.add_eq(sf - sf_val);
 
             // (a * b) / sf = quot1 <=> quot1 * sf + rem1 - (a * b) = 0
             auto quot1 = s.var(s.add_var(bw));
@@ -753,15 +820,14 @@ namespace polysat {
             s.push();
             s.add_ult(a, quot3);
             s.check();
-            s.expect_unsat();
+            // s.expect_unsat();
             s.pop();
 
-
-            // s.push();
-            // s.add_ult(quot3 + em, a);
-            // s.check();
+            s.push();
+            s.add_ult(quot3 + em, a);
+            s.check();
             // s.expect_unsat();
-            // s.pop();
+            s.pop();
         }
 
         /*
@@ -832,10 +898,6 @@ namespace polysat {
             s.check();
             //        s.expect_unsat();
             s.pop();
-
-
-
-            //exit(0);
         }
 
         /** Monotonicity under bounds,
@@ -1024,7 +1086,7 @@ namespace polysat {
         // xy < xz and !Omega(x*y) => y < z
         static void test_ineq_axiom1(unsigned bw = 32, std::optional<unsigned> perm = std::nullopt) {
             if (perm) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(*perm));
+                scoped_solver s(concat(__func__, " bw=", bw, " perm=", *perm));
                 auto const bound = rational::power_of_two(bw/2);
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
@@ -1297,12 +1359,31 @@ namespace polysat {
             s.expect_sat();
         }
 
+        /**
+         * p <= p & q
+         * p != p & q
+         * is unsatisfiable.
+         */
         static void test_band5(unsigned bw = 32) {
             scoped_solver s(concat(__func__, " bw=", bw));
             auto p = s.var(s.add_var(bw));
             auto q = s.var(s.add_var(bw));
             s.add_ule(p, s.band(p, q));
-            s.add_diseq(p - s.band(p, q));
+            s.add_diseq(p, s.band(p, q));
+            // Immediate solution with clause: p <= r /\ r <= p  ==>  p = r
+            // s.add_clause({ ~s.ule(p, s.band(p, q)), ~s.ule(s.band(p, q), p), s.eq(p, s.band(p, q)) }, true);
+            s.check();
+            s.expect_unsat();
+        }
+
+        /** Like test_band5, but represent disequality as clause of less-than constraints */
+        static void test_band5_clause(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            // Rewrite p - q > 0  -->  p < q || q < p
+            s.add_clause({ s.ult(p, s.band(p, q)), s.ult(s.band(p, q), p) }, false);
             s.check();
             s.expect_unsat();
         }
@@ -1435,6 +1516,8 @@ namespace polysat {
                         VERIFY(false);
                     }
                 }
+                // TODO: now try to extend lo/hi one by one to find out how "bad" our interval really is.
+                //              (probably slow so maybe add a flag to enable/disable that.)
                 e = e->next();
             }
             while (e != first);
@@ -1500,9 +1583,7 @@ namespace polysat {
 static void STD_CALL polysat_on_ctrl_c(int) {
     signal(SIGINT, SIG_DFL);
     using namespace polysat;
-    if (!test_records.empty())
-        test_records.pop_back();  // last record is likely incomplete
-    display_test_records(test_records, std::cout);
+    test_records.display(std::cout);
     raise(SIGINT);
 }
 
@@ -1511,6 +1592,11 @@ void tst_polysat() {
 
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
+    test_max_conflicts = 50;
+    test_polysat::test_band5();
+    // test_polysat::test_band5_clause();
+    // test_polysat::test_ineq_axiom1(32, 1);
+    // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
     // test_polysat::test_ineq1();
     // test_polysat::test_quot_rem();
@@ -1519,9 +1605,13 @@ void tst_polysat() {
     // test_polysat::test_band2();
     // test_polysat::test_quot_rem_incomplete();
     // test_polysat::test_monot();
-    test_polysat::test_fixed_point_arith_div_mul_inverse();
+    // test_polysat::test_fixed_point_arith_div_mul_inverse();
     return;
 #endif
+
+    // If non-empty, only run tests whose name contains the run_filter
+    run_filter = "";
+    test_max_conflicts = 10;
 
     collect_test_records = true;
 
@@ -1569,6 +1659,7 @@ void tst_polysat() {
     RUN(test_polysat::test_monot_bounds());
     RUN(test_polysat::test_monot_bounds_full());
     RUN(test_polysat::test_monot_bounds_simple(8));
+    RUN(test_polysat::test_fixed_point_arith_mul_div_inverse());
     RUN(test_polysat::test_fixed_point_arith_div_mul_inverse());
 
     RUN(test_polysat::test_ineq_axiom1());
@@ -1587,6 +1678,7 @@ void tst_polysat() {
     RUN(test_polysat::test_band3());
     RUN(test_polysat::test_band4());
     RUN(test_polysat::test_band5());
+    RUN(test_polysat::test_band5_clause());
     RUN(test_polysat::test_quot_rem());
 
     RUN(test_polysat::test_fi_zero());
@@ -1598,5 +1690,5 @@ void tst_polysat() {
     // test_fi::randomized();
 
     if (collect_test_records)
-        display_test_records(test_records, std::cout);
+        test_records.display(std::cout);
 }

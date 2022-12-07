@@ -275,12 +275,16 @@ namespace polysat {
         return ult(a + shift, b + shift);
     }
 
+    /** unsigned quotient/remainder */
     std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
         if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
             return {m.mk_val(m.max_value()), a};
+        }
+        if (b.is_one()) {
+            return {a, m.zero()};
         }
         if (a.is_val() && b.is_val()) {
             rational const av = a.val();
@@ -296,7 +300,14 @@ namespace polysat {
             SASSERT(r.val() < b.val());
             return {std::move(q), std::move(r)};
         }
-        constraint_dedup::quot_rem_args args({ a, b });
+#if 0
+        unsigned pow;
+        if (b.is_val() && b.val().is_power_of_two(pow)) {
+            // TODO: q = a >> b.val()
+            //       r = 0 \circ a[pow:]  ???
+        }
+#endif
+        constraint_dedup::quot_rem_args args({a, b});
         auto it = m_dedup.quot_rem_expr.find_iterator(args);
         if (it != m_dedup.quot_rem_expr.end())
             return { m.mk_var(it->m_value.first), m.mk_var(it->m_value.second) };
@@ -311,17 +322,17 @@ namespace polysat {
         //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
-        s.add_eq(a, b * q + r);
-        s.add_umul_noovfl(b, q);
+        s.add_clause(eq(b * q + r - a), false);
+        s.add_clause(~umul_ovfl(b, q), false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        s.add_ule(b*q, -r-1);
+        s.add_clause(ule(b*q, -r-1), false);
 #if 0
         // b*q <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // r <= - b*q - 1
-        s.add_ule(r, -b*q-1);  // redundant, but may help propagation
+        s.add_clause(ule(r, -b*q-1), false);  // redundant, but may help propagation
 #endif
 
         auto c_eq = eq(b);

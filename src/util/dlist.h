@@ -21,6 +21,8 @@ Revision History:
 #include "util/debug.h"
 #include "util/util.h"
 
+#define DLIST_EXTRA_ASSERTIONS 0
+
 template <typename T> class dll_iterator;
 
 template <typename T>
@@ -58,7 +60,7 @@ public:
     }
 
     void insert_after(T* other) {
-#ifndef NDEBUG
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(other);
         SASSERT(invariant());
         SASSERT(other->invariant());
@@ -74,7 +76,7 @@ public:
         other->m_prev = static_cast<T*>(this);
         other_end->m_next = next;
         next->m_prev = other_end;
-#ifndef NDEBUG
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(invariant());
         SASSERT(other->invariant());
         size_t const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
@@ -83,7 +85,7 @@ public:
     }
 
     void insert_before(T* other) {
-#ifndef NDEBUG
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(other);
         SASSERT(invariant());
         SASSERT(other->invariant());
@@ -99,7 +101,7 @@ public:
         other->m_prev = prev;
         other_end->m_next = static_cast<T*>(this);
         this->m_prev = other_end;
-#ifndef NDEBUG
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(invariant());
         SASSERT(other->invariant());
         size_t const new_sz = count_if(*static_cast<T*>(this), [](T const&) { return true; });
@@ -108,10 +110,12 @@ public:
     }
     
     static void remove_from(T*& list, T* elem) {
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(list);
         SASSERT(elem);
         SASSERT(list->invariant());
         SASSERT(elem->invariant());
+#endif
         if (list->m_next == list) {
             SASSERT(elem == list);
             list = nullptr;
@@ -123,7 +127,9 @@ public:
         auto* prev = elem->m_prev;
         prev->m_next = next;
         next->m_prev = prev;        
+#if DLIST_EXTRA_ASSERTIONS
         SASSERT(list->invariant());
+#endif
     }
 
     static void push_to_front(T*& list, T* elem) {

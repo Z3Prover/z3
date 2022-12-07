@@ -127,6 +127,8 @@ namespace polysat {
 
         return true;
     }
+
+    static char* _last_function = "";
     
     bool forbidden_intervals::get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi) {
         
@@ -134,6 +136,26 @@ namespace polysat {
 
         fi.coeff = 1;
         fi.src = c;
+
+        struct show {
+            forbidden_intervals& f;
+            signed_constraint const& c;
+            pvar v;
+            fi_record& fi;
+            backtrack& _backtrack;
+            show(forbidden_intervals& f,
+                 signed_constraint const& c,
+                 pvar v,
+                 fi_record& fi,
+                 backtrack& _backtrack):f(f), c(c), v(v), fi(fi), _backtrack(_backtrack) {}
+            ~show() {
+                if (!_backtrack.released)
+                    return;
+                IF_VERBOSE(0, verbose_stream() << _last_function << " " << v << " " << c << " " << fi.interval << " " << fi.side_cond << "\n");
+            }
+        };
+        // uncomment to trace intervals
+        // show _show(*this, c, v, fi, _backtrack);
 
         // eval(lhs) = a1*v + eval(e1) = a1*v + b1
         // eval(rhs) = a2*v + eval(e2) = a2*v + b2
@@ -261,12 +283,13 @@ namespace polysat {
 
     /**
     * Match  e1 + t <= e2, with t = a1*y
-    * condition for empty/full: e2 == -1
+    * condition for empty/full: e2 == -1    
     */
     bool forbidden_intervals::match_linear1(signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1, 
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (a2.is_zero() && !a1.is_zero()) {
             SASSERT(!a1.is_zero());
             bool is_trivial = (b2 + 1).is_zero();
@@ -291,6 +314,7 @@ namespace polysat {
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (a1.is_zero() && !a2.is_zero()) {
             SASSERT(!a2.is_zero());
             bool is_trivial = b1.is_zero();
@@ -315,6 +339,7 @@ namespace polysat {
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (a1 == a2 && !a1.is_zero()) {
             bool is_trivial = b1.val() == b2.val();
             push_eq(is_trivial, e1 - e2, fi.side_cond);
@@ -337,6 +362,7 @@ namespace polysat {
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (a1 != a2 && !a1.is_zero() && !a2.is_zero()) {
             // NOTE: we don't have an interval here in the same sense as in the other cases.
             // We use the interval to smuggle out the values a1,b1,a2,b2 without adding additional fields.
@@ -368,6 +394,7 @@ namespace polysat {
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (c.is_positive() && a1.is_odd() && b1.is_zero() && a2.is_zero() && b2.is_zero()) {
             auto& m = e1.manager();
             rational lo_val(1);
@@ -397,6 +424,7 @@ namespace polysat {
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (c.is_negative() && a1.is_odd() && a2.is_zero() && b2.is_zero()) {
             // a*v + b > 0
             // <=> a*v + b != 0
@@ -435,6 +463,7 @@ namespace polysat {
         signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1,
         fi_record& fi) {
+        _last_function = __func__;
         if (a1.is_odd() && b1.is_zero() && c.is_negative()) {
             auto& m = e1.manager();
             rational lo_val(0);
@@ -475,6 +504,7 @@ namespace polysat {
         signed_constraint const& c,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
+        _last_function = __func__;
         if (a2.is_one() && b2.is_val() && c.is_negative()) {
             auto& m = e2.manager();
             rational const& mod_value = m.two_to_N();

@@ -29,6 +29,7 @@ namespace polysat {
     void clause_builder::reset() {
         m_literals.reset();
         m_is_tautology = false;
+        m_redundant = clause::redundant_default;
         SASSERT(empty());
     }
 
@@ -49,6 +50,9 @@ namespace polysat {
         }
         m_literals.shrink(j);
         clause_ref cl = clause::from_literals(std::move(m_literals));
+        SASSERT(cl);
+        cl->set_redundant(m_redundant);
+        m_redundant = clause::redundant_default;
         SASSERT(empty());
         return cl;
     }
@@ -58,6 +62,8 @@ namespace polysat {
         insert(m_solver->lit2cnstr(lit));
     }
 
+    // TODO: in the final version, we may also skip assumptions (and even literals propagated at the base level),
+    //       provided we correctly track external dependencies/level for the clause.
     void clause_builder::insert(signed_constraint c) {
         SASSERT(c);
         if (c.is_always_false())  // filter out trivial constraints such as "4 < 2"

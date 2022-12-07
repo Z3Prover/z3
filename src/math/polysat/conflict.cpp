@@ -57,23 +57,28 @@ TODO:
 namespace polysat {
 
     class conflict_resolver {
-        inf_saturate m_saturate;
+        saturation m_saturation;
         ex_polynomial_superposition m_poly_sup;
         free_variable_elimination m_free_variable_elimination;
 
     public:
         conflict_resolver(solver& s)
-            : m_saturate(s)
+            : m_saturation(s)
             , m_poly_sup(s)
             , m_free_variable_elimination(s)
         {}
 
-        bool try_resolve_value(pvar v, conflict& core) {
-            if (m_poly_sup.perform(v, core))
-                return true;
-            // if (m_saturate.perform(v, core))
-            //     return true;
-            return false;
+        // 
+        // NSB review: the plugins need not be mutually exclusive
+        // Shouldn't saturation and superposition be allowed independently?
+        // If they create propagations or conflict lemmas we select the 
+        // tightest propagation as part of backjumping.
+        // 
+        void infer_lemmas_for_value(pvar v, conflict& core) {
+            if (m_poly_sup.perform(v, core)) 
+                return;
+            if (m_saturation.perform(v, core))
+                return;
         }
 
         // Analyse current conflict core to extract additional lemmas
@@ -252,6 +257,8 @@ namespace polysat {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             VERIFY(s.m_viable.resolve(v, *this));
         }
+
+        // NSB TODO - disabled: revert_decision(v);
         SASSERT(!empty());
     }
 
@@ -298,26 +305,27 @@ namespace polysat {
                 m_vars.insert(v);
     }
 
-    void conflict::add_lemma(std::initializer_list<signed_constraint> cs) {
-        add_lemma(std::data(cs), cs.size());
+    void conflict::add_lemma(char const* name, std::initializer_list<signed_constraint> cs) {
+        add_lemma(name, std::data(cs), cs.size());
     }
 
-    void conflict::add_lemma(signed_constraint const* cs, size_t cs_len) {
+    void conflict::add_lemma(char const* name, signed_constraint const* cs, size_t cs_len) {
         clause_builder cb(s);
         for (size_t i = 0; i < cs_len; ++i)
             cb.insert_eval(cs[i]);
-        add_lemma(cb.build());
+        add_lemma(name, cb.build());
     }
 
-    void conflict::add_lemma(clause_ref lemma) {
+    void conflict::add_lemma(char const* name, clause_ref lemma) {
+        LOG_H3("Lemma " << (name ? name : "<unknown>") << ": " << show_deref(lemma));
         SASSERT(lemma);
         lemma->set_redundant(true);
-        LOG_H3("Lemma: " << *lemma);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             SASSERT(s.m_bvars.value(lit) != l_true);
         }
         m_lemmas.push_back(std::move(lemma));
+        // TODO: pass to inference_logger (with name)
    }
 
     void conflict::remove(signed_constraint c) {
@@ -391,7 +399,11 @@ namespace polysat {
         logger().log(inf_resolve_with_assignment(s, lit, c));
     }
 
-    bool conflict::resolve_value(pvar v) {
+    void conflict::revert_decision(pvar v) {
+        m_resolver->infer_lemmas_for_value(v, *this);
+    }
+
+    void conflict::resolve_value(pvar v) {
         SASSERT(contains_pvar(v));
         SASSERT(s.m_justification[v].is_propagation());
 
@@ -405,11 +417,8 @@ namespace polysat {
             insert(s.eq(i.hi(), i.hi_val()));
         }
         logger().log(inf_resolve_value(s, v));
-
-        if (m_resolver->try_resolve_value(v, *this))
-            return true;
-
-        return false;
+        
+        revert_decision(v);
     }
 
     clause_ref conflict::build_lemma() {
