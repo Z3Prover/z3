@@ -316,55 +316,74 @@ namespace polysat {
             
             bool is_multiple1 = is_multiple(fac_lhs, fac, new_lhs);
             bool is_multiple2 = is_multiple(fac_rhs, fac, new_rhs);
-            
+            bool evaluated = false;
+            substitution sub(m);
+
             if (!is_multiple1 || !is_multiple2) {
-                if (!fac.is_val() && !fac.is_var())
+                if (
+                        (!fac.is_val() && !fac.is_var()) ||
+                        (!fac_lhs.is_val() && !fac_lhs.is_var()) ||
+                        (!fac_rhs.is_val() && !fac_rhs.is_var())) {
+
                     // TODO: We could introduce a new variable "new_var = lc" and add the valuation for this new variable
-                    continue;
-                if (!fac_lhs.is_val() && !fac_lhs.is_var())
-                    continue;
-                if (!fac_rhs.is_val() && !fac_rhs.is_var())
-                    continue;
-                
-                pv_equality = get_dyadic_valuation(fac).first;
-                LOG("pv_equality " << pv_equality);
-                coeff_odd = get_odd(fac); // a'
-                LOG("coeff_odd: " << coeff_odd);
-                fac_odd_inv = get_inverse(coeff_odd); // a'^-1
-                if (!fac_odd_inv)
-                    continue; // factor is for sure not invertible
-                LOG("coeff_odd_inv: " << *fac_odd_inv);
+                    pdd const fac_eval = eval(fac, core, sub);
+                    LOG("lcs: " << fac_eval);
+                    pdd fac_eval_inv = m.zero();
+                    if (!inv(fac_eval, fac_eval_inv))
+                        return;
+
+                    pdd const rest_eval = sub.apply_to(rest);
+                    pdd const vs = -rest_eval * fac_eval_inv;  // this is the polynomial that computes v
+                    LOG("vs: " << vs);
+                    SASSERT(!vs.free_vars().contains(v));
+
+                    new_lhs = c_target->to_ule().lhs().subst_pdd(v, vs);
+                    new_rhs = c_target->to_ule().rhs().subst_pdd(v, vs);
+                    evaluated = true;
+                }
+                else {
+                    pv_equality = get_dyadic_valuation(fac).first;
+                    LOG("pv_equality " << pv_equality);
+                    coeff_odd = get_odd(fac); // a'
+                    LOG("coeff_odd: " << coeff_odd);
+                    fac_odd_inv = get_inverse(coeff_odd); // a'^-1
+                    if (!fac_odd_inv)
+                        continue; // factor is for sure not invertible
+                    LOG("coeff_odd_inv: " << *fac_odd_inv);
+                }
+            }
+
+            if (!evaluated) {
+                if (!is_multiple1) { // Sometimes we can simply unify the two equations
+                    pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
+                    pdd odd_fac_lhs = get_odd(fac_lhs);
+                    pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
+
+                    LOG("pv_lhs: " << pv_lhs);
+                    LOG("odd_fac_lhs: " << odd_fac_lhs);
+                    LOG("power_diff_lhs: " << power_diff_lhs);
+                    new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_rhs;
+                    p1 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_lhs).first);
+                }
+                else
+                    new_lhs = -rest * new_lhs + rest_lhs;
+
+                if (!is_multiple2) {
+                    pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
+                    pdd odd_fac_rhs = get_odd(fac_rhs);
+                    pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
+
+                    LOG("pv_rhs: " << pv_rhs);
+                    LOG("odd_fac_rhs: " << odd_fac_rhs);
+                    LOG("power_diff_rhs: " << power_diff_rhs);
+                    new_rhs = -rest * *fac_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs;
+                    p2 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_rhs).first);
+                }
+                else
+                    new_rhs = -rest * new_rhs + rest_rhs;
             }
             
-            if (!is_multiple1) { // Sometimes we can simply unify the two equations
-                pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
-                pdd odd_fac_lhs = get_odd(fac_lhs);
-                pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
-                
-                LOG("pv_lhs: " << pv_lhs);
-                LOG("odd_fac_lhs: " << odd_fac_lhs);
-                LOG("power_diff_lhs: " << power_diff_lhs);
-                new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_rhs;
-                p1 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_lhs).first);
-            }
-            else
-                new_lhs = -rest * new_lhs + rest_lhs;
-            
-            if (!is_multiple2) {
-                pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
-                pdd odd_fac_rhs = get_odd(fac_rhs);
-                pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
-                
-                LOG("pv_rhs: " << pv_rhs);
-                LOG("odd_fac_rhs: " << odd_fac_rhs);
-                LOG("power_diff_rhs: " << power_diff_rhs);
-                new_rhs = -rest * *fac_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs;
-                p2 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_rhs).first);
-            }
-            else
-                new_rhs = -rest * new_rhs + rest_rhs;
-            
-            signed_constraint c_new = s.ule(new_lhs , new_rhs );
+            signed_constraint c_new = s.ule(new_lhs , new_rhs);
             
             if (c_target.is_negative())
                 c_new.negate();
@@ -381,8 +400,10 @@ namespace polysat {
                         
             clause_builder cb(s);
 
-            /*for (auto [w, wv] : a)
-                cb.push(~s.eq(s.var(w), wv));*/
+            if (evaluated) {
+                for (auto [w, wv] : sub)
+                    cb.insert(~s.eq(s.var(w), wv));
+            }
             cb.insert(~c);
             cb.insert(~c_target);
             cb.insert(~p1);
