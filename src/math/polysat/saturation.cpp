@@ -39,14 +39,10 @@ namespace polysat {
             if (c.is_currently_true(s))
                 continue;
             auto i = inequality::from_ule(c);
-#if 0
             if (try_mul_bounds(v, core, i))
                 return true;
-#endif
-#if 0
             if (try_parity(v, core, i))
                 return true;
-#endif
             if (try_ugt_x(v, core, i))
                 return true;
             if (try_ugt_y(v, core, i))
