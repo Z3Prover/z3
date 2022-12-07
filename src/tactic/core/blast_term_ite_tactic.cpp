@@ -13,8 +13,6 @@ Author:
  
     Nikolaj Bjorner (nbjorner) 2013-11-4
 
-Notes:
-
 --*/
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
