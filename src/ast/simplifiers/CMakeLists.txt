@@ -5,6 +5,7 @@ z3_add_component(simplifiers
     card2bv.cpp
     demodulator_simplifier.cpp
     dependent_expr_state.cpp
+    distribute_forall.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
     euf_completion.cpp
