@@ -330,7 +330,7 @@ namespace polysat {
                     LOG("lcs: " << fac_eval);
                     pdd fac_eval_inv = m.zero();
                     if (!inv(fac_eval, fac_eval_inv))
-                        return;
+                        continue;
 
                     pdd const rest_eval = sub.apply_to(rest);
                     pdd const vs = -rest_eval * fac_eval_inv;  // this is the polynomial that computes v
