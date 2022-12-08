@@ -178,16 +178,16 @@ namespace dd {
                 r++, v /= 2;
             return r;
         }
+        init_mark();
         PDD q = p;
-        while (!is_val(q))
+        m_todo.push_back(hi(q));
+        while (!is_val(q)) {
             q = lo(q);
+            m_todo.push_back(hi(q));
+        }
         unsigned p2 = val(q).trailing_zeros();
         init_mark();
-        if (p2 == 0)
-            return 0;
-        init_mark();
-        m_todo.push_back(hi(p));
-        while (!m_todo.empty() && p2 != 0) {
+        while (p2 != 0 && !m_todo.empty()) {
             PDD r = m_todo.back();
             m_todo.pop_back();
             if (is_marked(r)) 
