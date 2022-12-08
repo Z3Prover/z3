@@ -204,7 +204,7 @@ namespace polysat {
         for (test_record const* r : m_records) {
             if (!r->m_finished)
                 continue;
-            r->display(out, max_name_len);
+            r->display(out, static_cast<unsigned>(max_name_len));
             out << std::endl;
             if (r->m_result == test_result::ok && r->m_answer == l_true)
                 n_sat++;
@@ -627,6 +627,47 @@ namespace polysat {
             simp.apply(*cl);
             std::cout << *cl << "\n";
             SASSERT(cl->size() == 2);
+        }
+
+        // 8 * x + 3 == 0 is unsat
+        static void test_parity1() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            auto z = s.var(s.add_var(8));
+            s.add_clause({s.eq(x * y + z), s.eq(x * y + 5)}, false);
+            s.add_eq(y, 8);
+            s.add_eq(z, 3);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // 8 * x + 4 == 0 is unsat
+        static void test_parity2() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
+            s.add_eq(y, 8);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // x * y + 4 == 0 & 16 divides y is unsat
+        static void test_parity3() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
+            s.add_eq(16 * y);
+            s.check();
+            s.expect_unsat();
         }
 
 
@@ -1583,9 +1624,13 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 0  // Enable this block to run a single unit test with detailed output.
+#if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
+    test_polysat::test_parity1();
+//    test_polysat::test_parity2();
+//  test_polysat::test_parity3();
+    return;
     // test_polysat::test_band5();
     // test_polysat::test_band5_clause();
     // test_polysat::test_ineq_axiom1(32, 1);

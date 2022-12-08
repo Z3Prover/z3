@@ -415,7 +415,7 @@ namespace polysat {
         /** parity(p) >= k   (<=> p * 2^(K-k) == 0) */
         signed_constraint parity(pdd const& p, unsigned k) {            
             unsigned N = p.manager().power_of_2();
-            if (k > N)
+            if (k >= N)
                 return eq(p);
             else if (k == 0)
                 return odd(p);
