@@ -486,12 +486,10 @@ gret EGaussian::init_adjust_matrix() {
                 // conflict
                 if (row.rhs()) {
                     m_solver.s().set_conflict();
-                    TRACE("xor", tout << "-> empty clause during init_adjust_matrix";);
-                    TRACE("xor", tout << "-> conflict on row: " << row_i;);
+                    TRACE("xor", tout << "-> empty clause during init_adjust_matrix\n-> conflict on row: " << row_i << "\n");
                     return gret::confl;
                 }
-                TRACE("xor", tout << "-> empty on row: " << row_i;);
-                TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
+                TRACE("xor", tout << "-> empty on row: " << row_i << "\n-> Satisfied XORs set for row: " << row_i << "\n");
                 satisfied_xors[row_i] = true;
                 break;
 
@@ -502,11 +500,11 @@ gret EGaussian::init_adjust_matrix() {
                 bool xorEqualFalse = !m_mat[row_i].rhs();
                 tmp_clause[0] = literal(tmp_clause[0].var(), xorEqualFalse);
                 SASSERT(m_solver.s().value(tmp_clause[0].var()) == l_undef);
-                
+
+                // NSB code review: assign_unit?
                 m_solver.s().assign_scoped(tmp_clause[0]);
 
-                TRACE("xor", tout << "-> UNIT during adjust: " << tmp_clause[0];);
-                TRACE("xor", tout << "-> Satisfied XORs set for row: " << row_i;);
+                TRACE("xor", tout << "-> UNIT during adjust: " << tmp_clause[0] << "\n-> Satisfied XORs set for row: " << row_i << "\n");
                 satisfied_xors[row_i] = true;
                 SASSERT(check_row_satisfied(row_i));
 
@@ -542,8 +540,9 @@ gret EGaussian::init_adjust_matrix() {
                 SASSERT(non_resp_var != UINT32_MAX);
 
                 // insert watch list
-                TRACE("xor", tout << "-> watch 1: resp var " << tmp_clause[0].var()+1 << " for row " << row_i << "\n";);
-                TRACE("xor", tout << "-> watch 2: non-resp var " << non_resp_var+1 << " for row " << row_i << "\n";);
+                TRACE("xor",
+                      tout << "-> watch 1: resp var " << tmp_clause[0].var()+1 << " for row " << row_i << "\n";
+                      tout << "-> watch 2: non-resp var " << non_resp_var+1 << " for row " << row_i << "\n");
                 m_solver.m_gwatches[tmp_clause[0].var()].push_back(
                     gauss_watched(row_i, matrix_no)); // insert basic variable
                 m_solver.m_gwatches[non_resp_var].push_back(
@@ -672,7 +671,7 @@ bool EGaussian::find_truths(
 
         case gret::prop: {
             find_truth_ret_prop++;
-            TRACE("xor", tout << "--> propagation";);
+            TRACE("xor", tout << "--> propagation\n");
             ws[j++] = ws[i];
 
             xor_reasons[row_n].m_must_recalc = true;
@@ -688,7 +687,7 @@ bool EGaussian::find_truths(
                 var_has_resp_row[var] = true;
             }
 
-            TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n;);
+            TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n << "\n");
             satisfied_xors[row_n] = true;
             SASSERT(check_row_satisfied(row_n));
             return true;
@@ -704,8 +703,8 @@ bool EGaussian::find_truths(
                 /// clear watchlist, because only one responsible value in watchlist
                 SASSERT(new_resp_var != var);
                 clear_gwatches(new_resp_var);
-                TRACE("xor", tout << "Cleared watchlist for new resp var: " << new_resp_var+1;);
-                TRACE("xor", tout << "After clear...";);
+                TRACE("xor", tout << "Cleared watchlist for new resp var: " << new_resp_var+1 << "\n";
+                      tout << "After clear...\n");
             }
             SASSERT(new_resp_var != var);
             DEBUG_CODE(check_row_not_in_watch(new_resp_var, row_n););
@@ -735,7 +734,7 @@ bool EGaussian::find_truths(
 
         // this row already true
         case gret::nothing_satisfied:
-            TRACE("xor", tout << "--> satisfied";);
+            TRACE("xor", tout << "--> satisfied\n");
 
             find_truth_ret_satisfied++;
             ws[j++] = ws[i];
@@ -744,7 +743,7 @@ bool EGaussian::find_truths(
                 var_has_resp_row[var] = true;
             }
 
-            TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n;);
+            TRACE("xor", tout << "--> Satisfied XORs set for row: " << row_n << "\n");
             satisfied_xors[row_n] = true;
             SASSERT(check_row_satisfied(row_n));
             return true;
@@ -838,16 +837,14 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
     unsigned new_resp_row_n = gqd.new_resp_row;
     unsigned new_resp_col = m_var_to_column[gqd.new_resp_var];
     unsigned row_size = m_mat.num_rows();
-    unsigned row_i = 0;
 
     elim_called++;
-
 
     m_mat.display_dense(std::cout) << "\n";
     TRACE("xor", m_mat.display_dense(tout) << "\n");
     
-    while (row_i < row_size) {
-        //Row has a '1' in eliminating column, and it's not the row responsible
+    for (unsigned row_i = 0; row_i < row_size; ++row_i) {
+        // Row has a '1' in eliminating column, and it's not the row responsible
         PackedRow row = m_mat[row_i];
         if (new_resp_row_n != row_i && row[new_resp_col]) {
 
@@ -857,7 +854,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
             SASSERT(row[orig_non_resp_col]);
             TRACE("xor", tout << "--> This row " << row_i
                 << " is being watched on var: " << orig_non_resp_var + 1
-                << " i.e. it must contain '1' for this var's column";);
+                << " i.e. it must contain '1' for this var's column\n");
 
             SASSERT(!satisfied_xors[row_i]);
             row.xor_in(*(m_mat.begin() + new_resp_row_n));
@@ -896,7 +893,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                 switch (ret) {
                     case gret::confl: {
                         elim_ret_confl++;
-                        TRACE("xor", tout << "---> conflict during eliminate_column's fixup";);
+                        TRACE("xor", tout << "---> conflict during eliminate_column's fixup\n");
                         m_solver.m_gwatches[p].push_back(gauss_watched(row_i, matrix_no));
 
                         // update in this row non-basic variable
@@ -911,7 +908,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                     }
                     case gret::prop: {
                         elim_ret_prop++;
-                        TRACE("xor", tout << "---> propagation during eliminate_column's fixup";);
+                        TRACE("xor", tout << "---> propagation during eliminate_column's fixup\n");
 
                         // if conflicted already, just update non-basic variable
                         if (gqd.status == gauss_res::confl) {
@@ -934,7 +931,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                         update_cols_vals_set(ret_lit_prop);
                         gqd.status = gauss_res::prop;
 
-                        TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i;);
+                        TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i << "\n");
                         satisfied_xors[row_i] = true;
                         SASSERT(check_row_satisfied(row_i));
                         break;
@@ -961,7 +958,7 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                         m_solver.m_gwatches[p].push_back(gauss_watched(row_i, matrix_no));
                         row_to_var_non_resp[row_i] = p;
 
-                        TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i;);
+                        TRACE("xor", tout << "---> Satisfied XORs set for row: " << row_i << "\n");
                         satisfied_xors[row_i] = true;
                         SASSERT(check_row_satisfied(row_i));
                         break;
@@ -971,10 +968,9 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                         break;
                 }
             } else {
-                TRACE("xor", tout << "--> OK, this row " << row_i << " still contains '1', can still be responsible";);
+                TRACE("xor", tout << "--> OK, this row " << row_i << " still contains '1', can still be responsible\n");
             }
         }
-        row_i++;
 
         m_mat.display_dense(std::cout) << "\n";
         TRACE("xor", m_mat.display_dense(tout) << "\n");        
