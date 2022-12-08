@@ -370,21 +370,24 @@ std::ostream& PackedMatrix::display_dense(std::ostream& out) const {
 }
 
 std::ostream& EGaussian::display(std::ostream& out) const {
+    if (m_mat.num_rows() == 0)
+        return out;
+    out << "xors\n";
     for (auto const& row : m_mat) {
         bool first = true;
         for (int i = 0; i < row.get_size() * 64; ++i) {
             if (row[i]) {
                 if (first)
-                    out << "(x";
+                    out << "x";
                 int v = m_column_to_var[i];
                 if (first && !row.rhs())
                     v = -v;
                 out << " " << v;
                 first = false;
             }
-        }
+        }        
         if (!first)
-            out << ")";
+            out << "\n";
     }
     return out;
 }
