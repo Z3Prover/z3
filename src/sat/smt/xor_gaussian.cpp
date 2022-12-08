@@ -763,6 +763,19 @@ inline void EGaussian::update_cols_vals_set(literal lit) {
 // In case the argument is false it only updates the recently added variables. If true, it recalculates all
 void EGaussian::update_cols_vals_set(bool force) {
     SASSERT(initialized);
+    
+    auto output_rows = [this]() {
+        std::cout << "Col-Unassigned: ";
+        for (int i = 0; i < 64 * m_cols_unset->size; ++i) {
+            std::cout << (*m_cols_unset)[i];
+        }
+        std::cout << "\n";
+        std::cout << "Col-Values:     ";
+        for (int i = 0; i < 64 * m_cols_vals->size; ++i) {
+            std::cout << (*m_cols_vals)[i];
+        }
+        std::cout << std::endl;
+    };
 
     if (recalculate_values || force) {
         m_cols_vals->setZero();
@@ -779,6 +792,7 @@ void EGaussian::update_cols_vals_set(bool force) {
         last_val_update = m_solver.s().trail_size();
         recalculate_values = false;
         TRACE("xor", tout << "last val update set to " << last_val_update << "\n");         
+        output_rows();
         return;
     }
 
@@ -797,17 +811,7 @@ void EGaussian::update_cols_vals_set(bool force) {
         }
     }
     last_val_update = m_solver.s().trail_size();
-
-    std::cout << "Col-Unassigned: ";
-    for (int i = 0; i < 64 * m_cols_unset->size; ++i) {
-        std::cout << (*m_cols_unset)[i];
-    }
-    std::cout << "\n";
-    std::cout << "Col-Values:     ";
-    for (int i = 0; i < 64 * m_cols_vals->size; ++i) {
-        std::cout << (*m_cols_vals)[i];
-    }
-    std::cout << std::endl;
+    output_rows();
 }
 
 void EGaussian::prop_lit(const gauss_data& gqd, unsigned row_i, literal ret_lit_prop) {

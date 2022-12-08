@@ -280,12 +280,12 @@ namespace xr {
         }
         m_justifications_lim.shrink(old_sz);
         m_justifications.shrink(old_sz);*/
+        
+        check_need_gauss_jordan_disable(); // Do this before enforcing recalcultion!
 
         for (unsigned i = 0; i < m_gmatrices.size(); i++)
             if (m_gmatrices[i] && !m_gqueuedata[i].disabled)
                 m_gmatrices[i]->enforce_recalculate();
-        
-        check_need_gauss_jordan_disable();
         
         if (m_region)
             m_region->pop_scope(num_scopes);
@@ -408,7 +408,7 @@ namespace xr {
         }
     }
     
-    // disables matrixes if applicable
+    // disables matrices if applicable
     void solver::check_need_gauss_jordan_disable() {
         for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
             auto& gqd = m_gqueuedata[i];
@@ -423,7 +423,7 @@ namespace xr {
             }*/
     
             gqd.reset();
-            m_gmatrices[i]->update_cols_vals_set(false);
+            m_gmatrices[i]->update_cols_vals_set(false); // TODO: Probably we don't need this as we reset it anyway afterwards everywhere we call this function. Remove?
         }
     }
 
