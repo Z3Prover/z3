@@ -633,6 +633,7 @@ namespace polysat {
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
         auto& m = s.var2pdd(x);
+        unsigned N = m.power_of_2();
         pdd y = m.zero();
         pdd a = m.zero();
         pdd b = m.zero();
@@ -653,29 +654,78 @@ namespace polysat {
         LOG("a_is_odd: " << lit_pp(s, a_is_odd));
         LOG("x_is_odd: " << lit_pp(s, x_is_odd));
 #endif
-        if (!b_is_odd.is_currently_true(s)) {
-            if (!a_is_odd.is_currently_true(s))
-                return false;
-            if (!x_is_odd.is_currently_true(s))
-                return false;
+        if (a_is_odd.is_currently_true(s) &&
+            x_is_odd.is_currently_true(s)) {
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~a_is_odd);
             m_lemma.insert_eval(~x_is_odd);
             if (propagate(core, axb_l_y, b_is_odd))
                 return true;
-            return false;
         }
-        m_lemma.reset();
-        m_lemma.insert_eval(~s.eq(y));
-        m_lemma.insert_eval(~b_is_odd);
-        if (propagate(core, axb_l_y, a_is_odd))
-            return true;
-        m_lemma.reset();
-        m_lemma.insert_eval(~s.eq(y));
-        m_lemma.insert_eval(~b_is_odd);
-        if (propagate(core, axb_l_y, x_is_odd))
-            return true;
+
+#if 0
+        // TODO - enable this code and test
+        // a is divisibly by 4,
+        // max divisor of x is k
+        // -> b has parity k + 4
+        if ((~a_is_odd).is_currently_true(s) || 
+            (~x_is_odd).is_currently_true(s)) {
+            unsigned a_parity = 0;
+            unsigned x_parity = 0;
+            while (a_parity <= N && s.parity(a, a_parity+1).is_currently_true(s))
+                ++a_parity;
+            while (x_parity <= N && s.parity(X, x_parity+1).is_currently_true(s))
+                ++x_parity;
+            SASSERT(a_parity > 0 || x_parity > 0);
+            unsigned b_parity = std::min(N + 1, a_parity + x_parity);
+            if (a_parity > 0)
+                m_lemma.insert_eval(~s.parity(a, a_parity));
+            if (x_parity > 0)
+                m_lemma.insert_eval(~s.parity(X, x_parity));
+            if (propagate(core, axb_l_y, s.parity(b, b_parity)))
+                return true;
+        }
+#endif
+
+        if (b_is_odd.is_currently_true(s)) {
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~b_is_odd);
+            if (propagate(core, axb_l_y, a_is_odd))
+                return true;
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~b_is_odd);
+            if (propagate(core, axb_l_y, x_is_odd))
+                return true;
+        }
+
+#if 0
+
+        // 
+        // if b has at least b_parity, then a*x has at least b_parity
+        // establish lower bound on parity of b
+        // 
+        if ((~b_is_odd).is_currently_true(s) && !is_forced_eq(b, 0)) {
+            unsigned b_parity = 1;
+            while (b_parity <= N && s.parity(b, b_parity+1).is_currently_true(s))
+                ++b_parity;
+            SASSERT(b_parity <= N);
+            // TODO:
+            // something like this (but fixed)
+            for (unsigned i = 0; i <= b_parity; ++i) {
+                if (s.parity(a, b_parity - i).is_currently_false(s)) {
+                    m_lemma.reset();
+                    m_lemma.insert_eval(~s.eq(y));
+                    m_lemma.insert_eval(~s.parity(b, b_parity));
+                    m_lemma.insert_eval(s.parity(a, b_parity - i));
+                    if (propagate(core, axb_l_y, s.parity(x, i)))
+                        return true;
+                }
+            }
+        }
+#endif
         return false;        
     }
 

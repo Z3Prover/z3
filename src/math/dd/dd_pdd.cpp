@@ -165,6 +165,47 @@ namespace dd {
         return true;
     }
 
+    unsigned pdd_manager::min_parity(PDD p) {
+        if (m_semantics != mod2N_e)
+            return 0;
+
+        if (is_val(p)) {
+            rational v = val(p);
+            if (v.is_zero())
+                return m_power_of_2 + 1;
+            unsigned r = 0;
+            while (v.is_even() && v > 0)
+                r++, v /= 2;
+            return r;
+        }
+        PDD q = p;
+        while (!is_val(q))
+            q = lo(q);
+        unsigned p2 = val(q).trailing_zeros();
+        init_mark();
+        if (p2 == 0)
+            return 0;
+        init_mark();
+        m_todo.push_back(hi(p));
+        while (!m_todo.empty() && p2 != 0) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r)) 
+                continue;
+            set_mark(r);
+            if (!is_val(r)) {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+            else if (val(r).is_zero())
+                continue;
+            else if (val(r).trailing_zeros() < p2)
+                p2 = val(r).trailing_zeros();
+        }
+        m_todo.reset();
+        return p2;        
+    }
+
     pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
         return pdd(apply(p.root, s.root, pdd_subst_val_op), this);
     }

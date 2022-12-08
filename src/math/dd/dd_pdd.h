@@ -255,6 +255,7 @@ namespace dd {
         inline bool is_var(PDD p) const { return !is_val(p) && is_zero(lo(p)) && is_one(hi(p)); }
         inline bool is_max(PDD p) const { SASSERT(m_semantics == mod2_e || m_semantics == mod2N_e); return is_val(p) && val(p) == max_value(); }
         bool is_never_zero(PDD p);
+        unsigned min_parity(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
         inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
@@ -432,6 +433,7 @@ namespace dd {
         void get_univariate_coefficients(vector<rational>& coeff) const { m.get_univariate_coefficients(root, coeff); }
         vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m.get_univariate_coefficients(root, coeff); return coeff; }
         bool is_never_zero() const { return m.is_never_zero(root); }
+        unsigned min_parity() const { return m.min_parity(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd operator-() const { return m.minus(*this); }
