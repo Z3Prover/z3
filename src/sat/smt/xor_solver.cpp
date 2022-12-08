@@ -307,7 +307,7 @@ namespace xr {
         for (const auto& clause : m_xorclauses) {
             bool eval = false;
             for (bool_var v : clause)
-                eval ^= m[v];
+                eval ^= (l_true == m[v]);
             if (eval != clause.m_rhs)
                 return false;
         }
