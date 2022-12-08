@@ -68,17 +68,9 @@ namespace polysat {
             , m_free_variable_elimination(s)
         {}
 
-        // 
-        // NSB review: the plugins need not be mutually exclusive
-        // Shouldn't saturation and superposition be allowed independently?
-        // If they create propagations or conflict lemmas we select the 
-        // tightest propagation as part of backjumping.
-        // 
         void infer_lemmas_for_value(pvar v, conflict& core) {
-            if (m_poly_sup.perform(v, core)) 
-                return;
-            if (m_saturation.perform(v, core))
-                return;
+            (void)m_poly_sup.perform(v, core);
+            (void)m_saturation.perform(v, core);
         }
 
         // Analyse current conflict core to extract additional lemmas
