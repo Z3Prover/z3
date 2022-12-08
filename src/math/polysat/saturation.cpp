@@ -43,6 +43,8 @@ namespace polysat {
                 return true;
             if (try_parity(v, core, i))
                 return true;
+            if (try_factor_equality(v, core, i))
+                return true;
             if (try_ugt_x(v, core, i))
                 return true;
             if (try_ugt_y(v, core, i))
@@ -761,6 +763,21 @@ namespace polysat {
         return false;
     }
 
+    /**
+     *  [x] ax + p <= q, ax + r = 0 => -r + p <= q
+     *  [x] p <= ax + q, ax + r = 0 => p <= -r + q
+     *  generalizations
+     *  [x] abx + p <= q, ax + r = 0 => -rb + p <= q
+     *  [x] p <= abx + q, ax + r = 0 => p <= -rb + q
+     */
+
+    bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
+        // search for abx+p pattern in a_l_b.lhs()
+        // search for ax + r = 0 equality in core (or in search but maybe not needed)
+        // replace abx by -rb in patterns on either a_l_b.lhs() or a_l_b.rhs() or both if available to form new implied
+        // literal wtihout occurrence of x
+        return false;
+    }
     /*
      * TODO
      *
