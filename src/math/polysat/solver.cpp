@@ -1052,6 +1052,10 @@ namespace polysat {
         }
         if (v != null_var)
             m_viable_fallback.push_constraint(v, c);
+        // TODO: we use narrow with first=true to add axioms about the constraint to the solver.
+        //       However, constraints can be activated multiple times (e.g., if it comes from a lemma and is propagated at a non-base level).
+        //       So the same axioms may be added multiple times.
+        //       Maybe separate narrow/activate? And keep a flag in m_bvars to remember whether constraint has already been activated.
         c.narrow(*this, true);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
