@@ -324,7 +324,7 @@ namespace polysat {
                 for (auto const& p : expected_assignment) {
                     auto const& v_pdd = p.first;
                     auto const expected_value = p.second;
-                    SASSERT(v_pdd.is_monomial() && !v_pdd.is_val());
+                    SASSERT(v_pdd.is_var());
                     auto const v = v_pdd.var();
                     if (get_value(v) != expected_value) {
                         rec->m_result = test_result::wrong_model;
@@ -651,9 +651,10 @@ namespace polysat {
 
         /**
          * Check unsat of:
-         * n*q1 = a - b
-         * n*q2 + r2 = c*a - c*b
-         * n > r2 > 0
+         * n*q1 = a - b                         3*1 == 3 - 0
+         * n*q2 + r2 = c*a - c*b                3*0 + 1 == 11*3 - 11*0 (= 33 = 1 mod 32)
+         * n > r2 > 0                           3 > 1 > 0
+         * It is actually satisfiable.
          */
         static void test_ineq2() {
             scoped_solver s(__func__);
@@ -669,9 +670,8 @@ namespace polysat {
             s.add_ult(r2, n);
             s.add_diseq(r2);
             s.check();
-            s.expect_unsat();
+            s.expect_sat({ {n, 3}, {q1, 1}, {a, 3}, {b, 0}, {c, 11}, {q2, 0}, {r2, 1} });
         }
-
 
         /**
          * Monotonicity example from certora
@@ -1592,6 +1592,7 @@ void tst_polysat() {
     // test_polysat::test_pop_conflict();
     // test_polysat::test_l2();
     // test_polysat::test_ineq1();
+    test_polysat::test_ineq2();
     // test_polysat::test_quot_rem();
     // test_polysat::test_ineq_non_axiom1(32, 3);
     // test_polysat::test_monot_bounds_full();
@@ -1599,13 +1600,14 @@ void tst_polysat() {
     // test_polysat::test_quot_rem_incomplete();
     // test_polysat::test_monot();
     // test_polysat::test_fixed_point_arith_div_mul_inverse();
-    test_polysat::test_monot_bounds_simple(8);
+    // test_polysat::test_monot_bounds_simple(8);
+    // test_polysat::test_ineq_non_axiom4(32, 7);
     return;
 #endif
 
     // If non-empty, only run tests whose name contains the run_filter
     run_filter = "";
-    test_max_conflicts = 10;
+    test_max_conflicts = 20;
 
     collect_test_records = true;
 
