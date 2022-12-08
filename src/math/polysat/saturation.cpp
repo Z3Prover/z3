@@ -346,7 +346,7 @@ namespace polysat {
 
         if (!is_xY_l_xZ(v, xy_l_xz, y, z))
             return false;
-        if (!xy_l_xz.is_strict() && s.get_value(v).is_zero())
+        if (!xy_l_xz.is_strict() && s.is_assigned(v) && s.get_value(v).is_zero())
             return false;
         if (!is_non_overflow(x, y, non_ovfl))
             return false;
