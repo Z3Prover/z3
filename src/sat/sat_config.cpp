@@ -266,6 +266,8 @@ namespace sat {
         m_xor_gauss_max_num_matrices = p.xor_gauss_max_num_matrices();
         m_xor_gauss_force_use_all_matrices = p.xor_gauss_force_use_all_matrices();
         m_xor_gauss_min_usefulness_cutoff = p.xor_gauss_min_usefulness_cutoff();
+        m_xor_gauss_autodisable = p.xor_gauss_autodisable();
+        m_xor_gauss_detach_reattach = p.xor_gauss_detach_reattach();
         
         sat_simplifier_params ssp(_p);
         m_elim_vars = ssp.elim_vars();

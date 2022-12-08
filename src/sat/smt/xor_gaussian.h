@@ -585,7 +585,7 @@ namespace xr {
             unsigned p,
             gauss_data& gqd
         );
-        void canceling();
+        void enforce_recalculate();
         bool full_init(bool& created);
         void update_cols_vals_set(bool force);
         bool must_disable(gauss_data& gqd);
@@ -668,7 +668,7 @@ namespace xr {
         ///////////////
         unsigned matrix_no;
         bool initialized = false;
-        bool cancelled_since_val_update = true;
+        bool recalculate_values = true;
         unsigned last_val_update = 0;
 
         vector<xor_clause> m_xorclauses;
@@ -699,20 +699,22 @@ namespace xr {
         unsigned m_num_cols = 0;
     
         //quick lookup
-        PackedRow* cols_vals = nullptr; // the current model for the variable in the respective column. Only correct if the respective element in cols_unset is 0 (lazily -> update_cols_vals_set)
-        PackedRow* cols_unset = nullptr; // initially a sequence of 1. If the variable at the respective colum in the matrix is assigned it is set to 0 (lazily -> update_cols_vals_set) 
-        PackedRow* tmp_col = nullptr;
-        PackedRow* tmp_col2 = nullptr;
+        PackedRow* m_cols_vals = nullptr; // the current model for the variable in the respective column. Only correct if the respective element in cols_unset is 0 (lazily -> update_cols_vals_set)
+        PackedRow* m_cols_unset = nullptr; // initially a sequence of 1. If the variable at the respective colum in the matrix is assigned it is set to 0 (lazily -> update_cols_vals_set) 
+        PackedRow* m_tmp_col = nullptr;
+        PackedRow* m_tmp_col2 = nullptr;
         
         void update_cols_vals_set(literal lit);
     
         //Data to free (with delete[] x)
         // TODO: This are always 4 equally sized elements; merge them into one block  
-        svector<int64_t*> tofree;
+        svector<int64_t*> m_tofree;
     };
     
-    inline void EGaussian::canceling() {
-        cancelled_since_val_update = true;
+    // enforces to recalculate the auxiliary rows that determine which variables of the matrix are unassigned/assigned to true
+    // necessary after backtracking
+    inline void EGaussian::enforce_recalculate() {
+        recalculate_values = true;
         memset(satisfied_xors.data(), false, satisfied_xors.size());
     }
 

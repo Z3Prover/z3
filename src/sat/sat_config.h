@@ -209,6 +209,8 @@ namespace sat {
         unsigned           m_xor_gauss_max_num_matrices;
         bool               m_xor_gauss_force_use_all_matrices;
         double             m_xor_gauss_min_usefulness_cutoff;
+        bool               m_xor_gauss_autodisable;
+        bool               m_xor_gauss_detach_reattach;
         
         const bool         m_xor_gauss_doMatrixFind = true;
         const unsigned     m_xor_gauss_min_clauses = 2;

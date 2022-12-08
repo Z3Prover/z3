@@ -88,6 +88,8 @@ namespace xr {
         
         bool add_simple_xor_constraint(const xor_clause& constraint);
         
+        void check_need_gauss_jordan_disable();
+        
         bool inconsistent() const { return s().inconsistent(); }
 
     public:
@@ -136,5 +138,7 @@ namespace xr {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
+        
+        bool check_model(sat::model const& m) const override;
 };
 }

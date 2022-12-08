@@ -162,14 +162,14 @@ EGaussian::EGaussian(xr::solver& _solver, unsigned _matrix_no, const vector<xor_
 
 EGaussian::~EGaussian() {
     delete_gauss_watch_this_matrix();
-    for (auto& x: tofree) 
+    for (auto& x: m_tofree) 
         memory::deallocate(x);
-    tofree.clear();
+    m_tofree.clear();
 
-    delete cols_unset;
-    delete cols_vals;
-    delete tmp_col;
-    delete tmp_col2;
+    delete m_cols_unset;
+    delete m_cols_vals;
+    delete m_tmp_col;
+    delete m_tmp_col2;
 }
 
 struct ColSorter {
@@ -333,23 +333,23 @@ bool EGaussian::full_init(bool& created) {
     xor_reasons.resize(m_num_rows);
     unsigned num_64b = m_num_cols / 64 + (bool)(m_num_cols % 64);
     
-    for (auto& x: tofree) 
+    for (auto& x: m_tofree) 
         memory::deallocate(x);
     
-    tofree.clear();
+    m_tofree.clear();
 
     auto add_packed_row = [&](PackedRow*& p) {
         int64_t* x = (int64_t*)memory::allocate(sizeof(int64_t) * (num_64b + 1));
-        tofree.push_back(x);
+        m_tofree.push_back(x);
         dealloc(p);
         p = alloc(PackedRow, num_64b, x);
         p->rhs() = 0;
     };
 
-    add_packed_row(cols_unset);
-    add_packed_row(cols_vals);
-    add_packed_row(tmp_col);
-    add_packed_row(tmp_col2);
+    add_packed_row(m_cols_unset);
+    add_packed_row(m_cols_vals);
+    add_packed_row(m_tmp_col);
+    add_packed_row(m_tmp_col2);
 
     initialized = true;
     update_cols_vals_set(true);
@@ -446,8 +446,8 @@ literal_vector& EGaussian::get_reason(unsigned row, int& out_ID) {
     m_mat[row].get_reason(
         to_fill,
         m_column_to_var,
-        *cols_vals,
-        *tmp_col2,
+        *m_cols_vals,
+        *m_tmp_col2,
         xor_reasons[row].m_propagated);
     
     xor_reasons[row].m_must_recalc = false;
@@ -638,10 +638,10 @@ bool EGaussian::find_truths(
         m_column_to_var,
         var_has_resp_row,
         new_resp_var,
-        *tmp_col,
-        *tmp_col2,
-        *cols_vals,
-        *cols_unset,
+        *m_tmp_col,
+        *m_tmp_col2,
+        *m_cols_vals,
+        *m_cols_unset,
         ret_lit_prop);
     find_truth_called_propgause++;
 
@@ -754,28 +754,30 @@ bool EGaussian::find_truths(
 }
 
 inline void EGaussian::update_cols_vals_set(literal lit) {
-    cols_unset->clearBit(m_var_to_column[lit.var()]);
+    m_cols_unset->clearBit(m_var_to_column[lit.var()]);
     if (!lit.sign())
-        cols_vals->setBit(m_var_to_column[lit.var()]);
+        m_cols_vals->setBit(m_var_to_column[lit.var()]);
 }
 
+// Updates the auxiliary row that determines which variables of the matrix are unassigned and which values they have
+// In case the argument is false it only updates the recently added variables. If true, it recalculates all
 void EGaussian::update_cols_vals_set(bool force) {
     SASSERT(initialized);
 
-    if (cancelled_since_val_update || force) {
-        cols_vals->setZero();
-        cols_unset->setOne();
+    if (recalculate_values || force) {
+        m_cols_vals->setZero();
+        m_cols_unset->setOne();
 
         for (unsigned col = 0; col < m_column_to_var.size(); col++) {
             unsigned var = m_column_to_var[col];
             if (m_solver.s().value(var) != l_undef) {
-                cols_unset->clearBit(col);
+                m_cols_unset->clearBit(col);
                 if (m_solver.s().value(var) == l_true)
-                    cols_vals->setBit(col);
+                    m_cols_vals->setBit(col);
             }
         }
         last_val_update = m_solver.s().trail_size();
-        cancelled_since_val_update = false;
+        recalculate_values = false;
         TRACE("xor", tout << "last val update set to " << last_val_update << "\n");         
         return;
     }
@@ -789,21 +791,21 @@ void EGaussian::update_cols_vals_set(bool force) {
         unsigned col = m_var_to_column[var];
         if (col != UINT32_MAX) {
             SASSERT(m_solver.s().value(var) != l_undef);
-            cols_unset->clearBit(col);
+            m_cols_unset->clearBit(col);
             if (m_solver.s().value(var) == l_true)
-                cols_vals->setBit(col);
+                m_cols_vals->setBit(col);
         }
     }
     last_val_update = m_solver.s().trail_size();
 
     std::cout << "Col-Unassigned: ";
-    for (int i = 0; i < 64 * cols_unset->size; ++i) {
-        std::cout << (*cols_unset)[i];
+    for (int i = 0; i < 64 * m_cols_unset->size; ++i) {
+        std::cout << (*m_cols_unset)[i];
     }
     std::cout << "\n";
     std::cout << "Col-Values:     ";
-    for (int i = 0; i < 64 * cols_vals->size; ++i) {
-        std::cout << (*cols_vals)[i];
+    for (int i = 0; i < 64 * m_cols_vals->size; ++i) {
+        std::cout << (*m_cols_vals)[i];
     }
     std::cout << std::endl;
 }
@@ -873,10 +875,10 @@ void EGaussian::eliminate_column(unsigned p, gauss_data& gqd) {
                     m_column_to_var,
                     var_has_resp_row,
                     new_non_resp_var,
-                    *tmp_col,
-                    *tmp_col2,
-                    *cols_vals,
-                    *cols_unset,
+                    *m_tmp_col,
+                    *m_tmp_col2,
+                    *m_cols_vals,
+                    *m_cols_unset,
                     ret_lit_prop
                 );
                 elim_called_propgause++;
@@ -1082,6 +1084,7 @@ bool EGaussian::check_row_satisfied(unsigned row) {
     return !fin;
 }
 
+// determines if the current matrix must be disabled because it performs badly
 bool EGaussian::must_disable(gauss_data& gqd) {
     SASSERT(initialized);
     gqd.disable_checks++;

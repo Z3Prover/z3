@@ -281,6 +281,12 @@ namespace xr {
         m_justifications_lim.shrink(old_sz);
         m_justifications.shrink(old_sz);*/
 
+        for (unsigned i = 0; i < m_gmatrices.size(); i++)
+            if (m_gmatrices[i] && !m_gqueuedata[i].disabled)
+                m_gmatrices[i]->enforce_recalculate();
+        
+        check_need_gauss_jordan_disable();
+        
         if (m_region)
             m_region->pop_scope(num_scopes);
     }
@@ -295,6 +301,17 @@ namespace xr {
         n -= k;
         if (n > 0)
             pop_core(n);
+    }
+    
+     bool solver::check_model(sat::model const& m) const {
+        for (const auto& clause : m_xorclauses) {
+            bool eval = false;
+            for (bool_var v : clause)
+                eval ^= m[v];
+            if (eval != clause.m_rhs)
+                return false;
+        }
+        return true;
     }
 
     // inprocessing
@@ -391,6 +408,25 @@ namespace xr {
         }
     }
     
+    // disables matrixes if applicable
+    void solver::check_need_gauss_jordan_disable() {
+        for (unsigned i = 0; i < m_gqueuedata.size(); i++) {
+            auto& gqd = m_gqueuedata[i];
+            if (gqd.disabled)
+                continue;
+    
+            // TODO: Without having the xors also as clauses, this is unsound
+            /*if (s().get_config().m_xor_gauss_autodisable &&
+                !s().get_config().m_xor_gauss_detach_reattach &&
+                m_gmatrices[i]->must_disable(gqd)) {
+                gqd.disabled = true;
+            }*/
+    
+            gqd.reset();
+            m_gmatrices[i]->update_cols_vals_set(false);
+        }
+    }
+
     // throw away all assigned clash-variables and simplify xor-clause with respect to current assignment
     // may add conflict or propagate
     bool solver::clean_one_xor(xor_clause& x) {
@@ -461,7 +497,7 @@ namespace xr {
         bool ret_no_irred_nonxor_contains_clash_vars;
         if (can_detach &&
             s().get_config().m_xor_gauss_detach_reattach &&
-            !s().get_config().autodisable &&
+            !s().get_config().m_xor_gauss_autodisable &&
             (ret_no_irred_nonxor_contains_clash_vars = no_irred_nonxor_contains_clash_vars())) {
             detach_xor_clauses(mfinder.clash_vars_unused);
             unset_clash_decision_vars(xorclauses);
