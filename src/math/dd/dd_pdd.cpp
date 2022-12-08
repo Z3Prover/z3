@@ -1719,15 +1719,15 @@ namespace dd {
         unsigned pow;
         if (val.is_power_of_two(pow) && pow > 10)
             return out << "2^" << pow;
-        else if (val < m.max_value() && (val + 1).is_power_of_two(pow) && pow > 10) {
-            if (require_parens)
-                out << "(";
-            out << "2^" << pow << "-1";
-            if (require_parens)
-                out << ")";
-            return out;
-        } else 
-            return out << m.normalize(val);
+        for (int offset : {-1, 1})
+            if (val < m.max_value() && (val - offset).is_power_of_two(pow) && pow > 10)
+                return out << lparen() << "2^" << pow << (offset >= 0 ? "+" : "") << offset << rparen();
+        rational neg_val = mod(-val, m.two_to_N());
+        if (neg_val < val) {  // keep this condition so we don't suddenly print negative values where we wouldn't otherwise
+            if (neg_val.is_power_of_two(pow) && pow > 10)
+                return out << "-2^" << pow;
+        }
+        return out << m.normalize(val);
     }
 
     bool pdd_manager::well_formed() {
