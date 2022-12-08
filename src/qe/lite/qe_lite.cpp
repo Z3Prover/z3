@@ -2444,8 +2444,7 @@ namespace {
 }
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(dependent_expr_state_tactic, m, p,
-                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(qe_lite_simplifier, m, p, s); });
+    return alloc(dependent_expr_state_tactic, m, p, mk_qe_lite_simplifer);
 }
 
 dependent_expr_simplifier* mk_qe_lite_simplifer(ast_manager& m, params_ref const& p, dependent_expr_state& st) {
