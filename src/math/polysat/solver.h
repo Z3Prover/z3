@@ -137,7 +137,7 @@ namespace polysat {
         friend class scoped_solverv;
         friend class test_polysat;
         friend class test_fi;
-        friend struct inf_resolve_with_assignment;
+        friend struct inf_resolve_evaluated;
 
         reslimit&                m_lim;
         params_ref               m_params;

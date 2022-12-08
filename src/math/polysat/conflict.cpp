@@ -104,11 +104,11 @@ namespace polysat {
         }
     };
 
-    struct inf_resolve_with_assignment : public inference {
+    struct inf_resolve_evaluated : public inference {
         solver& s;
         sat::literal lit;
         signed_constraint c;
-        inf_resolve_with_assignment(solver& s, sat::literal lit, signed_constraint c) : s(s), lit(lit), c(c) {}
+        inf_resolve_evaluated(solver& s, sat::literal lit, signed_constraint c) : s(s), lit(lit), c(c) {}
         std::ostream& display(std::ostream& out) const override {
             out << "Resolve upon " << lit << " with assignment:";
             for (pvar v : c->vars())
@@ -251,15 +251,13 @@ namespace polysat {
                 insert_vars(c);
             }
             SASSERT(!m_vars.contains(v));
-            // TODO: apply conflict resolution plugins here too?
         }
         else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             VERIFY(s.m_viable.resolve(v, *this));
         }
-
-        // NSB TODO - disabled: revert_decision(v);
         SASSERT(!empty());
+        revert_pvar(v);  // at this point, v is not assigned
     }
 
     bool conflict::contains(sat::literal lit) const {
@@ -368,7 +366,7 @@ namespace polysat {
         logger().log(inf_resolve_bool(lit, cl));
     }
 
-    void conflict::resolve_with_assignment(sat::literal lit) {
+    void conflict::resolve_evaluated(sat::literal lit) {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
@@ -400,10 +398,10 @@ namespace polysat {
         SASSERT(!contains(lit));
         SASSERT(!contains(~lit));
 
-        logger().log(inf_resolve_with_assignment(s, lit, c));
+        logger().log(inf_resolve_evaluated(s, lit, c));
     }
 
-    void conflict::revert_decision(pvar v) {
+    void conflict::revert_pvar(pvar v) {
         m_resolver->infer_lemmas_for_value(v, *this);
     }
 
@@ -422,7 +420,7 @@ namespace polysat {
         }
         logger().log(inf_resolve_value(s, v));
         
-        revert_decision(v);
+        revert_pvar(v);
     }
 
     clause_ref conflict::build_lemma() {

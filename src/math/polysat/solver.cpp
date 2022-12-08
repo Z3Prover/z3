@@ -770,7 +770,7 @@ namespace polysat {
                     continue;
                 }
                 if (j.is_decision()) {
-                    // NSB TODO - disabled m_conflict.revert_decision(v);
+                    m_conflict.revert_pvar(v);
                     revert_decision(v);
                     return;
                 }
@@ -806,7 +806,7 @@ namespace polysat {
                     //       do we really want to resolve these eagerly?
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
                 else
-                    m_conflict.resolve_with_assignment(lit);
+                    m_conflict.resolve_evaluated(lit);
             }
         }
         LOG("End of resolve_conflict loop");
@@ -929,6 +929,11 @@ namespace polysat {
             default:
                 UNREACHABLE();
             }
+            if (is_conflict()) {
+                // TODO: the remainder of the narrow_queue as well as the lemmas are forgotten.
+                //       should we just insert them into the new conflict to carry them along?
+                return;
+            }
         }
 
         for (clause* lemma : lemmas) {
@@ -943,7 +948,6 @@ namespace polysat {
                 // TODO: we could also insert the remaining lemmas into the conflict and keep them for later.
                 return;
             }
-            SASSERT(!is_conflict());
         }
 
         if (best_score.branching_factor() > 1) {
