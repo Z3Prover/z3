@@ -359,28 +359,32 @@ bool EGaussian::full_init(bool& created) {
 }
 
 std::ostream& PackedMatrix::display_dense(std::ostream& out) const {
-    for (unsigned rowIdx = 0; rowIdx < num_rows(); rowIdx++) {
-        const PackedRow& row = (*this)[rowIdx];
-        for(int i = 0; i < row.get_size() * 64; i++) 
+    unsigned rowIdx = 0;
+    for (auto const& row : *this) {
+        for (int i = 0; i < row.get_size() * 64; i++) 
             out << (int)row[i];
         out << " -- rhs: " << row.rhs() << " -- row: " << rowIdx << "\n";
+        ++rowIdx;
     }
     return out;
 }
 
-std::ostream& PackedMatrix::display_sparse(std::ostream& out) const {
-    for (auto const& row : *this) {
+std::ostream& EGaussian::display(std::ostream& out) const {
+    for (auto const& row : m_mat) {
         bool first = true;
         for (int i = 0; i < row.get_size() * 64; ++i) {
             if (row[i]) {
+                if (first)
+                    out << "(x";
+                int v = m_column_to_var[i];
                 if (first && !row.rhs())
-                    out << -i-1 << " ";
-                else
-                    out << i+1 << " ";
+                    v = -v;
+                out << " " << v;
                 first = false;
             }
         }
-        out << "\n";
+        if (!first)
+            out << ")";
     }
     return out;
 }

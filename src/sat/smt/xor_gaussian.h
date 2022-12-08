@@ -547,9 +547,7 @@ namespace xr {
         }
 
         std::ostream& display_dense(std::ostream& out) const;
-        
-        std::ostream& display_sparse(std::ostream& out) const;
-        
+                
     private:
     
         int64_t* mp = nullptr;
@@ -614,7 +612,7 @@ namespace xr {
             out << std::endl;
         }
 
-        std::ostream& display(std::ostream& out) const { return m_mat.display_sparse(out); }
+        std::ostream& display(std::ostream& out) const;
     
     private:
         xr::solver& m_solver;   // original sat solver
