@@ -1566,6 +1566,11 @@ namespace z3 {
         */
         expr substitute(expr_vector const& dst);
 
+        /**
+           \brief Apply function substitution by macro definitions.           
+        */
+        expr substitute(func_decl_vector const& funs, expr_vector const& bodies);
+
 
     class iterator {
             expr& e;
@@ -4055,6 +4060,22 @@ namespace z3 {
             _dst[i] = dst[i];
         }
         Z3_ast r = Z3_substitute_vars(ctx(), m_ast, dst.size(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    inline expr expr::substitute(func_decl_vector const& funs, expr_vector const& dst) {
+        array<Z3_ast> _dst(dst.size());
+        array<Z3_func_decl> _funs(funs.size());
+        if (dst.size() != funs.size()) {
+            Z3_THROW(exception("length of argument lists don't align"));
+            return expr(ctx(), nullptr);
+        }
+        for (unsigned i = 0; i < dst.size(); ++i) {
+            _dst[i] = dst[i];
+            _funs[i] = funs[i];
+        }
+        Z3_ast r = Z3_substitute_funs(ctx(), m_ast, dst.size(), _funs.ptr(), _dst.ptr());
         check_error();
         return expr(ctx(), r);
     }

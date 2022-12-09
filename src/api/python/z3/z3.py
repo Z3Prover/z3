@@ -8837,7 +8837,7 @@ def substitute_vars(t, *m):
     return _to_expr_ref(Z3_substitute_vars(t.ctx.ref(), t.as_ast(), num, _to), t.ctx)
 
 def substitute_funs(t, *m):
-    """Apply subistitution m on t, m is a list of pairs of a function and expression (from, to)
+    """Apply substitution m on t, m is a list of pairs of a function and expression (from, to)
     Every occurrence in to of the function from is replaced with the expression to.
     The expression to can have free variables, that refer to the arguments of from.
     For examples, see 
