@@ -629,7 +629,7 @@ namespace polysat {
             SASSERT(cl->size() == 2);
         }
 
-        // 8 * x + 3 == 0 is unsat
+        // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
         static void test_parity1() {
             scoped_solver s(__func__);
             auto x = s.var(s.add_var(8));
@@ -642,7 +642,7 @@ namespace polysat {
             s.expect_unsat();
         }
 
-        // 8 * u * x + 3 == 0 is unsat
+        // 8 * u * x + 3 == 0 or 8 * u * x + 5 == 0 is unsat
         static void test_parity1b() {
             scoped_solver s(__func__);
             auto u = s.var(s.add_var(8));
@@ -656,7 +656,7 @@ namespace polysat {
             s.expect_unsat();
         }
 
-        // 8 * x + 4 == 0 is unsat
+        // 8 * x + 2 == 0 or 8 * x + 4 == 0 is unsat
         static void test_parity2() {
             scoped_solver s(__func__);
             auto x = s.var(s.add_var(8));
@@ -667,7 +667,7 @@ namespace polysat {
             s.expect_unsat();
         }
 
-        // x * y + 4 == 0 & 16 divides y is unsat
+        // (x * y + 4 == 0 or x * y + 2 == 0) & 16 divides y is unsat
         static void test_parity3() {
             scoped_solver s(__func__);
             auto x = s.var(s.add_var(8));
@@ -678,6 +678,15 @@ namespace polysat {
             s.expect_unsat();
         }
 
+        static void test_parity4() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            s.add_eq(x * y + 2);
+            s.add_clause({ s.parity(y, 4), s.parity(y, 8) }, false);
+            s.check();
+            s.expect_unsat();
+        }
 
         /**
          * Check unsat of:
@@ -1635,7 +1644,8 @@ void tst_polysat() {
 #if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    test_polysat::test_parity1();
+    test_polysat::test_parity4();
+//    test_polysat::test_parity1();
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
