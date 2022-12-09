@@ -211,7 +211,7 @@ namespace polysat {
         dd::pdd_manager& sz2pdd(unsigned sz) const;
         dd::pdd_manager& var2pdd(pvar v) const;
 
-        assignment const& assignment() const { return m_search.assignment(); }
+        assignment_t const& assignment() const { return m_search.assignment(); }
 
         void push_level();
         void pop_levels(unsigned num_levels);
