@@ -73,6 +73,10 @@ namespace polysat {
             (void)m_saturation.perform(v, core);
         }
 
+        void infer_lemmas_for_value(pvar v, signed_constraint const& c, conflict& core) {
+            (void)m_saturation.perform(v, c, core);
+        }
+
         // Analyse current conflict core to extract additional lemmas
         void find_extra_lemmas(conflict& core) {
             m_free_variable_elimination.find_lemma(core);
@@ -381,10 +385,15 @@ namespace polysat {
 #endif
 
         if (!has_decision) {
+            for (pvar v : c->vars()) {
+                if (s.is_assigned(v) && s.get_level(v) <= lvl) {
+                    m_vars.insert(v);                   
+// TODO - figure out what to do with constraints from conflict lemma that disappear here.
+//                    if (s.m_bvars.is_false(lit))
+//                        m_resolver->infer_lemmas_for_value(v, ~c, *this);
+                }
+            }
             remove(c);
-            for (pvar v : c->vars())
-                if (s.is_assigned(v) && s.get_level(v) <= lvl)
-                    m_vars.insert(v);
         }
 
         SASSERT(!contains(lit));

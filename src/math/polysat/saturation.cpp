@@ -32,30 +32,35 @@ namespace polysat {
 
     saturation::saturation(solver& s) : s(s), m_lemma(s) {}
 
-    bool saturation::perform(pvar v, conflict& core) {
-        for (auto c : core) {
-            if (!c->is_ule())
-                continue;
-            if (c.is_currently_true(s))
-                continue;
-            auto i = inequality::from_ule(c);
-            if (try_mul_bounds(v, core, i))
-                return true;
-            if (try_parity(v, core, i))
-                return true;
-            if (try_factor_equality(v, core, i))
-                return true;
-            if (try_ugt_x(v, core, i))
-                return true;
-            if (try_ugt_y(v, core, i))
-                return true;
-            if (try_ugt_z(v, core, i))
-                return true;
-            if (try_y_l_ax_and_x_l_z(v, core, i))
-                return true;
-            if (try_tangent(v, core, i))
-                return true;
-        }
+    void saturation::perform(pvar v, conflict& core) {
+        for (auto c : core) 
+            if (perform(v, c, core))
+                return;        
+    }
+
+    bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
+        IF_VERBOSE(0, verbose_stream() << v << " " << c << " " << c.is_currently_true(s) << "\n");
+        if (!c->is_ule())
+            return false;
+        if (c.is_currently_true(s))
+            return false;
+        auto i = inequality::from_ule(c);
+        if (try_mul_bounds(v, core, i))
+            return true;
+        if (try_parity(v, core, i))
+            return true;
+        if (try_factor_equality(v, core, i))
+            return true;
+        if (try_ugt_x(v, core, i))
+            return true;
+        if (try_ugt_y(v, core, i))
+            return true;
+        if (try_ugt_z(v, core, i))
+            return true;
+        if (try_y_l_ax_and_x_l_z(v, core, i))
+            return true;
+        if (try_tangent(v, core, i))
+            return true;
         return false;
     }
 
@@ -65,7 +70,6 @@ namespace polysat {
         else
             return s.ule(lhs, rhs);
     }
-
 
     bool saturation::propagate(conflict& core, inequality const& crit, signed_constraint c) {
         if (is_forced_true(c))
@@ -635,7 +639,7 @@ namespace polysat {
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
 
-        // IF_VERBOSE(0, verbose_stream() << "try parity " << axb_l_y.as_signed_constraint() << "\n");
+        IF_VERBOSE(0, verbose_stream() << "try parity " << axb_l_y.as_signed_constraint() << "\n");
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
