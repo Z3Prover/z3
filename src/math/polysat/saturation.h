@@ -79,6 +79,10 @@ namespace polysat {
         bool is_AxB_l_Y(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
         bool verify_AxB_l_Y(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);
 
+        // c := Y ~ Ax + B
+        bool is_Y_l_AxB(pvar x, inequality const& c, pdd& y, pdd& a, pdd& b);
+        bool verify_Y_l_AxB(pvar x, inequality const& c, pdd const& y, pdd const& a, pdd& b);
+
         // c := Ax + B ~ Y, val(Y) = 0
         bool is_AxB_eq_0(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
         bool verify_AxB_eq_0(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);

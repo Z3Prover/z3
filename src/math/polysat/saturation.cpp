@@ -34,12 +34,13 @@ namespace polysat {
 
     void saturation::perform(pvar v, conflict& core) {
         for (auto c : core) 
-            if (perform(v, c, core))
-                return;        
+            if (perform(v, c, core)) {
+                IF_VERBOSE(0, verbose_stream() << m_rule << " v" << v << " " << c << "\n");
+                return;
+            }
     }
 
     bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
-        IF_VERBOSE(0, verbose_stream() << v << " " << c << " " << c.is_currently_true(s) << "\n");
         if (!c->is_ule())
             return false;
         if (c.is_currently_true(s))
@@ -222,6 +223,18 @@ namespace polysat {
     bool saturation::verify_AxB_l_Y(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
         return i.rhs() == y && i.lhs() == a * s.var(x) + b;
     }
+
+
+    bool saturation::is_Y_l_AxB(pvar x, inequality const& i, pdd& y, pdd& a, pdd& b) {
+        y = i.lhs();
+        pdd aa = a, bb = b;
+        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, aa, bb), aa == a && bb == b);        
+    }
+    
+    bool saturation::verify_Y_l_AxB(pvar x, inequality const& i, pdd const& y, pdd const& a, pdd& b) {
+        return i.lhs() == y && i.rhs() == a * s.var(x) + b;
+    }
+
 
     /**
      * Match [x] a*x + b <= y, val(y) = 0
@@ -561,7 +574,7 @@ namespace polysat {
             //
             // NSB review: should we handle cases where k_val >= 2^{K-1}, but exploit that x*y = 0 iff -x*y = 0?
             // 
-            IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y.as_signed_constraint() << " " << u_l_k.as_signed_constraint() << " \n");
+            // IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y.as_signed_constraint() << " " << u_l_k.as_signed_constraint() << " \n");
             rational bound = ceil(rational::power_of_two(m.power_of_2()) / k_val);
             if (prop2(d, s.uge(Y, bound)))
                 return true;
@@ -569,8 +582,8 @@ namespace polysat {
                 return true;                     
         }
 
-        IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y.as_signed_constraint() << " \n");
-        IF_VERBOSE(0, verbose_stream() << core << "\n"); 
+        // IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y.as_signed_constraint() << " \n");
+        // IF_VERBOSE(0, verbose_stream() << core << "\n"); 
         if (prop1(s.umul_ovfl(a, X)))
             return true;
         if (prop1(s.umul_ovfl(a, -X)))
@@ -638,8 +651,6 @@ namespace polysat {
      */
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
-
-        IF_VERBOSE(0, verbose_stream() << "try parity " << axb_l_y.as_signed_constraint() << "\n");
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
@@ -651,6 +662,8 @@ namespace polysat {
         if (a.is_max() && b.is_var())  // x == y, we propagate values in each direction and don't need a lemma
             return false;
         if (a.is_one() && (-b).is_var())  // y == x
+            return false;
+        if (a.is_one())
             return false;
         signed_constraint b_is_odd = s.odd(b);
         signed_constraint a_is_odd = s.odd(a);
@@ -783,10 +796,44 @@ namespace polysat {
      */
 
     bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
-        // search for abx+p pattern in a_l_b.lhs()
-        // search for ax + r = 0 equality in core (or in search but maybe not needed)
-        // replace abx by -rb in patterns on either a_l_b.lhs() or a_l_b.rhs() or both if available to form new implied
-        // literal wtihout occurrence of x
+        auto& m = s.var2pdd(x);       
+        unsigned N = m.power_of_2();
+        pdd y  = m.zero();
+        pdd a  = m.zero();
+        pdd b  = m.zero();
+        pdd y2 = m.zero();
+        pdd a2 = m.zero();
+        pdd b2 = m.zero();
+        pdd X = s.var(x);
+        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a, b, y);
+        bool is_y_l_axb = !is_axb_l_y && is_Y_l_AxB(x, a_l_b, y, a, b);
+
+        
+        if (!is_axb_l_y && !is_y_l_axb)
+            return false;
+
+        if (a.is_val())
+            return false;
+        
+        for (auto c : core) {
+            if (!c->is_ule())
+                continue;
+            auto i = inequality::from_ule(c);
+            if (i.is_strict())
+                continue;
+            if (!is_AxB_eq_0(x, i, a2, b2, y2))
+                continue;
+            if (a != a2) {
+                IF_VERBOSE(0, verbose_stream() << "misaligned coefficients " << a << " vs " << a2 << "\n");
+                continue; // punt on more general case for first iteration.
+            }
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(y2));
+            m_lemma.insert(~c);
+            IF_VERBOSE(0, verbose_stream() << "factor equality " << a_l_b.as_signed_constraint() << "\n");
+            if (propagate(core, a_l_b, is_axb_l_y ? s.ule(b - b2, y) : s.ule(y, b - b2)))
+                return true;
+        }
         return false;
     }
     /*
