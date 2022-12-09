@@ -110,8 +110,6 @@ public:
         try {
             if (!in->proofs_enabled() || m_simp->supports_proofs())
                 m_simp->reduce();
-            if (m.inc())
-                advance_qhead();
         }
         catch (rewriter_exception& ex) {
             throw tactic_exception(ex.msg());
