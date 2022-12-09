@@ -278,6 +278,7 @@ namespace polysat {
             sc.narrow(*this, false);
         } else {
             // constraint state: active but unassigned (bvalue undef, but pwatch is set; e.g., new constraints generated for lemmas)
+#if 1
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
                 // Wait for the remaining variable to be assigned
@@ -293,6 +294,19 @@ namespace polysat {
                 SASSERT(sc.is_currently_false(*this));
                 assign_eval(~sc.blit());
             }
+#else
+            signed_constraint sc(c, true);
+            switch (sc.eval(*this)) {
+                case l_true:
+                    assign_eval(sc.blit());
+                    break;
+                case l_false:
+                    assign_eval(~sc.blit());
+                    break;
+                default:
+                    break;
+            }
+#endif
         }
         return false;
     }
@@ -559,6 +573,22 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
+#if 1
+        // Simple hack to try deciding the boolean skeleton first
+        if (!can_bdecide()) {
+            // enqueue all not-yet-true clauses
+            for (auto const& cls : m_constraints.clauses()) {
+                for (auto const& cl : cls) {
+                    bool is_true = any_of(*cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
+                    if (is_true)
+                        continue;
+                    size_t undefs = count_if(*cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+                    if (undefs >= 2)
+                        m_lemmas.push_back(cl.get());
+                }
+            }
+        }
+#endif
         if (can_bdecide())
             bdecide();
         else

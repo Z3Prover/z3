@@ -632,8 +632,6 @@ namespace polysat {
         // 8 * x + 3 == 0 is unsat
         static void test_parity1() {
             scoped_solver s(__func__);
-            simplify_clause simp(s);
-            clause_builder cb(s);
             auto x = s.var(s.add_var(8));
             auto y = s.var(s.add_var(8));
             auto z = s.var(s.add_var(8));
@@ -644,11 +642,23 @@ namespace polysat {
             s.expect_unsat();
         }
 
+        // 8 * u * x + 3 == 0 is unsat
+        static void test_parity1b() {
+            scoped_solver s(__func__);
+            auto u = s.var(s.add_var(8));
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            auto z = s.var(s.add_var(8));
+            s.add_clause({s.eq(u * x * y + z), s.eq(u * x * y + 5)}, false);
+            s.add_eq(y, 8);
+            s.add_eq(z, 3);
+            s.check();
+            s.expect_unsat();
+        }
+
         // 8 * x + 4 == 0 is unsat
         static void test_parity2() {
             scoped_solver s(__func__);
-            simplify_clause simp(s);
-            clause_builder cb(s);
             auto x = s.var(s.add_var(8));
             auto y = s.var(s.add_var(8));
             s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
@@ -660,8 +670,6 @@ namespace polysat {
         // x * y + 4 == 0 & 16 divides y is unsat
         static void test_parity3() {
             scoped_solver s(__func__);
-            simplify_clause simp(s);
-            clause_builder cb(s);
             auto x = s.var(s.add_var(8));
             auto y = s.var(s.add_var(8));
             s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
@@ -1628,25 +1636,10 @@ void tst_polysat() {
     collect_test_records = false;
     test_max_conflicts = 50;
     test_polysat::test_parity1();
-//    test_polysat::test_parity2();
-//  test_polysat::test_parity3();
-    return;
-    // test_polysat::test_band5();
-    // test_polysat::test_band5_clause();
-    // test_polysat::test_ineq_axiom1(32, 1);
-    // test_polysat::test_pop_conflict();
-    // test_polysat::test_l2();
-    // test_polysat::test_ineq1();
-    test_polysat::test_ineq2();
-    // test_polysat::test_quot_rem();
-    // test_polysat::test_ineq_non_axiom1(32, 3);
-    // test_polysat::test_monot_bounds_full();
-    // test_polysat::test_band2();
-    // test_polysat::test_quot_rem_incomplete();
-    // test_polysat::test_monot();
-    // test_polysat::test_fixed_point_arith_div_mul_inverse();
-    // test_polysat::test_monot_bounds_simple(8);
-    // test_polysat::test_ineq_non_axiom4(32, 7);
+    // test_polysat::test_parity1b();
+    // test_polysat::test_parity2();
+    // test_polysat::test_parity3();
+    // test_polysat::test_ineq2();
     return;
 #endif
 
@@ -1661,6 +1654,11 @@ void tst_polysat() {
         set_default_debug_action(debug_action::throw_exception);
         set_log_enabled(false);
     }
+
+    RUN(test_polysat::test_parity1());
+    RUN(test_polysat::test_parity1b());
+    RUN(test_polysat::test_parity2());
+    RUN(test_polysat::test_parity3());
 
     RUN(test_polysat::test_clause_simplify1());
 
