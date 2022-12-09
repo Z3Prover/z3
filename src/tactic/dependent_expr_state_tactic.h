@@ -49,7 +49,7 @@ public:
         m(m),
         m_params(p),
         m_factory(f),
-        m_dep(m, m.mk_true(), nullptr, nullptr)
+        m_dep(m, nullptr, nullptr, nullptr)
     {}
 
     /**
@@ -115,13 +115,13 @@ public:
         }
         catch (rewriter_exception& ex) {
             throw tactic_exception(ex.msg());
-        }       
+        }
         m_goal->elim_true();
         m_goal->elim_redundancies();
         m_goal->inc_depth();
         if (in->models_enabled())
             in->add(m_model_trail->get_model_converter().get());
-        result.push_back(in.get());   
+        result.push_back(in.get());
         cleanup();
     }
 
@@ -130,6 +130,8 @@ public:
             m_simp->collect_statistics(m_st);
         m_simp = nullptr;
         m_model_trail = nullptr;
+        m_goal = nullptr;
+        m_dep = dependent_expr(m, nullptr, nullptr, nullptr);
     }
 
     void collect_statistics(statistics & st) const override {
