@@ -1463,7 +1463,7 @@ void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
     if (is_small(a) && sz <= 64) {
         uint64_t v = ~get_uint64(a);
         unsigned zero_out = 64 - sz;
-        v = (v >> zero_out) << zero_out;
+        v = (v << zero_out) >> zero_out;
         set(c, v);
     }
     else {
