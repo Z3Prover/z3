@@ -574,7 +574,7 @@ namespace polysat {
             //
             // NSB review: should we handle cases where k_val >= 2^{K-1}, but exploit that x*y = 0 iff -x*y = 0?
             // 
-            // IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y.as_signed_constraint() << " " << u_l_k.as_signed_constraint() << " \n");
+            // IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y << " " << u_l_k<< " \n");
             rational bound = ceil(rational::power_of_two(m.power_of_2()) / k_val);
             if (prop2(d, s.uge(Y, bound)))
                 return true;
@@ -582,7 +582,7 @@ namespace polysat {
                 return true;                     
         }
 
-        // IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y.as_signed_constraint() << " \n");
+        // IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y << " \n");
         // IF_VERBOSE(0, verbose_stream() << core << "\n"); 
         if (prop1(s.umul_ovfl(a, X)))
             return true;
@@ -798,21 +798,20 @@ namespace polysat {
     bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
         auto& m = s.var2pdd(x);       
         unsigned N = m.power_of_2();
-        pdd y  = m.zero();
-        pdd a  = m.zero();
-        pdd b  = m.zero();
-        pdd y2 = m.zero();
-        pdd a2 = m.zero();
-        pdd b2 = m.zero();
-        pdd X = s.var(x);
-        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a, b, y);
-        bool is_y_l_axb = !is_axb_l_y && is_Y_l_AxB(x, a_l_b, y, a, b);
-
+        pdd y1  = m.zero();
+        pdd a1  = m.zero();
+        pdd b1  = m.zero();
+        pdd a2 = a1, b2 = b1, y2 = y1, a3 = a2, b3 = b2, y3 = y2;
+        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a1, b1, y1);
+        bool is_y_l_axb = is_Y_l_AxB(x, a_l_b, y2, a2, b2);
         
+        if (!a_l_b.is_strict() && a_l_b.rhs().is_zero())
+            return false;
+
         if (!is_axb_l_y && !is_y_l_axb)
             return false;
 
-        if (a.is_val())
+        if (a1.is_val() && a2.is_val())
             return false;
         
         for (auto c : core) {
@@ -821,17 +820,32 @@ namespace polysat {
             auto i = inequality::from_ule(c);
             if (i.is_strict())
                 continue;
-            if (!is_AxB_eq_0(x, i, a2, b2, y2))
+            if (!is_AxB_eq_0(x, i, a3, b3, y3))
                 continue;
-            if (a != a2) {
-                IF_VERBOSE(0, verbose_stream() << "misaligned coefficients " << a << " vs " << a2 << "\n");
-                continue; // punt on more general case for first iteration.
+            if (c == a_l_b.as_signed_constraint())
+                continue;
+            pdd lhs = i.lhs();
+            pdd rhs = i.rhs();
+            bool change = false;
+            
+            if (is_axb_l_y && a1 == a3) {
+                change = true;
+                lhs = b3 - b1;
             }
+            if (is_y_l_axb && a2 == a3) {
+                change = true;
+                rhs = b3 - b2;
+            }
+            if (!change) {
+                IF_VERBOSE(0, verbose_stream() << "missed factor equality " << c << " " << a_l_b << "\n");
+                continue;
+            }
+            signed_constraint conseq = i.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
             m_lemma.reset();
-            m_lemma.insert(~s.eq(y2));
+            m_lemma.insert(~s.eq(y3));
             m_lemma.insert(~c);
-            IF_VERBOSE(0, verbose_stream() << "factor equality " << a_l_b.as_signed_constraint() << "\n");
-            if (propagate(core, a_l_b, is_axb_l_y ? s.ule(b - b2, y) : s.ule(y, b - b2)))
+            IF_VERBOSE(0, verbose_stream() << "factor equality " << a_l_b << "\n");
+            if (propagate(core, a_l_b, conseq))
                 return true;
         }
         return false;

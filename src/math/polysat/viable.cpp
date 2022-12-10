@@ -707,6 +707,8 @@ namespace polysat {
                 n = n1;
             }
 
+            verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
+
             if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
                 auto const& next_lo = n->interval.lo();
@@ -726,6 +728,7 @@ namespace polysat {
         while (e != first);
 
         SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
+
         core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;
