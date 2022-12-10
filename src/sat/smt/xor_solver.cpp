@@ -127,7 +127,7 @@ namespace xr {
         }
     }
 
-    void solver::asserted(sat::literal l) {        
+    void solver::asserted(literal l) {        
         TRACE("xor", tout << "asserted: " << l << "\n";);
         force_push();
         m_prop_queue.push_back(l);
@@ -699,7 +699,7 @@ namespace xr {
             while (!m_interesting.empty()) {
     
                 // Pop and check if it can be XOR-ed together
-                const unsigned v = m_interesting.back();
+                bool_var v = m_interesting.back();
                 m_interesting.pop_back();
                 if (m_occ_cnt[v] != 2)
                     continue;
@@ -707,7 +707,7 @@ namespace xr {
                 unsigned indexes[2];
                 unsigned at = 0;
                 unsigned_vector& ws = occurs[v];
-                for (unsigned i : ws) 
+                for (bool_var i : ws) 
                     if (!xors[i].empty()) 
                         indexes[at++] = i;
                 SASSERT(at == 2);

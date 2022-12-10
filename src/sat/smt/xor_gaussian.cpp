@@ -69,8 +69,8 @@ void PackedRow::get_reason(literal_vector& antecedents, const unsigned_vector& c
             SASSERT((*this)[col] == 1);
             unsigned var = column_to_var[col];
             if (var == prop.var()) {
-                antecedents.push_back(prop); 
-                std::swap(antecedents[0], antecedents.back());
+                // In Z3 we should not have the antecedents in the justification
+                //antecedents.push_back(prop); 
             }
             else 
                 antecedents.push_back(literal(var, !tmp_col2[col]));
@@ -373,7 +373,7 @@ std::ostream& EGaussian::display(std::ostream& out) const {
     if (m_mat.num_rows() == 0)
         return out;
     for (auto const& row : m_mat) {
-        bool first = true;
+        bool first = true; 
         for (int i = 0; i < row.get_size() * 64; ++i) {
             if (row[i]) {
                 if (first)
