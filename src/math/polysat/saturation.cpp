@@ -60,7 +60,7 @@ namespace polysat {
             return true;
         if (try_y_l_ax_and_x_l_z(v, core, i))
             return true;
-        if (try_tangent(v, core, i))
+        if (false && try_tangent(v, core, i))
             return true;
         return false;
     }

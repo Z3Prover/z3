@@ -707,7 +707,7 @@ namespace polysat {
                 n = n1;
             }
 
-            verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
+            // verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
 
             if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
