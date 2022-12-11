@@ -34,7 +34,7 @@ namespace euf {
     public:
         basic_extract_eq(ast_manager& m) : m(m) {}
 
-        virtual void set_allow_booleans(bool f) {
+        void set_allow_booleans(bool f) override {
             m_allow_bool = f;
         }
 
@@ -74,7 +74,7 @@ namespace euf {
                 eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(m.mk_false(), m), d));
         }
 
-        void updt_params(params_ref const& p) {
+        void updt_params(params_ref const& p) override {
             tactic_params tp(p);
             m_ite_solver = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
         }
@@ -263,7 +263,7 @@ namespace euf {
         }
 
 
-        void updt_params(params_ref const& p) {
+        void updt_params(params_ref const& p) override {
             tactic_params tp(p);
             m_enabled = p.get_bool("theory_solver", tp.solve_eqs_ite_solver());
         }

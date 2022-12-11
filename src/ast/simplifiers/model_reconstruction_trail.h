@@ -49,7 +49,7 @@ class model_reconstruction_trail {
         entry(ast_manager& m, func_decl* h) : m_decl(h, m), m_def(m), m_dep(m) {}
 
         entry(ast_manager& m, func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& rem) :
-            m_decl(f, m), m_def(def, m), m_removed(rem), m_dep(dep, m) {}
+            m_removed(rem), m_decl(f, m), m_def(def, m), m_dep(dep, m) {}
 
         bool is_loose() const { return !m_removed.empty(); }
 
