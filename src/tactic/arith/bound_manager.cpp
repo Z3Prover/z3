@@ -262,13 +262,12 @@ void bound_manager::reset() {
 }
 
 bool bound_manager::inconsistent() const {
-    for (auto const& kv : m_lowers) {
-        limit const& lim1 = kv.m_value;
+    for (auto const& [k,v] : m_lowers) {
+        limit const& lim1 = v;
         limit lim2;        
-        if (m_uppers.find(kv.m_key, lim2)) {
-            if (lim1.first > lim2.first) {
-                return true;
-            }
+        if (m_uppers.find(k, lim2)) {
+            if (lim1.first > lim2.first)
+                return true;            
             if (lim1.first == lim2.first &&
                 !lim1.second && lim2.second) {
                 return true;
