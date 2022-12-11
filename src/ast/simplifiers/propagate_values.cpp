@@ -115,5 +115,5 @@ void propagate_values::updt_params(params_ref const& p) {
 
 void propagate_values::collect_param_descrs(param_descrs& r) {
     th_rewriter::get_param_descrs(r);
-    r.insert("max_rounds", CPK_UINT, "(default: 4) maximum number of rounds.");
+    r.insert("max_rounds", CPK_UINT, "maximum number of rounds.", "4");
 }

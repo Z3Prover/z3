@@ -314,19 +314,19 @@ void param_descrs::display_markdown(std::ostream & out, bool smt2_style, bool in
 }
 
 void insert_max_memory(param_descrs & r) {
-    r.insert("max_memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.");
+    r.insert("max_memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.", "4294967295");
 }
 
 void insert_max_steps(param_descrs & r) {
-    r.insert("max_steps", CPK_UINT, "(default: infty) maximum number of steps.");
+    r.insert("max_steps", CPK_UINT, "(default: infty) maximum number of steps.", "4294967295");
 }
 
 void insert_produce_models(param_descrs & r) {
-    r.insert("produce_models", CPK_BOOL, "(default: false) model generation.");
+    r.insert("produce_models", CPK_BOOL, "model generation.", "false");
 }
 
 void insert_produce_proofs(param_descrs & r) {
-    r.insert("produce_proofs", CPK_BOOL, "(default: false) proof generation.");
+    r.insert("produce_proofs", CPK_BOOL, "proof generation.", "false");
 }
 
 void insert_timeout(param_descrs & r) {

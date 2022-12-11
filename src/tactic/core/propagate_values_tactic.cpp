@@ -230,7 +230,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
-        r.insert("max_rounds", CPK_UINT, "(default: 4) maximum number of rounds.");
+        r.insert("max_rounds", CPK_UINT, "maximum number of rounds.", "4");
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

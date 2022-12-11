@@ -179,7 +179,7 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
-        r.insert("max_inflation", CPK_UINT, "(default: infinity) multiplicative factor of initial term size.");
+        r.insert("max_inflation", CPK_UINT, "(default: infinity) multiplicative factor of initial term size.", "4294967295");
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

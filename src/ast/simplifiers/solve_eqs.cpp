@@ -270,10 +270,10 @@ namespace euf {
     }
 
     void solve_eqs::collect_param_descrs(param_descrs& r) {
-        r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
-        r.insert("theory_solver", CPK_BOOL, "(default: true) use theory solvers.");
-        r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
-        r.insert("context_solve", CPK_BOOL, "(default: false) solve equalities under disjunctions.");
+        r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.", "4294967295");
+        r.insert("theory_solver", CPK_BOOL, "theory solvers.", "true");
+        r.insert("ite_solver", CPK_BOOL, "use if-then-else solver.", "true");
+        r.insert("context_solve", CPK_BOOL, "solve equalities under disjunctions.", "false");
     }
 
     void solve_eqs::collect_statistics(statistics& st) const {
