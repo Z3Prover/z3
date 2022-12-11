@@ -11,7 +11,7 @@ Author:
 
 Tactic Documentation:
 
-## Tactic car2bv
+## Tactic card2bv
 
 ### Short Description
 

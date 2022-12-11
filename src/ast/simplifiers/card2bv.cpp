@@ -55,7 +55,7 @@ void card2bv::collect_statistics(statistics& st) const {
 }
 
 void card2bv::collect_param_descrs(param_descrs& r) {
-    r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints for solver");
+    r.insert("keep_cardinality_constraints", CPK_BOOL, "retain cardinality constraints for solver", "true");
     pb2bv_rewriter rw(m, m_params);
     rw.collect_param_descrs(r);
 }
