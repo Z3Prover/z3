@@ -108,7 +108,7 @@ void elim_unconstrained::eliminate() {
         else
             m_created_compound = true;
 
-        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(n.m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
+        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(get_node(v).m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
 
         SASSERT(!side_cond && "not implemented to add side conditions\n");
     }
@@ -264,9 +264,9 @@ void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
         if (f == g)
             continue;
         old_fmls.push_back(m_fmls[i]);
-        m_fmls.update(i, dependent_expr(m, g, nullptr, d));
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
         TRACE("elim_unconstrained", tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
+        m_fmls.update(i, dependent_expr(m, g, nullptr, d));
     }
 }
 
