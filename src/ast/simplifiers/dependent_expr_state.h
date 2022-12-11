@@ -116,20 +116,17 @@ protected:
     unsigned qtail() const { return m_fmls.qtail(); }
     struct iterator {
         dependent_expr_simplifier& s;
-        unsigned m_index = 0;
-        bool at_end = false;
-        unsigned index() const { return at_end ? s.qtail() : std::min(m_index, s.qtail()); }
-        iterator(dependent_expr_simplifier& s, unsigned i) : s(s), m_index(i), at_end(i == s.qtail()) {}
-        bool operator==(iterator const& other) const { return index() == other.index(); }
-        bool operator!=(iterator const& other) const { return !(*this == other); }
-        iterator& operator++() { if (!s.m.inc() || s.m_fmls.inconsistent()) at_end = true; else ++m_index; return *this; }
+        unsigned m_index, m_end;
+        iterator(dependent_expr_simplifier& s, unsigned i, unsigned end) : s(s), m_index(i), m_end(end) {}
+        bool operator!=(iterator const& other) const { return m_index != other.m_index; }
+        iterator& operator++() { if (!s.m.inc() || s.m_fmls.inconsistent()) m_index = m_end; else ++m_index; return *this; }
         unsigned operator*() const { return m_index; }
     };
 
     struct index_set {
         dependent_expr_simplifier& s;
-        iterator begin() { return iterator(s, s.qhead()); }
-        iterator end() { return iterator(s, s.qtail()); }
+        iterator begin() { return iterator(s, s.qhead(), s.qtail()); }
+        iterator end() { return iterator(s, s.qtail(), s.qtail()); }
         index_set(dependent_expr_simplifier& s) : s(s) {}
     };
 
