@@ -41,8 +41,6 @@ private:
 public:
     generic_model_converter(ast_manager & m, char const* orig) : m(m), m_orig(orig) {}
     
-    ~generic_model_converter() override;
-    
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
     void hide(func_decl * f) { m_entries.push_back(entry(f, nullptr, m, HIDE)); }

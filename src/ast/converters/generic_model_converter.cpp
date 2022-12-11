@@ -28,11 +28,6 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
 
-
-generic_model_converter::~generic_model_converter() {
-}
-
-
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);
     VERIFY(d->get_range() == e->get_sort());
