@@ -119,14 +119,14 @@ protected:
         unsigned m_index, m_end;
         iterator(dependent_expr_simplifier& s, unsigned i, unsigned end) : s(s), m_index(i), m_end(end) {}
         bool operator!=(iterator const& other) const { return m_index != other.m_index; }
-        iterator& operator++() { if (!s.m.inc() || s.m_fmls.inconsistent() || m_index > s.qtail()) m_index = m_end; else ++m_index; return *this; }
+        iterator& operator++() { if (!s.m.inc() || s.m_fmls.inconsistent() || m_index >= s.qtail()) m_index = m_end; else ++m_index; return *this; }
         unsigned operator*() const { return m_index; }
     };
 
     struct index_set {
         dependent_expr_simplifier& s;
-        iterator begin() { return iterator(s, s.qhead()); }
-        iterator end() { return iterator(s, s.qtail()); }
+        iterator begin() { return iterator(s, s.qhead(), s.qtail()); }
+        iterator end() { return iterator(s, s.qtail(), s.qtail()); }
         index_set(dependent_expr_simplifier& s) : s(s) {}
     };
 
