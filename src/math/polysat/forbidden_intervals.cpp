@@ -180,7 +180,7 @@ namespace polysat {
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());
 
-        // a*v <= 0, a odd
+        // a*v + b <= 0, a odd
         if (match_zero(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
         // a*v + b > 0, a odd
@@ -385,6 +385,9 @@ namespace polysat {
      * a*v <= 0, a odd
      * forbidden interval for v is [1,0[
      *
+     * a*v + b <= 0, a odd
+     * forbidden interval for v is [n+1,n[ where n = -b * a^-1
+     *
      * TODO: extend to
      * 2^k*a*v <= 0, a odd
      * (using periodic intervals?)
@@ -395,12 +398,15 @@ namespace polysat {
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
-        if (c.is_positive() && a1.is_odd() && b1.is_zero() && a2.is_zero() && b2.is_zero()) {
+        if (c.is_positive() && a1.is_odd() && a2.is_zero() && b2.is_zero()) {
             auto& m = e1.manager();
-            rational lo_val(1);
-            auto lo = m.one();
-            rational hi_val(0);
-            auto hi = m.zero();
+            rational const& mod_value = m.two_to_N();
+            rational a1_inv;
+            VERIFY(a1.mult_inverse(m.power_of_2(), a1_inv));
+            rational hi_val = mod(-b1.val() * a1_inv, mod_value);
+            pdd hi = -e1 * a1_inv;
+            rational lo_val = mod(hi_val + 1, mod_value);
+            pdd lo = hi + 1;
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
             if (b1 != e1)
