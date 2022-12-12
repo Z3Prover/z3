@@ -1510,6 +1510,17 @@ namespace polysat {
             s.expect_sat({{a, 5}});
         }
 
+        static void test_bench6_viable() {
+            scoped_solver s(__func__);
+            rational coeff("12737129816104781496592808350955669863859698313220462044340334240870444260393");
+            auto a = s.var(s.add_var(256));
+            auto b = s.var(s.add_var(256));
+            s.add_eq(4 * b - coeff * a);
+            s.add_eq(b - 1);
+            // s.add_eq(a - 100);
+            s.check();
+        }
+
     };  // class test_polysat
 
 
@@ -1648,10 +1659,11 @@ void tst_polysat() {
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
-    test_polysat::test_parity4();
+    // test_polysat::test_parity4();
     // test_polysat::test_ineq2();
     // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop
     // test_polysat::test_band1();
+    test_polysat::test_bench6_viable();
     return;
 #endif
 
