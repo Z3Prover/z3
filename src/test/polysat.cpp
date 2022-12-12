@@ -712,7 +712,7 @@ namespace polysat {
          * n*q1 = a - b                         3*1 == 3 - 0
          * n*q2 + r2 = c*a - c*b                3*0 + 1 == 11*3 - 11*0 (= 33 = 1 mod 32)
          * n > r2 > 0                           3 > 1 > 0
-         * It is actually satisfiable.
+         * It is actually satisfiable, e.g.: { {n, 3}, {q1, 1}, {a, 3}, {b, 0}, {c, 11}, {q2, 0}, {r2, 1} } (not a unique solution)
          */
         static void test_ineq2() {
             scoped_solver s(__func__);
@@ -728,7 +728,7 @@ namespace polysat {
             s.add_ult(r2, n);
             s.add_diseq(r2);
             s.check();
-            s.expect_sat({ {n, 3}, {q1, 1}, {a, 3}, {b, 0}, {c, 11}, {q2, 0}, {r2, 1} });
+            s.expect_sat();
         }
 
         /**
@@ -1644,12 +1644,12 @@ void tst_polysat() {
 #if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    test_polysat::test_parity4();
-//    test_polysat::test_parity1();
+    // test_polysat::test_parity1();
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
-    // test_polysat::test_ineq2();
+    // test_polysat::test_parity4();
+    test_polysat::test_ineq2();
     return;
 #endif
 
