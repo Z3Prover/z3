@@ -85,42 +85,100 @@ namespace polysat {
         }
     }
 
-    // find literals that are not propagated to false
-    // if clause is unsat then assign arbitrary
-    // solver handles unsat clauses by creating a conflict.
-    // solver also can propagate, but need to check that it does indeed.
+    /**
+     * Move literals to be watched to the front of the clause.
+     */
+    void constraint_manager::normalize_watch(clause& cl) {
+        SASSERT(cl.size() > 1);
+
+        // A literal may be watched if there is no unwatched literal at higher level,
+        // where true and unassigned literals are considered at infinite level.
+        // We prefer true literals to unassigned literals.
+        auto get_watch_level = [&](sat::literal lit) -> unsigned {
+            switch (s.m_bvars.value(lit)) {
+                case l_false:
+                    return s.m_bvars.level(lit);
+                case l_true:
+                    return UINT_MAX;
+                case l_undef:
+                    return UINT_MAX - 1;
+            }
+            UNREACHABLE();
+            return 0;
+        };
+
+        unsigned lvl0 = get_watch_level(cl[0]);
+        unsigned lvl1 = get_watch_level(cl[1]);
+        if (lvl0 < lvl1) {
+            std::swap(lvl0, lvl1);
+            std::swap(cl[0], cl[1]);
+        }
+        SASSERT(lvl0 >= lvl1);
+        for (unsigned i = 2; i < cl.size(); ++i) {
+            sat::literal const lit = cl[i];
+            unsigned const lvl = get_watch_level(lit);
+            if (lvl > lvl0) {
+                cl[i] = cl[1];
+                cl[1] = cl[0];
+                lvl1 = lvl0;
+                cl[0] = lit;
+                lvl0 = lvl;
+            }
+            else if (lvl > lvl1) {
+                cl[i] = cl[1];
+                cl[1] = lit;
+                lvl1 = lvl;
+            }
+            SASSERT_EQ(lvl0, get_watch_level(cl[0]));
+            SASSERT_EQ(lvl1, get_watch_level(cl[1]));
+            SASSERT(lvl0 >= lvl1 && lvl1 >= get_watch_level(cl[i]));
+        }
+        SASSERT(all_of(cl, [&](auto lit) { return get_watch_level(lit) <= get_watch_level(cl[0]); }));
+        SASSERT(std::all_of(cl.begin() + 1, cl.end(), [&](auto lit) { return get_watch_level(lit) <= get_watch_level(cl[1]); }));
+    }
+
     void constraint_manager::watch(clause& cl, bool value_propagate) {
         if (cl.empty())
             return;
 
-        bool first = true;
-        for (unsigned i = 0; i < cl.size(); ++i) {
-            if (s.m_bvars.is_false(cl[i]))
-                continue;
-            signed_constraint sc = s.lit2cnstr(cl[i]);
-            if (value_propagate && sc.is_currently_false(s)) {
-                if (s.m_bvars.is_true(cl[i])) {
-                    s.set_conflict(sc);
-                    return;
+        if (value_propagate) {
+#if 0  // this should be already done with insert_eval when constructing the clause (maybe not for non-redundant clauses?)
+            for (sat::literal lit : cl) {
+                if (s.m_bvars.is_false(lit))
+                    continue;
+                signed_constraint sc = s.lit2cnstr(lit);
+                if (sc.is_currently_false(s)) {
+                    if (s.m_bvars.is_true(lit)) {
+                        s.set_conflict(sc);
+                        return;
+                    }
+                    s.assign_eval(~lit);
                 }
-                s.assign_eval(~cl[i]);
-                continue;
             }
-
-            s.m_bvars.watch(cl[i]).push_back(&cl);
-            std::swap(cl[!first], cl[i]);
-            if (!first)
-                return;
-            first = false;
+#endif
         }
 
-        if (first)
-            s.m_bvars.watch(cl[0]).push_back(&cl);
-        if (cl.size() > 1)
-            s.m_bvars.watch(cl[1]).push_back(&cl);
+        if (cl.size() == 1) {
+            if (s.m_bvars.is_false(cl[0]))
+                s.set_conflict(cl);
+            else if (!s.m_bvars.is_assigned(cl[0]))
+                s.assign_propagate(cl[0], cl);
+            return;
+        }
+
+        normalize_watch(cl);
+
+        s.m_bvars.watch(cl[0]).push_back(&cl);
+        s.m_bvars.watch(cl[1]).push_back(&cl);
+
         if (s.m_bvars.is_true(cl[0]))
             return;
-        if (first)
+        SASSERT(!s.m_bvars.is_true(cl[1]));
+        if (!s.m_bvars.is_false(cl[1])) {
+            SASSERT(!s.m_bvars.is_assigned(cl[0]) && !s.m_bvars.is_assigned(cl[1]));
+            return;
+        }
+        if (s.m_bvars.is_false(cl[0]))
             s.set_conflict(cl);
         else
             s.assign_propagate(cl[0], cl);

@@ -74,6 +74,7 @@ namespace polysat {
         void gc_constraints();
         void gc_clauses();
 
+        void normalize_watch(clause& cl);
         void watch(clause& cl, bool value_propagate);
         void unwatch(clause& cl);
 
