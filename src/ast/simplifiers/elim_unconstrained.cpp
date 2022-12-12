@@ -199,6 +199,8 @@ void elim_unconstrained::freeze(expr* t) {
         return;
     if (m_nodes.size() <= t->get_id())
         return;
+    if (m_nodes.size() <= root(t))
+        return;
     node& n = get_node(t);
     if (!n.m_term)
         return;
