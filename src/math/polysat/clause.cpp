@@ -28,20 +28,6 @@ namespace polysat {
         return alloc(clause, std::move(literals));
     }
 
-    bool clause::is_always_false(solver& s) const {
-        return all_of(m_literals, [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_always_false();
-        });
-    }
-
-    bool clause::is_currently_false(solver& s) const {
-        return all_of(m_literals, [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_currently_false(s);
-        });
-    }
-
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
         for (auto lit : *this) {

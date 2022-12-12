@@ -68,10 +68,6 @@ namespace polysat {
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
 
-        // evaluates under pvar assignment
-        bool is_always_false(solver& s) const;
-        bool is_currently_false(solver& s) const;
-
         std::ostream& display(std::ostream& out) const;
 
         void set_redundant(bool r) { m_redundant = r; }
