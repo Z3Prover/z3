@@ -1243,7 +1243,7 @@ namespace polysat {
         // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
         static void test_ineq_non_axiom4(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw - 1);
-            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
             LOG("permutation: " << i);
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
@@ -1648,8 +1648,10 @@ void tst_polysat() {
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
-    // test_polysat::test_parity4();
-    test_polysat::test_ineq2();
+    test_polysat::test_parity4();
+    // test_polysat::test_ineq2();
+    // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop
+    // test_polysat::test_band1();
     return;
 #endif
 
@@ -1669,6 +1671,7 @@ void tst_polysat() {
     RUN(test_polysat::test_parity1b());
     RUN(test_polysat::test_parity2());
     RUN(test_polysat::test_parity3());
+    RUN(test_polysat::test_parity4());
 
     RUN(test_polysat::test_clause_simplify1());
 
