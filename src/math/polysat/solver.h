@@ -303,7 +303,8 @@ namespace polysat {
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);
-        bool wlist_invariant();
+        bool wlist_invariant() const;
+        bool bool_watch_invariant() const;
         bool assignment_invariant();
         bool verify_sat();
 

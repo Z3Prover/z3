@@ -205,6 +205,7 @@ namespace polysat {
         if (!is_conflict())
             linear_propagate();
         SASSERT(wlist_invariant());
+        SASSERT(bool_watch_invariant());
         SASSERT(assignment_invariant());
     }
 
@@ -217,6 +218,7 @@ namespace polysat {
         signed_constraint c = lit2cnstr(lit);
         activate_constraint(c);
         auto& wlist = m_bvars.watch(~lit);
+        LOG("wlist[" << ~lit << "]: " << wlist);
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i)
             if (!propagate(lit, *wlist[i]))
@@ -1364,7 +1366,7 @@ namespace polysat {
     /**
      * Check that two variables of each constraint are watched.
      */
-    bool solver::wlist_invariant() {
+    bool solver::wlist_invariant() const {
 #if 0
         for (pvar v = 0; v < m_value.size(); ++v) {
             std::stringstream s;
@@ -1378,6 +1380,7 @@ namespace polysat {
         for (unsigned i = m_qhead; i < m_search.size(); ++i)
             if (m_search[i].is_boolean())
                 skip.insert(m_search[i].lit().var());
+        SASSERT(is_conflict() || skip.empty());  // after propagation we either finished the queue or we are in a conflict
         for (auto c : m_constraints) {
             if (skip.contains(c->bvar()))
                 continue;
@@ -1399,6 +1402,29 @@ namespace polysat {
             if (num_watches != expected_watches)
                 LOG("Wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
             VERIFY_EQ(num_watches, expected_watches);
+        }
+        return true;
+    }
+
+    bool solver::bool_watch_invariant() const {
+        if (is_conflict())  // propagation may be unfinished if a conflict was discovered
+            return true;
+        // Check for missed boolean propagations: no clause should have exactly one unassigned literal, unless it is already true.
+        for (auto const& cls : m_constraints.clauses()) {
+            for (auto const& clref : cls) {
+                clause const& cl = *clref;
+                bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
+                if (is_true)
+                    continue;
+                size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
+                if (undefs == 1) {
+                    LOG("Missed boolean propagation of clause: " << cl);
+                    for (sat::literal lit : cl) {
+                        LOG("    " << lit_pp(*this, lit));
+                    }
+                }
+                SASSERT(undefs != 1);
+            }
         }
         return true;
     }
