@@ -185,6 +185,7 @@ namespace polysat {
     }
 
     void conflict::init(signed_constraint c) {
+        LOG("Conflict: constraint " << lit_pp(s, c));
         SASSERT(empty());
         m_level = s.m_level;
         m_narrow_queue.push_back(c.blit());  // if the conflict is only due to a missed propagation of c
@@ -217,6 +218,7 @@ namespace polysat {
     }
 
     void conflict::init(clause const& cl) {
+        LOG("Conflict: clause " << cl);
         SASSERT(empty());
         m_level = s.m_level;
         for (auto lit : cl) {
@@ -229,6 +231,7 @@ namespace polysat {
     }
 
     void conflict::init(pvar v, bool by_viable_fallback) {
+        LOG("Conflict: viable v" << v);
         SASSERT(empty());
         m_level = s.m_level;
         if (by_viable_fallback) {
