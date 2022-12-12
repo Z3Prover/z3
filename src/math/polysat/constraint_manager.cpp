@@ -142,7 +142,8 @@ namespace polysat {
             return;
 
         if (value_propagate) {
-#if 0  // this should be already done with insert_eval when constructing the clause (maybe not for non-redundant clauses?)
+#if 1  // this should be already done with insert_eval when constructing the clause (maybe not for non-redundant clauses?)
+       // (this loop also masks the mistake of calling clause_builder::insert instead of clause_builder::insert_eval)
             for (sat::literal lit : cl) {
                 if (s.m_bvars.is_false(lit))
                     continue;
