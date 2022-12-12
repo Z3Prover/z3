@@ -205,7 +205,8 @@ void elim_unconstrained::freeze(expr* t) {
     if (!n.m_term)
         return;
     n.m_refcount = UINT_MAX / 2;
-    m_heap.increased(root(t));
+    if (m_heap.contains(root(t)))
+        m_heap.increased(root(t));
 }
 
 void elim_unconstrained::gc(expr* t) {
