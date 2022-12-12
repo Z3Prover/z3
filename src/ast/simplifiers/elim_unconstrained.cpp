@@ -96,7 +96,7 @@ void elim_unconstrained::eliminate() {
         m_trail.push_back(r);
         SASSERT(r);
         gc(e);
-        init_children(e, r);
+        freeze_rec(r);
 
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
@@ -180,9 +180,8 @@ void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
     }
 }
 
-void elim_unconstrained::init_children(expr* e, expr* r) {
+void elim_unconstrained::freeze_rec(expr* r) {
     expr_ref_vector children(m);
-    SASSERT(e != r);
     if (is_quantifier(r))
         children.push_back(to_quantifier(r)->get_expr());
     else if (is_app(r))
@@ -191,11 +190,20 @@ void elim_unconstrained::init_children(expr* e, expr* r) {
         return;
     if (children.empty())
         return;
-    init_terms(children);
-    for (expr* arg : children) {
-        get_node(arg).m_parents.push_back(e);
-        inc_ref(arg);
-    }
+    for (expr* t : subterms::all(children))
+        freeze(t);
+}
+
+void elim_unconstrained::freeze(expr* t) {
+    if (!is_uninterp_const(t))
+        return;
+    if (m_nodes.size() <= t->get_id())
+        return;
+    node& n = get_node(t);
+    if (!n.m_term)
+        return;
+    n.m_refcount = UINT_MAX / 2;
+    m_heap.increased(root(t));
 }
 
 void elim_unconstrained::gc(expr* t) {
