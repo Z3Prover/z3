@@ -1335,12 +1335,7 @@ namespace polysat {
     }
 
     std::ostream& num_pp::display(std::ostream& out) const {
-        rational const& p = rational::power_of_two(s.size(var));
-        if (val > mod(-val, p))
-            out << -mod(-val, p);
-        else
-            out << val;
-        return out;
+        return out << dd::val_pp(s.var2pdd(var), val, require_parens);
     }
 
     void solver::collect_statistics(statistics& st) const {

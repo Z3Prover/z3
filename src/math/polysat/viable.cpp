@@ -376,7 +376,7 @@ namespace polysat {
                     lo = val - lambda_l;
                     increase_hi(hi);
                 }
-                LOG("forbidden interval v" << v << " " << val << " " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
+                LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval << " [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                 SASSERT(hi <= mod_value);
                 bool full = (lo == 0 && hi == mod_value);
                 if (hi == mod_value)

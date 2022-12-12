@@ -542,8 +542,9 @@ namespace polysat {
         solver const& s;
         pvar var;
         rational const& val;
+        bool require_parens;
     public:
-        num_pp(solver const& s, pvar var, rational const& val): s(s), var(var), val(val) {}
+        num_pp(solver const& s, pvar var, rational const& val, bool require_parens = false): s(s), var(var), val(val), require_parens(require_parens) {}
         std::ostream& display(std::ostream& out) const;
     };
 
