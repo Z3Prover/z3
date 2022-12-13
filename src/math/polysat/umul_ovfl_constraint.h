@@ -30,6 +30,7 @@ namespace polysat {
         static lbool eval(pdd const& p, pdd const& q);
         bool narrow_bound(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q);
         bool try_viable(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q);
+        void activate(solver& s, bool is_positive);
 
     public:
         ~umul_ovfl_constraint() override {}
