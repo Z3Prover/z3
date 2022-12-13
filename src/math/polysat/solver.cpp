@@ -533,13 +533,15 @@ namespace polysat {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, sat::literal>) {
                     sat::literal lit = arg;
-                    m_search.push_boolean(arg);
+                    m_search.push_boolean(lit);
                     m_trail.push_back(trail_instr_t::assign_bool_i);
+                    LOG("Replay: " << lit);
                 }
                 else if constexpr (std::is_same_v<T, pvar>) {
                     pvar v = arg;
                     m_search.push_assignment(v, m_value[v]);
                     m_trail.push_back(trail_instr_t::assign_i);
+                    LOG("Replay: " << assignment_pp(*this, v, m_value[v]));
                     // TODO: are the viable sets propagated properly?
                     //      when substituting polynomials, it will now take into account the replayed variables, which may itself depend on previous propagations.
                     //      will we get into trouble with cyclic dependencies?
@@ -553,6 +555,12 @@ namespace polysat {
                     //        then we get an assignment up to that dependency level.
                     //        each literal can only depend on entries with lower dependency level
                     //        (that is the invariant that propagations are justified by a prefix of the search stack.)
+                    //      Actually, cyclic dependencies probably don't happen:
+                    //      - viable restrictions only occur when all-but-one variable is set (or some vars are irrelevant... those might introduce additional fake dependencies)
+                    //      - we only replay propagations... so all new variable assignments are propagations (that depend on earlier decisions)
+                    //      - but now the replayed constraints may evaluate to true already and thus not give the forbidden intervals from before anymore...
+                    //        so maybe we miss some dependencies this way? a variable was propagated because of a constraint, but after replay the constraint evaluates to true and thus does not add an interval anymore.
+                    // TODO: work out example to explain and test this
                 }
                 else
                     static_assert(always_false<T>::value, "non-exhaustive visitor");
@@ -1101,7 +1109,7 @@ namespace polysat {
     void solver::backjump(unsigned new_level) {
         SASSERT(new_level >= base_level());
         if (m_level != new_level) {
-            LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
+            LOG_H3("Backjumping to level " << new_level << " from level " << m_level << " (base_level: " << base_level() << ")");
             pop_levels(m_level - new_level);
         }
     }
