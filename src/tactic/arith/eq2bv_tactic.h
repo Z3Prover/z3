@@ -5,16 +5,32 @@ Module Name:
 
     eq2bv_tactic.h
 
-Abstract:
-
-    Extract integer variables that are used as finite domain indicators.
-    The integer variables can only occur in equalities.
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2015-8-19
 
-Notes:
+Tactic Documentation:
+
+## Tactic eq2bv
+
+### Short Description
+
+Extract integer variables that are used as finite domain indicators.
+The integer variables can only occur in equalities.
+
+### Example
+
+```z3
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (= x 5) (> y 3)))
+(assert (or (= x 4) (= y 2)))
+(apply eq2bv)
+```
+
+### Notes
+
+* does not support proofs
 
 --*/
 #pragma once

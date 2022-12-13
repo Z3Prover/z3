@@ -7,18 +7,35 @@ Module Name:
 
 Abstract:
 
-    Fix a difference logic variable to 0.
-    If the problem is in the difference logic fragment, that is, all arithmetic terms
-    are of the form (x + k), and the arithmetic atoms are of the 
-    form x - y <= k or x - y = k. Then, we can set one variable to 0.
 
-    This is useful because, many bounds can be exposed after this operation is performed.
 
 Author:
 
     Leonardo (leonardo) 2011-12-29
 
-Notes:
+Tactic Documentation:
+
+## Tactic fix-dl-var
+
+### Short Description
+
+Fix a difference logic variable to `0`.
+If the problem is in the difference logic fragment, that is, all arithmetic terms
+are of the form `(x + k)`, and the arithmetic atoms are of the
+form `x - y <= k` or `x - y = k`. Then, we can set one variable to `0`.
+
+This is useful because, many bounds can be exposed after this operation is performed.
+
+### Example
+
+```z3
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (<= (+ x (* -1.0 y)) 3.0))
+(assert (<= (+ x (* -1.0 z)) 5.0))
+(apply fix-dl-var)
+```
 
 --*/
 #pragma once
