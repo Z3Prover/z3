@@ -417,6 +417,9 @@ namespace polysat {
 
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            // RHS == 0 is a precondition because we can only multiply with a^-1 in equations, not inequalities
+            if (b2 != e2)
+                fi.side_cond.push_back(s.eq(b2, e2));
             return true;
         }
         return false;
