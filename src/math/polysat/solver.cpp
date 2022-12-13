@@ -1404,7 +1404,9 @@ namespace polysat {
     bool solver::bool_watch_invariant() const {
         if (is_conflict())  // propagation may be unfinished if a conflict was discovered
             return true;
-        // Check for missed boolean propagations: no clause should have exactly one unassigned literal, unless it is already true.
+        // Check for missed boolean propagations:
+        // - no clause should have exactly one unassigned literal, unless it is already true.
+        // - no clause should be false
         for (auto const& cls : m_constraints.clauses()) {
             for (auto const& clref : cls) {
                 clause const& cl = *clref;
@@ -1419,6 +1421,8 @@ namespace polysat {
                     }
                 }
                 SASSERT(undefs != 1);
+                bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
+                SASSERT(!is_false);
             }
         }
         return true;
