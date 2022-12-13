@@ -678,10 +678,12 @@ namespace polysat {
             s.expect_unsat();
         }
 
-        static void test_parity4() {
-            scoped_solver s(__func__);
-            auto x = s.var(s.add_var(8));
-            auto y = s.var(s.add_var(8));
+        // x*y + 2 == 0
+        // parity(y) >= 4  ||  parity(y) >= 8
+        static void test_parity4(unsigned bw = 8) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            pdd x = s.var(s.add_var(bw));
+            pdd y = s.var(s.add_var(bw));
             s.add_eq(x * y + 2);
             s.add_clause({ s.parity(y, 4), s.parity(y, 8) }, false);
             s.check();
@@ -1659,11 +1661,13 @@ void tst_polysat() {
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
-    // test_polysat::test_parity4();
+    test_polysat::test_parity4();
+    test_polysat::test_parity4(256);
     // test_polysat::test_ineq2();
     // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop
+    // test_polysat::test_ineq_non_axiom4(32, 4);  // stuck in viable refinement loop
     // test_polysat::test_band1();
-    test_polysat::test_bench6_viable();
+    // test_polysat::test_bench6_viable();
     return;
 #endif
 
@@ -1742,6 +1746,7 @@ void tst_polysat() {
     RUN(test_polysat::test_fi_nonzero());
     RUN(test_polysat::test_fi_nonmax());
     RUN(test_polysat::test_fi_disequal_mild());
+    RUN(test_polysat::test_bench6_viable());
 
     RUN(test_polysat::test_ineq_axiom1());
     RUN(test_polysat::test_ineq_axiom2());
