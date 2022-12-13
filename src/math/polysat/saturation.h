@@ -47,6 +47,7 @@ namespace polysat {
         bool try_ugt_z(pvar z, conflict& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
 
         bool try_parity(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_factor_equality(pvar x, conflict& core, inequality const& a_l_b);
         bool try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y);
@@ -87,6 +88,8 @@ namespace polysat {
         bool is_AxB_eq_0(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
         bool verify_AxB_eq_0(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);
 
+        // c := Ax + B != Y, val(Y) = 0
+        bool is_AxB_diseq_0(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
 
         // c := Y*X ~ z*X
         bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);

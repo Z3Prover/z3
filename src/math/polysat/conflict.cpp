@@ -298,7 +298,7 @@ namespace polysat {
 
     void conflict::insert_vars(signed_constraint c) {
         for (pvar v : c->vars())
-            if (s.is_assigned(v))
+            if (s.is_assigned(v)) 
                 m_vars.insert(v);
     }
 

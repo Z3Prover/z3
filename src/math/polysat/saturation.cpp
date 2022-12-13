@@ -35,7 +35,10 @@ namespace polysat {
     void saturation::perform(pvar v, conflict& core) {
         for (auto c : core) 
             if (perform(v, c, core)) {
-                IF_VERBOSE(0, verbose_stream() << m_rule << " v" << v << " " << c << "\n");
+                IF_VERBOSE(0, auto const& cl = core.lemmas().back(); 
+                           verbose_stream() << m_rule << " v" << v << " "; 
+                           for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " "; 
+                           verbose_stream() << "\n");
                 return;
             }
     }
@@ -49,6 +52,8 @@ namespace polysat {
         if (try_mul_bounds(v, core, i))
             return true;
         if (try_parity(v, core, i))
+            return true;
+        if (try_parity_diseq(v, core, i))
             return true;
         if (try_factor_equality(v, core, i))
             return true;
@@ -249,6 +254,16 @@ namespace polysat {
 
     bool saturation::verify_AxB_eq_0(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
         return y.is_val() && y.val() == 0 && i.rhs() == y && i.lhs() == a * s.var(x) + b;
+    }
+
+    bool saturation::is_AxB_diseq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        if (!i.is_strict())
+            return false;
+        y = i.lhs();
+        rational y_val;
+        if (!s.try_eval(y, y_val) || y_val != 0)
+            return false;
+        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);
     }
 
     /**
@@ -753,6 +768,32 @@ namespace polysat {
             }
         }
         return false;        
+    }
+
+    /**
+     *  2^{K-1}*x*y != 0 => odd(x) & odd(y)
+     *  2^k*x != 0 => parity(x) < K - k
+     *  2^k*x*y != 0 => parity(x) + parity(y) < K - k
+     */
+    bool saturation::try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] 2^k*x*y != 0 => parity(x) + parity(y) < K - k");
+        auto& m = s.var2pdd(x);
+        unsigned N = m.power_of_2();
+        pdd y = m.zero();
+        pdd a = y, b = y, X = y;
+        if (!is_AxB_diseq_0(x, axb_l_y, a, b, y))
+            return false;
+        if (!is_forced_eq(b, 0))
+            return false;
+        auto coeff = a.leading_coefficient();
+        if (coeff.is_odd())
+            return false;
+        SASSERT(coeff != 0);
+        unsigned k = coeff.trailing_zeros();
+        m_lemma.reset();
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~s.eq(b));        
+        return propagate(core, axb_l_y, ~s.parity(X, N - k));        
     }
 
     /**
