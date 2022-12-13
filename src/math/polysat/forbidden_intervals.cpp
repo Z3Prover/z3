@@ -417,10 +417,6 @@ namespace polysat {
 
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            if (b1 != e1)
-                fi.side_cond.push_back(s.eq(b1, e1));
-            if (b2 != e2)
-                fi.side_cond.push_back(s.eq(b2, e2));
             return true;
         }
         return false;
