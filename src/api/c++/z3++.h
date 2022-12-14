@@ -366,8 +366,14 @@ namespace z3 {
         void      recdef(func_decl, expr_vector const& args, expr const& body);
         func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
+        /**
+           \brief create an uninterpreted constant.
+         */
         expr constant(symbol const & name, sort const & s);
         expr constant(char const * name, sort const & s);
+        /**
+           \brief create uninterpreted constants of a given sort.
+         */
         expr bool_const(char const * name);
         expr int_const(char const * name);
         expr real_const(char const * name);
@@ -377,6 +383,12 @@ namespace z3 {
 
         template<size_t precision>
         expr fpa_const(char const * name);
+
+        /**
+           \brief create a de-Bruijn variable.
+         */
+        expr variable(unsigned index, sort const& s);
+        
 
         expr fpa_rounding_mode();
 
@@ -3580,6 +3592,11 @@ namespace z3 {
         return expr(*this, r);
     }
     inline expr context::constant(char const * name, sort const & s) { return constant(str_symbol(name), s); }
+    inline expr context::variable(unsigned idx, sort const& s) { 
+        Z3_ast r = Z3_mk_bound(m_ctx, idx, s);
+        check_error();
+        return expr(*this, r);
+    }
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
     inline expr context::int_const(char const * name) { return constant(name, int_sort()); }
     inline expr context::real_const(char const * name) { return constant(name, real_sort()); }
