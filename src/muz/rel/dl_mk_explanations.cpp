@@ -147,7 +147,6 @@ namespace datalog {
         void assign_data(const relation_fact & f) {
             m_empty = false;
 
-            verbose_stream() << "assign data " << f << "\n";
             unsigned n = get_signature().size();
             SASSERT(f.size()==n);
             m_data.reset();
@@ -159,7 +158,6 @@ namespace datalog {
             m_data.resize(get_signature().size());
         }
         void unite_with_data(const relation_fact & f) {
-            verbose_stream() << "unite data " << f << "\n";
 
             if (empty()) {
                 assign_data(f);
@@ -186,7 +184,6 @@ namespace datalog {
         void to_formula(expr_ref& fml) const override {
             ast_manager& m = fml.get_manager();
             fml = m.mk_eq(m.mk_var(0, m_data[0]->get_sort()), m_data[0]);
-            verbose_stream() << "FORMULA " << fml << "\n";
         }
 
         bool is_undefined(unsigned col_idx) const {
@@ -340,7 +337,6 @@ namespace datalog {
             if (!r.empty()) {
                 relation_fact proj_data = r.m_data;
                 project_out_vector_columns(proj_data, m_removed_cols);
-                verbose_stream() << "project\n";
                 res->assign_data(proj_data);
             }
             return res;
@@ -408,7 +404,6 @@ namespace datalog {
             }
             else {
                 if (tgt.empty()) {
-                    verbose_stream() << "union\n";
                     tgt.assign_data(src.m_data);
                     if (delta && delta->empty()) {
                         delta->assign_data(src.m_data);
