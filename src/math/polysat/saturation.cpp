@@ -32,32 +32,41 @@ namespace polysat {
 
     saturation::saturation(solver& s) : s(s), m_lemma(s) {}
 
-    bool saturation::perform(pvar v, conflict& core) {
-        for (auto c : core) {
-            if (!c->is_ule())
-                continue;
-            if (c.is_currently_true(s))
-                continue;
-            auto i = inequality::from_ule(c);
-#if 0
-            if (try_mul_bounds(v, core, i))
-                return true;
-#endif
-#if 0
-            if (try_parity(v, core, i))
-                return true;
-#endif
-            if (try_ugt_x(v, core, i))
-                return true;
-            if (try_ugt_y(v, core, i))
-                return true;
-            if (try_ugt_z(v, core, i))
-                return true;
-            if (try_y_l_ax_and_x_l_z(v, core, i))
-                return true;
-            if (try_tangent(v, core, i))
-                return true;
-        }
+    void saturation::perform(pvar v, conflict& core) {
+        for (auto c : core) 
+            if (perform(v, c, core)) {
+                IF_VERBOSE(0, auto const& cl = core.lemmas().back(); 
+                           verbose_stream() << m_rule << " v" << v << " "; 
+                           for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " "; 
+                           verbose_stream() << "\n");
+                return;
+            }
+    }
+
+    bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
+        if (!c->is_ule())
+            return false;
+        if (c.is_currently_true(s))
+            return false;
+        auto i = inequality::from_ule(c);
+        if (try_mul_bounds(v, core, i))
+            return true;
+        if (try_parity(v, core, i))
+            return true;
+        if (try_parity_diseq(v, core, i))
+            return true;
+        if (try_factor_equality(v, core, i))
+            return true;
+        if (try_ugt_x(v, core, i))
+            return true;
+        if (try_ugt_y(v, core, i))
+            return true;
+        if (try_ugt_z(v, core, i))
+            return true;
+        if (try_y_l_ax_and_x_l_z(v, core, i))
+            return true;
+        if (false && try_tangent(v, core, i))
+            return true;
         return false;
     }
 
@@ -67,7 +76,6 @@ namespace polysat {
         else
             return s.ule(lhs, rhs);
     }
-
 
     bool saturation::propagate(conflict& core, inequality const& crit, signed_constraint c) {
         if (is_forced_true(c))
@@ -96,8 +104,7 @@ namespace polysat {
 
         SASSERT(all_of(m_lemma, [this](sat::literal lit) { return is_forced_false(s.lit2cnstr(lit)); }));
 
-        // NSB review question: insert_eval: Is this right?
-        m_lemma.insert_eval(c);
+        m_lemma.insert(c);
         core.add_lemma(m_rule, m_lemma.build());
         return true;
     }
@@ -122,10 +129,9 @@ namespace polysat {
         if (!is_forced_false(c)) 
             return false;
 
-        // TODO: ??? this means that c is already on the search stack, so presumably the lemma won't help. Should check whether this case occurs.
-        // if (c.bvalue(s) == l_true)
-        //     return false;
-        SASSERT(c.bvalue(s) != l_true);
+        // Constraint c is already on the search stack, so the lemma will not derive anything new.
+        if (c.bvalue(s) == l_true)
+            return false;
 
         m_lemma.insert_eval(c);
         core.add_lemma(m_rule, m_lemma.build());
@@ -223,6 +229,18 @@ namespace polysat {
         return i.rhs() == y && i.lhs() == a * s.var(x) + b;
     }
 
+
+    bool saturation::is_Y_l_AxB(pvar x, inequality const& i, pdd& y, pdd& a, pdd& b) {
+        y = i.lhs();
+        pdd aa = a, bb = b;
+        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, aa, bb), aa == a && bb == b);        
+    }
+    
+    bool saturation::verify_Y_l_AxB(pvar x, inequality const& i, pdd const& y, pdd const& a, pdd& b) {
+        return i.lhs() == y && i.rhs() == a * s.var(x) + b;
+    }
+
+
     /**
      * Match [x] a*x + b <= y, val(y) = 0
      */
@@ -236,6 +254,16 @@ namespace polysat {
 
     bool saturation::verify_AxB_eq_0(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
         return y.is_val() && y.val() == 0 && i.rhs() == y && i.lhs() == a * s.var(x) + b;
+    }
+
+    bool saturation::is_AxB_diseq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        if (!i.is_strict())
+            return false;
+        y = i.lhs();
+        rational y_val;
+        if (!s.try_eval(y, y_val) || y_val != 0)
+            return false;
+        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);
     }
 
     /**
@@ -350,12 +378,12 @@ namespace polysat {
 
         if (!is_xY_l_xZ(v, xy_l_xz, y, z))
             return false;
-        if (!xy_l_xz.is_strict() && s.get_value(v).is_zero())
+        if (!xy_l_xz.is_strict() && s.is_assigned(v) && s.get_value(v).is_zero())
             return false;
         if (!is_non_overflow(x, y, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         if (!xy_l_xz.is_strict())
             m_lemma.insert_eval(s.eq(x));
         return add_conflict(core, xy_l_xz, ineq(xy_l_xz.is_strict(), y, z));
@@ -398,7 +426,7 @@ namespace polysat {
             return false;
         pdd const& z_prime = l_y.lhs();
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, l_y, yx_l_zx, ineq(yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x));
     }
 
@@ -438,7 +466,7 @@ namespace polysat {
         if (!is_non_overflow(x, y_prime, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, yx_l_zx, z_l_y, ineq(z_l_y.is_strict() || yx_l_zx.is_strict(), y * x, y_prime * x));
     }
 
@@ -479,7 +507,7 @@ namespace polysat {
         if (!is_non_overflow(a, z, non_ovfl))
             return false;
         m_lemma.reset();
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~non_ovfl);
         return add_conflict(core, y_l_ax, x_l_z, ineq(x_l_z.is_strict() || y_l_ax.is_strict(), y, a * z));
     }
 
@@ -514,20 +542,20 @@ namespace polysat {
 
         auto prop1 = [&](signed_constraint c) {
             m_lemma.reset();
-            m_lemma.insert(~s.eq(b));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(x_eq_0);
-            m_lemma.insert(a_eq_0);
+            m_lemma.insert_eval(~s.eq(b));
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(x_eq_0);
+            m_lemma.insert_eval(a_eq_0);
             return propagate(core, axb_l_y, c);
         };
 
         auto prop2 = [&](signed_constraint ante, signed_constraint c) {
             m_lemma.reset();
-            m_lemma.insert(~s.eq(b));
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(x_eq_0);
-            m_lemma.insert(a_eq_0);
-            m_lemma.insert(~ante);
+            m_lemma.insert_eval(~s.eq(b));
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(x_eq_0);
+            m_lemma.insert_eval(a_eq_0);
+            m_lemma.insert_eval(~ante);
             return propagate(core, axb_l_y, c);
         };
 
@@ -561,7 +589,7 @@ namespace polysat {
             //
             // NSB review: should we handle cases where k_val >= 2^{K-1}, but exploit that x*y = 0 iff -x*y = 0?
             // 
-            IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y.as_signed_constraint() << " " << u_l_k.as_signed_constraint() << " \n");
+            // IF_VERBOSE(0, verbose_stream() << "mult-bounds2 " << Y << " " << axb_l_y << " " << u_l_k<< " \n");
             rational bound = ceil(rational::power_of_two(m.power_of_2()) / k_val);
             if (prop2(d, s.uge(Y, bound)))
                 return true;
@@ -569,8 +597,8 @@ namespace polysat {
                 return true;                     
         }
 
-        IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y.as_signed_constraint() << " \n");
-        IF_VERBOSE(0, verbose_stream() << core << "\n"); 
+        // IF_VERBOSE(0, verbose_stream() << "mult-bounds1 " << a << " " << axb_l_y << " \n");
+        // IF_VERBOSE(0, verbose_stream() << core << "\n"); 
         if (prop1(s.umul_ovfl(a, X)))
             return true;
         if (prop1(s.umul_ovfl(a, -X)))
@@ -603,9 +631,9 @@ namespace polysat {
         if (!is_non_overflow(a, X, non_ovfl)) 
             return false;
         m_lemma.reset();
-        m_lemma.insert(~s.eq(b, rational(-1)));
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~non_ovfl);
+        m_lemma.insert_eval(~s.eq(b, rational(-1)));
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~non_ovfl);
         if (propagate(core, axb_l_y, s.eq(X, 1)))
             return true;
         if (propagate(core, axb_l_y, s.eq(a, 1)))
@@ -639,39 +667,133 @@ namespace polysat {
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
         auto& m = s.var2pdd(x);
+        unsigned N = m.power_of_2();
         pdd y = m.zero();
         pdd a = m.zero();
         pdd b = m.zero();
         pdd X = s.var(x);
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
+        if (a.is_max() && b.is_var())  // x == y, we propagate values in each direction and don't need a lemma
+            return false;
+        if (a.is_one() && (-b).is_var())  // y == x
+            return false;
+        if (a.is_one())
+            return false;
         signed_constraint b_is_odd = s.odd(b);
         signed_constraint a_is_odd = s.odd(a);
         signed_constraint x_is_odd = s.odd(X);
-        if (!b_is_odd.is_currently_true(s)) {
-            if (!a_is_odd.is_currently_true(s))
-                return false;
-            if (!x_is_odd.is_currently_true(s))
-                return false;
+
+        auto propagate1 = [&](signed_constraint premise, signed_constraint conseq) {
             m_lemma.reset();
-            m_lemma.insert(~s.eq(y));
-            m_lemma.insert(~a_is_odd);
-            m_lemma.insert(~x_is_odd);
-            if (propagate(core, axb_l_y, b_is_odd))
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~premise);
+            return propagate(core, axb_l_y, conseq);
+        };
+
+        auto propagate2 = [&](signed_constraint premise1, signed_constraint premise2, signed_constraint conseq) {
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~premise1);
+            m_lemma.insert_eval(~premise2);
+            return propagate(core, axb_l_y, conseq);
+        };
+#if 0
+        LOG_H1("try_parity: " << X << " on: " << lit_pp(s, axb_l_y.as_signed_constraint()));
+        LOG("y: " << y << "   a: " << a << "   b: " << b);
+        LOG("b_is_odd: " << lit_pp(s, b_is_odd));
+        LOG("a_is_odd: " << lit_pp(s, a_is_odd));
+        LOG("x_is_odd: " << lit_pp(s, x_is_odd));
+#endif
+        if (a_is_odd.is_currently_true(s) &&
+            x_is_odd.is_currently_true(s) &&
+            propagate2(a_is_odd, x_is_odd, b_is_odd))
+            return true;
+
+
+        if (b_is_odd.is_currently_true(s)) {
+            if (propagate1(b_is_odd, a_is_odd))
                 return true;
-            return false;
+            if (propagate1(b_is_odd, x_is_odd))
+                return true;
         }
-        m_lemma.reset();
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~b_is_odd);
-        if (propagate(core, axb_l_y, a_is_odd))
-            return true;
-        m_lemma.reset();
-        m_lemma.insert(~s.eq(y));
-        m_lemma.insert(~b_is_odd);
-        if (propagate(core, axb_l_y, x_is_odd))
-            return true;
+        
+        // a is divisibly by 4,
+        // max divisor of x is k
+        // -> b has parity k + 4
+        unsigned a_parity = a_is_odd.is_currently_false(s) ? 1 : 0;
+        unsigned x_parity = x_is_odd.is_currently_false(s) ? 1 : 0;
+
+        if ((a_parity > 0 || x_parity > 0) && !is_forced_eq(a, 0) && !is_forced_eq(X, 0)) {          
+            while (a_parity < N && s.parity(a, a_parity+1).is_currently_true(s))
+                ++a_parity;
+            while (x_parity < N && s.parity(X, x_parity+1).is_currently_true(s))
+                ++x_parity;
+            unsigned b_parity = std::min(N, a_parity + x_parity);
+            if (a_parity > 0 && x_parity > 0 && propagate2(s.parity(a, a_parity), s.parity(X, x_parity), s.parity(b, b_parity)))
+                return true;
+            if (a_parity > 0 && x_parity == 0 && propagate1(s.parity(a, a_parity), s.parity(b, b_parity)))
+                return true;
+            if (a_parity == 0 && x_parity > 0 && propagate1(s.parity(X, x_parity), s.parity(b, b_parity)))
+                return true;
+        }
+
+        // 
+        // if b has at most b_parity, then a*x has at most b_parity
+        // 
+        else if (!is_forced_eq(b, 0)) {
+            unsigned b_parity = 1;
+            bool found = false;
+            for (; b_parity < N; ++b_parity) {
+                if (s.parity(b, b_parity).is_currently_false(s)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                if (propagate1(~s.parity(b, b_parity), ~s.parity(a, b_parity)))
+                    return true;
+                if (propagate1(~s.parity(b, b_parity), ~s.parity(a, b_parity)))
+                    return true;
+
+                for (unsigned i = 1; i < N; ++i) {
+                    if (s.parity(a, i).is_currently_true(s) && 
+                        propagate2(~s.parity(b, b_parity), s.parity(a, i), ~s.parity(X, b_parity - i)))
+                        return true;
+
+                    if (s.parity(X, i).is_currently_true(s) && 
+                        propagate2(~s.parity(b, b_parity), s.parity(X, i), ~s.parity(a, b_parity - i)))
+                        return true;                    
+                }
+            }
+        }
         return false;        
+    }
+
+    /**
+     *  2^{K-1}*x*y != 0 => odd(x) & odd(y)
+     *  2^k*x != 0 => parity(x) < K - k
+     *  2^k*x*y != 0 => parity(x) + parity(y) < K - k
+     */
+    bool saturation::try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] 2^k*x*y != 0 => parity(x) + parity(y) < K - k");
+        auto& m = s.var2pdd(x);
+        unsigned N = m.power_of_2();
+        pdd y = m.zero();
+        pdd a = y, b = y, X = y;
+        if (!is_AxB_diseq_0(x, axb_l_y, a, b, y))
+            return false;
+        if (!is_forced_eq(b, 0))
+            return false;
+        auto coeff = a.leading_coefficient();
+        if (coeff.is_odd())
+            return false;
+        SASSERT(coeff != 0);
+        unsigned k = coeff.trailing_zeros();
+        m_lemma.reset();
+        m_lemma.insert_eval(~s.eq(y));
+        m_lemma.insert_eval(~s.eq(b));        
+        return propagate(core, axb_l_y, ~s.parity(X, N - k));        
     }
 
     /**
@@ -693,19 +815,82 @@ namespace polysat {
         if (!is_forced_diseq(a, 0, a_eq_0))
             return false;
         m_lemma.reset();
-        m_lemma.insert(s.eq(y));
-        m_lemma.insert(~s.eq(b));
-        m_lemma.insert(a_eq_0);
+        m_lemma.insert_eval(s.eq(y));
+        m_lemma.insert_eval(~s.eq(b));
+        m_lemma.insert_eval(a_eq_0);
         if (propagate(core, axb_l_y, s.even(X)))
             return true;
         if (!is_forced_diseq(X, 0, x_eq_0))
             return false;
-        m_lemma.insert(x_eq_0);
+        m_lemma.insert_eval(x_eq_0);
         if (propagate(core, axb_l_y, s.even(a)))
             return true;
         return false;
     }
 
+    /**
+     *  [x] ax + p <= q, ax + r = 0 => -r + p <= q
+     *  [x] p <= ax + q, ax + r = 0 => p <= -r + q
+     *  generalizations
+     *  [x] abx + p <= q, ax + r = 0 => -rb + p <= q
+     *  [x] p <= abx + q, ax + r = 0 => p <= -rb + q
+     */
+
+    bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
+        auto& m = s.var2pdd(x);       
+        unsigned N = m.power_of_2();
+        pdd y1  = m.zero();
+        pdd a1  = m.zero();
+        pdd b1  = m.zero();
+        pdd a2 = a1, b2 = b1, y2 = y1, a3 = a2, b3 = b2, y3 = y2;
+        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a1, b1, y1);
+        bool is_y_l_axb = is_Y_l_AxB(x, a_l_b, y2, a2, b2);
+        
+        if (!a_l_b.is_strict() && a_l_b.rhs().is_zero())
+            return false;
+
+        if (!is_axb_l_y && !is_y_l_axb)
+            return false;
+
+        if (a1.is_val() && a2.is_val())
+            return false;
+        
+        for (auto c : core) {
+            if (!c->is_ule())
+                continue;
+            auto i = inequality::from_ule(c);
+            if (i.is_strict())
+                continue;
+            if (!is_AxB_eq_0(x, i, a3, b3, y3))
+                continue;
+            if (c == a_l_b.as_signed_constraint())
+                continue;
+            pdd lhs = i.lhs();
+            pdd rhs = i.rhs();
+            bool change = false;
+            
+            if (is_axb_l_y && a1 == a3) {
+                change = true;
+                lhs = b3 - b1;
+            }
+            if (is_y_l_axb && a2 == a3) {
+                change = true;
+                rhs = b3 - b2;
+            }
+            if (!change) {
+                IF_VERBOSE(0, verbose_stream() << "missed factor equality " << c << " " << a_l_b << "\n");
+                continue;
+            }
+            signed_constraint conseq = i.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
+            m_lemma.reset();
+            m_lemma.insert(~s.eq(y3));
+            m_lemma.insert(~c);
+            IF_VERBOSE(0, verbose_stream() << "factor equality " << a_l_b << "\n");
+            if (propagate(core, a_l_b, conseq))
+                return true;
+        }
+        return false;
+    }
     /*
      * TODO
      *

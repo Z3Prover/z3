@@ -205,6 +205,7 @@ namespace polysat {
         if (!is_conflict())
             linear_propagate();
         SASSERT(wlist_invariant());
+        SASSERT(bool_watch_invariant());
         SASSERT(assignment_invariant());
     }
 
@@ -217,6 +218,7 @@ namespace polysat {
         signed_constraint c = lit2cnstr(lit);
         activate_constraint(c);
         auto& wlist = m_bvars.watch(~lit);
+        LOG("wlist[" << ~lit << "]: " << wlist);
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i)
             if (!propagate(lit, *wlist[i]))
@@ -278,6 +280,7 @@ namespace polysat {
             sc.narrow(*this, false);
         } else {
             // constraint state: active but unassigned (bvalue undef, but pwatch is set; e.g., new constraints generated for lemmas)
+#if 1
             if (c->vars().size() >= 2) {
                 unsigned other_v = c->var(1 - idx);
                 // Wait for the remaining variable to be assigned
@@ -293,6 +296,19 @@ namespace polysat {
                 SASSERT(sc.is_currently_false(*this));
                 assign_eval(~sc.blit());
             }
+#else
+            signed_constraint sc(c, true);
+            switch (sc.eval(*this)) {
+                case l_true:
+                    assign_eval(sc.blit());
+                    break;
+                case l_false:
+                    assign_eval(~sc.blit());
+                    break;
+                default:
+                    break;
+            }
+#endif
         }
         return false;
     }
@@ -517,13 +533,15 @@ namespace polysat {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, sat::literal>) {
                     sat::literal lit = arg;
-                    m_search.push_boolean(arg);
+                    m_search.push_boolean(lit);
                     m_trail.push_back(trail_instr_t::assign_bool_i);
+                    LOG("Replay: " << lit);
                 }
                 else if constexpr (std::is_same_v<T, pvar>) {
                     pvar v = arg;
                     m_search.push_assignment(v, m_value[v]);
                     m_trail.push_back(trail_instr_t::assign_i);
+                    LOG("Replay: " << assignment_pp(*this, v, m_value[v]));
                     // TODO: are the viable sets propagated properly?
                     //      when substituting polynomials, it will now take into account the replayed variables, which may itself depend on previous propagations.
                     //      will we get into trouble with cyclic dependencies?
@@ -537,6 +555,12 @@ namespace polysat {
                     //        then we get an assignment up to that dependency level.
                     //        each literal can only depend on entries with lower dependency level
                     //        (that is the invariant that propagations are justified by a prefix of the search stack.)
+                    //      Actually, cyclic dependencies probably don't happen:
+                    //      - viable restrictions only occur when all-but-one variable is set (or some vars are irrelevant... those might introduce additional fake dependencies)
+                    //      - we only replay propagations... so all new variable assignments are propagations (that depend on earlier decisions)
+                    //      - but now the replayed constraints may evaluate to true already and thus not give the forbidden intervals from before anymore...
+                    //        so maybe we miss some dependencies this way? a variable was propagated because of a constraint, but after replay the constraint evaluates to true and thus does not add an interval anymore.
+                    // TODO: work out example to explain and test this
                 }
                 else
                     static_assert(always_false<T>::value, "non-exhaustive visitor");
@@ -559,6 +583,22 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
+#if 1
+        // Simple hack to try deciding the boolean skeleton first
+        if (!can_bdecide()) {
+            // enqueue all not-yet-true clauses
+            for (auto const& cls : m_constraints.clauses()) {
+                for (auto const& cl : cls) {
+                    bool is_true = any_of(*cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
+                    if (is_true)
+                        continue;
+                    size_t undefs = count_if(*cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+                    if (undefs >= 2)
+                        m_lemmas.push_back(cl.get());
+                }
+            }
+        }
+#endif
         if (can_bdecide())
             bdecide();
         else
@@ -770,7 +810,7 @@ namespace polysat {
                     continue;
                 }
                 if (j.is_decision()) {
-                    // NSB TODO - disabled m_conflict.revert_decision(v);
+                    m_conflict.revert_pvar(v);
                     revert_decision(v);
                     return;
                 }
@@ -806,7 +846,7 @@ namespace polysat {
                     //       do we really want to resolve these eagerly?
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
                 else
-                    m_conflict.resolve_with_assignment(lit);
+                    m_conflict.resolve_evaluated(lit);
             }
         }
         LOG("End of resolve_conflict loop");
@@ -824,17 +864,12 @@ namespace polysat {
         backjump_and_learn(max_jump_level);
     }
 
-    //
-    // NSB review: this code assumes that these lemmas are false.
-    // It does not allow saturation to add unit propagation into freshly created literals.
-    // 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
-        unsigned max_level = 0;     // highest level in lemma
-        unsigned lits_at_max_level = 0;  // how many literals at the highest level in lemma
-        unsigned snd_level = 0;     // second-highest level in lemma
-        bool is_propagation = false;
+        unsigned max_level = 0;             // highest level in lemma
+        unsigned lits_at_max_level = 0;     // how many literals at the highest level in lemma
+        unsigned snd_level = 0;             // second-highest level in lemma
+        bool is_propagation = false;        // whether there is an unassigned literal (at most one)
         for (sat::literal lit : lemma) {
-            SASSERT(m_bvars.is_assigned(lit));  // any new constraints should have been assign_eval'd
             if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
                 return std::nullopt;
             if (!m_bvars.is_assigned(lit)) {
@@ -861,15 +896,19 @@ namespace polysat {
         //               Do the standard backjumping known from SAT solving (back to second-highest level in the lemma, propagate it there).
         // - Semantic split clause: multiple literals on the highest level in the lemma.
         //                          Backtrack to "highest level - 1" and split on the lemma there.
-        // For now, we follow the same convention for computing the jump levels.
+        // For now, we follow the same convention for computing the jump levels,
+        // but we support an additional type of clause:
+        // - Propagation clause: a single literal is unassigned and should be propagated after backjumping.
+        //                       backjump to max_level so we can propagate
         unsigned jump_level;
+        unsigned branching_factor = lits_at_max_level;
         if (is_propagation)
-            jump_level = max_level;
-        if (lits_at_max_level <= 1)
+            jump_level = max_level, branching_factor = 1;
+        else if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
             jump_level = (max_level == 0) ? 0 : (max_level - 1);
-        return {{jump_level, lits_at_max_level}};
+        return {{jump_level, branching_factor}};
     }
 
     void solver::backjump_and_learn(unsigned max_jump_level) {
@@ -886,6 +925,10 @@ namespace polysat {
         auto appraise_lemma = [&](clause* lemma) {
             m_simplify_clause.apply(*lemma);
             auto score = compute_lemma_score(*lemma);
+            if (score)
+                LOG("    score: "  << *score);
+            else
+                LOG("    score: <none>");
             if (score && *score < best_score) {
                 best_score = *score;
                 best_lemma = lemma;
@@ -905,6 +948,9 @@ namespace polysat {
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         SASSERT(jump_level <= max_jump_level);
 
+        LOG("best_score: " << best_score);
+        LOG("best_lemma: " << *best_lemma);
+
         m_conflict.reset();
         backjump(jump_level);
 
@@ -923,6 +969,11 @@ namespace polysat {
             default:
                 UNREACHABLE();
             }
+            if (is_conflict()) {
+                // TODO: the remainder of the narrow_queue as well as the lemmas are forgotten.
+                //       should we just insert them into the new conflict to carry them along?
+                return;
+            }
         }
 
         for (clause* lemma : lemmas) {
@@ -937,13 +988,9 @@ namespace polysat {
                 // TODO: we could also insert the remaining lemmas into the conflict and keep them for later.
                 return;
             }
-            SASSERT(!is_conflict());
         }
 
-        LOG("best_score: " << best_score);
-        LOG("best_lemma: " << *best_lemma);
-
-        if (best_score.literals_at_max_level() > 1) {
+        if (best_score.branching_factor() > 1) {
             // NOTE: at this point it is possible that the best_lemma is non-asserting.
             //       We need to double-check, because the backjump level may not be exact (see comment on checking is_conflict above).
             bool const is_asserting = all_of(*best_lemma, [this](sat::literal lit) { return m_bvars.is_assigned(lit); });
@@ -1049,6 +1096,10 @@ namespace polysat {
         }
         if (v != null_var)
             m_viable_fallback.push_constraint(v, c);
+        // TODO: we use narrow with first=true to add axioms about the constraint to the solver.
+        //       However, constraints can be activated multiple times (e.g., if it comes from a lemma and is propagated at a non-base level).
+        //       So the same axioms may be added multiple times.
+        //       Maybe separate narrow/activate? And keep a flag in m_bvars to remember whether constraint has already been activated.
         c.narrow(*this, true);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
@@ -1058,7 +1109,7 @@ namespace polysat {
     void solver::backjump(unsigned new_level) {
         SASSERT(new_level >= base_level());
         if (m_level != new_level) {
-            LOG_H3("Backjumping to level " << new_level << " from level " << m_level);
+            LOG_H3("Backjumping to level " << new_level << " from level " << m_level << " (base_level: " << base_level() << ")");
             pop_levels(m_level - new_level);
         }
     }
@@ -1269,7 +1320,8 @@ namespace polysat {
         out << lpad(4, lit) << ": " << rpad(30, c);
         if (!c)
             return out;
-        out << "  [ " << s.m_bvars.value(lit);
+        out << "  [ b:" << rpad(7, s.m_bvars.value(lit));
+        out << " p:" << rpad(7, c.eval(s));
         if (s.m_bvars.is_assigned(lit)) {
             out << ' ';
             if (s.m_bvars.is_assumption(lit))
@@ -1291,12 +1343,7 @@ namespace polysat {
     }
 
     std::ostream& num_pp::display(std::ostream& out) const {
-        rational const& p = rational::power_of_two(s.size(var));
-        if (val > mod(-val, p))
-            out << -mod(-val, p);
-        else
-            out << val;
-        return out;
+        return out << dd::val_pp(s.var2pdd(var), val, require_parens);
     }
 
     void solver::collect_statistics(statistics& st) const {
@@ -1322,7 +1369,7 @@ namespace polysat {
     /**
      * Check that two variables of each constraint are watched.
      */
-    bool solver::wlist_invariant() {
+    bool solver::wlist_invariant() const {
 #if 0
         for (pvar v = 0; v < m_value.size(); ++v) {
             std::stringstream s;
@@ -1336,6 +1383,7 @@ namespace polysat {
         for (unsigned i = m_qhead; i < m_search.size(); ++i)
             if (m_search[i].is_boolean())
                 skip.insert(m_search[i].lit().var());
+        SASSERT(is_conflict() || skip.empty());  // after propagation we either finished the queue or we are in a conflict
         for (auto c : m_constraints) {
             if (skip.contains(c->bvar()))
                 continue;
@@ -1357,6 +1405,33 @@ namespace polysat {
             if (num_watches != expected_watches)
                 LOG("Wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
             VERIFY_EQ(num_watches, expected_watches);
+        }
+        return true;
+    }
+
+    bool solver::bool_watch_invariant() const {
+        if (is_conflict())  // propagation may be unfinished if a conflict was discovered
+            return true;
+        // Check for missed boolean propagations:
+        // - no clause should have exactly one unassigned literal, unless it is already true.
+        // - no clause should be false
+        for (auto const& cls : m_constraints.clauses()) {
+            for (auto const& clref : cls) {
+                clause const& cl = *clref;
+                bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
+                if (is_true)
+                    continue;
+                size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
+                if (undefs == 1) {
+                    LOG("Missed boolean propagation of clause: " << cl);
+                    for (sat::literal lit : cl) {
+                        LOG("    " << lit_pp(*this, lit));
+                    }
+                }
+                SASSERT(undefs != 1);
+                bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
+                SASSERT(!is_false);
+            }
         }
         return true;
     }

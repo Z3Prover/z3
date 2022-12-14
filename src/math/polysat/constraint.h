@@ -234,4 +234,6 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, constraint_pp const& p) { return p.display(out); }
 
+    inline std::ostream& operator<<(std::ostream& out, inequality const& i) { return out << i.as_signed_constraint(); }
+
 }

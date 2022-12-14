@@ -177,14 +177,14 @@ namespace polysat {
         /** Perform boolean resolution with the clause upon the given literal. */
         void resolve_bool(sat::literal lit, clause const& cl);
 
-        /** lit was fully evaluated under the assignment.  */
-        void resolve_with_assignment(sat::literal lit);
+        /** lit was evaluated under the assignment. */
+        void resolve_evaluated(sat::literal lit);
 
         /** Perform resolution with "v = value <- ..." */
         void resolve_value(pvar v);
 
-        /** Revert decision, add auxiliary lemmas for the decision variable **/
-        void revert_decision(pvar v);
+        /** Revert variable assignment, add auxiliary lemmas for the reverted variable */
+        void revert_pvar(pvar v);
 
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();

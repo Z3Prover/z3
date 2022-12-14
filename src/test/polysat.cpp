@@ -204,7 +204,7 @@ namespace polysat {
         for (test_record const* r : m_records) {
             if (!r->m_finished)
                 continue;
-            r->display(out, max_name_len);
+            r->display(out, static_cast<unsigned>(max_name_len));
             out << std::endl;
             if (r->m_result == test_result::ok && r->m_answer == l_true)
                 n_sat++;
@@ -241,10 +241,9 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            if (collect_test_records) {
-                std::cout << m_name << ":";
-                std::cout.flush();
-            } else {
+            if (collect_test_records)
+                std::cout << m_name << std::flush;
+            else {
                 std::cout << std::string(78, '#') << "\n\n";
                 std::cout << "START: " << m_name << "\n";
             }
@@ -266,10 +265,8 @@ namespace polysat {
         }
 
         void check() {
-            if (collect_test_records) {
-                std::cout << " ...";
-                std::cout.flush();
-            }
+            if (collect_test_records)
+                std::cout << " ..." << std::flush;
             auto* rec = test_records.active_or_new_record();
             m_last_finished = nullptr;
             SASSERT(rec->m_answer == l_undef);
@@ -287,7 +284,7 @@ namespace polysat {
             rec->m_finished = true;
             m_last_finished = rec;
             if (collect_test_records)
-                std::cout << " " << m_last_result;
+                std::cout << " " << m_last_result << std::flush;
             else
                 std::cout << "DONE:  " << m_name << ": " << m_last_result << "\n";
             statistics st;
@@ -327,7 +324,7 @@ namespace polysat {
                 for (auto const& p : expected_assignment) {
                     auto const& v_pdd = p.first;
                     auto const expected_value = p.second;
-                    SASSERT(v_pdd.is_monomial() && !v_pdd.is_val());
+                    SASSERT(v_pdd.is_var());
                     auto const v = v_pdd.var();
                     if (get_value(v) != expected_value) {
                         rec->m_result = test_result::wrong_model;
@@ -632,6 +629,66 @@ namespace polysat {
             SASSERT(cl->size() == 2);
         }
 
+        // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
+        static void test_parity1() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            auto z = s.var(s.add_var(8));
+            s.add_clause({s.eq(x * y + z), s.eq(x * y + 5)}, false);
+            s.add_eq(y, 8);
+            s.add_eq(z, 3);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // 8 * u * x + 3 == 0 or 8 * u * x + 5 == 0 is unsat
+        static void test_parity1b() {
+            scoped_solver s(__func__);
+            auto u = s.var(s.add_var(8));
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            auto z = s.var(s.add_var(8));
+            s.add_clause({s.eq(u * x * y + z), s.eq(u * x * y + 5)}, false);
+            s.add_eq(y, 8);
+            s.add_eq(z, 3);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // 8 * x + 2 == 0 or 8 * x + 4 == 0 is unsat
+        static void test_parity2() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
+            s.add_eq(y, 8);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // (x * y + 4 == 0 or x * y + 2 == 0) & 16 divides y is unsat
+        static void test_parity3() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(8));
+            auto y = s.var(s.add_var(8));
+            s.add_clause({ s.eq(x * y + 2), s.eq(x * y + 4) }, false);
+            s.add_eq(16 * y);
+            s.check();
+            s.expect_unsat();
+        }
+
+        // x*y + 2 == 0
+        // parity(y) >= 4  ||  parity(y) >= 8
+        static void test_parity4(unsigned bw = 8) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            pdd x = s.var(s.add_var(bw));
+            pdd y = s.var(s.add_var(bw));
+            s.add_eq(x * y + 2);
+            s.add_clause({ s.parity(y, 4), s.parity(y, 8) }, false);
+            s.check();
+            s.expect_unsat();
+        }
 
         /**
          * Check unsat of:
@@ -654,9 +711,10 @@ namespace polysat {
 
         /**
          * Check unsat of:
-         * n*q1 = a - b
-         * n*q2 + r2 = c*a - c*b
-         * n > r2 > 0
+         * n*q1 = a - b                         3*1 == 3 - 0
+         * n*q2 + r2 = c*a - c*b                3*0 + 1 == 11*3 - 11*0 (= 33 = 1 mod 32)
+         * n > r2 > 0                           3 > 1 > 0
+         * It is actually satisfiable, e.g.: { {n, 3}, {q1, 1}, {a, 3}, {b, 0}, {c, 11}, {q2, 0}, {r2, 1} } (not a unique solution)
          */
         static void test_ineq2() {
             scoped_solver s(__func__);
@@ -672,9 +730,8 @@ namespace polysat {
             s.add_ult(r2, n);
             s.add_diseq(r2);
             s.check();
-            s.expect_unsat();
+            s.expect_sat();
         }
-
 
         /**
          * Monotonicity example from certora
@@ -1188,7 +1245,7 @@ namespace polysat {
         // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
         static void test_ineq_non_axiom4(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw - 1);
-            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
             LOG("permutation: " << i);
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
@@ -1258,7 +1315,6 @@ namespace polysat {
         static void test_quot_rem_incomplete() {
             unsigned bw = 4;
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto quot = s.var(s.add_var(bw));
             auto rem = s.var(s.add_var(bw));
             auto a = s.value(rational(2), bw);
@@ -1278,7 +1334,6 @@ namespace polysat {
         static void test_quot_rem_fixed() {
             unsigned bw = 4;
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto a = s.value(rational(2), bw);
             auto b = s.value(rational(5), bw);
             auto [quot, rem] = s.quot_rem(a, b);
@@ -1289,24 +1344,22 @@ namespace polysat {
 
         static void test_quot_rem(unsigned bw = 32) {
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto a = s.var(s.add_var(bw));
             auto quot = s.var(s.add_var(bw));
             auto rem = s.var(s.add_var(bw));
             auto x = a * 123;
             auto y = 123;
             // quot = udiv(a*123, 123)
-            s.add_eq(quot * y + rem - x);
-            s.add_diseq(a - quot);
-            s.add_umul_noovfl(quot, y);
-            s.add_ult(rem, x);
+            s.add_eq(x, quot * y + rem);  // 123*a = q*123 + r
+            s.add_diseq(a, quot);         // a != quot
+            s.add_umul_noovfl(quot, y);   // 123*quot < 2^K
+            s.add_ult(rem, x);            // r < 123*a  ???
             s.check();
-            s.expect_sat();
+            s.expect_sat();  // dubious
         }
 
         static void test_quot_rem2(unsigned bw = 32) {
             scoped_solver s(__func__);
-            s.set_max_conflicts(5);
             auto q = s.var(s.add_var(bw));
             auto r = s.var(s.add_var(bw));
             auto idx = s.var(s.add_var(bw));
@@ -1459,6 +1512,17 @@ namespace polysat {
             s.expect_sat({{a, 5}});
         }
 
+        static void test_bench6_viable() {
+            scoped_solver s(__func__);
+            rational coeff("12737129816104781496592808350955669863859698313220462044340334240870444260393");
+            auto a = s.var(s.add_var(256));
+            auto b = s.var(s.add_var(256));
+            s.add_eq(4 * b - coeff * a);
+            s.add_eq(b - 1);
+            // s.add_eq(a - 100);
+            s.check();
+        }
+
     };  // class test_polysat
 
 
@@ -1590,28 +1654,26 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 0  // Enable this block to run a single unit test with detailed output.
+#if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    test_polysat::test_band5();
-    // test_polysat::test_band5_clause();
-    // test_polysat::test_ineq_axiom1(32, 1);
-    // test_polysat::test_pop_conflict();
-    // test_polysat::test_l2();
-    // test_polysat::test_ineq1();
-    // test_polysat::test_quot_rem();
-    // test_polysat::test_ineq_non_axiom1(32, 3);
-    // test_polysat::test_monot_bounds_full();
-    // test_polysat::test_band2();
-    // test_polysat::test_quot_rem_incomplete();
-    // test_polysat::test_monot();
-    // test_polysat::test_fixed_point_arith_div_mul_inverse();
+    // test_polysat::test_parity1();
+    // test_polysat::test_parity1b();
+    // test_polysat::test_parity2();
+    // test_polysat::test_parity3();
+    test_polysat::test_parity4();
+    test_polysat::test_parity4(256);
+    // test_polysat::test_ineq2();
+    // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop
+    // test_polysat::test_ineq_non_axiom4(32, 4);  // stuck in viable refinement loop
+    // test_polysat::test_band1();
+    // test_polysat::test_bench6_viable();
     return;
 #endif
 
     // If non-empty, only run tests whose name contains the run_filter
     run_filter = "";
-    test_max_conflicts = 10;
+    test_max_conflicts = 20;
 
     collect_test_records = true;
 
@@ -1620,6 +1682,12 @@ void tst_polysat() {
         set_default_debug_action(debug_action::throw_exception);
         set_log_enabled(false);
     }
+
+    RUN(test_polysat::test_parity1());
+    RUN(test_polysat::test_parity1b());
+    RUN(test_polysat::test_parity2());
+    RUN(test_polysat::test_parity3());
+    RUN(test_polysat::test_parity4());
 
     RUN(test_polysat::test_clause_simplify1());
 
@@ -1662,6 +1730,24 @@ void tst_polysat() {
     RUN(test_polysat::test_fixed_point_arith_mul_div_inverse());
     RUN(test_polysat::test_fixed_point_arith_div_mul_inverse());
 
+    RUN(test_polysat::test_quot_rem_incomplete());
+    RUN(test_polysat::test_quot_rem_fixed());
+    RUN(test_polysat::test_quot_rem());
+    RUN(test_polysat::test_quot_rem2());
+
+    RUN(test_polysat::test_band1());
+    RUN(test_polysat::test_band2());
+    RUN(test_polysat::test_band3());
+    RUN(test_polysat::test_band4());
+    RUN(test_polysat::test_band5());
+    RUN(test_polysat::test_band5_clause());
+
+    RUN(test_polysat::test_fi_zero());
+    RUN(test_polysat::test_fi_nonzero());
+    RUN(test_polysat::test_fi_nonmax());
+    RUN(test_polysat::test_fi_disequal_mild());
+    RUN(test_polysat::test_bench6_viable());
+
     RUN(test_polysat::test_ineq_axiom1());
     RUN(test_polysat::test_ineq_axiom2());
     RUN(test_polysat::test_ineq_axiom3());
@@ -1670,21 +1756,6 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
     RUN(test_polysat::test_ineq_non_axiom4());
-
-    RUN(test_polysat::test_quot_rem_incomplete());
-    RUN(test_polysat::test_quot_rem_fixed());
-    RUN(test_polysat::test_band1());
-    RUN(test_polysat::test_band2());
-    RUN(test_polysat::test_band3());
-    RUN(test_polysat::test_band4());
-    RUN(test_polysat::test_band5());
-    RUN(test_polysat::test_band5_clause());
-    RUN(test_polysat::test_quot_rem());
-
-    RUN(test_polysat::test_fi_zero());
-    RUN(test_polysat::test_fi_nonzero());
-    RUN(test_polysat::test_fi_nonmax());
-    RUN(test_polysat::test_fi_disequal_mild());
 
     // test_fi::exhaustive();
     // test_fi::randomized();

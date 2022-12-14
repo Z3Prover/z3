@@ -80,6 +80,9 @@ namespace polysat {
         if (is_always_true(is_positive, p1, q1))
             return;
 
+        if (first)
+            activate(s, is_positive);
+        
         if (try_viable(s, is_positive, p(), q(), p1, q1))
             return;
 
@@ -89,6 +92,16 @@ namespace polysat {
             return;
 
 
+    }
+
+    void umul_ovfl_constraint::activate(solver& s, bool is_positive) {
+        // TODO - remove to enable
+        return;        
+        if (!is_positive) {
+            signed_constraint sc(this, is_positive);
+            s.add_clause(~sc, s.eq(p()), s.eq(q()), s.ule(p(), p()*q()), false);
+            s.add_clause(~sc, s.eq(p()), s.eq(q()), s.ule(q(), p()*q()), false);
+        }
     }
 
     /**
@@ -120,8 +133,8 @@ namespace polysat {
         SASSERT(bound * p.val() > max);
         SASSERT((bound - 1) * p.val() <= max);
         clause_builder cb(s);
-        cb.insert(~sc);
-        cb.insert(~premise);
+        cb.insert_eval(~sc);
+        cb.insert_eval(~premise);
         cb.insert(conseq);
         clause_ref just = cb.build();
         SASSERT(just);

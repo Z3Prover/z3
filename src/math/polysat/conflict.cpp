@@ -68,17 +68,13 @@ namespace polysat {
             , m_free_variable_elimination(s)
         {}
 
-        // 
-        // NSB review: the plugins need not be mutually exclusive
-        // Shouldn't saturation and superposition be allowed independently?
-        // If they create propagations or conflict lemmas we select the 
-        // tightest propagation as part of backjumping.
-        // 
         void infer_lemmas_for_value(pvar v, conflict& core) {
-            if (m_poly_sup.perform(v, core)) 
-                return;
-            if (m_saturation.perform(v, core))
-                return;
+            (void)m_poly_sup.perform(v, core);
+            (void)m_saturation.perform(v, core);
+        }
+
+        void infer_lemmas_for_value(pvar v, signed_constraint const& c, conflict& core) {
+            (void)m_saturation.perform(v, c, core);
         }
 
         // Analyse current conflict core to extract additional lemmas
@@ -104,11 +100,11 @@ namespace polysat {
         }
     };
 
-    struct inf_resolve_with_assignment : public inference {
+    struct inf_resolve_evaluated : public inference {
         solver& s;
         sat::literal lit;
         signed_constraint c;
-        inf_resolve_with_assignment(solver& s, sat::literal lit, signed_constraint c) : s(s), lit(lit), c(c) {}
+        inf_resolve_evaluated(solver& s, sat::literal lit, signed_constraint c) : s(s), lit(lit), c(c) {}
         std::ostream& display(std::ostream& out) const override {
             out << "Resolve upon " << lit << " with assignment:";
             for (pvar v : c->vars())
@@ -189,6 +185,7 @@ namespace polysat {
     }
 
     void conflict::init(signed_constraint c) {
+        LOG("Conflict: constraint " << lit_pp(s, c));
         SASSERT(empty());
         m_level = s.m_level;
         m_narrow_queue.push_back(c.blit());  // if the conflict is only due to a missed propagation of c
@@ -221,6 +218,7 @@ namespace polysat {
     }
 
     void conflict::init(clause const& cl) {
+        LOG("Conflict: clause " << cl);
         SASSERT(empty());
         m_level = s.m_level;
         for (auto lit : cl) {
@@ -233,6 +231,7 @@ namespace polysat {
     }
 
     void conflict::init(pvar v, bool by_viable_fallback) {
+        LOG("Conflict: viable v" << v);
         SASSERT(empty());
         m_level = s.m_level;
         if (by_viable_fallback) {
@@ -251,15 +250,13 @@ namespace polysat {
                 insert_vars(c);
             }
             SASSERT(!m_vars.contains(v));
-            // TODO: apply conflict resolution plugins here too?
         }
         else {
             logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
             VERIFY(s.m_viable.resolve(v, *this));
         }
-
-        // NSB TODO - disabled: revert_decision(v);
         SASSERT(!empty());
+        revert_pvar(v);  // at this point, v is not assigned
     }
 
     bool conflict::contains(sat::literal lit) const {
@@ -301,7 +298,7 @@ namespace polysat {
 
     void conflict::insert_vars(signed_constraint c) {
         for (pvar v : c->vars())
-            if (s.is_assigned(v))
+            if (s.is_assigned(v)) 
                 m_vars.insert(v);
     }
 
@@ -322,7 +319,11 @@ namespace polysat {
         lemma->set_redundant(true);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
-            SASSERT(s.m_bvars.value(lit) != l_true);
+            // NOTE: it can happen that the literal's bvalue is l_true at this point.
+            //       E.g., lit has been assigned to true on the search stack but not yet propagated.
+            //       A propagation before lit will cause a conflict, and by chance the viable conflict will contain lit.
+            //       (in that case, the evaluation of lit in the current assignment must be false, and it would have caused a conflict by itself when propagated.)
+            SASSERT(s.m_bvars.value(lit) != l_true || !s.lit2cnstr(lit).is_currently_true(s));
         }
         m_lemmas.push_back(std::move(lemma));
         // TODO: pass to inference_logger (with name)
@@ -364,7 +365,7 @@ namespace polysat {
         logger().log(inf_resolve_bool(lit, cl));
     }
 
-    void conflict::resolve_with_assignment(sat::literal lit) {
+    void conflict::resolve_evaluated(sat::literal lit) {
         // The reason for lit is conceptually:
         //    x1 = v1 /\ ... /\ xn = vn ==> lit
 
@@ -387,19 +388,24 @@ namespace polysat {
 #endif
 
         if (!has_decision) {
+            for (pvar v : c->vars()) {
+                if (s.is_assigned(v) && s.get_level(v) <= lvl) {
+                    m_vars.insert(v);                   
+// TODO - figure out what to do with constraints from conflict lemma that disappear here.
+//                    if (s.m_bvars.is_false(lit))
+//                        m_resolver->infer_lemmas_for_value(v, ~c, *this);
+                }
+            }
             remove(c);
-            for (pvar v : c->vars())
-                if (s.is_assigned(v) && s.get_level(v) <= lvl)
-                    m_vars.insert(v);
         }
 
         SASSERT(!contains(lit));
         SASSERT(!contains(~lit));
 
-        logger().log(inf_resolve_with_assignment(s, lit, c));
+        logger().log(inf_resolve_evaluated(s, lit, c));
     }
 
-    void conflict::revert_decision(pvar v) {
+    void conflict::revert_pvar(pvar v) {
         m_resolver->infer_lemmas_for_value(v, *this);
     }
 
@@ -418,7 +424,7 @@ namespace polysat {
         }
         logger().log(inf_resolve_value(s, v));
         
-        revert_decision(v);
+        revert_pvar(v);
     }
 
     clause_ref conflict::build_lemma() {

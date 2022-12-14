@@ -376,7 +376,7 @@ namespace polysat {
                     lo = val - lambda_l;
                     increase_hi(hi);
                 }
-                LOG("forbidden interval v" << v << " " << val << " " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
+                LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval << " [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                 SASSERT(hi <= mod_value);
                 bool full = (lo == 0 && hi == mod_value);
                 if (hi == mod_value)
@@ -707,6 +707,8 @@ namespace polysat {
                 n = n1;
             }
 
+            // verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
+
             if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
                 auto const& next_lo = n->interval.lo();
@@ -725,7 +727,8 @@ namespace polysat {
         }
         while (e != first);
 
-        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false; }));
+        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
+
         core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;

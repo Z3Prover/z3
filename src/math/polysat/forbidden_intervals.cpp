@@ -128,7 +128,7 @@ namespace polysat {
         return true;
     }
 
-    static char* _last_function = "";
+    static char const* _last_function = "";
     
     bool forbidden_intervals::get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi) {
         
@@ -180,12 +180,11 @@ namespace polysat {
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());
 
-        // a*v <= 0, a odd
+        // a*v + b <= 0, a odd
+        // a*v + b > 0, a odd
         if (match_zero(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
-        // a*v + b > 0, a odd
-        if (match_non_zero_linear(c, a1, b1, e1, a2, b2, e2, fi))
-            return true;
+
         if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
         if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi))
@@ -385,9 +384,12 @@ namespace polysat {
      * a*v <= 0, a odd
      * forbidden interval for v is [1,0[
      *
+     * a*v + b <= 0, a odd
+     * forbidden interval for v is [n+1,n[ where n = -b * a^-1
+     *
      * TODO: extend to
      * 2^k*a*v <= 0, a odd
-     * (using periodic intervals?)
+     * (using intervals for the lower bits of v)
      */
     bool forbidden_intervals::match_zero(
         signed_constraint const& c,
@@ -395,53 +397,27 @@ namespace polysat {
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
-        if (c.is_positive() && a1.is_odd() && b1.is_zero() && a2.is_zero() && b2.is_zero()) {
-            auto& m = e1.manager();
-            rational lo_val(1);
-            auto lo = m.one();
-            rational hi_val(0);
-            auto hi = m.zero();
-            fi.coeff = 1;
-            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            if (b1 != e1)
-                fi.side_cond.push_back(s.eq(b1, e1));
-            if (b2 != e2)
-                fi.side_cond.push_back(s.eq(b2, e2));
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * a*v + b > 0, a odd
-     *
-     * TODO: extend to
-     * 2^k*a*v + b > 0, a odd
-     * (using periodic intervals?)
-     */
-    bool forbidden_intervals::match_non_zero_linear(
-        signed_constraint const& c,
-        rational const & a1, pdd const& b1, pdd const& e1,
-        rational const & a2, pdd const& b2, pdd const& e2,
-        fi_record& fi) {
-        _last_function = __func__;
-        if (c.is_negative() && a1.is_odd() && a2.is_zero() && b2.is_zero()) {
-            // a*v + b > 0
-            // <=> a*v + b != 0
-            // <=> v + a^-1 * b != 0
-            // <=> v != - a^-1 * b
+        if (a1.is_odd() && a2.is_zero() && b2.is_zero()) {
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
             rational a1_inv;
             VERIFY(a1.mult_inverse(m.power_of_2(), a1_inv));
-            rational lo_val(mod(-b1.val() * a1_inv, mod_value));
-            auto lo = -e1 * a1_inv;
-            rational hi_val(mod(lo_val + 1, mod_value));
-            auto hi = lo + 1;
+
+            // interval for a*v + b > 0 is [n,n+1[ where n = -b * a^-1
+            rational lo_val = mod(-b1.val() * a1_inv, mod_value);
+            pdd lo          = -e1 * a1_inv;
+            rational hi_val = mod(lo_val + 1, mod_value);
+            pdd hi          = lo + 1;
+
+            // interval for a*v + b <= 0 is the complement
+            if (c.is_positive()) {
+                std::swap(lo_val, hi_val);
+                std::swap(lo, hi);
+            }
+
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            if (b1 != e1)
-                fi.side_cond.push_back(s.eq(b1, e1));
+            // RHS == 0 is a precondition because we can only multiply with a^-1 in equations, not inequalities
             if (b2 != e2)
                 fi.side_cond.push_back(s.eq(b2, e2));
             return true;
