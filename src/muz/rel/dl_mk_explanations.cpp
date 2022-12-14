@@ -70,20 +70,16 @@ namespace datalog {
             m_union_decl(mk_explanations::get_union_decl(get_context()), get_ast_manager()) {}
 
         ~explanation_relation_plugin() override {
-            for (unsigned i = 0; i < m_pool.size(); ++i) {
-                for (unsigned j = 0; j < m_pool[i].size(); ++j) {
+            for (unsigned i = 0; i < m_pool.size(); ++i) 
+                for (unsigned j = 0; j < m_pool[i].size(); ++j) 
                     dealloc(m_pool[i][j]);
-                }
-            }
         }
 
         bool can_handle_signature(const relation_signature & s) override {
             unsigned n=s.size();
-            for (unsigned i=0; i<n; i++) {
-                if (!get_context().get_decl_util().is_rule_sort(s[i])) {
+            for (unsigned i=0; i<n; i++) 
+                if (!get_context().get_decl_util().is_rule_sort(s[i])) 
                     return false;
-                }
-            }
             return true;
         }
         
@@ -105,9 +101,10 @@ namespace datalog {
         relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
             const relation_base & negated_obj, unsigned joined_col_cnt,
             const unsigned * t_cols, const unsigned * negated_cols) override;
-        relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t,
-                const relation_base & src, unsigned joined_col_cnt,
-                const unsigned * t_cols, const unsigned * src_cols) override;
+        relation_intersection_filter_fn * mk_filter_by_intersection_fn(
+            const relation_base & t,
+            const relation_base & src, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * src_cols) override;
 
     };
 
@@ -150,7 +147,8 @@ namespace datalog {
         void assign_data(const relation_fact & f) {
             m_empty = false;
 
-            unsigned n=get_signature().size();
+            verbose_stream() << "assign data " << f << "\n";
+            unsigned n = get_signature().size();
             SASSERT(f.size()==n);
             m_data.reset();
             m_data.append(n, f.data());
@@ -161,11 +159,13 @@ namespace datalog {
             m_data.resize(get_signature().size());
         }
         void unite_with_data(const relation_fact & f) {
+            verbose_stream() << "unite data " << f << "\n";
+
             if (empty()) {
                 assign_data(f);
                 return;
             }
-            unsigned n=get_signature().size();
+            unsigned n = get_signature().size();
             SASSERT(f.size()==n);
             for (unsigned i=0; i<n; i++) {
                 SASSERT(!is_undefined(i));
@@ -186,6 +186,7 @@ namespace datalog {
         void to_formula(expr_ref& fml) const override {
             ast_manager& m = fml.get_manager();
             fml = m.mk_eq(m.mk_var(0, m_data[0]->get_sort()), m_data[0]);
+            verbose_stream() << "FORMULA " << fml << "\n";
         }
 
         bool is_undefined(unsigned col_idx) const {
@@ -339,6 +340,7 @@ namespace datalog {
             if (!r.empty()) {
                 relation_fact proj_data = r.m_data;
                 project_out_vector_columns(proj_data, m_removed_cols);
+                verbose_stream() << "project\n";
                 res->assign_data(proj_data);
             }
             return res;
@@ -365,9 +367,9 @@ namespace datalog {
 
             explanation_relation * res = static_cast<explanation_relation *>(plugin.mk_empty(get_result_signature()));
             if (!r.empty()) {
-                relation_fact permutated_data = r.m_data;
-                permutate_by_cycle(permutated_data, m_cycle);
-                res->assign_data(permutated_data);
+                relation_fact permuted_data = r.m_data;
+                permute_by_cycle(dynamic_cast<app_ref_vector&>(permuted_data), m_cycle);
+                res->assign_data(permuted_data);
             }
             return res;
         }
@@ -406,6 +408,7 @@ namespace datalog {
             }
             else {
                 if (tgt.empty()) {
+                    verbose_stream() << "union\n";
                     tgt.assign_data(src.m_data);
                     if (delta && delta->empty()) {
                         delta->assign_data(src.m_data);
@@ -704,7 +707,7 @@ namespace datalog {
     symbol mk_explanations::get_rule_symbol(rule * r) {
         if (r->name() == symbol::null) {
             std::stringstream sstm;
-            r->display(m_context, sstm);
+            r->display(m_context, sstm, true);
             std::string res = sstm.str();
             res = res.substr(0, res.find_last_not_of('\n')+1);
             return symbol(res.c_str());

@@ -1013,28 +1013,31 @@ namespace datalog {
         }
     }
 
-    void rule::display(context & ctx, std::ostream & out) const {
+    void rule::display(context & ctx, std::ostream & out, bool compact) const {
         ast_manager & m = ctx.get_manager();
-        out << m_name.str () << ":\n";
+        if (!compact)
+            out << m_name.str () << ":\n";
         output_predicate(ctx, m_head, out);
         if (m_tail_size == 0) {
-            out << ".\n";
+            out << ".";
+            if (!compact)
+                out << "\n";
             return;
         }
         out << " :- ";
         for (unsigned i = 0; i < m_tail_size; i++) {
             if (i > 0)
                 out << ",";
-            out << "\n ";
+            if (!compact)
+                out << "\n";
+            out << " ";
             if (is_neg_tail(i))
                 out << "not ";
             app * t = get_tail(i);
-            if (ctx.is_predicate(t)) {
+            if (ctx.is_predicate(t)) 
                 output_predicate(ctx, t, out);
-            }
-            else {
+            else 
                 out << mk_pp(t, m);
-            }
         }
         out << '.';
         if (ctx.output_profile()) {
@@ -1042,10 +1045,10 @@ namespace datalog {
             output_profile(out);
             out << '}';
         }
-        out << '\n';
-        if (m_proof) {
+        if (!compact)
+            out << '\n';
+        if (m_proof) 
             out << mk_pp(m_proof, m) << '\n';
-        }
     }
 
 

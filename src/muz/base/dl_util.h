@@ -320,32 +320,31 @@ namespace datalog {
         unsigned_vector & res, bool & identity);
 
     template<class T>
-    void permutate_by_cycle(T & container, unsigned cycle_len, const unsigned * permutation_cycle) {
-        if (cycle_len<2) {
+    void permute_by_cycle(T& container, unsigned cycle_len, const unsigned * permutation_cycle) {
+        if (cycle_len < 2) 
             return;
-        }
         auto aux = container[permutation_cycle[0]];
-        for (unsigned i=1; i<cycle_len; i++) {
-            container[permutation_cycle[i-1]]=container[permutation_cycle[i]];
-        }
-        container[permutation_cycle[cycle_len-1]]=aux;
+        verbose_stream() << "xx " << cycle_len << "\n";
+        for (unsigned i = 1; i < cycle_len; i++) 
+            container[permutation_cycle[i-1]] = container[permutation_cycle[i]];
+        container[permutation_cycle[cycle_len-1]] = aux;
     }
-
     template<class T, class M>
-    void permutate_by_cycle(ref_vector<T,M> & container, unsigned cycle_len, const unsigned * permutation_cycle) {
+    void permute_by_cycle(ref_vector<T,M> & container, unsigned cycle_len, const unsigned * permutation_cycle) {
         if (cycle_len<2) {
             return;
         }
+        verbose_stream() << "ptr\n";
         T * aux = container.get(permutation_cycle[0]);
-        for (unsigned i=1; i<cycle_len; i++) {
+        for (unsigned i=1; i < cycle_len; i++) {
             container.set(permutation_cycle[i-1], container.get(permutation_cycle[i]));
         }
         container.set(permutation_cycle[cycle_len-1], aux);
     }
 
     template<class T>
-    void permutate_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
-        permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.data());
+    void permute_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
+        permute_by_cycle(container, permutation_cycle.size(), permutation_cycle.data());
     }
 
 
