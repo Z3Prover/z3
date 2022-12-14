@@ -90,8 +90,6 @@ namespace polysat {
             return;
         if (narrow_bound(s, is_positive, q(), p(), q1, p1))
             return;
-
-
     }
 
     void umul_ovfl_constraint::activate(solver& s, bool is_positive) {
@@ -99,8 +97,10 @@ namespace polysat {
         return;        
         if (!is_positive) {
             signed_constraint sc(this, is_positive);
-            s.add_clause(~sc, s.eq(p()), s.eq(q()), s.ule(p(), p()*q()), false);
-            s.add_clause(~sc, s.eq(p()), s.eq(q()), s.ule(q(), p()*q()), false);
+            // ¬Omega(p, q)  ==>  q = 0  \/  p <= p*q
+            // ¬Omega(p, q)  ==>  p = 0  \/  q <= p*q
+            s.add_clause(~sc, /* s.eq(p()), */ s.eq(q()), s.ule(p(), p()*q()), false);
+            s.add_clause(~sc, s.eq(p()), /* s.eq(q()), */ s.ule(q(), p()*q()), false);
         }
     }
 
