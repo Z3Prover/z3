@@ -218,6 +218,8 @@ namespace bv {
     }
 
     bool solver::polysat_diseq_eh(euf::th_eq const& ne) {
+        if (!use_polysat())
+            return false;
         euf::theory_var v1 = ne.v1(), v2 = ne.v2();
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
