@@ -35,6 +35,7 @@ namespace polysat {
         unsigned bit_width;
         func_decl_ref x_decl;
         expr_ref x;
+        vector<rational> model_cache;
 
     public:
         univariate_bitblast_solver(solver_factory& mk_solver, unsigned bit_width) :
@@ -48,15 +49,30 @@ namespace polysat {
             s = mk_solver(m, p, false, true, true, symbol::null);
             x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
             x = m.mk_const(x_decl);
+            model_cache.push_back(rational(-1));
         }
 
         ~univariate_bitblast_solver() override = default;
 
+        void reset_cache() {
+            model_cache.back() = -1;
+        }
+
+        void push_cache() {
+            model_cache.push_back(model_cache.back());
+        }
+
+        void pop_cache() {
+            model_cache.pop_back();
+        }
+
         void push() override {
+            push_cache();
             s->push();
         }
 
         void pop(unsigned n) override {
+            pop_cache();
             s->pop(n);
         }
 
@@ -114,6 +130,7 @@ namespace polysat {
 #endif
 
         void add(expr* e, bool sign, dep_t dep) {
+            reset_cache();
             if (sign)
                 e = m.mk_not(e);
             expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
@@ -194,15 +211,19 @@ namespace polysat {
         }
 
         rational model() override {
-            model_ref model;
-            s->get_model(model);
-            SASSERT(model);
-            app* val = to_app(model->get_const_interp(x_decl));
-            SASSERT(val->get_decl_kind() == OP_BV_NUM);
-            SASSERT(val->get_num_parameters() == 2);
-            auto const& p = val->get_parameter(0);
-            SASSERT(p.is_rational());
-            return p.get_rational();
+            rational& cached_model = model_cache.back();
+            if (cached_model.is_neg()) {
+                model_ref model;
+                s->get_model(model);
+                SASSERT(model);
+                app* val = to_app(model->get_const_interp(x_decl));
+                SASSERT(val->get_decl_kind() == OP_BV_NUM);
+                SASSERT(val->get_num_parameters() == 2);
+                auto const& p = val->get_parameter(0);
+                SASSERT(p.is_rational());
+                cached_model = p.get_rational();
+            }
+            return cached_model;
         }
 
         bool find_min(rational& val) override {
@@ -214,6 +235,7 @@ namespace polysat {
                     add_bit0(k, 0);
                     continue;
                 }
+                // try decreasing k-th bit
                 push();
                 add_bit0(k, 0);
                 lbool result = check();
@@ -226,6 +248,35 @@ namespace polysat {
                     add_bit0(k, 0);
                 else if (result == l_false)
                     add_bit1(k, 0);
+                else
+                    return false;
+            }
+            pop(1);
+            return true;
+        }
+
+        bool find_max(rational& val) override {
+            val = model();
+            push();
+            // try increasing val by setting bits to 1, starting at the msb.
+            for (unsigned k = bit_width; k-- > 0; ) {
+                if (val.get_bit(k)) {
+                    add_bit1(k, 0);
+                    continue;
+                }
+                // try increasing k-th bit
+                push();
+                add_bit1(k, 0);
+                lbool result = check();
+                if (result == l_true) {
+                    SASSERT(model() > val);
+                    val = model();
+                }
+                pop(1);
+                if (result == l_true)
+                    add_bit1(k, 0);
+                else if (result == l_false)
+                    add_bit0(k, 0);
                 else
                     return false;
             }

@@ -42,15 +42,31 @@ namespace polysat {
 
         virtual lbool check() = 0;
 
-        // Precondition: check() returned l_false
+        /**
+         * Precondition: check() returned l_false
+         */
         virtual dep_vector unsat_core() = 0;
 
-        // Precondition: check() returned l_true
+        /**
+         * Precondition: check() returned l_true
+         */
         virtual rational model() = 0;
 
-        // Precondition: check() returned l_true
-        // Returns false on resource out.
+        /**
+         * Find minimal model.
+         *
+         * Precondition: check() returned l_true
+         * Returns: true on success, false on resource out.
+         */
         virtual bool find_min(rational& out_min) = 0;
+
+        /**
+         * Find maximal model.
+         *
+         * Precondition: check() returned l_true
+         * Returns: true on success, false on resource out.
+         */
+        virtual bool find_max(rational& out_max) = 0;
 
         virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
