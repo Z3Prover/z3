@@ -85,7 +85,7 @@ namespace polysat {
                 e = m.mk_not(e);
             expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
             s->assert_expr(e, a);
-            // std::cout << "add: " << expr_ref(e, m) << "  <==  " << expr_ref(a, m) << "\n";
+            IF_VERBOSE(10, verbose_stream() << "(assert (! " << expr_ref(e, m) << "      :named " << expr_ref(a, m) << "))\n");
         }
 
         void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
