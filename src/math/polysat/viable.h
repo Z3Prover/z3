@@ -38,7 +38,9 @@ namespace polysat {
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
 
-        struct entry final : public dll_base<entry>, public fi_record {};
+        struct entry final : public dll_base<entry>, public fi_record {
+            entry const* refined = nullptr;
+        };
         enum class entry_kind { unit_e, equal_e, diseq_e };
 
         ptr_vector<entry>                    m_alloc;

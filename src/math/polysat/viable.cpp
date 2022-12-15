@@ -70,6 +70,7 @@ namespace polysat {
         auto* e = m_alloc.back();
         e->side_cond.reset();
         e->coeff = 1;
+        e->refined = nullptr;
         m_alloc.pop_back();
         return e;
     }
@@ -348,6 +349,7 @@ namespace polysat {
                     pdd lop = s.var2pdd(v).mk_val(lo);
                     pdd hip = s.var2pdd(v).mk_val(hi);
                     entry* ne = alloc_entry();
+                    ne->refined = e;
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
@@ -384,6 +386,7 @@ namespace polysat {
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
+                ne->refined = e;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -471,6 +474,7 @@ namespace polysat {
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
+                ne->refined = e;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
