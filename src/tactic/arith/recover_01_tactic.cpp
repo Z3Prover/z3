@@ -407,7 +407,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
-        r.insert("recover_01_max_bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
+        r.insert("recover_01_max_bits", CPK_UINT, "maximum number of bits to consider in a clause.", "10");
     }
 
     void operator()(goal_ref const & g, 

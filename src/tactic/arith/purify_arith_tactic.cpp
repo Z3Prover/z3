@@ -911,11 +911,11 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("complete", CPK_BOOL, 
-                 "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root");
+                 "add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root", "true");
         r.insert("elim_root_objects", CPK_BOOL,
-                 "(default: true) eliminate root objects.");
+                 "eliminate root objects.", "true");
         r.insert("elim_inverses", CPK_BOOL,
-                 "(default: true) eliminate inverse trigonometric functions (asin, acos, atan).");
+                 "eliminate inverse trigonometric functions (asin, acos, atan).", "true");
         th_rewriter::get_param_descrs(r);
     }
     

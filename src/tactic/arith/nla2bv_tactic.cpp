@@ -442,9 +442,9 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("nla2bv_max_bv_size", CPK_UINT, "(default: inf) maximum bit-vector size used by nla2bv tactic");
-        r.insert("nla2bv_bv_size", CPK_UINT, "(default: 4) default bit-vector size used by nla2bv tactic.");
-        r.insert("nla2bv_root", CPK_UINT, "(default: 2) nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding.");
-        r.insert("nla2bv_divisor", CPK_UINT, "(default: 2) nla2bv tactic parameter.");
+        r.insert("nla2bv_bv_size", CPK_UINT, "default bit-vector size used by nla2bv tactic.", "4");
+        r.insert("nla2bv_root", CPK_UINT, "nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding.", "2");
+        r.insert("nla2bv_divisor", CPK_UINT, "nla2bv tactic parameter.", "2");
     }
     
     /**
