@@ -1661,7 +1661,8 @@ void tst_polysat() {
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
     // test_polysat::test_parity3();
-    test_polysat::test_parity4();
+    // test_polysat::test_parity4();
+    // test_polysat::test_parity4(32);
     test_polysat::test_parity4(256);
     // test_polysat::test_ineq2();
     // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop

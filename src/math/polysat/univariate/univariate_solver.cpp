@@ -64,7 +64,8 @@ namespace polysat {
             return bv->mk_numeral(r, bit_width);
         }
 
-        // [d,c,b,a]  ==>  ((a*x + b)*x + c)*x + d
+#if 0
+        // [d,c,b,a]  -->  ((a*x + b)*x + c)*x + d
         expr* mk_poly(univariate const& p) const {
             if (p.empty()) {
                 return mk_numeral(rational::zero());
@@ -79,6 +80,38 @@ namespace polysat {
                 return e;
             }
         }
+#else
+        // TODO: shouldn't the simplification step of the underlying solver already support this transformation? how to enable?
+        // 2^k*x  -->  x << k
+        // n*x    -->  n * x
+        expr* mk_poly_term(rational const& coeff, expr* xpow) const {
+            unsigned pow;
+            if (coeff.is_power_of_two(pow))
+                return bv->mk_bv_shl(xpow, mk_numeral(rational(pow)));
+            else
+                return bv->mk_bv_mul(mk_numeral(coeff), xpow);
+        }
+
+        // [d,c,b,a]  -->  d + c*x + b*(x*x) + a*(x*x*x)
+        expr* mk_poly(univariate const& p) const {
+            if (p.empty()) {
+                return mk_numeral(rational::zero());
+            }
+            else {
+                expr* e = mk_numeral(p.back());
+                expr* xpow = x;
+                for (unsigned i = p.size() - 1; i-- > 0; ) {
+                    if (!p[i].is_zero()) {
+                        expr* t = mk_poly_term(p[i], xpow);
+                        e = bv->mk_bv_add(e, t);
+                    }
+                    if (i)
+                        xpow = bv->mk_bv_mul(xpow, x);
+                }
+                return e;
+            }
+        }
+#endif
 
         void add(expr* e, bool sign, dep_t dep) {
             if (sign)
