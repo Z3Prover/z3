@@ -132,11 +132,11 @@ namespace polysat {
         if (intersect(v, sc)) {
             rational val;
             switch (find_viable(v, val)) {
-            case dd::find_t::singleton:
+            case find_t::singleton:
                 propagate(v, val);
                 prop = true;
                 break;
-            case dd::find_t::empty:
+            case find_t::empty:
                 s.set_conflict(v, false);
                 return true;
             default:
@@ -592,25 +592,45 @@ namespace polysat {
         return hi;
     }
 
-    dd::find_t viable::find_viable(pvar v, rational& lo) {
-        refined:
+    // template <viable::query_t mode>
+    find_t viable::query(query_t mode, pvar v, rational& lo, rational& hi) {
+        SASSERT(mode == query_t::find_viable);  // other modes are TODO
+
+        auto const& max_value = s.var2pdd(v).max_value();
+
+        // max number of interval refinements before falling back to the univariate solver
+        unsigned const refinement_budget = 1000;
+        unsigned refinements = refinement_budget;
+
+    refined:
+
+        if (!refinements) {
+            LOG("Refinement budget exhausted! Fall back to univariate solver.");
+            return find_t::resource_out;
+        }
+
+        refinements--;
+
+        // After a refinement, any of the existing entries may have been replaced
+        // (if it is subsumed by the new entry created during refinement).
+        // For this reason, we start chasing the intervals from the start again.
         lo = 0;
+
         auto* e = m_units[v];
         if (!e && !refine_viable(v, lo))
             goto refined;
         if (!e && !refine_viable(v, rational::one()))
             goto refined;
         if (!e)
-            return dd::find_t::multiple;
+            return find_t::multiple;
         if (e->interval.is_full())
-            return dd::find_t::empty;
+            return find_t::empty;
 
         entry* first = e;
         entry* last = first->prev();
 
         // quick check: last interval does not wrap around
         // and has space for 2 unassigned values.
-        auto& max_value = s.var2pdd(v).max_value();
         if (last->interval.lo_val() < last->interval.hi_val() &&
             last->interval.hi_val() < max_value) {
             lo = last->interval.hi_val();
@@ -618,7 +638,7 @@ namespace polysat {
                 goto refined;
             if (!refine_viable(v, max_value))
                 goto refined;
-            return dd::find_t::multiple;
+            return find_t::multiple;
         }
 
         // find lower bound
@@ -633,7 +653,76 @@ namespace polysat {
         while (e != first);
 
         if (e->interval.currently_contains(lo))
-            return dd::find_t::empty;
+            return find_t::empty;
+
+        // find upper bound
+        hi = max_value;
+        e = last;
+        do {
+            if (!e->interval.currently_contains(hi))
+                break;
+            hi = e->interval.lo_val() - 1;
+            e = e->prev();
+        }
+        while (e != last);
+        if (!refine_viable(v, lo))
+            goto refined;
+        if (!refine_viable(v, hi))
+            goto refined;
+
+        if (lo == hi)
+            return find_t::singleton;
+        else
+            return find_t::multiple;
+    }
+
+    find_t viable::find_viable(pvar v, rational& lo) {
+#if 1
+        rational hi;
+        // return query<query_t::find_viable>(v, lo, hi);
+        return query(query_t::find_viable, v, lo, hi);
+#else
+        refined:
+        lo = 0;
+        auto* e = m_units[v];
+        if (!e && !refine_viable(v, lo))
+            goto refined;
+        if (!e && !refine_viable(v, rational::one()))
+            goto refined;
+        if (!e)
+            return find_t::multiple;
+        if (e->interval.is_full())
+            return find_t::empty;
+
+        entry* first = e;
+        entry* last = first->prev();
+
+        // quick check: last interval does not wrap around
+        // and has space for 2 unassigned values.
+        auto& max_value = s.var2pdd(v).max_value();
+        if (last->interval.lo_val() < last->interval.hi_val() &&
+            last->interval.hi_val() < max_value) {
+            lo = last->interval.hi_val();
+            if (!refine_viable(v, lo))
+                goto refined;
+            if (!refine_viable(v, max_value))
+                goto refined;
+            return find_t::multiple;
+        }
+
+        // find lower bound
+        if (last->interval.currently_contains(lo))
+            lo = last->interval.hi_val();
+        do {
+            if (!e->interval.currently_contains(lo))
+                break;
+            lo = e->interval.hi_val();
+            e = e->next();
+        }
+        while (e != first);
+
+        if (e->interval.currently_contains(lo))
+            return find_t::empty;
 
         // find upper bound
         rational hi = max_value;
@@ -650,9 +739,10 @@ namespace polysat {
         if (!refine_viable(v, hi))
             goto refined;
         if (lo == hi)
-            return dd::find_t::singleton;
+            return find_t::singleton;
         else
-            return dd::find_t::multiple;
+            return find_t::multiple;
+#endif
     }
 
     bool viable::resolve(pvar v, conflict& core) {
@@ -857,7 +947,7 @@ namespace polysat {
         return {};
     }
 
-    dd::find_t viable_fallback::find_viable(pvar v, rational& out_val) {
+    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
         unsigned bit_width = s.m_size[v];
 
         univariate_solver* us;
@@ -884,14 +974,11 @@ namespace polysat {
         case l_true:
             out_val = us->model();
             // we don't know whether the SMT instance has a unique solution
-            return dd::find_t::multiple;
+            return find_t::multiple;
         case l_false:
-            return dd::find_t::empty;
+            return find_t::empty;
         default:
-            // TODO: what should we do here? (SMT solver had resource-out ==> polysat should abort too?)
-            //       can we pass polysat's resource limit to the univariate solver?
-            UNREACHABLE();
-            return dd::find_t::empty;
+            return find_t::resource_out;
         }
     }
 
@@ -903,6 +990,21 @@ namespace polysat {
             cs.push_back(m_constraints[v][dep]);
         }
         return cs;
+    }
+
+    std::ostream& operator<<(std::ostream& out, find_t x) {
+        switch (x) {
+        case find_t::empty:
+            return out << "empty";
+        case find_t::singleton:
+            return out << "singleton";
+        case find_t::multiple:
+            return out << "multiple";
+        case find_t::resource_out:
+            return out << "resource_out";
+        }
+        UNREACHABLE();
+        return out;
     }
 
 }

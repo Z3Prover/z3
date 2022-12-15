@@ -647,21 +647,28 @@ namespace polysat {
         rational val;
         justification j;
         switch (m_viable.find_viable(v, val)) {
-        case dd::find_t::empty:
+        case find_t::empty:
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
             m_free_pvars.unassign_var_eh(v);
             set_conflict(v, false);
             return;
-        case dd::find_t::singleton:
+        case find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
             // NOTE 2: probably not true anymore; viable::intersect should trigger all propagations now
             DEBUG_CODE( UNREACHABLE(); );
             j = justification::propagation(m_level);
             break;
-        case dd::find_t::multiple:
+        case find_t::multiple:
             j = justification::decision(m_level + 1);
+            break;
+        case find_t::resource_out:
+            // the value is not viable, so assign_verify will call the univariate solver.
+            j = justification::decision(m_level + 1);
+            break;
+        default:
+            UNREACHABLE();
             break;
         }
         assign_verify(v, val, j);
@@ -731,19 +738,23 @@ namespace polysat {
         }
         if (c) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
+            LOG("Current assignment: " << assignments_pp(*this));
             ++m_stats.m_num_viable_fallback;
             // Try to find a valid replacement value
             switch (m_viable_fallback.find_viable(v, val)) {
-            case dd::find_t::singleton:
-            case dd::find_t::multiple:
+            case find_t::singleton:
+            case find_t::multiple:
                 LOG("Fallback solver: " << assignment_pp(*this, v, val));
                 SASSERT(!j.is_propagation());  // all excluded values are true negatives, so if j.is_propagation() the univariate solver must return unsat
                 j = justification::decision(m_level + 1);
                 break;
-            case dd::find_t::empty:
+            case find_t::empty:
                 LOG("Fallback solver: unsat");
                 m_free_pvars.unassign_var_eh(v);
                 set_conflict(v, true);
+                return;
+            case find_t::resource_out:
+                UNREACHABLE();  // TODO: abort solving
                 return;
             }
         }
