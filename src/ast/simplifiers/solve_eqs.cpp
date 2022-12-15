@@ -13,6 +13,24 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2022-11-2.
 
+Notes:
+
+extract_subst is inefficient.
+It traverses the same sub-terms many times.
+
+Outline of a presumably better scheme:
+
+1. maintain map FV: term -> bit-set where bitset reprsents set of free variables. Assume the number of variables is bounded.
+   FV is built from initial terms.
+2. maintain parent: term -> term-list of parent occurrences.
+3. repeat
+   pick x = t, such that x not in FV(t)
+        orient x -> t
+        for p in parent*(x):
+            FV(p) := FV(p) u FV(t)
+        if y = s is processed and x in FV(s) order y < x
+        if y = s is processed and x in FV(t) order x < y
+
 --*/
 
 
