@@ -117,8 +117,8 @@ namespace polysat {
 
     static void test_univariate() {
         std::cout << "\ntest_univariate\n";
-        unsigned bw = 32;
-        rational modulus = rational::power_of_two(bw);
+        unsigned const bw = 32;
+        rational const modulus = rational::power_of_two(bw);
         auto factory = mk_univariate_bitblast_factory();
         auto solver = (*factory)(bw);
 
@@ -182,6 +182,80 @@ namespace polysat {
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "core: " << solver->unsat_core() << "\n";
     }
+
+    static void test_univariate_min() {
+        std::cout << "\ntest_univariate_min\n";
+        unsigned const bw = 32;
+        auto factory = mk_univariate_bitblast_factory();
+        auto solver = (*factory)(bw);
+
+        vector<rational> lhs;
+        vector<rational> rhs;
+        rational min;
+
+        solver->push();
+
+        // c0: 123 <= 2x + 10
+        lhs.clear();
+        lhs.push_back(rational(123));
+        rhs.clear();
+        rhs.push_back(rational(10));
+        rhs.push_back(rational(2));
+        solver->add_ule(lhs, rhs, false, 0);
+        std::cout << "status:   " << solver->check() << "\n";
+        std::cout << "model:    " << solver->model() << "\n";
+        VERIFY(solver->find_min(min));
+        std::cout << "find_min: " << min << "\n";
+        VERIFY(min == 57);  // 57*2 + 10 = 124;  56*2 + 10 = 122
+
+        solver->push();
+
+        // c1: 127 <= x
+        lhs.clear();
+        lhs.push_back(rational(127));
+        rhs.clear();
+        rhs.push_back(rational(0));
+        rhs.push_back(rational(1));
+        solver->add_ule(lhs, rhs, false, 1);
+        std::cout << "status:   " << solver->check() << "\n";
+        std::cout << "model:    " << solver->model() << "\n";
+        VERIFY(solver->find_min(min));
+        std::cout << "find_min: " << min << "\n";
+        VERIFY(min == 127);
+
+        solver->pop(1);
+
+        // c2: umul_ovfl(2, x)
+        lhs.clear();
+        lhs.push_back(rational(2));
+        rhs.clear();
+        rhs.push_back(rational(0));
+        rhs.push_back(rational(1));
+        solver->add_umul_ovfl(lhs, rhs, false, 2);
+        std::cout << "status:   " << solver->check() << "\n";
+        std::cout << "model:    " << solver->model() << "\n";
+        VERIFY(solver->find_min(min));
+        std::cout << "find_min: " << min << "\n";
+        solver->add_ule_const(min - 1, false, 3);
+        VERIFY(solver->check() == l_false);
+
+        solver->pop(1);
+
+        // c4: umul_ovfl(2, x)
+        lhs.clear();
+        lhs.push_back(rational(2));
+        rhs.clear();
+        rhs.push_back(rational(0));
+        rhs.push_back(rational(1));
+        solver->add_umul_ovfl(lhs, rhs, false, 4);
+        std::cout << "status:   " << solver->check() << "\n";
+        std::cout << "model:    " << solver->model() << "\n";
+        VERIFY(solver->find_min(min));
+        std::cout << "find_min: " << min << "\n";
+        solver->add_ule_const(min - 1, false, 5);
+        VERIFY(solver->check() == l_false);
+    }
+
 }
 
 
@@ -189,5 +263,6 @@ namespace polysat {
 void tst_viable() {
     polysat::test1();
     polysat::test_univariate();
+    polysat::test_univariate_min();
     polysat::test2();  // takes long
 }

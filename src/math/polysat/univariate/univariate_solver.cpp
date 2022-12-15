@@ -98,14 +98,14 @@ namespace polysat {
                 return mk_numeral(rational::zero());
             }
             else {
-                expr* e = mk_numeral(p.back());
+                expr* e = mk_numeral(p[0]);
                 expr* xpow = x;
-                for (unsigned i = p.size() - 1; i-- > 0; ) {
+                for (unsigned i = 1; i < p.size(); ++i) {
                     if (!p[i].is_zero()) {
                         expr* t = mk_poly_term(p[i], xpow);
                         e = bv->mk_bv_add(e, t);
                     }
-                    if (i)
+                    if (i + 1 < p.size())
                         xpow = bv->mk_bv_mul(xpow, x);
                 }
                 return e;
@@ -203,6 +203,34 @@ namespace polysat {
             auto const& p = val->get_parameter(0);
             SASSERT(p.is_rational());
             return p.get_rational();
+        }
+
+        bool find_min(rational& val) override {
+            val = model();
+            push();
+            // try reducing val by setting bits to 0, starting at the msb.
+            for (unsigned k = bit_width; k-- > 0; ) {
+                if (!val.get_bit(k)) {
+                    add_bit0(k, 0);
+                    continue;
+                }
+                push();
+                add_bit0(k, 0);
+                lbool result = check();
+                if (result == l_true) {
+                    SASSERT(model() < val);
+                    val = model();
+                }
+                pop(1);
+                if (result == l_true)
+                    add_bit0(k, 0);
+                else if (result == l_false)
+                    add_bit1(k, 0);
+                else
+                    return false;
+            }
+            pop(1);
+            return true;
         }
 
         std::ostream& display(std::ostream& out) const override {
