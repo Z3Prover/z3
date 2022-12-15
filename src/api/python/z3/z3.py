@@ -1469,7 +1469,9 @@ def FreshConst(sort, prefix="c"):
 
 def Var(idx, s):
     """Create a Z3 free variable. Free variables are used to create quantified formulas.
-
+    A free variable with index n is bound when it occurs within the scope of n+1 quantified
+    declarations.
+    
     >>> Var(0, IntSort())
     Var(0)
     >>> eq(Var(0, IntSort()), Var(0, BoolSort()))

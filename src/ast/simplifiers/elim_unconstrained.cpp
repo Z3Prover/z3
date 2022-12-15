@@ -65,7 +65,6 @@ void elim_unconstrained::eliminate() {
         expr_ref r(m), side_cond(m);
         int v = m_heap.erase_min();
         node& n = get_node(v);
-        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(n.m_orig, m) << " @ " << n.m_refcount << "\n");
         if (n.m_refcount == 0)
             continue;
         if (n.m_refcount > 1)
@@ -203,10 +202,11 @@ void elim_unconstrained::freeze(expr* t) {
         return;
     node& n = get_node(t);
     if (!n.m_term)
-        return;
-    n.m_refcount = UINT_MAX / 2;
-    if (m_heap.contains(root(t)))
+        return;    
+    if (m_heap.contains(root(t))) {
+        n.m_refcount = UINT_MAX / 2;
         m_heap.increased(root(t));
+    }
 }
 
 void elim_unconstrained::gc(expr* t) {

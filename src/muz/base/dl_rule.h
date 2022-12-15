@@ -365,7 +365,7 @@ namespace datalog {
 
         void get_vars(ast_manager& m, ptr_vector<sort>& sorts) const;
 
-        void display(context & ctx, std::ostream & out) const;
+        void display(context & ctx, std::ostream & out, bool compact = false) const;
 
         /**
            \brief Return the name(s) associated with this rule. Plural for preprocessed (e.g. obtained by inlining) rules.
