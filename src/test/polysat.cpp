@@ -1965,7 +1965,7 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom5());
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
-    //RUN(test_polysat::test_ineq_non_axiom4());
+    RUN(test_polysat::test_ineq_non_axiom4());
 
     // test_fi::exhaustive();
     // test_fi::randomized();
