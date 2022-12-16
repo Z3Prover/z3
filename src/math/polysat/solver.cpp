@@ -751,7 +751,7 @@ namespace polysat {
             case find_t::empty:
                 LOG("Fallback solver: unsat");
                 m_free_pvars.unassign_var_eh(v);
-                set_conflict(v, true);
+                SASSERT(is_conflict());
                 return;
             case find_t::resource_out:
                 UNREACHABLE();  // TODO: abort solving

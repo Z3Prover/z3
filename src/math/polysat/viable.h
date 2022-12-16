@@ -136,12 +136,6 @@ namespace polysat {
         template <viable_query::query_t mode>
         lbool query_fallback(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
 
-        /** Set viable conflict due to interval cover */
-        void set_interval_conflict(pvar v);
-
-        /** Set viable conflict due to fallback solver */
-        void set_fallback_conflict(pvar v, univariate_solver& us);
-
     public:
         viable(solver& s);
 
@@ -204,9 +198,15 @@ namespace polysat {
         /**
          * Retrieve the unsat core for v,
          * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
-         * \pre there are no viable values for v
+         * \pre there are no viable values for v (determined by interval reasoning)
          */
-        bool resolve(pvar v, conflict& core);
+        bool resolve_interval(pvar v, conflict& core);
+
+        /**
+         * Retrieve the unsat core for v.
+         * \pre there are no viable values for v (determined by fallback solver)
+         */
+        bool resolve_fallback(pvar v, univariate_solver& us, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
@@ -347,7 +347,6 @@ namespace polysat {
         signed_constraint find_violated_constraint(assignment const& a, pvar v);
 
         find_t find_viable(pvar v, rational& out_val);
-        signed_constraints unsat_core(pvar v);
     };
 
 }

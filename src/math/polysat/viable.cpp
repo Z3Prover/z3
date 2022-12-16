@@ -622,7 +622,7 @@ namespace polysat {
         if (!e)
             return l_true;
         if (e->interval.is_full()) {
-            set_interval_conflict(v);
+            s.set_conflict_by_viable_interval(v);
             return l_false;
         }
 
@@ -653,7 +653,7 @@ namespace polysat {
         while (e != first);
 
         if (e->interval.currently_contains(lo)) {
-            set_interval_conflict(v);
+            s.set_conflict_by_viable_interval(v);
             return l_false;
         }
 
@@ -748,7 +748,7 @@ namespace polysat {
 
         switch (us->check()) {
         case l_false:
-            set_fallback_conflict(v, *us);
+            s.set_conflict_by_viable_fallback(v, *us);
             return l_false;
         case l_true:
             // At this point we don't know much because we did not add all relevant constraints
@@ -770,7 +770,7 @@ namespace polysat {
 
         switch (us->check()) {
         case l_false:
-            set_fallback_conflict(v, *us);
+            s.set_conflict_by_viable_fallback(v, *us);
             return l_false;
         case l_true:
             // pass solver to mode-specific query
@@ -814,11 +814,7 @@ namespace polysat {
         return us.find_max(hi) ? l_true : l_undef;
     }
 
-    void viable::set_fallback_conflict(pvar v, univariate_solver& us) {
-        SASSERT(!s.is_assigned(v));
-        conflict& core = s.m_conflict;
-        core.init_empty();
-        core.logger().begin_conflict(); //header_with_var("unsat core from viable fallback for v", v));  // TODO: begin_conflict before or after adding constraints?
+    bool viable::resolve_fallback(pvar v, univariate_solver& us, conflict& core) {
         // The conflict is the unsat core of the univariate solver,
         // and the current assignment (under which the constraints are univariate in v)
         // TODO:
@@ -834,19 +830,10 @@ namespace polysat {
         }
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
-        core.revert_pvar(v);  // at this point, v is not assigned
+        return true;
     }
 
-    void viable::set_interval_conflict(pvar v) {
-        SASSERT(!s.is_assigned(v));
-        conflict& core = s.m_conflict;
-        core.init_empty();
-        core.logger().begin_conflict(); //header_with_var("forbidden interval lemma for v", v));
-        VERIFY(resolve(v, core));   // TODO: merge?
-        core.revert_pvar(v);  // at this point, v is not assigned
-    }
-
-    bool viable::resolve(pvar v, conflict& core) {
+    bool viable::resolve_interval(pvar v, conflict& core) {
         DEBUG_CODE( log(v); );
         if (has_viable(v))
             return false;
@@ -1075,8 +1062,9 @@ namespace polysat {
 
         auto const& cs = m_constraints[v];
         for (unsigned i = cs.size(); i-- > 0; ) {
-            LOG("Univariate constraint: " << cs[i]);
-            cs[i].add_to_univariate_solver(s, *us, i);
+            signed_constraint const c = cs[i];
+            LOG("Univariate constraint: " << c);
+            c.add_to_univariate_solver(s, *us, c.blit().to_uint());
         }
 
         switch (us->check()) {
@@ -1085,20 +1073,11 @@ namespace polysat {
             // we don't know whether the SMT instance has a unique solution
             return find_t::multiple;
         case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
             return find_t::empty;
         default:
             return find_t::resource_out;
         }
-    }
-
-    signed_constraints viable_fallback::unsat_core(pvar v) {
-        unsigned bit_width = s.m_size[v];
-        SASSERT(m_usolver[bit_width]);
-        signed_constraints cs;
-        for (unsigned dep : m_usolver[bit_width]->unsat_core()) {
-            cs.push_back(m_constraints[v][dep]);
-        }
-        return cs;
     }
 
     std::ostream& operator<<(std::ostream& out, find_t x) {

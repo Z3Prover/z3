@@ -247,7 +247,8 @@ namespace polysat {
         void set_conflict_at_base_level() { m_conflict.init_at_base_level(); }
         void set_conflict(signed_constraint c) { m_conflict.init(c); }
         void set_conflict(clause& cl) { m_conflict.init(cl); }
-        void set_conflict(pvar v, bool by_viable_fallback) { m_conflict.init(v, by_viable_fallback); }
+        void set_conflict_by_viable_interval(pvar v) { m_conflict.init_by_viable_interval(v); }
+        void set_conflict_by_viable_fallback(pvar v, univariate_solver& us) { m_conflict.init_by_viable_fallback(v, us); }
 
         bool can_decide() const;
         bool can_bdecide() const;

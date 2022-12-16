@@ -186,13 +186,6 @@ namespace polysat {
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
     }
 
-    void conflict::init_empty() {
-        SASSERT(empty());
-        m_level = s.m_level;
-        SASSERT(!empty());
-        // TODO: logger().begin_conflict???
-    }
-
     void conflict::init(signed_constraint c) {
         LOG("Conflict: constraint " << lit_pp(s, c));
         SASSERT(empty());
@@ -241,32 +234,24 @@ namespace polysat {
         logger().begin_conflict();
     }
 
-    void conflict::init(pvar v, bool by_viable_fallback) {
-        LOG("Conflict: viable v" << v);
+    void conflict::init_by_viable_interval(pvar v) {
+        LOG("Conflict: viable_interval v" << v);
         SASSERT(empty());
         SASSERT(!s.is_assigned(v));
         m_level = s.m_level;
-        if (by_viable_fallback) {
-            logger().begin_conflict(header_with_var("unsat core from viable fallback for v", v));
-            // Conflict detected by viable fallback:
-            // initial conflict is the unsat core of the univariate solver,
-            // and the assignment (under which the constraints are univariate in v)
-            // TODO:
-            // - currently we add variables directly, which is sound:
-            //      e.g.:   v^2 + w^2 == 0;   w := 1
-            // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
-            //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
-            signed_constraints unsat_core = s.m_viable_fallback.unsat_core(v);
-            for (auto c : unsat_core) {
-                insert(c);
-                insert_vars(c);
-            }
-            SASSERT(!m_vars.contains(v));
-        }
-        else {
-            logger().begin_conflict(header_with_var("forbidden interval lemma for v", v));
-            VERIFY(s.m_viable.resolve(v, *this));
-        }
+        logger().begin_conflict(header_with_var("viable_interval v", v));
+        VERIFY(s.m_viable.resolve_interval(v, *this));
+        SASSERT(!empty());
+        revert_pvar(v);  // at this point, v is not assigned
+    }
+
+    void conflict::init_by_viable_fallback(pvar v, univariate_solver& us) {
+        LOG("Conflict: viable_fallback v" << v);
+        SASSERT(empty());
+        SASSERT(!s.is_assigned(v));
+        m_level = s.m_level;
+        logger().begin_conflict(header_with_var("viable_fallback v", v));
+        VERIFY(s.m_viable.resolve_fallback(v, us, *this));
         SASSERT(!empty());
         revert_pvar(v);  // at this point, v is not assigned
     }

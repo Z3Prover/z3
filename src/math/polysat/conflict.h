@@ -133,10 +133,10 @@ namespace polysat {
         void init(signed_constraint c);
         /** boolean conflict with the given clause */
         void init(clause const& cl);
-        /** conflict because there is no viable value for the variable v */
-        void init(pvar v, bool by_viable_fallback);
-        /** start empty conflict, constraints to be added by caller */
-        void init_empty();   // TODO: remove... rather have all types of conflicts explicitly listed here.
+        /** conflict because there is no viable value for the variable v, by interval reasoning */
+        void init_by_viable_interval(pvar v);
+        /** conflict because there is no viable value for the variable v, by fallback solver */
+        void init_by_viable_fallback(pvar v, univariate_solver& us);
 
 #if 0
         /** replace the current conflict by a single constraint */
