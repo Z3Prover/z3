@@ -549,12 +549,142 @@ namespace polysat {
         return refine_viable(v, val);
     }
 
+    find_t viable::find_viable(pvar v, rational& lo) {
+        rational hi;
+        switch (find_viable(v, lo, hi)) {
+        case l_true:
+            return (lo == hi) ? find_t::singleton : find_t::multiple;
+        case l_false:
+            return find_t::empty;
+        default:
+            return find_t::resource_out;
+        }
+    }
+
+    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+        std::pair<rational&, rational&> args{lo, hi};
+        return query<query_t::find_viable>(v, args);
+    }
+
     lbool viable::min_viable(pvar v, rational& lo) {
         return query<query_t::min_viable>(v, lo);
     }
 
     lbool viable::max_viable(pvar v, rational& hi) {
         return query<query_t::max_viable>(v, hi);
+    }
+
+    template <query_t mode>
+    lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
+        // max number of interval refinements before falling back to the univariate solver
+        unsigned const refinement_budget = 1000;
+        unsigned refinements = refinement_budget;
+
+    refined:
+
+        if (!refinements) {
+            LOG("Refinement budget exhausted! Fall back to univariate solver.");
+            return query_fallback<mode>(v, result);
+        }
+
+        refinements--;
+
+        if constexpr (mode == query_t::find_viable) {
+            lbool res = query_find(v, result.first, result.second);
+            if (res == l_undef)
+                goto refined;
+            return res;
+        }
+
+        if constexpr (mode == query_t::min_viable) {
+            if (!query_min(v, result))
+                goto refined;
+            return l_true;
+        }
+
+        if constexpr (mode == query_t::max_viable) {
+            if (!query_max(v, result))
+                goto refined;
+            return l_true;
+        }
+
+        if constexpr (mode == query_t::has_viable) {
+            NOT_IMPLEMENTED_YET();
+            return l_undef;
+        }
+
+        UNREACHABLE();
+        return l_undef;
+    }
+
+    lbool viable::query_find(pvar v, rational& lo, rational& hi) {
+        auto const& max_value = s.var2pdd(v).max_value();
+        lbool const refined = l_undef;
+
+        // After a refinement, any of the existing entries may have been replaced
+        // (if it is subsumed by the new entry created during refinement).
+        // For this reason, we start chasing the intervals from the start again.
+        lo = 0;
+        hi = max_value;
+
+        auto* e = m_units[v];
+        if (!e && !refine_viable(v, lo))
+            return refined;
+        if (!e && !refine_viable(v, hi))
+            return refined;
+        if (!e)
+            return l_true;
+        if (e->interval.is_full()) {
+            set_interval_conflict(v);
+            return l_false;
+        }
+
+        entry* first = e;
+        entry* last = first->prev();
+
+        // quick check: last interval does not wrap around
+        // and has space for 2 unassigned values.
+        if (last->interval.lo_val() < last->interval.hi_val() &&
+            last->interval.hi_val() < max_value) {
+            lo = last->interval.hi_val();
+            if (!refine_viable(v, lo))
+                return refined;
+            if (!refine_viable(v, max_value))
+                return refined;
+            return l_true;
+        }
+
+        // find lower bound
+        if (last->interval.currently_contains(lo))
+            lo = last->interval.hi_val();
+        do {
+            if (!e->interval.currently_contains(lo))
+                break;
+            lo = e->interval.hi_val();
+            e = e->next();
+        }
+        while (e != first);
+
+        if (e->interval.currently_contains(lo)) {
+            set_interval_conflict(v);
+            return l_false;
+        }
+
+        // find upper bound
+        hi = max_value;
+        e = last;
+        do {
+            if (!e->interval.currently_contains(hi))
+                break;
+            hi = e->interval.lo_val() - 1;
+            e = e->prev();
+        }
+        while (e != last);
+        if (!refine_viable(v, lo))
+            return refined;
+        if (!refine_viable(v, hi))
+            return refined;
+        return l_true;
     }
 
     bool viable::query_min(pvar v, rational& lo) {
@@ -603,49 +733,6 @@ namespace polysat {
             return false;
         SASSERT(is_viable(v, hi));
         return true;
-    }
-
-    template <query_t mode>
-    lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
-        // max number of interval refinements before falling back to the univariate solver
-        unsigned const refinement_budget = 1000;
-        unsigned refinements = refinement_budget;
-
-    refined:
-
-        if (!refinements) {
-            LOG("Refinement budget exhausted! Fall back to univariate solver.");
-            return query_fallback<mode>(v, result);
-        }
-
-        refinements--;
-
-        if constexpr (mode == query_t::find_viable) {
-            lbool res = query_find(v, result.first, result.second);
-            if (res == l_undef)
-                goto refined;
-            return res;
-        }
-
-        if constexpr (mode == query_t::min_viable) {
-            if (!query_min(v, result))
-                goto refined;
-            return l_true;
-        }
-
-        if constexpr (mode == query_t::max_viable) {
-            if (!query_max(v, result))
-                goto refined;
-            return l_true;
-        }
-
-        if constexpr (mode == query_t::has_viable) {
-            NOT_IMPLEMENTED_YET();
-            return l_undef;
-        }
-
-        UNREACHABLE();
-        return l_undef;
     }
 
     template <query_t mode>
@@ -738,93 +825,6 @@ namespace polysat {
 
     lbool viable::query_max_fallback(pvar v, univariate_solver& us, rational& hi) {
         return us.find_max(hi) ? l_true : l_undef;
-    }
-
-    lbool viable::query_find(pvar v, rational& lo, rational& hi) {
-        auto const& max_value = s.var2pdd(v).max_value();
-        lbool const refined = l_undef;
-
-        // After a refinement, any of the existing entries may have been replaced
-        // (if it is subsumed by the new entry created during refinement).
-        // For this reason, we start chasing the intervals from the start again.
-        lo = 0;
-        hi = max_value;
-
-        auto* e = m_units[v];
-        if (!e && !refine_viable(v, lo))
-            return refined;
-        if (!e && !refine_viable(v, hi))
-            return refined;
-        if (!e)
-            return l_true;
-        if (e->interval.is_full()) {
-            set_interval_conflict(v);
-            return l_false;
-        }
-
-        entry* first = e;
-        entry* last = first->prev();
-
-        // quick check: last interval does not wrap around
-        // and has space for 2 unassigned values.
-        if (last->interval.lo_val() < last->interval.hi_val() &&
-            last->interval.hi_val() < max_value) {
-            lo = last->interval.hi_val();
-            if (!refine_viable(v, lo))
-                return refined;
-            if (!refine_viable(v, max_value))
-                return refined;
-            return l_true;
-        }
-
-        // find lower bound
-        if (last->interval.currently_contains(lo))
-            lo = last->interval.hi_val();
-        do {
-            if (!e->interval.currently_contains(lo))
-                break;
-            lo = e->interval.hi_val();
-            e = e->next();
-        }
-        while (e != first);
-
-        if (e->interval.currently_contains(lo)) {
-            set_interval_conflict(v);
-            return l_false;
-        }
-
-        // find upper bound
-        hi = max_value;
-        e = last;
-        do {
-            if (!e->interval.currently_contains(hi))
-                break;
-            hi = e->interval.lo_val() - 1;
-            e = e->prev();
-        }
-        while (e != last);
-        if (!refine_viable(v, lo))
-            return refined;
-        if (!refine_viable(v, hi))
-            return refined;
-        return l_true;
-    }
-
-    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
-        std::pair<rational&, rational&> args{lo, hi};
-        return query<query_t::find_viable>(v, args);
-    }
-
-    find_t viable::find_viable(pvar v, rational& lo) {
-        rational hi;
-        switch (find_viable(v, lo, hi)) {
-        case l_true:
-            return (lo == hi) ? find_t::singleton : find_t::multiple;
-        case l_false:
-            return find_t::empty;
-        default:
-            return find_t::resource_out;
-        }
     }
 
     void viable::set_fallback_conflict(pvar v, univariate_solver& us) {
