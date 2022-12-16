@@ -1,5 +1,6 @@
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/variable_elimination.h"
 #include "ast/ast.h"
 #include "parsers/smt2/smt2parser.h"
 #include "util/util.h"
@@ -1093,6 +1094,201 @@ namespace polysat {
             s.expect_unsat();
         }
 
+        static void expect_lemma_cnt(conflict& cfl, unsigned cnt) {
+            auto lemmas = cfl.lemmas();
+            if (lemmas.size() == cnt)
+                return;
+            LOG_H1("FAIL: Expected " << cnt << " learned lemmas;  got " << lemmas.size() << "!");
+            if (!collect_test_records)
+                VERIFY(false);
+        }
+
+        static void expect_lemma(solver& s, conflict& cfl, signed_constraint c1) {
+            LOG_H1("Looking for constraint: " << c1);
+            auto lemmas = cfl.lemmas();
+
+            for (auto& lemma : lemmas) {
+                for (unsigned i = 0; i < lemma->size(); i++) {
+                    if (s.lit2cnstr(lemma->operator[](i)) == c1)
+                        return;
+                    LOG_H1("Found different constraint " << s.lit2cnstr(lemma->operator[](i)));
+                }
+            }
+            LOG_H1("FAIL: Lemma " << c1 << " not deduced!");
+            if (!collect_test_records)
+                VERIFY(false);
+        }
+
+        static void test_elim1(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto c1 = s.eq(7 * x, 3);
+            auto c2 = s.ule(x - y, 5);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            rational res;
+            rational(7).mult_inverse(bw, res);
+
+            expect_lemma_cnt(cfl, 1);
+            expect_lemma(s, cfl, s.ule(s.sz2pdd(bw).mk_val(res * 3) - y, 5));
+        }
+
+        static void test_elim2(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto c1 = s.eq(x * x, x * 3);
+            auto c2 = s.ule(x + y, 5);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 0); // Non linear; should be skipped
+        }
+
+        static void test_elim3(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto c1 = s.eq(7 * x, 3);
+            auto c2 = s.ule(x * x + y, 5);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 0); // also not linear; should be skipped
+        }
+
+        static void test_elim4(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto c1 = s.eq(7 * x, 3);
+            auto c2 = s.ule(y * x, 5 + x + y);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 1);
+            expect_lemma(s, cfl, s.ule(5 * y, 10 + y));
+        }
+
+        static void test_elim5(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            auto c1 = s.eq(x * 7 + x * y, 3);
+            auto c2 = s.ule(y * x * z, 2);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 1); // Eliminating "x" fails because there is no assignment for "y"; eliminating "y" works
+            expect_lemma(s, cfl, s.ule(3 * z - 7 * x * z, 2));
+
+            s.assign_core(y.var(), rational(2), justification::propagation(0));
+
+            conflict cfl2(s);
+            cfl2.insert(c1);
+            cfl2.insert_vars(c1);
+            cfl2.insert(c2);
+            cfl2.insert_vars(c2);
+            elim.find_lemma(cfl2);
+
+            expect_lemma_cnt(cfl2, 2); // Now it uses the assignment
+            expect_lemma(s, cfl2, s.ule(3 * z - 7 * x * z, 2));
+            expect_lemma(s, cfl2, s.ule(6 * z, 2));
+        }
+
+        static void test_elim6(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            auto c1 = s.eq(2 * x, z);
+            auto c2 = s.ule(4 * x, y);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 1); // We have to multiply by 2 so this is an over-approximation (or we would increase bit-width by 1)
+            expect_lemma(s, cfl, s.ule(2 * z, y));
+
+
+            auto c3 = s.eq(4 * x, z);
+            auto c4 = s.ule(2 * x, y);
+
+            conflict cfl2(s);
+            s.assign_eh(c3, dependency(0));
+            cfl2.insert(c3);
+
+            s.assign_eh(c4, dependency(0));
+            cfl2.insert(c4);
+            elim.find_lemma(cfl2);
+
+            expect_lemma_cnt(cfl2, 0); // This does not work because of polarity
+        }
+
+        static void test_elim7(unsigned bw = 32) {
+            scoped_solver s(__func__);
+            free_variable_elimination elim(s);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            auto c1 = s.eq(x * y, 3);
+            auto c2 = s.ule(z * x, 2);
+
+            conflict cfl(s);
+            s.assign_eh(c1, dependency(0));
+            cfl.insert(c1);
+
+            s.assign_eh(c2, dependency(0));
+            cfl.insert(c2);
+            elim.find_lemma(cfl);
+
+            expect_lemma_cnt(cfl, 1); // Should introduce polarity constraints
+            // TODO: Check if this lemma is really correct
+        }
 
         /**
          * x*x <= z
@@ -1654,7 +1850,9 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 1  // Enable this block to run a single unit test with detailed output.
+    polysat::test_polysat::test_elim7(3);
+
+#if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
     // test_polysat::test_parity1();
@@ -1720,6 +1918,14 @@ void tst_polysat() {
 
     RUN(test_polysat::test_var_minimize()); // works but var_minimize isn't used (UNSAT before lemma is created)
 
+    RUN(test_polysat::test_elim1());
+    RUN(test_polysat::test_elim2());
+    RUN(test_polysat::test_elim3());
+    RUN(test_polysat::test_elim4());
+    RUN(test_polysat::test_elim5());
+    RUN(test_polysat::test_elim6());
+    RUN(test_polysat::test_elim7());
+
     RUN(test_polysat::test_ineq1());
     RUN(test_polysat::test_ineq2());
     RUN(test_polysat::test_monot());
@@ -1756,7 +1962,7 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom5());
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
-    RUN(test_polysat::test_ineq_non_axiom4());
+    //RUN(test_polysat::test_ineq_non_axiom4());
 
     // test_fi::exhaustive();
     // test_fi::randomized();

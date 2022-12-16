@@ -38,12 +38,12 @@ char const* color_reset()  { return "\x1B[0m"; }
 
 std::atomic<bool> g_log_enabled(true);
 
-bool get_log_enabled() {
-    return g_log_enabled;
-}
-
 void set_log_enabled(bool log_enabled) {
     g_log_enabled = log_enabled;
+}
+
+bool get_log_enabled() {
+  return g_log_enabled;
 }
 
 static LogLevel get_max_log_level(std::string const& fn, std::string const& pretty_fn) {

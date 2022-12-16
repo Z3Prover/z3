@@ -376,7 +376,7 @@ namespace polysat {
 
         /** Create expression for the logical left shift of p by q. */
         pdd shl(pdd const& p, pdd const& q) { return m_constraints.shl(p, q); }
-
+        
         /** Create expression for the bit-wise negation of p. */
         pdd bnot(pdd const& p) { return m_constraints.bnot(p); }
 
