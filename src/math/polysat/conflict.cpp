@@ -191,19 +191,6 @@ namespace polysat {
         SASSERT(empty());
         m_level = s.m_level;
         m_narrow_queue.push_back(c.blit());  // if the conflict is only due to a missed propagation of c
-        set_impl(c);
-        logger().begin_conflict();
-    }
-
-#if 0
-    void conflict::set(signed_constraint c) {
-        SASSERT(!empty());
-        remove_all();
-        set_impl(c);
-    }
-#endif
-
-    void conflict::set_impl(signed_constraint c) {
         if (c.bvalue(s) == l_false) {
             // boolean conflict
             // This case should not happen:
@@ -219,6 +206,7 @@ namespace polysat {
             insert_vars(c);
         }
         SASSERT(!empty());
+        logger().begin_conflict();
     }
 
     void conflict::init(clause const& cl) {

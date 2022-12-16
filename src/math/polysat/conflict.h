@@ -102,8 +102,6 @@ namespace polysat {
         // Level at which the conflict was discovered
         unsigned m_level = UINT_MAX;
 
-        void set_impl(signed_constraint c);
-
     public:
         conflict(solver& s);
         ~conflict();
@@ -137,11 +135,6 @@ namespace polysat {
         void init_by_viable_interval(pvar v);
         /** conflict because there is no viable value for the variable v, by fallback solver */
         void init_by_viable_fallback(pvar v, univariate_solver& us);
-
-#if 0
-        /** replace the current conflict by a single constraint */
-        void set(signed_constraint c);
-#endif
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
