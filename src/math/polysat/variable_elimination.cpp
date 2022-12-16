@@ -236,8 +236,8 @@ namespace polysat {
         LOG("core: " << core);
         LOG("Free variables: " << s.m_free_pvars);
         for (pvar v : core.vars_occurring_in_constraints())
-            if (!s.is_assigned(v))  // TODO: too restrictive. should also consider variables that will be unassigned only after backjumping (can update this after assignment handling in search state is refactored.)
-                find_lemma(v, core);
+            //if (!s.is_assigned(v))  // TODO: too restrictive. should also consider variables that will be unassigned only after backjumping (can update this after assignment handling in search state is refactored.)
+            find_lemma(v, core);
     }
 
     void free_variable_elimination::find_lemma(pvar v, conflict& core) {
@@ -261,8 +261,8 @@ namespace polysat {
         pdd fac = m.zero();
         pdd rest = m.zero();
         p.factor(v, 1, fac, rest);
-        if (rest.is_val())
-            return;
+        //if (rest.is_val()) // TODO: Why do we need this?
+        //    return;
         
         SASSERT(!fac.free_vars().contains(v));
         SASSERT(!rest.free_vars().contains(v));
@@ -314,31 +314,49 @@ namespace polysat {
             pdd coeff_odd = p.manager().zero();
             optional<pdd> fac_odd_inv;
             
-            bool is_multiple1 = is_multiple(fac_lhs, fac, new_lhs);
-            bool is_multiple2 = is_multiple(fac_rhs, fac, new_rhs);
+            get_multiple_result multiple1 = get_multiple(fac_lhs, fac, new_lhs);
+            get_multiple_result multiple2 = get_multiple(fac_rhs, fac, new_rhs);
+
+            if (multiple1 == cannot_multiple || multiple2 == cannot_multiple)
+                continue;
+
             bool evaluated = false;
             substitution sub(m);
 
-            if (!is_multiple1 || !is_multiple2) {
+            if (multiple1 == can_multiple || multiple2 == can_multiple) {
                 if (
                         (!fac.is_val() && !fac.is_var()) ||
                         (!fac_lhs.is_val() && !fac_lhs.is_var()) ||
                         (!fac_rhs.is_val() && !fac_rhs.is_var())) {
 
                     // TODO: We could introduce a new variable "new_var = lc" and add the valuation for this new variable
+                    if (s.is_assigned(v))
+                        continue; // We could not eliminate it symbolically and evaluating makes no sense as we already have a value for it
+
                     pdd const fac_eval = eval(fac, core, sub);
-                    LOG("lcs: " << fac_eval);
+                    LOG("fac_eval: " << fac_eval);
                     pdd fac_eval_inv = m.zero();
+
+                    // TODO: We can now again use multiples instead of failing if it is not invertible
+                    // e.g., x * y + x * z = z (with y = 0 eval)
+                    // and,  3 * x * z <= 0
+                    // We don't do anything, although we could
+                    // x * z = z
+                    // and multiplying with 3 results in a feasible replacement
                     if (!inv(fac_eval, fac_eval_inv))
                         continue;
 
+                    LOG("fac_eval_inv: " << fac_eval_inv);
+
                     pdd const rest_eval = sub.apply_to(rest);
+                    LOG("rest_eval: " << rest_eval);
                     pdd const vs = -rest_eval * fac_eval_inv;  // this is the polynomial that computes v
                     LOG("vs: " << vs);
                     SASSERT(!vs.free_vars().contains(v));
 
-                    new_lhs = c_target->to_ule().lhs().subst_pdd(v, vs);
-                    new_rhs = c_target->to_ule().rhs().subst_pdd(v, vs);
+                    // TODO: Why was the assignment (sub) not applied to the result in previous commits?
+                    new_lhs = sub.apply_to(c_target->to_ule().lhs().subst_pdd(v, vs));
+                    new_rhs = sub.apply_to(c_target->to_ule().rhs().subst_pdd(v, vs));
                     evaluated = true;
                 }
                 else {
@@ -354,7 +372,7 @@ namespace polysat {
             }
 
             if (!evaluated) {
-                if (!is_multiple1) { // Sometimes we can simply unify the two equations
+                if (multiple1 == can_multiple) {
                     pdd pv_lhs = get_dyadic_valuation(fac_lhs).first;
                     pdd odd_fac_lhs = get_odd(fac_lhs);
                     pdd power_diff_lhs = s.shl(m.one(), pv_lhs - pv_equality);
@@ -365,10 +383,12 @@ namespace polysat {
                     new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_rhs;
                     p1 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_lhs).first);
                 }
-                else
+                else {
+                    SASSERT(multiple1 == is_multiple);
                     new_lhs = -rest * new_lhs + rest_lhs;
+                }
 
-                if (!is_multiple2) {
+                if (multiple2 == can_multiple) {
                     pdd pv_rhs = get_dyadic_valuation(fac_rhs).first;
                     pdd odd_fac_rhs = get_odd(fac_rhs);
                     pdd power_diff_rhs = s.shl(m.one(), pv_rhs - pv_equality);
@@ -379,8 +399,10 @@ namespace polysat {
                     new_rhs = -rest * *fac_odd_inv * power_diff_rhs * odd_fac_rhs + rest_rhs;
                     p2 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_rhs).first);
                 }
-                else
+                else {
+                    SASSERT(multiple2 == is_multiple);
                     new_rhs = -rest * new_rhs + rest_rhs;
+                }
             }
             
             signed_constraint c_new = s.ule(new_lhs , new_rhs);
@@ -411,7 +433,7 @@ namespace polysat {
             cb.insert(c_new);
             ref<clause> c = cb.build();
             if (c) // Can we get tautologies this way?
-                core.add_lemma("variable elimination", cb.build());
+                core.add_lemma("variable elimination", c);
         }
     }
 
@@ -421,15 +443,13 @@ namespace polysat {
         // TODO: recognize constraints of the form "v1 == 27" to be used in the assignment?
         //       (but maybe useful evaluations are always part of core.vars() anyway?)
 
-        substitution& sub = out_sub;
-        SASSERT(sub.empty());
+        SASSERT(out_sub.empty());
 
         for (auto v : p.free_vars())
             if (core.contains_pvar(v))
-                sub.add(v, s.get_value(v));
+                out_sub = out_sub.add(v, s.get_value(v));
 
-        pdd q = sub.apply_to(p);
-
+        pdd q = out_sub.apply_to(p);
         // TODO: like in the old conflict::minimize_vars, we can now try to remove unnecessary variables from a.
 
         return q;
@@ -449,19 +469,19 @@ namespace polysat {
     }
     
     
-    bool free_variable_elimination::is_multiple(const pdd& p1, const pdd& p2, pdd& out) {
-        LOG("Check if there is an easy way to unify " << p1 << " and " << p2);
+    free_variable_elimination::get_multiple_result free_variable_elimination::get_multiple(const pdd& p1, const pdd& p2, pdd& out) {
+        LOG("Check if there is an easy way to unify " << p2 << " and " << p1);
         if (p1.is_zero()) {
             out = p1.manager().zero();
-            return true;
+            return is_multiple;
         }
         if (p2.is_one()) {
             out = p1;
-            return true;
+            return is_multiple;
         }
         if (!p1.is_monomial() || !p2.is_monomial())
             // TODO: Actually, this could work as well. (4a*d + 6b*c*d) is a multiple of (2a + 3b*c) although none of them is a monomial
-            return false;
+            return can_multiple;
         dd::pdd_monomial p1m = *p1.begin();
         dd::pdd_monomial p2m = *p2.begin();
         
@@ -469,7 +489,7 @@ namespace polysat {
         unsigned tz2 = p2m.coeff.trailing_zeros();
         
         if (tz2 > tz1)
-            return false; // The constant coefficient is not invertible
+            return cannot_multiple; // The constant coefficient is not invertible
         
         rational odd = div(p2m.coeff, rational::power_of_two(tz2));
         rational inv;
@@ -489,7 +509,7 @@ namespace polysat {
                 for (const auto& occ : m_occ)
                     m_occ_cnt[occ] = 0;
                 m_occ.clear();
-                return false; // p2 contains more v2 than p1
+                return can_multiple; // p2 contains more v2 than p1; we need more information
             }
             m_occ_cnt[v2]--;
         }
@@ -502,7 +522,7 @@ namespace polysat {
         }
         m_occ.clear();
         LOG("Found multiple: " << out);
-        return true;
+        return is_multiple;
     }
 
 }

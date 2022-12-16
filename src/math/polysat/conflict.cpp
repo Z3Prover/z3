@@ -79,7 +79,11 @@ namespace polysat {
 
         // Analyse current conflict core to extract additional lemmas
         void find_extra_lemmas(conflict& core) {
+#if 1
+            // Don't do variable elimination for now
+#else
             m_free_variable_elimination.find_lemma(core);
+#endif
         }
     };
 

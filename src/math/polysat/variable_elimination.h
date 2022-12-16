@@ -21,7 +21,11 @@ namespace polysat {
     class conflict;
 
     class free_variable_elimination {
-        
+
+        enum get_multiple_result {
+          is_multiple, can_multiple, cannot_multiple
+        };
+
         solver& s;
         unsigned_vector m_has_validation_of_range; // TODO: Find a better name
         unsigned_vector m_pv_constants;
@@ -42,7 +46,7 @@ namespace polysat {
         void find_lemma(pvar v, signed_constraint c, conflict& core);
         pdd eval(pdd const& p, conflict& core, substitution& out_sub);
         bool inv(pdd const& p, pdd& out_p_inv);
-        bool is_multiple(const pdd& p1, const pdd& p2, pdd &out);
+        get_multiple_result get_multiple(const pdd& p1, const pdd& p2, pdd &out);
     public:
         free_variable_elimination(solver& s): s(s) {}
         void find_lemma(conflict& core);
