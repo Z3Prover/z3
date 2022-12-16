@@ -1099,6 +1099,7 @@ namespace polysat {
             if (lemmas.size() == cnt)
                 return;
             LOG_H1("FAIL: Expected " << cnt << " learned lemmas;  got " << lemmas.size() << "!");
+            SASSERT(false);
             if (!collect_test_records)
                 VERIFY(false);
         }
@@ -1115,6 +1116,7 @@ namespace polysat {
                 }
             }
             LOG_H1("FAIL: Lemma " << c1 << " not deduced!");
+            SASSERT(false);
             if (!collect_test_records)
                 VERIFY(false);
         }
@@ -1881,6 +1883,16 @@ void tst_polysat() {
         set_log_enabled(false);
     }
 
+#if 0
+    RUN(test_polysat::test_elim1());
+    RUN(test_polysat::test_elim2());
+    RUN(test_polysat::test_elim3());
+    RUN(test_polysat::test_elim4());
+    RUN(test_polysat::test_elim5());
+    RUN(test_polysat::test_elim6());
+    RUN(test_polysat::test_elim7());
+#endif
+
     RUN(test_polysat::test_parity1());
     RUN(test_polysat::test_parity1b());
     RUN(test_polysat::test_parity2());
@@ -1916,14 +1928,6 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_basic6());
 
     RUN(test_polysat::test_var_minimize()); // works but var_minimize isn't used (UNSAT before lemma is created)
-
-    RUN(test_polysat::test_elim1());
-    RUN(test_polysat::test_elim2());
-    RUN(test_polysat::test_elim3());
-    RUN(test_polysat::test_elim4());
-    RUN(test_polysat::test_elim5());
-    RUN(test_polysat::test_elim6());
-    RUN(test_polysat::test_elim7());
 
     RUN(test_polysat::test_ineq1());
     RUN(test_polysat::test_ineq2());
