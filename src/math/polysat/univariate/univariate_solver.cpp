@@ -26,6 +26,12 @@ Author:
 
 namespace polysat {
 
+    univariate_solver::dep_vector univariate_solver::unsat_core() {
+        dep_vector deps;
+        unsat_core(deps);
+        return deps;
+    }
+
     class univariate_bitblast_solver : public univariate_solver {
         // TODO: does it make sense to share m and bv between different solver instances?
         // TODO: consider pooling solvers to save setup overhead, see if solver/solver_pool.h can be used
@@ -33,6 +39,7 @@ namespace polysat {
         scoped_ptr<bv_util> bv;
         scoped_ptr<solver> s;
         unsigned bit_width;
+        unsigned m_scope_level = 0;
         func_decl_ref x_decl;
         expr_ref x;
         vector<rational> model_cache;
@@ -67,13 +74,20 @@ namespace polysat {
         }
 
         void push() override {
+            m_scope_level++;
             push_cache();
             s->push();
         }
 
         void pop(unsigned n) override {
+            SASSERT(scope_level() >= n);
+            m_scope_level -= n;
             pop_cache();
             s->pop(n);
+        }
+
+        unsigned scope_level() override {
+            return m_scope_level;
         }
 
         expr* mk_numeral(rational const& r) const {
@@ -198,8 +212,8 @@ namespace polysat {
             return s->check_sat();
         }
 
-        dep_vector unsat_core() override {
-            dep_vector deps;
+        void unsat_core(dep_vector& deps) override {
+            deps.reset();
             expr_ref_vector core(m);
             s->get_unsat_core(core);
             for (expr* a : core) {
@@ -207,7 +221,6 @@ namespace polysat {
                 deps.push_back(dep);
             }
             SASSERT(deps.size() > 0);
-            return deps;
         }
 
         rational model() override {

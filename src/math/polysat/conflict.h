@@ -85,7 +85,7 @@ namespace polysat {
         scoped_ptr<conflict_resolver> m_resolver;
 
         // current conflict core consists of m_literals and m_vars
-        indexed_uint_set m_literals;        // set of boolean literals in the conflict
+        indexed_uint_set m_literals;        // set of boolean literals in the conflict; TODO: why not sat::literal_set
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
@@ -135,9 +135,13 @@ namespace polysat {
         void init(clause const& cl);
         /** conflict because there is no viable value for the variable v */
         void init(pvar v, bool by_viable_fallback);
+        /** start empty conflict, constraints to be added by caller */
+        void init_empty();   // TODO: remove... rather have all types of conflicts explicitly listed here.
 
+#if 0
         /** replace the current conflict by a single constraint */
         void set(signed_constraint c);
+#endif
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;

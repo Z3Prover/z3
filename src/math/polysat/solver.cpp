@@ -652,7 +652,7 @@ namespace polysat {
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
             m_free_pvars.unassign_var_eh(v);
-            set_conflict(v, false);
+            SASSERT(is_conflict());
             return;
         case find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search

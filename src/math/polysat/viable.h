@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/forbidden_intervals.h"
+#include <optional>
 
 namespace polysat {
 
@@ -38,6 +39,34 @@ namespace polysat {
         multiple,
         resource_out,
     };
+
+    namespace viable_query {
+        enum class query_t {
+            has_viable,  // currently only used internally in resolve_viable
+            min_viable,  // currently unused
+            max_viable,  // currently unused
+            find_viable,
+        };
+
+        template <query_t mode>
+        struct query_result {
+        };
+
+        template <>
+        struct query_result<query_t::min_viable> {
+            using result_t = rational;
+        };
+
+        template <>
+        struct query_result<query_t::max_viable> {
+            using result_t = rational;
+        };
+
+        template <>
+        struct query_result<query_t::find_viable> {
+            using result_t = std::pair<rational&, rational&>;
+        };
+    }
 
     std::ostream& operator<<(std::ostream& out, find_t x);
 
@@ -76,15 +105,38 @@ namespace polysat {
 
         void propagate(pvar v, rational const& val);
 
-        enum class query_t {
-            has_viable,  // currently only used internally in resolve_viable
-            min_viable,  // currently unused
-            max_viable,  // currently unused
-            find_viable,
-        };
+        // return true if done, false if refined
+        bool query_min(pvar v, rational& out_lo);
 
-        // template <query_t mode>
-        find_t query(query_t mode, pvar v, rational& out_lo, rational& out_hi);
+        // return true if done, false if refined
+        bool query_max(pvar v, rational& out_hi);
+
+        // return true if done, false if resource out
+        lbool query_min_fallback(pvar v, univariate_solver& us, rational& out_lo);
+        lbool query_max_fallback(pvar v, univariate_solver& us, rational& out_hi);
+
+        // return resource_out if refined
+        lbool query_find(pvar v, rational& out_lo, rational& out_hi);
+        lbool query_find_fallback(pvar v, univariate_solver& us, rational& out_lo, rational& out_hi);
+
+        /**
+         * Interval query with bounded refinement and fallback to bitblasting.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        template <viable_query::query_t mode>
+        lbool query(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
+
+        /**
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        template <viable_query::query_t mode>
+        lbool query_fallback(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
+
+        /** Set viable conflict due to interval cover */
+        void set_interval_conflict(pvar v);
+
+        /** Set viable conflict due to fallback solver */
+        void set_fallback_conflict(pvar v, univariate_solver& us);
 
     public:
         viable(solver& s);
@@ -122,16 +174,28 @@ namespace polysat {
          */
         bool is_viable(pvar v, rational const& val);
 
-        /*
-         * Extract min and max viable values for v
+        /**
+         * Extract min viable value for v.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        rational min_viable(pvar v);
-        rational max_viable(pvar v);
+        lbool min_viable(pvar v, rational& out_lo);
+
+        /**
+         * Extract max viable value for v.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        lbool max_viable(pvar v, rational& out_hi);
 
         /**
          * Find a next viable value for variable.
          */
         find_t find_viable(pvar v, rational& out_val);
+
+        /**
+         * Find a next viable value for variable by determining currently viable lower and upper bounds.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        lbool find_viable(pvar v, rational& out_lo, rational& out_hi);
 
         /**
          * Retrieve the unsat core for v,
@@ -251,6 +315,8 @@ namespace polysat {
     }
 
     class viable_fallback {
+        friend class viable;
+
         solver& s;
 
         scoped_ptr<univariate_solver_factory>   m_usolver_factory;

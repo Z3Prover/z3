@@ -182,6 +182,15 @@ namespace polysat {
         SASSERT(s.at_base_level());
         m_level = s.m_level;
         SASSERT(!empty());
+        // TODO: logger().begin_conflict???
+        // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
+    }
+
+    void conflict::init_empty() {
+        SASSERT(empty());
+        m_level = s.m_level;
+        SASSERT(!empty());
+        // TODO: logger().begin_conflict???
     }
 
     void conflict::init(signed_constraint c) {
@@ -193,11 +202,13 @@ namespace polysat {
         logger().begin_conflict();
     }
 
+#if 0
     void conflict::set(signed_constraint c) {
         SASSERT(!empty());
         remove_all();
         set_impl(c);
     }
+#endif
 
     void conflict::set_impl(signed_constraint c) {
         if (c.bvalue(s) == l_false) {
@@ -233,6 +244,7 @@ namespace polysat {
     void conflict::init(pvar v, bool by_viable_fallback) {
         LOG("Conflict: viable v" << v);
         SASSERT(empty());
+        SASSERT(!s.is_assigned(v));
         m_level = s.m_level;
         if (by_viable_fallback) {
             logger().begin_conflict(header_with_var("unsat core from viable fallback for v", v));

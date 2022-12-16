@@ -39,13 +39,15 @@ namespace polysat {
 
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual unsigned scope_level() = 0;
 
         virtual lbool check() = 0;
 
         /**
          * Precondition: check() returned l_false
          */
-        virtual dep_vector unsat_core() = 0;
+        dep_vector unsat_core();
+        virtual void unsat_core(dep_vector& out_deps) = 0;
 
         /**
          * Precondition: check() returned l_true
