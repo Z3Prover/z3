@@ -947,15 +947,15 @@ namespace polysat {
         return {};
     }
 
-    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
-        unsigned bit_width = s.m_size[v];
-
+    univariate_solver* viable_fallback::usolver(unsigned bit_width) {
         univariate_solver* us;
+
         auto it = m_usolver.find_iterator(bit_width);
         if (it != m_usolver.end()) {
             us = it->m_value.get();
             us->pop(1);
-        } else {
+        }
+        else {
             auto& mk_solver = *m_usolver_factory;
             m_usolver.insert(bit_width, mk_solver(bit_width));
             us = m_usolver[bit_width].get();
@@ -963,6 +963,13 @@ namespace polysat {
 
         // push once on the empty solver so we can reset it before the next use
         us->push();
+
+        return us;
+    }
+
+    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
+        unsigned const bit_width = s.m_size[v];
+        univariate_solver* us = usolver(bit_width);
 
         auto const& cs = m_constraints[v];
         for (unsigned i = cs.size(); i-- > 0; ) {

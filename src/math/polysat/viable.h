@@ -258,6 +258,8 @@ namespace polysat {
         vector<signed_constraints>              m_constraints;
         svector<unsigned>                       m_constraints_trail;
 
+        univariate_solver* usolver(unsigned bit_width);
+
     public:
         viable_fallback(solver& s);
 
