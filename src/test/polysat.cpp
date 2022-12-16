@@ -1850,11 +1850,10 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-    polysat::test_polysat::test_elim7(3);
-
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
+    // polysat::test_polysat::test_elim7(3);
     // test_polysat::test_parity1();
     // test_polysat::test_parity1b();
     // test_polysat::test_parity2();
