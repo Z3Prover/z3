@@ -580,41 +580,28 @@ namespace polysat {
         unsigned const refinement_budget = 1000;
         unsigned refinements = refinement_budget;
 
-    refined:
+        while (refinements--) {
+            lbool res = l_undef;
 
-        if (!refinements) {
-            LOG("Refinement budget exhausted! Fall back to univariate solver.");
-            return query_fallback<mode>(v, result);
+            if constexpr (mode == query_t::find_viable)
+                res = query_find(v, result.first, result.second);
+            else if constexpr (mode == query_t::min_viable)
+                res = query_min(v, result) ? l_true : l_undef;
+            else if constexpr (mode == query_t::max_viable)
+                res = query_max(v, result) ? l_true : l_undef;
+            else if constexpr (mode == query_t::has_viable) {
+                NOT_IMPLEMENTED_YET();
+            }
+            else {
+                UNREACHABLE();
+            }
+
+            if (res != l_undef)
+                return res;
         }
 
-        refinements--;
-
-        if constexpr (mode == query_t::find_viable) {
-            lbool res = query_find(v, result.first, result.second);
-            if (res == l_undef)
-                goto refined;
-            return res;
-        }
-
-        if constexpr (mode == query_t::min_viable) {
-            if (!query_min(v, result))
-                goto refined;
-            return l_true;
-        }
-
-        if constexpr (mode == query_t::max_viable) {
-            if (!query_max(v, result))
-                goto refined;
-            return l_true;
-        }
-
-        if constexpr (mode == query_t::has_viable) {
-            NOT_IMPLEMENTED_YET();
-            return l_undef;
-        }
-
-        UNREACHABLE();
-        return l_undef;
+        LOG("Refinement budget exhausted! Fall back to univariate solver.");
+        return query_fallback<mode>(v, result);
     }
 
     lbool viable::query_find(pvar v, rational& lo, rational& hi) {
