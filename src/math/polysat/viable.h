@@ -105,28 +105,32 @@ namespace polysat {
 
         void propagate(pvar v, rational const& val);
 
-        // return true if done, false if refined
-        bool query_min(pvar v, rational& out_lo);
+        /**
+         * Interval-based queries
+         * @return l_true on success, l_false on conflict, l_undef on refinement
+         */
+        lbool query_min(pvar v, rational& out_lo);
+        lbool query_max(pvar v, rational& out_hi);
+        lbool query_find(pvar v, rational& out_lo, rational& out_hi);
 
-        // return true if done, false if refined
-        bool query_max(pvar v, rational& out_hi);
-
-        // return true if done, false if resource out
+        /**
+         * Bitblasting-based queries.
+         * The univariate solver has already been filled with all relevant constraints and check() returned l_true.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
         lbool query_min_fallback(pvar v, univariate_solver& us, rational& out_lo);
         lbool query_max_fallback(pvar v, univariate_solver& us, rational& out_hi);
-
-        // return resource_out if refined
-        lbool query_find(pvar v, rational& out_lo, rational& out_hi);
         lbool query_find_fallback(pvar v, univariate_solver& us, rational& out_lo, rational& out_hi);
 
         /**
-         * Interval query with bounded refinement and fallback to bitblasting.
+         * Interval-based query with bounded refinement and fallback to bitblasting.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
         template <viable_query::query_t mode>
         lbool query(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
 
         /**
+         * Bitblasting-based query.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
         template <viable_query::query_t mode>

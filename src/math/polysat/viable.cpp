@@ -586,9 +586,9 @@ namespace polysat {
             if constexpr (mode == query_t::find_viable)
                 res = query_find(v, result.first, result.second);
             else if constexpr (mode == query_t::min_viable)
-                res = query_min(v, result) ? l_true : l_undef;
+                res = query_min(v, result);
             else if constexpr (mode == query_t::max_viable)
-                res = query_max(v, result) ? l_true : l_undef;
+                res = query_max(v, result);
             else if constexpr (mode == query_t::has_viable) {
                 NOT_IMPLEMENTED_YET();
             }
@@ -674,14 +674,14 @@ namespace polysat {
         return l_true;
     }
 
-    bool viable::query_min(pvar v, rational& lo) {
+    lbool viable::query_min(pvar v, rational& lo) {
         // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
         lo = 0;
         entry* e = m_units[v];
         if (!e && !refine_viable(v, lo))
-            return false;
+            return l_undef;
         if (!e)
-            return true;
+            return l_true;
         entry* first = e;
         entry* last = first->prev();
         if (last->interval.currently_contains(lo))
@@ -694,19 +694,19 @@ namespace polysat {
         }
         while (e != first);
         if (!refine_viable(v, lo))
-            return false;
+            return l_undef;
         SASSERT(is_viable(v, lo));
-        return true;
+        return l_true;
     }
 
-    bool viable::query_max(pvar v, rational& hi) {
+    lbool viable::query_max(pvar v, rational& hi) {
         // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
         hi = s.var2pdd(v).max_value();
         auto* e = m_units[v];
         if (!e && !refine_viable(v, hi))
-            return false;
+            return l_undef;
         if (!e)
-            return true;
+            return l_true;
         entry* last = e->prev();
         e = last;
         do {
@@ -717,9 +717,9 @@ namespace polysat {
         }
         while (e != last);
         if (!refine_viable(v, hi))
-            return false;
+            return l_undef;
         SASSERT(is_viable(v, hi));
-        return true;
+        return l_true;
     }
 
     template <query_t mode>
