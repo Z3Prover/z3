@@ -184,7 +184,7 @@ namespace polysat {
         constraints              m_pwatch_trail;
 #endif
 
-        ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
+        ptr_vector<clause const> m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope.

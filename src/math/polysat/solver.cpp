@@ -587,15 +587,13 @@ namespace polysat {
         // Simple hack to try deciding the boolean skeleton first
         if (!can_bdecide()) {
             // enqueue all not-yet-true clauses
-            for (auto const& cls : m_constraints.clauses()) {
-                for (auto const& cl : cls) {
-                    bool is_true = any_of(*cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
-                    if (is_true)
-                        continue;
-                    size_t undefs = count_if(*cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
-                    if (undefs >= 2)
-                        m_lemmas.push_back(cl.get());
-                }
+            for (clause const& cl : m_constraints.clauses()) {
+                bool is_true = any_of(cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
+                if (is_true)
+                    continue;
+                size_t undefs = count_if(cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+                if (undefs >= 2)
+                    m_lemmas.push_back(&cl);
             }
         }
 #endif
@@ -606,7 +604,7 @@ namespace polysat {
     }
 
     void solver::bdecide() {
-        clause& lemma = *m_lemmas[m_lemmas_qhead++];
+        clause const& lemma = *m_lemmas[m_lemmas_qhead++];
         on_scope_exit update_trail = [this]() {
             // must be done after push_level, but also if we return early.
             m_trail.push_back(trail_instr_t::lemma_qhead_i);
@@ -1305,12 +1303,10 @@ namespace polysat {
         for (auto c : m_constraints)
             out << "\t" << c->bvar2string() << ": " << *c << "\n";
         out << "Clauses:\n";
-        for (auto const& cls : m_constraints.clauses()) {
-            for (auto const& cl : cls) {
-                out << "\t" << *cl << "\n";
-                for (auto lit : *cl)
-                    out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
-            }
+        for (clause const& cl : m_constraints.clauses()) {
+            out << "\t" << cl << "\n";
+            for (sat::literal lit : cl)
+                out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
         }
         return out;
     }
@@ -1426,23 +1422,20 @@ namespace polysat {
         // Check for missed boolean propagations:
         // - no clause should have exactly one unassigned literal, unless it is already true.
         // - no clause should be false
-        for (auto const& cls : m_constraints.clauses()) {
-            for (auto const& clref : cls) {
-                clause const& cl = *clref;
-                bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
-                if (is_true)
-                    continue;
-                size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
-                if (undefs == 1) {
-                    LOG("Missed boolean propagation of clause: " << cl);
-                    for (sat::literal lit : cl) {
-                        LOG("    " << lit_pp(*this, lit));
-                    }
+        for (clause const& cl : m_constraints.clauses()) {
+            bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
+            if (is_true)
+                continue;
+            size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
+            if (undefs == 1) {
+                LOG("Missed boolean propagation of clause: " << cl);
+                for (sat::literal lit : cl) {
+                    LOG("    " << lit_pp(*this, lit));
                 }
-                SASSERT(undefs != 1);
-                bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
-                SASSERT(!is_false);
             }
+            SASSERT(undefs != 1);
+            bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
+            SASSERT(!is_false);
         }
         return true;
     }
@@ -1483,19 +1476,17 @@ namespace polysat {
                 all_ok = all_ok && ok;
             }
         }
-        for (auto clauses : m_constraints.clauses()) {
-            for (auto cl : clauses) {
-                bool clause_ok = false;
-                for (sat::literal lit : *cl) {
-                    bool ok = lit2cnstr(lit).is_currently_true(*this);
-                    if (ok) {
-                        clause_ok = true;
-                        break;
-                    }
+        for (clause const& cl : m_constraints.clauses()) {
+            bool clause_ok = false;
+            for (sat::literal lit : cl) {
+                bool ok = lit2cnstr(lit).is_currently_true(*this);
+                if (ok) {
+                    clause_ok = true;
+                    break;
                 }
-                LOG((clause_ok ? "PASS" : "FAIL") << ": " << show_deref(cl) << (cl->is_redundant() ? " (redundant)" : ""));
-                all_ok = all_ok && clause_ok;
             }
+            LOG((clause_ok ? "PASS" : "FAIL") << ": " << cl << (cl.is_redundant() ? " (redundant)" : ""));
+            all_ok = all_ok && clause_ok;
         }
         if (all_ok) LOG("All good!");
         return all_ok;
