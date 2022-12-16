@@ -41,8 +41,32 @@ namespace polysat {
         virtual void pop(unsigned n) = 0;
 
         virtual lbool check() = 0;
+
+        /**
+         * Precondition: check() returned l_false
+         */
         virtual dep_vector unsat_core() = 0;
+
+        /**
+         * Precondition: check() returned l_true
+         */
         virtual rational model() = 0;
+
+        /**
+         * Find minimal model.
+         *
+         * Precondition: check() returned l_true
+         * Returns: true on success, false on resource out.
+         */
+        virtual bool find_min(rational& out_min) = 0;
+
+        /**
+         * Find maximal model.
+         *
+         * Precondition: check() returned l_true
+         * Returns: true on success, false on resource out.
+         */
+        virtual bool find_max(rational& out_max) = 0;
 
         virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
@@ -65,6 +89,8 @@ namespace polysat {
 
         /// Assert i-th bit of x
         virtual void add_bit(unsigned idx, bool sign, dep_t dep) = 0;
+        void add_bit0(unsigned idx, dep_t dep) { add_bit(idx, true, dep); }
+        void add_bit1(unsigned idx, dep_t dep) { add_bit(idx, false, dep); }
 
         virtual std::ostream& display(std::ostream& out) const = 0;
     };

@@ -35,6 +35,7 @@ namespace polysat {
         unsigned bit_width;
         func_decl_ref x_decl;
         expr_ref x;
+        vector<rational> model_cache;
 
     public:
         univariate_bitblast_solver(solver_factory& mk_solver, unsigned bit_width) :
@@ -48,15 +49,30 @@ namespace polysat {
             s = mk_solver(m, p, false, true, true, symbol::null);
             x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
             x = m.mk_const(x_decl);
+            model_cache.push_back(rational(-1));
         }
 
         ~univariate_bitblast_solver() override = default;
 
+        void reset_cache() {
+            model_cache.back() = -1;
+        }
+
+        void push_cache() {
+            model_cache.push_back(model_cache.back());
+        }
+
+        void pop_cache() {
+            model_cache.pop_back();
+        }
+
         void push() override {
+            push_cache();
             s->push();
         }
 
         void pop(unsigned n) override {
+            pop_cache();
             s->pop(n);
         }
 
@@ -64,7 +80,8 @@ namespace polysat {
             return bv->mk_numeral(r, bit_width);
         }
 
-        // [d,c,b,a]  ==>  ((a*x + b)*x + c)*x + d
+#if 0
+        // [d,c,b,a]  -->  ((a*x + b)*x + c)*x + d
         expr* mk_poly(univariate const& p) const {
             if (p.empty()) {
                 return mk_numeral(rational::zero());
@@ -79,13 +96,46 @@ namespace polysat {
                 return e;
             }
         }
+#else
+        // TODO: shouldn't the simplification step of the underlying solver already support this transformation? how to enable?
+        // 2^k*x  -->  x << k
+        // n*x    -->  n * x
+        expr* mk_poly_term(rational const& coeff, expr* xpow) const {
+            unsigned pow;
+            if (coeff.is_power_of_two(pow))
+                return bv->mk_bv_shl(xpow, mk_numeral(rational(pow)));
+            else
+                return bv->mk_bv_mul(mk_numeral(coeff), xpow);
+        }
+
+        // [d,c,b,a]  -->  d + c*x + b*(x*x) + a*(x*x*x)
+        expr* mk_poly(univariate const& p) const {
+            if (p.empty()) {
+                return mk_numeral(rational::zero());
+            }
+            else {
+                expr* e = mk_numeral(p[0]);
+                expr* xpow = x;
+                for (unsigned i = 1; i < p.size(); ++i) {
+                    if (!p[i].is_zero()) {
+                        expr* t = mk_poly_term(p[i], xpow);
+                        e = bv->mk_bv_add(e, t);
+                    }
+                    if (i + 1 < p.size())
+                        xpow = bv->mk_bv_mul(xpow, x);
+                }
+                return e;
+            }
+        }
+#endif
 
         void add(expr* e, bool sign, dep_t dep) {
+            reset_cache();
             if (sign)
                 e = m.mk_not(e);
             expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
             s->assert_expr(e, a);
-            // std::cout << "add: " << expr_ref(e, m) << "  <==  " << expr_ref(a, m) << "\n";
+            IF_VERBOSE(10, verbose_stream() << "(assert (! " << expr_ref(e, m) << "      :named " << expr_ref(a, m) << "))\n");
         }
 
         void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
@@ -161,15 +211,77 @@ namespace polysat {
         }
 
         rational model() override {
-            model_ref model;
-            s->get_model(model);
-            SASSERT(model);
-            app* val = to_app(model->get_const_interp(x_decl));
-            SASSERT(val->get_decl_kind() == OP_BV_NUM);
-            SASSERT(val->get_num_parameters() == 2);
-            auto const& p = val->get_parameter(0);
-            SASSERT(p.is_rational());
-            return p.get_rational();
+            rational& cached_model = model_cache.back();
+            if (cached_model.is_neg()) {
+                model_ref model;
+                s->get_model(model);
+                SASSERT(model);
+                app* val = to_app(model->get_const_interp(x_decl));
+                SASSERT(val->get_decl_kind() == OP_BV_NUM);
+                SASSERT(val->get_num_parameters() == 2);
+                auto const& p = val->get_parameter(0);
+                SASSERT(p.is_rational());
+                cached_model = p.get_rational();
+            }
+            return cached_model;
+        }
+
+        bool find_min(rational& val) override {
+            val = model();
+            push();
+            // try reducing val by setting bits to 0, starting at the msb.
+            for (unsigned k = bit_width; k-- > 0; ) {
+                if (!val.get_bit(k)) {
+                    add_bit0(k, 0);
+                    continue;
+                }
+                // try decreasing k-th bit
+                push();
+                add_bit0(k, 0);
+                lbool result = check();
+                if (result == l_true) {
+                    SASSERT(model() < val);
+                    val = model();
+                }
+                pop(1);
+                if (result == l_true)
+                    add_bit0(k, 0);
+                else if (result == l_false)
+                    add_bit1(k, 0);
+                else
+                    return false;
+            }
+            pop(1);
+            return true;
+        }
+
+        bool find_max(rational& val) override {
+            val = model();
+            push();
+            // try increasing val by setting bits to 1, starting at the msb.
+            for (unsigned k = bit_width; k-- > 0; ) {
+                if (val.get_bit(k)) {
+                    add_bit1(k, 0);
+                    continue;
+                }
+                // try increasing k-th bit
+                push();
+                add_bit1(k, 0);
+                lbool result = check();
+                if (result == l_true) {
+                    SASSERT(model() > val);
+                    val = model();
+                }
+                pop(1);
+                if (result == l_true)
+                    add_bit1(k, 0);
+                else if (result == l_false)
+                    add_bit0(k, 0);
+                else
+                    return false;
+            }
+            pop(1);
+            return true;
         }
 
         std::ostream& display(std::ostream& out) const override {

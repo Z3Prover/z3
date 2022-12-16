@@ -32,13 +32,24 @@ namespace polysat {
     class univariate_solver;
     class univariate_solver_factory;
 
+    enum class find_t {
+        empty,
+        singleton,
+        multiple,
+        resource_out,
+    };
+
+    std::ostream& operator<<(std::ostream& out, find_t x);
+
     class viable {
         friend class test_fi;
 
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
 
-        struct entry final : public dll_base<entry>, public fi_record {};
+        struct entry final : public dll_base<entry>, public fi_record {
+            entry const* refined = nullptr;
+        };
         enum class entry_kind { unit_e, equal_e, diseq_e };
 
         ptr_vector<entry>                    m_alloc;
@@ -64,6 +75,16 @@ namespace polysat {
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
         void propagate(pvar v, rational const& val);
+
+        enum class query_t {
+            has_viable,  // currently only used internally in resolve_viable
+            min_viable,  // currently unused
+            max_viable,  // currently unused
+            find_viable,
+        };
+
+        // template <query_t mode>
+        find_t query(query_t mode, pvar v, rational& out_lo, rational& out_hi);
 
     public:
         viable(solver& s);
@@ -110,7 +131,7 @@ namespace polysat {
         /**
          * Find a next viable value for variable.
          */
-        dd::find_t find_viable(pvar v, rational & val);
+        find_t find_viable(pvar v, rational& out_val);
 
         /**
          * Retrieve the unsat core for v,
@@ -253,7 +274,7 @@ namespace polysat {
         bool check_constraints(assignment const& a, pvar v) { return !find_violated_constraint(a, v); }
         signed_constraint find_violated_constraint(assignment const& a, pvar v);
 
-        dd::find_t find_viable(pvar v, rational& out_val);
+        find_t find_viable(pvar v, rational& out_val);
         signed_constraints unsat_core(pvar v);
     };
 
