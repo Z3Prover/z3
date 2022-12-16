@@ -1,18 +1,18 @@
  /*++
- Copyright (c) 2016 Microsoft Corporation
+Copyright (c) 2016 Microsoft Corporation
 
- Module Name:
+Module Name:
 
-  bv_bound_chk_tactic.h
+   bv_bound_chk_tactic.h
 
- Abstract:
+Author:
 
+  Mikolas Janota
 
- Author:
+### Notes 
 
- Mikolas Janota
+* does not support proofs, does not support cores
 
- Revision History:
  --*/
 #pragma once
 
