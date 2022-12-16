@@ -5,15 +5,34 @@ Module Name:
 
     bv_bounds_tactic.h
 
-Abstract:
-
-    Contextual bounds simplification tactic.
-
 Author:
 
     Nuno Lopes (nlopes) 2016-2-12
     Nikolaj Bjorner (nbjorner)
 
+Tactic Documentation:
+
+## Tactic propagate-bv-bounds
+
+### Short Description
+
+Contextual bounds simplification tactic.
+
+### Example
+
+```z3
+(declare-const x (_ BitVec 32))
+(declare-const y (_ BitVec 32))
+(declare-const z (_ BitVec 32))
+(assert (bvule (_ bv4 32) x))
+(assert (bvule x (_ bv24 32)))
+(assert (or (bvule x (_ bv100 32)) (bvule (_ bv32 32) x)))
+(apply propagate-bv-bounds)
+```
+
+### Notes
+
+* assumes that bit-vector inequalities have been simplified to use bvule/bvsle
 
 --*/
 #pragma once

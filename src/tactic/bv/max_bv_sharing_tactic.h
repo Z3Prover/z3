@@ -7,16 +7,26 @@ Module Name:
 
 Abstract:
 
-    Rewriter for "maximing" the number of shared terms.
-    The idea is to rewrite AC terms to maximize sharing.
-    This rewriter is particularly useful for reducing
-    the number of Adders and Multipliers before "bit-blasting".
+
 
 Author:
 
     Leonardo de Moura (leonardo) 2011-12-29.
 
-Revision History:
+Tactic Documentation
+
+## Tactic max-bv-sharing
+
+### Short Description
+
+Use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers
+
+### Long Description
+
+Rewriter for "maximing" the number of shared terms.
+The idea is to rewrite AC terms to maximize sharing.
+This rewriter is particularly useful for reducing
+the number of Adders and Multipliers before "bit-blasting".
 
 --*/
 #pragma once

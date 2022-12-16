@@ -15,6 +15,22 @@ Author:
 
 Revision History:
 
+Tactic Documentation
+
+## Tactic elim-small-bv
+
+### Short Description
+
+Eliminate small, quantified bit-vectors by expansion
+
+### Example
+
+```z3
+(declare-fun p ((_ BitVec 2)) Bool)
+(assert (forall ((x (_ BitVec 2))) (p x)))
+(apply elim-small-bv)
+```
+
 --*/
 #pragma once
 
