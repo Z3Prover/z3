@@ -31,6 +31,7 @@ namespace polysat {
         bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
 
+        bool propagate(conflict& core, signed_constraint const& crit1, signed_constraint c);
         bool propagate(conflict& core, inequality const& crit1, signed_constraint c);
         bool add_conflict(conflict& core, inequality const& crit1, signed_constraint c);
         bool add_conflict(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint c);
@@ -118,6 +119,10 @@ namespace polysat {
         bool is_forced_false(signed_constraint const& sc);
 
         bool is_forced_true(signed_constraint const& sc);
+
+        bool try_inequality(pvar v, inequality const& i, conflict& core);
+
+        bool try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core);
 
     public:
         saturation(solver& s);

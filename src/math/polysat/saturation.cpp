@@ -44,11 +44,22 @@ namespace polysat {
     }
 
     bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
-        if (!c->is_ule())
-            return false;
         if (c.is_currently_true(s))
             return false;
-        auto i = inequality::from_ule(c);
+
+        if (c->is_ule()) {
+            auto i = inequality::from_ule(c);
+            return try_inequality(v, i, core);
+        }
+
+#if 0
+        if (c->is_umul_ovfl()) 
+            return try_umul_ovfl(v, c, core);
+#endif
+        return false;
+    }
+
+    bool saturation::try_inequality(pvar v, inequality const& i, conflict& core) {
         if (try_mul_bounds(v, core, i))
             return true;
         if (try_parity(v, core, i))
@@ -72,6 +83,29 @@ namespace polysat {
         return false;
     }
 
+    bool saturation::try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core) {
+        set_rule("[x] ~ovfl(x, y) => y = 0 or x <= x * y");
+        SASSERT(c->is_umul_ovfl());
+        if (!c.is_negative())
+            return false;
+        auto const& ovfl = c->to_umul_ovfl();
+        auto V = s.var(v);
+        auto p = ovfl.p(), q = ovfl.q();
+        // TODO could relax condition to be that V occurs in p
+        if (q == V) 
+            std::swap(p, q);
+        signed_constraint q_eq_0;
+        if (p == V && is_forced_diseq(q, 0, q_eq_0)) {
+            // ~ovfl(V,q) => q = 0 or V <= V*q
+            m_lemma.reset();
+            m_lemma.insert_eval(q_eq_0);
+            if (propagate(core, c, s.ule(p, p * q)))
+                return true;
+        }
+        return false;
+    }
+
+
     signed_constraint saturation::ineq(bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
             return s.ult(lhs, rhs);
@@ -80,6 +114,10 @@ namespace polysat {
     }
 
     bool saturation::propagate(conflict& core, inequality const& crit, signed_constraint c) {
+        return propagate(core, crit.as_signed_constraint(), c);
+    }
+
+    bool saturation::propagate(conflict& core, signed_constraint const& crit, signed_constraint c) {
         if (is_forced_true(c))
             return false;
 
@@ -97,7 +135,7 @@ namespace polysat {
         // The current assumptions on how conflict lemmas are used do not accomodate propagation it seems.
         //
 
-        m_lemma.insert(~crit.as_signed_constraint());
+        m_lemma.insert(~crit);
 
         IF_VERBOSE(10, verbose_stream() << "propagate " << m_rule << " ";
                    for (auto lit : m_lemma) verbose_stream() << s.lit2cnstr(lit) << " ";
