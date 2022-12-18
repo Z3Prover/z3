@@ -67,7 +67,8 @@ namespace polysat {
         }
 
         void push_cache() {
-            model_cache.push_back(model_cache.back());
+            rational v = model_cache.back();
+            model_cache.push_back(v);
         }
 
         void pop_cache() {
