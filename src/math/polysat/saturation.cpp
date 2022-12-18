@@ -669,8 +669,7 @@ namespace polysat {
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
-        pdd a = m.zero();
-        pdd b = m.zero();
+        pdd a = y, b = y;
         pdd X = s.var(x);
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
@@ -741,7 +740,7 @@ namespace polysat {
         // 
         // if b has at most b_parity, then a*x has at most b_parity
         // 
-        else if (!is_forced_eq(b, 0)) {
+        if (!is_forced_eq(b, 0)) {
             unsigned b_parity = 1;
             bool found = false;
             for (; b_parity < N; ++b_parity) {
@@ -767,9 +766,6 @@ namespace polysat {
                 }
             }
         }
-
-        // verbose_stream() << "no propagation " << axb_l_y << " parity " << a_parity << "\n";
-
         return false;        
     }
 
@@ -783,7 +779,8 @@ namespace polysat {
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
-        pdd a = y, b = y, X = y;
+        pdd a = y, b = y;
+        pdd X = s.var(x);
         if (!is_AxB_diseq_0(x, axb_l_y, a, b, y))
             return false;
         if (!is_forced_eq(b, 0))
@@ -926,7 +923,7 @@ namespace polysat {
                 rhs = b2 - a2*(b3 * a3_inv);
             }
             if (!change) {
-                IF_VERBOSE(0, verbose_stream() << "missed factor equality " << c << " " << a_l_b << "\n");
+                IF_VERBOSE(1, verbose_stream() << "missed factor equality " << c << " " << a_l_b << "\n");
                 continue;
             }
             signed_constraint conseq = a_l_b.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
