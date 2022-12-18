@@ -35,6 +35,8 @@ namespace polysat {
         /// e.g., the vector [ c, b, a ] represents a*x^2 + b*x + c.
         using univariate = vector<rational>;
 
+        const dep_t null_dep = UINT_MAX;
+
         virtual ~univariate_solver() = default;
 
         virtual void push() = 0;
@@ -69,6 +71,14 @@ namespace polysat {
          * Returns: true on success, false on resource out.
          */
         virtual bool find_max(rational& out_max) = 0;
+
+        /**
+         * Find up to two viable values.
+         *
+         * Precondition: check() returned l_true
+         * returns: true on success, false on resource out
+         */
+        virtual bool find_two(rational& out1, rational& out2) = 0;
 
         virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;

@@ -147,9 +147,15 @@ namespace polysat {
             reset_cache();
             if (sign)
                 e = m.mk_not(e);
-            expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
-            s->assert_expr(e, a);
-            IF_VERBOSE(10, verbose_stream() << "(assert (! " << expr_ref(e, m) << "      :named " << expr_ref(a, m) << "))\n");
+            if (dep == null_dep) {
+                s->assert_expr(e);
+                IF_VERBOSE(10, verbose_stream() << "(assert " << expr_ref(e, m) << ")\n");
+            }
+            else {
+                expr* a = m.mk_const(m.mk_const_decl(symbol(dep), m.mk_bool_sort()));
+                s->assert_expr(e, a);
+                IF_VERBOSE(10, verbose_stream() << "(assert (! " << expr_ref(e, m) << "      :named " << expr_ref(a, m) << "))\n");
+            }
         }
 
         void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
@@ -245,7 +251,7 @@ namespace polysat {
             // try reducing val by setting bits to 0, starting at the msb.
             for (unsigned k = bit_width; k-- > 0; ) {
                 if (!val.get_bit(k)) {
-                    add_bit0(k, 0);
+                    add_bit0(k, null_dep);
                     continue;
                 }
                 // try decreasing k-th bit
@@ -258,9 +264,9 @@ namespace polysat {
                 }
                 pop(1);
                 if (result == l_true)
-                    add_bit0(k, 0);
+                    add_bit0(k, null_dep);
                 else if (result == l_false)
-                    add_bit1(k, 0);
+                    add_bit1(k, null_dep);
                 else
                     return false;
             }
@@ -287,14 +293,34 @@ namespace polysat {
                 }
                 pop(1);
                 if (result == l_true)
-                    add_bit1(k, 0);
+                    add_bit1(k, null_dep);
                 else if (result == l_false)
-                    add_bit0(k, 0);
+                    add_bit0(k, null_dep);
                 else
                     return false;
             }
             pop(1);
             return true;
+        }
+
+        bool find_two(rational& out1, rational& out2) {
+            out1 = model();
+            bool ok = true;
+            push();
+            add(m.mk_eq(mk_numeral(out1), x), true, null_dep);
+            switch (check()) {
+            case l_true:
+                out2 = model();
+                break;
+            case l_false:
+                out2 = out1;
+                break;
+            default:
+                ok = false;
+                break;
+            }
+            pop(1);
+            return ok;
         }
 
         std::ostream& display(std::ostream& out) const override {
