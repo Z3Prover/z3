@@ -53,6 +53,7 @@ namespace polysat {
             bv = alloc(bv_util, m);
             params_ref p;
             p.set_bool("bv.polysat", false);
+            // p.set_bool("smt", true);
             s = mk_solver(m, p, false, true, true, symbol::null);
             x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
             x = m.mk_const(x_decl);
@@ -94,6 +95,13 @@ namespace polysat {
             return bv->mk_numeral(r, bit_width);
         }
 
+        bool is_zero(univariate const& p) const {
+            for (auto n : p)
+                if (n != 0)
+                    return false;
+            return true;
+        }
+
 #if 0
         // [d,c,b,a]  -->  ((a*x + b)*x + c)*x + d
         expr* mk_poly(univariate const& p) const {
@@ -128,16 +136,18 @@ namespace polysat {
                 return mk_numeral(rational::zero());
             }
             else {
-                expr* e = mk_numeral(p[0]);
-                expr* xpow = x;
+                expr* e = p[0] != 0 ? mk_numeral(p[0]) : nullptr;
+                expr_ref xpow = x;
                 for (unsigned i = 1; i < p.size(); ++i) {
                     if (!p[i].is_zero()) {
                         expr* t = mk_poly_term(p[i], xpow);
-                        e = bv->mk_bv_add(e, t);
+                        e = e ? bv->mk_bv_add(e, t) : t;
                     }
                     if (i + 1 < p.size())
                         xpow = bv->mk_bv_mul(xpow, x);
                 }
+                if (!e)
+                    e = mk_numeral(p[0]);
                 return e;
             }
         }
@@ -159,7 +169,10 @@ namespace polysat {
         }
 
         void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
-            add(bv->mk_ule(mk_poly(lhs), mk_poly(rhs)), sign, dep);
+            if (is_zero(rhs)) 
+                add(m.mk_eq(mk_poly(lhs), mk_poly(rhs)), sign, dep);
+            else 
+                add(bv->mk_ule(mk_poly(lhs), mk_poly(rhs)), sign, dep);
         }
 
         void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
@@ -203,7 +216,10 @@ namespace polysat {
         }
 
         void add_ule_const(rational const& val, bool sign, dep_t dep) override {
-            add(bv->mk_ule(x, mk_numeral(val)), sign, dep);
+            if (val == 0)
+                add(m.mk_eq(x, mk_numeral(val)), sign, dep);
+            else 
+                add(bv->mk_ule(x, mk_numeral(val)), sign, dep);
         }
 
         void add_uge_const(rational const& val, bool sign, dep_t dep) override {
@@ -226,6 +242,7 @@ namespace polysat {
                 unsigned dep = to_app(a)->get_decl()->get_name().get_num();
                 deps.push_back(dep);
             }
+            IF_VERBOSE(10, verbose_stream() << "core " << deps << "\n");
             SASSERT(deps.size() > 0);
         }
 
@@ -320,6 +337,7 @@ namespace polysat {
                 break;
             }
             pop(1);
+            IF_VERBOSE(10, verbose_stream() << "viable " << out1 << " " << out2 << "\n");
             return ok;
         }
 
