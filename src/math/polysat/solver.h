@@ -211,6 +211,8 @@ namespace polysat {
         dd::pdd_manager& sz2pdd(unsigned sz) const;
         dd::pdd_manager& var2pdd(pvar v) const;
 
+        pvar num_vars() const { return m_value.size(); }
+
         assignment_t const& assignment() const { return m_search.assignment(); }
 
         void push_level();
@@ -306,7 +308,8 @@ namespace polysat {
         static bool invariant(signed_constraints const& cs);
         bool wlist_invariant() const;
         bool bool_watch_invariant() const;
-        bool assignment_invariant();
+        bool assignment_invariant() const;
+        bool var_queue_invariant() const;
         bool verify_sat();
 
         bool can_propagate();

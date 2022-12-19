@@ -77,7 +77,7 @@ namespace polysat {
     /** Full variable assignment, may include variables of varying bit widths. */
     class assignment {
         solver*                                 m_solver;
-        vector<assignment_item_t>               m_pairs;  // TODO: do we still need this?
+        vector<assignment_item_t>               m_pairs;
         mutable scoped_ptr_vector<substitution> m_subst;
         vector<substitution>                    m_subst_trail;
 

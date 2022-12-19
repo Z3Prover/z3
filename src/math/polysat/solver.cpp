@@ -74,6 +74,7 @@ namespace polysat {
             LOG("Assignment:     " << assignments_pp(*this));
             if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
+            SASSERT(var_queue_invariant());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (should_add_pwatch()) add_pwatch();
@@ -1445,7 +1446,7 @@ namespace polysat {
     }
 
     /** Check that boolean assignment and constraint evaluation are consistent */
-    bool solver::assignment_invariant() {
+    bool solver::assignment_invariant() const {
         if (is_conflict())
             return true;
         bool ok = true;
@@ -1459,6 +1460,25 @@ namespace polysat {
             if (!ok) {
                 LOG("assignment invariant is broken " << v << "\n" << *this);
                 break;
+            }
+        }
+        return ok;
+    }
+
+    /** Check that each variable is either assigned or queued for decisions */
+    bool solver::var_queue_invariant() const {
+        if (is_conflict())
+            return true;
+        uint_set active;
+        for (pvar v : m_free_pvars)
+            active.insert(v);
+        for (auto const& [v, val] : assignment())
+            active.insert(v);
+        bool ok = true;
+        for (pvar v = 0; v < num_vars(); ++v) {
+            if (!active.contains(v)) {
+                ok = false;
+                LOG("Lost variable v" << v << " (it is neither assigned nor free)");
             }
         }
         return ok;
