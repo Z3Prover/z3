@@ -133,12 +133,13 @@ namespace polysat {
         }
 
         // [d,c,b,a]  -->  d + c*x + b*(x*x) + a*(x*x*x)
-        expr* mk_poly(univariate const& p) const {
-            if (p.empty()) {
-                return mk_numeral(rational::zero());
-            }
+        expr_ref mk_poly(univariate const& p) {
+            expr_ref e(m);
+            if (p.empty())
+                e = mk_numeral(rational::zero());
             else {
-                expr* e = p[0] != 0 ? mk_numeral(p[0]) : nullptr;
+                if (!p[0].is_zero())
+                    e = mk_numeral(p[0]);
                 expr_ref xpow = x;
                 for (unsigned i = 1; i < p.size(); ++i) {
                     if (!p[i].is_zero()) {
@@ -150,8 +151,8 @@ namespace polysat {
                 }
                 if (!e)
                     e = mk_numeral(p[0]);
-                return e;
             }
+            return e;
         }
 #endif
 
