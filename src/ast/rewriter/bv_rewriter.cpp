@@ -37,6 +37,7 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_ite2id = p.bv_ite2id();
     m_le_extra = p.bv_le_extra();
     m_le2extract = p.bv_le2extract();
+    m_le2extract = false; // 
     set_sort_sums(p.bv_sort_ac());
 }
 
@@ -1723,6 +1724,9 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
             return BR_REWRITE2;
         }
     }
+
+    if (!m_le2extract)
+        return BR_FAILED;
 
     if (!v1.is_zero() && new_args.size() == 1) {
         v1 = m_util.norm(v1, sz);

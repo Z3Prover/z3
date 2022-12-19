@@ -799,11 +799,7 @@ namespace polysat {
     }
 
     lbool viable::query_find_fallback(pvar v, univariate_solver& us, rational& lo, rational& hi) {
-        if (!us.find_min(lo))
-            return l_undef;
-        if (!us.find_max(hi))
-            return l_undef;
-        return l_true;
+        return us.find_two(lo, hi) ? l_true : l_undef;
     }
 
     lbool viable::query_min_fallback(pvar v, univariate_solver& us, rational& lo) {

@@ -99,8 +99,8 @@ namespace polysat {
             signed_constraint sc(this, is_positive);
             // ¬Omega(p, q)  ==>  q = 0  \/  p <= p*q
             // ¬Omega(p, q)  ==>  p = 0  \/  q <= p*q
-            s.add_clause(~sc, /* s.eq(p()), */ s.eq(q()), s.ule(p(), p()*q()), false);
-            s.add_clause(~sc, s.eq(p()), /* s.eq(q()), */ s.ule(q(), p()*q()), false);
+            s.add_clause(~sc, s.eq(q()), s.ule(p(), p()*q()), false);
+            s.add_clause(~sc, s.eq(p()), s.ule(q(), p()*q()), false);
         }
     }
 
