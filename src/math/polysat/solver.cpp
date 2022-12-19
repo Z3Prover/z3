@@ -731,9 +731,16 @@ namespace polysat {
         SASSERT(!m_search.assignment().contains(v));
         if (lemma) {
             add_clause(*lemma);
-            SASSERT(!is_conflict());  // if we have a conflict here, we could have produced this lemma already earlier
-            if (can_propagate())
+            if (is_conflict()) {
+                // If we have a conflict here, we should have produced this lemma already earlier
+                LOG("Conflict after constraint::produce_lemma: TODO: should have found this lemma earlier");
+                m_free_pvars.unassign_var_eh(v);
                 return;
+            }
+            if (can_propagate()) {
+                m_free_pvars.unassign_var_eh(v);
+                return;
+            }
         }
         if (c) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
@@ -754,6 +761,7 @@ namespace polysat {
                 return;
             case find_t::resource_out:
                 UNREACHABLE();  // TODO: abort solving
+                m_free_pvars.unassign_var_eh(v);
                 return;
             }
         }
