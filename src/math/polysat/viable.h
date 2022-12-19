@@ -190,7 +190,7 @@ namespace polysat {
         find_t find_viable(pvar v, rational& out_val);
 
         /**
-         * Find a next viable value for variable by determining currently viable lower and upper bounds.
+         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
         lbool find_viable(pvar v, rational& out_lo, rational& out_hi);

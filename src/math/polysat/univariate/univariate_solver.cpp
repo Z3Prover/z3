@@ -120,15 +120,16 @@ namespace polysat {
             }
         }
 #else
-        // TODO: shouldn't the simplification step of the underlying solver already support this transformation? how to enable?
         // 2^k*x  -->  x << k
         // n*x    -->  n * x
         expr* mk_poly_term(rational const& coeff, expr* xpow) const {
             unsigned pow;
+            SASSERT(!coeff.is_zero());
+            if (coeff.is_one())
+                return xpow;
             if (coeff.is_power_of_two(pow))
                 return bv->mk_bv_shl(xpow, mk_numeral(rational(pow)));
-            else
-                return bv->mk_bv_mul(mk_numeral(coeff), xpow);
+            return bv->mk_bv_mul(mk_numeral(coeff), xpow);
         }
 
         // [d,c,b,a]  -->  d + c*x + b*(x*x) + a*(x*x*x)
@@ -321,7 +322,7 @@ namespace polysat {
             return true;
         }
 
-        bool find_two(rational& out1, rational& out2) {
+        bool find_two(rational& out1, rational& out2) override {
             out1 = model();
             bool ok = true;
             push();

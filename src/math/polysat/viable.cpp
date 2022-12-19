@@ -344,7 +344,7 @@ namespace polysat {
             }
         };
         do {
-            LOG("refine-equal-lin for src: " << e->src);
+            LOG("refine-equal-lin for src: " << lit_pp(s, e->src));
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
 
