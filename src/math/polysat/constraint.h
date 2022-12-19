@@ -114,9 +114,11 @@ namespace polysat {
         bool is_pwatched() const { return m_is_pwatched; }
         void set_pwatched(bool f) { m_is_pwatched = f; }
 
-        /// Assuming the constraint is univariate under the current assignment of 's',
-        /// adds the constraint to the univariate solver 'us'.
-        virtual void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const = 0;
+        /**
+         * If the constraint is univariate in variable 'v' under the current assignment of 's',
+         * add the constraint to the univariate solver 'us'.
+         */
+        virtual void add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const = 0;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -161,7 +163,7 @@ namespace polysat {
         void narrow(solver& s, bool first) { get()->narrow(s, is_positive(), first); }
         clause_ref produce_lemma(solver& s, assignment const& a) { return get()->produce_lemma(s, a, is_positive()); }
 
-        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(s, us, dep, is_positive()); }
+        void add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep) const { get()->add_to_univariate_solver(v, s, us, dep, is_positive()); }
 
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }

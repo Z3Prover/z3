@@ -344,9 +344,9 @@ namespace polysat {
             }
         };
         do {
-            LOG("refine-equal-lin for src: " << lit_pp(s, e->src));
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
+                LOG("refine-equal-lin for src: " << lit_pp(s, e->src));
 
                 if (e->interval.lo_val().is_one() && e->interval.hi_val().is_zero() && e->coeff.is_odd()) {
                     rational lo(1);
@@ -730,6 +730,7 @@ namespace polysat {
 
         // First step: only query the looping constraints and see if they alone are already UNSAT.
         // The constraints which caused the refinement loop will be reached from m_units.
+        LOG_H3("Checking looping univariate constraints for v" << v << "...");
         entry const* first = m_units[v];
         entry const* e = first;
         do {
@@ -740,7 +741,8 @@ namespace polysat {
             sat::literal const lit = c.blit();
             if (!added.contains(lit)) {
                 added.insert(lit);
-                c.add_to_univariate_solver(s, *us, lit.to_uint());
+                LOG("Adding " << lit_pp(s, lit));
+                c.add_to_univariate_solver(v, s, *us, lit.to_uint());
             }
             e = e->next();
         }
@@ -759,13 +761,15 @@ namespace polysat {
         }
 
         // Second step: looping constraints aren't UNSAT, so add the remaining relevant constraints
+        LOG_H3("Checking all univariate constraints for v" << v << "...");
         auto const& cs = s.m_viable_fallback.m_constraints[v];
         for (unsigned i = cs.size(); i-- > 0; ) {
             sat::literal const lit = cs[i].blit();
             if (added.contains(lit))
                 continue;
+            LOG("Adding " << lit_pp(s, lit));
             added.insert(lit);
-            cs[i].add_to_univariate_solver(s, *us, lit.to_uint());
+            cs[i].add_to_univariate_solver(v, s, *us, lit.to_uint());
         }
 
         switch (us->check()) {
@@ -1060,7 +1064,7 @@ namespace polysat {
         for (unsigned i = cs.size(); i-- > 0; ) {
             signed_constraint const c = cs[i];
             LOG("Univariate constraint: " << c);
-            c.add_to_univariate_solver(s, *us, c.blit().to_uint());
+            c.add_to_univariate_solver(v, s, *us, c.blit().to_uint());
         }
 
         switch (us->check()) {

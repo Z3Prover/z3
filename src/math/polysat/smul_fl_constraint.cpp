@@ -119,13 +119,17 @@ namespace polysat {
             && q() == other.to_smul_fl().q();
     }
 
-    void smul_fl_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(p()).get_univariate_coefficients();
-        auto q_coeff = s.subst(q()).get_univariate_coefficients();
+    void smul_fl_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        auto p1 = s.subst(p());
+        if (!p1.is_univariate_in(v))
+            return;
+        auto q1 = s.subst(q());
+        if (!q1.is_univariate_in(v))
+            return;
         if (is_overflow())
-            us.add_smul_ovfl(p_coeff, q_coeff, !is_positive, dep);
+            us.add_smul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
         else
-            us.add_smul_udfl(p_coeff, q_coeff, !is_positive, dep);
+            us.add_smul_udfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
     }
 
 }

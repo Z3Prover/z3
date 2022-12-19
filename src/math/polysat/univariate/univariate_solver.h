@@ -80,7 +80,23 @@ namespace polysat {
          */
         virtual bool find_two(rational& out1, rational& out2) = 0;
 
+        /** lhs <= rhs */
         virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        /** lhs >= rhs */
+        void add_uge(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        void add_uge(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        void add_uge(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        /** lhs < rhs */
+        void add_ult(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        void add_ult(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        void add_ult(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        /** lhs > rhs */
+        void add_ugt(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+        void add_ugt(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+        void add_ugt(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;

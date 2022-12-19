@@ -448,19 +448,25 @@ namespace polysat {
         return l_undef;
     }
 
-    void op_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(p()).get_univariate_coefficients();
-        auto q_coeff = s.subst(q()).get_univariate_coefficients();
-        auto r_coeff = s.subst(r()).get_univariate_coefficients();
+    void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        pdd pv = s.subst(p());
+        if (!pv.is_univariate_in(v))
+            return;
+        pdd qv = s.subst(q());
+        if (!qv.is_univariate_in(v))
+            return;
+        pdd rv = s.subst(r());
+        if (!rv.is_univariate_in(v))
+            return;
         switch (m_op) {
         case code::lshr_op:
-            us.add_lshr(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_lshr(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         case code::shl_op:
-            us.add_shl(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_shl(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         case code::and_op:
-            us.add_and(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_and(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         default:
             NOT_IMPLEMENTED_YET();

@@ -103,6 +103,10 @@ namespace polysat {
             return true;
         }
 
+        bool is_zero(rational const& p) const {
+            return p.is_zero();
+        }
+
 #if 0
         // [d,c,b,a]  -->  ((a*x + b)*x + c)*x + d
         expr* mk_poly(univariate const& p) const {
@@ -154,6 +158,10 @@ namespace polysat {
             }
             return e;
         }
+
+        expr_ref mk_poly(rational const& p) {
+            return {mk_numeral(p), m};
+        }
 #endif
 
         void add(expr* e, bool sign, dep_t dep) {
@@ -171,12 +179,17 @@ namespace polysat {
             }
         }
 
-        void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
+        template <typename lhs_t, typename rhs_t>
+        void add_ule_impl(lhs_t const& lhs, rhs_t const& rhs, bool sign, dep_t dep) {
             if (is_zero(rhs)) 
                 add(m.mk_eq(mk_poly(lhs), mk_poly(rhs)), sign, dep);
             else 
                 add(bv->mk_ule(mk_poly(lhs), mk_poly(rhs)), sign, dep);
         }
+
+        void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override { add_ule_impl(lhs, rhs, sign, dep); }
+        void add_ule(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) override { add_ule_impl(lhs, rhs, sign, dep); }
+        void add_ule(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) override { add_ule_impl(lhs, rhs, sign, dep); }
 
         void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) override {
             add(bv->mk_bvumul_no_ovfl(mk_poly(lhs), mk_poly(rhs)), !sign, dep);
@@ -220,13 +233,13 @@ namespace polysat {
 
         void add_ule_const(rational const& val, bool sign, dep_t dep) override {
             if (val == 0)
-                add(m.mk_eq(x, mk_numeral(val)), sign, dep);
+                add(m.mk_eq(x, mk_poly(val)), sign, dep);
             else 
-                add(bv->mk_ule(x, mk_numeral(val)), sign, dep);
+                add(bv->mk_ule(x, mk_poly(val)), sign, dep);
         }
 
         void add_uge_const(rational const& val, bool sign, dep_t dep) override {
-            add(bv->mk_ule(mk_numeral(val), x), sign, dep);
+            add(bv->mk_ule(mk_poly(val), x), sign, dep);
         }
 
         void add_bit(unsigned idx, bool sign, dep_t dep) override {

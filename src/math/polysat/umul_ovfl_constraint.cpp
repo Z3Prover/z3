@@ -25,8 +25,7 @@ namespace polysat {
 
     }
     void umul_ovfl_constraint::simplify() {
-        if (m_p.is_zero() || m_q.is_zero() ||
-            m_p.is_one() || m_q.is_one()) {
+        if (m_p.is_zero() || m_q.is_zero() || m_p.is_one() || m_q.is_one()) {
             m_q = 0;
             m_p = 0;
             return;
@@ -158,9 +157,13 @@ namespace polysat {
         return other.is_umul_ovfl() && p() == other.to_umul_ovfl().p() && q() == other.to_umul_ovfl().q();
     }
 
-    void umul_ovfl_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(p()).get_univariate_coefficients();
-        auto q_coeff = s.subst(q()).get_univariate_coefficients();
-        us.add_umul_ovfl(p_coeff, q_coeff, !is_positive, dep);
+    void umul_ovfl_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        pdd p1 = s.subst(p());
+        if (!p1.is_univariate_in(v))
+            return;
+        pdd q1 = s.subst(q());
+        if (!q1.is_univariate_in(v))
+            return;
+        us.add_umul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
     }
 }

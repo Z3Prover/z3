@@ -1208,6 +1208,11 @@ namespace dd {
         return true;
     }
 
+    /** Return true iff p contains no variables other than v. */
+    bool pdd_manager::is_univariate_in(PDD p, unsigned v) {
+        return (is_val(p) || var(p) == v) && is_univariate(p);
+    }
+
     /**
      * Push coefficients of univariate polynomial in order of ascending degree.
      * Example:     a*x^2 + b*x + c    ==>    [ c, b, a ]

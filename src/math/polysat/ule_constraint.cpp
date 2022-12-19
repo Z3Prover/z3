@@ -245,9 +245,16 @@ namespace polysat {
         return other.is_ule() && lhs() == other.to_ule().lhs() && rhs() == other.to_ule().rhs();
     }
 
-    void ule_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(lhs()).get_univariate_coefficients();
-        auto q_coeff = s.subst(rhs()).get_univariate_coefficients();
-        us.add_ule(p_coeff, q_coeff, !is_positive, dep);
+    void ule_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        pdd p = s.subst(lhs());
+        pdd q = s.subst(rhs());
+        bool p_ok = p.is_univariate_in(v);
+        bool q_ok = q.is_univariate_in(v);
+        if (!is_positive && !q_ok)  // add p > 0
+            us.add_ugt(p.get_univariate_coefficients(), rational::zero(), false, dep);
+        if (!is_positive && !p_ok)  // add -1 > q  <==>  q+1 > 0
+            us.add_ugt((q + 1).get_univariate_coefficients(), rational::zero(), false, dep);
+        if (p_ok && q_ok)
+            us.add_ule(p.get_univariate_coefficients(), q.get_univariate_coefficients(), !is_positive, dep);
     }
 }
