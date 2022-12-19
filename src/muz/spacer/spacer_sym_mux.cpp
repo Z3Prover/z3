@@ -144,10 +144,12 @@ public:
 
     bool get_subst(expr * s, expr * & t, proof * & t_pr)
     {
-        if (!is_app(s)) { return false; }
+        if (!is_app(s)) 
+            return false; 
         app * a = to_app(s);
         func_decl * sym = a->get_decl();
         if (!m_parent.has_index(sym, m_from_idx)) {
+            CTRACE("spacer", m_homogenous && m_parent.is_muxed(sym), tout << "not found " << mk_pp(a, m) << "\n");
             SASSERT(!m_homogenous || !m_parent.is_muxed(sym));
             return false;
         }

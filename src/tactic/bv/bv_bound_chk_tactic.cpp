@@ -48,7 +48,6 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
         m_bv_ineq_consistency_test_max = p.bv_ineq_consistency_test_max();        
         m_max_memory = p.max_memory();
         m_max_steps = p.max_steps();
-
     }
 
     ast_manager & m() const { return m_m; }

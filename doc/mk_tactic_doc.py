@@ -53,13 +53,21 @@ def extract_tactic_doc(ous, f):
             if is_doc.search(line):
                 generate_tactic_doc(ous, f, ins)
 
+def find_tactic_name(path):
+    with open(path) as ins:
+        for line in ins:
+            m = is_tac_name.search(line)
+            if m:
+                return m.group(1)
+    return ""
+
 def presort_files():
     tac_files = []
     for root, dirs, files in os.walk(doc_path("../src")):
         for f in files:
             if f.endswith("tactic.h"):
                 tac_files += [(f, os.path.join(root, f))]
-    tac_files = sorted(tac_files, key = lambda x: x[0])
+    tac_files = sorted(tac_files, key = lambda x: find_tactic_name(x[1]))
     return tac_files
     
 def help(ous):

@@ -161,7 +161,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
-        r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
+        r.insert("norm_int_only", CPK_BOOL, "normalize only the bounds of integer constants.", "true");
     }
 
     void operator()(goal_ref const & in, 
