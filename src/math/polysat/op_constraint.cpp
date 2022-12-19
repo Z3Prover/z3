@@ -113,11 +113,28 @@ namespace polysat {
         if (first)
             activate(s);
 
+        if (!propagate_bits(s, is_positive))
+            return; // conflict
+
         if (clause_ref lemma = produce_lemma(s, s.assignment()))
             s.add_clause(*lemma);
         
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
+    }
+
+    bool op_constraint::propagate_bits(solver& s, bool is_positive) {
+        switch (m_op) {
+        case code::lshr_op:
+            return propagate_bits_lshr(s, is_positive);
+        case code::shl_op:
+            return propagate_bits_shl(s, is_positive);
+        case code::and_op:
+            return propagate_bits_and(s, is_positive);
+        default:
+            NOT_IMPLEMENTED_YET();
+            return false;
+        }
     }
 
     /**
@@ -335,6 +352,39 @@ namespace polysat {
         return l_undef;
     }
 
+    bool op_constraint::propagate_bits_shl(solver& s, bool is_positive) {
+        tbv_ref p_val = s.m_fixed_bits.eval(m_p);
+        tbv_ref q_val = s.m_fixed_bits.eval(m_q);
+        tbv_ref r_val = s.m_fixed_bits.eval(m_r);
+        unsigned sz = m_p.power_of_2();
+
+        auto [shift_min, shift_max] = s.m_fixed_bits.min_max(q_val);
+
+        unsigned shift_min_u, shift_max_u;
+
+        if (!shift_min.is_unsigned() || shift_min.get_unsigned() > sz)
+            shift_min_u = sz;
+        else
+            shift_min_u = shift_min.get_unsigned();
+
+        if (!shift_max.is_unsigned() || shift_max.get_unsigned() > sz)
+            shift_max_u = sz;
+        else
+            shift_max_u = shift_max.get_unsigned();
+
+        SASSERT(shift_max_u <= sz);
+        SASSERT(shift_min_u <= shift_max_u);
+
+        for (unsigned i = 0; i < shift_min_u; i++) {
+            if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, this, s.))
+                return false;
+        }
+        for (unsigned i = shift_min_u; i < sz; i++) {
+            propagate_bit(s, m_r.var(), i, p_val[i - shift_min_u]);
+        }
+
+    }
+
     void op_constraint::activate_and(solver& s) {
         auto x = p(), y = q();
         if (x.is_val())
@@ -446,6 +496,31 @@ namespace polysat {
             return r.val() == bitwise_and(p.val(), q.val()) ? l_true : l_false;
 
         return l_undef;
+    }
+
+    bool op_constraint::propagate_bits_and(solver& s, bool is_positive){
+        tbv_ref p_val = s.m_fixed_bits.eval(m_p);
+        tbv_ref q_val = s.m_fixed_bits.eval(m_q);
+        tbv_ref r_val = s.m_fixed_bits.eval(m_r);
+        unsigned sz = m_p.power_of_2();
+
+        for (int i = 0; i < sz; i++) {
+            tbit bp = p_val[i];
+            tbit bq = q_val[i];
+            tbit br = r_val[i];
+
+            // TODO: Propagate from the result to the operands. e.g., 110... = xx1... & yyy...
+            // TODO: ==> x = 111..., y = 110...
+            if (bp == BIT_0 || bq == BIT_0) {
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, this, std::pair(m_p, i), std::pair(m_q, i)))
+                    return false;
+            }
+            else if (bp == BIT_1 && bq == BIT_1) {
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_1, this, std::pair(m_p, i), std::pair(m_q, i)))
+                    return false;
+            }
+        }
+        return true;
     }
 
     void op_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {

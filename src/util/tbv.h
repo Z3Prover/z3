@@ -132,8 +132,9 @@ class tbv_ref {
     tbv_manager& mgr;
     tbv* d;
 public:
-    tbv_ref(tbv_manager& mgr):mgr(mgr),d(nullptr) {}
-    tbv_ref(tbv_manager& mgr, tbv* d):mgr(mgr),d(d) {}
+    tbv_ref(tbv_manager& mgr) : mgr(mgr), d(nullptr) {}
+    tbv_ref(tbv_manager& mgr, tbv* d) : mgr(mgr), d(d) {}
+    tbv_ref(tbv_ref&& d) : mgr(d.mgr), d(d.detach()) {}
     ~tbv_ref() {
         if (d) mgr.deallocate(d);
     }
@@ -144,8 +145,11 @@ public:
     }
     tbv& operator*() { return *d; }
     tbv* operator->() { return d; }
-    tbv* get() { return d; }
+    tbit operator[](unsigned idx) const { return (*d)[idx]; }
+    tbv* get() const { return d; }
     tbv* detach() { tbv* result = d; d = nullptr; return result; }
+    tbv_manager& manager() const { return mgr; }
+    unsigned num_tbits() const { return mgr.num_tbits(); }
 };
 
 

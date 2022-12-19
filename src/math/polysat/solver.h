@@ -24,6 +24,7 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/constraint_manager.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/fixed_bits.h"
 #include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"
 #include "math/polysat/restart.h"
@@ -146,6 +147,7 @@ namespace polysat {
         viable                   m_viable;   // viable sets per variable
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
+        fixed_bits               m_fixed_bits;
         conflict                 m_conflict;
         simplify_clause          m_simplify_clause;
         simplify                 m_simplify;

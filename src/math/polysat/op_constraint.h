@@ -31,9 +31,9 @@ namespace polysat {
         friend class constraint_manager;
 
         code m_op;
-        pdd m_p;
-        pdd m_q;
-        pdd m_r;
+        pdd m_p; // operand1
+        pdd m_q; // operand2
+        pdd m_r; // result
 
         op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r);
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
@@ -41,12 +41,15 @@ namespace polysat {
 
         clause_ref lemma_lshr(solver& s, assignment const& a);
         static lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r);
+        bool propagate_bits_lshr(solver& s, bool is_positive);
 
         clause_ref lemma_shl(solver& s, assignment const& a);
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
+        bool propagate_bits_shl(solver& s, bool is_positive);
 
         clause_ref lemma_and(solver& s, assignment const& a);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
+        bool propagate_bits_and(solver& s, bool is_positive);
 
         std::ostream& display(std::ostream& out, char const* eq) const;
 
@@ -64,6 +67,7 @@ namespace polysat {
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
+        bool propagate_bits(solver& s, bool is_positive) override;
         virtual clause_ref produce_lemma(solver& s, assignment const& a, bool is_positive) override;
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
