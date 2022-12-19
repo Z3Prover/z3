@@ -651,6 +651,12 @@ namespace polysat {
     }
 
 
+    // bench 5
+    bool saturation::try_mul_eq_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] 2^k*x = 2^k*y & x < 2^N-k => y = x or y >= 2^{N-k}");
+        return false;
+    }
+
     /*
      * x*y = 1 & ~ovfl(x,y) => x = 1 
      * x*y = -1 & ~ovfl(-x,y) => -x = 1 
