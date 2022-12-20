@@ -25,10 +25,11 @@ Notes:
 
 class bv_rewriter_core {
 protected:
+    ast_manager& m;
     typedef rational numeral;
     bv_util         m_util;
-    ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
+    expr_ref        m_bit1;
 
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { unsigned sz; return m_util.is_numeral(n, r, sz); }
@@ -44,7 +45,7 @@ protected:
     decl_kind power_decl_kind() const { UNREACHABLE(); return static_cast<decl_kind>(UINT_MAX); }
 
 public:
-    bv_rewriter_core(ast_manager & m):m_util(m) {}
+    bv_rewriter_core(ast_manager & m):m(m), m_util(m), m_bit1(m) {}
 };
 
 class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
@@ -100,6 +101,7 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_mul(expr* a, expr* b, expr_ref& result) { expr* args[2] = { a, b }; return mk_bv_mul(2, args, result); }
     br_status mk_bv_add(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_bv_mul(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_mul_hoist(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result);
@@ -171,11 +173,15 @@ public:
     bool is_bv(expr * t) const { return m_util.is_bv(t); }
     expr * mk_numeral(numeral const & v, unsigned sz) { return m_util.mk_numeral(v, sz); }
     expr * mk_numeral(unsigned v, unsigned sz) { return m_util.mk_numeral(numeral(v), sz); }
+    app * mk_zero(sort* s) { return m_util.mk_zero(s); }
+    app * mk_one(sort* s) { return m_util.mk_one(s); }
+    app * mk_zero(unsigned sz) { return m_util.mk_zero(sz); }
+    app * mk_one(unsigned sz) { return m_util.mk_one(sz); }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     void mk_app(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_app_core(f, num_args, args, result) == BR_FAILED)
-            result = m().mk_app(f, num_args, args);
+            result = m.mk_app(f, num_args, args);
     }
 
     bool is_urem_any(expr * e, expr * & dividend,  expr * & divisor);
@@ -189,14 +195,14 @@ public:
 
 #define MK_BV_BINARY(OP)                         \
     expr_ref OP(expr* a, expr* b) {              \
-        expr_ref result(m());                    \
+        expr_ref result(m);                    \
         if (BR_FAILED == OP(a, b, result))       \
             result = m_util.OP(a, b);            \
         return result;                           \
     }                                            \
     
     expr_ref mk_zero_extend(unsigned n, expr * arg) {       
-        expr_ref result(m());                   
+        expr_ref result(m);                   
         if (BR_FAILED == mk_zero_extend(n, arg, result))    
             result = m_util.mk_zero_extend(n, arg);         
         return result;                          
@@ -210,7 +216,7 @@ public:
 
 
     expr_ref mk_bv2int(expr* a) {
-        expr_ref result(m());
+        expr_ref result(m);
         if (BR_FAILED == mk_bv2int(a, result)) 
             result = m_util.mk_bv2int(a);
         return result;        

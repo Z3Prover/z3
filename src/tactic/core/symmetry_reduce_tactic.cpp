@@ -25,6 +25,7 @@ Notes:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 
 class symmetry_reduce_tactic : public tactic {
     class imp;
@@ -608,12 +609,12 @@ private:
         return (j == A.size())?0:A[j];
     }
 
-    app* mk_member(app* t, term_set const& C) {
+    expr* mk_member(app* t, term_set const& C) {
         expr_ref_vector eqs(m());
         for (unsigned i = 0; i < C.size(); ++i) {
             eqs.push_back(m().mk_eq(t, C[i]));
         }
-        return m().mk_or(eqs.size(), eqs.data());
+        return mk_or(m(), eqs.size(), eqs.data());
     }
 };
 

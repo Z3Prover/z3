@@ -20,7 +20,7 @@ Notes:
 #pragma once
 
 #include "ast/rewriter/rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 class bvarray2uf_rewriter_cfg : public default_rewriter_cfg {
     ast_manager       & m_manager;

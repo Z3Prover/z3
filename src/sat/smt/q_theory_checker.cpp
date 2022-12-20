@@ -24,7 +24,7 @@ namespace q {
     expr_ref_vector theory_checker::clause(app* jst) {
         expr_ref_vector result(m);
         for (expr* arg : *jst) 
-            if (!is_bind(arg))
+            if (m.is_bool(arg))
                 result.push_back(mk_not(m, arg));
         return result;
     }

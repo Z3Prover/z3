@@ -467,10 +467,8 @@ class fm_tactic : public tactic {
                 x = t;
                 return true;
             }
-            else if (m_util.is_to_real(t) && is_uninterp_const(to_app(t)->get_arg(0))) {
-                x = to_app(t)->get_arg(0);
-                return true;
-            }
+            else if (m_util.is_to_real(t, x) && is_uninterp_const(x)) 
+                return true;            
             return false;
         }
         
@@ -1675,12 +1673,12 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         insert_max_memory(r);
-        r.insert("fm_real_only", CPK_BOOL, "(default: true) consider only real variables for fourier-motzkin elimination.");
-        r.insert("fm_occ", CPK_BOOL, "(default: false) consider inequalities occurring in clauses for FM.");
-        r.insert("fm_limit", CPK_UINT, "(default: 5000000) maximum number of constraints, monomials, clauses visited during FM.");
-        r.insert("fm_cutoff1", CPK_UINT, "(default: 8) first cutoff for FM based on maximum number of lower/upper occurrences.");
-        r.insert("fm_cutoff2", CPK_UINT, "(default: 256) second cutoff for FM based on num_lower * num_upper occurrences.");
-        r.insert("fm_extra", CPK_UINT, "(default: 0) max. increase on the number of inequalities for each FM variable elimination step.");
+        r.insert("fm_real_only", CPK_BOOL, "consider only real variables for fourier-motzkin elimination.", "true");
+        r.insert("fm_occ",       CPK_BOOL, "consider inequalities occurring in clauses for FM.", "false");
+        r.insert("fm_limit",    CPK_UINT, "maximum number of constraints, monomials, clauses visited during FM.", "5000000");
+        r.insert("fm_cutoff1",  CPK_UINT, "first cutoff for FM based on maximum number of lower/upper occurrences.", "8");
+        r.insert("fm_cutoff2",  CPK_UINT, "second cutoff for FM based on num_lower * num_upper occurrences.", "256");
+        r.insert("fm_extra",    CPK_UINT, "max. increase on the number of inequalities for each FM variable elimination step.", "0");
     }
 
 

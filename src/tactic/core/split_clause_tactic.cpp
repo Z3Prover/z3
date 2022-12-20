@@ -18,6 +18,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
+#include "tactic/goal_proof_converter.h"
 #include "tactic/core/split_clause_tactic.h"
 
 class split_clause_tactic : public tactic {

@@ -4051,7 +4051,10 @@ extern "C" {
     Z3_pattern Z3_API Z3_mk_pattern(Z3_context c, unsigned num_patterns, Z3_ast const terms[]);
 
     /**
-       \brief Create a bound variable.
+       \brief Create a variable. 
+
+       Variables are intended to be bound by a scope created by a quantifier. So we call them bound variables
+       even if they appear as free variables in the expression produced by \c Z3_mk_bound.
 
        Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
        the meaning of de-Bruijn indices by indicating the compilation process from
@@ -5318,8 +5321,9 @@ extern "C" {
                                 Z3_ast const to[]);
 
     /**
-       \brief Substitute the free variables in \c a with the expressions in \c to.
+       \brief Substitute the variables in \c a with the expressions in \c to.
        For every \c i smaller than \c num_exprs, the variable with de-Bruijn index \c i is replaced with term \ccode{to[i]}.
+       Note that a variable is created using the function \ref Z3_mk_bound. 
 
        def_API('Z3_substitute_vars', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
     */

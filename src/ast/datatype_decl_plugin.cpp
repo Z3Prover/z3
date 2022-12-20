@@ -832,6 +832,10 @@ namespace datatype {
     bool util::is_declared(sort* s) const {
         return plugin().is_declared(s);
     }
+
+    bool util::is_declared(symbol const& n) const {
+        return plugin().is_declared(n);
+    }
     
     void util::compute_datatype_size_functions(svector<symbol> const& names) {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
@@ -1087,11 +1091,9 @@ namespace datatype {
         sort * datatype = con->get_range();
         def const& dd = get_def(datatype);
         symbol r;
-        for (constructor const* c : dd) {
-            if (c->name() == con->get_name()) {
-                r = c->recognizer();
-            }
-        }
+        for (constructor const* c : dd) 
+            if (c->name() == con->get_name()) 
+                r = c->recognizer();                    
         parameter ps[2] = { parameter(con), parameter(r) };
         d  = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);
@@ -1142,17 +1144,15 @@ namespace datatype {
     }
 
     bool util::is_enum_sort(sort* s) {
-        if (!is_datatype(s)) {
-            return false;
-        }
+        if (!is_datatype(s)) 
+            return false;        
         bool r = false;
         if (m_is_enum.find(s, r))
             return r;
         ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
         r = true;
-        for (unsigned i = 0; r && i < cnstrs.size(); ++i) {
-            r = cnstrs[i]->get_arity() == 0;
-        }
+        for (unsigned i = 0; r && i < cnstrs.size(); ++i) 
+            r = cnstrs[i]->get_arity() == 0;        
         m_is_enum.insert(s, r);
         m_asts.push_back(s);
         return r;
@@ -1284,11 +1284,14 @@ namespace datatype {
         unsigned idx = 0;
         def const& d = get_def(f->get_range());
         for (constructor* c : d) {
-            if (c->name() == f->get_name()) {
-                return idx;
-            }
+            if (c->name() == f->get_name()) 
+                return idx;            
             ++idx;
         }
+        IF_VERBOSE(0, verbose_stream() << f->get_name() << "\n");
+        for (constructor* c : d)
+            IF_VERBOSE(0, verbose_stream() << "!= " << c->name() << "\n");
+        SASSERT(false);
         UNREACHABLE();
         return 0;
     }

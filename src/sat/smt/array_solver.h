@@ -84,8 +84,6 @@ namespace array {
                 is_store,
                 is_select,
                 is_extensionality,
-                is_diff,
-                is_diffselect,
                 is_default,
                 is_congruence
             };
@@ -95,7 +93,7 @@ namespace array {
                 is_applied
             };
             kind_t      m_kind;
-            state_t     m_state { state_t::is_new };
+            state_t     m_state = state_t::is_new;
             euf::enode* n;
             euf::enode* select;
             axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr) : m_kind(k), n(n), select(select) {}
@@ -166,9 +164,6 @@ namespace array {
         axiom_record store_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_store, n); }
         axiom_record extensionality_axiom(euf::enode* x, euf::enode* y) { return axiom_record(axiom_record::kind_t::is_extensionality, x, y); }
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
-        axiom_record diff_axiom(euf::enode* md) { return axiom_record(axiom_record::kind_t::is_diff, md); }
-        euf::enode_vector m_minmaxdiffs;
-        axiom_record diff_select_axiom(euf::enode* md, euf::enode* ai) { return axiom_record(axiom_record::kind_t::is_diffselect, md, ai); }
 
         scoped_ptr<sat::constraint_base> m_constraint;
 
@@ -181,15 +176,12 @@ namespace array {
         bool assert_select_map_axiom(app* select, app* map);
         bool assert_select_lambda_axiom(app* select, expr* lambda);
         bool assert_extensionality(expr* e1, expr* e2);
-        bool assert_diff(expr* md);
-        bool assert_diff_select(app* ai, app* md);
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);
         bool assert_default_store_axiom(app* store);
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
         bool add_as_array_eqs(euf::enode* n);
-        bool add_diff_select_axioms();
         expr_ref apply_map(app* map, unsigned n, expr* const* args);
         bool is_map_combinator(expr* e) const;
 
@@ -296,8 +288,8 @@ namespace array {
         bool include_func_interp(func_decl* f) const override { return a.is_ext(f); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override;

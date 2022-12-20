@@ -117,6 +117,7 @@ namespace recfun {
         func_decl_ref       m_decl; //!< generic declaration
         expr_ref            m_rhs;  //!< definition
         family_id           m_fid;
+        bool                m_is_macro;
 
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range, bool is_generated);
 
@@ -138,6 +139,7 @@ namespace recfun {
 
         bool is_fun_macro() const { return m_cases.size() == 1; }
         bool is_fun_defined() const { return !is_fun_macro(); }
+        bool is_macro() const { return m_is_macro; }
 
         def* copy(util& dst, ast_translation& tr);
 
@@ -165,6 +167,7 @@ namespace recfun {
             mutable scoped_ptr<util> m_util;
             def_map                  m_defs;       // function->def
             case_def_map             m_case_defs;  // case_pred->def
+            bool                     m_has_rec_defs = false;
             
             ast_manager & m() { return *m_manager; }
 
@@ -200,11 +203,13 @@ namespace recfun {
 
             bool has_def(func_decl* f) const { return m_defs.contains(f); }
             bool has_defs() const;
+            bool has_rec_defs() const { return m_has_rec_defs; }
             def const& get_def(func_decl* f) const { return *(m_defs[f]); }
             promise_def get_promise_def(func_decl* f) const { return promise_def(&u(), m_defs[f]); }
             def& get_def(func_decl* f) { return *(m_defs[f]); }
-            bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
+            bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }            
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
+            bool is_defined(func_decl* f) {return has_case_def(f) && !get_def(f).get_cases().empty(); }
 
             func_decl_ref_vector get_rec_funs() {
                 func_decl_ref_vector result(m());
@@ -247,6 +252,8 @@ namespace recfun {
 
         //<! don't use native theory if recursive function declarations are not populated with defs
         bool has_defs() const { return m_plugin->has_defs(); }
+
+        bool has_rec_defs() const { return m_plugin->has_rec_defs(); }
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range, bool is_generated);

@@ -39,6 +39,8 @@ namespace pb {
         m_max_sum(0) {
         for (unsigned i = 0; i < size(); ++i) {
             m_wlits[i] = wlits[i];
+            if (wlits[i].first > k)
+                m_wlits[i].first = k;
         }
         update_max_sum();
     }
@@ -47,9 +49,8 @@ namespace pb {
         m_max_sum = 0;
         for (unsigned i = 0; i < size(); ++i) {
             m_wlits[i].first = std::min(k(), m_wlits[i].first);
-            if (m_max_sum + m_wlits[i].first < m_max_sum) {
+            if (m_max_sum + m_wlits[i].first < m_max_sum) 
                 throw default_exception("addition of pb coefficients overflows");
-            }
             m_max_sum += m_wlits[i].first;
         }
     }

@@ -279,6 +279,8 @@ void asserted_formulas::reduce() {
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
 
+    IF_VERBOSE(10, verbose_stream() << "(smt.simplify-begin :num-exprs " << get_total_size() << ")\n";);
+
     set_eliminate_and(false); // do not eliminate and before nnf.
     if (!invoke(m_propagate_values)) return;
     if (!invoke(m_find_macros)) return;
@@ -306,7 +308,7 @@ void asserted_formulas::reduce() {
     if (!invoke(m_flatten_clauses)) return;
 //    if (!invoke(m_propagate_values)) return;
 
-    IF_VERBOSE(10, verbose_stream() << "(smt.simplifier-done)\n";);
+    IF_VERBOSE(10, verbose_stream() << "(smt.simplifier-done :num-exprs " << get_total_size() << ")\n";);
     TRACE("after_reduce", display(tout););
     TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited););
     TRACE("macros", m_macro_manager.display(tout););
@@ -327,13 +329,13 @@ unsigned asserted_formulas::get_formulas_last_level() const {
 
 bool asserted_formulas::invoke(simplify_fmls& s) {
     if (!s.should_apply()) return true;
-    IF_VERBOSE(10, verbose_stream() << "(smt." << s.id() << ")\n";);
     s();
+    IF_VERBOSE(10, verbose_stream() << "(smt." << s.id() << " :num-exprs " << get_total_size() << ")\n";);
     IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";);
     TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited););
     CASSERT("well_sorted",check_well_sorted());
+    TRACE("after_reduce", display(tout << s.id() << "\n"););
     if (inconsistent() || canceled()) {
-        TRACE("after_reduce", display(tout););
         TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited););
         return false;
     }
@@ -514,9 +516,9 @@ void asserted_formulas::simplify_fmls::operator()() {
 
 
 void asserted_formulas::reduce_and_solve() {
-    IF_VERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
     flush_cache(); // collect garbage
     m_reduce_asserted_formulas();
+    IF_VERBOSE(10, verbose_stream() << "(smt.reduced " << get_total_size() << ")\n";);
 }
 
 

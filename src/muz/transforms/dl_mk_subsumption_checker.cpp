@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 #include "muz/base/fp_params.hpp"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 
 namespace datalog {

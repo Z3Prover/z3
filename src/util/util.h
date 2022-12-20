@@ -25,6 +25,7 @@ Revision History:
 #include<limits>
 #include<stdint.h>
 #include <string>
+#include <functional>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -103,6 +104,7 @@ unsigned uint64_log2(uint64_t v);
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
 // Return the number of 1 bits in v.
+// see e.g. http://en.wikipedia.org/wiki/Hamming_weight
 static inline unsigned get_num_1bits(unsigned v) {
 #ifdef __GNUC__
     return __builtin_popcount(v);
@@ -119,6 +121,25 @@ static inline unsigned get_num_1bits(unsigned v) {
     unsigned r = (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; 
     SASSERT(c == r);
     return r;
+#endif
+}
+
+static inline unsigned get_num_1bits(uint64_t v) {
+#ifdef __GNUC__
+    return __builtin_popcountll(v);
+#else
+#ifdef Z3DEBUG
+    unsigned c;
+    uint64_t v1 = v;
+    for (c = 0; v1; c++) {
+        v1 &= v1 - 1; 
+    }
+#endif
+    v = v - (v >> 1) & 0x5555555555555555;
+    v = (v & 0x3333333333333333) + ((v >> 2) & 0x3333333333333333); 
+    v = (v + (v >> 4)) & 0x0F0F0F0F0F0F0F0F;
+    uint64_t r = (v * 0x0101010101010101) >> 56;
+    SASSERT(c == r);
 #endif
 }
 
@@ -159,9 +180,8 @@ void display(std::ostream & out, const IT & begin, const IT & end, const char * 
 template<typename T>
 struct delete_proc {
     void operator()(T * ptr) { 
-    if (ptr) {
-        dealloc(ptr);
-    }
+    if (ptr) 
+        dealloc(ptr);    
     }
 };
 
@@ -339,6 +359,22 @@ void fatal_error(int error_code);
 
 void set_fatal_error_handler(void (*pfn)(int error_code));
 
+
+template<typename S, typename T>
+bool any_of(S& set, T const& p) {
+    for (auto const& s : set)
+        if (p(s))
+            return true;
+    return false;
+}
+
+template<typename S, typename T>
+bool all_of(S& set, T const& p) {
+    for (auto const& s : set)
+        if (!p(s))
+            return false;
+    return true;
+}
 
 /**
    \brief Iterator for the [0..sz[0]) X [0..sz[1]) X ... X [0..sz[n-1]).

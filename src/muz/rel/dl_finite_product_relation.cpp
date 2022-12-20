@@ -674,7 +674,7 @@ namespace datalog {
             unsigned sig_sz = r.get_signature().size();
             unsigned_vector permutation;
             add_sequence(0, sig_sz, permutation);
-            permutate_by_cycle(permutation, cycle_len, permutation_cycle);
+            permute_by_cycle(permutation, cycle_len, permutation_cycle);
 
             unsigned_vector table_permutation;
 

@@ -1194,7 +1194,7 @@ def _coerce_expr_merge(s, a):
         else:
             if z3_debug():
                 _z3_assert(s1.ctx == s.ctx, "context mismatch")
-                _z3_assert(False, "sort mismatch")
+                _z3_assert(False, "sort mismatch")        
     else:
         return s
 
@@ -1207,6 +1207,11 @@ def _coerce_exprs(a, b, ctx=None):
         a = StringVal(a, b.ctx)
     if isinstance(b, str) and isinstance(a, SeqRef):
         b = StringVal(b, a.ctx)
+    if isinstance(a, float) and isinstance(b, ArithRef):
+        a = RealVal(a, b.ctx)
+    if isinstance(b, float) and isinstance(a, ArithRef):
+        b = RealVal(b, a.ctx)
+
     s = None
     s = _coerce_expr_merge(s, a)
     s = _coerce_expr_merge(s, b)
@@ -1464,7 +1469,9 @@ def FreshConst(sort, prefix="c"):
 
 def Var(idx, s):
     """Create a Z3 free variable. Free variables are used to create quantified formulas.
-
+    A free variable with index n is bound when it occurs within the scope of n+1 quantified
+    declarations.
+    
     >>> Var(0, IntSort())
     Var(0)
     >>> eq(Var(0, IntSort()), Var(0, BoolSort()))
@@ -8832,7 +8839,7 @@ def substitute_vars(t, *m):
     return _to_expr_ref(Z3_substitute_vars(t.ctx.ref(), t.as_ast(), num, _to), t.ctx)
 
 def substitute_funs(t, *m):
-    """Apply subistitution m on t, m is a list of pairs of a function and expression (from, to)
+    """Apply substitution m on t, m is a list of pairs of a function and expression (from, to)
     Every occurrence in to of the function from is replaced with the expression to.
     The expression to can have free variables, that refer to the arguments of from.
     For examples, see 
@@ -10079,7 +10086,7 @@ def FPs(names, fpsort, ctx=None):
     >>> x.ebits()
     8
     >>> fpMul(RNE(), fpAdd(RNE(), x, y), z)
-    fpMul(RNE(), fpAdd(RNE(), x, y), z)
+    x + y * z
     """
     ctx = _get_ctx(ctx)
     if isinstance(names, str):
@@ -10186,9 +10193,9 @@ def fpAdd(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpAdd(rm, x, y)
-    fpAdd(RNE(), x, y)
-    >>> fpAdd(RTZ(), x, y) # default rounding mode is RTZ
     x + y
+    >>> fpAdd(RTZ(), x, y) # default rounding mode is RTZ
+    fpAdd(RTZ(), x, y)
     >>> fpAdd(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10203,7 +10210,7 @@ def fpSub(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpSub(rm, x, y)
-    fpSub(RNE(), x, y)
+    x - y
     >>> fpSub(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10218,7 +10225,7 @@ def fpMul(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpMul(rm, x, y)
-    fpMul(RNE(), x, y)
+    x * y
     >>> fpMul(rm, x, y).sort()
     FPSort(8, 24)
     """
@@ -10233,7 +10240,7 @@ def fpDiv(rm, a, b, ctx=None):
     >>> x = FP('x', s)
     >>> y = FP('y', s)
     >>> fpDiv(rm, x, y)
-    fpDiv(RNE(), x, y)
+    x / y
     >>> fpDiv(rm, x, y).sort()
     FPSort(8, 24)
     """

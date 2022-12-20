@@ -21,7 +21,7 @@ Revision History:
 #include "tactic/tactical.h"
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -161,7 +161,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
-        r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
+        r.insert("norm_int_only", CPK_BOOL, "normalize only the bounds of integer constants.", "true");
     }
 
     void operator()(goal_ref const & in, 

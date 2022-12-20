@@ -1,0 +1,12 @@
+z3_add_component(converters
+  SOURCES
+    expr_inverter.cpp
+    equiv_proof_converter.cpp
+    generic_model_converter.cpp
+    horn_subsume_model_converter.cpp
+    model_converter.cpp
+    proof_converter.cpp
+    replace_proof_converter.cpp
+  COMPONENT_DEPENDENCIES
+    model
+)

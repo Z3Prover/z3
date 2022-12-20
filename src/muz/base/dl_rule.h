@@ -23,8 +23,8 @@ Revision History:
 #include "muz/base/dl_costs.h"
 #include "muz/base/dl_util.h"
 #include "ast/used_vars.h"
-#include "tactic/proof_converter.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/proof_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ast/rewriter/ast_counter.h"
 #include "ast/rewriter/rewriter.h"
 #include "muz/base/hnf.h"
@@ -365,7 +365,7 @@ namespace datalog {
 
         void get_vars(ast_manager& m, ptr_vector<sort>& sorts) const;
 
-        void display(context & ctx, std::ostream & out) const;
+        void display(context & ctx, std::ostream & out, bool compact = false) const;
 
         /**
            \brief Return the name(s) associated with this rule. Plural for preprocessed (e.g. obtained by inlining) rules.

@@ -1618,6 +1618,8 @@ namespace smt {
 
         void register_plugin(theory * th);
 
+        void add_asserted(expr* e);
+
         void assert_expr(expr * e);
 
         void assert_expr(expr * e, proof * pr);
@@ -1706,7 +1708,9 @@ namespace smt {
 
         void get_units(expr_ref_vector& result);
 
-        bool on_clause_active() const { return m_clause_proof.on_clause_active(); }
+        bool clause_proof_active() const { return m_clause_proof.is_enabled(); }
+
+        clause_proof& get_clause_proof() { return m_clause_proof; }
 
         void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
             m_clause_proof.register_on_clause(ctx, on_clause);

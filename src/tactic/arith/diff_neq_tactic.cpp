@@ -365,7 +365,7 @@ public:
     }
 
     void collect_param_descrs(param_descrs & r) override {
-        r.insert("diff_neq_max_k", CPK_UINT, "(default: 1024) maximum variable upper bound for diff neq solver.");
+        r.insert("diff_neq_max_k", CPK_UINT, "maximum variable upper bound for diff neq solver.", "1024");
     }
 
     void collect_statistics(statistics & st) const override {

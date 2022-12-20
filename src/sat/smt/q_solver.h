@@ -30,19 +30,21 @@ namespace euf {
 namespace q {
 
     struct q_proof_hint : public euf::th_proof_hint {
+        unsigned      m_generation;
         unsigned      m_num_bindings;
         unsigned      m_num_literals;
         sat::literal* m_literals;
         expr*         m_bindings[0];
         
-        q_proof_hint(unsigned b, unsigned l) {
+        q_proof_hint(unsigned g, unsigned b, unsigned l) {
+            m_generation = g;
             m_num_bindings = b;
             m_num_literals = l;
             m_literals = reinterpret_cast<sat::literal*>(m_bindings + m_num_bindings);
         }
         static size_t get_obj_size(unsigned num_bindings, unsigned num_lits) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*) + num_lits*sizeof(sat::literal); }
-        static q_proof_hint* mk(euf::solver& s, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings);
-        static q_proof_hint* mk(euf::solver& s, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, unsigned generation, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, unsigned generation, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings);
         expr* get_hint(euf::solver& s) const override;
     };
 
@@ -93,8 +95,8 @@ namespace q {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool unit_propagate() override;
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override { internalize(e, false, false, redundant); }
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override { internalize(e, false, false); }
         euf::theory_var mk_var(euf::enode* n) override;
         void init_search() override;
         void finalize_model(model& mdl) override;

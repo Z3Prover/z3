@@ -287,7 +287,9 @@ namespace opt {
             bool ok = bound_value(i, val);
             if (l_true != m_context.check(0, nullptr))  
                 return false;
-            m_context.get_model(m_last_model);   
+            m_context.get_model(m_last_model);
+            if (!m_last_model)
+                return false;
             update_objective();
             return ok;
         };
@@ -299,7 +301,9 @@ namespace opt {
             TRACE("opt", tout << "updated\n";);
             m_last_model = nullptr;
             m_context.get_model(m_last_model);
-            if (!has_shared || val == current_objective_value(i))
+            if (!m_last_model)
+                return false;
+            else if (!has_shared || val == current_objective_value(i))
                 m_models.set(i, m_last_model.get());
             else if (!check_bound())
                 return false;

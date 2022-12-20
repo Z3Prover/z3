@@ -13,7 +13,21 @@ Author:
 
     Leonardo de Moura (leonardo) 2012-02-03
 
-Revision History:
+Tactic Documentation:
+
+## Tactic factor
+
+### Short Description
+
+Factor polynomials in equalities and inequalities.
+
+### Example
+```z3
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (* x x) (* x y)))
+(apply factor)
+```
 
 --*/
 #pragma once

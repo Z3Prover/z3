@@ -417,13 +417,11 @@ bool macro_util::is_quasi_macro_ok(expr * n, unsigned num_decls, expr * def) con
     if (is_app(n) &&
         to_app(n)->get_family_id() == null_family_id &&
         to_app(n)->get_num_args() >= num_decls) {
-        unsigned num_args = to_app(n)->get_num_args();
         sbuffer<bool> found_vars;
         found_vars.resize(num_decls, false);
         unsigned num_found_vars = 0;
         expr_free_vars fv;
-        for (unsigned i = 0; i < num_args; i++) {
-            expr * arg = to_app(n)->get_arg(i);
+        for (expr* arg : *to_app(n)) {
             if (occurs(to_app(n)->get_decl(), arg))
                 return false;
             else
@@ -553,12 +551,9 @@ bool is_hint_head(expr * n, ptr_buffer<var> & vars) {
         return false;
     if (to_app(n)->get_decl()->is_associative() || to_app(n)->get_family_id() != null_family_id)
         return false;
-    unsigned num_args = to_app(n)->get_num_args();
-    for (unsigned i = 0; i < num_args; i++) {
-        expr * arg = to_app(n)->get_arg(i);
+    for (expr * arg : *to_app(n)) 
         if (is_var(arg))
             vars.push_back(to_var(arg));
-    }
     return !vars.empty();
 }
 
@@ -579,9 +574,7 @@ bool vars_of_is_subset(expr * n, ptr_buffer<var> const & vars) {
                 return false;
         }
         else if (is_app(curr)) {
-            unsigned num_args = to_app(curr)->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg = to_app(curr)->get_arg(i);
+            for (expr * arg : *to_app(curr)) {
                 if (is_ground(arg))
                     continue;
                 if (visited.contains(arg))
@@ -611,13 +604,11 @@ bool is_hint_atom(expr * lhs, expr * rhs) {
 }
 
 void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_ref & new_head) {
-    unsigned num_args = head->get_num_args();
     ptr_buffer<expr> new_args;
     sbuffer<bool> found_vars;
     found_vars.resize(num_decls, false);
     unsigned next_var_idx = num_decls;
-    for (unsigned i = 0; i < num_args; i++) {
-        expr * arg = head->get_arg(i);
+    for (expr * arg : *head) {
         if (is_var(arg)) {
             unsigned idx = to_var(arg)->get_idx();
             SASSERT(idx < num_decls);

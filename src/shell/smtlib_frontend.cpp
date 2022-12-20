@@ -44,12 +44,12 @@ static void display_statistics() {
     lock_guard lock(*display_stats_mux);
     clock_t end_time = clock();
     if (g_cmd_context && g_display_statistics) {
-        std::cout.flush();
-        std::cerr.flush();
         if (g_cmd_context) {
             g_cmd_context->set_regular_stream("stdout");
             g_cmd_context->display_statistics(true, ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         }
+        std::cout.flush();
+        std::cerr.flush();
     }
 }
 
@@ -88,14 +88,17 @@ void help_tactics() {
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
 
-void help_tactic(char const* name) {
+void help_tactic(char const* name, bool markdown) {
     cmd_context ctx;
     for (auto cmd : ctx.tactics()) {
         if (cmd->get_name() == name) {
             tactic_ref t = cmd->mk(ctx.m());
             param_descrs descrs;
             t->collect_param_descrs(descrs);
-            descrs.display(std::cout, 4);
+            if (markdown)
+                descrs.display_markdown(std::cout);
+            else
+                descrs.display(std::cout, 4);
         }
     }
 }

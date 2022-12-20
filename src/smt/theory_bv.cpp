@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 
+#define ENABLE_QUOT_REM_ENCODING 0
 
 namespace smt {
 
@@ -898,8 +899,11 @@ namespace smt {
         case OP_BSUB:           internalize_sub(term); return true;
         case OP_BMUL:           internalize_mul(term); return true;
         case OP_BSDIV_I:        internalize_sdiv(term); return true;
+#if ENABLE_QUOT_REM_ENCODING
+        case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
+#else
         case OP_BUDIV_I:        internalize_udiv(term); return true;
-            // case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
+#endif
         case OP_BSREM_I:        internalize_srem(term); return true;
         case OP_BUREM_I:        internalize_urem(term); return true;
         case OP_BSMOD_I:        internalize_smod(term); return true;
@@ -1314,7 +1318,7 @@ namespace smt {
         SASSERT(consequent.var() != antecedent.var());
         TRACE("bv_bit_prop", tout << "assigning: " << consequent << " @ " << ctx.get_scope_level();
               tout << " using "; ctx.display_literal(tout, antecedent); 
-              tout << " #" << get_enode(v1)->get_owner_id() << " #" << get_enode(v2)->get_owner_id() << " idx: " << idx << "\n";
+              tout << " " << enode_pp(get_enode(v1), ctx) << " " << enode_pp(get_enode(v2), ctx) << " idx: " << idx << "\n";
               tout << "propagate_eqc: " << propagate_eqc << "\n";);
         if (consequent == false_literal) {
             m_stats.m_num_conflicts++;
@@ -1354,6 +1358,9 @@ namespace smt {
             // So, we need to propagate the assignment to other bits.
             bool_var bv = consequent.var();
             atom * a    = get_bv2a(bv);
+            CTRACE("bv", !a, tout << ctx.literal2expr(literal(bv, false)) << "\n");
+            if (!a)
+                return;
             SASSERT(a->is_bit());
             bit_atom * b = static_cast<bit_atom*>(a);
             var_pos_occ * curr = b->m_occs;
@@ -1394,7 +1401,7 @@ namespace smt {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_int2bv_axiom(n);
         }
-#if 0
+#if ENABLE_QUOT_REM_ENCODING
         else if (m_util.is_bv_udivi(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             ctx.mark_as_relevant(n->get_arg(1));
@@ -1485,6 +1492,7 @@ namespace smt {
         m_approximates_large_bvs(false) {
         memset(m_eq_activity, 0, sizeof(m_eq_activity));
         memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
+        m_bb.set_flat_and_or(false);
     }
 
     theory_bv::~theory_bv() {
@@ -1994,7 +2002,7 @@ namespace smt {
         return true;
     }
 
-#if 0
+#if ENABLE_QUOT_REM_ENCODING
     void theory_bv::internalize_udiv_quot_rem(app* n) {
         process_args(n);
         mk_enode(n);

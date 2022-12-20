@@ -21,7 +21,7 @@ Revision History:
 #pragma once
 
 #include "tactic/tactic.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "qe/qe_mbp.h"
 
 namespace qe {

@@ -293,11 +293,12 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 if (!opt_arg)
                     help_tactics();
                 else
-                    help_tactic(opt_arg);
+                    help_tactic(opt_arg, false);
             }
-            else if (strcmp(opt_name, "probes") == 0) {
+            else if (strcmp(opt_name, "tacticsmd") == 0 && opt_arg) 
+                help_tactic(opt_arg, true);
+            else if (strcmp(opt_name, "probes") == 0) 
                 help_probes();
-            }
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
                 std::cerr << "For usage information: z3 -h\n";

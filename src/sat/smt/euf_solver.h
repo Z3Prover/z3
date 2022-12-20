@@ -22,7 +22,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
@@ -45,9 +45,12 @@ namespace euf {
         enum class kind_t { conflict, eq, lit };
     private:
         kind_t m_kind;
+        enode* m_node = nullptr;
     public:
         constraint(kind_t k) : m_kind(k) {}
+        constraint(enode* n): m_kind(kind_t::lit), m_node(n) {}
         kind_t kind() const { return m_kind; }
+        enode* node() const { SASSERT(kind() == kind_t::lit); return m_node; }
         static constraint& from_idx(size_t z) {
             return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z));
         }
@@ -143,7 +146,6 @@ namespace euf {
 
         constraint* m_conflict = nullptr;
         constraint* m_eq = nullptr;
-        constraint* m_lit = nullptr;
 
         // proofs 
         bool                             m_proof_initialized = false;
@@ -171,7 +173,6 @@ namespace euf {
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
         bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
-        void ensure_merged_tf(euf::enode* n);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -250,7 +251,7 @@ namespace euf {
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
-        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
+        constraint& lit_constraint(enode* n);
 
         // user propagator
         void check_for_user_propagator() {
@@ -264,7 +265,6 @@ namespace euf {
         ~solver() override {
             if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
             if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
-            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
             m_trail.reset();
         }
 
@@ -439,8 +439,8 @@ namespace euf {
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
 
         // internalize
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool learned) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         sat::literal mk_literal(expr* e);
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         void attach_node(euf::enode* n);

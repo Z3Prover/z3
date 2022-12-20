@@ -28,7 +28,7 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "model/model2expr.h"
 #include "model/model_smt2_pp.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 
 #include "smt/smt_solver.h"
 namespace spacer {

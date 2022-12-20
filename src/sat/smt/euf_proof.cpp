@@ -34,13 +34,11 @@ namespace euf {
         if (!get_config().m_lemmas2console &&
             !s().get_config().m_smt_proof_check &&
             !m_on_clause &&
-            !s().get_config().m_smt_proof.is_non_empty_string())
+            !m_config.m_proof_log.is_non_empty_string())
             return;
         
-        get_drat().add_theory(get_id(), symbol("euf"));
-        get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
-        if (s().get_config().m_smt_proof.is_non_empty_string())
-            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
+        if (m_config.m_proof_log.is_non_empty_string())
+            m_proof_out = alloc(std::ofstream, m_config.m_proof_log.str(), std::ios_base::out);
         get_drat().set_clause_eh(*this);
         m_proof_initialized = true;        
     }
@@ -86,7 +84,7 @@ namespace euf {
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
         if (conseq != sat::null_literal)
             m_proof_literals.push_back(~conseq);
         m_proof_literals.append(r);
@@ -103,8 +101,8 @@ namespace euf {
         SASSERT(a->get_decl() == b->get_decl());
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
-        push(restore_size_trail(m_explain_cc, m_explain_cc.size()));
+        push(restore_vector(m_proof_literals));
+        push(restore_vector(m_explain_cc));
 
         for (auto lit : ante)
             m_proof_literals.push_back(~lit);
@@ -123,7 +121,7 @@ namespace euf {
             return nullptr;
         push(value_trail(m_lit_tail));
         push(value_trail(m_cc_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
 
         for (unsigned i = 0; i < 3; ++i)
             m_proof_literals.push_back(~clause[i]);
@@ -173,7 +171,7 @@ namespace euf {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
 
         for (unsigned i = 0; i < nl; ++i)
             m_proof_literals.push_back(~lits[i]);
@@ -192,7 +190,7 @@ namespace euf {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
-        push(restore_size_trail(m_proof_literals));
+        push(restore_vector(m_proof_literals));
         
         for (unsigned i = 0; i < nl; ++i)
             if (sat::null_literal != lits[i]) {
@@ -205,11 +203,11 @@ namespace euf {
             }
 
         push(value_trail(m_eq_tail));
-        push(restore_size_trail(m_proof_eqs));
+        push(restore_vector(m_proof_eqs));
         m_proof_eqs.append(ne, eqs);
         
         push(value_trail(m_deq_tail));
-        push(restore_size_trail(m_proof_deqs));
+        push(restore_vector(m_proof_deqs));
         m_proof_deqs.append(nd, deqs);
         
         m_lit_head = m_lit_tail;
@@ -238,12 +236,12 @@ namespace euf {
 
     sat::status solver::mk_tseitin_status(unsigned n, sat::literal const* lits) {
         th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("tseitin"), n, lits) : nullptr;
-        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);        
+        return sat::status::th(false, m.get_basic_family_id(), ph);        
     }
 
     sat::status solver::mk_distinct_status(unsigned n, sat::literal const* lits) {
         th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("alldiff"), n, lits) : nullptr;
-        return sat::status::th(m_is_redundant, m.get_basic_family_id(), ph);
+        return sat::status::th(false, m.get_basic_family_id(), ph);
     }
     
     expr* smt_proof_hint::get_hint(euf::solver& s) const {
@@ -294,7 +292,7 @@ namespace euf {
             lits.push_back(jst.lit_consequent());
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
-        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
+        get_drat().add(lits, sat::status::th(false, jst.ext().get_id(), jst.get_pragma()));
         for (unsigned i = s().num_vars(); i < nv; ++i)
             set_tmp_bool_var(i, nullptr);
     }

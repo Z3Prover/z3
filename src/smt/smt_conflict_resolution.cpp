@@ -350,6 +350,7 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
+        m_ctx.get_clause_proof().propagate(consequent, *js, antecedents);
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
         (void)consequent;

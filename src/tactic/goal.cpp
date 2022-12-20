@@ -159,9 +159,7 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
     while (!todo.empty()) {
         if (m_inconsistent)
             return;
-        expr_pol p = todo.back();
-        expr * curr = p.first;
-        bool   pol = p.second;
+        auto [curr, pol] = todo.back();
         todo.pop_back();
         if (pol && m().is_and(curr)) {
             app * t = to_app(curr);
