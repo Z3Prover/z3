@@ -41,6 +41,23 @@ from two equivalent formulas are guaranteed to be equal.
   (apply simplify)
 ```
 
+The simplifier is also exposed as a stand-alone command.
+There are several options to control its behavior.
+
+```z3
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const u Int)
+(declare-fun p (Int) Bool)
+(assert (p (* (+ x y) (+ z u))))
+(apply simplify)
+(apply (with simplify :som true))
+
+(simplify (* (+ x y) (+ z u)) :som false)
+(simplify (* (+ x y) (+ z u)) :som true)
+```
+
 ### Notes
 
 * supports unsat cores, proof terms

@@ -3027,6 +3027,10 @@ namespace smt {
         TRACE("end_assert_expr_ll", ast_mark m; m_asserted_formulas.display_ll(tout, m););
     }
 
+    void context::add_asserted(expr* e) {
+        m_asserted_formulas.assert_expr(e);
+    }
+
     void context::assert_expr(expr * e) {
         assert_expr(e, nullptr);
     }

@@ -249,7 +249,7 @@ namespace smt {
             expr_ref eq1(m.mk_eq(l, r), m);
             expr_ref fn(m.mk_fresh_const("rec-eq", m.mk_bool_sort()), m);
             expr_ref eq(m.mk_eq(fn, eq1), m);
-            ctx.assert_expr(eq);
+            ctx.add_asserted(eq);
             ctx.internalize_assertions();
             lit = mk_literal(fn);
         }

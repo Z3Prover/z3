@@ -1618,6 +1618,8 @@ namespace smt {
 
         void register_plugin(theory * th);
 
+        void add_asserted(expr* e);
+
         void assert_expr(expr * e);
 
         void assert_expr(expr * e, proof * pr);
