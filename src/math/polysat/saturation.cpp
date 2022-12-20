@@ -757,19 +757,66 @@ namespace polysat {
      *
      * odd(x) & even(y) => x + y != 0
      *
+     * Special case rule: a*x + y = 0 => (odd(b) <=> odd(a) & odd(x))
+     *
      * General rule:
      * 
      * a*x + y = 0 => min(K, parity(a) + parity(x)) = parity(y)
-     *
-     * Currently implemented special case: a*x + y = 0 => (odd(b) <=> odd(a) & odd(x))
-     *
-     * general rule can be obtained by adding an
-     * 'is_forced_parity(x, p, x_has_parity_p)'
      * 
-     * Should we also check 'is_forced_parity(a*x, p, ax_has_parity_p)'
-     * if a*x has a parity but not a, x?
+     * using inequalities:
+     *
+     * parity(x) <= i, parity(a) <= j => parity(b) <= i + j
+     * parity(x) >= i, parity(a) >= j => parity(b) >= i + j
+     * parity(x) <= i, parity(b) >= j => parity(a) >= j - i
+     * parity(x) >= i, parity(b) <= j => parity(a) <= j - i 
+     * symmetric rules for swapping x, a
+     * 
+     * min_parity(x) = number of trailing bits of x if x is a value
+     * min_parity(x) = k if 2^{N-k}*x == 0 is forced for max k
+     * min_parity(x1*x2) = min_parity(x1) + min_parity(x2)
+     * min_parity(x) = 0, otherwise
+     * 
+     * max_parity(x) = number of trailing bits of x
+     * max_parity(x) = k if 2^{N-k-1}*x != 0 for min k
+     * max_parity(x1*x2) = max_parity(x1) + max_parity(x2)
+     * max_parity(x) = N, otherwise
      * 
      */
+
+    unsigned saturation::min_parity(pdd const& p) {
+        rational val;
+        auto& m = p.manager();
+        unsigned N = m.power_of_2();
+        if (s.try_eval(p, val))
+            return val == 0 ? N : val.trailing_zeros();
+
+#if 0
+        // TBD: factor p
+        auto coeff = p.leading_coefficient();
+        unsigned offset = coeff.trailing_zeros();        
+        verbose_stream() << "COEFF " << coeff << "\n";
+#endif
+        unsigned j = 0;
+        while (j < N && is_forced_true(s.parity(p, j)))
+            ++j;
+        return j;
+    }
+
+    unsigned saturation::max_parity(pdd const& p) {
+        auto& m = p.manager();
+        unsigned N = m.power_of_2();
+        rational val;
+        if (s.try_eval(p, val))
+            return val == 0 ? N : val.trailing_zeros();
+
+        // TBD: factor p
+
+        for (unsigned j = 0; j < N; ++j) 
+            if (is_forced_false(s.parity(p, j)))
+                return j + 1;
+        return N;
+    }
+
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
         auto& m = s.var2pdd(x);
@@ -785,9 +832,8 @@ namespace polysat {
             return false;
         if (a.is_one())
             return false;
-        signed_constraint b_is_odd = s.odd(b);
-        signed_constraint a_is_odd = s.odd(a);
-        signed_constraint x_is_odd = s.odd(X);
+
+
 
         auto propagate1 = [&](signed_constraint premise, signed_constraint conseq) {
             m_lemma.reset();
@@ -803,13 +849,62 @@ namespace polysat {
             m_lemma.insert_eval(~premise2);
             return propagate(x, core, axb_l_y, conseq);
         };
+
+#if 0
+        unsigned min_x = min_parity(X), max_x = max_parity(X);
+        unsigned min_b = min_parity(b), max_b = max_parity(b);
+        unsigned min_a = min_parity(a), max_a = max_parity(a);
+        SASSERT(min_x <= max_x && max_x <= N);
+        SASSERT(min_a <= max_a && max_a <= N);
+        SASSERT(min_b <= max_b && max_b <= N);
+        verbose_stream() << "try parity " << X << " " << a << " " << b << "\n";
+        verbose_stream() << X << " " << min_x << " " << max_x << "\n";
+        verbose_stream() << a << " " << min_a << " " << max_a << "\n";
+        verbose_stream() << b << " " << min_b << " " << max_b << "\n";                    
+
+        auto at_most = [&](pdd const& p, unsigned k) {
+            SASSERT(k != m.power_of_2());
+            return ~s.parity(p, k + 1);
+        };
+
+        auto at_least = [&](pdd const& p, unsigned k) {
+            VERIFY(k != 0);
+            return s.parity(p, k);
+        };
+
+        if (max_b > max_x && propagate1(at_most(X, max_x), at_most(b, max_x)))
+            return true;
+        if (max_b > max_a && propagate1(at_most(a, max_a), at_most(b, max_a)))
+            return true;
+        if (max_b > max_a + max_x && propagate2(at_most(a, max_a), at_most(X, max_x), at_most(b, max_x + max_a)))
+            return true;
+        if (min_x > min_b && propagate1(at_least(X, min_x), at_least(b, min_x)))
+            return true;
+        if (min_a > min_b && propagate1(at_least(a, min_a), at_least(b, min_a)))
+            return true;
+        if (min_x > 0 && min_a > 0 && min_x + min_a > min_b && propagate2(at_least(a, min_a), at_least(X, min_x), at_least(b, min_a + min_x)))
+            return true;
+        if (max_x <= min_b && min_a < min_b - max_x && propagate2(at_most(X, max_x), at_least(b, min_b), at_least(a, min_b - max_x)))
+            return true;
+        if (max_a <= min_b && min_x < min_b - max_a && propagate2(at_most(a, max_a), at_least(b, min_b), at_least(X, min_b - max_a)))
+            return true;
+        if (min_x <= max_b && max_a > max_b - min_x && propagate2(at_least(X, min_x), at_most(b, min_b), at_most(a, max_b - min_x)))
+            return true;
+        if (min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, min_b), at_most(X, max_b - min_a)))
+            return true;
+
+        return false;
+        
+#else
+
+        signed_constraint b_is_odd = s.odd(b);
+        signed_constraint a_is_odd = s.odd(a);
+        signed_constraint x_is_odd = s.odd(X);
 #if 0
         LOG_H1("try_parity: " << X << " on: " << lit_pp(s, axb_l_y.as_signed_constraint()));
         LOG("y: " << y << "   a: " << a << "   b: " << b);
-        LOG("b_is_odd: " << lit_pp(s, b_is_odd));
-        LOG("a_is_odd: " << lit_pp(s, a_is_odd));
-        LOG("x_is_odd: " << lit_pp(s, x_is_odd));
 #endif
+
         if (a_is_odd.is_currently_true(s) &&
             x_is_odd.is_currently_true(s) &&
             propagate2(a_is_odd, x_is_odd, b_is_odd))
@@ -828,6 +923,8 @@ namespace polysat {
         // -> b has parity k + 4
         unsigned a_parity = a_is_odd.is_currently_false(s) ? 1 : 0;
         unsigned x_parity = x_is_odd.is_currently_false(s) ? 1 : 0;
+
+        // parity(x) >= xp & parity(a) >= ap => parity(b) >= bp
 
         if ((a_parity > 0 || x_parity > 0) && !is_forced_eq(a, 0) && !is_forced_eq(X, 0)) {          
             while (a_parity < N && s.parity(a, a_parity+1).is_currently_true(s))
@@ -858,21 +955,30 @@ namespace polysat {
             if (found) {
                 if (propagate1(~s.parity(b, b_parity), ~s.parity(a, b_parity)))
                     return true;
-                if (propagate1(~s.parity(b, b_parity), ~s.parity(a, b_parity)))
+#if 0
+                if (propagate1(~s.parity(b, b_parity), ~s.parity(X, b_parity)))
                     return true;
+#endif
 
-                for (unsigned i = 1; i < N; ++i) {
+                for (unsigned i = N; i-- > 1; ) {
                     if (s.parity(a, i).is_currently_true(s) && 
                         propagate2(~s.parity(b, b_parity), s.parity(a, i), ~s.parity(X, b_parity - i)))
                         return true;
-
                     if (s.parity(X, i).is_currently_true(s) && 
                         propagate2(~s.parity(b, b_parity), s.parity(X, i), ~s.parity(a, b_parity - i)))
                         return true;                    
                 }
             }
         }
+
+        // if x has at most parity x_parity, a has at most a_parity then b has at most x_parity*a_parity
+
+        //
+        // parity(x) <= i && parity(a) <= j => parity(b) <= i + j
+        // 
         return false;        
+
+#endif
     }
 
     /**
@@ -899,7 +1005,10 @@ namespace polysat {
         m_lemma.reset();
         m_lemma.insert_eval(~s.eq(y));
         m_lemma.insert_eval(~s.eq(b));        
-        return propagate(x, core, axb_l_y, ~s.parity(X, N - k));        
+        if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
+            return true;
+
+        return false;
     }
 
     /**

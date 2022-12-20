@@ -111,6 +111,10 @@ namespace polysat {
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
+        // determine min/max parity of polynomial
+        unsigned min_parity(pdd const& p);
+        unsigned max_parity(pdd const& p);
+
         bool is_forced_eq(pdd const& p, rational const& val);
         bool is_forced_eq(pdd const& p, int i) { return is_forced_eq(p, rational(i)); }
         

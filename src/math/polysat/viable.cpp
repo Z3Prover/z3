@@ -838,6 +838,7 @@ namespace polysat {
         }
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
+        verbose_stream() << "unsat core " << core << "\n";
         return true;
     }
 
