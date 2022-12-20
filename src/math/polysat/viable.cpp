@@ -308,6 +308,10 @@ namespace polysat {
         rational const& max_value = s.var2pdd(v).max_value();
         rational mod_value = max_value + 1;
 
+        // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
+        // with an early entry when a later entry could give a better interval.
+        m_equal_lin[v] = m_equal_lin[v]->next();
+
         auto delta_l = [&](rational const& coeff_val) {
             return floor((coeff_val - e->interval.lo_val()) / e->coeff);
         };
@@ -417,6 +421,10 @@ namespace polysat {
         entry const* first = e;
         rational const& max_value = s.var2pdd(v).max_value();
         rational const mod_value = max_value + 1;
+
+        // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
+        // with an early entry when a later entry could give a better interval.
+        m_diseq_lin[v] = m_diseq_lin[v]->next();
 
         do {
             LOG("refine-disequal-lin for src: " << e->src);
