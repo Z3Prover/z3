@@ -153,6 +153,7 @@ namespace polysat {
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
         stats                    m_stats;
+        random_gen               m_rand;
 
         config                   m_config;
         // Per constraint state

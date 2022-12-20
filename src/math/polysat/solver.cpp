@@ -52,6 +52,7 @@ namespace polysat {
         m_config.m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
         m_config.m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
         m_config.m_log_conflicts = pp.log_conflicts();
+        m_rand.set_seed(m_params.get_uint("random_seed", 0));
     }
 
     bool solver::should_search() {
@@ -241,9 +242,11 @@ namespace polysat {
         for (; i < sz && !is_conflict(); ++i)
             if (!propagate(v, wlist[i]))
                 wlist[j++] = wlist[i];
-        for (; i < sz; ++i)
+        for (; i < sz; ++i) 
             wlist[j++] = wlist[i];
         wlist.shrink(j);
+        if (is_conflict())
+            shuffle(wlist.size(), wlist.data(), m_rand);
         DEBUG_CODE(m_locked_wlist = std::nullopt;);
     }
 
@@ -968,7 +971,7 @@ namespace polysat {
 
         LOG("best_score: " << best_score);
         LOG("best_lemma: " << *best_lemma);
-
+            
         m_conflict.reset();
         backjump(jump_level);
 

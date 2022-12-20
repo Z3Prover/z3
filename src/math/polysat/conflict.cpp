@@ -303,6 +303,11 @@ namespace polysat {
     }
 
     void conflict::add_lemma(char const* name, clause_ref lemma) {
+
+        for (auto lit : *lemma) 
+            if (s.m_bvars.is_true(lit)) 
+                verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
+            
         LOG_H3("Lemma " << (name ? name : "<unknown>") << ": " << show_deref(lemma));
         SASSERT(lemma);
         lemma->set_redundant(true);
