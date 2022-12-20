@@ -1721,6 +1721,16 @@ namespace polysat {
             s.check();
         }
 
+        static void test_bench27_viable() {
+            scoped_solver s(__func__);
+            rational a("5574846017265734846920466193554658608283680");
+            rational b = rational::power_of_two(128) - 1;
+            auto x = s.var(s.add_var(256));
+            s.add_ult(0, x);
+            s.add_ule(a * x + b, b);
+            s.check();
+        }
+
     };  // class test_polysat
 
 
@@ -1855,19 +1865,8 @@ void tst_polysat() {
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    // polysat::test_polysat::test_elim7(3);
-    // test_polysat::test_parity1();
-    // test_polysat::test_parity1b();
-    // test_polysat::test_parity2();
-    // test_polysat::test_parity3();
-    // test_polysat::test_parity4();
-    // test_polysat::test_parity4(32);
-    test_polysat::test_parity4(256);
-    // test_polysat::test_ineq2();
-    // test_polysat::test_ineq_non_axiom4(32, 3);  // stuck in viable refinement loop
-    // test_polysat::test_ineq_non_axiom4(32, 4);  // stuck in viable refinement loop
-    // test_polysat::test_band1();
-    // test_polysat::test_bench6_viable();
+    test_polysat::test_bench27_viable();   // TODO: refinement
+    // test_polysat::test_ineq2();   // TODO: assertion failure
     return;
 #endif
 
@@ -1957,6 +1956,7 @@ void tst_polysat() {
     RUN(test_polysat::test_fi_nonmax());
     RUN(test_polysat::test_fi_disequal_mild());
     RUN(test_polysat::test_bench6_viable());
+    // RUN(test_polysat::test_bench27_viable());  // stuck in refinement loop + fallback solver
 
     RUN(test_polysat::test_ineq_axiom1());
     RUN(test_polysat::test_ineq_axiom2());
