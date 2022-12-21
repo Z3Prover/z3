@@ -277,6 +277,12 @@ namespace polysat {
         return l_undef;
     }
 
+    bool op_constraint::propagate_bits_lshr(solver& s, bool is_positive) {
+        // TODO: Implement: copy from the left shift
+        // TODO: Implement: negative case
+        return true;
+    }
+    
     /**
      * Enforce axioms for constraint: r == p << q
      *
@@ -353,9 +359,10 @@ namespace polysat {
     }
 
     bool op_constraint::propagate_bits_shl(solver& s, bool is_positive) {
-        tbv_ref p_val = s.m_fixed_bits.eval(m_p);
-        tbv_ref q_val = s.m_fixed_bits.eval(m_q);
-        tbv_ref r_val = s.m_fixed_bits.eval(m_r);
+        // TODO: Implement: negative case
+        tbv_ref& p_val = s.m_fixed_bits.eval(s, m_p);
+        tbv_ref& q_val = s.m_fixed_bits.eval(s, m_q);
+        tbv_ref& r_val = s.m_fixed_bits.eval(s, m_r);
         unsigned sz = m_p.power_of_2();
 
         auto [shift_min, shift_max] = s.m_fixed_bits.min_max(q_val);
@@ -374,15 +381,34 @@ namespace polysat {
 
         SASSERT(shift_max_u <= sz);
         SASSERT(shift_min_u <= shift_max_u);
+        
+        unsigned span = shift_max_u - shift_min_u;
 
-        for (unsigned i = 0; i < shift_min_u; i++) {
-            if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, this, s.))
-                return false;
+        // Shift by at the value we know q to be at least 
+        // TODO: Improve performance; we can reuse the justifications from the previous iteration
+        if (shift_min_u > 0) {
+            for (unsigned i = 0; i < shift_min_u; i++) {
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, bit_justication_constraint::mk_justify_at_least(this, m_q, q_val, rational(i + 1))))
+                    return false;
+            }
         }
         for (unsigned i = shift_min_u; i < sz; i++) {
-            propagate_bit(s, m_r.var(), i, p_val[i - shift_min_u]);
+            unsigned j = 0;
+            tbit val = p_val[i - shift_min_u];
+            if (val == BIT_z)
+                continue;
+            
+            for (; j < span; j++) {
+                if (p_val[i - shift_min_u + 1] != val)
+                    break;
+            }
+            if (j == span) { // all elements we could shift there are equal. We can safely set this value
+                // TODO: Relax. Sometimes we can reduce the span if further elements in q are set to the respective value
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, val, bit_justication_constraint::mk_justify_between(this, m_q, q_val, shift_min, shift_max)))
+                    return false;
+            }
         }
-
+        return true;
     }
 
     void op_constraint::activate_and(solver& s) {
@@ -499,12 +525,13 @@ namespace polysat {
     }
 
     bool op_constraint::propagate_bits_and(solver& s, bool is_positive){
-        tbv_ref p_val = s.m_fixed_bits.eval(m_p);
-        tbv_ref q_val = s.m_fixed_bits.eval(m_q);
-        tbv_ref r_val = s.m_fixed_bits.eval(m_r);
+        // TODO: Implement: negative case
+        tbv_ref& p_val = s.m_fixed_bits.eval(s, m_p);
+        tbv_ref& q_val = s.m_fixed_bits.eval(s, m_q);
+        tbv_ref& r_val = s.m_fixed_bits.eval(s, m_r);
         unsigned sz = m_p.power_of_2();
 
-        for (int i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; i++) {
             tbit bp = p_val[i];
             tbit bq = q_val[i];
             tbit br = r_val[i];
@@ -512,11 +539,12 @@ namespace polysat {
             // TODO: Propagate from the result to the operands. e.g., 110... = xx1... & yyy...
             // TODO: ==> x = 111..., y = 110...
             if (bp == BIT_0 || bq == BIT_0) {
-                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, this, std::pair(m_p, i), std::pair(m_q, i)))
+                // TODO: In case both are 0 use the one with the lower decision-level and not necessarily p
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_0, bit_justication_constraint::mk_unary(this, { bp == BIT_0 ? m_p : m_q, i })))
                     return false;
             }
             else if (bp == BIT_1 && bq == BIT_1) {
-                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_1, this, std::pair(m_p, i), std::pair(m_q, i)))
+                if (!s.m_fixed_bits.fix_value(s, m_r, i, BIT_1, bit_justication_constraint::mk_binary(this, { m_p, i }, { m_q, i })))
                     return false;
             }
         }

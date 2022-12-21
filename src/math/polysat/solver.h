@@ -105,6 +105,7 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        // TODO: Why so many friends? Can't we just make the relevant functions public?
         friend class assignment;
         friend class constraint;
         friend class ule_constraint;
@@ -118,6 +119,7 @@ namespace polysat {
         friend class conflict_explainer;
         friend class simplify_clause;
         friend class simplify;
+        friend class fixed_bits;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
