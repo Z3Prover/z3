@@ -1739,17 +1739,17 @@ namespace polysat {
             test_bench27_viable("5574846017265734846920466193554658608284160");  // 2^9 * a'
         }
 
+        // -1*v12 <= -1*v12 + v8 + v7*v1 + 2^128*v7 + 1
+        // v8 := 0 v12 := 1 v4 := 0 v9 := 1 v17 := 0 v1 := 5574846017265734846920466193554658608283648
+        //
+        // Substitute assignment:
+        //      -1 <= (5574846017265734846920466193554658608283648 + 2^128) * v7
+        //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ == 2^142
+        //      this is actually an equation
+        //
+        //      2^142 * v7 == -1, unsatisfiable due to parity
         static void test_bench27_viable3() {
             scoped_solver s(__func__);
-            // -1*v12 <= -1*v12 + v8 + v7*v1 + 2^128*v7 + 1
-            // v8 := 0 v12 := 1 v4 := 0 v9 := 1 v17 := 0 v1 := 5574846017265734846920466193554658608283648
-            //
-            // Substitute assignment:
-            //      -1 <= (5574846017265734846920466193554658608283648 + 2^128) * v7
-            //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ == 2^142
-            //      this is actually an equation
-            //
-            //      2^142 * v7 == -1, unsatisfiable due to parity
             rational const a("5574846017265734846920466193554658608283648");
             rational const b = rational::power_of_two(128);
             auto const v1 = s.var(s.add_var(256));
@@ -1762,6 +1762,23 @@ namespace polysat {
             s.add_eq(v1, a);
             s.check();
             s.expect_unsat();
+        }
+
+        // similar as test_bench27_viable3, but satisfiable (to test the other branch)
+        static void test_bench27_viable3_sat() {
+            scoped_solver s(__func__);
+            rational const a("5574846017265734846920466193554658608283648");
+            rational const b = rational::power_of_two(128) - 1;
+            auto const v1 = s.var(s.add_var(256));
+            auto const v7 = s.var(s.add_var(256));
+            auto const v8 = s.var(s.add_var(256));
+            auto const v12 = s.var(s.add_var(256));
+            s.add_ule(-v12, -v12 + v8 + v7*v1 + b*v7 + 1);
+            s.add_eq(v8, 0);
+            s.add_eq(v12, 1);
+            s.add_eq(v1, a);
+            s.check();
+            s.expect_sat();
         }
 
     };  // class test_polysat
@@ -1900,7 +1917,8 @@ void tst_polysat() {
     test_max_conflicts = 50;
     // test_polysat::test_bench27_viable1();   // TODO: refinement
     // test_polysat::test_bench27_viable2();   // TODO: refinement
-    test_polysat::test_bench27_viable3();   // TODO: refinement -- inequality turns into equation, but that is not discovered by refine_equal_lin (instead gets stuck in increase_hi)
+    // test_polysat::test_bench27_viable3();
+    test_polysat::test_bench27_viable3_sat();
     // test_polysat::test_ineq2();   // TODO: assertion failure
     return;
 #endif
@@ -1991,7 +2009,10 @@ void tst_polysat() {
     RUN(test_polysat::test_fi_nonmax());
     RUN(test_polysat::test_fi_disequal_mild());
     RUN(test_polysat::test_bench6_viable());
-    // RUN(test_polysat::test_bench27_viable());  // stuck in refinement loop + fallback solver
+    // RUN(test_polysat::test_bench27_viable1());  // stuck in refinement loop + fallback solver
+    // RUN(test_polysat::test_bench27_viable2());  // stuck in refinement loop + fallback solver
+    RUN(test_polysat::test_bench27_viable3());
+    RUN(test_polysat::test_bench27_viable3_sat());
 
     RUN(test_polysat::test_ineq_axiom1());
     RUN(test_polysat::test_ineq_axiom2());
