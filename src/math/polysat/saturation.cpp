@@ -833,37 +833,41 @@ namespace polysat {
         if (a.is_one())
             return false;
 
-
-
         auto propagate1 = [&](signed_constraint premise, signed_constraint conseq) {
+            if (is_forced_false(premise))
+                return false;
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~premise);
+            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise << " => " << conseq << "\n");
             return propagate(x, core, axb_l_y, conseq);
         };
 
         auto propagate2 = [&](signed_constraint premise1, signed_constraint premise2, signed_constraint conseq) {
+            if (is_forced_false(premise1))
+                return false;
+            if (is_forced_false(premise2))
+                return false;
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~premise1);
             m_lemma.insert_eval(~premise2);
+            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise1 << " " << premise2 << " => " << conseq << "\n");
             return propagate(x, core, axb_l_y, conseq);
         };
 
-#if 0
+#if 1
         unsigned min_x = min_parity(X), max_x = max_parity(X);
         unsigned min_b = min_parity(b), max_b = max_parity(b);
         unsigned min_a = min_parity(a), max_a = max_parity(a);
         SASSERT(min_x <= max_x && max_x <= N);
         SASSERT(min_a <= max_a && max_a <= N);
         SASSERT(min_b <= max_b && max_b <= N);
-        verbose_stream() << "try parity " << X << " " << a << " " << b << "\n";
-        verbose_stream() << X << " " << min_x << " " << max_x << "\n";
-        verbose_stream() << a << " " << min_a << " " << max_a << "\n";
-        verbose_stream() << b << " " << min_b << " " << max_b << "\n";                    
+        if (min_x >= N || min_a >= N || min_b >= N)
+            return false;
 
         auto at_most = [&](pdd const& p, unsigned k) {
-            SASSERT(k != m.power_of_2());
+            SASSERT(k != N);
             return ~s.parity(p, k + 1);
         };
 
@@ -872,25 +876,27 @@ namespace polysat {
             return s.parity(p, k);
         };
 
-        if (max_b > max_x && propagate1(at_most(X, max_x), at_most(b, max_x)))
+        IF_VERBOSE(2, 
+                   verbose_stream() << "try parity v" << x << " " << axb_l_y << "\n";
+                   verbose_stream() << X << " " << min_x << " " << max_x << "\n";
+                   verbose_stream() << a << " " << min_a << " " << max_a << "\n";
+                   verbose_stream() << b << " " << min_b << " " << max_b << "\n");                    
+
+        if (!b.is_val() && max_b > max_a + max_x && propagate2(at_most(a, max_a), at_most(X, max_x), at_most(b, max_x + max_a)))
             return true;
-        if (max_b > max_a && propagate1(at_most(a, max_a), at_most(b, max_a)))
+        if (!b.is_val() && min_x > min_b && propagate1(at_least(X, min_x), at_least(b, min_x)))
             return true;
-        if (max_b > max_a + max_x && propagate2(at_most(a, max_a), at_most(X, max_x), at_most(b, max_x + max_a)))
+        if (!b.is_val() && min_a > min_b && propagate1(at_least(a, min_a), at_least(b, min_a)))
             return true;
-        if (min_x > min_b && propagate1(at_least(X, min_x), at_least(b, min_x)))
+        if (!b.is_val() && min_x > 0 && min_a > 0 && min_x + min_a > min_b && propagate2(at_least(a, min_a), at_least(X, min_x), at_least(b, min_a + min_x)))
             return true;
-        if (min_a > min_b && propagate1(at_least(a, min_a), at_least(b, min_a)))
-            return true;
-        if (min_x > 0 && min_a > 0 && min_x + min_a > min_b && propagate2(at_least(a, min_a), at_least(X, min_x), at_least(b, min_a + min_x)))
-            return true;
-        if (max_x <= min_b && min_a < min_b - max_x && propagate2(at_most(X, max_x), at_least(b, min_b), at_least(a, min_b - max_x)))
+        if (!a.is_val() && max_x <= min_b && min_a < min_b - max_x && propagate2(at_most(X, max_x), at_least(b, min_b), at_least(a, min_b - max_x)))
             return true;
         if (max_a <= min_b && min_x < min_b - max_a && propagate2(at_most(a, max_a), at_least(b, min_b), at_least(X, min_b - max_a)))
             return true;
-        if (min_x <= max_b && max_a > max_b - min_x && propagate2(at_least(X, min_x), at_most(b, min_b), at_most(a, max_b - min_x)))
+        if (!a.is_val() && min_x > 0 && min_x <= max_b && max_a > max_b - min_x && propagate2(at_least(X, min_x), at_most(b, max_b), at_most(a, max_b - min_x)))
             return true;
-        if (min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, min_b), at_most(X, max_b - min_a)))
+        if (min_a > 0 && min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, max_b), at_most(X, max_b - min_a)))
             return true;
 
         return false;
@@ -1148,7 +1154,7 @@ namespace polysat {
                 rhs = b2 - a2*(b3 * a3_inv);
             }
             if (!change) {
-                IF_VERBOSE(1, verbose_stream() << "missed factor equality " << c << " " << a_l_b << "\n");
+                IF_VERBOSE(2, verbose_stream() << "missed factor equality? " << c << " " << a_l_b << "\n");
                 continue;
             }
             signed_constraint conseq = a_l_b.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
