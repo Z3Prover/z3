@@ -1912,14 +1912,11 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 1  // Enable this block to run a single unit test with detailed output.
+#if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
     // test_polysat::test_bench27_viable1();   // TODO: refinement
     // test_polysat::test_bench27_viable2();   // TODO: refinement
-    // test_polysat::test_bench27_viable3();
-    test_polysat::test_bench27_viable3_sat();
-    // test_polysat::test_ineq2();   // TODO: assertion failure
     return;
 #endif
 
