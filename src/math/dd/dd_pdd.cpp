@@ -1724,7 +1724,7 @@ namespace dd {
         unsigned pow;
         if (val.is_power_of_two(pow) && pow > 10)
             return out << "2^" << pow;
-        for (int offset : {-1, 1})
+        for (int offset : {-2, -1, 1, 2})
             if (val < m.max_value() && (val - offset).is_power_of_two(pow) && pow > 10)
                 return out << lparen() << "2^" << pow << (offset >= 0 ? "+" : "") << offset << rparen();
         rational neg_val = mod(-val, m.two_to_N());
