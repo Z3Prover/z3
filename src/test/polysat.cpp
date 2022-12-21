@@ -1721,14 +1721,47 @@ namespace polysat {
             s.check();
         }
 
-        static void test_bench27_viable() {
+        static void test_bench27_viable(const char* coeff) {
             scoped_solver s(__func__);
-            rational a("5574846017265734846920466193554658608283680");
+            rational a(coeff);
             rational b = rational::power_of_two(128) - 1;
             auto x = s.var(s.add_var(256));
             s.add_ult(0, x);
             s.add_ule(a * x + b, b);
             s.check();
+        }
+
+        static void test_bench27_viable1() {
+            test_bench27_viable("2787252867449406954228501409473613420036128");  // 2^5 * a'
+        }
+
+        static void test_bench27_viable2() {
+            test_bench27_viable("5574846017265734846920466193554658608284160");  // 2^9 * a'
+        }
+
+        static void test_bench27_viable3() {
+            scoped_solver s(__func__);
+            // -1*v12 <= -1*v12 + v8 + v7*v1 + 2^128*v7 + 1
+            // v8 := 0 v12 := 1 v4 := 0 v9 := 1 v17 := 0 v1 := 5574846017265734846920466193554658608283648
+            //
+            // Substitute assignment:
+            //      -1 <= (5574846017265734846920466193554658608283648 + 2^128) * v7
+            //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ == 2^142
+            //      this is actually an equation
+            //
+            //      2^142 * v7 == -1, unsatisfiable due to parity
+            rational const a("5574846017265734846920466193554658608283648");
+            rational const b = rational::power_of_two(128);
+            auto const v1 = s.var(s.add_var(256));
+            auto const v7 = s.var(s.add_var(256));
+            auto const v8 = s.var(s.add_var(256));
+            auto const v12 = s.var(s.add_var(256));
+            s.add_ule(-v12, -v12 + v8 + v7*v1 + b*v7 + 1);
+            s.add_eq(v8, 0);
+            s.add_eq(v12, 1);
+            s.add_eq(v1, a);
+            s.check();
+            s.expect_unsat();
         }
 
     };  // class test_polysat
@@ -1862,10 +1895,12 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 void tst_polysat() {
     using namespace polysat;
 
-#if 0  // Enable this block to run a single unit test with detailed output.
+#if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    test_polysat::test_bench27_viable();   // TODO: refinement
+    // test_polysat::test_bench27_viable1();   // TODO: refinement
+    // test_polysat::test_bench27_viable2();   // TODO: refinement
+    test_polysat::test_bench27_viable3();   // TODO: refinement -- inequality turns into equation, but that is not discovered by refine_equal_lin (instead gets stuck in increase_hi)
     // test_polysat::test_ineq2();   // TODO: assertion failure
     return;
 #endif
