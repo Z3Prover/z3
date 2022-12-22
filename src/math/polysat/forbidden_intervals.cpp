@@ -9,7 +9,7 @@ Module Name:
 
 Author:
 
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
     Nikolaj Bjorner (nbjorner) 2021-03-19
 
 --*/
@@ -21,7 +21,7 @@ Author:
 
 namespace polysat {
 
-    /** 
+    /**
      *
      * \param[in] c                 Original constraint
      * \param[in] v                 Variable that is bounded by constraint
@@ -38,7 +38,7 @@ namespace polysat {
 
     bool forbidden_intervals::get_interval_umul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
 
-        backtrack _backtrack(fi.side_cond);     
+        backtrack _backtrack(fi.side_cond);
 
         fi.coeff = 1;
         fi.src = c;
@@ -56,7 +56,7 @@ namespace polysat {
             std::swap(a1, a2);
             std::swap(e1, e2);
             std::swap(b1, b2);
-            std::swap(ok1, ok2);            
+            std::swap(ok1, ok2);
         }
         if (ok1 && !ok2 && a1.is_one() && b1.is_zero()) {
             if (c.is_positive()) {
@@ -69,8 +69,8 @@ namespace polysat {
                 return true;
             }
         }
-        
-        if (!ok1 || !ok2) 
+
+        if (!ok1 || !ok2)
             return false;
 
 
@@ -129,10 +129,10 @@ namespace polysat {
     }
 
     static char const* _last_function = "";
-    
+
     bool forbidden_intervals::get_interval_ule(signed_constraint const& c, pvar v, fi_record& fi) {
-        
-        backtrack _backtrack(fi.side_cond);     
+
+        backtrack _backtrack(fi.side_cond);
 
         fi.coeff = 1;
         fi.src = c;
@@ -166,11 +166,11 @@ namespace polysat {
         _backtrack.released = true;
 
         // v > q
-        if (ok1 && !ok2 && match_non_zero(c, a1, b1, e1, fi))
+        if (ok1 && !ok2 && match_non_zero(c, a1, b1, e1, c->to_ule().rhs(), fi))
             return true;
 
         // p > v
-        if (!ok1 && ok2 && match_non_max(c, a2, b2, e2, fi))
+        if (!ok1 && ok2 && match_non_max(c, c->to_ule().lhs(), a2, b2, e2, fi))
             return true;
 
         if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero())) {
@@ -231,7 +231,7 @@ namespace polysat {
             out_side_cond.push_back(s.eq(q, r));
             q = r;
         }
-        auto b = s.subst(e); 
+        auto b = s.subst(e);
         return std::tuple(b.is_val(), q.val(), e, b);
     };
 
@@ -239,7 +239,7 @@ namespace polysat {
         signed_constraint const& c, bool is_trivial, rational & coeff,
         rational & lo_val, pdd & lo,
         rational & hi_val, pdd & hi) {
-        
+
         dd::pdd_manager& m = lo.manager();
 
         if (is_trivial) {
@@ -256,7 +256,7 @@ namespace polysat {
         rational pow2 = m.max_value() + 1;
 
         if (coeff > pow2/2) {
-            
+
             coeff = pow2 - coeff;
             SASSERT(coeff > 0);
             // Transform according to:  y \in [l;u[  <=>  -y \in [1-u;1-l[
@@ -282,10 +282,10 @@ namespace polysat {
 
     /**
     * Match  e1 + t <= e2, with t = a1*y
-    * condition for empty/full: e2 == -1    
+    * condition for empty/full: e2 == -1
     */
     bool forbidden_intervals::match_linear1(signed_constraint const& c,
-        rational const & a1, pdd const& b1, pdd const& e1, 
+        rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
@@ -478,26 +478,42 @@ namespace polysat {
 
     /**
      * p > v
-     * forbidden interval for v is [-1,0[
+     * forbidden interval for v is [p;0[ but at least [-1,0[
+     *
      * p > v + k
-     * forbidden interval for v is [-k-1,-k[
+     * forbidden interval for v is [p-k;-k[ but at least [-1-k,-k[
+     *
+     * p > a*v + k, a odd
+     * forbidden interval for v is [ a^-1*(-1-k) ; a^-1*(-1-k) + 1 [
      */
     bool forbidden_intervals::match_non_max(
         signed_constraint const& c,
-        rational const & a2, pdd const& b2, pdd const& e2,
+        pdd const& p,
+        rational const& a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
         if (a2.is_one() && b2.is_val() && c.is_negative()) {
             auto& m = e2.manager();
             rational const& mod_value = m.two_to_N();
-            rational lo_val(mod(-b2.val() - 1, mod_value));
-            auto lo = -e2 - 1;
-            rational hi_val(mod(lo_val + 1, mod_value));
-            auto hi = -e2;
+            rational hi_val = (-b2).val();
+            pdd hi = -e2;
+            rational lo_val = mod(hi_val - 1, mod_value);
+            pdd lo = p - e2;
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            if (b2 != e2)
-                fi.side_cond.push_back(s.eq(b2, e2));
+            return true;
+        }
+        if (a2.is_odd() && b2.is_val() && c.is_negative()) {
+            auto& m = e2.manager();
+            rational const& mod_value = m.two_to_N();
+            rational a2_inv;
+            VERIFY(a2.mult_inverse(m.power_of_2(), a2_inv));
+            rational lo_val = mod(a2_inv * (-1 - b2.val()), mod_value);
+            pdd lo = a2_inv * (-1 - e2);
+            rational hi_val = mod(lo_val + 1, mod_value);
+            pdd hi = lo + 1;
+            fi.coeff = 1;
+            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
             return true;
         }
         return false;
