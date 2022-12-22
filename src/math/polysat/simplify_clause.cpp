@@ -11,6 +11,21 @@ Author:
 
 Notes:
 
+    TODO: inspired from bench23, trying to strength weak FI lemma.
+
+        If we have both:
+            p <= q
+            p - q == 0
+
+        Then remove the equality.
+
+        If we have both:
+            p < q
+            p - q == 0
+
+        Then merge into p <= q.
+
+
     TODO: from test_ineq_basic5:    (mod 2^4)
         Lemma: -0 \/ -1 \/ 2 \/ 3
            -0: -4 > v1 + v0         [ bvalue=l_false @0 pwatched=1  ]
@@ -77,13 +92,14 @@ namespace polysat {
 
     bool simplify_clause::apply(clause& cl) {
         LOG_H1("Simplifying clause: " << cl);
+        bool simplified = false;
 #if 0
         if (try_recognize_bailout(cl))
-            return true;
+            simplified = true;
 #endif
         if (try_equal_body_subsumptions(cl))
-            return true;
-        return false;
+            simplified = true;
+        return simplified;
     }
 
     // If x != k appears among the new literals, all others are superfluous.
