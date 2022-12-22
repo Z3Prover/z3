@@ -101,12 +101,13 @@ namespace polysat {
      *  Then merge into p <= q.
      */
     bool simplify_clause::try_remove_equations(clause& cl) {
-        LOG_H2("Try removing equations");
-        sat::literal_set eqns;
-        for (sat::literal lit : cl)
-            if (s.lit2cnstr(lit).is_eq())
-                eqns.insert(lit);
-        sat::literal_set to_remove;
+        LOG_H2("Remove superfluous equations from: " << cl);
+        bool const has_eqn = any_of(cl, [&](sat::literal lit) { return s.lit2cnstr(lit).is_eq(); });
+        if (!has_eqn)
+            return false;
+        bool any_removed = false;
+        bool_vector& should_remove = m_bools;
+        should_remove.fill(cl.size(), false);
         for (unsigned i = cl.size(); i-- > 0; ) {
             sat::literal const lit = cl[i];
             signed_constraint const c = s.lit2cnstr(lit);
@@ -120,9 +121,12 @@ namespace polysat {
             signed_constraint const eq = s.m_constraints.find_eq(p - q);
             if (!eq)
                 continue;
-            if (!eqns.contains(eq.blit()))
+            auto const eq_it = std::find(cl.begin(), cl.end(), eq.blit());
+            if (eq_it == cl.end())
                 continue;
-            to_remove.insert(eq.blit());
+            unsigned const eq_idx = std::distance(cl.begin(), eq_it);
+            any_removed = true;
+            should_remove[eq_idx] = true;
             if (c.is_positive()) {
                 // c:  p <= q
                 // eq: p == q
@@ -136,11 +140,11 @@ namespace polysat {
             }
         }
         // Remove superfluous equations
-        if (to_remove.empty())
+        if (!any_removed)
             return false;
         unsigned j = 0;
         for (unsigned i = 0; i < cl.size(); ++i)
-            if (!to_remove.contains(cl[i]))
+            if (!should_remove[i])
                 cl[j++] = cl[i];
         cl.m_literals.shrink(j);
         return true;
