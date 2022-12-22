@@ -50,9 +50,6 @@ static LogLevel get_max_log_level(std::string const& fn, std::string const& pret
   (void)fn;
   (void)pretty_fn;
 
-  if (fn == "push_cjust")
-    return LogLevel::Verbose;
-
   // if (fn == "pop_levels")
   //   return LogLevel::Default;
 
