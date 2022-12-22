@@ -57,6 +57,8 @@ namespace polysat {
         bool try_mul_eq_bound(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_transitivity(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_tangent(pvar v, conflict& core, inequality const& c);
+        bool try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y);
 
         // c := lhs ~ v
         //  where ~ is < or <=
@@ -66,7 +68,10 @@ namespace polysat {
         bool is_g_v(pvar v, inequality const& c);
 
         // c := x ~ Y
-        bool is_x_l_Y(pvar x, inequality const& c, pdd& y);
+        bool is_x_l_Y(pvar x, inequality const& i, pdd& y);
+
+        // c := Y ~ x
+        bool is_Y_l_x(pvar x, inequality const& i, pdd& y);
 
         // c := X*y ~ X*Z
         bool is_Xy_l_XZ(pvar y, inequality const& c, pdd& x, pdd& z);
@@ -110,6 +115,12 @@ namespace polysat {
 
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
+
+        // i := x + y >= x or x + y > x
+        bool is_add_overflow(pvar x, inequality const& i, pdd& y);
+
+        bool has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound);
+        bool has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound);
 
         // determine min/max parity of polynomial
         unsigned min_parity(pdd const& p);

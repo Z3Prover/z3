@@ -74,6 +74,8 @@ namespace polysat {
             prop = true;
         if (try_factor_equality(v, core, i))
             prop = true;
+        if (false && try_add_overflow_bound(v, core, i))
+            prop = true;
         if (try_mul_eq_bound(v, core, i))
             prop = true;
         if (try_ugt_x(v, core, i))
@@ -82,7 +84,7 @@ namespace polysat {
             prop = true;
         if (try_ugt_z(v, core, i))
             prop = true;
-        if (try_y_l_ax_and_x_l_z(v, core, i))
+        if (try_y_l_ax_and_x_l_z(v, core, i))            
             prop = true;
         if (false && try_tangent(v, core, i))
             prop = true;
@@ -233,6 +235,14 @@ namespace polysat {
     bool saturation::is_x_l_Y(pvar x, inequality const& i, pdd& y) {
         y = i.rhs();
         return is_g_v(x, i);
+    }
+
+    /*
+     * Match [x] y <= x
+     */
+    bool saturation::is_Y_l_x(pvar x, inequality const& i, pdd& y) {
+        y = i.lhs();
+        return is_l_v(x, i);
     }
 
     /*
@@ -856,7 +866,6 @@ namespace polysat {
             return propagate(x, core, axb_l_y, conseq);
         };
 
-#if 1
         unsigned min_x = min_parity(X), max_x = max_parity(X);
         unsigned min_b = min_parity(b), max_b = max_parity(b);
         unsigned min_a = min_parity(a), max_a = max_parity(a);
@@ -899,92 +908,7 @@ namespace polysat {
         if (min_a > 0 && min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, max_b), at_most(X, max_b - min_a)))
             return true;
 
-        return false;
-        
-#else
-
-        signed_constraint b_is_odd = s.odd(b);
-        signed_constraint a_is_odd = s.odd(a);
-        signed_constraint x_is_odd = s.odd(X);
-#if 0
-        LOG_H1("try_parity: " << X << " on: " << lit_pp(s, axb_l_y.as_signed_constraint()));
-        LOG("y: " << y << "   a: " << a << "   b: " << b);
-#endif
-
-        if (a_is_odd.is_currently_true(s) &&
-            x_is_odd.is_currently_true(s) &&
-            propagate2(a_is_odd, x_is_odd, b_is_odd))
-            return true;
-
-
-        if (b_is_odd.is_currently_true(s)) {
-            if (propagate1(b_is_odd, a_is_odd))
-                return true;
-            if (propagate1(b_is_odd, x_is_odd))
-                return true;
-        }
-        
-        // a is divisibly by 4,
-        // max divisor of x is k
-        // -> b has parity k + 4
-        unsigned a_parity = a_is_odd.is_currently_false(s) ? 1 : 0;
-        unsigned x_parity = x_is_odd.is_currently_false(s) ? 1 : 0;
-
-        // parity(x) >= xp & parity(a) >= ap => parity(b) >= bp
-
-        if ((a_parity > 0 || x_parity > 0) && !is_forced_eq(a, 0) && !is_forced_eq(X, 0)) {          
-            while (a_parity < N && s.parity(a, a_parity+1).is_currently_true(s))
-                ++a_parity;
-            while (x_parity < N && s.parity(X, x_parity+1).is_currently_true(s))
-                ++x_parity;
-            unsigned b_parity = std::min(N, a_parity + x_parity);
-            if (a_parity > 0 && x_parity > 0 && propagate2(s.parity(a, a_parity), s.parity(X, x_parity), s.parity(b, b_parity)))
-                return true;
-            if (a_parity > 0 && x_parity == 0 && propagate1(s.parity(a, a_parity), s.parity(b, b_parity)))
-                return true;
-            if (a_parity == 0 && x_parity > 0 && propagate1(s.parity(X, x_parity), s.parity(b, b_parity)))
-                return true;
-        }
-
-        // 
-        // if b has at most b_parity, then a*x has at most b_parity
-        // 
-        if (!is_forced_eq(b, 0)) {
-            unsigned b_parity = 1;
-            bool found = false;
-            for (; b_parity < N; ++b_parity) {
-                if (s.parity(b, b_parity).is_currently_false(s)) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                if (propagate1(~s.parity(b, b_parity), ~s.parity(a, b_parity)))
-                    return true;
-#if 0
-                if (propagate1(~s.parity(b, b_parity), ~s.parity(X, b_parity)))
-                    return true;
-#endif
-
-                for (unsigned i = N; i-- > 1; ) {
-                    if (s.parity(a, i).is_currently_true(s) && 
-                        propagate2(~s.parity(b, b_parity), s.parity(a, i), ~s.parity(X, b_parity - i)))
-                        return true;
-                    if (s.parity(X, i).is_currently_true(s) && 
-                        propagate2(~s.parity(b, b_parity), s.parity(X, i), ~s.parity(a, b_parity - i)))
-                        return true;                    
-                }
-            }
-        }
-
-        // if x has at most parity x_parity, a has at most a_parity then b has at most x_parity*a_parity
-
-        //
-        // parity(x) <= i && parity(a) <= j => parity(b) <= i + j
-        // 
         return false;        
-
-#endif
     }
 
     /**
@@ -1166,6 +1090,138 @@ namespace polysat {
         }
         return factored;
     }
+
+    /**
+     *  x <= x + y & x <= n => y = 0 or y >= N - n
+     *  x <  x + y & x <= n => y >= N - n
+     * -x >= -x - y & x <= n => y = 0 or y >= N - n
+     * -x > -x - y & x <= n => y >= N - n
+     */
+    bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] x <= x + y & x <= n => y = 0 or y >= 2^N - n");
+        signed_constraint y_eq_0, x_ge_bound;
+        auto& m = s.var2pdd(x);
+        pdd y = m.zero();
+        if (!is_add_overflow(x, axb_l_y, y))
+            return false;
+        if (!axb_l_y.is_strict() && !is_forced_diseq(y, 0, y_eq_0))
+            return false;
+        rational bound;
+        if (!has_upper_bound(x, core, bound, x_ge_bound))
+            return false;
+        SASSERT(bound != 0);
+        m_lemma.reset();
+        if (!axb_l_y.is_strict())
+            m_lemma.insert_eval(y_eq_0);
+        m_lemma.insert_eval(~x_ge_bound);
+        return propagate(x, core, axb_l_y, s.uge(y, m.two_to_N() - bound));
+    }
+
+    /**
+     * Match one of the patterns:
+     * x <= x + y
+     * x < x + y
+     * -x >= -x - y
+     * -x > -x - y
+     */
+    bool saturation::is_add_overflow(pvar x, inequality const& i, pdd& y) {
+        auto& m = s.var2pdd(x);        
+        pdd X = s.var(x);
+        pdd a = X;
+        if (i.lhs().degree(x) != 1 || i.rhs().degree(x) != 1)
+            return false;
+        if (i.lhs() == X) {
+            i.rhs().factor(x, 1, a, y);
+            if (a.is_one())
+                return true;
+        }
+        if (i.rhs() == -X) {
+            i.rhs().factor(x, 1, a, y);
+            if ((-a).is_one()) {
+                y = -y;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Just search core for literal of the form x <= bound
+     * TODO
+     * - more general bounnds obtained from forbidden interval extraction: x + k1 <= x + k2
+     *   such that the forbidden interval includes -1.
+     * - not just core, but query over all assigned literals?
+     * - look for optimal bounds, not just the first?
+     * - General comment: integrate with indexing: only assigned literals containing x are useful.
+     *   - then index on patterns or features of literals?
+     */
+    bool saturation::has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound) {
+        auto& m = s.var2pdd(x);        
+        pdd y = s.var(x);
+        for (auto const& c : core) {
+            if (!c->is_ule())
+                continue;
+            auto i = inequality::from_ule(c);
+            if (!is_x_l_Y(x, i, y))
+                continue;
+            if (!y.is_val())
+                continue;
+            bound = y.val();
+            if (i.is_strict() && bound == 0)
+                continue;                
+            if (i.is_strict())
+                bound = bound - 1;
+            if (bound == m.max_value())
+                continue;
+            x_le_bound = c;
+            return true;                
+        }
+        return false;
+    }
+
+    bool saturation::has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound) {
+        auto& m = s.var2pdd(x);        
+        pdd y = s.var(x);
+        for (auto const& c : core) {
+            if (!c->is_ule())
+                continue;
+#if 1
+            auto i = inequality::from_ule(c);
+            if (!is_Y_l_x(x, i, y))
+                continue;
+            if (!y.is_val())
+                continue;
+            bound = y.val();
+            if (i.is_strict() && bound == m.max_value())
+                continue;                
+            if (i.is_strict())
+                bound = bound + 1;
+            if (bound == 0)
+                continue;
+            x_ge_bound = c;
+            return true;
+#endif
+        }
+        return false;
+    }
+
+    /**
+     * ax + b >= n1, x <= n2, b <= n3, n3 <= n1, ax >= b => a >= (n1 - n3)/n2
+     *
+     * The side-conditions ax >= b, b <= n1 are used to subtract by b on both sides
+     * It applies in the special case where b = 1, a != 0, x != 0
+     * 
+     * ax + b <= n1, x >= n2, b >= n3, b <= n1, b <= ax => a <= (n1 - n3)/n2
+     * 
+     * Other inference rules for linear case? e.g.:
+     * ax + b >= n1, a <= n2, b <= n3, n3 <= n1, ax >= b => x >= (n1 - n3)/n2
+     *
+     */    
+    bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+        return false;
+    }
+
+    
     /*
      * TODO
      *
