@@ -466,7 +466,9 @@ namespace polysat {
         pdd const& q,
         fi_record& fi) {
         _last_function = __func__;
-        if (a1.is_one() && b1.is_val() && c.is_negative()) {
+        SASSERT(b1.is_val());
+        if (a1.is_one() && c.is_negative()) {
+            // v - k > q
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
             rational lo_val = (-b1).val();
@@ -477,7 +479,8 @@ namespace polysat {
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
             return true;
         }
-        if (a1.is_odd() && b1.is_val() && c.is_negative()) {
+        if (a1.is_odd() && c.is_negative()) {
+            // a*v - k > q, a odd
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
             rational a1_inv;
@@ -509,7 +512,9 @@ namespace polysat {
         rational const& a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
-        if (a2.is_one() && b2.is_val() && c.is_negative()) {
+        SASSERT(b2.is_val());
+        if (a2.is_one() && c.is_negative()) {
+            // p > v + k
             auto& m = e2.manager();
             rational const& mod_value = m.two_to_N();
             rational hi_val = (-b2).val();
@@ -520,7 +525,8 @@ namespace polysat {
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
             return true;
         }
-        if (a2.is_odd() && b2.is_val() && c.is_negative()) {
+        if (a2.is_odd() && c.is_negative()) {
+            // p > a*v + k, a odd
             auto& m = e2.manager();
             rational const& mod_value = m.two_to_N();
             rational a2_inv;
