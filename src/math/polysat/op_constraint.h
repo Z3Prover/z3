@@ -35,7 +35,7 @@ namespace polysat {
         pdd m_q;
         pdd m_r;
 
-        op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r);
+        op_constraint(code c, pdd const& p, pdd const& q, pdd const& r);
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
         clause_ref produce_lemma(solver& s, assignment const& a);
 

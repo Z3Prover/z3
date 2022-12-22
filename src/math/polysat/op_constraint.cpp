@@ -25,8 +25,8 @@ Additional possible functionality on constraints:
 
 namespace polysat {
 
-    op_constraint::op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r) :
-        constraint(m, ckind_t::op_t), m_op(c), m_p(p), m_q(q), m_r(r) {
+    op_constraint::op_constraint(code c, pdd const& p, pdd const& q, pdd const& r) :
+        constraint(ckind_t::op_t), m_op(c), m_p(p), m_q(q), m_r(r) {
         m_vars.append(p.free_vars());
         for (auto v : q.free_vars())
             if (!m_vars.contains(v))

@@ -15,8 +15,8 @@ Author:
 
 namespace polysat {
 
-    umul_ovfl_constraint::umul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q):
-        constraint(m, ckind_t::umul_ovfl_t), m_p(p), m_q(q) {
+    umul_ovfl_constraint::umul_ovfl_constraint(pdd const& p, pdd const& q):
+        constraint(ckind_t::umul_ovfl_t), m_p(p), m_q(q) {
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())

@@ -231,7 +231,7 @@ namespace polysat {
     }
 
     /** Look up constraint among stored constraints. */
-    constraint* constraint_manager::dedup(constraint* c1) {
+    constraint* constraint_manager::dedup_store(constraint* c1) {
         constraint* c2 = nullptr;
         if (m_dedup.constraints.find(c1, c2)) {
             dealloc(c1);
@@ -244,6 +244,15 @@ namespace polysat {
             store(c1);
             return c1;
         }
+    }
+
+    /** Find stored constraint */
+    constraint* constraint_manager::dedup_find(constraint* c1) const {
+        constraint* c = nullptr;
+        if (!m_dedup.constraints.find(c1, c)) {
+            SASSERT(c == nullptr);
+        }
+        return c;
     }
 
     void constraint_manager::gc() {
@@ -294,7 +303,7 @@ namespace polysat {
         pdd lhs = a;
         pdd rhs = b;
         ule_constraint::simplify(is_positive, lhs, rhs);
-        return { dedup(alloc(ule_constraint, *this, lhs, rhs)), is_positive };
+        return { dedup_store(alloc(ule_constraint, lhs, rhs)), is_positive };
     }
 
     signed_constraint constraint_manager::eq(pdd const& p) {
@@ -305,9 +314,17 @@ namespace polysat {
         return ~ule(b, a);
     }
 
-    signed_constraint constraint_manager::find_eq(pdd const& p) /* const */ {
-        // TODO: implement as lookup rather than allocating/deduping constraint
-        return eq(p);
+    signed_constraint constraint_manager::find_eq(pdd const& p) const {
+        return find_ule(p, p.manager().zero());
+    }
+
+    signed_constraint constraint_manager::find_ule(pdd const& a, pdd const& b) const {
+        bool is_positive = true;
+        pdd lhs = a;
+        pdd rhs = b;
+        ule_constraint::simplify(is_positive, lhs, rhs);
+        ule_constraint tmp(lhs, rhs);  // TODO: this still allocates ule_constraint::m_vars
+        return { dedup_find(&tmp), is_positive };
     }
 
     /**
@@ -322,19 +339,19 @@ namespace polysat {
     }
 
     signed_constraint constraint_manager::umul_ovfl(pdd const& a, pdd const& b) {
-        return { dedup(alloc(umul_ovfl_constraint, *this, a, b)), true };
+        return { dedup_store(alloc(umul_ovfl_constraint, a, b)), true };
     }
 
     signed_constraint constraint_manager::smul_ovfl(pdd const& a, pdd const& b) {
-        return { dedup(alloc(smul_fl_constraint, *this, a, b, true)), true };
+        return { dedup_store(alloc(smul_fl_constraint, a, b, true)), true };
     }
 
     signed_constraint constraint_manager::smul_udfl(pdd const& a, pdd const& b) {
-        return { dedup(alloc(smul_fl_constraint, *this, a, b, false)), true };
+        return { dedup_store(alloc(smul_fl_constraint, a, b, false)), true };
     }
 
     signed_constraint constraint_manager::mk_op_constraint(op_constraint::code op, pdd const& p, pdd const& q, pdd const& r) {
-        return { dedup(alloc(op_constraint, *this, op, p, q, r)), true };
+        return { dedup_store(alloc(op_constraint, op, p, q, r)), true };
     }
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
@@ -410,6 +427,8 @@ namespace polysat {
         //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
         //      b ≠ 0  ==>  r < b
         //      b = 0  ==>  q = -1
+        // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
+        //       Maybe we need something like an op_constraint for better propagation.
         s.add_clause(eq(b * q + r - a), false);
         s.add_clause(~umul_ovfl(b, q), false);
         // r <= b*q+r

@@ -135,8 +135,8 @@ namespace {
 
 namespace polysat {
 
-    ule_constraint::ule_constraint(constraint_manager& m, pdd const& l, pdd const& r) :
-        constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
+    ule_constraint::ule_constraint(pdd const& l, pdd const& r) :
+        constraint(ckind_t::ule_t), m_lhs(l), m_rhs(r) {
 
         m_vars.append(m_lhs.free_vars());
         for (auto v : m_rhs.free_vars())

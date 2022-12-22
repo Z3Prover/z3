@@ -25,7 +25,7 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
 
-        ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
+        ule_constraint(pdd const& l, pdd const& r);
         static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
         static bool is_always_true(bool is_positive, pdd const& lhs, pdd const& rhs) { return eval(lhs, rhs) == to_lbool(is_positive); }
         static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) { return is_always_true(!is_positive, lhs, rhs); }

@@ -15,8 +15,8 @@ Author:
 
 namespace polysat {
 
-    smul_fl_constraint::smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow):
-        constraint(m, ckind_t::smul_fl_t), m_is_overflow(is_overflow), m_p(p), m_q(q) {
+    smul_fl_constraint::smul_fl_constraint(pdd const& p, pdd const& q, bool is_overflow):
+        constraint(ckind_t::smul_fl_t), m_is_overflow(is_overflow), m_p(p), m_q(q) {
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())

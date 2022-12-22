@@ -50,7 +50,7 @@ namespace polysat {
         /** The boolean variable associated to this constraint */
         sat::bool_var       m_bvar = sat::null_bool_var;
 
-        constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
+        constraint(ckind_t k): m_kind(k) {}
 
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
 

@@ -25,7 +25,7 @@ namespace polysat {
         pdd  m_q;
 
         void simplify();
-        smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
+        smul_fl_constraint(pdd const& p, pdd const& q, bool is_overflow);
 
     public:
         ~smul_fl_constraint() override {}

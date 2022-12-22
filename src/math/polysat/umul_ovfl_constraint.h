@@ -23,7 +23,7 @@ namespace polysat {
         pdd m_p;
         pdd m_q;
 
-        umul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
+        umul_ovfl_constraint(pdd const& p, pdd const& q);
         void simplify();
         static bool is_always_true(bool is_positive, pdd const& p, pdd const& q) { return eval(p, q) == to_lbool(is_positive); }
         static bool is_always_false(bool is_positive, pdd const& p, pdd const& q) { return is_always_true(!is_positive, p, q); }

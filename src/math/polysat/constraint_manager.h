@@ -67,9 +67,9 @@ namespace polysat {
         constraint* get_bv2c(sat::bool_var bv) const;
 
         void store(constraint* c);
-        void erase(constraint* c);
 
-        constraint* dedup(constraint* c);
+        constraint* dedup_store(constraint* c);
+        constraint* dedup_find(constraint* c) const;
 
         void gc_constraints();
         void gc_clauses();
@@ -103,7 +103,8 @@ namespace polysat {
         signed_constraint lookup(sat::literal lit) const;
 
         /** Find constraint p == 0; returns null if it doesn't exist yet */
-        signed_constraint find_eq(pdd const& p) /* const */;
+        signed_constraint find_eq(pdd const& p) const;
+        signed_constraint find_ule(pdd const& a, pdd const& b) const;
 
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
