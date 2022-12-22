@@ -387,10 +387,10 @@ namespace polysat {
 
     /**
      * a*v <= 0, a odd
-     * forbidden interval for v is [1,0[
+     * forbidden interval for v is [1;0[
      *
      * a*v + b <= 0, a odd
-     * forbidden interval for v is [n+1,n[ where n = -b * a^-1
+     * forbidden interval for v is [n+1;n[ where n = -b * a^-1
      *
      * TODO: extend to
      * 2^k*a*v <= 0, a odd
@@ -408,7 +408,7 @@ namespace polysat {
             rational a1_inv;
             VERIFY(a1.mult_inverse(m.power_of_2(), a1_inv));
 
-            // interval for a*v + b > 0 is [n,n+1[ where n = -b * a^-1
+            // interval for a*v + b > 0 is [n;n+1[ where n = -b * a^-1
             rational lo_val = mod(-b1.val() * a1_inv, mod_value);
             pdd lo          = -e1 * a1_inv;
             rational hi_val = mod(lo_val + 1, mod_value);
@@ -431,6 +431,8 @@ namespace polysat {
     }
 
     /**
+     * -1 <= a*v + b, a odd
+     * forbidden interval for v is [n+1;n[ where n = (-b-1) * a^-1
      */
     bool forbidden_intervals::match_max(
         signed_constraint const& c,
@@ -438,7 +440,31 @@ namespace polysat {
         rational const & a2, pdd const& b2, pdd const& e2,
         fi_record& fi) {
         _last_function = __func__;
-        // TODO: analogous to match_zero but for the equation -1 <= a*v + b, a odd
+        if (a1.is_zero() && b1.is_max() && a2.is_odd()) {
+            auto& m = e2.manager();
+            rational const& mod_value = m.two_to_N();
+            rational a2_inv;
+            VERIFY(a2.mult_inverse(m.power_of_2(), a2_inv));
+
+            // interval for -1 > a*v + b is [n;n+1[ where n = (-b-1) * a^-1
+            rational lo_val = mod((-1 - b2.val()) * a2_inv, mod_value);
+            pdd lo          = (-1 - e2) * a2_inv;
+            rational hi_val = mod(lo_val + 1, mod_value);
+            pdd hi          = lo + 1;
+
+            // interval for -1 <= a*v + b is the complement
+            if (c.is_positive()) {
+                std::swap(lo_val, hi_val);
+                std::swap(lo, hi);
+            }
+
+            fi.coeff = 1;
+            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            // LHS == -1 is a precondition because we can only multiply with a^-1 in equations, not inequalities
+            if (b1 != e1)
+                fi.side_cond.push_back(s.eq(b1, e1));
+            return true;
+        }
         return false;
     }
 
