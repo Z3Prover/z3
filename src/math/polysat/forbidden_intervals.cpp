@@ -460,20 +460,6 @@ namespace polysat {
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
             return true;
         }
-#if 0   // this case is subsumed by the next one, which even creates stronger intervals
-        if (a1.is_odd() && b1.is_zero() && c.is_negative()) {
-            auto& m = e1.manager();
-            rational lo_val(0);
-            auto lo = m.zero();
-            rational hi_val(1);
-            auto hi = m.one();
-            fi.coeff = 1;
-            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            if (b1 != e1)
-                fi.side_cond.push_back(s.eq(b1, e1));
-            return true;
-        }
-#endif
         if (a1.is_odd() && b1.is_val() && c.is_negative()) {
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
@@ -485,10 +471,6 @@ namespace polysat {
             auto hi = lo + 1;
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-#if 0  // side condition is not needed because we use e1 in the symbolic bounds
-            if (b1 != e1)
-                fi.side_cond.push_back(s.eq(b1, e1));
-#endif
             return true;
         }
         return false;
