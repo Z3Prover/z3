@@ -969,7 +969,7 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                lemma.insert_eval(~c);
+                lemma.insert_try_eval(~c);  // "try" because linking constraint may contain unassigned variables, see test_polysat::test_bench23_fi_lemma for an example.
             }
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);
@@ -980,7 +980,8 @@ namespace polysat {
         }
         while (e != first);
 
-        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
+        // Doesn't hold anymore: we may get new constraints with unassigned variables, see test_polysat::test_bench23_fi_lemma.
+        // SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
 
         // NSB review: bench23 exposes a scenario where s.m_bvars.value(lit) == l_true. So the viable lemma is mute, but the literal in the premise
         // is a conflict.
