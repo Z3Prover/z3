@@ -56,7 +56,6 @@ enum class LogLevel : int {
   Heading2 = 2,
   Heading3 = 3,
   Default = 4,
-  Verbose = 5,
 };
 
 /// Filter log messages
@@ -98,7 +97,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 #define LOG_H1_V(verbose_lvl, x) LOG_INDENT(verbose_lvl, LogLevel::Heading1, x)
 #define LOG_H2_V(verbose_lvl, x) LOG_INDENT(verbose_lvl, LogLevel::Heading2, x)
 #define LOG_H3_V(verbose_lvl, x) LOG_INDENT(verbose_lvl, LogLevel::Heading3, x)
-#define LOG_V(verbose_lvl, x)    LOG_(verbose_lvl, LogLevel::Verbose , x)
+#define LOG_V(verbose_lvl, x)    LOG_(verbose_lvl, LogLevel::Default , x)
 
 #define COND_LOG(c, x) if (c) LOG(x)
 #define LOGE(x)   LOG(#x << " = " << (x))
