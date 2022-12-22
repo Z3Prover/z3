@@ -630,6 +630,47 @@ namespace polysat {
             SASSERT(cl->size() == 2);
         }
 
+        // p <= q
+        // p == q   (should be removed)
+        static void test_clause_simplify2() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto u = s.var(s.add_var(32));
+            auto v = s.var(s.add_var(32));
+            auto w = s.var(s.add_var(32));
+            auto p = 2*u*v;
+            auto q = 7*v*w;
+            cb.insert(s.ule(p, q));
+            cb.insert(s.eq(p, q));
+            auto cl = cb.build();
+            simp.apply(*cl);
+            std::cout << *cl << "\n";
+            SASSERT_EQ(cl->size(), 1);
+            SASSERT_EQ((*cl)[0], s.ule(p, q).blit());
+        }
+
+        // p < q
+        // p == q
+        // should be merged into p <= q
+        static void test_clause_simplify3() {
+            scoped_solver s(__func__);
+            simplify_clause simp(s);
+            clause_builder cb(s);
+            auto u = s.var(s.add_var(32));
+            auto v = s.var(s.add_var(32));
+            auto w = s.var(s.add_var(32));
+            auto p = 2*u*v;
+            auto q = 7*v*w;
+            cb.insert(s.ult(p, q));
+            cb.insert(s.eq(p, q));
+            auto cl = cb.build();
+            simp.apply(*cl);
+            std::cout << *cl << "\n";
+            SASSERT_EQ(cl->size(), 1);
+            SASSERT_EQ((*cl)[0], s.ule(p, q).blit());
+        }
+
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
         static void test_parity1() {
             scoped_solver s(__func__);
@@ -1917,6 +1958,8 @@ void tst_polysat() {
     test_max_conflicts = 50;
     // test_polysat::test_bench27_viable1();   // TODO: refinement
     // test_polysat::test_bench27_viable2();   // TODO: refinement
+    test_polysat::test_band5();  // TODO: assertion
+    // test_polysat::test_fixed_point_arith_div_mul_inverse();  // TODO: assertion
     return;
 #endif
 
@@ -1949,6 +1992,8 @@ void tst_polysat() {
     RUN(test_polysat::test_parity4());
 
     RUN(test_polysat::test_clause_simplify1());
+    RUN(test_polysat::test_clause_simplify2());
+    RUN(test_polysat::test_clause_simplify3());
 
     RUN(test_polysat::test_add_conflicts());
     RUN(test_polysat::test_wlist());

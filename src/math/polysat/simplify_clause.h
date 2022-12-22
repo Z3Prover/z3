@@ -29,6 +29,7 @@ namespace polysat {
         solver& s;
         vector<subs_entry> m_entries;
 
+        bool try_remove_equations(clause& cl);
         bool try_recognize_bailout(clause& cl);
         bool try_equal_body_subsumptions(clause& cl);
 

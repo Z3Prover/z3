@@ -11,21 +11,6 @@ Author:
 
 Notes:
 
-    TODO: inspired from bench23, trying to strength weak FI lemma.
-
-        If we have both:
-            p <= q
-            p - q == 0
-
-        Then remove the equality.
-
-        If we have both:
-            p < q
-            p - q == 0
-
-        Then merge into p <= q.
-
-
     TODO: from test_ineq_basic5:    (mod 2^4)
         Lemma: -0 \/ -1 \/ 2 \/ 3
            -0: -4 > v1 + v0         [ bvalue=l_false @0 pwatched=1  ]
@@ -93,6 +78,8 @@ namespace polysat {
     bool simplify_clause::apply(clause& cl) {
         LOG_H1("Simplifying clause: " << cl);
         bool simplified = false;
+        if (try_remove_equations(cl))
+            simplified = true;
 #if 0
         if (try_recognize_bailout(cl))
             simplified = true;
@@ -100,6 +87,63 @@ namespace polysat {
         if (try_equal_body_subsumptions(cl))
             simplified = true;
         return simplified;
+    }
+
+    /**
+     *  If we have:
+     *      p <= q
+     *      p - q == 0
+     *  Then remove the equality.
+     *
+     *  If we have:
+     *      p < q
+     *      p - q == 0
+     *  Then merge into p <= q.
+     */
+    bool simplify_clause::try_remove_equations(clause& cl) {
+        LOG_H2("Try removing equations");
+        sat::literal_set eqns;
+        for (sat::literal lit : cl)
+            if (s.lit2cnstr(lit).is_eq())
+                eqns.insert(lit);
+        sat::literal_set to_remove;
+        for (unsigned i = cl.size(); i-- > 0; ) {
+            sat::literal const lit = cl[i];
+            signed_constraint const c = s.lit2cnstr(lit);
+            if (!c->is_ule())
+                continue;
+            if (c->is_eq())
+                continue;
+            LOG_V(10, "Examine: " << lit_pp(s, lit));
+            pdd const p = c->to_ule().lhs();
+            pdd const q = c->to_ule().rhs();
+            signed_constraint const eq = s.m_constraints.find_eq(p - q);
+            if (!eq)
+                continue;
+            if (!eqns.contains(eq.blit()))
+                continue;
+            to_remove.insert(eq.blit());
+            if (c.is_positive()) {
+                // c:  p <= q
+                // eq: p == q
+                LOG("Removing " << eq.blit() << ": " << eq << " because it subsumes " << cl[i] << ": " << s.lit2cnstr(cl[i]));
+            }
+            else {
+                // c:  p > q
+                // eq: p == q
+                cl[i] = s.ule(q, p).blit();
+                LOG("Merge " << eq.blit() << ": " << eq << " and " << lit << ": " << c << " to obtain " << cl[i] << ": " << s.lit2cnstr(cl[i]));
+            }
+        }
+        // Remove superfluous equations
+        if (to_remove.empty())
+            return false;
+        unsigned j = 0;
+        for (unsigned i = 0; i < cl.size(); ++i)
+            if (!to_remove.contains(cl[i]))
+                cl[j++] = cl[i];
+        cl.m_literals.shrink(j);
+        return true;
     }
 
     // If x != k appears among the new literals, all others are superfluous.

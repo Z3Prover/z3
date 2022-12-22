@@ -305,6 +305,11 @@ namespace polysat {
         return ~ule(b, a);
     }
 
+    signed_constraint constraint_manager::find_eq(pdd const& p) /* const */ {
+        // TODO: implement as lookup rather than allocating/deduping constraint
+        return eq(p);
+    }
+
     /**
     * encode that the i'th bit of p is 1.
     * It holds if p << (K - i - 1) >= 2^{K-1}, where K is the bit-width.

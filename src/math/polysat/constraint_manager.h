@@ -102,6 +102,9 @@ namespace polysat {
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;
 
+        /** Find constraint p == 0; returns null if it doesn't exist yet */
+        signed_constraint find_eq(pdd const& p) /* const */;
+
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
         signed_constraint ult(pdd const& a, pdd const& b);
