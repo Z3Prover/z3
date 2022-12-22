@@ -56,7 +56,7 @@ namespace polysat {
 
     /** Add constraint to per-level storage */
     void constraint_manager::store(constraint* c) {
-        LOG_V("Store constraint: " << show_deref(c));
+        LOG_V(20, "Store constraint: " << show_deref(c));
         m_constraints.push_back(c);
     }
 

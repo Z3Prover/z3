@@ -397,7 +397,7 @@ namespace polysat {
 
     void solver::add_pwatch(constraint* c, pvar v) {
         SASSERT(m_locked_wlist != v);  // the propagate loop will not discover the new size
-        LOG_V("Watching v" << v << " in constraint " << show_deref(c));
+        LOG_V(20, "Watching v" << v << " in constraint " << show_deref(c));
         m_pwatch[v].push_back(c);
     }
 
@@ -498,7 +498,7 @@ namespace polysat {
             }
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
-                LOG_V("Undo assign_i: v" << v);
+                LOG_V(20, "Undo assign_i: v" << v);
                 unsigned active_level = get_level(v);
 
                 if (active_level <= target_level) {
@@ -514,7 +514,7 @@ namespace polysat {
             }
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
-                LOG_V("Undo assign_bool_i: " << lit);
+                LOG_V(20, "Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
                 if (active_level <= target_level)
@@ -944,7 +944,6 @@ namespace polysat {
         clause* best_lemma = nullptr;
 
         auto appraise_lemma = [&](clause* lemma) {
-            m_simplify_clause.apply(*lemma);
             auto score = compute_lemma_score(*lemma);
             if (score)
                 LOG("    score: "  << *score);

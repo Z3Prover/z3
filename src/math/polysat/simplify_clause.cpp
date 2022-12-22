@@ -94,7 +94,7 @@ namespace polysat {
         sat::literal eq = sat::null_literal;
         rational k;
         for (sat::literal lit : cl) {
-            LOG_V("Examine " << lit_pp(s, lit));
+            LOG_V(10, "Examine " << lit_pp(s, lit));
             lbool status = s.m_bvars.value(lit);
             // skip premise literals
             if (status == l_false)
@@ -237,7 +237,7 @@ namespace polysat {
         for (unsigned i = 0; i < cl.size(); ++i) {
             subs_entry& entry = m_entries[i];
             sat::literal lit = cl[i];
-            LOG("Literal " << lit_pp(s, lit));
+            LOG_V(10, "Literal " << lit_pp(s, lit));
             signed_constraint c = s.lit2cnstr(lit);
             prepare_subs_entry(entry, c);
         }
@@ -254,7 +254,7 @@ namespace polysat {
                     continue;
                 if (e.interval.currently_contains(f.interval)) {
                     // f subset of e  ==>  f.src subsumed by e.src
-                    LOG("Removing " << s.lit2cnstr(cl[i]) << " because it subsumes " << s.lit2cnstr(cl[j]));
+                    LOG("Removing " << cl[i] << ": " << s.lit2cnstr(cl[i]) << " because it subsumes " << cl[j] << ": " << s.lit2cnstr(cl[j]));
                     e.subsuming = true;
                     any_subsumed = true;
                     break;
