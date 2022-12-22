@@ -185,6 +185,11 @@ namespace polysat {
         if (match_zero(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
 
+        // -1 <= a*v + b, a odd
+        // -1 > a*v + b, a odd
+        if (match_max(c, a1, b1, e1, a2, b2, e2, fi))
+            return true;
+
         if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
         if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi))
@@ -422,6 +427,18 @@ namespace polysat {
                 fi.side_cond.push_back(s.eq(b2, e2));
             return true;
         }
+        return false;
+    }
+
+    /**
+     */
+    bool forbidden_intervals::match_max(
+        signed_constraint const& c,
+        rational const & a1, pdd const& b1, pdd const& e1,
+        rational const & a2, pdd const& b2, pdd const& e2,
+        fi_record& fi) {
+        _last_function = __func__;
+        // TODO: analogous to match_zero but for the equation -1 <= a*v + b, a odd
         return false;
     }
 
