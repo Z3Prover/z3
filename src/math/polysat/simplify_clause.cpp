@@ -115,6 +115,14 @@ namespace polysat {
                 continue;
             if (c->is_eq())
                 continue;
+#if 1
+            // Disable the case p<q && p=q for now.
+            // The merging of less-than and equality may remove premises from the lemma.
+            // See test_band5.
+            // TODO: fix and re-enable
+            if (c.is_negative())
+                continue;
+#endif
             LOG_V(10, "Examine: " << lit_pp(s, lit));
             pdd const p = c->to_ule().lhs();
             pdd const q = c->to_ule().rhs();
