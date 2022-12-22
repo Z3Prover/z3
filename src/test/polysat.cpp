@@ -1751,6 +1751,29 @@ namespace polysat {
             s.expect_sat({{a, 5}});
         }
 
+        /**
+         * Motivated by weak forbidden intervals lemma in bench23:
+         *      v66 > v41  &&  v67 == v66  ==>  v67 != 0
+         *
+         * Cause by omitting v41 from the symbolic bounds of v66 > v41.
+         *
+         * The stronger lemma should be:
+         *      v66 > v41  &&  v67 == v66  ==>  v41 + 1 <= v67
+         *
+         * The conclusion could also be v67 > v41 (note that -1 > v41 follows from premise v66 > v41, so both conclusions are equivalent in this lemma).
+         */
+        static void test_bench23_fi_lemma() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(256));  // v41
+            auto y = s.var(s.add_var(256));  // v66
+            auto z = s.var(s.add_var(256));  // v67
+            s.add_ult(x, y);  // v66 > v41
+            s.add_eq(y, z);   // v66 == v67
+            s.add_eq(z, 0);   // v67 == 0
+            s.check();
+            s.expect_unsat();
+        }
+
         static void test_bench6_viable() {
             scoped_solver s(__func__);
             rational coeff("12737129816104781496592808350955669863859698313220462044340334240870444260393");
@@ -1994,6 +2017,7 @@ void tst_polysat() {
     RUN(test_polysat::test_clause_simplify1());
     RUN(test_polysat::test_clause_simplify2());
     RUN(test_polysat::test_clause_simplify3());
+    RUN(test_polysat::test_bench23_fi_lemma());
 
     RUN(test_polysat::test_add_conflicts());
     RUN(test_polysat::test_wlist());
