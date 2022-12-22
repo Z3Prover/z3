@@ -425,21 +425,42 @@ namespace polysat {
         return false;
     }
 
-    /** 
+    /**
      * v > q
      * forbidden interval for v is [0,1[
-     * 
+     *
      * v - k > q
      * forbidden interval for v is [k,k+1[
-     * 
+     *
+     * v > q
+     * forbidden interval for v is [0;q+1[ but at least [0;1[
+     *
+     * The following cases are implemented, and subsume the simple ones above.
+     *
+     * v - k > q
+     * forbidden interval for v is [k;k+q+1[ but at least [k;k+1[
+     *
      * a*v - k > q, a odd
      * forbidden interval for v is [a^-1*k, a^-1*k + 1[
      */
     bool forbidden_intervals::match_non_zero(
         signed_constraint const& c,
-        rational const & a1, pdd const& b1, pdd const& e1,
+        rational const& a1, pdd const& b1, pdd const& e1,
+        pdd const& q,
         fi_record& fi) {
         _last_function = __func__;
+        if (a1.is_one() && b1.is_val() && c.is_negative()) {
+            auto& m = e1.manager();
+            rational const& mod_value = m.two_to_N();
+            rational lo_val = (-b1).val();
+            pdd lo = -e1;
+            rational hi_val = mod(lo_val + 1, mod_value);
+            pdd hi = lo + q + 1;
+            fi.coeff = 1;
+            fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            return true;
+        }
+#if 0   // this case is subsumed by the next one, which even creates stronger intervals
         if (a1.is_odd() && b1.is_zero() && c.is_negative()) {
             auto& m = e1.manager();
             rational lo_val(0);
@@ -452,6 +473,7 @@ namespace polysat {
                 fi.side_cond.push_back(s.eq(b1, e1));
             return true;
         }
+#endif
         if (a1.is_odd() && b1.is_val() && c.is_negative()) {
             auto& m = e1.manager();
             rational const& mod_value = m.two_to_N();
@@ -463,8 +485,10 @@ namespace polysat {
             auto hi = lo + 1;
             fi.coeff = 1;
             fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+#if 0  // side condition is not needed because we use e1 in the symbolic bounds
             if (b1 != e1)
                 fi.side_cond.push_back(s.eq(b1, e1));
+#endif
             return true;
         }
         return false;
