@@ -74,6 +74,8 @@ namespace polysat {
             prop = true;
         if (try_factor_equality(v, core, i))
             prop = true;
+        if (try_infer_equality(v, core, i))
+            prop = true;
         if (false && try_add_overflow_bound(v, core, i))
             prop = true;
         if (try_mul_eq_bound(v, core, i))
@@ -842,6 +844,8 @@ namespace polysat {
             return false;
         if (a.is_one())
             return false;
+        if (a.is_val() && b.is_zero())
+            return false;
 
         auto propagate1 = [&](signed_constraint premise, signed_constraint conseq) {
             if (is_forced_false(premise))
@@ -872,11 +876,18 @@ namespace polysat {
         SASSERT(min_x <= max_x && max_x <= N);
         SASSERT(min_a <= max_a && max_a <= N);
         SASSERT(min_b <= max_b && max_b <= N);
-        if (min_x >= N || min_a >= N || min_b >= N)
+
+        IF_VERBOSE(2, 
+                   verbose_stream() << "try parity v" << x << " " << axb_l_y << "\n";
+                   verbose_stream() << X << " " << min_x << " " << max_x << "\n";
+                   verbose_stream() << a << " " << min_a << " " << max_a << "\n";
+                   verbose_stream() << b << " " << min_b << " " << max_b << "\n");                    
+
+        if (min_x >= N || min_a >= N)
             return false;
 
         auto at_most = [&](pdd const& p, unsigned k) {
-            SASSERT(k != N);
+            VERIFY(k != N);
             return ~s.parity(p, k + 1);
         };
 
@@ -885,12 +896,7 @@ namespace polysat {
             return s.parity(p, k);
         };
 
-        IF_VERBOSE(2, 
-                   verbose_stream() << "try parity v" << x << " " << axb_l_y << "\n";
-                   verbose_stream() << X << " " << min_x << " " << max_x << "\n";
-                   verbose_stream() << a << " " << min_a << " " << max_a << "\n";
-                   verbose_stream() << b << " " << min_b << " " << max_b << "\n");                    
-
+ 
         if (!b.is_val() && max_b > max_a + max_x && propagate2(at_most(a, max_a), at_most(X, max_x), at_most(b, max_x + max_a)))
             return true;
         if (!b.is_val() && min_x > min_b && propagate1(at_least(X, min_x), at_least(b, min_x)))
@@ -903,9 +909,9 @@ namespace polysat {
             return true;
         if (max_a <= min_b && min_x < min_b - max_a && propagate2(at_most(a, max_a), at_least(b, min_b), at_least(X, min_b - max_a)))
             return true;
-        if (!a.is_val() && min_x > 0 && min_x <= max_b && max_a > max_b - min_x && propagate2(at_least(X, min_x), at_most(b, max_b), at_most(a, max_b - min_x)))
+        if (max_b < N && !a.is_val() && min_x > 0 && min_x <= max_b && max_a > max_b - min_x && propagate2(at_least(X, min_x), at_most(b, max_b), at_most(a, max_b - min_x)))
             return true;
-        if (min_a > 0 && min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, max_b), at_most(X, max_b - min_a)))
+        if (max_b < N && min_a > 0 && min_a <= max_b && max_x > max_b - min_a && propagate2(at_least(a, min_a), at_most(b, max_b), at_most(X, max_b - min_a)))
             return true;
 
         return false;        
@@ -1010,6 +1016,32 @@ namespace polysat {
     }
 
     /**
+     * p <= q, q <= p => p - q = 0
+     */
+    bool saturation::try_infer_equality(pvar x, conflict& core, inequality const& a_l_b) {
+        set_rule("[x] p <= q, q <= p => p - q = 0");
+        if (a_l_b.is_strict())
+            return false;
+        if (a_l_b.lhs().degree(x) == 0 && a_l_b.rhs().degree(x) == 0)
+            return false;
+        for (auto c : core) {
+            if (!c->is_ule())
+                continue;
+            auto i = inequality::from_ule(c);
+            if (i.lhs() == a_l_b.rhs() && i.rhs() == a_l_b.lhs() && !i.is_strict()) {
+                m_lemma.reset();
+                m_lemma.insert(~c);
+                if (propagate(x, core, a_l_b, s.eq(i.lhs() - i.rhs()))) {
+                    verbose_stream() << "infer equality " << s.eq(i.lhs() - i.rhs()) << "\n";
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    /**
      *  [x] ax + p <= q, ax + r = 0 => -r + p <= q
      *  [x] p <= ax + q, ax + r = 0 => p <= -r + q
      *  generalizations
@@ -1112,8 +1144,9 @@ namespace polysat {
         SASSERT(bound != 0);
         m_lemma.reset();
         if (!axb_l_y.is_strict())
-            m_lemma.insert_eval(y_eq_0);
+            m_lemma.insert_eval(y_eq_0);        
         m_lemma.insert_eval(~x_ge_bound);
+        verbose_stream() << "ADD overflow bound " << axb_l_y << "\n";            
         return propagate(x, core, axb_l_y, s.uge(y, m.two_to_N() - bound));
     }
 
@@ -1185,7 +1218,6 @@ namespace polysat {
         for (auto const& c : core) {
             if (!c->is_ule())
                 continue;
-#if 1
             auto i = inequality::from_ule(c);
             if (!is_Y_l_x(x, i, y))
                 continue;
@@ -1200,7 +1232,6 @@ namespace polysat {
                 continue;
             x_ge_bound = c;
             return true;
-#endif
         }
         return false;
     }
@@ -1218,6 +1249,7 @@ namespace polysat {
      *
      */    
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+        set_rule("[x] ax + b <= n1, x >= n2, b >= n2, b <= n1, b <= ax => a <= (n1 - n3)/n2");
         return false;
     }
 
