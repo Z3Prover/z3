@@ -1133,13 +1133,13 @@ namespace polysat {
     }
 
     /**
-     *  x <= x + y & x <= n => y = 0 or y >= N - n
-     *  x <  x + y & x <= n => y >= N - n
-     * -x >= -x - y & x <= n => y = 0 or y >= N - n
-     * -x > -x - y & x <= n => y >= N - n
+     *  x >= x + y & x <= n => y = 0 or y >= N - n
+     *  x >  x + y & x <= n => y >= N - n
+     * -x <= -x - y & x <= n => y = 0 or y >= N - n
+     * -x < -x - y & x <= n => y >= N - n
      */
     bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] x <= x + y & x <= n => y = 0 or y >= 2^N - n");
+        set_rule("[x] x >= x + y & x <= n => y = 0 or y >= 2^N - n");
         signed_constraint y_eq_0, x_ge_bound;
         auto& m = s.var2pdd(x);
         pdd y = m.zero();
@@ -1155,16 +1155,15 @@ namespace polysat {
         if (!axb_l_y.is_strict())
             m_lemma.insert_eval(y_eq_0);        
         m_lemma.insert_eval(~x_ge_bound);
-        verbose_stream() << "ADD overflow bound " << axb_l_y << "\n";            
         return propagate(x, core, axb_l_y, s.uge(y, m.two_to_N() - bound));
     }
 
     /**
      * Match one of the patterns:
-     * x <= x + y
-     * x < x + y
-     * -x >= -x - y
-     * -x > -x - y
+     * x >= x + y
+     * x > x + y
+     * -x <= -x - y
+     * -x < -x - y
      */
     bool saturation::is_add_overflow(pvar x, inequality const& i, pdd& y) {
         auto& m = s.var2pdd(x);        
@@ -1172,12 +1171,12 @@ namespace polysat {
         pdd a = X;
         if (i.lhs().degree(x) != 1 || i.rhs().degree(x) != 1)
             return false;
-        if (i.lhs() == X) {
-            i.rhs().factor(x, 1, a, y);
+        if (i.rhs() == X) {
+            i.lhs().factor(x, 1, a, y);
             if (a.is_one())
                 return true;
         }
-        if (i.rhs() == -X) {
+        if (i.lhs() == -X) {
             i.rhs().factor(x, 1, a, y);
             if ((-a).is_one()) {
                 y = -y;
@@ -1187,71 +1186,12 @@ namespace polysat {
         return false;
     }
 
-    /**
-     * Just search core for literal of the form x <= bound
-     * TODO
-     * - more general bounnds obtained from forbidden interval extraction: x + k1 <= x + k2
-     *   such that the forbidden interval includes -1.
-     *   - in other words, use viable set to probe for bounds instead of literals
-     * - not just core, but query over all assigned literals?
-     * - look for optimal bounds, not just the first?
-     * - General comment: integrate with indexing: only assigned literals containing x are useful.
-     *   - then index on patterns or features of literals?
-     */
     bool saturation::has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound) {
-
-        bool found = s.m_viable.has_upper_bound(x, bound, x_le_bound);
-        verbose_stream() << "found " << found << "\n";
-        
-        auto& m = s.var2pdd(x);        
-        pdd y = s.var(x);
-        for (auto const& c : core) {
-            if (!c->is_ule())
-                continue;
-            auto i = inequality::from_ule(c);
-            if (!is_x_l_Y(x, i, y))
-                continue;
-            if (!y.is_val())
-                continue;
-            bound = y.val();
-            if (i.is_strict() && bound == 0)
-                continue;                
-            if (i.is_strict())
-                bound = bound - 1;
-            if (bound == m.max_value())
-                continue;
-            x_le_bound = c;
-            return true;                
-        }
-        return false;
+        return s.m_viable.has_upper_bound(x, bound, x_le_bound);
     }
 
     bool saturation::has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound) {
-
-        bool found = s.m_viable.has_lower_bound(x, bound, x_ge_bound);
-        verbose_stream() << "found " << found << "\n";
-               
-        auto& m = s.var2pdd(x);        
-        pdd y = s.var(x);
-        for (auto const& c : core) {
-            if (!c->is_ule())
-                continue;
-            auto i = inequality::from_ule(c);
-            if (!is_Y_l_x(x, i, y))
-                continue;
-            if (!y.is_val())
-                continue;
-            bound = y.val();
-            if (i.is_strict() && bound == m.max_value())
-                continue;                
-            if (i.is_strict())
-                bound = bound + 1;
-            if (bound == 0)
-                continue;
-            x_ge_bound = c;
-            return true;
-        }
-        return false;
+        return s.m_viable.has_lower_bound(x, bound, x_ge_bound);
     }
 
     /*

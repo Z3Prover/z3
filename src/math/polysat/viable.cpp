@@ -643,40 +643,45 @@ namespace polysat {
         return query<query_t::max_viable>(v, hi);
     }
 
+    // TBD: generalize to multiple intervals?
+    // Multiple intervals could be used to constrain upper/lower bounds, not just the last one.
     bool viable::has_upper_bound(pvar v, rational& out_hi, signed_constraint& out_c) {
         entry const* first = m_units[v];
         entry const* e = first;
         do {
             if (!e->refined) {
-                verbose_stream() << "has-upper-bound " << e->src << " " << e->interval << "\n";
                 auto const& lo = e->interval.lo();
                 auto const& hi = e->interval.hi();
                 if (lo.is_val() && hi.is_val() && lo.val() > hi.val()) {
                     out_c = e->src;
                     out_hi = lo.val() - 1;
+                    // verbose_stream() << "Upper bound v" << v << " " << out_hi << " " << out_c << "\n";
                     return true;
                 }
             }
             e = e->next();
         }
         while (e != first);
-
         return false;
     }
 
-    bool viable::has_lower_bound(pvar v, rational& out_hi, signed_constraint& out_c) {
+    bool viable::has_lower_bound(pvar v, rational& out_lo, signed_constraint& out_c) {
         entry const* first = m_units[v];
         entry const* e = first;
         do {
             if (!e->refined) {
-                verbose_stream() << "has-upper-bound " << e->src << " " << e->interval << "\n";                
+                auto const& lo = e->interval.lo();
+                auto const& hi = e->interval.hi();
+                if (lo.is_val() && hi.is_val() && (lo.val() == 0 || lo.val() > hi.val())) {
+                    out_c = e->src;
+                    out_lo = hi.val();
+                    // verbose_stream() << "Lower bound " << v << " " << out_lo << " " << out_c << "\n";
+                    return true;
+                }
             }
             e = e->next();
         }
         while (e != first);
-
-        return false;
-
         return false;
     }
 
