@@ -675,7 +675,6 @@ namespace polysat {
         return !out_c.empty();
     }
 
-    // TBD: generalize to multiple intervals similar to upper bound
     bool viable::has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c) {
         entry const* first = m_units[v];
         entry const* e = first;
@@ -688,7 +687,7 @@ namespace polysat {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
-                        if (out_c.empty() && (lo.val() == 0 || lo.val() > hi.val())) {
+                        if (out_c.empty() && hi.val() != 0 && (lo.val() == 0 || lo.val() > hi.val())) {
                             out_c.push_back(e->src);
                             out_lo = hi.val();
                             found = true;

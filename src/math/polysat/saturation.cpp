@@ -54,11 +54,8 @@ namespace polysat {
             auto i = inequality::from_ule(c);
             return try_inequality(v, i, core);
         }
-
-#if 0
         if (c->is_umul_ovfl()) 
             return try_umul_ovfl(v, c, core);
-#endif
         return false;
     }
 
@@ -96,6 +93,24 @@ namespace polysat {
     }
 
     bool saturation::try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core) {
+#if 1
+        return false;
+#else
+        SASSERT(c->is_umul_ovfl());
+        bool prop = false;
+        if (c.is_positive()) {
+            prop = try_umul_ovfl_bounds(v, c, core);
+        }
+        else {
+            prop = try_umul_noovfl_bounds(v, c, core);
+            if (false && try_umul_noovfl_lo(v, c, core))
+                prop = true;
+        }
+        return prop;
+#endif
+    }
+
+    bool saturation::try_umul_noovfl_lo(pvar v, signed_constraint const& c, conflict& core) {
         set_rule("[x] ~ovfl(x, y) => y = 0 or x <= x * y");
         SASSERT(c->is_umul_ovfl());
         if (!c.is_negative())
@@ -117,6 +132,54 @@ namespace polysat {
         return false;
     }
 
+    /**
+     * ~ovfl(p, q) & p >= k => q < 2^N/k
+     */
+    bool saturation::try_umul_noovfl_bounds(pvar x, signed_constraint const& c, conflict& core) {
+        set_rule("[x] ~ovfl(x, q) & x >= k => q <= (2^N-1)/k");
+        SASSERT(c->is_umul_ovfl());
+        SASSERT(c.is_negative());
+        auto const& ovfl = c->to_umul_ovfl();        
+        auto p = ovfl.p(), q = ovfl.q();
+        auto X = s.var(x);
+        auto& m = p.manager();
+        rational p_val, q_val;
+        if (q == X) 
+            std::swap(p, q);
+        if (p == X) {
+            vector<signed_constraint> x_ge_bound;
+            if (!s.try_eval(q, q_val))
+                return false;
+            if (!has_lower_bound(x, core, p_val, x_ge_bound))
+                return false;
+            if (p_val * q_val <= m.max_value())
+                return false;
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.uge(X, p_val));
+            signed_constraint conseq = s.ule(q, floor(m.max_value()/p_val));
+            return propagate(x, core, c, conseq);
+        }
+        if (!s.try_eval(p, p_val) || !s.try_eval(q, q_val))
+            return false;
+        if (p_val * q_val <= m.max_value())
+            return false;
+        m_lemma.reset();
+        m_lemma.insert_eval(~s.uge(q, q_val));
+        signed_constraint conseq = s.ule(p, floor(m.max_value()/q_val));
+        return propagate(x, core, c, conseq);
+    }
+
+   /**
+    * ovfl(p, q) & p <= k => q > 2^N/k
+    */
+    bool saturation::try_umul_ovfl_bounds(pvar v, signed_constraint const& c, conflict& core) {
+        SASSERT(c->is_umul_ovfl());
+        SASSERT(c.is_positive());
+        auto const& ovfl = c->to_umul_ovfl();
+        auto p = ovfl.p(), q = ovfl.q();
+        rational p_val, q_val;
+        return false;
+    }
 
     signed_constraint saturation::ineq(bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
@@ -1313,10 +1376,12 @@ namespace polysat {
                 }
                 // verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
             }
+#if 0
             if (has_lower_bound(x, core, x_bound, x_le_bound) && !x_le_bound.contains(a_l_b.as_signed_constraint())) {
                 
                 // verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
             }
+#endif
         }
         if (is_Y_l_AxB(x, a_l_b, y, a, b) && y.is_val() && s.try_eval(b, b_val)) {
             // verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
