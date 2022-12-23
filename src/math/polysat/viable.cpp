@@ -643,6 +643,43 @@ namespace polysat {
         return query<query_t::max_viable>(v, hi);
     }
 
+    bool viable::has_upper_bound(pvar v, rational& out_hi, signed_constraint& out_c) {
+        entry const* first = m_units[v];
+        entry const* e = first;
+        do {
+            if (!e->refined) {
+                verbose_stream() << "has-upper-bound " << e->src << " " << e->interval << "\n";
+                auto const& lo = e->interval.lo();
+                auto const& hi = e->interval.hi();
+                if (lo.is_val() && hi.is_val() && lo.val() > hi.val()) {
+                    out_c = e->src;
+                    out_hi = lo.val() - 1;
+                    return true;
+                }
+            }
+            e = e->next();
+        }
+        while (e != first);
+
+        return false;
+    }
+
+    bool viable::has_lower_bound(pvar v, rational& out_hi, signed_constraint& out_c) {
+        entry const* first = m_units[v];
+        entry const* e = first;
+        do {
+            if (!e->refined) {
+                verbose_stream() << "has-upper-bound " << e->src << " " << e->interval << "\n";                
+            }
+            e = e->next();
+        }
+        while (e != first);
+
+        return false;
+
+        return false;
+    }
+
     template <query_t mode>
     lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
         // max number of interval refinements before falling back to the univariate solver

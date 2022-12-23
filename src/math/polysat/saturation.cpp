@@ -1199,6 +1199,10 @@ namespace polysat {
      *   - then index on patterns or features of literals?
      */
     bool saturation::has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound) {
+
+        bool found = s.m_viable.has_upper_bound(x, bound, x_le_bound);
+        verbose_stream() << "found " << found << "\n";
+        
         auto& m = s.var2pdd(x);        
         pdd y = s.var(x);
         for (auto const& c : core) {
@@ -1223,6 +1227,10 @@ namespace polysat {
     }
 
     bool saturation::has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound) {
+
+        bool found = s.m_viable.has_lower_bound(x, bound, x_ge_bound);
+        verbose_stream() << "found " << found << "\n";
+               
         auto& m = s.var2pdd(x);        
         pdd y = s.var(x);
         for (auto const& c : core) {
@@ -1314,10 +1322,9 @@ namespace polysat {
         pdd b = a, c = a, y = a;
         rational b_val, c_val, y_val, x_bound;
         signed_constraint x_ge_bound, x_le_bound, b_bound, ax_bound;
-        if (is_AxB_l_Y(x, a_l_b, a, b, y) && y.is_val() && s.try_eval(b, b_val) && !y.is_zero() && !a.is_val()) {
+        if (is_AxB_l_Y(x, a_l_b, a, b, y) && s.try_eval(y, y_val) && s.try_eval(b, b_val) && !y_val.is_zero() && !a.is_val()) {
             verbose_stream() << a_l_b << "   a " << a << "   b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << "\n";
             SASSERT(!a.is_zero());
-            y_val = y.val();
 
             // define c := -b
             c = -b;
