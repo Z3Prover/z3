@@ -1261,6 +1261,14 @@ namespace polysat {
      * The example illustrates that fixing y_val produces a weaker bound.
      * The result should be a forbidden interval around v25 based on bounds for
      * v85 and v81.
+     *
+     * The example also illustrates that presumably just a combination of forbidden intervals for v85 used in the conflict
+     * are sufficient for narrowing the bounds on v81. Querying for upper/lower bounds of v85 doesn't produce the strongest
+     * assumption. 2397 and -1195 come from unit intervals with fixed lo/hi.
+     * 
+     * On the other hand, the bound v25 > -1*v85*v25 + v81 was obtained by evaluating v25 and v81
+     * and the quantifier elimination based on viable::resolve_lemma didn't produce the most general lemma. 
+     * Instead it relied on the evaluation at 353 and -1, respectively.
      * 
      */
     
