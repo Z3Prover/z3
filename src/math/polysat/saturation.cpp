@@ -78,7 +78,7 @@ namespace polysat {
             prop = true;
         if (try_add_overflow_bound(v, core, i))
             prop = true;
-        if (false && try_add_mul_bound(v, core, i))
+        if (try_add_mul_bound(v, core, i))
             prop = true;
         if (try_mul_eq_bound(v, core, i))
             prop = true;
@@ -1246,38 +1246,76 @@ namespace polysat {
         return false;
     }
 
-    /**
-     * ax + b >= n1, x <= n2, b <= n3, n3 <= n1, ax >= b => a >= (n1 - n3)/n2
+    /*
+     * Bounds propagation for base case ax <= y
+     * where
+     *  & y <= u_y
+     *  & 0 < x <= u_x
      *
-     * The side-conditions ax >= b, b <= n1 are used to subtract by b on both sides
-     * It applies in the special case where b = 1, a != 0, x != 0
+     * Special case for interval including -1
+     * Compute max n, such that a \not\in [-n,0[ is implied, then 
+     *
+     * => a < -n
+     * Claim n = floor(- u_y / u_x), 
+     * - provided n != 0
+     *
+     * Justification: for a1 in [1,n[ :
+     *        0 < a1*x <= floor (- u_y / u_x) * u_x
+     *                 <= - u_y
+     * and therefore for a1 in [-n-1:0[ :
+     *        u_y < a1*x < 0
+     *
      * 
-     * ax + b <= n1, x >= n2, b >= n3, b <= n1, b <= ax => a <= (n1 - n3)/n2
+     * Bounds case for additive case ax - b <= y
+     * where
+     *  & y <= u_y
+     *  & b <= u_b
+     *  & u_y + u_b does not overflow (implies y + b >= y)
+     *  => ax - b + b <= y + b
+     *  => ax <= y + b
+     *  => ax <= u_y + u_b
      * 
-     * Other inference rules for linear case? e.g.:
-     * ax + b >= n1, a <= n2, b <= n3, n3 <= n1, ax >= b => x >= (n1 - n3)/n2
+     * Base case for additive case ax + b <= y
+     * where
+     *  & y <= u_y
+     *  & b >= l_b
+     *  & ax + b >= b 
+     * 
+     *  => ax + b - b <= y - b
+     *  => ax <= y - b
+     *  => ax <= u_y - l_b
+     * 
+     * TODO - deal with side condition ax + b >= b?
+     * It requires that ax + b does not overflow
+     * If the literal is already assigned, we are fine, otherwise?
+     * 
      *
      * Example (bench25) 
      * -1*v85*v33 + v81 <= 2^128-2
      * v33 <= 2^128-1
      * v81 := -1
      * v85 := 12
-     * -v85*v33 - 1 <= 2^128-2
-     * Then -v85*v33 <= 2^128-1
-     * Then v33*v85 >= -2^128+1     (requires lhs != 0, rhs != 0)
-     * Then v85 >= ceil(-2^128+1 / 2^128-1)
-     */    
+     *
+     * Example (bench25)
+     * -1489: v25 > -1*v85*v25 + v81
+     * 2397: v85 + 1 <= 328022915686448145675838484443875093068753497636375535522542730900603766685
+     * -1195: v85 + 1 > 2^128+1
+     * v25 := 353
+     * v81 := -1
+     * 
+     * Note that lower bound for v85 should use forbidden intervals which subsumes pattern matching against -1195.
+     */
+    
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
-        set_rule("[x] ax + b <= n1, x >= n2, b >= n2, b <= n1, b <= ax => a <= (n1 - n3)/n2");
-        verbose_stream() << "try-add-mul-bound v" << x << "    " << a_l_b << "\n";
+        set_rule("[x] ax + b <= y, ... => a >= u_a");
         auto& m = s.var2pdd(x);        
         pdd const X = s.var(x);
         pdd a = s.var(x);
         pdd b = a, c = a, y = a;
         rational b_val, c_val, y_val, x_bound;
         signed_constraint x_ge_bound, x_le_bound, b_bound, ax_bound;
-        if (is_AxB_l_Y(x, a_l_b, a, b, y) && y.is_val() && s.try_eval(b, b_val)) {
-            verbose_stream() << "   a " << a << "   b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << "\n";
+        if (is_AxB_l_Y(x, a_l_b, a, b, y) && y.is_val() && s.try_eval(b, b_val) && !y.is_zero() && !a.is_val()) {
+            verbose_stream() << a_l_b << "   a " << a << "   b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << "\n";
             SASSERT(!a.is_zero());
             y_val = y.val();
 
@@ -1286,57 +1324,31 @@ namespace polysat {
             VERIFY(s.try_eval(c, c_val));
 
             if (has_upper_bound(x, core, x_bound, x_le_bound) && x_le_bound != a_l_b.as_signed_constraint()) {
-                // ax + b <= y & b_val <= b <= y & ax + b >= b & ... => ax <= y - b_val
-                if (b_val < y_val) {
-                    y = y - b_val;
-                }
                 // ax - c <= y
-                // ==>  ax <= y + c             if int(y) + int(c) <= 2^N     i.e. ~Omega^+(y, c)     ...  y+c >= c or y+c >= y
-                // ==>  (-a)x >= -y-c           if ax != 0 and y+c != 0
-                // ==>  -a >= ceil(int(-y-c) / int(x))          TODO: double-check if ceil works here or if floor is needed
-                else if (c_val + y_val <= m.max_value()) {
-                    auto bound = ceil((m.two_to_N() - y_val - c_val) / x_bound);
+                // ==>  ax <= y + c                              if int(y) + int(c) <= 2^N, y <= int(y), c <= int(c)
+                // ==>  a not in [-floor(-int(y+c) / int(x), 0[
+                // ==>  -a >= floor(-int(y+c) / int(x)
+                if (c_val + y_val <= m.max_value()) {
+                    auto bound = floor((m.two_to_N() - y_val - c_val) / x_bound);
                     m_lemma.reset();
                     m_lemma.insert_eval(~x_le_bound);           // x <= x_bound
                     m_lemma.insert_eval(~s.ule(c, c_val));      // c <= c_val
-                    m_lemma.insert_eval(~s.ult(y, y + c));      // ~Omega^+(y, c)  <=> y < y + c
-                    m_lemma.insert_try_eval(s.eq(a*X));         // ax != 0
-                    m_lemma.insert_try_eval(s.eq(y+c));         // y + c != 0
+                    m_lemma.insert_eval(~s.ule(y, y_val));      // y <= y_val
                     auto conclusion = s.uge(-a, bound);         // ==>  -a >= bound
                     verbose_stream() << "XX: " << conclusion << "\n";
                     if (propagate(x, core, a_l_b, conclusion)) {
-                        // std::abort();
                         return true;
                     }
                 }
-#if 0
-                // ax - b <= y  &  b <= b_val  &  y + b_val < N => ax <= y + b_val     // ??? conclusion seems to add b on LHS and -b on RHS
-                else if (s.try_eval((-b), b_val) && b_val <= y_val && b_val + y_val <= m.max_value()) {
-                    y = y + b_val;
-                    b_bound  = s.ule(-b, b_val);
-                    auto bound = ceil((m.two_to_N() - y_val - b_val) / x_bound);
-                    b = bound;
-                    m_lemma.reset();
-                    m_lemma.insert(~x_ge_bound);
-                    m_lemma.insert_eval(~b_bound);         // -b <= b_val
-                    // TODO                    m_lemma.insert_eval(s.ule(y, y - b)); // -2^N < y - b < 2^N
-                    verbose_stream() << "XX: " << b_bound << "        " << s.uge(-a, b) << "\n";
-                    // 
-                    if (propagate(x, core, a_l_b, s.uge(-a, b))) {
-                        // std::abort();
-                        return true;
-                    }
-                }
-#endif
-                verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
+                // verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
             }
             if (has_lower_bound(x, core, x_bound, x_le_bound) && x_le_bound != a_l_b.as_signed_constraint()) {
                 
-                verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
+                // verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
             }
         }
         if (is_Y_l_AxB(x, a_l_b, y, a, b) && y.is_val() && s.try_eval(b, b_val)) {
-            verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
+            // verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
         }
         return false;
     }
