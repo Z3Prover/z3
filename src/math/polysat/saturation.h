@@ -120,8 +120,9 @@ namespace polysat {
         // i := x + y >= x or x + y > x
         bool is_add_overflow(pvar x, inequality const& i, pdd& y);
 
-        bool has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound);
-        bool has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound);
+        bool has_upper_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_ge_bound);
+
+        bool has_lower_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_le_bound);
 
         // determine min/max parity of polynomial
         unsigned min_parity(pdd const& p);

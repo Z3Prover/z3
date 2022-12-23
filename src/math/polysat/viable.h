@@ -189,13 +189,13 @@ namespace polysat {
          * Query for an upper bound literal for v together with justification.
          * @return true if a non-trivial upper bound is found, return justifying constraint.
          */
-        bool has_upper_bound(pvar v, rational& out_hi, signed_constraint& out_c);
+        bool has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c);
 
         /**
          * Query for an lower bound literal for v together with justification.
          * @return true if a non-trivial lower bound is found, return justifying constraint.
          */
-        bool has_lower_bound(pvar v, rational& out_lo, signed_constraint& out_c);
+        bool has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c);
 
         /**
          * Find a next viable value for variable.

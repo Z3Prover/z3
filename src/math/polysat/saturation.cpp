@@ -1140,7 +1140,8 @@ namespace polysat {
      */
     bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] x >= x + y & x <= n => y = 0 or y >= 2^N - n");
-        signed_constraint y_eq_0, x_ge_bound;
+        signed_constraint y_eq_0;
+        vector<signed_constraint> x_ge_bound;
         auto& m = s.var2pdd(x);
         pdd y = m.zero();
         if (!is_add_overflow(x, axb_l_y, y))
@@ -1154,7 +1155,8 @@ namespace polysat {
         m_lemma.reset();
         if (!axb_l_y.is_strict())
             m_lemma.insert_eval(y_eq_0);        
-        m_lemma.insert_eval(~x_ge_bound);
+        for (auto c : x_ge_bound)
+            m_lemma.insert_eval(~c);
         return propagate(x, core, axb_l_y, s.uge(y, m.two_to_N() - bound));
     }
 
@@ -1186,11 +1188,11 @@ namespace polysat {
         return false;
     }
 
-    bool saturation::has_upper_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_le_bound) {
+    bool saturation::has_upper_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_le_bound) {
         return s.m_viable.has_upper_bound(x, bound, x_le_bound);
     }
 
-    bool saturation::has_lower_bound(pvar x, conflict& core, rational& bound, signed_constraint& x_ge_bound) {
+    bool saturation::has_lower_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_ge_bound) {
         return s.m_viable.has_lower_bound(x, bound, x_ge_bound);
     }
 
@@ -1250,8 +1252,16 @@ namespace polysat {
      * -1195: v85 + 1 > 2^128+1
      * v25 := 353
      * v81 := -1
+     *
+     * -1*v85*v25 + v81 < v25    
+     * a -1*v25 := -315  b v81 := -1   y v25 := 315
+     * & v25 <= 315
+     * & -v81 <= 1 
      * 
-     * Note that lower bound for v85 should use forbidden intervals which subsumes pattern matching against -1195.
+     * The example illustrates that fixing y_val produces a weaker bound.
+     * The result should be a forbidden interval around v25 based on bounds for
+     * v85 and v81.
+     * 
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
@@ -1260,17 +1270,18 @@ namespace polysat {
         pdd const X = s.var(x);
         pdd a = s.var(x);
         pdd b = a, c = a, y = a;
-        rational b_val, c_val, y_val, x_bound;
-        signed_constraint x_ge_bound, x_le_bound, b_bound, ax_bound;
-        if (is_AxB_l_Y(x, a_l_b, a, b, y) && s.try_eval(y, y_val) && s.try_eval(b, b_val) && !y_val.is_zero() && !a.is_val()) {
-            verbose_stream() << a_l_b << "   a " << a << "   b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << "\n";
+        rational a_val, b_val, c_val, y_val, x_bound;
+        vector<signed_constraint> x_le_bound, x_ge_bound;
+        signed_constraint b_bound;
+        if (is_AxB_l_Y(x, a_l_b, a, b, y) && !a.is_val() && s.try_eval(y, y_val) && s.try_eval(b, b_val) && s.try_eval(a, a_val) && !y_val.is_zero()) {
+            IF_VERBOSE(2, verbose_stream() << "v" << x << ": " << a_l_b << "   a " << a << " := " << dd::val_pp(m, a_val, false) << "  b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << " := " << dd::val_pp(m, y_val, false) << "\n");
             SASSERT(!a.is_zero());
 
             // define c := -b
             c = -b;
             VERIFY(s.try_eval(c, c_val));
 
-            if (has_upper_bound(x, core, x_bound, x_le_bound) && x_le_bound != a_l_b.as_signed_constraint()) {
+            if (has_upper_bound(x, core, x_bound, x_le_bound) && !x_le_bound.contains(a_l_b.as_signed_constraint())) {
                 // ax - c <= y
                 // ==>  ax <= y + c                              if int(y) + int(c) <= 2^N, y <= int(y), c <= int(c)
                 // ==>  a not in [-floor(-int(y+c) / int(x), 0[
@@ -1278,18 +1289,23 @@ namespace polysat {
                 if (c_val + y_val <= m.max_value()) {
                     auto bound = floor((m.two_to_N() - y_val - c_val) / x_bound);
                     m_lemma.reset();
-                    m_lemma.insert_eval(~x_le_bound);           // x <= x_bound
+                    for (auto c : x_le_bound)
+                        m_lemma.insert_eval(~c);               // x <= x_bound
                     m_lemma.insert_eval(~s.ule(c, c_val));      // c <= c_val
                     m_lemma.insert_eval(~s.ule(y, y_val));      // y <= y_val
                     auto conclusion = s.uge(-a, bound);         // ==>  -a >= bound
-                    verbose_stream() << "XX: " << conclusion << "\n";
-                    if (propagate(x, core, a_l_b, conclusion)) {
+                    IF_VERBOSE(2, 
+                               verbose_stream() << core << "\n";
+                               verbose_stream() << "& " << X << " <= " << dd::val_pp(m, x_bound, false) << " := " << x_le_bound << "\n";
+                               verbose_stream() << "& " << s.ule(c, c_val) << "\n";
+                               verbose_stream() << "& " << s.ule(y, y_val) << "\n";
+                               verbose_stream() << "==> " << -a << " >= " << dd::val_pp(m, bound, false) << "\n");
+                    if (propagate(x, core, a_l_b, conclusion)) 
                         return true;
-                    }
                 }
                 // verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
             }
-            if (has_lower_bound(x, core, x_bound, x_le_bound) && x_le_bound != a_l_b.as_signed_constraint()) {
+            if (has_lower_bound(x, core, x_bound, x_le_bound) && !x_le_bound.contains(a_l_b.as_signed_constraint())) {
                 
                 // verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
             }

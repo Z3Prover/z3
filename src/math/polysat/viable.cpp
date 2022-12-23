@@ -643,46 +643,69 @@ namespace polysat {
         return query<query_t::max_viable>(v, hi);
     }
 
-    // TBD: generalize to multiple intervals?
-    // Multiple intervals could be used to constrain upper/lower bounds, not just the last one.
-    bool viable::has_upper_bound(pvar v, rational& out_hi, signed_constraint& out_c) {
+    bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
         entry const* first = m_units[v];
         entry const* e = first;
+        bool found = false;
+        out_c.reset();
         do {
-            if (!e->refined) {
-                auto const& lo = e->interval.lo();
-                auto const& hi = e->interval.hi();
-                if (lo.is_val() && hi.is_val() && lo.val() > hi.val()) {
-                    out_c = e->src;
-                    out_hi = lo.val() - 1;
-                    // verbose_stream() << "Upper bound v" << v << " " << out_hi << " " << out_c << "\n";
-                    return true;
+            found = false;
+            do {
+                if (!e->refined) {
+                    auto const& lo = e->interval.lo();
+                    auto const& hi = e->interval.hi();
+                    if (lo.is_val() && hi.is_val()) {
+                        if (out_c.empty() && lo.val() > hi.val()) {
+                            out_c.push_back(e->src);
+                            out_hi = lo.val() - 1;
+                            found = true;
+                        }
+                        else if (!out_c.empty() && lo.val() <= out_hi && out_hi < hi.val()) {
+                            out_c.push_back(e->src);
+                            out_hi = lo.val() - 1;
+                            found = true;                        
+                        }
+                    }
                 }
+                e = e->next();
             }
-            e = e->next();
+            while (e != first);
         }
-        while (e != first);
-        return false;
+        while (found);
+        return !out_c.empty();
     }
 
-    bool viable::has_lower_bound(pvar v, rational& out_lo, signed_constraint& out_c) {
+    // TBD: generalize to multiple intervals similar to upper bound
+    bool viable::has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c) {
         entry const* first = m_units[v];
         entry const* e = first;
+        bool found = false;
+        out_c.reset();
         do {
-            if (!e->refined) {
-                auto const& lo = e->interval.lo();
-                auto const& hi = e->interval.hi();
-                if (lo.is_val() && hi.is_val() && (lo.val() == 0 || lo.val() > hi.val())) {
-                    out_c = e->src;
-                    out_lo = hi.val();
-                    // verbose_stream() << "Lower bound " << v << " " << out_lo << " " << out_c << "\n";
-                    return true;
+            found = false;
+            do {
+                if (!e->refined) {
+                    auto const& lo = e->interval.lo();
+                    auto const& hi = e->interval.hi();
+                    if (lo.is_val() && hi.is_val()) {
+                        if (out_c.empty() && (lo.val() == 0 || lo.val() > hi.val())) {
+                            out_c.push_back(e->src);
+                            out_lo = hi.val();
+                            found = true;
+                        }
+                        else if (!out_c.empty() && lo.val() <= out_lo && out_lo < hi.val()) {
+                            out_c.push_back(e->src);
+                            out_lo = hi.val();
+                            found = true;
+                        }
+                    }
                 }
+                e = e->next();
             }
-            e = e->next();
+            while (e != first);
         }
-        while (e != first);
-        return false;
+        while (found);
+        return !out_c.empty();
     }
 
     template <query_t mode>
