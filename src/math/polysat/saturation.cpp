@@ -76,7 +76,9 @@ namespace polysat {
             prop = true;
         if (try_infer_equality(v, core, i))
             prop = true;
-        if (false && try_add_overflow_bound(v, core, i))
+        if (try_add_overflow_bound(v, core, i))
+            prop = true;
+        if (false && try_add_mul_bound(v, core, i))
             prop = true;
         if (try_mul_eq_bound(v, core, i))
             prop = true;
@@ -1007,7 +1009,7 @@ namespace polysat {
             m_lemma.insert_eval(~s.eq(a, 1));
             m_lemma.insert_eval(~s.eq(b, 1));
             m_lemma.insert(~c);
-            auto ineq = i.is_strict() || a_l_b.is_strict() ? s.ult(q, p) : s.ule(q, p);
+            auto ineq = i.is_strict() || a_l_b.is_strict() ? (p.is_val() ? s.ule(q, p - 1) : s.ult(q, p)) : s.ule(q, p);
             if (propagate(x, core, a_l_b, ineq))
                 return true;
         }
@@ -1183,6 +1185,7 @@ namespace polysat {
      * TODO
      * - more general bounnds obtained from forbidden interval extraction: x + k1 <= x + k2
      *   such that the forbidden interval includes -1.
+     *   - in other words, use viable set to probe for bounds instead of literals
      * - not just core, but query over all assigned literals?
      * - look for optimal bounds, not just the first?
      * - General comment: integrate with indexing: only assigned literals containing x are useful.
@@ -1247,9 +1250,56 @@ namespace polysat {
      * Other inference rules for linear case? e.g.:
      * ax + b >= n1, a <= n2, b <= n3, n3 <= n1, ax >= b => x >= (n1 - n3)/n2
      *
+     * Example (bench25) 
+     * -1*v85*v33 + v81 <= 2^128-2
+     * v33 <= 2^128-1
+     * v81 := -1
+     * v85 := 12
+     * -v85*v33 - 1 <= 2^128-2
+     * Then -v85*v33 <= 2^128-1
+     * Then v33*v85 >= -2^128+1
+     * Then v85 >= ceil(-2^128+1 / 2^128-1)
      */    
-    bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+    bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b <= n1, x >= n2, b >= n2, b <= n1, b <= ax => a <= (n1 - n3)/n2");
+        verbose_stream() << "try-add-mul-bound " << a_l_b << "\n";
+        auto& m = s.var2pdd(x);        
+        pdd a = s.var(x);
+        pdd b = a, y = a;
+        rational b_val, y_val, x_bound;
+        signed_constraint x_ge_bound, x_le_bound, b_bound, ax_bound;
+        if (is_AxB_l_Y(x, a_l_b, a, b, y) && y.is_val() && s.try_eval(b, b_val)) {
+            SASSERT(!a.is_zero());
+            y_val = y.val();
+            if (has_upper_bound(x, core, x_bound, x_ge_bound) && x_ge_bound != a_l_b.as_signed_constraint()) {
+                // ax + b <= y & b_val <= b <= y & ax + b >= b & ... => ax <= y - b_val
+                if (b_val < y_val) {
+                    y = y - b_val;
+                }
+                // ax - b <= y & b <= b_val, y + b_val < N => ax <= y + b_val
+                else if (s.try_eval((-b), b_val) && b_val <= y_val && b_val + y_val <= m.max_value()) {
+                    y = y + b_val;
+                    b_bound  = s.ule(-b, b_val);
+                    auto bound = ceil((m.two_to_N() - y_val - b_val) / x_bound);
+                    b = bound;
+                    m_lemma.reset();
+                    m_lemma.insert_eval(b_bound);         // -b <= b_val
+                    // TODO                    m_lemma.insert_eval(s.ule(y, y - b)); // -2^N < y - b < 2^N
+                    verbose_stream() << "XX: " << b_bound << " " << s.uge(-a, b) << "\n";
+                    // 
+                    if (propagate(x, core, a_l_b, s.uge(-a, b)))
+                        return true;
+                }
+                verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
+            }
+            if (has_lower_bound(x, core, x_bound, x_le_bound) && x_le_bound != a_l_b.as_signed_constraint()) {
+                
+                verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
+            }
+        }
+        if (is_Y_l_AxB(x, a_l_b, y, a, b) && y.is_val() && s.try_eval(b, b_val)) {
+            verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
+        }
         return false;
     }
 
