@@ -810,10 +810,17 @@ namespace polysat {
         unsigned offset = coeff.trailing_zeros();        
         verbose_stream() << "COEFF " << coeff << "\n";
 #endif
+#if 0
         unsigned j = 0;
-        while (j < N && is_forced_true(s.parity(p, j)))
+        while (j < N && is_forced_true(s.parity(p, j + 1)))
             ++j;
         return j;
+#else
+        for (unsigned j = N; j > 0; --j)
+            if (is_forced_true(s.parity(p, j)))
+                return j;
+        return 0;
+#endif
     }
 
     unsigned saturation::max_parity(pdd const& p) {
@@ -826,8 +833,8 @@ namespace polysat {
         // TBD: factor p
 
         for (unsigned j = 0; j < N; ++j) 
-            if (is_forced_false(s.parity(p, j)))
-                return j + 1;
+            if (is_forced_true(s.parity_at_most(p, j)))
+                return j;
         return N;
     }
 
@@ -852,10 +859,10 @@ namespace polysat {
         auto propagate1 = [&](signed_constraint premise, signed_constraint conseq) {
             if (is_forced_false(premise))
                 return false;
+            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise << " => " << conseq << "\n");
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~premise);
-            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise << " => " << conseq << "\n");
             return propagate(x, core, axb_l_y, conseq);
         };
 
@@ -864,11 +871,11 @@ namespace polysat {
                 return false;
             if (is_forced_false(premise2))
                 return false;
+            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise1 << " " << premise2 << " => " << conseq << "\n");
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~premise1);
             m_lemma.insert_eval(~premise2);
-            IF_VERBOSE(1, verbose_stream() << "propagate " << axb_l_y << " " << premise1 << " " << premise2 << " => " << conseq << "\n");
             return propagate(x, core, axb_l_y, conseq);
         };
 
@@ -889,8 +896,8 @@ namespace polysat {
             return false;
 
         auto at_most = [&](pdd const& p, unsigned k) {
-            VERIFY(k != N);
-            return ~s.parity(p, k + 1);
+            VERIFY(k < N);
+            return s.parity_at_most(p, k);
         };
 
         auto at_least = [&](pdd const& p, unsigned k) {
