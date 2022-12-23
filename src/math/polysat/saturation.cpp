@@ -1290,7 +1290,7 @@ namespace polysat {
                     auto bound = ceil((m.two_to_N() - y_val - b_val) / x_bound);
                     b = bound;
                     m_lemma.reset();
-                    m_lemma.insert_eval(b_bound);         // -b <= b_val
+                    m_lemma.insert_eval(~b_bound);         // -b <= b_val
                     // TODO                    m_lemma.insert_eval(s.ule(y, y - b)); // -2^N < y - b < 2^N
                     verbose_stream() << "XX: " << b_bound << " " << s.uge(-a, b) << "\n";
                     // 

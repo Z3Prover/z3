@@ -963,7 +963,7 @@ namespace polysat {
             appraise_lemma(lemmas.back());
         }
         SASSERT(best_score < lemma_score::max());
-        SASSERT(best_lemma);
+        VERIFY(best_lemma);
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         SASSERT(jump_level <= max_jump_level);
