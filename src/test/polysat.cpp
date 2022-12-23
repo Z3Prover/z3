@@ -626,8 +626,7 @@ namespace polysat {
             cb.insert(s.ule(u, v));
             auto cl = cb.build();
             simp.apply(*cl);
-            std::cout << *cl << "\n";
-            SASSERT(cl->size() == 2);
+            VERIFY_EQ(cl->size(), 2);
         }
 
         // p <= q
@@ -645,9 +644,8 @@ namespace polysat {
             cb.insert(s.eq(p, q));
             auto cl = cb.build();
             simp.apply(*cl);
-            std::cout << *cl << "\n";
-            SASSERT_EQ(cl->size(), 1);
-            SASSERT_EQ((*cl)[0], s.ule(p, q).blit());
+            VERIFY_EQ(cl->size(), 1);
+            VERIFY_EQ((*cl)[0], s.ule(p, q).blit());
         }
 
         // p < q
@@ -666,9 +664,8 @@ namespace polysat {
             cb.insert(s.eq(p, q));
             auto cl = cb.build();
             simp.apply(*cl);
-            std::cout << *cl << "\n";
-            SASSERT_EQ(cl->size(), 1);
-            SASSERT_EQ((*cl)[0], s.ule(p, q).blit());
+            VERIFY_EQ(cl->size(), 1);
+            VERIFY_EQ((*cl)[0], s.ule(p, q).blit());
         }
 
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
@@ -1404,7 +1401,7 @@ namespace polysat {
 
         static void test_ineq_non_axiom1(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw - 1);
-            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
             auto z = s.var(s.add_var(bw));
@@ -1426,7 +1423,7 @@ namespace polysat {
         static void test_ineq_axiom2(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 6; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+                scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto z = s.var(s.add_var(bw));
@@ -1442,30 +1439,33 @@ namespace polysat {
         }
 
         // xy < b & a <= x  & !Omega(x*y) => a*y < b
-        static void test_ineq_axiom3(unsigned bw = 32) {
+        static void test_ineq_axiom3(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw/2);
-            for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
-                auto x = s.var(s.add_var(bw));
-                auto y = s.var(s.add_var(bw));
-                auto a = s.var(s.add_var(bw));
-                auto b = s.var(s.add_var(bw));
-                permute_args(i, x, y, a, b);
-                s.add_ult(x * y, b);
-                s.add_ule(a, x);
-                s.add_ult(x, bound);
-                s.add_ult(y, bound);
-                s.add_ule(b, a * y);
-                s.check();
-                s.expect_unsat();
-            }
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ult(x * y, b);
+            s.add_ule(a, x);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_ule(b, a * y);
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_ineq_axiom3(unsigned bw = 32) {
+            for (unsigned i = 0; i < 24; ++i)
+                test_ineq_axiom3(bw, i);
         }
 
         // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
         static void test_ineq_axiom4(unsigned bw = 32) {
             auto const bound = rational::power_of_two(bw/2);
             for (unsigned i = 0; i < 24; ++i) {
-                scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+                scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
                 auto a = s.var(s.add_var(bw));
@@ -1508,7 +1508,7 @@ namespace polysat {
         // a < xy & x <= b & !Omega(b*y) => a < b*y
         static void test_ineq_axiom5(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw/2);
-            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
             auto a = s.var(s.add_var(bw));
@@ -1531,7 +1531,7 @@ namespace polysat {
         // a <= xy & x <= b & !Omega(b*y) => a <= b*y
         static void test_ineq_axiom6(unsigned bw, unsigned i) {
             auto const bound = rational::power_of_two(bw/2);
-            scoped_solver s(std::string(__func__) + " perm=" + std::to_string(i));
+            scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
             auto x = s.var(s.add_var(bw));
             auto y = s.var(s.add_var(bw));
             auto a = s.var(s.add_var(bw));
@@ -1979,10 +1979,11 @@ void tst_polysat() {
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
+    test_polysat::test_ineq_axiom3(32, 3);  // TODO: assertion
+    // test_polysat::test_ineq_axiom6(32, 0);  // TODO: assertion
+    // test_polysat::test_band5();  // TODO: assertion when clause simplification (merging p>q and p=q) is enabled
     // test_polysat::test_bench27_viable1();   // TODO: refinement
     // test_polysat::test_bench27_viable2();   // TODO: refinement
-    test_polysat::test_band5();  // TODO: assertion
-    // test_polysat::test_fixed_point_arith_div_mul_inverse();  // TODO: assertion
     return;
 #endif
 
@@ -2016,7 +2017,7 @@ void tst_polysat() {
 
     RUN(test_polysat::test_clause_simplify1());
     RUN(test_polysat::test_clause_simplify2());
-    RUN(test_polysat::test_clause_simplify3());
+    // RUN(test_polysat::test_clause_simplify3());  // TODO: corresponding simplification is disabled at the moment
     RUN(test_polysat::test_bench23_fi_lemma());
 
     RUN(test_polysat::test_add_conflicts());
