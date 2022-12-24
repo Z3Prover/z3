@@ -166,11 +166,11 @@ namespace polysat {
         _backtrack.released = true;
 
         // v > q
-        if (ok1 && !ok2 && match_non_zero(c, a1, b1, e1, c->to_ule().rhs(), fi))
+        if (false && ok1 && !ok2 && match_non_zero(c, a1, b1, e1, c->to_ule().rhs(), fi))
             return true;
 
         // p > v
-        if (!ok1 && ok2 && match_non_max(c, c->to_ule().lhs(), a2, b2, e2, fi))
+        if (false && !ok1 && ok2 && match_non_max(c, c->to_ule().lhs(), a2, b2, e2, fi))
             return true;
 
         if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero())) {

@@ -69,7 +69,7 @@ namespace polysat {
             prop = true;
         if (try_transitivity(v, core, i))
             prop = true;
-        if (try_factor_equality1(v, core, i))
+        if (try_factor_equality2(v, core, i))
             prop = true;
         if (try_infer_equality(v, core, i))
             prop = true;

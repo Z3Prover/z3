@@ -172,9 +172,17 @@ namespace polysat {
 
         // NSB review:
         // the bounds added by x < p and p < x in forbidden_intervals
-        // match_non_max
+        // match_non_max, match_non_zero
         // use values that are approximations. Then the propagations in
         // try_assign_eval are incorrect.
+        // For example, x > p means x has forbidden interval [0, p + 1[,
+        // the numeric interval is [0, 1[, but p + 1 == 1 is not ensured
+        // even p may have free variables.
+        // the proper side condition on p + 1 is -1 > p or -2 >= p or p + 1 != 0
+        // I am disabling match_non_max and match_non_zero from forbidden_interval
+        // The narrowing rules in ule_constraint already handle the bounds propagaitons
+        // as it propagates p != -1 and 0 != q (p < -1, q > 0),
+        //
         
         for (auto const& c : get_constraints(v)) {
             s.try_assign_eval(c);
