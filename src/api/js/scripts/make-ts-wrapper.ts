@@ -76,6 +76,7 @@ function makeTsWrapper() {
   }
 
   const isInParam = (p: FuncParam) => p.kind !== undefined && ['in', 'in_array'].includes(p.kind);
+
   function wrapFunction(fn: Func) {
     if (CUSTOM_IMPLEMENTATIONS.includes(fn.name)) {
       return null;
@@ -104,7 +105,7 @@ function makeTsWrapper() {
 
     let isAsync = asyncFuncs.includes(fn.name);
     let trivial =
-      !['string', 'boolean'].includes(fn.ret) &&
+      !['string', 'boolean', 'unsigned'].includes(fn.ret) &&
       !fn.nullableRet &&
       outParams.length === 0 &&
       !inParams.some(p => p.type === 'string' || p.isArray || p.nullable);
@@ -234,6 +235,7 @@ function makeTsWrapper() {
           function setArg() {
             args[outParam.idx] = memIdx === 0 ? 'outAddress' : `outAddress + ${memIdx * 4}`;
           }
+
           let read, type;
           if (outParam.type === 'string') {
             read = `Mod.UTF8ToString(getOutUint(${memIdx}))`;
@@ -330,11 +332,15 @@ function makeTsWrapper() {
       if (ret === 0) {
         return null;
       }
-    `.trim();
+      `.trim();
+    } else if (fn.ret === 'unsigned') {
+      infix += `
+      ret = (new Uint32Array([ret]))[0];
+      `.trim();
     }
 
     // prettier-ignore
-    let invocation = `Mod.ccall('${isAsync ? 'async_' : ''}${fn.name}', '${cReturnType}', ${JSON.stringify(ctypes)}, [${args.map(toEm).join(', ')}])`;
+    let invocation = `Mod.ccall('${isAsync ? "async_" : ""}${fn.name}', '${cReturnType}', ${JSON.stringify(ctypes)}, [${args.map(toEm).join(", ")}])`;
 
     if (isAsync) {
       invocation = `await Mod.async_call(() => ${invocation})`;
