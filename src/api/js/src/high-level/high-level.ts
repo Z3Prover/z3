@@ -572,7 +572,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     // expression simplification //
     ///////////////////////////////
 
-    async function simplify(e: Expr<Name>) {
+    async function simplify(e: Expr<Name>): Promise<Expr<Name>> {
       const result = await Z3.simplify(contextPtr, e.ast);
       return _toExpr(check(result));
     }
@@ -2786,6 +2786,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Extract,
 
       substitute,
+      simplify,
 
       /////////////
       // Loading //

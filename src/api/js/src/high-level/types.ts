@@ -596,6 +596,8 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Operations */
   substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
+
+  simplify(expr: Expr<Name>): Promise<Expr<Name>>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
