@@ -51,7 +51,8 @@ namespace polysat {
         bool try_parity(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y);
-        bool try_factor_equality(pvar x, conflict& core, inequality const& a_l_b);
+        bool try_factor_equality1(pvar x, conflict& core, inequality const& a_l_b);
+        bool try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b);
         bool try_infer_equality(pvar x, conflict& core, inequality const& a_l_b);
         bool try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_odd(pvar x, conflict& core, inequality const& axb_l_y);

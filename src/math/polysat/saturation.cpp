@@ -69,7 +69,7 @@ namespace polysat {
             prop = true;
         if (try_transitivity(v, core, i))
             prop = true;
-        if (try_factor_equality(v, core, i))
+        if (try_factor_equality1(v, core, i))
             prop = true;
         if (try_infer_equality(v, core, i))
             prop = true;
@@ -134,6 +134,7 @@ namespace polysat {
 
     /**
      * ~ovfl(p, q) & p >= k => q < 2^N/k
+     * TODO: subusmed by narrowing inferences?
      */
     bool saturation::try_umul_noovfl_bounds(pvar x, signed_constraint const& c, conflict& core) {
         set_rule("[x] ~ovfl(x, q) & x >= k => q <= (2^N-1)/k");
@@ -1121,8 +1122,8 @@ namespace polysat {
      *  [x] p <= abx + q, ax + r = 0 => p <= -rb + q
      */
 
-    bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
-        set_rule("[x] a1x+p <= a2x + q & a3*x + b3 = 0 => a1*inv(a3)*-b3 + p <= a2*inv(a3)*-b3 + q");
+    bool saturation::try_factor_equality1(pvar x, conflict& core, inequality const& a_l_b) {
+        set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
         auto& m = s.var2pdd(x);       
         unsigned N = m.power_of_2();
         pdd y1  = m.zero();
@@ -1187,13 +1188,80 @@ namespace polysat {
             }
             signed_constraint conseq = a_l_b.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
             m_lemma.reset();
-            m_lemma.insert(~s.eq(y3));
+            m_lemma.insert_eval(~s.eq(y3));
             m_lemma.insert(~c);
             if (propagate(x, core, a_l_b, conseq))
                 factored = true;
         }
         return factored;
     }
+
+    bool saturation::try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b) {
+        set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
+        auto& m = s.var2pdd(x);       
+        unsigned N = m.power_of_2();
+        pdd y  = m.zero();
+        pdd a = y, b = y, a1 = y, b1 = y;        
+        if (!is_AxB_eq_0(x, a_l_b, a, b, y))
+            return false;
+        bool is_invertible = a.is_val() && a.val().is_odd();
+        if (is_invertible) {
+            rational a_inv;
+            VERIFY(a.val().mult_inverse(m.power_of_2(), a_inv));
+            b = -b*a_inv;
+        }
+        bool change = false;
+        bool prop = false;
+        auto replace = [&](pdd p) {
+            unsigned p_degree = p.degree(x);
+            if (p_degree == 0)
+                return p;
+            if (is_invertible) {
+                change = true;
+                return p.subst_pdd(x, b);
+            }
+            if (p_degree == 1) {
+                p.factor(x, 1, a1, b1);
+                if (a1 == a) {
+                    change = true;
+                    return b1 - b;
+                }
+                if (a1 == -a) {
+                    change = true;
+                    return b1 + b;
+                }
+            }
+            return p;            
+        };
+        
+        for (auto c : core) {
+            change = false;
+            if (c == a_l_b.as_signed_constraint())
+                continue;
+            if (c->is_ule()) {
+                auto const& ule = c->to_ule();
+                auto p = replace(ule.lhs());
+                auto q = replace(ule.rhs());
+                m_lemma.reset();
+                m_lemma.insert(~c);
+                m_lemma.insert_eval(~s.eq(y));
+                if (change && propagate(x, core, a_l_b, c.is_positive() ? s.ule(p, q) : ~s.ule(p, q)))
+                    prop = true;
+            }
+            else if (c->is_umul_ovfl()) {
+                auto const& ovf = c->to_umul_ovfl();
+                auto p = replace(ovf.p());
+                auto q = replace(ovf.q());
+                m_lemma.reset();
+                m_lemma.insert(~c);
+                m_lemma.insert_eval(~s.eq(y));
+                if (change && propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(p, q) : ~s.umul_ovfl(p, q)))
+                    prop = true;
+            }
+        }
+        return prop;
+    }
+
 
     /**
      *  x >= x + y & x <= n => y = 0 or y >= N - n

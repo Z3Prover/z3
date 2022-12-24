@@ -1061,6 +1061,7 @@ namespace polysat {
         signed_constraint const c = lit2cnstr(lit);
         LOG_V(10, "Evaluate: " << lit_pp(*this ,lit));
         SASSERT(c.is_currently_true(*this));
+        VERIFY(c.is_currently_true(*this));
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
         for (auto v : c->vars())
