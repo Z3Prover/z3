@@ -169,6 +169,13 @@ namespace polysat {
         //       - side conditions
         //       - i.lo() == i.lo_val() for each unit interval i
         //       - i.hi() == i.hi_val() for each unit interval i
+
+        // NSB review:
+        // the bounds added by x < p and p < x in forbidden_intervals
+        // match_non_max
+        // use values that are approximations. Then the propagations in
+        // try_assign_eval are incorrect.
+        
         for (auto const& c : get_constraints(v)) {
             s.try_assign_eval(c);
         }

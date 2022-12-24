@@ -1199,7 +1199,6 @@ namespace polysat {
     bool saturation::try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
         auto& m = s.var2pdd(x);       
-        unsigned N = m.power_of_2();
         pdd y  = m.zero();
         pdd a = y, b = y, a1 = y, b1 = y;        
         if (!is_AxB_eq_0(x, a_l_b, a, b, y))
@@ -1242,20 +1241,24 @@ namespace polysat {
                 auto const& ule = c->to_ule();
                 auto p = replace(ule.lhs());
                 auto q = replace(ule.rhs());
+                if (!change)
+                    continue;
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                if (change && propagate(x, core, a_l_b, c.is_positive() ? s.ule(p, q) : ~s.ule(p, q)))
+                if (propagate(x, core, a_l_b, c.is_positive() ? s.ule(p, q) : ~s.ule(p, q)))
                     prop = true;
             }
             else if (c->is_umul_ovfl()) {
                 auto const& ovf = c->to_umul_ovfl();
                 auto p = replace(ovf.p());
                 auto q = replace(ovf.q());
+                if (!change)
+                    continue;
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                if (change && propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(p, q) : ~s.umul_ovfl(p, q)))
+                if (propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(p, q) : ~s.umul_ovfl(p, q)))
                     prop = true;
             }
         }
