@@ -43,6 +43,7 @@ class tbv_manager {
     ptr_vector<tbv> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
+    tbv_manager(const tbv_manager& m) = delete;
     ~tbv_manager();
     void reset();
     tbv* allocate();
@@ -127,7 +128,7 @@ private:
         return (fixed_bit_vector::get(index) << 1) | (unsigned)fixed_bit_vector::get(index+1);
     }
 };
-
+    
 class tbv_ref {
     tbv_manager& mgr;
     tbv* d;
@@ -151,5 +152,13 @@ public:
     tbv_manager& manager() const { return mgr; }
     unsigned num_tbits() const { return mgr.num_tbits(); }
 };
+
+inline std::ostream& operator<<(std::ostream& out, tbv_ref const& c) {
+    const char* names[] = { "z", "0", "1", "x" }; 
+    for (unsigned i =  c.num_tbits(); i > 0; i--) {
+        out << names[(unsigned)c[i - 1]]; 
+    }
+    return out;
+}
 
 

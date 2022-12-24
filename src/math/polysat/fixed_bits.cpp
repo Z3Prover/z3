@@ -20,17 +20,30 @@ namespace polysat {
         return fixed.m_tbv_to_justification[{ p, idx }];
     }
     
-    const tbv_ref& bit_justication::get_tbv(fixed_bits& fixed, const pdd& p) {
+    const tbv_ref* bit_justication::get_tbv(fixed_bits& fixed, const pdd& p) {
         return fixed.get_tbv(p);
     }
     
-    bool bit_justication::fix_value(fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j) {
-        return fixed.fix_value(p, tbv, idx, val, j);
+    // returns: Is it consistent
+    bool bit_justication::fix_value_core(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication** j) {
+        SASSERT(j && *j);
+        if (!fixed.fix_value(s, p, tbv, idx, val, *j) && (*j)->can_dealloc()) {
+            // TODO: Potential double deallocation
+            dealloc(*j);
+            *j = nullptr;
+        }
+        return fixed.m_consistent;
+    }
+    
+    bool bit_justication::fix_value_core(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j) {
+        return fix_value_core(s, fixed, p, tbv, idx, val, &j);
     }
     
     void bit_justication_constraint::get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) {
-        for (const auto& dep : this->m_dependencies)
+        for (const auto& dep : this->m_dependencies) {
+            LOG("Dependency: pdd: " << dep.pdd() << " idx: " << dep.idx());
             to_process.push_back(dep);
+        }
     }
     
     bit_justication_constraint* bit_justication_constraint::mk_justify_at_least(constraint *c, const pdd& v, const tbv_ref& tbv, const rational& least) {
@@ -69,38 +82,164 @@ namespace polysat {
     // r1 = (p0 q1 + p1 q0) + (p0 q0) / 2 = (p0 q1 + p1 q0)
     // r2 = (p0 q2 + p1 q1 + p2 q0) + (p0 q1 + p1 q0) / 2 + (p0 q0) / 4 = (p0 q2 + p1 q1 + p2 q0) + (p0 q1 + p1 q0) / 2 
     // r3 = (p0 q3 + p1 q2 + p2 q1 + p3 q0) + (p0 q2 + p1 q1 + p2 q0) / 2 + (p0 q1 + p1 q0) / 4 + (p0 q0) / 8 = (p0 q3 + p1 q2 + p2 q1 + p3 q0) + (p0 q2 + p1 q1 + p2 q0) / 2 
-    tbv_ref& bit_justication_mul::mul(fixed_bits& fixed, const pdd& p, const tbv_ref& in1, const tbv_ref& in2) {
-        auto m = in1.manager();
-        tbv_ref& out = fixed.get_tbv(p);
+    void bit_justication_mul::propagate(solver& s, fixed_bits& fixed, const pdd& r, const pdd &p, const pdd &q) {
+        LOG_H2("Bit-Propagating: " << r << " = (" << p << ") * (" << q << ")");
+        tbv_ref& p_tbv = *fixed.get_tbv(p);
+        tbv_ref& q_tbv = *fixed.get_tbv(q);
+        tbv_ref& r_tbv = *fixed.get_tbv(r);
+        LOG("p: " << p << " = " << p_tbv);
+        LOG("q: " << q << " = " << q_tbv);
+        LOG("r: " << r << " = " << r_tbv);
         
-        unsigned min_bit_value = 0; // The value of the current bit assuming all unknown bits are 0
-        unsigned max_bit_value = 0; // The value of the current bit assuming all unknown bits are 1
-    
-        // TODO: Check: Is the performance too worse? It is O(k^2)
+        auto& m = r_tbv.manager();
+        // TODO: maybe propagate the bits only until the first "don't know" and as well for the leading "0"s [The bits in-between are rare and hard to compute]
+        unsigned min_val = 0; // The value of the current bit assuming all unknown bits are 0
+        unsigned max_val = 0; // The value of the current bit assuming all unknown bits are 1
+        unsigned highest_overflow_idx = -1; // The index which could result in the highest overflow (Used for backward propagation. Which previous bit-index could have the highest overflow to the current bit?)
+        unsigned highest_overflow_val = 0; // The respective value
+        bool highest_overflow_precise = false; // True if the highest overflow is still precise after all divisions by 2  (We can only use those for backward propagation. If it is not a power of 2 we don't know which values to set.)
+        
+        // Forward propagation
+        // Example 1: 
+        // r4 = (0 q3 + 1 1 + 0 q1 + 0 q0) + (1 1 + 0 q1 + 1 1) / 2
+        // min_val = 2 = 2 / 2 + 1; max_val = 2 = 2 / 2 + 1 and  (0 q3 + 1 1 + 0 q1 + 0 q0) + (1 1 + 0 q1 + 1 1) / 2 = 2 we conclude r3 = 0 (and min_val = max_val := min_val / 2 + 2 / 2)
+        //
+        // Example 2: 
+        // r4 = (0 q3 + 1 1 + 0 q1 + 0 q0) + (1 1 + 0 q1 + 1 q0) / 2
+        // min_val = 1 = 1 + 1 / 2; max_val = 2 = 1 + 2 / 2. We cannot propagate to r4 as we don't know the value of the overflow
+        //
+        // Example 3:
+        // r4 = (0 q3 + p1 1 + 0 q1 + 0 q0) + (1 1 + 0 q1 + 1 1) / 2
+        // min_val = 1 = 0 + 2 / 2; v = 2 = 1 + 2 / 2. We cannot propagate to r4 as we don't know the precise value
+        
+        // Backward propagation
+        // Example 1:
+        // 0 = r3 = (1 1 + 0 q2 + 1 q1 + p3 0) + (0 q2 + 1 1 + 1 1) / 2
+        // highest_overflow_idx = 3 [meaning r3]; min_val = 2 = 1 + 2 / 2; max_val = 3 = 2 + 2 / 2. We can propagate q1 = 0 as min_val == max_val - 1
+        //
+        // Example 2:
+        // 0 = r3 = (1 1 + 0 q2 + 0 q1 + p3 0) + (0 q2 + p1 1 + p2 1) / 2
+        // highest_overflow_idx = 2; highest_overflow_precise = true; min_val = 1; max_val = 2. We can propagate p2 = p1 = 1 in r2 as min_val == max_val - 1 and we know that we can make all [highest_overflow_precise == true] undetermined products in r2 true
+        //
+        // Example 3:
+        // 0 = r3 = (1 1 + 0 q2 + 0 q1 + p3 0) + (1 q2 + 1 1 + p2 1) / 2
+        // highest_overflow_idx = 2; highest_overflow_precise = false; min_val = 1; max_val = 2. We can not propagate p2 = 1 or q2 = 1 in r2 as we don't know which [highest_overflow_precise == false i.e., 3 is not divisible by 2]
+        //
+        // Example 4:
+        // 0 = r3 = (1 1 + 0 q2 + 0 q1 + p3 0) + (p0 q2 + p1 1 + 0 1) / 2
+        // highest_overflow_idx = 2; highest_overflow_precise = true; min_val = 1; max_val = 2. We can propagate p1 = 1 but not p0 = 1 or q2 = 1 as we don't know which
+        //
+        // In all cases cases min_val == max_val after backward propagation [max_val = min_val if assigned to 0; min_val = max_val if assigned to 1]
+        
+        // TODO: Check: Is the performance too worse? It is O(k^3) in the worst case...
         for (unsigned i = 0; i < m.num_tbits(); i++) {
+            unsigned current_min_val = 0, current_max_val = 0;
             for (unsigned x = 0, y = i; x <= i; x++, y--) {
-                tbit bit1 = in1[x];
-                tbit bit2 = in2[y];
-    
+                tbit bit1 = p_tbv[x];
+                tbit bit2 = q_tbv[y];
+                
                 if (bit1 == BIT_1 && bit2 == BIT_1) {
-                    min_bit_value++; // we get two 1
-                    max_bit_value++;
+                    current_min_val++; // we get two 1
+                    current_max_val++;
                 }
-                else if (bit1 != BIT_0 && bit2 != BIT_0) {
-                    max_bit_value++; // we could get two 1
-                }
+                else if (bit1 != BIT_0 && bit2 != BIT_0)
+                    current_max_val++; // we could get two 1
             }
-            if (min_bit_value == max_bit_value) {
+            
+            if (max_val >= highest_overflow_val) {
+                highest_overflow_val = max_val;
+                highest_overflow_idx = i;
+                highest_overflow_precise = true;
+            }
+            min_val += current_min_val;
+            max_val += current_max_val;
+            
+            if (min_val == max_val) {
                 // We know the value of this bit
-                if (!fix_value(fixed, p, out, i, min_bit_value & 1 ? BIT_1 : BIT_0, alloc(bit_justication_mul)))
-                    return out;
+                // forward propagation
+                // this might add a conflict if the value is already set to another value
+                if (!fix_value_core(s, fixed, r, r_tbv, i, min_val & 1 ? BIT_1 : BIT_0, alloc(bit_justication_mul, i, p, q)))
+                    return;
             }
-            // Subtract one; shift this to the next higher bit as "carry value"
-            min_bit_value >>= 1;
-            max_bit_value >>= 1;
+            else if (r_tbv[i] != BIT_z && min_val == max_val - 1) {
+                // backward propagation
+                // this cannot add a conflict. However, conflicts are already captured in the forward propagation case
+                tbit set;
+                if ((min_val & 1) == (r_tbv[i] == BIT_0 ? 0 : 1)) {
+                    set = BIT_0;
+                    max_val = min_val;
+                }
+                else {
+                    set = BIT_1;
+                    min_val = max_val;
+                }
+                SASSERT(set == BIT_0 || set == BIT_1);
+                SASSERT(highest_overflow_idx <= i);
+                if (highest_overflow_precise) { // Otherwise, we cannot set the elements in the previous ri but we at least know max_val == min_val (resp., vice-versa)
+                    bit_justication_shared* j = nullptr;
+                    unsigned_vector set_bits;
+#define SHARED_JUSTIFICATION (j ? (j->inc_ref(), (bit_justication**)&j) : (j = alloc(bit_justication_shared, alloc(bit_justication_mul, i, p, q, r)), (bit_justication**)&j))
+                    
+                    for (unsigned x = 0, y = i; x <= highest_overflow_idx; x++, y--) {
+                        tbit bit1 = p_tbv[x];
+                        tbit bit2 = q_tbv[y];
+                        if (set == BIT_0 && bit1 != bit2) {
+                            // Sets: (1, z), (z, 1), (0, 1), (1, 0) [the cases with two constants are used for minimizing decision levels]
+                            // Does not set: (1, 1), (0, 0), (0, z), (z, 0)
+                            // Also does not set: (z, z) [because we don't know which one. We only know that it has to be 0 => we can still set max_val = min_val]
+                            if (bit1 == BIT_1) {
+                                if (!fix_value_core(s, fixed, q, q_tbv, y, BIT_0, SHARED_JUSTIFICATION)) {
+                                    VERIFY(false);
+                                }
+                                set_bits.push_back(y << 1 | 1);
+                            }
+                            else if (bit2 == BIT_1) {
+                                if (!fix_value_core(s, fixed, p, p_tbv, x, BIT_0, SHARED_JUSTIFICATION)) {
+                                    VERIFY(false);
+                                }
+                                set_bits.push_back(x << 1 | 0);
+                            }
+                        }
+                        else if (set == BIT_1 && bit1 != BIT_0 && bit2 != BIT_0) {
+                            // Sets: (1, z), (z, 1), (1, 1), (z, z)
+                            // Does not set: (0, 0), (0, z), (z, 0), (0, 1), (1, 0)
+                            if (bit1 == BIT_1) {
+                                if (!fix_value_core(s, fixed, q, q_tbv, y, BIT_1, SHARED_JUSTIFICATION)) {
+                                    VERIFY(false);
+                                }
+                                set_bits.push_back(y << 1 | 1);
+                            }
+                            if (bit2 == BIT_1) {
+                                if (!fix_value_core(s, fixed, p, p_tbv, x, BIT_1, SHARED_JUSTIFICATION)) {
+                                    VERIFY(false);
+                                }
+                                set_bits.push_back(x << 1 | 0);
+                            }
+                            if (bit1 == BIT_z && bit2 == BIT_z) {
+                                if (!fix_value_core(s, fixed, p, p_tbv, i, BIT_1, SHARED_JUSTIFICATION) ||
+                                    !fix_value_core(s, fixed, q, q_tbv, i, BIT_1, SHARED_JUSTIFICATION)) {
+                                    VERIFY(false);
+                                }
+                                set_bits.push_back(y << 1 | 1);
+                                set_bits.push_back(x << 1 | 0);
+                            }
+                        }
+                    }
+                    
+                    if (j) {
+                        // the reference count might be higher than the number of elements in the vector
+                        // some elements might not be relevant for the justification (e.g., because of decision-level)
+                        ((bit_justication_mul*)j->get_justification())->m_bit_indexes = set_bits;
+                    }
+                }
+            }
+            
+            // Subtract one; shift this to the next higher bit as "carry values"
+            min_val >>= 1;
+            max_val >>= 1;
+            highest_overflow_precise &= (highest_overflow_val & 1) == 0; 
+            highest_overflow_val >>= 1;
         }
-
-        return out;
     }    
     
     // collect all bits that effect the given bit. These might be quite a lot
@@ -127,91 +266,150 @@ namespace polysat {
             relevant_range = m_idx >= 2;
         else
             relevant_range = log2(m_idx - (log2(m_idx) + 1));
+                
+        const tbv_ref& p_tbv = *get_tbv(fixed, *m_p);
+        const tbv_ref& q_tbv = *get_tbv(fixed, *m_q);
         
-        const tbv_ref& tbv1 = get_tbv(fixed, *m_c1);
-        const tbv_ref& tbv2 = get_tbv(fixed, *m_c2);
-                        
+        if (m_r)
+            get_dependencies_forward(fixed, to_process, p_tbv, q_tbv, relevant_range);
+        else 
+            get_dependencies_backward(fixed, to_process, p_tbv, q_tbv, relevant_range);
+    }
+    
+    void bit_justication_mul::get_dependencies_forward(fixed_bits &fixed, bit_dependencies &to_process, const tbv_ref& p_tbv, const tbv_ref& q_tbv, unsigned relevant_range) {
         for (unsigned i = m_idx - relevant_range; i <= m_idx; i++) {
             for (unsigned x = 0, y = i; x <= i; x++, y--) {
-                tbit bit1 = tbv1[x];
-                tbit bit2 = tbv2[y];
+                tbit bit1 = p_tbv[x];
+                tbit bit2 = q_tbv[y];
                 
                 if (bit1 == BIT_1 && bit2 == BIT_1) {
-                    get_other_justification(fixed, *m_c1, x)->get_dependencies(fixed, to_process);
-                    get_other_justification(fixed, *m_c2, x)->get_dependencies(fixed, to_process);
+                    get_other_justification(fixed, *m_p, x)->get_dependencies(fixed, to_process);
+                    get_other_justification(fixed, *m_q, y)->get_dependencies(fixed, to_process);
                 }
                 else if (bit1 == BIT_0) // TODO: Take the better one if both are zero
-                    get_other_justification(fixed, *m_c1, x)->get_dependencies(fixed, to_process);
+                    get_other_justification(fixed, *m_p, x)->get_dependencies(fixed, to_process);
                 else if (bit2 == BIT_0)
-                    get_other_justification(fixed, *m_c2, x)->get_dependencies(fixed, to_process);
+                    get_other_justification(fixed, *m_q, y)->get_dependencies(fixed, to_process);
                 else {
                     // The bit is apparently not set because we cannot derive a truth-value.
-                    // Why do we ask for an explanation
+                    // Why do we ask for an explanation?
                     VERIFY(false);
                 }
             }
         }
     }
     
+    void bit_justication_mul::get_dependencies_backward(fixed_bits& fixed, bit_dependencies& to_process, const tbv_ref& p_tbv, const tbv_ref& q_tbv, unsigned relevant_range) {
+        SASSERT(!m_bit_indexes.empty()); // Who asked us for an explanation if there is nothing in the set?
+        unsigned set_idx = 0;
+        for (unsigned i = m_idx - relevant_range; i <= m_idx; i++) {
+            for (unsigned x = 0, y = i; x <= i; x++, y--) {
+                
+                unsigned i_p = x << 1 | 0;
+                unsigned i_q = y << 1 | 1;
+                
+                // the list is ordered in the same way we iterate now through it so we just look at the first elements
+                unsigned next1 = set_idx >= m_bit_indexes.size() ? -1 : m_bit_indexes[set_idx];
+                unsigned next2 = set_idx + 1 >= m_bit_indexes.size() ? -1 : m_bit_indexes[set_idx + 1];
+                
+                bool p_in_set = false, q_in_set =false;
+                
+                if (i_p == next1 || i_p == next2) {
+                    set_idx++;
+                    p_in_set = true;
+                }
+                else if (i_q == next1 || i_q == next2) {
+                    set_idx++;
+                    q_in_set = true;
+                }
+                                
+                tbit bit1 = p_tbv[x];
+                tbit bit2 = q_tbv[y];
+                
+                // TODO: Check once more
+                
+                if (bit1 == BIT_1 && bit2 == BIT_1) {
+                    if (!p_in_set)
+                        get_other_justification(fixed, *m_p, x)->get_dependencies(fixed, to_process);
+                    if (!q_in_set)
+                        get_other_justification(fixed, *m_q, y)->get_dependencies(fixed, to_process);
+                }
+                else if (bit1 == BIT_0) {
+                    if (!p_in_set)
+                        get_other_justification(fixed, *m_p, x)->get_dependencies(fixed, to_process);
+                    else if (!q_in_set)
+                        get_other_justification(fixed, *m_q, y)->get_dependencies(fixed, to_process);
+                }
+                else if (bit2 == BIT_0 && !q_in_set) {
+                    if (!q_in_set)
+                        get_other_justification(fixed, *m_q, y)->get_dependencies(fixed, to_process);
+                    else if (!p_in_set)
+                        get_other_justification(fixed, *m_p, x)->get_dependencies(fixed, to_process);
+                }
+                else {
+                    // unlike in the forward case this can happen
+                }
+            }
+        }
+    }
+    
     // similar to multiplying but far simpler/faster (only the direct predecessor might overflow)
-    tbv_ref& bit_justication_add::add(fixed_bits& fixed, const pdd& p, const tbv_ref& in1, const tbv_ref& in2) {
-        auto m = in1.manager();
-        tbv_ref& out = fixed.get_tbv(p);
+    void bit_justication_add::propagate(solver& s, fixed_bits& fixed, const pdd& r, const pdd& p, const pdd& q) {
+        LOG_H2("Bit-Propagating: " << r << " = (" << p << ") + (" << q << ")");
+        // TODO: Add backward propagation
+        tbv_ref& p_tbv = *fixed.get_tbv(p);
+        tbv_ref& q_tbv = *fixed.get_tbv(q);
+        tbv_ref& r_tbv = *fixed.get_tbv(r);
+        LOG("p: " << p << " = " << p_tbv);
+        LOG("q: " << q << " = " << q_tbv);
+        LOG("r: " << r << " = " << r_tbv);
+        
+        auto& m = r_tbv.manager();
 
         unsigned min_bit_value = 0;
         unsigned max_bit_value = 0;
 
         for (unsigned i = 0; i < m.num_tbits(); i++) {
-            tbit bit1 = in1[i];
-            tbit bit2 = in2[i];
-            if (bit1 == BIT_1 && bit2 == BIT_1) {
+            tbit bit1 = p_tbv[i];
+            tbit bit2 = q_tbv[i];
+            if (bit1 == BIT_1) {
                 min_bit_value++;
                 max_bit_value++;
             }
-            else if (bit1 != BIT_0 && bit2 != BIT_0) {
+            else if (bit1 == BIT_z)
+                max_bit_value++;
+            
+            if (bit2 == BIT_1) {
+                min_bit_value++;
                 max_bit_value++;
             }
+            else if (bit2 == BIT_z)
+                max_bit_value++;
 
             if (min_bit_value == max_bit_value)
-                if (!fix_value(fixed, p, out, i, min_bit_value & 1 ? BIT_1 : BIT_0, alloc(bit_justication_add)))
-                    return out;
+                if (!fix_value_core(s, fixed, r, r_tbv, i, min_bit_value & 1 ? BIT_1 : BIT_0, alloc(bit_justication_add)))
+                    return;
 
             min_bit_value >>= 1;
             max_bit_value >>= 1;
         }
-        
-        if (min_bit_value == max_bit_value) // Overflow to the first bit
-            fix_value(fixed, p, out, 0, min_bit_value & 1 ? BIT_1 : BIT_0, alloc(bit_justication_add));
-        
-        return out;
     }
     
     void bit_justication_add::get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) {
-        if (m_c1->power_of_2() > 1) {
-            if (m_idx == 0) {
-                get_other_justification(fixed, *m_c1, m_c1->power_of_2() - 1)->get_dependencies(fixed, to_process);
-                get_other_justification(fixed, *m_c2, m_c1->power_of_2() - 1)->get_dependencies(fixed, to_process);
-                DEBUG_CODE(
-                    const tbv_ref& tbv1 = get_tbv(fixed, *m_c1);
-                    const tbv_ref& tbv2 = get_tbv(fixed, *m_c2);
-                    SASSERT(tbv1[m_c1->power_of_2() - 1] != BIT_z && tbv2[m_c1->power_of_2() - 1] != BIT_z);
-                );
-            }
-            else {
-                get_other_justification(fixed, *m_c1, m_idx - 1)->get_dependencies(fixed, to_process);
-                get_other_justification(fixed, *m_c2, m_idx - 1)->get_dependencies(fixed, to_process);
-                DEBUG_CODE(
-                    const tbv_ref& tbv1 = get_tbv(fixed, *m_c1);
-                    const tbv_ref& tbv2 = get_tbv(fixed, *m_c2);
-                    SASSERT(tbv1[m_idx - 1] != BIT_z && tbv2[m_idx - 1] != BIT_z);
-                );
-            }
+        if (m_c1->power_of_2() > 1 && m_idx > 0) {
+            get_other_justification(fixed, *m_c1, m_idx - 1)->get_dependencies(fixed, to_process);
+            get_other_justification(fixed, *m_c2, m_idx - 1)->get_dependencies(fixed, to_process);
+            DEBUG_CODE(
+                const tbv_ref& tbv1 = *get_tbv(fixed, *m_c1);
+                const tbv_ref& tbv2 = *get_tbv(fixed, *m_c2);
+                SASSERT(tbv1[m_idx - 1] != BIT_z && tbv2[m_idx - 1] != BIT_z);
+            );
         }
         get_other_justification(fixed, *m_c1, m_idx)->get_dependencies(fixed, to_process);
         get_other_justification(fixed, *m_c2, m_idx)->get_dependencies(fixed, to_process);
         DEBUG_CODE(
-            const tbv_ref& tbv1 = get_tbv(fixed, *m_c1);
-            const tbv_ref& tbv2 = get_tbv(fixed, *m_c2);
+            const tbv_ref& tbv1 = *get_tbv(fixed, *m_c1);
+            const tbv_ref& tbv2 = *get_tbv(fixed, *m_c2);
             SASSERT(tbv1[m_idx] != BIT_z && tbv2[m_idx] != BIT_z);
         );
     }
@@ -227,15 +425,16 @@ namespace polysat {
           return get_manager(v.power_of_2());
     }
 
-    tbv_ref& fixed_bits::get_tbv(const pdd& v) {
+    tbv_ref* fixed_bits::get_tbv(const pdd& v) {
+        LOG("Looking for tbv for " << v);
         auto found = m_var_to_tbv.find_iterator(optional(v));
         if (found == m_var_to_tbv.end()) {
             auto& manager = get_manager(v.power_of_2());
             if (v.is_val()) 
-                m_var_to_tbv[optional(v)] = optional(tbv_ref(manager, manager.allocate(v.val())));
+                m_var_to_tbv.insert(optional(v), alloc(tbv_ref, manager, manager.allocate(v.val())));
             else 
-                m_var_to_tbv[optional(v)] = optional(tbv_ref(manager, manager.allocate()));
-            return *m_var_to_tbv[optional(v)];
+                m_var_to_tbv.insert(optional(v), alloc(tbv_ref, manager, manager.allocate()));
+            return m_var_to_tbv[optional(v)];
         }
         /*if (m_var_to_tbv.size() <= v) {
             m_var_to_tbv.reserve(v + 1);
@@ -243,7 +442,7 @@ namespace polysat {
             m_var_to_tbv[v] = tbv_ref(manager, manager.allocate());
             return *m_var_to_tbv[v];
         }*/
-        return *m_var_to_tbv[optional(v)];
+        return found->m_value;
         /*auto& old_manager = m_var_to_tbv[optional(v)]->manager();
         if (old_manager.num_tbits() >= v.power_of_2())
             return *(m_var_to_tbv[optional(v)]);
@@ -259,15 +458,15 @@ namespace polysat {
     clause_ref fixed_bits::get_explanation(solver& s, bit_justication* j1, bit_justication* j2) {
         bit_dependencies to_process;
         // TODO: Check that we do not process the same tuple multiples times (efficiency)
-        j1->get_dependencies(*this, to_process);
-        j2->get_dependencies(*this, to_process);
+        
+#define GET_DEPENDENCY(X) do { (X)->get_dependencies(*this, to_process); if ((X)->can_dealloc()) { dealloc(X); } } while (false)
         
         clause_builder conflict(s);
         conflict.set_redundant(true);
         
         auto insert_constraint = [&conflict, &s](bit_justication* j) {
             constraint* constr;
-            if (j->has_constraint(constr))
+            if (!j->has_constraint(constr))
                 return;
             SASSERT(constr);
             if (constr->has_bvar()) {
@@ -280,14 +479,22 @@ namespace polysat {
         insert_constraint(j1);
         insert_constraint(j2);
         
+        GET_DEPENDENCY(j1);
+        GET_DEPENDENCY(j2);
+        
         // In principle, the dependencies should be acyclic so this should terminate. If there are cycles it is for sure a bug
         while (!to_process.empty()) {
             bit_dependency& curr = to_process.back();
-            to_process.pop_back();
+            if (curr.pdd().is_val()) {
+                to_process.pop_back();
+                continue; // We don't need an explanation for bits of constants
+            }
             SASSERT(m_tbv_to_justification.contains(curr));
+                
             bit_justication* j = m_tbv_to_justification[curr];
+            to_process.pop_back();
             insert_constraint(j);
-            j->get_dependencies(*this, to_process);
+            GET_DEPENDENCY(j);
         }
         
         return conflict.build();
@@ -295,50 +502,85 @@ namespace polysat {
     
     tbit fixed_bits::get_value(const pdd& p, unsigned idx) {
         SASSERT(p.is_var());
-        return get_tbv(p)[idx];
+        return (*get_tbv(p))[idx];
     }
 
-    bool fixed_bits::fix_value(const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j) {
+    // True iff the justification changed? Alternatively: true if the justification was not used (can be deallocated). 
+    bool fixed_bits::fix_value_core(const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j) {
+        LOG("Fixing bit " << idx << " in " << p << " (" << tbv << ")");
+        constraint* c;
+        if (j->has_constraint(c)) {
+            LOG("justification constraint: " << *c);
+        }
+
         SASSERT(val != BIT_x); // We don't use don't-cares
-        SASSERT(p.is_var());
         if (val == BIT_z)
-            return true;
+            return false;
         tbit curr_val = tbv[idx];
 
         if (val == curr_val)
-            return true; // TODO: Take the new justification if it has a lower decision level
+            return false; // TODO: Take the new justification if it has a lower decision level
 
         auto& m = tbv.manager();
 
         if (curr_val == BIT_z) {
             m.set(*tbv, idx, val);
-            delete m_tbv_to_justification[{ p, idx }];
-            m_tbv_to_justification[{ p, idx }] = j;
+            auto jstfc = m_tbv_to_justification.get({ p, idx }, nullptr);
+            if (jstfc && jstfc->can_dealloc())
+                dealloc(jstfc);
+            m_tbv_to_justification.insert({ p, idx }, j);
             return true;
         }
         SASSERT((curr_val == BIT_1 && val == BIT_0) || (curr_val == BIT_0 && val == BIT_1));
         SASSERT(m_tbv_to_justification.contains({ p, idx }));
-        return m_consistent = false;
+        m_consistent = false;
+        return false;
     }
     
-    bool fixed_bits::fix_value(solver& s, const pdd& p, unsigned idx, tbit val, bit_justication* j) {
-        tbv_ref& tbv = get_tbv(p);
-        if (fix_value(p, tbv, idx, val, j))
+    bool fixed_bits::fix_value(solver& s, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j) {
+        bool changed = fix_value_core(p, tbv, idx, val, j);
+        if (changed)
             return true;
-        clause_ref explanation = get_explanation(s, j, m_tbv_to_justification[{ p, idx }]);
-        s.set_conflict(*explanation);
+        
+        if (!m_consistent) {
+            clause_ref explanation = get_explanation(s, j, m_tbv_to_justification[{ p, idx }]);
+            s.set_conflict(*explanation);
+        }
         return false;
+    }
+    
+    // return: consistent?
+    bool fixed_bits::fix_value(solver& s, const pdd& p, unsigned idx, tbit val, bit_justication* j) {
+        tbv_ref& tbv = *get_tbv(p);
+        bool changed = fix_value_core(p, tbv, idx, val, j);
+        if (changed) { // this implies consistency
+            propagate_to_subterm(s, p);
+            return true;
+        }
+        // TODO: Propagate equality if everything is set
+        if (!m_consistent) {
+            LOG("Adding conflict on bit " << idx << " on pdd " << p);
+            clause_ref explanation = get_explanation(s, j, m_tbv_to_justification[{ p, idx }]);
+            s.set_conflict(*explanation);
+            return false; // get_explanation will dealloc the justification
+        }
+        if (j->can_dealloc())
+            dealloc(j);
+        return m_consistent;
     }
 
     void fixed_bits::clear_value(const pdd& p, unsigned idx) {
+        // TODO: Use during backtracking
         SASSERT(p.is_var());
-        tbv_ref& tbv = get_tbv(p);
+        tbv_ref& tbv = *get_tbv(p);
         auto& m = tbv.manager();
         m.set(*tbv, idx, BIT_z);
 
         SASSERT(m_tbv_to_justification.contains({ p, idx }));
-        delete m_tbv_to_justification[{ p, idx }];
-        m_tbv_to_justification[{ p, idx }] = nullptr;
+        auto& jstfc = m_tbv_to_justification[{ p, idx }];
+        if (jstfc->can_dealloc())
+            dealloc(jstfc);
+        jstfc = nullptr;
     }
 
 #define COUNT(DOWN, TO_COUNT) \
@@ -384,30 +626,94 @@ namespace polysat {
         return { least, most };
     }
 
-    tbv_ref& fixed_bits::eval(solver& s, const pdd& p) {
+    tbv_ref* fixed_bits::eval(solver& s, const pdd& p) {
+        
+        if (p.is_val() || p.is_var())
+            return get_tbv(p);
+        
         pdd zero = p.manager().zero();
         pdd one = p.manager().one();
         
         pdd sum = zero;
-        tbv_ref* prev_sum_tbv = &get_tbv(sum);
         
         for (const dd::pdd_monomial& n : p) {
             SASSERT(!n.coeff.is_zero());
             pdd prod = p.manager().mk_val(n.coeff);
-            tbv_ref* prev_mul_tbv = &get_tbv(prod);
+            
+            for (pvar fac : n.vars) {
+                pdd fac_pdd = s.var(fac);
+                pdd pre_prod = prod;
+                prod *= fac_pdd;
+                
+                if (!pre_prod.is_val() || !pre_prod.val().is_one()) {
+                    bit_justication_mul::propagate(s, *this, prod, pre_prod, fac_pdd);
+                    if (!m_consistent)
+                        return nullptr;
+                }
+            }
+            pdd pre_sum = sum;
+            sum += prod;
+            
+            if (!pre_sum.is_val() || !pre_sum.val().is_zero()) {
+                bit_justication_add::propagate(s, *this, sum, pre_sum, prod);
+                if (!m_consistent)
+                    return nullptr;
+            }
+        }
+        return get_tbv(sum);
+    }
+    
+    //propagate to subterms of the polynomial/pdd
+    void fixed_bits::propagate_to_subterm(solver& s, const pdd& p) {
+        // we assume the tbv of p was already assigned and there was no conflict
+        if (p.is_var() || p.is_val())
+            return;
+        
+        vector<pdd> sum_subterms;
+        vector<vector<pdd>> prod_subterms;
+        pdd zero = p.manager().zero();
+        pdd one = p.manager().one();
+        
+        pdd sum = zero;
+        
+        for (const dd::pdd_monomial& n : p) {
+            SASSERT(!n.coeff.is_zero());
+            pdd prod = p.manager().mk_val(n.coeff);
+            prod_subterms.push_back(vector<pdd>());
+            
+            // TODO: Maybe process the coefficient first as we have the most information there 
+            //  (however, we cannot really revert the order as we used the coefficient first for forward propagation)
+            if (n.coeff != 1) 
+                prod_subterms.back().push_back(prod);
             
             for (pvar fac : n.vars) {
                 pdd fac_pdd = s.var(fac);
                 prod *= fac_pdd;
-                prev_mul_tbv = &bit_justication_mul::mul(*this, prod, *prev_mul_tbv, get_tbv(fac_pdd));
-                if (!m_consistent)
-                    return *prev_sum_tbv;
+                prod_subterms.back().push_back(prod);
+                prod_subterms.back().push_back(fac_pdd);
             }
             sum += prod;
-            prev_sum_tbv = &bit_justication_add::add(*this, sum, *prev_sum_tbv, *prev_mul_tbv);
-            if (!m_consistent)
-                return *prev_sum_tbv;
+            sum_subterms.push_back(sum);
+            sum_subterms.push_back(prod);
         }
-        return *prev_sum_tbv;
+        
+        SASSERT(sum_subterms[0] == sum_subterms[1] && sum_subterms.size() % 2 == 1);
+        SASSERT(2 * prod_subterms.size() == sum_subterms.size());
+        
+        pdd current = p;
+        
+        for (unsigned i = sum_subterms.size() - 1; i > 1; i -= 2) {
+            pdd rhs = sum_subterms[i]; // a monomial for sure
+            pdd lhs = sum_subterms[i - 1];
+            SASSERT(rhs.is_monomial());
+            bit_justication_add::propagate(s, *this, current, lhs, rhs);
+            current = rhs;
+            auto& prod = prod_subterms[i / 2];
+            for (unsigned j = prod.size() - 1; j > 1; j -= 2) {
+                bit_justication_mul::propagate(s, *this, current, prod[j], prod[j - 1]);
+                current = prod[j - 1];
+            }
+            current = lhs;
+        }
     }
 }

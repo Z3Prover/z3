@@ -1636,6 +1636,55 @@ namespace polysat {
             s.check();
             s.expect_unsat();
         }
+        
+        static void test_band6(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto a = s.var(s.add_var(bw));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            
+            signed_constraint and1 = s.eq(a, s.band(x, x.manager().mk_val(rational::power_of_two((bw + 1) / 2) - 1)));
+            signed_constraint and2 = s.eq(a, s.band(x, x.manager().mk_val((rational::power_of_two((bw + 1) / 2) - 1) * rational::power_of_two(bw / 2))));
+            s.add_clause(and1, false);
+            s.add_clause(and2, false);
+            s.add_clause(~s.eq(a, 0), false);
+            
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_band6_complex_term(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto a = s.var(s.add_var(bw));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            
+            signed_constraint and1 = s.eq(a, s.band(x * y, x.manager().mk_val(rational::power_of_two((bw + 1) / 2) - 1)));
+            signed_constraint and2 = s.eq(a, s.band(x * y, x.manager().mk_val((rational::power_of_two((bw + 1) / 2) - 1) * rational::power_of_two(bw / 2))));
+            s.add_clause(and1, false);
+            s.add_clause(and2, false);
+            s.add_clause(~s.eq(a, 0), false);
+            
+            s.check();
+            s.expect_unsat();
+        }
+        
+        static void test_band6_eq_order(unsigned bw = 32) {
+            scoped_solver s(concat(__func__, " bw=", bw));
+            auto a = s.var(s.add_var(bw));
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            
+            signed_constraint and1 = s.eq(a, s.band(x, x.manager().mk_val(rational::power_of_two((bw + 1) / 2) - 1)));
+            signed_constraint and2 = s.eq(a, s.band(x, y));
+            s.add_clause(and1, false);
+            s.add_clause(and2, false);
+            s.add_clause(s.eq(x.manager().mk_val((rational::power_of_two((bw + 1) / 2) - 1) * rational::power_of_two(bw / 2)), y), false);
+            s.add_clause(~s.eq(a, 0), false);
+            
+            s.check();
+            s.expect_unsat();
+        }
 
         static void test_fi_zero() {
             scoped_solver s(__func__);
@@ -1849,8 +1898,7 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 
 void tst_polysat() {
     using namespace polysat;
-
-    polysat::test_polysat::test_elim7(3);
+    polysat::test_polysat::test_band6(4);
 
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
@@ -1870,7 +1918,7 @@ void tst_polysat() {
     return;
 #endif
 
-    // If non-empty, only run tests whose name contains the run_filter
+    // If non-empty, only run tests whose name c9ontains the run_filter
     run_filter = "";
     test_max_conflicts = 20;
 

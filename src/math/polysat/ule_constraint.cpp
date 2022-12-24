@@ -209,6 +209,9 @@ namespace polysat {
                 // p > 0
                 s.add_clause(~sc, s.ult(0, p), false);
         }
+#if 0
+        propagate_bits(s, is_positive);
+#endif
     }
 
     // Evaluate lhs <= rhs
@@ -235,6 +238,111 @@ namespace polysat {
 
     lbool ule_constraint::eval(assignment const& a) const {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
+    }
+    
+    bool ule_constraint::propagate_bits(solver& s, bool is_positive) {
+        if (is_eq() && is_positive) {
+            vector<optional<pdd>> e;
+            bool failed = false;
+            for (const auto& m : lhs()) {
+                if (e.size() > 1) {
+                    failed = true;
+                    break;
+                }
+                pdd p = lhs().manager().mk_val(m.coeff);
+                for (pvar v : m.vars)
+                    p *= s.var(v);
+                e.push_back(optional(p));
+                if (e.size() == 2 && (m.coeff < 0 || m.coeff >= rational::power_of_two(p.power_of_2() - 1)))
+                    std::swap(e[0], e[1]); // try to keep it positive
+            }
+            if (!failed && !e.empty()) {
+                if (e.size() == 1)
+                    e.push_back(optional(lhs().manager().mk_val(0)));
+                else
+                    e[0] = optional(-*(e[0]));
+                SASSERT(e.size() == 2);
+                tbv_ref* lhs_val = s.m_fixed_bits.eval(s, *(e[0]));
+                tbv_ref* rhs_val = s.m_fixed_bits.eval(s, *(e[1]));
+                LOG("Bit-Propagating: " << *lhs_val << " = " << *rhs_val);
+                unsigned sz = lhs_val->num_tbits();
+                for (unsigned i = 0; i < sz; i++) {
+                    // we propagate in both directions to get the least decision level
+                    if ((*lhs_val)[i] != BIT_z) {
+                        if (!s.m_fixed_bits.fix_value(s, *(e[1]), i, (*lhs_val)[i], bit_justication_constraint::mk_unary(this, { *(e[0]), i })))
+                            return false;
+                    }
+                    if ((*rhs_val)[i] != BIT_z) {
+                         if (!s.m_fixed_bits.fix_value(s, *(e[0]), i, (*rhs_val)[i], bit_justication_constraint::mk_unary(this, { *(e[1]), i })))
+                             return false;
+                    }
+                }
+                return true;
+            }
+        }
+        
+        pdd lhs = is_positive ? m_lhs : m_rhs;
+        pdd rhs = is_positive ? m_rhs : m_lhs;
+        
+        tbv_ref* lhs_val = s.m_fixed_bits.eval(s, lhs);
+        tbv_ref* rhs_val = s.m_fixed_bits.eval(s, rhs);
+        unsigned sz = lhs_val->num_tbits();
+        
+        LOG("Bit-Propagating: " << lhs << " (" << *lhs_val << ") " << (is_positive ? "<= " :  "< ") << rhs << " (" << *rhs_val << ")");
+        
+        // TODO: Propagate powers of 2 (lower bound)
+        bool conflict = false;
+        bit_dependencies dep;
+        static unsigned char action_lookup[] = {
+            // lhs <= rhs
+            // 0 .. break; could be still satisfied; 
+            // 1 ... continue; there might still be a conflict [lhs is the justification; rhs is propagated 1]; 
+            // 2 ... continue; --||-- [rhs is the justification; lhs is propagated 0]; 
+            // 3 ... conflict; lhs is for sure greater than rhs; 
+            // 4 ... invalid (should not happen)
+            0, /*(z, z)*/ 0, /*(0, z)*/ 1, /*(1, z)*/ 4, /*(x, z)*/
+            2, /*(z, 0)*/ 2, /*(0, 0)*/ 3, /*(1, 0)*/ 4, /*(x, 0)*/
+            0, /*(z, 1)*/ 0, /*(0, 1)*/ 1, /*(1, 1)*/ 4, /*(x, 1)*/
+            // for the positive case (vice-versa for negative case -> we swap lhs/rhs + special treatment for index 0)
+        };
+        unsigned i = sz;
+        for (; i > (unsigned)!is_positive && !conflict; i--) {
+            tbit l = (*lhs_val)[i - 1];
+            tbit r = (*rhs_val)[i - 1];
+            
+            unsigned char action = action_lookup[l | (r << 2)];
+            switch (action) {
+                case 0:
+                    i = 0;
+                    break;
+                case 1:
+                case 3:
+                    dep.push_back({ lhs, i - 1 });
+                    LOG("Added dependency: pdd: " << lhs << " idx: " << i - 1);
+                    conflict = !s.m_fixed_bits.fix_value(s, rhs, i - 1, BIT_1, bit_justication_constraint::mk(this, dep));
+                    SASSERT((action != 3) == conflict);
+                    break;
+                case 2:
+                    dep.push_back({ rhs, i - 1 });
+                    LOG("Added dependency: pdd: " << rhs << " idx: " << i - 1);
+                    conflict = !s.m_fixed_bits.fix_value(s, lhs, i - 1, BIT_0, bit_justication_constraint::mk(this, dep));
+                    SASSERT(!conflict);
+                    break;
+                default:
+                    VERIFY(false);
+            }
+        }
+        if (!conflict && !is_positive && i == 1) {
+            // Special treatment for lhs < rhs (note: we swapped lhs <-> rhs so this is really a less and not a greater)
+            conflict = !s.m_fixed_bits.fix_value(s, lhs, 0, BIT_0, bit_justication_constraint::mk(this, dep));
+            if (!conflict)
+                conflict = !s.m_fixed_bits.fix_value(s, rhs, 0, BIT_1, bit_justication_constraint::mk(this, dep));
+        }
+        SASSERT(
+                is_positive && conflict == (fixed_bits::min_max(*lhs_val).first > fixed_bits::min_max(*rhs_val).second) ||
+                !is_positive && conflict == (fixed_bits::min_max(*lhs_val).second <= fixed_bits::min_max(*rhs_val).first)
+        );
+        return !conflict;
     }
 
     unsigned ule_constraint::hash() const {

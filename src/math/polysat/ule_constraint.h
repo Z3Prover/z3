@@ -41,6 +41,7 @@ namespace polysat {
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
         void narrow(solver& s, bool is_positive, bool first) override;
+        bool propagate_bits(solver& s, bool is_positive) override;
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return m_rhs.is_zero(); }
