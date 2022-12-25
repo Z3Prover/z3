@@ -607,10 +607,13 @@ namespace polysat {
     }
     
     void fixed_bits::push() {
+#if 0
         m_trail_size.push_back(m_trail.size());
+#endif
     }
     
     void fixed_bits::pop(unsigned pop_cnt) {
+#if 0
         SASSERT(!m_consistent); // Why do we backtrack if this is true? We might remove this for (random) restarts
         SASSERT(pop_cnt > 0);
         
@@ -642,6 +645,7 @@ namespace polysat {
             m_trail.resize(prev_cnt);
         else 
             m_trail.resize(last_to_keep);
+#endif
     }
 
 #define COUNT(DOWN, TO_COUNT) \
