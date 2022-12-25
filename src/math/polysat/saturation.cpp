@@ -1292,37 +1292,63 @@ namespace polysat {
      * It requires that ax + b does not overflow
      * If the literal is already assigned, we are fine, otherwise?
      * 
+
+     * Bench 23
+     * CONFLICT #474: viable_interval v43
+     * Forbidden intervals for v43: 
+     * [0 ; 1[ := [0;1[  v43 != 0; 
+     * [1 ; 254488108213881748183672494524588808468725241023385855031774909907501383825[ := [1;254488108213881748183672494524588808468725241023385855031774909907501383825[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
+     * [2^128 ; 0[ := [340282366920938463463374607431768211456;0[  v43 <= 2^128-1; -1 * v43 [0 ; 1[ := [-1;-455[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
+     * -13: v43 != 0
+     * 1778: -1*v43 <= -1*v97*v43 + -1*v43 + 1
+     * 1242: v43 <= 2^128-1
+     * v97 := 454
      *
-     * Example (bench25) 
-     * -1*v85*v33 + v81 <= 2^128-2
-     * v33 <= 2^128-1
-     * v81 := -1
-     * v85 := 12
-     *
-     * Example (bench25)
-     * -1489: v25 > -1*v85*v25 + v81
-     * 2397: v85 + 1 <= 328022915686448145675838484443875093068753497636375535522542730900603766685
-     * -1195: v85 + 1 > 2^128+1
-     * v25 := 353
-     * v81 := -1
-     *
-     * -1*v85*v25 + v81 < v25    
-     * a -1*v25 := -315  b v81 := -1   y v25 := 315
-     * & v25 <= 315
-     * & -v81 <= 1 
+     * Analysis
+     * x >= x*y + x - 1 = (y + 1)*x - 1
+     * A_x : 1 <= x < 2^128   (A_x is the "allowed" range for x, F_x, the forbidden range is the complement)
+     * Compute largest infeasible interval on y
+     * => F_y = [2, 2^128+1[
      * 
-     * The example illustrates that fixing y_val produces a weaker bound.
-     * The result should be a forbidden interval around v25 based on bounds for
-     * v85 and v81.
+     * starting point y0 := 454
      *
-     * The example also illustrates that presumably just a combination of forbidden intervals for v85 used in the conflict
-     * are sufficient for narrowing the bounds on v81. Querying for upper/lower bounds of v85 doesn't produce the strongest
-     * assumption. 2397 and -1195 come from unit intervals with fixed lo/hi.
+     * consider the equation p(x,y) < q(x,y) where
+     *
+     * p(x, y) = x
+     * for every x in A_x : 0 <= p(x,y0) < N, where N is shorthand for 2^256
+     *
+     * q(x, y) = x*y + x - 1
+     * for every x in A_x : 0 <= q(x,y0) < N
+     * So we can form:
+     * r(x,y) = q(x, y) - p(x, y) = x*y - 1
+     * for every x in A_x : 0 < r(x, y0) = x*y0 - 1 < N
+
+     * find F_y, maximal such that
+     * for every x in A_x, for every y in F_y : 0 < r(x,y), 0 <= p(x,y) < N, 0 <= q(x,y) < N
      * 
-     * On the other hand, the bound v25 > -1*v85*v25 + v81 was obtained by evaluating v25 and v81
-     * and the quantifier elimination based on viable::resolve_lemma didn't produce the most general lemma. 
-     * Instead it relied on the evaluation at 353 and -1, respectively.
+     * Use the fact that the coefficiens to x, y in p, q, r are non-negative
+     * Note: There isn't ereally anything as negative coefficients because they are already normalized mod N.
+     * Then p, q, r are monotone functions of x, y. Evaluate at x_max, x_min
+     * Note: If A_x wraps around, then set set x_max := x_max + N to ensure that x_min < x_max.
+     * Then it could be that the intervals for p, q are not 0 .. N but shifted. Subtract/add the shift amount.
      * 
+     * It could be that p or q overflow 0 .. N on y0. In this case give up (or come up with something smarter).
+     * 
+     *    max y.  r(x,y) < N forall x in A_x
+     * =  max y . r(x_max,y) < N, where x_max = 2^128-1
+     * =  max y . y*x_max - 1 <= N - 1
+     * =  floor(N - 1 / x_max) + 1
+     * =  2^128 
+     * 
+     *    min y . 0 < r(x,y) forall x in A_x
+     * =  min y . 0 < r(x_min, y)
+     * =  min y . 1 <= y*x_min - 1
+     * =  ceil(2 / x_min)
+     * = 2
+     * 
+     * we have now computed a range around y0 where x >= x*y + x - 1 is false for every x in A_x
+     * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
+     *
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
