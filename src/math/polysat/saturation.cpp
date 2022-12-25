@@ -1308,7 +1308,7 @@ namespace polysat {
      * x >= x*y + x - 1 = (y + 1)*x - 1
      * A_x : 1 <= x < 2^128   (A_x is the "allowed" range for x, F_x, the forbidden range is the complement)
      * Compute largest infeasible interval on y
-     * => F_y = [2, 2^128+1[
+     * => F_y = [2, 2^128 + 1[
      * 
      * starting point y0 := 454
      *
@@ -1324,7 +1324,7 @@ namespace polysat {
      * for every x in A_x : 0 < r(x, y0) = x*y0 - 1 < N
 
      * find F_y, maximal such that
-     * for every x in A_x, for every y in F_y : 0 < r(x,y), 0 <= p(x,y) < N, 0 <= q(x,y) < N
+     * for every x in A_x, for every y in F_y : 0 < r(x,y) < N, 0 <= p(x,y) < N, 0 <= q(x,y) < N
      * 
      * Use the fact that the coefficiens to x, y in p, q, r are non-negative
      * Note: There isn't ereally anything as negative coefficients because they are already normalized mod N.
@@ -1337,14 +1337,19 @@ namespace polysat {
      *    max y.  r(x,y) < N forall x in A_x
      * =  max y . r(x_max,y) < N, where x_max = 2^128-1
      * =  max y . y*x_max - 1 <= N - 1
-     * =  floor(N - 1 / x_max) + 1
+     * =  floor(N / x_max)
      * =  2^128 
+     * 
+     *    max y . q(x, y) < N
+     * =  max y . (y + 1) * x_max - 1 <= N -1
+     * =  floor(N / x_max) - 1
+     * =  2^128 - 1                      (NSB: this is a weaker bound than what it should be. Is using "floor" too much?)
      * 
      *    min y . 0 < r(x,y) forall x in A_x
      * =  min y . 0 < r(x_min, y)
      * =  min y . 1 <= y*x_min - 1
      * =  ceil(2 / x_min)
-     * = 2
+     * =  2
      * 
      * we have now computed a range around y0 where x >= x*y + x - 1 is false for every x in A_x
      * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
