@@ -24,53 +24,57 @@ namespace polysat {
     class constraint;
     class fixed_bits;
     
-    class bit_dependency {
+    struct bvpos {
         optional<pdd> m_pdd;
         unsigned m_bit_idx;
         
     public:
         
-        bit_dependency() : m_pdd(optional<dd::pdd>::undef()), m_bit_idx(0) {}
-        bit_dependency(const bit_dependency& v) = default;
-        bit_dependency(bit_dependency&& v) = default;
+        bvpos() : m_pdd(optional<dd::pdd>::undef()), m_bit_idx(0) {}
+        bvpos(const bvpos& v) = default;
+        bvpos(bvpos&& v) = default;
         
-        bit_dependency(const pdd& pdd, unsigned bit_idx) : m_pdd(pdd), m_bit_idx(bit_idx) {}
+        bvpos(const pdd& pdd, unsigned bit_idx) : m_pdd(pdd), m_bit_idx(bit_idx) {}
                     
-        bool operator==(const bit_dependency& other) const {
+        bool operator==(const bvpos& other) const {
             return m_pdd == other.m_pdd && m_bit_idx == other.m_bit_idx;
         }
         
-        bit_dependency& operator=(bit_dependency&& other) {
+        bvpos& operator=(bvpos&& other) {
             m_pdd = other.m_pdd;
             m_bit_idx = other.m_bit_idx;
             return *this;
         }
         
-        bit_dependency& operator=(bit_dependency& other) {
+        bvpos& operator=(bvpos& other) {
             m_pdd = other.m_pdd;
             m_bit_idx = other.m_bit_idx;
             return *this;
         }
         
-        unsigned idx() const { return m_bit_idx; }
-        const pdd& pdd() const { return *m_pdd; }
+        unsigned get_idx() const { return m_bit_idx; }
+        const pdd& get_pdd() const { return *m_pdd; }
     };
     
-    using bit_dependencies = vector<bit_dependency>;
+    using bit_dependencies = vector<bvpos>;
     
     class bit_justication {
     protected:
         static bit_justication* get_other_justification(const fixed_bits& fixed, const pdd& p, unsigned idx);
         static const tbv_ref* get_tbv(fixed_bits& fixed, const pdd& p);
-        static bool fix_value_core(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication** j);
-        static bool fix_value_core(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j);
+        static bool fix_bit(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication** j);
+        static bool fix_bit(solver& s, fixed_bits& fixed, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j);
     public:
-        virtual bool can_dealloc() { return true; }
+        
+        unsigned m_decision_level;
+        
+        virtual bool can_dealloc() { return true; } // we may not dealloc if the justification is used for multiple bits
         virtual bool has_constraint(constraint*& constr) { return false; }
         virtual void get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) = 0; // returns if element may be deallocated after call (usually true)
     };
     
     // if multiple bits are justified by the same justification
+    // All elements have to be in the same decision-level
     class bit_justication_shared : public bit_justication {
         bit_justication* m_justification;
         unsigned m_references = 0;
@@ -121,12 +125,12 @@ namespace polysat {
         void get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) override;
         
         static bit_justication_constraint* mk_assignment(constraint* c) { return alloc(bit_justication_constraint, c ); }
-        static bit_justication_constraint* mk_unary(constraint* c, bit_dependency v) {
+        static bit_justication_constraint* mk_unary(constraint* c, bvpos v) {
             bit_dependencies dep;
             dep.push_back(std::move(v));
             return alloc(bit_justication_constraint, c, std::move(dep));
         }
-        static bit_justication_constraint* mk_binary(constraint* c, bit_dependency v1, bit_dependency v2) {
+        static bit_justication_constraint* mk_binary(constraint* c, bvpos v1, bvpos v2) {
             bit_dependencies dep;
             dep.push_back(std::move(v1));
             dep.push_back(std::move(v2));
@@ -177,6 +181,18 @@ namespace polysat {
         void get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) override;
     };
     
+    struct justified_bvpos : public bvpos {
+        bit_justication* m_justification;
+        unsigned m_trail_pos;
+        
+        justified_bvpos() = default;
+        
+        justified_bvpos(const pdd & pdd, unsigned idx, bit_justication* jstfc, unsigned int trail_pos) : 
+            bvpos(pdd, idx), m_justification(jstfc), m_trail_pos(trail_pos) {}
+            
+        justified_bvpos(const bvpos& pos, bit_justication* jstfc, unsigned int trail_pos) : 
+            bvpos(pos), m_justification(jstfc), m_trail_pos(trail_pos) {}
+    };
 
     class fixed_bits final {
 
@@ -194,18 +210,20 @@ namespace polysat {
         };
         using pdd_to_tbv_map = map<pdd_to_tbv_key, tbv_ref*, pdd_to_tbv_hash, pdd_to_tbv_eq>;
         
-        using tbv_to_justification_key = bit_dependency;
-        using tbv_to_justification_eq = default_eq<tbv_to_justification_key>;
-        struct tbv_to_justification_hash {
-            unsigned operator()(tbv_to_justification_key const& args) const {
-                return combine_hash(args.pdd().hash(), args.idx());
+        using bvpos_to_justification_eq = default_eq<bvpos>;
+        struct bvpos_to_justification_hash {
+            unsigned operator()(bvpos const& args) const {
+                return combine_hash(args.get_pdd().hash(), args.get_idx());
             }
         };
-        using tbv_to_justification_map = map<tbv_to_justification_key, bit_justication*, tbv_to_justification_hash, tbv_to_justification_eq>;
+        using bvpos_to_justification_map = map<bvpos, justified_bvpos, bvpos_to_justification_hash, bvpos_to_justification_eq>;
 
         //vector<optional<tbv_ref>> m_var_to_tbv;
-        pdd_to_tbv_map m_var_to_tbv; // TODO: free tbv_ref pointers
-        tbv_to_justification_map m_tbv_to_justification; // the elements are pointers. Deallocate them before replacing them
+        pdd_to_tbv_map m_var_to_tbv;
+        bvpos_to_justification_map m_bvpos_to_justification;
+        
+        svector<justified_bvpos> m_trail; 
+        unsigned_vector m_trail_size; 
         
         bool m_consistent = true; // in case evaluating results in a bit-conflict
 
@@ -214,7 +232,9 @@ namespace polysat {
         
         clause_ref get_explanation(solver& s, bit_justication* j1, bit_justication* j2);
         bool fix_value_core(const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j);
-        bool fix_value(solver& s, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j);
+        bool fix_bit(solver& s, const pdd& p, tbv_ref& tbv, unsigned idx, tbit val, bit_justication* j);
+        void clear_value(const pdd& p, unsigned idx);
+        void replace_justification(const justified_bvpos& old_j, bit_justication* new_j);
         
         void propagate_to_subterm(solver& s, const pdd& p);
         
@@ -223,8 +243,11 @@ namespace polysat {
         fixed_bits(solver& s) : m_solver(s) {}        
         
         ~fixed_bits() {
-            for (auto& tbv : m_var_to_tbv) {
+            for (auto& tbv : m_var_to_tbv)
                 dealloc(tbv.m_value);
+            for (justified_bvpos& just : m_trail) {
+                if (just.m_justification->can_dealloc())
+                    dealloc(just.m_justification);
             }
         }
         
@@ -240,8 +263,9 @@ namespace polysat {
         tbit get_value(const pdd& p, unsigned idx); // More efficient than calling "eval" and accessing the returned tbv elements
         // call this function also if we already know that the correct value is written there. We might decrease the decision level (for "replay")
         bool fix_value(solver& s, const pdd& p, unsigned idx, tbit val, bit_justication* j);
-        void clear_value(const pdd& p, unsigned idx);
-
+        void push();
+        void pop(unsigned pop_cnt = 1);
+        
         tbv_ref* eval(solver& s, const pdd& p);
 
 };

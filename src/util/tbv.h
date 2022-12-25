@@ -27,10 +27,10 @@ Revision History:
 class tbv;
 
 enum tbit {
-    BIT_z = 0x0,
-    BIT_0 = 0x1,
-    BIT_1 = 0x2,
-    BIT_x = 0x3
+    BIT_z = 0x0, // unknown
+    BIT_0 = 0x1, // for sure 0
+    BIT_1 = 0x2, // for sure 1
+    BIT_x = 0x3 // don't care
 };
 
 inline tbit neg(tbit t) {

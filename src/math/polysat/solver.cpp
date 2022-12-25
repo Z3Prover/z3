@@ -600,6 +600,7 @@ namespace polysat {
             }
         }
 #endif
+        m_fixed_bits.push();
         if (can_bdecide())
             bdecide();
         else
@@ -822,6 +823,7 @@ namespace polysat {
                     continue;
                 }
                 if (j.is_decision()) {
+                    m_fixed_bits.pop();
                     m_conflict.revert_pvar(v);
                     revert_decision(v);
                     return;
@@ -850,6 +852,7 @@ namespace polysat {
                 }
                 SASSERT(!m_bvars.is_assumption(var));   // TODO: "assumption" is basically "propagated by unit clause" (or "at base level"); except we do not explicitly store the unit clause.
                 if (m_bvars.is_decision(var)) {
+                    m_fixed_bits.pop();
                     revert_bool_decision(lit);
                     return;
                 }
