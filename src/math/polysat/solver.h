@@ -157,6 +157,7 @@ namespace polysat {
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
         stats                    m_stats;
+        random_gen               m_rand;
 
         config                   m_config;
         // Per constraint state
@@ -188,7 +189,7 @@ namespace polysat {
         constraints              m_pwatch_trail;
 #endif
 
-        ptr_vector<clause>       m_lemmas;  ///< the non-asserting lemmas
+        ptr_vector<clause const> m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope.
@@ -214,6 +215,8 @@ namespace polysat {
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
         dd::pdd_manager& var2pdd(pvar v) const;
+
+        pvar num_vars() const { return m_value.size(); }
 
         assignment_t const& assignment() const { return m_search.assignment(); }
 
@@ -251,7 +254,8 @@ namespace polysat {
         void set_conflict_at_base_level() { m_conflict.init_at_base_level(); }
         void set_conflict(signed_constraint c) { m_conflict.init(c); }
         void set_conflict(clause& cl) { m_conflict.init(cl); }
-        void set_conflict(pvar v, bool by_viable_fallback) { m_conflict.init(v, by_viable_fallback); }
+        void set_conflict_by_viable_interval(pvar v) { m_conflict.init_by_viable_interval(v); }
+        void set_conflict_by_viable_fallback(pvar v, univariate_solver& us) { m_conflict.init_by_viable_fallback(v, us); }
 
         bool can_decide() const;
         bool can_bdecide() const;
@@ -309,7 +313,8 @@ namespace polysat {
         static bool invariant(signed_constraints const& cs);
         bool wlist_invariant() const;
         bool bool_watch_invariant() const;
-        bool assignment_invariant();
+        bool assignment_invariant() const;
+        bool var_queue_invariant() const;
         bool verify_sat();
 
         bool can_propagate();
@@ -417,15 +422,33 @@ namespace polysat {
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
         signed_constraint odd(pdd const& p) { return ~even(p); }
         signed_constraint even(pdd const& p) { return parity(p, 1); }
-        /** parity(p) >= k   (<=> p * 2^(K-k) == 0) */
-        signed_constraint parity(pdd const& p, unsigned k) {            
+        /** parity(p) >= k */
+        signed_constraint parity(pdd const& p, unsigned k) {   // TODO: rename to parity_at_least?
             unsigned N = p.manager().power_of_2();
+            // parity(p) >= k
+            // <=> p * 2^(N - k) == 0
             if (k >= N)
                 return eq(p);
-            else if (k == 0)
-                return odd(p);
+            else if (k == 0) {
+                // parity(p) >= 0 is a tautology
+                verbose_stream() << "REDUNDANT parity constraint: parity(" << p << ", " << k << ")\n";
+                return eq(p.manager().zero());
+            }
             else 
-                return eq(p*rational::power_of_two(N - k));
+                return eq(p * rational::power_of_two(N - k));
+        }
+        /** parity(p) <= k */
+        signed_constraint parity_at_most(pdd const& p, unsigned k) {
+            unsigned N = p.manager().power_of_2();
+            // parity(p) <= k
+            // <=>  ~(parity(p) >= k+1)
+            if (k >= N) {
+                // parity(p) <= N is a tautology
+                verbose_stream() << "REDUNDANT parity constraint: parity(" << p << ", " << k << ")\n";
+                return eq(p.manager().zero());
+            }
+            else
+                return ~parity(p, k + 1);
         }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }

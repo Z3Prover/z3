@@ -53,6 +53,7 @@ namespace polysat {
         m_config.m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
         m_config.m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
         m_config.m_log_conflicts = pp.log_conflicts();
+        m_rand.set_seed(m_params.get_uint("random_seed", 0));
     }
 
     bool solver::should_search() {
@@ -75,6 +76,7 @@ namespace polysat {
             LOG("Assignment:     " << assignments_pp(*this));
             if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
+            SASSERT(var_queue_invariant());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (should_add_pwatch()) add_pwatch();
@@ -241,9 +243,11 @@ namespace polysat {
         for (; i < sz && !is_conflict(); ++i)
             if (!propagate(v, wlist[i]))
                 wlist[j++] = wlist[i];
-        for (; i < sz; ++i)
+        for (; i < sz; ++i) 
             wlist[j++] = wlist[i];
         wlist.shrink(j);
+        if (is_conflict())
+            shuffle(wlist.size(), wlist.data(), m_rand);
         DEBUG_CODE(m_locked_wlist = std::nullopt;);
     }
 
@@ -394,7 +398,7 @@ namespace polysat {
 
     void solver::add_pwatch(constraint* c, pvar v) {
         SASSERT(m_locked_wlist != v);  // the propagate loop will not discover the new size
-        LOG_V("Watching v" << v << " in constraint " << show_deref(c));
+        LOG_V(20, "Watching v" << v << " in constraint " << show_deref(c));
         m_pwatch[v].push_back(c);
     }
 
@@ -495,7 +499,7 @@ namespace polysat {
             }
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
-                LOG_V("Undo assign_i: v" << v);
+                LOG_V(20, "Undo assign_i: v" << v);
                 unsigned active_level = get_level(v);
 
                 if (active_level <= target_level) {
@@ -511,7 +515,7 @@ namespace polysat {
             }
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
-                LOG_V("Undo assign_bool_i: " << lit);
+                LOG_V(20, "Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
                 if (active_level <= target_level)
@@ -588,15 +592,13 @@ namespace polysat {
         // Simple hack to try deciding the boolean skeleton first
         if (!can_bdecide()) {
             // enqueue all not-yet-true clauses
-            for (auto const& cls : m_constraints.clauses()) {
-                for (auto const& cl : cls) {
-                    bool is_true = any_of(*cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
-                    if (is_true)
-                        continue;
-                    size_t undefs = count_if(*cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
-                    if (undefs >= 2)
-                        m_lemmas.push_back(cl.get());
-                }
+            for (clause const& cl : m_constraints.clauses()) {
+                bool is_true = any_of(cl, [&](sat::literal lit) { return m_bvars.is_true(lit); });
+                if (is_true)
+                    continue;
+                size_t undefs = count_if(cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+                if (undefs >= 2)
+                    m_lemmas.push_back(&cl);
             }
         }
 #endif
@@ -608,7 +610,7 @@ namespace polysat {
     }
 
     void solver::bdecide() {
-        clause& lemma = *m_lemmas[m_lemmas_qhead++];
+        clause const& lemma = *m_lemmas[m_lemmas_qhead++];
         on_scope_exit update_trail = [this]() {
             // must be done after push_level, but also if we return early.
             m_trail.push_back(trail_instr_t::lemma_qhead_i);
@@ -654,7 +656,7 @@ namespace polysat {
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
             m_free_pvars.unassign_var_eh(v);
-            set_conflict(v, false);
+            SASSERT(is_conflict());
             return;
         case find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
@@ -734,9 +736,16 @@ namespace polysat {
         SASSERT(!m_search.assignment().contains(v));
         if (lemma) {
             add_clause(*lemma);
-            SASSERT(!is_conflict());  // if we have a conflict here, we could have produced this lemma already earlier
-            if (can_propagate())
+            if (is_conflict()) {
+                // If we have a conflict here, we should have produced this lemma already earlier
+                LOG("Conflict after constraint::produce_lemma: TODO: should have found this lemma earlier");
+                m_free_pvars.unassign_var_eh(v);
                 return;
+            }
+            if (can_propagate()) {
+                m_free_pvars.unassign_var_eh(v);
+                return;
+            }
         }
         if (c) {
             LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
@@ -753,10 +762,11 @@ namespace polysat {
             case find_t::empty:
                 LOG("Fallback solver: unsat");
                 m_free_pvars.unassign_var_eh(v);
-                set_conflict(v, true);
+                SASSERT(is_conflict());
                 return;
             case find_t::resource_out:
                 UNREACHABLE();  // TODO: abort solving
+                m_free_pvars.unassign_var_eh(v);
                 return;
             }
         }
@@ -938,7 +948,6 @@ namespace polysat {
         clause* best_lemma = nullptr;
 
         auto appraise_lemma = [&](clause* lemma) {
-            m_simplify_clause.apply(*lemma);
             auto score = compute_lemma_score(*lemma);
             if (score)
                 LOG("    score: "  << *score);
@@ -958,14 +967,14 @@ namespace polysat {
             appraise_lemma(lemmas.back());
         }
         SASSERT(best_score < lemma_score::max());
-        SASSERT(best_lemma);
+        VERIFY(best_lemma);
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         SASSERT(jump_level <= max_jump_level);
 
         LOG("best_score: " << best_score);
         LOG("best_lemma: " << *best_lemma);
-
+            
         m_conflict.reset();
         backjump(jump_level);
 
@@ -1054,7 +1063,11 @@ namespace polysat {
 
     void solver::assign_eval(sat::literal lit) {
         signed_constraint const c = lit2cnstr(lit);
+        LOG_V(10, "Evaluate: " << lit_pp(*this ,lit));
+        // assertion is false
+        if (!c.is_currently_true(*this)) IF_VERBOSE(0, verbose_stream() << c << " is not currently true\n");
         SASSERT(c.is_currently_true(*this));
+        VERIFY(c.is_currently_true(*this));
         unsigned level = 0;
         // NOTE: constraint may be evaluated even if some variables are still unassigned (e.g., 0*x doesn't depend on x).
         for (auto v : c->vars())
@@ -1309,12 +1322,10 @@ namespace polysat {
         for (auto c : m_constraints)
             out << "\t" << c->bvar2string() << ": " << *c << "\n";
         out << "Clauses:\n";
-        for (auto const& cls : m_constraints.clauses()) {
-            for (auto const& cl : cls) {
-                out << "\t" << *cl << "\n";
-                for (auto lit : *cl)
-                    out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
-            }
+        for (clause const& cl : m_constraints.clauses()) {
+            out << "\t" << cl << "\n";
+            for (sat::literal lit : cl)
+                out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
         }
         return out;
     }
@@ -1430,23 +1441,20 @@ namespace polysat {
         // Check for missed boolean propagations:
         // - no clause should have exactly one unassigned literal, unless it is already true.
         // - no clause should be false
-        for (auto const& cls : m_constraints.clauses()) {
-            for (auto const& clref : cls) {
-                clause const& cl = *clref;
-                bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
-                if (is_true)
-                    continue;
-                size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
-                if (undefs == 1) {
-                    LOG("Missed boolean propagation of clause: " << cl);
-                    for (sat::literal lit : cl) {
-                        LOG("    " << lit_pp(*this, lit));
-                    }
+        for (clause const& cl : m_constraints.clauses()) {
+            bool const is_true = any_of(cl, [&](auto lit) { return m_bvars.is_true(lit); });
+            if (is_true)
+                continue;
+            size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
+            if (undefs == 1) {
+                LOG("Missed boolean propagation of clause: " << cl);
+                for (sat::literal lit : cl) {
+                    LOG("    " << lit_pp(*this, lit));
                 }
-                SASSERT(undefs != 1);
-                bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
-                SASSERT(!is_false);
             }
+            SASSERT(undefs != 1);
+            bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
+            SASSERT(!is_false);
         }
         return true;
     }
@@ -1456,7 +1464,7 @@ namespace polysat {
     }
 
     /** Check that boolean assignment and constraint evaluation are consistent */
-    bool solver::assignment_invariant() {
+    bool solver::assignment_invariant() const {
         if (is_conflict())
             return true;
         bool ok = true;
@@ -1475,6 +1483,25 @@ namespace polysat {
         return ok;
     }
 
+    /** Check that each variable is either assigned or queued for decisions */
+    bool solver::var_queue_invariant() const {
+        if (is_conflict())
+            return true;
+        uint_set active;
+        for (pvar v : m_free_pvars)
+            active.insert(v);
+        for (auto const& [v, val] : assignment())
+            active.insert(v);
+        bool ok = true;
+        for (pvar v = 0; v < num_vars(); ++v) {
+            if (!active.contains(v)) {
+                ok = false;
+                LOG("Lost variable v" << v << " (it is neither assigned nor free)");
+            }
+        }
+        return ok;
+    }
+
     /// Check that all constraints on the stack are satisfied by the current model.
     bool solver::verify_sat() {
         LOG_H1("Checking current model...");
@@ -1487,19 +1514,17 @@ namespace polysat {
                 all_ok = all_ok && ok;
             }
         }
-        for (auto clauses : m_constraints.clauses()) {
-            for (auto cl : clauses) {
-                bool clause_ok = false;
-                for (sat::literal lit : *cl) {
-                    bool ok = lit2cnstr(lit).is_currently_true(*this);
-                    if (ok) {
-                        clause_ok = true;
-                        break;
-                    }
+        for (clause const& cl : m_constraints.clauses()) {
+            bool clause_ok = false;
+            for (sat::literal lit : cl) {
+                bool ok = lit2cnstr(lit).is_currently_true(*this);
+                if (ok) {
+                    clause_ok = true;
+                    break;
                 }
-                LOG((clause_ok ? "PASS" : "FAIL") << ": " << show_deref(cl) << (cl->is_redundant() ? " (redundant)" : ""));
-                all_ok = all_ok && clause_ok;
             }
+            LOG((clause_ok ? "PASS" : "FAIL") << ": " << cl << (cl.is_redundant() ? " (redundant)" : ""));
+            all_ok = all_ok && clause_ok;
         }
         if (all_ok) LOG("All good!");
         return all_ok;

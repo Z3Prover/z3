@@ -31,9 +31,11 @@ namespace polysat {
         bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
 
-        bool propagate(conflict& core, inequality const& crit1, signed_constraint c);
-        bool add_conflict(conflict& core, inequality const& crit1, signed_constraint c);
-        bool add_conflict(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint c);
+        void log_lemma(pvar v, conflict& core);
+        bool propagate(pvar v, conflict& core, signed_constraint const& crit1, signed_constraint c);
+        bool propagate(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
+        bool add_conflict(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
+        bool add_conflict(pvar v, conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint c);
 
         bool try_ugt_x(pvar v, conflict& core, inequality const& c);
 
@@ -49,10 +51,16 @@ namespace polysat {
         bool try_parity(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_bounds(pvar x, conflict& core, inequality const& axb_l_y);
-        bool try_factor_equality(pvar x, conflict& core, inequality const& a_l_b);
+        bool try_factor_equality1(pvar x, conflict& core, inequality const& a_l_b);
+        bool try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b);
+        bool try_infer_equality(pvar x, conflict& core, inequality const& a_l_b);
         bool try_mul_eq_1(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_mul_odd(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_mul_eq_bound(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_transitivity(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_tangent(pvar v, conflict& core, inequality const& c);
+        bool try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y);
 
         // c := lhs ~ v
         //  where ~ is < or <=
@@ -62,7 +70,10 @@ namespace polysat {
         bool is_g_v(pvar v, inequality const& c);
 
         // c := x ~ Y
-        bool is_x_l_Y(pvar x, inequality const& c, pdd& y);
+        bool is_x_l_Y(pvar x, inequality const& i, pdd& y);
+
+        // c := Y ~ x
+        bool is_Y_l_x(pvar x, inequality const& i, pdd& y);
 
         // c := X*y ~ X*Z
         bool is_Xy_l_XZ(pvar y, inequality const& c, pdd& x, pdd& z);
@@ -107,6 +118,17 @@ namespace polysat {
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
+        // i := x + y >= x or x + y > x
+        bool is_add_overflow(pvar x, inequality const& i, pdd& y);
+
+        bool has_upper_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_ge_bound);
+
+        bool has_lower_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_le_bound);
+
+        // determine min/max parity of polynomial
+        unsigned min_parity(pdd const& p);
+        unsigned max_parity(pdd const& p);
+
         bool is_forced_eq(pdd const& p, rational const& val);
         bool is_forced_eq(pdd const& p, int i) { return is_forced_eq(p, rational(i)); }
         
@@ -117,6 +139,13 @@ namespace polysat {
         bool is_forced_false(signed_constraint const& sc);
 
         bool is_forced_true(signed_constraint const& sc);
+
+        bool try_inequality(pvar v, inequality const& i, conflict& core);
+
+        bool try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core);
+        bool try_umul_noovfl_lo(pvar v, signed_constraint const& c, conflict& core);
+        bool try_umul_noovfl_bounds(pvar v, signed_constraint const& c, conflict& core);
+        bool try_umul_ovfl_bounds(pvar v, signed_constraint const& c, conflict& core);
 
     public:
         saturation(solver& s);

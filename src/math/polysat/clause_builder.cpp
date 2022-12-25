@@ -75,15 +75,23 @@ namespace polysat {
         m_literals.push_back(c.blit());
     }
 
-    void clause_builder::insert_eval(sat::literal lit, bool status) {
-        insert_eval(m_solver->lit2cnstr(lit), status);
+    void clause_builder::insert_eval(sat::literal lit) {
+        insert_eval(m_solver->lit2cnstr(lit));
     }
 
-    void clause_builder::insert_eval(signed_constraint c, bool status) {
-        if (c.bvalue(*m_solver) == l_undef) {
-            sat::literal lit = c.blit();
-            m_solver->assign_eval(status ? lit : ~lit);
-        }
+    void clause_builder::insert_eval(signed_constraint c) {
+        if (c.bvalue(*m_solver) == l_undef)
+            m_solver->assign_eval(~c.blit());
+        insert(c);
+    }
+
+    void clause_builder::insert_try_eval(sat::literal lit) {
+        insert_eval(m_solver->lit2cnstr(lit));
+    }
+
+    void clause_builder::insert_try_eval(signed_constraint c) {
+        if (c.bvalue(*m_solver) == l_undef && c.is_currently_false(*m_solver))
+            m_solver->assign_eval(~c.blit());
         insert(c);
     }
 }

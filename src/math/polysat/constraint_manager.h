@@ -67,9 +67,9 @@ namespace polysat {
         constraint* get_bv2c(sat::bool_var bv) const;
 
         void store(constraint* c);
-        void erase(constraint* c);
 
-        constraint* dedup(constraint* c);
+        constraint* dedup_store(constraint* c);
+        constraint* dedup_find(constraint* c) const;
 
         void gc_constraints();
         void gc_clauses();
@@ -102,6 +102,10 @@ namespace polysat {
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;
 
+        /** Find constraint p == 0; returns null if it doesn't exist yet */
+        signed_constraint find_eq(pdd const& p) const;
+        signed_constraint find_ule(pdd const& a, pdd const& b) const;
+
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
         signed_constraint ult(pdd const& a, pdd const& b);
@@ -126,9 +130,65 @@ namespace polysat {
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
 
-        using clause_iterator = decltype(m_clauses)::const_iterator;
-        clause_iterator clauses_begin() const { return m_clauses.begin(); }
-        clause_iterator clauses_end() const { return m_clauses.end(); }
+        class clause_iterator {
+            friend class constraint_manager;
+            using storage_t = decltype(constraint_manager::m_clauses);
+
+            using outer_iterator = storage_t::const_iterator;
+            outer_iterator outer_it;
+            outer_iterator outer_end;
+
+            using inner_iterator = storage_t::data_t::const_iterator;
+            inner_iterator inner_it;
+            inner_iterator inner_end;
+
+            clause_iterator(storage_t const& cls, bool begin) {
+                if (begin) {
+                    outer_it = cls.begin();
+                    outer_end = cls.end();
+                }
+                else {
+                    outer_it = cls.end();
+                    outer_end = cls.end();
+                }
+                begin_inner();
+            }
+
+            void begin_inner() {
+                if (outer_it == outer_end) {
+                    inner_it = nullptr;
+                    inner_end = nullptr;
+                }
+                else {
+                    inner_it = outer_it->begin();
+                    inner_end = outer_it->end();
+                }
+            }
+
+        public:
+            clause const& operator*() const {
+                return *inner_it->get();
+            }
+
+            clause_iterator& operator++() {
+                ++inner_it;
+                while (inner_it == inner_end && outer_it != outer_end) {
+                    ++outer_it;
+                    begin_inner();
+                }
+                return *this;
+            }
+
+            bool operator==(clause_iterator const& other) const {
+                return outer_it == other.outer_it && inner_it == other.inner_it;
+            }
+
+            bool operator!=(clause_iterator const& other) const {
+                return !operator==(other);
+            }
+        };
+        clause_iterator clauses_begin() const { return clause_iterator(m_clauses, true); }
+        clause_iterator clauses_end() const { return clause_iterator(m_clauses, false); }
 
         class clauses_t {
             constraint_manager const* m_cm;

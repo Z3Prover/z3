@@ -15,8 +15,8 @@ Author:
 
 namespace polysat {
 
-    umul_ovfl_constraint::umul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q):
-        constraint(m, ckind_t::umul_ovfl_t), m_p(p), m_q(q) {
+    umul_ovfl_constraint::umul_ovfl_constraint(pdd const& p, pdd const& q):
+        constraint(ckind_t::umul_ovfl_t), m_p(p), m_q(q) {
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())
@@ -25,8 +25,7 @@ namespace polysat {
 
     }
     void umul_ovfl_constraint::simplify() {
-        if (m_p.is_zero() || m_q.is_zero() ||
-            m_p.is_one() || m_q.is_one()) {
+        if (m_p.is_zero() || m_q.is_zero() || m_p.is_one() || m_q.is_one()) {
             m_q = 0;
             m_p = 0;
             return;
@@ -99,8 +98,8 @@ namespace polysat {
             signed_constraint sc(this, is_positive);
             // ¬Omega(p, q)  ==>  q = 0  \/  p <= p*q
             // ¬Omega(p, q)  ==>  p = 0  \/  q <= p*q
-            s.add_clause(~sc, /* s.eq(p()), */ s.eq(q()), s.ule(p(), p()*q()), false);
-            s.add_clause(~sc, s.eq(p()), /* s.eq(q()), */ s.ule(q(), p()*q()), false);
+            s.add_clause(~sc, s.eq(q()), s.ule(p(), p()*q()), false);
+            s.add_clause(~sc, s.eq(p()), s.ule(q(), p()*q()), false);
         }
     }
 
@@ -158,9 +157,13 @@ namespace polysat {
         return other.is_umul_ovfl() && p() == other.to_umul_ovfl().p() && q() == other.to_umul_ovfl().q();
     }
 
-    void umul_ovfl_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(p()).get_univariate_coefficients();
-        auto q_coeff = s.subst(q()).get_univariate_coefficients();
-        us.add_umul_ovfl(p_coeff, q_coeff, !is_positive, dep);
+    void umul_ovfl_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        pdd p1 = s.subst(p());
+        if (!p1.is_univariate_in(v))
+            return;
+        pdd q1 = s.subst(q());
+        if (!q1.is_univariate_in(v))
+            return;
+        us.add_umul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
     }
 }

@@ -229,6 +229,12 @@ public:
         return r;
     }
 
+    friend inline rational machine_div2k(rational const & r1, unsigned k) {
+        rational r;
+        rational::m().machine_idiv2k(r1.m_val, k, r.m_val);
+        return r;
+    }
+
     friend inline rational mod(rational const & r1, rational const & r2) {
         rational r;
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);
@@ -355,6 +361,7 @@ public:
     }
 
     bool mult_inverse(unsigned num_bits, rational & result) const;
+    rational pseudo_inverse(unsigned num_bits) const;
 
     static rational const & zero() {
         return m_zero;

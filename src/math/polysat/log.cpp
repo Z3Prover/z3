@@ -50,9 +50,6 @@ static LogLevel get_max_log_level(std::string const& fn, std::string const& pret
   (void)fn;
   (void)pretty_fn;
 
-  if (fn == "push_cjust")
-    return LogLevel::Verbose;
-
   // if (fn == "pop_levels")
   //   return LogLevel::Default;
 
@@ -65,8 +62,10 @@ static LogLevel get_max_log_level(std::string const& fn, std::string const& pret
 }
 
 /// Filter log messages
-bool polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn) {
+bool polysat_should_log(unsigned verbose_lvl, LogLevel msg_level, std::string fn, std::string pretty_fn) {
   if (!g_log_enabled)
+    return false;
+  if (get_verbosity_level() < verbose_lvl)
     return false;
   LogLevel max_log_level = get_max_log_level(fn, pretty_fn);
   return msg_level <= max_log_level;

@@ -89,6 +89,10 @@ public:
         }
         return out;
     }
+
+    using const_iterator = decltype(m_queue)::const_iterator;
+    const_iterator begin() const { return m_queue.begin(); }
+    const_iterator end() const { return m_queue.end(); }
 };
 
 inline std::ostream& operator<<(std::ostream& out, var_queue const& queue) {

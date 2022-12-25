@@ -23,15 +23,25 @@ TODO: improve management of the fallback univariate solvers:
       - incrementally add/remove constraints
       - set resource limit of univariate solver
 
+TODO: plan to fix the FI "pumping":
+    1. simple looping detection and bitblasting fallback.  -- done
+    2. intervals at multiple bit widths
+        - for equations, this will give us exact solutions for all coefficients
+        - for inequalities, a coefficient 2^k*a means that intervals are periodic because the upper k bits of x are irrelevant;
+          storing the interval for x[K-k:0] would take care of this.
+
 --*/
 
 
 #include "util/debug.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/number.h"
 #include "math/polysat/univariate/univariate_solver.h"
 
 namespace polysat {
+
+    using namespace viable_query;
 
     struct inf_fi : public inference {
         viable& v;
@@ -137,7 +147,7 @@ namespace polysat {
                 prop = true;
                 break;
             case find_t::empty:
-                s.set_conflict(v, false);
+                SASSERT(s.is_conflict());
                 return true;
             default:
                 break;
@@ -159,6 +169,21 @@ namespace polysat {
         //       - side conditions
         //       - i.lo() == i.lo_val() for each unit interval i
         //       - i.hi() == i.hi_val() for each unit interval i
+
+        // NSB review:
+        // the bounds added by x < p and p < x in forbidden_intervals
+        // match_non_max, match_non_zero
+        // use values that are approximations. Then the propagations in
+        // try_assign_eval are incorrect.
+        // For example, x > p means x has forbidden interval [0, p + 1[,
+        // the numeric interval is [0, 1[, but p + 1 == 1 is not ensured
+        // even p may have free variables.
+        // the proper side condition on p + 1 is -1 > p or -2 >= p or p + 1 != 0
+        // I am disabling match_non_max and match_non_zero from forbidden_interval
+        // The narrowing rules in ule_constraint already handle the bounds propagaitons
+        // as it propagates p != -1 and 0 != q (p < -1, q > 0),
+        //
+        
         for (auto const& c : get_constraints(v)) {
             s.try_assign_eval(c);
         }
@@ -299,8 +324,14 @@ namespace polysat {
         if (!e)
             return true;
         entry const* first = e;
-        rational const& max_value = s.var2pdd(v).max_value();
-        rational mod_value = max_value + 1;
+        auto& m = s.var2pdd(v);
+        unsigned const N = m.power_of_2();
+        rational const& max_value = m.max_value();
+        rational const& mod_value = m.two_to_N();
+
+        // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
+        // with an early entry when a later entry could give a better interval.
+        m_equal_lin[v] = m_equal_lin[v]->next();
 
         auto delta_l = [&](rational const& coeff_val) {
             return floor((coeff_val - e->interval.lo_val()) / e->coeff);
@@ -338,22 +369,79 @@ namespace polysat {
             }
         };
         do {
-            LOG("refine-equal-lin for src: " << e->src);
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
+                LOG("refine-equal-lin for src: " << lit_pp(s, e->src));
+                LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval);
 
-                if (e->interval.lo_val().is_one() && e->interval.hi_val().is_zero() && e->coeff.is_odd()) {
-                    rational lo(1);
-                    rational hi(0);
-                    LOG("refine-equal-lin: " << " [" << lo << ", " << hi << "[");
-                    pdd lop = s.var2pdd(v).mk_val(lo);
-                    pdd hip = s.var2pdd(v).mk_val(hi);
+                if (mod(e->interval.hi_val() + 1, mod_value) == e->interval.lo_val()) {
+                    // We have an equation:  a * v == b
+                    rational const a = e->coeff;
+                    rational const b = e->interval.hi_val();
+                    LOG("refine-equal-lin: equation detected: " << dd::val_pp(m, a, true) << " * v" << v << " == " << dd::val_pp(m, b, false));
+                    unsigned const parity_a = get_parity(a, N);
+                    unsigned const parity_b = get_parity(b, N);
+                    // LOG("a " << a << " parity " << parity_a);
+                    // LOG("b " << b << " parity " << parity_b);
+                    if (parity_a > parity_b) {
+                        // No solution
+                        LOG("refined: no solution due to parity");
+                        entry* ne = alloc_entry();
+                        ne->refined = e;
+                        ne->src = e->src;
+                        ne->side_cond = e->side_cond;
+                        ne->coeff = 1;
+                        ne->interval = eval_interval::full();
+                        intersect(v, ne);
+                        return false;
+                    }
+                    if (parity_a == 0) {
+                        // "fast path" for odd a
+                        rational a_inv;
+                        VERIFY(a.mult_inverse(N, a_inv));
+                        rational const hi = mod(a_inv * b, mod_value);
+                        rational const lo = mod(hi + 1, mod_value);
+                        LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
+                        SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is the solution
+                        entry* ne = alloc_entry();
+                        ne->refined = e;
+                        ne->src = e->src;
+                        ne->side_cond = e->side_cond;
+                        ne->coeff = 1;
+                        ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
+                        SASSERT(ne->interval.currently_contains(val));
+                        intersect(v, ne);
+                        return false;
+                    }
+                    // 2^k * v == a_inv * b
+                    // 2^k solutions because only the lower N-k bits of v are fixed.
+                    //
+                    // Smallest solution is v0 == a_inv * (b >> k)
+                    // Solutions are of the form v_i = v0 + 2^(N-k) * i for i in { 0, 1, ..., 2^k - 1 }.
+                    // Forbidden intervals: [v_i + 1; v_{i+1}[  == [ v_i + 1; v_i + 2^(N-k) [
+                    // We need the interval that covers val:
+                    //      v_i + 1 <= val < v_i + 2^(N-k)
+                    //
+                    // TODO: create one interval for v[N-k:] instead of 2^k intervals for v.
+                    unsigned const k = parity_a;
+                    rational const a_inv = a.pseudo_inverse(N);
+                    unsigned const N_minus_k = N - k;
+                    rational const two_to_N_minus_k = rational::power_of_two(N_minus_k);
+                    rational const v0 = mod(a_inv * machine_div2k(b, k), two_to_N_minus_k);
+                    SASSERT(mod(val, two_to_N_minus_k) != v0);  // val is not a solution
+                    rational const vi = v0 + clear_lower_bits(mod(val - v0, mod_value), N_minus_k);
+                    rational const lo = mod(vi + 1, mod_value);
+                    rational const hi = mod(vi + two_to_N_minus_k, mod_value);
+                    LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
+                    SASSERT_EQ(mod(a * (lo - 1), mod_value), b);  // lo-1 is a solution
+                    SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is a solution
                     entry* ne = alloc_entry();
                     ne->refined = e;
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
-                    ne->interval = eval_interval::proper(lop, lo, hip, hi);
+                    ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
+                    SASSERT(ne->interval.currently_contains(val));
                     intersect(v, ne);
                     return false;
                 }
@@ -378,13 +466,11 @@ namespace polysat {
                     lo = val - lambda_l;
                     increase_hi(hi);
                 }
-                LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval << " [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
+                LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                 SASSERT(hi <= mod_value);
                 bool full = (lo == 0 && hi == mod_value);
                 if (hi == mod_value)
                     hi = 0;
-                pdd lop = s.var2pdd(v).mk_val(lo);
-                pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
                 ne->refined = e;
                 ne->src = e->src;
@@ -393,7 +479,7 @@ namespace polysat {
                 if (full)
                     ne->interval = eval_interval::full();
                 else
-                    ne->interval = eval_interval::proper(lop, lo, hip, hi);
+                    ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
                 intersect(v, ne);
                 return false;
             }
@@ -411,6 +497,10 @@ namespace polysat {
         entry const* first = e;
         rational const& max_value = s.var2pdd(v).max_value();
         rational const mod_value = max_value + 1;
+
+        // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
+        // with an early entry when a later entry could give a better interval.
+        m_diseq_lin[v] = m_diseq_lin[v]->next();
 
         do {
             LOG("refine-disequal-lin for src: " << e->src);
@@ -543,88 +633,146 @@ namespace polysat {
         return refine_viable(v, val);
     }
 
-
-    rational viable::min_viable(pvar v) {
-        refined:
-        rational lo(0);
-        auto* e = m_units[v];
-        if (!e && !refine_viable(v, lo))
-            goto refined;
-        if (!e)
-            return lo;
-        entry* first = e;
-        entry* last = first->prev();
-        if (last->interval.currently_contains(lo))
-            lo = last->interval.hi_val();
-        do {
-            if (!e->interval.currently_contains(lo))
-                break;
-            lo = e->interval.hi_val();
-            e = e->next();
+    find_t viable::find_viable(pvar v, rational& lo) {
+        rational hi;
+        switch (find_viable(v, lo, hi)) {
+        case l_true:
+            return (lo == hi) ? find_t::singleton : find_t::multiple;
+        case l_false:
+            return find_t::empty;
+        default:
+            return find_t::resource_out;
         }
-        while (e != first);
-        if (!refine_viable(v, lo))
-            goto refined;
-        SASSERT(is_viable(v, lo));
-        return lo;
     }
 
-    rational viable::max_viable(pvar v) {
-        refined:
-        rational hi = s.var2pdd(v).max_value();
-        auto* e = m_units[v];
-        if (!e && !refine_viable(v, hi))
-            goto refined;
-        if (!e)
-            return hi;
-        entry* last = e->prev();
-        e = last;
-        do {
-            if (!e->interval.currently_contains(hi))
-                break;
-            hi = e->interval.lo_val() - 1;
-            e = e->prev();
-        }
-        while (e != last);
-        if (!refine_viable(v, hi))
-            goto refined;
-        SASSERT(is_viable(v, hi));
-        return hi;
+    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+        std::pair<rational&, rational&> args{lo, hi};
+        return query<query_t::find_viable>(v, args);
     }
 
-    // template <viable::query_t mode>
-    find_t viable::query(query_t mode, pvar v, rational& lo, rational& hi) {
-        SASSERT(mode == query_t::find_viable);  // other modes are TODO
+    lbool viable::min_viable(pvar v, rational& lo) {
+        return query<query_t::min_viable>(v, lo);
+    }
 
-        auto const& max_value = s.var2pdd(v).max_value();
+    lbool viable::max_viable(pvar v, rational& hi) {
+        return query<query_t::max_viable>(v, hi);
+    }
 
+    bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
+        entry const* first = m_units[v];
+        entry const* e = first;
+        bool found = false;
+        out_c.reset();
+        do {
+            found = false;
+            do {
+                if (!e->refined) {
+                    auto const& lo = e->interval.lo();
+                    auto const& hi = e->interval.hi();
+                    if (lo.is_val() && hi.is_val()) {
+                        if (out_c.empty() && lo.val() > hi.val()) {
+                            out_c.push_back(e->src);
+                            out_hi = lo.val() - 1;
+                            found = true;
+                        }
+                        else if (!out_c.empty() && lo.val() <= out_hi && out_hi < hi.val()) {
+                            out_c.push_back(e->src);
+                            out_hi = lo.val() - 1;
+                            found = true;                        
+                        }
+                    }
+                }
+                e = e->next();
+            }
+            while (e != first);
+        }
+        while (found);
+        return !out_c.empty();
+    }
+
+    bool viable::has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c) {
+        entry const* first = m_units[v];
+        entry const* e = first;
+        bool found = false;
+        out_c.reset();
+        do {
+            found = false;
+            do {
+                if (!e->refined) {
+                    auto const& lo = e->interval.lo();
+                    auto const& hi = e->interval.hi();
+                    if (lo.is_val() && hi.is_val()) {
+                        if (out_c.empty() && hi.val() != 0 && (lo.val() == 0 || lo.val() > hi.val())) {
+                            out_c.push_back(e->src);
+                            out_lo = hi.val();
+                            found = true;
+                        }
+                        else if (!out_c.empty() && lo.val() <= out_lo && out_lo < hi.val()) {
+                            out_c.push_back(e->src);
+                            out_lo = hi.val();
+                            found = true;
+                        }
+                    }
+                }
+                e = e->next();
+            }
+            while (e != first);
+        }
+        while (found);
+        return !out_c.empty();
+    }
+
+    template <query_t mode>
+    lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
         unsigned refinements = refinement_budget;
 
-    refined:
+        while (refinements--) {
+            lbool res = l_undef;
 
-        if (!refinements) {
-            LOG("Refinement budget exhausted! Fall back to univariate solver.");
-            return find_t::resource_out;
+            if constexpr (mode == query_t::find_viable)
+                res = query_find(v, result.first, result.second);
+            else if constexpr (mode == query_t::min_viable)
+                res = query_min(v, result);
+            else if constexpr (mode == query_t::max_viable)
+                res = query_max(v, result);
+            else if constexpr (mode == query_t::has_viable) {
+                NOT_IMPLEMENTED_YET();
+            }
+            else {
+                UNREACHABLE();
+            }
+
+            if (res != l_undef)
+                return res;
         }
 
-        refinements--;
+        LOG("Refinement budget exhausted! Fall back to univariate solver.");
+        return query_fallback<mode>(v, result);
+    }
+
+    lbool viable::query_find(pvar v, rational& lo, rational& hi) {
+        auto const& max_value = s.var2pdd(v).max_value();
+        lbool const refined = l_undef;
 
         // After a refinement, any of the existing entries may have been replaced
         // (if it is subsumed by the new entry created during refinement).
         // For this reason, we start chasing the intervals from the start again.
         lo = 0;
+        hi = max_value;
 
         auto* e = m_units[v];
         if (!e && !refine_viable(v, lo))
-            goto refined;
-        if (!e && !refine_viable(v, rational::one()))
-            goto refined;
+            return refined;
+        if (!e && !refine_viable(v, hi))
+            return refined;
         if (!e)
-            return find_t::multiple;
-        if (e->interval.is_full())
-            return find_t::empty;
+            return l_true;
+        if (e->interval.is_full()) {
+            s.set_conflict_by_viable_interval(v);
+            return l_false;
+        }
 
         entry* first = e;
         entry* last = first->prev();
@@ -635,10 +783,10 @@ namespace polysat {
             last->interval.hi_val() < max_value) {
             lo = last->interval.hi_val();
             if (!refine_viable(v, lo))
-                goto refined;
+                return refined;
             if (!refine_viable(v, max_value))
-                goto refined;
-            return find_t::multiple;
+                return refined;
+            return l_true;
         }
 
         // find lower bound
@@ -652,8 +800,10 @@ namespace polysat {
         }
         while (e != first);
 
-        if (e->interval.currently_contains(lo))
-            return find_t::empty;
+        if (e->interval.currently_contains(lo)) {
+            s.set_conflict_by_viable_interval(v);
+            return l_false;
+        }
 
         // find upper bound
         hi = max_value;
@@ -666,51 +816,22 @@ namespace polysat {
         }
         while (e != last);
         if (!refine_viable(v, lo))
-            goto refined;
+            return refined;
         if (!refine_viable(v, hi))
-            goto refined;
-
-        if (lo == hi)
-            return find_t::singleton;
-        else
-            return find_t::multiple;
+            return refined;
+        return l_true;
     }
 
-    find_t viable::find_viable(pvar v, rational& lo) {
-#if 1
-        rational hi;
-        // return query<query_t::find_viable>(v, lo, hi);
-        return query(query_t::find_viable, v, lo, hi);
-#else
-        refined:
+    lbool viable::query_min(pvar v, rational& lo) {
+        // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
         lo = 0;
-        auto* e = m_units[v];
+        entry* e = m_units[v];
         if (!e && !refine_viable(v, lo))
-            goto refined;
-        if (!e && !refine_viable(v, rational::one()))
-            goto refined;
+            return l_undef;
         if (!e)
-            return find_t::multiple;
-        if (e->interval.is_full())
-            return find_t::empty;
-
+            return l_true;
         entry* first = e;
         entry* last = first->prev();
-
-        // quick check: last interval does not wrap around
-        // and has space for 2 unassigned values.
-        auto& max_value = s.var2pdd(v).max_value();
-        if (last->interval.lo_val() < last->interval.hi_val() &&
-            last->interval.hi_val() < max_value) {
-            lo = last->interval.hi_val();
-            if (!refine_viable(v, lo))
-                goto refined;
-            if (!refine_viable(v, max_value))
-                goto refined;
-            return find_t::multiple;
-        }
-
-        // find lower bound
         if (last->interval.currently_contains(lo))
             lo = last->interval.hi_val();
         do {
@@ -720,12 +841,21 @@ namespace polysat {
             e = e->next();
         }
         while (e != first);
+        if (!refine_viable(v, lo))
+            return l_undef;
+        SASSERT(is_viable(v, lo));
+        return l_true;
+    }
 
-        if (e->interval.currently_contains(lo))
-            return find_t::empty;
-
-        // find upper bound
-        rational hi = max_value;
+    lbool viable::query_max(pvar v, rational& hi) {
+        // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
+        hi = s.var2pdd(v).max_value();
+        auto* e = m_units[v];
+        if (!e && !refine_viable(v, hi))
+            return l_undef;
+        if (!e)
+            return l_true;
+        entry* last = e->prev();
         e = last;
         do {
             if (!e->interval.currently_contains(hi))
@@ -734,18 +864,126 @@ namespace polysat {
             e = e->prev();
         }
         while (e != last);
-        if (!refine_viable(v, lo))
-            goto refined;
         if (!refine_viable(v, hi))
-            goto refined;
-        if (lo == hi)
-            return find_t::singleton;
-        else
-            return find_t::multiple;
-#endif
+            return l_undef;
+        SASSERT(is_viable(v, hi));
+        return l_true;
     }
 
-    bool viable::resolve(pvar v, conflict& core) {
+    template <query_t mode>
+    lbool viable::query_fallback(pvar v, typename query_result<mode>::result_t& result) {
+        unsigned const bit_width = s.size(v);
+        univariate_solver* us = s.m_viable_fallback.usolver(bit_width);
+        sat::literal_set added;
+
+        // First step: only query the looping constraints and see if they alone are already UNSAT.
+        // The constraints which caused the refinement loop will be reached from m_units.
+        LOG_H3("Checking looping univariate constraints for v" << v << "...");
+        LOG("Assignment: " << assignments_pp(s));
+        entry const* first = m_units[v];
+        entry const* e = first;
+        do {
+            entry const* origin = e;
+            while (origin->refined)
+                origin = origin->refined;
+            signed_constraint const c = origin->src;
+            sat::literal const lit = c.blit();
+            if (!added.contains(lit)) {
+                added.insert(lit);
+                LOG("Adding " << lit_pp(s, lit));
+                c.add_to_univariate_solver(v, s, *us, lit.to_uint());
+            }
+            e = e->next();
+        }
+        while (e != first);
+
+        switch (us->check()) {
+        case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
+            return l_false;
+        case l_true:
+            // At this point we don't know much because we did not add all relevant constraints
+            break;
+        default:
+            // resource limit
+            return l_undef;
+        }
+
+        // Second step: looping constraints aren't UNSAT, so add the remaining relevant constraints
+        LOG_H3("Checking all univariate constraints for v" << v << "...");
+        auto const& cs = s.m_viable_fallback.m_constraints[v];
+        for (unsigned i = cs.size(); i-- > 0; ) {
+            sat::literal const lit = cs[i].blit();
+            if (added.contains(lit))
+                continue;
+            LOG("Adding " << lit_pp(s, lit));
+            added.insert(lit);
+            cs[i].add_to_univariate_solver(v, s, *us, lit.to_uint());
+        }
+
+        switch (us->check()) {
+        case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
+            return l_false;
+        case l_true:
+            // pass solver to mode-specific query
+            break;
+        default:
+            // resource limit
+            return l_undef;
+        }
+
+        if constexpr (mode == query_t::find_viable)
+            return query_find_fallback(v, *us, result.first, result.second);
+
+        if constexpr (mode == query_t::min_viable)
+            return query_min_fallback(v, *us, result);
+
+        if constexpr (mode == query_t::max_viable)
+            return query_max_fallback(v, *us, result);
+
+        if constexpr (mode == query_t::has_viable) {
+            NOT_IMPLEMENTED_YET();
+            return l_undef;
+        }
+
+        UNREACHABLE();
+        return l_undef;
+    }
+
+    lbool viable::query_find_fallback(pvar v, univariate_solver& us, rational& lo, rational& hi) {
+        return us.find_two(lo, hi) ? l_true : l_undef;
+    }
+
+    lbool viable::query_min_fallback(pvar v, univariate_solver& us, rational& lo) {
+        return us.find_min(lo) ? l_true : l_undef;
+    }
+
+    lbool viable::query_max_fallback(pvar v, univariate_solver& us, rational& hi) {
+        return us.find_max(hi) ? l_true : l_undef;
+    }
+
+    bool viable::resolve_fallback(pvar v, univariate_solver& us, conflict& core) {
+        // The conflict is the unsat core of the univariate solver,
+        // and the current assignment (under which the constraints are univariate in v)
+        // TODO:
+        // - currently we add variables directly, which is sound:
+        //      e.g.:   v^2 + w^2 == 0;   w := 1
+        // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
+        //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
+        for (unsigned dep : us.unsat_core()) {
+            sat::literal lit = sat::to_literal(dep);
+            signed_constraint c = s.lit2cnstr(lit);
+            core.insert(c);
+            core.insert_vars(c);
+        }
+        SASSERT(!core.vars().contains(v));
+        core.add_lemma("viable unsat core", core.build_lemma());
+        verbose_stream() << "unsat core " << core << "\n";
+        return true;
+    }
+
+    bool viable::resolve_interval(pvar v, conflict& core) {
         DEBUG_CODE( log(v); );
         if (has_viable(v))
             return false;
@@ -810,7 +1048,7 @@ namespace polysat {
                 auto lhs = hi - next_lo;
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                lemma.insert_eval(~c);
+                lemma.insert_try_eval(~c);  // "try" because linking constraint may contain unassigned variables, see test_polysat::test_bench23_fi_lemma for an example.
             }
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);
@@ -821,8 +1059,12 @@ namespace polysat {
         }
         while (e != first);
 
-        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
+        // Doesn't hold anymore: we may get new constraints with unassigned variables, see test_polysat::test_bench23_fi_lemma.
+        // SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
 
+        // NSB review: bench23 exposes a scenario where s.m_bvars.value(lit) == l_true. So the viable lemma is mute, but the literal in the premise
+        // is a conflict.
+        // SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; }));
         core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;
@@ -947,27 +1189,36 @@ namespace polysat {
         return {};
     }
 
-    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
-        unsigned bit_width = s.m_size[v];
-
+    univariate_solver* viable_fallback::usolver(unsigned bit_width) {
         univariate_solver* us;
+
         auto it = m_usolver.find_iterator(bit_width);
         if (it != m_usolver.end()) {
             us = it->m_value.get();
             us->pop(1);
-        } else {
+        }
+        else {
             auto& mk_solver = *m_usolver_factory;
             m_usolver.insert(bit_width, mk_solver(bit_width));
             us = m_usolver[bit_width].get();
         }
+        SASSERT_EQ(us->scope_level(), 0);
 
         // push once on the empty solver so we can reset it before the next use
         us->push();
 
+        return us;
+    }
+
+    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
+        unsigned const bit_width = s.m_size[v];
+        univariate_solver* us = usolver(bit_width);
+
         auto const& cs = m_constraints[v];
         for (unsigned i = cs.size(); i-- > 0; ) {
-            LOG("Univariate constraint: " << cs[i]);
-            cs[i].add_to_univariate_solver(s, *us, i);
+            signed_constraint const c = cs[i];
+            LOG("Univariate constraint: " << c);
+            c.add_to_univariate_solver(v, s, *us, c.blit().to_uint());
         }
 
         switch (us->check()) {
@@ -976,20 +1227,11 @@ namespace polysat {
             // we don't know whether the SMT instance has a unique solution
             return find_t::multiple;
         case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
             return find_t::empty;
         default:
             return find_t::resource_out;
         }
-    }
-
-    signed_constraints viable_fallback::unsat_core(pvar v) {
-        unsigned bit_width = s.m_size[v];
-        SASSERT(m_usolver[bit_width]);
-        signed_constraints cs;
-        for (unsigned dep : m_usolver[bit_width]->unsat_core()) {
-            cs.push_back(m_constraints[v][dep]);
-        }
-        return cs;
     }
 
     std::ostream& operator<<(std::ostream& out, find_t x) {

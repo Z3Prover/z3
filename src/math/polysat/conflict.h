@@ -85,7 +85,7 @@ namespace polysat {
         scoped_ptr<conflict_resolver> m_resolver;
 
         // current conflict core consists of m_literals and m_vars
-        indexed_uint_set m_literals;        // set of boolean literals in the conflict
+        indexed_uint_set m_literals;        // set of boolean literals in the conflict; TODO: why not sat::literal_set
         uint_set m_vars;                    // variable assignments used as premises, shorthand for literals (x := v)
 
         unsigned_vector m_var_occurrences;  // for each variable, the number of constraints in m_literals that contain it
@@ -101,8 +101,6 @@ namespace polysat {
 
         // Level at which the conflict was discovered
         unsigned m_level = UINT_MAX;
-
-        void set_impl(signed_constraint c);
 
     public:
         conflict(solver& s);
@@ -133,11 +131,10 @@ namespace polysat {
         void init(signed_constraint c);
         /** boolean conflict with the given clause */
         void init(clause const& cl);
-        /** conflict because there is no viable value for the variable v */
-        void init(pvar v, bool by_viable_fallback);
-
-        /** replace the current conflict by a single constraint */
-        void set(signed_constraint c);
+        /** conflict because there is no viable value for the variable v, by interval reasoning */
+        void init_by_viable_interval(pvar v);
+        /** conflict because there is no viable value for the variable v, by fallback solver */
+        void init_by_viable_fallback(pvar v, univariate_solver& us);
 
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;

@@ -77,13 +77,85 @@ namespace polysat {
 
     bool simplify_clause::apply(clause& cl) {
         LOG_H1("Simplifying clause: " << cl);
+        bool simplified = false;
+        if (try_remove_equations(cl))
+            simplified = true;
 #if 0
         if (try_recognize_bailout(cl))
-            return true;
+            simplified = true;
 #endif
         if (try_equal_body_subsumptions(cl))
-            return true;
-        return false;
+            simplified = true;
+        return simplified;
+    }
+
+    /**
+     *  If we have:
+     *      p <= q
+     *      p - q == 0
+     *  Then remove the equality.
+     *
+     *  If we have:
+     *      p < q
+     *      p - q == 0
+     *  Then merge into p <= q.
+     */
+    bool simplify_clause::try_remove_equations(clause& cl) {
+        LOG_H2("Remove superfluous equations from: " << cl);
+        bool const has_eqn = any_of(cl, [&](sat::literal lit) { return s.lit2cnstr(lit).is_eq(); });
+        if (!has_eqn)
+            return false;
+        bool any_removed = false;
+        bool_vector& should_remove = m_bools;
+        should_remove.fill(cl.size(), false);
+        for (unsigned i = cl.size(); i-- > 0; ) {
+            sat::literal const lit = cl[i];
+            signed_constraint const c = s.lit2cnstr(lit);
+            if (!c->is_ule())
+                continue;
+            if (c->is_eq())
+                continue;
+#if 1
+            // Disable the case p<q && p=q for now.
+            // The merging of less-than and equality may remove premises from the lemma.
+            // See test_band5.
+            // TODO: fix and re-enable
+            if (c.is_negative())
+                continue;
+#endif
+            LOG_V(10, "Examine: " << lit_pp(s, lit));
+            pdd const p = c->to_ule().lhs();
+            pdd const q = c->to_ule().rhs();
+            signed_constraint const eq = s.m_constraints.find_eq(p - q);
+            if (!eq)
+                continue;
+            auto const eq_it = std::find(cl.begin(), cl.end(), eq.blit());
+            if (eq_it == cl.end())
+                continue;
+            unsigned const eq_idx = std::distance(cl.begin(), eq_it);
+            any_removed = true;
+            should_remove[eq_idx] = true;
+            if (c.is_positive()) {
+                // c:  p <= q
+                // eq: p == q
+                LOG("Removing " << eq.blit() << ": " << eq << " because it subsumes " << cl[i] << ": " << s.lit2cnstr(cl[i]));
+            }
+            else {
+                // c:  p > q
+                // eq: p == q
+                cl[i] = s.ule(q, p).blit();
+                LOG("Merge " << eq.blit() << ": " << eq << " and " << lit << ": " << c << " to obtain " << cl[i] << ": " << s.lit2cnstr(cl[i]));
+            }
+        }
+        // Remove superfluous equations
+        if (!any_removed)
+            return false;
+        unsigned j = 0;
+        for (unsigned i = 0; i < cl.size(); ++i)
+            if (!should_remove[i])
+                cl[j++] = cl[i];
+        cl.m_literals.shrink(j);
+        return true;
     }
 
     // If x != k appears among the new literals, all others are superfluous.
@@ -94,7 +166,7 @@ namespace polysat {
         sat::literal eq = sat::null_literal;
         rational k;
         for (sat::literal lit : cl) {
-            LOG_V("Examine " << lit_pp(s, lit));
+            LOG_V(10, "Examine " << lit_pp(s, lit));
             lbool status = s.m_bvars.value(lit);
             // skip premise literals
             if (status == l_false)
@@ -237,7 +309,7 @@ namespace polysat {
         for (unsigned i = 0; i < cl.size(); ++i) {
             subs_entry& entry = m_entries[i];
             sat::literal lit = cl[i];
-            LOG("Literal " << lit_pp(s, lit));
+            LOG_V(10, "Literal " << lit_pp(s, lit));
             signed_constraint c = s.lit2cnstr(lit);
             prepare_subs_entry(entry, c);
         }
@@ -254,7 +326,7 @@ namespace polysat {
                     continue;
                 if (e.interval.currently_contains(f.interval)) {
                     // f subset of e  ==>  f.src subsumed by e.src
-                    LOG("Removing " << s.lit2cnstr(cl[i]) << " because it subsumes " << s.lit2cnstr(cl[j]));
+                    LOG("Removing " << cl[i] << ": " << s.lit2cnstr(cl[i]) << " because it subsumes " << cl[j] << ": " << s.lit2cnstr(cl[j]));
                     e.subsuming = true;
                     any_subsumed = true;
                     break;

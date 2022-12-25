@@ -53,13 +53,13 @@ namespace polysat {
 
     public:
         substitution(dd::pdd_manager& m);
-        substitution add(pvar var, rational const& value) const;
-        pdd apply_to(pdd const& p) const;
+        [[nodiscard]] substitution add(pvar var, rational const& value) const;
+        [[nodiscard]] pdd apply_to(pdd const& p) const;
 
-        bool contains(pvar var) const;
-        bool value(pvar var, rational& out_value) const;
+        [[nodiscard]] bool contains(pvar var) const;
+        [[nodiscard]] bool value(pvar var, rational& out_value) const;
 
-        bool empty() const { return m_subst.is_one(); }
+        [[nodiscard]] bool empty() const { return m_subst.is_one(); }
 
         pdd const& to_pdd() const { return m_subst; }
         unsigned bit_width() const { return to_pdd().power_of_2(); }
@@ -77,7 +77,7 @@ namespace polysat {
     /** Full variable assignment, may include variables of varying bit widths. */
     class assignment {
         solver*                                 m_solver;
-        vector<assignment_item_t>               m_pairs;  // TODO: do we still need this?
+        vector<assignment_item_t>               m_pairs;
         mutable scoped_ptr_vector<substitution> m_subst;
         vector<substitution>                    m_subst_trail;
 

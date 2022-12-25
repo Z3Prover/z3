@@ -25,8 +25,8 @@ Additional possible functionality on constraints:
 
 namespace polysat {
 
-    op_constraint::op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r) :
-        constraint(m, ckind_t::op_t), m_op(c), m_p(p), m_q(q), m_r(r) {
+    op_constraint::op_constraint(code c, pdd const& p, pdd const& q, pdd const& r) :
+        constraint(ckind_t::op_t), m_op(c), m_p(p), m_q(q), m_r(r) {
         m_vars.append(p.free_vars());
         for (auto v : q.free_vars())
             if (!m_vars.contains(v))
@@ -570,20 +570,26 @@ namespace polysat {
         }
         return true;
     }
-
-    void op_constraint::add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
-        auto p_coeff = s.subst(p()).get_univariate_coefficients();
-        auto q_coeff = s.subst(q()).get_univariate_coefficients();
-        auto r_coeff = s.subst(r()).get_univariate_coefficients();
+    
+    void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        pdd pv = s.subst(p());
+        if (!pv.is_univariate_in(v))
+            return;
+        pdd qv = s.subst(q());
+        if (!qv.is_univariate_in(v))
+            return;
+        pdd rv = s.subst(r());
+        if (!rv.is_univariate_in(v))
+            return;
         switch (m_op) {
         case code::lshr_op:
-            us.add_lshr(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_lshr(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         case code::shl_op:
-            us.add_shl(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_shl(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         case code::and_op:
-            us.add_and(p_coeff, q_coeff, r_coeff, !is_positive, dep);
+            us.add_and(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         default:
             NOT_IMPLEMENTED_YET();

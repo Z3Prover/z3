@@ -364,6 +364,7 @@ namespace dd {
         bool is_monomial(PDD p);
 
         bool is_univariate(PDD p);
+        bool is_univariate_in(PDD p, unsigned v);
         void get_univariate_coefficients(PDD p, vector<rational>& coeff);
 
         // create an spoly r if leading monomials of a and b overlap
@@ -430,6 +431,7 @@ namespace dd {
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }
         bool is_univariate() const { return m.is_univariate(root); }
+        bool is_univariate_in(unsigned v) const { return m.is_univariate_in(root, v); }
         void get_univariate_coefficients(vector<rational>& coeff) const { m.get_univariate_coefficients(root, coeff); }
         vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m.get_univariate_coefficients(root, coeff); return coeff; }
         bool is_never_zero() const { return m.is_never_zero(root); }

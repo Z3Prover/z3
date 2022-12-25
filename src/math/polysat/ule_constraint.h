@@ -25,7 +25,7 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
 
-        ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
+        ule_constraint(pdd const& l, pdd const& r);
         static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
         static bool is_always_true(bool is_positive, pdd const& lhs, pdd const& rhs) { return eval(lhs, rhs) == to_lbool(is_positive); }
         static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) { return is_always_true(!is_positive, lhs, rhs); }
@@ -45,7 +45,7 @@ namespace polysat {
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return m_rhs.is_zero(); }
-        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
+        void add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
 
     struct ule_pp {

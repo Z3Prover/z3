@@ -35,17 +35,21 @@ namespace polysat {
         /// e.g., the vector [ c, b, a ] represents a*x^2 + b*x + c.
         using univariate = vector<rational>;
 
+        const dep_t null_dep = UINT_MAX;
+
         virtual ~univariate_solver() = default;
 
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual unsigned scope_level() = 0;
 
         virtual lbool check() = 0;
 
         /**
          * Precondition: check() returned l_false
          */
-        virtual dep_vector unsat_core() = 0;
+        dep_vector unsat_core();
+        virtual void unsat_core(dep_vector& out_deps) = 0;
 
         /**
          * Precondition: check() returned l_true
@@ -68,7 +72,31 @@ namespace polysat {
          */
         virtual bool find_max(rational& out_max) = 0;
 
+        /**
+         * Find up to two viable values.
+         *
+         * Precondition: check() returned l_true
+         * returns: true on success, false on resource out
+         */
+        virtual bool find_two(rational& out1, rational& out2) = 0;
+
+        /** lhs <= rhs */
         virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        /** lhs >= rhs */
+        void add_uge(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        void add_uge(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        void add_uge(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        /** lhs < rhs */
+        void add_ult(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        void add_ult(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        void add_ult(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        /** lhs > rhs */
+        void add_ugt(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+        void add_ugt(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+        void add_ugt(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+
         virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
         virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;

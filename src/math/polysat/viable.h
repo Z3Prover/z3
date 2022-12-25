@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/forbidden_intervals.h"
+#include <optional>
 
 namespace polysat {
 
@@ -38,6 +39,34 @@ namespace polysat {
         multiple,
         resource_out,
     };
+
+    namespace viable_query {
+        enum class query_t {
+            has_viable,  // currently only used internally in resolve_viable
+            min_viable,  // currently unused
+            max_viable,  // currently unused
+            find_viable,
+        };
+
+        template <query_t mode>
+        struct query_result {
+        };
+
+        template <>
+        struct query_result<query_t::min_viable> {
+            using result_t = rational;
+        };
+
+        template <>
+        struct query_result<query_t::max_viable> {
+            using result_t = rational;
+        };
+
+        template <>
+        struct query_result<query_t::find_viable> {
+            using result_t = std::pair<rational&, rational&>;
+        };
+    }
 
     std::ostream& operator<<(std::ostream& out, find_t x);
 
@@ -76,15 +105,36 @@ namespace polysat {
 
         void propagate(pvar v, rational const& val);
 
-        enum class query_t {
-            has_viable,  // currently only used internally in resolve_viable
-            min_viable,  // currently unused
-            max_viable,  // currently unused
-            find_viable,
-        };
+        /**
+         * Interval-based queries
+         * @return l_true on success, l_false on conflict, l_undef on refinement
+         */
+        lbool query_min(pvar v, rational& out_lo);
+        lbool query_max(pvar v, rational& out_hi);
+        lbool query_find(pvar v, rational& out_lo, rational& out_hi);
 
-        // template <query_t mode>
-        find_t query(query_t mode, pvar v, rational& out_lo, rational& out_hi);
+        /**
+         * Bitblasting-based queries.
+         * The univariate solver has already been filled with all relevant constraints and check() returned l_true.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        lbool query_min_fallback(pvar v, univariate_solver& us, rational& out_lo);
+        lbool query_max_fallback(pvar v, univariate_solver& us, rational& out_hi);
+        lbool query_find_fallback(pvar v, univariate_solver& us, rational& out_lo, rational& out_hi);
+
+        /**
+         * Interval-based query with bounded refinement and fallback to bitblasting.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        template <viable_query::query_t mode>
+        lbool query(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
+
+        /**
+         * Bitblasting-based query.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        template <viable_query::query_t mode>
+        lbool query_fallback(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
 
     public:
         viable(solver& s);
@@ -122,11 +172,30 @@ namespace polysat {
          */
         bool is_viable(pvar v, rational const& val);
 
-        /*
-         * Extract min and max viable values for v
+        /**
+         * Extract min viable value for v.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        rational min_viable(pvar v);
-        rational max_viable(pvar v);
+        lbool min_viable(pvar v, rational& out_lo);
+
+        /**
+         * Extract max viable value for v.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        lbool max_viable(pvar v, rational& out_hi);
+
+
+        /**
+         * Query for an upper bound literal for v together with justification.
+         * @return true if a non-trivial upper bound is found, return justifying constraint.
+         */
+        bool has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c);
+
+        /**
+         * Query for an lower bound literal for v together with justification.
+         * @return true if a non-trivial lower bound is found, return justifying constraint.
+         */
+        bool has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c);
 
         /**
          * Find a next viable value for variable.
@@ -134,11 +203,23 @@ namespace polysat {
         find_t find_viable(pvar v, rational& out_val);
 
         /**
+         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
+         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         */
+        lbool find_viable(pvar v, rational& out_lo, rational& out_hi);
+
+        /**
          * Retrieve the unsat core for v,
          * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
-         * \pre there are no viable values for v
+         * \pre there are no viable values for v (determined by interval reasoning)
          */
-        bool resolve(pvar v, conflict& core);
+        bool resolve_interval(pvar v, conflict& core);
+
+        /**
+         * Retrieve the unsat core for v.
+         * \pre there are no viable values for v (determined by fallback solver)
+         */
+        bool resolve_fallback(pvar v, univariate_solver& us, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
@@ -251,12 +332,16 @@ namespace polysat {
     }
 
     class viable_fallback {
+        friend class viable;
+
         solver& s;
 
         scoped_ptr<univariate_solver_factory>   m_usolver_factory;
         u_map<scoped_ptr<univariate_solver>>    m_usolver;  // univariate solver for each bit width
         vector<signed_constraints>              m_constraints;
         svector<unsigned>                       m_constraints_trail;
+
+        univariate_solver* usolver(unsigned bit_width);
 
     public:
         viable_fallback(solver& s);
@@ -275,7 +360,6 @@ namespace polysat {
         signed_constraint find_violated_constraint(assignment const& a, pvar v);
 
         find_t find_viable(pvar v, rational& out_val);
-        signed_constraints unsat_core(pvar v);
     };
 
 }

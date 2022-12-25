@@ -25,7 +25,7 @@ namespace polysat {
         pdd  m_q;
 
         void simplify();
-        smul_fl_constraint(constraint_manager& m, pdd const& p, pdd const& q, bool is_overflow);
+        smul_fl_constraint(pdd const& p, pdd const& q, bool is_overflow);
 
     public:
         ~smul_fl_constraint() override {}
@@ -42,7 +42,7 @@ namespace polysat {
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return false; }
 
-        void add_to_univariate_solver(solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
+        void add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
     };
 
 }
