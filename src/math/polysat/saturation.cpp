@@ -69,7 +69,7 @@ namespace polysat {
             prop = true;
         if (try_transitivity(v, core, i))
             prop = true;
-        if (try_factor_equality2(v, core, i))
+        if (try_factor_equality(v, core, i))
             prop = true;
         if (try_infer_equality(v, core, i))
             prop = true;
@@ -1114,89 +1114,8 @@ namespace polysat {
     }
 
 
-    /**
-     *  [x] ax + p <= q, ax + r = 0 => -r + p <= q
-     *  [x] p <= ax + q, ax + r = 0 => p <= -r + q
-     *  generalizations
-     *  [x] abx + p <= q, ax + r = 0 => -rb + p <= q
-     *  [x] p <= abx + q, ax + r = 0 => p <= -rb + q
-     */
 
-    bool saturation::try_factor_equality1(pvar x, conflict& core, inequality const& a_l_b) {
-        set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
-        auto& m = s.var2pdd(x);       
-        unsigned N = m.power_of_2();
-        pdd y1  = m.zero();
-        pdd a1  = m.zero();
-        pdd b1  = m.zero();
-        pdd a2 = a1, b2 = b1, y2 = y1, a3 = a2, b3 = b2, y3 = y2;
-        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a1, b1, y1);
-        bool is_y_l_axb = is_Y_l_AxB(x, a_l_b, y2, a2, b2);
-        
-        if (!is_axb_l_y && !is_y_l_axb)
-            return false;
-
-        bool factored = false;
-        
-        for (auto c : core) {
-            if (!c->is_ule())
-                continue;
-            auto i = inequality::from_ule(c);
-            if (i.is_strict())
-                continue;
-            if (!is_AxB_eq_0(x, i, a3, b3, y3))
-                continue;
-            if (c == a_l_b.as_signed_constraint())
-                continue;
-            pdd lhs = a_l_b.lhs();
-            pdd rhs = a_l_b.rhs();
-            bool change = false;
-            
-            if (is_axb_l_y && a1 == a3) {
-                change = true;
-                lhs = b1 - b3;
-            }
-            else if (is_axb_l_y && a1 == -a3) {
-                change = true;
-                lhs = b1 + b3;
-            }
-            else if (is_axb_l_y && a3.is_val() && a3.val().is_odd()) {
-                // a3*x + b3 == 0
-                // a3 is odd => x = inverse(a3)*-b3
-                change = true;
-                rational a3_inv;
-                VERIFY(a3.val().mult_inverse(m.power_of_2(), a3_inv));
-                lhs = b1 - a1*(b3 * a3_inv);
-            }
-            if (is_y_l_axb && a2 == a3) {
-                change = true;
-                rhs = b2 - b3;
-            }
-            else if (is_y_l_axb && a2 == -a3) {
-                change = true;
-                rhs = b2 + b3;
-            }
-            else if (is_y_l_axb && a3.is_val() && a3.val().is_odd()) {
-                change = true;
-                rational a3_inv;
-                VERIFY(a3.val().mult_inverse(m.power_of_2(), a3_inv));
-                rhs = b2 - a2*(b3 * a3_inv);
-            }
-            if (!change) {
-                IF_VERBOSE(2, verbose_stream() << "missed factor equality? " << c << " " << a_l_b << "\n");
-                continue;
-            }
-            signed_constraint conseq = a_l_b.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
-            m_lemma.reset();
-            m_lemma.insert_eval(~s.eq(y3));
-            m_lemma.insert(~c);
-            if (propagate(x, core, a_l_b, conseq))
-                factored = true;
-        }
-        return factored;
-    }
-
-    bool saturation::try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b) {
+    bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
         auto& m = s.var2pdd(x);       
         pdd y  = m.zero();
