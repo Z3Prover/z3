@@ -379,6 +379,8 @@ namespace polysat {
         if (!i.is_strict())
             return false;
         y = i.lhs();
+        if (i.rhs().is_val() && i.rhs().val() == 1)
+            return false;
         rational y_val;
         if (!s.try_eval(y, y_val) || y_val != 0)
             return false;
@@ -991,12 +993,14 @@ namespace polysat {
     }
 
     /**
-     *  2^{K-1}*x*y != 0 => odd(x) & odd(y)
-     *  2^k*x != 0 => parity(x) < K - k
-     *  2^k*x*y != 0 => parity(x) + parity(y) < K - k
+     *  2^{N-1}*x*y != 0 => odd(x) & odd(y)
+     *  2^k*x != 0 => parity(x) < N - k
+     *  2^k*x*y != 0 => parity(x) + parity(y) < N - k
+     * 
+     *  2^k*x + b != 0 & parity(x) < N - k => b != 0
      */
     bool saturation::try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] 2^k*x*y != 0 => parity(x) + parity(y) < K - k");
+        set_rule("[x] p(x,y) != 0 => constraints on parity(x), parity(y)");
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
@@ -1004,18 +1008,31 @@ namespace polysat {
         pdd X = s.var(x);
         if (!is_AxB_diseq_0(x, axb_l_y, a, b, y))
             return false;
-        if (!is_forced_eq(b, 0))
-            return false;
-        auto coeff = a.leading_coefficient();
-        if (coeff.is_odd())
-            return false;
-        SASSERT(coeff != 0);
-        unsigned k = coeff.trailing_zeros();
-        m_lemma.reset();
-        m_lemma.insert_eval(~s.eq(y));
-        m_lemma.insert_eval(~s.eq(b));        
-        if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
-            return true;
+        if (is_forced_eq(b, 0)) {
+            auto coeff = a.leading_coefficient();
+            if (coeff.is_odd())
+                return false;
+            SASSERT(coeff != 0);
+            unsigned k = coeff.trailing_zeros();
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~s.eq(b));        
+            if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
+                return true;
+            // TODO parity on a (without leading coefficient?)
+        }
+        if (a.is_val()) {
+            auto coeff = a.val();
+            unsigned k = coeff.trailing_zeros();
+            unsigned p_x = max_parity(X);
+            if (k + p_x < N) {
+                m_lemma.reset();
+                m_lemma.insert_eval(~s.eq(y));
+                m_lemma.insert_eval(~s.parity_at_most(X, p_x));
+                if (propagate(x, core, axb_l_y, ~s.eq(b))) 
+                    return true;
+            }
+        }
 
         return false;
     }
