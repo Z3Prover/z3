@@ -3763,7 +3763,7 @@ extern "C" {
        If \c s does not contain \c substr, then the value is -1, 
        def_API('Z3_mk_seq_last_index', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast, Z3_ast substr);
+    Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast s, Z3_ast substr);
 
     /**
        \brief Convert string to integer.
