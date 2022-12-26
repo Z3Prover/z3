@@ -3893,7 +3893,7 @@ extern "C" {
 
        def_API('Z3_mk_re_power', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast, unsigned n);
+    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast re, unsigned n);
 
     /**
        \brief Create the intersection of the regular languages.
@@ -5881,7 +5881,7 @@ extern "C" {
        def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
     */
 
-    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c Z3_string str);
 
 
     /** 
@@ -7029,7 +7029,7 @@ extern "C" {
        def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
     
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
