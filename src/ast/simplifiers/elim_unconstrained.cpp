@@ -81,20 +81,24 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         app* t = to_app(e);
-        m_args.reset();
+        unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
-            m_args.push_back(get_node(arg).m_term);
-        if (!m_inverter(t->get_decl(), m_args.size(), m_args.data(), r, side_cond)) {
+            m_args.push_back(reconstruct_term(get_node(arg)));
+        bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r, side_cond);
+        n.m_refcount = 0;
+        m_args.shrink(sz);
+        if (!inverted) {
             IF_VERBOSE(11, verbose_stream() << "not inverted " << mk_bounded_pp(e, m) << "\n");
-            n.m_refcount = 0;
             continue;
         }
+        
+        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " -> " << r << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
-        n.m_refcount = 0;
         m_trail.push_back(r);
         SASSERT(r);
         gc(e);
+        invalidate_parents(e);
         freeze_rec(r);
 
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
@@ -119,6 +123,26 @@ expr* elim_unconstrained::get_parent(unsigned n) const {
             return p;
     return nullptr;
 }
+
+void elim_unconstrained::invalidate_parents(expr* e) {
+    ptr_vector<expr> todo;
+    do {
+        node& n = get_node(e);
+        if (!n.m_dirty) {
+            n.m_dirty = true;
+            for (expr* e : n.m_parents)
+                todo.push_back(e);            
+        }
+        e = nullptr;
+        if (!todo.empty()) {
+            e = todo.back();
+            todo.pop_back();
+        }
+    }
+    while (e);    
+}
+
+
 /**
  * initialize node structure
  */
@@ -230,6 +254,45 @@ void elim_unconstrained::gc(expr* t) {
     }
 }
 
+expr_ref elim_unconstrained::reconstruct_term(node& n0) {
+    expr* t = n0.m_term;
+    if (!n0.m_dirty)
+        return expr_ref(t, m);
+    ptr_vector<expr> todo;
+    todo.push_back(t);
+    while (!todo.empty()) {
+        t = todo.back();
+        node& n = get_node(t);
+        unsigned sz0 = todo.size();
+        if (is_app(t)) {            
+            for (expr* arg : *to_app(t)) 
+                if (get_node(arg).m_dirty)
+                    todo.push_back(arg);
+            if (todo.size() != sz0)
+                continue;
+
+            unsigned sz = m_args.size();
+            for (expr* arg : *to_app(t)) 
+                m_args.push_back(get_node(arg).m_term);            
+            n.m_term = m.mk_app(to_app(t)->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+            m_args.shrink(sz);
+        }
+        else if (is_quantifier(t)) {
+            expr* body = to_quantifier(t)->get_expr();
+            node& n2 = get_node(body);
+            if (n2.m_dirty) {
+                todo.push_back(body);
+                continue;
+            }
+            n.m_term = m.update_quantifier(to_quantifier(t), n2.m_term);            
+        }
+        m_trail.push_back(n.m_term);
+        todo.pop_back();
+        n.m_dirty = false;
+    }
+    return expr_ref(n0.m_term, m);
+}
+
 /**
  * walk nodes starting from lowest depth and reconstruct their normalized forms.
  */
@@ -265,6 +328,7 @@ void elim_unconstrained::reconstruct_terms() {
         }
     }
 }
+
 
 void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 

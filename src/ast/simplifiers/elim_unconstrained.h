@@ -26,6 +26,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
         unsigned         m_refcount = 0;
         expr*            m_term = nullptr;
         expr*            m_orig = nullptr;
+        bool             m_dirty = false;
         ptr_vector<expr> m_parents;
     };
     struct var_lt {
@@ -66,8 +67,11 @@ class elim_unconstrained : public dependent_expr_simplifier {
     void init_nodes();
     void eliminate();
     void reconstruct_terms();
+    expr_ref reconstruct_term(node& n);
     void assert_normalized(vector<dependent_expr>& old_fmls);
     void update_model_trail(generic_model_converter& mc, vector<dependent_expr> const& old_fmls);
+    void invalidate_parents(expr* e);
+    
     
 public:
 
