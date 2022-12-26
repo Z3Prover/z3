@@ -1559,13 +1559,15 @@ class BoolRef(ExprRef):
     def __mul__(self, other):
         """Create the Z3 expression `self * other`.
         """
-        if other == 1:
+        if isinstance(other, int) and other == 1:
             return self
-        if other == 0:
-            return 0
+        if isinstance(other, int) and other == 0:
+            return
+        if isinstance(other, BoolRef):
+            other = If(other, 1, 0)
         return If(self, other, 0)
 
-
+    
 def is_bool(a):
     """Return `True` if `a` is a Z3 Boolean expression.
 
