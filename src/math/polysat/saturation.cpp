@@ -69,7 +69,7 @@ namespace polysat {
             prop = true;
         if (try_transitivity(v, core, i))
             prop = true;
-        if (try_factor_equality2(v, core, i))
+        if (try_factor_equality(v, core, i))
             prop = true;
         if (try_infer_equality(v, core, i))
             prop = true;
@@ -379,6 +379,8 @@ namespace polysat {
         if (!i.is_strict())
             return false;
         y = i.lhs();
+        if (i.rhs().is_val() && i.rhs().val() == 1)
+            return false;
         rational y_val;
         if (!s.try_eval(y, y_val) || y_val != 0)
             return false;
@@ -991,12 +993,14 @@ namespace polysat {
     }
 
     /**
-     *  2^{K-1}*x*y != 0 => odd(x) & odd(y)
-     *  2^k*x != 0 => parity(x) < K - k
-     *  2^k*x*y != 0 => parity(x) + parity(y) < K - k
+     *  2^{N-1}*x*y != 0 => odd(x) & odd(y)
+     *  2^k*x != 0 => parity(x) < N - k
+     *  2^k*x*y != 0 => parity(x) + parity(y) < N - k
+     * 
+     *  2^k*x + b != 0 & parity(x) < N - k => b != 0
      */
     bool saturation::try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] 2^k*x*y != 0 => parity(x) + parity(y) < K - k");
+        set_rule("[x] p(x,y) != 0 => constraints on parity(x), parity(y)");
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
@@ -1004,18 +1008,31 @@ namespace polysat {
         pdd X = s.var(x);
         if (!is_AxB_diseq_0(x, axb_l_y, a, b, y))
             return false;
-        if (!is_forced_eq(b, 0))
-            return false;
-        auto coeff = a.leading_coefficient();
-        if (coeff.is_odd())
-            return false;
-        SASSERT(coeff != 0);
-        unsigned k = coeff.trailing_zeros();
-        m_lemma.reset();
-        m_lemma.insert_eval(~s.eq(y));
-        m_lemma.insert_eval(~s.eq(b));        
-        if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
-            return true;
+        if (is_forced_eq(b, 0)) {
+            auto coeff = a.leading_coefficient();
+            if (coeff.is_odd())
+                return false;
+            SASSERT(coeff != 0);
+            unsigned k = coeff.trailing_zeros();
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            m_lemma.insert_eval(~s.eq(b));        
+            if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
+                return true;
+            // TODO parity on a (without leading coefficient?)
+        }
+        if (a.is_val()) {
+            auto coeff = a.val();
+            unsigned k = coeff.trailing_zeros();
+            unsigned p_x = max_parity(X);
+            if (k + p_x < N) {
+                m_lemma.reset();
+                m_lemma.insert_eval(~s.eq(y));
+                m_lemma.insert_eval(~s.parity_at_most(X, p_x));
+                if (propagate(x, core, axb_l_y, ~s.eq(b))) 
+                    return true;
+            }
+        }
 
         return false;
     }
@@ -1114,89 +1131,8 @@ namespace polysat {
     }
 
 
-    /**
-     *  [x] ax + p <= q, ax + r = 0 => -r + p <= q
-     *  [x] p <= ax + q, ax + r = 0 => p <= -r + q
-     *  generalizations
-     *  [x] abx + p <= q, ax + r = 0 => -rb + p <= q
-     *  [x] p <= abx + q, ax + r = 0 => p <= -rb + q
-     */
 
-    bool saturation::try_factor_equality1(pvar x, conflict& core, inequality const& a_l_b) {
-        set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
-        auto& m = s.var2pdd(x);       
-        unsigned N = m.power_of_2();
-        pdd y1  = m.zero();
-        pdd a1  = m.zero();
-        pdd b1  = m.zero();
-        pdd a2 = a1, b2 = b1, y2 = y1, a3 = a2, b3 = b2, y3 = y2;
-        bool is_axb_l_y = is_AxB_l_Y(x, a_l_b, a1, b1, y1);
-        bool is_y_l_axb = is_Y_l_AxB(x, a_l_b, y2, a2, b2);
-        
-        if (!is_axb_l_y && !is_y_l_axb)
-            return false;
-
-        bool factored = false;
-        
-        for (auto c : core) {
-            if (!c->is_ule())
-                continue;
-            auto i = inequality::from_ule(c);
-            if (i.is_strict())
-                continue;
-            if (!is_AxB_eq_0(x, i, a3, b3, y3))
-                continue;
-            if (c == a_l_b.as_signed_constraint())
-                continue;
-            pdd lhs = a_l_b.lhs();
-            pdd rhs = a_l_b.rhs();
-            bool change = false;
-            
-            if (is_axb_l_y && a1 == a3) {
-                change = true;
-                lhs = b1 - b3;
-            }
-            else if (is_axb_l_y && a1 == -a3) {
-                change = true;
-                lhs = b1 + b3;
-            }
-            else if (is_axb_l_y && a3.is_val() && a3.val().is_odd()) {
-                // a3*x + b3 == 0
-                // a3 is odd => x = inverse(a3)*-b3
-                change = true;
-                rational a3_inv;
-                VERIFY(a3.val().mult_inverse(m.power_of_2(), a3_inv));
-                lhs = b1 - a1*(b3 * a3_inv);
-            }
-            if (is_y_l_axb && a2 == a3) {
-                change = true;
-                rhs = b2 - b3;
-            }
-            else if (is_y_l_axb && a2 == -a3) {
-                change = true;
-                rhs = b2 + b3;
-            }
-            else if (is_y_l_axb && a3.is_val() && a3.val().is_odd()) {
-                change = true;
-                rational a3_inv;
-                VERIFY(a3.val().mult_inverse(m.power_of_2(), a3_inv));
-                rhs = b2 - a2*(b3 * a3_inv);
-            }
-            if (!change) {
-                IF_VERBOSE(2, verbose_stream() << "missed factor equality? " << c << " " << a_l_b << "\n");
-                continue;
-            }
-            signed_constraint conseq = a_l_b.is_strict() ? s.ult(lhs, rhs) : s.ule(lhs, rhs);
-            m_lemma.reset();
-            m_lemma.insert_eval(~s.eq(y3));
-            m_lemma.insert(~c);
-            if (propagate(x, core, a_l_b, conseq))
-                factored = true;
-        }
-        return factored;
-    }
-
-    bool saturation::try_factor_equality2(pvar x, conflict& core, inequality const& a_l_b) {
+    bool saturation::try_factor_equality(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b]");
         auto& m = s.var2pdd(x);       
         pdd y  = m.zero();
@@ -1373,37 +1309,68 @@ namespace polysat {
      * It requires that ax + b does not overflow
      * If the literal is already assigned, we are fine, otherwise?
      * 
+
+     * Bench 23
+     * CONFLICT #474: viable_interval v43
+     * Forbidden intervals for v43: 
+     * [0 ; 1[ := [0;1[  v43 != 0; 
+     * [1 ; 254488108213881748183672494524588808468725241023385855031774909907501383825[ := [1;254488108213881748183672494524588808468725241023385855031774909907501383825[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
+     * [2^128 ; 0[ := [340282366920938463463374607431768211456;0[  v43 <= 2^128-1; -1 * v43 [0 ; 1[ := [-1;-455[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
+     * -13: v43 != 0
+     * 1778: -1*v43 <= -1*v97*v43 + -1*v43 + 1
+     * 1242: v43 <= 2^128-1
+     * v97 := 454
      *
-     * Example (bench25) 
-     * -1*v85*v33 + v81 <= 2^128-2
-     * v33 <= 2^128-1
-     * v81 := -1
-     * v85 := 12
-     *
-     * Example (bench25)
-     * -1489: v25 > -1*v85*v25 + v81
-     * 2397: v85 + 1 <= 328022915686448145675838484443875093068753497636375535522542730900603766685
-     * -1195: v85 + 1 > 2^128+1
-     * v25 := 353
-     * v81 := -1
-     *
-     * -1*v85*v25 + v81 < v25    
-     * a -1*v25 := -315  b v81 := -1   y v25 := 315
-     * & v25 <= 315
-     * & -v81 <= 1 
+     * Analysis
+     * x >= x*y + x - 1 = (y + 1)*x - 1
+     * A_x : 1 <= x < 2^128   (A_x is the "allowed" range for x, F_x, the forbidden range is the complement)
+     * Compute largest infeasible interval on y
+     * => F_y = [2, 2^128 + 1[
      * 
-     * The example illustrates that fixing y_val produces a weaker bound.
-     * The result should be a forbidden interval around v25 based on bounds for
-     * v85 and v81.
+     * starting point y0 := 454
      *
-     * The example also illustrates that presumably just a combination of forbidden intervals for v85 used in the conflict
-     * are sufficient for narrowing the bounds on v81. Querying for upper/lower bounds of v85 doesn't produce the strongest
-     * assumption. 2397 and -1195 come from unit intervals with fixed lo/hi.
+     * consider the equation p(x,y) < q(x,y) where
+     *
+     * p(x, y) = x
+     * for every x in A_x : 0 <= p(x,y0) < N, where N is shorthand for 2^256
+     *
+     * q(x, y) = x*y + x - 1
+     * for every x in A_x : 0 <= q(x,y0) < N
+     * So we can form:
+     * r(x,y) = q(x, y) - p(x, y) = x*y - 1
+     * for every x in A_x : 0 < r(x, y0) = x*y0 - 1 < N
+
+     * find F_y, maximal such that
+     * for every x in A_x, for every y in F_y : 0 < r(x,y) < N, 0 <= p(x,y) < N, 0 <= q(x,y) < N
      * 
-     * On the other hand, the bound v25 > -1*v85*v25 + v81 was obtained by evaluating v25 and v81
-     * and the quantifier elimination based on viable::resolve_lemma didn't produce the most general lemma. 
-     * Instead it relied on the evaluation at 353 and -1, respectively.
+     * Use the fact that the coefficiens to x, y in p, q, r are non-negative
+     * Note: There isn't ereally anything as negative coefficients because they are already normalized mod N.
+     * Then p, q, r are monotone functions of x, y. Evaluate at x_max, x_min
+     * Note: If A_x wraps around, then set set x_max := x_max + N to ensure that x_min < x_max.
+     * Then it could be that the intervals for p, q are not 0 .. N but shifted. Subtract/add the shift amount.
      * 
+     * It could be that p or q overflow 0 .. N on y0. In this case give up (or come up with something smarter).
+     * 
+     *    max y.  r(x,y) < N forall x in A_x
+     * =  max y . r(x_max,y) < N, where x_max = 2^128-1
+     * =  max y . y*x_max - 1 <= N - 1
+     * =  floor(N / x_max)
+     * =  2^128 
+     * 
+     *    max y . q(x, y) < N
+     * =  max y . (y + 1) * x_max - 1 <= N -1
+     * =  floor(N / x_max) - 1
+     * =  2^128 - 1                      (NSB: this is a weaker bound than what it should be. Is using "floor" too much?)
+     * 
+     *    min y . 0 < r(x,y) forall x in A_x
+     * =  min y . 0 < r(x_min, y)
+     * =  min y . 1 <= y*x_min - 1
+     * =  ceil(2 / x_min)
+     * =  2
+     * 
+     * we have now computed a range around y0 where x >= x*y + x - 1 is false for every x in A_x
+     * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
+     *
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
