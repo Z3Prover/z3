@@ -262,18 +262,18 @@ namespace polysat {
                 else
                     e[0] = optional(-*(e[0]));
                 SASSERT(e.size() == 2);
-                tbv_ref* lhs_val = s.m_fixed_bits.eval(s, *(e[0]));
-                tbv_ref* rhs_val = s.m_fixed_bits.eval(s, *(e[1]));
-                LOG("Bit-Propagating: " << *lhs_val << " = " << *rhs_val);
-                unsigned sz = lhs_val->num_tbits();
+                const tbv_ref& lhs_val = *s.m_fixed_bits.eval(s, *(e[0]));
+                const tbv_ref& rhs_val = *s.m_fixed_bits.eval(s, *(e[1]));
+                LOG("Bit-Propagating: " << lhs_val << " = " << rhs_val);
+                unsigned sz = lhs_val.num_tbits();
                 for (unsigned i = 0; i < sz; i++) {
                     // we propagate in both directions to get the least decision level
-                    if ((*lhs_val)[i] != BIT_z) {
-                        if (!s.m_fixed_bits.fix_value(s, *(e[1]), i, (*lhs_val)[i], bit_justication_constraint::mk_unary(this, { *(e[0]), i })))
+                    if (lhs_val[i] != BIT_z) {
+                        if (!s.m_fixed_bits.fix_bit(s, *(e[1]), i, lhs_val[i], bit_justification_constraint::mk_unary(s, this, { *(e[0]), i }), true))
                             return false;
                     }
-                    if ((*rhs_val)[i] != BIT_z) {
-                         if (!s.m_fixed_bits.fix_value(s, *(e[0]), i, (*rhs_val)[i], bit_justication_constraint::mk_unary(this, { *(e[1]), i })))
+                    if (rhs_val[i] != BIT_z) {
+                         if (!s.m_fixed_bits.fix_bit(s, *(e[0]), i, rhs_val[i], bit_justification_constraint::mk_unary(s, this, { *(e[1]), i }), true))
                              return false;
                     }
                 }
@@ -284,11 +284,11 @@ namespace polysat {
         pdd lhs = is_positive ? m_lhs : m_rhs;
         pdd rhs = is_positive ? m_rhs : m_lhs;
         
-        tbv_ref* lhs_val = s.m_fixed_bits.eval(s, lhs);
-        tbv_ref* rhs_val = s.m_fixed_bits.eval(s, rhs);
-        unsigned sz = lhs_val->num_tbits();
+        const tbv_ref& lhs_val = *s.m_fixed_bits.eval(s, lhs);
+        const tbv_ref& rhs_val = *s.m_fixed_bits.eval(s, rhs);
+        unsigned sz = lhs_val.num_tbits();
         
-        LOG("Bit-Propagating: " << lhs << " (" << *lhs_val << ") " << (is_positive ? "<= " :  "< ") << rhs << " (" << *rhs_val << ")");
+        LOG("Bit-Propagating: " << lhs << " (" << lhs_val << ") " << (is_positive ? "<= " :  "< ") << rhs << " (" << rhs_val << ")");
         
         // TODO: Propagate powers of 2 (lower bound)
         bool conflict = false;
@@ -307,8 +307,8 @@ namespace polysat {
         };
         unsigned i = sz;
         for (; i > (unsigned)!is_positive && !conflict; i--) {
-            tbit l = (*lhs_val)[i - 1];
-            tbit r = (*rhs_val)[i - 1];
+            tbit l = lhs_val[i - 1];
+            tbit r = rhs_val[i - 1];
             
             unsigned char action = action_lookup[l | (r << 2)];
             switch (action) {
@@ -319,13 +319,13 @@ namespace polysat {
                 case 3:
                     dep.push_back({ lhs, i - 1 });
                     LOG("Added dependency: pdd: " << lhs << " idx: " << i - 1);
-                    conflict = !s.m_fixed_bits.fix_value(s, rhs, i - 1, BIT_1, bit_justication_constraint::mk(this, dep));
+                    conflict = !s.m_fixed_bits.fix_bit(s, rhs, i - 1, BIT_1, bit_justification_constraint::mk(s, this, dep), true);
                     SASSERT((action != 3) == conflict);
                     break;
                 case 2:
                     dep.push_back({ rhs, i - 1 });
                     LOG("Added dependency: pdd: " << rhs << " idx: " << i - 1);
-                    conflict = !s.m_fixed_bits.fix_value(s, lhs, i - 1, BIT_0, bit_justication_constraint::mk(this, dep));
+                    conflict = !s.m_fixed_bits.fix_bit(s, lhs, i - 1, BIT_0, bit_justification_constraint::mk(s, this, dep), true);
                     SASSERT(!conflict);
                     break;
                 default:
@@ -334,13 +334,13 @@ namespace polysat {
         }
         if (!conflict && !is_positive && i == 1) {
             // Special treatment for lhs < rhs (note: we swapped lhs <-> rhs so this is really a less and not a greater)
-            conflict = !s.m_fixed_bits.fix_value(s, lhs, 0, BIT_0, bit_justication_constraint::mk(this, dep));
+            conflict = !s.m_fixed_bits.fix_bit(s, lhs, 0, BIT_0, bit_justification_constraint::mk(s, this, dep), true);
             if (!conflict)
-                conflict = !s.m_fixed_bits.fix_value(s, rhs, 0, BIT_1, bit_justication_constraint::mk(this, dep));
+                conflict = !s.m_fixed_bits.fix_bit(s, rhs, 0, BIT_1, bit_justification_constraint::mk(s, this, dep), true);
         }
         SASSERT(
-                is_positive && conflict == (fixed_bits::min_max(*lhs_val).first > fixed_bits::min_max(*rhs_val).second) ||
-                !is_positive && conflict == (fixed_bits::min_max(*lhs_val).second <= fixed_bits::min_max(*rhs_val).first)
+                is_positive && conflict == (fixed_bits::min_max(lhs_val).first > fixed_bits::min_max(rhs_val).second) ||
+                !is_positive && conflict == (fixed_bits::min_max(lhs_val).second <= fixed_bits::min_max(rhs_val).first)
         );
         return !conflict;
     }

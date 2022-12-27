@@ -2036,7 +2036,7 @@ void tst_polysat() {
     return;
 #endif
 
-    // If non-empty, only run tests whose name c9ontains the run_filter
+    // If non-empty, only run tests whose name contains the run_filter
     run_filter = "";
     test_max_conflicts = 20;
 

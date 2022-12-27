@@ -4398,8 +4398,8 @@ namespace polynomial {
             TRACE("gcd_calls", tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
             TRACE("polynomial_gcd",
                   tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager);
-                  tout << "\nis_zero(u): " << is_zero(u) << ", is_const(u): " << is_const(u) << "\n";
-                  tout << "is_zero(v): " << is_zero(v) << ", is_const(v): " << is_const(v) << "\n";
+                  tout << "\nis_zero(u): " << is_zero(u) << ", is_determined(u): " << is_const(u) << "\n";
+                  tout << "is_zero(v): " << is_zero(v) << ", is_determined(v): " << is_const(v) << "\n";
                   tout << "modular: " << m().modular() << "\n";);
             if (is_zero(u)) {
                 r = const_cast<polynomial*>(v);

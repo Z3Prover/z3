@@ -120,6 +120,7 @@ namespace polysat {
         friend class simplify_clause;
         friend class simplify;
         friend class fixed_bits;
+        friend class bit_justification_constraint;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
