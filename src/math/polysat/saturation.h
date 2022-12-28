@@ -25,6 +25,9 @@ namespace polysat {
         solver& s;
         clause_builder m_lemma;
         char const* m_rule = nullptr;
+        
+        unsigned_vector m_occ;
+        unsigned_vector m_occ_cnt;
 
         void set_rule(char const* r) { m_rule = r; }
 
@@ -128,6 +131,8 @@ namespace polysat {
         unsigned min_parity(pdd const& p);
         unsigned max_parity(pdd const& p);
 
+        lbool get_multiple(const pdd& p1, const pdd& p2, pdd& out);
+        
         bool is_forced_eq(pdd const& p, rational const& val);
         bool is_forced_eq(pdd const& p, int i) { return is_forced_eq(p, rational(i)); }
         
