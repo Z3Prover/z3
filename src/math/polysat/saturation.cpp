@@ -1355,12 +1355,12 @@ namespace polysat {
      * =  max y . r(x_max,y) < N, where x_max = 2^128-1
      * =  max y . y*x_max - 1 <= N - 1
      * =  floor(N / x_max)
-     * =  2^128 
+     * =  2^128  + 1
      * 
      *    max y . q(x, y) < N
      * =  max y . (y + 1) * x_max - 1 <= N -1
      * =  floor(N / x_max) - 1
-     * =  2^128 - 1                      (NSB: this is a weaker bound than what it should be. Is using "floor" too much?)
+     * =  2^128                     
      * 
      *    min y . 0 < r(x,y) forall x in A_x
      * =  min y . 0 < r(x_min, y)
