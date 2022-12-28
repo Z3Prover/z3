@@ -663,6 +663,8 @@ namespace polysat {
         entry const* e = first;
         bool found = false;
         out_c.reset();
+        if (!e)
+            return false;
         do {
             found = false;
             do {
@@ -695,6 +697,8 @@ namespace polysat {
         entry const* e = first;
         bool found = false;
         out_c.reset();
+        if (!e)
+            return false;
         do {
             found = false;
             do {
@@ -727,6 +731,20 @@ namespace polysat {
         entry const* first = m_units[v];
         entry const* e = first;
         bool found = false;
+        if (!e)
+            return false;
+
+        auto covers_all = [&](rational const& lo1, rational const& hi1, rational const lo2, rational const& hi2) {
+            SASSERT(lo1 != hi1);
+            if (lo1 < hi1) {
+                return lo2 <= hi1 && lo1 <= hi2;
+            }
+            else {
+                // hi1 < lo1
+                return hi1 <= hi2 && hi2 <= lo2 && lo2 <= lo1;
+            }
+        };
+        
         do {
             found = false;
             do {
@@ -737,13 +755,16 @@ namespace polysat {
                 auto const& hi = e->interval.hi();
                 if (!lo.is_val() || !hi.is_val())
                     goto next;
-
+                if (out_c.contains(e->src))
+                    goto next;
                 if (out_c.empty()) {
                     out_c.push_back(e->src);
                     out_lo = lo.val();
                     out_hi = hi.val();
                     found = true;
                 }
+                else if (covers_all(out_lo, out_hi, lo.val(), hi.val()))
+                    return false;
                 // [lo, hi0, hi[
                 // [lo, hi0, 0, hi[
                 else if (lo.val() <= out_hi && (out_hi < hi.val() || hi.val() < lo.val())) {

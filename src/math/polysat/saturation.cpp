@@ -1441,69 +1441,10 @@ namespace polysat {
      * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
      *
      */
-
-#if 0
-    // outline of what should be a more general approach
-    
-    pdd p = a_l_b.lhs(), q = a_l_b.rhs();
-    if (p.degree(x) > 1 || q.degree(x) > 1)
-        return false;
-    if (p.degree(x) == 0 && q.degree(x) == 0)
-        return false;
-    vector<signed_constraint> bounds;
-    if (!m_viable.has_max_forbidden(x, lo_x, hi_x, bounds))
-        return false;
-    SASSERT(lo_x != hi_x);
-    if (lo_x > hi_x)
-        lo_x += m.two_to_N();
-    SASSERT(lo_x < hi_x);
-
-    auto is_bounded = [&](pdd& p, rational& lo, rational& hi) {
-        if (!lower_bound(x, lo_x, p, lo))
-            return false;
-        if (!upper_bound(x, hi_x, p, hi))
-            return false;
-        SASSERT(0 <= lo && lo <= hi);
-        if (lo + m.two_to_N() < hi)
-            return false;
-        ratinoal offset = floor(lo / m.two_to_N()) * m.two_to_N();
-        lo -= offset;
-        hi -= offset;
-        return true;
-    };
-
-    rational lo_p, hi_p, offset_p;
-    rational lo_q, hi_q, offset_q;
-    rational lo_r, hi_r, offset_r;
-    pdd r = q - p;
-    if (!is_bounded(p, lo_p, hi_p, offset_p))
-        return false;
-    if (!is_bounded(q, lo_q, hi_q, offset_q))
-        return false;
-    if (!is_bounded(r, lo_r, hi_r, offset_r))
-        return false;
-    SASSERT(0 <= lo_r && lo_r <= hi_r);
-
-    
-    // for every value of x, p, q are bewteen lo_p, hi_p, lo_q, hi_q
-
-
-    // if a_l_b is non-strict, it is false under all assignments to x, so r > 0
-    // if a_l_b is strict, we bail also if r = 1
-    if (lo_r == 0)
-        return false;
-    if (a_l_b.is_strict() && lo_r == 1)
-        return false;
-
-    // isolate what is 'y'
-    
-    // then compute range around y that is admissible based on x_lo, x_hi
-    
-    
-#endif
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b <= y, ... => a >= u_a");
+        // try_add_mul_bound2(x, core, a_l_b);
         auto& m = s.var2pdd(x);        
         pdd const X = s.var(x);
         pdd a = s.var(x);
@@ -1553,6 +1494,126 @@ namespace polysat {
         if (is_Y_l_AxB(x, a_l_b, y, a, b) && y.is_val() && s.try_eval(b, b_val)) {
             // verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
         }
+        return false;
+    }
+
+
+    bool saturation::get_bound(pvar x, rational const& bound_x, pdd const& p, rational& bound_p) {
+        if (p.degree(x) == 0)
+            return s.try_eval(p, bound_p);
+        pdd a = p, b = p;
+        rational a_val, b_val;
+        p.factor(x, 1, a, b);
+        if (!get_bound(x, bound_x, a, a_val))
+            return false;
+        if (!get_bound(x, bound_x, b, b_val))
+            return false;
+        bound_p = bound_x * a_val + b_val;
+        return true;
+    }
+
+    // wip - outline of what should be a more general approach
+    bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
+        auto& m = s.var2pdd(x);    
+        pdd p = a_l_b.lhs(), q = a_l_b.rhs();
+        if (p.degree(x) > 1 || q.degree(x) > 1)
+            return false;
+        if (p.degree(x) == 0 && q.degree(x) == 0)
+            return false;
+        vector<signed_constraint> bounds;
+        rational x_min, x_max;
+        if (!s.m_viable.has_max_forbidden(x, x_min, x_max, bounds))
+            return false;
+
+        VERIFY(x_min != x_max);
+        // From forbidden interval [x_min, x_max[ compute
+        // allowed range: [x_max, x_min - 1]
+        SASSERT(0 <= x_min && x_min <= m.max_value());
+        SASSERT(0 <= x_max && x_max <= m.max_value());
+        rational hi = x_min == 0 ? m.max_value() : x_min - 1; 
+        x_min = x_max;
+        x_max = hi;
+        SASSERT(x_min != x_max);
+        if (x_min > x_max)
+            x_min += m.two_to_N();
+        SASSERT(x_min <= x_max);
+        if (x_max == 0) {
+            SASSERT(x_min == 0);
+            return false;
+        }
+        
+        auto isolate_y = [&](pvar x, pdd const& p, pdd& y, pdd& b) {
+            if (p.degree(x) != 1)
+                return false;
+            p.factor(x, 1, y, b);            
+            return !y.is_val();
+        };
+        pdd y = p, b = p;
+        rational b_val, y_val;
+        // handle just one-side with x for now
+        if (p.degree(x) == 1 && q.degree(x) == 1)
+            return false;
+        if (!isolate_y(x, p, y, b) && !isolate_y(x, q, y, b))
+            return false;
+        if (!s.try_eval(b, b_val))
+            return false;
+        if (!s.try_eval(y, y_val))
+            return false;
+        // at this point p = x*y + b or q = x*y + b
+        
+        auto is_bounded = [&](pdd& p, rational& lo, rational& hi) {
+            verbose_stream() << "is-bounded " << p << "\n";
+            if (!get_bound(x, x_min, p, lo))
+                return false;
+            if (!get_bound(x, x_max, p, hi))
+                return false;
+            SASSERT(0 <= lo && lo <= hi);
+            if (lo + m.two_to_N() < hi)
+                return false;
+            rational offset = floor(lo / m.two_to_N()) * m.two_to_N();
+            lo -= offset;
+            hi -= offset;
+            return true;
+        };
+        
+        rational lo_p, hi_p;
+        rational lo_q, hi_q;
+        rational lo_r, hi_r;
+        pdd r = q - p;
+        if (!is_bounded(p, lo_p, hi_p))
+            return false;
+        if (!is_bounded(q, lo_q, hi_q))
+            return false;
+        if (!is_bounded(r, lo_r, hi_r))
+            return false;
+        SASSERT(0 <= lo_r && lo_r <= hi_r);
+
+        verbose_stream() << "bounded ranges\n";
+        verbose_stream() << a_l_b << ": v" << x << " y: " << y << " := " << y_val << "\n";
+        verbose_stream() << p << " " << lo_p << " " << hi_p << "\n";
+        verbose_stream() << q << " " << lo_q << " " << hi_q << "\n";
+        verbose_stream() << r << " " << lo_r << " " << hi_r << "\n";
+        verbose_stream() << x_min << " " << x_max << "\n";
+
+        
+        // for every value of x, p, q are bewteen lo_p, hi_p, lo_q, hi_q
+        // if a_l_b is non-strict, it is false under all assignments to x, so r > 0
+        // if a_l_b is strict, we bail also if r = 1
+        if (lo_r == 0)
+            return false;
+        if (a_l_b.is_strict() && lo_r == 1)
+            return false;
+        
+        // then compute range around y that is admissible based on x_lo, x_hi
+        rational max_y, min_y = m.max_value();
+
+        if (q.degree(x) == 1) {
+            // q = x*y + b <= 2^N - 1
+            // y <= (2^N - 1 - b) / x_max
+            max_y = floor((m.max_value() - b_val)/x_max);
+            verbose_stream() << b << " " << b_val << " max-y " << max_y << "\n";
+        }
+
         return false;
     }
 
