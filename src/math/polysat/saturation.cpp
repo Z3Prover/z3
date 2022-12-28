@@ -876,17 +876,10 @@ namespace polysat {
         unsigned offset = coeff.trailing_zeros();        
         verbose_stream() << "COEFF " << coeff << "\n";
 #endif
-#if 0
-        unsigned j = 0;
-        while (j < N && is_forced_true(s.parity(p, j + 1)))
-            ++j;
-        return j;
-#else
         for (unsigned j = N; j > 0; --j)
             if (is_forced_true(s.parity(p, j)))
                 return j;
         return 0;
-#endif
     }
 
     unsigned saturation::max_parity(pdd const& p) {
@@ -1372,6 +1365,66 @@ namespace polysat {
      * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
      *
      */
+
+#if 0
+    // outline of what should be a more general approach
+    
+    pdd p = a_l_b.lhs(), q = a_l_b.rhs();
+    if (p.degree(x) > 1 || q.degree(x) > 1)
+        return false;
+    if (p.degree(x) == 0 && q.degree(x) == 0)
+        return false;
+    vector<signed_constraint> bounds;
+    if (!m_viable.has_max_forbidden(x, lo_x, hi_x, bounds))
+        return false;
+    SASSERT(lo_x != hi_x);
+    if (lo_x > hi_x)
+        lo_x += m.two_to_N();
+    SASSERT(lo_x < hi_x);
+
+    auto is_bounded = [&](pdd& p, rational& lo, rational& hi) {
+        if (!lower_bound(x, lo_x, p, lo))
+            return false;
+        if (!upper_bound(x, hi_x, p, hi))
+            return false;
+        SASSERT(0 <= lo && lo <= hi);
+        if (lo + m.two_to_N() < hi)
+            return false;
+        ratinoal offset = floor(lo / m.two_to_N()) * m.two_to_N();
+        lo -= offset;
+        hi -= offset;
+        return true;
+    };
+
+    rational lo_p, hi_p, offset_p;
+    rational lo_q, hi_q, offset_q;
+    rational lo_r, hi_r, offset_r;
+    pdd r = q - p;
+    if (!is_bounded(p, lo_p, hi_p, offset_p))
+        return false;
+    if (!is_bounded(q, lo_q, hi_q, offset_q))
+        return false;
+    if (!is_bounded(r, lo_r, hi_r, offset_r))
+        return false;
+    SASSERT(0 <= lo_r && lo_r <= hi_r);
+
+    
+    // for every value of x, p, q are bewteen lo_p, hi_p, lo_q, hi_q
+
+
+    // if a_l_b is non-strict, it is false under all assignments to x, so r > 0
+    // if a_l_b is strict, we bail also if r = 1
+    if (lo_r == 0)
+        return false;
+    if (a_l_b.is_strict() && lo_r == 1)
+        return false;
+
+    // isolate what is 'y'
+    
+    // then compute range around y that is admissible based on x_lo, x_hi
+    
+    
+#endif
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] ax + b <= y, ... => a >= u_a");
