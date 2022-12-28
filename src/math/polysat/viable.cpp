@@ -722,6 +722,52 @@ namespace polysat {
         return !out_c.empty();
     }
 
+    bool viable::has_max_forbidden(pvar v, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
+        out_c.reset();
+        entry const* first = m_units[v];
+        entry const* e = first;
+        bool found = false;
+        do {
+            found = false;
+            do {
+                if (e->refined)
+                    goto next;
+                
+                auto const& lo = e->interval.lo();
+                auto const& hi = e->interval.hi();
+                if (!lo.is_val() || !hi.is_val())
+                    goto next;
+
+                if (out_c.empty()) {
+                    out_c.push_back(e->src);
+                    out_lo = lo.val();
+                    out_hi = hi.val();
+                    found = true;
+                }
+                // [lo, hi0, hi[
+                // [lo, hi0, 0, hi[
+                else if (lo.val() <= out_hi && (out_hi < hi.val() || hi.val() < lo.val())) {
+                    out_c.push_back(e->src);
+                    out_hi = hi.val();
+                    found = true;
+                }
+                // [lo, lo0, hi[
+                // [lo, 0, lo0, hi[
+                else if (lo.val() < out_lo && (out_lo <= hi.val() || hi.val() < lo.val())) {
+                    out_c.push_back(e->src);
+                    out_lo = lo.val();
+                    found = true;                        
+                }
+            next:
+                e = e->next();
+            }            
+            while (e != first);
+        }
+        while (found);
+        return !out_c.empty();
+    }
+
+
     template <query_t mode>
     lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
         // max number of interval refinements before falling back to the univariate solver
