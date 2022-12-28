@@ -5881,7 +5881,7 @@ extern "C" {
        def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
     */
 
-    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c Z3_string str);
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str);
 
 
     /** 
