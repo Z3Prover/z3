@@ -1560,9 +1560,9 @@ class BoolRef(ExprRef):
         """Create the Z3 expression `self * other`.
         """
         if isinstance(other, int) and other == 1:
-            return self
+            return If(self, 1, 0)
         if isinstance(other, int) and other == 0:
-            return
+            return IntVal(0, self.ctx)
         if isinstance(other, BoolRef):
             other = If(other, 1, 0)
         return If(self, other, 0)
