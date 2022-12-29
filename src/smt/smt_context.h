@@ -62,6 +62,8 @@ namespace smt {
 
     class model_generator;
 
+    struct cancel_exception {};
+
     class context {
         friend class model_generator;
         friend class lookahead;

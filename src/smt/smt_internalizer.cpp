@@ -353,7 +353,7 @@ namespace smt {
     */
     void context::internalize(expr * n, bool gate_ctx) {
         if (memory::above_high_watermark())
-            throw default_exception("resource limit exceeded during internalization");
+            throw cancel_exception();
         internalize_deep(n);
         internalize_rec(n, gate_ctx);
     }

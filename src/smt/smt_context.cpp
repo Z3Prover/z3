@@ -2961,7 +2961,11 @@ namespace smt {
         pop_to_base_lvl();
         setup_context(false);
         bool was_consistent = !inconsistent();
-        internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        try {
+            internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        } catch (cancel_exception&) {
+            throw default_exception("Resource limits hit in push");
+        }
         if (!m.inc())
             throw default_exception("push canceled");
         scoped_suspend_rlimit _suspend_cancel(m.limit());
@@ -3556,7 +3560,12 @@ namespace smt {
             return p(asms);
         }
 
-        internalize_assertions();
+        try {
+            internalize_assertions();
+        } catch (cancel_exception&) {
+            VERIFY(resource_limits_exceeded());
+            return l_undef;
+        }
         expr_ref_vector theory_assumptions(m);
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
@@ -3620,10 +3629,15 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m, num_assumptions, assumptions);
-            internalize_assertions();
-            add_theory_assumptions(asms);                
-            TRACE("unsat_core_bug", tout << asms << "\n";);        
-            init_assumptions(asms);
+            try {
+                internalize_assertions();
+                add_theory_assumptions(asms);
+                TRACE("unsat_core_bug", tout << asms << '\n';);
+                init_assumptions(asms);
+            } catch (cancel_exception&) {
+                VERIFY(resource_limits_exceeded());
+                return l_undef;
+            }
             TRACE("before_search", display(tout););
             r = search();
             r = mk_unsat_core(r);        
@@ -3641,11 +3655,16 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
-            internalize_assertions();
-            add_theory_assumptions(asms);
-            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-            for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-            init_assumptions(asms);
+            try {
+                internalize_assertions();
+                add_theory_assumptions(asms);
+                // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+                for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
+                init_assumptions(asms);
+            } catch (cancel_exception&) {
+                VERIFY(resource_limits_exceeded());
+                return l_undef;
+            }
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
             r = mk_unsat_core(r);             
