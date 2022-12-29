@@ -11,10 +11,11 @@ Author:
     Jakob Rath 2021-04-06
 
 --*/
-#include "math/polysat/variable_elimination.h"
 #include "math/polysat/conflict.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/saturation.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/variable_elimination.h"
 #include <algorithm>
 
 namespace polysat {
@@ -252,7 +253,7 @@ namespace polysat {
             find_lemma(v, c, core);
         }
     }
-
+    
     void free_variable_elimination::find_lemma(pvar v, signed_constraint c, conflict& core) {
         LOG_H3("Free Variable Elimination for v" << v << " using equation " << c);
         pdd const& p = c.eq();
@@ -380,7 +381,7 @@ namespace polysat {
                     LOG("pv_lhs: " << pv_lhs);
                     LOG("odd_fac_lhs: " << odd_fac_lhs);
                     LOG("power_diff_lhs: " << power_diff_lhs);
-                    new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_rhs;
+                    new_lhs = -rest * *fac_odd_inv * power_diff_lhs * odd_fac_lhs + rest_lhs;
                     p1 = s.ule(get_dyadic_valuation(fac).first, get_dyadic_valuation(fac_lhs).first);
                 }
                 else {
@@ -405,7 +406,7 @@ namespace polysat {
                 }
             }
             
-            signed_constraint c_new = s.ule(new_lhs , new_rhs);
+            signed_constraint c_new = s.ule(new_lhs, new_rhs);
             
             if (c_target.is_negative())
                 c_new.negate();
@@ -524,5 +525,157 @@ namespace polysat {
         LOG("Found multiple: " << out);
         return is_multiple;
     }
-
+    
+    unsigned parity_tracker::get_id(const pdd& p) {
+        // SASSERT(p.is_var()); // For now
+        // pvar v = p.var();
+        unsigned id = m_pdd_to_id.get(optional(p), -1);
+        if (id == -1) {
+            id = m_pdd_to_id.size();
+            m_pdd_to_id.insert(optional(p), id);
+        }
+        return id;
+    }
+    
+    pdd parity_tracker::get_inverse(const pdd &p) {
+        LOG("Getting inverse of " << p);
+        if (p.is_val()) {
+            SASSERT(p.val().is_odd());
+            rational iv;
+            VERIFY(p.val().mult_inverse(p.power_of_2(), iv));
+            return p.manager().mk_val(iv);
+        }
+        unsigned v = get_id(p);
+        if (m_inverse.size() > v && m_inverse[v] != -1)
+            return s.var(m_inverse[v]);
+        
+        pvar inv = s.add_var(p.power_of_2());
+        pdd inv_pdd = p.manager().mk_var(inv);
+        m_inverse.setx(v, inv, -1);
+        s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
+        return inv_pdd;
+    }
+    
+    pdd parity_tracker::get_odd(const pdd& p, unsigned parity, svector<signed_constraint>& path) {
+        LOG("Getting odd part of " << p);
+        if (p.is_val()) {
+            SASSERT(!p.val().is_zero());
+            rational odd = machine_div(p.val(), rational::power_of_two(p.val().trailing_zeros()));
+            SASSERT(odd.is_odd());
+            return p.manager().mk_val(odd);
+        }
+        unsigned v = get_id(p);
+        pvar odd_v;
+        bool needs_propagate = true;
+        
+        if (m_odd.size() > v && m_odd[v].initialized()) {
+            auto& tuple = *(m_odd[v]);
+            SASSERT(tuple.second.size() == p.power_of_2());
+            odd_v = tuple.first;
+            needs_propagate = !tuple.second[parity];
+        }
+        else {
+            odd_v = s.add_var(p.power_of_2());
+            m_odd.setx(v, optional<std::pair<pvar, bool_vector>>({ odd_v, bool_vector(p.power_of_2(), false) }), optional<std::pair<pvar, bool_vector>>::undef());
+        }
+        
+        m_builder.reset();
+        m_builder.set_redundant(true);
+        
+        unsigned lower = 0, upper = p.power_of_2();
+        // binary search for the parity (binary search instead of at_least_parity(p, parity) && at_most_parity(p, parity) for propagation if used with another parity
+        while (lower + 1 < upper) {
+            unsigned middle = (upper + lower) / 2;
+            signed_constraint c = s.parity_at_least(p, middle); // constraints are anyway cached and reused
+            LOG("Splitting on " << middle << " with " << parity);
+            if (parity >= middle) {
+                lower = middle;
+                path.push_back(~c);
+                if (needs_propagate)
+                    m_builder.insert(~c);
+            }
+            else {
+                upper = middle;
+                path.push_back(c);
+                if (needs_propagate)
+                    m_builder.insert(c);
+            }
+            LOG("Its in [" << lower << "; " << upper << ")");
+        }
+        if (!needs_propagate)
+            return s.var(odd_v);
+        
+        (*m_odd[v]).second[parity] = true;
+        m_builder.insert(s.eq(rational::power_of_two(parity) * s.var(odd_v), p));
+        clause_ref c = m_builder.build();
+        s.add_clause(*c);
+        return s.var(odd_v);
+    }
+    
+    // a * x + b = 0 (x not in a or b; i.e., the equation is linear in x)
+    // C[p, ...] resp., C[..., p]
+    std::tuple<pdd, bool, svector<signed_constraint>> parity_tracker::eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p) {
+        
+        unsigned p_degree = p.degree(x);
+        if (p_degree == 0)
+            return { p, false, {} };
+        if (a.is_val() && a.val().is_odd()) { // just invert and plug it in
+            rational a_inv;
+            VERIFY(a.val().mult_inverse(a.power_of_2(), a_inv));
+            // this works as well if the degree of "p" is not 1: 3 x = a (mod 4) && x^2 <= b => (3a)^2 <= b
+            return { p.subst_pdd(x, -b * a_inv), true, {} };
+        }
+        // from now on we require linear factors
+        if (p_degree != 1)
+            return { p, false, {} }; // TODO: Maybe fallback to brute-force
+        
+        pdd a1 = a.manager().zero(), b1 = a1, mul_fac = a1;
+        
+        p.factor(x, 1, a1, b1);
+        lbool is_multiple = saturation.get_multiple(a1, a, mul_fac);
+        if (is_multiple == l_false)
+            return { p, false, {} }; // there is no chance to invert
+        if (is_multiple == l_true) // we multiply with a factor to make them equal
+            return { b1 - b * mul_fac, true, {} };
+        
+        #if 1
+        return { p, false, {} };
+        #else
+        if (!a1.is_var() && !a1.is_val()) {
+            //return { p, false, {} };
+            LOG("Warning: Inverting " << a1 << " although it is not a single variable - might not be a good idea"); // TODO: Compromise: Maybe only monomials...?
+        }
+        if (!a.is_var() && !a.is_val()) {
+            //return { p, false, {} };
+            LOG("Warning: Inverting " << a << " although it is not a single variable - might not be a good idea");
+        }
+        
+        if (!a.is_monomial() || !a1.is_monomial())
+            return { p , false, {} };
+        
+        // We don't know whether it will work. Use the parity of the assignment
+        
+        unsigned a_parity;
+        unsigned a1_parity;
+        
+        if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || (a1_parity = saturation.min_parity(a1)) != saturation.max_parity(a1))
+            return { p, false, {} }; // We need the parity, but we failed to get it precisely
+            
+        if (a_parity > a1_parity) {
+            SASSERT(false); // get_multiple should have excluded this case already
+            return { p, false, {} };
+        }
+        
+        svector<signed_constraint> precondition;
+        
+        auto odd_a = get_odd(a, a_parity, precondition);
+        auto odd_a1 = get_odd(a1, a1_parity, precondition);
+        pdd inv_odd_a = get_inverse(odd_a);
+        
+        LOG("Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1);
+        verbose_stream() << "Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1 << "\n";
+        verbose_stream() << "From: " << "eliminated v" << x << " with a = " << a << "; b = " << b << "; p = " << p << "\n";
+        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1, true, {std::move(precondition)} };
+#endif
+    }
 }

@@ -14,6 +14,7 @@ Author:
 #pragma once
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/conflict.h"
+#include "math/polysat/variable_elimination.h"
 
 namespace polysat {
 
@@ -22,10 +23,13 @@ namespace polysat {
      */
     class saturation {
 
+        friend class parity_tracker;
+        
         solver& s;
         clause_builder m_lemma;
         char const* m_rule = nullptr;
         
+        parity_tracker m_parity_tracker;
         unsigned_vector m_occ;
         unsigned_vector m_occ_cnt;
 

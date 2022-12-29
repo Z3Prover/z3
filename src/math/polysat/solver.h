@@ -137,6 +137,7 @@ namespace polysat {
         friend class ex_polynomial_superposition;
         friend class free_variable_elimination;
         friend class saturation;
+        friend class parity_tracker;
         friend class constraint_manager;
         friend class scoped_solverv;
         friend class test_polysat;
@@ -422,9 +423,9 @@ namespace polysat {
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
         signed_constraint odd(pdd const& p) { return ~even(p); }
-        signed_constraint even(pdd const& p) { return parity(p, 1); }
+        signed_constraint even(pdd const& p) { return parity_at_least(p, 1); }
         /** parity(p) >= k */
-        signed_constraint parity(pdd const& p, unsigned k) {   // TODO: rename to parity_at_least?
+        signed_constraint parity_at_least(pdd const& p, unsigned k) {
             unsigned N = p.manager().power_of_2();
             // parity(p) >= k
             // <=> p * 2^(N - k) == 0
@@ -449,7 +450,7 @@ namespace polysat {
                 return eq(p.manager().zero());
             }
             else
-                return ~parity(p, k + 1);
+                return ~parity_at_least(p, k + 1);
         }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint diseq(pdd const& p, unsigned q) { return diseq(p - q); }

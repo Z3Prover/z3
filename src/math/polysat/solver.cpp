@@ -19,6 +19,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/polysat_params.hpp"
+#include "math/polysat/variable_elimination.h"
 #include <variant>
 
 // For development; to be removed once the linear solver works well enough
@@ -238,12 +239,12 @@ namespace polysat {
         LOG_H2("Propagate " << assignment_pp(*this, v, get_value(v)));
         SASSERT(!m_locked_wlist);
         DEBUG_CODE(m_locked_wlist = v;);
+        unsigned i = 0, j = 0;
+        for (; i < m_pwatch[v].size() && !is_conflict(); ++i)
+            if (!propagate(v, m_pwatch[v][i])) // propagate may change watch-list reference
+                m_pwatch[v][j++] = m_pwatch[v][i];
         auto& wlist = m_pwatch[v];
-        unsigned i = 0, j = 0, sz = wlist.size();
-        for (; i < sz && !is_conflict(); ++i)
-            if (!propagate(v, wlist[i]))
-                wlist[j++] = wlist[i];
-        for (; i < sz; ++i) 
+        for (; i < wlist.size(); ++i) 
             wlist[j++] = wlist[i];
         wlist.shrink(j);
         if (is_conflict())
@@ -435,6 +436,7 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
+        m_fixed_bits.push();
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -448,6 +450,8 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
 #endif
+        m_fixed_bits.pop();
+        
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -602,7 +606,7 @@ namespace polysat {
             }
         }
 #endif
-        m_fixed_bits.push();
+        
         if (can_bdecide())
             bdecide();
         else
@@ -833,7 +837,6 @@ namespace polysat {
                     continue;
                 }
                 if (j.is_decision()) {
-                    m_fixed_bits.pop();
                     m_conflict.revert_pvar(v);
                     revert_decision(v);
                     return;
@@ -862,7 +865,6 @@ namespace polysat {
                 }
                 SASSERT(!m_bvars.is_assumption(var));   // TODO: "assumption" is basically "propagated by unit clause" (or "at base level"); except we do not explicitly store the unit clause.
                 if (m_bvars.is_decision(var)) {
-                    m_fixed_bits.pop();
                     revert_bool_decision(lit);
                     return;
                 }

@@ -15,6 +15,7 @@ Author:
 
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
+#include "math/polysat/clause_builder.h"
 
 namespace polysat {
 
@@ -50,6 +51,36 @@ namespace polysat {
     public:
         free_variable_elimination(solver& s): s(s) {}
         void find_lemma(conflict& core);
-};
-
+    };
+    
+    class saturation;
+    
+    class parity_tracker {
+        
+        solver& s;
+        clause_builder m_builder;
+        
+        vector<optional<std::pair<pvar, bool_vector>>> m_odd;
+        unsigned_vector m_inverse;
+        
+        struct optional_pdd_hash {
+            unsigned operator()(optional<pdd> const& args) const {
+                return args->hash();
+            }
+        };
+        using pdd_to_id = map<optional<pdd>, unsigned, optional_pdd_hash, default_eq<optional<pdd>>>;
+        
+        pdd_to_id m_pdd_to_id; // if we want to use arbitrary pdds instead of pvars
+        
+        unsigned get_id(const pdd& p);
+        
+    public:
+        
+        parity_tracker(solver& s) : s(s), m_builder(s) {}
+        
+        pdd get_inverse(const pdd& p);
+        pdd get_odd(const pdd& p, unsigned parity, svector<signed_constraint>& pat);
+        
+        std::tuple<pdd, bool, svector<signed_constraint>> eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p);
+    };
 }
