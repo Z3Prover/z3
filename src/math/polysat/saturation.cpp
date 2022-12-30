@@ -1555,19 +1555,74 @@ namespace polysat {
         }        
     }
 
-    bool saturation::get_bound(pvar x, rational const& bound_x, pdd const& p, rational& bound_p) {
-        if (p.degree(x) == 0)
-            return s.try_eval(p, bound_p);
-        pdd a = p, b = p;
-        rational a_val, b_val;
-        p.factor(x, 1, a, b);
-        if (!get_bound(x, bound_x, a, a_val))
+    /**
+     * update d such that for every value x_min <= x <= x_max 0 <= a*x*y0 + b*x + c*y0 + d < N
+     * return false if there is no such d.
+     */
+    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& N, rational const& a, rational const& b, rational const& c, rational& d) {
+        rational A = a*y0 + b;
+        rational B = c*y0 + d;
+        rational max = A >= 0 ? x_max * A + B : x_min * A + B;
+        rational min = A >= 0 ? x_min * A + B : x_max * A + B;
+        if (max - min >= N)
             return false;
-        if (!get_bound(x, bound_x, b, b_val))
-            return false;
-        bound_p = bound_x * a_val + b_val;
+        rational offset = max > N ? -N * floor(max / N) : (max < 0 ?  N*floor((-max + N -1)/ N) : rational::zero());
+        d += offset;
         return true;
     }
+    
+    /**
+     * Based on a*x*y + b*x + c*y + d >= 0
+     * update lower bound for y
+     */
+    bool saturation::update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d) {
+        if (a == 0 && c == 0)
+            return true;
+
+        rational x_bound;
+        if (a >= 0 && b >= 0) 
+            x_bound = x_min;
+        else if (a <= 0 && b <= 0)
+            x_bound = x_max;
+        else
+            return false;
+        
+        // a*x_bound*y + b*x_bound + c*y + d >= 0
+        // (a*x_bound + c)*y >= -d - b*x_bound
+        // if a*x_bound + c > 0
+        rational A = a*x_bound + c;
+        if (A <= 0)
+            return true;
+        rational y1 = ceil((- d - b*x_bound)/A);
+        if (y1 > y_min)
+            y_min = y1;
+        return true;
+    }
+
+    bool saturation::update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d) {
+        if (a == 0 && c == 0)
+            return true;
+
+        rational x_bound;
+        if (a >= 0 && b >= 0) 
+            x_bound = x_min;
+        else if (a <= 0 && b <= 0)
+            x_bound = x_max;
+        else
+            return false;
+        
+        // a*x_bound*y + b*x_bound + c*y + d >= 0
+        // (a*x_bound + c)*y >= -d - b*x_bound
+        // if a*x_bound + c > 0
+        rational A = a*x_bound + c;
+        if (A >= 0)
+            return true;
+        rational y1 = floor((- d - b*x_bound)/A);
+        if (y1 < y_max)
+            y_max = y1;
+        return true;
+    }
+
 
     // wip - outline of what should be a more general approach
     bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
@@ -1587,12 +1642,13 @@ namespace polysat {
         // allowed range: [x_max, x_min - 1]
         SASSERT(0 <= x_min && x_min <= m.max_value());
         SASSERT(0 <= x_max && x_max <= m.max_value());
-        rational hi = x_min == 0 ? m.max_value() : x_min - 1; 
+        rational M = m.two_to_N();
+        rational hi = x_min == 0 ? M - 1 : x_min - 1; 
         x_min = x_max;
         x_max = hi;
         SASSERT(x_min != x_max);
         if (x_min > x_max)
-            x_min -= m.two_to_N();
+            x_min -= M;
         SASSERT(x_min <= x_max);
         
         if (x_max == 0) {
@@ -1611,65 +1667,55 @@ namespace polysat {
         if (y1 == null_var && y2 == null_var)
             return false;
         y = (y1 == null_var) ? y2 : y1;
+        rational y0 = s.get_value(y); 
 
-        verbose_stream() << p << " v" << y << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-        verbose_stream() << q << " v" << y << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+        verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
+        verbose_stream() << "v" << y << " " << y0 << "\n";
+        verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+        verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
 
-#if 0
-        auto is_bounded = [&](pdd& p, rational& lo, rational& hi) {
-            verbose_stream() << "is-bounded " << p << "\n";
-            if (!get_bound(x, x_min, p, lo))
-                return false;
-            if (!get_bound(x, x_max, p, hi))
-                return false;
-            SASSERT(0 <= lo && lo <= hi);
-            if (lo + m.two_to_N() < hi)
-                return false;
-            rational offset = floor(lo / m.two_to_N()) * m.two_to_N();
-            lo -= offset;
-            hi -= offset;
-            return true;
-        };
+        if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1))
+            return false;
+        if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2))
+            return false;
+
+        verbose_stream() << "Adjusted\n";
+        verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+        verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+        rational y_min(0), y_max(M-1);
+
+        if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
+            return false;
+        if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
+            return false;
+        if (!update_max(y_max, x_min, x_max, a1, b1, c1, d1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
+            return false;
+        // p < M iff -p > -M iff -p + M - 1 >= 0
+        if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+            return false;
+        if (!update_min(y_min, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+            return false;
+        // p <= q or p < q is false
+        // so p > q or p >= q
+        // p - q - 1 >= 0 or p - q >= 0
+        // min-max for p - q - 1 or p - q are non-negative
+        if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+            return false;
+        if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+            return false;
+        verbose_stream() << "min-max: " << y_min << " " << y_max << "\n";
         
-        rational lo_p, hi_p;
-        rational lo_q, hi_q;
-        rational lo_r, hi_r;
-        pdd r = q - p;
-        if (!is_bounded(p, lo_p, hi_p))
-            return false;
-        if (!is_bounded(q, lo_q, hi_q))
-            return false;
-        if (!is_bounded(r, lo_r, hi_r))
-            return false;
-        SASSERT(0 <= lo_r && lo_r <= hi_r);
-
-        verbose_stream() << "bounded ranges\n";
-        verbose_stream() << a_l_b << ": v" << x << " y: " << y << " := " << y_val << "\n";
-        verbose_stream() << p << " " << lo_p << " " << hi_p << "\n";
-        verbose_stream() << q << " " << lo_q << " " << hi_q << "\n";
-        verbose_stream() << r << " " << lo_r << " " << hi_r << "\n";
-        verbose_stream() << x_min << " " << x_max << "\n";
-
-        
-        // for every value of x, p, q are bewteen lo_p, hi_p, lo_q, hi_q
-        // if a_l_b is non-strict, it is false under all assignments to x, so r > 0
-        // if a_l_b is strict, we bail also if r = 1
-        if (lo_r == 0)
-            return false;
-        if (a_l_b.is_strict() && lo_r == 1)
+        SASSERT(y_min <= y0 && y0 <= y_max);
+        if (y_min == y_max)
             return false;
         
-        // then compute range around y that is admissible based on x_lo, x_hi
-        rational max_y, min_y = m.max_value();
-
-        if (q.degree(x) == 1) {
-            // q = x*y + b <= 2^N - 1
-            // y <= (2^N - 1 - b) / x_max
-            max_y = floor((m.max_value() - b_val)/x_max);
-            verbose_stream() << b << " " << b_val << " max-y " << max_y << "\n";
-        }
-
-#endif
+        // bounds & a_l_b & a1 = a1.val & ... => y_min <= y <= y_max;
         
         return false;
     }

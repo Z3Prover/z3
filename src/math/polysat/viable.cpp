@@ -739,11 +739,18 @@ namespace polysat {
             if (lo1 < hi1) {
                 return lo2 <= hi1 && lo1 <= hi2;
             }
-            else {
+            else 
                 // hi1 < lo1
                 return hi1 <= hi2 && hi2 <= lo2 && lo2 <= lo1;
-            }
         };
+
+        auto overlap_left = [&](rational const& lo1, rational const& hi1, rational const lo2, rational const& hi2) {
+            if (lo2 < hi2)
+                return lo2 <= hi1 && hi1 <= hi2;
+            else
+                // hi2 < lo2
+                return lo1 < lo2 && (hi1 <= hi2 || lo2 <= hi1);
+            };
         
         do {
             found = false;
@@ -767,16 +774,16 @@ namespace polysat {
                     return false;
                 // [lo, hi0, hi[
                 // [lo, hi0, 0, hi[
-                else if (lo.val() <= out_hi && (out_hi < hi.val() || hi.val() < lo.val())) {
+                else if (overlap_left(lo.val(), hi.val(), out_lo, out_hi)) {
                     out_c.push_back(e->src);
-                    out_hi = hi.val();
+                    out_lo = lo.val();
                     found = true;
                 }
                 // [lo, lo0, hi[
                 // [lo, 0, lo0, hi[
-                else if (lo.val() < out_lo && (out_lo <= hi.val() || hi.val() < lo.val())) {
+                else if (overlap_left(out_lo, out_hi, lo.val(), hi.val())) {
                     out_c.push_back(e->src);
-                    out_lo = lo.val();
+                    out_hi = hi.val();
                     found = true;                        
                 }
             next:

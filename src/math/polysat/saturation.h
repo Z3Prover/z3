@@ -72,8 +72,9 @@ namespace polysat {
         rational round(rational const& N, rational const& x);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
         bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d);
-        
-        bool get_bound(pvar x, rational const& bound_x, pdd const& p, rational& bound_p);
+        bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& N, rational const& a, rational const& b, rational const& c, rational& d);
+        bool update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
+        bool update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
         
         // c := lhs ~ v
         //  where ~ is < or <=
