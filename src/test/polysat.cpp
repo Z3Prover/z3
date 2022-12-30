@@ -724,7 +724,7 @@ namespace polysat {
             pdd x = s.var(s.add_var(bw));
             pdd y = s.var(s.add_var(bw));
             s.add_eq(x * y + 2);
-            s.add_clause({ s.parity(y, 4), s.parity(y, 8) }, false);
+            s.add_clause({ s.parity_at_least(y, 4), s.parity_at_least(y, 8) }, false);
             s.check();
             s.expect_unsat();
         }

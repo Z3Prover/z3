@@ -30,7 +30,7 @@ TODO: when we check that 'x' is "unary":
 
 namespace polysat {
 
-    saturation::saturation(solver& s) : s(s), m_lemma(s) {}
+    saturation::saturation(solver& s) : s(s), m_lemma(s), m_parity_tracker(s) {}
 
     void saturation::log_lemma(pvar v, conflict& core) {
         IF_VERBOSE(1, auto const& cl = core.lemmas().back(); 
@@ -880,7 +880,7 @@ namespace polysat {
         }
         
         for (unsigned j = N; j > 0; --j)
-            if (is_forced_true(s.parity(p, j)))
+            if (is_forced_true(s.parity_at_least(p, j)))
                 return j;
         return 0;
     }
@@ -971,7 +971,7 @@ namespace polysat {
 
         auto at_least = [&](pdd const& p, unsigned k) {
             VERIFY(k != 0);
-            return s.parity(p, k);
+            return s.parity_at_least(p, k);
         };
 
  
@@ -1020,7 +1020,7 @@ namespace polysat {
             m_lemma.reset();
             m_lemma.insert_eval(~s.eq(y));
             m_lemma.insert_eval(~s.eq(b));        
-            if (propagate(x, core, axb_l_y, ~s.parity(X, N - k)))
+            if (propagate(x, core, axb_l_y, ~s.parity_at_least(X, N - k)))
                 return true;
             // TODO parity on a (without leading coefficient?)
         }
@@ -1135,7 +1135,7 @@ namespace polysat {
 
     lbool saturation::get_multiple(const pdd& p1, const pdd& p2, pdd& out) {
         LOG("Check if " << p2 << " can be multiplied with something to get " << p1);
-        if (p1.is_zero()) {
+        if (p1.is_zero()) { // TODO: use the evaluated parity (max_parity) instead?
             out = p1.manager().zero();
             return l_true;
         }
@@ -1202,40 +1202,8 @@ namespace polysat {
         if (!is_AxB_eq_0(x, a_l_b, a, b, y)) // TODO: Is the restriction to linear "x" too restrictive?
             return false;
         
-        bool is_invertible = a.is_val() && a.val().is_odd();
-        if (is_invertible) {
-            rational a_inv;
-            VERIFY(a.val().mult_inverse(m.power_of_2(), a_inv));
-            b = -b * a_inv;
-        }
-        
         bool change = false;
         bool prop = false;
-        auto replace = [&](pdd p) {
-            unsigned p_degree = p.degree(x);
-            if (p_degree == 0)
-                return p;
-            if (is_invertible) {
-                change = true;
-                // this works as well if the degree of "p" is not 1: 3 x = a (mod 4) & x^2 <= b => (3a)^2 <= b
-                return p.subst_pdd(x, b);
-            }
-            if (p_degree != 1)
-                return p; // TODO: Maybe fallback to brute-force
-            
-            p.factor(x, 1, a1, b1);
-            lbool is_multiple = get_multiple(a1, a, mul_fac);
-            if (is_multiple == l_false)
-                return p; // there is no chance to invert
-            if (is_multiple == l_true) {
-                change = true;
-                return b1 - b * mul_fac;
-            }
-            
-            // We don't know whether it will work. Brute-force the parity
-            // TODO: Brute force goes here
-            return p;            
-        };
         
         for (auto c : core) {
             change = false;
@@ -1243,27 +1211,38 @@ namespace polysat {
                 continue;
             LOG("Trying to eliminate v" << x << " in " << c << " by using equation " << a_l_b.as_signed_constraint());
             if (c->is_ule()) {
+                // If both are equalities this boils down to polynomial superposition => Might generate the same lemma twice
                 auto const& ule = c->to_ule();
-                auto p = replace(ule.lhs());
-                auto q = replace(ule.rhs());
-                if (!change)
-                    continue;
+                auto [lhs_new, changed_lhs, side_condition_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.lhs());
+                auto [rhs_new, changed_rhs, side_condition_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.rhs());
+                if (!changed_lhs && !changed_rhs)
+                    continue; // nothing changed - no reason for propagating lemmas
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                if (propagate(x, core, a_l_b, c.is_positive() ? s.ule(p, q) : ~s.ule(p, q)))
+                for (auto& sc_lhs : side_condition_lhs) // TODO: Do we really need the path as a side-condition in case of parity elimination?
+                    m_lemma.insert(sc_lhs);
+                for (auto& sc_rhs : side_condition_rhs)
+                    m_lemma.insert(sc_rhs);
+                
+                if (propagate(x, core, a_l_b, c.is_positive() ? s.ule(lhs_new, rhs_new) : ~s.ule(lhs_new, rhs_new)))
                     prop = true;
             }
             else if (c->is_umul_ovfl()) {
                 auto const& ovf = c->to_umul_ovfl();
-                auto p = replace(ovf.p());
-                auto q = replace(ovf.q());
-                if (!change)
+                auto [lhs_new, changed_lhs, side_condition_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.p());
+                auto [rhs_new, changed_rhs, side_condition_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.q());
+                if (!changed_lhs && !changed_rhs)
                     continue;
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                if (propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(p, q) : ~s.umul_ovfl(p, q)))
+                for (auto& sc_lhs : side_condition_lhs)
+                    m_lemma.insert(sc_lhs);
+                for (auto& sc_rhs : side_condition_rhs)
+                    m_lemma.insert(sc_rhs);
+                
+                if (propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(lhs_new, rhs_new) : ~s.umul_ovfl(lhs_new, rhs_new)))
                     prop = true;
             }
         }
