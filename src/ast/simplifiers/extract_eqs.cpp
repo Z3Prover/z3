@@ -218,7 +218,7 @@ namespace euf {
 
         void mark_nonzero(expr* e) {
             m_trail.push_back(e);
-            m_nonzero(e);
+            m_nonzero.mark(e);
         }
 
         void add_pos(expr* f) {
