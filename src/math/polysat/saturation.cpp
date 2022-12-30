@@ -1422,7 +1422,7 @@ namespace polysat {
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
-        // if (try_add_mul_bound2(x, core, a_l_b))
+        //        if (try_add_mul_bound2(x, core, a_l_b))
         //    return true;
         
         set_rule("[x] ax + b <= y, ... => a >= u_a");
@@ -1615,7 +1615,7 @@ namespace polysat {
         
         // a*x_bound*y + b*x_bound + c*y + d >= 0
         // (a*x_bound + c)*y >= -d - b*x_bound
-        // if a*x_bound + c > 0
+        // if a*x_bound + c < 0
         rational A = a*x_bound + c;
         if (A >= 0)
             return true;
@@ -1698,7 +1698,8 @@ namespace polysat {
         y = (y1 == null_var) ? y2 : y1;
         rational y0 = s.get_value(y); 
 
-        IF_VERBOSE(2, 
+        IF_VERBOSE(2,
+                   s.m_viable.display(verbose_stream(), x) << "\n";
                    verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
                    verbose_stream() << "v" << y << " " << y0 << "\n";
                    verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
@@ -1723,6 +1724,7 @@ namespace polysat {
             return false;
         if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
             return false;
+        verbose_stream() << " p - q > 0 " << y_min << " " << y_max << "\n";
         // p < M iff -p > -M iff -p + M - 1 >= 0
         if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
             return false;
@@ -1736,11 +1738,12 @@ namespace polysat {
         // so p > q or p >= q
         // p - q - 1 >= 0 or p - q >= 0
         // min-max for p - q - 1 or p - q are non-negative
+        verbose_stream() << " p - q > 0 " << y_min << " " << y_max << "\n";
         if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
         if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
-        verbose_stream() << "min-max: " << y_min << " " << y_max << "\n";
+        verbose_stream() << "min-max: " << y_min << " " << y_max << " y0 " << y0 << "\n";
         
         SASSERT(y_min <= y0 && y0 <= y_max);
         if (y_min == y_max)
