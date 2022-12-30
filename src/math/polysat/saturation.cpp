@@ -1498,6 +1498,84 @@ namespace polysat {
     }
 
 
+    rational saturation::round(rational const& N, rational const& x) {
+        SASSERT(0 <= x && x < N);
+        if (x + N/2 > N)
+            return x - N;
+        else
+            return x;
+    }
+
+    bool saturation::extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b) {
+        auto & m = q.manager();
+        auto N = m.two_to_N();
+        
+        if (q.is_val()) {
+            a = 0;
+            b = round(N, q.val());
+            return true;
+        }
+        y = q.var();
+        if (!q.lo().is_val())
+            return false;
+        if (!q.hi().is_val())
+            return false;
+        a = round(N, q.hi().val());
+        b = round(N, q.lo().val());
+        return true;
+    }
+    
+    /**
+     * write as p := a*x*y + b*x + c*y + d
+     */
+    bool saturation::extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d) {
+        auto & m = s.var2pdd(x);
+        auto N = m.two_to_N();
+        auto eval_round = [&](pdd const& p, rational& r) {
+            if (!s.try_eval(p, r))
+                return false;
+            r = round(N, r);
+            return true;
+        };
+        switch (p.degree(x)) {
+        case 0:
+            if (!s.try_eval(p, d))
+                return false;
+            a = b = c = 0;
+            return true;
+        case 1: {
+            pdd q = p, r = p, u = p, v = p;
+            p.factor(x, 1, q, r);
+            if (!extract_linear_form(q, y, a, b))
+                return false;
+            if (a == 0) {
+                c = 0;
+                return eval_round(r, d);
+            }
+            SASSERT(y != null_var);
+            switch (r.degree(y)) {
+            case 0:
+                if (!eval_round(r, d))
+                    return false;
+                c = 0;
+                return true;
+            case 1:
+                r.factor(y, 1, u, v);
+                if (!eval_round(u, c))
+                    return false;
+                if (!eval_round(v, d))
+                    return false;
+                return true;
+            default:
+                return false;
+            }
+            return false;
+        }
+        default:
+            return false;
+        }        
+    }
+
     bool saturation::get_bound(pvar x, rational const& bound_x, pdd const& p, rational& bound_p) {
         if (p.degree(x) == 0)
             return s.try_eval(p, bound_p);
@@ -1535,32 +1613,30 @@ namespace polysat {
         x_max = hi;
         SASSERT(x_min != x_max);
         if (x_min > x_max)
-            x_min += m.two_to_N();
+            x_min -= m.two_to_N();
         SASSERT(x_min <= x_max);
+        
         if (x_max == 0) {
             SASSERT(x_min == 0);
             return false;
         }
-        
-        auto isolate_y = [&](pvar x, pdd const& p, pdd& y, pdd& b) {
-            if (p.degree(x) != 1)
-                return false;
-            p.factor(x, 1, y, b);            
-            return !y.is_val();
-        };
-        pdd y = p, b = p;
-        rational b_val, y_val;
-        // handle just one-side with x for now
-        if (p.degree(x) == 1 && q.degree(x) == 1)
+
+        pvar y1 = null_var, y2 = null_var, y;
+        rational a1, a2, b1, b2, c1, c2, d1, d2;
+        if (!extract_bilinear_form(x, p, y1, a1, b1, c1, d1))
             return false;
-        if (!isolate_y(x, p, y, b) && !isolate_y(x, q, y, b))
+        if (!extract_bilinear_form(x, q, y2, a2, b2, c2, d2))
             return false;
-        if (!s.try_eval(b, b_val))
+        if (y1 != null_var && y2 != null_var && y1 != y2)
             return false;
-        if (!s.try_eval(y, y_val))
+        if (y1 == null_var && y2 == null_var)
             return false;
-        // at this point p = x*y + b or q = x*y + b
-        
+        y = (y1 == null_var) ? y2 : y1;
+
+        verbose_stream() << p << " v" << y << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+        verbose_stream() << q << " v" << y << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+
+#if 0
         auto is_bounded = [&](pdd& p, rational& lo, rational& hi) {
             verbose_stream() << "is-bounded " << p << "\n";
             if (!get_bound(x, x_min, p, lo))
@@ -1614,6 +1690,8 @@ namespace polysat {
             verbose_stream() << b << " " << b_val << " max-y " << max_y << "\n";
         }
 
+#endif
+        
         return false;
     }
 

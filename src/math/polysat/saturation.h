@@ -65,6 +65,10 @@ namespace polysat {
         bool try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_add_mul_bound2(pvar x, conflict& core, inequality const& axb_l_y);
 
+        rational round(rational const& N, rational const& x);
+        bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
+        bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d);
+        
         bool get_bound(pvar x, rational const& bound_x, pdd const& p, rational& bound_p);
         
         // c := lhs ~ v
