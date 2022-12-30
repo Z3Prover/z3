@@ -1422,8 +1422,10 @@ namespace polysat {
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
+        // if (try_add_mul_bound2(x, core, a_l_b))
+        //    return true;
+        
         set_rule("[x] ax + b <= y, ... => a >= u_a");
-        // try_add_mul_bound2(x, core, a_l_b);
         auto& m = s.var2pdd(x);        
         pdd const X = s.var(x);
         pdd a = s.var(x);
@@ -1623,9 +1625,36 @@ namespace polysat {
         return true;
     }
 
+    void saturation::fix_values(pvar y, pdd const& p) {
+        if (p.degree(y) == 0) {
+            rational p_val;
+            VERIFY(s.try_eval(p, p_val));
+            m_lemma.insert_eval(~s.eq(p, p_val));
+        }
+        else {
+            pdd q = p, r = p;
+            p.factor(y, 1, q, r);
+            fix_values(y, q);
+            fix_values(y, r);
+        }
+    }
+
+    void saturation::fix_values(pvar x, pvar y, pdd const& p) {
+        pdd q = p, r = p;
+        if (p.degree(x) == 0) 
+            fix_values(y, p);
+        else {
+            pdd q = p, r = p;
+            p.factor(x, 1, q, r);
+            fix_values(x, y, q);
+            fix_values(x, y, r);
+        }
+    }
 
     // wip - outline of what should be a more general approach
     bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
+        set_rule("[x] mul-bound2 ax + b <= y, ... => a >= u_a");
+
         auto& m = s.var2pdd(x);    
         pdd p = a_l_b.lhs(), q = a_l_b.rhs();
         if (p.degree(x) > 1 || q.degree(x) > 1)
@@ -1669,21 +1698,23 @@ namespace polysat {
         y = (y1 == null_var) ? y2 : y1;
         rational y0 = s.get_value(y); 
 
-        verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
-        verbose_stream() << "v" << y << " " << y0 << "\n";
-        verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-        verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+        IF_VERBOSE(2, 
+                   verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
+                   verbose_stream() << "v" << y << " " << y0 << "\n";
+                   verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+                   verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n");
 
         if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1))
             return false;
         if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2))
             return false;
 
-        verbose_stream() << "Adjusted\n";
-        verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-        verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+        IF_VERBOSE(2, 
+                   verbose_stream() << "Adjusted\n";
+                   verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+                   verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   );
         rational y_min(0), y_max(M-1);
-
         if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
             return false;
         if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
@@ -1714,10 +1745,21 @@ namespace polysat {
         SASSERT(y_min <= y0 && y0 <= y_max);
         if (y_min == y_max)
             return false;
-        
-        // bounds & a_l_b & a1 = a1.val & ... => y_min <= y <= y_max;
-        
-        return false;
+
+        m_lemma.reset();
+        for (auto c : bounds)
+            m_lemma.insert(~c);
+        fix_values(x, y, p);
+        fix_values(x, y, q);
+        if (y_max != M - 1) {
+            if (y_min != 0)
+                m_lemma.insert_eval(s.ult(s.var(y), y_min));
+            return propagate(x, core, a_l_b, s.ult(y_max, s.var(y)));
+        }
+        if (y_min != 0)
+            return propagate(x, core, a_l_b, s.ult(s.var(y), y_min));
+        else 
+            return false;
     }
 
     
