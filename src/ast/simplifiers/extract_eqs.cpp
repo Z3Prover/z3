@@ -83,7 +83,7 @@ namespace euf {
     class arith_extract_eq : public extract_eq {
         ast_manager&       m;
         arith_util         a;
-        expr_ref_vector    m_args;
+        expr_ref_vector    m_args, m_trail;
         expr_sparse_mark   m_nonzero;
         bool               m_enabled = true;
 
@@ -216,20 +216,25 @@ namespace euf {
             }
         }
 
+        void mark_nonzero(expr* e) {
+            m_trail.push_back(e);
+            m_nonzero(e);
+        }
+
         void add_pos(expr* f) {
-            expr* lhs = nullptr, * rhs = nullptr;
+            expr* lhs = nullptr, *rhs = nullptr;
             rational val;
             if (a.is_le(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_neg()) 
-                m_nonzero.mark(lhs);            
+                mark_nonzero(lhs);            
             else if (a.is_ge(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_pos())
-                m_nonzero.mark(lhs);            
+                mark_nonzero(lhs);            
             else if (m.is_not(f, f)) {
                 if (a.is_le(f, lhs, rhs) && a.is_numeral(rhs, val) && !val.is_neg())
-                    m_nonzero.mark(lhs);
+                    mark_nonzero(lhs);
                 else if (a.is_ge(f, lhs, rhs) && a.is_numeral(rhs, val) && !val.is_pos())
-                    m_nonzero.mark(lhs);
+                    mark_nonzero(lhs);
                 else if (m.is_eq(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_zero())
-                    m_nonzero.mark(lhs);
+                    mark_nonzero(lhs);
             }
         }
 
@@ -241,7 +246,7 @@ namespace euf {
 
     public:
 
-        arith_extract_eq(ast_manager& m) : m(m), a(m), m_args(m) {}
+        arith_extract_eq(ast_manager& m) : m(m), a(m), m_args(m), m_trail(m) {}
 
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             if (!m_enabled)
