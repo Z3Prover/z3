@@ -263,6 +263,7 @@ namespace euf {
             if (!m_enabled)
                 return;
             m_nonzero.reset();
+            m_trail.reset();
             for (unsigned i = 0; i < fmls.qtail(); ++i) 
                 add_pos(fmls[i].fml());            
         }
