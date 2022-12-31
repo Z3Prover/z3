@@ -48,8 +48,8 @@ public:
         dependent_expr_state(m),
         m(m),
         m_params(p),
-        m_factory(f),
-        m_dep(m, nullptr, nullptr, nullptr)
+        m_dep(m, nullptr, nullptr, nullptr),
+        m_factory(f)
     {}
 
     /**
