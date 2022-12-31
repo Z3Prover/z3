@@ -239,6 +239,13 @@ namespace smt {
         */
         expr_ref_vector cubes(unsigned depth);
 
+        /**
+           \brief access congruence closure
+        */
+        expr* congruence_next(expr* e);
+
+        expr* congruence_root(expr* e);
+
 
         /**
            \brief retrieve depth of variables from decision stack.

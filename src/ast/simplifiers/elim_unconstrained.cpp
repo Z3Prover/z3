@@ -62,7 +62,8 @@ bool elim_unconstrained::is_var_lt(int v1, int v2) const {
 void elim_unconstrained::eliminate() {
 
     while (!m_heap.empty()) {
-        expr_ref r(m), side_cond(m);
+        expr_ref r(m);
+        proof_ref pr(m);
         int v = m_heap.erase_min();
         node& n = get_node(v);
         if (n.m_refcount == 0)
@@ -84,7 +85,7 @@ void elim_unconstrained::eliminate() {
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(get_node(arg)));
-        bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r, side_cond);
+        bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r, pr);
         n.m_refcount = 0;
         m_args.shrink(sz);
         if (!inverted) {
@@ -113,7 +114,7 @@ void elim_unconstrained::eliminate() {
 
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(get_node(v).m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
 
-        SASSERT(!side_cond && "not implemented to add side conditions\n");
+        SASSERT(!pr && "not implemented to add proofs\n");
     }
 }
 

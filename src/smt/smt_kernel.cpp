@@ -213,6 +213,20 @@ namespace smt {
         return out;
     }
 
+    expr* kernel::congruence_root(expr * e) {
+        smt::enode* n = m_imp->m_kernel.find_enode(e);
+        if (!n)
+            return e;
+        return n->get_root()->get_expr();
+    }
+
+    expr* kernel::congruence_next(expr * e) {
+        smt::enode* n = m_imp->m_kernel.find_enode(e);
+        if (!n)
+            return e;
+        return n->get_next()->get_expr();
+    }
+
     void kernel::collect_statistics(::statistics & st) const {
         m_imp->m_kernel.collect_statistics(st);
     }

@@ -122,6 +122,8 @@ public:
     void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
     ast_manager& get_manager() const override { return m;  }
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
+    expr* congruence_next(expr* e) override { return m_solver->congruence_next(e); }
+    expr* congruence_root(expr* e) override { return m_solver->congruence_root(e); }
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return m_solver->find_mutexes(vars, mutexes); }    
     lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         flush_assertions(); 

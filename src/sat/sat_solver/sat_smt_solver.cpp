@@ -476,6 +476,9 @@ public:
             set_reason_unknown(m_solver.get_reason_unknown());
         return fmls;
     }
+
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
     
 
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {

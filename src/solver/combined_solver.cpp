@@ -275,6 +275,10 @@ public:
         return m_solver2->cube(vars, backtrack_level);
     }
 
+    expr* congruence_next(expr* e) override { switch_inc_mode(); return m_solver2->congruence_next(e); }
+    expr* congruence_root(expr* e) override { switch_inc_mode(); return m_solver2->congruence_root(e); }
+
+
     expr * get_assumption(unsigned idx) const override {
         unsigned c1 = m_solver1->get_num_assumptions();
         if (idx < c1) return m_solver1->get_assumption(idx);

@@ -2086,6 +2086,10 @@ namespace smtfd {
         expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
             return expr_ref_vector(m);
         }
+
+        expr* congruence_root(expr* e) override { return e; }
+
+        expr* congruence_next(expr* e) override { return e; }
         
         lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
             return l_undef;

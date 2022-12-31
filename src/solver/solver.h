@@ -238,6 +238,15 @@ public:
 
     virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
 
+    /**
+       \brief retrieve congruence closure root.
+    */
+    virtual expr* congruence_root(expr* e) = 0;
+
+    /**
+       \brief retrieve congruence closure sibling
+    */
+    virtual expr* congruence_next(expr* e) = 0;
 
     /**
        \brief Display the content of this solver.

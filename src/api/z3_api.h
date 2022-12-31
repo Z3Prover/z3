@@ -6883,6 +6883,26 @@ extern "C" {
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
     /**
+       \brief retrieve the congruence closure root of an expression.
+       The root is retrieved relative to the state where the solver was in when it completed.
+       If it completed during a set of case splits, the congruence roots are relative to these case splits.
+       That is, the congruences are not consequences but they are true under the current state.
+
+       def_API('Z3_solver_congruence_root', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_congruence_root(Z3_context c, Z3_solver s, Z3_ast a);
+
+
+    /**
+       \brief retrieve the next expression in the congruence class. The set of congruent siblings form a cyclic list.
+       Repeated calls on the siblings will result in returning to the original expression.
+
+       def_API('Z3_solver_congruence_next', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_congruence_next(Z3_context c, Z3_solver s, Z3_ast a);
+
+
+    /**
        \brief register a callback to that retrieves assumed, inferred and deleted clauses during search.
        
        \param c - context.

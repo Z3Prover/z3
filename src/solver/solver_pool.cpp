@@ -262,6 +262,9 @@ public:
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override { return expr_ref_vector(m); }
 
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
+
     ast_manager& get_manager() const override { return m_base->get_manager(); }
 
     void refresh(solver* new_base) {

@@ -7241,6 +7241,22 @@ class Solver(Z3PPObject):
         cube are likely more useful to cube on."""
         return self.cube_vs
 
+    def root(self, t):
+        t = _py2expr(t, self.ctx)
+        """Retrieve congruence closure root of the term t relative to the current search state
+        The function primarily works for SimpleSolver. Terms and variables that are
+        eliminated during pre-processing are not visible to the congruence closure.
+        """
+        return _to_expr_ref(Z3_solver_congruence_root(self.ctx.ref(), self.solver, t.ast), self.ctx)
+
+    def next(self, t):
+        t = _py2expr(t, self.ctx)
+        """Retrieve congruence closure sibling of the term t relative to the current search state
+        The function primarily works for SimpleSolver. Terms and variables that are
+        eliminated during pre-processing are not visible to the congruence closure.
+        """
+        return _to_expr_ref(Z3_solver_congruence_next(self.ctx.ref(), self.solver, t.ast), self.ctx)
+
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)

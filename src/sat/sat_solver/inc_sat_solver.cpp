@@ -463,6 +463,10 @@ public:
         }
         return fmls;
     }
+
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
+
     
     lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
         init_preprocess();

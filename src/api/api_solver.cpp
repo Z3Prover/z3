@@ -903,6 +903,26 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_ast Z3_API Z3_solver_congruence_root(Z3_context c, Z3_solver s, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_solver_congruence_root(c, s, a);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        expr* r = to_solver_ref(s)->congruence_root(to_expr(a));
+        RETURN_Z3(of_expr(r));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_solver_congruence_next(Z3_context c, Z3_solver s, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_solver_congruence_next(c, s, a);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        expr* sib = to_solver_ref(s)->congruence_next(to_expr(a));
+        RETURN_Z3(of_expr(sib));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     class api_context_obj : public user_propagator::context_obj {
         api::context* c;
     public:

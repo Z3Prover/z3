@@ -330,6 +330,10 @@ namespace {
             m_context.get_units(units);
         }
 
+        expr* congruence_next(expr* e) override { return m_context.congruence_next(e); }
+        expr* congruence_root(expr* e) override { return m_context.congruence_root(e); }
+
+
         expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
             if (!m_cuber) {

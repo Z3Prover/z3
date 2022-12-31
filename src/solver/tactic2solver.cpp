@@ -136,6 +136,9 @@ public:
         return expr_ref_vector(get_manager());
     }
 
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
+
     model_converter_ref get_model_converter() const override { return m_mc; }
 
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {

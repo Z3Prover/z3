@@ -81,7 +81,7 @@ public:
      *
      */
 
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, proof_ref& pr) override {
         SASSERT(f->get_family_id() == m.get_basic_family_id());
         switch (f->get_decl_kind()) {
         case OP_ITE:
@@ -233,7 +233,7 @@ public:
     }
 
 
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, proof_ref& pr) override {
         SASSERT(f->get_family_id() == a.get_family_id());
         switch (f->get_decl_kind()) {
         case OP_ADD:
@@ -531,7 +531,7 @@ class bv_expr_inverter : public iexpr_inverter {
      * y := 0
      *
      */
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, proof_ref& pr) override {
         SASSERT(f->get_family_id() == bv.get_family_id());
         switch (f->get_decl_kind()) {
         case OP_BADD:
@@ -611,7 +611,7 @@ public:
 
     family_id get_fid() const override { return a.get_family_id(); }
 
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, proof_ref& pr) override {
         SASSERT(f->get_family_id() == a.get_family_id());
         switch (f->get_decl_kind()) {
         case OP_SELECT:
@@ -679,7 +679,7 @@ public:
      *   head(x) -> fresh
      *   x := cons(fresh, arb)
      */
-    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, expr_ref& side_cond) override {
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r, proof_ref& pr) override {
         if (dt.is_accessor(f)) {
             SASSERT(num == 1);
             if (uncnstr(args[0])) {
@@ -799,7 +799,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
 }
 
 
-bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& new_expr, expr_ref& side_cond) {
+bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& new_expr, proof_ref& pr) {
     if (num == 0)
         return false;
             
@@ -812,7 +812,7 @@ bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, ex
         return false;
 
     auto* p = m_inverters.get(fid, nullptr);
-    return p && (*p)(f, num, args, new_expr, side_cond);       
+    return p && (*p)(f, num, args, new_expr, pr);       
 }
 
 bool expr_inverter::mk_diff(expr* t, expr_ref& r) {
@@ -848,4 +848,11 @@ void expr_inverter::set_model_converter(generic_model_converter* mc) {
     for (auto* p : m_inverters)
         if (p)
             p->set_model_converter(mc);
+}
+
+void expr_inverter::set_produce_proofs(bool pr) {
+    m_produce_proofs = pr;
+    for (auto* p : m_inverters)
+        if (p)
+            p->set_produce_proofs(pr);
 }
