@@ -689,9 +689,12 @@ namespace smt {
     }
 
     void setup::setup_bv() {
+        family_id bv_fid = m_manager.mk_family_id("bv");
+        if (m_context.get_theory(bv_fid))
+            return;
         switch(m_params.m_bv_mode) {
         case BS_NO_BV:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_context, m_manager.mk_family_id("bv"), "no bit-vector"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_context, bv_fid, "no bit-vector"));
             break;
         case BS_BLASTER:
             m_context.register_plugin(alloc(smt::theory_bv, m_context));
