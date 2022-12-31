@@ -21,14 +21,14 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 
 
-class bit_blaster : public dependent_expr_simplifier {
+class bit_blaster_simplifier : public dependent_expr_simplifier {
 
     bit_blaster_rewriter   m_rewriter;
     unsigned               m_num_steps = 0;
     params_ref             m_params;
 
 public:
-    bit_blaster(ast_manager & m, params_ref const & p, dependent_expr_state& s):
+    bit_blaster_simplifier(ast_manager & m, params_ref const & p, dependent_expr_state& s):
         dependent_expr_simplifier(m, s),
         m_rewriter(m, p) {
         updt_params(p);

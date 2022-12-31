@@ -18,12 +18,12 @@ Author:
 #include "ast/simplifiers/bit_blaster.h"
 
 
-void bit_blaster::updt_params(params_ref const & p) {
+void bit_blaster_simplifier::updt_params(params_ref const & p) {
     m_params.append(p);
     m_rewriter.updt_params(m_params);
 }
 
-void bit_blaster::collect_param_descrs(param_descrs & r) {
+void bit_blaster_simplifier::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     insert_max_steps(r);
     r.insert("blast_mul", CPK_BOOL, "(default: true) bit-blast multipliers (and dividers, remainders).");
@@ -32,7 +32,7 @@ void bit_blaster::collect_param_descrs(param_descrs & r) {
     r.insert("blast_full", CPK_BOOL, "(default: false) bit-blast any term with bit-vector sort, this option will make E-matching ineffective in any pattern containing bit-vector terms.");
 }
 
-void bit_blaster::reduce() {                            
+void bit_blaster_simplifier::reduce() {                            
     m_rewriter.start_rewrite();
     expr_ref   new_curr(m);
     proof_ref  new_pr(m);
@@ -61,16 +61,16 @@ void bit_blaster::reduce() {
 }
 
 
-void bit_blaster::collect_statistics(statistics& st) const {
+void bit_blaster_simplifier::collect_statistics(statistics& st) const {
     st.update("bit-blaster-num-steps", m_num_steps);
 }
 
-void bit_blaster::push() {
+void bit_blaster_simplifier::push() {
     m_rewriter.push();
     dependent_expr_simplifier::push();
 }
 
-void bit_blaster::pop(unsigned n) {
+void bit_blaster_simplifier::pop(unsigned n) {
     dependent_expr_simplifier::pop(n);
     m_rewriter.pop(n);
 }

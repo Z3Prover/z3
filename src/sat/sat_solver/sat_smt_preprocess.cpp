@@ -98,7 +98,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
         s.add_simplifier(alloc(card2bv, m, p, st));
         s.add_simplifier(alloc(rewriter_simplifier, m, simp1_p, st));
         s.add_simplifier(mk_max_bv_sharing(m, p, st));
-        s.add_simplifier(alloc(bit_blaster, m, p, st));
+        s.add_simplifier(alloc(bit_blaster_simplifier, m, p, st));
         s.add_simplifier(alloc(rewriter_simplifier, m, simp2_p, st));
     }    
 }
