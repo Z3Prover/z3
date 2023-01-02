@@ -870,19 +870,24 @@ namespace polysat {
         if (s.try_eval(p, val))
             return val == 0 ? N : val.trailing_zeros();
         
-        if (!p.is_var() && p.is_monomial()) {
-            // it's just a product => sum them up
-            dd::pdd_monomial monomial = *p.begin();
-            unsigned parity_sum = monomial.coeff.trailing_zeros();
-            for (pvar c : monomial.vars)
-                parity_sum += min_parity(m.mk_var(c));
-            return std::min(N, parity_sum);
+        unsigned min = 0;
+        if (!p.is_var()) {
+            // parity of a product => sum of parities
+            // parity of sum => minimum of monomial's minimal parities
+            min = UINT32_MAX;
+            for (const auto& monomial : p) {
+                unsigned parity_sum = monomial.coeff.trailing_zeros();
+                for (pvar c : monomial.vars)
+                    parity_sum += min_parity(m.mk_var(c));
+                min = std::min(min, parity_sum);
+            }
         }
+        SASSERT(min <= N);
         
-        for (unsigned j = N; j > 0; --j)
+        for (unsigned j = N; j > min; --j)
             if (is_forced_true(s.parity_at_least(p, j)))
                 return j;
-        return 0;
+        return min;
     }
 
     unsigned saturation::max_parity(pdd const& p) {
@@ -892,19 +897,21 @@ namespace polysat {
         if (s.try_eval(p, val))
             return val == 0 ? N : val.trailing_zeros();
 
+        unsigned max = N;
         if (!p.is_var() && p.is_monomial()) {
             // it's just a product => sum them up
+            // the case of a sum is harder as the lower bound (because of carry bits)
+            // ==> restricted for now to monomials
             dd::pdd_monomial monomial = *p.begin();
-            unsigned parity_sum = monomial.coeff.trailing_zeros();
+            max = monomial.coeff.trailing_zeros();
             for (pvar c : monomial.vars)
-                parity_sum += max_parity(m.mk_var(c));
-            return std::min(N, parity_sum);
+                max += max_parity(m.mk_var(c));
         }
 
-        for (unsigned j = 0; j < N; ++j) 
+        for (unsigned j = 0; j < max; ++j) 
             if (is_forced_true(s.parity_at_most(p, j)))
                 return j;
-        return N;
+        return max;
     }
 
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
@@ -1220,7 +1227,7 @@ namespace polysat {
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                for (auto& sc_lhs : side_condition_lhs) // TODO: Do we really need the path as a side-condition in case of parity elimination?
+                for (auto& sc_lhs : side_condition_lhs) // the "path to get the parities"
                     m_lemma.insert(sc_lhs);
                 for (auto& sc_rhs : side_condition_rhs)
                     m_lemma.insert(sc_rhs);

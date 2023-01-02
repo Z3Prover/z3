@@ -62,6 +62,7 @@ namespace polysat {
         
         vector<optional<std::pair<pvar, bool_vector>>> m_odd;
         unsigned_vector m_inverse;
+        vector<unsigned_vector> m_pseudo_inverse;
         
         struct optional_pdd_hash {
             unsigned operator()(optional<pdd> const& args) const {
@@ -72,12 +73,19 @@ namespace polysat {
         
         pdd_to_id m_pdd_to_id; // if we want to use arbitrary pdds instead of pvars
         
+        rational get_pseudo_inverse_val(const rational &p, unsigned parity, unsigned power_of_two) {
+            rational iv;
+            VERIFY((p / rational::power_of_two(parity)).mult_inverse(power_of_two - parity, iv));
+            return iv;
+        }
+        
         unsigned get_id(const pdd& p);
         
     public:
         
         parity_tracker(solver& s) : s(s), m_builder(s) {}
         
+        pdd get_pseudo_inverse(const pdd& p, unsigned parity);
         pdd get_inverse(const pdd& p);
         pdd get_odd(const pdd& p, unsigned parity, svector<signed_constraint>& pat);
         

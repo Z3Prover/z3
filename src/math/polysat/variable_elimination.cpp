@@ -537,6 +537,32 @@ namespace polysat {
         return id;
     }
     
+    pdd parity_tracker::get_pseudo_inverse(const pdd &p, unsigned parity) {
+        SASSERT(parity < p.power_of_2()); // parity == p.power_of_two() does not make sense. It would mean a * a' = 0
+        LOG("Getting pseudo-inverse of " << p << " for parity " << parity);
+        if (p.is_val())
+            return p.manager().mk_val(get_pseudo_inverse_val(p.val(), parity, p.power_of_2()));
+        
+        unsigned v = get_id(p);
+        if (m_pseudo_inverse.size() <= v)
+            m_pseudo_inverse.setx(v, unsigned_vector(p.power_of_2(), -1), {});
+        
+        if (m_pseudo_inverse[v].size() <= parity)
+            m_pseudo_inverse[v].reserve(p.power_of_2(), -1);
+        
+        pvar p_inv = m_pseudo_inverse[v][parity];
+        
+        if (p_inv == -1) {
+            p_inv = s.add_var(p.power_of_2());
+            m_pseudo_inverse[v][parity] = p_inv;
+            // NB: Strictly speaking this condition does not say that "p_inv" is the pseudo-inverse.
+            // However, the variable elimination lemma stays valid even if "p_inv" is not really the pseudo-inverse anymore (e.g., because of parity was reduced)
+            s.add_clause(~s.parity_at_most(p, parity), s.eq(p * s.var(p_inv), rational::power_of_two(parity)), true); // TODO: Depends on the definition of redundancy
+            verbose_stream() << "Pseudo-Inverse v" << p_inv << " of " << p << " introduced\n";
+        }
+        return s.var(p_inv);
+    }
+    
     pdd parity_tracker::get_inverse(const pdd &p) {
         LOG("Getting inverse of " << p);
         if (p.is_val()) {
@@ -550,7 +576,8 @@ namespace polysat {
             return s.var(m_inverse[v]);
         
         pvar inv = s.add_var(p.power_of_2());
-        pdd inv_pdd = p.manager().mk_var(inv);
+        verbose_stream() << "Inverse v" << inv << " of " << p << " introduced\n";
+        pdd inv_pdd = s.var(inv);
         m_inverse.setx(v, inv, -1);
         s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
         return inv_pdd;
@@ -576,6 +603,7 @@ namespace polysat {
         }
         else {
             odd_v = s.add_var(p.power_of_2());
+            verbose_stream() << "Odd part v" << odd_v << " of " << p << " introduced\n";
             m_odd.setx(v, optional<std::pair<pvar, bool_vector>>({ odd_v, bool_vector(p.power_of_2(), false) }), optional<std::pair<pvar, bool_vector>>::undef());
         }
         
@@ -593,12 +621,14 @@ namespace polysat {
                 path.push_back(~c);
                 if (needs_propagate)
                     m_builder.insert(~c);
+                verbose_stream() << "Side-condition: " << ~c << "\n";
             }
             else {
                 upper = middle;
                 path.push_back(c);
                 if (needs_propagate)
                     m_builder.insert(c);
+                verbose_stream() << "Side-condition: " << c << "\n";
             }
             LOG("Its in [" << lower << "; " << upper << ")");
         }
@@ -638,29 +668,47 @@ namespace polysat {
         if (is_multiple == l_true) // we multiply with a factor to make them equal
             return { b1 - b * mul_fac, true, {} };
         
-        #if 1
+#if 1
         return { p, false, {} };
-        #else
+#else
+        
+        if (!a.is_monomial() || !a1.is_monomial())
+            return { p , false, {} };
+        
         if (!a1.is_var() && !a1.is_val()) {
+            // TODO: Compromise: Maybe only monomials...? Does this make sense?
             //return { p, false, {} };
-            LOG("Warning: Inverting " << a1 << " although it is not a single variable - might not be a good idea"); // TODO: Compromise: Maybe only monomials...?
+            LOG("Warning: Inverting " << a1 << " although it is not a single variable - might not be a good idea");
         }
         if (!a.is_var() && !a.is_val()) {
             //return { p, false, {} };
             LOG("Warning: Inverting " << a << " although it is not a single variable - might not be a good idea");
         }
         
-        if (!a.is_monomial() || !a1.is_monomial())
-            return { p , false, {} };
-        
         // We don't know whether it will work. Use the parity of the assignment
         
+#if 1
+        unsigned a_parity;
+        if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || saturation.min_parity(a1) < a_parity)
+            return { p, false, {} }; // We need the parity of a and this has to be for sure less than the parity of a1
+        
+        svector<signed_constraint> precondition;
+        pdd a_pi = get_pseudo_inverse(a, a_parity);
+        
+        if (a_parity > 0) {
+            pdd shift = s.lshr(a1, a1.manager().mk_val(a_parity));
+            precondition.push_back(s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
+            return { a_pi * (-b) * shift + b1, true, {std::move(precondition)} };
+        }
+        // Special case: If it is already odd we can directly use the pseudo inverse (as it is the inverse in this case!)
+        return { a_pi * (-b) * a + b1, true, {std::move(precondition)} };
+#else
         unsigned a_parity;
         unsigned a1_parity;
-        
+            
         if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || (a1_parity = saturation.min_parity(a1)) != saturation.max_parity(a1))
             return { p, false, {} }; // We need the parity, but we failed to get it precisely
-            
+        
         if (a_parity > a1_parity) {
             SASSERT(false); // get_multiple should have excluded this case already
             return { p, false, {} };
@@ -673,9 +721,10 @@ namespace polysat {
         pdd inv_odd_a = get_inverse(odd_a);
         
         LOG("Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1);
-        verbose_stream() << "Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1 << "\n";
-        verbose_stream() << "From: " << "eliminated v" << x << " with a = " << a << "; b = " << b << "; p = " << p << "\n";
-        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1, true, {std::move(precondition)} };
+        verbose_stream() << "Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1 << "\n";
+        verbose_stream() << "From: " << "eliminated v" << x << " with a = " << a << "; -b = " << -b << "; p = " << p << "\n";
+        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1, true, {std::move(precondition)} };
+#endif
 #endif
     }
 }
