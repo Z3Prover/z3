@@ -41,6 +41,7 @@ namespace polysat {
         void log_lemma(pvar v, conflict& core);
         bool propagate(pvar v, conflict& core, signed_constraint const& crit1, signed_constraint c);
         bool propagate(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
+        bool propagate(pvar v, conflict& core, signed_constraint c);
         bool add_conflict(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
         bool add_conflict(pvar v, conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint c);
 
@@ -68,6 +69,7 @@ namespace polysat {
         bool try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_add_mul_bound2(pvar x, conflict& core, inequality const& axb_l_y);
+        bool try_infer_parity_equality(pvar x, conflict& core, inequality const& a_l_b);
 
         rational round(rational const& N, rational const& x);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
@@ -142,8 +144,10 @@ namespace polysat {
         bool has_lower_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_le_bound);
 
         // determine min/max parity of polynomial
-        unsigned min_parity(pdd const& p);
-        unsigned max_parity(pdd const& p);
+        unsigned min_parity(pdd const& p, vector<signed_constraint>& explain);
+        unsigned max_parity(pdd const& p, vector<signed_constraint>& explain);
+        unsigned min_parity(pdd const& p) { vector<signed_constraint> ex; return min_parity(p, ex); }
+        unsigned max_parity(pdd const& p) { vector<signed_constraint> ex; return max_parity(p, ex); }
 
         lbool get_multiple(const pdd& p1, const pdd& p2, pdd& out);
         
