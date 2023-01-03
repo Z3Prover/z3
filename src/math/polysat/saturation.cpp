@@ -1687,7 +1687,7 @@ namespace polysat {
     bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] mul-bound2 ax + b <= y, ... => a >= u_a");
 
-        // enable for dev
+        // comment out for dev
         return false;
         
         auto& m = s.var2pdd(x);    
@@ -1757,7 +1757,6 @@ namespace polysat {
             return false;
         if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
             return false;
-        verbose_stream() << " p - q > 0 " << y_min << " " << y_max << "\n";
         // p < M iff -p > -M iff -p + M - 1 >= 0
         if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
             return false;
@@ -1771,12 +1770,11 @@ namespace polysat {
         // so p > q or p >= q
         // p - q - 1 >= 0 or p - q >= 0
         // min-max for p - q - 1 or p - q are non-negative
-        verbose_stream() << " p - q > 0 " << y_min << " " << y_max << "\n";
         if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
         if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
-        verbose_stream() << "min-max: " << y_min << " " << y_max << " y0 " << y0 << "\n";
+        verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
         
         SASSERT(y_min <= y0 && y0 <= y_max);
         if (y_min == y_max)
@@ -1785,8 +1783,6 @@ namespace polysat {
         m_lemma.reset();
         for (auto const& c : bounds)
             m_lemma.insert_eval(~c);
-        // m_lemma.insert_eval(~s.ule(x_min, s.var(x)));
-        // m_lemma.insert_eval(~s.ule(s.var(x), x_max));
         fix_values(x, y, p);
         fix_values(x, y, q);
         if (y_max != M - 1) {
