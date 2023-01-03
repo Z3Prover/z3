@@ -87,8 +87,8 @@ namespace polysat {
         
         pdd get_pseudo_inverse(const pdd& p, unsigned parity);
         pdd get_inverse(const pdd& p);
-        pdd get_odd(const pdd& p, unsigned parity, svector<signed_constraint>& pat);
+        pdd get_odd(const pdd& p, unsigned parity, clause_builder& precondition);
         
-        std::tuple<pdd, bool, svector<signed_constraint>> eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p);
+        std::tuple<pdd, bool> eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p, clause_builder& precondition);
     };
 }

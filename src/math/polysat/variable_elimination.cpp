@@ -583,7 +583,7 @@ namespace polysat {
         return inv_pdd;
     }
     
-    pdd parity_tracker::get_odd(const pdd& p, unsigned parity, svector<signed_constraint>& path) {
+    pdd parity_tracker::get_odd(const pdd& p, unsigned parity, clause_builder& precondition) {
         LOG("Getting odd part of " << p);
         if (p.is_val()) {
             SASSERT(!p.val().is_zero());
@@ -618,14 +618,14 @@ namespace polysat {
             LOG("Splitting on " << middle << " with " << parity);
             if (parity >= middle) {
                 lower = middle;
-                path.push_back(~c);
+                precondition.insert(~c);
                 if (needs_propagate)
                     m_builder.insert(~c);
                 verbose_stream() << "Side-condition: " << ~c << "\n";
             }
             else {
                 upper = middle;
-                path.push_back(c);
+                precondition.insert(c);
                 if (needs_propagate)
                     m_builder.insert(c);
                 verbose_stream() << "Side-condition: " << c << "\n";
@@ -643,40 +643,40 @@ namespace polysat {
     }
     
     // a * x + b = 0 (x not in a or b; i.e., the equation is linear in x)
-    // C[p, ...] resp., C[..., p]
-    std::tuple<pdd, bool, svector<signed_constraint>> parity_tracker::eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p) {
+    // C[x, ...] resp., C[..., x]
+    std::tuple<pdd, bool> parity_tracker::eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p, clause_builder& precondition) {
         
         unsigned p_degree = p.degree(x);
         if (p_degree == 0)
-            return { p, false, {} };
+            return { p, false };
         if (a.is_val() && a.val().is_odd()) { // just invert and plug it in
             rational a_inv;
             VERIFY(a.val().mult_inverse(a.power_of_2(), a_inv));
             // this works as well if the degree of "p" is not 1: 3 x = a (mod 4) && x^2 <= b => (3a)^2 <= b
-            return { p.subst_pdd(x, -b * a_inv), true, {} };
+            return { p.subst_pdd(x, -b * a_inv), true, };
         }
         // from now on we require linear factors
         if (p_degree != 1)
-            return { p, false, {} }; // TODO: Maybe fallback to brute-force
+            return { p, false }; // TODO: Maybe fallback to brute-force
         
         pdd a1 = a.manager().zero(), b1 = a1, mul_fac = a1;
         
         p.factor(x, 1, a1, b1);
         lbool is_multiple = saturation.get_multiple(a1, a, mul_fac);
         if (is_multiple == l_false)
-            return { p, false, {} }; // there is no chance to invert
+            return { p, false }; // there is no chance to invert
         if (is_multiple == l_true) // we multiply with a factor to make them equal
-            return { b1 - b * mul_fac, true, {} };
+            return { b1 - b * mul_fac, true };
         
-#if 1
-        return { p, false, {} };
+#if 0
+        return { p, false };
 #else
         
         if (!a.is_monomial() || !a1.is_monomial())
-            return { p , false, {} };
+            return { p , false };
         
         if (!a1.is_var() && !a1.is_val()) {
-            // TODO: Compromise: Maybe only monomials...? Does this make sense?
+            // TODO: Compromise: Maybe only monomials...?
             //return { p, false, {} };
             LOG("Warning: Inverting " << a1 << " although it is not a single variable - might not be a good idea");
         }
@@ -685,36 +685,48 @@ namespace polysat {
             LOG("Warning: Inverting " << a << " although it is not a single variable - might not be a good idea");
         }
         
-        // We don't know whether it will work. Use the parity of the assignment
-        
 #if 1
         unsigned a_parity;
         if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || saturation.min_parity(a1) < a_parity)
-            return { p, false, {} }; // We need the parity of a and this has to be for sure less than the parity of a1
+            return { p, false }; // We need the parity of a and this has to be for sure less than the parity of a1
+            
+        if (b.is_zero())
+            return { b1, true };
         
-        svector<signed_constraint> precondition;
+#if 0
         pdd a_pi = get_pseudo_inverse(a, a_parity);
+#else
+        pdd a_pi = s.pseudo_inv(a);
+        //precondition.insert(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
+        precondition.insert(~s.parity_at_most(a, a_parity));
+#endif
+        
+        pdd shift = a;
         
         if (a_parity > 0) {
-            pdd shift = s.lshr(a1, a1.manager().mk_val(a_parity));
-            precondition.push_back(s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
-            return { a_pi * (-b) * shift + b1, true, {std::move(precondition)} };
+            shift = s.lshr(a1, a1.manager().mk_val(a_parity));
+            precondition.insert(~s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
         }
-        // Special case: If it is already odd we can directly use the pseudo inverse (as it is the inverse in this case!)
-        return { a_pi * (-b) * a + b1, true, {std::move(precondition)} };
+        LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
+        LOG("a: " << a);
+        LOG("a1: " << a1);
+        LOG("parity of a: " << a_parity);
+        LOG("pseudo inverse: " << a_pi);
+        LOG("-b: " << (-b));
+        LOG("shifted a" << shift);
+        LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
+        return { a_pi * (-b) * shift + b1, true };
 #else
         unsigned a_parity;
         unsigned a1_parity;
             
         if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || (a1_parity = saturation.min_parity(a1)) != saturation.max_parity(a1))
-            return { p, false, {} }; // We need the parity, but we failed to get it precisely
+            return { p, false }; // We need the parity, but we failed to get it precisely
         
         if (a_parity > a1_parity) {
             SASSERT(false); // get_multiple should have excluded this case already
-            return { p, false, {} };
+            return { p, false };
         }
-        
-        svector<signed_constraint> precondition;
         
         auto odd_a = get_odd(a, a_parity, precondition);
         auto odd_a1 = get_odd(a1, a1_parity, precondition);
@@ -723,7 +735,7 @@ namespace polysat {
         LOG("Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1);
         verbose_stream() << "Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1 << "\n";
         verbose_stream() << "From: " << "eliminated v" << x << " with a = " << a << "; -b = " << -b << "; p = " << p << "\n";
-        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1, true, {std::move(precondition)} };
+        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1, true };
 #endif
 #endif
     }

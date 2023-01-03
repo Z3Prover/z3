@@ -1245,34 +1245,26 @@ namespace polysat {
             if (c->is_ule()) {
                 // If both are equalities this boils down to polynomial superposition => Might generate the same lemma twice
                 auto const& ule = c->to_ule();
-                auto [lhs_new, changed_lhs, side_condition_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.lhs());
-                auto [rhs_new, changed_rhs, side_condition_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.rhs());
+                m_lemma.reset();
+                auto [lhs_new, changed_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.lhs(), m_lemma);
+                auto [rhs_new, changed_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ule.rhs(), m_lemma);
                 if (!changed_lhs && !changed_rhs)
                     continue; // nothing changed - no reason for propagating lemmas
-                m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                for (auto& sc_lhs : side_condition_lhs) // the "path to get the parities"
-                    m_lemma.insert(sc_lhs);
-                for (auto& sc_rhs : side_condition_rhs)
-                    m_lemma.insert(sc_rhs);
                 
                 if (propagate(x, core, a_l_b, c.is_positive() ? s.ule(lhs_new, rhs_new) : ~s.ule(lhs_new, rhs_new)))
                     prop = true;
             }
             else if (c->is_umul_ovfl()) {
                 auto const& ovf = c->to_umul_ovfl();
-                auto [lhs_new, changed_lhs, side_condition_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.p());
-                auto [rhs_new, changed_rhs, side_condition_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.q());
+                auto [lhs_new, changed_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.p(), m_lemma);
+                auto [rhs_new, changed_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.q(), m_lemma);
                 if (!changed_lhs && !changed_rhs)
                     continue;
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
-                for (auto& sc_lhs : side_condition_lhs)
-                    m_lemma.insert(sc_lhs);
-                for (auto& sc_rhs : side_condition_rhs)
-                    m_lemma.insert(sc_rhs);
                 
                 if (propagate(x, core, a_l_b, c.is_positive() ? s.umul_ovfl(lhs_new, rhs_new) : ~s.umul_ovfl(lhs_new, rhs_new)))
                     prop = true;

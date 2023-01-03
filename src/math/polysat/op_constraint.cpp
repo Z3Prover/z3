@@ -40,6 +40,8 @@ namespace polysat {
             if (p.index() > q.index())
                 std::swap(m_p, m_q);
             break;
+        case code::inv_op:
+            SASSERT(q.is_zero());
         default:
             break;
         }
@@ -61,6 +63,8 @@ namespace polysat {
             return eval_shl(p, q, r);
         case code::and_op:
             return eval_and(p, q, r);
+        case code::inv_op:
+            return eval_inv(p, r);
         default:
             return l_undef;
         }
@@ -84,6 +88,8 @@ namespace polysat {
             return out << "<<";
         case op_constraint::code::and_op:
             return out << "&";
+        case op_constraint::code::inv_op:
+            return out << "inv";
         default:
             UNREACHABLE();
             return out;
@@ -96,6 +102,9 @@ namespace polysat {
     }
 
     std::ostream& op_constraint::display(std::ostream& out, char const* eq) const {
+        if (m_op == code::inv_op) 
+            return out << r() << " " << eq << " " << m_op << " " << p();
+        
         return out << r() << " " << eq << " " << p() << " " << m_op << " " << q();
     }
 
@@ -161,6 +170,8 @@ namespace polysat {
             return lemma_shl(s, a);
         case code::and_op:
             return lemma_and(s, a);
+        case code::inv_op:
+            return lemma_inv(s, a);
         default:
             NOT_IMPLEMENTED_YET();
             return {};
@@ -177,6 +188,8 @@ namespace polysat {
         case code::and_op:
             // handle masking of high order bits
             activate_and(s);
+            break;
+        case code::inv_op:
             break;
         default:
             break;
@@ -569,6 +582,73 @@ namespace polysat {
             }
         }
         return true;
+    }
+    
+    /**
+     * Produce lemmas for constraint: r == inv p
+     * p = 0 => r = 0
+     * r = 0 => p = 0
+     * odd(r) -- for now we are looking for the smallest pseudo-inverse (there are 2^parity(p) of them)
+     * parity(p) >= k && p * r < 2^k => p * r >= 2^k
+     * parity(p) < k && p * r >= 2^k => p * r < 2^k
+     */
+    clause_ref op_constraint::lemma_inv(solver& s, assignment const& a) {
+        auto& m = p().manager();
+        auto pv = a.apply_to(p());
+        auto rv = a.apply_to(r());
+        
+        if (!pv.is_val() || !rv.is_val() || eval_inv(pv, rv) == l_true)
+            return {};
+        
+        unsigned parity_pv = pv.val().trailing_zeros();
+        unsigned parity_rv = rv.val().trailing_zeros();
+        
+        signed_constraint const invc(this, true);
+        
+        // p = 0 => r = 0
+        if (pv.is_zero())
+            return s.mk_clause(~invc, ~s.eq(p()), s.eq(r()), true);
+        // r = 0 => p = 0
+        if (rv.is_zero())
+            return s.mk_clause(~invc, ~s.eq(r()), s.eq(p()), true);
+        // odd(r)
+        if (parity_rv != 0)
+            return s.mk_clause(~invc, s.odd(r()), true);
+        // parity(p) >= k && p * r < 2^k => p * r >= 2^k
+        // parity(p) < k && p * r >= 2^k => p * r < 2^k
+        rational prod = (p() * r()).val();
+        SASSERT(prod != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
+        unsigned lower = 0, upper = p().power_of_2();
+        // binary search for the parity
+        while (lower + 1 < upper) {
+            unsigned middle = (upper + lower) / 2;
+            LOG("Splitting on " << middle);
+            if (parity_pv >= middle) {
+                lower = middle;
+                LOG("Its in [" << lower << "; " << upper << ")");
+                if (prod < rational::power_of_two(middle))
+                    return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(p() * r(), rational::power_of_two(middle)), false);
+            }
+            else {
+                upper = middle;
+                LOG("Its in [" << lower << "; " << upper << ")");
+                if (prod >= rational::power_of_two(middle))
+                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ult(p() * r(), rational::power_of_two(middle)), false);
+            }
+        }
+        UNREACHABLE();
+        return {};
+    }
+    
+    /** Evaluate constraint: r == inv p */
+    lbool op_constraint::eval_inv(pdd const& p, pdd const& r) {
+        if (!p.is_val() || !r.is_val())
+            return l_undef;
+        
+        if (p.is_zero() || r.is_zero()) // the inverse of 0 is 0 (by arbitrary definition). Just to have some unique value
+            return p.is_zero() && r.is_zero() ? l_true : l_false;
+            
+        return p.val().pseudo_inverse(p.power_of_2()) == r.val() ? l_true : l_false;
     }
     
     void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {

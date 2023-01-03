@@ -405,6 +405,9 @@ namespace polysat {
         /** Create expression for bit-wise nor of p, q. */
         pdd bnor(pdd const& p, pdd const& q) { return m_constraints.bnor(p, q); }
 
+        /** Create expression for the smallest pseudo-inverse of p. */
+        pdd pseudo_inv(pdd const& p) { return m_constraints.pseudo_inv(p); }
+        
         /**
          * Create polynomial constant.
          */

@@ -132,7 +132,7 @@ namespace polysat {
             auto const eq_it = std::find(cl.begin(), cl.end(), eq.blit());
             if (eq_it == cl.end())
                 continue;
-            unsigned const eq_idx = std::distance(cl.begin(), eq_it);
+            unsigned eq_idx = (unsigned)std::distance(cl.begin(), eq_it);
             any_removed = true;
             should_remove[eq_idx] = true;
             if (c.is_positive()) {

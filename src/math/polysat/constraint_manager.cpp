@@ -509,4 +509,10 @@ namespace polysat {
     pdd constraint_manager::bnor(pdd const& p, pdd const& q) {
         return bnot(bor(p, q));
     }
+    
+    pdd constraint_manager::pseudo_inv(pdd const& p) {
+        if (p.is_val())
+            return p.manager().mk_val(p.val().pseudo_inverse(p.power_of_2()));
+        return mk_op_term(op_constraint::code::inv_op, p, p.manager().zero());
+    }
 }
