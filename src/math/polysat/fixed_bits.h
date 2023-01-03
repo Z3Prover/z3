@@ -68,6 +68,7 @@ namespace polysat {
 
         bit_justification() = default;
     public:
+        virtual ~bit_justification() = default;
 
          // if we reduce this value we would have to reduce some decision levels of justifications depending on it.
          // However, we don't do this for now. (Should be still correct but generate weaker justifications)
@@ -92,7 +93,7 @@ namespace polysat {
         
         bit_justification* get_justification() { return m_justification; }
         
-        virtual bool can_dealloc() {
+        bool can_dealloc() override {
             m_references = m_references == 0 ? 0 : m_references - 1;
             if (m_references != 0)
                 return false;
@@ -103,7 +104,7 @@ namespace polysat {
             return true;
         }
         
-        virtual void get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) override {
+        void get_dependencies(fixed_bits& fixed, bit_dependencies& to_process) override {
             SASSERT(m_justification);
             m_justification->get_dependencies(fixed, to_process);
         }
@@ -124,7 +125,7 @@ namespace polysat {
 
     public:
 
-        bool has_constraint(constraint*& constr) { 
+        bool has_constraint(constraint*& constr) override {
             constr = m_constraint;
             return true;
         }
