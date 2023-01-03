@@ -1894,6 +1894,20 @@ namespace polysat {
             s.expect_sat();
         }
 
+        static void test_bench13_mulovfl_ineq() {
+            scoped_solver s(__func__);
+            rational const a = rational::power_of_two(128) - 1;
+            rational const b = rational::power_of_two(128) - 1;
+            auto const x = s.var(s.add_var(256));
+            auto const y = s.var(s.add_var(256));
+            s.add_ule(-x - 1, x * y);
+            s.add_ule(x, a);
+            s.add_ule(y, b);
+            s.add_umul_noovfl(x, y);
+            s.check();
+            //s.expect_unsat();
+        }
+
     };  // class test_polysat
 
 
@@ -2028,6 +2042,7 @@ void tst_polysat() {
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
+    //test_polysat::test_bench13_mulovfl_ineq();
     test_polysat::test_ineq_axiom3(32, 3);  // TODO: assertion
     // test_polysat::test_ineq_axiom6(32, 0);  // TODO: assertion
     // test_polysat::test_band5();  // TODO: assertion when clause simplification (merging p>q and p=q) is enabled
