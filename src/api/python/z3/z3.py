@@ -4597,10 +4597,10 @@ class ArrayRef(ExprRef):
 
 def _array_select(ar, arg):
     if isinstance(arg, tuple):
-        args = [ar.domain_n(i).cast(arg[i]) for i in range(len(arg))]
+        args = [ar.sort().domain_n(i).cast(arg[i]) for i in range(len(arg))]
         _args, sz = _to_ast_array(args)
         return _to_expr_ref(Z3_mk_select_n(ar.ctx_ref(), ar.as_ast(), sz, _args), ar.ctx)
-    arg = ar.domain().cast(arg)
+    arg = ar.sort().domain().cast(arg)
     return _to_expr_ref(Z3_mk_select(ar.ctx_ref(), ar.as_ast(), arg.as_ast()), ar.ctx)
 
     
