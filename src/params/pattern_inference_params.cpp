@@ -31,7 +31,7 @@ void pattern_inference_params::updt_params(params_ref const & _p) {
     m_pi_warnings                = p.warnings();
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void pattern_inference_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pi_max_multi_patterns);

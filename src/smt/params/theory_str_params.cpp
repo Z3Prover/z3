@@ -37,7 +37,7 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_FixedLengthNaiveCounterexamples = p.str_fixed_length_naive_cex();
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void theory_str_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_StrongArrangements);

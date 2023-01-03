@@ -85,7 +85,7 @@ void smt_params::updt_params(context_params const & p) {
     m_model          = p.m_model;
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void smt_params::display(std::ostream & out) const {
     preprocessor_params::display(out);

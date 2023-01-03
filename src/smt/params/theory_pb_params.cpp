@@ -25,7 +25,7 @@ void theory_pb_params::updt_params(params_ref const & _p) {
     m_pb_learn_complements = p.pb_learn_complements();
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void theory_pb_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pb_conflict_frequency);

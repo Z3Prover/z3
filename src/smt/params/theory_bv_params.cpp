@@ -31,7 +31,7 @@ void theory_bv_params::updt_params(params_ref const & _p) {
     m_bv_size_reduce = p.bv_size_reduce();
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void theory_bv_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_bv_mode);
