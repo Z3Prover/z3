@@ -1454,8 +1454,8 @@ namespace polysat {
      */
     
     bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
-        //        if (try_add_mul_bound2(x, core, a_l_b))
-        //    return true;
+        if (try_add_mul_bound2(x, core, a_l_b))
+            return true;
         
         set_rule("[x] ax + b <= y, ... => a >= u_a");
         auto& m = s.var2pdd(x);        
@@ -1687,35 +1687,15 @@ namespace polysat {
     bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] mul-bound2 ax + b <= y, ... => a >= u_a");
 
+        // enable for dev
+        return false;
+        
         auto& m = s.var2pdd(x);    
         pdd p = a_l_b.lhs(), q = a_l_b.rhs();
         if (p.degree(x) > 1 || q.degree(x) > 1)
             return false;
         if (p.degree(x) == 0 && q.degree(x) == 0)
             return false;
-        vector<signed_constraint> bounds;
-        rational x_min, x_max;
-        if (!s.m_viable.has_max_forbidden(x, x_min, x_max, bounds))
-            return false;
-
-        VERIFY(x_min != x_max);
-        // From forbidden interval [x_min, x_max[ compute
-        // allowed range: [x_max, x_min - 1]
-        SASSERT(0 <= x_min && x_min <= m.max_value());
-        SASSERT(0 <= x_max && x_max <= m.max_value());
-        rational M = m.two_to_N();
-        rational hi = x_min == 0 ? M - 1 : x_min - 1; 
-        x_min = x_max;
-        x_max = hi;
-        SASSERT(x_min != x_max);
-        if (x_min > x_max)
-            x_min -= M;
-        SASSERT(x_min <= x_max);
-        
-        if (x_max == 0) {
-            SASSERT(x_min == 0);
-            return false;
-        }
 
         pvar y1 = null_var, y2 = null_var, y;
         rational a1, a2, b1, b2, c1, c2, d1, d2;
@@ -1728,8 +1708,29 @@ namespace polysat {
         if (y1 == null_var && y2 == null_var)
             return false;
         y = (y1 == null_var) ? y2 : y1;
-        rational y0 = s.get_value(y); 
+        rational y0 = s.get_value(y);
 
+        vector<signed_constraint> bounds;
+        rational x_min, x_max;
+        if (!s.m_viable.has_max_forbidden(x, a_l_b.as_signed_constraint(), x_min, x_max, bounds))
+            return false;
+
+        VERIFY(x_min != x_max);
+        // [x_min, x_max[ is allowed interval.
+        // compute [x_min, x_max - 1]
+        
+        // From forbidden interval [x_min, x_max[ compute
+        // allowed range: [x_max, x_min - 1]
+        SASSERT(0 <= x_min && x_min <= m.max_value());
+        SASSERT(0 <= x_max && x_max <= m.max_value());
+        rational M = m.two_to_N();
+        x_max = x_max == 0 ? M - 1 : x_max - 1;
+        if (x_min == x_max)
+            return false;
+        if (x_min > x_max)
+            x_min -= M;
+        SASSERT(x_min <= x_max);
+        
         IF_VERBOSE(2,
                    s.m_viable.display(verbose_stream(), x) << "\n";
                    verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
@@ -1782,8 +1783,10 @@ namespace polysat {
             return false;
 
         m_lemma.reset();
-        for (auto c : bounds)
-            m_lemma.insert(~c);
+        for (auto const& c : bounds)
+            m_lemma.insert_eval(~c);
+        // m_lemma.insert_eval(~s.ule(x_min, s.var(x)));
+        // m_lemma.insert_eval(~s.ule(s.var(x), x_max));
         fix_values(x, y, p);
         fix_values(x, y, q);
         if (y_max != M - 1) {

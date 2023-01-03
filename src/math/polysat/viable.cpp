@@ -726,73 +726,70 @@ namespace polysat {
         return !out_c.empty();
     }
 
-    bool viable::has_max_forbidden(pvar v, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
+    bool viable::has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
         out_c.reset();
         entry const* first = m_units[v];
         entry const* e = first;
-        bool found = false;
         if (!e)
             return false;
 
-        auto covers_all = [&](rational const& lo1, rational const& hi1, rational const lo2, rational const& hi2) {
-            SASSERT(lo1 != hi1);
-            if (lo1 < hi1) {
-                return lo2 <= hi1 && lo1 <= hi2;
-            }
-            else 
-                // hi1 < lo1
-                return hi1 <= hi2 && hi2 <= lo2 && lo2 <= lo1;
-        };
-
-        auto overlap_left = [&](rational const& lo1, rational const& hi1, rational const lo2, rational const& hi2) {
-            if (lo2 < hi2)
-                return lo2 <= hi1 && hi1 <= hi2;
-            else
-                // hi2 < lo2
-                return lo1 < lo2 && (hi1 <= hi2 || lo2 <= hi1);
-            };
-        
         do {
-            found = false;
-            do {
-                if (e->refined)
-                    goto next;
-                
-                auto const& lo = e->interval.lo();
-                auto const& hi = e->interval.hi();
-                if (!lo.is_val() || !hi.is_val())
-                    goto next;
-                if (out_c.contains(e->src))
-                    goto next;
-                if (out_c.empty()) {
-                    out_c.push_back(e->src);
-                    out_lo = lo.val();
-                    out_hi = hi.val();
-                    found = true;
-                }
-                else if (covers_all(out_lo, out_hi, lo.val(), hi.val()))
-                    return false;
-                // [lo, hi0, hi[
-                // [lo, hi0, 0, hi[
-                else if (overlap_left(lo.val(), hi.val(), out_lo, out_hi)) {
-                    out_c.push_back(e->src);
-                    out_lo = lo.val();
-                    found = true;
-                }
-                // [lo, lo0, hi[
-                // [lo, 0, lo0, hi[
-                else if (overlap_left(out_lo, out_hi, lo.val(), hi.val())) {
-                    out_c.push_back(e->src);
-                    out_hi = hi.val();
-                    found = true;                        
-                }
-            next:
-                e = e->next();
-            }            
-            while (e != first);
+            if (e->src == c) 
+                break;
+            e = e->next();
         }
-        while (found);
-        return !out_c.empty();
+        while (e != first);
+
+        if (e->src != c)
+            return false;
+        entry const* e0 = e;
+
+
+        do {
+            entry const* n = e->next();
+            while (n != first) {
+                entry const* n1 = n->next();
+                if (n1 == e)
+                    break;
+                if (!e->interval.currently_contains(n1->interval.lo_val()))
+                    if (e->interval.hi_val() != n1->interval.lo_val())
+                        break;
+                n = n1;
+            }
+
+            if (e == e0) {
+                out_hi = n->interval.lo_val();
+                if (!n->interval.lo().is_val())
+                    out_c.push_back(s.eq(n->interval.lo(), out_hi));                                
+            }
+            else if (n == e0) {
+                out_lo = e->interval.hi_val();
+                if (!e->interval.hi().is_val())
+                    out_c.push_back(s.eq(e->interval.hi(), out_lo));                
+            }            
+            else if (!e->interval.is_full()) {
+                auto const& hi = e->interval.hi();
+                auto const& next_lo = n->interval.lo();
+                auto const& next_hi = n->interval.hi();
+                auto lhs = hi - next_lo;
+                auto rhs = next_hi - next_lo;
+                signed_constraint c = s.m_constraints.ult(lhs, rhs);
+                out_c.push_back(c);
+            }
+            if (e != e0) {
+                for (auto sc : e->side_cond)
+                    out_c.push_back(sc);
+                out_c.push_back(e->src);
+            }
+            e = n;
+        }
+        while (e != e0);
+
+        IF_VERBOSE(2, 
+                   verbose_stream() << "has-max-forbidden " << e->src << "\n";
+                   verbose_stream() << "v" << v << " " << out_lo << " " << out_hi << " " << out_c << "\n";
+                   display(verbose_stream(), v) << "\n");
+        return true;
     }
 
 

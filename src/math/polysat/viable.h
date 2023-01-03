@@ -201,7 +201,7 @@ namespace polysat {
         /**
          * Query for a maximal interval based on fixed bounds where v is forbidden.
          */
-        bool has_max_forbidden(pvar v, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c);
+        bool has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c);
         
         /**
          * Find a next viable value for variable.
