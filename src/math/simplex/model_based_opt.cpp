@@ -1739,7 +1739,7 @@ namespace opt {
         for (unsigned i = 0; i < num_vars; ++i) {
             m_result.push_back(project(vars[i], compute_def));
             eliminate(vars[i], m_result.back());
-            TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n" << m_result << "\n"););
+            TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n"););
         }
         return m_result;
     }
