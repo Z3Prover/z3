@@ -228,14 +228,17 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 }
                 return true;
             };
+            expr *array = to_app(args[0])->get_arg(0);
+            bool is_leaf = m_util.is_const(array);
             bool should_expand =
                 m_blast_select_store ||
+                is_leaf ||
                 are_values() ||
-                (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1);
+                (m_expand_select_store && array->get_ref_count() == 1);
             if (should_expand) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
                 ptr_buffer<expr> new_args;
-                new_args.push_back(to_app(args[0])->get_arg(0));
+                new_args.push_back(array);
                 new_args.append(num_args-1, args+1);
                 expr * sel_a_j = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.data());
                 expr * v       = to_app(args[0])->get_arg(num_args);

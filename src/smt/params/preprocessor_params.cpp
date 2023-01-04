@@ -34,7 +34,7 @@ void preprocessor_params::updt_params(params_ref const & p) {
     updt_local_params(p);
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void preprocessor_params::display(std::ostream & out) const {
     pattern_inference_params::display(out);
