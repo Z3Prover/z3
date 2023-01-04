@@ -48,11 +48,11 @@ namespace euf {
         m_unhandled_functions(m),
         m_to_m(&m),
         m_to_si(&si),
-        m_values(m),
         m_clause_visitor(m),
         m_smt_proof_checker(m, p),
-        m_clause(m),
-        m_expr_args(m)
+        m_clause(m),       
+        m_expr_args(m),
+        m_values(m)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
