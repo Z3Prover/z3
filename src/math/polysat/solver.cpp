@@ -603,6 +603,9 @@ namespace polysat {
                 size_t undefs = count_if(cl, [&](sat::literal lit) { return !m_bvars.is_assigned(lit); });
                 if (undefs >= 2)
                     m_lemmas.push_back(&cl);
+                else {
+                    SASSERT_EQ(undefs, 0);  // if !is_true && undefs == 1 then we missed a propagation.
+                }
             }
         }
 #endif
@@ -883,12 +886,13 @@ namespace polysat {
 
     void solver::revert_decision(pvar v) {
         unsigned max_jump_level = get_level(v) - 1;
-        backjump_and_learn(max_jump_level);
+        backjump_and_learn(max_jump_level, false);
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
         unsigned max_jump_level = m_bvars.level(lit) - 1;
-        backjump_and_learn(max_jump_level);
+        backjump_and_learn(max_jump_level, true);
+        SASSERT(m_level < max_jump_level || m_bvars.is_false(lit));
     }
 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
@@ -938,7 +942,7 @@ namespace polysat {
         return {{jump_level, branching_factor}};
     }
 
-    void solver::backjump_and_learn(unsigned max_jump_level) {
+    void solver::backjump_and_learn(unsigned max_jump_level, bool force_fallback_lemma) {
         sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
         clause_ref_vector lemmas = m_conflict.take_lemmas();
 
@@ -963,7 +967,7 @@ namespace polysat {
 
         for (clause* lemma : lemmas)
             appraise_lemma(lemma);
-        if (!best_lemma || best_score.jump_level() > max_jump_level) {
+        if (force_fallback_lemma || !best_lemma || best_score.jump_level() > max_jump_level) {
             // No (good) lemma has been found, so build the fallback lemma from the conflict state.
             lemmas.push_back(m_conflict.build_lemma());
             appraise_lemma(lemmas.back());

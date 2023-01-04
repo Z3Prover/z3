@@ -275,8 +275,7 @@ namespace polysat {
         void resolve_conflict();
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
-        void backjump_and_learn(unsigned jump_level, clause& lemma);
-        void backjump_and_learn(unsigned max_jump_level);
+        void backjump_and_learn(unsigned max_jump_level, bool force_fallback_lemma);
         std::optional<lemma_score> compute_lemma_score(clause const& lemma);
 
         // activity of variables based on standard VSIDS
