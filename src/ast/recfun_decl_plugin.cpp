@@ -36,7 +36,6 @@ namespace recfun {
         ast_manager &m,
         family_id fid,
         def * d,
-        std::string & name,
         unsigned case_index,
         sort_ref_vector const & arg_sorts,
         expr_ref_vector const& guards, 
@@ -44,10 +43,10 @@ namespace recfun {
         : m_pred(m),
           m_guards(guards),
           m_rhs(expr_ref(rhs,m)), 
-          m_def(d) {        
-        parameter p(case_index);
-        func_decl_info info(fid, OP_FUN_CASE_PRED, 1, &p);
-        m_pred = m.mk_func_decl(symbol(name.c_str()), arg_sorts.size(), arg_sorts.data(), m.mk_bool_sort(), info);
+          m_def(d) {
+        parameter ps[2] = { parameter(case_index), parameter(d->get_decl()) };
+        func_decl_info info(fid, OP_FUN_CASE_PRED, 2, ps);
+        m_pred = m.mk_func_decl(symbol("case-def"), arg_sorts.size(), arg_sorts.data(), m.mk_bool_sort(), info);
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
@@ -220,11 +219,10 @@ namespace recfun {
     }
 
 
-    void def::add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr * rhs, bool is_imm) {
-        case_def c(m, m_fid, this, name, case_index, get_domain(), conditions, rhs);
+    void def::add_case(unsigned case_index, expr_ref_vector const& conditions, expr * rhs, bool is_imm) {
+        case_def c(m, m_fid, this, case_index, get_domain(), conditions, rhs);
         c.set_is_immediate(is_imm);
-        TRACEFN("add_case " << name 
-                << "\n" << mk_pp(rhs, m)
+        TRACEFN("add_case " << case_index << " " <<  mk_pp(rhs, m)
                 << "\n:is_imm " << is_imm
                 << "\n:guards " << conditions);
         m_cases.push_back(c);
@@ -261,7 +259,7 @@ namespace recfun {
         // is the function a macro (unconditional body)?
         if (is_macro || n_vars == 0 || !contains_ite(u, rhs)) {
             // constant function or trivial control flow, only one (dummy) case
-            add_case(name, 0, conditions, rhs);
+            add_case(0, conditions, rhs);
             return;
         }
 
@@ -347,7 +345,7 @@ namespace recfun {
                 
                 // yield new case
                 bool is_imm = is_i(case_rhs);
-                add_case(name, case_idx++, conditions, case_rhs, is_imm);
+                add_case(case_idx++, conditions, case_rhs, is_imm);
             }
         }
 
@@ -436,6 +434,12 @@ namespace recfun {
             return *(m_util.get());
         }
 
+        void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+            op_names.push_back(builtin_name("case-def", OP_FUN_CASE_PRED));
+            op_names.push_back(builtin_name("recfun-num-rounds", OP_NUM_ROUNDS));
+        }
+
+
         promise_def plugin::mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
             def* d = u().decl_fun(name, n, params, range, is_generated);
             SASSERT(!m_defs.contains(d->get_decl()));
@@ -498,6 +502,18 @@ namespace recfun {
         func_decl * plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                          unsigned arity, sort * const * domain, sort * range)
         {
+            func_decl_info info(get_family_id(), k, num_parameters, parameters);
+            switch (k) {
+            case OP_FUN_CASE_PRED: 
+                SASSERT(num_parameters == 2);
+                return m().mk_func_decl(symbol("case-def"), arity, domain, m().mk_bool_sort(), info);
+            case OP_NUM_ROUNDS: 
+                SASSERT(num_parameters == 1);
+                SASSERT(arity == 0);
+                return m().mk_const_decl(symbol("recfun-num-rounds"), m().mk_bool_sort(), info);                
+            default:
+                break;
+            }
             UNREACHABLE();
             return nullptr;            
         }

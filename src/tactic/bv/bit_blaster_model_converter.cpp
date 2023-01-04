@@ -148,6 +148,7 @@ struct bit_blaster_model_converter : public model_converter {
             for (expr* bit : *to_app(bs)) {
                 func_decl * bit_decl = to_app(bit)->get_decl();
                 expr * bit_val = old_model->get_const_interp(bit_decl);
+                CTRACE("bv", !bit_val, tout << mk_pp(bit, m()) << " " << *old_model << "\n");
                 SASSERT(bit_val);
                 vals.push_back(bit_val);
             }

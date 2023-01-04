@@ -1085,7 +1085,12 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
         return f;
     }
-    throw cmd_exception("invalid function declaration reference, unknown function ", s);
+    if (num_indices > 0 && m_func_decls.find(s, fs)) 
+        f = fs.find(m(), arity, domain, range);
+    if (f) 
+        return f;
+
+    throw cmd_exception("invalid function declaration reference, unknown indexed function ", s);
 }
 
 psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
@@ -1134,12 +1139,10 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         fid = d2.m_fid;
         k   = d2.m_decl;
     }
-    if (num_indices == 0) {
-        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-    }
-    else {
-        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-    }
+    if (num_indices == 0) 
+        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    
+    else 
+        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);    
     CHECK_SORT(result.get());
     return nullptr != result.get();
 }
