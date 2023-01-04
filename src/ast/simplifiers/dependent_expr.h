@@ -32,6 +32,7 @@ public:
         m_fml(fml),
         m_proof(p),
         m_dep(d) {
+        SASSERT(fml);
         m.inc_ref(fml);
         m.inc_ref(d);
         m.inc_ref(p);

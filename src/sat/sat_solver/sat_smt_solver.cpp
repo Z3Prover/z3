@@ -56,7 +56,7 @@ class sat_smt_solver : public solver {
         ~dep_expr_state() override {}
         virtual unsigned qtail() const override { return s.m_fmls.size(); }
         dependent_expr const& operator[](unsigned i) override { return s.m_fmls[i]; }
-        void update(unsigned i, dependent_expr const& j) override { s.m_fmls[i] = j; }
+        void update(unsigned i, dependent_expr const& j) override { SASSERT(j.fml());  s.m_fmls[i] = j; }
         void add(dependent_expr const& j) override { s.m_fmls.push_back(j); }
         bool inconsistent() override { return s.m_solver.inconsistent(); }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
