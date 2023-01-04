@@ -574,7 +574,7 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         if (cont)
             return sat::check_result::CR_CONTINUE;
-        if (m_qsolver)
+        if (m_qsolver && !m_config.m_arith_ignore_int)
             apply_solver(m_qsolver);
         if (num_nodes < m_egraph.num_nodes()) 
             return sat::check_result::CR_CONTINUE;
@@ -582,7 +582,9 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         TRACE("after_search", s().display(tout););
         if (give_up)
-            return sat::check_result::CR_GIVEUP;
+            return sat::check_result::CR_GIVEUP;  
+        if (m_qsolver && m_config.m_arith_ignore_int)
+            return sat::check_result::CR_GIVEUP;            
         return sat::check_result::CR_DONE;
     }
 
