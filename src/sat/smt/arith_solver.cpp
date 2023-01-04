@@ -971,6 +971,7 @@ namespace arith {
         }
 
         auto st = sat::check_result::CR_DONE;
+        bool int_undef = false;
 
         TRACE("arith", ctx.display(tout););
 
@@ -984,9 +985,7 @@ namespace arith {
             return sat::check_result::CR_CONTINUE;
         case l_undef:
             TRACE("arith", tout << "check-lia giveup\n";);
-            if (ctx.get_config().m_arith_ignore_int) 
-                return sat::check_result::CR_GIVEUP;
-            
+            int_undef = true;            
             st = sat::check_result::CR_CONTINUE;
             break;
         }
@@ -1012,6 +1011,8 @@ namespace arith {
         }
         if (!check_delayed_eqs()) 
             return sat::check_result::CR_CONTINUE;
+        if (ctx.get_config().m_arith_ignore_int && int_undef)
+            return sat::check_result::CR_GIVEUP;
         if (m_not_handled != nullptr) {
             TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
             return sat::check_result::CR_GIVEUP;
