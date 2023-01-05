@@ -1704,15 +1704,13 @@ namespace polysat {
 
         vector<signed_constraint> bounds;
         rational x_min, x_max;
-        if (!s.m_viable.has_max_forbidden(x, a_l_b.as_signed_constraint(), x_min, x_max, bounds))
+        if (!s.m_viable.has_max_forbidden(x, a_l_b.as_signed_constraint(), x_max, x_min, bounds))
             return false;
 
-        VERIFY(x_min != x_max);
-        // [x_min, x_max[ is allowed interval.
+        // retrieved maximal forbidden interval [x_max, x_min[.
+        // [x_min, x_max[ is the allowed interval.
         // compute [x_min, x_max - 1]
-        
-        // From forbidden interval [x_min, x_max[ compute
-        // allowed range: [x_max, x_min - 1]
+        VERIFY(x_min != x_max);
         SASSERT(0 <= x_min && x_min <= m.max_value());
         SASSERT(0 <= x_max && x_max <= m.max_value());
         rational M = m.two_to_N();

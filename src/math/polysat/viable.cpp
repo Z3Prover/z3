@@ -758,14 +758,14 @@ namespace polysat {
             }
 
             if (e == e0) {
-                out_hi = n->interval.lo_val();
+                out_lo = n->interval.lo_val();
                 if (!n->interval.lo().is_val())
-                    out_c.push_back(s.eq(n->interval.lo(), out_hi));                                
+                    out_c.push_back(s.eq(n->interval.lo(), out_lo));
             }
             else if (n == e0) {
-                out_lo = e->interval.hi_val();
+                out_hi = e->interval.hi_val();
                 if (!e->interval.hi().is_val())
-                    out_c.push_back(s.eq(e->interval.hi(), out_lo));                
+                    out_c.push_back(s.eq(e->interval.hi(), out_hi));
             }            
             else if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
