@@ -671,6 +671,9 @@ namespace polysat {
         case code::and_op:
             us.add_and(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
+        case code::inv_op:
+            us.add_inv(pv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            break;
         default:
             NOT_IMPLEMENTED_YET();
             break;
