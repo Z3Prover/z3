@@ -744,10 +744,9 @@ namespace polysat {
             return false;
         entry const* e0 = e;
 
-
         do {
             entry const* n = e->next();
-            while (n != first) {
+            while (n != e0) {
                 entry const* n1 = n->next();
                 if (n1 == e)
                     break;
