@@ -53,6 +53,20 @@ Note:
 
      It can be seen as an instance of lemma 5.2 of Supratik and John.
 
+
+Useful equivalences:
+
+    - p <= q    <=>   q - p <= -p - 1           (periodicity 3 if used for rewriting)
+                <=>   -q - 1 <= p - q - 1       (after rewriting twice)
+
+    - p <= q    <=>   p <= p - q - 1
+
+    - p <= q    <=>   -q - 1 <= -p - 1          (combine previous rules)
+
+    - p <= q    <=>   q - p <= q                (another combination)
+
+    - p <= q    ==>   p == 0  ||  -q <= -p
+
 --*/
 
 #include "math/polysat/constraint.h"
@@ -98,6 +112,9 @@ namespace {
             is_positive = true;
         }
 #endif
+
+        // -1 <= p  -->   p + 1 <= 0
+        // 1 <= p   -->   p - 1 <= -2           (--> p > 0 later)
         // k <= p   -->   p - k <= - k - 1
         if (lhs.is_val()) {
             pdd k = lhs;
@@ -105,6 +122,18 @@ namespace {
             rhs = - k - 1;
         }
         // NSB: why this?
+
+        // p + 1 <= p  -->  p + 1 <= 0
+        // p <= p - 1  -->  p <= 0
+        //
+        // p + k <= p       -->  p + k <= k - 1
+        // p     <= p - k   -->  p     <= k - 1
+        if ((lhs - rhs).is_val()) {
+            pdd k = lhs - rhs;
+            rhs = k - 1;
+        }
+
+        // TODO: rewrite if p - q has less variables than p, q themselves? or if one of the rules allows separating variables.
 
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0

@@ -904,6 +904,10 @@ namespace polysat {
             if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
                 return std::nullopt;
             if (!m_bvars.is_assigned(lit)) {
+                DEBUG_CODE({
+                    if (lit2cnstr(lit).eval(*this) != l_undef)
+                        LOG("WARNING: missed evaluation of literal: " << lit_pp(*this, lit));
+                });
                 SASSERT(!is_propagation);
                 is_propagation = true;
                 continue;
