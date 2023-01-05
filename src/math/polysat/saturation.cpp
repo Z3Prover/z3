@@ -1700,6 +1700,8 @@ namespace polysat {
         if (y1 == null_var && y2 == null_var)
             return false;
         y = (y1 == null_var) ? y2 : y1;
+        if (!s.is_assigned(y))
+            return false;
         rational y0 = s.get_value(y);
 
         vector<signed_constraint> bounds;
