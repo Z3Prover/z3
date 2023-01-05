@@ -697,15 +697,15 @@ namespace polysat {
         pdd a_pi = get_pseudo_inverse(a, a_parity);
 #else
         pdd a_pi = s.pseudo_inv(a);
-        //precondition.insert(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
-        precondition.insert(~s.parity_at_most(a, a_parity));
+        //precondition.insert_eval(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
+        precondition.insert_eval(~s.parity_at_most(a, a_parity));
 #endif
         
         pdd shift = a;
         
         if (a_parity > 0) {
             shift = s.lshr(a1, a1.manager().mk_val(a_parity));
-            precondition.insert(~s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
+            precondition.insert_eval(~s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
         }
         LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
         LOG("a: " << a);
