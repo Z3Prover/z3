@@ -231,6 +231,16 @@ namespace polysat {
             add(m.mk_eq(bv->mk_bv_not(mk_poly(in)), mk_poly(out)), sign, dep);
         }
 
+        void add_inv(univariate const& in, univariate const& out, bool sign, dep_t dep) override {
+            expr* input = mk_poly(in);
+            expr* output = mk_poly(out);
+            expr* parity = get_parity(in);
+            expr* one = bv->mk_numeral(1, bit_width);
+            
+            add(m.mk_eq(bv->mk_bv_shl(one, parity), bv->mk_bv_mul(input, output)), false, null_dep);
+            add(bv->mk_ule(output, bv->mk_bv_sub(bv->mk_bv_shl(one, bv->mk_bv_sub(bv->mk_numeral(bit_width, bit_width), parity)), one)), false, null_dep); // TODO: Depending on whether we want all pseudo-inverses
+        }
+
         void add_ule_const(rational const& val, bool sign, dep_t dep) override {
             if (val == 0)
                 add(m.mk_eq(x, mk_poly(val)), sign, dep);
@@ -244,6 +254,21 @@ namespace polysat {
 
         void add_bit(unsigned idx, bool sign, dep_t dep) override {
             add(bv->mk_bit2bool(x, idx), sign, dep);
+        }
+        
+        expr* get_parity(univariate const& in) override {
+            expr* v = mk_poly(in);
+            expr* parity = m.mk_fresh_const("parity", bv->mk_sort(bit_width));
+            expr* parity_1 = bv->mk_bv_add(parity, bv->mk_numeral(1, bit_width));
+            add(m.mk_ite(
+                    m.mk_eq(v, bv->mk_numeral(0, bit_width)),
+                    m.mk_eq(parity, bv->mk_numeral(bit_width, bit_width)),
+                    m.mk_and(
+                        m.mk_eq(bv->mk_bv_shl(bv->mk_bv_lshr(v, parity), parity), v),
+                        m.mk_not(m.mk_eq(bv->mk_bv_shl(bv->mk_bv_lshr(v, parity_1), parity_1), v))
+                    )
+                ), false, null_dep);
+            return parity;
         }
 
         lbool check() override {

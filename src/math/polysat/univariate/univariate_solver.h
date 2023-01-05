@@ -18,11 +18,8 @@ Author:
 #pragma once
 
 #include <ostream>
+#include "ast/ast.h"
 #include "util/lbool.h"
-#include "util/rational.h"
-#include "util/vector.h"
-#include "util/util.h"
-
 
 namespace polysat {
 
@@ -107,6 +104,7 @@ namespace polysat {
         virtual void add_or(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
         virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
         virtual void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_inv(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
 
         /// Add x <= val or x > val, depending on sign
         virtual void add_ule_const(rational const& val, bool sign, dep_t dep) = 0;
@@ -119,6 +117,8 @@ namespace polysat {
         virtual void add_bit(unsigned idx, bool sign, dep_t dep) = 0;
         void add_bit0(unsigned idx, dep_t dep) { add_bit(idx, true, dep); }
         void add_bit1(unsigned idx, dep_t dep) { add_bit(idx, false, dep); }
+        
+        virtual expr* get_parity(univariate const& in) = 0;
 
         virtual std::ostream& display(std::ostream& out) const = 0;
     };
