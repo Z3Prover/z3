@@ -1472,8 +1472,8 @@ namespace pb {
         return p;
     }
 
-    void solver::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
-        literal lit = v == sat::null_bool_var ? sat::null_literal : literal(v, false);
+    void solver::add_pb_ge(bool_var v, bool sign, svector<wliteral> const& wlits, unsigned k) {
+        literal lit = v == sat::null_bool_var ? sat::null_literal : literal(v, sign);
         add_pb_ge(lit, wlits, k, m_is_redundant);
     }
 

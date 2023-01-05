@@ -51,7 +51,7 @@ struct tactic_report::imp {
                    << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
                    << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
                    << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                   << ")" << std::endl);
+                   << ")\n");
         IF_VERBOSE(20, m_goal.display(verbose_stream() << m_id << "\n"));
         SASSERT(m_goal.is_well_formed());
     }
@@ -71,7 +71,7 @@ tactic_report::~tactic_report() {
 
 void report_tactic_progress(char const * id, unsigned val) {
     if (val > 0) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")" << std::endl;);
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")\n");        
     }
 }
 
@@ -166,7 +166,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
         t.cleanup();
     }
     catch (tactic_exception & ex) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.msg()) << "\")" << std::endl;);
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.msg()) << "\")\n");
         t.cleanup();
         throw ex;
     }

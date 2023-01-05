@@ -113,13 +113,13 @@ namespace pb {
                     k1 += wl.first;
                 }
             }
-            add_pb_ge(sat::null_bool_var, wlits, k1);
+            add_pb_ge(sat::null_bool_var, sign, wlits, k1);
             return sat::null_literal;
         }
         else {
             bool_var v = s().add_var(true);
             literal lit(v, sign);
-            add_pb_ge(v, wlits, k.get_unsigned());
+            add_pb_ge(v, sign, wlits, k.get_unsigned());
             TRACE("ba", tout << "root: " << root << " lit: " << lit << "\n";);
             return lit;
         }
@@ -140,13 +140,13 @@ namespace pb {
                     k1 += wl.first;
                 }
             }
-            add_pb_ge(sat::null_bool_var, wlits, k1);
+            add_pb_ge(sat::null_bool_var, sign, wlits, k1);
             return sat::null_literal;
         }
         else {
             sat::bool_var v = s().add_var(true);
             sat::literal lit(v, sign);
-            add_pb_ge(v, wlits, k.get_unsigned());
+            add_pb_ge(v, sign, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
             return lit;
         }
@@ -160,14 +160,14 @@ namespace pb {
         bool base_assert = (root && !sign && s().num_user_scopes() == 0);
         bool_var v1 = base_assert ? sat::null_bool_var : s().add_var(true);
         bool_var v2 = base_assert ? sat::null_bool_var : s().add_var(true);
-        add_pb_ge(v1, wlits, k.get_unsigned());
+        add_pb_ge(v1, false, wlits, k.get_unsigned());
         k.neg();
         for (wliteral& wl : wlits) {
             wl.second.neg();
             k += rational(wl.first);
         }
         check_unsigned(k);
-        add_pb_ge(v2, wlits, k.get_unsigned());
+        add_pb_ge(v2, false, wlits, k.get_unsigned());
         if (base_assert) {
             return sat::null_literal;
         }
