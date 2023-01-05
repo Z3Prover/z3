@@ -755,6 +755,11 @@ namespace polysat {
                         break;
                 n = n1;
             }
+            if (e == n) {
+                SASSERT_EQ(e, e0);
+                // VERIFY(false);
+                return false;
+            }
 
             if (e == e0) {
                 out_lo = n->interval.lo_val();
