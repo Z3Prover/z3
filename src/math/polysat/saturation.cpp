@@ -1745,10 +1745,14 @@ namespace polysat {
             return false;
         if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
             return false;
+        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
+        VERIFY(y_min <= y0 && y0 <= y_max);
         if (!update_max(y_max, x_min, x_max, a1, b1, c1, d1))
             return false;
         if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
             return false;
+        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
+        VERIFY(y_min <= y0 && y0 <= y_max);
         // p < M iff -p > -M iff -p + M - 1 >= 0
         if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
             return false;
@@ -1758,6 +1762,7 @@ namespace polysat {
             return false;
         if (!update_max(y_max, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
             return false;
+        VERIFY(y_min <= y0 && y0 <= y_max);
         // p <= q or p < q is false
         // so p > q or p >= q
         // p - q - 1 >= 0 or p - q >= 0
@@ -1766,9 +1771,10 @@ namespace polysat {
             return false;
         if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
-        verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
+        IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
         
         SASSERT(y_min <= y0 && y0 <= y_max);
+        VERIFY(y_min <= y0 && y0 <= y_max);
         if (y_min == y_max)
             return false;
 

@@ -977,6 +977,17 @@ namespace polysat {
             appraise_lemma(lemmas.back());
         }
         SASSERT(best_score < lemma_score::max());
+        if (!best_lemma) {
+            for (clause* cl: lemmas) {
+                for (sat::literal lit : *cl) {                    
+                    if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
+                        verbose_stream() << "is true " << lit << "\n";
+                    if (!m_bvars.is_assigned(lit))
+                        verbose_stream() << lit << " is not assigned \n";
+                }
+                verbose_stream() << *cl << "\n";
+            }
+        }
         VERIFY(best_lemma);
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
