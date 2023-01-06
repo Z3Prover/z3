@@ -13,7 +13,20 @@ Author:
 
     Nikolaj (nbjorner) 2011-05-31
 
-Notes:
+
+Tactic Documentation:
+
+## Tactic symmetry-reduce
+
+### Short Description
+
+Apply symmetry reduction
+
+### Long Description
+
+The tactic applies symmetry reduction for uninterpreted functions and equalities.
+It applies a straight-forward adaption of an algorithm proposed for veriT.
+
 
 --*/
 #pragma once

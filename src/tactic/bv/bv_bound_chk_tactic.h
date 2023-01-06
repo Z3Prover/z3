@@ -9,6 +9,14 @@ Author:
 
   Mikolas Janota
 
+Tactic Documentation
+
+## Tactic bv_bound_chk
+
+### Short Description
+
+Attempts to detect inconsistencies of bounds on bv expressions.
+
 ### Notes 
 
 * does not support proofs, does not support cores

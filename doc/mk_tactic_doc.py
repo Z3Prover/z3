@@ -59,6 +59,7 @@ def find_tactic_name(path):
             m = is_tac_name.search(line)
             if m:
                 return m.group(1)
+    print(f"no tactic in {path}")
     return ""
 
 def presort_files():

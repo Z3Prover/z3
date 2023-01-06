@@ -13,6 +13,34 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2022-10-30
 
+Tactic Documentation
+
+## Tactic bv-slice
+
+### Short Description
+
+Slices bit-vectors into sub-ranges to allow simplifying sub-ranges.
+
+### Long Description
+
+It rewrites a state using bit-vector slices. 
+Slices are extracted from bit-vector equality assertions.
+An equality assertion may equate a sub-range of a bit-vector
+with a constant. The tactic ensures that all occurrences of the
+subrange are replaced by the constants to allow additional 
+simplification
+
+### Example
+
+```z3 ignore-errors
+(declare-const x (_ BitVec 32))
+(declare-const y (_ BitVec 32))
+        (assert (= ((_ extract 31 16) x) (_ bv123 16)))
+(assert (= ((_ extract 15 0) x) ((_ extract 16 1) y)))
+(assert (= (bvadd x x) y))
+(apply bv-slice)
+```
+
 --*/
 #pragma once
 
