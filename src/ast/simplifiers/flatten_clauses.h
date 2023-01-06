@@ -92,7 +92,7 @@ public:
                 if (decomposed) {
                     expr* na = mk_not(m, a);
                     for (expr* arg : *to_app(b))
-                        m_fmls.add(dependent_expr(m, m.mk_or(na, arg), nullptr, de.dep()));
+                        m_fmls.add(dependent_expr(m, m.mk_or(na, mk_not(m, arg)), nullptr, de.dep()));
                     m_fmls.update(idx, dependent_expr(m, m.mk_true(), nullptr, nullptr));
                     ++m_num_flat;
                     continue;
