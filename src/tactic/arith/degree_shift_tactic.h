@@ -28,7 +28,7 @@ Then, replace $x^n$ with a new fresh variable $y$.
 ```z3
 (declare-const x Real)
 (declare-const y Real)
-(assert (> (+ (* x x x 4) (* x x 3) 0)))
+(assert (> (+ (* x x x 4) (* x x 3)) 0))
 (assert (= (* x x) (* y y)))
 (apply degree-shift)
 ```
