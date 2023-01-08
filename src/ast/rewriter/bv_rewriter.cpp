@@ -2282,7 +2282,7 @@ br_status bv_rewriter::mk_mul_hoist(unsigned num_args, expr * const * args, expr
     expr* z = nullptr, *u = nullptr;
     for (unsigned i = 0; i < num_args; ++i) {
         // ~x = -1 - x
-        if (m_util.is_bv_not(args[i], z)) {
+        if (false && m_util.is_bv_not(args[i], z)) {
             unsigned sz = m_util.get_bv_size(z);
             ptr_vector<expr> new_args(num_args, args);
             rational p = rational(2).expt(sz) - 1;
