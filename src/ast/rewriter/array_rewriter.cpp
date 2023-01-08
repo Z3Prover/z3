@@ -262,9 +262,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
 
             case l_false:
                 // select(store(a, I, v), J) --> select(a, J) if I != J
-                do {
-                    arg0 = to_app(arg0)->get_arg(0);
-                } while (m_util.is_store(arg0) && compare_args(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false);
+                arg0 = to_app(arg0)->get_arg(0);
                 continue;
             case l_undef:
                 // check if loading from subsequent arrays yields the same value
