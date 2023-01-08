@@ -211,6 +211,31 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     goto exit
 
     while (true) {
+        if (m_util.is_store(arg0)) {
+            SASSERT(to_app(arg0)->get_num_args() == num_args+1);
+            switch (compare_args(num_args - 1, args+1, to_app(arg0)->get_args()+1)) {
+            case l_true:
+                // select(store(a, I, v), I) --> v
+                RET(to_app(arg0)->get_arg(num_args), BR_DONE);
+
+            case l_false:
+                // select(store(a, I, v), J) --> select(a, J) if I != J
+                arg0 = to_app(arg0)->get_arg(0);
+                continue;
+
+            case l_undef:
+                // check if loading from subsequent arrays yields the same value
+                if (first) {
+                    result = to_app(arg0)->get_arg(num_args);
+                    first  = false;
+                } else if (result != to_app(arg0)->get_arg(num_args)) {
+                    goto exit;
+                }
+                arg0 = to_app(arg0)->get_arg(0);
+                continue;
+            }
+        }
+
         if (m_util.is_const(arg0)) {
             // select(const(v), I) --> v
             RET(to_app(arg0)->get_arg(0), BR_DONE);
@@ -251,30 +276,6 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             // select(as-array[f], I) --> f(I)
             func_decl * f = m_util.get_as_array_func_decl(to_app(arg0));
             RET(m().mk_app(f, num_args - 1, args + 1), BR_REWRITE1);
-        }
-
-        if (m_util.is_store(arg0)) {
-            SASSERT(to_app(arg0)->get_num_args() == num_args+1);
-            switch (compare_args(num_args - 1, args+1, to_app(arg0)->get_args()+1)) {
-            case l_true:
-                // select(store(a, I, v), I) --> v
-                RET(to_app(arg0)->get_arg(num_args), BR_DONE);
-
-            case l_false:
-                // select(store(a, I, v), J) --> select(a, J) if I != J
-                arg0 = to_app(arg0)->get_arg(0);
-                continue;
-            case l_undef:
-                // check if loading from subsequent arrays yields the same value
-                if (first) {
-                    result = to_app(arg0)->get_arg(num_args);
-                    first  = false;
-                } else if (result != to_app(arg0)->get_arg(num_args)) {
-                    goto exit;
-                }
-                arg0 = to_app(arg0)->get_arg(0);
-                continue;
-            }
         }
         break;
     }
