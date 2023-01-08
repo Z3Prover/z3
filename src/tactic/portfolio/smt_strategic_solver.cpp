@@ -43,7 +43,7 @@ Notes:
 #include "sat/sat_solver/sat_smt_solver.h"
 #include "ast/rewriter/bv_rewriter.h"
 #include "solver/solver2tactic.h"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 #include "params/tactic_params.hpp"
 #include "parsers/smt2/smt2parser.h"

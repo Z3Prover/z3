@@ -33,8 +33,6 @@ Notes:
 #include "ast/ast_translation.h"
 #include "ast/ast_util.h"
 #include "solver/solver.h"
-#include "solver/parallel_params.hpp"
-#include "solver/parallel_tactic.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
 #include "sat/sat_solver.h"

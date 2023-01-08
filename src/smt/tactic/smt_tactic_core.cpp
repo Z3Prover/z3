@@ -30,7 +30,7 @@ Notes:
 #include "solver/solver2tactic.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 
 typedef obj_map<expr, expr *> expr2expr_map;

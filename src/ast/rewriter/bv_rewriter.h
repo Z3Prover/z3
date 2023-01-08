@@ -193,6 +193,16 @@ public:
 
     bv_util & get_util() { return m_util; }
 
+    // Return true if t is of the form
+    //    (= t #b0)
+    //    (= t #b1)
+    //    (= #b0 t)
+    //    (= #b1 t)
+    bool is_eq_bit(expr* t, expr*& x, unsigned& val);
+
+    // return true if t is #b0 or #b1
+    bool is_bit(expr* t, unsigned& val);
+
 #define MK_BV_BINARY(OP)                         \
     expr_ref OP(expr* a, expr* b) {              \
         expr_ref result(m);                    \

@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    parallel_tactic.cpp
+    parallel_tactical.cpp
 
 Abstract:
 
@@ -36,7 +36,7 @@ Notes:
 #include "solver/solver2tactic.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 
 

@@ -2807,6 +2807,28 @@ br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & res
     return BR_FAILED;
 }
 
+bool bv_rewriter::is_bit(expr* t, unsigned& val) {
+    rational v;
+    unsigned sz;
+    return is_bv(t) && is_numeral(t, v, sz) && sz == 1 && (val = v.get_unsigned(), true);
+}
+
+bool bv_rewriter::is_eq_bit(expr * t, expr * & x, unsigned & val) {
+    expr* lhs, *rhs;
+    if (!m.is_eq(t, lhs, rhs))
+        return false;
+    if (is_bit(lhs, val)) {
+        x = rhs;
+        return true;
+    }
+    if (is_bit(rhs, val)) {
+        x = lhs;
+        return true;
+    }
+    return false;
+}
+
+
 br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & result) {
     TRACE("bv_ite", tout << "mk_ite_core:\n" << mk_ismt2_pp(c, m) << "?\n"
             << mk_ismt2_pp(t, m) << "\n:" << mk_ismt2_pp(e, m) << "\n";);
@@ -2817,6 +2839,20 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     if (m.is_not(c)) {
         result = m.mk_ite(to_app(c)->get_arg(0), e, t);
         return BR_REWRITE1;
+    }
+
+    // if x = 0 then 0 else 1
+    expr* t1;
+    unsigned bit1, bit2, bit3;
+    if (is_bv(t) && is_eq_bit(c, t1, bit1) && is_bit(t, bit2) && is_bit(e, bit3)) {
+        if (bit1 == bit2 && bit3 != bit2) {
+            result = t1;
+            return BR_DONE;
+        }            
+        if (bit1 == bit3 && bit3 != bit2) {
+            result = m_util.mk_bv_not(t1);
+            return BR_REWRITE1;
+        }
     }
 
     if (m_ite2id && m.is_eq(c) && is_bv(t) && is_bv(e)) {

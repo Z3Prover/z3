@@ -13,7 +13,7 @@ Author:
 
     Christoph (cwinter) 2012-10-26
 
-Tactic Description
+Tactic Documentation
 
 ## Tactic macro-finder
 

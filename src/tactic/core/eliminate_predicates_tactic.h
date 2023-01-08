@@ -13,6 +13,42 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2022-10-30
 
+Tactic Documentation:
+
+## Tactic elim-predicates
+
+### Short Description
+Eliminates predicates and macros from a formula.
+
+### Long Description
+The tactic subsumes the functionality of `macro-finder` and `quasi-macros`.
+Besides finding macros, it eliminates predicates using Davis-Putnam
+resolution.
+
+### Example
+
+the predicate `p` occurs once positively. All negative occurrences of `p` are resolved against this positive occurrence.
+The result of resolution is a set of equalities between arguments to `p`. The function `f` is replaced by a partial solution.
+
+```
+(declare-fun f (Int Int Int) Int)
+(declare-fun p (Int) Bool)
+(declare-const a Int)
+(declare-const b Int)
+
+(assert (forall ((x Int) (y Int)) (= (f x y (+ x y)) (* 2 x y))))
+(assert (p (f 8 a (+ a 8))))
+(assert (not (p (f 0 a (+ a 8)))))
+(assert (not (p (f 2 a (+ a 8)))))
+(assert (not (p (f 1 a (+ a b)))))
+(apply elim-predicates)
+```
+
+### Notes
+
+* support unsat cores
+* does not support proofs
+
 --*/
 #pragma once
 

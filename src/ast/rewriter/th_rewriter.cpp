@@ -125,36 +125,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return num_steps > m_max_steps;
     }
 
-    // Return true if t is of the form
-    //    (= t #b0)
-    //    (= t #b1)
-    //    (= #b0 t)
-    //    (= #b1 t)
-    bool is_eq_bit(expr * t, expr * & x, unsigned & val) {
-        if (!m().is_eq(t))
-            return false;
-        expr * lhs = to_app(t)->get_arg(0);
-        if (!m_bv_rw.is_bv(lhs))
-            return false;
-        if (m_bv_rw.get_bv_size(lhs) != 1)
-            return false;
-        expr * rhs = to_app(t)->get_arg(1);
-        rational v;
-        unsigned sz;
-        if (m_bv_rw.is_numeral(lhs, v, sz)) {
-            x    = rhs;
-            val  = v.get_unsigned();
-            SASSERT(val == 0 || val == 1);
-            return true;
-        }
-        if (m_bv_rw.is_numeral(rhs, v, sz)) {
-            x   = lhs;
-            val  = v.get_unsigned();
-            SASSERT(val == 0 || val == 1);
-            return true;
-        }
-        return false;
-    }
 
     // (iff (= x bit1) A)
     // --->
@@ -162,11 +132,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     br_status apply_tamagotchi(expr * lhs, expr * rhs, expr_ref & result) {
         expr * x;
         unsigned val;
-        if (is_eq_bit(lhs, x, val)) {
+        if (m_bv_rw.is_eq_bit(lhs, x, val)) {
             result = m().mk_eq(x, m().mk_ite(rhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
             return BR_REWRITE2;
         }
-        if (is_eq_bit(rhs, x, val)) {
+        if (m_bv_rw.is_eq_bit(rhs, x, val)) {
             result = m().mk_eq(x, m().mk_ite(lhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
             return BR_REWRITE2;
         }

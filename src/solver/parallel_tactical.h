@@ -12,8 +12,6 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2017-10-9
-
-Notes:
    
 --*/
 #pragma once

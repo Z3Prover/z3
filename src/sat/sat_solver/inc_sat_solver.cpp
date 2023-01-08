@@ -26,7 +26,7 @@ Notes:
 #include "solver/solver.h"
 #include "solver/tactic2solver.h"
 #include "solver/parallel_params.hpp"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"

@@ -857,6 +857,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         s = true;
     }
 
+
     // (ite c (ite c t1 t2) t3)       ==> (ite c t1 t3
     if (m().is_ite(t) && to_app(t)->get_arg(0) == c) {
         // Remark: (ite c (ite (not c) t1 t2) t3) ==> (ite c t2 t3) does not happen if applying rewrites bottom up
@@ -943,7 +944,6 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
     }
 
 #if 0
-    expr* t1, *t2;
     // (ite c (not (= t1 t2)) t1) ==> (not (= t1 (and c t2)))
     if (m().is_not(t, t1) && m().is_eq(t1, t1, t2) && e == t1) {
         expr_ref a(m());
@@ -958,6 +958,8 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         return BR_REWRITE3;
     }
 #endif
+
+
 
 
     if (m().is_ite(t) && m_ite_extra_rules && m_elim_ite) {
