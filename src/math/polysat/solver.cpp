@@ -783,6 +783,7 @@ namespace polysat {
     }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
+        VERIFY(!is_assigned(v));
         if (j.is_decision())
             ++m_stats.m_num_decisions;
         else

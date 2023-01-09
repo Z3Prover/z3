@@ -195,6 +195,12 @@ namespace polysat {
     }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
+        LOG("intersect v" << v << " in " << lit_pp(s, c));
+        if (s.is_assigned(v)) {
+            // this can happen e.g. for c = ovfl*(v2,v3); where intersect(pdd,pdd,signed_constraint) will try both variables.
+            LOG("abort intersect because v" << v << " is already assigned");
+            return false;
+        }
         entry* ne = alloc_entry();
         if (!m_forbidden_intervals.get_interval(c, v, *ne)) {
             m_alloc.push_back(ne);
