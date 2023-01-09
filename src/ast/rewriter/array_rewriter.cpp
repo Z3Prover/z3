@@ -196,10 +196,9 @@ bool array_rewriter::squash_store(unsigned n, expr* const* args, expr_ref& resul
 }
 
 
-br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args, expr_ref & result) {
-    SASSERT(num_args >= 2);
-    expr *arg0 = args[0];
+br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const * args, expr_ref & result) {
     expr_ref tmp(m());
+    expr *arg0 = args[0];
     bool first = true;
 
 #define RET(x, status)            \
@@ -228,9 +227,9 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 if (first) {
                     result = to_app(arg0)->get_arg(num_args);
                     first  = false;
-                } else if (result != to_app(arg0)->get_arg(num_args)) {
-                    goto exit;
                 }
+                else if (result != to_app(arg0)->get_arg(num_args)) 
+                    goto exit;
                 arg0 = to_app(arg0)->get_arg(0);
                 continue;
             }
@@ -281,6 +280,14 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     }
 
 exit:
+    return BR_FAILED;
+}
+
+br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    SASSERT(num_args >= 2);
+    br_status st = mk_select_same_store(num_args, args, result);
+    if (st != BR_FAILED)
+        return st;
     result.reset();
 
     if (m_util.is_store(args[0])) {
