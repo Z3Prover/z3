@@ -58,10 +58,13 @@ namespace smt {
         expr_ref_vector m_lits;
         vector<info>    m_trail;
         bool            m_enabled = false;
+        bool            m_has_log = false;
         user_propagator::on_clause_eh_t m_on_clause_eh;
         void*                           m_on_clause_ctx = nullptr;
         ast_pp_util                     m_pp;
         scoped_ptr<std::ofstream>       m_pp_out;
+
+        void init_pp_out();
         
         void update(status st, expr_ref_vector& v, proof* p);
         void update(clause& c, status st, proof* p);

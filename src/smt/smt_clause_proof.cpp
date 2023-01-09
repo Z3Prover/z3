@@ -16,15 +16,27 @@ Revision History:
 #include "smt/smt_context.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include <iostream>
 
 namespace smt {
     
     clause_proof::clause_proof(context& ctx):
         ctx(ctx), m(ctx.get_manager()), m_lits(m), m_pp(m) {
+        
         auto proof_log = ctx.get_fparams().m_proof_log;
-        m_enabled = ctx.get_fparams().m_clause_proof || proof_log.is_non_empty_string();
-        if (proof_log.is_non_empty_string()) {
-            m_pp_out = alloc(std::ofstream, proof_log.str());
+        m_has_log = proof_log.is_non_empty_string();
+        m_enabled = ctx.get_fparams().m_clause_proof || m_has_log;        
+    }
+
+    void clause_proof::init_pp_out() {
+        if (m_has_log && !m_pp_out) {
+            static unsigned id = 0;
+            auto proof_log = ctx.get_fparams().m_proof_log;
+            std::string log_name = proof_log.str();
+            if (id > 0)
+                log_name = std::to_string(id) + log_name;
+            ++id;
+            m_pp_out = alloc(std::ofstream, log_name);
             if (!*m_pp_out)
                 throw default_exception(std::string("Could not open file ") + proof_log.str());
         }
@@ -170,14 +182,18 @@ namespace smt {
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
             m_on_clause_eh(m_on_clause_ctx, p, v.size(), v.data());        
-        if (m_pp_out) {
+        if (m_has_log) {
+            init_pp_out();
             auto& out = *m_pp_out;
             for (auto* e : v)
                 declare(out, e);
             switch (st) {
             case clause_proof::status::assumption:
-                display_literals(out << "(assume", v) << ")\n";
-                break;
+                if (!p || p->get_decl()->get_name() == "assumption") {
+                    display_literals(out << "(assume", v) << ")\n";
+                    break;
+                }
+                Z3_fallthrough;
             case clause_proof::status::lemma:
             case clause_proof::status::th_lemma:
             case clause_proof::status::th_assumption:
@@ -191,6 +207,7 @@ namespace smt {
             default:
                 UNREACHABLE();
             }
+            out.flush();
         }
     }
 
