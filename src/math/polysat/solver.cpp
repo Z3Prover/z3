@@ -977,18 +977,16 @@ namespace polysat {
             lemmas.push_back(m_conflict.build_lemma());
             appraise_lemma(lemmas.back());
         }
-        SASSERT(best_score < lemma_score::max());
         if (!best_lemma) {
+            verbose_stream() << "conflict: " << m_conflict << "\n";
+            verbose_stream() << "no lemma\n";
             for (clause* cl: lemmas) {
-                for (sat::literal lit : *cl) {                    
-                    if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
-                        verbose_stream() << "is true " << lit << "\n";
-                    if (!m_bvars.is_assigned(lit))
-                        verbose_stream() << lit << " is not assigned \n";
-                }
                 verbose_stream() << *cl << "\n";
+                for (sat::literal lit : *cl)
+                    verbose_stream() << "    " << lit_pp(*this, lit) << "\n";
             }
         }
+        SASSERT(best_score < lemma_score::max());
         VERIFY(best_lemma);
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
@@ -1334,9 +1332,9 @@ namespace polysat {
             }
             else {
                 sat::bool_var v = item.lit().var();
-                out << "\t" << item.lit() << " @" << m_bvars.level(v);
+                out << "\t" << lit_pp(*this, item.lit());
                 if (m_bvars.reason(v))
-                    out << " " << *m_bvars.reason(v);
+                    out << "    reason " << *m_bvars.reason(v);
                 out << "\n";
             }
         }
@@ -1365,7 +1363,7 @@ namespace polysat {
 
     std::ostream& lit_pp::display(std::ostream& out) const {
         auto c = s.lit2cnstr(lit);
-        out << lpad(4, lit) << ": " << rpad(30, c);
+        out << lpad(5, lit) << ": " << rpad(30, c);
         if (!c)
             return out;
         out << "  [ b:" << rpad(7, s.m_bvars.value(lit));

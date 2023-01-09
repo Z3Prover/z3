@@ -106,8 +106,9 @@ namespace polysat {
     /**
      * if p constant, q, propagate inequality
      */
-    bool umul_ovfl_constraint::narrow_bound(solver& s, bool is_positive,
-        pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
+    bool umul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
+        LOG("p: " << p0 << " := " << p);
+        LOG("q: " << q0 << " := " << q);
 
         if (!p.is_val())
             return false;
@@ -142,9 +143,9 @@ namespace polysat {
         return true;
     }
 
-    bool umul_ovfl_constraint::try_viable(
-        solver& s, bool is_positive,
-        pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
+    bool umul_ovfl_constraint::try_viable(solver& s, bool is_positive, pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
+        LOG("p: " << p0 << " := " << p);
+        LOG("q: " << q0 << " := " << q);
         signed_constraint sc(this, is_positive);
         return s.m_viable.intersect(p0, q0, sc);
     }
