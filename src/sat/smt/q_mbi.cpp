@@ -107,7 +107,7 @@ namespace q {
                 if (ctx.values2root().find(e, n) && n->class_generation() <= generation_min)
                     eqs.push_back(m.mk_eq(sk, e));
         }
-        m_solver->assert_expr(mk_or(eqs));
+        assert_expr(mk_or(eqs));
     }
 
     expr_ref mbqi::replace_model_value(expr* e) {
@@ -168,7 +168,7 @@ namespace q {
         while (true) {
             ::solver::scoped_push _sp(*m_solver);
             add_universe_restriction(*qb);
-            m_solver->assert_expr(qb->mbody);
+            assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
             lbool r = m_solver->check_sat(0, nullptr);
             if (r == l_undef)
@@ -219,7 +219,7 @@ namespace q {
             if (!proj)
                 break;
             add_instantiation(q, proj);
-            m_solver->assert_expr(m.mk_not(mk_and(eqs)));
+            assert_expr(m.mk_not(mk_and(eqs)));
         }
         return i > 0;
     }
@@ -392,7 +392,7 @@ namespace q {
             if (!m_model->eval_expr(bounds, mbounds, true))
                 return;
             mbounds = subst(mbounds, qb.vars);
-            m_solver->assert_expr(mbounds);
+            assert_expr(mbounds);
             qb.domain_eqs.push_back(vbounds);
         }
 
@@ -425,10 +425,17 @@ namespace q {
                 continue;
             expr_ref meq = mk_or(meqs);
             expr_ref veq = mk_or(veqs);
-            m_solver->assert_expr(meq);
+            assert_expr(meq);
             qb.domain_eqs.push_back(veq);
         }
     }
+
+    void mbqi::assert_expr(expr* e) {
+        expr_ref _e(e, m);
+        TRACE("q", tout << _e << "\n");
+        m_solver->assert_expr(e);
+    }
+
 
     /*
     * Add bounds to sub-terms under uninterpreted functions for projection.
