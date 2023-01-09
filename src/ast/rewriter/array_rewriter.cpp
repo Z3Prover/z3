@@ -207,7 +207,7 @@ br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const *
         result = std::move(tmp);  \
         return status;            \
     }                             \
-    goto exit
+    return BR_FAILED;
 
     while (true) {
         if (m_util.is_store(arg0)) {
@@ -228,8 +228,8 @@ br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const *
                     result = to_app(arg0)->get_arg(num_args);
                     first  = false;
                 }
-                else if (result != to_app(arg0)->get_arg(num_args)) 
-                    goto exit;
+                else if (result != to_app(arg0)->get_arg(num_args))
+                    return BR_FAILED;
                 arg0 = to_app(arg0)->get_arg(0);
                 continue;
             }
@@ -278,8 +278,6 @@ br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const *
         }
         break;
     }
-
-exit:
     return BR_FAILED;
 }
 
