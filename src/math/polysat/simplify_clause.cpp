@@ -205,7 +205,7 @@ namespace polysat {
                 cl[j++] = cl[i];
             else {
                 DEBUG_CODE({
-                    auto a = s.assignment().clone();
+                    auto a = s.get_assignment().clone();
                     a.push(v, k);
                     SASSERT(s.lit2cnstr(lit).is_currently_false(a));
                 });
