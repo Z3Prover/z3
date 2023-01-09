@@ -59,7 +59,7 @@ namespace polysat {
         search_item const& back() const { return m_items.back(); }
         search_item const& operator[](unsigned i) const { return m_items[i]; }
 
-        assignment_t const& assignment() const { return m_assignment; }
+        assignment const& get_assignment() const { return m_assignment; }
         substitution const& subst(unsigned sz) const { return m_assignment.subst(sz); }
 
         // TODO: implement the following method if we actually need the assignments without resolved items already during conflict resolution

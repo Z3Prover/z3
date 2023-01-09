@@ -725,7 +725,7 @@ namespace polysat {
             // Fake the assignment v := val so we can check the constraints using the new value.
             // NOTE: we modify the global state here because cloning the assignment is expensive.
             m_search.push_assignment(v, val);
-            assignment_t const& a = m_search.assignment();
+            assignment const& a = m_search.get_assignment();
             on_scope_exit _undo([&](){
                 m_search.pop();
             });
@@ -740,7 +740,7 @@ namespace polysat {
             }
         }
         SASSERT(m_search.size() == old_size);
-        SASSERT(!m_search.assignment().contains(v));
+        SASSERT(!m_search.get_assignment().contains(v));
         if (lemma) {
             add_clause(*lemma);
             if (is_conflict()) {
@@ -793,7 +793,7 @@ namespace polysat {
         SASSERT(j.is_decision() || j.is_propagation());
         SASSERT(j.level() <= m_level);
         SASSERT(!is_assigned(v));
-        SASSERT(all_of(assignment(), [v](auto p) { return p.first != v; }));
+        SASSERT(all_of(get_assignment(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
@@ -801,7 +801,7 @@ namespace polysat {
         // Decision should satisfy all univariate constraints.
         // Propagation might violate some other constraint; but we will notice that in the propagation loop when v is propagated.
         // TODO: on the other hand, checking constraints here would have us discover some conflicts earlier.
-        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(assignment(), v));
+        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(get_assignment(), v));
 #if ENABLE_LINEAR_SOLVER
         // TODO: convert justification into a format that can be tracked in a dependency core.
         m_linear_solver.set_value(v, val, UINT_MAX);
@@ -1353,7 +1353,7 @@ namespace polysat {
     }
 
     std::ostream& assignments_pp::display(std::ostream& out) const {
-        return out << s.assignment();
+        return out << s.get_assignment();
     }
 
     std::ostream& assignment_pp::display(std::ostream& out) const {
@@ -1482,7 +1482,7 @@ namespace polysat {
     }
 
     pdd solver::subst(pdd const& p) const {
-        return assignment().apply_to(p);
+        return get_assignment().apply_to(p);
     }
 
     /** Check that boolean assignment and constraint evaluation are consistent */

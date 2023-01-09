@@ -25,7 +25,7 @@ Author:
 namespace polysat {
 
     lbool constraint::eval(solver const& s) const {
-        return eval(s.assignment());
+        return eval(s.get_assignment());
     }
 
     bool signed_constraint::is_eq() const {

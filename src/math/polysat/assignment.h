@@ -110,8 +110,6 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
     };
 
-    using assignment_t = assignment;
-
     inline std::ostream& operator<<(std::ostream& out, substitution const& sub) { return sub.display(out); }
 
     inline std::ostream& operator<<(std::ostream& out, assignment const& a) { return a.display(out); }

@@ -220,7 +220,7 @@ namespace polysat {
 
         pvar num_vars() const { return m_value.size(); }
 
-        assignment_t const& assignment() const { return m_search.assignment(); }
+        assignment const& get_assignment() const { return m_search.get_assignment(); }
 
         void push_level();
         void pop_levels(unsigned num_levels);

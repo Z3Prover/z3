@@ -127,7 +127,7 @@ namespace polysat {
             return; // conflict
 #endif
 
-        if (clause_ref lemma = produce_lemma(s, s.assignment()))
+        if (clause_ref lemma = produce_lemma(s, s.get_assignment()))
             s.add_clause(*lemma);
         
         if (!s.is_conflict() && is_currently_false(s, is_positive))
