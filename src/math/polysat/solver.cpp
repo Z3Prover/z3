@@ -210,7 +210,7 @@ namespace polysat {
             linear_propagate();
         SASSERT(wlist_invariant());
         SASSERT(bool_watch_invariant());
-        SASSERT(assignment_invariant());
+        SASSERT(eval_invariant());
     }
 
     /**
@@ -1486,7 +1486,7 @@ namespace polysat {
     }
 
     /** Check that boolean assignment and constraint evaluation are consistent */
-    bool solver::assignment_invariant() const {
+    bool solver::eval_invariant() const {
         if (is_conflict())
             return true;
         bool ok = true;
@@ -1510,11 +1510,16 @@ namespace polysat {
         if (is_conflict())
             return true;
         uint_set active;
+        bool ok = true;
         for (pvar v : m_free_pvars)
             active.insert(v);
-        for (auto const& [v, val] : assignment())
+        for (auto const& [v, val] : get_assignment()) {
+            if (active.contains(v)) {
+                ok = false;
+                LOG("Variable v" << v << " is in free var queue despite already assigned " << assignment_pp(*this, v, val));
+            }
             active.insert(v);
-        bool ok = true;
+        }
         for (pvar v = 0; v < num_vars(); ++v) {
             if (!active.contains(v)) {
                 ok = false;
