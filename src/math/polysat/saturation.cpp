@@ -1258,11 +1258,11 @@ namespace polysat {
             }
             else if (c->is_umul_ovfl()) {
                 auto const& ovf = c->to_umul_ovfl();
+                m_lemma.reset();
                 auto [lhs_new, changed_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.p(), m_lemma);
                 auto [rhs_new, changed_rhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.q(), m_lemma);
                 if (!changed_lhs && !changed_rhs)
                     continue;
-                m_lemma.reset();
                 m_lemma.insert(~c);
                 m_lemma.insert_eval(~s.eq(y));
                 
