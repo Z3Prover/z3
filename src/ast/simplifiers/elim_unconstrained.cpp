@@ -357,6 +357,7 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
             trail.hide(entry.m_f);
             break;
         case generic_model_converter::instruction::ADD:
+            // trail.push(entry.m_f, entry.m_def, nullptr, old_fmls);
             break;
         }
     }
@@ -364,7 +365,8 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
     scoped_ptr<expr_substitution> sub = alloc(expr_substitution, m, true, false);
     rp->set_substitution(sub.get());
     expr_ref new_def(m);
-    for (auto const& entry : mc.entries()) {
+    for (unsigned i = mc.entries().size(); i-- > 0; ) {
+        auto const& entry = mc.entries()[i];
         switch (entry.m_instruction) {
         case generic_model_converter::instruction::HIDE:
             break;
