@@ -460,6 +460,7 @@ private:
             conquer->get_model(mdl);
         }
         else {
+            std::lock_guard<std::mutex> lock(m_mutex);
             s.get_solver().get_model(mdl);
         }
         if (mdl) {
