@@ -21,7 +21,8 @@ Revision History:
 namespace smt {
     
     clause_proof::clause_proof(context& ctx):
-        ctx(ctx), m(ctx.get_manager()), m_lits(m), m_pp(m) {
+        ctx(ctx), m(ctx.get_manager()), m_lits(m), m_pp(m),
+        m_assumption(m), m_rup(m), m_del(m), m_smt(m) {
         
         auto proof_log = ctx.get_fparams().m_proof_log;
         m_has_log = proof_log.is_non_empty_string();
@@ -58,27 +59,35 @@ namespace smt {
         }
     }
 
-    proof* clause_proof::justification2proof(status st, justification* j) {
+    proof_ref clause_proof::justification2proof(status st, justification* j) {
         proof* r = nullptr;
         if (j)
             r = j->mk_proof(ctx.get_cr());
         if (r) 
-            return r;
+            return proof_ref(r, m);
         if (!is_enabled())
-            return nullptr;
+            return proof_ref(m);
         switch (st) {
         case status::assumption:
-            return m.mk_const("assumption", m.mk_proof_sort());
+            if (!m_assumption) 
+                m_assumption = m.mk_const("assumption", m.mk_proof_sort());
+            return m_assumption;
         case status::lemma:
-            return m.mk_const("rup", m.mk_proof_sort());
+            if (!m_rup)
+                m_rup = m.mk_const("rup", m.mk_proof_sort());
+            return m_rup;
         case status::th_lemma:
         case status::th_assumption:
-            return m.mk_const("smt", m.mk_proof_sort());
+            if (!m_smt)
+                m_smt = m.mk_const("smt", m.mk_proof_sort());
+            return m_smt;
         case status::deleted:
-            return m.mk_const("del", m.mk_proof_sort());
+            if (!m_del)
+                m_del = m.mk_const("del", m.mk_proof_sort());
+            return m_del;
         }
         UNREACHABLE();
-        return nullptr;
+        return proof_ref(m);
     }
 
     void clause_proof::add(clause& c) {
@@ -86,7 +95,7 @@ namespace smt {
             return;
         justification* j = c.get_justification();
         auto st = kind2st(c.get_kind());
-        proof_ref pr(justification2proof(st, j), m);
+        auto pr = justification2proof(st, j);
         CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
         update(c, st, pr);        
     }
@@ -95,7 +104,7 @@ namespace smt {
         if (!is_enabled())
             return;
         auto st = kind2st(k);
-        proof_ref pr(justification2proof(st, j), m);
+        auto pr = justification2proof(st, j);
         CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
         m_lits.reset();
         for (unsigned i = 0; i < n; ++i) 
@@ -110,7 +119,7 @@ namespace smt {
         m_lits.reset();
         for (unsigned i = 0; i < new_size; ++i) 
             m_lits.push_back(ctx.literal2expr(c[i]));
-        proof* p = justification2proof(status::lemma, nullptr);
+        auto p = justification2proof(status::lemma, nullptr);
         update(status::lemma, m_lits, p);
         for (unsigned i = new_size; i < c.get_num_literals(); ++i) 
             m_lits.push_back(ctx.literal2expr(c[i]));
@@ -124,7 +133,7 @@ namespace smt {
         m_lits.reset();
         m_lits.push_back(ctx.literal2expr(lit));
         auto st = kind2st(k);
-        proof* pr = justification2proof(st, j);
+        auto pr = justification2proof(st, j);
         update(st, m_lits, pr);
     }
 
@@ -135,7 +144,7 @@ namespace smt {
         m_lits.push_back(ctx.literal2expr(lit1));
         m_lits.push_back(ctx.literal2expr(lit2));
         auto st = kind2st(k);
-        proof* pr = justification2proof(st, j);
+        auto pr = justification2proof(st, j);
         update(st, m_lits, pr);
     }
 

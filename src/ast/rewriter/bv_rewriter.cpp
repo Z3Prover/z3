@@ -2286,8 +2286,11 @@ br_status bv_rewriter::mk_mul_hoist(unsigned num_args, expr * const * args, expr
             unsigned sz = m_util.get_bv_size(z);
             ptr_vector<expr> new_args(num_args, args);
             rational p = rational(2).expt(sz) - 1;
-            new_args[i] = m_util.mk_bv_sub(mk_numeral(p, sz), z);
-            result = m_util.mk_bv_mul(num_args, new_args.data());
+            new_args[i] = mk_numeral(p, sz);
+            expr_ref a(m_util.mk_bv_mul(num_args, new_args.data()), m);
+            new_args[i] = z;
+            expr_ref b(m_util.mk_bv_mul(num_args, new_args.data()), m);
+            result = m_util.mk_bv_sub(a, b);
             return BR_REWRITE3;
         }
         // shl(z, u) * x = shl(x * z, u)

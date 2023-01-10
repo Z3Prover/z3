@@ -63,13 +63,14 @@ namespace smt {
         void*                           m_on_clause_ctx = nullptr;
         ast_pp_util                     m_pp;
         scoped_ptr<std::ofstream>       m_pp_out;
+        proof_ref m_assumption, m_rup, m_del, m_smt;
 
         void init_pp_out();
         
         void update(status st, expr_ref_vector& v, proof* p);
         void update(clause& c, status st, proof* p);
         status kind2st(clause_kind k);
-        proof* justification2proof(status st, justification* j);
+        proof_ref justification2proof(status st, justification* j);
         void log(status st, proof* p);
         void declare(std::ostream& out, expr* e);
         std::ostream& display_literals(std::ostream& out, expr_ref_vector const& v);
