@@ -1732,23 +1732,34 @@ namespace polysat {
         if (x_min > x_max)
             x_min -= M;
         SASSERT(x_min <= x_max);
-        
+
         IF_VERBOSE(2,
+                   verbose_stream() << "\n---\n\n";
+                   verbose_stream() << "constraint " << lit_pp(s, a_l_b) << "\n";
+                   verbose_stream() << "x = v" << x << "\n";
                    s.m_viable.display(verbose_stream(), x) << "\n";
+                   verbose_stream() << "y = v" << y << "\n";
+                   verbose_stream() << "\n";
                    verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
                    verbose_stream() << "v" << y << " " << y0 << "\n";
-                   verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-                   verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n");
+                   verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+                   verbose_stream() << q << " ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n");
 
         if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1))
             return false;
         if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2))
             return false;
 
-        IF_VERBOSE(2, 
+        // TODO: split x-intervals?
+
+        IF_VERBOSE(2,
                    verbose_stream() << "Adjusted\n";
-                   verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-                   verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+                   verbose_stream() << q << " ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   // verbose_stream() << "p(x_min,y0) = " << (a1*x_min*y0 + b1*x_min + c1*y0 + d1) << "\n";
+                   // verbose_stream() << "q(x_min,y0) = " << (a2*x_min*y0 + b2*x_min + c2*y0 + d2) << "\n";
+                   // verbose_stream() << "p(x_max,y0) = " << (a1*x_max*y0 + b1*x_max + c1*y0 + d1) << "\n";
+                   // verbose_stream() << "q(x_max,y0) = " << (a2*x_max*y0 + b2*x_max + c2*y0 + d2) << "\n";
                    );
 
         // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
