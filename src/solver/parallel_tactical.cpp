@@ -377,9 +377,10 @@ private:
 
     solver_ref    m_solver;
     ast_manager&  m_manager;
+    scoped_ptr<ast_manager> m_serialize_manager;
     params_ref    m_params;
     sref_vector<model> m_models;
-    expr_ref_vector m_core;
+    scoped_ptr<expr_ref_vector> m_core;
     unsigned      m_num_threads;    
     statistics    m_stats;
     task_queue    m_queue;
@@ -409,7 +410,7 @@ private:
         m_conquer_delay = pp.conquer_delay();
         m_exn_code = 0;
         m_params.set_bool("override_incremental", true);
-        m_core.reset();
+        m_core = nullptr;        
     }
 
     void log_branches(lbool status) {
@@ -436,10 +437,15 @@ private:
 
     void collect_core(expr_ref_vector const& core) {
         std::lock_guard<std::mutex> lock(m_mutex);
-        ast_translation tr(core.get_manager(), m_manager);
+        if (!m_serialize_manager) 
+            m_serialize_manager = alloc(ast_manager, core.get_manager(), true);                
+        m_core = nullptr;
+        m_core = alloc(expr_ref_vector, *m_serialize_manager);
+        ast_translation tr(core.get_manager(), *m_serialize_manager);
         expr_ref_vector core1(tr(core));
         for (expr* c : core1) {
-            if (!m_core.contains(c)) m_core.push_back(c);
+            if (!m_core->contains(c))
+                m_core->push_back(c);
         }
     }
 
@@ -463,11 +469,12 @@ private:
             s.get_solver().get_model(mdl);
         }
         if (mdl) {
+            // serialize access to m_serialize_manager
             std::lock_guard<std::mutex> lock(m_mutex);
-            if (&s.m() != &m_manager) {
-                ast_translation tr(s.m(), m_manager);
-                mdl = mdl->translate(tr);
-            }
+            if (!m_serialize_manager) 
+                m_serialize_manager = alloc(ast_manager, s.m(), true);                
+            ast_translation tr(s.m(), *m_serialize_manager);
+            mdl = mdl->translate(tr);
             m_models.push_back(mdl.get());
         }
         else if (m_models.empty()) {
@@ -738,9 +745,14 @@ private:
         if (m_exn_code == -1) 
             throw default_exception(std::move(m_exn_msg));
         if (m_exn_code != 0) 
-            throw z3_error(m_exn_code);            
+            throw z3_error(m_exn_code);
+
+        // retrieve model. The ast manager of the model is m_serialize_manager.
+        // the asts have to be translated into m_manager.
         if (!m_models.empty()) {
-            mdl = m_models.back();            
+            mdl = m_models.back();
+            ast_translation tr(mdl->get_manager(), m_manager);
+            mdl = mdl->translate(tr);            
             return l_true;
         }
         if (m_has_undef) 
@@ -770,8 +782,7 @@ public:
     parallel_tactic(solver* s, params_ref const& p) :
         m_solver(s),
         m_manager(s->get_manager()),        
-        m_params(p),
-        m_core(m_manager) {
+        m_params(p) {
         init();
     }
 
@@ -806,10 +817,13 @@ public:
                 g->add(concat(fmc.get(), model2model_converter(mdl.get())));
             }
             break;
-        case l_false:
+        case l_false: 
             SASSERT(!g->proofs_enabled());
-            for (expr * c : m_core) {
-                lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));
+            if (m_core) {
+                ast_translation tr(m_core->get_manager(), m);
+                expr_ref_vector core(tr(*m_core));
+                for (expr * c : core)                 
+                    lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));
             }
             g->assert_expr(m.mk_false(), pr, lcore);            
             break;
