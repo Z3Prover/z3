@@ -147,17 +147,13 @@ namespace format_ns {
         parameter p(s);
         return fm(m).mk_app(fid(m), OP_STRING, 1, &p, 0, nullptr);
     }
-    
+
     format * mk_int(ast_manager & m, int i) {
-        char buffer[128];
-        SPRINTF_D(buffer, i);
-        return mk_string(m, buffer); 
+        return mk_string(m, std::to_string(i));         
     }
     
     format * mk_unsigned(ast_manager & m, unsigned u) {
-        char buffer[128];
-        SPRINTF_U(buffer, u);
-        return mk_string(m, buffer); 
+        return mk_string(m, std::to_string(u));         
     }
     
     format * mk_indent(ast_manager & m, unsigned i, format * f) {

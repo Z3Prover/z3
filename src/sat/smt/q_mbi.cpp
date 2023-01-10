@@ -170,7 +170,9 @@ namespace q {
             add_universe_restriction(*qb);
             assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
+            IF_VERBOSE(2, verbose_stream() << "(mbqi.check)\n");
             lbool r = m_solver->check_sat(0, nullptr);
+            IF_VERBOSE(2, verbose_stream() << "(mbqi.check " << r << ")\n");
             if (r == l_undef)
                 return r;
             if (r == l_true) {
@@ -212,7 +214,10 @@ namespace q {
         add_domain_eqs(mdl0, qb);
         for (; i < m_max_cex; ++i) {
             ++m_stats.m_num_checks;
-            if (l_true != m_solver->check_sat(0, nullptr))
+            IF_VERBOSE(2, verbose_stream() << "(mbqi.check)\n");
+            lbool r = m_solver->check_sat(0, nullptr);
+            IF_VERBOSE(2, verbose_stream() << "(mbqi.check " << r << ")\n");
+            if (l_true != r)
                 break;
             m_solver->get_model(mdl1);
             auto proj = solver_project(*mdl1, qb, eqs, true);
