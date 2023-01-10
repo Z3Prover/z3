@@ -71,10 +71,10 @@ namespace polysat {
         bool try_add_mul_bound2(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_infer_parity_equality(pvar x, conflict& core, inequality const& a_l_b);
 
-        rational round(rational const& N, rational const& x);
+        rational round(rational const& M, rational const& x);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
         bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d);
-        bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& N, rational const& a, rational const& b, rational const& c, rational& d);
+        bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d);
         bool update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
         bool update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
         void fix_values(pvar x, pvar y, pdd const& p);

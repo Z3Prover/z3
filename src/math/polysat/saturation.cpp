@@ -1503,21 +1503,24 @@ namespace polysat {
     }
 
 
-    rational saturation::round(rational const& N, rational const& x) {
-        SASSERT(0 <= x && x < N);
-        if (x + N/2 > N)
-            return x - N;
+    rational saturation::round(rational const& M, rational const& x) {
+        SASSERT(0 <= x && x < M);
+        if (x + M/2 > M)
+            return x - M;
         else
             return x;
     }
 
+    /**
+     * write as q := a*y + b
+     */
     bool saturation::extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b) {
         auto & m = q.manager();
-        auto N = m.two_to_N();
+        auto M = m.two_to_N();
         
         if (q.is_val()) {
             a = 0;
-            b = round(N, q.val());
+            b = round(M, q.val());
             return true;
         }
         y = q.var();
@@ -1525,8 +1528,8 @@ namespace polysat {
             return false;
         if (!q.hi().is_val())
             return false;
-        a = round(N, q.hi().val());
-        b = round(N, q.lo().val());
+        a = round(M, q.hi().val());
+        b = round(M, q.lo().val());
         return true;
     }
     
@@ -1535,11 +1538,11 @@ namespace polysat {
      */
     bool saturation::extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d) {
         auto & m = s.var2pdd(x);
-        auto N = m.two_to_N();
+        auto M = m.two_to_N();
         auto eval_round = [&](pdd const& p, rational& r) {
             if (!s.try_eval(p, r))
                 return false;
-            r = round(N, r);
+            r = round(M, r);
             return true;
         };
         switch (p.degree(x)) {
@@ -1582,27 +1585,29 @@ namespace polysat {
     }
 
     /**
-     * update d such that for every value x_min <= x <= x_max 0 <= a*x*y0 + b*x + c*y0 + d < N
+     * update d such that 0 <= a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max
      * return false if there is no such d.
      */
-    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& N, rational const& a, rational const& b, rational const& c, rational& d) {
+    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d) {
+        SASSERT(x_min <= x_max);
         rational A = a*y0 + b;
         rational B = c*y0 + d;
         rational max = A >= 0 ? x_max * A + B : x_min * A + B;
         rational min = A >= 0 ? x_min * A + B : x_max * A + B;
-        if (max - min >= N)
+        VERIFY(min <= max);
+        if (max - min >= M)
             return false;
 
         rational offset = rational::zero();
-        if (max > N) // TODO: what if max == N?
-            offset = -N * floor(max / N);
+        if (max > M)  // TODO: what if max == M?
+            offset = -M * floor(max / M);
         else if (max < 0)
-            offset = N * floor((-max + N - 1) / N);
+            offset = M * floor((-max + M - 1) / M);
         d += offset;
 
-        if (min + offset < 0)  // [min,max] contains a multiple of N ... we could try splitting the x-interval into two intervals
+        if (min + offset < 0)  // [min,max] contains a multiple of M ... we could try splitting the x-interval into two intervals
             return false;
-        VERIFY(min + offset < N);
+        VERIFY(min + offset < M);
 
         return true;
     }
