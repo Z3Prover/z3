@@ -225,6 +225,7 @@ namespace polysat {
         pdd const& rhs() const { return m_rhs; }
         bool is_strict() const { return m_src.is_negative(); }
         signed_constraint as_signed_constraint() const { return m_src; }
+        operator signed_constraint() const { return m_src; }
     };
 
     class constraint_pp {

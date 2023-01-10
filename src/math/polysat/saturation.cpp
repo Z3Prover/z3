@@ -1720,7 +1720,7 @@ namespace polysat {
 
         VERIFY(x_min <= x_max);
 
-        // TODO: d +/- 1 would suffice here
+        // TODO: d +/- M would suffice here
         rational d1 = dd1;
         rational d2 = dd2;
         VERIFY(adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1, nullptr));
@@ -1801,7 +1801,7 @@ namespace polysat {
 
         vector<signed_constraint> bounds;
         rational x_min, x_max;
-        if (!s.m_viable.has_max_forbidden(x, a_l_b.as_signed_constraint(), x_max, x_min, bounds))
+        if (!s.m_viable.has_max_forbidden(x, a_l_b, x_max, x_min, bounds))
             return false;
 
         // retrieved maximal forbidden interval [x_max, x_min[.

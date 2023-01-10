@@ -49,14 +49,12 @@ namespace polysat {
         /// Insert constraints into the clause.
         void insert(sat::literal lit);
         void insert(signed_constraint c);
-        void insert(inequality const& i) { insert(i.as_signed_constraint()); }
 
         /// Insert constraints into the clause.
         /// If they are not yet on the search stack, add them as evaluated to \b false.
         /// \pre Constraint must be \b false in the current assignment.
         void insert_eval(sat::literal lit);
         void insert_eval(signed_constraint c);
-        void insert_eval(inequality const& i) { insert_eval(i.as_signed_constraint()); }
 
         /// Insert constraints into the clause.
         /// If possible, evaluate them as in insert_eval.
