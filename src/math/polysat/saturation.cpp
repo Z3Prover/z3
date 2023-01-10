@@ -1585,10 +1585,11 @@ namespace polysat {
     }
 
     /**
-     * update d such that 0 <= a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max
+     * if !x_split: update d such that 0 <= a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max
+     * if x_split: update d such that -M < a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max, return x_split such that [x_min,x_split[ and [x_split,x_max] can fit into [0,M[
      * return false if there is no such d.
      */
-    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d) {
+    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d, rational* x_split) {
         SASSERT(x_min <= x_max);
         rational A = a*y0 + b;
         rational B = c*y0 + d;
@@ -1599,16 +1600,41 @@ namespace polysat {
             return false;
 
         rational offset = rational::zero();
-        if (max > M)  // TODO: what if max == M?
+        if (max >= M)
             offset = -M * floor(max / M);
         else if (max < 0)
             offset = M * floor((-max + M - 1) / M);
         d += offset;
 
-        if (min + offset < 0)  // [min,max] contains a multiple of M ... we could try splitting the x-interval into two intervals
-            return false;
-        VERIFY(min + offset < M);
+        // If min + offset < 0, then [min,max] contained a multiple of M.
+        if (min + offset < 0) {
+            if (!x_split)
+                return false;
+            // A*x_split + B + offset = 0
+            // x_split = -(B+offset)/A
+            if (A >= 0) {
+                rational x = ceil((-offset-B) / A);
+                // [x_min; x_split-1] maps to interval < 0
+                // [x_split; x_max] maps to interval >= 0
+                VERIFY(a*x*y0 + b*x + c*y0 + d >= 0);
+                VERIFY(a*(x-1)*y0 + b*(x-1) + c*y0 + d < 0);
+                VERIFY(x_min <= x && x <= x_max);
+                *x_split = x;
+            } else {
+                rational x = floor((-offset-B) / A) + 1;
+                // [x_min; x_split-1] maps to interval >= 0
+                // [x_split; x_max] maps to interval < 0
+                VERIFY(a*x*y0 + b*x + c*y0 + d < 0);
+                VERIFY(a*(x-1)*y0 + b*(x-1) + c*y0 + d >= 0);
+                VERIFY(x_min <= x && x <= x_max);
+                *x_split = x;
+            }
+        }
 
+        VERIFY(-M < a*x_min*y0 + b*x_min + c*y0 + d);
+        VERIFY(a*x_min*y0 + b*x_min + c*y0 + d < M);
+        VERIFY(-M < a*x_max*y0 + b*x_max + c*y0 + d);
+        VERIFY(a*x_max*y0 + b*x_max + c*y0 + d < M);
         return true;
     }
     
@@ -1690,7 +1716,15 @@ namespace polysat {
         }
     }
 
-    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& d1, rational const& a2, rational const& b2, rational const& c2, rational const& d2, rational const& M, inequality const& a_l_b) {
+    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& dd1, rational const& a2, rational const& b2, rational const& c2, rational const& dd2, rational const& M, inequality const& a_l_b) {
+
+        VERIFY(x_min <= x_max);
+
+        // TODO: d +/- 1 would suffice here
+        rational d1 = dd1;
+        rational d2 = dd2;
+        VERIFY(adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1, nullptr));
+        VERIFY(adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2, nullptr));
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
@@ -1796,10 +1830,16 @@ namespace polysat {
                    verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
                    verbose_stream() << q << " ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n");
 
-        if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1))
+        rational x_sp1 = x_min;
+        rational x_sp2 = x_min;
+
+        if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1, &x_sp1))
             return false;
-        if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2))
+        if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2, &x_sp2))
             return false;
+
+        if (x_sp1 > x_sp2)
+            std::swap(x_sp1, x_sp2);
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted\n";
@@ -1811,12 +1851,15 @@ namespace polysat {
                    // verbose_stream() << "q(x_max,y0) = " << (a2*x_max*y0 + b2*x_max + c2*y0 + d2) << "\n";
                    );
 
-        // TODO: split x-intervals?
         rational y_min(0), y_max(M-1);
-
-        if (!update_bounds_for_xs(x_min, x_max, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+        if (x_min != x_sp1 && !update_bounds_for_xs(x_min, x_sp1-1, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
             return false;
-
+        // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        if (x_sp1 != x_sp2 && !update_bounds_for_xs(x_sp1, x_sp2-1, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+            return false;
+        // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        if (!update_bounds_for_xs(x_sp2, x_max,   y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+            return false;
         IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
 
         SASSERT(y_min <= y0 && y0 <= y_max);
