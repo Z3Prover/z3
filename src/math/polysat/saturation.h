@@ -77,6 +77,7 @@ namespace polysat {
         bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d);
         bool update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
         bool update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
+        bool update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& d1, rational const& a2, rational const& b2, rational const& c2, rational const& d2, rational const& M, inequality const& a_l_b);
         void fix_values(pvar x, pvar y, pdd const& p);
         void fix_values(pvar y, pdd const& p);
         

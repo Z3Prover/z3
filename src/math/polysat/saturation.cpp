@@ -1690,13 +1690,59 @@ namespace polysat {
         }
     }
 
+    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& d1, rational const& a2, rational const& b2, rational const& c2, rational const& d2, rational const& M, inequality const& a_l_b) {
+
+        IF_VERBOSE(2,
+                   verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
+                   verbose_stream() << "p ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
+                   verbose_stream() << "q ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   );
+
+        // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
+        // check the endpoints
+        VERIFY(a1*x_min*y0 + b1*x_min + c1*y0 + d1 >= a2*x_min*y0 + b2*x_min + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
+        VERIFY(a1*x_max*y0 + b1*x_max + c1*y0 + d1 >= a2*x_max*y0 + b2*x_max + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
+
+        if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
+            return false;
+        if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
+            return false;
+        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
+        VERIFY(y_min <= y0 && y0 <= y_max);
+        if (!update_max(y_max, x_min, x_max, a1, b1, c1, d1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
+            return false;
+        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
+        VERIFY(y_min <= y0 && y0 <= y_max);
+        // p < M iff -p > -M iff -p + M - 1 >= 0
+        if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+            return false;
+        if (!update_min(y_min, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+            return false;
+        if (!update_max(y_max, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+            return false;
+        VERIFY(y_min <= y0 && y0 <= y_max);
+        // p <= q or p < q is false
+        // so p > q or p >= q
+        // p - q - 1 >= 0 or p - q >= 0
+        // min-max for p - q - 1 or p - q are non-negative
+        if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+            return false;
+        if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+            return false;
+        return true;
+    }
+
     // wip - outline of what should be a more general approach
     bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] mul-bound2 ax + b <= y, ... => a >= u_a");
 
         // comment out for dev
         return false;
-        
+
         auto& m = s.var2pdd(x);    
         pdd p = a_l_b.lhs(), q = a_l_b.rhs();
         if (p.degree(x) > 1 || q.degree(x) > 1)
@@ -1755,8 +1801,6 @@ namespace polysat {
         if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2))
             return false;
 
-        // TODO: split x-intervals?
-
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted\n";
                    verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
@@ -1767,44 +1811,14 @@ namespace polysat {
                    // verbose_stream() << "q(x_max,y0) = " << (a2*x_max*y0 + b2*x_max + c2*y0 + d2) << "\n";
                    );
 
-        // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
-        // check the endpoints
-        VERIFY(a1*x_min*y0 + b1*x_min + c1*y0 + d1 >= a2*x_min*y0 + b2*x_min + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
-        VERIFY(a1*x_max*y0 + b1*x_max + c1*y0 + d1 >= a2*x_max*y0 + b2*x_max + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
-
+        // TODO: split x-intervals?
         rational y_min(0), y_max(M-1);
-        if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
+
+        if (!update_bounds_for_xs(x_min, x_max, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
             return false;
-        if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
-            return false;
-        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
-        VERIFY(y_min <= y0 && y0 <= y_max);
-        if (!update_max(y_max, x_min, x_max, a1, b1, c1, d1))
-            return false;
-        if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
-            return false;
-        //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
-        VERIFY(y_min <= y0 && y0 <= y_max);
-        // p < M iff -p > -M iff -p + M - 1 >= 0
-        if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
-            return false;
-        if (!update_min(y_min, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
-            return false;
-        if (!update_max(y_max, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
-            return false;
-        if (!update_max(y_max, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
-            return false;
-        VERIFY(y_min <= y0 && y0 <= y_max);
-        // p <= q or p < q is false
-        // so p > q or p >= q
-        // p - q - 1 >= 0 or p - q >= 0
-        // min-max for p - q - 1 or p - q are non-negative
-        if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
-            return false;
-        if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
-            return false;
+
         IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
-        
+
         SASSERT(y_min <= y0 && y0 <= y_max);
         VERIFY(y_min <= y0 && y0 <= y_max);
         if (y_min == y_max)
