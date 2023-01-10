@@ -1592,8 +1592,18 @@ namespace polysat {
         rational min = A >= 0 ? x_min * A + B : x_max * A + B;
         if (max - min >= N)
             return false;
-        rational offset = max > N ? -N * floor(max / N) : (max < 0 ?  N*floor((-max + N -1)/ N) : rational::zero());
+
+        rational offset = rational::zero();
+        if (max > N) // TODO: what if max == N?
+            offset = -N * floor(max / N);
+        else if (max < 0)
+            offset = N * floor((-max + N - 1) / N);
         d += offset;
+
+        if (min + offset < 0)  // [min,max] contains a multiple of N ... we could try splitting the x-interval into two intervals
+            return false;
+        VERIFY(min + offset < N);
+
         return true;
     }
     
@@ -1740,6 +1750,12 @@ namespace polysat {
                    verbose_stream() << p << " " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
                    verbose_stream() << q << " " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
                    );
+
+        // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
+        // check the endpoints
+        VERIFY(a1*x_min*y0 + b1*x_min + c1*y0 + d1 >= a2*x_min*y0 + b2*x_min + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
+        VERIFY(a1*x_max*y0 + b1*x_max + c1*y0 + d1 >= a2*x_max*y0 + b2*x_max + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
+
         rational y_min(0), y_max(M-1);
         if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
             return false;
