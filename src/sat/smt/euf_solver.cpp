@@ -540,6 +540,7 @@ namespace euf {
     sat::check_result solver::check() { 
         ++m_stats.m_final_checks;
         TRACE("euf", s().display(tout););
+        TRACE("final_check", s().display(tout););
         bool give_up = false;
         bool cont = false;
 

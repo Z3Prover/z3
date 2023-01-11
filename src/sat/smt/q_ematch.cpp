@@ -69,9 +69,12 @@ namespace q {
             [&](euf::enode* n) {
             m_mam->add_node(n, false);
         };
-        ctx.get_egraph().set_on_merge(_on_merge);
-        if (!ctx.relevancy_enabled())
-            ctx.get_egraph().set_on_make(_on_make);
+        
+        if (ctx.get_config().m_ematching) {
+            ctx.get_egraph().set_on_merge(_on_merge);
+            if (!ctx.relevancy_enabled())
+                ctx.get_egraph().set_on_make(_on_make);
+        }
         m_mam = mam::mk(ctx, *this);
     }
 
