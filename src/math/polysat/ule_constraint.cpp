@@ -53,17 +53,16 @@ Note:
 
      It can be seen as an instance of lemma 5.2 of Supratik and John.
 
+The following forms are equivalent:
 
-Useful equivalences:
+    p <= q
+    p <= p - q - 1
+    q - p <= q
+    q - p <= -p - 1
+    -q - 1 <= -p - 1
+    -q - 1 <= p - q - 1
 
-    - p <= q    <=>   q - p <= -p - 1           (periodicity 3 if used for rewriting)
-                <=>   -q - 1 <= p - q - 1       (after rewriting twice)
-
-    - p <= q    <=>   p <= p - q - 1
-
-    - p <= q    <=>   -q - 1 <= -p - 1          (combine previous rules)
-
-    - p <= q    <=>   q - p <= q                (another combination)
+Useful lemmas:
 
     - p <= q    ==>   p == 0  ||  -q <= -p
 

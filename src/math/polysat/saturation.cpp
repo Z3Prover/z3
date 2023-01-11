@@ -1279,8 +1279,19 @@ namespace polysat {
      *  x >  x + y & x <= n => y >= N - n
      * -x <= -x - y & x <= n => y = 0 or y >= N - n
      * -x < -x - y & x <= n => y >= N - n
+     *
+     * NOTE:  x + y <= x   <==>  -y <= x     <==>   -x-1 <= y-1
+     *        x <= x + y   <==>  x <= -y-1   <==>   y <= -x-1
+     *        (see notes on equivalent forms in ule_constraint.cpp)
+     *
+     *      x >= x + y   ==>  -y <= x
+     *      x >  x + y   ==>   y <= -x-1
+     *     -x <= -x - y  ==>  -y <= x-1
+     *     -x <  -x - y  ==>   y <= -x
+     *      Add these as simplification rules on ule_constraint instead of this inference rule?
      */
     bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y) {
+        return false;
         set_rule("[x] x >= x + y & x <= n => y = 0 or y >= 2^N - n");
         signed_constraint y_eq_0;
         vector<signed_constraint> x_ge_bound;
