@@ -37,6 +37,7 @@ namespace polysat {
                 out << " \\/ ";
             out << lit;
         }
+        out << " (" << (name() ? name() : "<null>") << ")";
         return out;
     }
 

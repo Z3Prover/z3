@@ -36,6 +36,7 @@ namespace polysat {
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         bool m_redundant = redundant_default;
         sat::literal_vector m_literals;
+        char const* m_name = "";
 
 
         /* TODO: embed literals to save an indirection?
@@ -64,6 +65,9 @@ namespace polysat {
         sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
         sat::literal& operator[](unsigned idx) { return m_literals[idx]; }
 
+        sat::literal_vector& literals() { return m_literals; }
+        sat::literal_vector const& literals() const { return m_literals; }
+
         using const_iterator = typename sat::literal_vector::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
@@ -72,6 +76,9 @@ namespace polysat {
 
         void set_redundant(bool r) { m_redundant = r; }
         bool is_redundant() const { return m_redundant; }
+
+        void set_name(char const* name) { m_name = name; }
+        char const* name() const { return m_name; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }

@@ -287,7 +287,7 @@ namespace polysat {
 
     void conflict::insert_vars(signed_constraint c) {
         for (pvar v : c->vars())
-            if (s.is_assigned(v)) 
+            if (s.is_assigned(v))
                 m_vars.insert(v);
     }
 
@@ -308,10 +308,13 @@ namespace polysat {
             if (s.m_bvars.is_true(lit))
                 verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
 
-        LOG_H3("Lemma " << (name ? name : "<unknown>") << ": " << show_deref(lemma));
+        if (!name)
+            name = "<unknown>";
+        LOG_H3("Lemma " << name << ": " << show_deref(lemma));
         SASSERT(lemma);
         s.m_simplify_clause.apply(*lemma);
         lemma->set_redundant(true);
+        lemma->set_name(name);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             // NOTE: it can happen that the literal's bvalue is l_true at this point.
@@ -385,7 +388,7 @@ namespace polysat {
         if (!has_decision) {
             for (pvar v : c->vars()) {
                 if (s.is_assigned(v) && s.get_level(v) <= lvl) {
-                    m_vars.insert(v);                   
+                    m_vars.insert(v);
 // TODO - figure out what to do with constraints from conflict lemma that disappear here.
 //                    if (s.m_bvars.is_false(lit))
 //                        m_resolver->infer_lemmas_for_value(v, ~c, *this);
@@ -418,7 +421,7 @@ namespace polysat {
             insert(s.eq(i.hi(), i.hi_val()));
         }
         logger().log(inf_resolve_value(s, v));
-        
+
         revert_pvar(v);
     }
 
