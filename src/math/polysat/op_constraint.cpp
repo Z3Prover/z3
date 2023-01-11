@@ -641,8 +641,6 @@ namespace polysat {
 
         // p assigned => r = pseudo_inverse(eval(p))
         if (pv.is_val() && !rv.is_val()) {
-            verbose_stream() << "Inverse ---+++ \n";
-            verbose_stream() << "Inverse of " << s.eq(p(), pv) << " = " << s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())) << "\n";
             return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
         }
 

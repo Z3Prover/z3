@@ -576,7 +576,6 @@ namespace polysat {
             return s.var(m_inverse[v]);
         
         pvar inv = s.add_var(p.power_of_2());
-        verbose_stream() << "Inverse v" << inv << " of " << p << " introduced\n";
         pdd inv_pdd = s.var(inv);
         m_inverse.setx(v, inv, -1);
         s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
@@ -698,7 +697,6 @@ namespace polysat {
         pdd a_pi = s.pseudo_inv(a);
         //precondition.insert_eval(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
         precondition.insert_eval(~s.parity_at_most(a, a_parity));
-        verbose_stream() << "parity at most: " << ~s.parity_at_most(a, a_parity) << "\n";
 #endif
         
         pdd shift = a;
