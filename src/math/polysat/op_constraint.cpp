@@ -229,10 +229,11 @@ namespace polysat {
      * when r, q are variables.
      */
     clause_ref op_constraint::lemma_lshr(solver& s, assignment const& a) {
+        auto& m = p().manager();
         auto const pv = a.apply_to(p());
         auto const qv = a.apply_to(q());
         auto const rv = a.apply_to(r());
-        unsigned const K = p().manager().power_of_2();
+        unsigned const K = m.power_of_2();
 
         signed_constraint const lshr(this, true);
 
@@ -253,7 +254,7 @@ namespace polysat {
             // q >= k -> r <= 2^{K-k} - 1
             return s.mk_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned()) - 1), true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
-            unsigned const k = qv.val().get_unsigned();
+            unsigned k = qv.val().get_unsigned();
             // q = k  ->  r[i] = p[i+k] for 0 <= i < K - k
             for (unsigned i = 0; i < K - k; ++i) {
                 if (rv.val().get_bit(i) && !pv.val().get_bit(i + k)) {
@@ -265,7 +266,18 @@ namespace polysat {
             }
         }
         else {
+            // forward propagation
             SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            if (qv.is_val() && !rv.is_val()) {
+                const rational& qr = qv.val();
+                if (qr >= m.power_of_2())
+                    return s.mk_clause(~lshr, ~s.ule(m.mk_val(m.power_of_2()), q()), s.eq(r()), true);
+
+                if (rv.is_val()) {
+                    const rational& pr = pv.val();
+                    return s.mk_clause(~lshr, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(machine_div(pr, rational::power_of_two(qr.get_unsigned())))), true);
+                }
+            }
         }
         return {};
     }
@@ -309,10 +321,11 @@ namespace polysat {
      *      q = 0   ->  r = p
      */
     clause_ref op_constraint::lemma_shl(solver& s, assignment const& a) {
+        auto& m = p().manager();
         auto const pv = a.apply_to(p());
         auto const qv = a.apply_to(q());
         auto const rv = a.apply_to(r());
-        unsigned const K = p().manager().power_of_2();
+        unsigned const K = m.power_of_2();
 
         signed_constraint const shl(this, true);
 
@@ -333,7 +346,7 @@ namespace polysat {
             // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
             return s.mk_clause(~shl, ~s.ule(qv.val(), q()), s.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r() - 1), true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
-            unsigned const k = qv.val().get_unsigned();
+            unsigned k = qv.val().get_unsigned();
             // q = k  ->  r[i+k] = p[i] for 0 <= i < K - k
             for (unsigned i = 0; i < K - k; ++i) {
                 if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
@@ -345,7 +358,18 @@ namespace polysat {
             }
         }
         else {
+            // forward propagation
             SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            if (qv.is_val() && !rv.is_val()) {
+                const rational& qr = qv.val();
+                if (qr >= m.power_of_2())
+                    return s.mk_clause(~shl, ~s.ule(m.mk_val(m.power_of_2()), q()), s.eq(r()), true);
+
+                if (rv.is_val()) {
+                    const rational& pr = pv.val();
+                    return s.mk_clause(~shl, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(rational::power_of_two(qr.get_unsigned()) * pr)), true);
+                }
+            }
         }
         return {};
     }
@@ -525,6 +549,12 @@ namespace polysat {
             return s.mk_clause(~andc, s.ule(r(), p()), true);
         if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
             return s.mk_clause(~andc, s.ule(r(), q()), true);
+
+        if (pv.is_val() && qv.is_val() && !rv.is_val()) {
+            const rational& pr = pv.val();
+            const rational& qr = qv.val();
+            return s.mk_clause(~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(bitwise_and(pr, qr))), true);
+        }
         return {};
     }
 
@@ -596,27 +626,39 @@ namespace polysat {
         auto& m = p().manager();
         auto pv = a.apply_to(p());
         auto rv = a.apply_to(r());
-        
-        if (!pv.is_val() || !rv.is_val() || eval_inv(pv, rv) == l_true)
+
+        if (eval_inv(pv, rv) == l_true)
             return {};
-        
-        unsigned parity_pv = pv.val().trailing_zeros();
-        unsigned parity_rv = rv.val().trailing_zeros();
-        
+
         signed_constraint const invc(this, true);
-        
+
         // p = 0 => r = 0
         if (pv.is_zero())
             return s.mk_clause(~invc, ~s.eq(p()), s.eq(r()), true);
         // r = 0 => p = 0
         if (rv.is_zero())
             return s.mk_clause(~invc, ~s.eq(r()), s.eq(p()), true);
+
+        // p assigned => r = pseudo_inverse(eval(p))
+        if (pv.is_val() && !rv.is_val()) {
+            verbose_stream() << "Inverse ---+++ \n";
+            verbose_stream() << "Inverse of " << s.eq(p(), pv) << " = " << s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())) << "\n";
+            return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
+        }
+
+        if (!pv.is_val() || !rv.is_val())
+            return {};
+        
+        unsigned parity_pv = pv.val().trailing_zeros();
+        unsigned parity_rv = rv.val().trailing_zeros();
+
         // odd(r)
         if (parity_rv != 0)
             return s.mk_clause(~invc, s.odd(r()), true);
         // parity(p) >= k && p * r < 2^k => p * r >= 2^k
         // parity(p) < k && p * r >= 2^k => p * r < 2^k
-        rational prod = (p() * r()).val();
+        pdd prod = p() * r();
+        rational prodv = (pv * rv).val();
         SASSERT(prod != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
         unsigned lower = 0, upper = p().power_of_2();
         // binary search for the parity
@@ -626,14 +668,14 @@ namespace polysat {
             if (parity_pv >= middle) {
                 lower = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prod < rational::power_of_two(middle))
-                    return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(p() * r(), rational::power_of_two(middle)), false);
+                if (prodv < rational::power_of_two(middle))
+                    return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle)), false);
             }
             else {
                 upper = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prod >= rational::power_of_two(middle))
-                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ult(p() * r(), rational::power_of_two(middle)), false);
+                if (prodv >= rational::power_of_two(middle))
+                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ult(prod, rational::power_of_two(middle)), false);
             }
         }
         UNREACHABLE();

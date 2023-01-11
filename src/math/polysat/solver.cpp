@@ -1070,12 +1070,14 @@ namespace polysat {
     }
 
     void solver::assign_decision(sat::literal lit) {
+        SASSERT(lit != sat::null_literal);
         m_bvars.decision(lit, m_level);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
     }
 
     void solver::assign_propagate(sat::literal lit, clause& reason) {
+        SASSERT(lit != sat::null_literal);
         m_bvars.propagate(lit, level(lit, reason), reason);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);

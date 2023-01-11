@@ -684,8 +684,7 @@ namespace polysat {
             //return { p, false, {} };
             LOG("Warning: Inverting " << a << " although it is not a single variable - might not be a good idea");
         }
-        
-#if 1
+
         unsigned a_parity;
         if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || saturation.min_parity(a1) < a_parity)
             return { p, false }; // We need the parity of a and this has to be for sure less than the parity of a1
@@ -699,6 +698,7 @@ namespace polysat {
         pdd a_pi = s.pseudo_inv(a);
         //precondition.insert_eval(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
         precondition.insert_eval(~s.parity_at_most(a, a_parity));
+        verbose_stream() << "parity at most: " << ~s.parity_at_most(a, a_parity) << "\n";
 #endif
         
         pdd shift = a;
@@ -716,27 +716,6 @@ namespace polysat {
         LOG("shifted a" << shift);
         LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
         return { a_pi * (-b) * shift + b1, true };
-#else
-        unsigned a_parity;
-        unsigned a1_parity;
-            
-        if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || (a1_parity = saturation.min_parity(a1)) != saturation.max_parity(a1))
-            return { p, false }; // We need the parity, but we failed to get it precisely
-        
-        if (a_parity > a1_parity) {
-            SASSERT(false); // get_multiple should have excluded this case already
-            return { p, false };
-        }
-        
-        auto odd_a = get_odd(a, a_parity, precondition);
-        auto odd_a1 = get_odd(a1, a1_parity, precondition);
-        pdd inv_odd_a = get_inverse(odd_a);
-        
-        LOG("Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * b + b1);
-        verbose_stream() << "Forced elimination: " << odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1 << "\n";
-        verbose_stream() << "From: " << "eliminated v" << x << " with a = " << a << "; -b = " << -b << "; p = " << p << "\n";
-        return { odd_a1 * inv_odd_a * rational::power_of_two(a1_parity - a_parity) * (-b) + b1, true };
-#endif
 #endif
     }
 }

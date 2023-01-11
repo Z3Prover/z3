@@ -453,6 +453,16 @@ namespace polysat {
         return -p - 1;
     }
 
+    static unsigned min_coefficient_power_of_2(const pdd& p) {
+        if (p.is_zero())
+            return 0; // TODO: Or something different?
+
+        unsigned min_power = UINT32_MAX;
+        for (auto& m : p)
+            min_power = std::min(min_power, m.coeff.trailing_zeros());
+        return min_power;
+    }
+
     pdd constraint_manager::mk_op_term(op_constraint::code op, pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
@@ -470,23 +480,34 @@ namespace polysat {
     }
 
     pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
-        if (p.is_val() && q.is_val() && q.val().is_unsigned()) {
-            return p.manager().mk_val(div(p.val(), rational::power_of_two(q.val().get_unsigned())));
+        if (q.is_val()) {
+            if (!q.val().is_unsigned())
+                return p.manager().zero(); // TODO: The number is huge. We will for sure shift out all bits
+            if (p.is_val())
+                return p.manager().mk_val(div(p.val(), rational::power_of_two(q.val().get_unsigned())));
+
+            unsigned common = min_coefficient_power_of_2(p);
+            pdd div = p.manager().zero();
+            for (auto& m : p)
+                div += machine_div(m.coeff, rational::power_of_two(common));
+            return div;
         }
+
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
 
     pdd constraint_manager::shl(pdd const& p, pdd const& q) {
-        if (p.is_val() && q.is_val() && q.val().is_unsigned()) {
-            return p.manager().mk_val(p.val() * rational::power_of_two(q.val().get_unsigned()));
+        if (q.is_val()) {
+            if (!q.val().is_unsigned())
+                return p.manager().zero();
+            return p * rational::power_of_two(q.val().get_unsigned());
         }
         return mk_op_term(op_constraint::code::shl_op, p, q);
     }
 
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
-        if (p.is_val() && q.is_val()) {
+        if (p.is_val() && q.is_val())
             return p.manager().mk_val(bitwise_and(p.val(), q.val()));
-        }
         return mk_op_term(op_constraint::code::and_op, p, q);
     }
 
