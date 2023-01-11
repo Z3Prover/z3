@@ -657,7 +657,7 @@ namespace polysat {
         // parity(p) < k && p * r >= 2^k => p * r < 2^k
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
-        SASSERT(prod != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
+        SASSERT(prodv != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
         unsigned lower = 0, upper = p().power_of_2();
         // binary search for the parity
         while (lower + 1 < upper) {
