@@ -66,15 +66,17 @@ namespace q {
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
         obj_map<quantifier, q_body*>           m_q2body;
-        unsigned                               m_max_cex{ 1 };
-        unsigned                               m_max_quick_check_rounds { 100 };
-        unsigned                               m_max_unbounded_equalities { 10 };
-        unsigned                               m_max_choose_candidates { 10 };
-        unsigned                               m_generation_bound{ UINT_MAX };
-        unsigned                               m_generation_max { UINT_MAX };
-        typedef std::tuple<sat::literal, expr_ref, unsigned> instantiation_t;
+        unsigned                               m_max_cex = 1;
+        unsigned                               m_max_quick_check_rounds = 100;
+        unsigned                               m_max_unbounded_equalities = 10;
+        unsigned                               m_max_choose_candidates = 10;
+        unsigned                               m_generation_bound = UINT_MAX;
+        unsigned                               m_generation_max = UINT_MAX;
+        typedef std::tuple<sat::literal, expr_ref, expr_ref_vector, unsigned> instantiation_t;
         vector<instantiation_t> m_instantiations;
+        vector<mbp::def>        m_defs;
 
+        expr_ref_vector extract_binding(quantifier* q);
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         // void register_value(expr* e);
         expr_ref replace_model_value(expr* e);
@@ -91,6 +93,7 @@ namespace q {
         void extract_free_vars(quantifier* q, q_body& qb);
         void init_model();
         void init_solver();
+        void assert_expr(expr* e);
         mbp::project_plugin* get_plugin(app* var);
         void add_plugin(mbp::project_plugin* p);
         void add_instantiation(quantifier* q, expr_ref& proj);

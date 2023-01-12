@@ -46,6 +46,11 @@ class array_rewriter {
     expr_ref expand_store(expr* s);
 
     bool squash_store(unsigned n, expr* const* args, expr_ref& result);
+    
+    br_status mk_store_core(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_select_core(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_select_same_store(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_map_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
 public:    
     array_rewriter(ast_manager & m, params_ref const & p = params_ref()):
@@ -62,10 +67,6 @@ public:
     static void get_param_descrs(param_descrs & r);
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
-
-    br_status mk_store_core(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_select_core(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_map_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
     void mk_store(unsigned num_args, expr * const * args, expr_ref & result);
     void mk_select(unsigned num_args, expr * const * args, expr_ref & result);

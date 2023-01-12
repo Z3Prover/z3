@@ -1433,6 +1433,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast* t, unsigned* idx, Z3_lbool* phase));
+Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
 
 
 /**
@@ -3762,7 +3763,7 @@ extern "C" {
        If \c s does not contain \c substr, then the value is -1, 
        def_API('Z3_mk_seq_last_index', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast, Z3_ast substr);
+    Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast s, Z3_ast substr);
 
     /**
        \brief Convert string to integer.
@@ -3892,7 +3893,7 @@ extern "C" {
 
        def_API('Z3_mk_re_power', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast, unsigned n);
+    Z3_ast Z3_API Z3_mk_re_power(Z3_context c, Z3_ast re, unsigned n);
 
     /**
        \brief Create the intersection of the regular languages.
@@ -4050,7 +4051,10 @@ extern "C" {
     Z3_pattern Z3_API Z3_mk_pattern(Z3_context c, unsigned num_patterns, Z3_ast const terms[]);
 
     /**
-       \brief Create a bound variable.
+       \brief Create a variable. 
+
+       Variables are intended to be bound by a scope created by a quantifier. So we call them bound variables
+       even if they appear as free variables in the expression produced by \c Z3_mk_bound.
 
        Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
        the meaning of de-Bruijn indices by indicating the compilation process from
@@ -5317,8 +5321,9 @@ extern "C" {
                                 Z3_ast const to[]);
 
     /**
-       \brief Substitute the free variables in \c a with the expressions in \c to.
+       \brief Substitute the variables in \c a with the expressions in \c to.
        For every \c i smaller than \c num_exprs, the variable with de-Bruijn index \c i is replaced with term \ccode{to[i]}.
+       Note that a variable is created using the function \ref Z3_mk_bound. 
 
        def_API('Z3_substitute_vars', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
     */
@@ -5876,7 +5881,7 @@ extern "C" {
        def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
     */
 
-    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str);
 
 
     /** 
@@ -6877,6 +6882,44 @@ extern "C" {
     */
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
+    /**
+       \brief retrieve the congruence closure root of an expression.
+       The root is retrieved relative to the state where the solver was in when it completed.
+       If it completed during a set of case splits, the congruence roots are relative to these case splits.
+       That is, the congruences are not consequences but they are true under the current state.
+
+       def_API('Z3_solver_congruence_root', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_congruence_root(Z3_context c, Z3_solver s, Z3_ast a);
+
+
+    /**
+       \brief retrieve the next expression in the congruence class. The set of congruent siblings form a cyclic list.
+       Repeated calls on the siblings will result in returning to the original expression.
+
+       def_API('Z3_solver_congruence_next', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_congruence_next(Z3_context c, Z3_solver s, Z3_ast a);
+
+
+    /**
+       \brief register a callback to that retrieves assumed, inferred and deleted clauses during search.
+       
+       \param c - context.
+       \param s - solver object.
+       \param user_context - a context used to maintain state for callbacks.
+       \param on_clause_eh - a callback that is invoked by when a clause is 
+                               - asserted to the CDCL engine (corresponding to an input clause after pre-processing)
+                               - inferred by CDCL(T) using either a SAT or theory conflict/propagation
+                               - deleted by the CDCL(T) engine
+
+       def_API('Z3_solver_register_on_clause', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _fnptr(Z3_on_clause_eh)))
+    */
+    void Z3_API Z3_solver_register_on_clause(
+        Z3_context  c, 
+        Z3_solver   s, 
+        void*       user_context,
+        Z3_on_clause_eh on_clause_eh);
 
     /**
        \brief register a user-properator with the solver.
@@ -7006,7 +7049,7 @@ extern "C" {
        def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
     
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

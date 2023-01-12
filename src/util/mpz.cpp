@@ -695,7 +695,7 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
     mpz_stack tmp;
     if (SUB)
         sign_b = -sign_b;
-    size_t real_sz;
+    unsigned real_sz;
     if (ca.sign() == sign_b) {
         unsigned sz  = std::max(ca.cell()->m_size, cb.cell()->m_size)+1;
         allocate_if_needed(tmp, sz);
@@ -703,7 +703,7 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
                           cb.cell()->m_digits, cb.cell()->m_size, 
                           tmp.m_ptr->m_digits, sz, &real_sz);
         SASSERT(real_sz <= sz);
-        set(*tmp.m_ptr, c, ca.sign(), static_cast<unsigned>(real_sz));
+        set(*tmp.m_ptr, c, ca.sign(), real_sz);
     }
     else {
         digit_t borrow;
@@ -1460,9 +1460,11 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
     SASSERT(is_nonneg(a));
-    if (is_small(a) && sz <= 63) {
-        int64_t mask = (static_cast<int64_t>(1) << sz) - static_cast<int64_t>(1);
-        set_i64(c, (~ i64(a)) & mask);
+    if (is_small(a) && sz <= 64) {
+        uint64_t v = ~get_uint64(a);
+        unsigned zero_out = 64 - sz;
+        v = (v << zero_out) >> zero_out;
+        set(c, v);
     }
     else {
         mpz a1, a2, m, tmp;

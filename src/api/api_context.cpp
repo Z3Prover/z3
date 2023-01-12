@@ -51,6 +51,8 @@ namespace api {
     }
 
     void context::del_object(api::object* o) {
+        if (!o)
+            return;
 #ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
             lock_guard lock(m_mux);
@@ -149,11 +151,13 @@ namespace api {
 
 
     context::~context() {
+        if (m_parser)
+            smt2::free_parser(m_parser);
         m_last_obj = nullptr;
         flush_objects();
         for (auto& kv : m_allocated_objects) {
             api::object* val = kv.m_value;
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
+            DEBUG_CODE(if (!m_concurrent_dec_ref) warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
         }
         if (m_params.owns_manager())

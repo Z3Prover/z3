@@ -304,6 +304,20 @@ namespace smt {
             }
             m_instances.push_back(pr1);
         }
+        else if (m_context.clause_proof_active()) {
+            expr_ref_vector bindings_e(m), args(m);
+            arith_util a(m);
+            expr_ref gen(a.mk_int(generation), m);
+            expr* gens[1] = { gen.get() };
+            for (unsigned i = 0; i < num_bindings; ++i) 
+                bindings_e.push_back(bindings[i]->get_expr());
+            args.push_back(q);
+            args.push_back(mk_not(m, instance));
+            args.push_back(m.mk_app(symbol("bind"), num_bindings, bindings_e.data(), m.mk_proof_sort()));
+            args.push_back(m.mk_app(symbol("gen"), 1, gens, m.mk_proof_sort()));
+            pr1 = m.mk_app(symbol("inst"), args.size(), args.data(), m.mk_proof_sort());
+            m_instances.push_back(pr1);            
+        }
         TRACE("qi_queue", tout << mk_pp(lemma, m) << "\n#" << lemma->get_id() << ":=\n" << mk_ll_pp(lemma, m););
         m_stats.m_num_instances++;
         unsigned gen = get_new_gen(q, generation, ent.m_cost);

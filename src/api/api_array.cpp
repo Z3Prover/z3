@@ -294,14 +294,19 @@ extern "C" {
         return Z3_mk_store(c, set, elem, Z3_mk_false(c));
     }
 
+    static bool is_array_sort(Z3_context c, Z3_sort t) {
+        return 
+            to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
+            to_sort(t)->get_decl_kind() == ARRAY_SORT;
+    }
+
     Z3_sort Z3_API Z3_get_array_sort_domain(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_get_array_sort_domain(c, t);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, nullptr);
-        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
-            to_sort(t)->get_decl_kind() == ARRAY_SORT) {
-            Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(0).get_ast());
+        if (is_array_sort(c, t)) {
+            Z3_sort r = of_sort(get_array_domain(to_sort(t), 0));
             RETURN_Z3(r);
         }
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -314,10 +319,8 @@ extern "C" {
         LOG_Z3_get_array_sort_domain_n(c, t, idx);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, nullptr);
-        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
-            to_sort(t)->get_decl_kind() == ARRAY_SORT &&
-            get_array_arity(to_sort(t)) > idx) {
-            Z3_sort r = reinterpret_cast<Z3_sort>(get_array_domain(to_sort(t), idx));
+        if (is_array_sort(c, t) && get_array_arity(to_sort(t)) > idx) {
+            Z3_sort r = of_sort(get_array_domain(to_sort(t), idx));
             RETURN_Z3(r);
         }
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -330,10 +333,8 @@ extern "C" {
         LOG_Z3_get_array_sort_range(c, t);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, nullptr);
-        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
-            to_sort(t)->get_decl_kind() == ARRAY_SORT) {
-            unsigned n = to_sort(t)->get_num_parameters();
-            Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(n-1).get_ast());
+        if (is_array_sort(c, t)) {
+            Z3_sort r = of_sort(get_array_range(to_sort(t)));
             RETURN_Z3(r);
         }
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);

@@ -46,11 +46,13 @@ namespace euf {
         m_trail(),
         m_rewriter(m),
         m_unhandled_functions(m),
-        m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_values(m),
-        m_clause_visitor(m)
+        m_clause_visitor(m),
+        m_smt_proof_checker(m, p),
+        m_clause(m),       
+        m_expr_args(m),
+        m_values(m)
     {
         updt_params(p);
         m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
@@ -72,6 +74,7 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
+        use_drat();
     }
 
     /**
@@ -146,8 +149,6 @@ namespace euf {
 
     void solver::add_solver(th_solver* th) {
         family_id fid = th->get_id();
-        if (use_drat())
-            s().get_drat().add_theory(fid, th->name());
         th->set_solver(m_solver);
         th->push_scopes(s().num_scopes() + s().num_user_scopes());
         m_solvers.push_back(th);
@@ -166,8 +167,9 @@ namespace euf {
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
     }
 
-    void solver::init_search() {
+    void solver::init_search() {        
         TRACE("before_search", s().display(tout););
+        m_reason_unknown.clear();
         for (auto* s : m_solvers)
             s->init_search();
     }
@@ -198,14 +200,42 @@ namespace euf {
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
+    /**
+    Retrieve set of literals r that imply r.
+    Since the set of literals are retrieved modulo multiple theories in a single implication
+    we lose theory specific justifications. For proof logging we use a catch all rule "smt"
+    for the case where an equality is derived using more than congruence closure.
+    To create fully decomposed justifications it will be necessary to augment the justification
+    data-structure with information about the equality that is implied by the theory.
+    Then each justification will imply an equality s = t assuming literals 'r'.
+    The theory lemma is then r -> s = t, where s = t is an equality that is available for the EUF hint.
+    The EUF hint is resolved against r -> s = t to eliminate s = t and to create the resulting explanation.
+
+    Example:
+            x - 3 = 0 => x = 3 by arithmetic
+            x = 3 => f(x) = f(3) by EUF
+            resolve to produce clause x - 3 = 0 => f(x) = f(3)
+
+    The last argument to get_assumptions is a place-holder to retrieve a justification of a propagation.
+    Theory solver would have to populate this hint and the combined hint would have to be composed from the
+    sub-hints.
+    */
+
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
+        if (use_drat() && !probing) {
+            push(restore_vector(m_explain_cc));
+        }
         auto* ext = sat::constraint_base::to_extension(idx);
+        th_proof_hint* hint = nullptr;
+        bool has_theory = false;
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
-        else
+        else {
             ext->get_antecedents(l, idx, r, probing);
+            has_theory = true;
+        }
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
             size_t* e = m_explain[qhead];
             if (is_literal(e)) 
@@ -216,36 +246,41 @@ namespace euf {
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
+                has_theory = true;
             }
         }
         m_egraph.end_explain();  
+        if (use_drat() && !probing)         
+            hint = mk_hint(has_theory ? m_smt : m_euf, l, r);
+        
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;
         r.shrink(j);
-        TRACE("euf", tout << "explain " << l << " <- " << r << " " << probing << "\n";);
+        CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
         if (!probing)
-            log_antecedents(l, r);
+            log_antecedents(l, r, hint);
     }
 
     void solver::get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
         for (auto lit : euf::th_explain::lits(jst))
             r.push_back(lit);
         for (auto eq : euf::th_explain::eqs(jst))
-            add_antecedent(eq.first, eq.second);
-
+            add_antecedent(probing, eq.first, eq.second);
+        
         if (!probing && use_drat()) 
             log_justification(l, jst);
     }
 
-    void solver::add_antecedent(enode* a, enode* b) {
-        m_egraph.explain_eq<size_t>(m_explain, a, b);
+    void solver::add_antecedent(bool probing, enode* a, enode* b) {
+        cc_justification* cc = (!probing && use_drat()) ? &m_explain_cc : nullptr;
+        m_egraph.explain_eq<size_t>(m_explain, cc, a, b);
     }
 
-    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b) {
-        sat::bool_var v = get_egraph().explain_diseq(ex, a, b);
+    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b) {
+        sat::bool_var v = get_egraph().explain_diseq(ex, cc, a, b);
         SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
         if (v != sat::null_bool_var) 
             ex.push_back(to_ptr(sat::literal(v, true)));
@@ -261,14 +296,17 @@ namespace euf {
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
         expr* e = nullptr;
         euf::enode* n = nullptr;
+        cc_justification* cc = nullptr;
 
         if (!probing && !m_drating)
             init_ackerman();
-
+        if (!probing && use_drat())
+            cc = &m_explain_cc;
+        
         switch (j.kind()) {
         case constraint::kind_t::conflict:
             SASSERT(m_egraph.inconsistent());
-            m_egraph.explain<size_t>(m_explain);
+            m_egraph.explain<size_t>(m_explain, cc);
             break;
         case constraint::kind_t::eq:
             e = m_bool_var2expr[l.var()];
@@ -276,15 +314,25 @@ namespace euf {
             SASSERT(n);
             SASSERT(n->is_equality());
             SASSERT(!l.sign());
-            m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
+            m_egraph.explain_eq<size_t>(m_explain, cc, n->get_arg(0), n->get_arg(1));
             break;
-        case constraint::kind_t::lit:
+        case constraint::kind_t::lit: {
             e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
+            enode* ante = j.node();
             SASSERT(n);
             SASSERT(m.is_bool(n->get_expr()));
-            m_egraph.explain_eq<size_t>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
+            SASSERT(ante->get_root() == n->get_root());
+            m_egraph.explain_eq<size_t>(m_explain, cc, n, ante);
+            if (!m.is_true(ante->get_expr()) && !m.is_false(ante->get_expr())) {
+                bool_var v = ante->bool_var();
+                lbool val = ante->value();
+                SASSERT(val != l_undef);
+                literal ante(v, val == l_false);
+                m_explain.push_back(to_ptr(ante));
+            }
             break;
+        }
         default:
             IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
             UNREACHABLE();
@@ -297,11 +345,9 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-
         m_relevancy.asserted(l);
         if (!m_relevancy.is_relevant(l))
             return;        
-
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
@@ -309,24 +355,31 @@ namespace euf {
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
-        bool sign = l.sign();   
-        m_egraph.set_value(n, sign ? l_false : l_true, justification::external(to_ptr(l)));
+        bool sign = l.sign();
+        lbool old_value = n->value();
+        lbool new_value = sign ? l_false : l_true;
+        m_egraph.set_value(n, new_value, justification::external(to_ptr(l)));
+        if (old_value == l_undef && n->cgc_enabled()) {
+            for (enode* k : enode_class(n)) {
+                if (k->bool_var() == sat::null_bool_var)
+                    continue;
+                if (k->value() == new_value)
+                    continue;
+                literal litk(k->bool_var(), sign);
+                if (s().value(litk) == l_true)
+                    continue;
+                auto& c = lit_constraint(n);
+                propagate(litk, c.to_index());
+                if (s().value(litk) == l_false)
+                    return;
+            }
+        }
         for (auto const& th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
 
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-        if (n->value_conflict()) {
-            euf::enode* nb = sign ? mk_false() : mk_true();
-            euf::enode* r = n->get_root();
-            euf::enode* rb = sign ? mk_true() : mk_false();
-            sat::literal rl(r->bool_var(), r->value() == l_false);
-            m_egraph.merge(n, nb, c);
-            m_egraph.merge(r, rb, to_ptr(rl));
-            SASSERT(m_egraph.inconsistent());
-            return;
-	    }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
@@ -338,8 +391,16 @@ namespace euf {
                 m_egraph.new_diseq(n);
             else                 
                 m_egraph.merge(n->get_arg(0), n->get_arg(1), c);            
-        }    
+        }
     }
+
+    constraint& solver::lit_constraint(enode* n) {
+        void* mem = get_region().allocate(sat::constraint_base::obj_size(sizeof(constraint)));
+        auto* c = new (sat::constraint_base::ptr2mem(mem)) constraint(n);
+        sat::constraint_base::initialize(mem, this);
+        return *c;
+    }
+
 
 
     bool solver::unit_propagate() {
@@ -376,37 +437,44 @@ namespace euf {
 
     void solver::propagate_literals() {
         for (; m_egraph.has_literal() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_literal()) {
-            auto [n, is_eq] = m_egraph.get_literal();
+            auto [n, ante] = m_egraph.get_literal();
             expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
             bool_var v = n->bool_var();
             SASSERT(m.is_bool(e));
             size_t cnstr;
-            literal lit;  
-            if (is_eq) {
+            literal lit;
+            if (!ante) {
                 VERIFY(m.is_eq(e, a, b));
                 cnstr = eq_constraint().to_index();
                 lit = literal(v, false);
             }
             else {
-                lbool val = n->get_root()->value();
-                if (val == l_undef && m.is_false(n->get_root()->get_expr()))
-                    val = l_false;
-                if (val == l_undef && m.is_true(n->get_root()->get_expr()))
-                    val = l_true;
-                a = e;
-                b = (val == l_true) ? m.mk_true() : m.mk_false();
-                SASSERT(val != l_undef);
-                cnstr = lit_constraint().to_index();
+                //
+                // There are the following three cases for propagation of literals
+                // 
+                // 1. n == ante is true from equallity, ante = true/false
+                // 2. n == ante is true from equality, value(ante) != l_undef
+                // 3. value(n) != l_undef, ante = true/false, merge_tf is set on n
+                //
+                lbool val = ante->value();
+                if (val == l_undef) {
+                    SASSERT(m.is_value(ante->get_expr()));
+                    val = m.is_true(ante->get_expr()) ? l_true : l_false;
+                }
+                auto& c = lit_constraint(ante);
+                cnstr = c.to_index();
                 lit = literal(v, val == l_false);
             }
             unsigned lvl = s().scope_lvl();
 
-            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << is_eq << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
-            if (s().value(lit) == l_false && m_ackerman) 
+            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
+            if (s().value(lit) == l_false && m_ackerman && a && b) 
                 m_ackerman->cg_conflict_eh(a, b);
             switch (s().value(lit)) {
             case l_true:
+                if (n->merge_tf() && !m.is_value(n->get_root()->get_expr())) 
+                    m_egraph.merge(n, ante, to_ptr(lit));
                 break;
             case l_undef:
             case l_false:
@@ -422,7 +490,7 @@ namespace euf {
         
         m_egraph.begin_explain();
         m_explain.reset();
-        m_egraph.explain_eq<size_t>(m_explain, e.child(), e.root());
+        m_egraph.explain_eq<size_t>(m_explain, nullptr, e.child(), e.root());
         m_egraph.end_explain();
         if (m_egraph.uses_congruence())
             return false;
@@ -472,6 +540,7 @@ namespace euf {
     sat::check_result solver::check() { 
         ++m_stats.m_final_checks;
         TRACE("euf", s().display(tout););
+        TRACE("final_check", s().display(tout););
         bool give_up = false;
         bool cont = false;
 
@@ -482,15 +551,18 @@ namespace euf {
         auto apply_solver = [&](th_solver* e) {
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
-            case sat::check_result::CR_GIVEUP: give_up = true; break;
+            case sat::check_result::CR_GIVEUP: m_reason_unknown = "incomplete theory " + e->name().str(); TRACE("euf", tout << "give up " << e->name() << "\n"); give_up = true; break;
             default: break;
             }
         };
         if (merge_shared_bools())
             cont = true;
-        for (auto* e : m_solvers) {
-            if (!m.inc())
+        for (unsigned i = 0; i < m_solvers.size(); ++i) {
+            auto* e = m_solvers[i];
+            if (!m.inc()) {
+                m_reason_unknown = "canceled";
                 return sat::check_result::CR_GIVEUP;
+            }
             if (e == m_qsolver)
                 continue;
             apply_solver(e);
@@ -503,7 +575,7 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         if (cont)
             return sat::check_result::CR_CONTINUE;
-        if (m_qsolver)
+        if (m_qsolver && !m_config.m_arith_ignore_int)
             apply_solver(m_qsolver);
         if (num_nodes < m_egraph.num_nodes()) 
             return sat::check_result::CR_CONTINUE;
@@ -511,7 +583,9 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         TRACE("after_search", s().display(tout););
         if (give_up)
-            return sat::check_result::CR_GIVEUP;
+            return sat::check_result::CR_GIVEUP;  
+        if (m_qsolver && m_config.m_arith_ignore_int)
+            return sat::check_result::CR_GIVEUP;            
         return sat::check_result::CR_DONE;
     }
 
@@ -521,15 +595,18 @@ namespace euf {
             euf::enode* n = m_egraph.nodes()[i];
             if (!m.is_bool(n->get_expr()) || !is_shared(n))
                 continue;
-            if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
+            if (n->value() == l_true && n->cgc_enabled() && !m.is_true(n->get_root()->get_expr())) {
+                TRACE("euf", tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
                 merged = true;                    
             }
-            if (n->value() == l_false && !m.is_false(n->get_root()->get_expr())) {
+            if (n->value() == l_false && n->cgc_enabled() && !m.is_false(n->get_root()->get_expr())) {
+                TRACE("euf", tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
                 merged = true;
             }
         }
+        CTRACE("euf", merged, tout << "shared bools merged\n");
         return merged;
     }
 
@@ -606,26 +683,32 @@ namespace euf {
         for (auto const& [e, generation, v] : m_reinit) 
             replay.m.insert(e, v);
     
-        TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
+        TRACE("euf", for (auto const& kv : replay.m) tout << "b" << kv.m_value << "\n";);
         for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
-            TRACE("euf", tout << "replay: " << v << " " << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
+            TRACE("euf", tout << "replay: b" << v << " #" << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
             sat::literal lit;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
             else 
-                lit = si.internalize(e, false);
+                lit = si.internalize(e);
             VERIFY(lit.var() == v);     
-            if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
+            if (!m_egraph.find(e) && !m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e) && !m.is_implies(e) && !m.is_xor(e)) {
                 ptr_buffer<euf::enode> args;
                 if (is_app(e))
                     for (expr* arg : *to_app(e))
                         args.push_back(e_internalize(arg));
+                internalize(e);
                 if (!m_egraph.find(e))
                     mk_enode(e, args.size(), args.data());
             }
-            attach_lit(lit, e);            
+            else 
+                attach_lit(lit, e);            
         }
+
+        for (auto const& [e, v] : replay.m)
+            if (si.is_bool_op(e) && !si.is_cached(to_app(e), sat::literal(v, false)))
+               si.cache(to_app(e), sat::literal(v, false));
         
         if (relevancy_enabled())
             for (auto const& [e, generation, v] : m_reinit)
@@ -645,10 +728,10 @@ namespace euf {
             disable_relevancy(e);
             return;
         }
-        auto lit = si.internalize(e, true);
+        auto lit = si.internalize(e);
         switch (to_app(e)->get_decl_kind()) {
         case OP_NOT: {
-            auto lit2 = si.internalize(to_app(e)->get_arg(0), true);
+            auto lit2 = si.internalize(to_app(e)->get_arg(0));
             add_aux(lit, lit2);
             add_aux(~lit, ~lit2);
             break;
@@ -658,8 +741,8 @@ namespace euf {
                 disable_relevancy(e);
                 return;
             }
-            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
-            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            auto lit1 = si.internalize(to_app(e)->get_arg(0));
+            auto lit2 = si.internalize(to_app(e)->get_arg(1));
             add_aux(~lit, ~lit1, lit2);
             add_aux(~lit, lit1, ~lit2);
             add_aux(lit, lit1, lit2);
@@ -669,7 +752,7 @@ namespace euf {
         case OP_OR: {
             sat::literal_vector lits;
             for (expr* arg : *to_app(e))
-                lits.push_back(si.internalize(arg, true));
+                lits.push_back(si.internalize(arg));
             for (auto lit2 : lits)
                 add_aux(~lit2, lit);
             lits.push_back(~lit);
@@ -679,7 +762,7 @@ namespace euf {
         case OP_AND: {
             sat::literal_vector lits;
             for (expr* arg : *to_app(e))
-                lits.push_back(~si.internalize(arg, true));
+                lits.push_back(~si.internalize(arg));
             for (auto nlit2 : lits)
                 add_aux(~lit, ~nlit2);
             lits.push_back(lit);
@@ -693,9 +776,9 @@ namespace euf {
             add_aux(~lit);
             break;
         case OP_ITE: {
-            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
-            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
-            auto lit3 = si.internalize(to_app(e)->get_arg(2), true);
+            auto lit1 = si.internalize(to_app(e)->get_arg(0));
+            auto lit2 = si.internalize(to_app(e)->get_arg(1));
+            auto lit3 = si.internalize(to_app(e)->get_arg(2));
             add_aux(~lit, ~lit1, lit2);
             add_aux(~lit, lit1, lit3);
             add_aux(lit, ~lit1, ~lit2);
@@ -707,8 +790,8 @@ namespace euf {
                 disable_relevancy(e);
                 break;
             }
-            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
-            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            auto lit1 = si.internalize(to_app(e)->get_arg(0));
+            auto lit2 = si.internalize(to_app(e)->get_arg(1));
             add_aux(lit, ~lit1, lit2);
             add_aux(lit, lit1, ~lit2);
             add_aux(~lit, lit1, lit2);
@@ -720,8 +803,8 @@ namespace euf {
                 disable_relevancy(e);
                 break;
             }
-            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
-            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            auto lit1 = si.internalize(to_app(e)->get_arg(0));
+            auto lit2 = si.internalize(to_app(e)->get_arg(1));
             add_aux(~lit, ~lit1, lit2);
             add_aux(lit, lit1);
             add_aux(lit, ~lit2);
@@ -844,7 +927,7 @@ namespace euf {
         if (m.is_eq(e) && !m.is_iff(e))
             ok = false;
         euf::enode* n = get_enode(e);
-        if (n && n->merge_enabled())
+        if (n && n->cgc_enabled())
             ok = false;
         
         (void)ok;
@@ -863,7 +946,13 @@ namespace euf {
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
             expr* e = m_bool_var2expr[v];
-            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
+            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1);
+            euf::enode* n = m_egraph.find(e);
+            if (n) {
+                for (auto const& th : enode_th_vars(n))
+                    out << " " << m_id2solver[th.get_id()]->name();
+            }
+            out << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);
@@ -887,7 +976,7 @@ namespace euf {
             case constraint::kind_t::eq:
                 return out << "euf equality propagation";
             case constraint::kind_t::lit:
-                return out << "euf literal propagation";
+                return out << "euf literal propagation " << m_egraph.bpp(c.node()) ;                
             default:
                 UNREACHABLE();
                 return out;
@@ -909,6 +998,7 @@ namespace euf {
         m_egraph.collect_statistics(st);
         for (auto* e : m_solvers)
             e->collect_statistics(st);
+        m_smt_proof_checker.collect_statistics(st);
         st.update("euf ackerman", m_stats.m_ackerman);
         st.update("euf final check", m_stats.m_final_checks);
     }
@@ -1058,6 +1148,14 @@ namespace euf {
             if (!e->extract_pb(card, pb))
                 return false;
         return true;
+    }
+
+    void solver::register_on_clause(
+        void* ctx,
+        user_propagator::on_clause_eh_t& on_clause) {
+        m_on_clause_ctx = ctx;
+        m_on_clause = on_clause;
+        init_proof();
     }
 
     void solver::user_propagate_init(

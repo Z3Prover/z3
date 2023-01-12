@@ -18,7 +18,7 @@ Notes:
 --*/
 #pragma once
 
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 
 model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits);
 model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits);

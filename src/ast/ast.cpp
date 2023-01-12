@@ -856,11 +856,11 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
-    case PR_ASSUMPTION_ADD:               return mk_proof_decl("add-assume", k, num_parents, m_assumption_add_decl);
-    case PR_LEMMA_ADD:                    return mk_proof_decl("add-lemma", k, num_parents, m_lemma_add_decl);
-    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("add-th-assume", k, num_parents, m_th_assumption_add_decl);
-    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("add-th-lemma", k, num_parents, m_th_lemma_add_decl);
-    case PR_REDUNDANT_DEL:                return mk_proof_decl("del-redundant", k, num_parents, m_redundant_del_decl);
+    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
+    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
+    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decl);
+    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decl);
+    case PR_REDUNDANT_DEL:                return mk_proof_decl("del", k, num_parents, m_redundant_del_decl);
     case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
     default:
         UNREACHABLE();
@@ -1969,6 +1969,14 @@ app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, 
     return mk_app(fid, k, 0, nullptr, 3, args);
 }
 
+app * ast_manager::mk_app(symbol const& name, unsigned n, expr* const* args, sort* range) {
+    ptr_buffer<sort> sorts;
+    for (unsigned i = 0; i < n; ++i)
+        sorts.push_back(args[i]->get_sort());
+    return mk_app(mk_func_decl(name, n, sorts.data(), range), n, args);
+}
+
+
 sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     unsigned sz      = sort::get_obj_size();
     void * mem       = allocate_node(sz);
@@ -2242,7 +2250,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     if (type_error) {
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
-               << ") passed to function " << mk_pp(decl, *this);
+               << ") passed to function " << mk_pp(decl, *this) << " ";
+        for (unsigned i = 0; i < num_args; ++i)
+            buffer << "\narg: " << mk_pp(args[i], *this) << "\n";
         throw ast_exception(std::move(buffer).str());
     }
     app * r = nullptr;
@@ -3027,11 +3037,23 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
             found_complement = true;
         }
     }
+    // patch to deal with lambdas introduced during search.
+    // lambdas can occur in terms both internalized and in raw form.
+    if (!found_complement && !is_or(f1) && num_proofs == 2) {
+        args.push_back(proofs[0]);
+        args.push_back(proofs[1]);
+        args.push_back(mk_false());
+        found_complement = true;
+    }
+
     if (!found_complement) {
         args.append(num_proofs, (expr**)proofs);
         CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
                for (unsigned i = 1; i < num_proofs; ++i)
                    tout << mk_pp(proofs[i], *this) << "\n";
+               tout << "facts\n";
+               for (unsigned i = 0; i < num_proofs; ++i)
+                   tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
                );
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;

@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.11.1.0 LANGUAGES CXX)
+project(Z3 VERSION 4.12.0.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -304,6 +304,7 @@ endif()
 # Option to control what type of library we build
 ################################################################################
 option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
 
 
 ################################################################################

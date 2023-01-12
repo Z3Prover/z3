@@ -1,0 +1,25 @@
+z3_add_component(simplifiers
+  SOURCES
+    bit_blaster.cpp
+    bound_manager.cpp
+    bv_slice.cpp
+    card2bv.cpp
+    demodulator_simplifier.cpp
+    dependent_expr_state.cpp
+    distribute_forall.cpp
+    elim_unconstrained.cpp
+    eliminate_predicates.cpp
+    euf_completion.cpp
+    extract_eqs.cpp
+    max_bv_sharing.cpp
+    model_reconstruction_trail.cpp
+    propagate_values.cpp
+    solve_context_eqs.cpp
+    solve_eqs.cpp
+  COMPONENT_DEPENDENCIES
+    euf
+    rewriter
+    bit_blaster
+    normal_forms
+    substitution
+)

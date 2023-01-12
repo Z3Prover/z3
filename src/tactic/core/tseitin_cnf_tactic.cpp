@@ -5,54 +5,19 @@ Module Name:
 
     tseitin_cnf_tactic.cpp
 
-Abstract:
-
-    Puts an assertion set in CNF.
-    Auxiliary variables are used to avoid blowup.
-
-    Features:
-    
-    - Efficient encoding is used for commonly used patterns such as:
-       (iff a (iff b c))
-       (or (not (or a b)) (not (or a c)) (not (or b c)))
-
-    - Efficient encoding is used for chains of if-then-elses 
-
-    - Distributivity is applied to non-shared nodes if the blowup is acceptable.
-    
-    - The features above can be disabled/enabled using parameters.
-
-    - The assertion-set is only modified if the resultant set of clauses
-    is "acceptable".
-
-    Notes: 
-    
-    - Term-if-then-else expressions are not handled by this strategy.
-    This kind of expression should be processed by other strategies.
-
-    - Quantifiers are treated as "theory" atoms. They are viewed
-    as propositional variables by this strategy.
-    
-    - The assertion set may contain free variables. 
-
-    - This strategy assumes the assertion_set_rewriter was
-    used before invoking it.
-    In particular, it is more effective when "and" operators
-    were eliminated.
-
-    TODO: add proof production
-
 Author:
 
     Leonardo (leonardo) 2011-12-29
 
 Notes:
 
+    TODO: add proof production
+
 --*/
 #include "ast/ast_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
 
@@ -116,7 +81,7 @@ class tseitin_cnf_tactic : public tactic {
             m_rw(_m),
             m_num_aux_vars(0) {
             updt_params(p);
-            m_rw.set_flat(false);
+            m_rw.set_flat_and_or(false);
         }
         
         void updt_params(params_ref const & p) {

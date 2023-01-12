@@ -51,7 +51,7 @@ struct tactic_report::imp {
                    << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
                    << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
                    << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                   << ")" << std::endl);
+                   << ")\n");
         IF_VERBOSE(20, m_goal.display(verbose_stream() << m_id << "\n"));
         SASSERT(m_goal.is_well_formed());
     }
@@ -71,9 +71,21 @@ tactic_report::~tactic_report() {
 
 void report_tactic_progress(char const * id, unsigned val) {
     if (val > 0) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")" << std::endl;);
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")\n");        
     }
 }
+
+statistics_report::~statistics_report() {
+    statistics st;
+    if (m_tactic)
+        m_tactic->collect_statistics(st);
+    else if (m_collector)
+        m_collector(st);
+    if (st.size() == 0)
+        return;
+    IF_VERBOSE(TACTIC_VERBOSITY_LVL, st.display_smt2(verbose_stream()));
+}
+
 
 void skip_tactic::operator()(goal_ref const & in, goal_ref_buffer& result) {
     result.push_back(in.get());
@@ -154,7 +166,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
         t.cleanup();
     }
     catch (tactic_exception & ex) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.msg()) << "\")" << std::endl;);
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.msg()) << "\")\n");
         t.cleanup();
         throw ex;
     }
@@ -184,8 +196,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     if (r.size() > 0) {
         pr = r[0]->pr(0);
         CTRACE("tactic", pr, tout << pr << "\n";);
-    }
-    
+    }    
 
     if (is_decided_sat(r)) {
         model_converter_ref mc = r[0]->mc();            
@@ -217,7 +228,9 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
             if (mc)
                 (*mc)(labels);
         }
-        reason_unknown = "incomplete";
+        reason_unknown = get_reason_unknown(r);
+        if (reason_unknown.empty())
+            reason_unknown = "unknown";
         return l_undef;
     }
 }

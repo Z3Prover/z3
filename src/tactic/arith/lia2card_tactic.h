@@ -5,16 +5,38 @@ Module Name:
 
     lia2card_tactic.h
 
-Abstract:
-
-    Extract 0-1 integer variables used in 
-    cardinality constraints and replace them by Booleans.
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2013-11-5
 
-Notes:
+Tactic Documentation:
+
+## Tactic lia2card
+
+### Short Description
+
+Extract 0-1 integer variables used in 
+cardinality and pseudo-Boolean constraints and replace them by Booleans.
+
+### Example
+
+```z3
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(assert (<= 0 x))
+(assert (<= 0 y))
+(assert (<= 0 z))
+(assert (>= 1 x))
+(assert (>= 1 y))
+(assert (>= 1 z))
+(assert (>= (+ (* 5 x) (* -2 z) (* 3 y) 1) 4))
+(apply lia2card)
+```
+
+### Notes
+
+* The tactic does not (properly) support proofs or cores.
 
 --*/
 #pragma once

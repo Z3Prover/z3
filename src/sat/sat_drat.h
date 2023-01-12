@@ -17,39 +17,6 @@ Notes:
 
     For DIMACS input it produces DRAT proofs.
 
-    For SMT extensions are as follows:
-
-    Input assertion:
-      i <literal>* 0
-
-    Assertion (true modulo a theory):
-      a [<theory-id>] <literal>* 0
-    The if no theory id is given, the assertion is a tautology
-    modulo Tseitin converison. Theory ids track whether the
-    tautology is modulo a theory.
-    Assertions are irredundant.
-
-    Bridge from ast-node to boolean variable:
-      b <bool-var-id> <ast-node-id> 0
-
-    Definition of an expression (ast-node):
-      e <ast-node-id> <name> <ast-node-id>* 0
-
-    Redundant clause (theory lemma if theory id is given)
-      [r [<theory-id>]] <literal>* 0
-
-    Declaration of an auxiliary function:
-      f <smtlib2-function-declaration> 0
-
-    Garbage collection of a Boolean variable:
-      g <bool-var-id> 0
-
-    Available theories are:
-      - euf   The theory lemma should be a consequence of congruence closure.
-      - ba    TBD (need to also log cardinality and pb constraints)
-
-    Life times of theory lemmas is TBD. When they are used for conflict resolution
-    they are only used for the next lemma.
 
 --*/
 #pragma once
@@ -89,7 +56,6 @@ namespace sat {
         svector<std::pair<literal, clause*>> m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
-        vector<std::string>     m_theory;
         bool                    m_inconsistent = false;
         bool                    m_check_unsat = false;
         bool                    m_check_sat = false;
@@ -135,7 +101,6 @@ namespace sat {
 
         void updt_config();
 
-        void add_theory(int id, symbol const& s) { m_theory.setx(id, s.str(), std::string()); }
         void add();
         void add(literal l, bool learned);
         void add(literal l1, literal l2, status st);

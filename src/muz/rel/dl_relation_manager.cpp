@@ -1149,7 +1149,7 @@ namespace datalog {
         }
 
         void modify_fact(table_fact & f) const override {
-            permutate_by_cycle(f, m_cycle);
+            permute_by_cycle(f, m_cycle);
         }
 
         table_base * operator()(const table_base & t) override {

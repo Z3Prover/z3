@@ -47,7 +47,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_params.hpp"
 #include "tactic/tactic_exception.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
@@ -604,6 +604,8 @@ void cmd_context::global_params_updated() {
     if (m_opt) {
         get_opt()->updt_params(gparams::get_module("opt"));
     }
+    if (m_proof_cmds)
+        m_proof_cmds->updt_params(gparams::get_module("solver"));
 }
 
 void cmd_context::set_produce_models(bool f) {
@@ -619,10 +621,15 @@ void cmd_context::set_produce_unsat_cores(bool f) {
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    SASSERT(!has_assertions() || m_params.m_proof == f);
-    if (has_manager()) 
-        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
+    if (m_params.m_proof == f)
+        return;
+    SASSERT(!has_assertions());
     m_params.m_proof = f;
+    if (has_manager()) {
+        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
+        if (m_solver_factory)
+            mk_solver();
+    }
 }
 
 
@@ -1078,7 +1085,12 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
         return f;
     }
-    throw cmd_exception("invalid function declaration reference, unknown function ", s);
+    if (num_indices > 0 && m_func_decls.find(s, fs)) 
+        f = fs.find(m(), arity, domain, range);
+    if (f) 
+        return f;
+
+    throw cmd_exception("invalid function declaration reference, unknown indexed function ", s);
 }
 
 psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
@@ -1127,12 +1139,10 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         fid = d2.m_fid;
         k   = d2.m_decl;
     }
-    if (num_indices == 0) {
-        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-    }
-    else {
-        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-    }
+    if (num_indices == 0) 
+        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    
+    else 
+        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);    
     CHECK_SORT(result.get());
     return nullptr != result.get();
 }

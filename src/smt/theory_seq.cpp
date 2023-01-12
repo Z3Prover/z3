@@ -304,6 +304,7 @@ void theory_seq::init() {
     m_ax.add_axiom5 = add_ax;
     m_ax.mk_eq_empty2 = mk_eq_emp;
     m_arith_value.init(&ctx);
+    m_max_unfolding_depth = ctx.get_fparams().m_seq_min_unfolding;
 }
 
 #define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(20, verbose_stream() << s << "\n"); }
@@ -416,6 +417,10 @@ final_check_status theory_seq::final_check_eh() {
     if (check_fixed_length(false, true)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (solve_recfuns()) {
+        TRACEFIN("solve_recfun");
         return FC_CONTINUE;
     }
     if (m_unhandled_expr) {
@@ -642,11 +647,9 @@ bool theory_seq::check_extensionality() {
   \brief check negated contains constraints.
  */
 bool theory_seq::check_contains() {
-    for (unsigned i = 0; !ctx.inconsistent() && i < m_ncs.size(); ++i) {
-        if (solve_nc(i)) {
+    for (unsigned i = 0; !ctx.inconsistent() && i < m_ncs.size(); ++i) 
+        if (solve_nc(i)) 
             m_ncs.erase_and_swap(i--);
-        }
-    }
     return m_new_propagation || ctx.inconsistent();
 }
 
@@ -809,9 +812,9 @@ void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const
 }
 
 bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
-    if (n1->get_root() == n2->get_root()) {
+    if (n1->get_root() == n2->get_root()) 
         return false;
-    }
+
     literal_vector lits;
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
@@ -985,9 +988,8 @@ bool theory_seq::is_var(expr* a) const {
 
 
 bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
-    if (l == r) {
+    if (l == r) 
         return false;
-    }
     m_new_solution = true;
     m_rep.update(l, r, deps);
     enode* n1 = ensure_enode(l);
@@ -1000,11 +1002,11 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
 }
 
 bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
-    unsigned idx;
-    expr* s;
-    if (m_util.str.is_empty(l)) {
+    if (m_util.str.is_empty(l)) 
         std::swap(l, r);
-    }
+
+    unsigned idx;
+    expr* s = nullptr;
     rational hi;
     if (m_sk.is_tail_u(l, s, idx) && has_length(s) && m_util.str.is_empty(r) && !upper_bound(s, hi)) {
         propagate_lit(deps, 0, nullptr, m_ax.mk_le(mk_len(s), idx+1));
@@ -1240,12 +1242,31 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
     return false;    
 }
 
-
+/**
+ * solve for fold/map (recursive function that depends on a sequence)
+ * Assumption: the Seq argument of fold/map expands into a concatentation of units
+ * The assumption is enforced by tracking the length of the seq argument.
+ * This is ensured in relevant_eh.
+ * Under the assumption, evern occurrence of fold/map gets simplified by expanding
+ * arguments.
+*/
+bool theory_seq::solve_recfuns() {
+    for (unsigned i = 0; i < m_recfuns.size() && !ctx.inconsistent(); ++i) {
+        expr* t = m_recfuns[i];
+        dependency* dep = nullptr;
+        expr_ref r(m);
+        if (canonize(t, dep, r) && r != t) {
+            add_solution(t, r, dep);
+            m_recfuns.erase_and_swap(i--);
+        }
+    }
+    return m_new_propagation || ctx.inconsistent();
+}
 
 
 bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
-    literal len_gt = n.len_gt();
+    literal len_gt = n.len_gt(); 
     expr_ref c(m);
     expr* a = nullptr, *b = nullptr;
     VERIFY(m_util.str.is_contains(n.contains(), a, b));
@@ -1263,10 +1284,12 @@ bool theory_seq::solve_nc(unsigned idx) {
         m_new_propagation = true;
         return false;
     case l_false: 
-        break;
+        if (!m_sk.is_tail(a))
+            add_length_limit(a, m_max_unfolding_depth, true);
+        m_ax.unroll_not_contains(n.contains());
+        return true;   
     }
-    m_ax.unroll_not_contains(n.contains());
-    return true;   
+    return false;
 }
 
 theory_seq::cell* theory_seq::mk_cell(cell* p, expr* e, dependency* d) {
@@ -1456,7 +1479,7 @@ bool theory_seq::internalize_term(app* term) {
         mk_var(ctx.get_enode(term));
         return true;
     }
-
+    
     if (m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
@@ -1515,10 +1538,23 @@ void theory_seq::add_length(expr* l) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
-    if (m_sk.is_indexof_left(s))
+    if (m_util.str.is_concat(s)) {
+        for (expr* e : *to_app(s))
+            add_length_limit(e, k, is_searching);
         return;
-    if (m_sk.is_indexof_right(s))
+    }
+    if (m_util.str.is_unit(s))
         return;
+    if (m_util.str.is_empty(s))
+        return;
+
+    if (m_sk.is_skolem(s)) {
+        for (expr* e : *to_app(s))
+            if (m_util.is_seq(e) || m_sk.is_skolem(e))
+                add_length_limit(e, k, is_searching);
+        return;        
+    }
+
     expr_ref lim_e = m_ax.add_length_limit(s, k);
     unsigned k0 = 0;
     if (m_length_limit_map.find(s, k0)) {
@@ -2500,8 +2536,8 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
     dependency* deps = nullptr;
     expr* e = m_rep.find(e0, deps);
 
-    expr* e1, *e2, *e3;
-    expr_ref arg1(m), arg2(m);
+    expr* e1, *e2, *e3, *e4;
+    expr_ref arg1(m), arg2(m), arg3(m), arg4(m);
     if (m_util.str.is_concat(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
@@ -2545,6 +2581,30 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         arg2 = try_expand(e2, deps);
         if (!arg1 || !arg2) return true;
         result = m_util.str.mk_index(arg1, arg2, e3);
+    }
+    else if (m_util.str.is_map(e, e1, e2)) {
+        arg2 = try_expand(e2, deps);
+        if (!arg2) return true;
+        result = m_util.str.mk_map(e1, arg2);
+        ctx.get_rewriter()(result);
+    }
+    else if (m_util.str.is_mapi(e, e1, e2, e3)) {
+        arg3 = try_expand(e3, deps);
+        if (!arg3) return true;
+        result = m_util.str.mk_mapi(e1, e2, arg3);
+        ctx.get_rewriter()(result);
+    }
+    else if (m_util.str.is_foldl(e, e1, e2, e3)) {
+        arg3 = try_expand(e3, deps);
+        if (!arg3) return true;
+        result = m_util.str.mk_foldl(e1, e2, arg3);
+        ctx.get_rewriter()(result);
+    }
+    else if (m_util.str.is_foldli(e, e1, e2, e3, e4)) {
+        arg4 = try_expand(e4, deps);
+        if (!arg4) return true;
+        result = m_util.str.mk_foldli(e1, e2, e3, arg4);
+        ctx.get_rewriter()(result);
     }
 #if 0
     else if (m_util.str.is_nth_i(e, e1, e2)) {
@@ -2890,6 +2950,11 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 
 void theory_seq::add_axiom(literal_vector & lits) {
     TRACE("seq", ctx.display_literals_verbose(tout << "assert " << lits << " :", lits) << "\n";);
+
+    for (literal lit : lits)
+        if (ctx.get_assignment(lit) == l_true) 
+            return;
+
     for (literal lit : lits)
         ctx.mark_as_relevant(lit);
 
@@ -3164,6 +3229,7 @@ void theory_seq::push_scope_eh() {
     m_nqs.push_scope();
     m_ncs.push_scope();
     m_lts.push_scope();
+    m_recfuns.push_scope();
     m_regex.push_scope();
 }
 
@@ -3177,6 +3243,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_nqs.pop_scope(num_scopes);
     m_ncs.pop_scope(num_scopes);
     m_lts.pop_scope(num_scopes);
+    m_recfuns.pop_scope(num_scopes);
     m_regex.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
@@ -3203,6 +3270,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_from_code(n) ||
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
+        m_util.str.is_last_index(n) ||
         m_util.str.is_length(n) || 
         /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
         m_util.str.is_le(n)) {
@@ -3212,6 +3280,15 @@ void theory_seq::relevant_eh(app* n) {
     if (m_util.str.is_itos(n) ||
         m_util.str.is_stoi(n)) {
         add_int_string(n);
+    }
+
+    expr* fn, *acc, *i, *s;
+    if (m_util.str.is_foldl(n, fn, acc, s) ||
+        m_util.str.is_foldli(n, fn, i, acc, s) ||
+        m_util.str.is_map(n, fn, s) ||
+        m_util.str.is_mapi(n, fn, i, s)) {
+        add_length_to_eqc(s);
+        m_recfuns.push_back(n);
     }
 
     if (m_util.str.is_ubv2s(n))

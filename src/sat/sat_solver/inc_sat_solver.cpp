@@ -26,7 +26,7 @@ Notes:
 #include "solver/solver.h"
 #include "solver/tactic2solver.h"
 #include "solver/parallel_params.hpp"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -48,7 +48,6 @@ Notes:
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
-    ast_manager&    m;
     mutable sat::solver     m_solver;
     stacked_value<bool> m_has_uninterpreted;
     goal2sat        m_goal2sat;
@@ -87,7 +86,7 @@ class inc_sat_solver : public solver {
     bool is_internalized() const { return m_fmls_head == m_fmls.size(); }
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
-        m(m), 
+        solver(m),
         m_solver(p, m.limit()),
         m_has_uninterpreted(false),
         m_fmls(m),
@@ -405,7 +404,7 @@ public:
         return result;
     }
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         return nullptr;
     }
 
@@ -464,6 +463,10 @@ public:
         }
         return fmls;
     }
+
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
+
     
     lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
         init_preprocess();
@@ -596,10 +599,10 @@ public:
 
     void convert_internalized() {
         m_solver.pop_to_base_level();
-        if (!is_internalized() && m_fmls_head > 0) {
-            internalize_formulas();
-        }
-        if (!is_internalized() || m_internalized_converted) return;
+        if (!is_internalized() && m_fmls_head > 0) 
+            internalize_formulas();        
+        if (!is_internalized() || m_internalized_converted) 
+            return;
         sat2goal s2g;
         m_cached_mc = nullptr;
         goal g(m, false, true, false);
@@ -662,6 +665,10 @@ public:
         return ext;
     }
 
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        ensure_euf()->register_on_clause(ctx, on_clause);
+    }
+    
     void user_propagate_init(
         void*                ctx, 
         user_propagator::push_eh_t&   push_eh,
@@ -718,7 +725,8 @@ private:
         if (m_solver.inconsistent()) 
             return l_false;        
         m_pc.reset();
-        m_goal2sat(m, sz, fmls, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+        m_goal2sat(sz, fmls);
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
         return check_uninterpreted();
@@ -795,7 +803,8 @@ private:
             fmls.append(sz, asms);
             for (unsigned i = 0; i < get_num_assumptions(); ++i)
                 fmls.push_back(get_assumption(i));
-            m_goal2sat.assumptions(m, fmls.size(), fmls.data(), m_params, m_solver, m_map, m_dep2asm, is_incremental());
+            m_goal2sat.init(m, m_params, m_solver, m_map, m_dep2asm, is_incremental());
+            m_goal2sat.assumptions(fmls.size(), fmls.data());
             extract_assumptions(fmls.size(), fmls.data());
             return l_true;
         }

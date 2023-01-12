@@ -34,9 +34,12 @@ public:
     virtual void set_substitution(expr_substitution * s) = 0;
 
     virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & deps) = 0;
-    virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
-    virtual void operator()(expr * t, expr_ref & result);
-    virtual void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
+    void operator()(expr* t, expr_ref& result, expr_dependency_ref& deps);
+    void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
+    void operator()(expr * t, expr_ref & result);
+    void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
+    void operator()(expr_ref_vector& v) { expr_ref t(m());  for (unsigned i = 0; i < v.size(); ++i) (*this)(v.get(i), t), v[i] = t; }
+    std::pair<expr_ref, expr_dependency_ref> replace_with_dep(expr* t) { expr_ref r(m()); expr_dependency_ref d(m()); (*this)(t, r, d); return { r, d }; }
 
     virtual unsigned get_num_steps() const { return 0; }
     virtual void reset() = 0;

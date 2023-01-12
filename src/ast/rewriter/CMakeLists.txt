@@ -25,6 +25,7 @@ z3_add_component(rewriter
     hoist_rewriter.cpp
     inj_axiom.cpp
     label_rewriter.cpp
+    macro_replacer.cpp
     maximize_ac_sharing.cpp
     mk_simplified_app.cpp
     pb_rewriter.cpp

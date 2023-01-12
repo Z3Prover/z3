@@ -48,7 +48,7 @@ Revision History:
 // clear to the compiler what instructions should be used. E.g., for sqrt(), the Windows compiler selects
 // the x87 FPU, even when /arch:SSE2 is on.
 // Luckily, these are kind of standardized, at least for Windows/Linux/macOS.
-#if defined(__clang__) || defined(_M_ARM) && defined(_M_ARM64)
+#if (defined(__clang__) && !defined(__MINGW32__)) || defined(_M_ARM) && defined(_M_ARM64)
 #undef USE_INTRINSICS
 #endif
 

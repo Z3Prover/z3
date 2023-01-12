@@ -19,7 +19,7 @@ Revision History:
 #include "tactic/tactical.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 
 struct is_unbounded_proc {
     struct found {};
@@ -41,7 +41,8 @@ struct is_unbounded_proc {
 bool is_unbounded(goal const & g) {
     ast_manager & m = g.m();
     bound_manager bm(m);
-    bm(g);
+    for (unsigned i = 0; i < g.size(); ++i)
+        bm(g.form(i), g.dep(i), g.pr(i));
     is_unbounded_proc proc(bm);
     return test(g, proc);
 }

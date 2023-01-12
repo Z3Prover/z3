@@ -381,6 +381,7 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     for (const lemma_ref &l : neighbours) {
         SASSERT(cluster->can_contain(l));
         bool added = cluster->add_lemma(l, false);
+        (void)added;
         CTRACE("cluster_stats", added,
                tout << "Added neighbour lemma\n" << mk_and(l->get_cube()) << "\n";);
     }

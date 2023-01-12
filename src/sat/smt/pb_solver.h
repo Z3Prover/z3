@@ -371,7 +371,7 @@ namespace pb {
         ~solver() override;
         void set_lookahead(sat::lookahead* l) override { m_lookahead = l; }
         void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
-        void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
+        void add_pb_ge(bool_var v, bool sign, svector<wliteral> const& wlits, unsigned k);
 
         bool is_external(bool_var v) override;
         bool propagated(literal l, sat::ext_constraint_idx idx) override;
@@ -402,8 +402,8 @@ namespace pb {
         bool is_blocked(literal l, sat::ext_constraint_idx idx) override;
         bool check_model(sat::model const& m) const override;
 
-        literal internalize(expr* e, bool sign, bool root, bool redundant) override;
-        void internalize(expr* e, bool redundant) override;
+        literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         euf::th_solver* clone(euf::solver& ctx) override;
 

@@ -403,6 +403,7 @@ public:
         MATCH_BINARY(is_map);
         MATCH_TERNARY(is_mapi);
         MATCH_TERNARY(is_foldl);
+        MATCH_QUATARY(is_foldli);
         MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
         MATCH_TERNARY(is_replace_re);

@@ -81,14 +81,54 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
     }
 
     // VAR
-    if (is_var(e, num_decls)) {
+    if (is_var(e, num_decls)) 
         return set_result(to_var(e), m.mk_false());
-    }
+    
 
     // (not VAR)
-    if (is_neg_var(m, e, v, num_decls)) {
+    if (is_neg_var(m, e, v, num_decls)) 
         return set_result(v, m.mk_true());
+    
+    return false;
+}
+
+bool der::is_var_eq(expr* e, unsigned num_decls, var*& v, expr_ref& t) {
+    expr* lhs, * rhs;
+    auto set_result = [&](var* w, expr* s) {
+        v = w;
+        t = s;
+        TRACE("der", tout << mk_pp(e, m) << "\n";);
+        return true;
+    };
+
+    // (= VAR t)
+    if (m.is_eq(e, lhs, rhs)) {
+        if (!is_var(lhs, num_decls))
+            std::swap(lhs, rhs);
+        if (!is_var(lhs, num_decls))
+            return false;
+        return set_result(to_var(lhs), rhs);
     }
+
+    if (m.is_eq(e, lhs, rhs) && m.is_bool(lhs)) {
+        // (iff VAR t) case
+        if (!is_var(lhs, num_decls))
+            std::swap(lhs, rhs);
+        if (is_var(lhs, num_decls)) {
+            m_new_exprs.push_back(rhs);
+            return set_result(to_var(lhs), rhs);
+        }
+        return false;
+    }
+
+    // VAR
+    if (is_var(e, num_decls))
+        return set_result(to_var(e), m.mk_true());
+
+    // (not VAR)
+    if (is_neg_var(m, e, v, num_decls))
+        return set_result(v, m.mk_false());
+
     return false;
 }
 
@@ -99,6 +139,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
 
     TRACE("der", tout << mk_pp(q, m) << "\n";);
 
+    auto k = q->get_kind();
     // Keep applying it until r doesn't change anymore
     do {
         proof_ref curr_pr(m);
@@ -106,14 +147,13 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
         reduce1(q, r, curr_pr);
         if (q != r)
             reduced = true;
-        if (m.proofs_enabled()) {
-            pr = m.mk_transitivity(pr, curr_pr);
-        }
+        if (m.proofs_enabled()) 
+            pr = m.mk_transitivity(pr, curr_pr);        
     } 
     while (q != r && is_quantifier(r));
 
     // Eliminate variables that have become unused
-    if (reduced && is_forall(r)) {
+    if (reduced && is_quantifier(r) && k == to_quantifier(r)->get_kind()) {
         quantifier * q = to_quantifier(r);
         r = elim_unused_vars(m, q, params_ref());
         if (m.proofs_enabled()) {
@@ -125,7 +165,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
 }
 
 void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
-    if (!is_forall(q)) {
+    if (!is_forall(q) && !is_exists(q)) {
         pr = nullptr;
         r  = q;
         return;
@@ -136,14 +176,20 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     var * v = nullptr;
     expr_ref t(m);
 
-    if (is_var_diseq(e, num_decls, v, t) && !occurs(v, t)) 
+    if (is_forall(q) && is_var_diseq(e, num_decls, v, t) && !occurs(v, t))
         r = m.mk_false();
+    else if (is_exists(q) && is_var_eq(e, num_decls, v, t) && !occurs(v, t))
+        r = m.mk_true();
     else {
-        expr_ref_vector ors(m);
-        flatten_or(e, ors);
-        unsigned num_args = ors.size();
+        expr_ref_vector literals(m);
+        if (is_forall(q))
+            flatten_or(e, literals);
+        else
+            flatten_and(e, literals);
+        unsigned num_args = literals.size();
         unsigned diseq_count = 0;
         unsigned largest_vinx = 0;
+        bool is_eq = false;
 
         m_map.reset();
         m_pos2var.reset();
@@ -153,7 +199,8 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 
         // Find all disequalities
         for (unsigned i = 0; i < num_args; i++) {
-            if (is_var_diseq(ors.get(i), num_decls, v, t)) {
+            is_eq = is_forall(q) ? is_var_diseq(literals.get(i), num_decls, v, t) : is_var_eq(literals.get(i), num_decls, v, t);
+            if (is_eq) {
                 unsigned idx = v->get_idx();
                 if (m_map.get(idx, nullptr) == nullptr) {
                     m_map.reserve(idx + 1);
@@ -174,7 +221,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 
             if (!m_order.empty()) {
                 create_substitution(largest_vinx + 1);
-                apply_substitution(q, ors, r);
+                apply_substitution(q, literals, is_forall(q), r);
             }
         }
         else {
@@ -185,9 +232,9 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     // Remark: get_elimination_order/top-sort checks for cycles, but it is not invoked for unit clauses.
     // So, we must perform a occurs check here.
 
-    if (m.proofs_enabled()) {
+    if (m.proofs_enabled()) 
         pr = r == q ? nullptr : m.mk_der(q, r);
-    }
+    
 }
 
 static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions, unsigned_vector & order) {
@@ -326,20 +373,20 @@ void der::create_substitution(unsigned sz) {
     }
 }
 
-void der::apply_substitution(quantifier * q, expr_ref_vector& ors, expr_ref & r) {
-    unsigned num_args = ors.size();
+void der::apply_substitution(quantifier * q, expr_ref_vector& literals, bool is_or, expr_ref & r) {
+    unsigned num_args = literals.size();
 
     // get a new expression
     m_new_args.reset();
-    for(unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; i++) {
         int x = m_pos2var[i];
         if (x != -1 && m_map.get(x) != nullptr)
             continue; // this is a disequality with definition (vanishes)
 
-        m_new_args.push_back(ors.get(i));
+        m_new_args.push_back(literals.get(i));
     }
 
-    expr_ref t(mk_or(m, m_new_args.size(), m_new_args.data()), m);
+    expr_ref t(is_or ? mk_or(m_new_args) : mk_and(m_new_args), m);
     expr_ref new_e = m_subst(t, m_subst_map);
 
     // don't forget to update the quantifier patterns

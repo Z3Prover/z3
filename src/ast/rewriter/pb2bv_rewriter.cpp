@@ -200,7 +200,7 @@ struct pb2bv_rewriter::imp {
             }
 
             if (m_pb_solver == "segmented") {
-				throw default_exception("segmented encoding is disabled, use a different value for pb.solver");
+                throw default_exception("segmented encoding is disabled, use a different value for pb.solver");
                 switch (is_le) {
                 case l_true:  return mk_seg_le(k);
                 case l_false: return mk_seg_ge(k);
@@ -1077,9 +1077,9 @@ struct pb2bv_rewriter::imp {
     }
 
     void collect_param_descrs(param_descrs& r) const {
-        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: false) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
-        r.insert("pb.solver", CPK_SYMBOL, "(default: solver) retain pb constraints (don't bit-blast them) and use built-in pb solver");
-        r.insert("cardinality.encoding", CPK_SYMBOL, "(default: none) grouped, bimander, ordered, unate, circuit");
+        r.insert("keep_cardinality_constraints", CPK_BOOL, "retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver", "false");
+        r.insert("pb.solver", CPK_SYMBOL, "encoding used for Pseudo-Boolean constraints: totalizer, sorting, binary_merge, bv, solver. PB constraints are retained if set to 'solver'", "solver");
+        r.insert("cardinality.encoding", CPK_SYMBOL, "encoding used for cardinality constraints: grouped, bimander, ordered, unate, circuit", "none");
     }
 
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }

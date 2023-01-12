@@ -64,15 +64,22 @@ bool has_skolem_functions(expr * n) {
     return false;
 }
 
-subterms::subterms(expr_ref_vector const& es, bool include_bound): m_include_bound(include_bound), m_es(es) {}
-subterms::subterms(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) {if (e)  m_es.push_back(e); }
-subterms::iterator subterms::begin() { return iterator(*this, true); }
-subterms::iterator subterms::end() { return iterator(*this, false); }
-subterms::iterator::iterator(subterms& f, bool start): m_include_bound(f.m_include_bound), m_es(f.m_es) {
-    if (!start) m_es.reset();
+subterms::subterms(expr_ref_vector const& es, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp): m_include_bound(include_bound), m_es(es), m_esp(esp), m_vp(vp) {}
+subterms::subterms(expr_ref const& e, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp) : m_include_bound(include_bound), m_es(e.m()), m_esp(esp), m_vp(vp) { if (e) m_es.push_back(e); }
+subterms::iterator subterms::begin() { return iterator(* this, m_esp, m_vp, true); }
+subterms::iterator subterms::end() { return iterator(*this, nullptr, nullptr, false); }
+subterms::iterator::iterator(subterms& f, ptr_vector<expr>* esp, expr_mark* vp, bool start): m_include_bound(f.m_include_bound), m_esp(esp), m_visitedp(vp) {
+    if (!esp)
+        m_esp = &m_es;
+    else
+        m_esp->reset();
+    if (!m_visitedp)
+        m_visitedp = &m_visited;
+    if (start)
+        m_esp->append(f.m_es.size(), f.m_es.data());
 }
 expr* subterms::iterator::operator*() {
-    return m_es.back();
+    return m_esp->back();
 }
 subterms::iterator subterms::iterator::operator++(int) {
     iterator tmp = *this;
@@ -80,27 +87,29 @@ subterms::iterator subterms::iterator::operator++(int) {
     return tmp;
 }
 subterms::iterator& subterms::iterator::operator++() {
-    expr* e = m_es.back();
-    m_visited.mark(e, true);
+    expr* e = m_esp->back();
+    // IF_VERBOSE(0, verbose_stream() << e->get_ref_count() << "\n");
+    SASSERT(e->get_ref_count() > 0);
+    m_visitedp->mark(e, true);
     if (is_app(e)) 
         for (expr* arg : *to_app(e)) 
-            m_es.push_back(arg);            
+            m_esp->push_back(arg);            
     else if (is_quantifier(e) && m_include_bound)
-        m_es.push_back(to_quantifier(e)->get_expr());
+        m_esp->push_back(to_quantifier(e)->get_expr());
 
-    while (!m_es.empty() && m_visited.is_marked(m_es.back())) 
-        m_es.pop_back();
+    while (!m_esp->empty() && m_visitedp->is_marked(m_esp->back())) 
+        m_esp->pop_back();
     
     return *this;
 }
 
 bool subterms::iterator::operator==(iterator const& other) const {
     // ignore state of visited
-    if (other.m_es.size() != m_es.size()) {
+    if (other.m_esp->size() != m_esp->size()) {
         return false;
     }
-    for (unsigned i = m_es.size(); i-- > 0; ) {
-        if (m_es.get(i) != other.m_es.get(i))
+    for (unsigned i = m_esp->size(); i-- > 0; ) {
+        if (m_esp->get(i) != other.m_esp->get(i))
             return false;
     }
     return true;
@@ -111,11 +120,11 @@ bool subterms::iterator::operator!=(iterator const& other) const {
 }
 
 
-subterms_postorder::subterms_postorder(expr_ref_vector const& es): m_es(es) {}
-subterms_postorder::subterms_postorder(expr_ref const& e) : m_es(e.m()) { if (e) m_es.push_back(e); }
+subterms_postorder::subterms_postorder(expr_ref_vector const& es, bool include_bound): m_include_bound(include_bound), m_es(es) {}
+subterms_postorder::subterms_postorder(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) { if (e) m_es.push_back(e); }
 subterms_postorder::iterator subterms_postorder::begin() { return iterator(*this, true); }
 subterms_postorder::iterator subterms_postorder::end() { return iterator(*this, false); }
-subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_es(f.m_es) {
+subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_include_bound(f.m_include_bound), m_es(f.m_es) {
     if (!start) m_es.reset();
     next();
 }
@@ -142,6 +151,13 @@ void subterms_postorder::iterator::next() {
                     m_es.push_back(arg);
                     all_visited = false;
                 }
+            }
+        }
+        else if (is_quantifier(e) && m_include_bound) {
+            expr* body = to_quantifier(e)->get_expr();
+            if (!m_visited.is_marked(body)) {
+                m_es.push_back(body);
+                all_visited = false;
             }
         }
         if (all_visited) {

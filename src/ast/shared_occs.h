@@ -32,11 +32,8 @@ public:
     void reset_mark(ast * n) { n->reset_mark_so(); }
     void mark(ast * n) { if (is_marked(n)) return; n->mark_so(true); m_to_unmark.push_back(n); }
     void reset() {
-        ptr_buffer<ast>::iterator it  = m_to_unmark.begin();
-        ptr_buffer<ast>::iterator end = m_to_unmark.end();
-        for (; it != end; ++it) {
-            reset_mark(*it);
-        }
+        for (auto* t : m_to_unmark)
+            reset_mark(t);
         m_to_unmark.reset();
     }
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); } 

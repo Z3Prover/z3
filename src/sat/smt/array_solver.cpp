@@ -101,14 +101,13 @@ namespace array {
             else if (!turn[idx] && add_interface_equalities())
                 return sat::check_result::CR_CONTINUE;
         }
-
-        if (add_diff_select_axioms())
-            return sat::check_result::CR_CONTINUE;
             
         if (m_delay_qhead < m_axiom_trail.size()) 
             return sat::check_result::CR_CONTINUE;
 
-        
+        if (!check_lambdas())
+            return sat::check_result::CR_GIVEUP;
+
         // validate_check();
         return sat::check_result::CR_DONE;
     }
@@ -162,6 +161,10 @@ namespace array {
         auto& d2 = get_var_data(v2);
         if (d2.m_prop_upward && !d1.m_prop_upward)
             set_prop_upward(v1);
+        if (d1.m_has_default && !d2.m_has_default)
+            add_parent_default(v2);
+        if (!d1.m_has_default && d2.m_has_default)
+            add_parent_default(v1);
         for (euf::enode* lambda : d2.m_lambdas)
             add_lambda(v1, lambda);
         for (euf::enode* lambda : d2.m_parent_lambdas)
@@ -204,13 +207,13 @@ namespace array {
             propagate_select_axioms(d, lambda);
     }
 
-    void solver::add_parent_default(theory_var v, euf::enode* def) {
-        SASSERT(a.is_default(def->get_expr()));
+    void solver::add_parent_default(theory_var v) {
         auto& d = get_var_data(find(v));
+        ctx.push(value_trail(d.m_has_default));
+        d.m_has_default = true;
         for (euf::enode* lambda : d.m_lambdas)
             push_axiom(default_axiom(lambda));
-        if (should_prop_upward(d))
-            propagate_parent_default(v);
+        propagate_parent_default(v);
     }
 
     void solver::propagate_select_axioms(var_data const& d, euf::enode* lambda) {
@@ -248,7 +251,7 @@ namespace array {
             return;
         ctx.push(reset_flag_trail(d.m_prop_upward));
         d.m_prop_upward = true;
-        if (should_prop_upward(d))
+        if (should_prop_upward(d)) 
             propagate_parent_select_axioms(v);
         set_prop_upward(d);
     }

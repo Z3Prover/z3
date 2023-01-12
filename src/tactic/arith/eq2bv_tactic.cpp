@@ -18,7 +18,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -179,7 +179,8 @@ public:
 
         tactic_report report("eq2bv", *g);
 
-        m_bounds(*g);
+        for (unsigned i = 0; i < g->size(); ++i)
+            m_bounds(g->form(i), g->dep(i), g->pr(i));
 
         if (m_bounds.inconsistent() || g->proofs_enabled()) {
             g->inc_depth();

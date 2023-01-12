@@ -66,10 +66,6 @@ namespace array {
             return assert_default(r);
         case axiom_record::kind_t::is_extensionality:
             return assert_extensionality(r.n->get_expr(), r.select->get_expr());
-        case axiom_record::kind_t::is_diff:
-            return assert_diff(r.n->get_app());
-        case axiom_record::kind_t::is_diffselect:
-            return assert_diff_select(r.n->get_app(), r.select->get_app());
         case axiom_record::kind_t::is_congruence:
             return assert_congruent_axiom(r.n->get_expr(), r.select->get_expr());
         default:
@@ -276,54 +272,6 @@ namespace array {
         literal lit2 = eq_internalize(sel1, sel2);
         TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n" << lit1 << " " << ~lit2 << "\n";);
         return add_clause(lit1, ~lit2);
-    }
-
-    /**
-     * a = b or default(a) != default(b) or a[md(a,b)] != b[md(a,b)]
-     */
-    bool solver::assert_diff(expr* md) {
-        expr* x = nullptr, *y = nullptr;
-        VERIFY(a.is_maxdiff(md, x, y) || a.is_mindiff(md, x, y));
-        expr* args1[2] = { x, md };
-        expr* args2[2] = { y, md };
-        literal eq = eq_internalize(x, y);
-        literal eq_default = eq_internalize(a.mk_default(x), a.mk_default(y));
-        literal eq_md = eq_internalize(a.mk_select(2, args1), a.mk_select(2, args2));
-        return add_clause(eq, ~eq_default, ~eq_md);
-    }
-
-    /**
-     * a = b and a[i] != c[i] => i <= md(b, c) or default(b) != default(c)
-     * a = c and a[i] != b[i] => i <= md(b, c) or default(b) != default(c)
-     * where ai = a[i], md = md(b, c)
-     */
-    bool solver::assert_diff_select(app* md, app* ai) {
-        SASSERT(a.is_select(ai));
-        SASSERT(ai->get_num_args() == 2);
-        expr* A = ai->get_arg(0);
-        expr* i = ai->get_arg(1);
-        expr* B = md->get_arg(0);
-        expr* C = md->get_arg(1); 
-        literal eq_default = eq_internalize(a.mk_default(B), a.mk_default(C));
-        arith_util autil(m);
-        literal ineq = mk_literal(a.is_maxdiff(md) ? autil.mk_le(i, md) : autil.mk_le(md, i));
-        bool is_new = false;
-        if (ctx.get_enode(A)->get_root() == ctx.get_enode(B)->get_root()) {
-            literal eq_ab = eq_internalize(A, B);
-            expr* args[2] = { C, i };
-            literal eq_select = eq_internalize(ai, a.mk_select(2, args)); 
-            if (add_clause(~eq_ab, eq_select, ineq, ~eq_default))
-                is_new = true;
-        }
-
-        if (ctx.get_enode(A)->get_root() == ctx.get_enode(C)->get_root()) {
-            literal eq_ac = eq_internalize(A, C);
-            expr* args[2] = { B, i };
-            literal eq_select = eq_internalize(ai, a.mk_select(2, args)); 
-            if (add_clause(~eq_ac, eq_select, ineq, ~eq_default))
-                is_new = true;
-        }
-        return is_new;
     }
 
     bool solver::is_map_combinator(expr* map) const {
@@ -625,6 +573,10 @@ namespace array {
         return change;
     }
 
+    /**
+     * For every occurrence of as-array(f) and every occurrence of f(t)
+     * add equality select(as-array(f), t) = f(t)
+     */
     bool solver::add_as_array_eqs(euf::enode* n) {
         func_decl* f = nullptr;
         bool change = false;
@@ -700,6 +652,23 @@ namespace array {
             n->unmark1();
     }
 
+    /**
+    * \brief check that lambda expressions are beta redexes.
+    * The array solver is not a decision procedure for lambdas that do not occur in beta 
+    * redexes.
+    */
+    bool solver::check_lambdas() {
+        unsigned num_vars = get_num_vars();
+        for (unsigned i = 0; i < num_vars; i++) {
+            auto* n = var2enode(i);
+            if (a.is_as_array(n->get_expr()) || is_lambda(n->get_expr()))
+                for (euf::enode* p : euf::enode_parents(n))
+                    if (!ctx.is_beta_redex(p, n))
+                        return false;
+        }
+        return true;
+    }
+
     bool solver::is_shared_arg(euf::enode* r) {
         SASSERT(r->is_root());
         for (euf::enode* n : euf::enode_parents(r)) {
@@ -716,27 +685,6 @@ namespace array {
             
         return false;
     }
-
-    bool solver::add_diff_select_axioms() {
-        bool added = false;
-        
-        auto add_diff_select = [&](euf::enode* md, euf::enode* a) {
-            var_data const& d = get_var_data(find(get_th_var(a)));
-            for (euf::enode* select : d.m_parent_selects) {
-                if (assert_diff_select(md->get_app(), select->get_app()))
-                    added = true;
-            }
-        };
-        for (euf::enode* md : m_minmaxdiffs) {
-            euf::enode* a = md->get_arg(0);
-            euf::enode* b = md->get_arg(1);
-            add_diff_select(md, a);
-            add_diff_select(md, b);
-        }
-        return added;
-    }
-
-
 
 }
 

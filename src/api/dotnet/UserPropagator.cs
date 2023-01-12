@@ -37,7 +37,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// Propagator context for .Net
     /// </summary>        
-    public class UserPropagator
+    public class UserPropagator : IDisposable
     {
         /// <summary>
         /// Delegate type for fixed callback
@@ -205,10 +205,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Release provate memory.
+        /// Release private memory.
         /// </summary>            
         ~UserPropagator()
         {
+            Dispose();
+        }
+        
+        /// <summary>
+        /// Must be called. The object will not be garbage collected automatically even if the context is disposed
+        /// </summary>
+        public virtual void Dispose()
+        {
+            if (!gch.IsAllocated)
+                return;
             gch.Free();
             if (solver == null)
                 ctx.Dispose();

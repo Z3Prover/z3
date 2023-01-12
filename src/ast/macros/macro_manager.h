@@ -73,9 +73,7 @@ public:
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
-    void mark_forbidden(unsigned n, expr * const * exprs);
     void mark_forbidden(unsigned n, justified_expr const * exprs);
-    void mark_forbidden(expr * e) { mark_forbidden(1, &e); }
     bool is_forbidden(func_decl * d) const { return m_forbidden_set.contains(d); }
     obj_hashtable<func_decl> const & get_forbidden_set() const { return m_forbidden_set; }
     void display(std::ostream & out);

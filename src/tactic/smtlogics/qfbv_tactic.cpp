@@ -39,6 +39,9 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     // conservative gaussian elimination.
     solve_eq_p.set_uint("solve_eqs_max_occs", 2);
 
+    params_ref flat_and_or_p = p;
+    flat_and_or_p.set_bool("flat_and_or", false);
+
     params_ref simp2_p = p;
     simp2_p.set_bool("som", true);
     simp2_p.set_bool("pull_cheap_ite", true);
@@ -47,15 +50,17 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     simp2_p.set_uint("local_ctx_limit", 10000000);
     simp2_p.set_bool("flat", true); // required by som
     simp2_p.set_bool("hoist_mul", false); // required by som
+    simp2_p.set_bool("flat_and_or", false);
 
     params_ref hoist_p;
     hoist_p.set_bool("hoist_mul", true);
     hoist_p.set_bool("som", false);
+    hoist_p.set_bool("flat_and_or", false);
 
     return
         and_then(
-            mk_simplify_tactic(m),
-            mk_propagate_values_tactic(m),
+            using_params(mk_simplify_tactic(m), flat_and_or_p),
+            using_params(mk_propagate_values_tactic(m), flat_and_or_p),
             using_params(mk_solve_eqs_tactic(m), solve_eq_p),
             mk_elim_uncnstr_tactic(m),
             if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
@@ -86,12 +91,11 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);
+    local_ctx_p.set_bool("flat", false);
+    local_ctx_p.set_bool("flat_and_or", false);
 
     params_ref solver_p;
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
-
-    params_ref big_aig_p;
-    big_aig_p.set_bool("aig_per_assertion", false);
 
     tactic* preamble_st = mk_qfbv_preamble(m, p);
     tactic * st = main_p(and_then(preamble_st,
@@ -107,10 +111,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
                                                           and_then(using_params(and_then(mk_simplify_tactic(m),
                                                                                          mk_solve_eqs_tactic(m)),
                                                                                 local_ctx_p),
-                                                                   if_no_proofs(cond(mk_produce_unsat_cores_probe(),
-                                                                                     mk_aig_tactic(),
-                                                                                     using_params(mk_aig_tactic(),
-                                                                                                  big_aig_p))))),
+                                                                   if_no_proofs(mk_aig_tactic()))),
                                                      sat),
                                             smt))));
 

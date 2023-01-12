@@ -94,6 +94,8 @@ public:
 
     void compress(bool force_inline = false);
 
+    void evaluate_constants();
+
     void set_model_completion(bool f) { m_mev.set_model_completion(f); }
     void updt_params(params_ref const & p);
 

@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -197,7 +197,8 @@ class lia2pb_tactic : public tactic {
                 return;
             }
 
-            m_bm(*g);
+            for (unsigned i = 0; i < g->size(); ++i)
+                m_bm(g->form(i), g->dep(i), g->pr(i));
             
             TRACE("lia2pb", m_bm.display(tout););
             

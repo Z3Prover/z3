@@ -82,7 +82,8 @@ namespace smt {
     }
 
     proof * unit_resolution_justification::mk_proof(conflict_resolution & cr) {
-        SASSERT(m_antecedent);
+        if (!m_antecedent)
+            return nullptr;
         ast_manager& m = cr.get_manager();
         proof_ref_vector prs(m);
         proof * pr = cr.get_proof(m_antecedent);

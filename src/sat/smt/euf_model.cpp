@@ -287,24 +287,40 @@ namespace euf {
         nodes.push_back(n);
         for (unsigned i = 0; i < nodes.size(); ++i) {
             euf::enode* r = nodes[i];
-            if (r->is_marked1())
+            if (!r || r->is_marked1())
                 continue;
             r->mark1();
-            for (auto* arg : euf::enode_args(r))
-                nodes.push_back(arg);           
+            if (is_app(r->get_expr()))
+                for (auto* arg : *r->get_app())
+                    nodes.push_back(get_enode(arg));
             expr_ref val = mdl(r->get_expr());
             expr_ref sval(m);
             th_rewriter rw(m);
             rw(val, sval);
-            out << bpp(r) << " := " << sval << " " << mdl(r->get_root()->get_expr()) << "\n";
+            expr_ref mval = mdl(r->get_root()->get_expr());
+            if (mval != sval) {
+                if (r->bool_var() != sat::null_bool_var)
+                    out << "b" << r->bool_var() << " ";
+                out << bpp(r) << " :=\neval:  " << sval << "\nmval:  " << mval << "\n";
+                continue;
+            }
+            if (!m.is_bool(val))
+                continue;
+            auto bval = s().value(r->bool_var());
+            bool tt = l_true == bval;
+            if (tt != m.is_true(sval))
+                out << bpp(r) << " :=\neval:  " << sval << "\nmval:  " << bval << "\n";
         }
         for (euf::enode* r : nodes)
-            r->unmark1();
+            if (r)
+                r->unmark1();
         out << mdl << "\n";
     }
 
     void solver::validate_model(model& mdl) {
         if (!m_unhandled_functions.empty())
+            return;
+        if (get_config().m_arith_ignore_int)
             return;
         for (auto* s : m_solvers)
             if (s && s->has_unhandled())
@@ -331,6 +347,8 @@ namespace euf {
             if (has_quantifiers(e))
                 continue;
             if (!is_relevant(n))
+                continue;
+            if (n->bool_var() == sat::null_bool_var)
                 continue;
             bool tt = l_true == s().value(n->bool_var());
             if (tt && !mdl.is_false(e))

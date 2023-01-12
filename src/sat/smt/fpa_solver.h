@@ -59,8 +59,8 @@ namespace fpa {
         bool use_diseqs() const override { return true; }
         void new_diseq_eh(euf::th_eq const& eq) override;
 
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
 
         std::ostream& display(std::ostream& out) const override;

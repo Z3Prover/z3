@@ -665,3 +665,9 @@ void static_features::display(std::ostream & out) const {
 
 void static_features::get_feature_vector(vector<double> & result) {
 }
+
+bool static_features::is_dense() const {
+    return 
+        (m_num_uninterpreted_constants < 1000) &&
+        (m_num_arith_eqs + m_num_arith_ineqs) > m_num_uninterpreted_constants * 9;
+}

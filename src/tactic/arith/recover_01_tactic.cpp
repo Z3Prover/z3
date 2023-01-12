@@ -57,7 +57,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "util/dec_ref_util.h"
@@ -407,7 +407,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
-        r.insert("recover_01_max_bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
+        r.insert("recover_01_max_bits", CPK_UINT, "maximum number of bits to consider in a clause.", "10");
     }
 
     void operator()(goal_ref const & g, 

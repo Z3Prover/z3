@@ -31,43 +31,29 @@ struct preprocessor_params : public pattern_inference_params,
                              public bit_blaster_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
-    bool            m_pull_cheap_ite;
-    bool            m_pull_nested_quantifiers;
-    bool            m_eliminate_term_ite;
-    bool            m_macro_finder;
-    bool            m_propagate_values;
-    bool            m_refine_inj_axiom;
-    bool            m_eliminate_bounds;
-    bool            m_simplify_bit2int;
-    bool            m_nnf_cnf;
-    bool            m_distribute_forall;
-    bool            m_reduce_args;
-    bool            m_quasi_macros;
-    bool            m_restricted_quasi_macros;
-    bool            m_max_bv_sharing;
-    bool            m_pre_simplifier;
-    bool            m_nlquant_elim;
+    bool            m_pull_cheap_ite = false;
+    bool            m_pull_nested_quantifiers = false;
+    bool            m_eliminate_term_ite = false;
+    bool            m_macro_finder = false;
+    bool            m_propagate_values = true;
+    bool            m_elim_unconstrained = true;
+    bool            m_solve_eqs = true;
+    bool            m_refine_inj_axiom = true;
+    bool            m_eliminate_bounds = false;
+    bool            m_simplify_bit2int = false;
+    bool            m_nnf_cnf = true;
+    bool            m_distribute_forall = false;
+    bool            m_reduce_args = false;
+    bool            m_quasi_macros = false;
+    bool            m_restricted_quasi_macros = false;
+    bool            m_max_bv_sharing = true;
+    bool            m_pre_simplifier = true;
+    bool            m_nlquant_elim = false;
 
 public:
     preprocessor_params(params_ref const & p = params_ref()):
         m_lift_ite(lift_ite_kind::LI_NONE),
-        m_ng_lift_ite(lift_ite_kind::LI_NONE),
-        m_pull_cheap_ite(false),
-        m_pull_nested_quantifiers(false),
-        m_eliminate_term_ite(false),
-        m_macro_finder(false),
-        m_propagate_values(true),
-        m_refine_inj_axiom(true),
-        m_eliminate_bounds(false),
-        m_simplify_bit2int(false),
-        m_nnf_cnf(true),
-        m_distribute_forall(false),
-        m_reduce_args(false),
-        m_quasi_macros(false),
-        m_restricted_quasi_macros(false),
-        m_max_bv_sharing(true),
-        m_pre_simplifier(true),
-        m_nlquant_elim(false) {
+        m_ng_lift_ite(lift_ite_kind::LI_NONE) {
         updt_local_params(p);
     }
 

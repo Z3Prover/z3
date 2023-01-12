@@ -13,7 +13,33 @@ Author:
 
     Nicolas Braud-Santoni (t-nibrau) 2017-08-10
 
-Notes:
+
+Tactic Documentation:
+
+## Tactic injectivity
+
+### Short Description:
+
+- Discover axioms of the form `forall x. (= (g (f x)) x`
+  Mark `f` as injective
+
+- Rewrite (sub)terms of the form `(= (f x) (f y))` to `(= x y)` whenever `f` is injective.
+
+### Example
+ 
+```z3
+  (declare-fun f (Int) Int)
+  (declare-fun g (Int) Int)
+  (declare-const x Int)
+  (declare-const y Int)
+  (assert (forall ((x Int)) (= (g (f x)) x)))
+  (assert (not (= (f x) (f (f y)))))
+  (apply injectivity)
+```
+
+### Notes
+
+* does not support cores nor proofs
 
 --*/
 #pragma once

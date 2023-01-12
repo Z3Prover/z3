@@ -86,7 +86,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_dt(m),
         m_pinned(m) {
         bool flat = true;
-        m_b_rw.set_flat(flat);
+        m_b_rw.set_flat_and_or(flat);
         m_a_rw.set_flat(flat);
         m_bv_rw.set_flat(flat);
         m_bv_rw.set_mkbv2num(true);
@@ -158,6 +158,35 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return st;
     }
 
+    bool contains_as_array(expr* e) {
+        if (m_ar.is_as_array(e))
+            return true;
+        if (is_var(e))
+            return false;
+        if (is_app(e) && to_app(e)->get_num_args() == 0)
+            return false;
+
+        struct has_as_array {};
+        struct has_as_array_finder {
+            array_util& au;
+            has_as_array_finder(array_util& au): au(au) {}
+            void operator()(var* v) {}
+            void operator()(quantifier* q) {}
+            void operator()(app* a) {
+                if (au.is_as_array(a->get_decl()))
+                    throw has_as_array();                
+            }
+        };
+        has_as_array_finder ha(m_ar);
+        try {
+            for_each_expr(ha, e);
+        }
+        catch (has_as_array) {
+            return true;
+        }
+        return false;
+    }
+
     br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         family_id fid = f->get_family_id();
@@ -174,11 +203,17 @@ struct evaluator_cfg : public default_rewriter_cfg {
 #endif
 
 
-        if (num == 0 && (fid == null_family_id || _is_uninterp || m_ar.is_as_array(f))) {
-            expr * val = m_model.get_const_interp(f);
+        func_decl* g = nullptr;
+        if (num == 0 && m_ar.is_as_array(f, g)) {
+            auto* fi = m_model.get_func_interp(g);
+            if (fi && (result = fi->get_array_interp(g))) 
+                return BR_REWRITE1;
+        }
+        if (num == 0 && (fid == null_family_id || _is_uninterp)) {
+            expr* val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                st = m_ar.is_as_array(val) ? BR_REWRITE1 : BR_DONE;
+                st = contains_as_array(val) ? BR_REWRITE_FULL : BR_DONE;
                 TRACE("model_evaluator", tout << result << "\n";);
                 return st;
             }
@@ -192,6 +227,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 result = val;
                 return BR_DONE;
             }
+
             // fall through
         }
 
@@ -223,6 +259,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     result = m.mk_false();
                     st = BR_DONE;
                 }
+                if (st != BR_FAILED)
+                    return st;
+            }
+            if (k == OP_AND) {
+                st = m_a_rw.mk_and_core(num, args, result);
                 if (st != BR_FAILED)
                     return st;
             }

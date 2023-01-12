@@ -13,6 +13,11 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2020-08-23
 
+Notes:
+
+- congruence closure justifications are given a timestamp so it is easy to sort them.
+  See the longer descriptoin in euf_proof_checker.cpp
+
 --*/
 
 #pragma once
@@ -27,11 +32,15 @@ namespace euf {
         };
         kind_t m_kind;
         bool   m_comm;
-        void*  m_external;
-        justification(bool comm):
+        union {
+            void*    m_external;
+            uint64_t m_timestamp;
+        };
+
+        justification(bool comm, uint64_t ts):
             m_kind(kind_t::congruence_t),
             m_comm(comm),
-            m_external(nullptr)
+            m_timestamp(ts)
         {}
 
         justification(void* ext):
@@ -48,12 +57,13 @@ namespace euf {
         {}
 
         static justification axiom() { return justification(); }
-        static justification congruence(bool c) { return justification(c); }
+        static justification congruence(bool c, uint64_t ts) { return justification(c, ts); }
         static justification external(void* ext) { return justification(ext); }
         
         bool   is_external() const { return m_kind == kind_t::external_t; }
         bool   is_congruence() const { return m_kind == kind_t::congruence_t; }
         bool   is_commutative() const { return m_comm; }
+        uint64_t timestamp() const { SASSERT(is_congruence()); return m_timestamp; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
 
@@ -64,7 +74,7 @@ namespace euf {
             case kind_t::axiom_t:
                 return axiom();
             case kind_t::congruence_t:
-                return congruence(m_comm);
+                return congruence(m_comm, m_timestamp);
             default:
                 UNREACHABLE();
                 return axiom();
@@ -90,4 +100,8 @@ namespace euf {
             return out;
         }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, justification const& j) {
+        return j.display(out, nullptr);
+    }
 }

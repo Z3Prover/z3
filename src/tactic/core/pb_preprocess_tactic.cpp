@@ -14,26 +14,10 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2013-12-23
 
-Notes:
-
-    Resolution for PB constraints require the implicit 
-    inequalities that each variable ranges over [0,1]
-    so not all resolvents produce smaller sets of clauses.
-
-    We here implement subsumption resolution.  
-
-    x + y >= 1
-    A~x + B~y + Cz >= k
-    ---------------------
-    Cz >= k - B    
-
-    where A <= B, x, y do not occur elsewhere.    
-
-
 --*/
 #include "tactic/core/pb_preprocess_tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/for_each_expr.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -106,22 +90,20 @@ public:
         return alloc(pb_preprocess_tactic, m);
     }
 
-    char const* name() const override { return "pb_preprocess"; }
+    char const* name() const override { return "pb-preprocess"; }
     
     void operator()(
         goal_ref const & g, 
         goal_ref_buffer & result) override {
         tactic_report report("pb-preprocess", *g);
-        if (g->proofs_enabled()) {
-            throw tactic_exception("pb-preprocess does not support proofs");
-        }
-
-        generic_model_converter* pp = alloc(generic_model_converter, m, "pb-preprocess");
-
         g->inc_depth();        
         result.push_back(g.get());       
-        while (simplify(g, *pp));
-        g->add(pp);
+
+        if (!g->proofs_enabled()) {
+            generic_model_converter* pp = alloc(generic_model_converter, m, "pb-preprocess");            
+            while (simplify(g, *pp));
+            g->add(pp);
+        }
 
         // decompose(g);
     }

@@ -64,6 +64,17 @@ void ast_pp_util::display_decls(std::ostream& out) {
     m_rec_decls = n;
 }
 
+void ast_pp_util::reset() {
+    coll.reset();
+    m_removed.reset();
+    m_sorts.clear(0u);
+    m_decls.clear(0u);
+    m_rec_decls.clear(0u); 
+    m_is_defined.reset();
+    m_defined.reset();
+    m_defined_lim.reset(); 
+}
+
 void ast_pp_util::display_skolem_decls(std::ostream& out) {
     ast_smt_pp pp(m);
     unsigned n = coll.get_num_decls();

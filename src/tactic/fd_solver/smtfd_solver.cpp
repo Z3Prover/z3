@@ -2075,7 +2075,7 @@ namespace smtfd {
             return m_fd_sat_solver->get_model_converter();
         }
         
-        proof * get_proof() override { return nullptr; }
+        proof * get_proof_core() override { return nullptr; }
         std::string reason_unknown() const override { return m_reason_unknown; }
         void set_reason_unknown(char const* msg) override { m_reason_unknown = msg; }
         void get_labels(svector<symbol> & r) override { }
@@ -2086,6 +2086,10 @@ namespace smtfd {
         expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
             return expr_ref_vector(m);
         }
+
+        expr* congruence_root(expr* e) override { return e; }
+
+        expr* congruence_next(expr* e) override { return e; }
         
         lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
             return l_undef;
