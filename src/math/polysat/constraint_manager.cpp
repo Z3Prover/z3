@@ -453,12 +453,13 @@ namespace polysat {
         return -p - 1;
     }
 
-    static unsigned min_coefficient_power_of_2(const pdd& p) {
+    static unsigned common_coefficient_power_of_2(const pdd& p) {
+#if 0
         if (p.is_zero())
-            return 0; // TODO: Or something different?
-
+            return 0; // TODO: Or something different? ==> if p == 0, we can divide by any 2^k, so just return UINT_MAX. (but the case p.is_val() is handled separately, anyway.)
+#endif
         unsigned min_power = UINT32_MAX;
-        for (auto& m : p)
+        for (auto& m : p)  // TODO: add coefficient iterator? we don't need the variable vectors here.
             min_power = std::min(min_power, m.coeff.trailing_zeros());
         return min_power;
     }
@@ -480,32 +481,50 @@ namespace polysat {
     }
 
     pdd constraint_manager::lshr(pdd const& p, pdd const& q) {
+        if (p.is_zero())
+            return p;
+        if (q.is_zero())
+            return p;
         if (q.is_val()) {
-            if (!q.val().is_unsigned())
-                return p.manager().zero(); // TODO: The number is huge. We will for sure shift out all bits
+            auto& m = p.manager();
+            unsigned N = m.power_of_2();
+            if (q.val() >= N)
+                return m.zero();
+            SASSERT(q.val().is_unsigned());
             if (p.is_val())
-                return p.manager().mk_val(div(p.val(), rational::power_of_two(q.val().get_unsigned())));
-
-            unsigned common = min_coefficient_power_of_2(p);
-            pdd div = p.manager().zero();
-            for (auto& m : p)
-                div += machine_div(m.coeff, rational::power_of_two(common));
-            return div;
+                return m.mk_val(machine_div2k(p.val(), q.val().get_unsigned()));
+            // 2^i * p' >> q  ==>  2^(i-q) * p'  if i >= q
+            unsigned common = common_coefficient_power_of_2(p);
+            if (common >= q.val())
+                return p.div(rational::power_of_two(common));
         }
-
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
 
     pdd constraint_manager::shl(pdd const& p, pdd const& q) {
+        if (p.is_zero())
+            return p;
+        if (q.is_zero())
+            return p;
         if (q.is_val()) {
-            if (!q.val().is_unsigned())
+            unsigned N = p.power_of_2();
+            if (q.val() >= N)
                 return p.manager().zero();
+            SASSERT(q.val().is_unsigned());
             return p * rational::power_of_two(q.val().get_unsigned());
         }
         return mk_op_term(op_constraint::code::shl_op, p, q);
     }
 
     pdd constraint_manager::band(pdd const& p, pdd const& q) {
+        if (p.is_zero())
+            return p;
+        if (q.is_zero())
+            return q;
+        if (p.is_max())
+            return q;
+        if (q.is_max())
+            return p;
         if (p.is_val() && q.is_val())
             return p.manager().mk_val(bitwise_and(p.val(), q.val()));
         return mk_op_term(op_constraint::code::and_op, p, q);
