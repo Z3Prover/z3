@@ -1001,6 +1001,7 @@ namespace sat {
         m_inconsistent = false;
         m_qhead = 0;
         m_bstamp_id = 0;
+        m_istamp_id = 0;
 
         for (unsigned i = 0; i < m_num_vars; ++i) {
             init_var(i);
