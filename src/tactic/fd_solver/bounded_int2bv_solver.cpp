@@ -23,7 +23,7 @@ Notes:
 #include "ast/converters/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "tactic/arith/bv2int_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/bv_decl_plugin.h"
@@ -330,9 +330,8 @@ private:
         if (m_assertions.empty()) return;
         m_flushed = true;
         bound_manager& bm = *m_bounds.back();
-        for (expr* a : m_assertions) {
-            bm(a);
-        }
+        for (expr* a : m_assertions) 
+            bm(a, nullptr, nullptr);        
         TRACE("int2bv", bm.display(tout););
         expr_safe_replace sub(m);
         accumulate_sub(sub);

@@ -28,7 +28,7 @@ Notes:
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
 #include "ast/converters/generic_model_converter.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_smt2_pp.h"
 
@@ -89,7 +89,8 @@ class nla2bv_tactic : public tactic {
                   );
             tactic_report report("nla->bv", g);
             m_fmc = alloc(generic_model_converter, m_manager, "nla2bv");
-            m_bounds(g);
+            for (unsigned i = 0; i < g.size(); ++i)
+                m_bounds(g.form(i), g.dep(i), g.pr(i));
             collect_power2(g);
             switch (collect_vars(g)) {
             case has_num: 

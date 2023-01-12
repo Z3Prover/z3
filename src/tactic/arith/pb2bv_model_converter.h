@@ -19,7 +19,7 @@ Notes:
 #pragma once
 
 #include "ast/converters/model_converter.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 
 class pb2bv_model_converter : public model_converter {
     typedef std::pair<func_decl *, func_decl *> func_decl_pair;

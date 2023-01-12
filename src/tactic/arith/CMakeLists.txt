@@ -2,7 +2,6 @@ z3_add_component(arith_tactics
   SOURCES
     add_bounds_tactic.cpp
     arith_bounds_tactic.cpp
-    bound_manager.cpp
     bound_propagator.cpp
     bv2int_rewriter.cpp
     bv2real_rewriter.cpp

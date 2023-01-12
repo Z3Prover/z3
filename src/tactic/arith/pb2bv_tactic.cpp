@@ -28,7 +28,7 @@ Notes:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/converters/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
@@ -913,7 +913,9 @@ private:
                 return;
             }
 
-            m_bm(*g);
+            unsigned size = g->size();
+            for (unsigned i = 0; i < size; i++) 
+                m_bm(g->form(i), g->dep(i), g->pr(i));
             
             TRACE("pb2bv", m_bm.display(tout););
 
@@ -924,7 +926,6 @@ private:
                 throw_tactic(p.e);
             }
                         
-            unsigned size = g->size();
             expr_ref_vector new_exprs(m);
             expr_dependency_ref_vector new_deps(m);
 
@@ -1042,7 +1043,8 @@ struct is_pb_probe : public probe {
         try {
             ast_manager & m = g.m();
             bound_manager bm(m);
-            bm(g);
+            for (unsigned i = 0; i < g.size(); i++) 
+                bm(g.form(i), g.dep(i), g.pr(i));
             arith_util a_util(m);
             pb_util pb(m);
             expr_fast_mark1 visited;

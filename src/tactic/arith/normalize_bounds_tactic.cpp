@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/converters/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
@@ -67,13 +67,11 @@ class normalize_bounds_tactic : public tactic {
         }
         
         bool has_lowers() {
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
+            for (auto* e : m_bm) {
                 TRACE("normalize_bounds_tactic", 
                       rational val; bool strict;
-                      tout << mk_ismt2_pp(*it, m) << " has_lower: " << m_bm.has_lower(*it, val, strict) << " val: " << val << "\n";);
-                if (is_target(*it))
+                      tout << mk_ismt2_pp(e, m) << " has_lower: " << m_bm.has_lower(e, val, strict) << " val: " << val << "\n";);
+                if (is_target(e))
                     return true;
             }
             return false;
@@ -83,8 +81,9 @@ class normalize_bounds_tactic : public tactic {
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
-            
-            m_bm(*in);            
+         
+            for (unsigned i = 0; i < in->size(); ++i)
+                m_bm(in->form(i), in->dep(i), in->pr(i));
             
             if (!has_lowers()) {
                 result.push_back(in.get());

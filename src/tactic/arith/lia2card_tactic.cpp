@@ -24,7 +24,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp_util.h"
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/converters/generic_model_converter.h"
 
 class lia2card_tactic : public tactic {
@@ -180,7 +180,8 @@ public:
         tactic_report report("lia2card", *g);
 
         bound_manager bounds(m);
-        bounds(*g);
+        for (unsigned i = 0; i < g->size(); ++i)
+            bounds(g->form(i), g->dep(i), g->pr(i));
 
         for (expr* x : bounds) {
             checkpoint();

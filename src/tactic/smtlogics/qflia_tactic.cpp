@@ -32,14 +32,15 @@ Notes:
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
 #include "sat/tactic/sat_tactic.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
     result operator()(goal const & g) override {
         bool found_non_01 = false;
         bound_manager bm(g.m());
-        bm(g);
+        for (unsigned i = 0; i < g.size(); ++i)
+            bm(g.form(i), g.dep(i), g.pr(i));
         rational l, u; bool st;
         for (expr * t : bm) {
             if (bm.has_lower(t, l, st) && bm.has_upper(t, u, st) && (l.is_zero() || l.is_one()) && (u.is_zero() || u.is_one()))

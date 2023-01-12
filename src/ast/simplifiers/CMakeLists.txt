@@ -1,6 +1,7 @@
 z3_add_component(simplifiers
   SOURCES
     bit_blaster.cpp
+    bound_manager.cpp
     bv_slice.cpp
     card2bv.cpp
     demodulator_simplifier.cpp

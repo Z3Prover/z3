@@ -21,7 +21,6 @@ Notes:
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 
-class goal;
 
 class bound_manager {
 public:
@@ -50,8 +49,7 @@ public:
 
     ast_manager & m() const { return m_util.get_manager(); }
     
-    void operator()(goal const & g);
-    void operator()(expr * n, expr_dependency * d = nullptr);
+    void operator()(expr * n, expr_dependency * d, proof* p);
     
     bool has_lower(expr * c, numeral & v, bool & strict) const {
         limit l;

@@ -21,6 +21,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/simplifiers/extract_eqs.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "params/tactic_params.hpp"
 
 
@@ -83,6 +84,7 @@ namespace euf {
     class arith_extract_eq : public extract_eq {
         ast_manager&       m;
         arith_util         a;
+        bound_manager      m_bm;
         expr_ref_vector    m_args, m_trail;
         expr_sparse_mark   m_nonzero;
         bool               m_enabled = true;
@@ -105,6 +107,17 @@ namespace euf {
                 eqs.push_back(dependent_eq(orig, to_app(u), term, d));
             else
                 solve_eq(orig, u, term, d, eqs);
+        }
+
+        void solve_to_real(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            expr* z, *u;
+            rational r;            
+            if (!a.is_to_real(x, z) || !is_uninterp_const(z))
+                return;
+            if (a.is_to_real(y, u)) 
+                eqs.push_back(dependent_eq(orig, to_app(z), expr_ref(u, m), d));
+            else if (a.is_numeral(y, r) && r.is_int())
+                eqs.push_back(dependent_eq(orig, to_app(z), expr_ref(a.mk_int(r), m), d));
         }
 
         /***
@@ -157,8 +170,8 @@ namespace euf {
                         for (expr* yarg : *to_app(arg)) {
                             ++k;
                             nonzero = k == j || m_nonzero.is_marked(yarg) || (a.is_numeral(yarg, r) && r != 0);                           
-                            if (!nonzero)
-                                break;
+if (!nonzero)
+break;
                         }
                         if (!nonzero)
                             continue;
@@ -222,12 +235,12 @@ namespace euf {
         }
 
         void add_pos(expr* f) {
-            expr* lhs = nullptr, *rhs = nullptr;
+            expr* lhs = nullptr, * rhs = nullptr;
             rational val;
-            if (a.is_le(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_neg()) 
-                mark_nonzero(lhs);            
+            if (a.is_le(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_neg())
+                mark_nonzero(lhs);
             else if (a.is_ge(f, lhs, rhs) && a.is_numeral(rhs, val) && val.is_pos())
-                mark_nonzero(lhs);            
+                mark_nonzero(lhs);
             else if (m.is_not(f, f)) {
                 if (a.is_le(f, lhs, rhs) && a.is_numeral(rhs, val) && !val.is_neg())
                     mark_nonzero(lhs);
@@ -242,11 +255,12 @@ namespace euf {
             solve_add(orig, x, y, d, eqs);
             solve_mod(orig, x, y, d, eqs);
             solve_mul(orig, x, y, d, eqs);
+            solve_to_real(orig, x, y, d, eqs);
         }
 
     public:
 
-        arith_extract_eq(ast_manager& m) : m(m), a(m), m_args(m), m_trail(m) {}
+        arith_extract_eq(ast_manager& m) : m(m), a(m), m_bm(m), m_args(m), m_trail(m) {}
 
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             if (!m_enabled)
@@ -257,6 +271,18 @@ namespace euf {
                 solve_eq(f, x, y, d, eqs);
                 solve_eq(f, y, x, d, eqs);
             }
+            bool str;
+            rational lo, hi;
+            if (a.is_le(f, x, y) && a.is_numeral(y, hi) && m_bm.has_lower(x, lo, str) && !str && lo == hi) {
+                expr_dependency_ref d2(m);
+                d2 = m.mk_join(d, m_bm.lower_dep(x));
+                if (is_uninterp_const(x)) 
+                    eqs.push_back(dependent_eq(f, to_app(x), expr_ref(y, m), d2));
+                else {
+                    solve_eq(f, x, y, d2, eqs);                
+                    solve_eq(f, y, x, d2, eqs);                
+                }
+            }
         }
 
         void pre_process(dependent_expr_state& fmls) override {
@@ -264,8 +290,13 @@ namespace euf {
                 return;
             m_nonzero.reset();
             m_trail.reset();
-            for (unsigned i = 0; i < fmls.qtail(); ++i) 
-                add_pos(fmls[i].fml());            
+            m_bm.reset();
+            for (unsigned i = 0; i < fmls.qtail(); ++i) {
+                auto [f, p, d] = fmls[i]();
+                add_pos(f);
+                m_bm(f, d, p);
+            }
+
         }
 
 

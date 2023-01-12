@@ -16,10 +16,11 @@ Author:
 Notes:
 
 --*/
-#include "tactic/arith/bound_manager.h"
+
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
-#include "tactic/goal.h"
+#include "ast/ast_translation.h"
+#include "ast/simplifiers/bound_manager.h"
 
 bound_manager::bound_manager(ast_manager & m):
     m_util(m),
@@ -103,7 +104,9 @@ bool bound_manager::is_numeral(expr* v, numeral& n, bool& is_int) {
     return m_util.is_numeral(v, n, is_int);
 }
 
-void bound_manager::operator()(expr * f, expr_dependency * d) {
+void bound_manager::operator()(expr * f, expr_dependency * d, proof* p) {
+    if (p)
+        return;
     TRACE("bound_manager", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
     expr * v;
     numeral n;
@@ -242,16 +245,6 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
     insert_upper(v, false, hi, d);
     return true;
 }
-
-void bound_manager::operator()(goal const & g) {
-    if (g.proofs_enabled())
-        return;
-    unsigned sz = g.size();
-    for (unsigned i = 0; i < sz; i++) {
-        operator()(g.form(i), g.dep(i));
-    }
-}
-
 
 void bound_manager::reset() {
     m_bounded_vars.finalize();

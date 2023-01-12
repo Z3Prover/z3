@@ -26,7 +26,7 @@ Notes:
 #include "ast/ast_lt.h"
 #include "cmd_context/simplify_cmd.h"
 #include "ast/ast_smt2_pp.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"

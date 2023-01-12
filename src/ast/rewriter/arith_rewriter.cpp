@@ -23,9 +23,8 @@ Notes:
 #include "ast/ast_pp.h"
 
 seq_util& arith_rewriter_core::seq() {
-    if (!m_seq) {
-        m_seq = alloc(seq_util, m);
-    }
+    if (!m_seq) 
+        m_seq = alloc(seq_util, m);    
     return *m_seq;
 }
 
