@@ -54,6 +54,7 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
+    - script: sudo apt-get update
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
