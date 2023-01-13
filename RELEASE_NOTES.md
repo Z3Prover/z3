@@ -10,6 +10,7 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+
 Version 4.12.0
 ==============
 - add clause logging API.
@@ -112,6 +113,8 @@ Version 4.12.0
     theory clauses. 
   - integration of pre-processing proofs with logging proofs. There is 
     currently no supported bridge to create a end-to-end proof objects.
+- experimental API for accessing E-graphs. Exposed over Python. This API should be considered temporary
+and subject to be changed depending on use cases or removed. The functions are `Z3_solver_congruence_root`, `Z3_solver_congruence_next`.
 
 
 Version 4.11.2
