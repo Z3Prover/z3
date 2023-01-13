@@ -67,13 +67,17 @@ void test_parseprint(char const* spec) {
 void test_eval(Z3_context ctx, Z3_string spec, bool shouldFail) {
     std::cout << "spec:\n" << spec << "\n";
 
-    Z3_string resp;
+    std::string resp;
     bool failed = false;
     try {
         resp = Z3_eval_smtlib2_string(ctx, spec);
     }
     catch (std::runtime_error& e) {
         resp = e.what();
+        failed = true;
+    }
+    catch (...) {
+        resp = "unknown exception";
         failed = true;
     }
 
@@ -141,15 +145,21 @@ void test_repeated_eval() {
     Z3_set_error_handler(ctx, throwError);
     std::cout << "testing Z3_eval_smtlib2_string\n";
 
-    test_eval(ctx, spec1, false);
-    std::cout << "successful call after successful call\n";
-    test_eval(ctx, spec2, false);
-    std::cout << "failing call after successful call\n";
-    test_eval(ctx, spec3, true);
-    std::cout << "failing call after failing call\n";
-    test_eval(ctx, spec4, true);
-    std::cout << "successful call after failing call\n";
-    test_eval(ctx, spec1, false);
+    try {
+        test_eval(ctx, spec1, false);
+        std::cout << "successful call after successful call\n";
+        test_eval(ctx, spec2, false);
+        std::cout << "failing call after successful call\n";
+        test_eval(ctx, spec3, true);
+        std::cout << "failing call after failing call\n";
+        test_eval(ctx, spec4, true);
+        std::cout << "successful call after failing call\n";
+        test_eval(ctx, spec1, false);
+    }
+    catch(...) {
+        std::cout << "Error: uncaught exception\n";
+        throw;
+    }
 
     std::cout << "done evaluating\n";
 
