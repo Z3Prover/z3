@@ -478,6 +478,7 @@ namespace arith {
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
         arith_proof_hint const* explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b);
         arith_proof_hint const* explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq);
+        arith_proof_hint const* explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
         void explain_assumptions(lp::explanation const& e);
 
 

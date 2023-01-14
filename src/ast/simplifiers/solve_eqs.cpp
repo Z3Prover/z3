@@ -116,10 +116,10 @@ namespace euf {
                 for (auto const& eq : m_next[j]) {
                     auto const& [orig, v, t, d] = eq;
                     SASSERT(j == var2id(v));
-                    bool is_safe = true;
                     if (m_fmls.frozen(v))
                         continue;
                     
+                    bool is_safe = true;                    
                     unsigned todo_sz = todo.size();
 
                     // determine if substitution is safe.
@@ -222,6 +222,8 @@ namespace euf {
     }
     
     void solve_eqs::reduce() {
+
+        m_fmls.freeze_suffix();
 
         for (extract_eq* ex : m_extract_plugins)
             ex->pre_process(m_fmls);

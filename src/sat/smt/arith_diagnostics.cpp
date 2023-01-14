@@ -124,6 +124,19 @@ namespace arith {
         return m_arith_hint.mk(ctx);
     }
 
+    arith_proof_hint const* solver::explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+        arith_proof_hint* hint = nullptr;
+        if (ctx.use_drat()) {
+            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            for (auto lit : core)
+                m_arith_hint.add_lit(rational::one(), lit);
+            for (auto const& [a,b] : eqs)
+                m_arith_hint.add_eq(a, b);
+            hint = m_arith_hint.mk(ctx);
+        }
+        return hint;
+    }
+
     arith_proof_hint const* solver::explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b) {
         if (!ctx.use_drat())
             return nullptr;

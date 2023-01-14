@@ -43,12 +43,13 @@ Author:
 class dependent_expr_state {
     unsigned m_qhead = 0;
     bool     m_suffix_frozen = false;
-    unsigned m_num_recfun = 0;
+    unsigned m_num_recfun = 0, m_num_lambdas = 0;
     lbool    m_has_quantifiers = l_undef;
     ast_mark m_frozen;
     func_decl_ref_vector m_frozen_trail;
     void freeze_prefix();
     void freeze_recfun();
+    void freeze_lambda();
     void freeze_terms(expr* term, bool only_as_array, ast_mark& visited);
     void freeze(expr* term);
     void freeze(func_decl* f);

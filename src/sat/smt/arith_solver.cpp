@@ -1196,26 +1196,31 @@ namespace arith {
     void solver::set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         reset_evidence();
         m_core.append(core);
-
-        ++m_num_conflicts;
-        ++m_stats.m_conflicts;
         for (auto ev : m_explanation)
             set_evidence(ev.ci());
+        
         TRACE("arith",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
             for (literal c : m_core) tout << literal2expr(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
-        DEBUG_CODE(
-            if (is_conflict) {
-                for (literal c : m_core) VERIFY(s().value(c) == l_true);
-                for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root());
-            });
-        for (auto const& eq : m_eqs)
-            m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
-        for (literal& c : m_core)
-            c.neg();
 
-        add_redundant(m_core, explain(hint_type::farkas_h));
+        if (is_conflict) {
+            DEBUG_CODE(
+                for (literal c : m_core) VERIFY(s().value(c) == l_true);
+                for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()));                       
+            ++m_num_conflicts;
+            ++m_stats.m_conflicts;
+            auto* hint = explain_conflict(m_core, m_eqs);
+            ctx.set_conflict(euf::th_explain::conflict(*this, m_core, m_eqs, hint));
+        }
+        else {
+            for (auto const& eq : m_eqs)
+                m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
+            for (literal& c : m_core)
+                c.neg();
+            
+            add_redundant(m_core, explain(hint_type::farkas_h));
+        }
     }
 
     bool solver::is_infeasible() const {

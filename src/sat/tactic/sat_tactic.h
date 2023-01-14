@@ -13,7 +13,36 @@ Author:
 
     Leonardo (leonardo) 2011-10-26
 
-Notes:
+Tactic Documentation:
+
+## Tactic sat
+
+### Short Description
+
+Try to solve goal using a SAT solver
+
+## Tactic sat-preprocess
+
+### Short Description 
+
+Apply SAT solver preprocessing procedures (bounded resolution, Boolean constant propagation, 2-SAT, subsumption, subsumption resolution).
+
+### Example
+
+```z3
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(declare-const d Bool)
+(declare-const e Bool)
+(declare-const f Bool)
+(declare-fun p (Bool) Bool)
+(assert (=> a b))
+(assert (=> b c))
+(assert a)
+(assert (not c))
+(apply sat-preprocess)
+```
 
 --*/
 #pragma once

@@ -1631,6 +1631,7 @@ public:
     void add_lambda_def(func_decl* f, quantifier* q);
     quantifier* is_lambda_def(func_decl* f);
     quantifier* is_lambda_def(app* e) { return is_lambda_def(e->get_decl()); }
+    obj_map<func_decl, quantifier*> const& lambda_defs() const { return m_lambda_defs; }
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }
 
