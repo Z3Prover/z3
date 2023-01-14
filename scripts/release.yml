@@ -124,11 +124,10 @@ stages:
     displayName: "ManyLinux build"
     variables:
       name: ManyLinux
-      image: "quay.io/pypa/manylinux2014_x86_64:latest"
       python: "/opt/python/cp37-cp37m/bin/python"
     pool:
       vmImage: "ubuntu-latest"
-    container: "quay.io/pypa/manylinux2010_x86_64:latest"
+    container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
     - task: PythonScript@0
       displayName: Build
