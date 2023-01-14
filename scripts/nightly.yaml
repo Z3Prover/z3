@@ -366,7 +366,7 @@ stages:
         minorVersion: $(Minor)
         patchVersion: $(Patch)
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x86.sym.nuspec -Version $(NightlyVersion) -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Package'
       inputs:
@@ -394,7 +394,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Symbol Package'
       inputs:

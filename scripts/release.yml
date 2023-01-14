@@ -319,7 +319,7 @@ stages:
       inputs:
         command: custom
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x86.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       displayName: 'Sign Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
@@ -346,7 +346,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       displayName: 'Sign Symbol Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
