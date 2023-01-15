@@ -640,9 +640,8 @@ namespace polysat {
             return s.mk_clause(~invc, ~s.eq(r()), s.eq(p()), true);
 
         // p assigned => r = pseudo_inverse(eval(p))
-        if (pv.is_val() && !rv.is_val()) {
+        if (pv.is_val() && !rv.is_val())
             return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
-        }
 
         if (!pv.is_val() || !rv.is_val())
             return {};
@@ -659,21 +658,24 @@ namespace polysat {
         rational prodv = (pv * rv).val();
         SASSERT(prodv != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
         unsigned lower = 0, upper = p().power_of_2();
-        // binary search for the parity
+        // binary search for the parity (otw. we would have justifications like "parity_at_most(k) && parity_at_least(k)" for at most "k" widths
         while (lower + 1 < upper) {
             unsigned middle = (upper + lower) / 2;
             LOG("Splitting on " << middle);
-            if (parity_pv >= middle) {
+            if (parity_pv >= middle) { // parity at least middle
                 lower = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prodv < rational::power_of_two(middle))
+                if (prodv < rational::power_of_two(middle)) // product is for sure not 2^parity
                     return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle)), false);
             }
-            else {
+            else { // parity at most middle
                 upper = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prodv >= rational::power_of_two(middle))
-                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ult(prod, rational::power_of_two(middle)), false);
+                if (prodv > rational::power_of_two(middle)) // product is for sure not 2^parity
+                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle)), false);
+
+                if (rv.val() >= rational::power_of_two(p().power_of_2() - middle)) // enforce that pseudo-inverse is smaller than 2^k-parity (minimal pseudo-inverse)
+                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(r(), rational::power_of_two(p().power_of_2() - middle) - 1), false);
             }
         }
         UNREACHABLE();
