@@ -16,6 +16,7 @@ Author:
 --*/
 
 
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/simplifiers/bit_blaster.h"
 #include "ast/simplifiers/max_bv_sharing.h"
 #include "ast/simplifiers/card2bv.h"

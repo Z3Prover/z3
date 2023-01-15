@@ -22,6 +22,7 @@ Revision History:
 
 #include "ast/rewriter/maximize_ac_sharing.h"
 #include "ast/simplifiers/dependent_expr_state.h"
+#include "ast/rewriter/rewriter_def.h"
 
 class max_bv_sharing : public dependent_expr_simplifier {
 
