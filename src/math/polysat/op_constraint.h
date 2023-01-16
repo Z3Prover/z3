@@ -26,7 +26,20 @@ namespace polysat {
 
     class op_constraint final : public constraint {
     public:
-        enum class code { lshr_op, ashr_op, shl_op, and_op, inv_op };
+        enum class code {
+            /// r is the logical right shift of p by q
+            lshr_op,
+            /// r is the arithmetic right shift of p by q
+            ashr_op,
+            /// r is the left shift of p by q
+            shl_op,
+            /// r is the bit-wise 'and' of p and q
+            and_op,
+            /// r is the smallest multiplicative pseudo-inverse of p;
+            /// by definition we set r == 0 when p == 0.
+            /// Note that in general, there are 2^parity(p) many pseudo-inverses of p.
+            inv_op
+        };
     protected:
         friend class constraint_manager;
 
@@ -53,7 +66,7 @@ namespace polysat {
 
         clause_ref lemma_inv(solver& s, assignment const& a);
         static lbool eval_inv(pdd const& p, pdd const& r);
-        
+
         std::ostream& display(std::ostream& out, char const* eq) const;
 
         void activate(solver& s);

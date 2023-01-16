@@ -102,9 +102,9 @@ namespace polysat {
     }
 
     std::ostream& op_constraint::display(std::ostream& out, char const* eq) const {
-        if (m_op == code::inv_op) 
+        if (m_op == code::inv_op)
             return out << r() << " " << eq << " " << m_op << " " << p();
-        
+
         return out << r() << " " << eq << " " << p() << " " << m_op << " " << q();
     }
 
@@ -129,7 +129,7 @@ namespace polysat {
 
         if (clause_ref lemma = produce_lemma(s, s.get_assignment()))
             s.add_clause(*lemma);
-        
+
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
     }
@@ -184,6 +184,7 @@ namespace polysat {
             break;
         case code::shl_op:
             // TODO: if shift amount is constant p << k, then add p << k == p*2^k
+            //       NOTE: we do that now as simplification in constraint_manager::shl
             break;
         case code::and_op:
             // handle masking of high order bits
@@ -193,7 +194,7 @@ namespace polysat {
             break;
         default:
             break;
-        }        
+        }
     }
 
     unsigned op_constraint::hash() const {
@@ -294,9 +295,7 @@ namespace polysat {
 
         if (p.is_val() && q.is_val() && r.is_val()) {
             SASSERT(q.val().is_unsigned());  // otherwise, previous condition should have been triggered
-            // TODO: use right-shift operation instead of division
-            auto divisor = rational::power_of_two(q.val().get_unsigned());
-            return to_lbool(r.val() == div(p.val(), divisor));
+            return to_lbool(r.val() == machine_div2k(p.val(), q.val().get_unsigned()));
         }
 
         // TODO: other cases when we know lower bound of q,
@@ -309,7 +308,7 @@ namespace polysat {
         // TODO: Implement: negative case
         return true;
     }
-    
+
     /**
      * Enforce axioms for constraint: r == p << q
      *
@@ -420,10 +419,10 @@ namespace polysat {
 
         SASSERT(shift_max_u <= sz);
         SASSERT(shift_min_u <= shift_max_u);
-        
+
         unsigned span = shift_max_u - shift_min_u;
 
-        // Shift by at the value we know q to be at least 
+        // Shift by at the value we know q to be at least
         // TODO: Improve performance; we can reuse the justifications from the previous iteration
         if (shift_min_u > 0) {
             for (unsigned i = 0; i < shift_min_u; i++) {
@@ -436,7 +435,7 @@ namespace polysat {
             tbit val = p_val[i - shift_min_u];
             if (val == BIT_z)
                 continue;
-            
+
             for (; j < span; j++) {
                 if (p_val[i - shift_min_u + 1] != val)
                     break;
@@ -461,7 +460,7 @@ namespace polysat {
         if (!(yv + 1).is_power_of_two())
             return;
         signed_constraint const andc(this, true);
-        if (yv == m.max_value()) 
+        if (yv == m.max_value())
             s.add_clause(~andc, s.eq(x, r()), false);
         else if (yv == 0)
             s.add_clause(~andc, s.eq(r()), false);
@@ -472,7 +471,7 @@ namespace polysat {
             rational exp = rational::power_of_two(K - k);
             s.add_clause(~andc, s.eq(x * exp, r() * exp), false);
             s.add_clause(~andc, s.ule(r(), y), false);  // maybe always activate these constraints regardless?
-        }        
+        }
     }
 
     /**
@@ -485,8 +484,8 @@ namespace polysat {
      * q = 2^K - 1 => p = r
      * p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
      * q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
-     * r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
-     * r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k   
+     * r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k
+     * r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k
      */
     clause_ref op_constraint::lemma_and(solver& s, assignment const& a) {
         auto& m = p().manager();
@@ -520,13 +519,13 @@ namespace polysat {
 
             // q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
 
-            // r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k   
+            // r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k
             if ((pv.val() + 1).is_power_of_two() && rv.val() > pv.val())
                 return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.eq(q()), s.ult(p(), q()), true);
             // r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k
             if (rv.is_zero() && (qv.val() + 1).is_power_of_two() && pv.val() <= qv.val())
                 return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.eq(p()),s.ult(q(), p()), true);
-            
+
             for (unsigned i = 0; i < K; ++i) {
                 bool pb = pv.val().get_bit(i);
                 bool qb = qv.val().get_bit(i);
@@ -584,7 +583,7 @@ namespace polysat {
             tbit bp = p_val[i];
             tbit bq = q_val[i];
             tbit br = r_val[i];
-            
+
             if (bp == BIT_0 || bq == BIT_0) {
                 // TODO: In case both are 0 use the one with the lower decision-level and not necessarily p
                 if (!s.m_fixed_bits.fix_bit(s, m_r, i, BIT_0, bit_justification_constraint::mk_unary(s, this, { bp == BIT_0 ? m_p : m_q, i }), true))
@@ -613,14 +612,15 @@ namespace polysat {
         }
         return true;
     }
-    
+
     /**
      * Produce lemmas for constraint: r == inv p
-     * p = 0 => r = 0
-     * r = 0 => p = 0
-     * odd(r) -- for now we are looking for the smallest pseudo-inverse (there are 2^parity(p) of them)
-     * parity(p) >= k && p * r < 2^k => p * r >= 2^k
-     * parity(p) < k && p * r >= 2^k => p * r < 2^k
+     * p = 0   ==>  r = 0
+     * r = 0   ==>  p = 0
+     * p != 0  ==>  odd(r)
+     * parity(p) >= k   ==>  p * r >= 2^k
+     * parity(p) < k    ==>  p * r <= 2^k - 1
+     * parity(p) < k    ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
      */
     clause_ref op_constraint::lemma_inv(solver& s, assignment const& a) {
         auto& m = p().manager();
@@ -632,32 +632,32 @@ namespace polysat {
 
         signed_constraint const invc(this, true);
 
-        // p = 0 => r = 0
+        // p = 0  ==>  r = 0
         if (pv.is_zero())
             return s.mk_clause(~invc, ~s.eq(p()), s.eq(r()), true);
-        // r = 0 => p = 0
+        // r = 0  ==>  p = 0
         if (rv.is_zero())
             return s.mk_clause(~invc, ~s.eq(r()), s.eq(p()), true);
 
-        // p assigned => r = pseudo_inverse(eval(p))
+        // p assigned  ==>  r = pseudo_inverse(eval(p))
+        // TODO: (later) this should be propagated instead of adding a clause
         if (pv.is_val() && !rv.is_val())
             return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
 
         if (!pv.is_val() || !rv.is_val())
             return {};
-        
+
         unsigned parity_pv = pv.val().trailing_zeros();
         unsigned parity_rv = rv.val().trailing_zeros();
 
-        // odd(r)
+        // p != 0  ==>  odd(r)
         if (parity_rv != 0)
-            return s.mk_clause(~invc, s.odd(r()), true);
-        // parity(p) >= k && p * r < 2^k => p * r >= 2^k
-        // parity(p) < k && p * r >= 2^k => p * r < 2^k
+            return s.mk_clause(~invc, ~s.eq(p()), s.odd(r()), true);
+
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
         SASSERT(prodv != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
-        unsigned lower = 0, upper = p().power_of_2();
+        unsigned lower = 0, upper = m.power_of_2();
         // binary search for the parity (otw. we would have justifications like "parity_at_most(k) && parity_at_least(k)" for at most "k" widths
         while (lower + 1 < upper) {
             unsigned middle = (upper + lower) / 2;
@@ -665,34 +665,37 @@ namespace polysat {
             if (parity_pv >= middle) { // parity at least middle
                 lower = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prodv < rational::power_of_two(middle)) // product is for sure not 2^parity
+                // parity(p) >= k  ==>  p * r >= 2^k
+                if (prodv < rational::power_of_two(middle))
                     return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle)), false);
             }
-            else { // parity at most middle
+            else { // parity less than middle
                 upper = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
-                if (prodv > rational::power_of_two(middle)) // product is for sure not 2^parity
-                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle)), false);
-
-                if (rv.val() >= rational::power_of_two(p().power_of_2() - middle)) // enforce that pseudo-inverse is smaller than 2^k-parity (minimal pseudo-inverse)
-                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(r(), rational::power_of_two(p().power_of_2() - middle) - 1), false);
+                // parity(p) < k   ==>  p * r <= 2^k - 1
+                if (prodv > rational::power_of_two(middle))
+                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle) - 1), false);
             }
+            // parity(p) < k    ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
+            rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
+            if (rv.val() > max_rv)
+                return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(r(), max_rv), false);
         }
         UNREACHABLE();
         return {};
     }
-    
+
     /** Evaluate constraint: r == inv p */
     lbool op_constraint::eval_inv(pdd const& p, pdd const& r) {
         if (!p.is_val() || !r.is_val())
             return l_undef;
-        
+
         if (p.is_zero() || r.is_zero()) // the inverse of 0 is 0 (by arbitrary definition). Just to have some unique value
-            return p.is_zero() && r.is_zero() ? l_true : l_false;
-            
-        return p.val().pseudo_inverse(p.power_of_2()) == r.val() ? l_true : l_false;
+            return to_lbool(p.is_zero() && r.is_zero());
+
+        return to_lbool(p.val().pseudo_inverse(p.power_of_2()) == r.val());
     }
-    
+
     void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
         pdd pv = s.subst(p());
         if (!pv.is_univariate_in(v))
