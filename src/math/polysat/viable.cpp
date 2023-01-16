@@ -351,6 +351,7 @@ namespace {
 
         auto delta_h = [&a, &lo, &hi] (rational const& a_y) -> rational {
             SASSERT(lo <= a_y && a_y <= hi);
+            (void)lo;  // avoid warning in release mode
             return div_floor(hi - a_y, a);
         };
 
@@ -512,7 +513,6 @@ namespace {
         entry const* first = e;
         auto& m = s.var2pdd(v);
         unsigned const N = m.power_of_2();
-        rational const& max_value = m.max_value();
         rational const& mod_value = m.two_to_N();
 
         // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
@@ -1022,6 +1022,7 @@ namespace {
             e = e->prev();
         }
         while (e != last);
+
         if (!refine_viable(v, lo))
             return refined;
         if (!refine_viable(v, hi))
