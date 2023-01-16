@@ -330,27 +330,32 @@ namespace smt {
                 enode * n = curr.get_enode();
                 SASSERT(n->get_root() == n);
                 TRACE("mg_top_sort", tout << curr << "\n";);
-                dependencies.reset();
-                dependency_values.reset();
-                model_value_proc * proc = root2proc[n];
-                SASSERT(proc);
-                proc->get_dependencies(dependencies);
-                for (model_value_dependency const& d : dependencies) {
-                    if (d.is_fresh_value()) {
-                        CTRACE("mg_top_sort", !d.get_value()->get_value(), 
-                               tout << "#" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
-                        SASSERT(d.get_value()->get_value());
-                        dependency_values.push_back(d.get_value()->get_value());
+                app* val = nullptr;
+                if (m.is_value(n->get_expr()))
+                    val = to_app(n->get_expr());
+                else {
+                    dependencies.reset();
+                    dependency_values.reset();
+                    model_value_proc * proc = root2proc[n];
+                    SASSERT(proc);
+                    proc->get_dependencies(dependencies);
+                    for (model_value_dependency const& d : dependencies) {
+                        if (d.is_fresh_value()) {
+                            CTRACE("mg_top_sort", !d.get_value()->get_value(), 
+                                   tout << "#" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
+                            SASSERT(d.get_value()->get_value());
+                            dependency_values.push_back(d.get_value()->get_value());
+                        }
+                        else {
+                            enode * child = d.get_enode();
+                            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
+                                  << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
+                            child = child->get_root();
+                            dependency_values.push_back(m_root2value[child]);
+                        }
                     }
-                    else {
-                        enode * child = d.get_enode();
-                        TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
-                              << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
-                        child = child->get_root();
-                        dependency_values.push_back(m_root2value[child]);
-                    }
+                    val = proc->mk_value(*this, dependency_values);
                 }
-                app * val = proc->mk_value(*this, dependency_values); 
                 register_value(val);
                 m_asts.push_back(val);
                 m_root2value.insert(n, val);

@@ -82,22 +82,18 @@ namespace smt {
         app* fresh_term;
         if (is_app(val) && to_app(val)->get_num_args() > 0) {
             ptr_buffer<expr> args;
-            for (expr* arg : *to_app(val)) {
+            for (expr* arg : *to_app(val)) 
                 args.push_back(get_type_compatible_term(arg));
-            }
             fresh_term = m.mk_app(to_app(val)->get_decl(), args.size(), args.data());
         }
         else {
             expr * sk_term = get_term_from_ctx(val);
-            if (sk_term != nullptr) {
+            if (sk_term != nullptr) 
                 return sk_term;
-            }
 
-            for (expr* f : m_fresh_exprs) {
-                if (f->get_sort() == val->get_sort()) {
+            for (expr* f : m_fresh_exprs) 
+                if (f->get_sort() == val->get_sort()) 
                     return f;
-                }
-            }
             fresh_term = m.mk_fresh_const("sk", val->get_sort());
         }
         m_fresh_exprs.push_back(fresh_term);
@@ -106,13 +102,16 @@ namespace smt {
     }
 
     void model_checker::init_value2expr() {
+        
         if (m_value2expr.empty()) {
             // populate m_value2expr
             for (auto const& kv : *m_root2value) {
                 enode * n   = kv.m_key;
                 expr  * val = kv.m_value;
                 n = n->get_eq_enode_with_min_gen();
-                m_value2expr.insert(val, n->get_expr());
+                expr* e = n->get_expr();
+                if (!m.is_value(e))
+                    m_value2expr.insert(val, e);
             }
         }
     }
