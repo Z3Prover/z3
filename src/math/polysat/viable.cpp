@@ -237,7 +237,7 @@ namespace polysat {
     }
 
     bool viable::intersect(pvar v, entry* ne) {
-        // SASSERT(!s.is_assigned(v));  // TODO: do we get unsoundness if this condition is violated? (see comment on cyclic dependencies in solver::pop_levels)
+        SASSERT(!s.is_assigned(v));
         entry* e = m_units[v];
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
