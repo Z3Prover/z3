@@ -38,7 +38,7 @@ namespace polysat {
 
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
-        virtual unsigned scope_level() = 0;
+        virtual unsigned scope_level() const = 0;
 
         virtual lbool check() = 0;
 
@@ -117,8 +117,6 @@ namespace polysat {
         virtual void add_bit(unsigned idx, bool sign, dep_t dep) = 0;
         void add_bit0(unsigned idx, dep_t dep) { add_bit(idx, true, dep); }
         void add_bit1(unsigned idx, dep_t dep) { add_bit(idx, false, dep); }
-        
-        virtual expr* get_parity(univariate const& in) = 0;
 
         virtual std::ostream& display(std::ostream& out) const = 0;
     };
