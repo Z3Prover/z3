@@ -23,11 +23,13 @@ Author:
 // substitutions that use variables from the dependent expressions.
 // TODO: add filters to skip sections of the trail that do not touch the current free variables.
 
-void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st) {
+void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& st) {
     ast_mark free_vars;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
-    for (unsigned i = qhead; i < st.qtail(); ++i) 
+    for (unsigned i = qhead; i < st.qtail(); ++i)        
         add_vars(st[i], free_vars);
+    for (expr* a : assumptions)
+        add_vars(a, free_vars);
 
     for (auto& t : m_trail) {
         if (!t->m_active)
@@ -63,7 +65,7 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
             mrp.insert(head, t->m_def, t->m_dep);
             dependent_expr de(m, t->m_def, nullptr, t->m_dep);
             add_vars(de, free_vars);
-
+            
             for (unsigned i = qhead; i < st.qtail(); ++i) {
                 auto [f, p, dep1] = st[i]();
                 expr_ref g(m);
@@ -72,6 +74,15 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
                 CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
                 if (f != g)
                     st.update(i, dependent_expr(m, g, nullptr, dep2));
+            }
+            for (unsigned i = 0; i < assumptions.size(); ++i) {
+                expr* a = assumptions.get(i);
+                expr_ref g(m);
+                expr_dependency_ref dep(m);
+                mrp(a, nullptr, g, dep);
+                if (a != g)
+                    assumptions[i] = g;
+                // ignore dep.
             }
             continue;
         }
@@ -103,7 +114,15 @@ void model_reconstruction_trail::replay(unsigned qhead, dependent_expr_state& st
             CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
             add_vars(d, free_vars);
             st.update(i, d);
-        }    
+        }
+        
+        for (unsigned i = 0; i < assumptions.size(); ++i) {
+            expr* a = assumptions.get(i);
+            auto [g, dep2] = rp->replace_with_dep(a);
+            if (a != g)
+                assumptions[i] = g;
+            // ignore dep.
+        }        
     }
 }
 

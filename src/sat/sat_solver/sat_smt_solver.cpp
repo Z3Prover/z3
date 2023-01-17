@@ -70,7 +70,7 @@ class sat_smt_solver : public solver {
             return out;
         }
         void append(generic_model_converter& mc) { model_trail().append(mc); }
-        void replay(unsigned qhead) { m_reconstruction_trail.replay(qhead, *this); }
+        void replay(unsigned qhead, expr_ref_vector& assumptions) { m_reconstruction_trail.replay(qhead, assumptions, *this); }
         void flatten_suffix() override {
             expr_mark seen;
             unsigned j = qhead();
@@ -237,8 +237,10 @@ public:
         expr_ref_vector assumptions(m);
         for (unsigned i = 0; i < sz; ++i)
             assumptions.push_back(ensure_literal(_assumptions[i]));
+        for (expr* a : assumptions)
+            m_preprocess_state.freeze(a); 
         TRACE("sat", tout << assumptions << "\n";);
-        lbool r = internalize_formulas();
+        lbool r = internalize_formulas(assumptions);
         if (r != l_true)
             return r;
 
@@ -271,7 +273,8 @@ public:
 
     void push() override {
         try {
-            internalize_formulas();
+            expr_ref_vector none(m);
+            internalize_formulas(none);
         }
         catch (...) {
             push_internal();
@@ -430,7 +433,7 @@ public:
     }
 
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
-        lbool r = internalize_formulas();
+        lbool r = internalize_formulas(vs);
         if (r != l_true) {
             IF_VERBOSE(0, verbose_stream() << "internalize produced " << r << "\n");
             return expr_ref_vector(m);
@@ -561,7 +564,8 @@ public:
 
     void convert_internalized() {
         m_solver.pop_to_base_level();
-        internalize_formulas();        
+        expr_ref_vector none(m);
+        internalize_formulas(none);        
         if (!is_internalized() || m_internalized_converted) 
             return;
         sat2goal s2g;
@@ -641,9 +645,9 @@ private:
             add_assumption(a);
     }
 
-    lbool internalize_formulas() {
+    lbool internalize_formulas(expr_ref_vector& assumptions) {
 
-        if (is_internalized())
+        if (is_internalized() && assumptions.empty())
             return l_true;
 
         unsigned qhead = m_preprocess_state.qhead();
@@ -651,7 +655,7 @@ private:
 
         m_internalized_converted = false;
 
-        m_preprocess_state.replay(qhead);         
+        m_preprocess_state.replay(qhead, assumptions);         
         m_preprocess.reduce();
         if (!m.inc())
             return l_undef;

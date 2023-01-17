@@ -865,11 +865,11 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
-        r.insert("common_patterns", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing commonly used patterns");
-        r.insert("distributivity", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by applying distributivity over unshared subformulas");
-        r.insert("distributivity_blowup", CPK_UINT, "(default: 32) maximum overhead for applying distributivity during CNF encoding");
-        r.insert("ite_chaing", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing if-then-else chains");                                                       
-        r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
+        r.insert("common_patterns", CPK_BOOL, "minimize the number of auxiliary variables during CNF encoding by identifing commonly used patterns", "true");
+        r.insert("distributivity", CPK_BOOL, "minimize the number of auxiliary variables during CNF encoding by applying distributivity over unshared subformulas", "true");
+        r.insert("distributivity_blowup", CPK_UINT, "maximum overhead for applying distributivity during CNF encoding", "32");
+        r.insert("ite_chaing", CPK_BOOL, "minimize the number of auxiliary variables during CNF encoding by identifing if-then-else chains", "true");                                                       
+        r.insert("ite_extra", CPK_BOOL, "add redundant clauses (that improve unit propagation) when encoding if-then-else formulas", "true");
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

@@ -91,9 +91,7 @@ namespace euf {
             m_scopes.push_back(m_updates.size());
             m_region.push_scope();
             m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
-            m_updates.push_back(update_record(m_new_lits_qhead, update_record::new_lits_qhead()));
         }
-        SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
     }
 
@@ -156,12 +154,29 @@ namespace euf {
     }
 
     void egraph::add_literal(enode* n, enode* ante) {
+        /*
         if (n->bool_var() == sat::null_bool_var)
             return;
-        TRACE("euf_verbose", tout << "lit: " << n->get_expr_id() << "\n";);
-        m_new_lits.push_back(enode_pair(n, ante));
-        m_updates.push_back(update_record(update_record::new_lit()));
+        */
         if (!ante) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
+        if (!ante)
+            m_on_propagate_literal(n, ante);
+        else if (m.is_true(ante->get_expr()) || m.is_false(ante->get_expr())) {
+            for (enode* k : enode_class(n)) {
+                if (k != ante) {
+                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
+                    m_on_propagate_literal(k, ante);
+                }
+            }
+        }
+        else {
+            for (enode* k : enode_class(n)) {
+                if (k->value() != ante->value()) {
+                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
+                    m_on_propagate_literal(k, ante);
+                }
+            }
+        }
     }
 
     void egraph::new_diseq(enode* n) {
@@ -339,7 +354,6 @@ namespace euf {
         num_scopes -= m_num_scopes;
         m_num_scopes = 0;
 
-        SASSERT(m_new_lits_qhead <= m_new_lits.size());
         unsigned old_lim = m_scopes.size() - num_scopes;
         unsigned num_updates = m_scopes[old_lim];
         auto undo_node = [&]() {
@@ -378,17 +392,11 @@ namespace euf {
                 SASSERT(p.r1->get_th_var(p.m_th_id) != null_theory_var);
                 p.r1->replace_th_var(p.m_old_th_var, p.m_th_id);
                 break;
-            case update_record::tag_t::is_new_lit:
-                m_new_lits.pop_back();
-                break;
             case update_record::tag_t::is_new_th_eq:
                 m_new_th_eqs.pop_back();
                 break;
             case update_record::tag_t::is_new_th_eq_qhead:
                 m_new_th_eqs_qhead = p.qhead;
-                break;
-            case update_record::tag_t::is_new_lits_qhead:
-                m_new_lits_qhead = p.qhead;
                 break;
             case update_record::tag_t::is_inconsistent:
                 m_inconsistent = p.m_inconsistent;
@@ -424,7 +432,6 @@ namespace euf {
         m_region.pop_scope(num_scopes);  
         m_to_merge.reset();
 
-        SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
 
         // DEBUG_CODE(invariant(););
@@ -461,12 +468,6 @@ namespace euf {
             std::swap(n1, n2);
         }
 
-        if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
-            add_literal(n1, r2);
-        if (r2->value() != l_undef && n1->value() == l_undef) 
-            add_literal(n1, r2);
-        else if (r1->value() != l_undef && n2->value() == l_undef) 
-            add_literal(n2, r1);
         remove_parents(r1);
         push_eq(r1, n1, r2->num_parents());
         merge_justification(n1, n2, j);
@@ -476,6 +477,13 @@ namespace euf {
         r2->inc_class_size(r1->class_size());   
         merge_th_eq(r1, r2);
         reinsert_parents(r1, r2);
+        if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
+            add_literal(n1, r2);
+        else if (n2->value() != l_undef && n1->value() != n2->value()) 
+            add_literal(n1, n2);
+        else if (n1->value() != l_undef && n2->value() != n1->value()) 
+            add_literal(n2, n1);
+
         for (auto& cb : m_on_merge)
             cb(r2, r1);
     }
@@ -565,7 +573,6 @@ namespace euf {
 
 
     bool egraph::propagate() {
-        SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_num_scopes == 0 || m_to_merge.empty());
         force_push();
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
@@ -574,7 +581,6 @@ namespace euf {
         }
         m_to_merge.reset();
         return 
-            (m_new_lits_qhead < m_new_lits.size()) || 
             (m_new_th_eqs_qhead < m_new_th_eqs.size()) ||
             inconsistent();
     }
@@ -851,7 +857,6 @@ namespace euf {
 
     std::ostream& egraph::display(std::ostream& out) const {
         out << "updates " << m_updates.size() << "\n";
-        out << "newlits " << m_new_lits.size()   << " qhead: " << m_new_lits_qhead << "\n";
         out << "neweqs  " << m_new_th_eqs.size() << " qhead: " << m_new_th_eqs_qhead << "\n";
         m_table.display(out);
         unsigned max_args = 0;

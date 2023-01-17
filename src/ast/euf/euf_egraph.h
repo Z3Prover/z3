@@ -105,10 +105,8 @@ namespace euf {
             struct toggle_merge_tf {};
             struct add_th_var {};
             struct replace_th_var {};
-            struct new_lit {};
             struct new_th_eq {};
             struct new_th_eq_qhead {};
-            struct new_lits_qhead {};
             struct inconsistent {};
             struct value_assignment {};
             struct lbl_hash {};
@@ -116,8 +114,8 @@ namespace euf {
             struct update_children {};
             struct set_relevant {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_cgc, is_toggle_merge_tf, is_update_children,
-                    is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
-                    is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
+                    is_add_th_var, is_replace_th_var, is_new_th_eq,
+                    is_lbl_hash, is_new_th_eq_qhead,
                     is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant };
             tag_t  tag;
             enode* r1;
@@ -145,14 +143,10 @@ namespace euf {
                 tag(tag_t::is_add_th_var), r1(n), n1(nullptr), r2_num_parents(id) {}
             update_record(enode* n, theory_id id, theory_var v, replace_th_var) :
                 tag(tag_t::is_replace_th_var), r1(n), n1(nullptr), m_th_id(id), m_old_th_var(v) {}
-            update_record(new_lit) :
-                tag(tag_t::is_new_lit), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
             update_record(new_th_eq) :
                 tag(tag_t::is_new_th_eq), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
             update_record(unsigned qh, new_th_eq_qhead):
                 tag(tag_t::is_new_th_eq_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
-            update_record(unsigned qh, new_lits_qhead):
-                tag(tag_t::is_new_lits_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
             update_record(bool inc, inconsistent) :
                 tag(tag_t::is_inconsistent), r1(nullptr), n1(nullptr), m_inconsistent(inc) {}
             update_record(enode* n, value_assignment) :
@@ -187,9 +181,7 @@ namespace euf {
         enode                  *m_n1 = nullptr;
         enode                  *m_n2 = nullptr;
         justification          m_justification;
-        unsigned               m_new_lits_qhead = 0;
         unsigned               m_new_th_eqs_qhead = 0;
-        svector<enode_pair>    m_new_lits;
         svector<th_eq>         m_new_th_eqs;
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
@@ -198,7 +190,8 @@ namespace euf {
         bool                   m_default_relevant = true;
         uint64_t               m_congruence_timestamp = 0;
 
-        std::vector<std::function<void(enode*,enode*)>>     m_on_merge;
+        std::vector<std::function<void(enode*,enode*)>> m_on_merge;
+        std::function<void(enode*, enode*)>    m_on_propagate_literal;
         std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
@@ -290,11 +283,8 @@ namespace euf {
            is an equality consequence. 
          */
         void       add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq);
-        bool       has_literal() const { return m_new_lits_qhead < m_new_lits.size(); }
         bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
-        enode_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
         th_eq      get_th_eq() const { return m_new_th_eqs[m_new_th_eqs_qhead]; }
-        void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
 
         void set_lbl_hash(enode* n);
@@ -311,6 +301,7 @@ namespace euf {
         void set_default_relevant(bool b) { m_default_relevant = b; }
 
         void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge.push_back(on_merge); }
+        void set_on_propagate(std::function<void(enode* lit,enode* ante)>& on_propagate) { m_on_propagate_literal = on_propagate; }
         void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }

@@ -74,13 +74,17 @@ class model_reconstruction_trail {
     scoped_ptr_vector<entry> m_trail;
     unsigned                 m_trail_index = 0;
 
-    void add_vars(dependent_expr const& d, ast_mark& free_vars) {
-        for (expr* t : subterms::all(expr_ref(d.fml(), d.get_manager())))
+    void add_vars(expr* e, ast_mark& free_vars) {
+        for (expr* t : subterms::all(expr_ref(e, m)))
             free_vars.mark(t, true);
+    }
+    
+    void add_vars(dependent_expr const& d, ast_mark& free_vars) {
+        add_vars(d.fml(), free_vars);
     }
 
     bool intersects(ast_mark const& free_vars, dependent_expr const& d) {
-        expr_ref term(d.fml(), d.get_manager());
+        expr_ref term(d.fml(), m);
         auto iter = subterms::all(term);
         return any_of(iter, [&](expr* t) { return free_vars.is_marked(t); });
     }
@@ -126,7 +130,7 @@ public:
     * register a new depedent expression, update the trail 
     * by removing substitutions that are not equivalence preserving.
     */
-    void replay(unsigned qhead, dependent_expr_state& fmls);
+    void replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& fmls);
     
     /**
     * retrieve the current model converter corresponding to chaining substitutions from the trail.

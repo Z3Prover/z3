@@ -51,7 +51,6 @@ class dependent_expr_state {
     void freeze_recfun();
     void freeze_lambda();
     void freeze_terms(expr* term, bool only_as_array, ast_mark& visited);
-    void freeze(expr* term);
     void freeze(func_decl* f);
     struct thaw : public trail {
         unsigned sz;
@@ -89,6 +88,7 @@ public:
     /**
     * Freeze internal functions
     */
+    void freeze(expr* term);
     bool frozen(func_decl* f) const { return m_frozen.is_marked(f); }
     bool frozen(expr* f) const { return is_app(f) && m_frozen.is_marked(to_app(f)->get_decl()); }
     void freeze_suffix();

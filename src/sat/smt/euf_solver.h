@@ -206,7 +206,7 @@ namespace euf {
         void validate_model(model& mdl);
 
         // solving
-        void propagate_literals();
+        void propagate_literal(enode* n, enode* ante);
         void propagate_th_eqs();
         bool is_self_propagated(th_eq const& e);
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);

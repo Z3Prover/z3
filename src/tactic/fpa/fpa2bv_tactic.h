@@ -5,15 +5,16 @@ Module Name:
 
     fpa2bv_tactic.h
 
-Abstract:
-
-    Tactic that converts floating points to bit-vectors
-
 Author:
 
     Christoph (cwinter) 2012-02-09
 
-Notes:
+Tactic Documentation:
+
+## Tactic fpa2bv
+
+### Short Description
+Converts floating points to bit-vector representation.
 
 --*/
 #pragma once
