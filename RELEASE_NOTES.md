@@ -11,6 +11,10 @@ Version 4.next
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
 
+Version 4.12.1
+==============
+- change macos build to use explicit reference to Macos version 11. Hosted builds are migrating to macos-12 and it broke a user Issue #6539.
+
 Version 4.12.0
 ==============
 - add clause logging API.
