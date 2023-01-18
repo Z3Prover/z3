@@ -30,6 +30,8 @@ namespace polysat {
         bool                  m_is_tautology = false;
         bool                  m_redundant = clause::redundant_default;
 
+        solver& s() const { return *m_solver; }
+
     public:
         clause_builder(solver& s);
         clause_builder(clause_builder const& s) = delete;
