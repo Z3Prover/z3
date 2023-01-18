@@ -17,7 +17,7 @@ stages:
   - job: MacBuild
     displayName: "macOS Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - task: PythonScript@0
       displayName: Build
@@ -46,7 +46,7 @@ stages:
   - job: MacBuildArm64
     displayName: "macOS ARM64 Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
     - script: git clone https://github.com/z3prover/z3test z3test
