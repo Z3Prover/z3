@@ -425,7 +425,8 @@ namespace {
 
         // a * [yil;yih] is the right-most y-interval that is completely in [lo;hi].
         rational const yih = y1h + i * step;
-        rational const a_yih = a*yih + (k - i - 1)*M;
+        rational const a_yih = a_y1h + i * alpha;
+        SASSERT_EQ(a_yih, a*yih + (k - i - 1)*M);
         SASSERT(contained(a_yih));
 
         // The next interval to the right may contain a few more values if alpha > 0
