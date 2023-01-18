@@ -1910,122 +1910,6 @@ namespace polysat {
 
     };  // class test_polysat
 
-
-    // Here we deal with linear constraints of the form
-    //
-    //     a1*x + b1 <= a2*x + b2   (mod m = 2^bw)
-    //
-    // and their negation.
-
-    class test_fi {
-
-        static bool is_violated(rational const& a1, rational const& b1, rational const& a2, rational const& b2,
-                                rational const& val, bool negated, rational const& m) {
-            rational const lhs = (a1*val + b1) % m;
-            rational const rhs = (a2*val + b2) % m;
-            if (negated)
-                return lhs <= rhs;
-            else
-                return lhs > rhs;
-        }
-
-        // Returns true if the input is valid and the test did useful work
-        static bool check_one(rational const& a1, rational const& b1, rational const& a2, rational const& b2, rational const& val, bool negated, unsigned bw) {
-            rational const m = rational::power_of_two(bw);
-            if (a1.is_zero() && a2.is_zero())
-                return false;
-            if (!is_violated(a1, b1, a2, b2, val, negated, m))
-                return false;
-
-            scoped_solver s(__func__);
-            auto x = s.var(s.add_var(bw));
-            signed_constraint c = s.ule(a1*x + b1, a2*x + b2);
-            if (negated)
-                c.negate();
-            viable& v = s.m_viable;
-            v.intersect(x.var(), c);
-            // Trigger forbidden interval refinement
-            v.is_viable(x.var(), val);
-            auto* e = v.m_units[x.var()];
-            if (!e) {
-                std::cout << "test_fi: no interval for a1=" << a1 << " b1=" << b1 << " a2=" << a2 << " b2=" << b2 << " val=" << val << " neg=" << negated << std::endl;
-                // VERIFY(false);
-                return false;
-            }
-            VERIFY(e);
-            auto* first = e;
-            SASSERT(e->next() == e);  // the result is expected to be a single interval (although for this check it doesn't really matter if there's more...)
-            do {
-                rational const& lo = e->interval.lo_val();
-                rational const& hi = e->interval.hi_val();
-                for (rational x = lo; x != hi; x = (x + 1) % m) {
-                    // LOG("lo=" << lo << " hi=" << hi << " x=" << x);
-                    if (!is_violated(a1, b1, a2, b2, val, negated, m)) {
-                        std::cout << "test_fi: unsound for a1=" << a1 << " b1=" << b1 << " a2=" << a2 << " b2=" << b2 << " val=" << val << " neg=" << negated << std::endl;
-                        VERIFY(false);
-                    }
-                }
-                // TODO: now try to extend lo/hi one by one to find out how "bad" our interval really is.
-                //              (probably slow so maybe add a flag to enable/disable that.)
-                e = e->next();
-            }
-            while (e != first);
-            return true;
-        }
-
-    public:
-        static void exhaustive(unsigned bw = 0) {
-            if (bw == 0) {
-                exhaustive(1);
-                exhaustive(2);
-                exhaustive(3);
-                exhaustive(4);
-                exhaustive(5);
-            }
-            else {
-                std::cout << "test_fi::exhaustive for bw=" << bw << std::endl;
-                rational const m = rational::power_of_two(bw);
-                for (rational p(1); p < m; ++p) {
-                    for (rational r(1); r < m; ++r) {
-                        // TODO: remove this condition to test the cases other than disequal_lin! (also start p,q from 0)
-                        if (p == r)
-                            continue;
-                        for (rational q(0); q < m; ++q)
-                            for (rational s(0); s < m; ++s)
-                                for (rational v(0); v < m; ++v)
-                                    for (bool negated : {true, false})
-                                        check_one(p, q, r, s, v, negated, bw);
-                    }
-                }
-            }
-        }
-
-        static void randomized(unsigned num_rounds = 100000, unsigned bw = 16) {
-            std::cout << "test_fi::randomized for bw=" << bw << " (" << num_rounds << " rounds)" << std::endl;
-            rational const m = rational::power_of_two(bw);
-            VERIFY(bw <= 32 && "random_gen generates 32-bit numbers");
-            random_gen rng;
-            unsigned round = num_rounds;
-            while (round) {
-                // rational a1 = (rational(rng()) % (m - 1)) + 1;
-                // rational a2 = (rational(rng()) % (m - 1)) + 1;
-                rational a1 = rational(rng()) % m;
-                rational a2 = rational(rng()) % m;
-                if (a1.is_zero() || a2.is_zero() || a1 == a2)
-                    continue;
-                rational b1 = rational(rng()) % m;
-                rational b2 = rational(rng()) % m;
-                rational val = rational(rng()) % m;
-                bool useful =
-                    check_one(a1, b1, a2, b2, val, true, bw)
-                    || check_one(a1, b1, a2, b2, val, false, bw);
-                if (useful)
-                    round--;
-            }
-        }
-
-    };  // class test_fi
-
 }  // namespace polysat
 
 
@@ -2153,9 +2037,6 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
     RUN(test_polysat::test_ineq_non_axiom4());
-
-    // test_fi::exhaustive();
-    // test_fi::randomized();
 
     if (collect_test_records)
         test_records.display(std::cout);
