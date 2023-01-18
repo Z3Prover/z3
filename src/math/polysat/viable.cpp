@@ -330,7 +330,8 @@ namespace {
      * NOTE: upper bound is inclusive.
      */
     rational compute_y_max(rational const& y0, rational const& a, rational const& lo0, rational const& hi, rational const& M) {
-        SASSERT(0 <= y0 && y0 < M);
+        // verbose_stream() << "y0=" << y0 << " a=" << a << " lo0=" << lo0 << " hi=" << hi << " M=" << M << std::endl;
+        // SASSERT(0 <= y0 && y0 < M);  // not required
         SASSERT(1 <= a && a < M);
         SASSERT(0 <= lo0 && lo0 < M);
         SASSERT(0 <= hi && hi < M);
@@ -344,6 +345,10 @@ namespace {
 
         // wrapping intervals are handled by replacing the lower bound lo by lo - M
         rational const lo = lo0 > hi ? (lo0 - M) : lo0;
+
+        // the length of the interval is now hi - lo + 1.
+        // full intervals shouldn't go through this computation.
+        SASSERT(hi - lo + 1 < M);
 
         auto contained = [&lo, &hi] (rational const& a_y) -> bool {
             return lo <= a_y && a_y <= hi;
@@ -389,7 +394,8 @@ namespace {
 
         // At this point, [y1l;y1h] must be a full y-interval that can be extended to the right.
         // Extending the interval can only be possible if the part not covered by [lo;hi] is smaller than the coefficient a.
-        SASSERT(lo + M - hi < a);
+        // The size of the gap is (lo + M) - (hi + 1).
+        SASSERT(lo + M - hi - 1 < a);
 
         // The points a*[y0l;y0h] + k*M fall into the interval [lo;hi].
         // After the first overflow, the points a*[y1l .. y1h] + (k - 1)*M fall into [lo;hi].
@@ -438,7 +444,8 @@ namespace {
      * NOTE: upper bound is inclusive.
      */
     rational compute_y_min(rational const& y0, rational const& a, rational const& lo, rational const& hi, rational const& M) {
-        SASSERT(0 <= y0 && y0 < M);
+        // verbose_stream() << "y0=" << y0 << " a=" << a << " lo=" << lo << " hi=" << hi << " M=" << M << std::endl;
+        // SASSERT(0 <= y0 && y0 < M);  // not required
         SASSERT(1 <= a && a < M);
         SASSERT(0 <= lo && lo < M);
         SASSERT(0 <= hi && hi < M);
@@ -450,7 +457,7 @@ namespace {
                 return M - x;
         };
 
-        rational y_min = negateM(compute_y_max(negateM(y0), a, negateM(hi), negateM(lo), M));
+        rational y_min = -compute_y_max(-y0, a, negateM(hi), negateM(lo), M);
         while (y_min > y0)
             y_min -= M;
         return y_min;
@@ -463,6 +470,7 @@ namespace {
      * NOTE: upper bounds are inclusive.
      */
     std::pair<rational, rational> compute_y_bounds(rational const& y0, rational const& a, rational const& lo, rational const& hi, rational const& M) {
+        // verbose_stream() << "y0=" << y0 << " a=" << a << " lo=" << lo << " hi=" << hi << " M=" << M << std::endl;
         SASSERT(0 <= y0 && y0 < M);
         SASSERT(1 <= a && a < M);
         SASSERT(0 <= lo && lo < M);
@@ -478,13 +486,17 @@ namespace {
 
         rational const y_max_max = y0 + M - 1;
         rational y_max = compute_y_max(y0, a, lo, hi, M);
-        while (y_max < y_max_max && is_valid(y_max + 1))
+        while (y_max < y_max_max && is_valid(y_max + 1)) {
             y_max = compute_y_max(y_max + 1, a, lo, hi, M);
+            // verbose_stream() << "refined y_max: " << y_max << "\n";
+        }
 
         rational const y_min_min = y_max - M + 1;
         rational y_min = y0;
-        while (y_min > y_min_min && is_valid(y_min - 1))
+        while (y_min > y_min_min && is_valid(y_min - 1)) {
             y_min = compute_y_min(y_min - 1, a, lo, hi, M);
+            // verbose_stream() << "refined y_min: " << y_min << "\n";
+        }
 
         SASSERT(y_min <= y0 && y0 <= y_max);
         rational const len = y_max - y_min + 1;
@@ -513,6 +525,7 @@ namespace {
         entry const* first = e;
         auto& m = s.var2pdd(v);
         unsigned const N = m.power_of_2();
+        rational const& max_value = m.max_value();
         rational const& mod_value = m.two_to_N();
 
         // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
@@ -598,10 +611,17 @@ namespace {
                 // TODO: special handling for the even factors of e->coeff = 2^k * a', a' odd
                 //       (create one interval for v[N-k:] instead of 2^k intervals for v)
 
-                auto [lo, hi] = compute_y_bounds(val, e->coeff, e->interval.lo_val(), e->interval.hi_val() - 1, mod_value);
-                hi += 1;  // compute_y_bounds calculates with inclusive upper bound; correct this here.
+                // compute_y_bounds calculates with inclusive upper bound, so we need to adjust argument and result accordingly.
+                rational const hi_val_incl = e->interval.hi_val().is_zero() ? max_value : (e->interval.hi_val() - 1);
+                auto [lo, hi] = compute_y_bounds(val, e->coeff, e->interval.lo_val(), hi_val_incl, mod_value);
+                hi += 1;
                 LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
-                SASSERT(0 <= lo && lo <= val && val <= hi && hi <= mod_value);
+                // verbose_stream() << "lo=" << lo << " val=" << val << " hi=" << hi << "\n";
+                if (lo <= hi) {
+                    SASSERT(0 <= lo && lo <= val && val < hi && hi <= mod_value);
+                } else {
+                    SASSERT(0 < hi && hi < lo && lo < mod_value && (val < hi || lo <= val));
+                }
                 bool full = (lo == 0 && hi == mod_value);
                 if (hi == mod_value)
                     hi = 0;
@@ -614,6 +634,7 @@ namespace {
                     ne->interval = eval_interval::full();
                 else
                     ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
+                SASSERT(ne->interval.currently_contains(val));
                 intersect(v, ne);
                 return false;
             }
