@@ -1121,6 +1121,7 @@ namespace {
             if (!added.contains(lit)) {
                 added.insert(lit);
                 LOG("Adding " << lit_pp(s, lit));
+                IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
                 c.add_to_univariate_solver(v, s, *us, lit.to_uint());
             }
             e = e->next();
@@ -1147,6 +1148,7 @@ namespace {
             if (added.contains(lit))
                 continue;
             LOG("Adding " << lit_pp(s, lit));
+            IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
             added.insert(lit);
             cs[i].add_to_univariate_solver(v, s, *us, lit.to_uint());
         }
@@ -1319,14 +1321,18 @@ namespace {
             log(v);
     }
 
-    std::ostream& viable::display(std::ostream& out, pvar v, entry* e) const {
+    std::ostream& viable::display_one(std::ostream& out, pvar v, entry const* e) const {
+        if (e->coeff != 1)
+            out << e->coeff << " * v" << v << " ";
+        out << e->interval << " " << e->side_cond << " " << e->src << "; ";
+        return out;
+    }
+    std::ostream& viable::display_all(std::ostream& out, pvar v, entry const* e) const {
         if (!e)
             return out;
-        entry* first = e;
+        entry const* first = e;
         do {
-            if (e->coeff != 1)
-                out << e->coeff << " * v" << v << " ";
-            out << e->interval << " " << e->side_cond << " " << e->src << "; ";
+            display_one(out, v, e);
             e = e->next();
         }
         while (e != first);
@@ -1334,9 +1340,9 @@ namespace {
     }
 
     std::ostream& viable::display(std::ostream& out, pvar v) const {
-        display(out, v, m_units[v]);
-        display(out, v, m_equal_lin[v]);
-        display(out, v, m_diseq_lin[v]);
+        display_all(out, v, m_units[v]);
+        display_all(out, v, m_equal_lin[v]);
+        display_all(out, v, m_diseq_lin[v]);
         return out;
     }
 

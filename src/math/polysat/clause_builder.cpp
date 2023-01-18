@@ -69,6 +69,7 @@ namespace polysat {
         if (c.is_always_false())  // filter out trivial constraints such as "4 < 2"
             return;
         if (c.is_always_true()) {
+            IF_VERBOSE(10, verbose_stream() << "Clause is tautology because of " << lit_pp(s(), c) << "\n");
             m_is_tautology = true;
             return;
         }

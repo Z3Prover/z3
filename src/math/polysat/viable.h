@@ -40,6 +40,8 @@ namespace polysat {
         resource_out,
     };
 
+    std::ostream& operator<<(std::ostream& out, find_t x);
+
     namespace viable_query {
         enum class query_t {
             has_viable,  // currently only used internally in resolve_viable
@@ -67,8 +69,6 @@ namespace polysat {
             using result_t = std::pair<rational&, rational&>;
         };
     }
-
-    std::ostream& operator<<(std::ostream& out, find_t x);
 
     class viable {
         friend class test_fi;
@@ -99,7 +99,8 @@ namespace polysat {
 
         bool refine_disequal_lin(pvar v, rational const& val);
 
-        std::ostream& display(std::ostream& out, pvar v, entry* e) const;
+        std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
+        std::ostream& display_all(std::ostream& out, pvar v, entry const* e) const;
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
