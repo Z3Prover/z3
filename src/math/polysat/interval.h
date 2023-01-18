@@ -13,13 +13,11 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/types.h"
-#include "util/optional.h"
+#include <optional>
 
 namespace polysat {
 
-    enum class ikind_t { full, proper };
-
-    struct bounds {
+    struct pdd_bounds {
         pdd lo;  ///< lower bound, inclusive
         pdd hi;  ///< upper bound, exclusive
     };
@@ -30,19 +28,17 @@ namespace polysat {
      * Membership test t \in [lo; hi[ is equivalent to t - lo < hi - lo.
      */
     class interval {
-        ikind_t m_kind;
-        optional<bounds> m_bounds;
+        std::optional<pdd_bounds> m_bounds = std::nullopt;
 
-        interval(): m_kind(ikind_t::full) {}
-        interval(pdd const& lo, pdd const& hi):
-            m_kind(ikind_t::proper), m_bounds({lo, hi}) {}
+        interval() = default;
+        interval(pdd const& lo, pdd const& hi): m_bounds({lo, hi}) {}
     public:
         static interval empty(dd::pdd_manager& m) { return proper(m.zero(), m.zero()); }
         static interval full() { return {}; }
         static interval proper(pdd const& lo, pdd const& hi) { return {lo, hi}; }
 
-        bool is_full() const { return m_kind == ikind_t::full; }
-        bool is_proper() const { return m_kind == ikind_t::proper; }
+        bool is_full() const { return !m_bounds; }
+        bool is_proper() const { return !!m_bounds; }
         bool is_always_empty() const { return is_proper() && lo() == hi(); }
         pdd const& lo() const { SASSERT(is_proper()); return m_bounds->lo; }
         pdd const& hi() const { SASSERT(is_proper()); return m_bounds->hi; }
@@ -89,7 +85,7 @@ namespace polysat {
 
         rational current_len() const {
             SASSERT(is_proper());
-            return mod(hi_val() - lo_val(), rational::power_of_two(lo().power_of_2()));
+            return mod(hi_val() - lo_val(), lo().manager().two_to_N());
         }
 
         bool currently_contains(rational const& val) const {
