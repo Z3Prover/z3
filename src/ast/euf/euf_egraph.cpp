@@ -154,10 +154,8 @@ namespace euf {
     }
 
     void egraph::add_literal(enode* n, enode* ante) {
-        /*
-        if (n->bool_var() == sat::null_bool_var)
+        if (!m_on_propagate_literal)
             return;
-        */
         if (!ante) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
         if (!ante)
             m_on_propagate_literal(n, ante);
