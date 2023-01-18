@@ -184,6 +184,17 @@ namespace polysat {
             ule_pp const old_ule(to_lbool(old_is_positive), old_lhs, old_rhs);
             ule_pp const new_ule(to_lbool(is_positive), lhs, rhs);
             LOG("Simplify: " << old_ule << "   -->   " << new_ule);
+            // always-false and always-true constraints should be rewritten to 0 != 0 and 0 == 0, respectively.
+            if (is_always_false(old_is_positive, old_lhs, old_rhs)) {
+                SASSERT(!is_positive);
+                SASSERT(lhs.is_zero());
+                SASSERT(rhs.is_zero());
+            }
+            if (is_always_true(old_is_positive, old_lhs, old_rhs)) {
+                SASSERT(is_positive);
+                SASSERT(lhs.is_zero());
+                SASSERT(rhs.is_zero());
+            }
         }
 #endif
     }
