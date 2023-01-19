@@ -910,9 +910,8 @@ namespace {
                 entry const* n1 = n->next();
                 if (n1 == e)
                     break;
-                if (!e->interval.currently_contains(n1->interval.lo_val()))
-                    if (e->interval.hi_val() != n1->interval.lo_val())
-                        break;
+                if (!n1->interval.currently_contains(e->interval.hi_val()))
+                    break;
                 n = n1;
             }
             // display_one(verbose_stream() << "e is ", v, e) << "\n";
@@ -1278,9 +1277,8 @@ namespace {
                 //      n1:        [----[
                 if (n1 == e)
                     break;
-                if (!e->interval.currently_contains(n1->interval.lo_val()))
-                    if (e->interval.hi_val() != n1->interval.lo_val())
-                        break;
+                if (!n1->interval.currently_contains(e->interval.hi_val()))
+                    break;
                 n = n1;
             }
 
