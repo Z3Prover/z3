@@ -100,7 +100,7 @@ namespace polysat {
         bool refine_disequal_lin(pvar v, rational const& val);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
-        std::ostream& display_all(std::ostream& out, pvar v, entry const* e) const;
+        std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
@@ -236,7 +236,7 @@ namespace polysat {
         /** Like log(v) but for all variables */
         void log();
 
-        std::ostream& display(std::ostream& out) const;
+        std::ostream& display(std::ostream& out, char const* delimiter = "") const;
 
         class iterator {
             entry* curr = nullptr;
@@ -320,7 +320,7 @@ namespace polysat {
 
         intervals units(pvar v) { return intervals(*this, v); }
 
-        std::ostream& display(std::ostream& out, pvar v) const;
+        std::ostream& display(std::ostream& out, pvar v, char const* delimiter = "") const;
 
         struct var_pp {
             viable const& v;

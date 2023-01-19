@@ -397,6 +397,7 @@ namespace polysat {
         pdd q = s.subst(rhs());
         bool p_ok = p.is_univariate_in(v);
         bool q_ok = q.is_univariate_in(v);
+        IF_VERBOSE(10, display(verbose_stream() << ";; ", to_lbool(is_positive), p, q) << "\n");
         if (!is_positive && !q_ok)  // add p > 0
             us.add_ugt(p.get_univariate_coefficients(), rational::zero(), false, dep);
         if (!is_positive && !p_ok)  // add -1 > q  <==>  q+1 > 0

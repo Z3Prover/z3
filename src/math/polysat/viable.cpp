@@ -883,6 +883,9 @@ namespace {
     }
 
     bool viable::has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
+        // verbose_stream() << "has-max-forbidden with c = " << lit_pp(s, c) << "\n";
+        // display(verbose_stream(), v, "\n");
+
         out_c.reset();
         entry const* first = m_units[v];
         entry const* e = first;
@@ -899,6 +902,7 @@ namespace {
         if (e->src != c)
             return false;
         entry const* e0 = e;
+        // display_one(verbose_stream() << "selected e0 = ", v, e0) << "\n";
 
         do {
             entry const* n = e->next();
@@ -911,19 +915,24 @@ namespace {
                         break;
                 n = n1;
             }
+            // display_one(verbose_stream() << "e is ", v, e) << "\n";
             if (e == n) {
                 SASSERT_EQ(e, e0);
                 return false;
             }
             if (e == e0) {
                 out_lo = n->interval.lo_val();
-                if (!n->interval.lo().is_val())
+                if (!n->interval.lo().is_val()) {
+                    // verbose_stream() << "A: " << lit_pp(s, s.eq(n->interval.lo(), out_lo)) << "\n";
                     out_c.push_back(s.eq(n->interval.lo(), out_lo));
+                }
             }
             else if (n == e0) {
                 out_hi = e->interval.hi_val();
-                if (!e->interval.hi().is_val())
+                if (!e->interval.hi().is_val()) {
+                    // verbose_stream() << "B: " << lit_pp(s, s.eq(e->interval.hi(), out_hi)) << "\n";
                     out_c.push_back(s.eq(e->interval.hi(), out_hi));
+                }
             }            
             else if (!e->interval.is_full()) {
                 auto const& hi = e->interval.hi();
@@ -933,10 +942,14 @@ namespace {
                 auto rhs = next_hi - next_lo;
                 signed_constraint c = s.m_constraints.ult(lhs, rhs);
                 out_c.push_back(c);
+                // verbose_stream() << "C: " << lhs << " < " << rhs << "    ->    " << lit_pp(s, c) << "\n";
             }
             if (e != e0) {
-                for (auto sc : e->side_cond)
+                for (auto sc : e->side_cond) {
+                    // verbose_stream() << "D: " << lit_pp(s, sc) << "\n";
                     out_c.push_back(sc);
+                }
+                // verbose_stream() << "E: " << lit_pp(s, e->src) << "\n";
                 out_c.push_back(e->src);
             }
             e = n;
@@ -1322,33 +1335,52 @@ namespace {
     }
 
     std::ostream& viable::display_one(std::ostream& out, pvar v, entry const* e) const {
-        if (e->coeff != 1)
-            out << e->coeff << " * v" << v << " ";
-        out << e->interval << " " << e->side_cond << " " << e->src << "; ";
+        auto& m = s.var2pdd(v);
+        if (e->coeff == -1) {
+            //      p*val + q >  r*val + s  if e->src.is_positive()
+            //      p*val + q >= r*val + s  if e->src.is_negative()
+            // Note that e->interval is meaningless in this case,
+            // we just use it to transport the values p,q,r,s
+            rational const& p = e->interval.lo_val();
+            rational const& q_ = e->interval.lo().val();
+            rational const& r = e->interval.hi_val();
+            rational const& s_ = e->interval.hi().val();
+            out << "[ ";
+            out << val_pp(m, p, true) << "*v" << v << " + " << val_pp(m, q_);
+            out << (e->src.is_positive() ? " > " : " >= ");
+            out << val_pp(m, r, true) << "*v" << v << " + " << val_pp(m, s_);
+            out << " ] ";
+        }
+        else if (e->coeff != 1)
+            out << e->coeff << " * v" << v << " " << e->interval << " ";
+        else
+            out << e->interval << " ";
+        out << e->side_cond << " " << e->src << "; ";
         return out;
     }
-    std::ostream& viable::display_all(std::ostream& out, pvar v, entry const* e) const {
+
+    std::ostream& viable::display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter) const {
         if (!e)
             return out;
         entry const* first = e;
         do {
-            display_one(out, v, e);
+            display_one(out, v, e) << delimiter;
             e = e->next();
         }
         while (e != first);
         return out;
     }
 
-    std::ostream& viable::display(std::ostream& out, pvar v) const {
-        display_all(out, v, m_units[v]);
-        display_all(out, v, m_equal_lin[v]);
-        display_all(out, v, m_diseq_lin[v]);
+    std::ostream& viable::display(std::ostream& out, pvar v, char const* delimiter) const {
+        display_all(out, v, m_units[v], delimiter);
+        display_all(out, v, m_equal_lin[v], delimiter);
+        display_all(out, v, m_diseq_lin[v], delimiter);
         return out;
     }
 
-    std::ostream& viable::display(std::ostream& out) const {
+    std::ostream& viable::display(std::ostream& out, char const* delimiter) const {
         for (pvar v = 0; v < m_units.size(); ++v)
-            display(out << "v" << v << ": ", v) << "\n";
+            display(out << "v" << v << ": ", v, delimiter) << "\n";
         return out;
     }
 
