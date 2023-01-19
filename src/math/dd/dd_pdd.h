@@ -561,7 +561,7 @@ namespace dd {
         char const* lparen() const { return require_parens ? "(" : ""; }
         char const* rparen() const { return require_parens ? ")" : ""; }
     public:
-        val_pp(pdd_manager const& m, rational const& val, bool require_parens): m(m), val(val), require_parens(require_parens) {}
+        val_pp(pdd_manager const& m, rational const& val, bool require_parens = false): m(m), val(val), require_parens(require_parens) {}
         std::ostream& display(std::ostream& out) const;
     };
 

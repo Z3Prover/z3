@@ -34,6 +34,7 @@ namespace polysat {
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
     typedef dd::bddv bddv;
+    typedef dd::val_pp val_pp;
 
     typedef unsigned pvar;
     inline const pvar null_var = UINT_MAX;
