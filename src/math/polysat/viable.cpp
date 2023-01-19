@@ -917,8 +917,10 @@ namespace {
             // display_one(verbose_stream() << "e is ", v, e) << "\n";
             if (e == n) {
                 SASSERT_EQ(e, e0);
-                return false;
+                return false;  // TODO: return true if e is the full interval?
             }
+            if (!n->interval.currently_contains(e->interval.hi_val()))
+                return false;  // gap
             if (e == e0) {
                 out_lo = n->interval.lo_val();
                 if (!n->interval.lo().is_val()) {
