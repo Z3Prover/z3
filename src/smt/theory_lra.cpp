@@ -1556,6 +1556,33 @@ public:
         return !m_asserted_atoms.empty();
     }
 
+    final_check_status eval_power(expr* e) {
+        return FC_GIVEUP;
+        expr* x, * y;
+        VERIFY(a.is_power(e, x, y));
+        enode* xn = get_enode(x);
+        enode* yn = get_enode(y);
+        if (!xn || !yn)
+            return FC_GIVEUP;
+        rational valx, valy, valn;
+        bool vx = get_value(xn, valx);
+        bool vy = get_value(yn, valy);
+        enode* n = get_enode(e);
+        bool vn = get_value(n, valn);
+        verbose_stream() << vx << " " << valx << " " << vy << " " << valy << "\n";
+        verbose_stream() << vn << " " << valn << "\n";
+        // add tangent lemmas for power:
+        // valx > 0 valy > 0 => n >= rational_floor(valx^valy)
+        // establish equality using algebraic numerals
+        return FC_GIVEUP;
+    }
+
+    final_check_status eval_unsupported(expr* e) {
+        if (a.is_power(e)) 
+            return eval_power(e);        
+        return FC_GIVEUP;
+    }
+
     final_check_status final_check_eh() {
         if (propagate_core())
             return FC_CONTINUE;
@@ -1607,10 +1634,21 @@ public:
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
-                (void) e; // just in case TRACE() is a no-op
-                TRACE("arith", tout << "unhandled operator " << mk_pp(e, m) << "\n";);        
-                st = FC_GIVEUP;
-            }                
+                st = FC_DONE;
+                switch (eval_unsupported(e)) {
+                case FC_CONTINUE:
+                    st = FC_CONTINUE;
+                    break;
+                case FC_GIVEUP:
+                    if (st != FC_CONTINUE) 
+                        st = FC_GIVEUP;
+                    break;
+                default:
+                    break;
+                }
+                if (st == FC_CONTINUE)
+                    break;
+            }
             return st;
         case l_false:
             get_infeasibility_explanation_and_set_conflict();
