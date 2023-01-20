@@ -13,6 +13,7 @@ Version 4.next
 
 Version 4.12.2
 ==============
+- remove MSF (Microsoft Solver Foundation) plugin
 
 Version 4.12.1
 ==============
