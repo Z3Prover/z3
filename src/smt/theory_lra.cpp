@@ -454,6 +454,11 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);       
                 }
+                else if (a.is_power(n, n1, n2)) {
+                    found_unsupported(n);
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);
+                }
                 else if (!a.is_div0(n)) {
                     found_unsupported(n);
                 }
@@ -543,7 +548,7 @@ class theory_lra::imp {
     }
 
     enode * mk_enode(app * n) {
-        TRACE("arith", tout << expr_ref(n, m) << " internalized: " << ctx().e_internalized(n) << "\n";);
+        TRACE("arith", tout << mk_bounded_pp(n, m) << " internalized: " << ctx().e_internalized(n) << "\n";);
         if (reflect(n))
             for (expr* arg : *n)
                 if (!ctx().e_internalized(arg))
@@ -1600,6 +1605,8 @@ public:
                 return FC_CONTINUE;
             }
             for (expr* e : m_not_handled) {
+                if (!ctx().is_relevant(e))
+                    continue;
                 (void) e; // just in case TRACE() is a no-op
                 TRACE("arith", tout << "unhandled operator " << mk_pp(e, m) << "\n";);        
                 st = FC_GIVEUP;
