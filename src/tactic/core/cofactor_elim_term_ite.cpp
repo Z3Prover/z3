@@ -438,7 +438,6 @@ struct cofactor_elim_term_ite::imp {
 
                 if (m_cache.find(s, t))
                     return true;
-                unsigned step = 0;
                 TRACE("cofactor_ite", tout << "cofactor target:\n" << mk_ismt2_pp(s, m) << "\n";);
                 expr_ref curr(m);
                 curr = s;
@@ -451,7 +450,6 @@ struct cofactor_elim_term_ite::imp {
                         t = curr.get();
                         return true;
                     }
-                    step++;
                     expr_ref pos_cofactor(m);
                     expr_ref neg_cofactor(m);
                     m_cofactor.set_cofactor_atom(c);
@@ -461,7 +459,7 @@ struct cofactor_elim_term_ite::imp {
                     m_cofactor.set_cofactor_atom(neg_c);
                     m_cofactor(curr, neg_cofactor);
                     curr = m.mk_ite(c, pos_cofactor, neg_cofactor);
-                    TRACE("cofactor", tout << "cofactor_ite step: " << step << "\n" << mk_ismt2_pp(curr, m) << "\n";);
+                    TRACE("cofactor", tout << "cofactor_ite step\n" << mk_ismt2_pp(curr, m) << "\n";);
                 }
             }
             return false;
@@ -515,7 +513,6 @@ struct cofactor_elim_term_ite::imp {
         }
         
         void cofactor(expr * t, expr_ref & r) {
-            unsigned step = 0;
             TRACE("cofactor", tout << "cofactor target:\n" << mk_ismt2_pp(t, m) << "\n";);
             expr_ref curr(m);
             curr = t;
@@ -526,7 +523,6 @@ struct cofactor_elim_term_ite::imp {
                     r = curr.get();
                     return;
                 }
-                step++;
                 expr_ref pos_cofactor(m);
                 expr_ref neg_cofactor(m);
                 m_cofactor.set_cofactor_atom(c);
@@ -548,7 +544,7 @@ struct cofactor_elim_term_ite::imp {
                     curr = m.mk_ite(c, pos_cofactor, neg_cofactor);
                 }
                 TRACE("cofactor", 
-                      tout << "cofactor_ite step: " << step << "\n";
+                      tout << "cofactor_ite step\n";
                       tout << "cofactor: " << mk_ismt2_pp(c, m) << "\n";
                       tout << mk_ismt2_pp(curr, m) << "\n";);
             }

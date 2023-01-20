@@ -288,16 +288,13 @@ namespace sat {
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = cs.end();
-        unsigned nm = 0;
         for (; it != end; ++it) {
             clause & c = *(*it);
             if (learned && !c.is_learned()) {
                 s.m_clauses.push_back(&c);
-                ++nm;
             }
             else if (!learned && c.is_learned()) {
                 s.m_learned.push_back(&c);
-                ++nm;
             }
             else {
                 *it2 = *it;

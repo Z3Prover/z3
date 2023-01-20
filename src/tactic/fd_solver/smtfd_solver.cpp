@@ -1040,11 +1040,6 @@ namespace smtfd {
         // A[j] = w: i = j or T[j] = A[j]
         // 
         void reconcile_stores(app* t, expr* vT, table& tT, expr* vA, table& tA) {
-            unsigned r = 0;
-            //if (get_lambda(vA) <= 1) {
-            //    return;
-            //}
-            //std::cout << get_lambda(vA) << " " << get_lambda(vT) << "\n";
             inc_lambda(vT);
             for (auto& fA : tA) {
                 f_app fT;
@@ -1056,23 +1051,8 @@ namespace smtfd {
                 }
                 if (!tT.find(fA, fT) || (value_of(fA) != value_of(fT) && !eq(m_vargs, fA))) {
                     add_select_store_axiom(t, fA);
-                    ++r;
                 }
             }            
-#if 0
-            // only up-propagation really needed.
-            for (auto& fT : tT) {
-                f_app fA;
-                if (m_context.at_max()) {
-                    break;
-                }
-                if (!tA.find(fT, fA) && t->get_sort() == m.get_sort(fT.m_t->get_arg(0))) {
-                    TRACE("smtfd", tout << "not found\n";);
-                    add_select_store_axiom(t, fT);
-                    ++r;
-                }
-            }
-#endif
         }
 
         void add_select_store_axiom(app* t, f_app& f) {

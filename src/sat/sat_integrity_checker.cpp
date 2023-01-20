@@ -105,7 +105,7 @@ namespace sat {
             if (c.frozen())
                 num_frozen++;
         }
-        SASSERT(num_frozen == s.m_num_frozen);
+        VERIFY(num_frozen == s.m_num_frozen);
         return check_clauses(s.begin_learned(), s.end_learned());
     }
 

@@ -190,7 +190,7 @@ namespace tseitin {
                     complement_mark(arg);
                 if (is_marked(x) && is_complement(y))
                     return true;
-                if (is_marked(y) & is_complement(x))
+                if (is_marked(y) && is_complement(x))
                     return true;
             }
 

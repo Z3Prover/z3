@@ -3797,7 +3797,6 @@ namespace q {
         }
 
         void rematch(bool use_irrelevant) override {
-            unsigned lbl = 0;
             for (auto * t : m_trees) {
                 if (t) {
                     m_interpreter.init(t);
@@ -3807,7 +3806,6 @@ namespace q {
                             m_interpreter.execute_core(t, curr);
                     }
                 }
-                ++lbl;
             }
         }
 

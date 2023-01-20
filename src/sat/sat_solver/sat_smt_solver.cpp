@@ -174,10 +174,10 @@ class sat_smt_solver : public solver {
 public:
     sat_smt_solver(ast_manager& m, params_ref const& p):
         solver(m),
+        m_solver(p, m.limit()),
         m_preprocess_state(*this),
         m_preprocess(m, p, m_preprocess_state),
         m_trail(m_preprocess_state.m_trail),
-        m_solver(p, m.limit()),
         m_dep(m, m_trail),
         m_assumptions(m), m_core(m), m_ors(m), m_aux_fmls(m), m_internalized_fmls(m),
         m_map(m),

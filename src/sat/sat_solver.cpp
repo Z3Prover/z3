@@ -4284,7 +4284,7 @@ namespace sat {
 
     lbool solver::get_bounded_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         bool_var_set unfixed_vars;
-        unsigned num_units = 0, num_iterations = 0;
+        unsigned num_units = 0;
         for (bool_var v : vars) {
             unfixed_vars.insert(v);
         }
@@ -4316,7 +4316,6 @@ namespace sat {
         }
 
         while (true) {
-            ++num_iterations;
             SASSERT(!inconsistent());
 
             lbool r = bounded_search();
@@ -4379,7 +4378,6 @@ namespace sat {
             checkpoint();
             unsigned num_resolves = 0;
             unsigned num_fixed = 0;
-            unsigned num_assigned = 0;
             lbool is_sat = l_true;
             for (literal lit : unfixed_lits) {
                 if (value(lit) != l_undef) {
@@ -4390,7 +4388,6 @@ namespace sat {
                     continue;
                 }
                 push();
-                ++num_assigned;
                 assign_scoped(~lit);
                 propagate(false);
                 while (inconsistent()) {

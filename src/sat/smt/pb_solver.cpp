@@ -2791,7 +2791,6 @@ namespace pb {
     bool solver::subsumes(card& c1, card& c2, literal_vector & comp) {
         if (c2.lit() != sat::null_literal) return false; 
 
-        unsigned c2_exclusive = 0;
         unsigned common = 0;
         comp.reset();
         for (literal l : c2) {
@@ -2800,9 +2799,6 @@ namespace pb {
             }
             else if (is_visited(~l)) {
                 comp.push_back(l);
-            }
-            else {
-                ++c2_exclusive;
             }
         }
 
@@ -3405,16 +3401,13 @@ namespace pb {
 
         unsigned slack = 0;
         unsigned max_level = 0;
-        unsigned num_max_level = 0;
         for (wliteral wl : m_wlits) {
             if (value(wl.second) != l_false) ++slack;
             unsigned level = lvl(wl.second);
             if (level > max_level) {
                 max_level = level;
-                num_max_level = 1;
             }
             else if (max_level == level) {
-                ++num_max_level;
             }
         }
         if (m_overflow) 

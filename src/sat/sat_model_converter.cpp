@@ -167,6 +167,7 @@ namespace sat {
                     // end of clause
                     if (!sat) {
                         TRACE("sat_model_bug", tout << "failed eliminated: " << mk_lits_pp(static_cast<unsigned>(it - itbegin), itbegin) << "\n";);
+                        (void)itbegin;
                         ok = false;
                     }
                     sat = false;

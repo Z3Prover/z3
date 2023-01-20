@@ -83,9 +83,7 @@ namespace arith {
     }
 
     void solver::explain_assumptions(lp::explanation const& e) {
-        unsigned i = 0;
         for (auto const & ev : e) {
-            ++i;
             auto idx = ev.ci();
             if (UINT_MAX == idx)
                 continue;

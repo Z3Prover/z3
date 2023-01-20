@@ -372,7 +372,7 @@ namespace sat {
                     }
                 }
                 CTRACE("sat_drat", num_true == 0 && num_undef == 1, display(tout););
-                SASSERT(num_true != 0 || num_undef != 1);
+                VERIFY(num_true != 0 || num_undef != 1);
             }
         }
     }

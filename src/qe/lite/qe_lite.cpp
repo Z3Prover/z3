@@ -2165,7 +2165,6 @@ namespace fm {
                 subsume();
                 var_vector candidates;
                 sort_candidates(candidates);
-                unsigned eliminated = 0;
 
                 unsigned num = candidates.size();
                 for (unsigned i = 0; i < num; i++) {
@@ -2173,8 +2172,9 @@ namespace fm {
                     if (m_counter > m_fm_limit)
                         break;
                     m_counter++;
-                    if (try_eliminate(candidates[i]))
-                        eliminated++;
+                    if (try_eliminate(candidates[i])) {
+
+                    }
                     if (m_inconsistent) {
                         m_new_fmls.reset();
                         m_new_fmls.push_back(m.mk_false());
