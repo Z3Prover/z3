@@ -64,14 +64,17 @@ class smt2_pp_environment;
 
 class model_converter : public converter {
 protected:
-    smt2_pp_environment*  m_env;
+    smt2_pp_environment*  m_env = nullptr;
+    bool                  m_completion = true;
     static void display_add(std::ostream& out, smt2_pp_environment& env, ast_manager& m, func_decl* f, expr* e);
     void display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const;
     void display_del(std::ostream& out, func_decl* f) const;
     void display_add(std::ostream& out, ast_manager& m);
 public:
 
-    model_converter(): m_env(nullptr) {}
+    model_converter() {}
+
+    void set_completion(bool f) { m_completion = f; }
 
     virtual void operator()(model_ref & m) = 0;
 

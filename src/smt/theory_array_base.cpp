@@ -529,7 +529,7 @@ namespace smt {
             // issue #3532, #3529
             // 
             if (ctx.is_shared(r) || is_select_arg(r)) {
-                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << " " << is_select_arg(r) << "\n";);
                 theory_var r_th_var = r->get_th_var(get_id());
                 SASSERT(r_th_var != null_theory_var);
                 result.push_back(r_th_var);

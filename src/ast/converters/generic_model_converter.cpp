@@ -38,7 +38,7 @@ void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     
     model_evaluator ev(*(md.get()));
-    ev.set_model_completion(true);
+    ev.set_model_completion(m_completion);
     ev.set_expand_array_equalities(false);    
     expr_ref val(m);
     unsigned arity;
@@ -78,7 +78,7 @@ void generic_model_converter::operator()(model_ref & md) {
             }
             if (reset_ev) {
                 ev.reset();
-                ev.set_model_completion(true);
+                ev.set_model_completion(m_completion);
                 ev.set_expand_array_equalities(false);
             }
             break;
