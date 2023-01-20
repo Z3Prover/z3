@@ -19,7 +19,7 @@ Use Fourier-Motzkin to eliminate variables.
 This strategy can handle conditional bounds
 (i.e., clauses with at most one constraint).
 
-The strategy mk_occf can be used to put the
+The tactic occf can be used to put the
 formula in OCC form.
 
 ### Example
