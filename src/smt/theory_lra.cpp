@@ -454,8 +454,9 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);       
                 }
-                else if (a.is_power(n, n1, n2)) {
+                else if (a.is_power(n, n1, n2)) {                    
                     found_unsupported(n);
+                    if (!ctx().relevancy()) mk_power_axiom(n, n1, n2);
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
@@ -1099,6 +1100,16 @@ public:
             mk_is_int_axiom(n);            
         else if (m.is_ite(n))
             mk_ite_axiom(n);
+        else if (a.is_power(n, n1, n2))
+            mk_power_axiom(n, n1, n2);
+    }
+
+    void mk_power_axiom(expr* p, expr* x, expr* y) {
+        rational r;
+        if (a.is_extended_numeral(x, r) && r.is_unsigned() && r.is_pos()) {
+            expr_ref zero(a.mk_real(0), m);
+            mk_axiom(~mk_literal(a.mk_le(p, zero)));
+        }
     }
 
     //  n < 0 || rem(a, n) =  mod(a, n)
@@ -1557,23 +1568,51 @@ public:
     }
 
     final_check_status eval_power(expr* e) {
-        return FC_GIVEUP;
         expr* x, * y;
         VERIFY(a.is_power(e, x, y));
+        enode* n = get_enode(e);
         enode* xn = get_enode(x);
         enode* yn = get_enode(y);
-        if (!xn || !yn)
+        if (!n || !xn || !yn)
             return FC_GIVEUP;
         rational valx, valy, valn;
-        bool vx = get_value(xn, valx);
-        bool vy = get_value(yn, valy);
-        enode* n = get_enode(e);
-        bool vn = get_value(n, valn);
-        verbose_stream() << vx << " " << valx << " " << vy << " " << valy << "\n";
-        verbose_stream() << vn << " " << valn << "\n";
+        theory_var v = n->get_th_var(get_id());
+        if (!get_value(xn, valx))
+            return FC_GIVEUP;
+        if (!get_value(yn, valy))
+            return FC_GIVEUP;
+        if (!get_value(n, valn))
+            return FC_GIVEUP;
+
+        verbose_stream() << valx << " " << valy << " " << valn << "\n";
+        // TBD - check that values align so return FC_DONE.
+
+        if (valn < 0 && valx > 0 && valy > 0) {
+            mk_axiom(mk_literal(a.mk_le(x, a.mk_numeral(rational(0), x->get_sort()))),
+                     ~mk_literal(a.mk_le(e, a.mk_numeral(rational(0), e->get_sort()))));
+            return FC_CONTINUE;
+        }
+
         // add tangent lemmas for power:
-        // valx > 0 valy > 0 => n >= rational_floor(valx^valy)
         // establish equality using algebraic numerals
+
+        // appears to be useless:
+        if (false && !valy.is_int() && numerator(valy) == 1 && denominator(valy) > 0) {
+            rational d = denominator(valy);
+            if (!d.is_unsigned())
+                return FC_GIVEUP;
+            unsigned den = d.get_unsigned();
+            // e = x^{1/y}
+            // => e^y = x
+
+            ptr_vector<expr> es;
+            for (unsigned i = 0; i < den; ++i)
+                es.push_back(e);
+            expr* em = a.mk_mul(es.size(), es.data());            
+            mk_axiom(~mk_literal(m.mk_eq(y, a.mk_real(valy))), mk_literal(m.mk_eq(em, x)));
+            return FC_CONTINUE;
+            
+        }
         return FC_GIVEUP;
     }
 
@@ -1632,7 +1671,7 @@ public:
                 return FC_CONTINUE;
             }
             for (expr* e : m_not_handled) {
-                if (!ctx().is_relevant(e))
+                if (!ctx().is_relevant(e) && false)
                     continue;
                 st = FC_DONE;
                 switch (eval_unsupported(e)) {
