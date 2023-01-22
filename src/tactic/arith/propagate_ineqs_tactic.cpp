@@ -226,6 +226,7 @@ struct propagate_ineqs_tactic::imp {
         }
         expr * lhs = to_app(t)->get_arg(0);
         expr * rhs = to_app(t)->get_arg(1);
+        expr* a, *b;
         if (m_util.is_numeral(lhs)) {
             std::swap(lhs, rhs); 
             if (k == LE)
@@ -235,6 +236,16 @@ struct propagate_ineqs_tactic::imp {
         }
 
         rational c;
+        // x = y mod c => 0 <= x < c
+        if (k == EQ && m_util.is_mod(rhs, a, b) && m_util.is_numeral(b, c) && c > 0) {
+            a_var x = mk_linear_pol(lhs);
+            mpq c_prime;
+            nm.set(c_prime, (c-1).to_mpq());
+            bp.assert_lower(x, mpq(0), false);
+            bp.assert_upper(x, c_prime, false);
+            nm.del(c_prime);
+            return lhs == a;
+        }
         if (!m_util.is_numeral(rhs, c))
             return false;
         a_var x = mk_linear_pol(lhs);
