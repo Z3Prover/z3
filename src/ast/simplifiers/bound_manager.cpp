@@ -193,13 +193,11 @@ void bound_manager::insert_lower(expr * v, bool strict, numeral const & n, expr_
 }
 
 bool bound_manager::is_equality_bound(expr * f, expr_dependency * d) {
-    expr* x, *y;
-    if (!m().is_eq(f, x, y)) {
+    expr* x, *y, *z, *u;
+    if (!m().is_eq(f, x, y)) 
         return false;
-    }
-    if (!is_uninterp_const(x)) {
+    if (!is_uninterp_const(x)) 
         std::swap(x, y);
-    }
     numeral n;
     bool is_int;
     if (is_uninterp_const(x) && is_numeral(y, n, is_int)) {
@@ -207,9 +205,15 @@ bool bound_manager::is_equality_bound(expr * f, expr_dependency * d) {
         insert_upper(x, false, n, d);
         return true;
     }
-    else {
-        return false;
+
+    // x = y mod n => 0 <= x < n
+    if (m_util.is_mod(y, z, u) && is_numeral(u, n, is_int) && n > 0) {
+        insert_lower(x, false, rational::zero(), d);
+        insert_upper(x, false, n - 1, d);
+        return true;
     }
+
+    return false;    
 }
 
 bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
