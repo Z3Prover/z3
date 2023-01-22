@@ -105,8 +105,12 @@ class dom_simplifier {
     virtual dom_simplifier * translate(ast_manager & m) = 0;
 
     virtual unsigned scope_level() const = 0;
-    
+
+    virtual void updt_params(params_ref const & p) = 0; 
+
+    virtual void collect_param_descrs(param_descrs& r) = 0;
 };
+
 
 class dom_simplify_tactic : public tactic {
     ast_manager&         m;
@@ -156,12 +160,12 @@ public:
     char const* name() const override { return "dom_simplify"; }
 
     tactic * translate(ast_manager & m) override;
-    void updt_params(params_ref const & p) override {}
-    static  void get_param_descrs(param_descrs & r) {}
-    void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }    
+    void updt_params(params_ref const & p) override { m_simplifier->updt_params(p); }
+    void collect_param_descrs(param_descrs & r) override { m_simplifier->collect_param_descrs(r); }   
     void operator()(goal_ref const & in, goal_ref_buffer & result) override;
     void cleanup() override;
 };
+
 
 tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
 

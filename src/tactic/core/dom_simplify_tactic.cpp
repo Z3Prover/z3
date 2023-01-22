@@ -542,6 +542,10 @@ class expr_substitution_simplifier : public dom_simplifier {
 public:
     expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst), m_trail(m) {}
 
+    void updt_params(params_ref const & p) override {}
+
+    void collect_param_descrs(param_descrs& r) override {}
+
     bool assert_expr(expr * t, bool sign) override {
         expr* tt;
         if (m.is_not(t, tt))
