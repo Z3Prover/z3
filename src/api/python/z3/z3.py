@@ -763,8 +763,6 @@ class FuncDeclRef(AstRef):
         >>> f.domain(1)
         Real
         """
-        if z3_debug():
-            _z3_assert(i < self.arity(), "Index out of bounds")
         return _to_sort_ref(Z3_get_domain(self.ctx_ref(), self.ast, i), self.ctx)
 
     def range(self):
@@ -834,8 +832,6 @@ class FuncDeclRef(AstRef):
         """
         args = _get_args(args)
         num = len(args)
-        if z3_debug():
-            _z3_assert(num == self.arity(), "Incorrect number of arguments to %s" % self)
         _args = (Ast * num)()
         saved = []
         for i in range(num):
