@@ -2,7 +2,6 @@ z3_add_component(arith_tactics
   SOURCES
     add_bounds_tactic.cpp
     arith_bounds_tactic.cpp
-    bound_propagator.cpp
     bv2int_rewriter.cpp
     bv2real_rewriter.cpp
     degree_shift_tactic.cpp
@@ -13,7 +12,6 @@ z3_add_component(arith_tactics
     fm_tactic.cpp
     lia2card_tactic.cpp
     lia2pb_tactic.cpp
-    linear_equation.cpp
     nla2bv_tactic.cpp
     normalize_bounds_tactic.cpp
     pb2bv_model_converter.cpp
@@ -27,6 +25,7 @@ z3_add_component(arith_tactics
     sat
   TACTIC_HEADERS
     add_bounds_tactic.h
+    bound_simplifier_tactic.h
     card2bv_tactic.h
     degree_shift_tactic.h
     diff_neq_tactic.h

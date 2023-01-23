@@ -88,10 +88,13 @@ namespace euf {
         expr_ref_vector    m_args, m_trail;
         expr_sparse_mark   m_nonzero;
         bool               m_enabled = true;
+        bool               m_eliminate_mod = true;
 
 
         // solve u mod r1 = y -> u = r1*mod!1 + y
         void solve_mod(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            if (!m_eliminate_mod)
+                return;
             expr* u, * z;
             rational r1, r2;
             if (!a.is_mod(x, u, z))
@@ -296,13 +299,12 @@ break;
                 add_pos(f);
                 m_bm(f, d, p);
             }
-
         }
-
 
         void updt_params(params_ref const& p) override {
             tactic_params tp(p);
             m_enabled = p.get_bool("theory_solver", tp.solve_eqs_ite_solver());
+            m_eliminate_mod = p.get_bool("eliminate_mod", true);
         }
     };
 

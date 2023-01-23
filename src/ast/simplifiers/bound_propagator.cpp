@@ -17,7 +17,7 @@ Author:
 Revision History:
 
 --*/
-#include "tactic/arith/bound_propagator.h"
+#include "ast/simplifiers/bound_propagator.h"
 #include<cmath>
 
 // -------------------------------

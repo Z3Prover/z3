@@ -2,6 +2,8 @@ z3_add_component(simplifiers
   SOURCES
     bit_blaster.cpp
     bound_manager.cpp
+    bound_propagator.cpp
+    bound_simplifier.cpp
     bv_slice.cpp
     card2bv.cpp
     demodulator_simplifier.cpp
@@ -11,6 +13,7 @@ z3_add_component(simplifiers
     eliminate_predicates.cpp
     euf_completion.cpp
     extract_eqs.cpp
+    linear_equation.cpp
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
     propagate_values.cpp

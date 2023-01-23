@@ -24,7 +24,7 @@ Revision History:
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/numeral_buffer.h"
-#include "tactic/arith/linear_equation.h"
+#include "ast/simplifiers/linear_equation.h"
 
 class bound_propagator {
 public:

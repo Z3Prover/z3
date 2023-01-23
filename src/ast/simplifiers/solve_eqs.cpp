@@ -294,6 +294,7 @@ namespace euf {
         r.insert("theory_solver", CPK_BOOL, "theory solvers.", "true");
         r.insert("ite_solver", CPK_BOOL, "use if-then-else solver.", "true");
         r.insert("context_solve", CPK_BOOL, "solve equalities under disjunctions.", "false");
+        r.insert("eliminate_mod", CPK_BOOL, "eliminate modulus from equations", "true");
     }
 
     void solve_eqs::collect_statistics(statistics& st) const {

@@ -3,7 +3,7 @@ Copyright (c) 2014 Microsoft Corporation
 
 Module Name:
 
-    card2bv_tactic.cpp
+    card2bv_tactic.h
 
 Author:
 

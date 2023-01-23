@@ -31,7 +31,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/arith/bound_propagator.h"
+#include "ast/simplifiers/bound_propagator.h"
 #include "ast/arith_decl_plugin.h"
 #include "tactic/core/simplify_tactic.h"
 #include "ast/ast_smt2_pp.h"
@@ -221,9 +221,9 @@ struct propagate_ineqs_tactic::imp {
               strict = true;
             }
         }
-         else {
-          return false;
-        }
+        else 
+            return false;
+
         expr * lhs = to_app(t)->get_arg(0);
         expr * rhs = to_app(t)->get_arg(1);
         expr* a, *b;
@@ -251,6 +251,7 @@ struct propagate_ineqs_tactic::imp {
         a_var x = mk_linear_pol(lhs);
         mpq c_prime;
         nm.set(c_prime, c.to_mpq());
+        verbose_stream() << mk_ismt2_pp(t, m) << " bound " << c << "\n";
         if (k == EQ) {
             SASSERT(!strict);
             bp.assert_lower(x, c_prime, false);
