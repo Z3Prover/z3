@@ -14,8 +14,8 @@ Version 4.next
 Version 4.12.2
 ==============
 - remove MSF (Microsoft Solver Foundation) plugin
-- add bound_simplifier tactic.
-  It eliminates occurrences of "mod" operators when bounds information
+- updated propagate-ineqs tactic and implementing it as a simplifier, bound_simplifier.
+  It now eliminates occurrences of "mod" operators when bounds information
   implies that the modulus is redundant. This tactic is useful for
   benchmarks created by converting bit-vector semantics to integer 
   reasoning.

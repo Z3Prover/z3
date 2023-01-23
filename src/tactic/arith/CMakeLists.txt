@@ -17,7 +17,6 @@ z3_add_component(arith_tactics
     pb2bv_model_converter.cpp
     pb2bv_tactic.cpp
     probe_arith.cpp
-    propagate_ineqs_tactic.cpp
     purify_arith_tactic.cpp
     recover_01_tactic.cpp
   COMPONENT_DEPENDENCIES
@@ -25,7 +24,6 @@ z3_add_component(arith_tactics
     sat
   TACTIC_HEADERS
     add_bounds_tactic.h
-    bound_simplifier_tactic.h
     card2bv_tactic.h
     degree_shift_tactic.h
     diff_neq_tactic.h

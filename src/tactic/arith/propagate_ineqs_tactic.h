@@ -51,11 +51,17 @@ This can be achieved by using option :arith-lhs true in the simplifier.
 --*/
 #pragma once
 
-#include "util/params.h"
-class ast_manager;
-class tactic;
 
-tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p = params_ref());
+#include "util/params.h"
+#include "tactic/tactic.h"
+#include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/bound_simplifier.h"
+
+inline tactic* mk_propagate_ineqs_tactic(ast_manager& m, params_ref const& p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bound_simplifier, m, p, s); });
+}
+
 /*
   ADD_TACTIC("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "mk_propagate_ineqs_tactic(m, p)")
 */
