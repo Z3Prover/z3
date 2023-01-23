@@ -1584,7 +1584,6 @@ public:
         if (!get_value(n, valn))
             return FC_GIVEUP;
 
-        verbose_stream() << valx << " " << valy << " " << valn << "\n";
         // TBD - check that values align so return FC_DONE.
 
         if (valn < 0 && valx > 0 && valy > 0) {
