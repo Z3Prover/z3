@@ -20,9 +20,10 @@ z3_add_component(simplifiers
     solve_context_eqs.cpp
     solve_eqs.cpp
   COMPONENT_DEPENDENCIES
-    euf
-    rewriter
     bit_blaster
+    euf
+    interval
     normal_forms
+    rewriter
     substitution
 )

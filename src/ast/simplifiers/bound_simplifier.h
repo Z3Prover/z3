@@ -23,14 +23,21 @@ Description:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/simplifiers/bound_propagator.h"
+#include "math/interval/interval.h"
 
 
 class bound_simplifier : public dependent_expr_simplifier {
+    typedef interval_manager<im_default_config> interval_manager;
+    typedef interval_manager::interval interval;
+    typedef _scoped_interval<interval_manager> scoped_interval;
+
     arith_util              a;
     th_rewriter             m_rewriter;
     unsynch_mpq_manager     nm;
     small_object_allocator  m_alloc;
     bound_propagator        bp;
+    im_default_config       i_cfg;
+    interval_manager        i_manager;
     unsigned                m_num_vars = 0;
     ptr_vector<expr>        m_var2expr;
     unsigned_vector         m_expr2var;
@@ -68,6 +75,7 @@ class bound_simplifier : public dependent_expr_simplifier {
 
     bool has_upper(expr* x, rational& n, bool& strict);
     bool has_lower(expr* x, rational& n, bool& strict);
+    void get_bounds(expr* x, scoped_interval&);
 
     // e = x + offset
     bool is_offset(expr* e, expr* x, rational& offset);
@@ -78,7 +86,9 @@ public:
         dependent_expr_simplifier(m, fmls),
         a(m),
         m_rewriter(m),
-        bp(nm, m_alloc, p) {
+        bp(nm, m_alloc, p),
+        i_cfg(nm),
+        i_manager(m.limit(), im_default_config(nm)) {
     }
 
     char const* name() const override { return "bounds-simplifier"; }

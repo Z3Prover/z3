@@ -297,6 +297,61 @@ bool bound_simplifier::has_upper(expr* x, rational& n, bool& strict) {
     return false;
 }
 
+void bound_simplifier::get_bounds(expr* x, scoped_interval& i) {
+    i.m().reset_upper(i);
+    i.m().reset_lower(i);
+    
+    rational n;
+    if (a.is_numeral(x, n)) {
+        i.m().set(i, n.to_mpq());
+        return;
+    }
+
+    if (is_var(x)) {
+        unsigned v = to_var(x);
+        bool strict;
+        if (bp.has_upper(v)) {
+            mpq const& q = bp.upper(v, strict);
+            i_cfg.set_upper_is_open(i, strict);
+            i_cfg.set_upper(i, q);
+        }
+        if (bp.has_lower(v)) {
+            mpq const& q = bp.lower(v, strict);
+            i_cfg.set_lower_is_open(i, strict);
+            i_cfg.set_lower(i, q);
+        }
+    }
+
+    if (a.is_add(x)) {
+        scoped_interval sum_i(i.m());
+        scoped_interval arg_i(i.m());
+        i.m().set(sum_i, mpq(0));
+        for (expr* arg : *to_app(x)) {
+            get_bounds(arg, arg_i);
+            i.m().add(sum_i, arg_i, sum_i);
+        }
+        // TODO: intersect
+        i.m().set(i, sum_i);
+    }
+
+    if (a.is_mul(x)) {
+        scoped_interval mul_i(i.m());
+        scoped_interval arg_i(i.m());
+        i.m().set(mul_i, mpq(1));
+        for (expr* arg : *to_app(x)) {
+            get_bounds(arg, arg_i);
+            i.m().add(mul_i, arg_i, mul_i);
+        }
+        // TODO: intersect
+        i.m().set(i, mul_i);
+    }
+
+    // etc:
+    // import interval from special case code for lower and upper.
+
+    
+    
+}
 
 void bound_simplifier::reset() {
     bp.reset();
