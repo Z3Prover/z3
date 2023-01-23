@@ -64,9 +64,13 @@ class bound_simplifier : public dependent_expr_simplifier {
         unsigned v = m_expr2var.get(e->get_id(), UINT_MAX); 
         if (v == UINT_MAX) {
             v = m_var2expr.size();
-            bp.mk_var(v, a.is_int(e));
+            expr* core_e = e;
+            a.is_to_real(e, core_e);
+            bp.mk_var(v, a.is_int(core_e));
             m_expr2var.setx(e->get_id(), v, UINT_MAX);
-            m_var2expr.push_back(e);
+            if (e != core_e)
+                m_expr2var.setx(core_e->get_id(), v, UINT_MAX);
+            m_var2expr.push_back(core_e);
         }
         return v;
     }
