@@ -467,7 +467,7 @@ namespace {
     /**
      * Given a*y0 mod M \in [lo;hi],
      * find the largest interval [y_min;y_max] around y0 such that for all y \in [y_min;y_max] . a*y mod M \in [lo;hi].
-     * The result is optimal.
+     * Result may not be optimal.
      * NOTE: upper bounds are inclusive.
      */
     std::pair<rational, rational> compute_y_bounds(rational const& y0, rational const& a, rational const& lo, rational const& hi, rational const& M) {
@@ -485,18 +485,27 @@ namespace {
                 return a_y <= hi || lo <= a_y;
         };
 
+        unsigned const max_refinements = 100;
+        unsigned i = 0;
         rational const y_max_max = y0 + M - 1;
         rational y_max = compute_y_max(y0, a, lo, hi, M);
         while (y_max < y_max_max && is_valid(y_max + 1)) {
             y_max = compute_y_max(y_max + 1, a, lo, hi, M);
-            // verbose_stream() << "refined y_max: " << y_max << "\n";
+            if (i >= 95)
+                verbose_stream() << "refined y_max: " << y_max << "\n";
+            if (++i == max_refinements)
+                break;
         }
 
+        i = 0;
         rational const y_min_min = y_max - M + 1;
         rational y_min = y0;
         while (y_min > y_min_min && is_valid(y_min - 1)) {
             y_min = compute_y_min(y_min - 1, a, lo, hi, M);
-            // verbose_stream() << "refined y_min: " << y_min << "\n";
+            if (i >= 95)
+                verbose_stream() << "refined y_min: " << y_min << "\n";
+            if (++i == max_refinements)
+                break;
         }
 
         SASSERT(y_min <= y0 && y0 <= y_max);
