@@ -548,17 +548,16 @@ namespace polysat {
                 return {};
             }
         }
+
         // Propagate r if p or q are 0
         if (pv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
             return s.mk_clause(~andc, s.ule(r(), p()), true);
         if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
             return s.mk_clause(~andc, s.ule(r(), q()), true);
+        // p = a && q = b ==> r = a & b
+        if (pv.is_val() && qv.is_val() && !rv.is_val())
+            return s.mk_clause(~andc, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), bitwise_and(pv.val(), qv.val())), true);
 
-        if (pv.is_val() && qv.is_val() && !rv.is_val()) {
-            const rational& pr = pv.val();
-            const rational& qr = qv.val();
-            return s.mk_clause(~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(bitwise_and(pr, qr))), true);
-        }
         return {};
     }
 
