@@ -480,12 +480,12 @@ namespace polysat {
      * r <= q
      * p = q => r = p
      * p[i] && q[i] = r[i]
-     * p = 2^K - 1 => q = r
-     * q = 2^K - 1 => p = r
-     * p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
-     * q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
-     * r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k
-     * r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k
+     * p = 2^N - 1 => q = r
+     * q = 2^N - 1 => p = r
+     * p = 2^k - 1 => r*2^{N - k} = q*2^{N - k}
+     * q = 2^k - 1 => r*2^{N - k} = p*2^{N - k}
+     * p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k
+     * q = 2^k - 1 && r = 0 && p != 0 => p >= 2^k
      */
     clause_ref op_constraint::lemma_and(solver& s, assignment const& a) {
         auto& m = p().manager();
@@ -506,27 +506,32 @@ namespace polysat {
             return s.mk_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
         if (pv.is_val() && qv.is_val() && rv.is_val()) {
             // p = -1 => r = q
-            if (pv.val() == m.max_value() && qv != rv)
+            if (pv.is_max() && qv != rv)
                 return s.mk_clause(~andc, ~s.eq(p(), m.max_value()), s.eq(q(), r()), true);
             // q = -1 => r = p
-            if (qv.val() == m.max_value() && pv != rv)
+            if (qv.is_max() && pv != rv)
                 return s.mk_clause(~andc, ~s.eq(q(), m.max_value()), s.eq(p(), r()), true);
 
-            unsigned K = m.power_of_2();
-            // p = 2^k - 1 => r*2^{K - k} = q*2^{K - k}
-            // TODO
-            // if ((pv.val() + 1).is_power_of_two() ...)
+            unsigned const N = m.power_of_2();
+            unsigned pow;
+            if ((pv.val() + 1).is_power_of_two(pow)) {
+                // p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k
+                if (rv.is_zero() && !qv.is_zero() && qv.val() <= pv.val())
+                    return s.mk_clause(~andc, ~s.eq(p(), pv), ~s.eq(r()), s.eq(q()), s.ule(pv + 1, q()), true);
+                // p = 2^k - 1  ==>  r*2^{N - k} = q*2^{N - k}
+                if (rv != qv)
+                    return s.mk_clause(~andc, ~s.eq(p(), pv), s.eq(r() * rational::power_of_two(N - pow), q() * rational::power_of_two(N - pow)), true);
+            }
+            if ((qv.val() + 1).is_power_of_two(pow)) {
+                // q = 2^k - 1 && r = 0 && p != 0  ==>  p >= 2^k
+                if (rv.is_zero() && !pv.is_zero() && pv.val() <= qv.val())
+                    return s.mk_clause(~andc, ~s.eq(q(), qv), ~s.eq(r()), s.eq(p()), s.ule(qv + 1, p()), true);
+                // q = 2^k - 1  ==>  r*2^{N - k} = p*2^{N - k}
+                if (rv != pv)
+                    return s.mk_clause(~andc, ~s.eq(q(), qv), s.eq(r() * rational::power_of_two(N - pow), p() * rational::power_of_two(N - pow)), true);
+            }
 
-            // q = 2^k - 1 => r*2^{K - k} = p*2^{K - k}
-
-            // r = 0 && q != 0 & p = 2^k - 1 => q >= 2^k
-            if ((pv.val() + 1).is_power_of_two() && rv.val() > pv.val())
-                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(p(), pv.val()), s.eq(q()), s.ult(p(), q()), true);
-            // r = 0 && p != 0 & q = 2^k - 1 => p >= 2^k
-            if (rv.is_zero() && (qv.val() + 1).is_power_of_two() && pv.val() <= qv.val())
-                return s.mk_clause(~andc, ~s.eq(r()), ~s.eq(q(), qv.val()), s.eq(p()),s.ult(q(), p()), true);
-
-            for (unsigned i = 0; i < K; ++i) {
+            for (unsigned i = 0; i < N; ++i) {
                 bool pb = pv.val().get_bit(i);
                 bool qb = qv.val().get_bit(i);
                 bool rb = rv.val().get_bit(i);
