@@ -78,8 +78,7 @@ struct macro_replacer::macro_replacer_cfg : public default_rewriter_cfg {
             return false;
         p = nullptr;
         app* n = to_app(_n);
-        quantifier* q = nullptr;
-        func_decl* d = n->get_decl(), * d2 = nullptr;
+        func_decl* d = n->get_decl();
         app_ref head(m);
         expr_ref def(m);
         expr_dependency_ref dep(m);

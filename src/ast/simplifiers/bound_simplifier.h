@@ -27,9 +27,9 @@ Description:
 
 
 class bound_simplifier : public dependent_expr_simplifier {
-    typedef interval_manager<im_default_config> interval_manager;
-    typedef interval_manager::interval interval;
-    typedef _scoped_interval<interval_manager> scoped_interval;
+    typedef interval_manager<im_default_config> _interval_manager;
+    typedef _interval_manager::interval interval;
+    typedef _scoped_interval<_interval_manager> scoped_interval;
 
     arith_util              a;
     th_rewriter             m_rewriter;
@@ -37,7 +37,7 @@ class bound_simplifier : public dependent_expr_simplifier {
     small_object_allocator  m_alloc;
     bound_propagator        bp;
     im_default_config       i_cfg;
-    interval_manager        i_manager;
+    _interval_manager       i_manager;
     unsigned                m_num_vars = 0;
     ptr_vector<expr>        m_var2expr;
     unsigned_vector         m_expr2var;

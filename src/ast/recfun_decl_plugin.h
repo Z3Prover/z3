@@ -61,7 +61,7 @@ namespace recfun {
         expr_ref_vector     m_guards; //<! conjunction that is equivalent to this case
         expr_ref            m_rhs; //<! if guard is true, `f(t1...tn) = rhs` holds
         def *               m_def; //<! definition this is a part of
-        bool                m_immediate; //<! does `rhs` contain no defined_fun/case_pred?
+        bool                m_immediate = false; //<! does `rhs` contain no defined_fun/case_pred?
 
         case_def(ast_manager& m):
             m_pred(m),
