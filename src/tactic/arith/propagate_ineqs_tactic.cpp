@@ -251,7 +251,6 @@ struct propagate_ineqs_tactic::imp {
         a_var x = mk_linear_pol(lhs);
         mpq c_prime;
         nm.set(c_prime, c.to_mpq());
-        verbose_stream() << mk_ismt2_pp(t, m) << " bound " << c << "\n";
         if (k == EQ) {
             SASSERT(!strict);
             bp.assert_lower(x, c_prime, false);
