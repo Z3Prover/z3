@@ -240,14 +240,13 @@ namespace polysat {
 
         s.m_viable.intersect(p, q, sc);
 
-        if (first && !is_positive) {
-            if (!p.is_val())
-                // -1 > q
-                s.add_clause(~sc, s.ult(q, -1), false);
-            if (!q.is_val())
-                // p > 0
-                s.add_clause(~sc, s.ult(0, p), false);
+        if (first && !is_positive && !lhs().is_val() && !rhs().is_val()) {
+            // lhs > rhs  ==>  -1 > rhs
+            s.add_clause(~sc, s.ult(rhs(), -1), false);
+            // lhs > rhs  ==>  lhs > 0
+            s.add_clause(~sc, s.ult(0, lhs()), false);
         }
+
 #if 0
         propagate_bits(s, is_positive);
 #endif
