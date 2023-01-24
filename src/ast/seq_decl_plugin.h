@@ -588,7 +588,7 @@ public:
         bool is_loop(expr const* n, expr*& body, expr*& lo) const;
         unsigned min_length(expr* r) const;
         unsigned max_length(expr* r) const;
-        bool is_epsilon(expr* r) const;
+        bool is_epsilon(expr const* r) const;
         app* mk_epsilon(sort* seq_sort);
         info get_info(expr* r) const;
         std::string to_str(expr* r) const;
@@ -639,4 +639,3 @@ public:
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::info const& p) { return p.display(out); }
-

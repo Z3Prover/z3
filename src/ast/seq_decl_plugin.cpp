@@ -1250,7 +1250,7 @@ bool seq_util::rex::is_loop(expr const* n, expr*& body, expr*& lo) const {
 /**
    Returns true iff e is the epsilon regex.
  */
-bool seq_util::rex::is_epsilon(expr* r) const {
+bool seq_util::rex::is_epsilon(expr const* r) const {
     expr* s;
     return is_to_re(r, s) && u.str.is_empty(s);
 }
@@ -1856,5 +1856,3 @@ seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
     min_length = other.min_length;
     return *this;
 }
-
-
