@@ -3417,11 +3417,21 @@ extern "C" {
 
        \sa Z3_mk_numeral
        \sa Z3_mk_int
+       \sa Z3_mk_real_int64
        \sa Z3_mk_unsigned_int
 
-       def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT64), _in(INT64)))
+       def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT), _in(INT)))
     */
-    Z3_ast Z3_API Z3_mk_real(Z3_context c, int64_t num, int64_t den);
+    Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den);
+
+    /**
+       \brief Create a real from a fraction of int64.
+
+       \sa Z3_mk_real
+       def_API('Z3_mk_real_int64', AST, (_in(CONTEXT), _in(INT64), _in(INT64)))
+     */
+
+    Z3_ast Z3_API Z3_mk_real_int64(Z3_context c, int64_t num, int64_t den);
 
     /**
        \brief Create a numeral of an int, bit-vector, or finite-domain sort.

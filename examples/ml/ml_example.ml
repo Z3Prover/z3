@@ -30,11 +30,11 @@ let  model_converter_test ( ctx : context ) =
   let xr = (Expr.mk_const ctx (Symbol.mk_string ctx "x") (Real.mk_sort ctx)) in
   let yr = (Expr.mk_const ctx (Symbol.mk_string ctx "y") (Real.mk_sort ctx)) in
   let g4 = (mk_goal ctx true false false ) in
-  (Goal.add g4 [ (mk_gt ctx xr (Real.mk_numeral_nd ctx 10L 1L)) ]) ;
+  (Goal.add g4 [ (mk_gt ctx xr (Real.mk_numeral_nd ctx 10 1)) ]) ;
   (Goal.add g4 [ (mk_eq ctx 
 			 yr
-			 (Arithmetic.mk_add ctx [ xr; (Real.mk_numeral_nd ctx 1L 1L)  ])) ]) ;
-  (Goal.add g4 [ (mk_gt ctx yr (Real.mk_numeral_nd ctx 1L 1L)) ]) ;
+			 (Arithmetic.mk_add ctx [ xr; (Real.mk_numeral_nd ctx 1 1)  ])) ]) ;
+  (Goal.add g4 [ (mk_gt ctx yr (Real.mk_numeral_nd ctx 1 1)) ]) ;
   (
     let  ar = (Tactic.apply (mk_tactic ctx "simplify") g4 None) in
     if ((get_num_subgoals ar) == 1 && 
@@ -163,7 +163,7 @@ let basic_tests ( ctx : context ) =
   ) ;
   model_converter_test ctx ;
   (* Real num/den test. *)
-  let rn = Real.mk_numeral_nd ctx 42L 43L in
+  let rn = Real.mk_numeral_nd ctx 42 43 in
   let inum = (get_numerator rn) in
   let iden = get_denominator rn in
   Printf.printf "Numerator: %s Denominator: %s\n" (Real.numeral_to_string inum) (Real.numeral_to_string iden) ;
