@@ -1264,7 +1264,7 @@ sig
     (** Create a real numeral from a fraction.
         @return A Term with rational value and sort Real
         {!mk_numeral_s} *)
-    val mk_numeral_nd : context -> int -> int -> Expr.expr
+    val mk_numeral_nd : context -> int64 -> int64 -> Expr.expr
 
     (** Create a real numeral.
         @return A Term with the given value and sort Real *)

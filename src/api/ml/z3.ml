@@ -1092,13 +1092,7 @@ struct
     let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
     let mk_const (ctx:context) (name:Symbol.symbol) = Expr.mk_const ctx name (mk_sort ctx)
     let mk_const_s (ctx:context) (name:string) = mk_const ctx (Symbol.mk_string ctx name)
-    let mk_numeral_nd (ctx:context) (num:int) (den:int) =
-      if den = 0 then
-        raise (Error "Denominator is zero")
-      else if not (check_int32 num) || not (check_int32 den) then
-        raise (Error "numerals don't fit in 32 bits")
-      else
-        Z3native.mk_real ctx num den
+    let mk_numeral_nd (ctx:context) (num:int64) (den:int64) = Z3native.mk_real ctx num den
 
     let mk_numeral_s (ctx:context) (v:string) = Z3native.mk_numeral ctx v (mk_sort ctx)
     let mk_numeral_i (ctx:context) (v:int) = mk_int_expr ctx v (mk_sort ctx)
