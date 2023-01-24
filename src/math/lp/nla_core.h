@@ -465,6 +465,8 @@ public:
     
     lbool  check(vector<lemma>& l_vec);
 
+    void set_lemma_vec(vector<lemma>& l_vec) { m_lemma_vec = &l_vec; }
+
     bool  no_lemmas_hold() const;
     
     lbool  test_check(vector<lemma>& l);

@@ -797,8 +797,17 @@ class theory_lra::imp {
         return internalize_linearized_def(term, st);
     }
 
+    lpvar get_lpvar(expr* e) {
+        return get_lpvar(get_enode(e));
+    }
+
+    lpvar get_lpvar(enode* n)  {
+        ensure_column(n);
+        return n ? get_lpvar(n->get_th_var(get_id())) : lp::null_lpvar;
+    }
+
     lpvar get_lpvar(theory_var v) const {
-        return lp().external_to_local(v);
+        return v == null_theory_var ? lp::null_lpvar : lp().external_to_local(v);
     }
 
     lp::tv get_tv(theory_var v) const {
@@ -1424,10 +1433,13 @@ public:
         return v != null_theory_var && lp().external_is_used(v);
     }
 
+    void ensure_column(enode* n) {
+        ensure_column(n->get_th_var(get_id()));
+    }
+
     void ensure_column(theory_var v) {
-        if (!lp().external_is_used(v)) {
+        if (!lp().external_is_used(v) && v != null_theory_var) 
             register_theory_var_in_lar_solver(v);
-        }
     }
 
     mutable vector<std::pair<lp::tv, rational>> m_todo_terms;
@@ -1570,47 +1582,18 @@ public:
     final_check_status eval_power(expr* e) {
         expr* x, * y;
         VERIFY(a.is_power(e, x, y));
-        enode* n = get_enode(e);
-        enode* xn = get_enode(x);
-        enode* yn = get_enode(y);
-        if (!n || !xn || !yn)
-            return FC_GIVEUP;
-        rational valx, valy, valn;
-        theory_var v = n->get_th_var(get_id());
-        if (!get_value(xn, valx))
-            return FC_GIVEUP;
-        if (!get_value(yn, valy))
-            return FC_GIVEUP;
-        if (!get_value(n, valn))
-            return FC_GIVEUP;
 
-        // TBD - check that values align so return FC_DONE.
-
-        if (valn < 0 && valx > 0 && valy > 0) {
-            mk_axiom(mk_literal(a.mk_le(x, a.mk_numeral(rational(0), x->get_sort()))),
-                     ~mk_literal(a.mk_le(e, a.mk_numeral(rational(0), e->get_sort()))));
+        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y), m_nla_lemma_vector)) {
+        case l_true:
+            return FC_DONE;
+        case l_false:
+            for (const nla::lemma & l : m_nla_lemma_vector) 
+                false_case_of_check_nla(l);
             return FC_CONTINUE;
-        }
-
-        // add tangent lemmas for power:
-        // establish equality using algebraic numerals
-
-        // appears to be useless:
-        if (false && !valy.is_int() && numerator(valy) == 1 && denominator(valy) > 0) {
-            rational d = denominator(valy);
-            if (!d.is_unsigned())
-                return FC_GIVEUP;
-            unsigned den = d.get_unsigned();
-            // e = x^{1/y}
-            // => e^y = x
-
-            ptr_vector<expr> es;
-            for (unsigned i = 0; i < den; ++i)
-                es.push_back(e);
-            expr* em = a.mk_mul(es.size(), es.data());            
-            mk_axiom(~mk_literal(m.mk_eq(y, a.mk_real(valy))), mk_literal(m.mk_eq(em, x)));
-            return FC_CONTINUE;
-            
+        case l_undef:
+            return FC_GIVEUP;
+        default:
+            break;
         }
         return FC_GIVEUP;
     }
