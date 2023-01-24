@@ -200,13 +200,22 @@ void bound_simplifier::tighten_bound(dependent_expr const& de) {
         return;
     rational n, k;
     expr* x, *y, *f = de.fml();
-    expr* z, *u;
+    expr* z, * u, * v, * w;
     bool strict;
     if (a.is_le(f, x, y)) {
         // x <= (x + k) mod N && x >= 0 -> x + k < N
         if (a.is_mod(y, z, u) && a.is_numeral(u, n) && has_lower(x, k, strict) && k >= 0 && is_offset(z, x, k) && k > 0 && k < n) 
             assert_upper(x, n - k, true);
-        
+        // x <= (x + y) mod N && x >= 0 && 0 <= y < N => x + y < N
+        if (a.is_mod(y, z, u) && a.is_numeral(u, n) && n > 0) {
+            assert_upper(x, n, true);
+            if (has_lower(x, k, strict) && k >= 0 && a.is_add(z, v, w)) {
+                if (x == v && has_upper(w, k, strict) && k < n)
+                    assert_upper(z, n, true);
+                if (x == w && has_upper(v, k, strict) && k < n)
+                    assert_upper(z, n, true);
+            }
+        }
     }
 
 
