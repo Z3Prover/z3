@@ -1653,7 +1653,7 @@ public:
                 return FC_CONTINUE;
             }
             for (expr* e : m_not_handled) {
-                if (!ctx().is_relevant(e) && false)
+                if (!ctx().is_relevant(e))
                     continue;
                 st = FC_DONE;
                 switch (eval_unsupported(e)) {
