@@ -415,19 +415,19 @@ namespace polysat {
     };
 
     class univariate_bitblast_factory : public univariate_solver_factory {
-        symbol qf_bv;
-        scoped_ptr<solver_factory> sf;
+        symbol m_logic;
+        scoped_ptr<solver_factory> m_factory;
 
     public:
         univariate_bitblast_factory() :
-            qf_bv("QF_BV") {
-            sf = mk_smt_strategic_solver_factory(qf_bv);
+            m_logic("QF_BV") {
+            m_factory = mk_smt_strategic_solver_factory(m_logic);
         }
 
         ~univariate_bitblast_factory() override = default;
 
         scoped_ptr<univariate_solver> operator()(unsigned bit_width) override {
-            return alloc(univariate_bitblast_solver, *sf, bit_width);
+            return alloc(univariate_bitblast_solver, *m_factory, bit_width);
         }
     };
 
