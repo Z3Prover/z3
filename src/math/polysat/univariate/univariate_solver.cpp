@@ -420,7 +420,12 @@ namespace polysat {
 
     public:
         univariate_bitblast_factory() :
-            m_logic("QF_BV") {
+#if 1
+            m_logic("QF_BV")
+#else
+            m_logic("ALL")
+#endif
+        {
             m_factory = mk_smt_strategic_solver_factory(m_logic);
         }
 
