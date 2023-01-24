@@ -40,6 +40,7 @@ class bound_simplifier : public dependent_expr_simplifier {
     dep_intervals           m_interval;
     ptr_vector<expr>        m_var2expr;
     unsigned_vector         m_expr2var;
+    expr_ref_vector         m_trail;
     mpq_buffer              m_num_buffer;
     var_buffer              m_var_buffer;
     unsigned                m_num_reduced = 0;
@@ -71,6 +72,7 @@ class bound_simplifier : public dependent_expr_simplifier {
             if (e != core_e)
                 m_expr2var.setx(core_e->get_id(), v, UINT_MAX);
             m_var2expr.push_back(core_e);
+            m_trail.push_back(e);
         }
         return v;
     }
@@ -100,6 +102,7 @@ public:
         m_rewriter(m),
         bp(nm, m_alloc, p),
         m_interval(m.limit()),
+        m_trail(m),
         m_num_buffer(nm) {
         updt_params(p);
     }

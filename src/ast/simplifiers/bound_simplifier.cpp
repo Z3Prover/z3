@@ -208,6 +208,8 @@ void bound_simplifier::tighten_bound(dependent_expr const& de) {
             assert_upper(x, n - k, true);
         
     }
+
+
     // x != k, k <= x -> k < x
     if (m.is_not(f, f) && m.is_eq(f, x, y)) {
         if (a.is_numeral(x))
@@ -222,6 +224,7 @@ void bound_simplifier::tighten_bound(dependent_expr const& de) {
                 assert_upper(x, n, true);
         }
     }
+
 }
 
 void bound_simplifier::assert_upper(expr* x, rational const& n, bool strict) {
@@ -449,6 +452,7 @@ void bound_simplifier::reset() {
     bp.reset();
     m_var2expr.reset();
     m_expr2var.reset();
+    m_trail.reset();
 }
 
 #if 0
