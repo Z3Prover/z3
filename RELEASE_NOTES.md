@@ -19,6 +19,7 @@ Version 4.12.2
   implies that the modulus is redundant. This tactic is useful for
   benchmarks created by converting bit-vector semantics to integer 
   reasoning.
+- change API function Z3_mk_real to take two int64 as arguments instead of int.
 
 Version 4.12.1
 ==============
