@@ -1321,7 +1321,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     bool is_num_y    = m_util.is_numeral(arg2, y);
     auto ensure_real = [&](expr* e) { return m_util.is_int(e) ? m_util.mk_to_real(e) : e;  };
 
-    TRACE("arith", tout << mk_pp(arg1, m) << " " << mk_pp(arg2, m) << "\n";);
+    TRACE("arith", tout << mk_bounded_pp(arg1, m) << " " << mk_bounded_pp(arg2, m) << "\n";);
     if (is_num_x && x.is_one()) {
         result = m_util.mk_numeral(x, false);
         return BR_DONE;

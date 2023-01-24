@@ -3419,9 +3419,9 @@ extern "C" {
        \sa Z3_mk_int
        \sa Z3_mk_unsigned_int
 
-       def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT), _in(INT)))
+       def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT64), _in(INT64)))
     */
-    Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den);
+    Z3_ast Z3_API Z3_mk_real(Z3_context c, int64_t num, int64_t den);
 
     /**
        \brief Create a numeral of an int, bit-vector, or finite-domain sort.

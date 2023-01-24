@@ -400,11 +400,11 @@ namespace z3 {
         expr int_val(uint64_t n);
         expr int_val(char const * n);
 
-        expr real_val(int n, int d);
         expr real_val(int n);
         expr real_val(unsigned n);
         expr real_val(int64_t n);
         expr real_val(uint64_t n);
+        expr real_val(int64_t n, int64_t d);
         expr real_val(char const * n);
 
         expr bv_val(int n, unsigned sz);
@@ -3630,7 +3630,7 @@ namespace z3 {
     inline expr context::int_val(uint64_t n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
     inline expr context::int_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
 
-    inline expr context::real_val(int n, int d) { Z3_ast r = Z3_mk_real(m_ctx, n, d); check_error(); return expr(*this, r); }
+    inline expr context::real_val(int64_t n, int64_t d) { Z3_ast r = Z3_mk_real(m_ctx, n, d); check_error(); return expr(*this, r); }
     inline expr context::real_val(int n) { Z3_ast r = Z3_mk_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(unsigned n) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(int64_t n) { Z3_ast r = Z3_mk_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
