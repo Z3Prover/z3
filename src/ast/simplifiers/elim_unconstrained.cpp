@@ -36,6 +36,12 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2022-11-11.
 
+Notes:
+
+proof production is work in progress.
+reconstruct_term should assign proof objects with nodes by applying
+monotonicity or reflexivity rules. 
+
 --*/
 
 
@@ -85,6 +91,14 @@ void elim_unconstrained::eliminate() {
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(get_node(arg)));
         bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r);
+        proof_ref pr(m);
+        if (inverted && m_enable_proofs) {
+            expr * s    = m.mk_app(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+            expr * eq   = m.mk_eq(s, r);
+            proof * pr1 = m.mk_def_intro(eq);
+            proof * pr  = m.mk_apply_def(s, r, pr1);
+            m_trail.push_back(pr);
+        }
         n.m_refcount = 0;
         m_args.shrink(sz);
         if (!inverted) {
@@ -103,6 +117,7 @@ void elim_unconstrained::eliminate() {
 
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
+        get_node(e).m_proof = pr;
         get_node(e).m_refcount++;
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << "\n");
         SASSERT(!m_heap.contains(root(e)));
@@ -147,11 +162,18 @@ void elim_unconstrained::invalidate_parents(expr* e) {
  */
 void elim_unconstrained::init_nodes() {
 
+    m_enable_proofs = false;
+    m_trail.reset();
     m_fmls.freeze_suffix();
 
     expr_ref_vector terms(m);
-    for (unsigned i : indices())
-        terms.push_back(m_fmls[i].fml());
+    for (unsigned i : indices()) {
+        auto [f, p, d] = m_fmls[i]();
+        terms.push_back(f);
+        if (p)
+            m_enable_proofs = true;
+    }
+
     m_trail.append(terms);
     m_heap.reset();
     m_root.reset();
@@ -163,6 +185,9 @@ void elim_unconstrained::init_nodes() {
     // top-level terms have reference count > 0
     for (expr* e : terms)
         inc_ref(e);
+
+    m_inverter.set_produce_proofs(m_enable_proofs);
+        
 }
 
 /**
@@ -252,6 +277,7 @@ void elim_unconstrained::gc(expr* t) {
             todo.push_back(to_quantifier(t)->get_expr());        
     }
 }
+
 
 expr_ref elim_unconstrained::reconstruct_term(node& n0) {
     expr* t = n0.m_term;

@@ -26,6 +26,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
         unsigned         m_refcount = 0;
         expr*            m_term = nullptr;
         expr*            m_orig = nullptr;
+        proof*           m_proof = nullptr;
         bool             m_dirty = false;
         ptr_vector<expr> m_parents;
     };
@@ -49,6 +50,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
     stats                    m_stats;
     unsigned_vector          m_root;
     bool                     m_created_compound = false;
+    bool                     m_enable_proofs = false;
 
     bool is_var_lt(int v1, int v2) const;
     node& get_node(unsigned n) { return m_nodes[n]; }
