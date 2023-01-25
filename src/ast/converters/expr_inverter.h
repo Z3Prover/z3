@@ -40,7 +40,7 @@ public:
     virtual void set_model_converter(generic_model_converter* mc) { m_mc = mc; }
     virtual void set_produce_proofs(bool p) { m_produce_proofs = true; }
     
-    virtual bool operator()(func_decl* f, unsigned n, expr* const* args, expr_ref& new_expr, proof_ref& pr) = 0;
+    virtual bool operator()(func_decl* f, unsigned n, expr* const* args, expr_ref& new_expr) = 0;
     virtual bool mk_diff(expr* t, expr_ref& r) = 0;
     virtual family_id get_fid() const = 0;
 };
@@ -51,7 +51,7 @@ class expr_inverter : public iexpr_inverter {
 public:
     expr_inverter(ast_manager& m);
     ~expr_inverter() override;
-    bool operator()(func_decl* f, unsigned n, expr* const* args, expr_ref& new_expr, proof_ref& pr) override;
+    bool operator()(func_decl* f, unsigned n, expr* const* args, expr_ref& new_expr) override;
     bool mk_diff(expr* t, expr_ref& r) override;
     void set_is_var(std::function<bool(expr*)>& is_var) override; 
     void set_model_converter(generic_model_converter* mc) override;
