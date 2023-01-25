@@ -162,25 +162,34 @@ namespace polysat {
             SASSERT(dep == null_dependency && "track dependencies is TODO");
             return;
         case l_true:
-            // constraint c is already asserted
+            // constraint c is already asserted => ignore
             SASSERT(m_bvars.level(lit) <= m_level);
-            break;
+            return;
         case l_undef:
-            if (c.is_always_false()) {
-                LOG("Always false: " << c);
-                // asserted an always-false constraint
-                set_conflict_at_base_level();
-                return;
-            }
-            m_bvars.assumption(lit, m_level, dep);
-            m_trail.push_back(trail_instr_t::assign_bool_i);
-            m_search.push_boolean(lit);
-            if (c.is_currently_false(*this))
-                set_conflict(c);
             break;
         default:
             UNREACHABLE();
         }
+        switch (c.eval()) {
+        case l_false:
+            // asserted an always-false constraint => conflict at base level
+            LOG("Always false: " << c);
+            set_conflict_at_base_level();
+            SASSERT(dep == null_dependency && "track dependencies is TODO");
+            return;
+        case l_true:
+            // asserted an always-true constraint => ignore
+            return;
+        case l_undef:
+            break;
+        default:
+            UNREACHABLE();
+        }
+        m_bvars.assumption(lit, m_level, dep);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+        if (c.is_currently_false(*this))
+            set_conflict(c);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
