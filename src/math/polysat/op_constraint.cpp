@@ -660,7 +660,10 @@ namespace polysat {
 
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
+        if (prodv != rational::power_of_two(parity_pv))
+            verbose_stream() << prodv << " " << rational::power_of_two(parity_pv) << " " << parity_pv << " " << pv << " " << rv << "\n";
         SASSERT(prodv != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
+        VERIFY(prodv != rational::power_of_two(parity_pv)); // Why did it evaluate to false in this case?
         unsigned lower = 0, upper = m.power_of_2();
         // binary search for the parity (otw. we would have justifications like "parity_at_most(k) && parity_at_least(k)" for at most "k" widths
         while (lower + 1 < upper) {
