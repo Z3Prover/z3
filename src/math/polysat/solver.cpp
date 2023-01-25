@@ -82,7 +82,7 @@ namespace polysat {
             else if (is_conflict()) resolve_conflict();
             else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
-            else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
+            else if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
