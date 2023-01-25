@@ -1475,9 +1475,9 @@ namespace polysat {
                     LOG("    " << lit_pp(*this, lit));
                 }
             }
-            SASSERT(undefs != 1);
+            VERIFY(undefs != 1);
             bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
-            SASSERT(!is_false);
+            VERIFY(!is_false);
         }
         return true;
     }
