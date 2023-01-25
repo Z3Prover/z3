@@ -1311,6 +1311,7 @@ namespace polysat {
     }
 
     void solver::unsat_core(dependency_vector& deps) {
+        verbose_stream() << "WARNING: unsat_core requested but dependency tracking in polysat is TODO\n";
         deps.reset();
         LOG("conflict" << m_conflict);
         for (auto c : m_conflict) {
