@@ -38,6 +38,7 @@ z3_add_component(lp
     nla_intervals.cpp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
+    nla_powers.cpp
     nla_solver.cpp
     nla_tangent_lemmas.cpp
     nra_solver.cpp    

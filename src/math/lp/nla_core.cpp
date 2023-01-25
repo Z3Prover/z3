@@ -29,6 +29,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_basics(this),
     m_order(this),
     m_monotone(this),
+    m_powers(*this),
     m_intervals(this, lim),
     m_monomial_bounds(this),
     m_horner(this),
@@ -120,9 +121,8 @@ bool core::canonize_sign(const monic& m) const {
 
 bool core::canonize_sign(const factorization& f) const {
     bool r = false;
-    for (const factor & a : f) {
+    for (const factor & a : f) 
         r ^= canonize_sign(a);
-    }
     return r;
 }
 
@@ -1477,6 +1477,10 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
     }
 }
 
+lbool core::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec) {
+    m_lemma_vec =  &l_vec;
+    return m_powers.check(r, x, y, l_vec);
+}
 
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
