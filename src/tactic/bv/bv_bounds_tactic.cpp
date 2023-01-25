@@ -266,6 +266,7 @@ namespace {
         svector<expr_cnt*> m_bound_exprs;
         map                m_bound;
         bool               m_propagate_eq = false;
+        ptr_vector<expr>   m_args;
 
         bv_bounds_base(ast_manager& m):m(m), m_bv(m) {}
 
@@ -390,6 +391,48 @@ namespace {
                 return expr_ref(m_bv.mk_ule(m_bv.mk_bv_add(t, m_bv.mk_numeral(-lo, s)), m_bv.mk_numeral(hi - lo, s)), m);
         }
 
+        // 
+        // use interval information to rewrite sub-terms x to (0 ++ x[hi:0])
+        // in other words, identify leading 0s.
+        // 
+        bool zero_patch(expr* t, expr_ref& result) {
+            if (!is_app(t))
+                return false;
+
+            if (m_bv.is_extract(t))
+                return false;
+
+            m_args.reset();
+            bool simplified = false;
+            interval b;
+            for (expr* arg : *to_app(t)) {
+                if (!m_bv.is_bv(arg)) {
+                    m_args.push_back(arg);
+                    continue;
+                }
+                if (!m_bv.is_extract(arg) && m_bound.find(arg, b)) {
+                    unsigned num_bits = b.hi().get_num_bits();
+                    unsigned bv_size = m_bv.get_bv_size(arg);
+                    if (0 < num_bits && num_bits < bv_size) {
+                        m_args.push_back(m_bv.mk_concat(m_bv.mk_zero(bv_size - num_bits), 
+                                                        m_bv.mk_extract(num_bits - 1, 0, arg)));                        
+                        simplified = true;
+                    }
+                    else 
+                        m_args.push_back(arg);
+                }
+                else
+                    m_args.push_back(arg);
+            }
+
+            if (simplified) {
+                result = m.mk_app(to_app(t)->get_decl(), m_args);
+                return true;
+            }
+
+            return false;
+        }
+
         bool simplify_core(expr* t, expr_ref& result) {
             expr* t1;
             interval b;
@@ -399,6 +442,9 @@ namespace {
                 return true;
             }
 
+            if (zero_patch(t, result))
+                return result;
+            
             if (!m.is_bool(t))
                 return false;
 

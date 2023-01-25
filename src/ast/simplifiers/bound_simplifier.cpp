@@ -72,11 +72,13 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
             return BR_FAILED;
         if (N > hi && lo >= 0) {
             result = x;
+            TRACE("propagate-ineqs", tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
             return BR_DONE;
         }
         if (2 * N > hi && lo >= N) {
             result = a.mk_sub(x, a.mk_int(N));
             m_rewriter(result);
+            TRACE("propagate-ineqs", tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
             return BR_DONE;
         }
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
