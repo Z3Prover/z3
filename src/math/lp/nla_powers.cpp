@@ -83,13 +83,14 @@ namespace nla {
             return l_undef;
 
         core& c = m_core;        
+        if (c.use_nra_model()) 
+            return l_undef;
 
         auto xval = c.val(x);
         auto yval = c.val(y);
         auto rval = c.val(r);
 
         lemmas.reset();
-
 
         if (xval != 0 && yval == 0 && rval != 1) {
             new_lemma lemma(c, "x != 0 => x^0 = 1");
@@ -99,7 +100,7 @@ namespace nla {
             return l_false;
         }
 
-        if (xval == 0 && yval > 0 && rval != 0) {
+        if (xval == 0 && yval != 0 && rval != 0) {
             new_lemma lemma(c, "y != 0 => 0^y = 0");
             lemma |= ineq(x, llc::NE, rational::zero());
             lemma |= ineq(y, llc::EQ, rational::zero());
@@ -107,14 +108,14 @@ namespace nla {
             return l_false;
         }
 
-        if (xval > 0 && rval < 0 && rval <= 0) {
+        if (xval > 0 && rval <= 0) {
             new_lemma lemma(c, "x > 0 => x^y > 0");
             lemma |= ineq(x, llc::LE, rational::zero());
             lemma |= ineq(r, llc::GT, rational::zero());
             return l_false;
         }
 
-        if (xval > 1 && rval >= 1 && yval < 0) {
+        if (xval > 1 && yval < 0 && rval >= 1) {
             new_lemma lemma(c, "x > 1, y < 0 => x^y < 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::GE, rational::zero());
@@ -122,7 +123,7 @@ namespace nla {
             return l_false;
         }
 
-        if (xval > 1 && rval <= 1 && yval > 0) {
+        if (xval > 1 && yval > 0 && rval <= 1) {
             new_lemma lemma(c, "x > 1, y > 0 => x^y > 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::LE, rational::zero());
