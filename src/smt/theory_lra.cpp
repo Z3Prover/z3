@@ -1115,7 +1115,8 @@ public:
 
     void mk_power_axiom(expr* p, expr* x, expr* y) {
         rational r;
-        if (a.is_extended_numeral(x, r) && r.is_unsigned() && r.is_pos()) {
+        // r > 0 => r^y > 0
+        if (a.is_extended_numeral(x, r) && r > 0) {
             expr_ref zero(a.mk_real(0), m);
             mk_axiom(~mk_literal(a.mk_le(p, zero)));
         }

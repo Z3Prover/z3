@@ -17,7 +17,7 @@ Description:
 
 Special cases:
 
-1. Exponentiation. x is fixed numeral.
+1. Exponentiation. x is fixed numeral a.
 
 TOCL18 axioms:
    a^y > 0                     (if a > 0)
@@ -29,13 +29,13 @@ TOCL18 axioms:
 
 Other special case:
 
-   y = 1 <= a^y = a
+   y = 1 <=> a^y = a
 
 TOCL18 approach: Polynomial abstractions
 
 Taylor: a^y = sum_i ln(a)*y^i/i!
 
-Truncation: P(n, a) = sum_{i=0}^n ln(a)*y^i/i!
+Truncation: P(n, a) = sum_{i=0}^n ln(a)*y^i/i! = 1 + ln(a)*y + ln(a)^2*y^2/2 + 
 
 y = 0: handled by axiom a^y = 1
 y < 0: P(2n-1, y) <= a^y <= P(2n, y), n > 0 because Taylor contribution is negative at odd powers.
@@ -131,9 +131,9 @@ namespace nla {
             return l_false;
         }
 
-        if (xval >= 2 && yval != 0 & rval <= yval + 1) {
-            new_lemma lemma(c, "x >= 2, y != 0 => x^y > y + 1");
-            lemma |= ineq(x, llc::LT, rational(2));
+        if (xval >= 3 && yval != 0 & rval <= yval + 1) {
+            new_lemma lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
+            lemma |= ineq(x, llc::LT, rational(3));
             lemma |= ineq(y, llc::EQ, rational::zero());
             lemma |= ineq(lp::lar_term(r, rational::minus_one(), y), llc::GT, rational::one());
             return l_false;
