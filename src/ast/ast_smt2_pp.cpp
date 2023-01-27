@@ -1265,6 +1265,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environmen
     return out;
 }
 
+
 std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p, unsigned indent, char const* cmd, bool reverse) {
     if (!f) return out << "null";
     ast_manager & m = env.get_manager();
@@ -1276,6 +1277,13 @@ std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_e
     return out;
 }
 
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p, unsigned indent, char const* cmd) {
+    return ast_smt2_pp(out, f, e, env, p, indent, cmd, false);
+}
+
+std::ostream & ast_smt2_pp_rev(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p, unsigned indent, char const* cmd) {
+    return ast_smt2_pp(out, f, e, env, p, indent, cmd, true);
+}
 
 std::ostream & ast_smt2_pp(std::ostream & out, unsigned sz, expr * const* es, smt2_pp_environment & env, params_ref const & p, unsigned indent,
                             unsigned num_vars, char const * var_prefix) {
