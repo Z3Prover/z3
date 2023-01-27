@@ -1868,12 +1868,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function Add(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
-    function Add<Bits extends number>(
+    function Sum(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+    function Sum<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       ...args: CoercibleToBitVec<Bits, Name>[]
     ): BitVec<Bits, Name>;
-    function Add<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
+    function Sum<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
         if (args.length !== 1) {
@@ -1912,12 +1912,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    function Mul(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
-    function Mul<Bits extends number>(
+    function Product(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+    function Product<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       ...args: CoercibleToBitVec<Bits, Name>[]
     ): BitVec<Bits, Name>;
-    function Mul<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
+    function Product<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
         if (args.length !== 1) {
@@ -1985,11 +1985,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare readonly __typename: Arith['__typename'];
 
       add(other: CoercibleToArith<Name>) {
-        return Add(this, other);
+        return Sum(this, other);
       }
 
       mul(other: CoercibleToArith<Name>) {
-        return Mul(this, other);
+        return Product(this, other);
       }
 
       sub(other: CoercibleToArith<Name>) {
@@ -2106,11 +2106,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       add(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return Add(this, other);
+        return Sum(this, other);
       }
 
       mul(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
-        return Mul(this, other);
+        return Product(this, other);
       }
 
       sub(other: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name> {
@@ -2774,9 +2774,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       SGT,
       SLE,
       SGE,
-      Add,
+      Sum,
       Sub,
-      Mul,
+      Product,
       Div,
       BUDiv,
       Neg,

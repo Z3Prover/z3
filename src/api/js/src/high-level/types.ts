@@ -545,17 +545,17 @@ export interface Context<Name extends string = 'main'> {
   SLE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
   /** @category Operations */
-  Add(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+  Sum(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
 
-  Add<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+  Sum<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
   Sub(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
 
   Sub<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
-  Mul(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+  Product(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
 
-  Mul<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+  Product<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
   Div(arg0: Arith<Name>, arg1: CoercibleToArith<Name>): Arith<Name>;
 
