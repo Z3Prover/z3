@@ -398,9 +398,11 @@ struct reduce_args_tactic::imp {
         var_ref_vector   new_vars(m);
         ptr_buffer<expr> new_eqs;
         generic_model_converter * f_mc    = alloc(generic_model_converter, m, "reduce_args");
-        for (auto const& kv : decl2arg2funcs) {
-            func_decl * f  = kv.m_key;
-            arg2func * map = kv.m_value;
+        for (auto const& [f, map] : decl2arg2funcs) 
+            for (auto const& [t, new_def] : *map) 
+                f_mc->hide(new_def);
+
+        for (auto const& [f, map] : decl2arg2funcs) {
             expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
@@ -412,7 +414,7 @@ struct reduce_args_tactic::imp {
                     new_args.push_back(new_vars.back());
             }
             for (auto const& [t, new_def] : *map) {
-                f_mc->hide(new_def);
+                // f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
                 app * new_t = m.mk_app(new_def, new_args);
                 if (def == nullptr) {
