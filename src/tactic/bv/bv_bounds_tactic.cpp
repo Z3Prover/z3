@@ -20,13 +20,12 @@ Author:
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/bv_bounds_base.h"
 #include "ast/simplifiers/dominator_simplifier.h"
+#include "ast/simplifiers/bv_bounds_simplifier.h"
 #include "tactic/bv/bv_bounds_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
-#include "ast/rewriter/bv_bounds_base.h"
-#include "ast/simplifiers/bv_bounds_simplifier.h"
-
 #include <climits>
 
 
