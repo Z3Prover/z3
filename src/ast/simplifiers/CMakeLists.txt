@@ -4,10 +4,12 @@ z3_add_component(simplifiers
     bound_manager.cpp
     bound_propagator.cpp
     bound_simplifier.cpp
+    bv_bounds_simplifier.cpp
     bv_slice.cpp
     card2bv.cpp
     demodulator_simplifier.cpp
     dependent_expr_state.cpp
+    dominator_simplifier.cpp
     distribute_forall.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
