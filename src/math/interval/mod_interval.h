@@ -15,6 +15,8 @@ Author:
 
 --*/
 
+#pragma once
+
 namespace bv {
 
     template<typename T, typename Base>
