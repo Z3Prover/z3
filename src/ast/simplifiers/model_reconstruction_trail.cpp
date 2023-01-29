@@ -69,7 +69,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                     args.push_back(m.mk_var(i, d->get_domain(i)));
                 head = m.mk_app(d, args);
                 mrp.insert(head, def, dep);
-                TRACE("simplifier", tout << d << " " << def << " " << dep << "\n");
+                TRACE("simplifier", tout << mk_pp(d, m) << " " << mk_pp(def,m) << " " << "\n");
                 dependent_expr de(m, def, nullptr, dep);
                 add_vars(de, free_vars);
             }

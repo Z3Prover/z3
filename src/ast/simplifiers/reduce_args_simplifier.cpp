@@ -328,7 +328,6 @@ class reduce_args_simplifier : public dependent_expr_simplifier {
         ptr_buffer<expr> new_args;
         var_ref_vector   new_vars(m);
         ptr_buffer<expr> new_eqs;
-        generic_model_converter * f_mc = alloc(generic_model_converter, m, "reduce_args");
         for (auto const& [f, map] : decl2arg2funcs)
             for (auto const& [t, new_def] : *map)
                 m_fmls.model_trail().hide(new_def);
