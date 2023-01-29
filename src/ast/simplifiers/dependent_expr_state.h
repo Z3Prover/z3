@@ -80,7 +80,7 @@ public:
         m_trail.push(value_trail(m_qhead)); 
         m_trail.push(thaw(*this));
     }
-    void pop(unsigned n) { m_trail.pop_scope(n);  }
+    void pop(unsigned n) { m_trail.pop_scope(n); }
     
     void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_has_quantifiers = l_undef;  m_qhead = qtail(); }
     unsigned num_exprs();

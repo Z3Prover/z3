@@ -20,6 +20,7 @@
 #include "math/lp/nla_monotone_lemmas.h"
 #include "math/lp/nla_grobner.h"
 #include "math/lp/nla_powers.h"
+#include "math/lp/nla_divisions.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
@@ -88,6 +89,7 @@ class core {
     order                    m_order;
     monotone                 m_monotone;
     powers                   m_powers;
+    divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
     nla_settings             m_nla_settings;        
@@ -199,8 +201,10 @@ public:
     void deregister_monic_from_tables(const monic & m, unsigned i);
 
     void add_monic(lpvar v, unsigned sz, lpvar const* vs);   
+    void add_idivision(lpvar r, lpvar x, lpvar y);
     void push();     
     void pop(unsigned n);
+    trail_stack& trail() { return m_emons.get_trail_stack(); }
 
     rational mon_value_by_vars(unsigned i) const;
     rational product_value(const monic & m) const;

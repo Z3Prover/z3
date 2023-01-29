@@ -30,6 +30,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_powers(*this),
+    m_divisions(*this),
     m_intervals(this, lim),
     m_monomial_bounds(this),
     m_horner(this),
@@ -136,6 +137,11 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     }
     m_emons.add(v, m_add_buffer);
 }
+
+void core::add_idivision(lpvar r, lpvar x, lpvar y) {
+    m_divisions.add_idivision(r, x, y);
+}
+
     
 void core::push() {
     TRACE("nla_solver_verbose", tout << "\n";);
@@ -1519,6 +1525,9 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
 
+    if (l_vec.empty() && !done())
+        m_divisions.check(l_vec);
+    
 #if 0
     if (l_vec.empty() && !done() && !run_horner) 
         m_horner.horner_lemmas();

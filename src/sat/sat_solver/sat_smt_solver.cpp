@@ -161,7 +161,6 @@ class sat_smt_solver : public solver {
     expr_ref_vector             m_assumptions, m_core, m_ors, m_aux_fmls, m_internalized_fmls;
     atom2bool_var               m_map;
     generic_model_converter_ref m_mc;
-    unsigned                    m_mc_size = 0;
     mutable model_converter_ref m_cached_mc;
     mutable ref<sat2goal::mc>   m_sat_mc;
     std::string                 m_unknown = "no reason given";
@@ -180,8 +179,7 @@ public:
         m_trail(m_preprocess_state.m_trail),
         m_dep(m, m_trail),
         m_assumptions(m), m_core(m), m_ors(m), m_aux_fmls(m), m_internalized_fmls(m),
-        m_map(m),
-        m_mc(alloc(generic_model_converter, m, "sat-smt-solver")) {
+        m_map(m) {
         updt_params(p);
         init_preprocess();
         m_solver.set_incremental(true);
@@ -211,7 +209,6 @@ public:
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
         if (m_mc) result->m_mc = dynamic_cast<generic_model_converter*>(m_mc->translate(tr));
         result->m_dep.copy(tr, m_dep);
-        result->m_mc_size = m_mc_size;
         if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         result->m_internalized_converted = m_internalized_converted;
         return result;
@@ -291,7 +288,6 @@ public:
         m_preprocess.push();
         m_trail.push(restore_vector(m_assumptions));
         m_trail.push(restore_vector(m_fmls));
-        m_trail.push(value_trail(m_mc_size));
     }
 
     void pop(unsigned n) override {
@@ -302,7 +298,6 @@ public:
         m_map.pop(n);
         m_goal2sat.user_pop(n);
         m_solver.user_pop(n);
-        m_mc->shrink(m_mc_size);
     }
 
     void set_phase(expr* e) override { 
@@ -549,6 +544,7 @@ public:
 
     model_converter_ref get_model_converter() const override {
         const_cast<sat_smt_solver*>(this)->convert_internalized();
+        verbose_stream() << "get model converter " << (m_cached_mc.get() != nullptr) << "\n";
         if (m_cached_mc)
             return m_cached_mc;
         if (is_internalized() && m_internalized_converted) {            
@@ -660,6 +656,7 @@ private:
         if (!m.inc())
             return l_undef;
         m_preprocess_state.advance_qhead();
+        m_mc = alloc(generic_model_converter, m, "sat-model-converter");
         m_preprocess_state.append(*m_mc);
         m_solver.pop_to_base_level();
         m_aux_fmls.reset();
@@ -754,42 +751,43 @@ private:
         if (m_sat_mc) 
             (*m_sat_mc)(mdl);
         m_goal2sat.update_model(mdl);
-        TRACE("sat", m_mc->display(tout););
-        (*m_mc)(mdl);
+
     
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
 
-        if (!gparams::get_ref().get_bool("model_validate", false)) 
-            return;        
-        IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
-        model_evaluator eval(*mdl);
-        eval.set_model_completion(true);
-        bool all_true = true;
-        for (dependent_expr const& d : m_fmls) {
-            if (has_quantifiers(d.fml()))
-                continue;
-            expr_ref tmp(m);
-            eval(d.fml(), tmp);
-            if (m.limit().is_canceled())
-                return;
-            CTRACE("sat", !m.is_true(tmp),
-                   tout << "Evaluation failed: " << mk_pp(d.fml(), m) << " to " << tmp << "\n";
-                   model_smt2_pp(tout, m, *(mdl.get()), 0););
-            if (m.is_false(tmp)) {
-                IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(d.fml(), m) << "\n");
-                IF_VERBOSE(0, verbose_stream() << "evaluated to " << tmp << "\n");
-                all_true = false;
+        if (gparams::get_ref().get_bool("model_validate", false)) {
+            IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
+            model_evaluator eval(*mdl);
+            eval.set_model_completion(true);
+            bool all_true = true;
+            for (dependent_expr const& d : m_fmls) {
+                if (has_quantifiers(d.fml()))
+                    continue;
+                expr_ref tmp(m);
+                eval(d.fml(), tmp);
+                if (m.limit().is_canceled())
+                    return;
+                CTRACE("sat", !m.is_true(tmp),
+                       tout << "Evaluation failed: " << mk_pp(d.fml(), m) << " to " << tmp << "\n";
+                       model_smt2_pp(tout, m, *(mdl.get()), 0););
+                if (m.is_false(tmp)) {
+                    IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(d.fml(), m) << "\n");
+                    IF_VERBOSE(0, verbose_stream() << "evaluated to " << tmp << "\n");
+                    all_true = false;
+                }
+            }
+            if (!all_true) {
+                IF_VERBOSE(0, verbose_stream() << m_params << "\n");
+                IF_VERBOSE(0, if (m_mc) m_mc->display(verbose_stream() << "mc0\n"));
+                IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n");
+                exit(0);
+            }
+            else {
+                IF_VERBOSE(1, verbose_stream() << "solution verified\n");
             }
         }
-        if (!all_true) {
-            IF_VERBOSE(0, verbose_stream() << m_params << "\n");
-            IF_VERBOSE(0, if (m_mc) m_mc->display(verbose_stream() << "mc0\n"));
-            IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n");
-            exit(0);
-        }
-        else {
-            IF_VERBOSE(1, verbose_stream() << "solution verified\n");
-        }
+        TRACE("sat", m_mc->display(tout););
+        (*m_mc)(mdl);        
     }
 };
 

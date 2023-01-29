@@ -25,6 +25,7 @@ namespace nla {
         core* m_core;
     public:
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);    
+        void add_idivision(lpvar r, lpvar x, lpvar y);
         solver(lp::lar_solver& s, reslimit& limit);
         ~solver();
         nla_settings& settings();

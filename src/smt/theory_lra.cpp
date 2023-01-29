@@ -435,6 +435,13 @@ class theory_lra::imp {
                     app_ref mod(a.mk_mod(n1, n2), m);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
+#if 0
+                    // shortcut to create non-linear division axioms.
+                    theory_var r = mk_var(n);
+                    theory_var x = mk_var(n1);
+                    theory_var y = mk_var(n2);
+                    m_nla->add_idivision(get_lpvar(n), get_lpvar(n1), get_lpvar(n2));
+#endif
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);

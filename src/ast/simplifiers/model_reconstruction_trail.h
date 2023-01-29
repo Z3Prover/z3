@@ -39,34 +39,46 @@ class model_reconstruction_trail {
         scoped_ptr<expr_substitution> m_subst;
         vector<dependent_expr>        m_removed;
         func_decl_ref                 m_decl;
-        expr_ref                      m_def;
-        expr_dependency_ref           m_dep;
+        vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> m_defs;
+
         bool                          m_active = true;
 
         entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
-            m_subst(s), m_removed(rem), m_decl(m), m_def(m), m_dep(m) {}
+            m_subst(s), m_removed(rem), m_decl(m) {}
 
-        entry(ast_manager& m, func_decl* h) : m_decl(h, m), m_def(m), m_dep(m) {}
+        entry(ast_manager& m, func_decl* h) : m_decl(h, m) {}
 
         entry(ast_manager& m, func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& rem) :
-            m_removed(rem), m_decl(f, m), m_def(def, m), m_dep(dep, m) {}
+            m_removed(rem),
+            m_decl(m){
+            m_defs.push_back({ func_decl_ref(f, m), expr_ref(def, m), expr_dependency_ref(dep, m) });
+        }
+
+        entry(ast_manager& m, vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> const& defs, vector<dependent_expr> const& rem) :
+            m_removed(rem),
+            m_decl(m),
+            m_defs(defs) {
+        }
 
         bool is_loose() const { return !m_removed.empty(); }
 
         bool intersects(ast_mark const& free_vars) const {
             if (is_hide())
                 return false;
-            if (is_def())
-                return free_vars.is_marked(m_decl);
-            for (auto const& [k, v] : m_subst->sub())
-                if (free_vars.is_marked(k))
+            for (auto const& [f, def, dep] : m_defs)
+                if (free_vars.is_marked(f))
                     return true;
+            if (m_subst) {
+                for (auto const& [k, v] : m_subst->sub())
+                    if (free_vars.is_marked(k))
+                        return true;
+            }
             return false;
         }
 
-        bool is_hide() const { return m_decl && !m_def; }
-        bool is_def() const { return m_decl && m_def; }
-        bool is_subst() const { return !m_decl; }
+        bool is_hide() const { return m_decl && m_defs.empty(); }
+        bool is_def() const { return !m_defs.empty(); }
+        bool is_subst() const { return m_subst && !m_subst->empty(); }
     };
 
     ast_manager&             m;
@@ -76,7 +88,8 @@ class model_reconstruction_trail {
 
     void add_vars(expr* e, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(e, m)))
-            free_vars.mark(t, true);
+            if (is_app(t))
+                free_vars.mark(to_app(t)->get_decl(), true);
     }
     
     void add_vars(dependent_expr const& d, ast_mark& free_vars) {
@@ -86,7 +99,7 @@ class model_reconstruction_trail {
     bool intersects(ast_mark const& free_vars, dependent_expr const& d) {
         expr_ref term(d.fml(), m);
         auto iter = subterms::all(term);
-        return any_of(iter, [&](expr* t) { return free_vars.is_marked(t); });
+        return any_of(iter, [&](expr* t) { return is_app(t) && free_vars.is_marked(to_app(t)->get_decl()); });
     }
 
     bool intersects(ast_mark const& free_vars, vector<dependent_expr> const& added) {
@@ -123,6 +136,14 @@ public:
      */
     void push(func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& removed) {
         m_trail.push_back(alloc(entry, m, f, def, dep, removed));
+        m_trail_stack.push(push_back_vector(m_trail));
+    }
+
+    /**
+     * add definitions
+     */
+    void push(vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> const& defs, vector<dependent_expr> const& removed) {
+        m_trail.push_back(alloc(entry, m, defs, removed));
         m_trail_stack.push(push_back_vector(m_trail));
     }
 

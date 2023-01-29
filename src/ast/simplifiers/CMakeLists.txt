@@ -19,6 +19,7 @@ z3_add_component(simplifiers
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
     propagate_values.cpp
+    reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
   COMPONENT_DEPENDENCIES

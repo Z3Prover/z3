@@ -68,8 +68,7 @@ class var_eqs {
 
     T*                                m_merge_handler;    
     union_find<var_eqs>               m_uf;
-    lp::incremental_vector<std::pair<signed_var, signed_var>>    
-	                                  m_trail;
+    lp::incremental_vector<std::pair<signed_var, signed_var>> m_trail;
     vector<svector<eq_edge>>          m_eqs;    // signed_var.index() -> the edges adjacent to signed_var.index()
 
     trail_stack                       m_stack;

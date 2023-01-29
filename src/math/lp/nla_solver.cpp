@@ -22,6 +22,10 @@ namespace nla {
     void solver::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
         m_core->add_monic(v, sz, vs);
     }
+
+    void solver::add_idivision(lpvar r, lpvar x, lpvar y) {
+        m_core->add_idivision(r, x, y);
+    }
     
     bool solver::is_monic_var(lpvar v) const {
         return m_core->is_monic_var(v);

@@ -31,8 +31,13 @@ void dependent_expr_state::freeze(func_decl* f) {
 }
 
 void dependent_expr_state::freeze(expr* term) {
-    if (is_app(term))
+    if (is_app(term) && to_app(term)->get_num_args() == 0)
         freeze(to_app(term)->get_decl());
+    else {
+        ast_mark visited;
+        freeze_terms(term, false, visited);
+    }
+    
 }
 
 /**
