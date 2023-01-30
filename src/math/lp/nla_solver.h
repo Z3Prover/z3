@@ -24,10 +24,14 @@ namespace nla {
     class solver {
         core* m_core;
     public:
-        void add_monic(lpvar v, unsigned sz, lpvar const* vs);    
-        void add_idivision(lpvar r, lpvar x, lpvar y);
+
         solver(lp::lar_solver& s, reslimit& limit);
         ~solver();
+
+        void add_monic(lpvar v, unsigned sz, lpvar const* vs);
+        void add_idivision(lpvar r, lpvar x, lpvar y);
+        void add_rdivision(lpvar r, lpvar x, lpvar y);
+        void set_relevant(std::function<bool(lpvar)>& is_relevant);
         nla_settings& settings();
         void push();
         void pop(unsigned scopes);

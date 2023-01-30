@@ -82,6 +82,7 @@ class core {
 
     lp::lar_solver&          m_lar_solver;
     reslimit&                m_reslim;
+    std::function<bool(lpvar)> m_relevant;
     vector<lemma> *          m_lemma_vec;
     lp::u_set                m_to_refine;
     tangents                 m_tangents;
@@ -201,9 +202,15 @@ public:
     void deregister_monic_from_tables(const monic & m, unsigned i);
 
     void add_monic(lpvar v, unsigned sz, lpvar const* vs);   
-    void add_idivision(lpvar r, lpvar x, lpvar y);
+    void add_idivision(lpvar r, lpvar x, lpvar y) { m_divisions.add_idivision(r, x, y); }
+    void add_rdivision(lpvar r, lpvar x, lpvar y) { m_divisions.add_rdivision(r, x, y); }
+
+    void set_relevant(std::function<bool(lpvar)>& is_relevant) { m_relevant = is_relevant; }
+    bool is_relevant(lpvar v) const { return !m_relevant || m_relevant(v); }
+
     void push();     
     void pop(unsigned n);
+
     trail_stack& trail() { return m_emons.get_trail_stack(); }
 
     rational mon_value_by_vars(unsigned i) const;

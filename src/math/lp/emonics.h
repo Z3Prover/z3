@@ -87,14 +87,14 @@ class emonics {
     var_eqs<emonics>&            m_ve;
     mutable vector<monic>        m_monics;     // set of monics
     mutable unsigned_vector      m_var2index;     // var_mIndex -> mIndex
-    unsigned_vector              m_lim;           // backtracking point
     mutable unsigned             m_visited;       // timestamp of visited monics during pf_iterator
-    region                       m_region;        // region for allocating linked lists
     mutable svector<head_tail>   m_use_lists;     // use list of monics where variables occur.
     hash_canonical               m_cg_hash;
     eq_canonical                 m_cg_eq;
     map<lpvar, unsigned_vector, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
+
+    void pop_monic();
 
     void inc_visited() const;
 
@@ -115,6 +115,8 @@ class emonics {
     std::ostream& display_use(std::ostream& out) const; 
     std::ostream& display_uf(std::ostream& out) const; 
     std::ostream& display(std::ostream& out, cell* c) const;
+
+
 public:
     unsigned number_of_monics() const { return m_monics.size(); }
     /**

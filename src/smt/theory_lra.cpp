@@ -275,6 +275,11 @@ class theory_lra::imp {
                 (void)_s;
                 m_nla->push();
             }
+            std::function<bool(lpvar)> is_relevant = [&](lpvar v) {
+                theory_var u = lp().local_to_external(v);
+                return ctx().is_relevant(th.get_enode(u));
+            };
+            m_nla->set_relevant(is_relevant);
             smt_params_helper prms(ctx().get_params());
             m_nla->settings().run_order =                   prms.arith_nl_order();
             m_nla->settings().run_tangents =                prms.arith_nl_tangents();
@@ -435,12 +440,14 @@ class theory_lra::imp {
                     app_ref mod(a.mk_mod(n1, n2), m);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
-#if 0
-                    // shortcut to create non-linear division axioms.
-                    theory_var r = mk_var(n);
-                    theory_var x = mk_var(n1);
-                    theory_var y = mk_var(n2);
-                    m_nla->add_idivision(get_lpvar(n), get_lpvar(n1), get_lpvar(n2));
+#if 1
+                    if (m_nla && !a.is_numeral(n2)) {
+                        // shortcut to create non-linear division axioms.
+                        theory_var r = mk_var(n);
+                        theory_var x = mk_var(n1);
+                        theory_var y = mk_var(n2);
+                        m_nla->add_idivision(get_lpvar(n), get_lpvar(n1), get_lpvar(n2));
+                }
 #endif
                 }
                 else if (a.is_mod(n, n1, n2)) {
@@ -1801,6 +1808,8 @@ public:
         for (unsigned j = 0; j < m_idiv_terms.size(); ++j) {
             unsigned i =  (offset + j) % m_idiv_terms.size();
             expr* n = m_idiv_terms[i];
+            if (!ctx().is_relevant(n))
+                continue;
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
             theory_var v = internalize_def(to_app(n));

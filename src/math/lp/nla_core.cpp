@@ -137,11 +137,6 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     }
     m_emons.add(v, m_add_buffer);
 }
-
-void core::add_idivision(lpvar r, lpvar x, lpvar y) {
-    m_divisions.add_idivision(r, x, y);
-}
-
     
 void core::push() {
     TRACE("nla_solver_verbose", tout << "\n";);
@@ -164,7 +159,13 @@ rational core::product_value(const monic& m) const {
 }
     
 // return true iff the monic value is equal to the product of the values of the factors
+//                 or if the variable associated with the monomial is not relevant.
 bool core::check_monic(const monic& m) const {    
+#if 0
+    // TODO test this
+    if (!is_relevant(m.var()))
+        return true;
+#endif
     SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
     bool ret = product_value(m) == m_lar_solver.get_column_value(m.var()).x; 
     CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);

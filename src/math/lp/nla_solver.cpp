@@ -26,6 +26,14 @@ namespace nla {
     void solver::add_idivision(lpvar r, lpvar x, lpvar y) {
         m_core->add_idivision(r, x, y);
     }
+
+    void solver::add_rdivision(lpvar r, lpvar x, lpvar y) {
+        m_core->add_rdivision(r, x, y);
+    }
+
+    void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
+        m_core->set_relevant(is_relevant);
+    }
     
     bool solver::is_monic_var(lpvar v) const {
         return m_core->is_monic_var(v);
