@@ -1808,7 +1808,7 @@ public:
         for (unsigned j = 0; j < m_idiv_terms.size(); ++j) {
             unsigned i =  (offset + j) % m_idiv_terms.size();
             expr* n = m_idiv_terms[i];
-            if (!ctx().is_relevant(n))
+            if (false && !ctx().is_relevant(n))
                 continue;
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
