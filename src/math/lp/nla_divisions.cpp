@@ -23,7 +23,6 @@ namespace nla {
             return;
         if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(q))
             return;
-        verbose_stream() << q << " " << x << " " << y << " " << null_lpvar << "\n";
         m_idivisions.push_back({q, x, y});
         m_core.trail().push(push_back_vector(m_idivisions));
     }
