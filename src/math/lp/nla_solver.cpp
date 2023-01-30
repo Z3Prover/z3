@@ -23,12 +23,16 @@ namespace nla {
         m_core->add_monic(v, sz, vs);
     }
 
-    void solver::add_idivision(lpvar r, lpvar x, lpvar y) {
-        m_core->add_idivision(r, x, y);
+    void solver::add_idivision(lpvar q, lpvar x, lpvar y) {
+        m_core->add_idivision(q, x, y);
     }
 
-    void solver::add_rdivision(lpvar r, lpvar x, lpvar y) {
-        m_core->add_rdivision(r, x, y);
+    void solver::add_rdivision(lpvar q, lpvar x, lpvar y) {
+        m_core->add_rdivision(q, x, y);
+    }
+
+    void solver::add_bounded_division(lpvar q, lpvar x, lpvar y) {
+        m_core->add_bounded_division(q, x, y);
     }
 
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
@@ -39,7 +43,7 @@ namespace nla {
         return m_core->is_monic_var(v);
     }
     
-    bool solver::need_check() { return true; }
+    bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
     lbool solver::check(vector<lemma>& l) {
         return m_core->check(l);
@@ -90,6 +94,10 @@ namespace nla {
     // ensure r = x^y, add abstraction/refinement lemmas
     lbool solver::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
         return m_core->check_power(r, x, y, lemmas);
+    }
+
+    void solver::check_bounded_divisions(vector<lemma>& lemmas) {
+        m_core->check_bounded_divisions(lemmas);
     }
 
 }

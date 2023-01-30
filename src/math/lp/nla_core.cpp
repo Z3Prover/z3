@@ -985,6 +985,9 @@ bool core::rm_check(const monic& rm) const {
     return check_monic(m_emons[rm.var()]);
 }
 
+bool core::has_relevant_monomial() const {
+    return any_of(emons(), [&](auto const& m) { return is_relevant(m.var()); });
+}
     
 bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
     for (auto f : factorization_factory_imp(m, *this)) {
@@ -1489,6 +1492,11 @@ lbool core::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec) {
     return m_powers.check(r, x, y, l_vec);
 }
 
+void core::check_bounded_divisions(vector<lemma>& l_vec) {
+    m_lemma_vec = &l_vec;
+    m_divisions.check_bounded_divisions();
+}
+
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
@@ -1527,7 +1535,7 @@ lbool core::check(vector<lemma>& l_vec) {
         m_basics.basic_lemma(false);
 
     if (l_vec.empty() && !done())
-        m_divisions.check(l_vec);
+        m_divisions.check();
     
 #if 0
     if (l_vec.empty() && !done() && !run_horner) 

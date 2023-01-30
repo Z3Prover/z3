@@ -36,13 +36,22 @@ namespace nla {
         m_core.trail().push(push_back_vector(m_rdivisions));
     }
 
+    void divisions::add_bounded_division(lpvar q, lpvar x, lpvar y) {
+        if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
+            return;
+        if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(q))
+            return;
+        m_bounded_divisions.push_back({ q, x, y });
+        m_core.trail().push(push_back_vector(m_bounded_divisions));
+    }
+
     typedef lp::lar_term term;
     
     // y1 >= y2 > 0 & x1 <= x2 => x1/y1 <= x2/y2
     // y2 <= y1 < 0 & x1 >= x2 >= 0 => x1/y1 <= x2/y2
     // y2 <= y1 < 0 & x1 <= x2 <= 0 => x1/y1 >= x2/y2
 
-    void divisions::check(vector<lemma>& lemmas) {
+    void divisions::check() {
         core& c = m_core;        
         if (c.use_nra_model()) 
             return;
@@ -155,99 +164,45 @@ namespace nla {
     // p <= q * div(r, q) + q - 1 => div(p, q) <= div(r, q)
     // p >= q * div(r, q)         => div(r, q) <= div(p, q)
 
-#if 0
-    bool check_idiv_bounds() {
-        if (m_idiv_terms.empty()) {
-            return true;
-        }
-        bool all_divs_valid = true;
-        unsigned count = 0;
-        unsigned offset = ctx().get_random_value();
-        for (unsigned j = 0; j < m_idiv_terms.size(); ++j) {
-            unsigned i = (offset + j) % m_idiv_terms.size();
-            expr* n = m_idiv_terms[i];
-            if (!ctx().is_relevant(n))
-                continue;
-            expr* p = nullptr, * q = nullptr;
-            VERIFY(a.is_idiv(n, p, q));
-            theory_var v = internalize_def(to_app(n));
-            theory_var v1 = internalize_def(to_app(p));
+    void divisions::check_bounded_divisions() {
+        core& c = m_core;
+        unsigned offset = c.random(), sz = m_bounded_divisions.size();        
 
-            if (!is_registered_var(v1))
+        for (unsigned j = 0; j < sz; ++j) {
+            unsigned i = (offset + j) % sz;
+            auto [q, x, y] = m_bounded_divisions[i];
+            if (!c.is_relevant(q))
                 continue;
-            lp::impq q1 = get_ivalue(v1);
-            rational q2;
+            auto xv = c.val(x);
+            auto yv = c.val(y);
+            auto qv = c.val(q);
+            if (xv < 0 || !xv.is_int())
+                continue;
+            if (yv <= 0 || !yv.is_int())
+                continue;
+            if (qv == div(xv, yv))
+                continue;
 
-            if (!q1.x.is_int() || q1.x.is_neg() || !q1.y.is_zero()) {
-                // TBD
-                // q1 = 223/4, q2 = 2, r = 219/8 
-                // take ceil(q1), floor(q1), ceil(q2), floor(q2), for floor(q2) > 0
-                // then 
-                //      p/q <= ceil(q1)/floor(q2) => n <= div(ceil(q1), floor(q2))
-                //      p/q >= floor(q1)/ceil(q2) => n >= div(floor(q1), ceil(q2))
-                continue;
+            rational div_v = div(xv, yv);
+            // y = yv & x <= yv * div(xv, yv) + yv - 1 => div(x, y) <= div(xv, yv)
+            // y = yv & x >= y * div(xv, yv) => div(xv, yv) <= div(x, y)
+            rational mul(1);
+            rational hi = yv * div_v + yv - 1;
+            rational lo = yv * div_v;
+            if (xv > hi) {
+                new_lemma lemma(c, "y = yv & x <= yv * div(xv, yv) + yv - 1 => div(p, y) <= div(xv, yv)");
+                lemma |= ineq(y, llc::NE, yv); 
+                lemma |= ineq(x, llc::GT, hi); 
+                lemma |= ineq(q, llc::LE, div_v);  
+                return;
             }
-
-
-            if (a.is_numeral(q, q2) && q2.is_pos()) {
-                if (!a.is_bounded(n)) {
-                    TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
-                    continue;
-                }
-                if (!is_registered_var(v))
-                    continue;
-                lp::impq val_v = get_ivalue(v);
-                if (val_v.y.is_zero() && val_v.x == div(q1.x, q2))
-                    continue;
-
-                TRACE("arith", tout << get_value(v) << " != " << q1 << " div " << q2 << "\n";);
-                rational div_r = div(q1.x, q2);
-                // p <= q * div(q1, q) + q - 1 => div(p, q) <= div(q1, q2)
-                // p >= q * div(q1, q) => div(q1, q) <= div(p, q)
-                rational mul(1);
-                rational hi = q2 * div_r + q2 - 1;
-                rational lo = q2 * div_r;
-
-                // used to normalize inequalities so they 
-                // don't appear as 8*x >= 15, but x >= 2
-                expr* n1 = nullptr, * n2 = nullptr;
-                if (a.is_mul(p, n1, n2) && a.is_extended_numeral(n1, mul) && mul.is_pos()) {
-                    p = n2;
-                    hi = floor(hi / mul);
-                    lo = ceil(lo / mul);
-                }
-                literal p_le_q1 = mk_literal(a.mk_le(p, a.mk_numeral(hi, true)));
-                literal p_ge_q1 = mk_literal(a.mk_ge(p, a.mk_numeral(lo, true)));
-                literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div_r, true)));
-                literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div_r, true)));
-                {
-                    scoped_trace_stream _sts(th, ~p_le_q1, n_le_div);
-                    mk_axiom(~p_le_q1, n_le_div);
-                }
-                {
-                    scoped_trace_stream _sts(th, ~p_ge_q1, n_ge_div);
-                    mk_axiom(~p_ge_q1, n_ge_div);
-                }
-
-                all_divs_valid = false;
-                ++count;
-
-
-                TRACE("arith",
-                    tout << q1 << " div " << q2 << "\n";
-                literal_vector lits;
-                lits.push_back(~p_le_q1);
-                lits.push_back(n_le_div);
-                ctx().display_literals_verbose(tout, lits) << "\n\n";
-                lits[0] = ~p_ge_q1;
-                lits[1] = n_ge_div;
-                ctx().display_literals_verbose(tout, lits) << "\n";);
-                continue;
+            if (xv < lo) {
+                new_lemma lemma(c, "y = yv & x >= yv * div(xv, yv) => div(xv, yv) <= div(x, y)");
+                lemma |= ineq(y, llc::NE, yv);
+                lemma |= ineq(x, llc::LT, lo);
+                lemma |= ineq(q, llc::GE, div_v);
+                return;
             }
         }
-
-        return all_divs_valid;
-    }
-#endif
-    
+    }    
 }

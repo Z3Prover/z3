@@ -112,6 +112,9 @@ class core {
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
 
 public:    
+    // constructor
+    core(lp::lar_solver& s, reslimit&);
+
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     
@@ -120,9 +123,7 @@ public:
 
     void insert_to_active_var_set(unsigned j) const { m_active_var_set.insert(j); }    
 
-    void clear_active_var_set() const {
-        m_active_var_set.clear();
-    }
+    void clear_active_var_set() const { m_active_var_set.clear(); }
 
     void clear_and_resize_active_var_set() const {
         m_active_var_set.clear();
@@ -134,9 +135,9 @@ public:
     reslimit& reslim() { return m_reslim; }  
     emonics& emons() { return m_emons; }
     const emonics& emons() const { return m_emons; }
-    // constructor
-    core(lp::lar_solver& s, reslimit &);
-   
+
+    bool has_relevant_monomial() const;
+
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
     
     rational value(const lp::lar_term& r) const;
@@ -202,8 +203,9 @@ public:
     void deregister_monic_from_tables(const monic & m, unsigned i);
 
     void add_monic(lpvar v, unsigned sz, lpvar const* vs);   
-    void add_idivision(lpvar r, lpvar x, lpvar y) { m_divisions.add_idivision(r, x, y); }
-    void add_rdivision(lpvar r, lpvar x, lpvar y) { m_divisions.add_rdivision(r, x, y); }
+    void add_idivision(lpvar q, lpvar x, lpvar y) { m_divisions.add_idivision(q, x, y); }
+    void add_rdivision(lpvar q, lpvar x, lpvar y) { m_divisions.add_rdivision(q, x, y); }
+    void add_bounded_division(lpvar q, lpvar x, lpvar y) { m_divisions.add_bounded_division(q, x, y); }
 
     void set_relevant(std::function<bool(lpvar)>& is_relevant) { m_relevant = is_relevant; }
     bool is_relevant(lpvar v) const { return !m_relevant || m_relevant(v); }
@@ -381,6 +383,7 @@ public:
     
     lbool check(vector<lemma>& l_vec);
     lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec);
+    void check_bounded_divisions(vector<lemma>&);
 
     bool  no_lemmas_hold() const;
     

@@ -29,8 +29,10 @@ namespace nla {
         ~solver();
 
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);
-        void add_idivision(lpvar r, lpvar x, lpvar y);
-        void add_rdivision(lpvar r, lpvar x, lpvar y);
+        void add_idivision(lpvar q, lpvar x, lpvar y);
+        void add_rdivision(lpvar q, lpvar x, lpvar y);
+        void add_bounded_division(lpvar q, lpvar x, lpvar y);
+        void check_bounded_divisions(vector<lemma>&);
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
         nla_settings& settings();
         void push();

@@ -62,7 +62,6 @@ class theory_lra::imp {
 
     struct scope {
         unsigned m_bounds_lim;
-        unsigned m_idiv_lim;
         unsigned m_asserted_qhead;            
         unsigned m_asserted_atoms_lim;
     };
@@ -161,7 +160,6 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
-    ptr_vector<expr>       m_idiv_terms;
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -436,19 +434,23 @@ class theory_lra::imp {
                 }
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    m_idiv_terms.push_back(n);
                     app_ref mod(a.mk_mod(n1, n2), m);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
-#if 1
                     if (m_nla && !a.is_numeral(n2)) {
                         // shortcut to create non-linear division axioms.
-                        theory_var r = mk_var(n);
+                        theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
-                        m_nla->add_idivision(get_lpvar(n), get_lpvar(n1), get_lpvar(n2));
-                }
-#endif
+                        m_nla->add_idivision(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                    }
+                    if (a.is_numeral(n2) && a.is_bounded(n1)) {
+                        ensure_nla();
+                        theory_var q = mk_var(n);
+                        theory_var x = mk_var(n1);
+                        theory_var y = mk_var(n2);
+                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                    }
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
@@ -1077,7 +1079,6 @@ public:
         scope& sc = m_scopes.back();
         sc.m_bounds_lim = m_bounds_trail.size();
         sc.m_asserted_qhead = m_asserted_qhead;
-        sc.m_idiv_lim = m_idiv_terms.size();
         sc.m_asserted_atoms_lim = m_asserted_atoms.size();
         lp().push();
         if (m_nla)
@@ -1092,7 +1093,6 @@ public:
         }
         unsigned old_size = m_scopes.size() - num_scopes;
         del_bounds(m_scopes[old_size].m_bounds_lim);
-        m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
         m_scopes.resize(old_size);            
@@ -1480,7 +1480,7 @@ public:
     }
     
     void random_update() {
-        if (m_nla)
+        if (m_nla && m_nla->need_check())
             return;
         m_tmp_var_set.clear();
         m_tmp_var_set.resize(th.get_num_vars());
@@ -1799,96 +1799,13 @@ public:
      */
 
     bool check_idiv_bounds() {
-        if (m_idiv_terms.empty()) {
+        if (!m_nla)
             return true;
-        }
-        bool all_divs_valid = true;
-        unsigned count = 0;
-        unsigned offset = ctx().get_random_value(); 
-        for (unsigned j = 0; j < m_idiv_terms.size(); ++j) {
-            unsigned i =  (offset + j) % m_idiv_terms.size();
-            expr* n = m_idiv_terms[i];
-            if (false && !ctx().is_relevant(n))
-                continue;
-            expr* p = nullptr, *q = nullptr;
-            VERIFY(a.is_idiv(n, p, q));
-            theory_var v = internalize_def(to_app(n));
-            theory_var v1 = internalize_def(to_app(p));
-
-            if (!is_registered_var(v1))
-                continue;
-            lp::impq r1 = get_ivalue(v1);
-            rational r2;
-
-            if (!r1.x.is_int() || r1.x.is_neg() || !r1.y.is_zero()) {
-                // TBD
-                // r1 = 223/4, r2 = 2, r = 219/8 
-                // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
-                // then 
-                //      p/q <= ceil(r1)/floor(r2) => n <= div(ceil(r1), floor(r2))
-                //      p/q >= floor(r1)/ceil(r2) => n >= div(floor(r1), ceil(r2))
-                continue;
-            }
-
-
-            if (a.is_numeral(q, r2) && r2.is_pos()) {
-                if (!a.is_bounded(n)) {
-                    TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
-                    continue;
-                }
-                if (!is_registered_var(v))
-                    continue;
-                lp::impq val_v = get_ivalue(v);
-                if (val_v.y.is_zero() && val_v.x == div(r1.x, r2))
-                    continue;
-            
-                TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
-                rational div_r = div(r1.x, r2);
-                // p <= q * div(r1, q) + q - 1 => div(p, q) <= div(r1, r2)
-                // p >= q * div(r1, q) => div(r1, q) <= div(p, q)
-                rational mul(1);
-                rational hi = r2 * div_r + r2 - 1;
-                rational lo = r2 * div_r;
-
-                // used to normalize inequalities so they 
-                // don't appear as 8*x >= 15, but x >= 2
-                expr *n1 = nullptr, *n2 = nullptr;
-                if (a.is_mul(p, n1, n2) && a.is_extended_numeral(n1, mul) && mul.is_pos()) {
-                    p = n2;
-                    hi = floor(hi/mul);
-                    lo = ceil(lo/mul);
-                }
-                literal p_le_r1  = mk_literal(a.mk_le(p, a.mk_numeral(hi, true)));
-                literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(lo, true)));
-                literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div_r, true)));
-                literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div_r, true)));
-                {
-                    scoped_trace_stream _sts(th, ~p_le_r1, n_le_div);
-                    mk_axiom(~p_le_r1, n_le_div);
-                }
-                {
-                    scoped_trace_stream _sts(th, ~p_ge_r1, n_ge_div);
-                    mk_axiom(~p_ge_r1, n_ge_div);
-                }
-
-                all_divs_valid = false;
-                ++count;
-
-
-                TRACE("arith",
-                      tout << r1 << " div " << r2 << "\n";
-                      literal_vector lits;
-                      lits.push_back(~p_le_r1);
-                      lits.push_back(n_le_div);
-                      ctx().display_literals_verbose(tout, lits) << "\n\n";
-                      lits[0] = ~p_ge_r1;
-                      lits[1] = n_ge_div;
-                      ctx().display_literals_verbose(tout, lits) << "\n";);                      
-                continue;
-            }
-        }
-        
-        return all_divs_valid;
+        m_nla_lemma_vector.reset();
+        m_nla->check_bounded_divisions(m_nla_lemma_vector);
+        for (auto & lemma : m_nla_lemma_vector)
+            false_case_of_check_nla(lemma);
+        return m_nla_lemma_vector.empty();         
     }
 
     expr_ref var2expr(lpvar v) {
@@ -2105,9 +2022,8 @@ public:
         lbool r = m_nla->check(m_nla_lemma_vector);
         switch (r) {
         case l_false: {
-            for (const nla::lemma & l : m_nla_lemma_vector) {
-                false_case_of_check_nla(l);
-            }
+            for (const nla::lemma & l : m_nla_lemma_vector) 
+                false_case_of_check_nla(l);            
             break;
         }
         case l_true:
@@ -2126,11 +2042,11 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-        if (!m_nla) {
-            TRACE("arith", tout << "no nla\n";);
+        CTRACE("arith",!m_nla, tout << "no nla\n";);
+        if (!m_nla)            
+            return l_true;        
+        if (!m_nla->need_check()) 
             return l_true;
-        }
-        if (!m_nla->need_check()) return l_true;
         return check_nla_continue();
     }
 
