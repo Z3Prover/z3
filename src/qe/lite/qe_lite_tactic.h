@@ -68,8 +68,10 @@ public:
 };
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+dependent_expr_simplifier* mk_qe_lite_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st);
+
 /*
   ADD_TACTIC("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_tactic(m, p)")
+  ADD_SIMPLIFIER("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_simplifier(m, p, s)")
 */
-
-dependent_expr_simplifier* mk_qe_lite_simplifer(ast_manager& m, params_ref const& p, dependent_expr_state& st);

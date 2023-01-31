@@ -45,13 +45,22 @@ simplification
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
+#include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/bv_slice.h"
+
 class ast_manager;
 class tactic;
 
-tactic * mk_bv_slice_tactic(ast_manager & m, params_ref const & p = params_ref());
+inline tactic* mk_bv_slice_tactic(ast_manager& m, params_ref const& p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bv::slice, m, s); });
+}
+
 
 /*
   ADD_TACTIC("bv-slice", "simplify using bit-vector slices.", "mk_bv_slice_tactic(m, p)")
+  ADD_SIMPLIFIER("bv-slice", "simplify using bit-vector slices.", "alloc(bv::slice, m, s)")
 */
 
 

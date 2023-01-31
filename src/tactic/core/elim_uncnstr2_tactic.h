@@ -118,5 +118,5 @@ inline tactic * mk_elim_uncnstr2_tactic(ast_manager & m, params_ref const & p = 
 
 /*
   ADD_TACTIC("elim-uncnstr2", "eliminate unconstrained variables.", "mk_elim_uncnstr2_tactic(m, p)")
-  ADD_SIMPLIFIER("elim-unconstrained", "eliminate unconstrained variables.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(elim_unconstrained, m, s); }")
+  ADD_SIMPLIFIER("elim-unconstrained", "eliminate unconstrained variables.", "alloc(elim_unconstrained, m, s)")
 */

@@ -38,5 +38,5 @@ inline tactic* mk_bound_simplifier_tactic(ast_manager& m, params_ref const& p = 
 
 /*
   ADD_TACTIC("bound-simplifier", "Simplify arithmetical expressions modulo bounds.", "mk_bound_simplifier_tactic(m, p)")
-  ADD_SIMPLIFIER("bound-simplifier", "Simplify arithmetical expressions modulo bounds.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bound_simplifier, m, p, s); }")
+  ADD_SIMPLIFIER("bound-simplifier", "Simplify arithmetical expressions modulo bounds.", "alloc(bound_simplifier, m, p, s)")
 */

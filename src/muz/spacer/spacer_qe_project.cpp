@@ -36,7 +36,7 @@ Revision History:
 #include "model/model_pp.h"
 
 #include "qe/qe.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 
 #include "muz/spacer/spacer_mev_array.h"
 #include "muz/spacer/spacer_qe_project.h"

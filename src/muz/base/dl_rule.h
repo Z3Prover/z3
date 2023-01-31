@@ -28,7 +28,7 @@ Revision History:
 #include "ast/rewriter/ast_counter.h"
 #include "ast/rewriter/rewriter.h"
 #include "muz/base/hnf.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/label_rewriter.h"

@@ -63,6 +63,6 @@ inline tactic * mk_eliminate_predicates_tactic(ast_manager& m, params_ref const&
 }
 
 /*
-  ADD_TACTIC("elim-predicates", "eliminate predicates.", "mk_eliminate_predicates_tactic(m, p)")
-  ADD_SIMPLIFIER("elim-predicates", "eliminate predicates.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(eliminate_predicates, m, s); }")
+  ADD_TACTIC("elim-predicates", "eliminate predicates, macros and implicit definitions.", "mk_eliminate_predicates_tactic(m, p)")
+  ADD_SIMPLIFIER("elim-predicates", "eliminate predicates, macros and implicit definitions.", "alloc(eliminate_predicates, m, s)")
 */
