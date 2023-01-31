@@ -19,7 +19,7 @@ Version 4.12.2
   implies that the modulus is redundant. This tactic is useful for
   benchmarks created by converting bit-vector semantics to integer 
   reasoning.
-- change API function Z3_mk_real to take two int64 as arguments instead of int.
+- add API function Z3_mk_real_int64 to take two int64 as arguments. The Z3_mk_real function takes integers.
 - Add _simplifiers_ as optional incremental pre-processing to solvers.
   They are exposed over the SMTLIB API using the command [`set-simplifier`](https://microsoft.github.io/z3guide/docs/strategies/simplifiers).
   Simplifiers are similar to tactics, but they operate on solver state that can be incrementally updated. 
