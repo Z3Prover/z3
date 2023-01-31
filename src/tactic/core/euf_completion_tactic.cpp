@@ -16,8 +16,6 @@ Author:
 --*/
 
 #include "tactic/tactic.h"
-#include "tactic/dependent_expr_state_tactic.h"
-#include "ast/simplifiers/euf_completion.h"
 #include "tactic/core/euf_completion_tactic.h"
 
 tactic * mk_euf_completion_tactic(ast_manager& m, params_ref const& p) {
