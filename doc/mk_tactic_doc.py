@@ -18,6 +18,7 @@ def doc_path(path):
 is_doc = re.compile("Tactic Documentation")
 is_doc_end = re.compile("\-\-\*\/")
 is_tac_name = re.compile("## Tactic (.*)")
+is_simplifier = re.compile("ADD_SIMPLIFIER\(.*\"([^\"]*)\".*,.*\"([^\"]*)\".*,.*\"([^\"]*)\"\.*\)")
 
 def is_ws(s):
     return all([0 for ch in s if ch != ' ' and ch != '\n'])
@@ -53,6 +54,19 @@ def extract_tactic_doc(ous, f):
             if is_doc.search(line):
                 generate_tactic_doc(ous, f, ins)
 
+def generate_simplifier_doc(ous, name, desc):
+    ous.write("## Simplifier [" + name + "](tactic-summary/#" + name + ")\n")
+    ous.write("### Description\n" + desc + "\n")
+
+              
+def extract_simplifier_doc(ous, f):
+    with open(f) as ins:
+        for line in ins:
+            m = is_simplifier.search(line)
+            if m:
+                generate_simplifier_doc(ous, m.group(1), m.group(2))
+                return
+
 def find_tactic_name(path):
     with open(path) as ins:
         for line in ins:
@@ -66,13 +80,15 @@ def presort_files():
     tac_files = []
     for root, dirs, files in os.walk(doc_path("../src")):
         for f in files:
-            if f.endswith("tactic.h"):
+            if f.endswith("~"):
+                continue
+            if f.endswith("tactic.h") or "simplifiers" in root:
                 tac_files += [(f, os.path.join(root, f))]
     tac_files = sorted(tac_files, key = lambda x: find_tactic_name(x[1]))
     return tac_files
     
+    
 def help(ous):
-    presort_files()
     ous.write("---\n")
     ous.write("title: Tactics Summary\n")
     ous.write("sidebar_position: 5\n")
@@ -80,6 +96,17 @@ def help(ous):
     tac_files = presort_files()
     for file, path in tac_files:
         extract_tactic_doc(ous, path)
+
+
+
+def help_simplifier(ous):
+    ous.write("---\n")
+    ous.write("title: Simplifier Summary\n")
+    ous.write("sidebar_position: 6\n")
+    ous.write("---\n")
+    tac_files = presort_files()
+    for file, path in tac_files:
+        extract_simplifier_doc(ous, path)
 
 def mk_dir(d):
     if not os.path.exists(d):
@@ -89,3 +116,6 @@ mk_dir(os.path.join(OUTPUT_DIRECTORY, 'md'))
 
 with open(OUTPUT_DIRECTORY + "/md/tactics-summary.md",'w') as ous:
     help(ous)
+
+with open(OUTPUT_DIRECTORY + "/md/simplifier-summary.md",'w') as ous:
+    help_simplifier(ous)
