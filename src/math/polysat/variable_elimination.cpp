@@ -703,7 +703,11 @@ namespace polysat {
         
         if (a_parity > 0) {
             shift = s.lshr(a1, a1.manager().mk_val(a_parity));
-            precondition.insert_eval(~s.eq(rational::power_of_two(a_parity) * shift, a1)); // TODO: Or s.parity_at_least(a1, a_parity) but we want to reuse the variable introduced by the shift
+            signed_constraint least_parity = s.parity_at_least(a1, a_parity);
+            signed_constraint shift_right_left = s.eq(rational::power_of_two(a_parity) * shift, a1);
+            s.add_clause(~least_parity, shift_right_left, true);
+            // s.add_clause(~shift_right_left, least_parity, true); Might be interesting as well [although not needed]; needs to consider special case 0
+            precondition.insert_eval(~shift_right_left);
         }
         LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
         LOG("a: " << a);
