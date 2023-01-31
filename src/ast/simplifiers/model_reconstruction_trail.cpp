@@ -139,18 +139,15 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
  */
 model_converter_ref model_reconstruction_trail::get_model_converter() {
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "dependent-expr-model");
-    unsigned i = 0;
-    append(*mc, i);
+    append(*mc);
     return model_converter_ref(mc.get());
 }
 
 /**
 * Append model conversions starting at index i
 */
-void model_reconstruction_trail::append(generic_model_converter& mc, unsigned& i) {
-    TRACE("simplifier", display(tout));
-    for (; i < m_trail.size(); ++i) {
-        auto* t = m_trail[i];
+void model_reconstruction_trail::append(generic_model_converter& mc) {
+    for (auto* t : m_trail) {
         if (!t->m_active)
             continue;
         else if (t->is_hide())
@@ -163,13 +160,10 @@ void model_reconstruction_trail::append(generic_model_converter& mc, unsigned& i
                 mc.add(v, def);
         }
     }
+    TRACE("simplifier", display(tout); mc.display(tout));
 }
 
 
-void model_reconstruction_trail::append(generic_model_converter& mc) {
-    m_trail_stack.push(value_trail(m_trail_index));
-    append(mc, m_trail_index);
-}
 
 std::ostream& model_reconstruction_trail::display(std::ostream& out) const {
     for (auto* t : m_trail) {

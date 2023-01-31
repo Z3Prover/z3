@@ -55,4 +55,5 @@ inline tactic * mk_propagate_values2_tactic(ast_manager & m, params_ref const & 
 
 /*
   ADD_TACTIC("propagate-values2", "propagate constants.", "mk_propagate_values2_tactic(m, p)")
+  ADD_SIMPLIFIER("propagate-values", "propagate constants.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(propagate_values, m, p, s); }")
 */

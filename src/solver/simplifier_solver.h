@@ -20,6 +20,9 @@ Author:
 
 class solver;
 class solver_factory;
+class dependent_expr_simplifier;
+class dependent_expr_state;
+typedef std::function<dependent_expr_simplifier*(ast_manager&, const params_ref&, dependent_expr_state& s)> simplifier_factory;
 
-solver * mk_simplifier_solver(solver * s);
+solver * mk_simplifier_solver(solver * s, simplifier_factory* fac);
 

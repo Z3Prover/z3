@@ -64,5 +64,6 @@ inline tactic* mk_propagate_ineqs_tactic(ast_manager& m, params_ref const& p = p
 
 /*
   ADD_TACTIC("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "mk_propagate_ineqs_tactic(m, p)")
+  ADD_SIMPLIFIER("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bound_simplifier, m, p, s); }")
 */
 

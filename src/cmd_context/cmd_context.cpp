@@ -546,6 +546,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
     install_core_tactic_cmds(*this);
+    install_core_simplifier_cmds(*this);
     m_mcs.push_back(nullptr);
     SASSERT(m != 0 || !has_manager());
     if (m_main_ctx) {
@@ -559,8 +560,7 @@ cmd_context::~cmd_context() {
     }
     pop(m_scopes.size());
     finalize_cmds();
-    finalize_tactic_cmds();
-    finalize_probes();
+    finalize_tactic_manager();
     m_proof_cmds = nullptr;
     reset(true);
     m_mcs.reset();

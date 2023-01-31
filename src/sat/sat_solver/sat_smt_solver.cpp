@@ -700,6 +700,6 @@ private:
 
 
 solver* mk_sat_smt_solver(ast_manager& m, params_ref const& p) {
-    return mk_simplifier_solver(alloc(sat_smt_solver, m, p));
+    return mk_simplifier_solver(alloc(sat_smt_solver, m, p), nullptr);
 }
 

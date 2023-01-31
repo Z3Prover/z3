@@ -89,7 +89,7 @@ class simplifier_solver : public solver {
     };   
 
     ast_manager& m;
-    scoped_ptr<solver> s;
+    solver_ref  s;
     vector<dependent_expr>      m_fmls;
     dep_expr_state              m_preprocess_state;
     seq_simplifier              m_preprocess;
@@ -143,7 +143,7 @@ class simplifier_solver : public solver {
 
 public:
 
-    simplifier_solver(solver* s) : 
+    simplifier_solver(solver* s, simplifier_factory* fac) : 
         solver(s->get_manager()), 
         m(s->get_manager()), 
         s(s),
@@ -152,7 +152,10 @@ public:
         m_assumptions(m),
         m_proof(m)
     {
-        init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
+        if (fac) 
+            m_preprocess.add_simplifier((*fac)(m, s->get_params(), m_preprocess_state));
+        else 
+            init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
     }
 
     void assert_expr_core2(expr* t, expr* a) override {
@@ -197,7 +200,8 @@ public:
     }
 
     model_ref m_cached_model;
-    void get_model_core(model_ref& m) override {        
+    void get_model_core(model_ref& m) override {       
+        CTRACE("simplifier", m_mc.get(), m_mc->display(tout));
         if (m_cached_model) {
             m = m_cached_model;
             return;
@@ -229,7 +233,7 @@ public:
     solver* translate(ast_manager& m, params_ref const& p) override { 
         solver* new_s = s->translate(m, p);
         ast_translation tr(get_manager(), m);
-        simplifier_solver* result = alloc(simplifier_solver, new_s);
+        simplifier_solver* result = alloc(simplifier_solver, new_s, nullptr); // factory?
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
         if (m_mc) 
@@ -311,7 +315,7 @@ public:
 
 };
 
-solver* mk_simplifier_solver(solver* s) {
-    return alloc(simplifier_solver, s);
+solver* mk_simplifier_solver(solver* s, simplifier_factory* fac) {
+    return alloc(simplifier_solver, s, fac);
 }
 

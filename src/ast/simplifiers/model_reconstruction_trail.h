@@ -84,7 +84,6 @@ class model_reconstruction_trail {
     ast_manager&             m;
     trail_stack&             m_trail_stack;
     scoped_ptr_vector<entry> m_trail;
-    unsigned                 m_trail_index = 0;
 
     void add_vars(expr* e, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(e, m)))
@@ -108,10 +107,6 @@ class model_reconstruction_trail {
         return any_of(added, [&](dependent_expr const& d) { return intersects(free_vars, d); });
     }
 
-    /**
-    * Append new updates to model converter, update the current index into the trail in the process.
-    */
-    void append(generic_model_converter& mc, unsigned& index);
 public:
 
     model_reconstruction_trail(ast_manager& m, trail_stack& tr): 

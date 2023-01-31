@@ -69,4 +69,5 @@ inline tactic* mk_card2bv_tactic(ast_manager& m, params_ref const& p = params_re
 
 /*
   ADD_TACTIC("card2bv", "convert pseudo-boolean constraints to bit-vectors.", "mk_card2bv_tactic(m, p)")
+  ADD_SIMPLIFIER("card2bv", "convert pseudo-boolean constraints to bit-vectors.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(card2bv, m, p, s); }")
 */

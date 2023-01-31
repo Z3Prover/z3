@@ -88,6 +88,22 @@ void help_tactics() {
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
 
+void help_simplifiers() {
+    struct cmp {
+        bool operator()(simplifier_cmd* a, simplifier_cmd* b) const {
+            return a->get_name().str() < b->get_name().str();
+        }
+    };
+    cmd_context ctx;
+    ptr_vector<simplifier_cmd> cmds;
+    for (auto cmd : ctx.simplifiers()) 
+        cmds.push_back(cmd);
+    cmp lt;
+    std::sort(cmds.begin(), cmds.end(), lt);
+    for (auto cmd : cmds) 
+        std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
+}
+
 void help_tactic(char const* name, bool markdown) {
     cmd_context ctx;
     for (auto cmd : ctx.tactics()) {
@@ -95,6 +111,25 @@ void help_tactic(char const* name, bool markdown) {
             tactic_ref t = cmd->mk(ctx.m());
             param_descrs descrs;
             t->collect_param_descrs(descrs);
+            if (markdown)
+                descrs.display_markdown(std::cout);
+            else
+                descrs.display(std::cout, 4);
+        }
+    }
+}
+
+void help_simplifier(char const* name, bool markdown) {
+    cmd_context ctx;
+    for (auto cmd : ctx.simplifiers()) {
+        if (cmd->get_name() == name) {
+            auto fac = cmd->factory();
+            param_descrs descrs;
+            ast_manager& m = ctx.m();
+            default_dependent_expr_state st(m);
+            params_ref p;
+            scoped_ptr<dependent_expr_simplifier> s = fac(m, p, st);
+            s->collect_param_descrs(descrs);
             if (markdown)
                 descrs.display_markdown(std::cout);
             else

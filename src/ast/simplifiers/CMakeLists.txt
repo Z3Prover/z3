@@ -29,4 +29,8 @@ z3_add_component(simplifiers
     normal_forms
     rewriter
     substitution
+  TACTIC_HEADERS
+    bit_blaster.h
+    rewriter_simplifier.h
+
 )

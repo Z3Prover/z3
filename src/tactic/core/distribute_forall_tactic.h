@@ -50,5 +50,6 @@ inline tactic * mk_distribute_forall_tactic(ast_manager& m, params_ref const& p 
 
 /*
   ADD_TACTIC("distribute-forall", "distribute forall over conjunctions.", "mk_distribute_forall_tactic(m, p)")
+  ADD_SIMPLIFIER("distribute-forall", "distribute forall over conjunctions.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(distribute_forall_simplifier, m, p, s); }")
 */
 

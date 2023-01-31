@@ -53,3 +53,7 @@ public:
     void updt_params(params_ref const& p) override { m_params.append(p); m_rewriter.updt_params(m_params); }
     void collect_param_descrs(param_descrs& r) override { th_rewriter::get_param_descrs(r); }
 };
+
+/*
+  ADD_SIMPLIFIER("simplify", "apply simplification rules.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(rewriter_simplifier, m, p, s); }")
+ */

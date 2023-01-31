@@ -49,3 +49,6 @@ public:
 
 };
 
+/*
+  ADD_SIMPLIFIER("bit-blaster", "reduce bit-vector expressions into SAT.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bit_blaster_simplifier, m, p, s); }")
+*/

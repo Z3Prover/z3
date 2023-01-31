@@ -32,6 +32,7 @@ Author:
 #include "util/trail.h"
 #include "util/statistics.h"
 #include "util/params.h"
+#include "util/z3_exception.h"
 #include "ast/converters/model_converter.h"
 #include "ast/simplifiers/dependent_expr.h"
 #include "ast/simplifiers/model_reconstruction_trail.h"
@@ -98,6 +99,17 @@ public:
     bool has_quantifiers();
 };
 
+class default_dependent_expr_state : public dependent_expr_state {
+public:
+    default_dependent_expr_state(ast_manager& m): dependent_expr_state(m) {}
+    virtual unsigned qtail() const { return 0; }
+    virtual dependent_expr const& operator[](unsigned i) { throw default_exception("unexpected access"); }
+    virtual void update(unsigned i, dependent_expr const& j) { throw default_exception("unexpected update"); }
+    virtual void add(dependent_expr const& j) { throw default_exception("unexpected addition"); }
+    virtual bool inconsistent() { return false; }
+    virtual model_reconstruction_trail& model_trail() { throw default_exception("unexpected access to model reconstruction"); }
+};
+
 inline std::ostream& operator<<(std::ostream& out, dependent_expr_state& st) {
     return st.display(out);
 }
@@ -150,3 +162,5 @@ public:
     ast_manager& get_manager() { return m; }
     dependent_expr_state& get_fmls() { return m_fmls; }
 };
+
+typedef std::function<dependent_expr_simplifier*(ast_manager&, const params_ref&, dependent_expr_state& s)> simplifier_factory;

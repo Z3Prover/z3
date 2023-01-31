@@ -56,5 +56,6 @@ inline tactic* mk_dom_simplify_tactic(ast_manager& m, params_ref const& p) {
 
 /*
 ADD_TACTIC("dom-simplify", "apply dominator simplification rules.", "mk_dom_simplify_tactic(m, p)")
+ADD_SIMPLIFIER("dom-simplify", "apply dominator simplification rules.", "[](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* { return alloc(dominator_simplifier, m, s, mk_expr_substitution_simplifier(m), p); }")
 */
 

@@ -79,5 +79,7 @@ inline tactic* mk_reduce_args_tactic2(ast_manager& m, params_ref const& p = para
 }
 /*
   ADD_TACTIC("reduce-args2", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "mk_reduce_args_tactic2(m, p)")
+  ADD_SIMPLIFIER("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "[](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* { return mk_reduce_args_simplifier(m, s, p); }")
+
 */
 
