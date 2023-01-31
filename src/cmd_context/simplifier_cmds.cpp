@@ -32,13 +32,15 @@ static simplifier_factory mk_and_then(cmd_context & ctx, sexpr * n) {
         throw cmd_exception("invalid and-then combinator, at least one argument expected", n->get_line(), n->get_pos());
     if (num_children == 2)
         return sexpr2simplifier(ctx, n->get_child(1));
-    vector<simplifier_factory> args;
+    scoped_ptr<vector<simplifier_factory>> args = alloc(vector<simplifier_factory>);
     for (unsigned i = 1; i < num_children; i++)
-        args.push_back(sexpr2simplifier(ctx, n->get_child(i)));
-    simplifier_factory result = [args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
+        args->push_back(sexpr2simplifier(ctx, n->get_child(i)));
+    vector<simplifier_factory>* _args = args.detach();
+    simplifier_factory result = [_args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
         scoped_ptr<seq_simplifier> s = alloc(seq_simplifier, m, p, st);
-        for (auto &  simp : args)
+        for (auto &  simp : *_args)
             s->add_simplifier(simp(m, p, st));
+        dealloc(_args);
         return s.detach();
     };
     return result;

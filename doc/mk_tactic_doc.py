@@ -55,7 +55,7 @@ def extract_tactic_doc(ous, f):
                 generate_tactic_doc(ous, f, ins)
 
 def generate_simplifier_doc(ous, name, desc):
-    ous.write("## Simplifier [" + name + "](tactic-summary/#" + name + ")\n")
+    ous.write("## Simplifier [" + name + "](summary/#tactic-" + name + ")\n")
     ous.write("### Description\n" + desc + "\n")
 
               
