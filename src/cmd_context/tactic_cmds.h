@@ -44,6 +44,7 @@ public:
 
 void install_core_tactic_cmds(cmd_context & ctx);
 tactic * sexpr2tactic(cmd_context & ctx, sexpr * n);
+params_ref sexpr2params(cmd_context& ctx, sexpr * n, param_descrs const& descr);
 
 class probe_info {
     symbol           m_name;

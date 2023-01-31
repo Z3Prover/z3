@@ -14,6 +14,7 @@ Author:
 
 --*/
 #include<sstream>
+#include<vector>
 #include "cmd_context/simplifier_cmds.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/cmd_util.h"
@@ -32,15 +33,13 @@ static simplifier_factory mk_and_then(cmd_context & ctx, sexpr * n) {
         throw cmd_exception("invalid and-then combinator, at least one argument expected", n->get_line(), n->get_pos());
     if (num_children == 2)
         return sexpr2simplifier(ctx, n->get_child(1));
-    scoped_ptr<vector<simplifier_factory>> args = alloc(vector<simplifier_factory>);
+    std::vector<simplifier_factory> args;
     for (unsigned i = 1; i < num_children; i++)
-        args->push_back(sexpr2simplifier(ctx, n->get_child(i)));
-    vector<simplifier_factory>* _args = args.detach();
-    simplifier_factory result = [_args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
+        args.push_back(sexpr2simplifier(ctx, n->get_child(i)));
+    simplifier_factory result = [args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
         scoped_ptr<seq_simplifier> s = alloc(seq_simplifier, m, p, st);
-        for (auto &  simp : *_args)
+        for (auto &  simp : args)
             s->add_simplifier(simp(m, p, st));
-        dealloc(_args);
         return s.detach();
     };
     return result;
@@ -53,15 +52,22 @@ static simplifier_factory mk_using_params(cmd_context & ctx, sexpr * n) {
         throw cmd_exception("invalid using-params combinator, at least one argument expected", n->get_line(), n->get_pos());
     if (num_children == 2)
         return sexpr2simplifier(ctx, n->get_child(1));
-    simplifier_factory t = sexpr2simplifier(ctx, n->get_child(1));
-#if 0
-    // hoist parameter parsing code from tactic_cmds to share.
+    ast_manager& m = ctx.get_ast_manager();
+    default_dependent_expr_state st(m);
+
+    simplifier_factory fac = sexpr2simplifier(ctx, n->get_child(1));
+    params_ref p;
     param_descrs descrs;
-    t->collect_param_descrs(descrs);
-       
-#endif
-    return t;
-//    return using_params(t.detach(), p);
+    scoped_ptr<dependent_expr_simplifier> s = fac(m, p, st);
+    s->collect_param_descrs(descrs);
+    params_ref params = sexpr2params(ctx, n, descrs);
+    simplifier_factory result = [params, fac](auto& m, auto& p, auto& s) {   
+        params_ref pp;
+        pp.append(params);
+        pp.append(p);
+        return fac(m, pp, s);
+    };
+    return result;
 }
 
 
@@ -82,6 +88,8 @@ simplifier_factory sexpr2simplifier(cmd_context & ctx, sexpr * n) {
         symbol const & cmd_name = head->get_symbol();
         if (cmd_name == "and-then" || cmd_name == "then")
             return mk_and_then(ctx, n);
+        else if (cmd_name == "!" || cmd_name == "using-params" || cmd_name == "with")
+            return mk_using_params(ctx, n);
         else
             throw cmd_exception("invalid tactic, unknown tactic combinator ", cmd_name, n->get_line(), n->get_pos());
     }
@@ -95,7 +103,7 @@ void help_simplifier(cmd_context & ctx) {
     std::ostringstream buf;
     buf << "combinators:\n";
     buf << "- (and-then <simplifier>+) executes the given simplifiers sequentially.\n";
-    // buf << "- (using-params <tactic> <attribute>*) executes the given tactic using the given attributes, where <attribute> ::= <keyword> <value>. ! is a syntax sugar for using-params.\n";
+    buf << "- (using-params <tactic> <attribute>*) executes the given simplifier using the given attributes, where <attribute> ::= <keyword> <value>. ! is syntax sugar for using-params.\n";
     buf << "builtin simplifiers:\n";
     for (simplifier_cmd* cmd : ctx.simplifiers()) {
         buf << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";

@@ -308,9 +308,8 @@ public:
     void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override { s->user_propagate_register_final(final_eh); }
     void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override { s->user_propagate_register_eq(eq_eh); }    
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override { s->user_propagate_register_diseq(diseq_eh); }    
-    void user_propagate_register_expr(expr* e) override { /*m_preprocess.user_propagate_register_expr(e); */  s->user_propagate_register_expr(e); }
+    void user_propagate_register_expr(expr* e) override { m_preprocess_state.freeze(e);  s->user_propagate_register_expr(e); }
     void user_propagate_register_created(user_propagator::created_eh_t& r) override { s->user_propagate_register_created(r); }
-    // void user_propagate_clear() override { m_preprocess.user_propagate_clear(); s->user_propagate_clear(); }
 
 
 };
