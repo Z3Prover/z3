@@ -96,6 +96,9 @@ class model_reconstruction_trail {
         }
     };
 
+    /**
+    * register that f occurs in the model reconstruction trail.
+    */
     void add_model_var(func_decl* f) {
         if (!m_model_vars.is_marked(f)) {
             m_model_vars_trail.push_back(f);
@@ -104,6 +107,11 @@ class model_reconstruction_trail {
         }
     }
 
+    /**
+    * walk the free functions of 'e' and add them to 'free_vars'.
+    * record if there is an intersection with the model_vars that are
+    * registered when updates are added to the trail.
+    */
     void add_vars(expr* e, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(e, m)))
             if (is_app(t) && is_uninterp(t)) {
@@ -129,10 +137,15 @@ class model_reconstruction_trail {
         return any_of(added, [&](dependent_expr const& d) { return intersects(free_vars, d); });
     }
 
+    /**
+    * Append new updates to model converter.
+    */
+    void append(generic_model_converter& mc);
+
 public:
 
     model_reconstruction_trail(ast_manager& m, trail_stack& tr): 
-        m(m), m_trail_stack(tr) {}
+        m(m), m_trail_stack(tr), m_model_vars_trail(m) {}
 
     /**
     * add a new substitution to the trail
@@ -177,16 +190,11 @@ public:
     */
     void replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& fmls);
     
+
     /**
-    * retrieve the current model converter corresponding to chaining substitutions from the trail.
-    */
+     * retrieve the current model converter corresponding to chaining substitutions from the trail.
+     */
     model_converter_ref get_model_converter();
-
-
-    /**
-    * Append new updates to model converter, update m_trail_index in the process.
-    */
-    void append(generic_model_converter& mc);
 
     std::ostream& display(std::ostream& out) const;
 };

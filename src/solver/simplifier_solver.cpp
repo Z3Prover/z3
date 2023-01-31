@@ -62,7 +62,6 @@ class simplifier_solver : public solver {
             if (s.m.is_false(f))
                 s.set_inconsistent();
         }        
-        void append(generic_model_converter& mc) { model_trail().append(mc); }
         void replay(unsigned qhead, expr_ref_vector& assumptions) { m_reconstruction_trail.replay(qhead, assumptions, *this); }
         void flatten_suffix() override {
             expr_mark seen;
@@ -94,7 +93,7 @@ class simplifier_solver : public solver {
     dep_expr_state              m_preprocess_state;
     seq_simplifier              m_preprocess;
     expr_ref_vector             m_assumptions;
-    generic_model_converter_ref m_mc;
+    model_converter_ref         m_mc;
     bool                        m_inconsistent = false;
 
     void flush(expr_ref_vector& assumptions) {
@@ -109,9 +108,8 @@ class simplifier_solver : public solver {
                 return;
             m_preprocess_state.advance_qhead();
         }
-        m_mc = alloc(generic_model_converter, m, "simplifier-model-converter");
+        m_mc = m_preprocess_state.model_trail().get_model_converter(); 
         m_cached_mc = nullptr;
-        m_preprocess_state.append(*m_mc);
         for (; qhead < m_fmls.size(); ++qhead)
             add_with_dependency(m_fmls[qhead]);
     }
