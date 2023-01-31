@@ -25,6 +25,9 @@ Author:
 
 void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& st) {
 
+    if (m_trail.empty())
+        return;
+
     ast_mark free_vars;
     m_intersects_with_model = false;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
