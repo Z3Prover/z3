@@ -123,7 +123,7 @@ ATOMIC_CMD(help_simplifier_cmd, "help-simplifier", "display the simplifier combi
 
 class set_simplifier_cmd : public parametric_cmd {
 protected:
-    sexpr * m_simplifier;
+    sexpr * m_simplifier = nullptr;
 public:
     set_simplifier_cmd():
         parametric_cmd("set-simplifier") {}

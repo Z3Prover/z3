@@ -40,7 +40,6 @@ class model_reconstruction_trail {
         vector<dependent_expr>        m_removed;
         func_decl_ref                 m_decl;
         vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> m_defs;
-
         bool                          m_active = true;
 
         entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
@@ -84,12 +83,35 @@ class model_reconstruction_trail {
     ast_manager&             m;
     trail_stack&             m_trail_stack;
     scoped_ptr_vector<entry> m_trail;
+    func_decl_ref_vector     m_model_vars_trail;
+    ast_mark                 m_model_vars;
+    bool                     m_intersects_with_model = false;
+
+    struct undo_model_var : public trail {
+        model_reconstruction_trail& s;
+        undo_model_var(model_reconstruction_trail& s) : s(s) {}
+        virtual void undo() {
+            s.m_model_vars.mark(s.m_model_vars_trail.back(), false);
+            s.m_model_vars_trail.pop_back();
+        }
+    };
+
+    void add_model_var(func_decl* f) {
+        if (!m_model_vars.is_marked(f)) {
+            m_model_vars_trail.push_back(f);
+            m_model_vars.mark(f, true);
+            m_trail_stack.push(undo_model_var(*this));
+        }
+    }
 
     void add_vars(expr* e, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(e, m)))
             if (is_app(t) && is_uninterp(t)) {
-                TRACE("simplifier", tout << "add var " << to_app(t)->get_decl()->get_name() << "\n");
-                free_vars.mark(to_app(t)->get_decl(), true);
+                func_decl* f = to_app(t)->get_decl();
+                TRACE("simplifier", tout << "add var " << f->get_name() << "\n");
+                free_vars.mark(f, true);
+                if (m_model_vars.is_marked(f))
+                    m_intersects_with_model = true;
             }
     }
     
@@ -117,7 +139,9 @@ public:
     */
     void push(expr_substitution* s, vector<dependent_expr> const& removed) {
         m_trail.push_back(alloc(entry, m, s, removed));
-        m_trail_stack.push(push_back_vector(m_trail));       
+        m_trail_stack.push(push_back_vector(m_trail));     
+        for (auto& [k, v] : s->sub())
+            add_model_var(to_app(k)->get_decl());
     }
 
     /**
@@ -134,6 +158,7 @@ public:
     void push(func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& removed) {
         m_trail.push_back(alloc(entry, m, f, def, dep, removed));
         m_trail_stack.push(push_back_vector(m_trail));
+        add_model_var(f);
     }
 
     /**
@@ -142,6 +167,8 @@ public:
     void push(vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> const& defs, vector<dependent_expr> const& removed) {
         m_trail.push_back(alloc(entry, m, defs, removed));
         m_trail_stack.push(push_back_vector(m_trail));
+        for (auto const& [f, def, dep] : defs)
+            add_model_var(f);
     }
 
     /**
