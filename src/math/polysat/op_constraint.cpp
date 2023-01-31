@@ -183,8 +183,6 @@ namespace polysat {
         case code::lshr_op:
             break;
         case code::shl_op:
-            // TODO: if shift amount is constant p << k, then add p << k == p*2^k
-            //       NOTE: we do that now as simplification in constraint_manager::shl
             break;
         case code::and_op:
             // handle masking of high order bits
@@ -643,7 +641,7 @@ namespace polysat {
         if (rv.is_zero())
             return s.mk_clause(~invc, ~s.eq(r()), s.eq(p()), true);
 
-        // p assigned  ==>  r = pseudo_inverse(eval(p))
+        // forward propagation: p assigned  ==>  r = pseudo_inverse(eval(p))
         // TODO: (later) this should be propagated instead of adding a clause
         if (pv.is_val() && !rv.is_val())
             return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
