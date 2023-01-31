@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    sat_smt_preprocess.h
+    solver_preprocess.h
 
 Abstract:
 

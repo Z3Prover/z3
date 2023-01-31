@@ -70,7 +70,7 @@ class model_reconstruction_trail {
                     return true;
             if (m_subst) {
                 for (auto const& [k, v] : m_subst->sub())
-                    if (free_vars.is_marked(k))
+                    if (free_vars.is_marked(to_app(k)->get_decl()))
                         return true;
             }
             return false;
@@ -88,8 +88,10 @@ class model_reconstruction_trail {
 
     void add_vars(expr* e, ast_mark& free_vars) {
         for (expr* t : subterms::all(expr_ref(e, m)))
-            if (is_app(t))
+            if (is_app(t) && is_uninterp(t)) {
+                TRACE("simplifier", tout << "add var " << to_app(t)->get_decl()->get_name() << "\n");
                 free_vars.mark(to_app(t)->get_decl(), true);
+            }
     }
     
     void add_vars(dependent_expr const& d, ast_mark& free_vars) {
