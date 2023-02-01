@@ -3112,9 +3112,6 @@ sig
   (** Retrieves parameter descriptions for Simplifiers. *)
   val get_param_descrs : simplifier -> Params.ParamDescrs.param_descrs
 
-  (** Apply the simplifier to the goal. *)
-  val apply : simplifier -> Goal.goal -> Params.params option -> ApplyResult.apply_result
-
   (** The number of supported simplifiers. *)
   val get_num_simplifiers : context -> int
 
