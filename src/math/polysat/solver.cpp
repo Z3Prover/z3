@@ -1174,7 +1174,18 @@ namespace polysat {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
             LOG("   " << lit_pp(*this, lit));
-            // SASSERT(m_bvars.value(lit) != l_true);
+            if (!m_bvars.is_assigned(lit)) {
+                switch (lit2cnstr(lit).eval(*this)) {
+                case l_true:
+                    assign_eval(lit);
+                    break;
+                case l_false:
+                    assign_eval(~lit);
+                    break;
+                default:
+                    break;
+                }
+            }
             // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
             if (m_bvars.value(lit) == l_true) {
                 // in this case the clause is useless
@@ -1225,7 +1236,7 @@ namespace polysat {
     clause_ref solver::mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
         clause_builder cb(*this);
         for (unsigned i = 0; i < n; ++i)
-            cb.insert_try_eval(cs[i]);
+            cb.insert(cs[i]);
         cb.set_redundant(is_redundant);
         return cb.build();
     }
