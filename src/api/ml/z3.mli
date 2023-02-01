@@ -3102,7 +3102,7 @@ sig
   val interrupt : context -> unit
 end
 
-moduls Simplifier :
+module Simplifier :
 sig
   type simplifier
 
