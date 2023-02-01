@@ -8214,8 +8214,6 @@ class Simplifier:
 
     def add(self, solver):
         """Return a solver that applies the simplification pre-processing specified by the simplifier"""
-        print(solver.solver)
-        print(self.simplifier)
         return Solver(Z3_solver_add_simplifier(self.ctx.ref(), solver.solver, self.simplifier), self.ctx)
 
     def help(self):
