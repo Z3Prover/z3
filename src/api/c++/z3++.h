@@ -63,6 +63,7 @@ namespace z3 {
     class solver;
     class goal;
     class tactic;
+    class simplifier;
     class probe;
     class model;
     class func_interp;
@@ -2695,6 +2696,7 @@ namespace z3 {
         solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); check_error(); }
         solver(context & c, solver const& src, translate): object(c) { Z3_solver s = Z3_solver_translate(src.ctx(), src, c); check_error(); init(s); }
         solver(solver const & s):object(s) { init(s.m_solver); }
+        solver(solver const& s, simplifier const& simp);
         ~solver() { Z3_solver_dec_ref(ctx(), m_solver); }
         operator Z3_solver() const { return m_solver; }
         solver & operator=(solver const & s) {
@@ -3063,6 +3065,47 @@ namespace z3 {
         Z3_tactic r = Z3_tactic_par_and_then(t1.ctx(), t1, t2);
         t1.check_error();
         return tactic(t1.ctx(), r);
+    }
+
+    class simplifier : public object {
+        Z3_simplifier m_simplifier;
+        void init(Z3_simplifier s) {
+            m_simplifier = s;
+            Z3_simplifier_inc_ref(ctx(), s);
+        }
+    public:
+        simplifier(context & c, char const * name):object(c) { Z3_simplifier r = Z3_mk_simplifier(c, name); check_error(); init(r); }
+        simplifier(context & c, Z3_simplifier s):object(c) { init(s); }
+        simplifier(simplifier const & s):object(s) { init(s.m_simplifier); }
+        ~simplifier() { Z3_simplifier_dec_ref(ctx(), m_simplifier); }
+        operator Z3_simplifier() const { return m_simplifier; }
+        simplifier & operator=(simplifier const & s) {
+            Z3_simplifier_inc_ref(s.ctx(), s.m_simplifier);
+            Z3_simplifier_dec_ref(ctx(), m_simplifier);
+            object::operator=(s);
+            m_simplifier = s.m_simplifier;
+            return *this;
+        }
+        std::string help() const { char const * r = Z3_simplifier_get_help(ctx(), m_simplifier); check_error();  return r; }
+        friend simplifier operator&(simplifier const & t1, simplifier const & t2);
+        friend simplifier with(simplifier const & t, params const & p);
+        param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_simplifier_get_param_descrs(ctx(), m_simplifier)); }
+    };
+
+    inline solver::solver(solver const& s, simplifier const& simp):object(s) { init(Z3_solver_add_simplifier(s.ctx(), s, simp)); }
+
+
+    inline simplifier operator&(simplifier const & t1, simplifier const & t2) {
+        check_context(t1, t2);
+        Z3_simplifier r = Z3_simplifier_and_then(t1.ctx(), t1, t2);
+        t1.check_error();
+        return simplifier(t1.ctx(), r);
+    }
+
+    inline simplifier with(simplifier const & t, params const & p) {
+        Z3_simplifier r = Z3_simplifier_using_params(t.ctx(), t, p);
+        t.check_error();
+        return simplifier(t.ctx(), r);
     }
 
     class probe : public object {

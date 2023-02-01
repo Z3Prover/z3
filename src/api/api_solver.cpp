@@ -44,6 +44,7 @@ Revision History:
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"
 #include "cmd_context/extra_cmds/proof_cmds.h"
+#include "solver/simplifier_solver.h"
 
 
 extern "C" {
@@ -232,12 +233,26 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_solver Z3_API Z3_solver_add_simplifier(Z3_context c, Z3_solver solver, Z3_simplifier simplifier) {
+        Z3_TRY;
+        LOG_Z3_solver_add_simplifier(c, solver, simplifier); 
+        init_solver(c, solver);
+        auto simp = to_simplifier_ref(simplifier);
+        auto* slv = mk_simplifier_solver(to_solver_ref(solver), simp);
+        Z3_solver_ref* sr = alloc(Z3_solver_ref, *mk_c(c), slv);
+        mk_c(c)->save_object(sr);
+        // ?? init_solver_log(c, sr)
+        RETURN_Z3(of_solver(sr));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
     Z3_solver Z3_API Z3_solver_translate(Z3_context c, Z3_solver s, Z3_context target) {
         Z3_TRY;
         LOG_Z3_solver_translate(c, s, target);
         RESET_ERROR_CODE();
         params_ref const& p = to_solver(s)->m_params; 
-        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), nullptr);
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), (solver_factory *)nullptr);
         init_solver(c, s);
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);

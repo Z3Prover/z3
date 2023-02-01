@@ -37,13 +37,15 @@ public:
     void insert(simplifier_cmd* c);
     void insert(probe_info * p);
     tactic_cmd * find_tactic_cmd(symbol const & s) const; 
-    probe_info * find_probe(symbol const & s) const; 
+    probe_info * find_probe(symbol const & s) const;     
     simplifier_cmd* find_simplifier_cmd(symbol const& s) const;
 
     unsigned num_tactics() const { return m_tactics.size(); }
     unsigned num_probes() const { return m_probes.size(); }
+    unsigned num_simplifiers() const { return m_simplifiers.size(); }
     tactic_cmd * get_tactic(unsigned i) const { return m_tactics[i]; }
     probe_info * get_probe(unsigned i) const { return m_probes[i]; }
+    simplifier_cmd *get_simplifier(unsigned i) const { return m_simplifiers[i]; }
 
     ptr_vector<simplifier_cmd> const& simplifiers() const { return m_simplifiers; }
     ptr_vector<tactic_cmd> const& tactics() const { return m_tactics; }
