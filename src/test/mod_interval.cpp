@@ -1,4 +1,4 @@
-#include "math/interval/mod_interval_def.h"
+#include "math/polysat/fixplex_mod_interval_def.h"
 #include <iostream>
 
 static void test_interval1() {

@@ -18,7 +18,7 @@ Author:
 
 #pragma once
 
-#include "math/interval/mod_interval.h"
+#include "fixplex_mod_interval.h"
 
 template<typename Numeral>
 bool mod_interval<Numeral>::contains(Numeral const& n) const {
