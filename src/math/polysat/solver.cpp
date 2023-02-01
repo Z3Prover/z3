@@ -158,8 +158,7 @@ namespace polysat {
         case l_false:
             // Input literal contradicts current boolean state (e.g., opposite literals in the input)
             // => conflict only flags the inconsistency
-            set_conflict_at_base_level();
-            SASSERT(dep == null_dependency && "track dependencies is TODO");
+            set_conflict_at_base_level(dep);
             return;
         case l_true:
             // constraint c is already asserted => ignore
@@ -174,8 +173,7 @@ namespace polysat {
         case l_false:
             // asserted an always-false constraint => conflict at base level
             LOG("Always false: " << c);
-            set_conflict_at_base_level();
-            SASSERT(dep == null_dependency && "track dependencies is TODO");
+            set_conflict_at_base_level(dep);
             return;
         case l_true:
             // asserted an always-true constraint => ignore

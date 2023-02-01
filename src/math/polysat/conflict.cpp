@@ -158,6 +158,7 @@ namespace polysat {
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
+            SASSERT(m_dep.is_null());
         }
         return is_empty;
     }
@@ -170,6 +171,7 @@ namespace polysat {
         m_lemmas.reset();
         m_narrow_queue.reset();
         m_level = UINT_MAX;
+        m_dep = null_dependency;
         SASSERT(empty());
     }
 
@@ -181,10 +183,11 @@ namespace polysat {
         return contains(lit) || contains(~lit);
     }
 
-    void conflict::init_at_base_level() {
+    void conflict::init_at_base_level(dependency dep) {
         SASSERT(empty());
         SASSERT(s.at_base_level());
         m_level = s.m_level;
+        m_dep = dep;
         SASSERT(!empty());
         // TODO: logger().begin_conflict???
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
@@ -434,7 +437,7 @@ namespace polysat {
 
         clause_builder lemma(s);
 
-        for (auto c : *this)
+        for (signed_constraint c : *this)
             lemma.insert(~c);
 
         for (unsigned v : m_vars) {
