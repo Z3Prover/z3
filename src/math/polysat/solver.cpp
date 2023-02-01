@@ -1193,30 +1193,20 @@ namespace polysat {
         }
     }
 
-    // Add clause to storage
+    // Add clause to solver
     void solver::add_clause(clause& clause) {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
-            LOG("   " << lit_pp(*this, lit));
-            // TODO: move into constraint_manager::watch
+            // Try to evaluate literals without boolean value.
+            // (Normally this should have been done already by using clause_builder::insert_eval/insert_try_eval when constructing the clause.)
             if (!m_bvars.is_assigned(lit)) {
-                switch (lit2cnstr(lit).eval(*this)) {
-                case l_true:
+                lbool const status = lit2cnstr(lit).eval(*this);
+                if (status == l_true)
                     assign_eval(lit);
-                    break;
-                case l_false:
+                else if (status == l_false)
                     assign_eval(~lit);
-                    break;
-                default:
-                    break;
-                }
             }
-            // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
-            if (m_bvars.value(lit) == l_true) {
-                // in this case the clause is useless
-                LOG("   Clause is already true, skipping...");
-                return;
-            }
+            LOG("    " << lit_pp(*this, lit));
         }
         SASSERT(!clause.empty());
         m_constraints.store(&clause);

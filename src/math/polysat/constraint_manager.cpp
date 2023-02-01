@@ -143,46 +143,6 @@ namespace polysat {
         if (cl.empty())
             return;
 
-        {
-            // First, try to bool-propagate.
-            // Otherwise, we might get a clause-conflict and a missed propagation after resolving the conflict.
-            // With this, we will get a constraint-conflict instead.
-            // TODO: maybe it makes sense to choose bool vs. eval depending on which has the lower level?
-            sat::literal undef_lit = sat::null_literal;
-            for (sat::literal lit : cl) {
-                if (s.m_bvars.is_false(lit))
-                    continue;
-                if (s.m_bvars.is_true(lit)) {
-                    undef_lit = sat::null_literal;
-                    break;
-                }
-                SASSERT(!s.m_bvars.is_assigned(lit));
-                if (undef_lit == sat::null_literal)
-                    undef_lit = lit;
-                else {
-                    undef_lit = sat::null_literal;
-                    break;
-                }
-            }
-            if (undef_lit != sat::null_literal)
-                s.assign_propagate(undef_lit, cl);
-
-            // this should be already done with insert_eval when constructing the clause (maybe not for non-redundant clauses?)
-            // (this loop also masks the mistake of calling clause_builder::insert instead of clause_builder::insert_eval)
-            for (sat::literal lit : cl) {
-                if (s.m_bvars.is_false(lit))
-                    continue;
-                signed_constraint sc = s.lit2cnstr(lit);
-                if (sc.is_currently_false(s)) {
-                    if (s.m_bvars.is_true(lit)) {
-                        s.set_conflict(sc);
-                        return;
-                    }
-                    s.assign_eval(~lit);
-                }
-            }
-        }
-
         if (cl.size() == 1) {
             if (s.m_bvars.is_false(cl[0]))
                 s.set_conflict(cl);
