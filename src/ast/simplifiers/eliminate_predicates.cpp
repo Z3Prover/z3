@@ -567,9 +567,9 @@ void eliminate_predicates::try_find_macro(clause& cl) {
             return false;
         app* x = to_app(_x);
         return 
-        can_be_quasi_macro_head(x, cl.m_bound.size()) && 
-        is_macro_safe(y) &&
-        !occurs(x->get_decl(), y);
+            can_be_quasi_macro_head(x, cl.m_bound.size()) && 
+            is_macro_safe(y) &&
+            !occurs(x->get_decl(), y);
     };
 
     if (cl.is_unit() && m.is_eq(cl.atom(0), x, y)) {
@@ -592,7 +592,8 @@ void eliminate_predicates::try_find_macro(clause& cl) {
     }
     if (cl.is_unit()) {
         expr* body = cl.sign(0) ? m.mk_false() : m.mk_true();
-        if (can_be_qdef(cl.atom(0), body)) {
+        expr* x = cl.atom(0);
+        if (can_be_qdef(x, body)) {
             insert_quasi_macro(to_app(x), body, cl);
             return;            
         }
