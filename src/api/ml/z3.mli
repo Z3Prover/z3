@@ -3130,6 +3130,7 @@ sig
 
   (** Create a simplifier that applies a simplifier using the given set of parameters. *)
   val using_params : context -> simplifier -> Params.params -> simplifier
+  val with_ : context -> simplifier -> Params.params -> simplifier
 
 end
 

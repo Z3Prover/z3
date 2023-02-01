@@ -1738,7 +1738,10 @@ module Simplifier =
 struct
   type simplifier = Z3native.simplifier
   let gc = Z3native.context_of_simplifier
-  let mk_simplifier = Z3native.mk_simplifier
+
+  let get_help (x:simplifier) = Z3native.simplifier_get_help (gc x) x
+
+  let get_param_descrs (x:simplifier) = Z3native.simplifier_get_param_descrs (gc x) x
 
   let get_num_simplifiers = Z3native.get_num_simplifiers
 
@@ -1747,8 +1750,9 @@ struct
     let f i = Z3native.get_simplifier_name ctx i in
     mk_list f n
 
-  let get_help (x:simplifier) = Z3native.simplifier_get_help (gc x) x
-  let get_param_descrs (x:simplifier) = Z3native.simplifier_get_param_descrs (gc x) x
+  let get_simplifier_description (ctx:context) (s:string) = Z3native.simplifier_get_descr
+
+  let mk_simplifier = Z3native.mk_simplifier
 
   let and_then (ctx:context) (t1:simplifier) (t2:simplifier) (ts:simplifier list) =
     let f p c = (match p with
@@ -1758,6 +1762,7 @@ struct
     | None -> Z3native.simplifier_and_then ctx t1 t2
     | Some(x) -> let o = Z3native.simplifier_and_then ctx t2 x in
       Z3native.simplifier_and_then ctx t1 o
+
   let using_params = Z3native.simplifier_using_params
   let with_ = using_params
 
