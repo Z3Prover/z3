@@ -158,8 +158,7 @@ namespace polysat {
         case l_false:
             // Input literal contradicts current boolean state (e.g., opposite literals in the input)
             // => conflict only flags the inconsistency
-            set_conflict_at_base_level();
-            SASSERT(dep == null_dependency && "track dependencies is TODO");
+            set_conflict_at_base_level(dep);
             return;
         case l_true:
             // constraint c is already asserted => ignore
@@ -174,8 +173,7 @@ namespace polysat {
         case l_false:
             // asserted an always-false constraint => conflict at base level
             LOG("Always false: " << c);
-            set_conflict_at_base_level();
-            SASSERT(dep == null_dependency && "track dependencies is TODO");
+            set_conflict_at_base_level(dep);
             return;
         case l_true:
             // asserted an always-true constraint => ignore
@@ -725,9 +723,7 @@ namespace polysat {
     /// Verify the value we're trying to assign against the univariate solver
     void solver::assign_verify(pvar v, rational val, justification j) {
         SASSERT(j.is_decision() || j.is_propagation());
-#ifndef NDEBUG
         unsigned const old_size = m_search.size();
-#endif
         signed_constraint c;
         clause_ref lemma;
         {
@@ -748,8 +744,8 @@ namespace polysat {
                 LOG("Produced lemma: " << show_deref(lemma));
             }
         }
-        SASSERT(m_search.size() == old_size);
-        SASSERT(!m_search.get_assignment().contains(v));
+        VERIFY_EQ(m_search.size(), old_size);
+        VERIFY(!m_search.get_assignment().contains(v));
         if (lemma) {
             add_clause(*lemma);
             if (is_conflict()) {
@@ -1178,7 +1174,18 @@ namespace polysat {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
             LOG("   " << lit_pp(*this, lit));
-            // SASSERT(m_bvars.value(lit) != l_true);
+            if (!m_bvars.is_assigned(lit)) {
+                switch (lit2cnstr(lit).eval(*this)) {
+                case l_true:
+                    assign_eval(lit);
+                    break;
+                case l_false:
+                    assign_eval(~lit);
+                    break;
+                default:
+                    break;
+                }
+            }
             // it could be that such a literal has been created previously but we don't detect it when e.g. narrowing a mul_ovfl_constraint
             if (m_bvars.value(lit) == l_true) {
                 // in this case the clause is useless
@@ -1229,7 +1236,7 @@ namespace polysat {
     clause_ref solver::mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
         clause_builder cb(*this);
         for (unsigned i = 0; i < n; ++i)
-            cb.insert_try_eval(cs[i]);
+            cb.insert(cs[i]);
         cb.set_redundant(is_redundant);
         return cb.build();
     }
@@ -1320,14 +1327,9 @@ namespace polysat {
     }
 
     void solver::unsat_core(dependency_vector& deps) {
-        verbose_stream() << "WARNING: unsat_core requested but dependency tracking in polysat is TODO\n";
+        VERIFY(is_conflict());
         deps.reset();
-        LOG("conflict" << m_conflict);
-        for (auto c : m_conflict) {
-            auto d = m_bvars.dep(c.blit());
-            if (d != null_dependency)
-                deps.push_back(d);
-        }
+        m_conflict.find_deps(deps);
     }
 
     std::ostream& solver::display(std::ostream& out) const {

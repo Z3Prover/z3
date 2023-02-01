@@ -158,6 +158,7 @@ namespace polysat {
             SASSERT(m_vars_occurring.empty());
             SASSERT(m_lemmas.empty());
             SASSERT(m_narrow_queue.empty());
+            SASSERT(m_dep.is_null());
         }
         return is_empty;
     }
@@ -170,6 +171,7 @@ namespace polysat {
         m_lemmas.reset();
         m_narrow_queue.reset();
         m_level = UINT_MAX;
+        m_dep = null_dependency;
         SASSERT(empty());
     }
 
@@ -181,10 +183,11 @@ namespace polysat {
         return contains(lit) || contains(~lit);
     }
 
-    void conflict::init_at_base_level() {
+    void conflict::init_at_base_level(dependency dep) {
         SASSERT(empty());
         SASSERT(s.at_base_level());
         m_level = s.m_level;
+        m_dep = dep;
         SASSERT(!empty());
         // TODO: logger().begin_conflict???
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
@@ -303,15 +306,15 @@ namespace polysat {
     }
 
     void conflict::add_lemma(char const* name, clause_ref lemma) {
+        if (!name)
+            name = "<unknown>";
+        LOG_H3("Lemma " << name << ": " << show_deref(lemma));
+        VERIFY(lemma);
 
         for (auto lit : *lemma)
             if (s.m_bvars.is_true(lit))
                 verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
 
-        if (!name)
-            name = "<unknown>";
-        LOG_H3("Lemma " << name << ": " << show_deref(lemma));
-        SASSERT(lemma);
         s.m_simplify_clause.apply(*lemma);
         lemma->set_redundant(true);
         lemma->set_name(name);
@@ -434,7 +437,7 @@ namespace polysat {
 
         clause_builder lemma(s);
 
-        for (auto c : *this)
+        for (signed_constraint c : *this)
             lemma.insert(~c);
 
         for (unsigned v : m_vars) {
@@ -500,6 +503,27 @@ namespace polysat {
         return true;
     }
 #endif
+
+    void conflict::find_deps(dependency_vector& out_deps) const {
+        sat::literal_vector todo;
+        sat::literal_set done;
+        indexed_uint_set deps;
+
+        LOG("conflict: " << *this);
+
+        // TODO: starting at literals/variables in the conflict, chase propagations backwards and accumulate dependencies.
+        verbose_stream() << "WARNING: unsat_core requested but dependency tracking in polysat is TODO\n";
+        for (signed_constraint c : *this) {
+            dependency d = s.m_bvars.dep(c.blit());
+            if (!d.is_null())
+                deps.insert(d.val());
+        }
+
+        for (unsigned d : deps)
+            out_deps.push_back(dependency(d));
+        if (!m_dep.is_null())
+            out_deps.push_back(m_dep);
+    }
 
     std::ostream& conflict::display(std::ostream& out) const {
         char const* sep = "";

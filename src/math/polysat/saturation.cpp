@@ -1600,8 +1600,7 @@ namespace polysat {
     }
 
     /**
-     * if !x_split: update d such that 0 <= a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max
-     * if x_split: update d such that -M < a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max, return x_split such that [x_min,x_split[ and [x_split,x_max] can fit into [0,M[
+     * Update d such that -M < a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max, return x_split such that [x_min,x_split[ and [x_split,x_max] can fit into [0,M[
      * return false if there is no such d.
      */
     bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d, rational* x_split) {
@@ -1614,14 +1613,22 @@ namespace polysat {
         if (max - min >= M)
             return false;
 
+        // k0 = min k. val + kM >= 0
+        //    = min k. k >= -val/M
+        //    = ceil(-val/M) = -floor(val/M)
         rational offset = rational::zero();
+#if 0
         if (max >= M)
             offset = -M * floor(max / M);
         else if (max < 0)
             offset = M * floor((-max + M - 1) / M);
+#else
+        if (max < 0 || max >= M)
+            offset = -M * floor(max / M);
+#endif
         d += offset;
 
-        // If min + offset < 0, then [min,max] contained a multiple of M.
+        // If min + offset < 0, then [min,max] contains a multiple of M.
         if (min + offset < 0) {
             if (!x_split)
                 return false;
@@ -1735,11 +1742,12 @@ namespace polysat {
 
         VERIFY(x_min <= x_max);
 
-        // TODO: d +/- M would suffice here
         rational d1 = dd1;
+        if (a1*x_min*y0 + b1*x_min + c1*y0 + d1 < 0)
+            d1 += M;
         rational d2 = dd2;
-        VERIFY(adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1, nullptr));
-        VERIFY(adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2, nullptr));
+        if (a2*x_min*y0 + b2*x_min + c2*y0 + d2 < 0)
+            d2 += M;
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
@@ -1837,8 +1845,8 @@ namespace polysat {
                    verbose_stream() << "\n---\n\n";
                    verbose_stream() << "constraint " << lit_pp(s, a_l_b) << "\n";
                    verbose_stream() << "x = v" << x << "\n";
-                   s.m_viable.display(verbose_stream(), x) << "\n";
                    verbose_stream() << "y = v" << y << "\n";
+                   s.m_viable.display(verbose_stream() << "\nx-intervals:\n", x, "\n") << "\n";
                    verbose_stream() << "\n";
                    verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
                    verbose_stream() << "v" << y << " " << y0 << "\n";
@@ -1855,6 +1863,7 @@ namespace polysat {
 
         if (x_sp1 > x_sp2)
             std::swap(x_sp1, x_sp2);
+        SASSERT(x_min <= x_sp1 && x_sp1 <= x_sp2 && x_sp2 <= x_max);
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted\n";
