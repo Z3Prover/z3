@@ -723,9 +723,7 @@ namespace polysat {
     /// Verify the value we're trying to assign against the univariate solver
     void solver::assign_verify(pvar v, rational val, justification j) {
         SASSERT(j.is_decision() || j.is_propagation());
-#ifndef NDEBUG
         unsigned const old_size = m_search.size();
-#endif
         signed_constraint c;
         clause_ref lemma;
         {
@@ -746,8 +744,8 @@ namespace polysat {
                 LOG("Produced lemma: " << show_deref(lemma));
             }
         }
-        SASSERT(m_search.size() == old_size);
-        SASSERT(!m_search.get_assignment().contains(v));
+        VERIFY_EQ(m_search.size(), old_size);
+        VERIFY(!m_search.get_assignment().contains(v));
         if (lemma) {
             add_clause(*lemma);
             if (is_conflict()) {
