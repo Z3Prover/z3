@@ -147,7 +147,7 @@ namespace bv {
         for (expr* arg : *a) {
             expr_ref b2b(m);
             b2b = bv.mk_bit2bool(a, i);            
-            sat::literal bit_i = ctx.internalize(b2b, false, false, m_is_redundant);
+            sat::literal bit_i = ctx.internalize(b2b, false, false);
             sat::literal lit = expr2literal(arg);
             add_equiv(lit, bit_i);
             ctx.add_aux_equiv(lit, bit_i);
