@@ -27,10 +27,10 @@ Revision History:
 class tbv;
 
 enum tbit {
-    BIT_z = 0x0,
-    BIT_0 = 0x1,
-    BIT_1 = 0x2,
-    BIT_x = 0x3
+    BIT_z = 0x0, // unknown
+    BIT_0 = 0x1, // for sure 0
+    BIT_1 = 0x2, // for sure 1
+    BIT_x = 0x3  // don't care
 };
 
 inline tbit neg(tbit t) {
@@ -43,6 +43,7 @@ class tbv_manager {
     ptr_vector<tbv> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
+    tbv_manager(tbv_manager const& m) = delete;
     ~tbv_manager();
     void reset();
     tbv* allocate();
@@ -132,8 +133,9 @@ class tbv_ref {
     tbv_manager& mgr;
     tbv* d;
 public:
-    tbv_ref(tbv_manager& mgr):mgr(mgr),d(nullptr) {}
-    tbv_ref(tbv_manager& mgr, tbv* d):mgr(mgr),d(d) {}
+    tbv_ref(tbv_manager& mgr) : mgr(mgr), d(nullptr) {}
+    tbv_ref(tbv_manager& mgr, tbv* d) : mgr(mgr), d(d) {}
+    tbv_ref(tbv_ref&& d) : mgr(d.mgr), d(d.detach()) {}
     ~tbv_ref() {
         if (d) mgr.deallocate(d);
     }
@@ -144,8 +146,17 @@ public:
     }
     tbv& operator*() { return *d; }
     tbv* operator->() { return d; }
-    tbv* get() { return d; }
+    tbit operator[](unsigned idx) const { return (*d)[idx]; }
+    tbv* get() const { return d; }
     tbv* detach() { tbv* result = d; d = nullptr; return result; }
+    tbv_manager& manager() const { return mgr; }
+    unsigned num_tbits() const { return mgr.num_tbits(); }
 };
 
-
+inline std::ostream& operator<<(std::ostream& out, tbv_ref const& c) {
+    char const* names[] = { "z", "0", "1", "x" };
+    for (unsigned i = c.num_tbits(); i-- > 0; ) {
+        out << names[static_cast<unsigned>(c[i])];
+    }
+    return out;
+}
