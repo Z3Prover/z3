@@ -504,6 +504,27 @@ namespace polysat {
     }
 #endif
 
+    void conflict::find_deps(dependency_vector& out_deps) const {
+        sat::literal_vector todo;
+        sat::literal_set done;
+        indexed_uint_set deps;
+
+        LOG("conflict: " << *this);
+
+        // TODO: starting at literals/variables in the conflict, chase propagations backwards and accumulate dependencies.
+        verbose_stream() << "WARNING: unsat_core requested but dependency tracking in polysat is TODO\n";
+        for (signed_constraint c : *this) {
+            dependency d = s.m_bvars.dep(c.blit());
+            if (!d.is_null())
+                deps.insert(d.val());
+        }
+
+        for (unsigned d : deps)
+            out_deps.push_back(dependency(d));
+        if (!m_dep.is_null())
+            out_deps.push_back(m_dep);
+    }
+
     std::ostream& conflict::display(std::ostream& out) const {
         char const* sep = "";
         for (auto c : *this)

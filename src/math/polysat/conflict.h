@@ -195,6 +195,8 @@ namespace polysat {
         /** Move the literals to be narrowed out of the conflict */
         sat::literal_vector take_narrow_queue();
 
+        void find_deps(dependency_vector& out_deps) const;
+
         std::ostream& display(std::ostream& out) const;
     };
 
