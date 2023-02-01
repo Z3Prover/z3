@@ -95,8 +95,6 @@ static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
 }
 
 static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
-    params_ref nia2sat_p = p;
-    nia2sat_p.set_uint("nla2bv_max_bv_size", 64);  
     params_ref simp_p = p;
     simp_p.set_bool("som", true); // expand into sums of monomials
     simp_p.set_bool("factor", false);

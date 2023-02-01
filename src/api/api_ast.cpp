@@ -137,7 +137,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         recfun::decl::plugin& p = mk_c(c)->recfun().get_plugin();
         if (!p.has_def(d)) {
-            std::string msg = "function " + mk_pp(d, m) + " needs to be defined using rec_func_decl";
+            std::string msg = "function " + mk_pp(d, m) + " needs to be declared using rec_func_decl";
             SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
             return;
         }
@@ -158,6 +158,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return;
         }
+        if (!pd.get_def()->get_cases().empty()) {
+            std::string msg = "function " + mk_pp(d, m) + " has already been given a definition";
+            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            return;            
+        }
+                
         if (abs_body->get_sort() != d->get_range()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);            
             return;
@@ -654,11 +660,14 @@ extern "C" {
         LOG_Z3_get_domain(c, d, i);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(d, nullptr);
-        if (i >= to_func_decl(d)->get_arity()) {
+        func_decl* _d = to_func_decl(d);
+        if (_d->is_associative()) 
+            i = 0;
+        if (i >= _d->get_arity()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
-        Z3_sort r = of_sort(to_func_decl(d)->get_domain(i));
+        Z3_sort r = of_sort(_d->get_domain(i));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }

@@ -312,7 +312,7 @@ NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 Unchecked = frozenset([ 'Z3_dec_ref', 'Z3_params_dec_ref', 'Z3_model_dec_ref',
                         'Z3_func_interp_dec_ref', 'Z3_func_entry_dec_ref',
-                        'Z3_goal_dec_ref', 'Z3_tactic_dec_ref', 'Z3_probe_dec_ref',
+                        'Z3_goal_dec_ref', 'Z3_tactic_dec_ref', 'Z3_simplifier_dec_ref', 'Z3_probe_dec_ref',
                         'Z3_fixedpoint_dec_ref', 'Z3_param_descrs_dec_ref',
                         'Z3_ast_vector_dec_ref', 'Z3_ast_map_dec_ref', 
                         'Z3_apply_result_dec_ref', 'Z3_solver_dec_ref',
@@ -339,6 +339,10 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
   _elems.Check(ctx)
   return ceh
 
+def Z3_solver_register_on_clause(ctx, s, user_ctx, on_clause_eh, _elems = Elementaries(_lib.Z3_solver_register_on_clause)):
+    _elems.f(ctx, s, user_ctx, on_clause_eh)
+    _elems.Check(ctx)
+    
 def Z3_solver_propagate_init(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh, _elems = Elementaries(_lib.Z3_solver_propagate_init)):
     _elems.f(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh)
     _elems.Check(ctx)
@@ -1172,6 +1176,8 @@ def ml_plus_type(ts):
         return 'Z3_goal_plus'
     elif ts == 'Z3_tactic':
         return 'Z3_tactic_plus'
+    elif ts == 'Z3_simplifier':
+        return 'Z3_simplifier_plus'
     elif ts == 'Z3_probe':
         return 'Z3_probe_plus'
     elif ts == 'Z3_apply_result':
@@ -1216,6 +1222,8 @@ def ml_minus_type(ts):
         return 'Z3_goal'
     elif ts == 'Z3_tactic_plus':
         return 'Z3_tactic'
+    elif ts == 'Z3_simplifier_plus':
+        return 'Z3_simplifier'
     elif ts == 'Z3_probe_plus':
         return 'Z3_probe'
     elif ts == 'Z3_apply_result_plus':
@@ -1315,7 +1323,8 @@ z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_eq',
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created',
-    'Z3_solver_propagate_decide'
+    'Z3_solver_propagate_decide',
+    'Z3_solver_register_on_clause'
     ])
 
 def mk_ml(ml_src_dir, ml_output_dir):
@@ -1844,6 +1853,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
@@ -1855,6 +1865,7 @@ Z3_eq_eh    = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_
 Z3_created_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_decide_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 
+_lib.Z3_solver_register_on_clause.restype = None
 _lib.Z3_solver_propagate_init.restype = None
 _lib.Z3_solver_propagate_final.restype = None
 _lib.Z3_solver_propagate_fixed.restype = None

@@ -284,7 +284,7 @@ namespace smt {
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
-              /*display(tout, j);*/
+              display(tout, j);
               );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
@@ -639,7 +639,6 @@ namespace smt {
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
                             m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
-
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     // It is not necessary to reinsert the equality to the congruence table
@@ -867,6 +866,7 @@ namespace smt {
                 SASSERT(curr != m_false_enode);
                 bool_var v = enode2bool_var(curr);
                 literal l(v, sign);
+                CTRACE("propagate", (get_assignment(l) != l_true), tout << enode_pp(curr, *this) << " " << l << "\n");
                 if (get_assignment(l) != l_true)
                     assign(l, mk_justification(eq_root_propagation_justification(curr)));
                 curr = curr->m_next;
@@ -1723,7 +1723,7 @@ namespace smt {
                     return false;
             }
             if (!get_cancel_flag()) {
-                scoped_suspend_rlimit _suspend_cancel(m.limit(), at_base_level());
+//                scoped_suspend_rlimit _suspend_cancel(m.limit(), at_base_level());
                 m_qmanager->propagate();
             }
             if (inconsistent())
@@ -2962,7 +2962,11 @@ namespace smt {
         pop_to_base_lvl();
         setup_context(false);
         bool was_consistent = !inconsistent();
-        internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        try {
+            internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        } catch (cancel_exception&) {
+            throw default_exception("Resource limits hit in push");
+        }
         if (!m.inc())
             throw default_exception("push canceled");
         scoped_suspend_rlimit _suspend_cancel(m.limit());
@@ -3026,6 +3030,10 @@ namespace smt {
         else
             m_asserted_formulas.assert_expr(e, pr);
         TRACE("end_assert_expr_ll", ast_mark m; m_asserted_formulas.display_ll(tout, m););
+    }
+
+    void context::add_asserted(expr* e) {
+        m_asserted_formulas.assert_expr(e);
     }
 
     void context::assert_expr(expr * e) {
@@ -3553,7 +3561,12 @@ namespace smt {
             return p(asms);
         }
 
-        internalize_assertions();
+        try {
+            internalize_assertions();
+        } catch (cancel_exception&) {
+            VERIFY(resource_limits_exceeded());
+            return l_undef;
+        }
         expr_ref_vector theory_assumptions(m);
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
@@ -3617,10 +3630,15 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m, num_assumptions, assumptions);
-            internalize_assertions();
-            add_theory_assumptions(asms);                
-            TRACE("unsat_core_bug", tout << asms << "\n";);        
-            init_assumptions(asms);
+            try {
+                internalize_assertions();
+                add_theory_assumptions(asms);
+                TRACE("unsat_core_bug", tout << asms << '\n';);
+                init_assumptions(asms);
+            } catch (cancel_exception&) {
+                VERIFY(resource_limits_exceeded());
+                return l_undef;
+            }
             TRACE("before_search", display(tout););
             r = search();
             r = mk_unsat_core(r);        
@@ -3638,11 +3656,16 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
-            internalize_assertions();
-            add_theory_assumptions(asms);
-            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-            for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-            init_assumptions(asms);
+            try {
+                internalize_assertions();
+                add_theory_assumptions(asms);
+                // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+                for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
+                init_assumptions(asms);
+            } catch (cancel_exception&) {
+                VERIFY(resource_limits_exceeded());
+                return l_undef;
+            }
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
             r = mk_unsat_core(r);             
@@ -3732,6 +3755,7 @@ namespace smt {
         flet<bool> l(m_searching, true);
         TRACE("after_init_search", display(tout););
         IF_VERBOSE(2, verbose_stream() << "(smt.searching)\n";);
+        log_stats();
         TRACE("search_lite", tout << "searching...\n";);
         lbool    status            = l_undef;
         unsigned curr_lvl          = m_scope_lvl;

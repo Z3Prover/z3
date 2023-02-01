@@ -73,10 +73,10 @@ public:
         for (unsigned i = 0; i < sz; i++)
             for_each_expr(cp, visited, g->form(i));
 
-        std::cout << "(" << std::endl;
+        std::cout << "(\n";
         for (auto const& kv : m_stats) 
-            std::cout << " :" << kv.first << "    " << kv.second << std::endl;
-        std::cout << ")" << std::endl;
+            std::cout << " :" << kv.first << "    " << kv.second << '\n';
+        std::cout << ")\n";
 
         g->inc_depth();
         result.push_back(g.get());

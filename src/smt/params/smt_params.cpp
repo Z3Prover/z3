@@ -64,6 +64,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_axioms2files = sp.axioms2files();
     m_lemmas2console = sp.lemmas2console();
     m_instantiations2console = sp.instantiations2console();
+    m_proof_log = sp.proof_log();
 }
 
 void smt_params::updt_params(params_ref const & p) {
@@ -84,7 +85,7 @@ void smt_params::updt_params(context_params const & p) {
     m_model          = p.m_model;
 }
 
-#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+#define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
 
 void smt_params::display(std::ostream & out) const {
     preprocessor_params::display(out);
@@ -126,6 +127,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_ematching);
     DISPLAY_PARAM(m_induction);
     DISPLAY_PARAM(m_clause_proof);
+    DISPLAY_PARAM(m_proof_log);
 
     DISPLAY_PARAM(m_case_split_strategy);
     DISPLAY_PARAM(m_rel_case_split_order);
@@ -186,3 +188,243 @@ void smt_params::validate_string_solver(symbol const& s) const {
         return;
     throw default_exception("Invalid string solver value. Legal values are z3str3, seq, empty, auto, none");
 }
+
+void smt_params::setup_QF_UF() {
+    m_relevancy_lvl           = 0;
+    m_nnf_cnf                 = false;
+    m_restart_strategy        = RS_LUBY;
+    m_phase_selection         = PS_CACHING_CONSERVATIVE2;
+    m_random_initial_activity = IA_RANDOM;
+}
+
+void smt_params::setup_QF_RDL() {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false;
+    m_arith_propagate_eqs = false;
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_RDL(static_features & st) {
+
+}
+
+void smt_params::setup_QF_IDL() {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false;
+    m_arith_propagate_eqs = false;
+    m_arith_small_lemma_size = 30;
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_IDL(static_features & st) {
+
+}
+
+void smt_params::setup_QF_LRA() {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false;
+    m_arith_propagate_eqs = false;
+    m_eliminate_term_ite  = true;
+    m_nnf_cnf             = false;
+    m_phase_selection     = PS_THEORY;
+}
+
+void smt_params::setup_QF_LRA(static_features const& st) {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false;
+    m_arith_propagate_eqs = false;
+    m_eliminate_term_ite  = true;
+    m_nnf_cnf             = false;
+    if (numerator(st.m_arith_k_sum) > rational(2000000) && denominator(st.m_arith_k_sum) > rational(500)) {
+        m_relevancy_lvl       = 2;
+        m_relevancy_lemma     = false;
+    }
+    m_phase_selection       = PS_THEORY;
+    if (!st.m_cnf) {
+        m_restart_strategy      = RS_GEOMETRIC;
+        m_arith_stronger_lemmas = false;
+        m_restart_adaptive      = false;
+    }
+    m_arith_small_lemma_size = 32;
+}
+
+void smt_params::setup_QF_LIA() {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false; 
+    m_arith_propagate_eqs = false; 
+    m_nnf_cnf             = false;            
+}
+
+void smt_params::setup_QF_LIA(static_features const& st) {
+    m_relevancy_lvl       = 0;
+    m_arith_eq2ineq       = true;
+    m_arith_reflect       = false; 
+    m_arith_propagate_eqs = false;
+    m_nnf_cnf             = false;
+    if (st.m_max_ite_tree_depth > 50) {
+        m_arith_eq2ineq        = false;
+        m_pull_cheap_ite       = true;
+        m_arith_propagate_eqs  = true;
+        m_relevancy_lvl        = 2; 
+        m_relevancy_lemma      = false;
+    }
+    else if (st.m_num_clauses == st.m_num_units) {
+        m_arith_gcd_test         = false;
+        m_arith_branch_cut_ratio = 4;
+        m_relevancy_lvl          = 2; 
+        m_arith_eq2ineq          = true;
+        m_eliminate_term_ite     = true;
+    } 
+    else {
+        m_eliminate_term_ite   = true;
+        m_restart_adaptive     = false;
+        m_restart_strategy     = RS_GEOMETRIC;
+        m_restart_factor       = 1.5;
+    }
+    if (st.m_num_bin_clauses + st.m_num_units == st.m_num_clauses && st.m_cnf && st.m_arith_k_sum > rational(100000)) {
+        m_arith_bound_prop      = bound_prop_mode::BP_NONE;
+        m_arith_stronger_lemmas = false;
+    }
+}
+
+void smt_params::setup_QF_UFIDL() {
+    m_relevancy_lvl = 0;
+    m_arith_reflect = false;
+    m_nnf_cnf = false;
+    m_arith_eq_bounds = true;
+    m_arith_eq2ineq = true;
+    // m_params.m_phase_selection  = PS_THEORY;
+    m_restart_strategy = RS_GEOMETRIC;
+    m_restart_factor = 1.5;
+    m_restart_adaptive = false;
+}
+
+void smt_params::setup_QF_UFLIA() {
+    m_relevancy_lvl       = 0;
+    m_arith_reflect       = false; 
+    m_nnf_cnf             = false;
+    m_arith_propagation_threshold = 1000;
+}
+
+
+void smt_params::setup_QF_UFLRA() {
+    m_relevancy_lvl       = 0;
+    m_arith_reflect       = false; 
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_BV() {
+    m_relevancy_lvl       = 0;
+    m_arith_reflect       = false; 
+    m_bv_cc               = false;
+    m_bb_ext_gates        = true;
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_AUFBV() {
+    m_array_mode          = AR_SIMPLE;
+    m_relevancy_lvl       = 0;
+    m_bv_cc               = false;
+    m_bb_ext_gates        = true;
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_AX() {
+    m_array_mode          = AR_SIMPLE;
+    m_nnf_cnf             = false;
+}
+
+void smt_params::setup_QF_AX(static_features const& st) {
+    m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
+    m_nnf_cnf             = false;
+    if (st.m_num_clauses == st.m_num_units) {
+        m_relevancy_lvl       = 0;
+        m_phase_selection     = PS_ALWAYS_FALSE;
+    }
+    else 
+        m_relevancy_lvl       = 2;
+}
+
+void smt_params::setup_QF_AUFLIA() {
+    m_array_mode          = AR_SIMPLE;
+    m_nnf_cnf             = false;
+    m_relevancy_lvl       = 2;
+    m_restart_strategy    = RS_GEOMETRIC;
+    m_restart_factor      = 1.5;
+    m_phase_selection     = PS_CACHING_CONSERVATIVE2;
+}
+
+void smt_params::setup_QF_AUFLIA(static_features const& st) {
+    m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
+    if (st.m_has_real)
+        throw default_exception("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
+    m_nnf_cnf             = false;
+    if (st.m_num_clauses == st.m_num_units) {
+        TRACE("QF_AUFLIA", tout << "using relevancy: 0\n";);
+        m_relevancy_lvl       = 0;
+        m_phase_selection     = PS_ALWAYS_FALSE;
+    }
+    else {
+        m_relevancy_lvl           = 0; // it was 2, for some reason 2 doesn't work anymore TODO: investigate
+        m_restart_strategy        = RS_GEOMETRIC;
+        m_restart_factor          = 1.5;
+        m_phase_selection         = PS_CACHING_CONSERVATIVE2;
+        m_random_initial_activity = IA_ZERO;
+    }    
+}
+
+void smt_params::setup_AUFLIA(bool simple_array) {
+    m_array_mode              = simple_array ? AR_SIMPLE : AR_FULL;
+    m_pi_use_database         = true;
+    m_phase_selection         = PS_ALWAYS_FALSE;
+    m_restart_strategy        = RS_GEOMETRIC;
+    m_restart_factor          = 1.5;
+    m_eliminate_bounds        = true;
+    m_qi_quick_checker        = MC_UNSAT;
+    m_qi_lazy_threshold       = 20;
+    m_mbqi                    = true; // enabling MBQI and MACRO_FINDER by default :-)
+    
+    // MACRO_FINDER is a horrible for AUFLIA and UFNIA benchmarks (boogie benchmarks in general)
+    // It destroys the existing patterns.
+    // m_macro_finder            = true; 
+    
+    if (m_ng_lift_ite == lift_ite_kind::LI_NONE)
+        m_ng_lift_ite = lift_ite_kind::LI_CONSERVATIVE;
+}
+
+void smt_params::setup_AUFLIA(static_features const & st) {
+    m_qi_eager_threshold      = st.m_num_quantifiers_with_patterns == 0 ? 5 : 7;
+}
+
+void smt_params::setup_AUFLIRA(bool simple_array) {
+    m_array_mode              = simple_array ? AR_SIMPLE : AR_FULL;
+    m_phase_selection         = PS_ALWAYS_FALSE;
+    m_eliminate_bounds        = true;
+    m_qi_quick_checker        = MC_UNSAT;
+    m_qi_eager_threshold      = 5;
+    // Added for MBQI release
+    m_qi_lazy_threshold       = 20;
+    // 
+    m_macro_finder            = true;
+    if (m_ng_lift_ite == lift_ite_kind::LI_NONE)
+        m_ng_lift_ite         = lift_ite_kind::LI_CONSERVATIVE;
+    m_pi_max_multi_patterns   = 10; //<< it was used for SMT-COMP
+    m_array_lazy_ieq          = true;
+    m_array_lazy_ieq_delay    = 4;
+    //
+    m_mbqi                    = true; // enabling MBQI by default :-)
+    // 
+}
+
+void smt_params::setup_LRA() {
+    m_relevancy_lvl       = 0;
+    m_arith_reflect       = false;
+    m_arith_propagate_eqs = false;
+    m_eliminate_term_ite  = true;
+}
+

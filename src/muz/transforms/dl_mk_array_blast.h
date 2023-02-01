@@ -22,9 +22,9 @@ Revision History:
 #include "muz/base/dl_rule_set.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
-#include "tactic/equiv_proof_converter.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/converters/equiv_proof_converter.h"
 
 namespace datalog {
 

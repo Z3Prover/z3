@@ -4,16 +4,20 @@ z3_add_component(solver
     check_logic.cpp
     combined_solver.cpp
     mus.cpp
-    parallel_tactic.cpp
+    parallel_tactical.cpp
+    simplifier_solver.cpp
     smt_logics.cpp
     solver.cpp
     solver_na2as.cpp
     solver_pool.cpp
+    solver_preprocess.cpp
     solver2tactic.cpp
     tactic2solver.cpp
   COMPONENT_DEPENDENCIES
     model
     tactic
+    smt_params
+    qe_lite
   PYG_FILES
     combined_solver_params.pyg
     parallel_params.pyg

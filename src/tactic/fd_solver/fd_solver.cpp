@@ -24,7 +24,7 @@ Notes:
 #include "tactic/fd_solver/pb2bv_solver.h"
 #include "tactic/fd_solver/bounded_int2bv_solver.h"
 #include "solver/solver2tactic.h"
-#include "solver/parallel_tactic.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mode) {

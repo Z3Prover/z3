@@ -40,43 +40,39 @@ void emonics::push() {
     TRACE("nla_solver_mons", display(tout << "push\n"););
     SASSERT(invariant());
     m_u_f_stack.push_scope();
-    m_lim.push_back(m_monics.size());
-    m_region.push_scope();
     m_ve.push();
     SASSERT(monics_are_canonized());
     SASSERT(invariant());
 }
 
+void emonics::pop_monic() {
+    m_ve.pop(1);
+    monic& m = m_monics.back();
+    TRACE("nla_solver_mons", display(tout << m << "\n"););
+    remove_cg_mon(m);
+    m_var2index[m.var()] = UINT_MAX;
+    do_canonize(m);
+    // variables in vs are in the same state as they were when add was called
+    lpvar last_var = UINT_MAX;
+    for (lpvar v : m.rvars()) {
+        if (v != last_var) {
+            remove_cell(m_use_lists[v]);
+            last_var = v;
+        }
+    }
+    m_ve.pop(1);
+    m_monics.pop_back();
+}
+
 void emonics::pop(unsigned n) {
     TRACE("nla_solver_mons", tout << "pop: " << n << "\n";);
     SASSERT(invariant());
-    for (unsigned j = 0; j < n; ++j) {
-        unsigned old_sz = m_lim[m_lim.size() - 1];
-        for (unsigned i = m_monics.size(); i-- > old_sz; ) {
-            m_ve.pop(1);
-            monic & m = m_monics[i];
-            TRACE("nla_solver_mons", display(tout << m << "\n"););
-            remove_cg_mon(m);
-            m_var2index[m.var()] = UINT_MAX;
-            do_canonize(m);
-            // variables in vs are in the same state as they were when add was called
-            lpvar last_var = UINT_MAX;
-            for (lpvar v : m.rvars()) {
-                if (v != last_var) {
-                    remove_cell(m_use_lists[v]);
-                    last_var = v;
-                }
-            }
-            m_ve.pop(1);
-        }
-        m_ve.pop(1);
-        m_monics.shrink(old_sz);
-        m_region.pop_scope(1);
-        m_lim.pop_back();
+    for (unsigned i = 0; i < n; ++i) {
         m_u_f_stack.pop_scope(1);
-        SASSERT(invariant());
-        SASSERT(monics_are_canonized());
+        m_ve.pop(1);
     }
+    SASSERT(invariant());
+    SASSERT(monics_are_canonized());
 }
 
 void emonics::remove_cell(head_tail& v) {
@@ -96,7 +92,7 @@ void emonics::remove_cell(head_tail& v) {
 void emonics::insert_cell(head_tail& v, unsigned mIndex) {
     cell*& cur_head = v.m_head;
     cell*& cur_tail = v.m_tail;
-    cell* new_head = new (m_region) cell(mIndex, cur_head);
+    cell* new_head = new (m_u_f_stack.get_region()) cell(mIndex, cur_head);
     cur_head = new_head;
     if (!cur_tail) cur_tail = new_head;
     cur_tail->m_next = new_head;
@@ -331,6 +327,14 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     m_monics.push_back(monic(v, sz, vs, idx));
     do_canonize(m_monics.back());
 
+    class pop_mon : public trail {
+        emonics& p;
+    public:
+        pop_mon(emonics& p) :p(p) {}
+        void undo() override { p.pop_monic(); }
+    };
+    m_u_f_stack.push(pop_mon(*this));
+
     // variables in m_vs are canonical and sorted, 
     // so use last_var to skip duplicates, 
     // while updating use-lists
@@ -351,9 +355,8 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
 void emonics::do_canonize(monic & m) const {
     TRACE("nla_solver_mons", tout << m << "\n";);
     m.reset_rfields();
-    for (lpvar v : m.vars()) {
-        m.push_rvar(m_ve.find(v));
-    }
+    for (lpvar v : m.vars()) 
+        m.push_rvar(m_ve.find(v));    
     m.sort_rvars();
     TRACE("nla_solver_mons", tout << m << "\n";);
 }
@@ -365,40 +368,34 @@ bool emonics::is_canonized(const monic & m) const {
 }
 
 void emonics::ensure_canonized() {
-    for (auto & m : m_monics) {
-        do_canonize(m);
-    }
+    for (auto & m : m_monics) 
+        do_canonize(m);    
 }
 
 bool emonics::monics_are_canonized() const {
-    for (auto & m: m_monics) {
-        if (!is_canonized(m)) {
-            return false;
-        }
-    }
+    for (auto & m: m_monics) 
+        if (!is_canonized(m)) 
+            return false;        
     return true;
 }
 
 bool emonics::canonize_divides(monic& m, monic & n) const {
-    if (m.size() > n.size()) return false;
+    if (m.size() > n.size()) 
+        return false;
     unsigned ms = m.size(), ns = n.size();
     unsigned i = 0, j = 0;
     while (true) {
-        if (i == ms) {
-            return true;
-        }
-        else if (j == ns) {
-            return false;
-        }
+        if (i == ms) 
+            return true;        
+        else if (j == ns) 
+            return false;        
         else if (m.rvars()[i] == n.rvars()[j]) {
             ++i; ++j;
         }
-        else if (m.rvars()[i] < n.rvars()[j]) {
-            return false;
-        }
-        else {
-            ++j;
-        }
+        else if (m.rvars()[i] < n.rvars()[j]) 
+            return false;        
+        else 
+            ++j;        
     }
 }
 

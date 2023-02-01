@@ -13,7 +13,17 @@ Author:
 
     Nikolaj (nbjorner) 2012-3-6
 
-Notes:
+Tactic Documentation:
+
+## Tactic ctx-solver-simplify
+
+### Short Description
+
+A heavy handed version of `ctx-simplify`. It applies SMT checks on sub-formulas to check
+if they can be simplified to `true` or `false` within their context.
+Note that a sub-formula may occur within multiple contexts due to shared sub-terms.
+In this case the tactic is partial and simplifies a limited number of context occurrences.
+
 
 --*/
 #pragma once

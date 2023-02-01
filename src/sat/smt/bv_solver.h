@@ -36,6 +36,9 @@ namespace bv {
         }
     };
 
+
+
+
     class solver : public euf::th_euf_solver {
         typedef rational numeral;
         typedef euf::theory_var theory_var;
@@ -95,8 +98,19 @@ namespace bv {
         sat::justification mk_ne2bit_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a);
         sat::ext_constraint_idx mk_bv2int_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c);
         void log_drat(bv_justification const& c);
+        class proof_hint : public euf::th_proof_hint {
+            bv_justification::kind_t   m_kind;
+            sat::literal_vector& m_proof_literals;
+            unsigned m_lit_head, m_lit_tail;
+            expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
+        public:
+            proof_hint(bv_justification::kind_t k, sat::literal_vector& pl, unsigned lh, unsigned lt, expr* a1 = nullptr, expr* a2 = nullptr, expr* b1 = nullptr, expr* b2 = nullptr) :
+                m_kind(k), m_proof_literals(pl), m_lit_head(lh), m_lit_tail(lt), a1(a1), a2(a2), b1(b1), b2(b2) {}
+            expr* get_hint(euf::solver& s) const override;
+        };
+        sat::literal_vector m_proof_literals;
+        unsigned m_lit_head = 0, m_lit_tail = 0;
  
-
         /**
            \brief Structure used to store the position of a bitvector variable that
            contains the true_literal/false_literal.
@@ -409,8 +423,8 @@ namespace bv {
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override { return false; }
 
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override { return false; }
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         void eq_internalized(euf::enode* n) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode * n, sort * s) override;

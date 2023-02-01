@@ -69,9 +69,12 @@ namespace q {
             [&](euf::enode* n) {
             m_mam->add_node(n, false);
         };
-        ctx.get_egraph().set_on_merge(_on_merge);
-        if (!ctx.relevancy_enabled())
-            ctx.get_egraph().set_on_make(_on_make);
+        
+        if (ctx.get_config().m_ematching) {
+            ctx.get_egraph().set_on_merge(_on_merge);
+            if (!ctx.relevancy_enabled())
+                ctx.get_egraph().set_on_make(_on_make);
+        }
         m_mam = mam::mk(ctx, *this);
     }
 
@@ -104,7 +107,7 @@ namespace q {
     * is created to ensure the justification trail is well-founded
     * during conflict resolution.
     */
-    sat::ext_justification_idx ematch::mk_justification(unsigned idx, clause& c, euf::enode* const* b) {
+    sat::ext_justification_idx ematch::mk_justification(unsigned idx, unsigned generation, clause& c, euf::enode* const* b) {
         void* mem = ctx.get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, &m_qs);
         bool sign = false;
@@ -113,21 +116,23 @@ namespace q {
         if (idx != UINT_MAX)
             lit = c[idx];
         m_explain.reset();
+        m_explain_cc.reset();
         ctx.get_egraph().begin_explain();
         ctx.reset_explain();
+        euf::cc_justification* cc = ctx.use_drat() ? &m_explain_cc : nullptr;
         for (auto const& [a, b] : m_evidence) {
             SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
             if (a->get_root() == b->get_root())
-                ctx.get_egraph().explain_eq<size_t>(m_explain, a, b);
+                ctx.get_egraph().explain_eq<size_t>(m_explain, cc, a, b);
             else
-                ctx.add_diseq_antecedent(m_explain, a, b);
+                ctx.add_diseq_antecedent(m_explain, cc, a, b);
         }
         ctx.get_egraph().end_explain();
 
         size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
         for (unsigned i = m_explain.size(); i-- > 0; )
             ev[i] = m_explain[i];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_explain.size(), ev);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, generation, m_explain.size(), ev);
         return constraint->to_index();
     }
 
@@ -361,7 +366,7 @@ namespace q {
         if (!is_owned) 
             binding = copy_nodes(c, binding); 
 
-        auto j_idx = mk_justification(idx, c, binding);     
+        auto j_idx = mk_justification(idx, max_generation, c, binding);     
 
         if (is_owned)
             propagate(ev == l_false, idx, j_idx);
@@ -381,11 +386,11 @@ namespace q {
         sat::literal_vector lits;
         lits.push_back(~j.m_clause.m_literal);
         for (unsigned i = 0; i < j.m_clause.size(); ++i) 
-            lits.push_back(instantiate(j.m_clause, j.m_binding, j.m_clause[i])); 
+            lits.push_back(instantiate(j.m_clause, j.m_generation, j.m_binding, j.m_clause[i])); 
         m_qs.log_instantiation(lits, &j);
         euf::th_proof_hint* ph = nullptr;
         if (ctx.use_drat()) 
-            ph = q_proof_hint::mk(ctx, j.m_clause.size(), j.m_binding);
+            ph = q_proof_hint::mk(ctx, j.m_generation, lits, j.m_clause.num_decls(), j.m_binding);
         m_qs.add_clause(lits, ph);               
     }
 
@@ -412,15 +417,16 @@ namespace q {
 
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
         m_evidence.reset();
-        ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
+        ctx.propagate(lit, mk_justification(UINT_MAX, b.m_max_generation, c, b.nodes()));
         m_qs.log_instantiation(~c.m_literal, lit);
     }
 
-    sat::literal ematch::instantiate(clause& c, euf::enode* const* binding, lit const& l) {
+    sat::literal ematch::instantiate(clause& c, unsigned generation, euf::enode* const* binding, lit const& l) {
         expr_ref_vector _binding(m);
         for (unsigned i = 0; i < c.num_decls(); ++i)
             _binding.push_back(binding[i]->get_expr());
         var_subst subst(m);
+        euf::solver::scoped_generation sg(ctx, generation + 1);
         auto sub = [&](expr* e) {
             expr_ref r = subst(e, _binding);
             //ctx.rewrite(r);

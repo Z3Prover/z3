@@ -124,11 +124,9 @@ namespace q {
             std::swap(t, s);
         }        
         unsigned sz = evidence.size();
-        unsigned count = 0;
         for (euf::enode* t1 : euf::enode_class(tn)) { 
             if (!t1->is_cgr())
                 continue;
-            ++count;
             expr* t2 = t1->get_expr();
             if ((c = compare_rec(n, binding, s, t2, evidence), c != l_undef)) {
                 evidence.push_back(euf::enode_pair(t1, tn));

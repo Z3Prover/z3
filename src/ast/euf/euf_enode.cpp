@@ -36,7 +36,7 @@ namespace euf {
         if (is_root()) {
             VERIFY(!m_target);
             for (enode* p : enode_parents(this)) {
-                if (!p->merge_enabled())
+                if (!p->cgc_enabled())
                     continue;
                 bool found = false;
                 for (enode* arg : enode_args(p)) {
@@ -49,7 +49,7 @@ namespace euf {
                 if (c == this)
                     continue;
                 for (enode* p : enode_parents(c)) {
-                    if (!p->merge_enabled())
+                    if (!p->cgc_enabled())
                         continue;
                     bool found = false;
                     for (enode* q : enode_parents(this)) {

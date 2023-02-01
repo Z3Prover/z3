@@ -25,13 +25,13 @@ Notes:
 class arith_rewriter_core {
 protected:
     typedef rational numeral;
+    ast_manager& m;
     arith_util  m_util;
     scoped_ptr<seq_util> m_seq;
-    bool        m_expand_power{ false };
-    bool        m_mul2power{ false };
-    bool        m_expand_tan{ false };
+    bool        m_expand_power = false;
+    bool        m_mul2power = false;
+    bool        m_expand_tan = false;
     
-    ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
     seq_util& seq();
     
@@ -47,7 +47,7 @@ protected:
     app* mk_power(expr* x, rational const& r, sort* s);
     expr* coerce(expr* x, sort* s);
 public:
-    arith_rewriter_core(ast_manager & m):m_util(m) {}
+    arith_rewriter_core(ast_manager & m):m(m), m_util(m) {}
     bool is_zero(expr * n) const { return m_util.is_zero(n); }
 };
 
@@ -120,7 +120,7 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     void mk_app(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_app_core(f, num_args, args, result) == BR_FAILED)
-            result = m().mk_app(f, num_args, args);
+            result = m.mk_app(f, num_args, args);
     }
 
     br_status mk_eq_core(expr * arg1, expr * arg2, expr_ref & result);
@@ -159,30 +159,30 @@ public:
     br_status mk_power_core(expr* arg1, expr* arg2, expr_ref & result);
     void mk_div(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_div_core(arg1, arg2, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_DIV, arg1, arg2);
+            result = m.mk_app(get_fid(), OP_DIV, arg1, arg2);
     }
     void mk_idiv(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_idiv_core(arg1, arg2, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_IDIV, arg1, arg2);
+            result = m.mk_app(get_fid(), OP_IDIV, arg1, arg2);
     }
     void mk_mod(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_mod_core(arg1, arg2, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_MOD, arg1, arg2);
+            result = m.mk_app(get_fid(), OP_MOD, arg1, arg2);
     }
     void mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_rem_core(arg1, arg2, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_REM, arg1, arg2);
+            result = m.mk_app(get_fid(), OP_REM, arg1, arg2);
     }
     
     br_status mk_to_int_core(expr * arg, expr_ref & result);
     br_status mk_to_real_core(expr * arg, expr_ref & result);
     void mk_to_int(expr * arg, expr_ref & result) { 
         if (mk_to_int_core(arg, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_TO_INT, 1, &arg); 
+            result = m.mk_app(get_fid(), OP_TO_INT, 1, &arg); 
     }
     void mk_to_real(expr * arg, expr_ref & result) { 
         if (mk_to_real_core(arg, result) == BR_FAILED)  
-            result = m().mk_app(get_fid(), OP_TO_REAL, 1, &arg); 
+            result = m.mk_app(get_fid(), OP_TO_REAL, 1, &arg); 
     }
     br_status mk_is_int(expr * arg, expr_ref & result);
 

@@ -9,6 +9,7 @@ z3_add_component(cmd_context
     parametric_cmd.cpp
     pdecl.cpp
     simplify_cmd.cpp
+    simplifier_cmds.cpp
     tactic_cmds.cpp
     tactic_manager.cpp
   COMPONENT_DEPENDENCIES

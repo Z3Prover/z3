@@ -20,10 +20,10 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
-#include "tactic/arith/bound_manager.h"
+#include "ast/simplifiers/bound_manager.h"
 #include "tactic/arith/bv2int_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/bv_decl_plugin.h"
@@ -140,8 +140,18 @@ public:
         }
     }
 
+    void check_assumptions(unsigned num_assumptions, expr * const * assumptions) {
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            expr* arg = assumptions[i];
+            m.is_not(arg, arg);
+            if (!is_uninterp_const(arg))
+                throw default_exception("only propositional assumptions are supported for finite domains " + mk_pp(arg, m));
+        }
+    }
+
     lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         flush_assertions();
+        check_assumptions(num_assumptions, assumptions);
         return m_solver->check_sat_core(num_assumptions, assumptions);
     }
 
@@ -195,11 +205,13 @@ public:
         mc = concat(mc.get(), m_solver->get_model_converter().get());
         return mc;
     }
-    proof * get_proof() override { return m_solver->get_proof(); }
+    proof * get_proof_core() override { return m_solver->get_proof_core(); }
     std::string reason_unknown() const override { return m_solver->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { m_solver->set_reason_unknown(msg); }
     void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
     ast_manager& get_manager() const override { return m;  }
+    expr* congruence_next(expr* e) override { return m_solver->congruence_next(e); }
+    expr* congruence_root(expr* e) override { return m_solver->congruence_root(e); }
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return m_solver->find_mutexes(vars, mutexes); }
     lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
@@ -318,9 +330,8 @@ private:
         if (m_assertions.empty()) return;
         m_flushed = true;
         bound_manager& bm = *m_bounds.back();
-        for (expr* a : m_assertions) {
-            bm(a);
-        }
+        for (expr* a : m_assertions) 
+            bm(a, nullptr, nullptr);        
         TRACE("int2bv", bm.display(tout););
         expr_safe_replace sub(m);
         accumulate_sub(sub);

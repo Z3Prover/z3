@@ -170,15 +170,20 @@ bool has_skolem_functions(expr * n);
 class subterms {
     bool            m_include_bound = false;
     expr_ref_vector m_es;
-    subterms(expr_ref const& e, bool include_bound);
-    subterms(expr_ref_vector const& es, bool include_bound);
+    ptr_vector<expr>* m_esp = nullptr;
+    expr_mark* m_vp = nullptr;
+    subterms(expr_ref const& e, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp);
+    subterms(expr_ref_vector const& es, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp);
 public:
+    ~subterms() { if (m_vp) m_vp->reset(); }
     class iterator {
-        bool            m_include_bound = false;
-        expr_ref_vector m_es;
-        expr_mark       m_visited;        
+        bool              m_include_bound = false;
+        ptr_vector<expr>  m_es;
+        ptr_vector<expr>* m_esp = nullptr;
+        expr_mark         m_visited;   
+        expr_mark*        m_visitedp = nullptr;
     public:
-        iterator(subterms& f, bool start);
+        iterator(subterms& f, ptr_vector<expr>* esp, expr_mark* vp, bool start);
         expr* operator*();
         iterator operator++(int);
         iterator& operator++();
@@ -186,19 +191,24 @@ public:
         bool operator!=(iterator const& other) const;
     };
 
-
-    static subterms all(expr_ref const& e) { return subterms(e, true); }
-    static subterms ground(expr_ref const& e) { return subterms(e, false); }
-    static subterms all(expr_ref_vector const& e) { return subterms(e, true); }
-    static subterms ground(expr_ref_vector const& e) { return subterms(e, false); }
+    static subterms all(expr_ref const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, true, esp, vp); }
+    static subterms ground(expr_ref const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, false, esp, vp); }
+    static subterms all(expr_ref_vector const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, true, esp, vp); }
+    static subterms ground(expr_ref_vector const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, false, esp, vp); }
     iterator begin();
     iterator end();
 };
 
 class subterms_postorder {
+    bool            m_include_bound;
     expr_ref_vector m_es;
+    subterms_postorder(expr_ref_vector const& es, bool include_bound);
+    subterms_postorder(expr_ref const& e, bool include_bound);
+    
+
 public:
     class iterator {
+        bool            m_include_bound = false;
         expr_ref_vector m_es;
         expr_mark       m_visited, m_seen; 
         void next();
@@ -210,8 +220,10 @@ public:
         bool operator==(iterator const& other) const;
         bool operator!=(iterator const& other) const;
     };
-    subterms_postorder(expr_ref_vector const& es);
-    subterms_postorder(expr_ref const& e);
+    static subterms_postorder all(expr_ref_vector const& es) { return subterms_postorder(es, true); }
+    static subterms_postorder ground(expr_ref_vector const& es) { return subterms_postorder(es, false); }
+    static subterms_postorder all(expr_ref const& e) { return subterms_postorder(e, true); }
+    static subterms_postorder ground(expr_ref const& e) { return subterms_postorder(e, false); }
     iterator begin();
     iterator end();
 };

@@ -22,7 +22,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
 #include "muz/base/fp_params.hpp"
 #include "ast/scoped_proof.h"

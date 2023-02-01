@@ -14,7 +14,8 @@ Author:
 
     Christoph (cwinter) 2018-04-24
 
-Notes:
+
+## Tactic qffplra
 
 
 --*/

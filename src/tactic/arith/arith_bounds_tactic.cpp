@@ -61,7 +61,7 @@ struct arith_bounds_tactic : public tactic {
             return true;
         }
         if ((!is_negated && (a.is_lt(e, e1, e2) || a.is_gt(e, e2, e1))) ||
-                 (is_negated && (a.is_le(e, e2, e1) || a.is_ge(e, e1, e2)))) {
+            (is_negated && (a.is_le(e, e2, e1) || a.is_ge(e, e1, e2)))) {
             is_strict = true;
             return true;
         }

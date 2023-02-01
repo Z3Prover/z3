@@ -5,26 +5,19 @@ Copyright (c) 2020 Microsoft Corporation
 
 #include<iostream>
 #include<fstream>
-#include "ast/bv_decl_plugin.h"
 #include "util/memory_manager.h"
 #include "util/statistics.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/reg_decl_plugins.h"
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
-#include "smt/smt_solver.h"
 #include "shell/drat_frontend.h"
-#include "parsers/smt2/smt2parser.h"
-#include "cmd_context/cmd_context.h"
-#include "ast/proofs/proof_checker.h"
-#include "ast/rewriter/th_rewriter.h"
-#include "ast/reg_decl_plugins.h"
-#include "sat/smt/arith_proof_checker.h"
 
 
 class drup_checker {
     sat::drat& m_drat;
     sat::literal_vector m_units;
-    bool m_check_inputs = false;
 
     void add_units() {
         auto const& units = m_drat.units();
@@ -104,103 +97,3 @@ unsigned read_drat(char const* drat_file) {
     }
     return 0;
 }
-
-
-#if 0
-
-    bool validate_hint(expr_ref_vector const& exprs, sat::literal_vector const& lits, sat::proof_hint const& hint) {
-        arith_util autil(m);
-        arith::proof_checker achecker(m);
-        proof_checker pc(m);
-        switch (hint.m_ty) {
-        case sat::hint_type::null_h:
-            break;
-        case sat::hint_type::bound_h:
-        case sat::hint_type::farkas_h: 
-        case sat::hint_type::implied_eq_h: {
-            achecker.reset();
-            for (auto const& [a, b]: hint.m_eqs) {
-                expr* x = exprs[a];
-                expr* y = exprs[b];
-                achecker.add_eq(x, y);
-            }
-            for (auto const& [a, b]: hint.m_diseqs) {
-                expr* x = exprs[a];
-                expr* y = exprs[b];
-                achecker.add_diseq(x, y);
-            }
-            
-            unsigned sz = hint.m_literals.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                auto const& [coeff, lit] = hint.m_literals[i];
-                app_ref e(to_app(m_b2e[lit.var()]), m);
-                if (i + 1 == sz && sat::hint_type::bound_h == hint.m_ty) {
-                    if (!achecker.add_conseq(coeff, e, lit.sign())) {
-                        std::cout << "p failed checking hint " << e << "\n";
-                        return false;
-                    }
-                    
-                }
-                else if (!achecker.add_ineq(coeff, e, lit.sign())) {
-                    std::cout << "p failed checking hint " << e << "\n";
-                    return false;
-                }
-            }
-
-            // achecker.display(std::cout << "checking\n");
-            bool ok = achecker.check();
-
-            if (!ok) {
-                rational lc(1);
-                for (auto const& [coeff, lit] : hint.m_literals) 
-                    lc = lcm(lc, denominator(coeff));
-                bool is_strict = false;
-                expr_ref sum(m);
-                for (auto const& [coeff, lit] : hint.m_literals) {
-                    app_ref e(to_app(m_b2e[lit.var()]), m);
-                    VERIFY(pc.check_arith_literal(!lit.sign(), e, coeff*lc, sum, is_strict));
-                    std::cout << "sum: " << sum << "\n";
-                }
-                sort* s = sum->get_sort();
-                if (is_strict) 
-                    sum = autil.mk_lt(sum, autil.mk_numeral(rational(0), s));
-                else 
-                    sum = autil.mk_le(sum, autil.mk_numeral(rational(0), s));
-                th_rewriter rw(m);
-                rw(sum);
-                std::cout << "sum: " << sum << "\n";
-                
-                for (auto const& [a, b]: hint.m_eqs) {
-                    expr* x = exprs[a];
-                    expr* y = exprs[b];
-                    app_ref e(m.mk_eq(x, y), m);
-                    std::cout << e << "\n";
-                }
-                for (auto const& [a, b]: hint.m_diseqs) {
-                    expr* x = exprs[a];
-                    expr* y = exprs[b];
-                    app_ref e(m.mk_not(m.mk_eq(x, y)), m);
-                    std::cout << e << "\n";
-                }
-                for (auto const& [coeff, lit] : hint.m_literals) {
-                    app_ref e(to_app(m_b2e[lit.var()]), m);
-                    if (lit.sign()) e = m.mk_not(e);
-                    std::cout << e << "\n";
-                }
-                achecker.display(std::cout);
-                std::cout << "p hint not verified\n";
-                return false;
-            }
-           
-            std::cout << "p hint verified\n";
-            return true;
-            break;
-        }
-        default:
-            UNREACHABLE();
-            break;
-        }
-        return false;
-    }
-
-#endif

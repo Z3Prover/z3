@@ -38,7 +38,7 @@ jobs:
       publishSymbols: true
       symbolServerType: TeamServices
       detailedLog: true
-  - task: EsrpCodeSigning@1
+  - task: EsrpCodeSigning@2
     displayName: Sign
     inputs:
       ConnectedServiceName: 'z3-esrp-signing-2'

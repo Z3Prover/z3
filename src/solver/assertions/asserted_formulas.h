@@ -38,7 +38,7 @@ Revision History:
 #include "ast/normal_forms/elim_term_ite.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 
 
 class asserted_formulas {

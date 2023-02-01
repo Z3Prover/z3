@@ -42,7 +42,28 @@ Author:
 
     Leonardo de Moura (leonardo) 2011-12-30.
 
-Revision History:
+Tactic Documentation:
+
+## Tactic purify-arith
+
+### Short Description
+
+Eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.
+These operators can be replaced by introcing fresh variables and using multiplication and addition.
+
+### Example
+```z3
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const u Int)
+(declare-const v Int)
+(declare-const w Int)
+(assert (= (div x 3) y))
+(assert (= (mod z 4) u))
+(assert (> (mod v w) u))
+(apply purify-arith)
+```
 
 --*/
 #pragma once

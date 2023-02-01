@@ -51,7 +51,7 @@ Notes:
 #include "model/model_smt2_pp.h"
 #include "smt/params/smt_params.h"
 
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "qe/mbp/mbp_plugin.h"
 #include "qe/mbp/mbp_term_graph.h"
 #include "qe/qe_mbp.h"

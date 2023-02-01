@@ -5,18 +5,37 @@ Module Name:
 
     degree_shift_tactic.h
 
-Abstract:
-
-    Simple degree shift procedure. 
-    Basic idea: if goal G contains a real variable x, x occurs with degrees
-    d_1, ..., d_k in G, and n = gcd(d_1, ..., d_k) > 1. 
-    Then, replace x^n with a new fresh variable y.
-
 Author:
 
     Leonardo de Moura (leonardo) 2011-12-30.
 
-Revision History:
+Tactic Documentation:
+
+## Tactic degree-shift
+
+### Short Description
+
+The procedure reduces the degrees of variables.
+
+### Long Description
+    
+Basic idea: if goal $G$ contains a real variable $x$, $x$ occurs with degrees
+$d_1, ..., d_k$ in $G$, and $n = \gcd(d_1, ..., d_k) > 1$.
+Then, replace $x^n$ with a new fresh variable $y$.
+
+### Example
+
+```z3
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (+ (* x x x 4) (* x x 3)) 0))
+(assert (= (* x x) (* y y)))
+(apply degree-shift)
+```
+
+### Notes
+
+* supports proofs and cores
 
 --*/
 #pragma once

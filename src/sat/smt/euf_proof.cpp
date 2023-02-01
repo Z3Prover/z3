@@ -22,20 +22,25 @@ Author:
 namespace euf {
 
     void solver::init_proof() {
-        if (!m_proof_initialized) {
-            get_drat().add_theory(get_id(), symbol("euf"));
-            get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
-        }
-        if (!m_proof_out && s().get_config().m_drat && 
-            (get_config().m_lemmas2console || s().get_config().m_smt_proof.is_non_empty_string())) {
-            TRACE("euf", tout << "init-proof\n");
-            m_proof_out = alloc(std::ofstream, s().get_config().m_smt_proof.str(), std::ios_base::out);
-            if (get_config().m_lemmas2console) 
-                get_drat().set_clause_eh(*this);
-            if (s().get_config().m_smt_proof.is_non_empty_string()) 
-                get_drat().set_clause_eh(*this);
-        }
-        m_proof_initialized = true;
+        if (m_proof_initialized)
+            return;
+
+        if (m_on_clause && !s().get_config().m_drat_disable)
+            s().set_drat(true);
+        
+        if (!s().get_config().m_drat)
+            return;
+
+        if (!get_config().m_lemmas2console &&
+            !s().get_config().m_smt_proof_check &&
+            !m_on_clause &&
+            !m_config.m_proof_log.is_non_empty_string())
+            return;
+        
+        if (m_config.m_proof_log.is_non_empty_string())
+            m_proof_out = alloc(std::ofstream, m_config.m_proof_log.str(), std::ios_base::out);
+        get_drat().set_clause_eh(*this);
+        m_proof_initialized = true;        
     }
 
     /**
@@ -46,7 +51,7 @@ namespace euf {
      * so it isn't necessarily an axiom over EUF,
      * We will here leave it to the EUF checker to perform resolution steps.
      */
-    void solver::log_antecedents(literal l, literal_vector const& r) {
+    void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
         TRACE("euf", log_antecedents(tout, l, r););
         if (!use_drat())
             return;
@@ -55,7 +60,7 @@ namespace euf {
             lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
-        get_drat().add(lits, sat::status::th(true, get_id()));
+        get_drat().add(lits, sat::status::th(true, get_id(), hint));
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
@@ -72,6 +77,193 @@ namespace euf {
             expr* n = m_bool_var2expr[l.var()];
             out << mk_bounded_pp(n, m) << "\n";
         }
+    }
+
+    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq, literal_vector const& r) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(value_trail(m_cc_tail));
+        push(restore_vector(m_proof_literals));
+        if (conseq != sat::null_literal)
+            m_proof_literals.push_back(~conseq);
+        m_proof_literals.append(r);
+        m_lit_head = m_lit_tail;
+        m_cc_head  = m_cc_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_cc_tail  = m_explain_cc.size();
+        return new (get_region()) eq_proof_hint(th, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);
+    }
+
+    th_proof_hint* solver::mk_cc_proof_hint(sat::literal_vector const& ante, app* a, app* b) {
+        if (!use_drat())
+            return nullptr;
+        SASSERT(a->get_decl() == b->get_decl());
+        push(value_trail(m_lit_tail));
+        push(value_trail(m_cc_tail));
+        push(restore_vector(m_proof_literals));
+        push(restore_vector(m_explain_cc));
+
+        for (auto lit : ante)
+            m_proof_literals.push_back(~lit);
+
+        m_explain_cc.push_back({a, b, 0, false});
+        
+        m_lit_head = m_lit_tail;
+        m_cc_head  = m_cc_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_cc_tail  = m_explain_cc.size();
+        return new (get_region()) eq_proof_hint(m_euf, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
+    }
+
+    th_proof_hint* solver::mk_tc_proof_hint(sat::literal const* clause) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(value_trail(m_cc_tail));
+        push(restore_vector(m_proof_literals));
+
+        for (unsigned i = 0; i < 3; ++i)
+            m_proof_literals.push_back(~clause[i]);
+        
+        m_lit_head = m_lit_tail;
+        m_cc_head  = m_cc_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_cc_tail  = m_explain_cc.size();
+        return new (get_region()) eq_proof_hint(m_euf, m_lit_head, m_lit_tail, m_cc_head, m_cc_tail);        
+    }
+
+
+    expr* eq_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        func_decl_ref cc(m), cc_comm(m);
+        sort* proof = m.mk_proof_sort();
+        expr_ref_vector& args = s.m_expr_args;
+        args.reset();
+        if (m_cc_head < m_cc_tail) {
+            sort* sorts[1] = { m.mk_bool_sort() };
+            cc_comm = m.mk_func_decl(symbol("comm"), 1, sorts, proof);
+            cc = m.mk_func_decl(symbol("cc"), 1, sorts, proof);
+        }
+        auto cc_proof = [&](bool comm, expr* eq) {
+            if (comm)
+                return m.mk_app(cc_comm, eq);
+            else
+                return m.mk_app(cc, eq);
+        };
+        auto compare_ts = [](cc_justification_record const& a,
+                             cc_justification_record const& b) {
+            auto const& [_1, _2, ta, _3] = a;
+            auto const& [_4, _5, tb, _6] = b;
+            return ta < tb;
+        };
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
+            args.push_back(s.literal2expr(s.m_proof_literals[i]));
+        std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
+        for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
+            auto const& [a, b, ts, comm] = s.m_explain_cc[i];
+            args.push_back(cc_proof(comm, m.mk_eq(a, b)));
+        }        
+        return m.mk_app(th, args.size(), args.data(), proof);
+    }
+
+    smt_proof_hint* solver::mk_smt_clause(symbol const& n, unsigned nl, literal const* lits) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(restore_vector(m_proof_literals));
+
+        for (unsigned i = 0; i < nl; ++i)
+            m_proof_literals.push_back(~lits[i]);
+            
+        m_lit_head = m_lit_tail;
+        m_eq_head = m_eq_tail;
+        m_deq_head = m_deq_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_eq_tail = m_proof_eqs.size();
+        m_deq_tail = m_proof_deqs.size();
+
+        return new (get_region()) smt_proof_hint(n, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail);
+    }
+    
+    smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd, expr_pair const* deqs) {
+        if (!use_drat())
+            return nullptr;
+        push(value_trail(m_lit_tail));
+        push(restore_vector(m_proof_literals));
+        
+        for (unsigned i = 0; i < nl; ++i)
+            if (sat::null_literal != lits[i]) {
+                if (!literal2expr(lits[i])) 
+                    IF_VERBOSE(0, verbose_stream() << lits[i] << "\n"; display(verbose_stream()));
+                
+
+                SASSERT(literal2expr(lits[i]));
+                m_proof_literals.push_back(lits[i]);
+            }
+
+        push(value_trail(m_eq_tail));
+        push(restore_vector(m_proof_eqs));
+        m_proof_eqs.append(ne, eqs);
+        
+        push(value_trail(m_deq_tail));
+        push(restore_vector(m_proof_deqs));
+        m_proof_deqs.append(nd, deqs);
+        
+        m_lit_head = m_lit_tail;
+        m_eq_head  = m_eq_tail;
+        m_deq_head = m_deq_tail;
+        m_lit_tail = m_proof_literals.size();
+        m_eq_tail  = m_proof_eqs.size();
+        m_deq_tail = m_proof_deqs.size();
+        
+        return new (get_region()) smt_proof_hint(n, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail);
+    }
+
+    smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, enode_pair const* eqs) {
+        if (!use_drat())
+            return nullptr;
+        m_expr_pairs.reset();
+        for (unsigned i = 0; i < ne; ++i)
+            m_expr_pairs.push_back({ eqs[i].first->get_expr(), eqs[i].second->get_expr() });
+        return mk_smt_hint(n, nl, lits, ne, m_expr_pairs.data());
+    }
+
+    sat::status solver::mk_tseitin_status(sat::literal a, sat::literal b) {
+        sat::literal lits[2] = { a, b };
+        return mk_tseitin_status(2, lits);
+    }
+
+    sat::status solver::mk_tseitin_status(unsigned n, sat::literal const* lits) {
+        th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("tseitin"), n, lits) : nullptr;
+        return sat::status::th(false, m.get_basic_family_id(), ph);        
+    }
+
+    sat::status solver::mk_distinct_status(unsigned n, sat::literal const* lits) {
+        th_proof_hint* ph = use_drat() ? mk_smt_hint(symbol("alldiff"), n, lits) : nullptr;
+        return sat::status::th(false, m.get_basic_family_id(), ph);
+    }
+    
+    expr* smt_proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        sort* proof = m.mk_proof_sort();
+        ptr_buffer<sort> sorts;
+        expr_ref_vector args(m);
+        
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
+            args.push_back(s.literal2expr(s.m_proof_literals[i]));
+        for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
+            auto const& [a, b] = s.m_proof_eqs[i];
+            args.push_back(m.mk_eq(a, b));
+        }
+        for (unsigned i = m_deq_head; i < m_deq_tail; ++i) {
+            auto const& [a, b] = s.m_proof_deqs[i];
+            args.push_back(m.mk_not(m.mk_eq(a, b)));
+        }
+        for (auto * arg : args)
+            sorts.push_back(arg->get_sort());
+        func_decl* f = m.mk_func_decl(m_name, sorts.size(), sorts.data(), proof);
+        return m.mk_app(f, args);
     }
 
     void solver::set_tmp_bool_var(bool_var b, expr* e) {
@@ -100,7 +292,7 @@ namespace euf {
             lits.push_back(jst.lit_consequent());
         if (jst.eq_consequent().first != nullptr) 
             lits.push_back(add_lit(jst.eq_consequent()));
-        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id(), jst.get_pragma()));
+        get_drat().add(lits, sat::status::th(false, jst.ext().get_id(), jst.get_pragma()));
         for (unsigned i = s().num_vars(); i < nv; ++i)
             set_tmp_bool_var(i, nullptr);
     }
@@ -109,6 +301,18 @@ namespace euf {
         TRACE("euf", tout << "on-clause " << n << "\n");
         on_lemma(n, lits, st);
         on_proof(n, lits, st);
+        on_check(n, lits, st);
+        on_clause_eh(n, lits, st);
+    }
+
+    void solver::on_clause_eh(unsigned n, literal const* lits, sat::status st) {
+        if (!m_on_clause)
+            return;
+        m_clause.reset();
+        for (unsigned i = 0; i < n; ++i) 
+            m_clause.push_back(literal2expr(lits[i]));
+        auto hint = status2proof_hint(st);
+        m_on_clause(m_on_clause_ctx, hint, m_clause.size(), m_clause.data());
     }
 
     void solver::on_proof(unsigned n, literal const* lits, sat::status st) {
@@ -119,16 +323,31 @@ namespace euf {
         if (!visit_clause(out, n, lits))
             return;
         if (st.is_asserted()) 
-            display_redundant(out, n, lits, status2proof_hint(st));
+            display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_deleted()) 
             display_deleted(out, n, lits);        
         else if (st.is_redundant()) 
-            display_redundant(out, n, lits, status2proof_hint(st));
+            display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_input()) 
             display_assume(out, n, lits);
         else 
             UNREACHABLE();
         out.flush();
+    }
+
+    void solver::on_check(unsigned n, literal const* lits, sat::status st) {
+        if (!s().get_config().m_smt_proof_check)
+            return;
+        m_clause.reset();
+        for (unsigned i = 0; i < n; ++i) 
+            m_clause.push_back(literal2expr(lits[i]));
+        auto hint = status2proof_hint(st);
+        if (st.is_asserted() || st.is_redundant())
+            m_smt_proof_checker.infer(m_clause, hint);
+        else if (st.is_deleted())
+            m_smt_proof_checker.del(m_clause);
+        else if (st.is_input())
+            m_smt_proof_checker.assume(m_clause);
     }
         
     void solver::on_lemma(unsigned n, literal const* lits, sat::status st) {
@@ -162,10 +381,13 @@ namespace euf {
     }
 
     bool solver::visit_clause(std::ostream& out, unsigned n, literal const* lits) {
+        expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
             expr* e = bool_var2expr(lits[i].var());
-            if (!e)
-                return false;
+            if (!e) {
+                k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
+                e = k;
+            }
             visit_expr(out, e);
         }
         return true;
@@ -179,10 +401,12 @@ namespace euf {
         display_literals(out << "(assume", n, lits) << ")\n";        
     }
 
-    void solver::display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
-        if (proof_hint)
-            visit_expr(out, proof_hint);
-        display_hint(display_literals(out << "(learn", n, lits), proof_hint) << ")\n";        
+    void solver::display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
+        expr_ref hint(proof_hint, m);
+        if (!hint)
+            hint = m.mk_const(m_smt, m.mk_proof_sort()); 
+        visit_expr(out, hint);
+        display_hint(display_literals(out << "(infer", n, lits), hint) << ")\n";        
     }
 
     void solver::display_deleted(std::ostream& out, unsigned n, literal const* lits) {
@@ -193,26 +417,32 @@ namespace euf {
         if (proof_hint)
             return display_expr(out << " ", proof_hint);
         else
-            return out;
+          return out;
     }
 
-    expr_ref solver::status2proof_hint(sat::status st) {
+    app_ref solver::status2proof_hint(sat::status st) {
         if (st.is_sat()) 
-            return expr_ref(m.mk_const("rup", m.mk_proof_sort()), m); // provable by reverse unit propagation
+            return app_ref(m.mk_const("rup", m.mk_proof_sort()), m); // provable by reverse unit propagation
         auto* h = reinterpret_cast<euf::th_proof_hint const*>(st.get_hint());
         if (!h)
-            return expr_ref(m);
+            return app_ref(m);
 
         expr* e = h->get_hint(*this);
         if (e)
-            return expr_ref(e, m);
+            return app_ref(to_app(e), m);
 
-        return expr_ref(m);        
+        return app_ref(m);        
     }
 
     std::ostream& solver::display_literals(std::ostream& out, unsigned n, literal const* lits) {
+        expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
             expr* e = bool_var2expr(lits[i].var());
+            if (!e) {
+                k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
+                e = k;
+            }
+            SASSERT(e);
             if (lits[i].sign())
                 display_expr(out << " (not ", e) << ")";
             else

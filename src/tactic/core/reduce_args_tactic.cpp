@@ -18,11 +18,12 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_util.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/has_free_vars.h"
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 /**
    \brief Reduce the number of arguments in function applications.
@@ -397,10 +398,12 @@ struct reduce_args_tactic::imp {
         ptr_buffer<expr> new_args;
         var_ref_vector   new_vars(m);
         ptr_buffer<expr> new_eqs;
-        generic_model_converter * f_mc    = alloc(generic_model_converter, m, "reduce_args");
-        for (auto const& kv : decl2arg2funcs) {
-            func_decl * f  = kv.m_key;
-            arg2func * map = kv.m_value;
+        generic_model_converter * f_mc = alloc(generic_model_converter, m, "reduce_args");
+        for (auto const& [f, map] : decl2arg2funcs) 
+            for (auto const& [t, new_def] : *map) 
+                f_mc->hide(new_def);
+
+        for (auto const& [f, map] : decl2arg2funcs) {
             expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
@@ -412,9 +415,8 @@ struct reduce_args_tactic::imp {
                     new_args.push_back(new_vars.back());
             }
             for (auto const& [t, new_def] : *map) {
-                f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
-                app * new_t = m.mk_app(new_def, new_args.size(), new_args.data());
+                app * new_t = m.mk_app(new_def, new_args);
                 if (def == nullptr) {
                     def = new_t;
                 }
@@ -425,11 +427,7 @@ struct reduce_args_tactic::imp {
                             new_eqs.push_back(m.mk_eq(new_vars.get(i), t->get_arg(i)));
                     }
                     SASSERT(new_eqs.size() > 0);
-                    expr * cond;
-                    if (new_eqs.size() == 1)
-                        cond = new_eqs[0];
-                    else
-                        cond = m.mk_and(new_eqs.size(), new_eqs.data());
+                    expr * cond = mk_and(m, new_eqs);
                     def = m.mk_ite(cond, new_t, def);
                 }
             }

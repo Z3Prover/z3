@@ -23,7 +23,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     std::sort(k_vars.begin(), k_vars.end());
     std::sort(j_vars.begin(), j_vars.end());
 
-    if (false && m_num_failures > 10) {
+    if (m_num_failures > 1000) {
         for (bool& m : m_mask) m = true;
         m_mask[0] = false;
         m_full_factorization_returned = true;

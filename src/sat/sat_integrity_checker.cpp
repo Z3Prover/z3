@@ -26,11 +26,6 @@ namespace sat {
     integrity_checker::integrity_checker(solver const & _s):
         s(_s) {
     }
-
-    // for ternary clauses 
-    static bool contains_watched(watch_list const & wlist, literal l1, literal l2) {
-        return wlist.contains(watched(l1, l2));
-    }
     
     // for nary clauses
     static bool contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) {
@@ -63,16 +58,7 @@ namespace sat {
         if (c.frozen())
             return true;
 
-        if (c.size() == 3) {
-            CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
-                   tout << "watch_list:\n";
-                   s.display_watch_list(tout, s.get_wlist(~c[0]));
-                   tout << "\n";);
-            VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
-            VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
-            VERIFY(contains_watched(s.get_wlist(~c[2]), c[0], c[1]));
-        }
-        else {
+        {
             if (s.value(c[0]) == l_false || s.value(c[1]) == l_false) {
                 bool on_prop_stack = false;
                 for (unsigned i = s.m_qhead; i < s.m_trail.size(); i++) {
@@ -119,7 +105,7 @@ namespace sat {
             if (c.frozen())
                 num_frozen++;
         }
-        SASSERT(num_frozen == s.m_num_frozen);
+        VERIFY(num_frozen == s.m_num_frozen);
         return check_clauses(s.begin_learned(), s.end_learned());
     }
 
@@ -168,11 +154,6 @@ namespace sat {
                        s.display_watch_list(tout, s.get_wlist(~(w.get_literal())));
                        tout << "\n";);
                 VERIFY(find_binary_watch(s.get_wlist(~(w.get_literal())), l));
-                break;
-            case watched::TERNARY:
-                VERIFY(!s.was_eliminated(w.get_literal1().var()));
-                VERIFY(!s.was_eliminated(w.get_literal2().var()));
-                VERIFY(w.get_literal1().index() < w.get_literal2().index());
                 break;
             case watched::CLAUSE:
                 VERIFY(!s.get_clause(w.get_clause_offset()).was_removed());

@@ -35,7 +35,7 @@ public:
 
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
 
-solver* mk_smt2_solver(ast_manager& m, params_ref const& p);
+solver* mk_smt2_solver(ast_manager& m, params_ref const& p, symbol const& logic = symbol::null);
 
 /**
    \brief Abstract interface for making solvers available in the Z3
@@ -52,7 +52,7 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-    solver() {}
+    solver(ast_manager& m): check_sat_result(m) {}
 
     /**
     \brief Creates a clone of the solver.
@@ -238,6 +238,15 @@ public:
 
     virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
 
+    /**
+       \brief retrieve congruence closure root.
+    */
+    virtual expr* congruence_root(expr* e) = 0;
+
+    /**
+       \brief retrieve congruence closure sibling
+    */
+    virtual expr* congruence_next(expr* e) = 0;
 
     /**
        \brief Display the content of this solver.
@@ -278,7 +287,7 @@ public:
     };
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
- 
+
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);

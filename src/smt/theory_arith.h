@@ -436,9 +436,8 @@ namespace smt {
         theory_arith_params &   m_params;
         arith_util              m_util;
         arith_eq_solver         m_arith_eq_solver;
-        bool                    m_found_unsupported_op;
-        bool                    m_found_underspecified_op;
         ptr_vector<app>         m_underspecified_ops;
+        ptr_vector<app>         m_unsupported_ops;
         arith_eq_adapter        m_arith_eq_adapter;
         vector<row>             m_rows;
         svector<unsigned>       m_dead_rows;

@@ -188,6 +188,7 @@ namespace smt {
         void internalize_urem(app * n);
         void internalize_srem(app * n);
         void internalize_smod(app * n);
+        void internalize_udiv_quot_rem(app* n);
         void internalize_shl(app * n);
         void internalize_lshr(app * n);
         void internalize_ashr(app * n);
@@ -227,6 +228,8 @@ namespace smt {
         void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
         void assert_int2bv_axiom(app* n);
         void assert_bv2int_axiom(app* n);
+        void assert_udiv_quot_rem_axiom(app * n);
+
 
     protected:
         theory_var mk_var(enode * n) override;

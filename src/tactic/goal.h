@@ -34,8 +34,8 @@ Revision History:
 #include "util/ref.h"
 #include "util/ref_vector.h"
 #include "util/ref_buffer.h"
-#include "tactic/model_converter.h"
-#include "tactic/proof_converter.h"
+#include "ast/converters/model_converter.h"
+#include "ast/converters/proof_converter.h"
 #include "tactic/dependency_converter.h"
 
 class goal {
@@ -55,6 +55,7 @@ protected:
     proof_converter_ref   m_pc;
     dependency_converter_ref m_dc;
     unsigned              m_ref_count;
+    std::string           m_reason_unknown;
     expr_array            m_forms;
     expr_array            m_proofs;
     expr_dependency_array m_dependencies;
@@ -159,6 +160,8 @@ public:
     void set(model_converter* m) { m_mc = m; }
     void set(proof_converter* p) { m_pc = p; }
 
+    void set_reason_unknown(std::string const& reason_unknown) { m_reason_unknown = reason_unknown; }
+    std::string const& get_reason_unknown() { return m_reason_unknown; }
     bool is_cnf() const;
 
     goal * translate(ast_translation & translator) const;
@@ -176,6 +179,8 @@ template<typename GoalCollection>
 inline bool is_decided_sat(GoalCollection const & c) { return c.size() == 1 && c[0]->is_decided_sat(); }
 template<typename GoalCollection>
 inline bool is_decided_unsat(GoalCollection const & c) { return c.size() == 1 && c[0]->is_decided_unsat(); }
+template<typename GoalCollection>
+inline std::string get_reason_unknown(GoalCollection const & c) { return c.size() == 1 ? c[0]->get_reason_unknown() : std::string("unknown"); }
 
 template<typename ForEachProc>
 void for_each_expr_at(ForEachProc& proc, goal const & s) {

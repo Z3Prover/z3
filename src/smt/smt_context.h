@@ -62,6 +62,8 @@ namespace smt {
 
     class model_generator;
 
+    struct cancel_exception {};
+
     class context {
         friend class model_generator;
         friend class lookahead;
@@ -1618,6 +1620,8 @@ namespace smt {
 
         void register_plugin(theory * th);
 
+        void add_asserted(expr* e);
+
         void assert_expr(expr * e);
 
         void assert_expr(expr * e, proof * pr);
@@ -1705,6 +1709,14 @@ namespace smt {
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
 
         void get_units(expr_ref_vector& result);
+
+        bool clause_proof_active() const { return m_clause_proof.is_enabled(); }
+
+        clause_proof& get_clause_proof() { return m_clause_proof; }
+
+        void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+            m_clause_proof.register_on_clause(ctx, on_clause);
+        }
 
         /*
          * user-propagator

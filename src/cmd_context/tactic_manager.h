@@ -18,54 +18,39 @@ Notes:
 #pragma once
 
 #include "cmd_context/tactic_cmds.h"
+#include "cmd_context/simplifier_cmds.h"
 #include "util/dictionary.h"
 
 class tactic_manager {
 protected:
     dictionary<tactic_cmd*>  m_name2tactic;
     dictionary<probe_info*>  m_name2probe;
+    dictionary<simplifier_cmd*> m_name2simplifier;
     ptr_vector<tactic_cmd>   m_tactics;
+    ptr_vector<simplifier_cmd> m_simplifiers;
     ptr_vector<probe_info>   m_probes;
-    void finalize_tactic_cmds();
-    void finalize_probes();
+    void finalize_tactic_manager();
 public:
     ~tactic_manager();
 
     void insert(tactic_cmd * c);
+    void insert(simplifier_cmd* c);
     void insert(probe_info * p);
     tactic_cmd * find_tactic_cmd(symbol const & s) const; 
-    probe_info * find_probe(symbol const & s) const; 
+    probe_info * find_probe(symbol const & s) const;     
+    simplifier_cmd* find_simplifier_cmd(symbol const& s) const;
 
     unsigned num_tactics() const { return m_tactics.size(); }
     unsigned num_probes() const { return m_probes.size(); }
+    unsigned num_simplifiers() const { return m_simplifiers.size(); }
     tactic_cmd * get_tactic(unsigned i) const { return m_tactics[i]; }
     probe_info * get_probe(unsigned i) const { return m_probes[i]; }
+    simplifier_cmd *get_simplifier(unsigned i) const { return m_simplifiers[i]; }
+
+    ptr_vector<simplifier_cmd> const& simplifiers() const { return m_simplifiers; }
+    ptr_vector<tactic_cmd> const& tactics() const { return m_tactics; }
+    ptr_vector<probe_info> const& probes() const { return m_probes; }
     
-    typedef ptr_vector<tactic_cmd>::const_iterator tactic_cmd_iterator;
-    tactic_cmd_iterator begin_tactic_cmds() const { return m_tactics.begin(); }
-    tactic_cmd_iterator end_tactic_cmds() const { return m_tactics.end(); }
-    class tactics_iterator {
-        tactic_manager const& m;
-    public:
-        tactics_iterator(tactic_manager const& m):m(m) {}
-        tactic_cmd_iterator begin() const { return m.begin_tactic_cmds(); }
-        tactic_cmd_iterator end() const { return m.end_tactic_cmds(); }
-    };
-    tactics_iterator tactics() const { return tactics_iterator(*this); }
-
-    typedef ptr_vector<probe_info>::const_iterator probe_iterator;
-    probe_iterator begin_probes() const { return m_probes.begin(); }
-    probe_iterator end_probes() const { return m_probes.end(); }
-
-    class probes_iterator {
-        tactic_manager const& m;
-    public:
-        probes_iterator(tactic_manager const& m):m(m) {}
-        probe_iterator begin() const { return m.begin_probes(); }
-        probe_iterator end() const { return m.end_probes(); }
-    };
-
-    probes_iterator probes() const { return probes_iterator(*this); }
         
 };
 

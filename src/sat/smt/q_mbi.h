@@ -93,6 +93,7 @@ namespace q {
         void extract_free_vars(quantifier* q, q_body& qb);
         void init_model();
         void init_solver();
+        void assert_expr(expr* e);
         mbp::project_plugin* get_plugin(app* var);
         void add_plugin(mbp::project_plugin* p);
         void add_instantiation(quantifier* q, expr_ref& proj);

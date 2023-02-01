@@ -5,16 +5,28 @@ Module Name:
 
     split_clause_tactic.h
 
-Abstract:
-
-    Tactic that creates a subgoal for each literal in a clause (l_1 or ... or l_n).
-    The tactic fails if the main goal does not contain any clause.
-
 Author:
 
     Leonardo (leonardo) 2011-11-21
 
-Notes:
+Tactic Documentation:
+
+## Tactic split-clause
+
+### Short Description
+
+Tactic that creates a subgoal for each literal in a clause `(l_1 or ... or l_n)`.
+The tactic fails if the main goal does not contain any clause.
+
+### Example
+
+```z3
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(apply split-clause)
+```
+
 
 --*/
 #pragma once

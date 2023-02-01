@@ -21,7 +21,7 @@ Notes:
 
 #include "smt/smt_theory.h"
 #include "smt/smt_clause.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 namespace smt {
     class theory_wmaxsat : public theory {

@@ -277,8 +277,8 @@ class mps_reader {
         } else {
         fail:
             set_m_ok_to_false();
-            *m_message_stream << "cannot understand this line" << std::endl;
-            *m_message_stream << "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
+            *m_message_stream << "cannot understand this line\n"
+                                 "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
             return;
         }
     }

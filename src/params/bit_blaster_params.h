@@ -33,8 +33,8 @@ struct bit_blaster_params {
 #endif
 
     void display(std::ostream & out) const {
-        out << "m_bb_ext_gates=" << m_bb_ext_gates << std::endl;
-        out << "m_bb_quantifiers=" << m_bb_quantifiers << std::endl;
+        out << "m_bb_ext_gates=" << m_bb_ext_gates << '\n';
+        out << "m_bb_quantifiers=" << m_bb_quantifiers << '\n';
     }
 };
 

@@ -14,7 +14,51 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2013-12-23
 
-Notes:
+Documentation:
+
+## Tactic pb-preprocess
+
+### Short Description:
+
+The tactic eliminates variables from pseudo-Boolean inequalities and performs algebraic simplifcations on formulas
+
+### Long Description
+
+Resolution for PB constraints require the implicit 
+inequalities that each variable ranges over [0,1]
+so not all resolvents produce smaller sets of clauses.
+
+We here implement subsumption resolution.  
+
+```
+    x + y >= 1
+    A~x + B~y + Cz >= k
+    ---------------------
+    Cz >= k - B    
+```
+
+where `A <= B` and `x, y` do not occur elsewhere.    
+
+
+### Example
+ 
+```z3
+  (declare-const x Bool)
+  (declare-const y Bool)
+  (declare-const z Bool)
+  (declare-const u Bool)
+  (declare-const v Bool)
+  (assert ((_ pbge 1 1 1 2) (not x) (not y) (not z)))
+  (assert ((_ pbge 1 1 1 2) x u v))
+  (assert (not (and y v)))
+  (assert (not (and z u)))
+  (apply pb-preprocess)
+```
+
+### Notes
+
+* supports unsat cores
+* does not support proof terms
 
 --*/
 #pragma once

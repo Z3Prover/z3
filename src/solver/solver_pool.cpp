@@ -102,10 +102,10 @@ public:
     }
 
 
-    proof * get_proof() override {
+    proof * get_proof_core() override {
         scoped_watch _t_(m_pool.m_proof_watch);
         if (!m_proof.get()) {
-            m_proof = m_base->get_proof();
+            m_proof = m_base->get_proof_core();
             if (m_proof) {
                 elim_aux_assertions pc(m_pred);
                 pc(m, m_proof, m_proof);
@@ -261,6 +261,9 @@ public:
     void set_progress_callback(progress_callback * callback) override { m_base->set_progress_callback(callback); }
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override { return expr_ref_vector(m); }
+
+    expr* congruence_next(expr* e) override { return e; }
+    expr* congruence_root(expr* e) override { return e; }
 
     ast_manager& get_manager() const override { return m_base->get_manager(); }
 

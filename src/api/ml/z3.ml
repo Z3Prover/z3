@@ -1734,6 +1734,39 @@ struct
   let interrupt = Z3native.interrupt
 end
 
+module Simplifier =
+struct
+  type simplifier = Z3native.simplifier
+  let gc = Z3native.context_of_simplifier
+
+  let get_help (x:simplifier) = Z3native.simplifier_get_help (gc x) x
+
+  let get_param_descrs (x:simplifier) = Z3native.simplifier_get_param_descrs (gc x) x
+
+  let get_num_simplifiers = Z3native.get_num_simplifiers
+
+  let get_simplifier_names (ctx:context) =
+    let n = get_num_simplifiers ctx in
+    let f i = Z3native.get_simplifier_name ctx i in
+    mk_list f n
+
+  let get_simplifier_description = Z3native.simplifier_get_descr
+
+  let mk_simplifier = Z3native.mk_simplifier
+
+  let and_then (ctx:context) (t1:simplifier) (t2:simplifier) (ts:simplifier list) =
+    let f p c = (match p with
+        | None -> Some c
+        | Some(x) -> Some (Z3native.simplifier_and_then ctx c x)) in
+    match (List.fold_left f None ts) with
+    | None -> Z3native.simplifier_and_then ctx t1 t2
+    | Some(x) -> let o = Z3native.simplifier_and_then ctx t2 x in
+      Z3native.simplifier_and_then ctx t1 o
+
+  let using_params = Z3native.simplifier_using_params
+  let with_ = using_params
+
+end
 
 module Statistics =
 struct
@@ -1868,6 +1901,7 @@ struct
   let mk_solver_s ctx logic = mk_solver ctx (Some (Symbol.mk_string ctx logic))
   let mk_simple_solver = Z3native.mk_simple_solver
   let mk_solver_t = Z3native.mk_solver_from_tactic
+  let add_simplifier = Z3native.solver_add_simplifier
   let translate x = Z3native.solver_translate (gc x) x
   let to_string x = Z3native.solver_to_string (gc x) x
 end

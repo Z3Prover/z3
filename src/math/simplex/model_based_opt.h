@@ -86,6 +86,7 @@ namespace opt {
             def operator/(rational const& n) const;
             def operator*(rational const& n) const;
             def operator+(rational const& n) const;
+            void substitute(unsigned v, def const& other);
             void normalize();
         };
 
@@ -100,6 +101,9 @@ namespace opt {
         unsigned_vector         m_lub, m_glb, m_divides, m_mod, m_div;
         unsigned_vector         m_above, m_below;
         unsigned_vector         m_retired_rows;
+        vector<model_based_opt::def> m_result;
+
+        void eliminate(unsigned v, def const& d);
         
         bool invariant();
         bool invariant(unsigned index, row const& r);

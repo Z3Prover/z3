@@ -29,7 +29,7 @@ namespace datalog {
         typedef obj_hashtable<app> app_set;
 
         ast_manager & m;
-        context & m_context;
+        // context & m_context;
 
         rule_ref_vector m_ref_holder;
 
@@ -42,7 +42,7 @@ namespace datalog {
     public:
         rule_subsumption_index(context & ctx) :
             m(ctx.get_manager()),
-            m_context(ctx),
+            // m_context(ctx),
             m_ref_holder(ctx.get_rule_manager()) {}
 
         ~rule_subsumption_index() {

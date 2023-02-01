@@ -109,6 +109,7 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "encoding") {
         if (strcmp(value, "unicode") == 0 || strcmp(value, "bmp") == 0 || strcmp(value, "ascii") == 0) {
             m_encoding = value;
+            gparams::set("encoding", value);
         }
         else {
             std::stringstream strm;

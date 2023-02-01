@@ -47,20 +47,18 @@ namespace fpa {
     expr_ref solver::convert(expr* e) {    
         expr_ref res(m);
         expr* ccnv;
-        TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
+        TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << "\n";);
 
         if (m_conversions.find(e, ccnv)) {
             res = ccnv;
-            TRACE("t_fpa_detail", tout << "cached:" << std::endl;
-            tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                mk_ismt2_pp(res, m) << std::endl;);
+            TRACE("t_fpa_detail", tout << "cached:" << "\n";
+                  tout << mk_ismt2_pp(e, m) << "\n" << " -> " << "\n" << mk_ismt2_pp(res, m) << "\n";);
         }
         else {
             res = m_rw.convert(m_th_rw, e);
 
-            TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
-            tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                mk_ismt2_pp(res, m) << std::endl;);
+            TRACE("t_fpa_detail", tout << "converted; caching:" << "\n";
+                  tout << mk_ismt2_pp(e, m) << "\n" << " -> " << "\n" << mk_ismt2_pp(res, m) << "\n";);
 
             m_conversions.insert(e, res);
             m.inc_ref(e);
@@ -97,9 +95,9 @@ namespace fpa {
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), m) << " := " << v << "\n";);
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
         SASSERT(m.is_bool(e));
-        if (!visit_rec(m, e, sign, root, redundant))
+        if (!visit_rec(m, e, sign, root))
             return sat::null_literal;
         sat::literal lit = expr2literal(e);
         if (sign)
@@ -107,8 +105,8 @@ namespace fpa {
         return lit;
     }
 
-    void solver::internalize(expr* e, bool redundant) {
-        visit_rec(m, e, false, false, redundant);
+    void solver::internalize(expr* e) {
+        visit_rec(m, e, false, false);
     }
 
     bool solver::visited(expr* e) {
@@ -120,7 +118,7 @@ namespace fpa {
         if (visited(e))
             return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
-            ctx.internalize(e, m_is_redundant);
+            ctx.internalize(e);
             return true;
         }
         m_stack.push_back(sat::eframe(e));
@@ -257,26 +255,23 @@ namespace fpa {
     }
 
     void solver::ensure_equality_relation(theory_var x, theory_var y) {
+        fpa_util& fu = m_fpa_util;
         enode* e_x = var2enode(x);
         enode* e_y = var2enode(y);
-
-        TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;
-        tout << mk_ismt2_pp(e_x->get_expr(), m) << std::endl << " = " << std::endl <<
-            mk_ismt2_pp(e_y->get_expr(), m) << std::endl;);
-
-        fpa_util& fu = m_fpa_util;
-
         expr* xe = e_x->get_expr();
         expr* ye = e_y->get_expr();
 
         if (fu.is_bvwrap(xe) || fu.is_bvwrap(ye))
             return;
 
+        TRACE("t_fpa", tout << "new eq: " << x << " = " << y << "\n";
+              tout << mk_ismt2_pp(xe, m) << "\n" << " = " << "\n" << mk_ismt2_pp(ye, m) << "\n";);
+
         expr_ref xc = convert(xe);
         expr_ref yc = convert(ye);
 
-        TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
-            "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
+        TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << "\n" <<
+            "yc = " << mk_ismt2_pp(yc, m) << "\n";);
 
         expr_ref c(m);
 
@@ -390,9 +385,9 @@ namespace fpa {
         for (enode* n : ctx.get_egraph().nodes()) {
             theory_var v = n->get_th_var(m_fpa_util.get_family_id());
             if (v != -1) {
-                if (first) out << "fpa theory variables:" << std::endl;
+                if (first) out << "fpa theory variables:" << "\n";
                 out << v << " -> " <<
-                    mk_ismt2_pp(n->get_expr(), m) << std::endl;
+                    mk_ismt2_pp(n->get_expr(), m) << "\n";
                 first = false;
             }
         }
@@ -400,24 +395,24 @@ namespace fpa {
         if (first)
             return out;
 
-        out << "bv theory variables:" << std::endl;
+        out << "bv theory variables:" << "\n";
         for (enode* n : ctx.get_egraph().nodes()) {
             theory_var v = n->get_th_var(m_bv_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp(n->get_expr(), m) << std::endl;
+                mk_ismt2_pp(n->get_expr(), m) << "\n";
         }
 
-        out << "arith theory variables:" << std::endl;
+        out << "arith theory variables:" << "\n";
         for (enode* n : ctx.get_egraph().nodes()) {
             theory_var v = n->get_th_var(m_arith_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp(n->get_expr(), m) << std::endl;
+                mk_ismt2_pp(n->get_expr(), m) << "\n";
         }
 
         out << "equivalence classes:\n";
         for (enode* n : ctx.get_egraph().nodes()) {
             expr* e = n->get_expr();
-            out << n->get_root_id() << " --> " << mk_ismt2_pp(e, m) << std::endl;
+            out << n->get_root_id() << " --> " << mk_ismt2_pp(e, m) << "\n";
         }
         return out;
     }

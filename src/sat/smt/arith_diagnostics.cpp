@@ -69,7 +69,7 @@ namespace arith {
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { 
-        return euf::th_explain::from_index(idx).display(out);
+        return euf::th_explain::from_index(idx).display(out << "arith ");
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { 
@@ -82,10 +82,8 @@ namespace arith {
         if (m_nla) m_nla->collect_statistics(st);
     }
 
-    void solver::explain_assumptions() {
-        unsigned i = 0;
-        for (auto const & ev : m_explanation) {
-            ++i;
+    void solver::explain_assumptions(lp::explanation const& e) {
+        for (auto const & ev : e) {
             auto idx = ev.ci();
             if (UINT_MAX == idx)
                 continue;
@@ -118,18 +116,43 @@ namespace arith {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.set_type(ctx, ty);
-        explain_assumptions();
+        explain_assumptions(m_explanation);
         if (lit != sat::null_literal)
             m_arith_hint.add_lit(rational(1), ~lit);
         return m_arith_hint.mk(ctx);
     }
 
-    arith_proof_hint const* solver::explain_implied_eq(euf::enode* a, euf::enode* b) {
+    arith_proof_hint const* solver::explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+        arith_proof_hint* hint = nullptr;
+        if (ctx.use_drat()) {
+            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            for (auto lit : core)
+                m_arith_hint.add_lit(rational::one(), lit);
+            for (auto const& [a,b] : eqs)
+                m_arith_hint.add_eq(a, b);
+            hint = m_arith_hint.mk(ctx);
+        }
+        return hint;
+    }
+
+    arith_proof_hint const* solver::explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b) {
         if (!ctx.use_drat())
             return nullptr;
         m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
-        explain_assumptions();
+        explain_assumptions(e);
+        m_arith_hint.set_num_le(1); // TODO
         m_arith_hint.add_diseq(a, b);
+        return m_arith_hint.mk(ctx);
+    }
+
+    arith_proof_hint const* solver::explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq) {
+        if (!ctx.use_drat())
+            return nullptr;
+        m_arith_hint.set_type(ctx, hint_type::implied_eq_h);
+        m_arith_hint.set_num_le(1);
+        m_arith_hint.add_lit(rational(1), le);
+        m_arith_hint.add_lit(rational(1), ge);
+        m_arith_hint.add_lit(rational(1), ~eq);
         return m_arith_hint.mk(ctx);
     }
 
@@ -139,6 +162,8 @@ namespace arith {
         arith_util arith(m);
         solver& a = dynamic_cast<solver&>(*s.fid2solver(fid));
         char const* name;
+        expr_ref_vector args(m);
+
         switch (m_ty) {
         case hint_type::farkas_h:
             name = "farkas";
@@ -148,15 +173,14 @@ namespace arith {
             break;
         case hint_type::implied_eq_h:
             name = "implied-eq";
+            args.push_back(arith.mk_int(m_num_le));
             break;
         }
         rational lc(1);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             lc = lcm(lc, denominator(a.m_arith_hint.lit(i).first));
-            
-        expr_ref_vector args(m);
-        sort_ref_vector sorts(m);
-        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {            
+
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {
             auto const& [coeff, lit] = a.m_arith_hint.lit(i);
             args.push_back(arith.mk_int(abs(coeff*lc)));
             args.push_back(s.literal2expr(lit));
@@ -168,11 +192,6 @@ namespace arith {
             args.push_back(arith.mk_int(1));
             args.push_back(eq);
         }
-        for (expr* arg : args)
-            sorts.push_back(arg->get_sort());
-        sort* range = m.mk_proof_sort();
-        func_decl* d = m.mk_func_decl(symbol(name), args.size(), sorts.data(), range);
-        expr* r = m.mk_app(d, args);
-        return r;
+        return m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
     }
 }

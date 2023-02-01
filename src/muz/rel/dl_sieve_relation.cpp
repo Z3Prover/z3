@@ -413,14 +413,14 @@ namespace datalog {
         unsigned sig_sz = r.get_signature().size();
         unsigned_vector permutation;
         add_sequence(0, sig_sz, permutation);
-        permutate_by_cycle(permutation, cycle_len, permutation_cycle);
+        permute_by_cycle(permutation, cycle_len, permutation_cycle);
 
         bool inner_identity;
         unsigned_vector inner_permutation;
         collect_sub_permutation(permutation, r.m_sig2inner, inner_permutation, inner_identity);
 
         bool_vector result_inner_cols = r.m_inner_cols;
-        permutate_by_cycle(result_inner_cols, cycle_len, permutation_cycle);
+        permute_by_cycle(result_inner_cols, cycle_len, permutation_cycle);
 
         relation_signature result_sig;
         relation_signature::from_rename(r.get_signature(), cycle_len, permutation_cycle, result_sig);

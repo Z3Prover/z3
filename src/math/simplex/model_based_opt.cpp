@@ -98,17 +98,78 @@ namespace opt {
             }
             else if (v1 < v2) {
                 vs.push_back(vs1[i]);
-                vs.back().m_coeff *= c1;                 
+                vs.back().m_coeff *= c1;    
+                ++i;
             }
             else {
                 vs.push_back(vs2[j]);
-                vs.back().m_coeff *= c2;                 
+                vs.back().m_coeff *= c2;   
+                ++j;
             }
         }
         result.m_div = c1*m_div;
         result.m_coeff = (m_coeff*c1) + (other.m_coeff*c2);
         result.normalize();
         return result;
+    }
+
+    /**
+         a1*x1 + a2*x2 + a3*x3 + coeff1 / c1
+         x2 |-> b1*x1 + b4*x4 + ceoff2 / c2
+         ------------------------------------------------------------------------
+         (a1*x1 + a2*((b1*x1 + b4*x4 + coeff2) / c2) + a3*x3 + coeff1) / c1
+         ------------------------------------------------------------------------
+         (c2*a1*x1 + a2*b1*x1 + a2*b4*x4 + c2*a3*x3 + c2*coeff1 + coeff2) / c1*c2
+     */
+    void model_based_opt::def::substitute(unsigned v, def const& other) {
+        vector<var> const& vs1 = m_vars;
+        rational coeff(0);
+        for (auto const& [id, c] : vs1) {
+            if (id == v) {
+                coeff = c;
+                break;
+            }
+        }
+        if (coeff == 0) 
+            return;
+
+        rational c1 = m_div;
+        rational c2 = other.m_div;
+
+        vector<var> const& vs2 = other.m_vars;
+        vector<var> vs;
+        unsigned i = 0, j = 0;
+        while (i < vs1.size() || j < vs2.size()) {
+            unsigned v1 = UINT_MAX, v2 = UINT_MAX;
+            if (i < vs1.size()) v1 = vs1[i].m_id;
+            if (j < vs2.size()) v2 = vs2[j].m_id;
+            if (v1 == v) 
+                ++i;
+            else if (v1 == v2) {
+                vs.push_back(vs1[i]);
+                vs.back().m_coeff *= c2; 
+                vs.back().m_coeff += coeff * vs2[j].m_coeff; 
+                ++i; ++j;
+                if (vs.back().m_coeff.is_zero()) 
+                    vs.pop_back();
+            }
+            else if (v1 < v2) {
+                vs.push_back(vs1[i]);
+                vs.back().m_coeff *= c2;    
+                ++i;                
+            }
+            else {
+                vs.push_back(vs2[j]);
+                vs.back().m_coeff *= coeff;    
+                ++j;                
+            }
+        }
+        m_div *= other.m_div;
+        m_coeff *= c2;
+        m_coeff += coeff*other.m_coeff;
+        m_vars.reset();
+        m_vars.append(vs);
+        normalize();
     }
 
     model_based_opt::def model_based_opt::def::operator/(rational const& r) const {
@@ -953,12 +1014,14 @@ namespace opt {
         return dst;
     }
 
+    // -x + lo <= 0
     void model_based_opt::add_lower_bound(unsigned x, rational const& lo) {
         vector<var> coeffs;
         coeffs.push_back(var(x, rational::minus_one()));
         add_constraint(coeffs, lo, t_le);
     }
 
+    // x - hi <= 0
     void model_based_opt::add_upper_bound(unsigned x, rational const& hi) {
         vector<var> coeffs;
         coeffs.push_back(var(x, rational::one()));
@@ -1238,7 +1301,7 @@ namespace opt {
         def result;
         unsigned_vector div_rows(_div_rows), mod_rows(_mod_rows);
         SASSERT(!div_rows.empty() || !mod_rows.empty());
-        TRACE("opt", display(tout << "solve_div " << x << "\n"));
+        TRACE("opt", display(tout << "solve_div v" << x << "\n"));
 
         rational K(1);
         for (unsigned ri : div_rows)
@@ -1381,8 +1444,9 @@ namespace opt {
         for (unsigned ri : mod_rows) {
             rational a = get_coefficient(ri, x);
             replace_var(ri, x, rational::zero());
+            rational rMod = m_rows[ri].m_mod;
 
-            // add w = b mod K
+            // add w = b mod rMod
             vector<var> coeffs = m_rows[ri].m_vars;
             rational coeff = m_rows[ri].m_coeff;
             unsigned v = m_rows[ri].m_id;
@@ -1390,16 +1454,46 @@ namespace opt {
 
             unsigned w = UINT_MAX;
             rational offset(0);
-            if (coeffs.empty() || K == 1)
-                offset = mod(coeff, K);
+            if (coeffs.empty() || rMod == 1)
+                offset = mod(coeff, rMod);
             else
-                w = add_mod(coeffs, coeff, K);
+                w = add_mod(coeffs, coeff, rMod);
 
 
             rational w_value = w == UINT_MAX ? offset : m_var2value[w];
 
-            // add v = a*z + w - V, for k = (a*z_value + w_value) div K
-            // claim: (= (mod x K) (- x (* K (div x K)))))) is a theorem for every x, K != 0
+#if 0
+            // V := (a * z_value + w_value) div rMod
+            // V*rMod <= a*z + w < (V+1)*rMod
+            // v = a*z + w - V*rMod
+            SASSERT(a > 0);
+            SASSERT(z_value >= 0);
+            SASSERT(w_value >= 0);
+            SASSERT(a * z_value + w_value >= 0);
+            rational V = div(a * z_value + w_value, rMod);
+            vector<var> mod_coeffs;
+            SASSERT(V >= 0);
+            SASSERT(a * z_value + w_value >= V*rMod);
+            SASSERT((V+1)*rMod > a*z_value + w_value);
+            // -a*z - w + V*rMod <= 0
+            mod_coeffs.push_back(var(z, -a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, -rational::one()));
+            add_constraint(mod_coeffs, V*rMod - offset, t_le);
+            mod_coeffs.reset();
+            // a*z + w - (V+1)*rMod + 1 <= 0
+            mod_coeffs.push_back(var(z, a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
+            add_constraint(mod_coeffs, -(V+1)*rMod + offset + 1, t_le); 
+            mod_coeffs.reset();
+            // -v + a*z + w - V*rMod = 0
+            mod_coeffs.push_back(var(v, rational::minus_one()));
+            mod_coeffs.push_back(var(z, a));
+            if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
+            add_constraint(mod_coeffs, offset - V*rMod, t_eq);
+
+#else
+            // add v = a*z + w - V, for V = v_value - a * z_value - w_value
+            // claim: (= (mod x rMod) (- x (* rMod (div x rMod)))))) is a theorem for every x, rMod != 0
             rational V = v_value - a * z_value - w_value;
             vector<var> mod_coeffs;
             mod_coeffs.push_back(var(v, rational::minus_one()));
@@ -1407,24 +1501,34 @@ namespace opt {
             if (w != UINT_MAX) mod_coeffs.push_back(var(w, rational::one()));
             add_constraint(mod_coeffs, V + offset, t_eq);
             add_lower_bound(v, rational::zero());
-            add_upper_bound(v, K - 1);
+            add_upper_bound(v, rMod - 1);
+#endif
 
             retire_row(ri);
             vs.push_back(v);
         }
 
 
-        for (unsigned v : vs)
-            project(v, false);
-
+        for (unsigned v : vs) {
+            def v_def = project(v, compute_def);
+            if (compute_def)
+                eliminate(v, v_def);
+        }
+                      
         // project internal variables.
-
-        def y_def = project(y, compute_def);
         def z_def = project(z, compute_def);
+        def y_def = project(y, compute_def); // may depend on z
 
         if (compute_def) {
+            z_def.substitute(y, y_def);
+            eliminate(y, y_def);
+            eliminate(z, z_def);
+
             result = (y_def * K) + z_def;
             m_var2value[x] = eval(result);
+            TRACE("opt", tout << y << " := " << y_def << "\n";
+                         tout << z << " := " << z_def << "\n";
+                         tout << x << " := " << result << "\n");
         }
         TRACE("opt", display(tout << "solve_div done v" << x << "\n"));
         return result;
@@ -1624,14 +1728,20 @@ namespace opt {
         TRACE("opt", display(tout << "solved v" << x << "\n"));
         return result;
     }
+
+    void model_based_opt::eliminate(unsigned v, def const& new_def) {
+        for (auto & d : m_result)
+            d.substitute(v, new_def);
+    }
     
     vector<model_based_opt::def> model_based_opt::project(unsigned num_vars, unsigned const* vars, bool compute_def) {
-        vector<def> result;
+        m_result.reset();
         for (unsigned i = 0; i < num_vars; ++i) {
-            result.push_back(project(vars[i], compute_def));
+            m_result.push_back(project(vars[i], compute_def));
+            eliminate(vars[i], m_result.back());
             TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n"););
         }
-        return result;
+        return m_result;
     }
 
 }

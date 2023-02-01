@@ -44,12 +44,12 @@ static void display_statistics() {
     lock_guard lock(*display_stats_mux);
     clock_t end_time = clock();
     if (g_cmd_context && g_display_statistics) {
-        std::cout.flush();
-        std::cerr.flush();
         if (g_cmd_context) {
             g_cmd_context->set_regular_stream("stdout");
             g_cmd_context->display_statistics(true, ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         }
+        std::cout.flush();
+        std::cerr.flush();
     }
 }
 
@@ -88,14 +88,52 @@ void help_tactics() {
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
 
-void help_tactic(char const* name) {
+void help_simplifiers() {
+    struct cmp {
+        bool operator()(simplifier_cmd* a, simplifier_cmd* b) const {
+            return a->get_name().str() < b->get_name().str();
+        }
+    };
+    cmd_context ctx;
+    ptr_vector<simplifier_cmd> cmds;
+    for (auto cmd : ctx.simplifiers()) 
+        cmds.push_back(cmd);
+    cmp lt;
+    std::sort(cmds.begin(), cmds.end(), lt);
+    for (auto cmd : cmds) 
+        std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
+}
+
+void help_tactic(char const* name, bool markdown) {
     cmd_context ctx;
     for (auto cmd : ctx.tactics()) {
         if (cmd->get_name() == name) {
             tactic_ref t = cmd->mk(ctx.m());
             param_descrs descrs;
             t->collect_param_descrs(descrs);
-            descrs.display(std::cout, 4);
+            if (markdown)
+                descrs.display_markdown(std::cout);
+            else
+                descrs.display(std::cout, 4);
+        }
+    }
+}
+
+void help_simplifier(char const* name, bool markdown) {
+    cmd_context ctx;
+    for (auto cmd : ctx.simplifiers()) {
+        if (cmd->get_name() == name) {
+            auto fac = cmd->factory();
+            param_descrs descrs;
+            ast_manager& m = ctx.m();
+            default_dependent_expr_state st(m);
+            params_ref p;
+            scoped_ptr<dependent_expr_simplifier> s = fac(m, p, st);
+            s->collect_param_descrs(descrs);
+            if (markdown)
+                descrs.display_markdown(std::cout);
+            else
+                descrs.display(std::cout, 4);
         }
     }
 }

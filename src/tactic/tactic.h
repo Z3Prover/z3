@@ -76,6 +76,10 @@ public:
 
     static void checkpoint(ast_manager& m);
 
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        throw default_exception("tactic does not support clause logging");
+    }
+
     void user_propagate_init(
         void* ctx,
         user_propagator::push_eh_t& push_eh,
@@ -110,6 +114,15 @@ public:
 };
 
 void report_tactic_progress(char const * id, unsigned val);
+
+class statistics_report {
+    tactic* m_tactic = nullptr;
+    std::function<void(statistics& st)> m_collector;
+public:
+    statistics_report(tactic& t):m_tactic(&t) {}
+    statistics_report(std::function<void(statistics&)>&& coll): m_collector(std::move(coll)) {}
+    ~statistics_report();
+};
 
 class skip_tactic : public tactic {
 public:

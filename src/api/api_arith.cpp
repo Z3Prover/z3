@@ -48,6 +48,20 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_ast Z3_API Z3_mk_real_int64(Z3_context c, int64_t num, int64_t den) {
+        Z3_TRY;
+        LOG_Z3_mk_real_int64(c, num, den);
+        RESET_ERROR_CODE();
+        if (den == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            RETURN_Z3(nullptr);
+        }
+        sort* s = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
+        ast* a = mk_c(c)->mk_numeral_core(rational(num, rational::i64())/rational(den, rational::i64()), s);
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den) {
         Z3_TRY;
         LOG_Z3_mk_real(c, num, den);

@@ -211,6 +211,22 @@ public:
 
     bool contains(const bit_vector & other) const;
 
+    class iterator {
+        bit_vector const& b;
+        unsigned m_curr;
+    public:
+        iterator(bit_vector const& b, unsigned i) : b(b), m_curr(i) {}
+        bool operator*(unsigned i) const { return b.get(m_curr); }
+        bool operator*() const { return b.get(m_curr); }
+        iterator& operator++() { ++m_curr; return *this; }
+        iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
+        bool operator==(iterator const& it) const { return m_curr == it.m_curr; }
+        bool operator!=(iterator const& it) const { return m_curr != it.m_curr; }        
+    };
+
+    iterator begin() const { return iterator(*this, 0); }
+    iterator end() const { return iterator(*this, size()); }
+
 };
 
 inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {

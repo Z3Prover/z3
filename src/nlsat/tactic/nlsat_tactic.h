@@ -13,7 +13,24 @@ Author:
 
     Leonardo (leonardo) 2012-01-02
 
-Notes:
+Tactic Documentation:
+
+## Tactic nlsat
+
+### Short Description
+
+(try to) solve goal using a nonlinear arithmetic solver
+
+### Example
+
+```z3
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (* x x) (* y x)))
+(assert (> x 0))
+(assert (< y 1))
+(apply (then simplify purify-arith nlsat))
+```
 
 --*/
 #pragma once

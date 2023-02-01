@@ -115,7 +115,7 @@ debug_action ask_debug_action(std::istream& in) {
 
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
 void invoke_gdb() {
-    char buffer[1024];
+    std::string buffer;
     int *x = nullptr;
     debug_action a = get_default_debug_action();
     for (;;) {
@@ -131,9 +131,9 @@ void invoke_gdb() {
         case debug_action::throw_exception:
             throw default_exception("assertion violation");
         case debug_action::invoke_debugger:
-            sprintf(buffer, "gdb -nw /proc/%d/exe %d", getpid(), getpid());
+            buffer = "gdb -nw /proc/" + std::to_string(getpid()) + "/exe " + std::to_string(getpid());
             std::cerr << "invoking GDB...\n";
-            if (system(buffer) == 0) {
+            if (system(buffer.c_str()) == 0) {
                 std::cerr << "continuing the execution...\n";
             }
             else {

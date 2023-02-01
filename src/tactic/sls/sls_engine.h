@@ -20,7 +20,7 @@ Notes:
 
 #include "util/stopwatch.h"
 #include "util/lbool.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "tactic/goal.h"
 
 #include "tactic/sls/sls_tracker.h"

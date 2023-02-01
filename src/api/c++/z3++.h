@@ -63,6 +63,7 @@ namespace z3 {
     class solver;
     class goal;
     class tactic;
+    class simplifier;
     class probe;
     class model;
     class func_interp;
@@ -158,7 +159,7 @@ namespace z3 {
     class context {
     private:
         friend class user_propagator_base;
-        bool       m_enable_exceptions;
+        bool       m_enable_exceptions = true;
         rounding_mode m_rounding_mode;
         Z3_context m_ctx = nullptr;
         void init(config & c) {
@@ -366,8 +367,14 @@ namespace z3 {
         void      recdef(func_decl, expr_vector const& args, expr const& body);
         func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
+        /**
+           \brief create an uninterpreted constant.
+         */
         expr constant(symbol const & name, sort const & s);
         expr constant(char const * name, sort const & s);
+        /**
+           \brief create uninterpreted constants of a given sort.
+         */
         expr bool_const(char const * name);
         expr int_const(char const * name);
         expr real_const(char const * name);
@@ -377,6 +384,12 @@ namespace z3 {
 
         template<size_t precision>
         expr fpa_const(char const * name);
+
+        /**
+           \brief create a de-Bruijn variable.
+         */
+        expr variable(unsigned index, sort const& s);
+        
 
         expr fpa_rounding_mode();
 
@@ -388,11 +401,11 @@ namespace z3 {
         expr int_val(uint64_t n);
         expr int_val(char const * n);
 
-        expr real_val(int n, int d);
         expr real_val(int n);
         expr real_val(unsigned n);
         expr real_val(int64_t n);
         expr real_val(uint64_t n);
+        expr real_val(int64_t n, int64_t d);
         expr real_val(char const * n);
 
         expr bv_val(int n, unsigned sz);
@@ -1566,6 +1579,11 @@ namespace z3 {
         */
         expr substitute(expr_vector const& dst);
 
+        /**
+           \brief Apply function substitution by macro definitions.           
+        */
+        expr substitute(func_decl_vector const& funs, expr_vector const& bodies);
+
 
     class iterator {
             expr& e;
@@ -1902,21 +1920,21 @@ namespace z3 {
     inline expr operator>(expr const & a, int b) { return a > a.ctx().num_val(b, a.get_sort()); }
     inline expr operator>(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) > b; }
 
-    inline expr operator&(expr const & a, expr const & b) { if (a.is_bool()) return a && b; check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr operator&(expr const & a, expr const & b) { if (a.is_bool()) return a && b; check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
     inline expr operator&(expr const & a, int b) { return a & a.ctx().num_val(b, a.get_sort()); }
     inline expr operator&(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) & b; }
 
-    inline expr operator^(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = a.is_bool() ? Z3_mk_xor(a.ctx(), a, b) : Z3_mk_bvxor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr operator^(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = a.is_bool() ? Z3_mk_xor(a.ctx(), a, b) : Z3_mk_bvxor(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
     inline expr operator^(expr const & a, int b) { return a ^ a.ctx().num_val(b, a.get_sort()); }
     inline expr operator^(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) ^ b; }
 
-    inline expr operator|(expr const & a, expr const & b) { if (a.is_bool()) return a || b; check_context(a, b); Z3_ast r = Z3_mk_bvor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr operator|(expr const & a, expr const & b) { if (a.is_bool()) return a || b; check_context(a, b); Z3_ast r = Z3_mk_bvor(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
     inline expr operator|(expr const & a, int b) { return a | a.ctx().num_val(b, a.get_sort()); }
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
-    inline expr nand(expr const& a, expr const& b) { if (a.is_bool()) return !(a && b); check_context(a, b); Z3_ast r = Z3_mk_bvnand(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr nor(expr const& a, expr const& b) { if (a.is_bool()) return !(a || b); check_context(a, b); Z3_ast r = Z3_mk_bvnor(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr xnor(expr const& a, expr const& b) { if (a.is_bool()) return !(a ^ b); check_context(a, b); Z3_ast r = Z3_mk_bvxnor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr nand(expr const& a, expr const& b) { if (a.is_bool()) return !(a && b); check_context(a, b); Z3_ast r = Z3_mk_bvnand(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
+    inline expr nor(expr const& a, expr const& b) { if (a.is_bool()) return !(a || b); check_context(a, b); Z3_ast r = Z3_mk_bvnor(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
+    inline expr xnor(expr const& a, expr const& b) { if (a.is_bool()) return !(a ^ b); check_context(a, b); Z3_ast r = Z3_mk_bvxnor(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); }
     inline expr min(expr const& a, expr const& b) { 
         check_context(a, b); 
         Z3_ast r;
@@ -1930,6 +1948,7 @@ namespace z3 {
             assert(a.is_fpa());
             r = Z3_mk_fpa_min(a.ctx(), a, b); 
         }
+        a.check_error();
         return expr(a.ctx(), r); 
     }
     inline expr max(expr const& a, expr const& b) { 
@@ -1945,6 +1964,7 @@ namespace z3 {
             assert(a.is_fpa());
             r = Z3_mk_fpa_max(a.ctx(), a, b); 
         }
+        a.check_error();
         return expr(a.ctx(), r); 
     }
     inline expr bvredor(expr const & a) {
@@ -2670,12 +2690,13 @@ namespace z3 {
     public:
         struct simple {};
         struct translate {};
-        solver(context & c):object(c) { init(Z3_mk_solver(c)); }
-        solver(context & c, simple):object(c) { init(Z3_mk_simple_solver(c)); }
+        solver(context & c):object(c) { init(Z3_mk_solver(c)); check_error(); }
+        solver(context & c, simple):object(c) { init(Z3_mk_simple_solver(c)); check_error(); }
         solver(context & c, Z3_solver s):object(c) { init(s); }
-        solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); }
+        solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); check_error(); }
         solver(context & c, solver const& src, translate): object(c) { Z3_solver s = Z3_solver_translate(src.ctx(), src, c); check_error(); init(s); }
         solver(solver const & s):object(s) { init(s.m_solver); }
+        solver(solver const& s, simplifier const& simp);
         ~solver() { Z3_solver_dec_ref(ctx(), m_solver); }
         operator Z3_solver() const { return m_solver; }
         solver & operator=(solver const & s) {
@@ -3044,6 +3065,47 @@ namespace z3 {
         Z3_tactic r = Z3_tactic_par_and_then(t1.ctx(), t1, t2);
         t1.check_error();
         return tactic(t1.ctx(), r);
+    }
+
+    class simplifier : public object {
+        Z3_simplifier m_simplifier;
+        void init(Z3_simplifier s) {
+            m_simplifier = s;
+            Z3_simplifier_inc_ref(ctx(), s);
+        }
+    public:
+        simplifier(context & c, char const * name):object(c) { Z3_simplifier r = Z3_mk_simplifier(c, name); check_error(); init(r); }
+        simplifier(context & c, Z3_simplifier s):object(c) { init(s); }
+        simplifier(simplifier const & s):object(s) { init(s.m_simplifier); }
+        ~simplifier() { Z3_simplifier_dec_ref(ctx(), m_simplifier); }
+        operator Z3_simplifier() const { return m_simplifier; }
+        simplifier & operator=(simplifier const & s) {
+            Z3_simplifier_inc_ref(s.ctx(), s.m_simplifier);
+            Z3_simplifier_dec_ref(ctx(), m_simplifier);
+            object::operator=(s);
+            m_simplifier = s.m_simplifier;
+            return *this;
+        }
+        std::string help() const { char const * r = Z3_simplifier_get_help(ctx(), m_simplifier); check_error();  return r; }
+        friend simplifier operator&(simplifier const & t1, simplifier const & t2);
+        friend simplifier with(simplifier const & t, params const & p);
+        param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_simplifier_get_param_descrs(ctx(), m_simplifier)); }
+    };
+
+    inline solver::solver(solver const& s, simplifier const& simp):object(s) { init(Z3_solver_add_simplifier(s.ctx(), s, simp)); }
+
+
+    inline simplifier operator&(simplifier const & t1, simplifier const & t2) {
+        check_context(t1, t2);
+        Z3_simplifier r = Z3_simplifier_and_then(t1.ctx(), t1, t2);
+        t1.check_error();
+        return simplifier(t1.ctx(), r);
+    }
+
+    inline simplifier with(simplifier const & t, params const & p) {
+        Z3_simplifier r = Z3_simplifier_using_params(t.ctx(), t, p);
+        t.check_error();
+        return simplifier(t.ctx(), r);
     }
 
     class probe : public object {
@@ -3575,6 +3637,11 @@ namespace z3 {
         return expr(*this, r);
     }
     inline expr context::constant(char const * name, sort const & s) { return constant(str_symbol(name), s); }
+    inline expr context::variable(unsigned idx, sort const& s) { 
+        Z3_ast r = Z3_mk_bound(m_ctx, idx, s);
+        check_error();
+        return expr(*this, r);
+    }
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
     inline expr context::int_const(char const * name) { return constant(name, int_sort()); }
     inline expr context::real_const(char const * name) { return constant(name, real_sort()); }
@@ -3606,7 +3673,7 @@ namespace z3 {
     inline expr context::int_val(uint64_t n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
     inline expr context::int_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
 
-    inline expr context::real_val(int n, int d) { Z3_ast r = Z3_mk_real(m_ctx, n, d); check_error(); return expr(*this, r); }
+    inline expr context::real_val(int64_t n, int64_t d) { Z3_ast r = Z3_mk_real_int64(m_ctx, n, d); check_error(); return expr(*this, r); }
     inline expr context::real_val(int n) { Z3_ast r = Z3_mk_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(unsigned n) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(int64_t n) { Z3_ast r = Z3_mk_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
@@ -4059,6 +4126,41 @@ namespace z3 {
         return expr(ctx(), r);
     }
 
+    inline expr expr::substitute(func_decl_vector const& funs, expr_vector const& dst) {
+        array<Z3_ast> _dst(dst.size());
+        array<Z3_func_decl> _funs(funs.size());
+        if (dst.size() != funs.size()) {
+            Z3_THROW(exception("length of argument lists don't align"));
+            return expr(ctx(), nullptr);
+        }
+        for (unsigned i = 0; i < dst.size(); ++i) {
+            _dst[i] = dst[i];
+            _funs[i] = funs[i];
+        }
+        Z3_ast r = Z3_substitute_funs(ctx(), m_ast, dst.size(), _funs.ptr(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    typedef std::function<void(expr const& proof, expr_vector const& clause)> on_clause_eh_t;
+
+    class on_clause {
+        context& c;
+        on_clause_eh_t m_on_clause;
+
+        static void _on_clause_eh(void* _ctx, Z3_ast _proof, Z3_ast_vector _literals) {
+            on_clause* ctx = static_cast<on_clause*>(_ctx);
+            expr_vector lits(ctx->c, _literals);
+            expr proof(ctx->c, _proof);
+            ctx->m_on_clause(proof, lits);
+        }
+    public:
+        on_clause(solver& s, on_clause_eh_t& on_clause_eh): c(s.ctx()) {
+            m_on_clause = on_clause_eh;
+            Z3_solver_register_on_clause(c, s, this, _on_clause_eh);
+            c.check_error();
+        }        
+    };
 
     class user_propagator_base {
 

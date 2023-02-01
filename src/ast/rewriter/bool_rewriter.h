@@ -20,6 +20,7 @@ Notes:
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/hoist_rewriter.h"
 #include "util/params.h"
 
 /**
@@ -50,10 +51,12 @@ Notes:
 */
 class bool_rewriter {
     ast_manager &  m_manager;
-    bool           m_flat;
-    bool           m_local_ctx;
-    bool           m_elim_and;
-    bool           m_blast_distinct;
+    hoist_rewriter m_hoist;
+    bool           m_flat_and_or = false;
+    bool           m_local_ctx = false;
+    bool           m_elim_and = false;
+    bool           m_blast_distinct = false;
+    bool           m_order_eq = false;
     unsigned       m_blast_distinct_threshold;
     bool           m_ite_extra_rules;
     unsigned       m_local_ctx_limit;
@@ -78,16 +81,17 @@ class bool_rewriter {
     void push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits);
 
 public:
-    bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { updt_params(p); }
+    bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_hoist(m), m_local_ctx_cost(0) { updt_params(p); }
     ast_manager & m() const { return m_manager; }
     family_id get_fid() const { return m().get_basic_family_id(); }
     bool is_eq(expr * t) const { return m().is_eq(t); }
     
-    bool flat() const { return m_flat; }
-    void set_flat(bool f) { m_flat = f; }
+    bool flat_and_or() const { return m_flat_and_or; }
+    void set_flat_and_or(bool f) { m_flat_and_or = f; }
     bool elim_and() const { return m_elim_and; }
     void set_elim_and(bool f) { m_elim_and = f; }
     void reset_local_ctx_cost() { m_local_ctx_cost = 0; }
+    void set_order_eq(bool f) { m_order_eq = f; }
     
     void updt_params(params_ref const & p);
 
@@ -111,7 +115,7 @@ public:
             mk_and_as_or(num_args, args, result);
             return BR_DONE;
         }
-        else if (m_flat) {
+        else if (m_flat_and_or) {
             return mk_flat_and_core(num_args, args, result);
         }
         else {
@@ -119,7 +123,7 @@ public:
         }
     }
     br_status mk_or_core(unsigned num_args, expr * const * args, expr_ref & result) {
-        return m_flat ?
+        return m_flat_and_or ?
             mk_flat_or_core(num_args, args, result) :
             mk_nflat_or_core(num_args, args, result);
     }
@@ -234,7 +238,7 @@ public:
 
 struct bool_rewriter_cfg : public default_rewriter_cfg {
     bool_rewriter m_r;
-    bool flat_assoc(func_decl * f) const { return m_r.flat() && (m_r.m().is_and(f) || m_r.m().is_or(f)); }
+    bool flat_assoc(func_decl * f) const { return m_r.flat_and_or() && (m_r.m().is_and(f) || m_r.m().is_or(f)); }
     bool rewrite_patterns() const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;

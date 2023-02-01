@@ -75,7 +75,7 @@ public:
         bit_blaster_tpl<blaster_cfg>(blaster_cfg(m_rewriter, m_util)),
         m_rewriter(m),
         m_util(m) {
-        m_rewriter.set_flat(false);
+        m_rewriter.set_flat_and_or(false);
         m_rewriter.set_elim_and(true);
     }
 

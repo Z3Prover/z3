@@ -24,7 +24,6 @@ Notes:
 #include "tactic/goal.h"
 
 class tactic;
-class filter_model_converter;
 
 tactic * mk_smt_tactic_core(ast_manager& m, params_ref const & p = params_ref(), symbol const& logic = symbol::null);
 // syntax sugar for using_params(mk_smt_tactic(), p) where p = (:auto_config, auto_config)

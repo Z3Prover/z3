@@ -1245,12 +1245,8 @@ void proof_checker::dump_proof(proof const* pr) {
 }
 
 void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent) {
-    char buffer[128];
-#ifdef _WINDOWS
-    sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "proof_lemma_%d.smt2", m_proof_lemma_id);
-#else
-    sprintf(buffer, "proof_lemma_%d.smt2", m_proof_lemma_id);
-#endif
+    std::string buffer;
+    buffer = "proof_lemma_" + std::to_string(m_proof_lemma_id) + ".smt2";
     std::ofstream out(buffer);
     ast_smt_pp pp(m);
     pp.set_benchmark_name("lemma");

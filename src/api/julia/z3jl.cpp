@@ -528,7 +528,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.BINARY_OP(tactic, &, &);
     m.BINARY_OP(tactic, |, |);
     m.method("repeat", &repeat);
-    m.method("with", &with);
+    m.method("with", static_cast<tactic (*)(const tactic & , const params &)>(&with));
     m.method("try_for", &try_for);
     m.method("par_or", &par_or);
     m.method("par_and_then", &par_and_then);
@@ -692,7 +692,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> b) { return a.real_val(b.value); })
         .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  b) { return a.real_val(b.value); })
         .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> b) { return a.real_val(b.value); })
-        .method("real_val", static_cast<expr (context::*)(int, int)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(int64_t, int64_t)>(&context::real_val))
         .method("real_val", static_cast<expr (context::*)(char const *)>(&context::real_val))
         //
         .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      b, unsigned c) { return a.bv_val(b.value, c); })

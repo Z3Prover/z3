@@ -2809,6 +2809,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);
+        // x = 0 -> result = 0+
+        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_eq(result, m_util.mk_pzero(result->get_sort()))));
     }
 
     SASSERT(is_well_sorted(m, result));
@@ -3288,7 +3290,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
 void fpa2bv_converter::mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
 {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_IEEE_BV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, true, result);
+    mk_to_ieee_bv(fu, num, args, result);
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
@@ -3475,12 +3477,12 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 
 void fpa2bv_converter::mk_to_ubv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_UBV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, false, result);
+    mk_to_bv(fu, num, args, false, result);
 }
 
 void fpa2bv_converter::mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_SBV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, true, result);
+    mk_to_bv(fu, num, args, true, result);
 }
 
 expr_ref fpa2bv_converter::nan_wrap(expr * n) {
@@ -3529,7 +3531,7 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
 
 void fpa2bv_converter::mk_to_real_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_REAL, 0, nullptr, num, args), m);
-    mk_to_real(f, num, args, result);
+    mk_to_real(fu, num, args, result);
 }
 
 void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

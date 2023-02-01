@@ -98,6 +98,7 @@ void display_usage() {
     std::cout << "  -pmmd:name  display Z3 module ('name') parameters in Markdown format.\n";
     std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  -tactics[:name]  display built-in tactics or if argument is given, display detailed information on tactic.\n";
+    std::cout << "  -simplifiers[:name]  display built-in simplifiers or if argument is given, display detailed information on simplifier.\n";
     std::cout << "  -probes     display avilable probes.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
@@ -293,11 +294,18 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 if (!opt_arg)
                     help_tactics();
                 else
-                    help_tactic(opt_arg);
+                    help_tactic(opt_arg, false);
             }
-            else if (strcmp(opt_name, "probes") == 0) {
+            else if (strcmp(opt_name, "simplifiers") == 0) {
+                if (!opt_arg)
+                    help_simplifiers();
+                else
+                    help_simplifier(opt_arg, false);
+            }
+            else if (strcmp(opt_name, "tacticsmd") == 0 && opt_arg) 
+                help_tactic(opt_arg, true);
+            else if (strcmp(opt_name, "probes") == 0) 
                 help_probes();
-            }
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
                 std::cerr << "For usage information: z3 -h\n";

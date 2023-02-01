@@ -21,7 +21,7 @@ Revision History:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "qe/qsat.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/core/elim_term_ite_tactic.h"

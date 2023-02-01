@@ -39,7 +39,7 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/arith/eq2bv_tactic.h"
 #include "tactic/bv/dt2bv_tactic.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "sat/sat_params.hpp"
@@ -124,7 +124,7 @@ namespace opt {
     }
 
     context::context(ast_manager& m):
-        m(m),
+        opt_wrapper(m),
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),

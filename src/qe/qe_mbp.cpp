@@ -30,7 +30,7 @@ Revision History:
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"
 #include "qe/mbp/mbp_datatypes.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "model/model_pp.h"
 #include "model/model_evaluator.h"
 

@@ -29,6 +29,8 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_basics(this),
     m_order(this),
     m_monotone(this),
+    m_powers(*this),
+    m_divisions(*this),
     m_intervals(this, lim),
     m_monomial_bounds(this),
     m_horner(this),
@@ -120,9 +122,8 @@ bool core::canonize_sign(const monic& m) const {
 
 bool core::canonize_sign(const factorization& f) const {
     bool r = false;
-    for (const factor & a : f) {
+    for (const factor & a : f) 
         r ^= canonize_sign(a);
-    }
     return r;
 }
 
@@ -158,7 +159,13 @@ rational core::product_value(const monic& m) const {
 }
     
 // return true iff the monic value is equal to the product of the values of the factors
+//                 or if the variable associated with the monomial is not relevant.
 bool core::check_monic(const monic& m) const {    
+#if 0
+    // TODO test this
+    if (!is_relevant(m.var()))
+        return true;
+#endif
     SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
     bool ret = product_value(m) == m_lar_solver.get_column_value(m.var()).x; 
     CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);
@@ -978,6 +985,9 @@ bool core::rm_check(const monic& rm) const {
     return check_monic(m_emons[rm.var()]);
 }
 
+bool core::has_relevant_monomial() const {
+    return any_of(emons(), [&](auto const& m) { return is_relevant(m.var()); });
+}
     
 bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
     for (auto f : factorization_factory_imp(m, *this)) {
@@ -1477,6 +1487,15 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
     }
 }
 
+lbool core::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec) {
+    m_lemma_vec =  &l_vec;
+    return m_powers.check(r, x, y, l_vec);
+}
+
+void core::check_bounded_divisions(vector<lemma>& l_vec) {
+    m_lemma_vec = &l_vec;
+    m_divisions.check_bounded_divisions();
+}
 
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
@@ -1515,6 +1534,9 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
 
+    if (l_vec.empty() && !done())
+        m_divisions.check();
+    
 #if 0
     if (l_vec.empty() && !done() && !run_horner) 
         m_horner.horner_lemmas();

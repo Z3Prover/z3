@@ -64,6 +64,108 @@ void test_parseprint(char const* spec) {
     Z3_del_context(ctx);
 }
 
+void test_eval(Z3_context ctx, Z3_string spec, bool shouldFail) {
+    std::cout << "spec:\n" << spec << "\n";
+
+    std::string resp;
+    bool failed = false;
+    try {
+        resp = Z3_eval_smtlib2_string(ctx, spec);
+    }
+    catch (std::runtime_error& e) {
+        resp = e.what();
+        failed = true;
+    }
+    catch (...) {
+        resp = "unknown exception";
+        failed = true;
+    }
+
+    std::cout << "response:\n" << resp << "\n";
+
+    if (shouldFail != failed) {
+        if (shouldFail)
+            throw std::runtime_error("should have failed");
+        else
+            throw std::runtime_error("should have succeeded");
+    }
+}
+
+void throwError(Z3_context c, Z3_error_code e) {
+    throw std::runtime_error(Z3_get_error_msg(c, e));
+}
+
+void test_repeated_eval() {
+    // Z3_eval_smtlib2_string reuses the parser and the scanner
+    // when called repeteadly on the same context.
+    //
+    // These tests rehearse that earlier calls do not interfere
+    // with the result of later calls if the SMT queries are independent.
+
+    char const* spec1 =
+        "(push)\n"
+        "(declare-datatypes (T) ((list (nil) (cons (car T) (cdr list)))))\n"
+        "(declare-const x Int)\n"
+        "(declare-const l (list Int))\n"
+        "(declare-fun f ((list Int)) Bool)\n"
+        "(assert (f (cons x l)))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+
+    char const* spec2 =
+        "(push)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(declare-const b (Array (Array Int Int) Bool))\n"
+        "(assert (select b a))\n"
+        "(assert (= b ((as const (Array (Array Int Int) Bool)) true)))\n"
+        "(assert (= b (store b a true)))\n"
+        "(declare-const b1 (Array Bool Bool))\n"
+        "(declare-const b2 (Array Bool Bool))\n"
+        "(assert (= ((as const (Array Bool Bool)) false) ((_ map and) b1 b2)))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+
+    char const* spec3 =
+        "(push)\n"
+        "(declare-const a@ (Array Int Int))\n"
+        "(declare-const b (Array (Array Int Int) Bool))\n"
+        "(assert (select b a))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+
+    char const* spec4 =
+        "(push)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(declare-const b# (Array (Array Int Int) Bool))\n"
+        "(assert (select b a))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, throwError);
+    std::cout << "testing Z3_eval_smtlib2_string\n";
+
+    try {
+        test_eval(ctx, spec1, false);
+        std::cout << "successful call after successful call\n";
+        test_eval(ctx, spec2, false);
+        std::cout << "failing call after successful call\n";
+        test_eval(ctx, spec3, true);
+        std::cout << "failing call after failing call\n";
+        test_eval(ctx, spec4, true);
+        std::cout << "successful call after failing call\n";
+        test_eval(ctx, spec1, false);
+    }
+    catch(...) {
+        std::cout << "Error: uncaught exception\n";
+        throw;
+    }
+
+    std::cout << "done evaluating\n";
+
+    Z3_del_context(ctx);
+}
+
 void tst_smt2print_parse() {
 
     // test basic datatypes  
@@ -126,6 +228,8 @@ void tst_smt2print_parse() {
 
     test_parseprint(spec6);
 
-    // Test ?     
+    // Test ?
+
+    test_repeated_eval();
 
 }

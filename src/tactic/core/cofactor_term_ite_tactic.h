@@ -8,13 +8,22 @@ Module Name:
 Abstract:
 
     Wrap cofactor_elim_term_ite as a tactic.
-    Eliminate (ground) term if-then-else's using cofactors.
 
 Author:
 
     Leonardo de Moura (leonardo) 2012-02-20.
 
-Revision History:
+Tactic Documentation:
+
+## Tactic cofactor-term-ite
+
+### Short Description
+Eliminate (ground) term if-then-else's using cofactors.
+It hoists nested if-then-else expressions inside terms into the top level of the formula.
+
+### Notes
+
+* does not support proofs, does not support cores
 
 --*/
 #pragma once

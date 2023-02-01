@@ -196,15 +196,103 @@ bool array_rewriter::squash_store(unsigned n, expr* const* args, expr_ref& resul
 }
 
 
+br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const * args, expr_ref & result) {
+    expr_ref tmp(m());
+    expr *arg0 = args[0];
+    bool first = true;
+
+#define RET(x, status)            \
+    tmp = x;                      \
+    if (first || tmp == result) { \
+        result = std::move(tmp);  \
+        return status;            \
+    }                             \
+    return BR_FAILED;
+
+    while (true) {
+        if (m_util.is_store(arg0)) {
+            SASSERT(to_app(arg0)->get_num_args() == num_args+1);
+            switch (compare_args(num_args - 1, args+1, to_app(arg0)->get_args()+1)) {
+            case l_true:
+                // select(store(a, I, v), I) --> v
+                RET(to_app(arg0)->get_arg(num_args), BR_DONE);
+
+            case l_false:
+                // select(store(a, I, v), J) --> select(a, J) if I != J
+                arg0 = to_app(arg0)->get_arg(0);
+                continue;
+
+            case l_undef:
+                // check if loading from subsequent arrays yields the same value
+                if (first) {
+                    result = to_app(arg0)->get_arg(num_args);
+                    first  = false;
+                }
+                else if (result != to_app(arg0)->get_arg(num_args))
+                    return BR_FAILED;
+                arg0 = to_app(arg0)->get_arg(0);
+                continue;
+            }
+        }
+
+        if (m_util.is_const(arg0)) {
+            // select(const(v), I) --> v
+            RET(to_app(arg0)->get_arg(0), BR_DONE);
+        }
+
+        if (is_lambda(arg0)) {
+            // anywhere lambda reduction as opposed to whnf
+            // select(lambda(X) M, N) -> M[N/X]
+            quantifier* q = to_quantifier(arg0);
+            SASSERT(q->get_num_decls() == num_args - 1);
+            var_subst subst(m());
+            expr_ref_vector _args(m());
+            var_shifter sh(m());
+            for (unsigned i = 1; i < num_args; ++i) {
+                sh(args[i],  num_args-1, result);
+                _args.push_back(result);
+            }
+            expr_ref tmp2 = subst(q->get_expr(), _args.size(), _args.data());
+            inv_var_shifter invsh(m());
+            invsh(tmp2, _args.size(), tmp2);
+            RET(std::move(tmp2), BR_REWRITE_FULL);
+        }
+
+        if (m_util.is_map(arg0)) {
+            app* a = to_app(arg0);
+            func_decl* f0 = m_util.get_map_func_decl(a);
+            expr_ref_vector args0(m());
+            for (expr* arg : *a) {
+                ptr_vector<expr> args1;
+                args1.push_back(arg);
+                args1.append(num_args-1, args + 1);
+                args0.push_back(m_util.mk_select(args1.size(), args1.data()));
+            }
+            RET(m().mk_app(f0, args0.size(), args0.data()), BR_REWRITE2);
+        }
+
+        if (m_util.is_as_array(arg0)) {
+            // select(as-array[f], I) --> f(I)
+            func_decl * f = m_util.get_as_array_func_decl(to_app(arg0));
+            RET(m().mk_app(f, num_args - 1, args + 1), BR_REWRITE1);
+        }
+        break;
+    }
+    return BR_FAILED;
+}
+
 br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(num_args >= 2);
+    br_status st = mk_select_same_store(num_args, args, result);
+    if (st != BR_FAILED)
+        return st;
+    result.reset();
+
     if (m_util.is_store(args[0])) {
         SASSERT(to_app(args[0])->get_num_args() == num_args+1);
         switch (compare_args(num_args - 1, args+1, to_app(args[0])->get_args()+1)) {
         case l_true:
-            // select(store(a, I, v), I) --> v
-            result = to_app(args[0])->get_arg(num_args);
-            return BR_DONE;
+            UNREACHABLE();
         case l_false: {
             expr* arg0 = to_app(args[0])->get_arg(0);
             while (m_util.is_store(arg0) && compare_args(num_args-1, args + 1, to_app(arg0)->get_args() + 1) == l_false) {
@@ -228,14 +316,17 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 }
                 return true;
             };
+            expr *array = to_app(args[0])->get_arg(0);
+            bool is_leaf = m_util.is_const(array);
             bool should_expand =
                 m_blast_select_store ||
+                is_leaf ||
                 are_values() ||
-                (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1);
+                (m_expand_select_store && array->get_ref_count() == 1);
             if (should_expand) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
                 ptr_buffer<expr> new_args;
-                new_args.push_back(to_app(args[0])->get_arg(0));
+                new_args.push_back(array);
                 new_args.append(num_args-1, args+1);
                 expr * sel_a_j = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.data());
                 expr * v       = to_app(args[0])->get_arg(num_args);
@@ -256,51 +347,6 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             return BR_FAILED;
         }
         }
-    }
-
-    if (m_util.is_const(args[0])) {
-        // select(const(v), I) --> v
-        result = to_app(args[0])->get_arg(0);
-        return BR_DONE;
-    }
-
-    if (is_lambda(args[0])) {
-        // anywhere lambda reduction as opposed to whnf
-        // select(lambda(X) M, N) -> M[N/X]
-        quantifier* q = to_quantifier(args[0]);
-        SASSERT(q->get_num_decls() == num_args - 1);
-        var_subst subst(m());
-        expr_ref_vector _args(m());
-        var_shifter sh(m());
-        for (unsigned i = 1; i < num_args; ++i) {
-            sh(args[i],  num_args-1, result);
-            _args.push_back(result);
-        }
-        result = subst(q->get_expr(), _args.size(), _args.data());
-        inv_var_shifter invsh(m());
-        invsh(result, _args.size(), result);
-        return BR_REWRITE_FULL;        
-    }
-
-    if (m_util.is_map(args[0])) {
-        app* a = to_app(args[0]);
-        func_decl* f0 = m_util.get_map_func_decl(a);
-        expr_ref_vector args0(m());
-        for (expr* arg : *a) {
-            ptr_vector<expr> args1;
-            args1.push_back(arg);
-            args1.append(num_args-1, args + 1);
-            args0.push_back(m_util.mk_select(args1.size(), args1.data()));
-        }
-        result = m().mk_app(f0, args0.size(), args0.data());
-        return BR_REWRITE2;
-    }
-
-    if (m_util.is_as_array(args[0])) {
-        // select(as-array[f], I) --> f(I)
-        func_decl * f = m_util.get_as_array_func_decl(to_app(args[0]));
-        result = m().mk_app(f, num_args - 1, args + 1);
-        return BR_REWRITE1;
     }
 
     expr* c, *th, *el;

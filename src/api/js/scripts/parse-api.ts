@@ -45,6 +45,8 @@ const types = {
   __proto__: null,
 
   // these are function types I can't be bothered to parse
+  // NSB: They can be extracted automatically from z3_api.h thanks to the use 
+  // of a macro.
   Z3_error_handler: 'Z3_error_handler',
   Z3_push_eh: 'Z3_push_eh',
   Z3_pop_eh: 'Z3_pop_eh',
@@ -54,6 +56,7 @@ const types = {
   Z3_final_eh: 'Z3_final_eh',
   Z3_created_eh: 'Z3_created_eh',
   Z3_decide_eh: 'Z3_decide_eh',
+  Z3_on_clause_eh: 'Z3_on_clause_eh',
 } as unknown as Record<string, string>;
 
 export type ApiParam = { kind: string; sizeIndex?: number; type: string };

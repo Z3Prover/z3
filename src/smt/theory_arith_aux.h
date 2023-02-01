@@ -22,7 +22,7 @@ Revision History:
 #include "smt/theory_arith.h"
 #include "smt/smt_farkas_util.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 
 namespace smt {
 
@@ -2169,9 +2169,8 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::is_shared(theory_var v) const {
-        if (!m_found_underspecified_op) {
+        if (m_underspecified_ops.empty())
             return false;
-        }
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         enode_vector::const_iterator it  = r->begin_parents();
@@ -2223,12 +2222,12 @@ namespace smt {
                 continue;
             }
             TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
-            m_assume_eq_candidates.push_back(std::make_pair(other, v));
+            m_assume_eq_candidates.push_back({ other , v }); 
             result = true;
         }
 
         if (result)
-            ctx.push_trail(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
     }
 

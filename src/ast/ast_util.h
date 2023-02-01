@@ -101,6 +101,8 @@ expr * get_clause_literal(ast_manager & m, expr * cls, unsigned idx);
  */
 expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args);
 app  * mk_and(ast_manager & m, unsigned num_args, app * const * args);
+inline expr * mk_and(ast_manager & m, ptr_vector<expr> const& args) { return mk_and(m, args.size(), args.data()); }
+inline expr * mk_and(ast_manager & m, ptr_buffer<expr> const& args) { return mk_and(m, args.size(), args.data()); }
 inline expr * mk_and(ast_manager & m, expr* a, expr* b) { expr* args[2] = { a, b }; return mk_and(m, 2, args); }
 inline app_ref mk_and(app_ref_vector const& args) { return app_ref(mk_and(args.get_manager(), args.size(), args.data()), args.get_manager()); }
 inline expr_ref mk_and(expr_ref_vector const& args) { return expr_ref(mk_and(args.get_manager(), args.size(), args.data()), args.get_manager()); }

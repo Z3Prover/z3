@@ -56,7 +56,7 @@ public:
     };
 
 private:
-    ast_manager &               m_manager;
+    ast_manager &               m;
     bv_util                     m_bv;
     arith_util                  m_arith;
     mutable arith_rewriter      m_arith_rw;

@@ -19,15 +19,17 @@ Author:
 #include "util/scoped_ptr_vector.h"
 #include "util/trail.h"
 #include "ast/ast_translation.h"
+#include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_ackerman.h"
 #include "sat/smt/user_solver.h"
 #include "sat/smt/euf_relevancy.h"
+#include "sat/smt/euf_proof_checker.h"
 #include "smt/params/smt_params.h"
 
 
@@ -43,9 +45,12 @@ namespace euf {
         enum class kind_t { conflict, eq, lit };
     private:
         kind_t m_kind;
+        enode* m_node = nullptr;
     public:
         constraint(kind_t k) : m_kind(k) {}
+        constraint(enode* n): m_kind(kind_t::lit), m_node(n) {}
         kind_t kind() const { return m_kind; }
+        enode* node() const { SASSERT(kind() == kind_t::lit); return m_node; }
         static constraint& from_idx(size_t z) {
             return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z));
         }
@@ -60,9 +65,29 @@ namespace euf {
         std::ostream& display(std::ostream& out) const;
     };
 
+    class eq_proof_hint : public th_proof_hint {
+        symbol th;
+        unsigned m_lit_head, m_lit_tail, m_cc_head, m_cc_tail;
+    public:
+        eq_proof_hint(symbol const& th, unsigned lh, unsigned lt, unsigned ch, unsigned ct):
+            th(th), m_lit_head(lh), m_lit_tail(lt), m_cc_head(ch), m_cc_tail(ct) {}
+        expr* get_hint(euf::solver& s) const override;
+    };
+
+    class smt_proof_hint : public th_proof_hint {
+        symbol   m_name;
+        unsigned m_lit_head, m_lit_tail, m_eq_head, m_eq_tail, m_deq_head, m_deq_tail;
+    public:
+        smt_proof_hint(symbol const& n, unsigned lh, unsigned lt, unsigned ch, unsigned ct, unsigned dh, unsigned dt):
+            m_name(n), m_lit_head(lh), m_lit_tail(lt), m_eq_head(ch), m_eq_tail(ct), m_deq_head(dh), m_deq_tail(dt) {}
+        expr* get_hint(euf::solver& s) const override;
+    };
+
     class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
+        friend class eq_proof_hint;
+        friend class smt_proof_hint;
         class user_sort;
         struct stats {
             unsigned m_ackerman;
@@ -89,35 +114,55 @@ namespace euf {
         }
 
         std::function<::solver*(void)>   m_mk_solver;
+        user_propagator::on_clause_eh_t  m_on_clause;
         ast_manager&                     m;
-        sat::sat_internalizer& si;
-        relevancy              m_relevancy;
-        smt_params             m_config;
-        euf::egraph            m_egraph;
-        trail_stack            m_trail;
-        stats                  m_stats;
-        th_rewriter            m_rewriter;
-        func_decl_ref_vector   m_unhandled_functions;
-        sat::lookahead*        m_lookahead = nullptr;
-        ast_manager*           m_to_m;
-        sat::sat_internalizer* m_to_si;
-        scoped_ptr<euf::ackerman>     m_ackerman;
-        user_solver::solver*          m_user_propagator = nullptr;
-        th_solver*             m_qsolver = nullptr;
-        unsigned               m_generation = 0;
-        mutable ptr_vector<expr> m_todo;
+        sat::sat_internalizer&           si;
+        relevancy                        m_relevancy;
+        smt_params                       m_config;
+        euf::egraph                      m_egraph;
+        trail_stack                      m_trail;
+        stats                            m_stats;
+        th_rewriter                      m_rewriter;
+        func_decl_ref_vector             m_unhandled_functions;
+        sat::lookahead*                  m_lookahead = nullptr;
+        ast_manager*                     m_to_m = nullptr;
+        sat::sat_internalizer*           m_to_si;
+        scoped_ptr<euf::ackerman>        m_ackerman;
+        void*                            m_on_clause_ctx = nullptr;
+        user_solver::solver*             m_user_propagator = nullptr;
+        th_solver*                       m_qsolver = nullptr;
+        unsigned                         m_generation = 0;
+        std::string                      m_reason_unknown; 
+        mutable ptr_vector<expr>         m_todo;
 
-        ptr_vector<expr>                                m_bool_var2expr;
-        ptr_vector<size_t>                              m_explain;
-        unsigned                                        m_num_scopes = 0;
-        unsigned_vector                                 m_var_trail;
-        svector<scope>                                  m_scopes;
-        scoped_ptr_vector<th_solver>                    m_solvers;
-        ptr_vector<th_solver>                           m_id2solver;
+        ptr_vector<expr>                 m_bool_var2expr;
+        ptr_vector<size_t>               m_explain;
+        euf::cc_justification            m_explain_cc;
+        unsigned                         m_num_scopes = 0;
+        unsigned_vector                  m_var_trail;
+        svector<scope>                   m_scopes;
+        scoped_ptr_vector<th_solver>     m_solvers;
+        ptr_vector<th_solver>            m_id2solver;
 
         constraint* m_conflict = nullptr;
         constraint* m_eq = nullptr;
-        constraint* m_lit = nullptr;
+
+        // proofs 
+        bool                             m_proof_initialized = false;
+        ast_pp_util                      m_clause_visitor;
+        bool                             m_display_all_decls = false;
+        smt_proof_checker                m_smt_proof_checker;
+
+        typedef std::pair<expr*, expr*> expr_pair;
+        literal_vector      m_proof_literals;
+        svector<expr_pair>  m_proof_eqs, m_proof_deqs, m_expr_pairs;        
+        unsigned m_lit_head = 0, m_lit_tail = 0, m_cc_head = 0, m_cc_tail = 0;
+        unsigned m_eq_head = 0, m_eq_tail = 0, m_deq_head = 0, m_deq_tail = 0;
+        symbol                           m_euf = symbol("euf");
+        symbol                           m_smt = symbol("smt");            
+        expr_ref_vector                  m_clause;
+        expr_ref_vector                  m_expr_args;
+
 
         // internalization
         bool visit(expr* e) override;
@@ -128,7 +173,6 @@ namespace euf {
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
         bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
-        void ensure_merged_tf(euf::enode* n);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -162,7 +206,7 @@ namespace euf {
         void validate_model(model& mdl);
 
         // solving
-        void propagate_literals();
+        void propagate_literal(enode* n, enode* ante);
         void propagate_th_eqs();
         bool is_self_propagated(th_eq const& e);
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
@@ -171,22 +215,26 @@ namespace euf {
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
-        void log_antecedents(literal l, literal_vector const& r);
+        void log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
 
-        bool m_proof_initialized = false;
+
+        eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
+
+
+
         void init_proof();
-        ast_pp_util m_clause_visitor;
-        bool m_display_all_decls = false;
         void on_clause(unsigned n, literal const* lits, sat::status st) override;
         void on_lemma(unsigned n, literal const* lits, sat::status st);
         void on_proof(unsigned n, literal const* lits, sat::status st);
+        void on_check(unsigned n, literal const* lits, sat::status st);
+        void on_clause_eh(unsigned n, literal const* lits, sat::status st);
         std::ostream& display_literals(std::ostream& out, unsigned n, sat::literal const* lits);
         void display_assume(std::ostream& out, unsigned n, literal const* lits);
-        void display_redundant(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
+        void display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint);        
         void display_deleted(std::ostream& out, unsigned n, literal const* lits);
         std::ostream& display_hint(std::ostream& out, expr* proof_hint);
-        expr_ref status2proof_hint(sat::status st);
+        app_ref status2proof_hint(sat::status st);
 
         // relevancy
         bool is_propagated(sat::literal lit);
@@ -203,7 +251,7 @@ namespace euf {
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
-        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
+        constraint& lit_constraint(enode* n);
 
         // user propagator
         void check_for_user_propagator() {
@@ -217,7 +265,6 @@ namespace euf {
         ~solver() override {
             if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
             if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
-            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
             m_trail.reset();
         }
 
@@ -280,6 +327,7 @@ namespace euf {
         trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p) override;
+        void set_solver(sat::solver* s) override { m_solver = s; use_drat(); }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
@@ -290,6 +338,7 @@ namespace euf {
         bool should_research(sat::literal_vector const& core) override;
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
+        std::string reason_unknown() override { return m_reason_unknown; }
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
@@ -305,8 +354,8 @@ namespace euf {
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
-        void add_antecedent(enode* a, enode* b);
-        void add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b);
+        void add_antecedent(bool probing, enode* a, enode* b);
+        void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;
@@ -341,7 +390,7 @@ namespace euf {
 
 
         // proof
-        bool use_drat() { return s().get_config().m_drat && (init_proof(), true); }
+        bool use_drat() { return m_solver && s().get_config().m_drat && (init_proof(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
 
         void set_tmp_bool_var(sat::bool_var b, expr* e);
@@ -350,6 +399,37 @@ namespace euf {
         void visit_expr(std::ostream& out, expr* e);
         std::ostream& display_expr(std::ostream& out, expr* e);        
         void on_instantiation(unsigned n, sat::literal const* lits, unsigned k, euf::enode* const* bindings);
+        expr_ref_vector& expr_args() { m_expr_args.reset(); return m_expr_args; }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal_vector const& lits, enode_pair_vector const& eqs) {
+            return mk_smt_hint(n, lits.size(), lits.data(), eqs.size(), eqs.data());
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, enode_pair_vector const& eqs) {
+            return mk_smt_hint(n, 0, nullptr, eqs.size(), eqs.data());
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal_vector const& lits) {
+            return mk_smt_hint(n, lits.size(), lits.data(), 0, (expr_pair const*) nullptr);            
+        }
+        smt_proof_hint* mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd = 0, expr_pair const* deqs = nullptr); 
+        smt_proof_hint* mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne = 0, enode_pair const* eqs = nullptr); 
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, unsigned ne, expr_pair const* eqs) { return mk_smt_hint(n, 1, &lit, ne, eqs); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit) { return mk_smt_hint(n, 1, &lit, 0, (expr_pair const*)nullptr); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal l1, literal l2) { literal ls[2] = {l1,l2}; return mk_smt_hint(n, 2, ls, 0, (expr_pair const*)nullptr); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 1, &e); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, literal lit, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 1, &lit, 1, &e); }
+        smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, expr* a, expr* b) { expr_pair e(a, b); return mk_smt_hint(n, 1, &lit, 0, nullptr, 1, &e); }        
+        smt_proof_hint* mk_smt_prop_hint(symbol const& n, literal lit, enode* a, enode* b) { return mk_smt_prop_hint(n, lit, a->get_expr(), b->get_expr()); }
+        smt_proof_hint* mk_smt_hint(symbol const& n, enode* a, enode* b) { expr_pair e(a->get_expr(), b->get_expr()); return mk_smt_hint(n, 0, nullptr, 1, &e); }
+        smt_proof_hint* mk_smt_clause(symbol const& n, unsigned nl, literal const* lits);
+        th_proof_hint* mk_cc_proof_hint(sat::literal_vector const& ante, app* a, app* b);
+        th_proof_hint* mk_tc_proof_hint(sat::literal const* ternary_clause);
+        sat::status mk_tseitin_status(sat::literal a) { return mk_tseitin_status(1, &a); }
+        sat::status mk_tseitin_status(sat::literal a, sat::literal b);
+        sat::status mk_tseitin_status(unsigned n, sat::literal const* lits);
+        sat::status mk_distinct_status(sat::literal a) { return mk_distinct_status(1, &a); }
+        sat::status mk_distinct_status(sat::literal a, sat::literal b) { sat::literal lits[2] = { a, b }; return mk_distinct_status(2, lits); }
+        sat::status mk_distinct_status(sat::literal_vector const& lits) { return mk_distinct_status(lits.size(), lits.data()); }
+        sat::status mk_distinct_status(unsigned n, sat::literal const* lits);
+
         scoped_ptr<std::ostream> m_proof_out;
 
         // decompile
@@ -359,8 +439,8 @@ namespace euf {
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
 
         // internalize
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool learned) override;
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void internalize(expr* e) override;
         sat::literal mk_literal(expr* e);
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         void attach_node(euf::enode* n);
@@ -368,8 +448,9 @@ namespace euf {
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* e_internalize(expr* e);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
+        void set_bool_var2expr(sat::bool_var v, expr* e) { m_var_trail.push_back(v);  m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
-        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
 
         sat::literal attach_lit(sat::literal lit, expr* e);
@@ -413,6 +494,11 @@ namespace euf {
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
+
+        // clause tracing
+        void register_on_clause(
+            void* ctx,
+            user_propagator::on_clause_eh_t& on_clause);
 
         // user propagator
         void user_propagate_init(

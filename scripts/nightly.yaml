@@ -1,7 +1,7 @@
 variables:
   Major: '4'
-  Minor: '11'
-  Patch: '3'
+  Minor: '12'
+  Patch: '2'
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
@@ -11,7 +11,7 @@ stages:
   - job: Mac
     displayName: "Mac Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -25,7 +25,7 @@ stages:
   - job: MacArm64
     displayName: "Mac ARM64 Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -91,7 +91,7 @@ stages:
     displayName: "ManyLinux build"
     pool:
       vmImage: "ubuntu-latest"
-    container: "quay.io/pypa/manylinux2010_x86_64:latest"
+    container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
     - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -261,7 +261,7 @@ stages:
         minorVersion: $(Minor)
         patchVersion: $(Patch)
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.sym.nuspec -Version $(NightlyVersion) -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true
       displayName: 'Sign Package'
       inputs:
@@ -289,7 +289,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Symbol Package'
       inputs:
@@ -366,7 +366,7 @@ stages:
         minorVersion: $(Minor)
         patchVersion: $(Patch)
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x86.sym.nuspec -Version $(NightlyVersion) -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Package'
       inputs:
@@ -394,7 +394,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Symbol Package'
       inputs:

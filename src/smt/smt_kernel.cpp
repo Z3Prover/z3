@@ -213,6 +213,20 @@ namespace smt {
         return out;
     }
 
+    expr* kernel::congruence_root(expr * e) {
+        smt::enode* n = m_imp->m_kernel.find_enode(e);
+        if (!n)
+            return e;
+        return n->get_root()->get_expr();
+    }
+
+    expr* kernel::congruence_next(expr * e) {
+        smt::enode* n = m_imp->m_kernel.find_enode(e);
+        if (!n)
+            return e;
+        return n->get_next()->get_expr();
+    }
+
     void kernel::collect_statistics(::statistics & st) const {
         m_imp->m_kernel.collect_statistics(st);
     }
@@ -258,6 +272,10 @@ namespace smt {
         user_propagator::pop_eh_t&    pop_eh,
         user_propagator::fresh_eh_t&  fresh_eh) {
         m_imp->m_kernel.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+    }
+
+    void kernel::register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+        m_imp->m_kernel.register_on_clause(ctx, on_clause);
     }
 
     void kernel::user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) {

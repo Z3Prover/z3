@@ -65,7 +65,7 @@ int parse(string const & filename, map<string, map_entry> & data) {
                 inx != string::npos;
                 inx = line.find(" : ", from)) {
                 tokens[ti] = trim(line.substr(from, inx-from));
-                from = inx+1;
+                from = inx+3; //3 is the length of " : "
                 ti++;
             }
             if (from != line.length() && ti < 4)

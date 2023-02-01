@@ -29,22 +29,16 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::found_unsupported_op(app * n) {
-        if (!m_found_unsupported_op) {
-            TRACE("arith", tout << "found non supported expression:\n" << mk_pp(n, m) << "\n";);
-            ctx.push_trail(value_trail<bool>(m_found_unsupported_op));
-            m_found_unsupported_op = true;
-        }
+        CTRACE("arith", m_unsupported_ops.empty(), tout << "found non supported expression:\n" << mk_pp(n, m) << "\n";);
+        m_unsupported_ops.push_back(n);
+        ctx.push_trail(push_back_vector<ptr_vector<app>>(m_unsupported_ops));
     }
 
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
+        CTRACE("arith", m_underspecified_ops.empty(), tout << "found underspecified expression:\n" << mk_pp(n, m) << "\n";);
         m_underspecified_ops.push_back(n);
         ctx.push_trail(push_back_vector<ptr_vector<app>>(m_underspecified_ops));
-        if (!m_found_underspecified_op) {
-            TRACE("arith", tout << "found underspecified expression:\n" << mk_pp(n, m) << "\n";);
-            ctx.push_trail(value_trail<bool>(m_found_underspecified_op));
-            m_found_underspecified_op = true;
-        }
 
         expr* e = nullptr;
         if (m_util.is_div(n)) {                
@@ -1532,9 +1526,13 @@ namespace smt {
             }
         }
         while (m_final_check_idx != old_idx);
-        if (result == FC_DONE && m_found_unsupported_op) {
-            TRACE("arith", tout << "Found unsupported operation\n";);
-            result = FC_GIVEUP;
+        if (result == FC_DONE) {
+            for (app* n : m_unsupported_ops) {
+                if (!ctx.is_relevant(n))
+                    continue;
+                TRACE("arith", tout << "Found unsupported operation " << mk_pp(n, m) << "\n");
+                result = FC_GIVEUP;
+            }
         }
         return result;
     }
@@ -1733,8 +1731,6 @@ namespace smt {
         m_params(ctx.get_fparams()),
         m_util(m),
         m_arith_eq_solver(m),
-        m_found_unsupported_op(false),
-        m_found_underspecified_op(false),
         m_arith_eq_adapter(*this, m_util),
         m_asserted_qhead(0),
         m_row_vars_top(0),

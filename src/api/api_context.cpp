@@ -51,6 +51,8 @@ namespace api {
     }
 
     void context::del_object(api::object* o) {
+        if (!o)
+            return;
 #ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
             lock_guard lock(m_mux);
@@ -149,6 +151,8 @@ namespace api {
 
 
     context::~context() {
+        if (m_parser)
+            smt2::free_parser(m_parser);
         m_last_obj = nullptr;
         flush_objects();
         for (auto& kv : m_allocated_objects) {

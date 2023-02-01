@@ -18,7 +18,7 @@ Notes:
 --*/
 #include "model/model.h"
 #include "model/model_pp.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
@@ -148,7 +148,8 @@ struct bit_blaster_model_converter : public model_converter {
             for (expr* bit : *to_app(bs)) {
                 func_decl * bit_decl = to_app(bit)->get_decl();
                 expr * bit_val = old_model->get_const_interp(bit_decl);
-                SASSERT(bit_val);
+                if (!bit_val) 
+                    bit_val = m().mk_false();                
                 vals.push_back(bit_val);
             }
             if (TO_BOOL) 

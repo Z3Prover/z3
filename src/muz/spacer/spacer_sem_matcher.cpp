@@ -84,7 +84,7 @@ bool sem_matcher::operator()(expr * e1, expr * e2, substitution & s, bool &pos) 
         top = false;
 
         if (n1->get_decl() != n2->get_decl()) {
-            expr *e1 = nullptr, *e2 = nullptr, *e3 = nullptr, *e4 = nullptr, *e5 = nullptr;
+            expr *e1 = nullptr, *e2 = nullptr;
             rational val1, val2;
 
             // x<=y == !(x>y)
