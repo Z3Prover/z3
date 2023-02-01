@@ -42,20 +42,24 @@ namespace polysat {
     void saturation::perform(pvar v, conflict& core) {
         IF_VERBOSE(2, verbose_stream() << "v" << v << " " << core << "\n");
         for (auto c : core) 
-            if (perform(v, c, core))
-                return;
+            //if (perform(v, c, core)) Why stop eagerly?
+            //    return;
+            perform(v, c, core);
     }
 
     bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
         if (c.is_currently_true(s))
             return false;
 
+        bool prop = try_div_monotonicity(core); // check independent of the conflicting constraint
+
         if (c->is_ule()) {
             auto i = inequality::from_ule(c);
-            return try_inequality(v, i, core);
+            return try_inequality(v, i, core) | prop;
         }
         if (c->is_umul_ovfl()) 
-            return try_umul_ovfl(v, c, core);
+            return try_umul_ovfl(v, c, core) | prop;
+
         return false;
     }
 
@@ -1933,7 +1937,53 @@ namespace polysat {
         return false;
     }
 
-    
+
+    /**
+     * let q1 = x1 / y1, q2 = x2 / y2
+     * x1 <= x2  /\ y1 >= y2 => q1 <= q2
+     */
+    bool saturation::try_div_monotonicity(conflict& core) {
+        set_rule("[x1, y1, x2, y2] x1 <= x2 & y1 <= y2 => x1 / y1 <= x2 / y2");
+        bool propagated = false;
+        for (auto it1 = s.m_constraints.begin_div(); it1 < s.m_constraints.end_div(); it1++) {
+            auto [x1, y1, q1, r1] = *it1;
+            rational x1_val, y1_val, q1_val;
+            if (!s.try_eval(x1, x1_val) || !s.try_eval(y1, y1_val) || !s.is_assigned(q1))
+                continue;
+            q1_val = s.get_value(q1);
+            rational expected1 = y1_val.is_zero() ? y1.manager().max_value() : div(x1_val, y1_val);
+
+            if (q1_val == expected1)
+                continue;
+
+            for (auto it2 = s.m_constraints.begin_div(); it2 < s.m_constraints.end_div(); it2++) {
+                if (it1 == it2)
+                    continue;
+                auto [x2, y2, q2, r2] = *it2;
+                rational x2_val, y2_val, q2_val;
+                if (!s.try_eval(x2, x2_val) || !s.try_eval(y2, y2_val) || !s.is_assigned(q2))
+                    continue;
+                q2_val = s.get_value(q2);
+
+                if (x1_val <= x2_val && y2_val <= y1_val && !(q1_val <= q2_val)) { // No special treatment for 0 required. It is already monotonic by SMTLib defining x / 0 = 2^k
+                    m_lemma.reset();
+                    m_lemma.insert_eval(~s.ule(x1, x2));
+                    m_lemma.insert_eval(~s.ule(y2, y1));
+                    propagate(q1, core, s.ule(s.var(q1), s.var(q2)));
+                    propagated = true;
+                }
+                if (x1_val >= x2_val && y2_val >= y1_val && !(q1_val >= q2_val)) {
+                    m_lemma.reset();
+                    m_lemma.insert_eval(~s.uge(x1, x2));
+                    m_lemma.insert_eval(~s.uge(y2, y1));
+                    propagate(q1, core, s.uge(s.var(q1), s.var(q2)));
+                    propagated = true;
+                }
+            }
+        }
+        return propagated;
+    }
+
     /*
      * TODO
      *
