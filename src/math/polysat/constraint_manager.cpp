@@ -373,13 +373,14 @@ namespace polysat {
         }
 #endif
         constraint_dedup::quot_rem_args args({a, b});
-        auto it = m_dedup.quot_rem_expr.find_iterator(args);
-        if (it != m_dedup.quot_rem_expr.end())
+        auto it = m_dedup.m_quot_rem_expr.find_iterator(args);
+        if (it != m_dedup.m_quot_rem_expr.end())
             return { m.mk_var(it->m_value.first), m.mk_var(it->m_value.second) };
 
         pdd q = m.mk_var(s.add_var(sz));  // quotient
         pdd r = m.mk_var(s.add_var(sz));  // remainder
-        m_dedup.quot_rem_expr.insert(args, { q.var(), r.var() });
+        m_dedup.m_quot_rem_expr.insert(args, { q.var(), r.var() });
+        m_dedup.m_div_rem_list.push_back({ a, b, q.var(), r.var() });
 
         // Axioms for quotient/remainder:
         //      a = b*q + r

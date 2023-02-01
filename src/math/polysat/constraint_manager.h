@@ -38,7 +38,8 @@ namespace polysat {
             }
         };
         using quot_rem_expr_map = map<quot_rem_args, std::pair<pvar, pvar>, quot_rem_args_hash, quot_rem_args_eq>;
-        quot_rem_expr_map quot_rem_expr;
+        quot_rem_expr_map m_quot_rem_expr;
+        vector<std::tuple<pdd, pdd, pvar, pvar>> m_div_rem_list;
     };
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
@@ -130,6 +131,9 @@ namespace polysat {
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
+
+        std::tuple<pdd, pdd, pvar, pvar> const* begin_div() const { return m_dedup.m_div_rem_list.data(); }
+        std::tuple<pdd, pdd, pvar, pvar> const* end_div() const { return m_dedup.m_div_rem_list.data() + m_dedup.m_div_rem_list.size(); }
 
         class clause_iterator {
             friend class constraint_manager;
