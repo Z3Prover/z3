@@ -1750,7 +1750,7 @@ struct
     let f i = Z3native.get_simplifier_name ctx i in
     mk_list f n
 
-  let get_simplifier_description (ctx:context) (s:string) = Z3native.simplifier_get_descr
+  let get_simplifier_description = Z3native.simplifier_get_descr
 
   let mk_simplifier = Z3native.mk_simplifier
 
