@@ -73,7 +73,7 @@ TODOs:
 
 #include "math/polysat/fixplex.h"
 #include "math/simplex/sparse_matrix_def.h"
-#include "math/interval/mod_interval_def.h"
+#include "fixplex_mod_interval_def.h"
 #include <iostream>
 
 namespace polysat {

@@ -20,7 +20,7 @@ Author:
 
 #include <limits>
 #include "math/simplex/sparse_matrix.h"
-#include "math/interval/mod_interval.h"
+#include "fixplex_mod_interval.h"
 #include "util/heap.h"
 #include "util/map.h"
 #include "util/rational.h"
