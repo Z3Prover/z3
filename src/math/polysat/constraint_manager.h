@@ -75,7 +75,7 @@ namespace polysat {
         void gc_clauses();
 
         void normalize_watch(clause& cl);
-        void watch(clause& cl, bool value_propagate);
+        void watch(clause& cl);
         void unwatch(clause& cl);
 
         void register_clause(clause* cl);
@@ -90,7 +90,7 @@ namespace polysat {
         constraint_manager(solver& s);
         ~constraint_manager();
 
-        void store(clause* cl, bool value_propagate);
+        void store(clause* cl);
 
         /// Release clauses at the given level and above.
         void release_level(unsigned lvl);

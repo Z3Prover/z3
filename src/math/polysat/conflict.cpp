@@ -216,7 +216,7 @@ namespace polysat {
         logger().begin_conflict();
     }
 
-    void conflict::init(clause const& cl) {
+    void conflict::init(clause& cl) {
         LOG("Conflict: clause " << cl);
         SASSERT(empty());
         m_level = s.m_level;
@@ -225,6 +225,14 @@ namespace polysat {
             SASSERT_EQ(c.bvalue(s), l_false);
             insert(~c);
         }
+
+        // NOTE: usually in SAT solving, the conflict clause has at least two false literals at the max level.
+        //       (otherwise, the last literal would have been propagated at an earlier level.)
+        //       This is not true if we add clauses on demand;
+        //       after backtracking we may have the case that the conflict clause has
+        //       exactly one undefined literal that must be propagated explicitly.
+        m_lemmas.push_back(&cl);
+
         SASSERT(!empty());
         logger().begin_conflict();
     }
@@ -329,6 +337,10 @@ namespace polysat {
         m_lemmas.push_back(std::move(lemma));
         // TODO: pass to inference_logger (with name)
    }
+
+    void conflict::restore_lemma(clause_ref lemma) {
+        m_lemmas.push_back(std::move(lemma));
+    }
 
     void conflict::remove(signed_constraint c) {
         SASSERT(contains(c));

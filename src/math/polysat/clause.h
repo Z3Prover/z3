@@ -35,6 +35,7 @@ namespace polysat {
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         bool m_redundant = redundant_default;
+        bool m_active = false;  // clause is active iff it has been added to the solver and boolean watchlists
         sat::literal_vector m_literals;
         char const* m_name = "";
 
@@ -52,6 +53,8 @@ namespace polysat {
             m_literals(std::move(literals)) {
             SASSERT(count(m_literals, sat::null_literal) == 0);
         }
+
+        void set_active() { m_active = true; }
 
     public:
         void inc_ref() { m_ref_count++; }
@@ -76,6 +79,8 @@ namespace polysat {
 
         void set_redundant(bool r) { m_redundant = r; }
         bool is_redundant() const { return m_redundant; }
+
+        bool is_active() const { return m_active; }
 
         void set_name(char const* name) { m_name = name; }
         char const* name() const { return m_name; }

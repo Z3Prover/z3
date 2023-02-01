@@ -1019,22 +1019,28 @@ namespace polysat {
                 UNREACHABLE();
             }
             if (is_conflict()) {
-                // TODO: the remainder of the narrow_queue as well as the lemmas are forgotten.
-                //       should we just insert them into the new conflict to carry them along?
+                // The remainder of narrow_queue is forgotten at this point,
+                // but keep the lemmas for later.
+                for (clause* lemma : lemmas)
+                    m_conflict.restore_lemma(lemma);
                 return;
             }
         }
 
-        for (clause* lemma : lemmas) {
-            add_clause(*lemma);
+        for (auto it = lemmas.begin(); it != lemmas.end(); ++it) {
+            clause& lemma = **it;
+            if (!lemma.is_active())
+                add_clause(lemma);
+            else
+                propagate_clause(lemma);
             // NOTE: currently, the backjump level is an overapproximation,
             //       since the level of evaluated constraints may not be exact (see TODO in assign_eval).
             // For this reason, we may actually get a conflict at this point
             // (because the actual jump_level of the lemma may be lower that best_level.)
             if (is_conflict()) {
-                // until this is fixed (if possible; and there may be other causes of conflict at this point),
-                // we just forget about the remaining lemmas and restart conflict analysis.
-                // TODO: we could also insert the remaining lemmas into the conflict and keep them for later.
+                // Keep the remaining lemmas for later.
+                for (; it != lemmas.end(); ++it)
+                    m_conflict.restore_lemma(*it);
                 return;
             }
         }
@@ -1062,6 +1068,24 @@ namespace polysat {
             }
         }
     }  // backjump_and_learn
+
+    // Explicit boolean propagation over the given clause, without relying on watch lists
+    void solver::propagate_clause(clause& cl) {
+        sat::literal prop = sat::null_literal;
+        for (sat::literal lit : cl) {
+            if (m_bvars.is_true(lit))
+                return;  // clause is true
+            if (m_bvars.is_false(lit))
+                continue;
+            SASSERT(!m_bvars.is_assigned(lit));
+            if (prop != sat::null_literal)
+                return;  // two or more undef literals
+            prop = lit;
+        }
+        if (prop == sat::null_literal)
+            return;
+        assign_propagate(prop, cl);
+    }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = 0;
@@ -1174,6 +1198,7 @@ namespace polysat {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);
         for (sat::literal lit : clause) {
             LOG("   " << lit_pp(*this, lit));
+            // TODO: move into constraint_manager::watch
             if (!m_bvars.is_assigned(lit)) {
                 switch (lit2cnstr(lit).eval(*this)) {
                 case l_true:
@@ -1190,12 +1215,11 @@ namespace polysat {
             if (m_bvars.value(lit) == l_true) {
                 // in this case the clause is useless
                 LOG("   Clause is already true, skipping...");
-                // SASSERT(false);  // should never happen (at least for redundant clauses)
                 return;
             }
         }
         SASSERT(!clause.empty());
-        m_constraints.store(&clause, true);
+        m_constraints.store(&clause);
 
         // Defer add_pwatch until the next solver iteration, because during propagation of a variable v the watchlist for v is locked.
         // NOTE: for non-redundant clauses, pwatching its constraints is required for soundness.

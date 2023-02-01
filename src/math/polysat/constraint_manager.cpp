@@ -69,9 +69,11 @@ namespace polysat {
         m_clauses[clause_level].push_back(cl);
     }
 
-    void constraint_manager::store(clause* cl, bool value_propagate) {
+    void constraint_manager::store(clause* cl) {
+        VERIFY(!cl->is_active());
         register_clause(cl);
-        watch(*cl, value_propagate);
+        watch(*cl);
+        cl->set_active();
     }
 
     // Release constraints at the given level and above.
@@ -137,12 +139,11 @@ namespace polysat {
         SASSERT(std::all_of(cl.begin() + 1, cl.end(), [&](auto lit) { return get_watch_level(lit) <= get_watch_level(cl[1]); }));
     }
 
-    void constraint_manager::watch(clause& cl, bool value_propagate) {
+    void constraint_manager::watch(clause& cl) {
         if (cl.empty())
             return;
 
-        if (value_propagate) {
-#if 1
+        {
             // First, try to bool-propagate.
             // Otherwise, we might get a clause-conflict and a missed propagation after resolving the conflict.
             // With this, we will get a constraint-conflict instead.
@@ -180,7 +181,6 @@ namespace polysat {
                     s.assign_eval(~lit);
                 }
             }
-#endif
         }
 
         if (cl.size() == 1) {
