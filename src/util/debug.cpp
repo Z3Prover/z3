@@ -75,32 +75,62 @@ bool is_debug_enabled(const char * tag) {
     return g_enabled_debug_tags->contains(tag);
 }
 
+atomic<debug_action> g_default_debug_action(debug_action::ask);
+
+debug_action get_default_debug_action() {
+    return g_default_debug_action;
+}
+
+void set_default_debug_action(debug_action a) {
+    g_default_debug_action = a;
+}
+
+debug_action ask_debug_action(std::istream& in) {
+    std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
+    char result;
+    bool ok = bool(in >> result);
+    if (!ok)
+        exit(ERR_INTERNAL_FATAL); // happens if std::cin is eof or unattached.
+    switch(result) {
+    case 'C':
+    case 'c':
+        return debug_action::cont;
+    case 'A':
+    case 'a':
+        return debug_action::abort;
+    case 'S':
+    case 's':
+        return debug_action::stop;
+    case 't':
+    case 'T':
+        return debug_action::throw_exception;
+    case 'G':
+    case 'g':
+        return debug_action::invoke_debugger;
+    default:
+        std::cerr << "INVALID COMMAND\n";
+        return debug_action::ask;
+    }
+}
+
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
 void invoke_gdb() {
     std::string buffer;
-    int * x = nullptr;
+    int *x = nullptr;
+    debug_action a = get_default_debug_action();
     for (;;) {
-        std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
-        char result;
-        bool ok = bool(std::cin >> result);
-        if (!ok) exit(ERR_INTERNAL_FATAL); // happens if std::cin is eof or unattached.
-        switch(result) {
-        case 'C':
-        case 'c':
+        switch (a) {
+        case debug_action::cont:
             return;
-        case 'A':
-        case 'a':
+        case debug_action::abort:
             exit(1);
-        case 'S':
-        case 's':
+        case debug_action::stop:
             // force seg fault...
             *x = 0;
             return;
-        case 't':
-        case 'T':
+        case debug_action::throw_exception:
             throw default_exception("assertion violation");
-        case 'G':
-        case 'g':
+        case debug_action::invoke_debugger:
             buffer = "gdb -nw /proc/" + std::to_string(getpid()) + "/exe " + std::to_string(getpid());
             std::cerr << "invoking GDB...\n";
             if (system(buffer.c_str()) == 0) {
@@ -109,12 +139,13 @@ void invoke_gdb() {
             else {
                 std::cerr << "error starting GDB...\n";
                 // forcing seg fault.
-                int * x = nullptr;
+                int *x = nullptr;
                 *x = 0;
             }
             return;
+        case debug_action::ask:
         default:
-            std::cerr << "INVALID COMMAND\n";
+            a = ask_debug_action(std::cin);
         }
     }
 }
