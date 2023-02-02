@@ -668,14 +668,14 @@ namespace polysat {
         case find_t::empty:
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
-            DEBUG_CODE( UNREACHABLE(); );
+            UNREACHABLE();
             m_free_pvars.unassign_var_eh(v);
-            SASSERT(is_conflict());
+            VERIFY(is_conflict());
             return;
         case find_t::singleton:
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
             // NOTE 2: probably not true anymore; viable::intersect should trigger all propagations now
-            DEBUG_CODE( UNREACHABLE(); );
+            UNREACHABLE();
             j = justification::propagation(m_level);
             break;
         case find_t::multiple:
@@ -684,12 +684,16 @@ namespace polysat {
         case find_t::resource_out:
             // the value is not viable, so assign_verify will call the univariate solver.
             j = justification::decision(m_level + 1);
-            break;
+            verbose_stream() << "TODO: solver::pdecide got resource_out\n";
+            m_lim.cancel();
+            return;
         default:
             UNREACHABLE();
             break;
         }
-        assign_verify(v, val, j);
+        if (j.is_decision())
+            push_level();
+        assign_core(v, val, j);
     }
 
     void solver::assign_propagate(pvar v, rational const& val) {
@@ -718,73 +722,6 @@ namespace polysat {
         //       If it is not actually viable, the propagation loop will find out and enter the conflict state.
         //       (However, if we do check here, we might find the conflict earlier. Might be worth a try.)
         assign_core(v, val, justification::propagation(lvl));
-    }
-
-    /// Verify the value we're trying to assign against the univariate solver
-    void solver::assign_verify(pvar v, rational val, justification j) {
-        SASSERT(j.is_decision() || j.is_propagation());
-        unsigned const old_size = m_search.size();
-        signed_constraint c;
-        clause_ref lemma;
-        {
-            // Fake the assignment v := val so we can check the constraints using the new value.
-            // NOTE: we modify the global state here because cloning the assignment is expensive.
-            m_search.push_assignment(v, val);
-            assignment const& a = m_search.get_assignment();
-            on_scope_exit _undo([&](){
-                m_search.pop();
-            });
-
-            // Check evaluation of the currently-univariate constraints.
-            c = m_viable_fallback.find_violated_constraint(a, v);
-
-            if (c) {
-                LOG("Violated constraint: " << c);
-                lemma = c.produce_lemma(*this, a);
-                LOG("Produced lemma: " << show_deref(lemma));
-            }
-        }
-        VERIFY_EQ(m_search.size(), old_size);
-        VERIFY(!m_search.get_assignment().contains(v));
-        if (lemma) {
-            add_clause(*lemma);
-            if (is_conflict()) {
-                // If we have a conflict here, we should have produced this lemma already earlier
-                LOG("Conflict after constraint::produce_lemma: TODO: should have found this lemma earlier");
-                m_free_pvars.unassign_var_eh(v);
-                return;
-            }
-            if (can_propagate()) {
-                m_free_pvars.unassign_var_eh(v);
-                return;
-            }
-        }
-        if (c) {
-            LOG_H2("Chosen assignment " << assignment_pp(*this, v, val) << " is not actually viable!");
-            LOG("Current assignment: " << assignments_pp(*this));
-            ++m_stats.m_num_viable_fallback;
-            // Try to find a valid replacement value
-            switch (m_viable_fallback.find_viable(v, val)) {
-            case find_t::singleton:
-            case find_t::multiple:
-                LOG("Fallback solver: " << assignment_pp(*this, v, val));
-                SASSERT(!j.is_propagation());  // all excluded values are true negatives, so if j.is_propagation() the univariate solver must return unsat
-                j = justification::decision(m_level + 1);
-                break;
-            case find_t::empty:
-                LOG("Fallback solver: unsat");
-                m_free_pvars.unassign_var_eh(v);
-                SASSERT(is_conflict());
-                return;
-            case find_t::resource_out:
-                UNREACHABLE();  // TODO: abort solving
-                m_free_pvars.unassign_var_eh(v);
-                return;
-            }
-        }
-        if (j.is_decision())
-            push_level();
-        assign_core(v, val, j);
     }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
