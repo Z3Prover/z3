@@ -287,21 +287,59 @@ public:
     unsigned get_num_assumptions() const override { return s->get_num_assumptions(); }
     expr* get_assumption(unsigned idx) const override { return s->get_assumption(idx); }
     unsigned get_scope_level() const override { return s->get_scope_level(); }
-    lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override { return check_sat_cc(cube, clauses); }
     void set_progress_callback(progress_callback* callback) override { s->set_progress_callback(callback); }
+
     lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         expr_ref_vector es(m);
         es.append(asms);
         es.append(vars);
         flush(es);
-        lbool r = s->get_consequences(asms, vars, consequences);
+        expr_ref_vector asms1(m, asms.size(), es.data());
+        expr_ref_vector vars1(m, vars.size(), es.data() + asms.size());
+        lbool r = s->get_consequences(asms1, vars1, consequences);
         replace(consequences);        
         return r;
     }
-    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return s->find_mutexes(vars, mutexes); }
-    lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override { return s->preferred_sat(asms, cores); }
+
+    lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override { 
+        expr_ref_vector es(m);
+        es.append(cube);
+        for (auto const& c : clauses)
+            es.append(c);
+        flush(es);
+        expr_ref_vector cube1(m, cube.size(), es.data());
+        vector<expr_ref_vector> clauses1;
+        unsigned offset = cube.size();
+        for (auto const& c : clauses) {
+            clauses1.push_back(expr_ref_vector(m, c.size(), es.data() + offset));
+            offset += c.size();
+        }
+        return check_sat_cc(cube1, clauses1); 
+    }
+
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
+        expr_ref_vector vars1(vars);
+        flush(vars1);
+        lbool r = s->find_mutexes(vars1, mutexes); 
+        for (auto& mux : mutexes)
+            replace(mux);
+        return r;
+    }
+
+    lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override {
+        expr_ref_vector asms1(asms);
+        flush(asms1);
+        lbool r = s->preferred_sat(asms1, cores);
+        for (auto& c : cores)
+            replace(c);
+        return r;
+    }
     
-    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { return s->cube(vars, backtrack_level); }
+    // todo flush?
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
+        return s->cube(vars, backtrack_level); 
+    }
+
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
     std::ostream& display(std::ostream& out, unsigned n, expr* const* assumptions) const override {
