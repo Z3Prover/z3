@@ -666,33 +666,24 @@ namespace polysat {
         justification j;
         switch (m_viable.find_viable(v, val)) {
         case find_t::empty:
-            // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
-            //       (fail here in debug mode so we notice if we miss some)
-            UNREACHABLE();
-            m_free_pvars.unassign_var_eh(v);
-            VERIFY(is_conflict());
+            UNREACHABLE();  // should have been discovered earlier in viable::intersect
             return;
         case find_t::singleton:
-            // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
-            // NOTE 2: probably not true anymore; viable::intersect should trigger all propagations now
-            UNREACHABLE();
-            j = justification::propagation(m_level);
-            break;
+            UNREACHABLE();  // should have been discovered earlier in viable::intersect
+            return;
         case find_t::multiple:
             j = justification::decision(m_level + 1);
             break;
         case find_t::resource_out:
-            // the value is not viable, so assign_verify will call the univariate solver.
-            j = justification::decision(m_level + 1);
             verbose_stream() << "TODO: solver::pdecide got resource_out\n";
             m_lim.cancel();
             return;
         default:
             UNREACHABLE();
-            break;
+            return;
         }
-        if (j.is_decision())
-            push_level();
+        SASSERT(j.is_decision());
+        push_level();
         assign_core(v, val, j);
     }
 
