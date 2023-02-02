@@ -1423,9 +1423,12 @@ namespace polysat {
                 continue;
             size_t const undefs = count_if(cl, [&](auto lit) { return !m_bvars.is_assigned(lit); });
             if (undefs == 1) {
-                LOG("Missed boolean propagation of clause: " << cl);
+                verbose_stream() << "Missed boolean propagation of clause: " << cl << "\n";
                 for (sat::literal lit : cl) {
-                    LOG("    " << lit_pp(*this, lit));
+                    verbose_stream() << "    " << lit_pp(*this, lit);
+                    if (count(m_bvars.watch(lit), &cl) != 0)
+                        verbose_stream() << " (bool-watched)";
+                    verbose_stream() << "\n";
                 }
             }
             VERIFY(undefs != 1);
