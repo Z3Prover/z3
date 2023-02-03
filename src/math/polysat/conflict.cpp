@@ -511,9 +511,15 @@ namespace polysat {
         auto const enqueue_lit = [&](sat::literal lit) {
             if (done_lits.contains(lit))
                 return;
+            if (!s.m_bvars.is_assigned(lit))
+                return;
             // verbose_stream() << "enqueue " << lit_pp(s, lit) << "\n";
             todo_lits.push_back(lit);
             done_lits.insert(lit);
+        };
+
+        auto const enqueue_constraint = [&](signed_constraint c) {
+            enqueue_lit(c.blit());
         };
 
         auto const enqueue_var = [&](pvar v) {
@@ -526,7 +532,7 @@ namespace polysat {
 
         // Starting at literals/variables in the conflict, chase propagations backwards and accumulate dependencies.
         for (signed_constraint c : *this)
-            enqueue_lit(c.blit());
+            enqueue_constraint(c);
         for (pvar v : m_vars)
             enqueue_var(v);
 
@@ -540,10 +546,10 @@ namespace polysat {
                 SASSERT(s.m_justification[v].is_propagation());
 
                 for (signed_constraint c : s.m_viable.get_constraints(v))
-                    enqueue_lit(c.blit());
+                    enqueue_constraint(c);
                 for (auto const& i : s.m_viable.units(v)) {
-                    enqueue_lit(s.try_eval(s.eq(i.lo(), i.lo_val())));
-                    enqueue_lit(s.try_eval(s.eq(i.hi(), i.hi_val())));
+                    enqueue_constraint(s.eq(i.lo(), i.lo_val()));
+                    enqueue_constraint(s.eq(i.hi(), i.hi_val()));
                 }
             }
             while (!todo_lits.empty()) {

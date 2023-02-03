@@ -802,7 +802,7 @@ namespace polysat {
                     continue;
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(bool_justification_pp(m_bvars, lit));
-                LOG("Literal " << lit << " is " << lit2cnstr(lit));
+                LOG("Literal " << lit_pp(*this, lit));
                 LOG("Conflict: " << m_conflict);
                 // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
                 //       Thus we can only skip base level literals here, instead of aborting the loop.
