@@ -70,6 +70,7 @@ namespace polysat {
         dependency dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
 
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }
+        ptr_vector<clause> const& watch(sat::literal lit) const { return m_watch[lit.index()]; }
 
         /// Set the given literal to true
         void propagate(sat::literal lit, unsigned lvl, clause& reason);
