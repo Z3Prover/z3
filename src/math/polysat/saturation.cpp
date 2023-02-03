@@ -33,6 +33,11 @@ namespace polysat {
     saturation::saturation(solver& s) : s(s), m_lemma(s), m_parity_tracker(s) {}
 
     void saturation::log_lemma(pvar v, conflict& core) {
+        verbose_stream() << "Logging lemma:\n";
+        auto const& cl = core.lemmas().back();
+        verbose_stream() << m_rule << " v" << v << " ";
+        for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " ";
+        verbose_stream() << " " << *cl << "\n";
         IF_VERBOSE(1, auto const& cl = core.lemmas().back(); 
                    verbose_stream() << m_rule << " v" << v << " "; 
                    for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " "; 
@@ -212,6 +217,7 @@ namespace polysat {
 
         m_lemma.insert(c);
         core.add_lemma(m_rule, m_lemma.build());
+        verbose_stream() << "Lemma\n";
         log_lemma(v, core);
         return true;
     }
@@ -1952,7 +1958,6 @@ namespace polysat {
      * x1 <= x2  /\ y1 >= y2 => q1 <= q2
      */
     bool saturation::try_div_monotonicity(conflict& core) {
-        set_rule("[x1, y1, x2, y2] x1 <= x2 & y1 <= y2 => x1 / y1 <= x2 / y2");
         bool propagated = false;
         for (auto it1 = s.m_constraints.begin_div(); it1 < s.m_constraints.end_div(); it1++) {
             auto [x1, y1, q1, r1] = *it1;
@@ -1973,12 +1978,14 @@ namespace polysat {
                 if (!s.try_eval(x2, x2_val) || !s.try_eval(y2, y2_val) || !s.is_assigned(q2))
                     continue;
                 q2_val = s.get_value(q2);
-
+                set_rule("[x1, y1, x2, y2] x1 <= x2 & y1 <= y2 => x1 / y1 <= x2 / y2");
                 if (x1_val <= x2_val && y2_val <= y1_val && !(q1_val <= q2_val)) { // No special treatment for 0 required. It is already monotonic by SMTLib defining x / 0 = 2^k
                     m_lemma.reset();
                     m_lemma.insert_eval(~s.ule(x1, x2));
                     m_lemma.insert_eval(~s.ule(y2, y1));
                     propagate(q1, core, s.ule(s.var(q1), s.var(q2)));
+                    //verbose_stream() << "1. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
+                    //verbose_stream() << "1. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n"; 
                     propagated = true;
                 }
                 if (x1_val >= x2_val && y2_val >= y1_val && !(q1_val >= q2_val)) {
@@ -1986,6 +1993,19 @@ namespace polysat {
                     m_lemma.insert_eval(~s.uge(x1, x2));
                     m_lemma.insert_eval(~s.uge(y2, y1));
                     propagate(q1, core, s.uge(s.var(q1), s.var(q2)));
+                    //verbose_stream() << "2. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
+                    //verbose_stream() << "2. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n";
+                    propagated = true;
+                }
+                
+                set_rule("[x1, y1, x2, y2] y2 >= y1 & q2 > q1 => x2 - x1 >= ((x2 / y2) - (x1 / y1) - 1) * y1");
+                if (y2_val >= y1_val && q2_val > q1_val && !(x2_val - x1_val >= (q2_val - q1_val - 1) * y1_val)) {
+                    m_lemma.reset();
+                    m_lemma.insert_eval(~s.uge(y2, y1));
+                    m_lemma.insert_eval(~s.ult(s.var(q1), s.var(q2)));
+                    propagate(q1, core, s.uge(x2 - x1, (s.var(q2) - s.var(q1) - 1) * y1));
+                    //verbose_stream() << "3. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
+                    //verbose_stream() << "3. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n";
                     propagated = true;
                 }
             }
