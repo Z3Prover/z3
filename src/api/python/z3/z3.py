@@ -9072,7 +9072,7 @@ def PbGe(args, k):
 
 
 def PbEq(args, k, ctx=None):
-    """Create a Pseudo-Boolean inequality k constraint.
+    """Create a Pseudo-Boolean equality k constraint.
 
     >>> a, b, c = Bools('a b c')
     >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
