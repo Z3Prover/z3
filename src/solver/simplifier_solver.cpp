@@ -110,10 +110,9 @@ class simplifier_solver : public solver {
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
         if (qhead < m_fmls.size() || !assumptions.empty()) {
-            for (expr* a : assumptions)
-                m_preprocess_state.freeze(a);
             TRACE("solver", tout << "qhead " << qhead << "\n");
-            m_preprocess_state.replay(qhead, assumptions);
+            m_preprocess_state.replay(qhead, assumptions);   
+            m_preprocess_state.freeze(assumptions);
             m_preprocess.reduce();
             if (!m.inc())
                 return;
