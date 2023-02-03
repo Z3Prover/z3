@@ -22,19 +22,23 @@ namespace polysat {
     static_assert(std::is_move_assignable_v<clause_builder>);
     static_assert(std::is_move_constructible_v<clause_builder>);
 
-    clause_builder::clause_builder(solver& s):
-        m_solver(&s)
+    clause_builder::clause_builder(solver& s, char const* name):
+        m_solver(&s), m_name(name)
     {}
 
     void clause_builder::reset() {
         m_literals.reset();
         m_is_tautology = false;
         m_redundant = clause::redundant_default;
+        m_name = "";
         SASSERT(empty());
     }
 
     clause_ref clause_builder::build() {
         if (m_is_tautology) {
+            verbose_stream() << "Tautology: " << m_literals << " (" << (m_name ? m_name : "<null>") << ")\n";
+            for (sat::literal lit : m_literals)
+                verbose_stream() << "    " << lit_pp(*m_solver, lit) << "\n";
             reset();
             return nullptr;
         }
@@ -52,7 +56,9 @@ namespace polysat {
         clause_ref cl = clause::from_literals(std::move(m_literals));
         SASSERT(cl);
         cl->set_redundant(m_redundant);
+        cl->set_name(m_name);
         m_redundant = clause::redundant_default;
+        m_name = "";
         SASSERT(empty());
         return cl;
     }

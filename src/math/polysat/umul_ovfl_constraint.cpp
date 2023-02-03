@@ -117,6 +117,8 @@ namespace polysat {
         auto const& max = p.manager().max_value();
         // p * q >= max + 1 <=> q >= (max + 1)/p <=> q >= ceil((max+1)/p)
         auto bound = ceil((max + 1) / p.val());
+        SASSERT(bound * p.val() > max);
+        SASSERT((bound - 1) * p.val() <= max);
 
         //
         // the clause that explains bound <= q or bound > q
@@ -126,20 +128,20 @@ namespace polysat {
         //
 
         signed_constraint sc(this, is_positive);
-        signed_constraint premise = is_positive ? s.ule(p0, p.val()) : s.ule(p.val(), p0);
-        signed_constraint conseq = is_positive ? s.ule(bound, q0) : s.ult(q0, bound);
-
-        SASSERT(premise.is_currently_true(s));
-        SASSERT(bound * p.val() > max);
-        SASSERT((bound - 1) * p.val() <= max);
-        clause_builder cb(s);
-        cb.insert_eval(~sc);
-        cb.insert_eval(~premise);
-        cb.insert(conseq);
-        clause_ref just = cb.build();
-        SASSERT(just);
-        s.add_clause(*just);
-        SASSERT(s.m_bvars.is_true(conseq.blit()));
+        if (is_positive) {
+            clause_builder lemma(s, "Ovfl(p, q) & p <= p.val() ==> q >= bound");
+            lemma.insert_eval(~sc);
+            lemma.insert_eval(~s.ule(p0, p.val()));
+            lemma.insert(s.ule(bound, q0));
+            s.add_clause(lemma.build());
+        }
+        else {
+            clause_builder lemma(s, "~Ovfl(p, q) & p >= p.val() ==> q < bound");
+            lemma.insert_eval(~sc);
+            lemma.insert_eval(~s.ule(p.val(), p0));
+            lemma.insert(s.ult(q0, bound));
+            s.add_clause(lemma.build());
+        }
         return true;
     }
 

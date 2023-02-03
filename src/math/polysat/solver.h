@@ -290,6 +290,7 @@ namespace polysat {
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
 
+        void add_clause(clause_ref clause);
         void add_clause(clause& clause);
         void add_clause(signed_constraint c1, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);

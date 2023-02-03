@@ -1121,6 +1121,11 @@ namespace polysat {
         }
     }
 
+    void solver::add_clause(clause_ref clause) {
+        VERIFY(clause);
+        add_clause(*clause);
+    }
+
     // Add clause to solver
     void solver::add_clause(clause& clause) {
         LOG((clause.is_redundant() ? "Lemma: ": "Aux: ") << clause);

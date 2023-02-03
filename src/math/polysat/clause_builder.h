@@ -23,30 +23,32 @@ Notes:
 namespace polysat {
   
     class clause_builder {
-        solver*               m_solver;
-        sat::literal_vector   m_literals;
+        solver*             m_solver;
+        sat::literal_vector m_literals;
         /// True iff clause contains a literal that is always true
         /// (only this specific case of tautology is covered by this flag)
-        bool                  m_is_tautology = false;
-        bool                  m_redundant = clause::redundant_default;
+        bool                m_is_tautology = false;
+        bool                m_redundant = clause::redundant_default;
+        char const*         m_name;
 
         solver& s() const { return *m_solver; }
 
     public:
-        clause_builder(solver& s);
-        clause_builder(clause_builder const& s) = delete;
-        clause_builder(clause_builder&& s) = default;
-        clause_builder& operator=(clause_builder const& s) = delete;
-        clause_builder& operator=(clause_builder&& s) = default;
+        clause_builder(solver& s, char const* name = "");
+        clause_builder(clause_builder const&) = delete;
+        clause_builder(clause_builder&&) = default;
+        clause_builder& operator=(clause_builder const&) = delete;
+        clause_builder& operator=(clause_builder&&) = default;
 
         bool empty() const { return m_literals.empty() && !m_is_tautology && m_redundant == clause::redundant_default; }
         void reset();
 
         void set_redundant(bool r) { m_redundant = r; }
+        void set_name(char const* name) { m_name = name; }
 
         /// Build the clause. This will reset the clause builder so it can be reused.
         /// Returns nullptr if the clause is a tautology and should not be added to the solver.
-        clause_ref build();
+        [[nodiscard]] clause_ref build();
 
         /// Insert constraints into the clause.
         void insert(sat::literal lit);
