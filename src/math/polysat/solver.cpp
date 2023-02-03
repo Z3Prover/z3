@@ -153,7 +153,7 @@ namespace polysat {
         if (is_conflict())
             return;  // no need to do anything if we already have a conflict at base level
         sat::literal lit = c.blit();
-        LOG("New constraint: " << c);
+        LOG("New constraint: " << lit_pp(*this, c));
         switch (m_bvars.value(lit)) {
         case l_false:
             // Input literal contradicts current boolean state (e.g., opposite literals in the input)
@@ -1085,6 +1085,21 @@ namespace polysat {
         assign_eval(lit);
     }
 
+    sat::literal solver::try_eval(sat::literal lit) {
+        signed_constraint const c = lit2cnstr(lit);
+        switch (c.eval(*this)) {
+        case l_true:
+            assign_eval(lit);
+            break;
+        case l_false:
+            assign_eval(~lit);
+            break;
+        default:
+            break;
+        }
+        return lit;
+    }
+
     /**
     * Activate constraint immediately
     * Activation and de-activation of constraints follows the scope controlled by push/pop.
@@ -1282,13 +1297,19 @@ namespace polysat {
 
     void solver::report_unsat() {
         backjump(base_level());
-        SASSERT(!m_conflict.empty());
+        VERIFY(!m_conflict.empty());
     }
 
     void solver::unsat_core(dependency_vector& deps) {
         VERIFY(is_conflict());
         deps.reset();
         m_conflict.find_deps(deps);
+        IF_VERBOSE(10,
+            verbose_stream() << "polysat unsat_core";
+            for (auto d : deps)
+                verbose_stream() << " " << d;
+            verbose_stream() << "\n";
+        );
     }
 
     std::ostream& solver::display(std::ostream& out) const {
@@ -1335,7 +1356,7 @@ namespace polysat {
     }
 
     std::ostream& lit_pp::display(std::ostream& out) const {
-        auto c = s.lit2cnstr(lit);
+        signed_constraint const c = s.lit2cnstr(lit);
         out << lpad(5, lit) << ": " << rpad(30, c);
         if (!c)
             return out;
@@ -1357,6 +1378,9 @@ namespace polysat {
             out << " pwatched";
         if (c->is_external())
             out << " ext";
+        dependency const d = s.m_bvars.dep(lit);
+        if (!d.is_null())
+            out << " dep:" << d.val();
         out << " ]";
         return out;
     }

@@ -412,7 +412,7 @@ namespace polysat {
         s.inc_activity(v);
 
         m_vars.remove(v);
-        for (auto const& c : s.m_viable.get_constraints(v))
+        for (signed_constraint const c : s.m_viable.get_constraints(v))
             insert(c);
         for (auto const& i : s.m_viable.units(v)) {
             insert(s.eq(i.lo(), i.lo_val()));
@@ -500,18 +500,82 @@ namespace polysat {
 #endif
 
     void conflict::find_deps(dependency_vector& out_deps) const {
-        sat::literal_vector todo;
-        sat::literal_set done;
+        sat::literal_vector todo_lits;
+        sat::literal_set done_lits;
+        unsigned_vector todo_vars;
+        uint_set done_vars;
         indexed_uint_set deps;
 
-        LOG("conflict: " << *this);
+        LOG("Conflict: " << *this);
 
-        // TODO: starting at literals/variables in the conflict, chase propagations backwards and accumulate dependencies.
-        verbose_stream() << "WARNING: unsat_core requested but dependency tracking in polysat is TODO\n";
-        for (signed_constraint c : *this) {
-            dependency d = s.m_bvars.dep(c.blit());
-            if (!d.is_null())
-                deps.insert(d.val());
+        auto const enqueue_lit = [&](sat::literal lit) {
+            if (done_lits.contains(lit))
+                return;
+            // verbose_stream() << "enqueue " << lit_pp(s, lit) << "\n";
+            todo_lits.push_back(lit);
+            done_lits.insert(lit);
+        };
+
+        auto const enqueue_var = [&](pvar v) {
+            if (done_vars.contains(v))
+                return;
+            // verbose_stream() << "enqueue v" << v << "\n";
+            todo_vars.push_back(v);
+            done_vars.insert(v);
+        };
+
+        // Starting at literals/variables in the conflict, chase propagations backwards and accumulate dependencies.
+        for (signed_constraint c : *this)
+            enqueue_lit(c.blit());
+        for (pvar v : m_vars)
+            enqueue_var(v);
+
+        while (!todo_vars.empty() || !todo_lits.empty()) {
+            while (!todo_vars.empty()) {
+                pvar const v = todo_vars.back();
+                todo_vars.pop_back();
+
+                if (s.m_justification[v].is_decision())
+                    continue;
+                SASSERT(s.m_justification[v].is_propagation());
+
+                for (signed_constraint c : s.m_viable.get_constraints(v))
+                    enqueue_lit(c.blit());
+                for (auto const& i : s.m_viable.units(v)) {
+                    enqueue_lit(s.try_eval(s.eq(i.lo(), i.lo_val())));
+                    enqueue_lit(s.try_eval(s.eq(i.hi(), i.hi_val())));
+                }
+            }
+            while (!todo_lits.empty()) {
+                sat::literal const lit = todo_lits.back();
+                todo_lits.pop_back();
+
+                dependency const d = s.m_bvars.dep(lit);
+                if (!d.is_null())
+                    deps.insert(d.val());
+
+                if (s.m_bvars.is_decision(lit))
+                    continue;
+                else if (s.m_bvars.is_assumption(lit))
+                    continue;
+                else if (s.m_bvars.is_bool_propagation(lit)) {
+                    for (sat::literal other : *s.m_bvars.reason(lit))
+                        enqueue_lit(other);
+                }
+                else if (s.m_bvars.is_evaluation(lit)) {
+                    unsigned const lvl = s.m_bvars.level(lit);
+                    for (pvar v : s.lit2cnstr(lit).vars()) {
+                        if (!s.is_assigned(v))
+                            continue;
+                        if (s.get_level(v) > lvl)
+                            continue;
+                        enqueue_var(v);
+                    }
+                }
+                else {
+                    UNREACHABLE();
+                }
+            }
         }
 
         for (unsigned d : deps)
