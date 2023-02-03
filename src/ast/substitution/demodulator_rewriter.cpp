@@ -780,7 +780,6 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
 
 
 demodulator_match_subst::demodulator_match_subst(ast_manager & m):
-    m(m),
     m_subst(m) {
 }
 
