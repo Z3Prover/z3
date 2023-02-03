@@ -165,6 +165,47 @@ namespace dd {
         return true;
     }
 
+    unsigned pdd_manager::min_parity(PDD p) {
+        if (m_semantics != mod2N_e)
+            return 0;
+
+        if (is_val(p)) {
+            rational v = val(p);
+            if (v.is_zero())
+                return m_power_of_2 + 1;
+            unsigned r = 0;
+            while (v.is_even() && v > 0)
+                r++, v /= 2;
+            return r;
+        }
+        init_mark();
+        PDD q = p;
+        m_todo.push_back(hi(q));
+        while (!is_val(q)) {
+            q = lo(q);
+            m_todo.push_back(hi(q));
+        }
+        unsigned p2 = val(q).trailing_zeros();
+        init_mark();
+        while (p2 != 0 && !m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r))
+                continue;
+            set_mark(r);
+            if (!is_val(r)) {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+            else if (val(r).is_zero())
+                continue;
+            else if (val(r).trailing_zeros() < p2)
+                p2 = val(r).trailing_zeros();
+        }
+        m_todo.reset();
+        return p2;
+    }
+
     pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
         return pdd(apply(p.root, s.root, pdd_subst_val_op), this);
     }
@@ -185,7 +226,20 @@ namespace dd {
         pdd v_val = mk_var(v) + val;
         return pdd(apply(s.root, v_val.root, pdd_subst_add_op), this);
     }
-    
+
+    bool pdd_manager::subst_get(pdd const& s, unsigned v, rational& out_val) {
+        unsigned level_v = m_var2level[v];
+        PDD p = s.root;
+        while (/* !is_val(p) && */ level(p) > level_v) {
+            SASSERT(is_val(lo(p)));
+            p = hi(p);
+        }
+        if (!is_val(p) && level(p) == level_v) {
+            out_val = val(lo(p));
+            return true;
+        }
+        return false;
+    }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -1154,6 +1208,11 @@ namespace dd {
         return true;
     }
 
+    /** Return true iff p contains no variables other than v. */
+    bool pdd_manager::is_univariate_in(PDD p, unsigned v) {
+        return (is_val(p) || var(p) == v) && is_univariate(p);
+    }
+
     /**
      * Push coefficients of univariate polynomial in order of ascending degree.
      * Example:     a*x^2 + b*x + c    ==>    [ c, b, a ]
@@ -1532,7 +1591,6 @@ namespace dd {
     }
 
     void pdd_manager::gc() {
-        m_gc_generation++;
         init_dmark();
         m_free_nodes.reset();
         SASSERT(well_formed());
@@ -1617,26 +1675,26 @@ namespace dd {
     std::ostream& pdd_manager::display(std::ostream& out, pdd const& b) {
         auto mons = to_monomials(b);
         bool first = true;
-        for (auto& m : mons) {
+        for (auto& [a, vs] : mons) {
             if (!first)
                 out << " ";
-            if (m.first.is_neg()) 
+            if (a.is_neg())
                 out << "- ";
             else if (!first)
                 out << "+ ";
             first = false;
-            rational c = abs(m.first);
-            m.second.reverse();
-            if (!c.is_one() || m.second.empty()) {
-                if (m_semantics == mod2N_e && mod(-c, m_mod2N) < c)
-                    out << -mod(-c, m_mod2N);
-                else 
+            rational c = abs(a);
+            vs.reverse();
+            if (!c.is_one() || vs.empty()) {
+                if (m_semantics == mod2N_e)
+                    out << val_pp(*this, c, !vs.empty());
+                else
                     out << c;
-                if (!m.second.empty()) out << "*";
+                if (!vs.empty()) out << "*";
             }
             unsigned v_prev = UINT_MAX;
             unsigned pow = 0;
-            for (unsigned v : m.second) {
+            for (unsigned v : vs) {
                 if (v == v_prev) {
                     pow++;
                     continue;
@@ -1658,6 +1716,23 @@ namespace dd {
         }
         if (first) out << "0";
         return out;
+    }
+
+    std::ostream& val_pp::display(std::ostream& out) const {
+        if (m.get_semantics() != pdd_manager::mod2N_e)
+            return out << val;
+        unsigned pow;
+        if (val.is_power_of_two(pow) && pow > 10)
+            return out << "2^" << pow;
+        for (int offset : {-2, -1, 1, 2})
+            if (val < m.max_value() && (val - offset).is_power_of_two(pow) && pow > 10 && pow < m.power_of_2())
+                return out << lparen() << "2^" << pow << (offset >= 0 ? "+" : "") << offset << rparen();
+        rational neg_val = mod(-val, m.two_to_N());
+        if (neg_val < val) {  // keep this condition so we don't suddenly print negative values where we wouldn't otherwise
+            if (neg_val.is_power_of_two(pow) && pow > 10)
+                return out << "-2^" << pow;
+        }
+        return out << m.normalize(val);
     }
 
     bool pdd_manager::well_formed() {
@@ -1734,6 +1809,13 @@ namespace dd {
         pdd p = *this;
         while (!p.is_val())
             p = p.hi();
+        return p.val();
+    }
+
+    rational const& pdd::offset() const {
+        pdd p = *this;
+        while (!p.is_val())
+            p = p.lo();
         return p.val();
     }
 

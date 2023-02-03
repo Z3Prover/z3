@@ -571,6 +571,38 @@ public:
         }
     }
 
+    static void subst_get() {
+        std::cout << "subst_get\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 32);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        unsigned const vd = 3;
+
+        rational val;
+        pdd s = m.one();
+        std::cout << s << "\n";
+        VERIFY(!s.subst_get(va, val));
+        VERIFY(!s.subst_get(vb, val));
+        VERIFY(!s.subst_get(vc, val));
+        VERIFY(!s.subst_get(vd, val));
+
+        s = s.subst_add(va, rational(5));
+        std::cout << s << "\n";
+        VERIFY(s.subst_get(va, val) && val == 5);
+        VERIFY(!s.subst_get(vb, val));
+        VERIFY(!s.subst_get(vc, val));
+        VERIFY(!s.subst_get(vd, val));
+
+        s = s.subst_add(vc, rational(7));
+        std::cout << s << "\n";
+        VERIFY(s.subst_get(va, val) && val == 5);
+        VERIFY(!s.subst_get(vb, val));
+        VERIFY(s.subst_get(vc, val) && val == 7);
+        VERIFY(!s.subst_get(vd, val));
+    }
+
     static void univariate() {
         std::cout << "univariate\n";
         pdd_manager m(4, pdd_manager::mod2N_e, 4);
@@ -671,6 +703,7 @@ void tst_pdd() {
     dd::test::binary_resolve();
     dd::test::pow();
     dd::test::subst_val();
+    dd::test::subst_get();
     dd::test::univariate();
     dd::test::factors();
 }

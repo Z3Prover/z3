@@ -33,6 +33,10 @@ struct _key_data {
         m_key(k),
         m_value(v) {
     }
+    _key_data(Key const& k, Value&& v):
+        m_key(k),
+        m_value(std::move(v)) {
+    }
 };
 
 template<typename Entry, typename HashProc, typename EqProc>
@@ -105,6 +109,10 @@ public:
     
     void insert(key const & k, value const & v) {
         m_table.insert(key_data(k, v));
+    }
+
+    void insert(key const& k, value&& v) {
+        m_table.insert(key_data(k, std::move(v)));
     }
   
     bool insert_if_not_there_core(key const & k, value const & v, entry *& et) {

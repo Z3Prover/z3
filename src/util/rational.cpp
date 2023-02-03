@@ -153,3 +153,21 @@ bool rational::mult_inverse(unsigned num_bits, rational & result) const {
     return true;
 }
 
+/**
+ * Compute the smallest multiplicative pseudo-inverse modulo 2^num_bits:
+ *
+ *      mod(n * n.pseudo_inverse(bits), 2^bits) == 2^k,
+ *      where k is maximal such that 2^k divides n.
+ *
+ * Precondition: number is non-zero.
+ */
+rational rational::pseudo_inverse(unsigned num_bits) const {
+    rational result;
+    rational const& n = *this;
+    SASSERT(!n.is_zero());  // TODO: or we define pseudo-inverse of 0 as 0.
+    unsigned const k = n.trailing_zeros();
+    rational const odd = machine_div2k(n, k);
+    VERIFY(odd.mult_inverse(num_bits - k, result));
+    SASSERT_EQ(mod(n * result, rational::power_of_two(num_bits)), rational::power_of_two(k));
+    return result;
+}
