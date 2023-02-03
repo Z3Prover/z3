@@ -111,7 +111,6 @@ class demodulator_match_subst {
     typedef std::pair<expr *, expr *>      expr_pair;
     typedef obj_pair_hashtable<expr, expr> cache;
     
-    ast_manager &         m;
     substitution          m_subst;
     cache                 m_cache;
     svector<expr_pair>    m_todo;

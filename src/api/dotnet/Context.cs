@@ -3726,6 +3726,110 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Simplifiers
+        /// <summary>
+        /// The number of supported simplifiers.
+        /// </summary>
+        public uint NumSimplifiers
+        {
+            get { return Native.Z3_get_num_simplifiers(nCtx); }
+        }
+
+        /// <summary>
+        /// The names of all supported tactics.
+        /// </summary>
+        public string[] SimplifierNames
+        {
+            get
+            {
+
+                uint n = NumSimplifiers;
+                string[] res = new string[n];
+                for (uint i = 0; i < n; i++)
+                    res[i] = Native.Z3_get_simplifier_name(nCtx, i);
+                return res;
+            }
+        }
+
+        /// <summary>
+        /// Returns a string containing a description of the simplifier with the given name.
+        /// </summary>
+        public string SimplifierDescription(string name)
+        {
+
+            return Native.Z3_simplifier_get_descr(nCtx, name);
+        }
+
+        /// <summary>
+        /// Creates a new Tactic.
+        /// </summary>
+        public Simplifier MkSimplifier(string name)
+        {
+
+            return new Simplifier(this, name);
+        }
+
+        /// <summary>
+        /// Create a simplifie that applies <paramref name="t1"/> and
+        /// then <paramref name="t2"/>.
+        /// </summary>
+        public Simplifier AndThen(Simplifier t1, Simplifier t2, params Simplifier[] ts)
+        {
+            Debug.Assert(t1 != null);
+            Debug.Assert(t2 != null);
+            // Debug.Assert(ts == null || Contract.ForAll(0, ts.Length, j => ts[j] != null));
+
+
+            CheckContextMatch(t1);
+            CheckContextMatch(t2);
+            CheckContextMatch<Simplifier>(ts);
+
+            IntPtr last = IntPtr.Zero;
+            if (ts != null && ts.Length > 0)
+            {
+                last = ts[ts.Length - 1].NativeObject;
+                for (int i = ts.Length - 2; i >= 0; i--)
+                    last = Native.Z3_simplifier_and_then(nCtx, ts[i].NativeObject, last);
+            }
+            if (last != IntPtr.Zero)
+            {
+                last = Native.Z3_simplifier_and_then(nCtx, t2.NativeObject, last);
+                return new Simplifier(this, Native.Z3_simplifier_and_then(nCtx, t1.NativeObject, last));
+            }
+            else
+                return new Simplifier(this, Native.Z3_simplifier_and_then(nCtx, t1.NativeObject, t2.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a simplifier that applies <paramref name="t1"/> and then
+        /// then <paramref name="t2"/>.
+        /// </summary>
+        /// <remarks>
+        /// Shorthand for <c>AndThen</c>.
+        /// </remarks>
+        public Simplifier Then(Simplifier t1, Simplifier t2, params Simplifier[] ts)
+        {
+            Debug.Assert(t1 != null);
+            Debug.Assert(t2 != null);
+            //  Debug.Assert(ts == null || Contract.ForAll(0, ts.Length, j => ts[j] != null));
+
+            return AndThen(t1, t2, ts);
+        }
+
+        /// <summary>
+        /// Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
+        /// </summary>
+        public Simplifier UsingParams(Simplifier t, Params p)
+        {
+            Debug.Assert(t != null);
+            Debug.Assert(p != null);
+
+            CheckContextMatch(t);
+            CheckContextMatch(p);
+            return new Simplifier(this, Native.Z3_simplifier_using_params(nCtx, t.NativeObject, p.NativeObject));
+        }
+        #endregion
+
         #region Probes
         /// <summary>
         /// The number of supported Probes.
@@ -3927,6 +4031,16 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Creates a solver that uses an incremental simplifier.
+        /// </summary>
+        public Solver MkSolver(Solver s, Simplifier t)
+        {
+            Debug.Assert(t != null);
+            Debug.Assert(s != null);
+            return new Solver(this, Native.Z3_solver_add_simplifier(nCtx, s.NativeObject, t.NativeObject));
+        }
+
+        /// <summary>
         /// Creates a solver that is implemented using the given tactic.
         /// </summary>
         /// <remarks>
@@ -3939,6 +4053,8 @@ namespace Microsoft.Z3
 
             return new Solver(this, Native.Z3_mk_solver_from_tactic(nCtx, t.NativeObject));
         }
+
+
         #endregion
 
         #region Fixedpoints

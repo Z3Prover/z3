@@ -41,7 +41,7 @@ expr_ref dominator_simplifier::simplify_ite(app * ite) {
             if (is_subexpr(child, t) && !is_subexpr(child, e)) 
                 simplify_rec(child);            
         
-        pop(scope_level() - old_lvl);
+        local_pop(scope_level() - old_lvl);
         expr_ref new_t = simplify_arg(t);
         reset_cache();
         if (!assert_expr(new_c, true)) {
@@ -50,7 +50,7 @@ expr_ref dominator_simplifier::simplify_ite(app * ite) {
         for (expr * child : tree(ite)) 
             if (is_subexpr(child, e) && !is_subexpr(child, t)) 
                 simplify_rec(child);
-        pop(scope_level() - old_lvl);
+        local_pop(scope_level() - old_lvl);
         expr_ref new_e = simplify_arg(e);
 
         if (c == new_c && t == new_t && e == new_e) {
@@ -159,7 +159,7 @@ expr_ref dominator_simplifier::simplify_and_or(bool is_and, app * e) {
         r = simplify_arg(arg);                              
         args.push_back(r);                                  
         if (!assert_expr(r, !is_and)) {                     
-            pop(scope_level() - old_lvl);                   
+            local_pop(scope_level() - old_lvl);                   
             r = is_and ? m.mk_false() : m.mk_true();        
             reset_cache();
             return true;
@@ -181,7 +181,7 @@ expr_ref dominator_simplifier::simplify_and_or(bool is_and, app * e) {
         args.reverse();
     }
     
-    pop(scope_level() - old_lvl);
+    local_pop(scope_level() - old_lvl);
     reset_cache();
     return { is_and ? mk_and(args) : mk_or(args), m };
 }
@@ -191,7 +191,7 @@ expr_ref dominator_simplifier::simplify_not(app * e) {
     ENSURE(m.is_not(e, ee));
     unsigned old_lvl = scope_level();
     expr_ref t = simplify_rec(ee);
-    pop(scope_level() - old_lvl);
+    local_pop(scope_level() - old_lvl);
     reset_cache();
     return mk_not(t);
 }
@@ -245,7 +245,7 @@ void dominator_simplifier::reduce() {
             }
             m_fmls.update(i, dependent_expr(m, r, new_pr, d));
         }
-        pop(scope_level());
+        local_pop(scope_level());
 
         // go backwards
         m_forward = false;
@@ -268,7 +268,7 @@ void dominator_simplifier::reduce() {
             }
             m_fmls.update(i, dependent_expr(m, r, new_pr, d));
         }
-        pop(scope_level());
+        local_pop(scope_level());
     }
     SASSERT(scope_level() == 0);
 }

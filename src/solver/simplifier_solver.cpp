@@ -110,10 +110,9 @@ class simplifier_solver : public solver {
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
         if (qhead < m_fmls.size() || !assumptions.empty()) {
-            for (expr* a : assumptions)
-                m_preprocess_state.freeze(a);
             TRACE("solver", tout << "qhead " << qhead << "\n");
-            m_preprocess_state.replay(qhead, assumptions);
+            m_preprocess_state.replay(qhead, assumptions);   
+            m_preprocess_state.freeze(assumptions);
             m_preprocess.reduce();
             if (!m.inc())
                 return;
@@ -225,7 +224,7 @@ public:
     }
 
     proof_ref m_proof;
-    proof* get_proof_core() { 
+    proof* get_proof_core() override { 
         proof* p = s->get_proof(); 
         m_proof = p;
         if (p) {
@@ -272,7 +271,7 @@ public:
     std::string reason_unknown() const override { return s->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { s->set_reason_unknown(msg); }
     void get_labels(svector<symbol>& r) override { s->get_labels(r); }
-    void get_unsat_core(expr_ref_vector& r) { s->get_unsat_core(r); replace(r); }
+    void get_unsat_core(expr_ref_vector& r) override { s->get_unsat_core(r); replace(r); }
     ast_manager& get_manager() const override { return s->get_manager(); }    
     void reset_params(params_ref const& p) override { s->reset_params(p); }
     params_ref const& get_params() const override { return s->get_params(); }
@@ -314,7 +313,7 @@ public:
             clauses1.push_back(expr_ref_vector(m, c.size(), es.data() + offset));
             offset += c.size();
         }
-        return check_sat_cc(cube1, clauses1); 
+        return s->check_sat_cc(cube1, clauses1); 
     }
 
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
