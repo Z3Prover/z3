@@ -3,7 +3,7 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    Tactic.cs
+    Simplifiers.cs
 
 Abstract:
 
