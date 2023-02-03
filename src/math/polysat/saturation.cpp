@@ -216,8 +216,8 @@ namespace polysat {
         SASSERT(all_of(m_lemma, [this](sat::literal lit) { return is_forced_false(s.lit2cnstr(lit)); }));
 
         m_lemma.insert(c);
-        core.add_lemma(m_rule, m_lemma.build());
-        verbose_stream() << "Lemma\n";
+        m_lemma.set_name(m_rule);
+        core.add_lemma(m_lemma.build());
         log_lemma(v, core);
         return true;
     }
@@ -247,7 +247,8 @@ namespace polysat {
             return false;
 
         m_lemma.insert_eval(c);
-        core.add_lemma(m_rule, m_lemma.build());
+        m_lemma.set_name(m_rule);
+        core.add_lemma(m_lemma.build());
         log_lemma(v, core);
         return true;
     }

@@ -70,7 +70,7 @@ namespace polysat {
 
         void infer_lemmas_for_value(pvar v, conflict& core) {
             (void)m_poly_sup.perform(v, core);
-            (void)m_saturation.perform(v, core);
+            m_saturation.perform(v, core);
         }
 
         void infer_lemmas_for_value(pvar v, signed_constraint const& c, conflict& core) {
@@ -267,10 +267,9 @@ namespace polysat {
     void conflict::insert(signed_constraint c) {
         if (contains(c))
             return;
-        if (c.is_always_true())
-            return;
         LOG("Inserting " << lit_pp(s, c));
         SASSERT_EQ(c.bvalue(s), l_true);
+        SASSERT(!c.is_always_true());   // such constraints would be removed earlier
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
         m_literals.insert(c.blit().index());
@@ -281,19 +280,6 @@ namespace polysat {
                 m_vars_occurring.insert(v);
             m_var_occurrences[v]++;
         }
-    }
-
-    void conflict::insert_eval(signed_constraint c) {
-        switch (c.bvalue(s)) {
-        case l_undef:
-            s.assign_eval(c.blit());
-            break;
-        case l_true:
-            break;
-        case l_false:
-            break;
-        }
-        insert(c);
     }
 
     void conflict::insert_vars(signed_constraint c) {
@@ -307,16 +293,14 @@ namespace polysat {
     }
 
     void conflict::add_lemma(char const* name, signed_constraint const* cs, size_t cs_len) {
-        clause_builder cb(s);
+        clause_builder cb(s, name);
         for (size_t i = 0; i < cs_len; ++i)
             cb.insert_eval(cs[i]);
-        add_lemma(name, cb.build());
+        add_lemma(cb.build());
     }
 
-    void conflict::add_lemma(char const* name, clause_ref lemma) {
-        if (!name)
-            name = "<unknown>";
-        LOG_H3("Lemma " << name << ": " << show_deref(lemma));
+    void conflict::add_lemma(clause_ref lemma) {
+        LOG_H3("Lemma: " << ": " << show_deref(lemma));
         VERIFY(lemma);
 
         for (auto lit : *lemma)
@@ -325,7 +309,6 @@ namespace polysat {
 
         s.m_simplify_clause.apply(*lemma);
         lemma->set_redundant(true);
-        lemma->set_name(name);
         for (sat::literal lit : *lemma) {
             LOG(lit_pp(s, lit));
             // NOTE: it can happen that the literal's bvalue is l_true at this point.

@@ -287,7 +287,6 @@ namespace polysat {
         void rescale_activity();
 
         void report_unsat();
-        void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
 
         void add_clause(clause_ref clause);

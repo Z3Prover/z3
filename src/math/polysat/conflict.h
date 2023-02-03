@@ -145,29 +145,24 @@ namespace polysat {
 
         /**
          * Insert constraint c into conflict state.
-         *
-         * Skips trivial constraints:
-         *  - e.g., constant constraints such as "4 > 1"
          */
         void insert(signed_constraint c);
 
         /** Insert assigned variables of c */
         void insert_vars(signed_constraint c);
 
-        /** Evaluate constraint under assignment and insert it into conflict state. */
-        void insert_eval(signed_constraint c);
-
         /** Add a lemma to the conflict, to be added after conflict resolution */
         void add_lemma(char const* name, std::initializer_list<signed_constraint> cs);
         void add_lemma(char const* name, signed_constraint const* cs, size_t cs_len);
-        void add_lemma(char const* name, clause_ref lemma);
+        void add_lemma(clause_ref lemma);
+        void add_lemma(char const* name, clause_ref lemma) { lemma->set_name(name); add_lemma(lemma); }  // remove
 
         /** Re-add a lemma to the conflict that we were unable to add after the previous conflict. */
         void restore_lemma(clause_ref lemma);
 
         /** Remove c from core */
         void remove(signed_constraint c);
-        void remove_var(pvar v);
+
         /**
          * Remove all constraints and variables from the conflict state.
          * Use this during conflict resolution if the core needs to be replaced.

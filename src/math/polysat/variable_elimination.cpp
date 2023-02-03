@@ -421,7 +421,7 @@ namespace polysat {
             LOG("p1:    " << p1);
             LOG("p2:    " << p2);
                         
-            clause_builder cb(s);
+            clause_builder cb(s, "variable elimination");
 
             if (evaluated) {
                 for (auto [w, wv] : sub)
@@ -434,7 +434,7 @@ namespace polysat {
             cb.insert(c_new);
             ref<clause> c = cb.build();
             if (c) // Can we get tautologies this way?
-                core.add_lemma("variable elimination", c);
+                core.add_lemma(c);
         }
     }
 
