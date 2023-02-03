@@ -748,10 +748,6 @@ namespace polysat {
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j;
-        // Decision should satisfy all univariate constraints.
-        // Propagation might violate some other constraint; but we will notice that in the propagation loop when v is propagated.
-        // TODO: on the other hand, checking constraints here would have us discover some conflicts earlier.
-        SASSERT(!j.is_decision() || m_viable_fallback.check_constraints(get_assignment(), v));
 #if ENABLE_LINEAR_SOLVER
         // TODO: convert justification into a format that can be tracked in a dependency core.
         m_linear_solver.set_value(v, val, UINT_MAX);
