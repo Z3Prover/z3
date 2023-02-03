@@ -453,6 +453,7 @@ namespace polysat {
         unsigned const target_level = m_level - num_levels;
         using replay_item = std::variant<sat::literal, pvar>;
         vector<replay_item> replay;
+        sat::literal_vector repropagate;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -529,9 +530,13 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
-                if (active_level <= target_level)
+                if (m_bvars.is_decision(lit))
+                    repropagate.push_back(lit);
+
+                if (active_level <= target_level) {
+                    SASSERT(!m_bvars.is_decision(lit));
                     replay.push_back(lit);
-                else
+                } else
                     m_bvars.unassign(lit);
                 m_search.pop();
                 break;
@@ -543,6 +548,18 @@ namespace polysat {
         }
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
+        // Repropagate:
+        // Consider the following case:
+        // 1. Literal L is decision@2
+        // 2. We are at level 10, add a clause C := A & B ==> L where A@0, B@0 (i.e., L should be propagation@0 now)
+        // 3. For whatever reason we now backtrack to 0 or 1.
+        //    We have unassigned L but the unit propagation for C does not trigger.
+        // 4. To fix that situation we explicitly "repropagate" C after backtracking.
+        for (sat::literal lit : repropagate)
+            for (clause* cl : m_bvars.watch(lit))
+                propagate_clause(*cl);
+        // Replay:
+        // (since levels on the search stack may be out of order)
         for (unsigned j = replay.size(); j-- > 0; ) {
             replay_item item = replay[j];
             std::visit([this](auto&& arg) {
@@ -997,7 +1014,7 @@ namespace polysat {
         }
     }  // backjump_and_learn
 
-    // Explicit boolean propagation over the given clause, without relying on watch lists
+    // Explicit boolean propagation over the given clause, without relying on watch lists.
     void solver::propagate_clause(clause& cl) {
         sat::literal prop = sat::null_literal;
         for (sat::literal lit : cl) {
