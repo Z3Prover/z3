@@ -234,7 +234,6 @@ namespace polysat {
         unsigned level(sat::literal lit, clause const& cl);
 
         void assign_propagate(pvar v, rational const& val);
-        void assign_verify(pvar v, rational val, justification j);
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
         bool is_decision(pvar v) const { return m_justification[v].is_decision(); }
