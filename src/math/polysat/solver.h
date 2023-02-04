@@ -542,6 +542,8 @@ namespace polysat {
 
         std::ostream& display(std::ostream& out) const;
 
+        std::ostream& display_search(std::ostream& out) const;
+
         void collect_statistics(statistics& st) const;
 
         params_ref const & params() const { return m_params;  }

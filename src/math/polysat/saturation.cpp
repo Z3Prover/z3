@@ -1956,12 +1956,69 @@ namespace polysat {
 
     /**
      * let q1 = x1 / y1, q2 = x2 / y2
-     * x1 <= x2  /\ y1 >= y2 => q1 <= q2
+     * x1 <= x2  & y1 >= y2 => q1 <= q2
+     * y1 <= y2 & q1 < q2 => (x2 - x1) >= (q2 - q1 - 1) * y1
+     * 
+     * Limitation/assumption:
+     * Values of x1, y1, q1 have to be available for the rule to apply.
+     * If not all values are present, the rule isn't going to be used.
+     * The arithmetic solver uses complete assignments because it 
+     * builds on top of an integer feasiable state (or feasible over rationals)
+     * Lemmas are false under that assignment. They don't necessarily propagate, though.
+     * PolySAT isn't (yet) set up to work with complete assignments and thereforce misses such lemmas.
+     * - should we force complete assignments by computing first a model that is feasible modulo linear constraints 
+     *   (ignore non-linear constraints in linear mode)?
+     * - should we detect forcing relations x1 <= x2, y2 <= y1 based on the constraints (not on assignments)?
+     *   other saturation rules already do this, but it is highly syntactic whether they apply.
+     * 
+     * 
+     * Other rules:
+     *  x < y div z => x * z < y
+     * 
+     * Or just:
+     *  (y div z) * z <= y, 
+     *  ~overfl((y div z) * z)
+     * 
+     * ~overfl(x * y), z <= y => x * z <= x * y
+     * 
      */
     bool saturation::try_div_monotonicity(conflict& core) {
         bool propagated = false;
-        for (auto it1 = s.m_constraints.begin_div(); it1 < s.m_constraints.end_div(); it1++) {
-            auto [x1, y1, q1, r1] = *it1;
+
+        auto log = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val,
+                                 auto& x2, auto& x2_val, auto& y2, auto& y2_val, auto& q2, auto& q2_val) {
+            IF_VERBOSE(1, verbose_stream() << "Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " 
+                       << s.var(q1) << "\n");
+        };
+
+        auto monotonicity1 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val,
+                                 auto& x2, auto& x2_val, auto& y2, auto& y2_val, auto& q2, auto& q2_val) {
+            if (!(x1_val <= x2_val && y1_val >= y2_val && q1_val > q2_val))
+                return;
+            propagated = true;
+            set_rule("[x1, y1, x2, y2] x1 <= x2 & y2 <= y1 => x1 / y1 <= x2 / y2");
+            log(x1, x1_val, y1, y1_val, q1, q1_val, x2, x2_val, y2, y2_val, q2, q2_val);
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.ule(x1, x2));
+            m_lemma.insert_eval(~s.ule(y2, y1));
+            propagate(q1, core, s.ule(s.var(q1), s.var(q2)));
+        };
+
+        auto monotonicity2 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val,
+                                 auto& x2, auto& x2_val, auto& y2, auto& y2_val, auto& q2, auto& q2_val) {
+            if (!(y1_val <= y2_val && q1_val < q2_val && (x2_val - x1_val < (q2_val - q1_val - 1) * y1_val)))
+                return;
+            propagated = true;
+            set_rule("[x1, y1, x2, y2] y2 >= y1 & q2 > q1 => x2 - x1 >= ((x2 / y2) - (x1 / y1) - 1) * y1");
+            log(x1, x1_val, y1, y1_val, q1, q1_val, x2, x2_val, y2, y2_val, q2, q2_val);            
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.uge(y2, y1));
+            m_lemma.insert_eval(~s.ult(s.var(q1), s.var(q2)));
+            propagate(q1, core, s.uge(x2 - x1, (s.var(q2) - s.var(q1) - 1) * y1));
+        };
+                                 
+                                       
+        for (auto const& [x1, y1, q1, r1] : s.m_constraints.div_constraints()) {
             rational x1_val, y1_val, q1_val;
             if (!s.try_eval(x1, x1_val) || !s.try_eval(y1, y1_val) || !s.is_assigned(q1))
                 continue;
@@ -1970,45 +2027,18 @@ namespace polysat {
 
             if (q1_val == expected1)
                 continue;
-
-            for (auto it2 = s.m_constraints.begin_div(); it2 < s.m_constraints.end_div(); it2++) {
-                if (it1 == it2)
+            
+            for (auto const& [x2, y2, q2, r2] : s.m_constraints.div_constraints()) {            
+                if (x1 == x2 && y1 == y2)
                     continue;
-                auto [x2, y2, q2, r2] = *it2;
                 rational x2_val, y2_val, q2_val;
                 if (!s.try_eval(x2, x2_val) || !s.try_eval(y2, y2_val) || !s.is_assigned(q2))
                     continue;
                 q2_val = s.get_value(q2);
-                set_rule("[x1, y1, x2, y2] x1 <= x2 & y1 <= y2 => x1 / y1 <= x2 / y2");
-                if (x1_val <= x2_val && y2_val <= y1_val && !(q1_val <= q2_val)) { // No special treatment for 0 required. It is already monotonic by SMTLib defining x / 0 = 2^k
-                    m_lemma.reset();
-                    m_lemma.insert_eval(~s.ule(x1, x2));
-                    m_lemma.insert_eval(~s.ule(y2, y1));
-                    propagate(q1, core, s.ule(s.var(q1), s.var(q2)));
-                    //verbose_stream() << "1. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
-                    //verbose_stream() << "1. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n"; 
-                    propagated = true;
-                }
-                if (x1_val >= x2_val && y2_val >= y1_val && !(q1_val >= q2_val)) {
-                    m_lemma.reset();
-                    m_lemma.insert_eval(~s.uge(x1, x2));
-                    m_lemma.insert_eval(~s.uge(y2, y1));
-                    propagate(q1, core, s.uge(s.var(q1), s.var(q2)));
-                    //verbose_stream() << "2. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
-                    //verbose_stream() << "2. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n";
-                    propagated = true;
-                }
-                
-                set_rule("[x1, y1, x2, y2] y2 >= y1 & q2 > q1 => x2 - x1 >= ((x2 / y2) - (x1 / y1) - 1) * y1");
-                if (y2_val >= y1_val && q2_val > q1_val && !(x2_val - x1_val >= (q2_val - q1_val - 1) * y1_val)) {
-                    m_lemma.reset();
-                    m_lemma.insert_eval(~s.uge(y2, y1));
-                    m_lemma.insert_eval(~s.ult(s.var(q1), s.var(q2)));
-                    propagate(q1, core, s.uge(x2 - x1, (s.var(q2) - s.var(q1) - 1) * y1));
-                    //verbose_stream() << "3. #1 Division monotonicity: [" << x1 << "] (" << x1_val << ") / [" << y1 << "] (" << y1_val << ") = " << s.var(q1) << " (" << q1_val << ") rem: " << s.var(r1) << " (" << (s.is_assigned(r1) ? s.get_value(r1) : (rational)-2) << ")\n";
-                    //verbose_stream() << "3. #2 Division monotonicity: [" << x2 << "] (" << x2_val << ") / [" << y2 << "] (" << y2_val << ") = " << s.var(q2) << " (" << q2_val << ") rem: " << s.var(r2) << " (" << (s.is_assigned(r2) ? s.get_value(r2) : (rational)-2) << ")\n";
-                    propagated = true;
-                }
+                monotonicity1(x1, x1_val, y1, y1_val, q1, q1_val, x2, x2_val, y2, y2_val, q2, q2_val);
+                monotonicity1(x2, x2_val, y2, y2_val, q2, q2_val, x1, x1_val, y1, y1_val, q1, q1_val);
+                monotonicity2(x1, x1_val, y1, y1_val, q1, q1_val, x2, x2_val, y2, y2_val, q2, q2_val);
+                monotonicity2(x2, x2_val, y2, y2_val, q2, q2_val, x1, x1_val, y1, y1_val, q1, q1_val);                
             }
         }
         return propagated;

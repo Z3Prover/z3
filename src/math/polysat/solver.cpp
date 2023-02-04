@@ -1312,8 +1312,7 @@ namespace polysat {
         );
     }
 
-    std::ostream& solver::display(std::ostream& out) const {
-        out << "Search Stack:\n";
+    std::ostream& solver::display_search(std::ostream& out) const {
         for (auto item : m_search) {
             if (item.is_assignment()) {
                 pvar v = item.var();
@@ -1332,6 +1331,12 @@ namespace polysat {
                 out << "\n";
             }
         }
+        return out;
+    }
+
+    std::ostream& solver::display(std::ostream& out) const {
+        out << "Search Stack:\n";
+        display_search(out);
         out << "Constraints:\n";
         for (auto c : m_constraints)
             out << "\t" << c->bvar2string() << ": " << *c << "\n";

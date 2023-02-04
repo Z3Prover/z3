@@ -132,8 +132,7 @@ namespace polysat {
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
 
-        std::tuple<pdd, pdd, pvar, pvar> const* begin_div() const { return m_dedup.m_div_rem_list.data(); }
-        std::tuple<pdd, pdd, pvar, pvar> const* end_div() const { return m_dedup.m_div_rem_list.data() + m_dedup.m_div_rem_list.size(); }
+        vector<std::tuple<pdd, pdd, pvar, pvar>> const& div_constraints() const { return m_dedup.m_div_rem_list; }
 
         class clause_iterator {
             friend class constraint_manager;
