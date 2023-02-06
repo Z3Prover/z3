@@ -30,7 +30,7 @@ enum tbit {
     BIT_z = 0x0, // unknown
     BIT_0 = 0x1, // for sure 0
     BIT_1 = 0x2, // for sure 1
-    BIT_x = 0x3 // don't care
+    BIT_x = 0x3  // don't care
 };
 
 inline tbit neg(tbit t) {
@@ -43,7 +43,7 @@ class tbv_manager {
     ptr_vector<tbv> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
-    tbv_manager(const tbv_manager& m) = delete;
+    tbv_manager(tbv_manager const& m) = delete;
     ~tbv_manager();
     void reset();
     tbv* allocate();
@@ -154,11 +154,9 @@ public:
 };
 
 inline std::ostream& operator<<(std::ostream& out, tbv_ref const& c) {
-    const char* names[] = { "z", "0", "1", "x" }; 
-    for (unsigned i =  c.num_tbits(); i > 0; i--) {
-        out << names[(unsigned)c[i - 1]]; 
+    char const* names[] = { "z", "0", "1", "x" };
+    for (unsigned i = c.num_tbits(); i-- > 0; ) {
+        out << names[static_cast<unsigned>(c[i])];
     }
     return out;
 }
-
-

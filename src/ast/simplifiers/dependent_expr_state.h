@@ -90,7 +90,8 @@ public:
     * Freeze internal functions
     */
     void freeze(expr* term);
-    bool frozen(func_decl* f) const { return m_frozen.is_marked(f); }
+    void freeze(expr_ref_vector const& terms) { for (expr* t : terms) freeze(t); }
+    bool frozen(func_decl* f) const { return m_frozen.is_marked(f); }    
     bool frozen(expr* f) const { return is_app(f) && m_frozen.is_marked(to_app(f)->get_decl()); }
     void freeze_suffix();
 

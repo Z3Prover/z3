@@ -74,9 +74,9 @@ public:
     vector<X> &           m_x; // a feasible solution, the fist time set in the constructor
     vector<T> &           m_costs;
     lp_settings &         m_settings;
+    lu<static_matrix<T, X>> * m_factorization = nullptr;
     vector<T>             m_y; // the buffer for yB = cb
     // a device that is able to solve Bx=c, xB=d, and change the basis
-    lu<static_matrix<T, X>> *            m_factorization;
     const column_namer &  m_column_names;
     indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs

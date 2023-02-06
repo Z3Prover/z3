@@ -190,7 +190,7 @@ namespace dd {
         while (p2 != 0 && !m_todo.empty()) {
             PDD r = m_todo.back();
             m_todo.pop_back();
-            if (is_marked(r)) 
+            if (is_marked(r))
                 continue;
             set_mark(r);
             if (!is_val(r)) {
@@ -203,7 +203,7 @@ namespace dd {
                 p2 = val(r).trailing_zeros();
         }
         m_todo.reset();
-        return p2;        
+        return p2;
     }
 
     pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
@@ -1816,9 +1816,8 @@ namespace dd {
         pdd p = *this;
         while (!p.is_val())
             p = p.lo();
-        return p.val();        
+        return p.val();
     }
- 
 
     pdd pdd::shl(unsigned n) const {
         return (*this) * rational::power_of_two(n);

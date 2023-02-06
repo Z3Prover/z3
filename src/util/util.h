@@ -413,22 +413,6 @@ inline size_t megabytes_to_bytes(unsigned mb) {
     return r;
 }
 
-/** Compact version of std::all_of */
-template <typename Container, typename Predicate>
-bool all_of(Container const& c, Predicate p)
-{
-    using std::begin, std::end;  // allows begin(c) to also find c.begin()
-    return std::all_of(begin(c), end(c), std::forward<Predicate>(p));
-}
-
-/** Compact version of std::any_of */
-template <typename Container, typename Predicate>
-bool any_of(Container const& c, Predicate p)
-{
-    using std::begin, std::end;  // allows begin(c) to also find c.begin()
-    return std::any_of(begin(c), end(c), std::forward<Predicate>(p));
-}
-
 /** Compact version of std::count */
 template <typename Container, typename Item>
 std::size_t count(Container const& c, Item x)

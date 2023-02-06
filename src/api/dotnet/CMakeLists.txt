@@ -103,6 +103,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     SeqExpr.cs
     SeqSort.cs
     SetSort.cs
+    Simplifiers.cs
     Solver.cs
     Sort.cs
     Statistics.cs

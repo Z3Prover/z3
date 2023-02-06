@@ -48,7 +48,7 @@ class dominator_simplifier : public dependent_expr_simplifier {
     expr* idom(expr *e) const { return m_dominators.idom(e); }
 
     unsigned scope_level() { return m_simplifier->scope_level(); }
-    void pop(unsigned n) { SASSERT(n <= m_simplifier->scope_level()); m_simplifier->pop(n); }
+    void local_pop(unsigned n) { SASSERT(n <= m_simplifier->scope_level()); m_simplifier->pop(n); }
     bool assert_expr(expr* f, bool sign) { return m_simplifier->assert_expr(f, sign); }
 
 

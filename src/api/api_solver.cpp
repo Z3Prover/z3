@@ -233,16 +233,38 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    /**
+    * attach a simplifier to solver.
+    * This is legal when the solver is fresh, does not already have assertions (and scopes).
+    * To allow recycling the argument solver, we create a fresh copy of it and pass it to 
+    * mk_simplifier_solver.
+    */
     Z3_solver Z3_API Z3_solver_add_simplifier(Z3_context c, Z3_solver solver, Z3_simplifier simplifier) {
         Z3_TRY;
         LOG_Z3_solver_add_simplifier(c, solver, simplifier); 
-        init_solver(c, solver);
+        solver_ref s_fresh;
+        if (to_solver(solver)->m_solver) {
+            s_fresh = to_solver_ref(solver)->translate(mk_c(c)->m(), to_solver(solver)->m_params);
+        }
+        else {
+            // create the solver, but hijack it for internal uses.
+            init_solver(c, solver);
+            s_fresh = to_solver(solver)->m_solver;
+            to_solver(solver)->m_solver = nullptr;
+        }
+        if (!s_fresh) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "unexpected empty solver state");
+            RETURN_Z3(nullptr);
+        }
+        if (s_fresh->get_num_assertions() > 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "adding a simplifier to a solver with assertions is not allowed.");
+            RETURN_Z3(nullptr);
+        }        
         auto simp = to_simplifier_ref(simplifier);
-        auto* slv = mk_simplifier_solver(to_solver_ref(solver), simp);
-        Z3_solver_ref* sr = alloc(Z3_solver_ref, *mk_c(c), slv);
-        mk_c(c)->save_object(sr);
-        // ?? init_solver_log(c, sr)
-        RETURN_Z3(of_solver(sr));
+        auto* simplifier_solver = mk_simplifier_solver(s_fresh.get(), simp);
+        Z3_solver_ref* result = alloc(Z3_solver_ref, *mk_c(c), simplifier_solver);
+        mk_c(c)->save_object(result);
+        RETURN_Z3(of_solver(result));
         Z3_CATCH_RETURN(nullptr);
     }
 

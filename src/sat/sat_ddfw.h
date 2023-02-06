@@ -34,10 +34,10 @@ namespace sat {
     class ddfw : public i_local_search {
 
         struct clause_info {
-            clause_info(clause* cl, unsigned init_weight): m_weight(init_weight), m_trues(0), m_num_trues(0), m_clause(cl) {}
-            unsigned m_weight;       // weight of clause
-            unsigned m_trues;        // set of literals that are true
-            unsigned m_num_trues;    // size of true set
+            clause_info(clause* cl, double init_weight): m_weight(init_weight), m_clause(cl) {}
+            double   m_weight;           // weight of clause
+            unsigned m_trues = 0;        // set of literals that are true
+            unsigned m_num_trues = 0;    // size of true set
             clause*  m_clause;
             bool is_true() const { return m_num_trues > 0; }
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
@@ -65,23 +65,24 @@ namespace sat {
         };
 
         struct var_info {
-            var_info(): m_value(false), m_reward(0), m_make_count(0), m_bias(0), m_reward_avg(1e-5) {}
-            bool     m_value;
-            int      m_reward;
-            unsigned m_make_count;
-            int      m_bias;
-            ema      m_reward_avg;
+            var_info() {}
+            bool     m_value = false;
+            double   m_reward = 0;
+            unsigned m_make_count = 0;
+            int      m_bias = 0;
+            ema      m_reward_avg = 1e-5;
         };
         
-        config           m_config;
-        reslimit         m_limit;
-        clause_allocator m_alloc;
+        config               m_config;
+        reslimit             m_limit;
+        clause_allocator     m_alloc;
         svector<clause_info> m_clauses;
         literal_vector       m_assumptions;        
         svector<var_info>    m_vars;        // var -> info
         svector<double>      m_probs;       // var -> probability of flipping
         svector<double>      m_scores;      // reward -> score
         model                m_model;       // var -> best assignment
+        unsigned             m_init_weight = 2; 
         
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
@@ -90,11 +91,11 @@ namespace sat {
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
-        unsigned         m_num_non_binary_clauses{ 0 };
-        unsigned         m_restart_count{ 0 }, m_reinit_count{ 0 }, m_parsync_count{ 0 };
-        uint64_t         m_restart_next{ 0 }, m_reinit_next{ 0 }, m_parsync_next{ 0 };
-        uint64_t         m_flips{ 0 }, m_last_flips{ 0 }, m_shifts{ 0 };
-        unsigned         m_min_sz{ 0 };
+        unsigned         m_num_non_binary_clauses = 0;
+        unsigned         m_restart_count = 0, m_reinit_count = 0, m_parsync_count = 0;
+        uint64_t         m_restart_next = 0, m_reinit_next = 0, m_parsync_next = 0;
+        uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
+        unsigned         m_min_sz = 0;
         hashtable<unsigned, unsigned_hash, default_eq<unsigned>> m_models;
         stopwatch        m_stopwatch;
 
@@ -112,9 +113,9 @@ namespace sat {
 
         void flatten_use_list(); 
 
-        double mk_score(unsigned r);
+        double mk_score(double r);
 
-        inline double score(unsigned r) { return r; } // TBD: { for (unsigned sz = m_scores.size(); sz <= r; ++sz) m_scores.push_back(mk_score(sz)); return m_scores[r]; }
+        inline double score(double r) { return r; } // TBD: { for (unsigned sz = m_scores.size(); sz <= r; ++sz) m_scores.push_back(mk_score(sz)); return m_scores[r]; }
 
         inline unsigned num_vars() const { return m_vars.size(); }
 
@@ -124,9 +125,9 @@ namespace sat {
 
         inline bool value(bool_var v) const { return m_vars[v].m_value; }
 
-        inline int& reward(bool_var v) { return m_vars[v].m_reward; }
+        inline double& reward(bool_var v) { return m_vars[v].m_reward; }
 
-        inline int reward(bool_var v) const { return m_vars[v].m_reward; }
+        inline double reward(bool_var v) const { return m_vars[v].m_reward; }
 
         inline int& bias(bool_var v) { return m_vars[v].m_bias; }
 
@@ -136,7 +137,7 @@ namespace sat {
 
         inline clause const& get_clause(unsigned idx) const { return *m_clauses[idx].m_clause; }
 
-        inline unsigned get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
+        inline double get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
 
         inline bool is_true(unsigned idx) const { return m_clauses[idx].is_true(); }
 
@@ -154,9 +155,9 @@ namespace sat {
             if (--make_count(v) == 0) m_unsat_vars.remove(v); 
         }
 
-        inline void inc_reward(literal lit, int inc) { reward(lit.var()) += inc; }
+        inline void inc_reward(literal lit, double w) { reward(lit.var()) += w; }
 
-        inline void dec_reward(literal lit, int inc) { reward(lit.var()) -= inc; }
+        inline void dec_reward(literal lit, double w) { reward(lit.var()) -= w; }
 
         // flip activity
         bool do_flip();
@@ -166,16 +167,19 @@ namespace sat {
 
         // shift activity
         void shift_weights();
+        inline double calculate_transfer_weight(double w);
 
         // reinitialize weights activity
         bool should_reinit_weights();        
         void do_reinit_weights();
-        inline bool select_clause(unsigned max_weight, unsigned max_trues, clause_info const& cn, unsigned& n);
+        inline bool select_clause(double max_weight, clause_info const& cn, unsigned& n);
 
         // restart activity
         bool should_restart();
         void do_restart();
         void reinit_values();
+
+        unsigned select_random_true_clause();
 
         // parallel integration
         bool should_parallel_sync();
@@ -192,6 +196,10 @@ namespace sat {
         void add(unsigned sz, literal const* c);
 
         void add_assumptions();
+
+        inline void transfer_weight(unsigned from, unsigned to, double w);
+
+        inline bool disregard_neighbor();
 
     public:
 
@@ -210,6 +218,8 @@ namespace sat {
         void set_seed(unsigned n) override { m_rand.set_seed(n); }
 
         void add(solver const& s) override;
+
+        bool get_value(bool_var v) const override { return value(v); }
        
         std::ostream& display(std::ostream& out) const;
 

@@ -1331,17 +1331,37 @@ namespace sat {
         ERROR_EX
     };
 
+    struct solver::scoped_ls {
+        solver& s;
+        scoped_ls(solver& s): s(s) {}
+        ~scoped_ls() { 
+            dealloc(s.m_local_search); 
+            s.m_local_search = nullptr; 
+        }
+    };
+
+    void solver::bounded_local_search() {
+        literal_vector _lits;
+        scoped_limits scoped_rl(rlimit());
+        m_local_search = alloc(ddfw);
+        scoped_ls _ls(*this);
+        SASSERT(m_local_search);
+        m_local_search->add(*this);
+        m_local_search->updt_params(m_params);
+        m_local_search->set_seed(m_rand());
+        scoped_rl.push_child(&(m_local_search->rlimit()));
+        m_local_search->rlimit().push(500000);
+        m_local_search->reinit(*this);
+        m_local_search->check(_lits.size(), _lits.data(), nullptr);
+        for (unsigned i = 0; i < m_phase.size(); ++i)
+            m_best_phase[i] = m_local_search->get_value(i);
+    }
+
+
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
         literal_vector _lits(num_lits, lits);
-        for (literal lit : m_user_scope_literals) _lits.push_back(~lit);
-        struct scoped_ls {
-            solver& s;
-            scoped_ls(solver& s): s(s) {}
-            ~scoped_ls() { 
-                dealloc(s.m_local_search); 
-                s.m_local_search = nullptr; 
-            }
-        };
+        for (literal lit : m_user_scope_literals) 
+            _lits.push_back(~lit);
         scoped_ls _ls(*this);
         if (inconsistent()) 
             return l_false;
@@ -1611,27 +1631,28 @@ namespace sat {
     
     bool solver::guess(bool_var next) {
         lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
-
+        
         if (lphase != l_undef)
             return lphase == l_true;
         switch (m_config.m_phase) {
-            case PS_ALWAYS_TRUE:
-                return true;
-            case PS_ALWAYS_FALSE:
-                return false;
-            case PS_BASIC_CACHING:
+        case PS_ALWAYS_TRUE:
+            return true;
+        case PS_ALWAYS_FALSE:
+            return false;
+        case PS_BASIC_CACHING:
+            return m_phase[next];
+        case PS_FROZEN:
+            return m_best_phase[next];
+        case PS_SAT_CACHING:
+        case PS_LOCAL_SEARCH:
+            if (m_search_state == s_unsat)
                 return m_phase[next];
-            case PS_FROZEN:
-                return m_best_phase[next];
-            case PS_SAT_CACHING:
-                if (m_search_state == s_unsat)
-                    return m_phase[next];
-                return m_best_phase[next];
-            case PS_RANDOM:
-                return (m_rand() % 2) == 0;
-            default:
-                UNREACHABLE();
-                return false;
+            return m_best_phase[next];
+        case PS_RANDOM:
+            return (m_rand() % 2) == 0;
+        default:
+            UNREACHABLE();
+            return false;
         }
     }
 
@@ -2823,7 +2844,7 @@ namespace sat {
     }
 
     bool solver::is_two_phase() const {
-        return m_config.m_phase == PS_SAT_CACHING;
+        return m_config.m_phase == PS_SAT_CACHING || m_config.m_phase == PS_LOCAL_SEARCH;
     }
 
     bool solver::is_sat_phase() const {
@@ -2922,6 +2943,10 @@ namespace sat {
             break;
         case PS_RANDOM:
             for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+            break;
+        case PS_LOCAL_SEARCH:
+            if (m_search_state == s_sat) 
+                bounded_local_search();
             break;
         default:
             UNREACHABLE();

@@ -165,6 +165,8 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   SeqExpr.java
   SeqSort.java
   SetSort.java
+  Simplifier.java
+  SimplifierDecRefQueue.java
   SolverDecRefQueue.java
   Solver.java
   Sort.java

@@ -671,7 +671,6 @@ namespace smt {
 
         out << "equivalence classes:\n";
         for (enode * n : ctx.enodes()) {
-            expr * e = n->get_expr();
             expr * r = n->get_root()->get_expr();
             out << r->get_id() << " --> " << enode_pp(n, ctx) << "\n";
         }

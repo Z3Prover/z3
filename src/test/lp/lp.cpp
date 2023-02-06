@@ -1391,7 +1391,7 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
         settings.set_random_seed(n);
     }
     if (get_int_from_args_parser("--simplex_strategy", args_parser, n)) {
-        settings.simplex_strategy() = static_cast<simplex_strategy_enum>(n);
+        settings.set_simplex_strategy(static_cast<simplex_strategy_enum>(n));
     }
 }
 
