@@ -1351,9 +1351,15 @@ namespace sat {
         scoped_rl.push_child(&(m_local_search->rlimit()));
         m_local_search->rlimit().push(500000);
         m_local_search->reinit(*this);
-        m_local_search->check(_lits.size(), _lits.data(), nullptr);
+        lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         for (unsigned i = 0; i < m_phase.size(); ++i)
             m_best_phase[i] = m_local_search->get_value(i);
+        if (r == l_true) {
+            m_conflicts_since_restart = 0;
+            m_conflicts_since_gc = 0;
+            m_next_simplify = std::max(m_next_simplify, m_conflicts_since_init + 1);
+            do_restart(true);
+        }
     }
 
 
