@@ -753,7 +753,8 @@ using bool_vector        = svector<bool>;
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream& out, svector<T> const& v) {
-    for (unsigned u : v) out << u << " ";
+    for (auto const& x : v)
+        out << x << " ";
     return out;
 }
 
