@@ -153,12 +153,13 @@ namespace polysat {
         if (is_conflict())
             return;  // no need to do anything if we already have a conflict at base level
         sat::literal lit = c.blit();
-        LOG("New constraint: " << lit_pp(*this, c));
+        LOG("New constraint " << c << " for " << dep);
         switch (m_bvars.value(lit)) {
         case l_false:
             // Input literal contradicts current boolean state (e.g., opposite literals in the input)
             // => conflict only flags the inconsistency
             set_conflict_at_base_level(dep);
+            m_conflict.insert(~c);  // ~c is true in the solver, need to track its original dependencies
             return;
         case l_true:
             // constraint c is already asserted => ignore
@@ -172,7 +173,6 @@ namespace polysat {
         switch (c.eval()) {
         case l_false:
             // asserted an always-false constraint => conflict at base level
-            LOG("Always false: " << c);
             set_conflict_at_base_level(dep);
             return;
         case l_true:
