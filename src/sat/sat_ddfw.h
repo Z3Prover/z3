@@ -219,8 +219,6 @@ namespace sat {
 
         void add(solver const& s) override;
 
-        void set_bias(bool_var v, int bias) override { m_vars[v].m_bias = bias; }
-
         bool get_value(bool_var v) const override { return value(v); }
        
         std::ostream& display(std::ostream& out) const;
