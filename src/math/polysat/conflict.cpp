@@ -267,6 +267,8 @@ namespace polysat {
     void conflict::insert(signed_constraint c) {
         if (contains(c))
             return;
+        if (c.is_always_true())  // TODO: caller should avoid this?
+            return;
         LOG("Inserting " << lit_pp(s, c));
         SASSERT_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_true());   // such constraints would be removed earlier
