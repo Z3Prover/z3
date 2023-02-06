@@ -49,6 +49,7 @@ namespace sat {
             else if (should_parallel_sync()) do_parallel_sync();
             else shift_weights();                       
         }
+        log();
         return m_min_sz == 0 ? l_true : l_undef;
     }
 
@@ -66,9 +67,9 @@ namespace sat {
                    << std::setw(10) << kflips_per_sec
                    << std::setw(10) << m_flips 
                    << std::setw(10) << m_restart_count
-                   << std::setw(10) << m_reinit_count
-                   << std::setw(10) << m_unsat_vars.size()
-                   << std::setw(10) << m_shifts;
+                   << std::setw(11) << m_reinit_count
+                   << std::setw(13) << m_unsat_vars.size()
+                   << std::setw(9) << m_shifts;
                    if (m_par) verbose_stream() << std::setw(10) << m_parsync_count;
                    verbose_stream() << ")\n");
         m_stopwatch.start();
@@ -90,18 +91,18 @@ namespace sat {
         unsigned n = 1;
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
-            int r = reward(v);
-            if (r > 0) {                
+            double r = reward(v);
+            if (r > 0.0) {                
                 sum_pos += score(r);
             }
-            else if (r == 0 && sum_pos == 0 && (m_rand() % (n++)) == 0) {
+            else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) {
                 v0 = v;
             }
         }
         if (sum_pos > 0) {
             double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
-                int r = reward(v);
+                double r = reward(v);
                 if (r > 0) {
                     lim_pos -= score(r);
                     if (lim_pos <= 0) {
@@ -121,7 +122,7 @@ namespace sat {
      * TBD: map reward value to a score, possibly through an exponential function, such as
      * exp(-tau/r), where tau > 0
      */
-    double ddfw::mk_score(unsigned r) {
+    double ddfw::mk_score(double r) {
         return r;
     }
 
@@ -201,7 +202,7 @@ namespace sat {
         m_shifts = 0;
         m_stopwatch.start();
     }
-
+    
     void ddfw::reinit(solver& s) {
         add(s);
         add_assumptions();
@@ -235,7 +236,7 @@ namespace sat {
         for (unsigned cls_idx : use_list(*this, lit)) {
             clause_info& ci = m_clauses[cls_idx];
             ci.del(lit);
-            unsigned w = ci.m_weight;
+            double w = ci.m_weight;
             // cls becomes false: flip any variable in clause to receive reward w
             switch (ci.m_num_trues) {
             case 0: {
@@ -257,7 +258,7 @@ namespace sat {
         }
         for (unsigned cls_idx : use_list(*this, nlit)) {
             clause_info& ci = m_clauses[cls_idx];             
-            unsigned w = ci.m_weight;
+            double w = ci.m_weight;
             // the clause used to have a single true (pivot) literal, now it has two.
             // Then the previous pivot is no longer penalized for flipping.
             switch (ci.m_num_trues) {
@@ -406,9 +407,8 @@ namespace sat {
     void ddfw::save_best_values() {
         if (m_unsat.empty()) {
             m_model.reserve(num_vars());
-            for (unsigned i = 0; i < num_vars(); ++i) {
+            for (unsigned i = 0; i < num_vars(); ++i) 
                 m_model[i] = to_lbool(value(i));
-            }
         }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
@@ -422,13 +422,11 @@ namespace sat {
         }
         unsigned h = value_hash();
         if (!m_models.contains(h)) {
-            for (unsigned v = 0; v < num_vars(); ++v) {
+            for (unsigned v = 0; v < num_vars(); ++v) 
                 bias(v) += value(v) ? 1 : -1;
-            }
             m_models.insert(h);
-            if (m_models.size() > m_config.m_max_num_models) {                
+            if (m_models.size() > m_config.m_max_num_models) 
                 m_models.erase(*m_models.begin());
-            }
         }
         m_min_sz = m_unsat.size();
     }
@@ -450,10 +448,9 @@ namespace sat {
        3. select multiple clauses instead of just one per clause in unsat.
      */
 
-    bool ddfw::select_clause(unsigned max_weight, unsigned max_trues, clause_info const& cn, unsigned& n) {
-        if (cn.m_num_trues == 0 || cn.m_weight < max_weight) {
+    bool ddfw::select_clause(double max_weight, clause_info const& cn, unsigned& n) {
+        if (cn.m_num_trues == 0 || cn.m_weight + 1e-5 < max_weight) 
             return false;
-        }
         if (cn.m_weight > max_weight) {
             n = 2;
             return true;
@@ -462,51 +459,72 @@ namespace sat {
     }
 
     unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
-        clause const& c = get_clause(cf_idx);
-        unsigned max_weight = 2;
-        unsigned max_trues = 0;
+        auto& ci = m_clauses[cf_idx];
         unsigned cl = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
+        clause const& c = *ci.m_clause;
+        double max_weight = m_init_weight;
         unsigned n = 1;
         for (literal lit : c) {
             for (unsigned cn_idx : use_list(*this, lit)) {
                 auto& cn = m_clauses[cn_idx];
-                if (select_clause(max_weight, max_trues, cn, n)) {
+                if (select_clause(max_weight, cn, n)) {
                     cl = cn_idx;
                     max_weight = cn.m_weight;
-                    max_trues = cn.m_num_trues;
                 }
             }
         }
         return cl;
     }
 
+    void ddfw::transfer_weight(unsigned from, unsigned to, double w) {
+        auto& cf = m_clauses[to];
+        auto& cn = m_clauses[from];
+        if (cn.m_weight < w) 
+            return;
+        cf.m_weight += w;
+        cn.m_weight -= w;
+        
+        for (literal lit : get_clause(to)) 
+            inc_reward(lit, w);
+        if (cn.m_num_trues == 1) 
+            inc_reward(to_literal(cn.m_trues), w);
+    }
+
+    unsigned ddfw::select_random_true_clause() {
+        unsigned num_clauses = m_clauses.size();
+        unsigned rounds = 100 * num_clauses;
+        for (unsigned i = 0; i < rounds; ++i) {
+            unsigned idx = (m_rand() * m_rand()) % num_clauses;
+            auto & cn = m_clauses[idx];
+            if (cn.is_true() && cn.m_weight >= m_init_weight) 
+                return idx;
+        }
+        return UINT_MAX;
+    }
+
+    // 1% chance to disregard neighbor
+    inline bool ddfw::disregard_neighbor() {
+        return false; // rand() % 1000 == 0;
+    }
+
+    double ddfw::calculate_transfer_weight(double w) {
+        return (w > m_init_weight) ? m_init_weight : 1; 
+    }
+
     void ddfw::shift_weights() {
         ++m_shifts;
-        for (unsigned cf_idx : m_unsat) {
-            auto& cf = m_clauses[cf_idx];
+        for (unsigned to_idx : m_unsat) {
+            auto& cf = m_clauses[to_idx];
             SASSERT(!cf.is_true());
-            unsigned cn_idx = select_max_same_sign(cf_idx);
-            while (cn_idx == UINT_MAX) {
-                unsigned idx = (m_rand() * m_rand()) % m_clauses.size();
-                auto & cn = m_clauses[idx];
-                if (cn.is_true() && cn.m_weight >= 2) {
-                    cn_idx = idx;
-                }
-            }
-            auto & cn = m_clauses[cn_idx];
+            unsigned from_idx = select_max_same_sign(to_idx);
+            if (from_idx == UINT_MAX || disregard_neighbor())
+                from_idx = select_random_true_clause();
+            if (from_idx == UINT_MAX)
+                continue;
+            auto & cn = m_clauses[from_idx];
             SASSERT(cn.is_true());
-            unsigned wn = cn.m_weight;
-            SASSERT(wn >= 2);
-            unsigned inc = (wn > 2) ? 2 : 1; 
-            SASSERT(wn - inc >= 1);            
-            cf.m_weight += inc;
-            cn.m_weight -= inc;
-            for (literal lit : get_clause(cf_idx)) {
-                inc_reward(lit, inc);
-            }
-            if (cn.m_num_trues == 1) {
-                inc_reward(to_literal(cn.m_trues), inc);
-            }
+            double w = calculate_transfer_weight(cn.m_weight);
+            transfer_weight(from_idx, to_idx, w);
         }
         // DEBUG_CODE(invariant(););
     }
@@ -543,7 +561,7 @@ namespace sat {
             VERIFY(found);
         }
         for (unsigned v = 0; v < num_vars(); ++v) {
-            int v_reward = 0;
+            double v_reward = 0;
             literal lit(v, !value(v));
             for (unsigned j : m_use_list[lit.index()]) {
                 clause_info const& ci = m_clauses[j];
@@ -559,7 +577,7 @@ namespace sat {
                 }                
             }
             IF_VERBOSE(0, if (v_reward != reward(v)) verbose_stream() << v << " " << v_reward << " " << reward(v) << "\n");
-            SASSERT(reward(v) == v_reward);
+            // SASSERT(reward(v) == v_reward);
         }
         DEBUG_CODE(
             for (auto const& ci : m_clauses) {

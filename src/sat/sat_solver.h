@@ -589,7 +589,9 @@ namespace sat {
         lbool do_ddfw_search(unsigned num_lits, literal const* lits);
         lbool do_prob_search(unsigned num_lits, literal const* lits);
         lbool invoke_local_search(unsigned num_lits, literal const* lits);
+        void  bounded_local_search();
         lbool do_unit_walk();
+        struct scoped_ls; 
 
         // -----------------------
         //
