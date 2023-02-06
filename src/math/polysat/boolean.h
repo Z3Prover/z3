@@ -67,6 +67,7 @@ namespace polysat {
         unsigned level(sat::literal lit) const { return level(lit.var()); }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); SASSERT(is_bool_propagation(var) == !!m_reason[var]); return m_reason[var]; }
         clause* reason(sat::literal lit) const { return reason(lit.var()); }
+        dependency dep(sat::bool_var var) const { return var == sat::null_bool_var ? null_dependency : m_deps[var]; }
         dependency dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
 
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }

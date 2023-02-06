@@ -509,6 +509,7 @@ namespace polysat {
         indexed_uint_set deps;
 
         LOG("Conflict: " << *this);
+        SASSERT(s.at_base_level());
 
         auto const enqueue_lit = [&](sat::literal lit) {
             if (done_lits.contains(lit))
@@ -543,9 +544,7 @@ namespace polysat {
                 pvar const v = todo_vars.back();
                 todo_vars.pop_back();
 
-                if (s.m_justification[v].is_decision())
-                    continue;
-                SASSERT(s.m_justification[v].is_propagation());
+                SASSERT(s.m_justification[v].is_propagation());  // no decisions at base level
 
                 for (signed_constraint c : s.m_viable.get_constraints(v))
                     enqueue_constraint(c);
@@ -558,14 +557,12 @@ namespace polysat {
                 sat::literal const lit = todo_lits.back();
                 todo_lits.pop_back();
 
-                dependency const d = s.m_bvars.dep(lit);
-                if (!d.is_null())
-                    deps.insert(d.val());
-
-                if (s.m_bvars.is_decision(lit))
-                    continue;
-                else if (s.m_bvars.is_assumption(lit))
-                    continue;
+                if (s.m_bvars.is_assumption(lit)) {
+                    // only assumptions have external dependencies
+                    dependency const d = s.m_bvars.dep(lit);
+                    if (!d.is_null())
+                        deps.insert(d.val());
+                }
                 else if (s.m_bvars.is_bool_propagation(lit)) {
                     for (sat::literal other : *s.m_bvars.reason(lit))
                         enqueue_lit(other);
@@ -581,6 +578,7 @@ namespace polysat {
                     }
                 }
                 else {
+                    // no decisions at base level
                     UNREACHABLE();
                 }
             }
