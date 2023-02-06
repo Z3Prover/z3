@@ -503,7 +503,7 @@ namespace polysat {
 
     void conflict::find_deps(dependency_vector& out_deps) const {
         sat::literal_vector todo_lits;
-        sat::literal_set done_lits;
+        sat::bool_var_set done_lits;
         unsigned_vector todo_vars;
         uint_set done_vars;
         indexed_uint_set deps;
@@ -512,13 +512,13 @@ namespace polysat {
         SASSERT(s.at_base_level());
 
         auto const enqueue_lit = [&](sat::literal lit) {
-            if (done_lits.contains(lit))
+            if (done_lits.contains(lit.var()))
                 return;
             if (!s.m_bvars.is_assigned(lit))
                 return;
             // verbose_stream() << "enqueue " << lit_pp(s, lit) << "\n";
             todo_lits.push_back(lit);
-            done_lits.insert(lit);
+            done_lits.insert(lit.var());
         };
 
         auto const enqueue_constraint = [&](signed_constraint c) {
@@ -586,7 +586,7 @@ namespace polysat {
 
         for (unsigned d : deps)
             out_deps.push_back(dependency(d));
-        if (!m_dep.is_null())
+        if (!m_dep.is_null() && !deps.contains(m_dep.val()))
             out_deps.push_back(m_dep);
     }
 
