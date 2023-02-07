@@ -35,8 +35,8 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: Ubuntu
-    displayName: "Ubuntu build"
+  - job: Ubuntu-20
+    displayName: "Ubuntu-20 build"
     pool:
       vmImage: "ubuntu-20.04"
     steps:
