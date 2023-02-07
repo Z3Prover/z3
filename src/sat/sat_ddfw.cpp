@@ -57,11 +57,11 @@ namespace sat {
         double sec = m_stopwatch.get_current_seconds();        
         double kflips_per_sec = (m_flips - m_last_flips) / (1000.0 * sec);
         if (m_last_flips == 0) {
-            IF_VERBOSE(0, verbose_stream() << "(sat.ddfw :unsat :models :kflips/sec  :flips  :restarts  :reinits  :unsat_vars  :shifts";
+            IF_VERBOSE(1, verbose_stream() << "(sat.ddfw :unsat :models :kflips/sec  :flips  :restarts  :reinits  :unsat_vars  :shifts";
                        if (m_par) verbose_stream() << "  :par";
                        verbose_stream() << ")\n");
         }
-        IF_VERBOSE(0, verbose_stream() << "(sat.ddfw " 
+        IF_VERBOSE(1, verbose_stream() << "(sat.ddfw " 
                    << std::setw(07) << m_min_sz 
                    << std::setw(07) << m_models.size()
                    << std::setw(10) << kflips_per_sec
@@ -106,7 +106,6 @@ namespace sat {
                 if (r > 0) {
                     lim_pos -= score(r);
                     if (lim_pos <= 0) {
-                        if (m_par) update_reward_avg(v);
                         return v;
                     }
                 }
@@ -139,9 +138,8 @@ namespace sat {
     }
 
     void ddfw::add(solver const& s) {
-        for (auto& ci : m_clauses) {
+        for (auto& ci : m_clauses) 
             m_alloc.del_clause(ci.m_clause);
-        }
         m_clauses.reset(); 
         m_use_list.reset();
         m_num_non_binary_clauses = 0;
@@ -281,6 +279,7 @@ namespace sat {
             ci.add(nlit);
         }
         value(v) = !value(v);
+        update_reward_avg(v);
     }
 
     bool ddfw::should_reinit_weights() {
@@ -379,36 +378,35 @@ namespace sat {
         return m_par != nullptr && m_flips >= m_parsync_next;
     }
 
+    void ddfw::save_priorities() {
+        m_probs.reset();
+        for (unsigned v = 0; v < num_vars(); ++v) 
+            m_probs.push_back(-m_vars[v].m_reward_avg);         
+    }
+
     void ddfw::do_parallel_sync() {
-        if (m_par->from_solver(*this)) {
-            // Sum exp(xi) / exp(a) = Sum exp(xi - a)
-            double max_avg = 0;
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                max_avg = std::max(max_avg, (double)m_vars[v].m_reward_avg);
-            }
-            double sum = 0;
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                sum += exp(m_config.m_itau * (m_vars[v].m_reward_avg - max_avg));
-            }
-            if (sum == 0) {
-                sum = 0.01;
-            }
-            m_probs.reset();
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                m_probs.push_back(exp(m_config.m_itau * (m_vars[v].m_reward_avg - max_avg)) / sum);
-            }
+        if (m_par->from_solver(*this)) 
             m_par->to_solver(*this);
-        }
+        
         ++m_parsync_count;
         m_parsync_next *= 3;
         m_parsync_next /= 2;
     }
 
+    void ddfw::save_model() {
+        m_model.reserve(num_vars());
+        for (unsigned i = 0; i < num_vars(); ++i) 
+            m_model[i] = to_lbool(value(i));
+        save_priorities();
+    }
+
+
     void ddfw::save_best_values() {
-        if (m_unsat.empty()) {
-            m_model.reserve(num_vars());
-            for (unsigned i = 0; i < num_vars(); ++i) 
-                m_model[i] = to_lbool(value(i));
+        if (m_unsat.empty()) 
+            save_model();
+        else if (m_unsat.size() < m_min_sz) {
+            if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
+                save_model();
         }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();

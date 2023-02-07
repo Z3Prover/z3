@@ -164,6 +164,8 @@ namespace sat {
         bool_var pick_var();       
         void flip(bool_var v);
         void save_best_values();
+        void save_model();
+        void save_priorities();
 
         // shift activity
         void shift_weights();
