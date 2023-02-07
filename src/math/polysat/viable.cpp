@@ -945,14 +945,8 @@ namespace {
                 }
             }            
             else if (!e->interval.is_full()) {
-                auto const& hi = e->interval.hi();
-                auto const& next_lo = n->interval.lo();
-                auto const& next_hi = n->interval.hi();
-                auto lhs = hi - next_lo;
-                auto rhs = next_hi - next_lo;
-                signed_constraint c = s.m_constraints.ult(lhs, rhs);
+                signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
                 out_c.push_back(c);
-                // verbose_stream() << "C: " << lhs << " < " << rhs << "    ->    " << lit_pp(s, c) << "\n";
             }
             if (e != e0) {
                 for (auto sc : e->side_cond) {
@@ -1296,13 +1290,8 @@ namespace {
             // verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
 
             if (!e->interval.is_full()) {
-                auto const& hi = e->interval.hi();
-                auto const& next_lo = n->interval.lo();
-                auto const& next_hi = n->interval.hi();
-                auto lhs = hi - next_lo;
-                auto rhs = next_hi - next_lo;
-                signed_constraint c = s.m_constraints.ult(lhs, rhs);
-                lemma.insert_try_eval(~c);  // "try" because linking constraint may contain unassigned variables, see test_polysat::test_bench23_fi_lemma for an example.
+                signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
+                lemma.insert_try_eval(~c);
             }
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);

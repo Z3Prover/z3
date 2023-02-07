@@ -340,6 +340,18 @@ namespace polysat {
         return ult(a + shift, b + shift);
     }
 
+    /** Membership test t \in [lo; hi[ is equivalent to t - lo < hi - lo. */
+    signed_constraint constraint_manager::elem(pdd const& t, pdd const& lo, pdd const& hi) {
+        return ult(t - lo, hi - lo);
+    }
+
+    signed_constraint constraint_manager::elem(pdd const& t, interval const& i) {
+        if (i.is_full())
+            return eq(t.manager().zero());
+        else
+            return elem(t, i.lo(), i.hi());
+    }
+
     /** unsigned quotient/remainder */
     std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {
         auto& m = a.manager();

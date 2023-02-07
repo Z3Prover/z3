@@ -117,6 +117,9 @@ namespace polysat {
         signed_constraint smul_udfl(pdd const& p, pdd const& q);
         signed_constraint bit(pdd const& p, unsigned i);
 
+        signed_constraint elem(pdd const& t, pdd const& lo, pdd const& hi);
+        signed_constraint elem(pdd const& t, interval const& i);
+
         std::pair<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
         pdd bnot(pdd const& p);
