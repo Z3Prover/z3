@@ -663,19 +663,21 @@ void seq_decl_plugin::add_map_sig() {
     m_sigs[OP_SEQ_MAP]       = alloc(psig, m, "seq.map",      2, 2, arrABseqA, seqB);
     m_sigs[OP_SEQ_MAPI]      = alloc(psig, m, "seq.mapi",     2, 3, arrIABintTseqA, seqB);
     m_sigs[OP_SEQ_FOLDL]     = alloc(psig, m, "seq.fold_left",    2, 3, arrBAB_BseqA, B);
-    m_sigs[OP_SEQ_FOLDLI]    = alloc(psig, m, "seq.fold_leftli",   2, 4, arrIBABintTBseqA, B);
+    m_sigs[OP_SEQ_FOLDLI]    = alloc(psig, m, "seq.fold_lefti",   2, 4, arrIBABintTBseqA, B);
 }
 
 void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
-        if (m_sigs[i]) 
-            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));        
+        if (m_sigs[i])
+            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));
     }
     op_names.push_back(builtin_name("seq.map",    OP_SEQ_MAP));
     op_names.push_back(builtin_name("seq.mapi",   OP_SEQ_MAPI));
     op_names.push_back(builtin_name("seq.foldl",  OP_SEQ_FOLDL));
     op_names.push_back(builtin_name("seq.foldli", OP_SEQ_FOLDLI));
+    op_names.push_back(builtin_name("seq.fold_lefti", OP_SEQ_FOLDLI));
+    op_names.push_back(builtin_name("seq.fold_left",  OP_SEQ_FOLDL));
     op_names.push_back(builtin_name("str.in.re", _OP_STRING_IN_REGEXP));
     op_names.push_back(builtin_name("str.in-re", _OP_STRING_IN_REGEXP));
     op_names.push_back(builtin_name("str.to.re", _OP_STRING_TO_REGEXP));
