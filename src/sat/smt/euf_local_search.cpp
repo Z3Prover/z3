@@ -72,9 +72,7 @@ namespace euf {
             return true;
         if (is_uninterp_const(e))
             return true;
-        euf::enode* n = m_egraph.find(e);
-        if (!n)
-            return true;
+        return !m_egraph.find(e);
     }
 
     void solver::setup_bounds(sat::model const& mdl) {
