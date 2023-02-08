@@ -22,8 +22,6 @@ Author:
 namespace euf {
     
     void solver::local_search(bool_vector& phase) {
-
-
         scoped_limits scoped_rl(m.limit());
         sat::ddfw bool_search;
         bool_search.add(s());
@@ -31,23 +29,17 @@ namespace euf {
         bool_search.set_seed(rand());
         scoped_rl.push_child(&(bool_search.rlimit()));
 
-        unsigned rounds = 0;
         unsigned max_rounds = 30;
 
-        sat::model mdl(s().num_vars());
-        for (unsigned v = 0; v < s().num_vars(); ++v) 
-            mdl[v] = s().value(v);
-
-
-        while (m.inc() && rounds < max_rounds) {
-            setup_bounds(mdl);
+        for (unsigned rounds = 0; m.inc() && rounds < max_rounds; ++rounds) {
+            setup_bounds(phase);
             bool_search.reinit(s(), phase);
 
             // Non-boolean literals are assumptions to Boolean search
             literal_vector _lits;
-            for (unsigned v = 0; v < mdl.size(); ++v)
+            for (unsigned v = 0; v < phase.size(); ++v)
                 if (!is_propositional(literal(v)))
-                    _lits.push_back(literal(v, mdl[v] == l_false));
+                    _lits.push_back(literal(v, !phase[v]));
 
             bool_search.rlimit().push(m_max_bool_steps);
             
@@ -60,7 +52,6 @@ namespace euf {
 
             for (auto* th : m_solvers) 
                 th->local_search(phase);
-            ++rounds;
             // if is_sat break;
         }
               
@@ -68,14 +59,10 @@ namespace euf {
 
     bool solver::is_propositional(sat::literal lit) {
         expr* e = m_bool_var2expr.get(lit.var(), nullptr);
-        if (!e)
-            return true;
-        if (is_uninterp_const(e))
-            return true;
-        return !m_egraph.find(e);
+        return !e || is_uninterp_const(e) || !m_egraph.find(e);
     }
 
-    void solver::setup_bounds(sat::model const& mdl) {
+    void solver::setup_bounds(bool_vector const& phase) {
         unsigned num_literals = 0;
         unsigned num_bool = 0;
         for (auto* th : m_solvers)
@@ -95,7 +82,7 @@ namespace euf {
         };
 
         auto is_true = [&](auto lit) {
-            return mdl[lit.var()] == to_lbool(!lit.sign());
+            return phase[lit.var()] == !lit.sign();
         };
 
         svector<sat::solver::bin_clause> bin_clauses;

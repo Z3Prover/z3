@@ -265,7 +265,7 @@ namespace euf {
         // local search
         unsigned m_max_bool_steps = 10;
         bool is_propositional(sat::literal lit);
-        void setup_bounds(sat::model const& mdl);
+        void setup_bounds(bool_vector const& mdl);
 
         // user propagator
         void check_for_user_propagator() {
