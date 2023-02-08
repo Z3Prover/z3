@@ -872,10 +872,10 @@ namespace polysat {
         auto& m = p.manager();
         unsigned N = m.power_of_2();
         if (p.is_val())
-            return p.val() == 0 ? N : p.val().trailing_zeros();
+            return p.val().parity(N);
         
         if (s.try_eval(p, val)) {
-            unsigned k = val == 0 ? N : val.trailing_zeros();
+            unsigned k = val.parity(N);
             if (k > 0)
                 explain.push_back(s.parity_at_least(p, k));
             return k;
@@ -910,10 +910,10 @@ namespace polysat {
         unsigned N = m.power_of_2();
         rational val;
         if (p.is_val())
-            return p.val() == 0 ? N : p.val().trailing_zeros();
+            return p.val().parity(N);
         
         if (s.try_eval(p, val)) {
-            unsigned k = val == 0 ? N : val.trailing_zeros();
+            unsigned k = val.parity(N);
             if (k != N)
                 explain.push_back(s.parity_at_most(p, k));
             return k;

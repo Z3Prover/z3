@@ -367,6 +367,8 @@ namespace dd {
         bool is_univariate_in(PDD p, unsigned v);
         void get_univariate_coefficients(PDD p, vector<rational>& coeff);
 
+        rational const& offset(PDD p) const;
+
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
 
@@ -416,7 +418,7 @@ namespace dd {
         unsigned var() const { return m.var(root); }
         rational const& val() const { SASSERT(is_val()); return m.val(root); }
         rational const& leading_coefficient() const;
-        rational const& offset() const;
+        rational const& offset() const { return m.offset(root); }
         bool is_val() const { return m.is_val(root); }
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }

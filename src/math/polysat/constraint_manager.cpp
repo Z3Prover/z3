@@ -426,17 +426,6 @@ namespace polysat {
         return -p - 1;
     }
 
-    static unsigned common_coefficient_power_of_2(const pdd& p) {
-#if 0
-        if (p.is_zero())
-            return 0; // TODO: Or something different? ==> if p == 0, we can divide by any 2^k, so just return UINT_MAX. (but the case p.is_val() is handled separately, anyway.)
-#endif
-        unsigned min_power = UINT32_MAX;
-        for (auto& m : p)  // TODO: add coefficient iterator? we don't need the variable vectors here.
-            min_power = std::min(min_power, m.coeff.trailing_zeros());
-        return min_power;
-    }
-
     pdd constraint_manager::mk_op_term(op_constraint::code op, pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
@@ -467,9 +456,9 @@ namespace polysat {
             if (p.is_val())
                 return m.mk_val(machine_div2k(p.val(), q.val().get_unsigned()));
             // 2^i * p' >> q  ==>  2^(i-q) * p'  if i >= q
-            unsigned common = common_coefficient_power_of_2(p);
-            if (common >= q.val())
-                return p.div(rational::power_of_two(common));
+            unsigned parity = p.min_parity();
+            if (parity >= q.val())
+                return p.div(rational::power_of_two(parity));
         }
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
@@ -524,8 +513,9 @@ namespace polysat {
     }
     
     pdd constraint_manager::pseudo_inv(pdd const& p) {
+        auto& m = p.manager();
         if (p.is_val())
-            return p.manager().mk_val(p.val().pseudo_inverse(p.power_of_2()));
-        return mk_op_term(op_constraint::code::inv_op, p, p.manager().zero());
+            return m.mk_val(p.val().pseudo_inverse(m.power_of_2()));
+        return mk_op_term(op_constraint::code::inv_op, p, m.zero());
     }
 }

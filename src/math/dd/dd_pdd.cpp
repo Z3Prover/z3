@@ -169,15 +169,8 @@ namespace dd {
         if (m_semantics != mod2N_e)
             return 0;
 
-        if (is_val(p)) {
-            rational v = val(p);
-            if (v.is_zero())
-                return m_power_of_2 + 1;
-            unsigned r = 0;
-            while (v.is_even() && v > 0)
-                r++, v /= 2;
-            return r;
-        }
+        if (is_val(p))
+            return val(p).parity(m_power_of_2);
         init_mark();
         PDD q = p;
         m_todo.push_back(hi(q));
@@ -185,9 +178,9 @@ namespace dd {
             q = lo(q);
             m_todo.push_back(hi(q));
         }
-        unsigned p2 = val(q).trailing_zeros();
+        unsigned parity = val(q).parity(m_power_of_2);
         init_mark();
-        while (p2 != 0 && !m_todo.empty()) {
+        while (parity != 0 && !m_todo.empty()) {
             PDD r = m_todo.back();
             m_todo.pop_back();
             if (is_marked(r))
@@ -199,11 +192,11 @@ namespace dd {
             }
             else if (val(r).is_zero())
                 continue;
-            else if (val(r).trailing_zeros() < p2)
-                p2 = val(r).trailing_zeros();
+            else
+                parity = std::min(parity, val(r).trailing_zeros());
         }
         m_todo.reset();
-        return p2;
+        return parity;
     }
 
     pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
@@ -1812,11 +1805,10 @@ namespace dd {
         return p.val();
     }
 
-    rational const& pdd::offset() const {
-        pdd p = *this;
-        while (!p.is_val())
-            p = p.lo();
-        return p.val();
+    rational const& pdd_manager::offset(PDD p) const {
+        while (!is_val(p))
+            p = lo(p);
+        return val(p);
     }
 
     pdd pdd::shl(unsigned n) const {

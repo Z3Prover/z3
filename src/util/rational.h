@@ -501,6 +501,15 @@ public:
         return k;
     }
 
+    /** Number of trailing zeros in an N-bit representation */
+    unsigned parity(unsigned num_bits) const {
+        SASSERT(!is_neg());
+        SASSERT(*this < rational::power_of_two(num_bits));
+        if (is_zero())
+            return num_bits;
+        return trailing_zeros();
+    }
+
     static bool limit_denominator(rational &num, rational const& limit);
 };
 
