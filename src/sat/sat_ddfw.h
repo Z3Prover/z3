@@ -227,7 +227,7 @@ namespace sat {
 
         // for parallel integration
         unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
-        void reinit(solver& s) override;
+        void reinit(solver& s, bool_vector const& phase) override;
 
         void collect_statistics(statistics& st) const override {} 
 

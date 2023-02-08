@@ -200,16 +200,14 @@ namespace sat {
         m_shifts = 0;
         m_stopwatch.start();
     }
-    
-    void ddfw::reinit(solver& s) {
+
+    void ddfw::reinit(solver& s, bool_vector const& phase) {
         add(s);
         add_assumptions();
-        if (s.m_best_phase_size > 0) {
-            for (unsigned v = 0; v < num_vars(); ++v) {                
-                value(v) = s.m_best_phase[v];
-                reward(v) = 0;
-                make_count(v) = 0;                
-            }
+        for (unsigned v = 0; v < phase.size(); ++v) {
+            value(v) = phase[v];
+            reward(v) = 0;
+            make_count(v) = 0;
         }
         init_clause_data();
         flatten_use_list();

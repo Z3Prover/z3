@@ -85,7 +85,7 @@ namespace sat {
         virtual void updt_params(params_ref const& p) = 0;
         virtual void set_seed(unsigned s) = 0;
         virtual lbool check(unsigned sz, literal const* assumptions, parallel* par) = 0;
-        virtual void reinit(solver& s) = 0;        
+        virtual void reinit(solver& s, bool_vector const& phase) = 0;        
         virtual unsigned num_non_binary_clauses() const = 0;
         virtual reslimit& rlimit() = 0;
         virtual model const& get_model() const = 0;

@@ -252,7 +252,7 @@ namespace sat {
         m_consumer_ready = true;
         if (m_solver_copy) {
             copied = true;
-            s.reinit(*m_solver_copy.get());
+            s.reinit(*m_solver_copy.get(), m_solver_copy->m_best_phase);
         }
         return copied;
     }

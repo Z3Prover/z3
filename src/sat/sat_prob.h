@@ -150,7 +150,7 @@ namespace sat {
 
         void collect_statistics(statistics& st) const override {} 
 
-        void reinit(solver& s) override { UNREACHABLE(); }
+        void reinit(solver& s, bool_vector const& phase) override { UNREACHABLE(); }
 
     };
 }

@@ -1373,7 +1373,7 @@ namespace sat {
         m_backoffs.m_local_search.delta_effort(*this);
         m_local_search->rlimit().push(m_backoffs.m_local_search.limit);
 
-        m_local_search->reinit(*this);
+        m_local_search->reinit(*this, m_best_phase);
         lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         auto const& mdl = m_local_search->get_model();
         if (mdl.size() == m_best_phase.size()) {
