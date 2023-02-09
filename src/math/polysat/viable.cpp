@@ -491,10 +491,11 @@ namespace {
         rational y_max = compute_y_max(y0, a, lo, hi, M);
         while (y_max < y_max_max && is_valid(y_max + 1)) {
             y_max = compute_y_max(y_max + 1, a, lo, hi, M);
-            if (i >= 95)
+            if (++i == max_refinements) {
+                // verbose_stream() << "y0=" << y0 << ", a=" << a << ", lo=" << lo << ", hi=" << hi << "\n";
                 verbose_stream() << "refined y_max: " << y_max << "\n";
-            if (++i == max_refinements)
                 break;
+            }
         }
 
         i = 0;
@@ -502,10 +503,11 @@ namespace {
         rational y_min = y0;
         while (y_min > y_min_min && is_valid(y_min - 1)) {
             y_min = compute_y_min(y_min - 1, a, lo, hi, M);
-            if (i >= 95)
+            if (++i == max_refinements) {
+                // verbose_stream() << "y0=" << y0 << ", a=" << a << ", lo=" << lo << ", hi=" << hi << "\n";
                 verbose_stream() << "refined y_min: " << y_min << "\n";
-            if (++i == max_refinements)
                 break;
+            }
         }
 
         SASSERT(y_min <= y0 && y0 <= y_max);
