@@ -226,6 +226,18 @@ namespace polysat {
         bool is_strict() const { return m_src.is_negative(); }
         signed_constraint as_signed_constraint() const { return m_src; }
         operator signed_constraint() const { return m_src; }
+
+        /**
+         * Rewrite to one of six equivalent forms:
+         *
+         *      i=0     p <= q                  (unchanged)
+         *      i=1     p <= p - q - 1
+         *      i=2     q - p <= q
+         *      i=3     q - p <= -p - 1
+         *      i=4     -q - 1 <= -p - 1
+         *      i=5     -q - 1 <= p - q - 1
+         */
+        inequality rewrite_equiv(int i) const;
     };
 
     class constraint_pp {

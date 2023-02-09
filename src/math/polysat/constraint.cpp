@@ -46,6 +46,51 @@ namespace polysat {
             return inequality(c.rhs(), c.lhs(), src);
     }
 
+    inequality inequality::rewrite_equiv(int i) const {
+        pdd const& p = is_strict() ? m_rhs : m_lhs;
+        pdd const& q = is_strict() ? m_lhs : m_rhs;
+        pdd lhs = p;
+        pdd rhs = q;
+        switch (i) {
+            case 0:
+                // p <= q
+                // p > q
+                break;
+            case 1:
+                // p <= p - q - 1
+                lhs = p;
+                rhs = p - q - 1;
+                break;
+            case 2:
+                // q - p <= q
+                lhs = q - p;
+                rhs = q;
+                break;
+            case 3:
+                // q - p <= -p - 1
+                // q - p > -p - 1
+                lhs = q - p;
+                rhs = -p - 1;
+                break;
+            case 4:
+                // -q - 1 <= -p - 1
+                lhs = -q - 1;
+                rhs = -p - 1;
+                break;
+            case 5:
+                // -q - 1 <= p - q - 1
+                lhs = -q - 1;
+                rhs = p - q - 1;
+                break;
+            default:
+                UNREACHABLE();
+                break;
+        }
+        if (is_strict())
+            swap(lhs, rhs);
+        return { std::move(lhs), std::move(rhs), m_src };
+    }
+
     ule_constraint& constraint::to_ule() {
         return *dynamic_cast<ule_constraint*>(this);
     }
