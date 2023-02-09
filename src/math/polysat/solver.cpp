@@ -530,8 +530,7 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
-                if (m_bvars.is_decision(lit))
-                    repropagate.push_back(lit);
+                repropagate.push_back(lit);
 
                 if (active_level <= target_level) {
                     SASSERT(!m_bvars.is_decision(lit));
@@ -555,6 +554,9 @@ namespace polysat {
         // 3. For whatever reason we now backtrack to 0 or 1.
         //    We have unassigned L but the unit propagation for C does not trigger.
         // 4. To fix that situation we explicitly "repropagate" C after backtracking.
+        // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
+        // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
+        //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
         for (sat::literal lit : repropagate)
             for (clause* cl : m_bvars.watch(lit))
                 propagate_clause(*cl);
