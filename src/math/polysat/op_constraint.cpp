@@ -65,6 +65,10 @@ namespace polysat {
             return eval_and(p, q, r);
         case code::inv_op:
             return eval_inv(p, r);
+        case code::udiv_op:
+            return eval_udiv(p, q, r);
+        case code::urem_op:
+            return eval_urem(p, q, r);
         default:
             return l_undef;
         }
@@ -90,6 +94,10 @@ namespace polysat {
             return out << "&";
         case op_constraint::code::inv_op:
             return out << "inv";
+        case op_constraint::code::udiv_op:
+            return out << "/";
+        case op_constraint::code::urem_op:
+            return out << "%";
         default:
             UNREACHABLE();
             return out;
@@ -142,6 +150,10 @@ namespace polysat {
             return propagate_bits_shl(s, is_positive);
         case code::and_op:
             return propagate_bits_and(s, is_positive);
+        case code::inv_op:
+        case code::udiv_op:
+        case code::urem_op:
+            return false;
         default:
             NOT_IMPLEMENTED_YET();
             return false;
@@ -180,15 +192,12 @@ namespace polysat {
 
     void op_constraint::activate(solver& s) {
         switch (m_op) {
-        case code::lshr_op:
-            break;
-        case code::shl_op:
-            break;
         case code::and_op:
             // handle masking of high order bits
             activate_and(s);
             break;
-        case code::inv_op:
+        case code::udiv_op: // division & remainder axioms (as they always occur as pairs; we do this only for divisions)
+            activate_udiv(s);
             break;
         default:
             break;
@@ -699,6 +708,131 @@ namespace polysat {
 
         return to_lbool(p.val().pseudo_inverse(p.power_of_2()) == r.val());
     }
+    
+    void op_constraint::activate_udiv(solver& s) {
+        // signed_constraint const udivc(this, true); Do we really need this premiss? We anyway assert these constraints as unit clauses
+
+        pdd const& quot = r();
+        pdd const& rem = m_linked->r();
+        
+        // Axioms for quotient/remainder:
+        //      a = b*q + r
+        //      multiplication does not overflow in b*q
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
+        //      b ≠ 0  ==>  r < b
+        //      b = 0  ==>  q = -1
+        // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
+        //       Maybe we need something like an op_constraint for better propagation.
+        s.add_clause(s.eq(q() * quot + rem - p()), false);
+        s.add_clause(~s.umul_ovfl(q(), quot), false);
+        // r <= b*q+r
+        //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
+        // b*q <= -r-1
+        s.add_clause(s.ule(q() * quot, -rem - 1), false);
+
+        auto c_eq = s.eq(q());
+        s.add_clause(c_eq, s.ult(rem, q()), false);
+        s.add_clause(~c_eq, s.eq(quot + 1), false);
+    }
+    
+    /**
+     * Produce lemmas for constraint: r == p / q
+     * q = 0   ==>  r = max_value
+     * p = 0   ==>  r = 0 || r = max_value
+     * q = 1   ==>  r = p
+     */
+    clause_ref op_constraint::lemma_udiv(solver& s, assignment const& a) {
+        auto& m = p().manager();
+        auto pv = a.apply_to(p());
+        auto qv = a.apply_to(q());
+        auto rv = a.apply_to(r());
+
+        if (eval_udiv(pv, qv, rv) == l_true)
+            return {};
+
+        signed_constraint const udivc(this, true);
+
+        if (qv.is_zero() && !rv.is_val())
+            return s.mk_clause(~udivc, ~s.eq(q()), s.eq(r(), r().manager().max_value()), true);
+        if (pv.is_zero() && !rv.is_val())
+            return s.mk_clause(~udivc, ~s.eq(p()), s.eq(r()), s.eq(r(), r().manager().max_value()), true);
+        if (qv.is_one()) 
+            return s.mk_clause(~udivc, ~s.eq(q(), 1), s.eq(r(), p()), true);
+        
+        if (pv.is_val() && qv.is_val() && !rv.is_val()) {
+            SASSERT(!qv.is_zero());
+            // TODO: We could actually propagate an interval. Instead of p = 9 & q = 4 => r = 2 we could do p >= 8 && p < 12 && q = 4 => r = 2
+            return s.mk_clause(~udivc, ~s.eq(p(), pv.val()), ~s.eq(q(), qv.val()), s.eq(r(), div(pv.val(), qv.val())), true);
+        }
+        
+        return {};
+    }
+
+    /** Evaluate constraint: r == p / q */
+    lbool op_constraint::eval_udiv(pdd const& p, pdd const& q, pdd const& r) {
+        
+        if (q.is_zero() && r.is_val()) {
+            return r.val() == r.manager().max_value() ? l_true : l_false;
+        }
+        if (q.is_one()) {
+            if (r == p)
+                return l_true;
+        }
+        
+        if (!p.is_val() || !q.is_val() || !r.is_val())
+            return l_undef;
+
+        return r.val() == div(p.val(), q.val()) ? l_true : l_false;
+    }
+    
+    /**
+     * Produce lemmas for constraint: r == p % q
+     * p = 0   ==>  r = 0
+     * q = 1   ==>  r = 0
+     * q = 0   ==>  r = p
+     */
+    clause_ref op_constraint::lemma_urem(solver& s, assignment const& a) {
+        auto& m = p().manager();
+        auto pv = a.apply_to(p());
+        auto qv = a.apply_to(q());
+        auto rv = a.apply_to(r());
+
+        if (eval_urem(pv, qv, rv) == l_true)
+            return {};
+
+        signed_constraint const urem(this, true);
+
+        if (pv.is_zero() && !rv.is_val())
+            return s.mk_clause(~urem, ~s.eq(p()), s.eq(r()), true);
+        if (qv.is_one() && !rv.is_val())
+            return s.mk_clause(~urem, ~s.eq(q(), 1), s.eq(r()), true);
+        if (qv.is_zero()) 
+            return s.mk_clause(~urem, ~s.eq(q()), s.eq(r(), p()), true);
+        
+        if (pv.is_val() && qv.is_val() && !rv.is_val()) {
+            SASSERT(!qv.is_zero());
+            return s.mk_clause(~urem, ~s.eq(p(), pv.val()), ~s.eq(q(), qv.val()), s.eq(r(), mod(pv.val(), qv.val())), true);
+        }
+        
+        return {};
+    }
+
+    /** Evaluate constraint: r == p % q */
+    lbool op_constraint::eval_urem(pdd const& p, pdd const& q, pdd const& r) {
+        
+        if (q.is_one() && r.is_val()) {
+            return r.val().is_zero() ? l_true : l_false;
+        }
+        if (q.is_zero()) {
+            if (r == p)
+                return l_true;
+        }
+        
+        if (!p.is_val() || !q.is_val() || !r.is_val())
+            return l_undef;
+
+        return r.val() == mod(p.val(), q.val()) ? l_true : l_false; // mod == rem as we know hat q > 0
+    }
 
     void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
         pdd pv = s.subst(p());
@@ -722,6 +856,12 @@ namespace polysat {
             break;
         case code::inv_op:
             us.add_inv(pv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            break;
+        case code::udiv_op:
+            us.add_udiv(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            break;
+        case code::urem_op:
+            us.add_urem(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
             break;
         default:
             NOT_IMPLEMENTED_YET();

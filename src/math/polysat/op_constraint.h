@@ -38,7 +38,11 @@ namespace polysat {
             /// r is the smallest multiplicative pseudo-inverse of p;
             /// by definition we set r == 0 when p == 0.
             /// Note that in general, there are 2^parity(p) many pseudo-inverses of p.
-            inv_op
+            inv_op,
+            // r is the quotient of dividing p by q 
+            udiv_op,
+            // r is the remainder of dividing p by q
+            urem_op,
         };
     protected:
         friend class constraint_manager;
@@ -47,6 +51,8 @@ namespace polysat {
         pdd m_p; // operand1
         pdd m_q; // operand2
         pdd m_r; // result
+        
+        op_constraint* m_linked; // for linking remainder/quotient
 
         op_constraint(code c, pdd const& p, pdd const& q, pdd const& r);
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
@@ -66,12 +72,19 @@ namespace polysat {
 
         clause_ref lemma_inv(solver& s, assignment const& a);
         static lbool eval_inv(pdd const& p, pdd const& r);
+        
+        clause_ref lemma_udiv(solver& s, assignment const& a);
+        static lbool eval_udiv(pdd const& p, pdd const& q, pdd const& r);
+        
+        clause_ref lemma_urem(solver& s, assignment const& a);
+        static lbool eval_urem(pdd const& p, pdd const& q, pdd const& r);
 
         std::ostream& display(std::ostream& out, char const* eq) const;
 
         void activate(solver& s);
 
         void activate_and(solver& s);
+        void activate_udiv(solver& s);
 
     public:
         ~op_constraint() override {}

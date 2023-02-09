@@ -105,6 +105,8 @@ namespace polysat {
         virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
         virtual void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
         virtual void add_inv(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_udiv(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_urem(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
 
         /// Add x <= val or x > val, depending on sign
         virtual void add_ule_const(rational const& val, bool sign, dep_t dep) = 0;
