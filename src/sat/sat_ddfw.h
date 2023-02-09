@@ -32,7 +32,7 @@ namespace sat {
     class parallel;
 
     class ddfw : public i_local_search {
-
+    public:
         struct clause_info {
             clause_info(clause* cl, double init_weight): m_weight(init_weight), m_clause(cl) {}
             double   m_weight;           // weight of clause
@@ -43,6 +43,7 @@ namespace sat {
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
         };
+    protected:
 
         struct config {
             config() { reset(); }
@@ -197,6 +198,8 @@ namespace sat {
 
         void add(unsigned sz, literal const* c);
 
+        void del();
+
         void add_assumptions();
 
         inline void transfer_weight(unsigned from, unsigned to, double w);
@@ -232,6 +235,16 @@ namespace sat {
         void collect_statistics(statistics& st) const override {} 
 
         double get_priority(bool_var v) const override { return m_probs[v]; }
+
+        // access clause information and state of Boolean search
+        indexed_uint_set& unsat_set() { return m_unsat; }
+
+        unsigned num_clauses() const { return m_clauses.size(); }
+
+        clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
+
+        void remove_assumptions();
+
     };
 }
 

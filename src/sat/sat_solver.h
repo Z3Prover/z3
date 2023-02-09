@@ -347,6 +347,7 @@ namespace sat {
                 s.m_checkpoint_enabled = true;
             }
         };
+
         unsigned select_watch_lit(clause const & cls, unsigned starting_at) const;
         unsigned select_learned_watch_lit(clause const & cls) const;
         bool simplify_clause(unsigned & num_lits, literal * lits) const;

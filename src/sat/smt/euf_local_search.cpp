@@ -31,19 +31,24 @@ namespace euf {
 
         unsigned max_rounds = 30;
 
+        for (auto* th : m_solvers)
+            th->set_bool_search(&bool_search);
+
         for (unsigned rounds = 0; m.inc() && rounds < max_rounds; ++rounds) {
-            setup_bounds(phase);
+
             bool_search.reinit(s(), phase);
 
+            setup_bounds(phase);
+
             // Non-boolean literals are assumptions to Boolean search
-            literal_vector _lits;
+            literal_vector assumptions;
             for (unsigned v = 0; v < phase.size(); ++v)
                 if (!is_propositional(literal(v)))
-                    _lits.push_back(literal(v, !phase[v]));
+                    assumptions.push_back(literal(v, !phase[v]));
 
             bool_search.rlimit().push(m_max_bool_steps);
             
-            lbool r = bool_search.check(_lits.size(), _lits.data(), nullptr);
+            lbool r = bool_search.check(assumptions.size(), assumptions.data(), nullptr);
 
 
             auto const& mdl = bool_search.get_model();
@@ -85,8 +90,6 @@ namespace euf {
             return phase[lit.var()] == !lit.sign();
         };
 
-        svector<sat::solver::bin_clause> bin_clauses;
-        s().collect_bin_clauses(bin_clauses, false, false);
         for (auto* cp : s().clauses()) {
             if (any_of(*cp, [&](auto lit) { return is_true(lit); })) 
                 continue;
@@ -94,14 +97,6 @@ namespace euf {
             for (auto l : *cp) 
                 init_literal(l);            
         }
-
-        for (auto [l1, l2] : bin_clauses) {
-            if (is_true(l1) || is_true(l2))
-                continue;
-            num_literals += 2;
-            init_literal(l1);
-            init_literal(l2);
-        };
 
         m_max_bool_steps = (m_ls_config.L * num_bool) / num_literals;
 

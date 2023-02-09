@@ -129,12 +129,25 @@ namespace sat {
     void ddfw::add(unsigned n, literal const* c) {        
         clause* cls = m_alloc.mk_clause(n, c, false);
         unsigned idx = m_clauses.size();
+
         m_clauses.push_back(clause_info(cls, m_config.m_init_clause_weight));
         for (literal lit : *cls) {
             m_use_list.reserve(2*(lit.var()+1));
             m_vars.reserve(lit.var()+1);
             m_use_list[lit.index()].push_back(idx);
         }
+    }
+
+    /**
+     * Remove the last clause that was added
+     */
+    void ddfw::del() {
+        auto& info = m_clauses.back();
+        for (literal lit : *info.m_clause)
+            m_use_list[lit.index()].pop_back();
+        m_alloc.del_clause(info.m_clause);
+        m_clauses.pop_back();
+        m_unsat.remove(m_clauses.size());
     }
 
     void ddfw::add(solver const& s) {
@@ -169,9 +182,17 @@ namespace sat {
     }
 
     void ddfw::add_assumptions() {
-        for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            add(1, m_assumptions.data() + i);
-        }
+        for (unsigned i = 0; i < m_assumptions.size(); ++i) 
+            add(1, m_assumptions.data() + i);        
+    }
+
+    void ddfw::remove_assumptions() {
+        for (unsigned i = 0; i < m_assumptions.size(); ++i) 
+            del();        
+        m_unsat_vars.reset();
+        for (auto idx : m_unsat)
+            for (auto lit : get_clause(idx))
+                m_unsat_vars.insert(lit.var());
     }
 
     void ddfw::init(unsigned sz, literal const* assumptions) {

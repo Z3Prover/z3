@@ -36,22 +36,19 @@ namespace arith {
         // need to init variables/atoms/ineqs
 
         m.limit().push(m_max_arith_steps);
-
-        unsigned m_best_min_unsat = 1;
-        unsigned best = m_best_min_unsat;
-
-        while (m.inc() && m_best_min_unsat > 0) {
-            // unsigned prev = m_unsat.size();
+        m_best_min_unsat = unsat().size();
+        unsigned num_steps = 0;
+        while (m.inc() && m_best_min_unsat > 0 && num_steps < m_max_arith_steps) {
             if (!flip())
                 return;
-#if 0
-            if (m_unsat.size() < best) {
-                best = m_unsat.size();
+            ++m_stats.m_num_flips;
+            ++num_steps;
+            unsigned num_unsat = unsat().size();
+            if (num_unsat < m_best_min_unsat) {
+                m_best_min_unsat = num_unsat;
                 num_steps = 0;
-            }
-            if (m_unsat.size() < m_best_min_unsat)
                 save_best_values();
-#endif
+            }
         }
     }
 
@@ -68,7 +65,6 @@ namespace arith {
     }
 
     bool solver::sls::flip() {
-        ++m_stats.m_num_flips;
         log();
         if (flip_unsat())
             return true;
@@ -141,45 +137,72 @@ namespace arith {
         return false;
     }
 
-#if 0
-
     bool solver::sls::flip_unsat() {
-        unsigned start = m_rand();
-        for (unsigned i = m_unsat.size(); i-- > 0; ) {
-            unsigned cl = m_unsat.elem_at((i + start) % m_unsat.size());
-            if (flip(m_clauses[cl]))
+        unsigned start = s.random();
+        unsigned sz = unsat().size();
+        for (unsigned i = sz; i-- > 0; ) {
+            unsigned cl = unsat().elem_at((i + start) % sz);
+            if (flip(cl))
                 return true;
         }
         return false;
     }
 
+
+    bool solver::sls::flip(unsigned cl) {
+        auto const& clause = get_clause(cl);
+        rational new_value;
+        for (literal lit : clause) {
+            auto const* ai = atom(lit);
+            if (!ai)
+                continue;
+            ineq const& ineq = ai->m_ineq;
+            for (auto const& [coeff, v] : ineq.m_args) {
+                if (!ineq.is_true() && cm(ineq, v, new_value)) {
+                    int score = cm_score(v, new_value);
+                    if (score <= 0)
+                        continue;
+                    unsigned num_unsat = unsat().size();
+                    update(v, new_value);
+                    IF_VERBOSE(0,
+                        verbose_stream() << "score " << v << " " << score << "\n"
+                                         << num_unsat << " -> " << unsat().size() << "\n");
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     bool solver::sls::flip_clauses() {
-        unsigned start = m_rand();
-        for (unsigned i = m_clauses.size(); i-- > 0; )
-            if (flip_arith(m_clauses[(i + start) % m_clauses.size()]))
+        unsigned start = s.random();
+        for (unsigned i = num_clauses(); i-- > 0; )
+            if (flip((i + start) % num_clauses()))
                 return true;
         return false;
     }
 
     bool solver::sls::flip_dscore() {
         paws();
-        unsigned start = m_rand();
-        for (unsigned i = m_unsat.size(); i-- > 0; ) {
-            unsigned cl = m_unsat.elem_at((i + start) % m_unsat.size());
-            if (flip_dscore(m_clauses[cl]))
+        unsigned start = s.random();
+        for (unsigned i = unsat().size(); i-- > 0; ) {
+            unsigned cl = unsat().elem_at((i + start) % unsat().size());
+            if (flip_dscore(cl))
                 return true;
         }
-        std::cout << "flip dscore\n";
-        IF_VERBOSE(2, verbose_stream() << "(sls " << m_stats.m_num_flips << " " << m_unsat.size() << ")\n");
+        IF_VERBOSE(2, verbose_stream() << "(sls " << m_stats.m_num_flips << " " << unsat().size() << ")\n");
         return false;
     }
 
-    bool solver::sls::flip_dscore(clause const& clause) {
+    bool solver::sls::flip_dscore(unsigned cl) {
+        auto const& clause = get_clause(cl);
         rational new_value, min_value, min_score(-1);
         var_t min_var = UINT_MAX;
-        for (auto a : clause.m_arith) {
-            auto const& ai = m_atoms[a];
-            ineq const& ineq = ai.m_ineq;
+        for (auto lit : clause) {
+            auto const* ai = atom(lit);
+            if (!ai)
+                continue;
+            ineq const& ineq = ai->m_ineq;
             for (auto const& [coeff, v] : ineq.m_args) {
                 if (!ineq.is_true() && cm(ineq, v, new_value)) {
                     rational score = dscore(v, new_value);
@@ -199,110 +222,14 @@ namespace arith {
     }
 
     void solver::sls::paws() {
-        for (auto& clause : m_clauses) {
-            bool above = 10000 * m_config.sp <= (m_rand() % 10000);
+        for (unsigned cl = num_clauses(); cl-- > 0; ) {
+            auto& clause = get_clause_info(cl);
+            bool above = 10000 * m_config.sp <= (s.random() % 10000);
             if (!above && clause.is_true() && clause.m_weight > 1)
                 clause.m_weight -= 1;
             if (above && !clause.is_true())
                 clause.m_weight += 1;
         }
-    }
-
-    void solver::sls::update(var_t v, rational const& new_value) {
-        auto& vi = m_vars[v];
-        auto const& old_value = vi.m_value;
-        for (auto const& [coeff, atm] : vi.m_atoms) {
-            auto& ai = m_atoms[atm];
-            SASSERT(!ai.m_is_bool);
-            auto& clause = m_clauses[ai.m_clause_idx];
-            rational dtt_old = dtt(ai.m_ineq);
-            ai.m_ineq.m_args_value += coeff * (new_value - old_value);
-            rational dtt_new = dtt(ai.m_ineq);
-            bool was_true = clause.is_true();
-            if (dtt_new < clause.m_dts) {
-                if (was_true && clause.m_dts > 0 && dtt_new == 0 && 1 == clause.m_num_trues) {
-                    for (auto lit : clause.m_bools) {
-                        if (is_true(lit)) {
-                            dec_break(lit);
-                            break;
-                        }
-                    }
-                }
-                clause.m_dts = dtt_new;
-                if (!was_true && clause.is_true())
-                    m_unsat.remove(ai.m_clause_idx);
-            }
-            else if (clause.m_dts == dtt_old && dtt_old < dtt_new) {
-                clause.m_dts = dts(clause);
-                if (was_true && !clause.is_true())
-                    m_unsat.insert(ai.m_clause_idx);
-                if (was_true && clause.is_true() && clause.m_dts > 0 && dtt_old == 0 && 1 == clause.m_num_trues) {
-                    for (auto lit : clause.m_bools) {
-                        if (is_true(lit)) {
-                            inc_break(lit);
-                            break;
-                        }
-                    }
-                }
-            }
-            SASSERT(clause.m_dts >= 0);
-        }
-        vi.m_value = new_value;
-    }
-
-    bool solver::sls::flip_arith(clause const& clause) {
-        rational new_value;
-        for (auto a : clause.m_arith) {
-            auto const& ai = m_atoms[a];
-            ineq const& ineq = ai.m_ineq;
-            for (auto const& [coeff, v] : ineq.m_args) {
-                if (!ineq.is_true() && cm(ineq, v, new_value)) {
-                    int score = cm_score(v, new_value);
-                    if (score <= 0)
-                        continue;
-                    unsigned num_unsat = m_unsat.size();
-                    update(v, new_value);
-                    std::cout << "score " << v << " " << score << "\n";
-                    std::cout << num_unsat << " -> " << m_unsat.size() << "\n";
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
-
-    rational solver::sls::dts(clause const& cl) const {
-        rational d(1), d2;
-        bool first = true;
-        for (auto a : cl.m_arith) {
-            auto const& ai = m_atoms[a];
-            d2 = dtt(ai.m_ineq);
-            if (first)
-                d = d2, first = false;
-            else
-                d = std::min(d, d2);
-            if (d == 0)
-                break;
-        }
-        return d;
-    }
-
-    rational solver::sls::dts(clause const& cl, var_t v, rational const& new_value) const {
-        rational d(1), d2;
-        bool first = true;
-        for (auto a : cl.m_arith) {
-            auto const& ai = m_atoms[a];
-            d2 = dtt(ai.m_ineq, v, new_value);
-            if (first)
-                d = d2, first = false;
-            else
-                d = std::min(d, d2);
-            if (d == 0)
-                break;
-        }
-        return d;
     }
 
     //
@@ -312,9 +239,9 @@ namespace arith {
         auto const& vi = m_vars[v];
         rational score(0);
         for (auto const& [coeff, atm] : vi.m_atoms) {
-            auto const& ai = m_atoms[atm];
-            auto const& cl = m_clauses[ai.m_clause_idx];
-            score += (cl.m_dts - dts(cl, v, new_value)) * rational(cl.m_weight);
+            auto const& ai = *m_atoms[atm];
+            auto const& cl = get_clause_info(ai.m_clause_idx);
+            // score += (dts(cl) - dts(cl, v, new_value)) * rational(cl.m_weight);
         }
         return score;
     }
@@ -323,8 +250,8 @@ namespace arith {
         int score = 0;
         auto& vi = m_vars[v];
         for (auto const& [coeff, atm] : vi.m_atoms) {
-            auto const& ai = m_atoms[atm];
-            auto const& clause = m_clauses[ai.m_clause_idx];
+            auto const& ai = *m_atoms[atm];
+            auto const& clause = get_clause_info(ai.m_clause_idx);
             rational dtt_old = dtt(ai.m_ineq);
             rational dtt_new = dtt(ai.m_ineq, v, new_value);
             if (!clause.is_true()) {
@@ -335,8 +262,10 @@ namespace arith {
                 continue;
             else {
                 bool has_true = false;
-                for (auto a : clause.m_arith) {
-                    auto const& ai = m_atoms[a];
+                for (auto lit : *clause.m_clause) {
+                    if (!atom(lit))
+                        continue;
+                    auto const& ai = *atom(lit);
                     rational d = dtt(ai.m_ineq, v, new_value);
                     has_true |= (d == 0);
                 }
@@ -346,6 +275,121 @@ namespace arith {
         }
         return score;
     }
+
+    rational solver::sls::dts(unsigned cl) const {
+        rational d(1), d2;
+        bool first = true;
+        for (auto a : get_clause(cl)) {
+            auto const* ai = atom(a);
+            if (!ai)
+                continue;
+            d2 = dtt(ai->m_ineq);
+            if (first)
+                d = d2, first = false;
+            else
+                d = std::min(d, d2);
+            if (d == 0)
+                break;
+        }
+        return d;
+    }
+
+    rational solver::sls::dts(unsigned cl, var_t v, rational const& new_value) const {
+        rational d(1), d2;
+        bool first = true;
+        for (auto lit : get_clause(cl)) {
+            auto const* ai = atom(lit);
+            if (!ai)
+                continue;
+            d2 = dtt(ai->m_ineq, v, new_value);
+            if (first)
+                d = d2, first = false;
+            else
+                d = std::min(d, d2);
+            if (d == 0)
+                break;
+        }
+        return d;
+    }
+
+    void solver::sls::update(var_t v, rational const& new_value) {
+        auto& vi = m_vars[v];
+        auto const& old_value = vi.m_value;
+        for (auto const& [coeff, atm] : vi.m_atoms) {
+            auto& ai = *m_atoms[atm];
+            SASSERT(!ai.m_is_bool);
+            auto& clause = get_clause_info(ai.m_clause_idx);
+            rational dtt_old = dtt(ai.m_ineq);
+            ai.m_ineq.m_args_value += coeff * (new_value - old_value);
+            rational dtt_new = dtt(ai.m_ineq);
+            bool was_true = clause.is_true();
+            auto& dts_value = dts(ai.m_clause_idx);
+            if (dtt_new < dts_value) {
+                if (was_true && dts_value > 0 && dtt_new == 0 && 1 == clause.m_num_trues) {
+                    for (auto lit : *clause.m_clause) {
+#if false
+                        TODO
+                        if (is_true(lit)) {
+                            dec_break(lit);
+                            break;
+                        }
+#endif
+                    }
+                }
+                dts_value = dtt_new;
+                if (!was_true && clause.is_true())
+                    unsat().remove(ai.m_clause_idx);
+            }
+            else if (dts_value == dtt_old && dtt_old < dtt_new) {
+                dts_value = dts(ai.m_clause_idx);
+                if (was_true && !clause.is_true())
+                    unsat().insert(ai.m_clause_idx);
+                if (was_true && clause.is_true() && dts_value > 0 && dtt_old == 0 && 1 == clause.m_num_trues) {
+                    for (auto lit : *clause.m_clause) {
+#if false
+                        TODO
+                        if (is_true(lit)) {
+                            inc_break(lit);
+                            break;
+                        }
+#endif
+                    }
+                }
+            }
+            SASSERT(dts_value >= 0);
+        }
+        vi.m_value = new_value;
+    }
+
+#if 0
+
+
+
+
+
+
+    void solver::sls::add_clause(sat::clause* cl) {
+        unsigned clause_idx = m_clauses.size();
+        m_clauses.push_back({ cl, 1, rational::zero() });
+        clause& cls = m_clauses.back();
+        cls.m_dts = dts(cls);
+        for (sat::literal lit : *cl) {
+            if (is_true(lit))
+                cls.add(lit);
+        }
+
+        for (auto a : arith)
+            m_atoms[a].m_clause_idx = clause_idx;
+
+        if (!cl.is_true()) {
+            m_best_min_unsat++;
+            m_unsat.insert(clause_idx);
+        }
+        else if (cl.m_dts > 0 && cl.m_num_trues == 1)
+            inc_break(sat::to_literal(cl.m_trues));
+
+    }
+
 
 #endif
 }
