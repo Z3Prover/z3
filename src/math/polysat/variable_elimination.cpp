@@ -696,7 +696,10 @@ namespace polysat {
 #else
         pdd a_pi = s.pseudo_inv(a);
         //precondition.insert_eval(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
-        precondition.insert_eval(~s.parity_at_most(a, a_parity));
+        auto c = ~s.parity_at_most(a, a_parity);
+        if (!c.is_currently_false(s))
+            return { p, false };
+        precondition.insert_eval(c);
 #endif
         
         pdd shift = a;

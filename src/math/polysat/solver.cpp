@@ -1056,7 +1056,9 @@ namespace polysat {
     void solver::assign_eval(sat::literal lit) {
         signed_constraint const c = lit2cnstr(lit);
         LOG_V(10, "Evaluate: " << lit_pp(*this, lit));
-        if (!c.is_currently_true(*this)) IF_VERBOSE(0, verbose_stream() << c << " is not currently true\n");
+        if (!c.is_currently_true(*this)) {
+            IF_VERBOSE(0, verbose_stream() << "\n" << c << " is not currently true\n");
+        }
         SASSERT(c.is_currently_true(*this));
         VERIFY_EQ(c.eval(*this), l_true);
         unsigned level = 0;
