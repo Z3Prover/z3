@@ -360,6 +360,8 @@ namespace z3 {
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range);
 
         func_decl recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range);
+        func_decl recfun(symbol const & name, const sort_vector& domain, sort const & range);
+        func_decl recfun(char const * name, sort_vector const& domain, sort const & range);
         func_decl recfun(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl recfun(char const * name, sort const & domain, sort const & range);
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
@@ -2712,6 +2714,16 @@ namespace z3 {
         void set(char const * k, double v) { params p(ctx()); p.set(k, v); set(p); }
         void set(char const * k, symbol const & v) { params p(ctx()); p.set(k, v); set(p); }
         void set(char const * k, char const* v) { params p(ctx()); p.set(k, v); set(p); }
+        /**
+           \brief Create a backtracking point.
+
+           The solver contains a stack of assertions.
+
+           \sa Z3_solver_get_num_scopes
+           \sa Z3_solver_pop
+
+           def_API('Z3_solver_push', VOID, (_in(CONTEXT), _in(SOLVER)))
+        */
         void push() { Z3_solver_push(ctx(), m_solver); check_error(); }
         void pop(unsigned n = 1) { Z3_solver_pop(ctx(), m_solver, n); check_error(); }
         void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
@@ -3601,6 +3613,19 @@ namespace z3 {
         Z3_func_decl f = Z3_mk_rec_func_decl(m_ctx, name, arity, args.ptr(), range);
         check_error();
         return func_decl(*this, f);
+
+    }
+
+    inline func_decl context::recfun(symbol const & name, sort_vector const& domain, sort const & range) {
+        check_context(domain, range);
+        array<Z3_sort> domain1(domain);
+        Z3_func_decl f = Z3_mk_rec_func_decl(m_ctx, name, domain1.size(), domain1.ptr(), range);
+        check_error();
+        return func_decl(*this, f);
+    }
+
+    inline func_decl context::recfun(char const * name, sort_vector const& domain, sort const & range) {
+        return recfun(str_symbol(name), domain, range);
 
     }
 
