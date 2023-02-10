@@ -214,14 +214,17 @@ namespace sat {
     }
 
 
-    bool parallel::_to_solver(solver& s) {
-        if (m_priorities.empty()) {
-            return false;
-        }
+    void parallel::_to_solver(solver& s) {
+        return;
+#if 0
+        if (m_priorities.empty())
+            return;
+        
         for (bool_var v = 0; v < m_priorities.size(); ++v) {
             s.update_activity(v, m_priorities[v]);
         }
-        return true;
+        s.m_activity_inc = 128;
+#endif
     }
 
     void parallel::from_solver(solver& s) {
@@ -229,16 +232,19 @@ namespace sat {
         _from_solver(s);        
     }
 
-    bool parallel::to_solver(solver& s) {
+    void parallel::to_solver(solver& s) {
         lock_guard lock(m_mux);
-        return _to_solver(s);
+        _to_solver(s);
     }
 
     void parallel::_to_solver(i_local_search& s) {        
+        return;
+#if 0
         m_priorities.reset();
         for (bool_var v = 0; m_solver_copy && v < m_solver_copy->num_vars(); ++v) {
             m_priorities.push_back(s.get_priority(v));
         }
+#endif
     }
 
     bool parallel::_from_solver(i_local_search& s) {
@@ -246,7 +252,7 @@ namespace sat {
         m_consumer_ready = true;
         if (m_solver_copy) {
             copied = true;
-            s.reinit(*m_solver_copy.get());
+            s.reinit(*m_solver_copy.get(), m_solver_copy->m_best_phase);
         }
         return copied;
     }

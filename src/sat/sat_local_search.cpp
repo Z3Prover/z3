@@ -359,13 +359,10 @@ namespace sat {
         m_par(nullptr) {
     }
 
-    void local_search::reinit(solver& s) {
-        import(s, true); 
-        if (s.m_best_phase_size > 0) {
-            for (unsigned i = num_vars(); i-- > 0; ) {
-                set_phase(i, s.m_best_phase[i]);
-            }
-        }
+    void local_search::reinit(solver& s, bool_vector const& phase) {
+        import(s, true);
+        for (unsigned i = phase.size(); i-- > 0; )
+            set_phase(i, phase[i]);
     }
 
     void local_search::import(solver const& s, bool _init) {        

@@ -136,6 +136,15 @@ namespace euf {
 
         sat::status status() const { return sat::status::th(false, get_id()); }
 
+        /**
+        * Local search interface
+        */
+        virtual void set_bounds_begin() {}
+
+        virtual void set_bounds_end(unsigned num_literals) {}
+
+        virtual void set_bounds(enode* n) {}
+
     };
 
     class th_proof_hint : public sat::proof_hint {

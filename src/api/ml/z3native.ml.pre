@@ -20,6 +20,7 @@ and solver = ptr
 and solver_callback = ptr
 and goal = ptr
 and tactic = ptr
+and simplifier = ptr
 and params = ptr
 and parser_context = ptr
 and probe = ptr

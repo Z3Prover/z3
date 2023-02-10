@@ -248,7 +248,7 @@ namespace sat {
 
         void set_seed(unsigned n) override { config().set_random_seed(n); }
 
-        void reinit(solver& s) override;
+        void reinit(solver& s, bool_vector const& phase) override;
 
         // used by unit-walk
         void set_phase(bool_var v, bool f);

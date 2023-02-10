@@ -1513,10 +1513,11 @@ namespace qe {
                     propagate_assignment(*model_eval);
                 VERIFY(CHOOSE_VAR == update_current(*model_eval, true));
                 SASSERT(m_current->fml());
-                if (l_true != m_solver.check()) {
-                    return l_true;
-                }
+                if (l_true != m_solver.check()) 
+                    return l_true;                
                 m_solver.get_model(model);
+                if (!model)
+                    return l_undef;
                 model_eval = alloc(model_evaluator, *model);
                 search_tree* st = m_current;
                 update_current(*model_eval, false);

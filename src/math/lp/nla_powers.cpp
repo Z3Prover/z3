@@ -131,7 +131,7 @@ namespace nla {
             return l_false;
         }
 
-        if (xval >= 3 && yval != 0 & rval <= yval + 1) {
+        if (xval >= 3 && yval != 0 && rval <= yval + 1) {
             new_lemma lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
             lemma |= ineq(x, llc::LT, rational(3));
             lemma |= ineq(y, llc::EQ, rational::zero());

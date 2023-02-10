@@ -336,8 +336,8 @@ public:
         return m_simplex_strategy;
     }
 
-    simplex_strategy_enum & simplex_strategy() {
-        return m_simplex_strategy;
+    void set_simplex_strategy(simplex_strategy_enum s) {
+        m_simplex_strategy = s;
     }
 
     bool use_lu() const {

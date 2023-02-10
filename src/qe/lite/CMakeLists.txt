@@ -1,9 +1,9 @@
 z3_add_component(qe_lite
   SOURCES
-    qe_lite.cpp
+    qe_lite_tactic.cpp
   COMPONENT_DEPENDENCIES
     tactic
     mbp
   TACTIC_HEADERS
-    qe_lite.h
+    qe_lite_tactic.h
 )

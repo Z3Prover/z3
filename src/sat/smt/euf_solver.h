@@ -100,6 +100,14 @@ namespace euf {
             scope(unsigned l) : m_var_lim(l) {}
         };
 
+        struct local_search_config {
+            double cb = 0.0;
+            unsigned L = 20;
+            unsigned t = 45;
+            unsigned max_no_improve = 500000;
+            double sp = 0.0003;
+        };
+
 
         size_t* to_ptr(sat::literal l) { return TAG(size_t*, reinterpret_cast<size_t*>((size_t)(l.index() << 4)), 1); }
         size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
@@ -119,6 +127,7 @@ namespace euf {
         sat::sat_internalizer&           si;
         relevancy                        m_relevancy;
         smt_params                       m_config;
+        local_search_config              m_ls_config;
         euf::egraph                      m_egraph;
         trail_stack                      m_trail;
         stats                            m_stats;
@@ -253,6 +262,11 @@ namespace euf {
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
         constraint& lit_constraint(enode* n);
 
+        // local search
+        unsigned m_max_bool_steps = 10;
+        bool is_propositional(sat::literal lit);
+        void setup_bounds(bool_vector const& mdl);
+
         // user propagator
         void check_for_user_propagator() {
             if (!m_user_propagator)
@@ -339,6 +353,7 @@ namespace euf {
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
         std::string reason_unknown() override { return m_reason_unknown; }
+        void local_search(bool_vector& phase) override;
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
@@ -551,4 +566,3 @@ namespace euf {
 inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {
     return s.display(out);
 }
-

@@ -55,5 +55,5 @@ public:
 };
 
 /*
-  ADD_SIMPLIFIER("simplify", "apply simplification rules.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(rewriter_simplifier, m, p, s); }")
+  ADD_SIMPLIFIER("simplify", "apply simplification rules.", "alloc(rewriter_simplifier, m, p, s)")
  */

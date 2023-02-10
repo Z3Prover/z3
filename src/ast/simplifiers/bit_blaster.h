@@ -33,7 +33,7 @@ public:
         m_rewriter(m, p) {
         updt_params(p);
     }
-    char const* name() const override { return "bit-blaster"; }
+    char const* name() const override { return "bit-blast"; }
     void updt_params(params_ref const & p) override;
     void collect_param_descrs(param_descrs & r) override;
     void reduce() override;
@@ -50,5 +50,5 @@ public:
 };
 
 /*
-  ADD_SIMPLIFIER("bit-blaster", "reduce bit-vector expressions into SAT.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bit_blaster_simplifier, m, p, s); }")
+  ADD_SIMPLIFIER("bit-blast", "reduce bit-vector expressions into SAT.", "alloc(bit_blaster_simplifier, m, p, s)")
 */

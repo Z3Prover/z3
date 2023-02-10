@@ -8,7 +8,6 @@ z3_add_component(bv_tactics
     bv_bound_chk_tactic.cpp
     bv_bounds_tactic.cpp
     bv_size_reduction_tactic.cpp
-    bv_slice_tactic.cpp
     dt2bv_tactic.cpp
     elim_small_bv_tactic.cpp
   COMPONENT_DEPENDENCIES

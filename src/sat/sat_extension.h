@@ -126,6 +126,7 @@ namespace sat {
         virtual void add_assumptions(literal_set& ext_assumptions) {}
         virtual bool tracking_assumptions() { return false; }
         virtual bool enable_self_propagate() const { return false; }
+        virtual void local_search(bool_vector& phase) {}
 
         virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                                 std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {                                

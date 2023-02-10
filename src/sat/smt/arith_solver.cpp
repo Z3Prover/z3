@@ -24,6 +24,7 @@ namespace arith {
     solver::solver(euf::solver& ctx, theory_id id) :
         th_euf_solver(ctx, symbol("arith"), id),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
+        m_local_search(*this),
         m_resource_limit(*this),
         m_bp(*this),
         a(m),

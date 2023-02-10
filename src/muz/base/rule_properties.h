@@ -68,6 +68,7 @@ namespace datalog {
         void check_for_negated_predicates();
         void check_nested_free();
         void check_infinite_sorts();
+        void check_background_free();
         bool is_monotone() { return m_is_monotone; }
         void operator()(var* n);
         void operator()(quantifier* n);

@@ -22,19 +22,28 @@ Author:
 
 // accumulate a set of dependent exprs, updating m_trail to exclude loose 
 // substitutions that use variables from the dependent expressions.
-// TODO: add filters to skip sections of the trail that do not touch the current free variables.
 
 void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& st) {
-    TRACE("simplifier",
-        for (unsigned i = qhead; i < st.qtail(); ++i)
-            tout << mk_bounded_pp(st[i].fml(), m) << "\n";
-    );
+
+    if (m_trail.empty())
+        return;
+
     ast_mark free_vars;
+    m_intersects_with_model = false;
     scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
     for (unsigned i = qhead; i < st.qtail(); ++i)        
         add_vars(st[i], free_vars);
     for (expr* a : assumptions)
         add_vars(a, free_vars);
+
+    TRACE("simplifier",
+        tout << "intersects " << m_intersects_with_model << "\n";
+        for (unsigned i = qhead; i < st.qtail(); ++i)
+            tout << mk_bounded_pp(st[i].fml(), m) << "\n";
+    );
+
+    if (!m_intersects_with_model)
+        return;
 
     for (auto& t : m_trail) {
         TRACE("simplifier", tout << " active " << t->m_active << " hide " << t->is_hide() << " intersects " << t->intersects(free_vars) << "\n");

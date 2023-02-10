@@ -80,7 +80,7 @@ void run_solver(smt_params_helper & params, char const * mps_file_name) {
     solver->settings().set_message_ostream(&std::cout);
     solver->settings().report_frequency = params.arith_rep_freq();
     solver->settings().print_statistics = params.arith_print_stats();
-    solver->settings().simplex_strategy() = lp:: simplex_strategy_enum::lu;
+    solver->settings().set_simplex_strategy(lp:: simplex_strategy_enum::lu);
 
     solver->find_maximal_solution();
 

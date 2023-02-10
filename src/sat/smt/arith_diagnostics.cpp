@@ -23,6 +23,17 @@ Author:
 
 namespace arith {
 
+
+    void arith_proof_hint_builder::set_type(euf::solver& ctx, hint_type ty) {
+        ctx.push(value_trail<unsigned>(m_eq_tail));
+        ctx.push(value_trail<unsigned>(m_lit_tail));
+        m_ty = ty;
+        reset();
+    }
+
+    arith_proof_hint* arith_proof_hint_builder::mk(euf::solver& s) {
+        return new (s.get_region()) arith_proof_hint(m_ty, m_num_le, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
+    }
     
     std::ostream& solver::display(std::ostream& out) const { 
         lp().display(out);

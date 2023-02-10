@@ -2110,7 +2110,7 @@ public class Context implements AutoCloseable {
      * Check if the string s1 is lexicographically strictly less than s2.
      */
 
-    public BoolExpr MkStringLt(SeqSort<CharSort> s1, SeqSort<CharSort> s2) 
+    public BoolExpr MkStringLt(Expr<SeqSort<CharSort>> s1, Expr<SeqSort<CharSort>> s2) 
     {
         checkContextMatch(s1, s2);
         return new BoolExpr(this, Native.mkStrLt(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2119,7 +2119,7 @@ public class Context implements AutoCloseable {
     /**
      * Check if the string s1 is lexicographically less or equal to s2.
      */
-    public BoolExpr MkStringLe(SeqSort<CharSort> s1, SeqSort<CharSort> s2)
+    public BoolExpr MkStringLe(Expr<SeqSort<CharSort>> s1, Expr<SeqSort<CharSort>> s2)
     {
         checkContextMatch(s1, s2);
         return new BoolExpr(this, Native.mkStrLe(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -3082,6 +3082,106 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * The number of supported simplifiers.
+     **/
+    public int getNumSimplifiers()
+    {
+        return Native.getNumSimplifiers(nCtx());
+    }
+
+    /**
+     * The names of all supported simplifiers.
+     **/
+    public String[] getSimplifierNames()
+    {
+
+        int n = getNumSimplifiers();
+        String[] res = new String[n];
+        for (int i = 0; i < n; i++)
+            res[i] = Native.getSimplifierName(nCtx(), i);
+        return res;
+    }
+
+    /**
+     * Returns a string containing a description of the simplifier with the given
+     * name.
+     **/
+    public String getSimplifierDescription(String name)
+    {
+        return Native.simplifierGetDescr(nCtx(), name);
+    }
+
+    /**
+     * Creates a new Simplifier.
+     **/
+    public Simplifier mkSimplifier(String name)
+    {
+        return new Simplifier(this, name);
+    }
+
+    /**
+     * Create a simplifier that applies {@code t1} and then {@code t1}
+     **/
+    public Simplifier andThen(Simplifier t1, Simplifier t2, Simplifier... ts)
+
+    {
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        checkContextMatch(ts);
+
+        long last = 0;
+        if (ts != null && ts.length > 0)
+        {
+            last = ts[ts.length - 1].getNativeObject();
+            for (int i = ts.length - 2; i >= 0; i--) {
+                last = Native.simplifierAndThen(nCtx(), ts[i].getNativeObject(),
+                    last);
+            }
+        }
+        if (last != 0)
+        {
+            last = Native.simplifierAndThen(nCtx(), t2.getNativeObject(), last);
+            return new Simplifier(this, Native.simplifierAndThen(nCtx(),
+                    t1.getNativeObject(), last));
+        } else
+            return new Simplifier(this, Native.simplifierAndThen(nCtx(),
+                    t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /**
+     * Create a simplifier that applies {@code t1} and then {@code t2}
+     *
+     * Remarks:  Shorthand for {@code AndThen}. 
+     **/
+    public Simplifier then(Simplifier t1, Simplifier t2, Simplifier... ts)
+    {
+        return andThen(t1, t2, ts);
+    }
+
+    /**
+     * Create a simplifier that applies {@code t} using the given set of
+     * parameters {@code p}.
+     **/
+    public Simplifier usingParams(Simplifier t, Params p)
+    {
+        checkContextMatch(t);
+        checkContextMatch(p);
+        return new Simplifier(this, Native.simplifierUsingParams(nCtx(),
+                t.getNativeObject(), p.getNativeObject()));
+    }
+
+    /**
+     * Create a simplifier that applies {@code t} using the given set of
+     * parameters {@code p}.
+     * Remarks: Alias for
+     * {@code UsingParams}
+     **/
+    public Simplifier with(Simplifier t, Params p)
+    {
+        return usingParams(t, p);
+    }
+
+    /**
      * The number of supported Probes.
      **/
     public int getNumProbes()
@@ -3277,6 +3377,14 @@ public class Context implements AutoCloseable {
 
         return new Solver(this, Native.mkSolverFromTactic(nCtx(),
                 t.getNativeObject()));
+    }
+
+    /**
+     * Creates a solver that is uses the simplifier pre-processing.
+     **/
+    public Solver mkSolver(Solver s, Simplifier simp)
+    {
+        return new Solver(this, Native.solverAddSimplifier(nCtx(), s.getNativeObject(), simp.getNativeObject()));
     }
 
     /**
@@ -4209,6 +4317,7 @@ public class Context implements AutoCloseable {
     private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue();
     private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue();
     private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
+    private SimplifierDecRefQueue m_Simplifier_DRQ = new SimplifierDecRefQueue();
     private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
     private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue();
     private ConstructorDecRefQueue m_Constructor_DRQ = new ConstructorDecRefQueue();
@@ -4293,6 +4402,11 @@ public class Context implements AutoCloseable {
         return m_Tactic_DRQ;
     }
 
+    public IDecRefQueue<Simplifier> getSimplifierDRQ()
+    {
+        return m_Simplifier_DRQ;
+    }
+
     public IDecRefQueue<Fixedpoint> getFixedpointDRQ()
     {
         return m_Fixedpoint_DRQ;
@@ -4323,6 +4437,7 @@ public class Context implements AutoCloseable {
         m_Optimize_DRQ.forceClear(this);
         m_Statistics_DRQ.forceClear(this);
         m_Tactic_DRQ.forceClear(this);
+        m_Simplifier_DRQ.forceClear(this);
         m_Fixedpoint_DRQ.forceClear(this);
 
         m_boolSort = null;

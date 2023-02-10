@@ -23,6 +23,7 @@ DEFINE_TYPE(Z3_param_descrs);
 DEFINE_TYPE(Z3_parser_context);
 DEFINE_TYPE(Z3_goal);
 DEFINE_TYPE(Z3_tactic);
+DEFINE_TYPE(Z3_simplifier);
 DEFINE_TYPE(Z3_probe);
 DEFINE_TYPE(Z3_stats);
 DEFINE_TYPE(Z3_solver);
@@ -69,6 +70,7 @@ DEFINE_TYPE(Z3_rcf_num);
    - \c Z3_ast_map: mapping from \c Z3_ast to \c Z3_ast objects.
    - \c Z3_goal: set of formulas that can be solved and/or transformed using tactics and solvers.
    - \c Z3_tactic: basic building block for creating custom solvers for specific problem domains.
+   - \c Z3_simplifier: basic building block for creating custom pre-processing simplifiers.
    - \c Z3_probe: function/predicate used to inspect a goal and collect information that may be used to decide which solver and/or preprocessing step will be used.
    - \c Z3_apply_result: collection of subgoals resulting from applying of a tactic to a goal.
    - \c Z3_solver: (incremental) solver, possibly specialized by a particular tactic or logic.
@@ -1403,6 +1405,7 @@ typedef enum
   def_Type('PARSER_CONTEXT',   'Z3_parser_context',   'ParserContextObj')
   def_Type('GOAL',             'Z3_goal',             'GoalObj')
   def_Type('TACTIC',           'Z3_tactic',           'TacticObj')
+  def_Type('SIMPLIFIER',       'Z3_simplifier',       'SimplifierObj')
   def_Type('PARAMS',           'Z3_params',           'Params')
   def_Type('PROBE',            'Z3_probe',            'ProbeObj')
   def_Type('STATS',            'Z3_stats',            'StatsObj')
@@ -6207,7 +6210,7 @@ extern "C" {
 
     /**@}*/
 
-    /** @name Tactics and Probes */
+    /** @name Tactics, Simplifiers and Probes */
     /**@{*/
     /**
        \brief Return a tactic associated with the given name.
@@ -6358,6 +6361,97 @@ extern "C" {
        def_API('Z3_tactic_using_params', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(PARAMS)))
     */
     Z3_tactic Z3_API Z3_tactic_using_params(Z3_context c, Z3_tactic t, Z3_params p);
+
+
+    /**
+       \brief Return a simplifier associated with the given name.
+       The complete list of simplifiers may be obtained using the procedures #Z3_get_num_simplifiers and #Z3_get_simplifier_name.
+       It may also be obtained using the command \ccode{(help-simplifier)} in the SMT 2.0 front-end.
+
+       Simplifiers are the basic building block for creating custom solvers for specific problem domains.
+
+       def_API('Z3_mk_simplifier', SIMPLIFIER, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_simplifier Z3_API Z3_mk_simplifier(Z3_context c, Z3_string name);
+
+    /**
+       \brief Increment the reference counter of the given simplifier.
+
+       def_API('Z3_simplifier_inc_ref', VOID, (_in(CONTEXT), _in(SIMPLIFIER)))
+    */
+    void Z3_API Z3_simplifier_inc_ref(Z3_context c, Z3_simplifier t);
+
+    /**
+       \brief Decrement the reference counter of the given simplifier.
+
+       def_API('Z3_simplifier_dec_ref', VOID, (_in(CONTEXT), _in(SIMPLIFIER)))
+    */
+    void Z3_API Z3_simplifier_dec_ref(Z3_context c, Z3_simplifier g);
+
+    /**
+     \brief Attach simplifier to a solver. The solver will use the simplifier for incremental pre-processing.
+    
+        def_API('Z3_solver_add_simplifier', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(SIMPLIFIER)))
+    */
+    Z3_solver Z3_API Z3_solver_add_simplifier(Z3_context c, Z3_solver solver, Z3_simplifier simplifier);
+
+    /**
+       \brief Return a simplifier that applies \c t1 to a given goal and \c t2
+       to every subgoal produced by \c t1.
+
+       def_API('Z3_simplifier_and_then', SIMPLIFIER, (_in(CONTEXT), _in(SIMPLIFIER), _in(SIMPLIFIER)))
+    */
+    Z3_simplifier Z3_API Z3_simplifier_and_then(Z3_context c, Z3_simplifier t1, Z3_simplifier t2);
+
+    /**
+       \brief Return a simplifier that applies \c t using the given set of parameters.
+
+       def_API('Z3_simplifier_using_params', SIMPLIFIER, (_in(CONTEXT), _in(SIMPLIFIER), _in(PARAMS)))
+    */
+    Z3_simplifier Z3_API Z3_simplifier_using_params(Z3_context c, Z3_simplifier t, Z3_params p);
+
+
+    /**
+       \brief Return the number of builtin simplifiers available in Z3.
+
+       \sa Z3_get_simplifier_name
+
+       def_API('Z3_get_num_simplifiers', UINT, (_in(CONTEXT),))
+    */
+    unsigned Z3_API Z3_get_num_simplifiers(Z3_context c);
+
+    /**
+       \brief Return the name of the idx simplifier.
+
+       \pre i < Z3_get_num_simplifiers(c)
+
+       \sa Z3_get_num_simplifiers
+
+       def_API('Z3_get_simplifier_name', STRING, (_in(CONTEXT), _in(UINT)))
+    */
+    Z3_string Z3_API Z3_get_simplifier_name(Z3_context c, unsigned i);
+
+    /**
+       \brief Return a string containing a description of parameters accepted by the given simplifier.
+
+       def_API('Z3_simplifier_get_help', STRING, (_in(CONTEXT), _in(SIMPLIFIER)))
+    */
+    Z3_string Z3_API Z3_simplifier_get_help(Z3_context c, Z3_simplifier t);
+
+    /**
+       \brief Return the parameter description set for the given simplifier object.
+
+       def_API('Z3_simplifier_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(SIMPLIFIER)))
+    */
+    Z3_param_descrs Z3_API Z3_simplifier_get_param_descrs(Z3_context c, Z3_simplifier t);
+
+    /**
+       \brief Return a string containing a description of the simplifier with the given name.
+
+       def_API('Z3_simplifier_get_descr', STRING, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_string Z3_API Z3_simplifier_get_descr(Z3_context c, Z3_string name);
+
 
     /**
        \brief Return a probe that always evaluates to val.

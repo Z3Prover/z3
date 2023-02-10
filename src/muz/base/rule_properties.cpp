@@ -139,6 +139,12 @@ void rule_properties::check_nested_free() {
     }
 }
 
+void rule_properties::check_background_free() {
+    if (m_ctx.get_num_assertions() > 0)
+        throw default_exception("engine does not support background assertions");
+}
+
+
 void rule_properties::check_existential_tail() {
     ast_mark visited;
     ptr_vector<expr> todo, tocheck;

@@ -222,7 +222,7 @@ public:
         m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
         m_stacked_simplex_strategy.pop(k);
-        settings().simplex_strategy() = m_stacked_simplex_strategy;
+        settings().set_simplex_strategy(m_stacked_simplex_strategy);
         lp_assert(m_r_solver.basis_heading_is_correct());
         lp_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }

@@ -34,7 +34,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "qe/mbp/mbp_solve_plugin.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 
 
@@ -2444,9 +2444,9 @@ namespace {
 }
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(dependent_expr_state_tactic, m, p, mk_qe_lite_simplifer);
+    return alloc(dependent_expr_state_tactic, m, p, mk_qe_lite_simplifier);
 }
 
-dependent_expr_simplifier* mk_qe_lite_simplifer(ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+dependent_expr_simplifier* mk_qe_lite_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st) {
     return alloc(qe_lite_simplifier, m, p, st);
 }

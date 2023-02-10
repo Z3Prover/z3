@@ -31,6 +31,11 @@ z3_add_component(simplifiers
     substitution
   TACTIC_HEADERS
     bit_blaster.h
+    bit2int.h
+    elim_bounds.h
+    elim_term_ite.h
+    pull_nested_quantifiers.h
+    push_ite.h
+    refine_inj_axiom.h
     rewriter_simplifier.h
-
 )

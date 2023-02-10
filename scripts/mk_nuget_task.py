@@ -24,10 +24,12 @@ def mk_dir(d):
 os_info = {  'ubuntu-latest' : ('so', 'linux-x64'),
              'ubuntu-18' : ('so', 'linux-x64'),
              'ubuntu-20' : ('so', 'linux-x64'),
-             'glibc-2.31' : ('so', 'linux-x64'),
+             'glibc' : ('so', 'linux-x64'),
+             #'glibc-2.35' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
              'x86-win' : ('dll', 'win-x86'),
-             'osx' : ('dylib', 'osx-x64'),
+             'x64-osx' : ('dylib', 'osx-x64'),
+             'arm64-osx' : ('dylib', 'osx-arm64'),
              'debian' : ('so', 'linux-x64') }
 
         

@@ -40,6 +40,26 @@ Revision History:
 
 namespace sat {
 
+    /**
+    * Special cases of kissat style general backoff calculation.
+    * The version here calculates
+    * limit := value*log(C)^2*n*log(n)
+    * (effort calculation in kissat is based on ticks not clauses)
+    *
+    * respectively
+    * limit := conflicts + value*log(C)^2*n*log(n)
+    */
+    void backoff::delta_effort(solver& s) {
+        count++;
+        unsigned d = value * count * log2(count + 1);
+        unsigned cl = log2(s.num_clauses() + 2);
+        limit = cl * cl * d;
+    }
+
+    void backoff::delta_conflicts(solver& s) {
+        delta_effort(s);
+        limit += s.m_conflicts_since_init;
+    }
 
     solver::solver(params_ref const & p, reslimit& l):
         solver_core(l),
@@ -1330,17 +1350,70 @@ namespace sat {
         ERROR_EX
     };
 
+    struct solver::scoped_ls {
+        solver& s;
+        scoped_ls(solver& s): s(s) {}
+        ~scoped_ls() { 
+            dealloc(s.m_local_search); 
+            s.m_local_search = nullptr; 
+        }
+    };
+
+    void solver::bounded_local_search() {
+        literal_vector _lits;
+        scoped_limits scoped_rl(rlimit());
+        m_local_search = alloc(ddfw);
+        scoped_ls _ls(*this);
+        SASSERT(m_local_search);
+        m_local_search->add(*this);
+        m_local_search->updt_params(m_params);
+        m_local_search->set_seed(m_rand());
+        scoped_rl.push_child(&(m_local_search->rlimit()));
+
+        m_backoffs.m_local_search.delta_effort(*this);
+        m_local_search->rlimit().push(m_backoffs.m_local_search.limit);
+
+        m_local_search->reinit(*this, m_best_phase);
+        lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
+        auto const& mdl = m_local_search->get_model();
+        if (mdl.size() == m_best_phase.size()) {
+            for (unsigned i = 0; i < m_best_phase.size(); ++i)
+                m_best_phase[i] = l_true == mdl[i];
+
+            if (r == l_true) {
+                m_conflicts_since_restart = 0;
+                m_conflicts_since_gc = 0;
+                m_next_simplify = std::max(m_next_simplify, m_conflicts_since_init + 1);
+            }
+            do_restart(true);
+#if 0
+            // move higher priority variables to front
+            // eg., move the first 10% variables to front
+            svector<std::pair<double, bool_var>> priorities(mdl.size());
+            for (unsigned i = 0; i < mdl.size(); ++i) 
+                priorities[i] = { m_local_search->get_priority(i), i };
+            std::sort(priorities.begin(), priorities.end(), [](auto& x, auto& y) { return x.first > y.first; });
+            for (unsigned i = priorities.size() / 10; i-- > 0; )
+                move_to_front(priorities[i].second);
+#endif
+
+
+            if (l_true == r) {
+                for (clause const* cp : m_clauses) {
+                    bool is_true = any_of(*cp, [&](auto lit) { return lit.sign() != m_best_phase[lit.var()]; });
+                    if (!is_true) {
+                        verbose_stream() << "clause is false " << *cp << "\n";
+                    }
+                }
+            }
+        }
+    }
+
+
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
         literal_vector _lits(num_lits, lits);
-        for (literal lit : m_user_scope_literals) _lits.push_back(~lit);
-        struct scoped_ls {
-            solver& s;
-            scoped_ls(solver& s): s(s) {}
-            ~scoped_ls() { 
-                dealloc(s.m_local_search); 
-                s.m_local_search = nullptr; 
-            }
-        };
+        for (literal lit : m_user_scope_literals) 
+            _lits.push_back(~lit);
         scoped_ls _ls(*this);
         if (inconsistent()) 
             return l_false;
@@ -1610,27 +1683,28 @@ namespace sat {
     
     bool solver::guess(bool_var next) {
         lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
-
+        
         if (lphase != l_undef)
             return lphase == l_true;
         switch (m_config.m_phase) {
-            case PS_ALWAYS_TRUE:
-                return true;
-            case PS_ALWAYS_FALSE:
-                return false;
-            case PS_BASIC_CACHING:
+        case PS_ALWAYS_TRUE:
+            return true;
+        case PS_ALWAYS_FALSE:
+            return false;
+        case PS_BASIC_CACHING:
+            return m_phase[next];
+        case PS_FROZEN:
+            return m_best_phase[next];
+        case PS_SAT_CACHING:
+        case PS_LOCAL_SEARCH:
+            if (m_search_state == s_unsat)
                 return m_phase[next];
-            case PS_FROZEN:
-                return m_best_phase[next];
-            case PS_SAT_CACHING:
-                if (m_search_state == s_unsat)
-                    return m_phase[next];
-                return m_best_phase[next];
-            case PS_RANDOM:
-                return (m_rand() % 2) == 0;
-            default:
-                UNREACHABLE();
-                return false;
+            return m_best_phase[next];
+        case PS_RANDOM:
+            return (m_rand() % 2) == 0;
+        default:
+            UNREACHABLE();
+            return false;
         }
     }
 
@@ -1666,7 +1740,7 @@ namespace sat {
         
         if (!is_pos)
             next_lit.neg();
-        
+
         TRACE("sat_decide", tout << scope_lvl() << ": next-case-split: " << next_lit << "\n";);
         assign_scoped(next_lit);
         return true;
@@ -1886,6 +1960,7 @@ namespace sat {
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
         m_reorder_lim             = m_config.m_reorder_base;
+        m_backoffs.m_local_search.value = 500;
         m_reorder_inc             = 0;
         m_conflicts_since_restart = 0;
         m_force_conflict_analysis = false;
@@ -1901,6 +1976,7 @@ namespace sat {
         m_next_simplify           = m_config.m_simplify_delay;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
+
         if (m_learned.size() <= 2*m_clauses.size())
             m_conflicts_since_gc      = 0;
         m_restart_next_out        = 0;
@@ -2003,9 +2079,7 @@ namespace sat {
 
         if (m_par) {
             m_par->from_solver(*this);
-            if (m_par->to_solver(*this)) {
-                m_activity_inc = 128;
-            }
+            m_par->to_solver(*this);
         }
 
         if (m_config.m_binspr && !inconsistent()) {
@@ -2822,7 +2896,7 @@ namespace sat {
     }
 
     bool solver::is_two_phase() const {
-        return m_config.m_phase == PS_SAT_CACHING;
+        return m_config.m_phase == PS_SAT_CACHING || m_config.m_phase == PS_LOCAL_SEARCH;
     }
 
     bool solver::is_sat_phase() const {
@@ -2917,10 +2991,19 @@ namespace sat {
         case PS_SAT_CACHING:
             if (m_search_state == s_sat) 
                 for (unsigned i = 0; i < m_phase.size(); ++i) 
-                    m_phase[i] = m_best_phase[i];                            
+                    m_phase[i] = m_best_phase[i];  
             break;
         case PS_RANDOM:
             for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+            break;
+        case PS_LOCAL_SEARCH:
+            if (m_search_state == s_sat) {
+                if (m_rand() % 2 == 0)
+                    bounded_local_search();
+                for (unsigned i = 0; i < m_phase.size(); ++i) 
+                    m_phase[i] = m_best_phase[i];              
+            }
+
             break;
         default:
             UNREACHABLE();

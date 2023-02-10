@@ -743,7 +743,7 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     # First pass will just generate the tactic factories
     fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, CODE) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, [](ast_manager &m, const params_ref &p) { return CODE; }))\n')
     fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
-    fout.write('#define ADD_SIMPLIFIER_CMD(NAME, DESCR, FUNCTION) ctx.insert(alloc(simplifier_cmd, symbol(NAME), DESCR, FUNCTION))\n')
+    fout.write('#define ADD_SIMPLIFIER_CMD(NAME, DESCR, CODE) ctx.insert(alloc(simplifier_cmd, symbol(NAME), DESCR, [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return CODE; }))\n')
     fout.write('void install_tactics(tactic_manager & ctx) {\n')
     for data in ADD_TACTIC_DATA:
         fout.write('  ADD_TACTIC_CMD("%s", "%s", %s);\n' % data)

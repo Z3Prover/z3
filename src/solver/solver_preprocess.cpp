@@ -42,7 +42,7 @@ Notes:
 #include "ast/simplifiers/cnf_nnf.h"
 #include "smt/params/smt_params.h"
 #include "solver/solver_preprocess.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 
 void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st) {
 
@@ -53,7 +53,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
     if (smtp.m_elim_unconstrained) s.add_simplifier(alloc(elim_unconstrained, m, st));
     if (smtp.m_nnf_cnf) s.add_simplifier(alloc(cnf_nnf_simplifier, m, p, st));
     if (smtp.m_macro_finder || smtp.m_quasi_macros) s.add_simplifier(alloc(eliminate_predicates, m, st));
-    if (smtp.m_qe_lite) s.add_simplifier(mk_qe_lite_simplifer(m, p, st));
+    if (smtp.m_qe_lite) s.add_simplifier(mk_qe_lite_simplifier(m, p, st));
     if (smtp.m_pull_nested_quantifiers) s.add_simplifier(alloc(pull_nested_quantifiers_simplifier, m, p, st));
     if (smtp.m_max_bv_sharing) s.add_simplifier(mk_max_bv_sharing(m, p, st));
     if (smtp.m_refine_inj_axiom) s.add_simplifier(alloc(refine_inj_axiom_simplifier, m, p, st));

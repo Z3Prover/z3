@@ -23,7 +23,7 @@ Author:
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include <iostream>
 
 

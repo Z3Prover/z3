@@ -62,7 +62,6 @@ class simplifier_solver : public solver {
             if (s.m.is_false(f))
                 s.set_inconsistent();
         }        
-        void append(generic_model_converter& mc) { model_trail().append(mc); }
         void replay(unsigned qhead, expr_ref_vector& assumptions) { m_reconstruction_trail.replay(qhead, assumptions, *this); }
         void flatten_suffix() override {
             expr_mark seen;
@@ -94,24 +93,35 @@ class simplifier_solver : public solver {
     dep_expr_state              m_preprocess_state;
     seq_simplifier              m_preprocess;
     expr_ref_vector             m_assumptions;
-    generic_model_converter_ref m_mc;
+    model_converter_ref         m_mc;
     bool                        m_inconsistent = false;
+    expr_safe_replace           m_core_replace;
+
+    void replace(expr_ref_vector& r) {
+        expr_ref tmp(m);
+        for (unsigned i = 0; i < r.size(); ++i) {
+            m_core_replace(r.get(i), tmp);
+            r[i] = tmp;
+        }
+    }
 
     void flush(expr_ref_vector& assumptions) {
         unsigned qhead = m_preprocess_state.qhead();
-        if (qhead < m_fmls.size()) {
-            for (expr* a : assumptions)
-                m_preprocess_state.freeze(a);
+        expr_ref_vector orig_assumptions(assumptions);
+        m_core_replace.reset();
+        if (qhead < m_fmls.size() || !assumptions.empty()) {
             TRACE("solver", tout << "qhead " << qhead << "\n");
-            m_preprocess_state.replay(qhead, assumptions);
+            m_preprocess_state.replay(qhead, assumptions);   
+            m_preprocess_state.freeze(assumptions);
             m_preprocess.reduce();
             if (!m.inc())
                 return;
             m_preprocess_state.advance_qhead();
+            for (unsigned i = 0; i < assumptions.size(); ++i) 
+                m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));            
         }
-        m_mc = alloc(generic_model_converter, m, "simplifier-model-converter");
+        m_mc = m_preprocess_state.model_trail().get_model_converter(); 
         m_cached_mc = nullptr;
-        m_preprocess_state.append(*m_mc);
         for (; qhead < m_fmls.size(); ++qhead)
             add_with_dependency(m_fmls[qhead]);
     }
@@ -150,6 +160,7 @@ public:
         m_preprocess_state(*this),
         m_preprocess(m, s->get_params(), m_preprocess_state),
         m_assumptions(m),
+        m_core_replace(m),
         m_proof(m)
     {
         if (fac) 
@@ -191,7 +202,7 @@ public:
     lbool check_sat_core(unsigned num_assumptions, expr* const* assumptions) override { 
         expr_ref_vector _assumptions(m, num_assumptions, assumptions);
         flush(_assumptions);
-        return s->check_sat_core(num_assumptions, assumptions); 
+        return s->check_sat_core(num_assumptions, _assumptions.data()); 
     }
 
     void collect_statistics(statistics& st) const override { 
@@ -213,7 +224,7 @@ public:
     }
 
     proof_ref m_proof;
-    proof* get_proof_core() { 
+    proof* get_proof_core() override { 
         proof* p = s->get_proof(); 
         m_proof = p;
         if (p) {
@@ -260,7 +271,7 @@ public:
     std::string reason_unknown() const override { return s->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { s->set_reason_unknown(msg); }
     void get_labels(svector<symbol>& r) override { s->get_labels(r); }
-    void get_unsat_core(expr_ref_vector& r) { s->get_unsat_core(r); }
+    void get_unsat_core(expr_ref_vector& r) override { s->get_unsat_core(r); replace(r); }
     ast_manager& get_manager() const override { return s->get_manager(); }    
     void reset_params(params_ref const& p) override { s->reset_params(p); }
     params_ref const& get_params() const override { return s->get_params(); }
@@ -275,15 +286,59 @@ public:
     unsigned get_num_assumptions() const override { return s->get_num_assumptions(); }
     expr* get_assumption(unsigned idx) const override { return s->get_assumption(idx); }
     unsigned get_scope_level() const override { return s->get_scope_level(); }
-    lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override { return check_sat_cc(cube, clauses); }
     void set_progress_callback(progress_callback* callback) override { s->set_progress_callback(callback); }
+
     lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
-        return s->get_consequences(asms, vars, consequences);
+        expr_ref_vector es(m);
+        es.append(asms);
+        es.append(vars);
+        flush(es);
+        expr_ref_vector asms1(m, asms.size(), es.data());
+        expr_ref_vector vars1(m, vars.size(), es.data() + asms.size());
+        lbool r = s->get_consequences(asms1, vars1, consequences);
+        replace(consequences);        
+        return r;
     }
-    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return s->find_mutexes(vars, mutexes); }
-    lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override { return s->preferred_sat(asms, cores); }
+
+    lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override { 
+        expr_ref_vector es(m);
+        es.append(cube);
+        for (auto const& c : clauses)
+            es.append(c);
+        flush(es);
+        expr_ref_vector cube1(m, cube.size(), es.data());
+        vector<expr_ref_vector> clauses1;
+        unsigned offset = cube.size();
+        for (auto const& c : clauses) {
+            clauses1.push_back(expr_ref_vector(m, c.size(), es.data() + offset));
+            offset += c.size();
+        }
+        return s->check_sat_cc(cube1, clauses1); 
+    }
+
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
+        expr_ref_vector vars1(vars);
+        flush(vars1);
+        lbool r = s->find_mutexes(vars1, mutexes); 
+        for (auto& mux : mutexes)
+            replace(mux);
+        return r;
+    }
+
+    lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override {
+        expr_ref_vector asms1(asms);
+        flush(asms1);
+        lbool r = s->preferred_sat(asms1, cores);
+        for (auto& c : cores)
+            replace(c);
+        return r;
+    }
     
-    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { return s->cube(vars, backtrack_level); }
+    // todo flush?
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
+        return s->cube(vars, backtrack_level); 
+    }
+
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
     std::ostream& display(std::ostream& out, unsigned n, expr* const* assumptions) const override {
@@ -308,9 +363,8 @@ public:
     void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override { s->user_propagate_register_final(final_eh); }
     void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override { s->user_propagate_register_eq(eq_eh); }    
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override { s->user_propagate_register_diseq(diseq_eh); }    
-    void user_propagate_register_expr(expr* e) override { /*m_preprocess.user_propagate_register_expr(e); */  s->user_propagate_register_expr(e); }
+    void user_propagate_register_expr(expr* e) override { m_preprocess_state.freeze(e);  s->user_propagate_register_expr(e); }
     void user_propagate_register_created(user_propagator::created_eh_t& r) override { s->user_propagate_register_created(r); }
-    // void user_propagate_clear() override { m_preprocess.user_propagate_clear(); s->user_propagate_clear(); }
 
 
 };

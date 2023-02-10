@@ -20,12 +20,14 @@ Revision History:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
-#include<ostream>
-#include<climits>
-#include<limits>
-#include<stdint.h>
+#include <ostream>
+#include <climits>
+#include <limits>
+#include <stdint.h>
 #include <string>
 #include <functional>
+#include <algorithm>
+#include <iterator>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -410,3 +412,36 @@ inline size_t megabytes_to_bytes(unsigned mb) {
         r = SIZE_MAX;    
     return r;
 }
+
+/** Compact version of std::count */
+template <typename Container, typename Item>
+std::size_t count(Container const& c, Item x)
+{
+    using std::begin, std::end;  // allows begin(c) to also find c.begin()
+    return std::count(begin(c), end(c), std::forward<Item>(x));
+}
+
+/** Compact version of std::count_if */
+template <typename Container, typename Predicate>
+std::size_t count_if(Container const& c, Predicate p)
+{
+    using std::begin, std::end;  // allows begin(c) to also find c.begin()
+    return std::count_if(begin(c), end(c), std::forward<Predicate>(p));
+}
+
+/** Basic version of https://en.cppreference.com/w/cpp/experimental/scope_exit */
+template <typename Callable>
+class on_scope_exit final {
+    Callable m_ef;
+public:
+    on_scope_exit(Callable&& ef)
+        : m_ef(std::forward<Callable>(ef))
+    { }
+    ~on_scope_exit() {
+        m_ef();
+    }
+};
+
+/** Helper type for std::visit, see examples on https://en.cppreference.com/w/cpp/utility/variant/visit */
+template <typename T>
+struct always_false : std::false_type {};

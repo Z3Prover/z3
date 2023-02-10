@@ -19,6 +19,7 @@ Revision History:
 
 #include "api/api_goal.h"
 #include "tactic/tactical.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 namespace api {
     class context;
@@ -35,9 +36,18 @@ struct Z3_probe_ref : public api::object {
     Z3_probe_ref(api::context& c):api::object(c) {}
 };
 
+struct Z3_simplifier_ref : public api::object {
+    simplifier_factory m_simplifier;
+    Z3_simplifier_ref(api::context& c):api::object(c) {}
+};
+
 inline Z3_tactic_ref * to_tactic(Z3_tactic g) { return reinterpret_cast<Z3_tactic_ref *>(g); }
 inline Z3_tactic of_tactic(Z3_tactic_ref * g) { return reinterpret_cast<Z3_tactic>(g); }
 inline tactic * to_tactic_ref(Z3_tactic g) { return g == nullptr ? nullptr : to_tactic(g)->m_tactic.get(); }
+
+inline Z3_simplifier_ref * to_simplifier(Z3_simplifier g) { return reinterpret_cast<Z3_simplifier_ref *>(g); }
+inline Z3_simplifier of_simplifier(Z3_simplifier_ref * g) { return reinterpret_cast<Z3_simplifier>(g); }
+inline simplifier_factory * to_simplifier_ref(Z3_simplifier g) { return g == nullptr ? nullptr : &to_simplifier(g)->m_simplifier; }
 
 inline Z3_probe_ref * to_probe(Z3_probe g) { return reinterpret_cast<Z3_probe_ref *>(g); }
 inline Z3_probe of_probe(Z3_probe_ref * g) { return reinterpret_cast<Z3_probe>(g); }

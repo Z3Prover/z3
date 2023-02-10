@@ -312,7 +312,7 @@ NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 Unchecked = frozenset([ 'Z3_dec_ref', 'Z3_params_dec_ref', 'Z3_model_dec_ref',
                         'Z3_func_interp_dec_ref', 'Z3_func_entry_dec_ref',
-                        'Z3_goal_dec_ref', 'Z3_tactic_dec_ref', 'Z3_probe_dec_ref',
+                        'Z3_goal_dec_ref', 'Z3_tactic_dec_ref', 'Z3_simplifier_dec_ref', 'Z3_probe_dec_ref',
                         'Z3_fixedpoint_dec_ref', 'Z3_param_descrs_dec_ref',
                         'Z3_ast_vector_dec_ref', 'Z3_ast_map_dec_ref', 
                         'Z3_apply_result_dec_ref', 'Z3_solver_dec_ref',
@@ -1176,6 +1176,8 @@ def ml_plus_type(ts):
         return 'Z3_goal_plus'
     elif ts == 'Z3_tactic':
         return 'Z3_tactic_plus'
+    elif ts == 'Z3_simplifier':
+        return 'Z3_simplifier_plus'
     elif ts == 'Z3_probe':
         return 'Z3_probe_plus'
     elif ts == 'Z3_apply_result':
@@ -1220,6 +1222,8 @@ def ml_minus_type(ts):
         return 'Z3_goal'
     elif ts == 'Z3_tactic_plus':
         return 'Z3_tactic'
+    elif ts == 'Z3_simplifier_plus':
+        return 'Z3_simplifier'
     elif ts == 'Z3_probe_plus':
         return 'Z3_probe'
     elif ts == 'Z3_apply_result_plus':

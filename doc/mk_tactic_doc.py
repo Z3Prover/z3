@@ -55,7 +55,7 @@ def extract_tactic_doc(ous, f):
                 generate_tactic_doc(ous, f, ins)
 
 def generate_simplifier_doc(ous, name, desc):
-    ous.write("## Simplifier [" + name + "](summary/#tactic-" + name + ")\n")
+    ous.write("## Simplifier [" + name + "](https://microsoft.github.io/z3guide/docs/strategies/summary/#tactic-" + name + ")\n")
     ous.write("### Description\n" + desc + "\n")
 
               
@@ -65,7 +65,6 @@ def extract_simplifier_doc(ous, f):
             m = is_simplifier.search(line)
             if m:
                 generate_simplifier_doc(ous, m.group(1), m.group(2))
-                return
 
 def find_tactic_name(path):
     with open(path) as ins:
@@ -76,7 +75,16 @@ def find_tactic_name(path):
     print(f"no tactic in {path}")
     return ""
 
-def presort_files():
+def find_simplifier_name(path):
+    with open(path) as ins:
+        for line in ins:
+            m = is_simplifier.search(line)
+            if m:
+                return m.group(1)
+    print(f"no simplifier in {path}")
+    return ""
+
+def presort_files(find_fn):
     tac_files = []
     for root, dirs, files in os.walk(doc_path("../src")):
         for f in files:
@@ -84,16 +92,16 @@ def presort_files():
                 continue
             if f.endswith("tactic.h") or "simplifiers" in root:
                 tac_files += [(f, os.path.join(root, f))]
-    tac_files = sorted(tac_files, key = lambda x: find_tactic_name(x[1]))
+    tac_files = sorted(tac_files, key = lambda x: find_fn(x[1]))
     return tac_files
     
     
 def help(ous):
     ous.write("---\n")
     ous.write("title: Tactics Summary\n")
-    ous.write("sidebar_position: 5\n")
+    ous.write("sidebar_position: 6\n")
     ous.write("---\n")
-    tac_files = presort_files()
+    tac_files = presort_files(find_tactic_name)
     for file, path in tac_files:
         extract_tactic_doc(ous, path)
 
@@ -101,10 +109,10 @@ def help(ous):
 
 def help_simplifier(ous):
     ous.write("---\n")
-    ous.write("title: Simplifier Summary\n")
-    ous.write("sidebar_position: 6\n")
+    ous.write("title: Simplifiers Summary\n")
+    ous.write("sidebar_position: 7\n")
     ous.write("---\n")
-    tac_files = presort_files()
+    tac_files = presort_files(find_simplifier_name)
     for file, path in tac_files:
         extract_simplifier_doc(ous, path)
 

@@ -10,7 +10,7 @@ Abstract:
     Poly DD package
 
     It is a mild variant of ZDDs. 
-    In PDDs arithmetic is either standard or using mod 2 (over GF2).
+    In PDDs arithmetic is either standard or using mod 2^n.
 
     Non-leaf nodes are of the form x*hi + lo
     where 
@@ -208,7 +208,6 @@ namespace dd {
         rational                   m_mod2N;
         unsigned                   m_power_of_2 = 0;
         rational                   m_max_value;
-        unsigned                   m_gc_generation = 0;  ///< will be incremented on each GC
 
         void reset_op_cache();
         void init_nodes(unsigned_vector const& l2v);
@@ -254,7 +253,9 @@ namespace dd {
         inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
         inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
         inline bool is_var(PDD p) const { return !is_val(p) && is_zero(lo(p)) && is_one(hi(p)); }
+        inline bool is_max(PDD p) const { SASSERT(m_semantics == mod2_e || m_semantics == mod2N_e); return is_val(p) && val(p) == max_value(); }
         bool is_never_zero(PDD p);
+        unsigned min_parity(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
         inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
@@ -315,6 +316,11 @@ namespace dd {
         pdd_manager(unsigned num_vars, semantics s = free_e, unsigned power_of_2 = 0);
         ~pdd_manager();
 
+        pdd_manager(pdd_manager const&) = delete;
+        pdd_manager(pdd_manager&&) = delete;
+        pdd_manager& operator=(pdd_manager const&) = delete;
+        pdd_manager& operator=(pdd_manager&&) = delete;
+
         semantics get_semantics() const { return m_semantics; }
 
         void reset(unsigned_vector const& level2var);
@@ -343,6 +349,7 @@ namespace dd {
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
         pdd subst_val(pdd const& a, pdd const& s);
         pdd subst_add(pdd const& s, unsigned v, rational const& val);
+        bool subst_get(pdd const& s, unsigned v, rational& out_val);
         bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
         pdd reduce(unsigned v, pdd const& a, pdd const& b);
         void quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r);
@@ -357,6 +364,7 @@ namespace dd {
         bool is_monomial(PDD p);
 
         bool is_univariate(PDD p);
+        bool is_univariate_in(PDD p, unsigned v);
         void get_univariate_coefficients(PDD p, vector<rational>& coeff);
 
         // create an spoly r if leading monomials of a and b overlap
@@ -375,6 +383,8 @@ namespace dd {
         unsigned power_of_2() const { return m_power_of_2; }
         rational const& max_value() const { return m_max_value; }
         rational const& two_to_N() const { return m_mod2N; }
+        rational normalize(rational const& n) const { return mod(-n, m_mod2N) < n ? -mod(-n, m_mod2N) : n; }
+
 
         unsigned_vector const& free_vars(pdd const& p);
 
@@ -406,21 +416,26 @@ namespace dd {
         unsigned var() const { return m.var(root); }
         rational const& val() const { SASSERT(is_val()); return m.val(root); }
         rational const& leading_coefficient() const;
+        rational const& offset() const;
         bool is_val() const { return m.is_val(root); }
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
         bool is_var() const { return m.is_var(root); }
-        /** Polynomial is of the form a * x + b for numerals a, b. */
+        bool is_max() const { return m.is_max(root); }
+        /** Polynomial is of the form a * x + b for some numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
+        /** Polynomial is of the form a * x for some numeral a. */
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
         bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }
         bool is_univariate() const { return m.is_univariate(root); }
+        bool is_univariate_in(unsigned v) const { return m.is_univariate_in(root, v); }
         void get_univariate_coefficients(vector<rational>& coeff) const { m.get_univariate_coefficients(root, coeff); }
         vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m.get_univariate_coefficients(root, coeff); return coeff; }
         bool is_never_zero() const { return m.is_never_zero(root); }
+        unsigned min_parity() const { return m.min_parity(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd operator-() const { return m.minus(*this); }
@@ -455,7 +470,8 @@ namespace dd {
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
         pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
-        pdd subst_add(unsigned var, rational const& val) { return m.subst_add(*this, var, val); }
+        pdd subst_add(unsigned var, rational const& val) const { return m.subst_add(*this, var, val); }
+        bool subst_get(unsigned var, rational& out_val) const { return m.subst_get(*this, var, out_val); }
 
         /**
          * \brief substitute variable v by r.
@@ -538,6 +554,18 @@ namespace dd {
         bool operator!=(pdd_iterator const& other) const { return m_nodes != other.m_nodes; }
     };
 
+    class val_pp {
+        pdd_manager const& m;
+        rational const& val;
+        bool require_parens;
+        char const* lparen() const { return require_parens ? "(" : ""; }
+        char const* rparen() const { return require_parens ? ")" : ""; }
+    public:
+        val_pp(pdd_manager const& m, rational const& val, bool require_parens = false): m(m), val(val), require_parens(require_parens) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, val_pp const& v) { return v.display(out); }
 }
 
 

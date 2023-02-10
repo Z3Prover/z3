@@ -528,7 +528,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.BINARY_OP(tactic, &, &);
     m.BINARY_OP(tactic, |, |);
     m.method("repeat", &repeat);
-    m.method("with", &with);
+    m.method("with", static_cast<tactic (*)(const tactic & , const params &)>(&with));
     m.method("try_for", &try_for);
     m.method("par_or", &par_or);
     m.method("par_and_then", &par_and_then);

@@ -49,3 +49,6 @@ public:
     void pop(unsigned n) override { m_rewriter.pop(n); m_df.pop(n); dependent_expr_simplifier::pop(n); }
 };
 
+/*
+  ADD_SIMPLIFIER("elim-term-ite", "eliminate if-then-else term by hoisting them top top-level.", "alloc(elim_term_ite_simplifier, m, p, s)")
+*/

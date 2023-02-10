@@ -51,7 +51,7 @@ namespace sat {
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
         void _from_solver(solver& s);
-        bool _to_solver(solver& s);
+        void _to_solver(solver& s);
         bool _from_solver(i_local_search& s);
         void _to_solver(i_local_search& s);
 
@@ -102,7 +102,7 @@ namespace sat {
 
         // exchange from solver state to local search and back.
         void from_solver(solver& s);
-        bool to_solver(solver& s);
+        void to_solver(solver& s);
         
         bool from_solver(i_local_search& s);
         void to_solver(i_local_search& s);

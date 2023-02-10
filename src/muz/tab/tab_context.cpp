@@ -23,7 +23,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "smt/smt_kernel.h"
-#include "qe/lite/qe_lite.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/datatype_decl_plugin.h"

@@ -79,5 +79,5 @@ inline tactic * mk_solve_eqs_tactic(ast_manager& m, params_ref const& p = params
 
 /*
   ADD_TACTIC("solve-eqs", "solve for variables.", "mk_solve_eqs_tactic(m, p)")
-  ADD_SIMPLIFIER("solve-eqs", "solve for variables.", "[](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(euf::solve_eqs, m, s); }")
+  ADD_SIMPLIFIER("solve-eqs", "solve for variables.", "alloc(euf::solve_eqs, m, s)")
 */

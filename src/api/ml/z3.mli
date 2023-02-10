@@ -3102,6 +3102,38 @@ sig
   val interrupt : context -> unit
 end
 
+module Simplifier :
+sig
+  type simplifier
+
+  (** A string containing a description of parameters accepted by the simplifier. *)
+  val get_help : simplifier -> string
+
+  (** Retrieves parameter descriptions for Simplifiers. *)
+  val get_param_descrs : simplifier -> Params.ParamDescrs.param_descrs
+
+  (** The number of supported simplifiers. *)
+  val get_num_simplifiers : context -> int
+
+  (** The names of all supported simplifiers. *)
+  val get_simplifier_names : context -> string list
+
+  (** Returns a string containing a description of the simplifier with the given name. *)
+  val get_simplifier_description : context -> string -> string
+
+  (** Creates a new Simplifier. *)
+  val mk_simplifier : context -> string -> simplifier
+
+  (** Create a simplifier that applies one simplifier to a Goal and
+      then another one to every subgoal produced by the first one. *)
+  val and_then : context -> simplifier -> simplifier -> simplifier list -> simplifier
+
+  (** Create a simplifier that applies a simplifier using the given set of parameters. *)
+  val using_params : context -> simplifier -> Params.params -> simplifier
+  val with_ : context -> simplifier -> Params.params -> simplifier
+
+end
+
 (** Objects that track statistical information. *)
 module Statistics :
 sig
@@ -3264,6 +3296,9 @@ sig
       The solver supports the commands [Push] and [Pop], but it
       will always solve each check from scratch. *)
   val mk_solver_t : context -> Tactic.tactic -> solver
+
+  (** Create a solver with simplifying pre-processing **)
+  val add_simplifier : context -> solver -> Simplifier.simplifier -> solver
 
   (** Create a clone of the current solver with respect to a context. *)
   val translate : solver -> context -> solver
