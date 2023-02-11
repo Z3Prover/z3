@@ -24,7 +24,7 @@ namespace euf {
     void solver::local_search(bool_vector& phase) {
         scoped_limits scoped_rl(m.limit());
         sat::ddfw bool_search;
-        bool_search.add(s());
+        bool_search.reinit(s(), phase);
         bool_search.updt_params(s().params());
         bool_search.set_seed(rand());
         scoped_rl.push_child(&(bool_search.rlimit()));
@@ -36,29 +36,29 @@ namespace euf {
 
         for (unsigned rounds = 0; m.inc() && rounds < max_rounds; ++rounds) {
 
-            bool_search.reinit(s(), phase);
-
             setup_bounds(phase);
 
             // Non-boolean literals are assumptions to Boolean search
             literal_vector assumptions;
             for (unsigned v = 0; v < phase.size(); ++v)
                 if (!is_propositional(literal(v)))
-                    assumptions.push_back(literal(v, !phase[v]));
+                    assumptions.push_back(literal(v, !bool_search.get_value(v)));
 
             bool_search.rlimit().push(m_max_bool_steps);
             
             lbool r = bool_search.check(assumptions.size(), assumptions.data(), nullptr);
-
-
-            auto const& mdl = bool_search.get_model();
-            for (unsigned i = 0; i < mdl.size(); ++i)
-                phase[i] = mdl[i] == l_true;
+            bool_search.rlimit().pop();
 
             for (auto* th : m_solvers) 
                 th->local_search(phase);
             // if is_sat break;
+
         }
+
+
+        auto const& mdl = bool_search.get_model();
+        for (unsigned i = 0; i < mdl.size(); ++i)
+            phase[i] = mdl[i] == l_true;
               
     }
 

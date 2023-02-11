@@ -49,6 +49,7 @@ namespace sat {
             else if (should_parallel_sync()) do_parallel_sync();
             else shift_weights();                       
         }
+        remove_assumptions();
         log();
         return m_min_sz == 0 ? l_true : l_undef;
     }
@@ -244,7 +245,6 @@ namespace sat {
         m_use_list_index.push_back(m_flat_use_list.size());
     }
 
-
     void ddfw::flip(bool_var v) {
         ++m_flips;
         literal lit = literal(v, !value(v));
@@ -309,19 +309,15 @@ namespace sat {
         log();
 
         if (m_reinit_count % 2 == 0) { 
-            for (auto& ci : m_clauses) {
-                ci.m_weight += 1;                
-            }
+            for (auto& ci : m_clauses) 
+                ci.m_weight += 1;                            
         }
         else {
-            for (auto& ci : m_clauses) {
-                if (ci.is_true()) {
-                    ci.m_weight = m_config.m_init_clause_weight;
-                }
-                else {
-                    ci.m_weight = m_config.m_init_clause_weight + 1;
-                }                
-            }
+            for (auto& ci : m_clauses) 
+                if (ci.is_true()) 
+                    ci.m_weight = m_config.m_init_clause_weight;                
+                else 
+                    ci.m_weight = m_config.m_init_clause_weight + 1;                                       
         }
         init_clause_data();   
         ++m_reinit_count;
@@ -341,11 +337,9 @@ namespace sat {
             clause const& c = get_clause(i);
             ci.m_trues = 0;
             ci.m_num_trues = 0;
-            for (literal lit : c) {
-                if (is_true(lit)) {
-                    ci.add(lit);
-                }
-            }
+            for (literal lit : c) 
+                if (is_true(lit)) 
+                    ci.add(lit);                            
             switch (ci.m_num_trues) {
             case 0:
                 for (literal lit : c) {
@@ -384,12 +378,10 @@ namespace sat {
     void ddfw::reinit_values() {
         for (unsigned i = 0; i < num_vars(); ++i) {
             int b = bias(i);
-            if (0 == (m_rand() % (1 + abs(b)))) {
-                value(i) = (m_rand() % 2) == 0;
-            }
-            else {
-                value(i) = bias(i) > 0;
-            }
+            if (0 == (m_rand() % (1 + abs(b)))) 
+                value(i) = (m_rand() % 2) == 0;            
+            else 
+                value(i) = bias(i) > 0;            
         }        
     }
 

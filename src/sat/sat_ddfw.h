@@ -43,6 +43,17 @@ namespace sat {
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
         };
+
+        class use_list {
+            ddfw& p;
+            unsigned i;
+        public:
+            use_list(ddfw& p, literal lit) :
+                p(p), i(lit.index()) {}
+            unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
+            unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i + 1]; }
+        };
+
     protected:
 
         struct config {
@@ -102,15 +113,7 @@ namespace sat {
 
         parallel*        m_par;
 
-        class use_list {
-            ddfw& p;
-            unsigned i;
-        public:
-            use_list(ddfw& p, literal lit):
-                p(p), i(lit.index()) {}
-            unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
-            unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i + 1]; }
-        };
+
 
         void flatten_use_list(); 
 
@@ -163,7 +166,6 @@ namespace sat {
         // flip activity
         bool do_flip();
         bool_var pick_var();       
-        void flip(bool_var v);
         void save_best_values();
         void save_model();
         void save_priorities();
@@ -244,6 +246,10 @@ namespace sat {
         clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
 
         void remove_assumptions();
+
+        void flip(bool_var v);
+
+        use_list get_use_list(literal lit) { return use_list(*this, lit); }
 
     };
 }

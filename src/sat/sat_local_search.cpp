@@ -353,10 +353,7 @@ namespace sat {
         DEBUG_CODE(verify_unsat_stack(););
     }
 
-    local_search::local_search() :         
-        m_is_unsat(false),
-        m_initializing(false),
-        m_par(nullptr) {
+    local_search::local_search() {
     }
 
     void local_search::reinit(solver& s, bool_vector const& phase) {
@@ -375,11 +372,10 @@ namespace sat {
         m_vars.reserve(s.num_vars());
         m_config.set_config(s.get_config());
 
-        if (m_config.phase_sticky()) {
-            unsigned v = 0;
+        unsigned v = 0;
+        if (m_config.phase_sticky()) 
             for (var_info& vi : m_vars) 
-                vi.m_bias = s.m_phase[v++] ? 98 : 2;
-        }
+                vi.m_bias = s.m_phase[v++] ? 98 : 2;        
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
@@ -419,9 +415,8 @@ namespace sat {
         if (ext && (!ext->is_pb() || !ext->extract_pb(card, pb)))
             throw default_exception("local search is incomplete with extensions beyond PB");
         
-        if (_init) {
-            init();
-        }
+        if (_init) 
+            init();        
     }
     
     local_search::~local_search() {
