@@ -94,13 +94,13 @@ const asyncMutex = new Mutex();
 function isCoercibleRational(obj: any): obj is CoercibleRational {
   // prettier-ignore
   const r = (
-    (obj !== null &&
-      (typeof obj === 'object' || typeof obj === 'function')) &&
-    (obj.numerator !== null &&
-      (typeof obj.numerator === 'number' || typeof obj.numerator === 'bigint')) &&
-    (obj.denominator !== null &&
-      (typeof obj.denominator === 'number' || typeof obj.denominator === 'bigint'))
-  );
+        (obj !== null &&
+            (typeof obj === 'object' || typeof obj === 'function')) &&
+        (obj.numerator !== null &&
+            (typeof obj.numerator === 'number' || typeof obj.numerator === 'bigint')) &&
+        (obj.denominator !== null &&
+            (typeof obj.denominator === 'number' || typeof obj.denominator === 'bigint'))
+    );
   r &&
     assert(
       (typeof obj!.numerator !== 'number' || Number.isSafeInteger(obj!.numerator)) &&
@@ -1013,9 +1013,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       quantifiers: ArrayIndexType<Name, DomainSort>,
       expr: SortToExprMap<RangeSort, Name>,
     ): LambdaImpl<any, RangeSort> {
-      // TODO: For some reason LambdaImpl<DomainSort, RangeSort> leads to type issues
-      // and Typescript won't build. I'm not sure why since the types seem to all match
-      // up. For now, we just use any for the domain sort until a deeper look can be had
+      // TODO(walden): For some reason LambdaImpl<DomainSort, RangeSort> leads to type issues
+      //    and Typescript won't build. I'm not sure why since the types seem to all match
+      //    up. For now, we just use any for the domain sort
 
       // Verify all quantifiers are constants
       if (!allSatisfy(quantifiers, isConst)) {
@@ -2450,8 +2450,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class LambdaImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends QuantifierImpl<DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
       implements
-        SMTArray<Name, DomainSort, RangeSort>,
-        Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>
+        Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>>,
+        SMTArray<Name, DomainSort, RangeSort>
     {
       declare readonly __typename: 'Lambda';
 

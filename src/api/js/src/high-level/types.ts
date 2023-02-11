@@ -638,8 +638,8 @@ export interface Solver<Name extends string = 'main'> {
   set(key: string, value: any): void;
 
   /* TODO(ritave): Decide on how to discern between integer and float parameters
-    set(params: Record<string, any>): void;
-    */
+      set(params: Record<string, any>): void;
+      */
   push(): void;
 
   pop(num?: number): void;

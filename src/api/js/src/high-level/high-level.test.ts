@@ -1,10 +1,7 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
-import {
-  init,
-  killThreads
-} from '../jest';
-import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel } from './types';
+import { init, killThreads } from '../jest';
+import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector } from './types';
 import { expectType } from 'ts-expect';
 
 /**
@@ -631,10 +628,11 @@ describe('high-level', () => {
 
   describe('AstVector', () => {
     it('can use basic methods', async () => {
-      const { Solver, AstVector, Int } = api.Context('main');
+      const Z3 = api.Context('main');
+      const { Solver, Int } = Z3;
       const solver = new Solver();
 
-      const vector = new AstVector<Arith>();
+      const vector = new Z3.AstVector<Arith>();
       for (let i = 0; i < 5; i++) {
         vector.push(Int.const(`int__${i}`));
       }
