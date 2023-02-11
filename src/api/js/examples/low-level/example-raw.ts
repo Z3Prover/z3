@@ -1,3 +1,4 @@
+// @ts-ignore we're not going to bother with types for this
 import process from 'process';
 import { init, Z3_error_code } from '../../build/node';
 

@@ -1,5 +1,6 @@
 {
   "name": "z3-solver",
+  "version": "0.1.0",
   "keywords": [
     "Z3",
     "theorem",
@@ -26,8 +27,8 @@
     "build:ts:generate": "ts-node --transpileOnly scripts/make-ts-wrapper.ts src/low-level/wrapper.__GENERATED__.ts src/low-level/types.__GENERATED__.ts",
     "build:wasm": "ts-node --transpileOnly ./scripts/build-wasm.ts",
     "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
-    "lint": "prettier -c '{,src/,scripts/,examples}*.{js,ts}'",
-    "format": "prettier --write '{,src/,scripts/}*.{js,ts}'",
+    "lint": "prettier -c '{./,src/,scripts/,examples/}**/*.{js,ts}'",
+    "format": "prettier --write '{./,src/,scripts/}**/*.{js,ts}'",
     "test": "jest",
     "docs": "typedoc",
     "check-engine": "check-engine"
@@ -53,8 +54,8 @@
     "ts-expect": "^1.3.0",
     "ts-jest": "^28.0.3",
     "ts-node": "^10.8.0",
-    "typedoc": "^0.22.17",
-    "typescript": "^4.5.4"
+    "typedoc": "^0.23.16",
+    "typescript": "^4.8.4"
   },
   "license": "MIT",
   "dependencies": {

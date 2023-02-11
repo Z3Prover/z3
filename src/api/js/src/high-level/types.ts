@@ -5,13 +5,13 @@ import {
   Z3_context,
   Z3_decl_kind,
   Z3_func_decl,
+  Z3_func_entry,
   Z3_func_interp,
   Z3_model,
   Z3_probe,
   Z3_solver,
   Z3_sort,
   Z3_sort_kind,
-  Z3_symbol,
   Z3_tactic,
 } from '../low-level';
 
@@ -21,7 +21,7 @@ export type AnySort<Name extends string = 'main'> =
   | BoolSort<Name>
   | ArithSort<Name>
   | BitVecSort<number, Name>
-  | SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+  | SMTArraySort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -31,53 +31,64 @@ export type AnyExpr<Name extends string = 'main'> =
   | RatNum<Name>
   | BitVec<number, Name>
   | BitVecNum<number, Name>
-  | SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+  | SMTArray<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 /** @hidden */
-export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> =
-  S extends BoolSort
-    ? Bool<Name>
-    : S extends ArithSort<Name>
-      ? Arith<Name>
-      : S extends BitVecSort<infer Size, Name>
-        ? BitVec<Size, Name>
-        : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
-          ? SMTArray<Name, DomainSort, RangeSort>
-          : S extends Sort<Name>
-            ? Expr<Name, S, Z3_ast>
-            : never;
+export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> = S extends BoolSort
+  ? Bool<Name>
+  : S extends ArithSort<Name>
+  ? Arith<Name>
+  : S extends BitVecSort<infer Size, Name>
+  ? BitVec<Size, Name>
+  : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
+  ? SMTArray<Name, DomainSort, RangeSort>
+  : S extends Sort<Name>
+  ? Expr<Name, S, Z3_ast>
+  : never;
 
 /** @hidden */
-export type CoercibleToExprMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> =
-  S extends bigint
-    ? ArithSort<Name>
-    : S extends number | CoercibleRational
-      ? RatNum<Name>
-      : S extends boolean
-        ? Bool<Name>
-        : S extends Expr<Name>
-          ? S
-          : never;
+export type CoercibleFromMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
+  ? Arith<Name>
+  : S extends number | CoercibleRational
+  ? RatNum<Name>
+  : S extends boolean
+  ? Bool<Name>
+  : S extends Expr<Name>
+  ? S
+  : never;
 
 /** @hidden */
-export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'main'> =
-  S extends Bool<Name>
-    ? (boolean | Bool<Name>)
-    : S extends IntNum<Name>
-      ? (bigint | number | IntNum<Name>)
-      : S extends RatNum<Name>
-        ? (bigint | number | CoercibleRational | RatNum<Name>)
-        : S extends Arith<Name>
-          ? (bigint | number | CoercibleRational | Arith<Name>)
-          : S extends BitVec<infer Size, Name>
-            ? (number | BitVec<Size, Name>)
-            : S extends SMTArray<Name, infer DomainSort, infer RangeSort>
-              ? SMTArray<Name, DomainSort, RangeSort>
-              : S extends Expr<Name>
-                ? Expr<Name>
-                : never;
+export type CoercibleToBitVec<Bits extends number = number, Name extends string = 'main'> =
+  | bigint
+  | number
+  | BitVec<Bits, Name>;
+
+export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
+
+/** @hidden */
+export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | boolean | CoercibleRational | Expr<Name>;
+
+/** @hidden */
+export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
+
+/** @hidden */
+export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'> = T extends Bool<Name>
+  ? boolean | Bool<Name>
+  : T extends IntNum<Name>
+  ? bigint | number | IntNum<Name>
+  : T extends RatNum<Name>
+  ? bigint | number | CoercibleRational | RatNum<Name>
+  : T extends Arith<Name>
+  ? CoercibleToArith<Name>
+  : T extends BitVec<infer Size, Name>
+  ? CoercibleToBitVec<Size, Name>
+  : T extends SMTArray<Name, infer DomainSort, infer RangeSort>
+  ? SMTArray<Name, DomainSort, RangeSort>
+  : T extends Expr<Name>
+  ? Expr<Name>
+  : never;
 
 /**
  * Used to create a Real constant
@@ -97,16 +108,10 @@ export type CoercibleFromMap<S extends AnyExpr<Name>, Name extends string = 'mai
  * @see {@link Context.from}
  * @category Global
  */
-export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
-/** @hidden */
-export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | boolean | CoercibleRational | Expr<Name>;
+export class Z3Error extends Error {}
 
-export class Z3Error extends Error {
-}
-
-export class Z3AssertionError extends Z3Error {
-}
+export class Z3AssertionError extends Z3Error {}
 
 /** @category Global */
 export type CheckSatResult = 'sat' | 'unsat' | 'unknown';
@@ -148,6 +153,9 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Functions */
   isFuncDecl(obj: unknown): obj is FuncDecl<Name>;
+
+  /** @category Functions */
+  isFuncInterp(obj: unknown): obj is FuncInterp<Name>;
 
   /** @category Functions */
   isApp(obj: unknown): boolean;
@@ -192,6 +200,9 @@ export interface Context<Name extends string = 'main'> {
   isDistinct(obj: unknown): boolean;
 
   /** @category Functions */
+  isQuantifier(obj: unknown): obj is Quantifier<Name>;
+
+  /** @category Functions */
   isArith(obj: unknown): obj is Arith<Name>;
 
   /** @category Functions */
@@ -225,10 +236,10 @@ export interface Context<Name extends string = 'main'> {
   isBitVecVal(obj: unknown): obj is BitVecNum<number, Name>;
 
   /** @category Functions */
-  isArraySort(obj: unknown): obj is SMTArraySort<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+  isArraySort(obj: unknown): obj is SMTArraySort<Name>;
 
   /** @category Functions */
-  isArray(obj: unknown): obj is SMTArray<Name, [AnySort<Name>, ...AnySort<Name>[]], AnySort<Name>>;
+  isArray(obj: unknown): obj is SMTArray<Name>;
 
   /** @category Functions */
   isConstArray(obj: unknown): boolean;
@@ -315,7 +326,11 @@ export interface Context<Name extends string = 'main'> {
   /** @category Classes */
   readonly AstVector: new <Item extends Ast<Name> = AnyAst<Name>>() => AstVector<Name, Item>;
   /** @category Classes */
-  readonly AstMap: new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>() => AstMap<Name, Key, Value>;
+  readonly AstMap: new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>() => AstMap<
+    Name,
+    Key,
+    Value
+  >;
   /** @category Classes */
   readonly Tactic: new (name: string) => Tactic<Name>;
 
@@ -363,13 +378,16 @@ export interface Context<Name extends string = 'main'> {
     condition: Bool<Name> | boolean,
     onTrue: OnTrueRef,
     onFalse: OnFalseRef,
-  ): CoercibleToExprMap<OnTrueRef | OnFalseRef, Name>;
+  ): CoercibleFromMap<OnTrueRef | OnFalseRef, Name>;
 
   /** @category Operations */
   Distinct(...args: CoercibleToExpr<Name>[]): Bool<Name>;
 
   /** @category Operations */
   Implies(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
+
+  /** @category Operations */
+  Iff(a: Bool<Name> | boolean, b: Bool<Name> | boolean): Bool<Name>;
 
   /** @category Operations */
   Eq(a: CoercibleToExpr<Name>, b: CoercibleToExpr<Name>): Bool<Name>;
@@ -407,6 +425,28 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   Or(...args: Probe<Name>[]): Probe<Name>;
 
+  // Quantifiers
+
+  /** @category Operations */
+  ForAll<QVarSorts extends NonEmptySortArray<Name>>(
+    quantifiers: ArrayIndexType<Name, QVarSorts>,
+    body: Bool<Name>,
+    weight?: number,
+  ): Quantifier<Name, QVarSorts, BoolSort<Name>> & Bool<Name>;
+
+  /** @category Operations */
+  Exists<QVarSorts extends NonEmptySortArray<Name>>(
+    quantifiers: ArrayIndexType<Name, QVarSorts>,
+    body: Bool<Name>,
+    weight?: number,
+  ): Quantifier<Name, QVarSorts, BoolSort<Name>> & Bool<Name>;
+
+  /** @category Operations */
+  Lambda<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
+    quantifiers: ArrayIndexType<Name, DomainSort>,
+    expr: SortToExprMap<RangeSort, Name>,
+  ): Quantifier<Name, DomainSort, SMTArraySort<Name, DomainSort, RangeSort>> & SMTArray<Name, DomainSort, RangeSort>;
+
   // Arithmetic
   /** @category Operations */
   ToReal(expr: Arith<Name> | bigint): Arith<Name>;
@@ -437,7 +477,7 @@ export interface Context<Name extends string = 'main'> {
    * // a**(1/2)
    * ```
    * @category Operations */
-  Sqrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
+  Sqrt(a: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Returns a Z3 expression representing cubic root of a
@@ -449,7 +489,7 @@ export interface Context<Name extends string = 'main'> {
    * // a**(1/3)
    * ```
    * @category Operations */
-  Cbrt(a: Arith<Name> | number | bigint | string | CoercibleRational): Arith<Name>;
+  Cbrt(a: CoercibleToArith<Name>): Arith<Name>;
 
   // Bit Vectors
   /** @category Operations */
@@ -462,7 +502,102 @@ export interface Context<Name extends string = 'main'> {
   Concat(...bitvecs: BitVec<number, Name>[]): BitVec<number, Name>;
 
   /** @category Operations */
-  Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>
+  Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name>;
+
+  // Arith
+
+  /** @category Operations */
+  LT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+  /** @category Operations */
+  GT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+  /** @category Operations */
+  LE(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+  /** @category Operations */
+  GE(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name>;
+
+  // Bit Vectors
+
+  /** @category Operations */
+  ULT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  UGT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  ULE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  UGE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  SLT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  SGT<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  SGE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  SLE<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+
+  /** @category Operations */
+  Sum(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+  Sum<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+  Sub(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+  Sub<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+  Product(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+
+  Product<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
+
+  Div(arg0: Arith<Name>, arg1: CoercibleToArith<Name>): Arith<Name>;
+
+  Div<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+  BUDiv<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+  Neg(a: Arith<Name>): Arith<Name>;
+
+  Neg<Bits extends number>(a: BitVec<Bits, Name>): BitVec<Bits, Name>;
+
+  Mod(a: Arith<Name>, b: CoercibleToArith<Name>): Arith<Name>;
+
+  Mod<Bits extends number>(a: BitVec<Bits, Name>, b: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
+
+  // Arrays
+
+  /** @category Operations */
+  Select<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name> = Sort<Name>>(
+    array: SMTArray<Name, DomainSort, RangeSort>,
+    ...indices: CoercibleToArrayIndexType<Name, DomainSort>
+  ): SortToExprMap<RangeSort, Name>;
+
+  /** @category Operations */
+  Store<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name> = Sort<Name>>(
+    array: SMTArray<Name, DomainSort, RangeSort>,
+    ...indicesAndValue: [
+      ...CoercibleToArrayIndexType<Name, DomainSort>,
+      CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
+    ]
+  ): SMTArray<Name, DomainSort, RangeSort>;
+
+  /** @category Operations */
+  Extract<Bits extends number>(hi: number, lo: number, val: BitVec<Bits, Name>): BitVec<number, Name>;
+
+  /** @category Operations */
+  ast_from_string(s: string): Ast<Name>;
+
+  /** @category Operations */
+  substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
+
+  simplify(expr: Expr<Name>): Promise<Expr<Name>>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -490,7 +625,7 @@ export interface Ast<Name extends string = 'main', Ptr = unknown> {
 
 /** @hidden */
 export interface SolverCtor<Name extends string> {
-  new(): Solver<Name>;
+  new (): Solver<Name>;
 }
 
 export interface Solver<Name extends string = 'main'> {
@@ -500,10 +635,11 @@ export interface Solver<Name extends string = 'main'> {
   readonly ctx: Context<Name>;
   readonly ptr: Z3_solver;
 
-  /* TODO(ritave): Decide on how to discern between integer and float parameters
   set(key: string, value: any): void;
-  set(params: Record<string, any>): void;
-  */
+
+  /* TODO(ritave): Decide on how to discern between integer and float parameters
+      set(params: Record<string, any>): void;
+      */
   push(): void;
 
   pop(num?: number): void;
@@ -527,7 +663,7 @@ export interface Solver<Name extends string = 'main'> {
 
 /** @hidden */
 export interface ModelCtor<Name extends string> {
-  new(): Model<Name>;
+  new (): Model<Name>;
 }
 
 export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<Name>> {
@@ -566,6 +702,13 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   get(constant: Expr<Name>): Expr<Name>;
 
   get(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
+
+  updateValue(decl: FuncDecl<Name> | Expr<Name>, a: Ast<Name> | FuncInterp<Name>): void;
+
+  addFuncInterp<DomainSort extends Sort<Name>[] = Sort<Name>[], RangeSort extends Sort<Name> = Sort<Name>>(
+    decl: FuncDecl<Name, DomainSort, RangeSort>,
+    defaultValue: CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
+  ): FuncInterp<Name>;
 }
 
 /**
@@ -611,12 +754,39 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
 /**
  * @category Functions
  */
+export interface FuncEntry<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'FuncEntry';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_func_entry;
+
+  numArgs(): number;
+
+  argValue(i: number): Expr<Name>;
+
+  value(): Expr<Name>;
+}
+
+/**
+ * @category Functions
+ */
 export interface FuncInterp<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'FuncInterp';
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_func_interp;
+
+  elseValue(): Expr<Name>;
+
+  numEntries(): number;
+
+  arity(): number;
+
+  entry(i: number): FuncEntry<Name>;
+
+  addEntry(args: Expr<Name>[], value: Expr<Name>): void;
 }
 
 /** @hidden */
@@ -639,9 +809,14 @@ export interface FuncDeclCreation<Name extends string> {
    * @param name Name of the function
    * @param signature The domains, and last parameter - the range of the function
    */
-  declare(name: string, ...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+  declare<DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>(
+    name: string,
+    ...signature: [...DomainSort, RangeSort]
+  ): FuncDecl<Name, DomainSort, RangeSort>;
 
-  fresh(...signature: FuncDeclSignature<Name>): FuncDecl<Name>;
+  fresh<DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>(
+    ...signature: [...DomainSort, RangeSort]
+  ): FuncDecl<Name, DomainSort, RangeSort>;
 }
 
 /**
@@ -656,7 +831,11 @@ export interface RecFuncCreation<Name extends string> {
 /**
  * @category Functions
  */
-export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_func_decl> {
+export interface FuncDecl<
+  Name extends string = 'main',
+  DomainSort extends Sort<Name>[] = Sort<Name>[],
+  RangeSort extends Sort<Name> = Sort<Name>,
+> extends Ast<Name, Z3_func_decl> {
   /** @hidden */
   readonly __typename: 'FuncDecl';
 
@@ -664,21 +843,26 @@ export interface FuncDecl<Name extends string = 'main'> extends Ast<Name, Z3_fun
 
   arity(): number;
 
-  domain(i: number): Sort<Name>;
+  domain<T extends number>(i: T): DomainSort[T];
 
-  range(): Sort<Name>;
+  range(): RangeSort;
 
   kind(): Z3_decl_kind;
 
-  params(): (number | string | Z3_symbol | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
+  params(): (number | string | Sort<Name> | Expr<Name> | FuncDecl<Name>)[];
 
-  call(...args: CoercibleToExpr<Name>[]): AnyExpr<Name>;
+  call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 }
 
 export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
   extends Ast<Name, Ptr> {
   /** @hidden */
-  readonly __typename: 'Expr' | Bool['__typename'] | Arith['__typename'] | BitVec['__typename'] | SMTArray['__typename'];
+  readonly __typename:
+    | 'Expr'
+    | Bool['__typename']
+    | Arith['__typename']
+    | BitVec['__typename']
+    | SMTArray['__typename'];
 
   get sort(): S;
 
@@ -687,6 +871,8 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
   neq(other: CoercibleToExpr<Name>): Bool<Name>;
 
   params(): ReturnType<FuncDecl<Name>['params']>;
+
+  name(): ReturnType<FuncDecl<Name>['name']>;
 
   decl(): FuncDecl<Name>;
 
@@ -725,7 +911,7 @@ export interface BoolCreation<Name extends string = 'main'> {
 /** @category Booleans */
 export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<Name>, Z3_ast> {
   /** @hidden */
-  readonly __typename: 'Bool';
+  readonly __typename: 'Bool' | 'NonLambdaQuantifier';
 
   not(): Bool<Name>;
 
@@ -736,6 +922,13 @@ export interface Bool<Name extends string = 'main'> extends Expr<Name, BoolSort<
   xor(other: Bool<Name> | boolean): Bool<Name>;
 
   implies(other: Bool<Name> | boolean): Bool<Name>;
+}
+
+// TODO: properly implement pattern
+/** @category Quantifiers */
+export interface Pattern<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Pattern';
 }
 
 /**
@@ -798,17 +991,17 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
   /**
    * Adds two numbers together
    */
-  add(other: Arith<Name> | number | bigint | string): Arith<Name>;
+  add(other: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Multiplies two numbers together
    */
-  mul(other: Arith<Name> | number | bigint | string): Arith<Name>;
+  mul(other: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Subtract second number from the first one
    */
-  sub(other: Arith<Name> | number | bigint | string): Arith<Name>;
+  sub(other: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Applies power to the number
@@ -820,12 +1013,12 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
    * // x=-2
    * ```
    */
-  pow(exponent: Arith<Name> | number | bigint | string): Arith<Name>;
+  pow(exponent: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Divides the number by the second one
    */
-  div(other: Arith<Name> | number | bigint | string): Arith<Name>;
+  div(other: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Returns a number modulo second one
@@ -837,7 +1030,7 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
    * // x=8
    * ```
    */
-  mod(other: Arith<Name> | number | bigint | string): Arith<Name>;
+  mod(other: CoercibleToArith<Name>): Arith<Name>;
 
   /**
    * Returns a negation of the number
@@ -847,22 +1040,22 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
   /**
    * Return whether the number is less or equal than the second one (`<=`)
    */
-  le(other: Arith<Name> | number | bigint | string): Bool<Name>;
+  le(other: CoercibleToArith<Name>): Bool<Name>;
 
   /**
    * Returns whether the number is less than the second one (`<`)
    */
-  lt(other: Arith<Name> | number | bigint | string): Bool<Name>;
+  lt(other: CoercibleToArith<Name>): Bool<Name>;
 
   /**
    * Returns whether the number is greater than the second one (`>`)
    */
-  gt(other: Arith<Name> | number | bigint | string): Bool<Name>;
+  gt(other: CoercibleToArith<Name>): Bool<Name>;
 
   /**
    * Returns whether the number is greater or equal than the second one (`>=`)
    */
-  ge(other: Arith<Name> | number | bigint | string): Bool<Name>;
+  ge(other: CoercibleToArith<Name>): Bool<Name>;
 }
 
 /**
@@ -938,12 +1131,6 @@ export interface BitVecSort<Bits extends number = number, Name extends string = 
 
   cast(other: CoercibleToExpr<Name>): Expr<Name>;
 }
-
-/** @hidden */
-export type CoercibleToBitVec<Bits extends number = number, Name extends string = 'main'> =
-  | bigint
-  | number
-  | BitVec<Bits, Name>;
 
 /** @category Bit Vectors */
 export interface BitVecCreation<Name extends string> {
@@ -1213,10 +1400,11 @@ export interface BitVecNum<Bits extends number = number, Name extends string = '
  * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
-export interface SMTArraySort<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
+export interface SMTArraySort<
+  Name extends string = 'main',
+  DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
   RangeSort extends AnySort<Name> = AnySort<Name>,
-  > extends Sort<Name> {
+> extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'ArraySort';
 
@@ -1236,36 +1424,47 @@ export interface SMTArraySort<Name extends string = 'main',
    * The sort of the range
    */
   range(): RangeSort;
-
 }
 
 /** @category Arrays */
 export interface SMTArrayCreation<Name extends string> {
-  sort<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+  sort<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
     ...sig: [...DomainSort, RangeSort]
   ): SMTArraySort<Name, DomainSort, RangeSort>;
 
-  const<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
-    name: string, ...sig: [...DomainSort, RangeSort]
+  const<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
+    name: string,
+    ...sig: [...DomainSort, RangeSort]
   ): SMTArray<Name, DomainSort, RangeSort>;
 
-  consts<DomainSort extends [AnySort<Name>, ...AnySort<Name>[]], RangeSort extends AnySort<Name>>(
+  consts<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
     names: string | string[],
     ...sig: [...DomainSort, RangeSort]
   ): SMTArray<Name, DomainSort, RangeSort>[];
 
   K<DomainSort extends AnySort<Name>, RangeSort extends AnySort<Name>>(
     domain: DomainSort,
-    value: SortToExprMap<RangeSort, Name>
+    value: SortToExprMap<RangeSort, Name>,
   ): SMTArray<Name, [DomainSort], RangeSort>;
 }
 
-export type ArrayIndexType<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]]> = [...{
-  [Index in keyof DomainSort]: DomainSort[Index] extends AnySort<Name> ?
-    CoercibleFromMap<SortToExprMap<DomainSort[Index], Name>, Name> :
-    DomainSort[Index];
-}]
+export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];
+
+export type ArrayIndexType<Name extends string, DomainSort extends Sort<Name>[]> = [
+  ...{
+    [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name>
+      ? SortToExprMap<DomainSort[Key], Name>
+      : DomainSort[Key];
+  },
+];
+
+export type CoercibleToArrayIndexType<Name extends string, DomainSort extends Sort<Name>[]> = [
+  ...{
+    [Key in keyof DomainSort]: DomainSort[Key] extends AnySort<Name>
+      ? CoercibleToMap<SortToExprMap<DomainSort[Key], Name>, Name>
+      : DomainSort[Key];
+  },
+];
 
 /**
  * Represents Array expression
@@ -1274,13 +1473,13 @@ export type ArrayIndexType<Name extends string = 'main',
  * @typeParam RangeSort The sort of the array range
  * @category Arrays
  */
-export interface SMTArray<Name extends string = 'main',
-  DomainSort extends [AnySort<Name>, ...AnySort<Name>[]] = [Sort<Name>, ...Sort<Name>[]],
-  RangeSort extends AnySort<Name> = AnySort<Name>>
-  extends Expr<Name, SMTArraySort<Name, DomainSort, RangeSort>, Z3_ast> {
-
+export interface SMTArray<
+  Name extends string = 'main',
+  DomainSort extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+  RangeSort extends Sort<Name> = Sort<Name>,
+> extends Expr<Name, SMTArraySort<Name, DomainSort, RangeSort>, Z3_ast> {
   /** @hidden */
-  readonly __typename: 'Array';
+  readonly __typename: 'Array' | 'Lambda';
 
   domain(): DomainSort[0];
 
@@ -1288,7 +1487,7 @@ export interface SMTArray<Name extends string = 'main',
 
   range(): RangeSort;
 
-  select(...indices: ArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
+  select(...indices: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 
   /**
    * value should be coercible to RangeSort
@@ -1297,11 +1496,60 @@ export interface SMTArray<Name extends string = 'main',
    */
   store(
     ...indicesAndValue: [
-      ...ArrayIndexType<Name, DomainSort>,
-      CoercibleFromMap<SortToExprMap<RangeSort, Name>, Name>
+      ...CoercibleToArrayIndexType<Name, DomainSort>,
+      CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
     ]
   ): SMTArray<Name, DomainSort, RangeSort>;
+}
 
+/**
+ * Defines the expression type of the body of a quantifier expression
+ *
+ * @category Quantifiers
+ */
+export type BodyT<
+  Name extends string = 'main',
+  QVarSorts extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+  QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts> = BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
+> = QSort extends BoolSort<Name>
+  ? Bool<Name>
+  : QSort extends SMTArray<Name, QVarSorts, infer RangeSort>
+  ? SortToExprMap<RangeSort, Name>
+  : never;
+
+/** @category Quantifiers */
+export interface Quantifier<
+  Name extends string = 'main',
+  QVarSorts extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],
+  QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts> = BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
+> extends Expr<Name, QSort> {
+  readonly __typename: 'NonLambdaQuantifier' | 'Lambda';
+
+  is_forall(): boolean;
+
+  is_exists(): boolean;
+
+  is_lambda(): boolean;
+
+  weight(): number;
+
+  num_patterns(): number;
+
+  pattern(i: number): Pattern<Name>;
+
+  num_no_patterns(): number;
+
+  no_pattern(i: number): Expr<Name>;
+
+  body(): BodyT<Name, QVarSorts, QSort>;
+
+  num_vars(): number;
+
+  var_name(i: number): string | number;
+
+  var_sort<T extends number>(i: T): QVarSorts[T];
+
+  children(): [BodyT<Name, QVarSorts, QSort>];
 }
 
 export interface Probe<Name extends string = 'main'> {
@@ -1314,7 +1562,7 @@ export interface Probe<Name extends string = 'main'> {
 
 /** @hidden */
 export interface TacticCtor<Name extends string> {
-  new(name: string): Tactic<Name>;
+  new (name: string): Tactic<Name>;
 }
 
 export interface Tactic<Name extends string = 'main'> {
@@ -1327,7 +1575,7 @@ export interface Tactic<Name extends string = 'main'> {
 
 /** @hidden */
 export interface AstVectorCtor<Name extends string> {
-  new<Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Name, Item>;
+  new <Item extends Ast<Name> = AnyAst<Name>>(): AstVector<Name, Item>;
 }
 
 /**
@@ -1378,7 +1626,7 @@ export interface AstVector<Name extends string = 'main', Item extends Ast<Name> 
 
 /** @hidden */
 export interface AstMapCtor<Name extends string> {
-  new<Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>(): AstMap<Name, Key, Value>;
+  new <Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>(): AstMap<Name, Key, Value>;
 }
 
 /**
@@ -1402,8 +1650,11 @@ export interface AstMapCtor<Name extends string> {
  * // 0
  * ```
  */
-export interface AstMap<Name extends string = 'main', Key extends Ast<Name> = AnyAst<Name>, Value extends Ast<Name> = AnyAst<Name>>
-  extends Iterable<[Key, Value]> {
+export interface AstMap<
+  Name extends string = 'main',
+  Key extends Ast<Name> = AnyAst<Name>,
+  Value extends Ast<Name> = AnyAst<Name>,
+> extends Iterable<[Key, Value]> {
   /** @hidden */
   readonly __typename: 'AstMap';
 
