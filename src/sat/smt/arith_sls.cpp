@@ -31,8 +31,10 @@ namespace arith {
 
     void sls::operator()(bool_vector& phase) {
         
-        m_best_min_unsat = unsat().size();
         unsigned num_steps = 0;
+        for (unsigned v = 0; v < s.s().num_vars(); ++v)
+            init_bool_var_assignment(v);
+        m_best_min_unsat = unsat().size();
         while (m.inc() && m_best_min_unsat > 0 && num_steps < m_max_arith_steps) {
             if (!flip())
                 break;
@@ -446,11 +448,11 @@ namespace arith {
             bool should_minus = false;
             sls::ineq_kind op;
             if (!lit.sign()) {
-                should_minus = b->get_bound_kind() == lp::GE;
+                should_minus = b->get_bound_kind() == lp_api::bound_kind::upper_t;
                 op = sls::ineq_kind::LE;
             }
             else {
-                should_minus = b->get_bound_kind() == lp::LE;
+                should_minus = b->get_bound_kind() == lp_api::bound_kind::lower_t;
                 if (s.is_int(b->get_var())) {
                     bound -= 1;
                     op = sls::ineq_kind::LE;
@@ -464,7 +466,7 @@ namespace arith {
             auto& ineq = new_ineq(op, bound);
 
             add_args(ineq, t, b->get_var(), should_minus ? rational::minus_one() :rational::one());
-            set_literal(lit, ineq);
+            m_literals.set(lit.index(), &ineq);
             return;
         }
 
@@ -478,34 +480,20 @@ namespace arith {
             auto& ineq = new_ineq(lit.sign() ? sls::ineq_kind::NE : sls::ineq_kind::EQ, rational::zero());            
             add_args(ineq, tu, u, rational::one());
             add_args(ineq, tv, v, -rational::one());
-            set_literal(lit, ineq);
+            m_literals.set(lit.index(), &ineq);
             return;
         }
     }
 
-    /**
-    * Associate literal with inequality and synchronize truth assignment based on arithmetic values.
-    */
-    void sls::set_literal(sat::literal lit, ineq& ineq) {
-        m_literals.set(lit.index(), &ineq);
-        if (m_bool_search->get_value(lit.var())) {
-            if (dtt(ineq) != 0)
-                m_bool_search->flip(lit.var());
-        }
-        else {
-            if (dtt(ineq) == 0)
-                m_bool_search->flip(lit.var());
-        }
+    void sls::init_bool_var_assignment(sat::bool_var v) {
+        init_literal_assignment(literal(v, false));
+        init_literal_assignment(literal(v, true));      
     }
 
-#if 0
-
-    {
- 
+    void sls::init_literal_assignment(sat::literal lit) {
+        auto* ineq = m_literals.get(lit.index(), nullptr);
+        if (ineq && m_bool_search->get_value(lit.var()) != (dtt(*ineq) == 0))
+            m_bool_search->flip(lit.var());
     }
-}
-
-
-#endif
 }
 

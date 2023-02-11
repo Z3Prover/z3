@@ -132,7 +132,8 @@ namespace arith {
         void add_bounds(sat::literal_vector& bounds);
         void add_args(ineq& ineq, lp::tv t, euf::theory_var v, rational sign);
         void init_literal(sat::literal lit);
-        void set_literal(sat::literal lit, ineq& ineq);
+        void init_bool_var_assignment(sat::bool_var v);
+        void init_literal_assignment(sat::literal lit);
 
         rational value(var_t v) const { return m_vars[v].m_value; }
     public:
