@@ -3296,7 +3296,7 @@ proof * ast_manager::mk_redundant_del(expr* e) {
     return mk_clause_trail_elem(nullptr, e, PR_REDUNDANT_DEL);
 }
 
-proof * ast_manager::mk_clause_trail(unsigned n, proof* const* ps) {    
+proof * ast_manager::mk_clause_trail(unsigned n, expr* const* ps) {    
     ptr_buffer<expr> args;
     args.append(n, (expr**) ps);
     return mk_app(basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.data());

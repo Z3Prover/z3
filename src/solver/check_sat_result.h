@@ -40,7 +40,7 @@ Notes:
 class check_sat_result {
 protected:
     ast_manager& m;
-    proof_ref_vector m_log;
+    expr_ref_vector m_log;
     proof_ref        m_proof;
     unsigned    m_ref_count = 0;
     lbool       m_status = l_undef; 

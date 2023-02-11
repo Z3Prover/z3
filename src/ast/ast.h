@@ -2335,7 +2335,7 @@ public:
     proof * mk_th_assumption_add(proof* pr, expr* e);
     proof * mk_th_lemma_add(proof* pr, expr* e);
     proof * mk_redundant_del(expr* e);
-    proof * mk_clause_trail(unsigned n, proof* const* ps);
+    proof * mk_clause_trail(unsigned n, expr* const* ps);
 
     proof * mk_def_axiom(expr * ax);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);

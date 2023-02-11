@@ -24,7 +24,7 @@ Revision History:
 void decl_collector::visit_sort(sort * n) {
     SASSERT(!m_visited.is_marked(n));
     family_id fid = n->get_family_id();
-    if (m().is_uninterp(n))
+    if (m.is_uninterp(n))
         m_sorts.push_back(n);
     else if (fid == m_dt_fid) {
         m_sorts.push_back(n);
@@ -43,7 +43,7 @@ void decl_collector::visit_sort(sort * n) {
 }
 
 bool decl_collector::is_bool(sort * s) {
-    return m().is_bool(s);
+    return m.is_bool(s);
 }
 
 void decl_collector::visit_func(func_decl * n) {
@@ -51,10 +51,10 @@ void decl_collector::visit_func(func_decl * n) {
 
     if (!m_visited.is_marked(n)) {
         family_id fid = n->get_family_id();
-        if (fid == null_family_id) 
+        if (should_declare(n))
             m_decls.push_back(n);
         else if (fid == m_rec_fid) {
-            recfun::util u(m());
+            recfun::util u(m);
             if (u.has_def(n)) {
                 m_rec_decls.push_back(n);
                 m_todo.push_back(u.get_def(n).get_rhs());
@@ -69,12 +69,17 @@ void decl_collector::visit_func(func_decl * n) {
     }
 }
 
+bool decl_collector::should_declare(func_decl* f) const {
+    return f->get_family_id() == null_family_id || m.is_model_value(f);
+}
+
+
 decl_collector::decl_collector(ast_manager & m):
-    m_manager(m),
+    m(m),
     m_trail(m),
     m_dt_util(m),
     m_ar_util(m) {
-    m_basic_fid = m_manager.get_basic_family_id();
+    m_basic_fid = m.get_basic_family_id();
     m_dt_fid = m_dt_util.get_family_id();
     recfun::util rec_util(m);
     m_rec_fid = rec_util.get_family_id();
@@ -83,7 +88,7 @@ decl_collector::decl_collector(ast_manager & m):
 void decl_collector::visit(ast* n) {
     if (m_visited.is_marked(n)) 
         return;
-    datatype_util util(m());
+    datatype_util util(m);
     m_todo.push_back(n);
     while (!m_todo.empty()) {
         n = m_todo.back();
