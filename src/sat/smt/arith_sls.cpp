@@ -20,21 +20,24 @@ Author:
 
 namespace arith {
     
-
-    ///
-    /// need to initialize ineqs (arithmetical atoms)
-    /// 
-    
-
     sls::sls(solver& s): 
         s(s), m(s.m) {}
 
-    void sls::operator()(bool_vector& phase) {
+    void sls::reset() {
+        m_literals.reset();
+        m_vars.reset();
+        m_clauses.reset();
+        m_terms.reset();
+    }
+
+    lbool sls::operator()(bool_vector& phase) {
         
         unsigned num_steps = 0;
         for (unsigned v = 0; v < s.s().num_vars(); ++v)
             init_bool_var_assignment(v);
         m_best_min_unsat = unsat().size();
+        verbose_stream() << "max arith steps " << m_max_arith_steps << "\n";
+        //m_max_arith_steps = 10000;
         while (m.inc() && m_best_min_unsat > 0 && num_steps < m_max_arith_steps) {
             if (!flip())
                 break;
@@ -47,24 +50,27 @@ namespace arith {
                 save_best_values();
             }
         }
-        IF_VERBOSE(2, verbose_stream() << "(sls " << m_stats.m_num_flips << " " << unsat().size() << ")\n");
+        log();
+        return unsat().empty() ? l_true : l_undef;
+    }
+
+    void sls::log() {
+        IF_VERBOSE(2, verbose_stream() << "(sls :flips " << m_stats.m_num_flips << " :unsat " << unsat().size() << ")\n");
     }
 
     void sls::save_best_values() {
         // first compute assignment to terms
-        // then update non-basic variables in tableau, assuming a sat solution was found.
-#if false
-        for (auto const& [t, v] : terms) {
+        // then update non-basic variables in tableau.
+        for (auto const& [t, v] : m_terms) {
             rational val;
-            lp::lar_term const& term = lp().get_term(t);
+            lp::lar_term const& term = s.lp().get_term(t);
             for (lp::lar_term::ival arg : term) {
-                auto t2 = lp().column2tv(arg.column());
-                auto w = lp().local_to_external(t2.id());
-                val += arg.coeff() * local_search.value(w);
+                auto t2 = s.lp().column2tv(arg.column());
+                auto w = s.lp().local_to_external(t2.id());
+                val += arg.coeff() * value(w);
             }
             update(v, val);
         }
-#endif
 
         for (unsigned v = 0; v < s.get_num_vars(); ++v) {
             if (s.is_bool(v))
@@ -87,6 +93,8 @@ namespace arith {
 
     void sls::set(sat::ddfw* d) { 
         m_bool_search = d; 
+        reset();
+        m_literals.reserve(s.s().num_vars() * 2);
         add_vars();
         m_clauses.resize(d->num_clauses());
         for (unsigned i = 0; i < d->num_clauses(); ++i)
@@ -151,12 +159,16 @@ namespace arith {
     bool sls::cm(ineq const& ineq, var_t v, rational& new_value) {
         SASSERT(!ineq.is_true());
         auto delta = ineq.m_args_value - ineq.m_bound;
+        if (ineq.m_op == ineq_kind::NE || ineq.m_op == ineq_kind::LT)
+            delta--;
         for (auto const& [coeff, w] : ineq.m_args) {
             if (w == v) {
+
                 if (coeff > 0)
                     new_value = value(v) - abs(ceil(delta / coeff));
                 else
                     new_value = value(v) + abs(floor(delta / coeff));
+
                 switch (ineq.m_op) {
                 case ineq_kind::LE:
                     SASSERT(delta + coeff * (new_value - value(v)) <= 0);
@@ -189,9 +201,12 @@ namespace arith {
         auto const& clause = get_clause(cl);
         rational new_value;
         for (literal lit : clause) {
-            auto const* ineq = atom(lit);
-            if (!ineq || ineq->is_true())
+            if (is_true(lit))
                 continue;
+            auto const* ineq = atom(lit);
+            if (!ineq)
+                continue;
+            SASSERT(!ineq->is_true());
             for (auto const& [coeff, v] : ineq->m_args) {
                 if (!cm(*ineq, v, new_value))
                     continue;
@@ -201,8 +216,9 @@ namespace arith {
                 unsigned num_unsat = unsat().size();
                 update(v, new_value);
                 IF_VERBOSE(2,
-                    verbose_stream() << "score " << v << " " << score << "\n"
+                    verbose_stream() << "v" << v << " score " << score << " "
                     << num_unsat << " -> " << unsat().size() << "\n");
+                SASSERT(num_unsat > unsat().size());
                 return true;
             }
         }
@@ -255,7 +271,8 @@ namespace arith {
     }
 
     /**
-    * redistribute weights of clauses. TODO - re-use ddfw weights instead.
+    * redistribute weights of clauses. 
+    * TODO - re-use ddfw weights instead.
     */
     void sls::paws() {
         for (unsigned cl = num_clauses(); cl-- > 0; ) {
@@ -270,13 +287,15 @@ namespace arith {
 
     //
     // dscore(op) = sum_c (dts(c,alpha) - dts(c,alpha_after)) * weight(c)
+    // TODO - use cached dts instead of computed dts
+    // cached dts has to be updated when the score of literals are updated.
     // 
     rational sls::dscore(var_t v, rational const& new_value) const {
         auto const& vi = m_vars[v];
         rational score(0);
         for (auto const& [coeff, lit] : vi.m_literals) 
             for (auto cl : m_bool_search->get_use_list(lit))              
-                score += (dts(cl) - dts(cl, v, new_value)) * rational(get_weight(cl));        
+                score += (compute_dts(cl) - dts(cl, v, new_value)) * rational(get_weight(cl));        
         return score;
     }
 
@@ -290,10 +309,11 @@ namespace arith {
             for (auto cl : m_bool_search->get_use_list(lit)) {
                 auto const& clause = get_clause_info(cl);
                 if (!clause.is_true()) {
+                    VERIFY(dtt_old != 0);
                     if (dtt_new == 0)
                         ++score;  // false -> true
                 }
-                else if (dtt_new == 0 || dtt_old > 0 || clause.m_num_trues > 0) // true -> true ?? TODO
+                else if (dtt_new == 0 || dtt_old > 0 || clause.m_num_trues > 1) // true -> true not really, same variable can be in multiple literals
                     continue;
                 else if (all_of(*clause.m_clause, [&](auto lit) { return !atom(lit) || dtt(*atom(lit), v, new_value) > 0; })) // ?? TODO
                     --score;
@@ -302,7 +322,7 @@ namespace arith {
         return score;
     }
 
-    rational sls::dts(unsigned cl) const {
+    rational sls::compute_dts(unsigned cl) const {
         rational d(1), d2;
         bool first = true;
         for (auto a : get_clause(cl)) {
@@ -346,14 +366,20 @@ namespace arith {
             rational dtt_old = dtt(ineq);
             ineq.m_args_value += coeff * (new_value - old_value);
             rational dtt_new = dtt(ineq);
-            SASSERT(!(dtt_new == 0 && dtt_new < dtt_old) || m_bool_search->get_value(lit.var()) == lit.sign());
-            SASSERT(!(dtt_old == 0 && dtt_new > dtt_old) || m_bool_search->get_value(lit.var()) != lit.sign());
+            if ((dtt_new == 0) == is_true(lit)) {
+                dtt(ineq) = dtt_new;
+                continue;
+            }
+            VERIFY((dtt_old == 0) == is_true(lit));
+            VERIFY(!(dtt_new == 0 && dtt_new < dtt_old) || !is_true(lit));
+            VERIFY(!(dtt_old == 0 && dtt_new > dtt_old) || is_true(lit));
             if (dtt_new == 0 && dtt_new < dtt_old)        // flip from false to true
                 m_bool_search->flip(lit.var());                                                  
             else if (dtt_old == 0 && dtt_old < dtt_new)   // flip from true to false
                 m_bool_search->flip(lit.var());  
             dtt(ineq) = dtt_new;
-            SASSERT((dtt_new == 0) == (m_bool_search->get_value(lit.var()) != lit.sign()));
+            
+            VERIFY((dtt_new == 0) == is_true(lit));
         }
         vi.m_value = new_value;
     }
@@ -422,18 +448,18 @@ namespace arith {
     }
 
 
-    void sls::add_args(ineq& ineq, lp::tv t, theory_var v, rational sign) {
+    void sls::add_args(sat::literal lit, ineq& ineq, lp::tv t, theory_var v, rational sign) {
         if (t.is_term()) {
             lp::lar_term const& term = s.lp().get_term(t);
 
             for (lp::lar_term::ival arg : term) {
                 auto t2 = s.lp().column2tv(arg.column());
                 auto w = s.lp().local_to_external(t2.id());
-                ineq.m_args.push_back({ sign * arg.coeff(), w });
+                add_arg(lit, ineq, sign * arg.coeff(), w);
             }
         }
         else
-            ineq.m_args.push_back({ sign, s.lp().local_to_external(t.id()) });
+            add_arg(lit, ineq, sign, s.lp().local_to_external(t.id()));
     }
 
 
@@ -465,7 +491,7 @@ namespace arith {
                 bound.neg();
             auto& ineq = new_ineq(op, bound);
 
-            add_args(ineq, t, b->get_var(), should_minus ? rational::minus_one() :rational::one());
+            add_args(lit, ineq, t, b->get_var(), should_minus ? rational::minus_one() :rational::one());
             m_literals.set(lit.index(), &ineq);
             return;
         }
@@ -478,8 +504,8 @@ namespace arith {
             lp::tv tu = s.get_tv(u);
             lp::tv tv = s.get_tv(v);
             auto& ineq = new_ineq(lit.sign() ? sls::ineq_kind::NE : sls::ineq_kind::EQ, rational::zero());            
-            add_args(ineq, tu, u, rational::one());
-            add_args(ineq, tv, v, -rational::one());
+            add_args(lit, ineq, tu, u, rational::one());
+            add_args(lit, ineq, tv, v, -rational::one());
             m_literals.set(lit.index(), &ineq);
             return;
         }
@@ -492,8 +518,9 @@ namespace arith {
 
     void sls::init_literal_assignment(sat::literal lit) {
         auto* ineq = m_literals.get(lit.index(), nullptr);
-        if (ineq && m_bool_search->get_value(lit.var()) != (dtt(*ineq) == 0))
-            m_bool_search->flip(lit.var());
+
+        if (ineq && is_true(lit) != (dtt(*ineq) == 0)) 
+            m_bool_search->flip(lit.var());        
     }
 }
 

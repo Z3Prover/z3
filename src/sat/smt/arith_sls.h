@@ -55,6 +55,7 @@ namespace arith {
             unsigned m_num_flips = 0;
         };
 
+    public:
         // encode args <= bound, args = bound, args < bound
         struct ineq {
             vector<std::pair<rational, var_t>> m_args;
@@ -74,7 +75,23 @@ namespace arith {
                     return m_args_value < m_bound;
                 }
             }
+            std::ostream& display(std::ostream& out) const {
+                bool first = true;
+                for (auto const& [c, v] : m_args)
+                    out << (first? "": " + ") << c << " * v" << v, first = false;
+                switch (m_op) {
+                case ineq_kind::LE:
+                    return out << " <= " << m_bound << "(" << m_args_value << ")";
+                case ineq_kind::EQ:
+                    return out << " == " << m_bound << "(" << m_args_value << ")";
+                case ineq_kind::NE:
+                    return out << " != " << m_bound << "(" << m_args_value << ")";
+                default:
+                    return out << " < " << m_bound << "(" << m_args_value << ")";
+                }
+            }
         };
+    private:
 
         struct var_info {
             rational     m_value;
@@ -85,6 +102,7 @@ namespace arith {
 
         struct clause {
             unsigned m_weight = 1;
+            rational m_dts = rational::one();
         };
 
         solver& s;
@@ -97,6 +115,8 @@ namespace arith {
         scoped_ptr_vector<ineq>      m_literals;
         vector<var_info>             m_vars;
         vector<clause>               m_clauses;
+        svector<std::pair<lp::tv, euf::theory_var>> m_terms;
+
 
         indexed_uint_set& unsat() { return m_bool_search->unsat_set(); }
         unsigned num_clauses() const { return m_bool_search->num_clauses(); }
@@ -104,12 +124,14 @@ namespace arith {
         sat::clause const& get_clause(unsigned idx) const { return *get_clause_info(idx).m_clause; }
         sat::ddfw::clause_info& get_clause_info(unsigned idx) { return m_bool_search->get_clause_info(idx); }
         sat::ddfw::clause_info const& get_clause_info(unsigned idx) const { return m_bool_search->get_clause_info(idx); }
+        bool is_true(sat::literal lit) { return lit.sign() != m_bool_search->get_value(lit.var()); }
 
+        void reset();
         ineq* atom(sat::literal lit) const { return m_literals[lit.index()]; }
         unsigned& get_weight(unsigned idx) { return m_clauses[idx].m_weight; }
         unsigned get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
         bool flip();
-        void log() {}
+        void log();
         bool flip_unsat();
         bool flip_clauses();
         bool flip_dscore();
@@ -119,7 +141,7 @@ namespace arith {
         rational dtt(rational const& args, ineq const& ineq) const;
         rational dtt(ineq const& ineq, var_t v, rational const& new_value) const;
         rational dts(unsigned cl, var_t v, rational const& new_value) const;
-        rational dts(unsigned cl) const;
+        rational compute_dts(unsigned cl) const;
         bool cm(ineq const& ineq, var_t v, rational& new_value);
         int cm_score(var_t v, rational const& new_value);
         void update(var_t v, rational const& new_value);
@@ -130,7 +152,7 @@ namespace arith {
         sls::ineq& new_ineq(ineq_kind op, rational const& bound);
         void add_arg(sat::literal lit, ineq& ineq, rational const& c, var_t v);
         void add_bounds(sat::literal_vector& bounds);
-        void add_args(ineq& ineq, lp::tv t, euf::theory_var v, rational sign);
+        void add_args(sat::literal lit, ineq& ineq, lp::tv t, euf::theory_var v, rational sign);
         void init_literal(sat::literal lit);
         void init_bool_var_assignment(sat::bool_var v);
         void init_literal_assignment(sat::literal lit);
@@ -138,11 +160,14 @@ namespace arith {
         rational value(var_t v) const { return m_vars[v].m_value; }
     public:
         sls(solver& s);
-        void operator ()(bool_vector& phase);
+        lbool operator ()(bool_vector& phase);
         void set_bounds_begin();
         void set_bounds_end(unsigned num_literals);
         void set_bounds(euf::enode* n);
         void set(sat::ddfw* d);
     };
 
+    inline std::ostream& operator<<(std::ostream& out, sls::ineq const& ineq) {
+        return ineq.display(out);
+    }
 }

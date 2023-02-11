@@ -148,7 +148,8 @@ namespace sat {
             m_use_list[lit.index()].pop_back();
         m_alloc.del_clause(info.m_clause);
         m_clauses.pop_back();
-        m_unsat.remove(m_clauses.size());
+        if (m_unsat.contains(m_clauses.size()))
+            m_unsat.remove(m_clauses.size());
     }
 
     void ddfw::add(solver const& s) {
@@ -188,12 +189,11 @@ namespace sat {
     }
 
     void ddfw::remove_assumptions() {
+        if (m_assumptions.empty())
+            return;
         for (unsigned i = 0; i < m_assumptions.size(); ++i) 
             del();        
-        m_unsat_vars.reset();
-        for (auto idx : m_unsat)
-            for (auto lit : get_clause(idx))
-                m_unsat_vars.insert(lit.var());
+        init(0, nullptr);
     }
 
     void ddfw::init(unsigned sz, literal const* assumptions) {

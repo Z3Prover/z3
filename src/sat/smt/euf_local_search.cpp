@@ -21,7 +21,7 @@ Author:
 
 namespace euf {
     
-    void solver::local_search(bool_vector& phase) {
+    lbool solver::local_search(bool_vector& phase) {
         scoped_limits scoped_rl(m.limit());
         sat::ddfw bool_search;
         bool_search.reinit(s(), phase);
@@ -36,13 +36,15 @@ namespace euf {
 
         for (unsigned rounds = 0; m.inc() && rounds < max_rounds; ++rounds) {
 
-            setup_bounds(phase);
+            setup_bounds(bool_search, phase);
 
             // Non-boolean literals are assumptions to Boolean search
             literal_vector assumptions;
             for (unsigned v = 0; v < phase.size(); ++v)
                 if (!is_propositional(literal(v)))
                     assumptions.push_back(literal(v, !bool_search.get_value(v)));
+
+            verbose_stream() << "assumptions " << assumptions.size() << "\n";
 
             bool_search.rlimit().push(m_max_bool_steps);
             
@@ -51,15 +53,15 @@ namespace euf {
 
             for (auto* th : m_solvers) 
                 th->local_search(phase);
-            // if is_sat break;
 
+            if (bool_search.unsat_set().empty())
+                break;
         }
-
-
         auto const& mdl = bool_search.get_model();
         for (unsigned i = 0; i < mdl.size(); ++i)
-            phase[i] = mdl[i] == l_true;
-              
+            phase[i] = mdl[i] == l_true;     
+
+        return bool_search.unsat_set().empty() ? l_true : l_undef;
     }
 
     bool solver::is_propositional(sat::literal lit) {
@@ -67,13 +69,13 @@ namespace euf {
         return !e || is_uninterp_const(e) || !m_egraph.find(e);
     }
 
-    void solver::setup_bounds(bool_vector const& phase) {
+    void solver::setup_bounds(sat::ddfw& bool_search, bool_vector const& phase) {
         unsigned num_literals = 0;
         unsigned num_bool = 0;
         for (auto* th : m_solvers)
             th->set_bounds_begin();
 
-        auto init_literal = [&](sat::literal l) {
+        auto count_literal = [&](sat::literal l) {
             if (is_propositional(l)) {
                 ++num_bool;
                 return;
@@ -86,16 +88,11 @@ namespace euf {
             }
         };
 
-        auto is_true = [&](auto lit) {
-            return phase[lit.var()] == !lit.sign();
-        };
-
-        for (auto* cp : s().clauses()) {
-            if (any_of(*cp, [&](auto lit) { return is_true(lit); })) 
-                continue;
-            num_literals += cp->size();
-            for (auto l : *cp) 
-                init_literal(l);            
+        for (auto cl : bool_search.unsat_set()) {
+            auto& c = *bool_search.get_clause_info(cl).m_clause;
+            num_literals += c.size();
+            for (auto l : c)
+                count_literal(l);
         }
 
         m_max_bool_steps = (m_ls_config.L * num_bool) / num_literals;

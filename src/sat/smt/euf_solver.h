@@ -265,7 +265,7 @@ namespace euf {
         // local search
         unsigned m_max_bool_steps = 10;
         bool is_propositional(sat::literal lit);
-        void setup_bounds(bool_vector const& mdl);
+        void setup_bounds(sat::ddfw& bool_search, bool_vector const& mdl);
 
         // user propagator
         void check_for_user_propagator() {
@@ -353,7 +353,7 @@ namespace euf {
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
         std::string reason_unknown() override { return m_reason_unknown; }
-        void local_search(bool_vector& phase) override;
+        lbool local_search(bool_vector& phase) override;
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
