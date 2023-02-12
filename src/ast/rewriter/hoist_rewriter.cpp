@@ -17,14 +17,28 @@ Author:
 
 
 #include "ast/rewriter/hoist_rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 
-
 hoist_rewriter::hoist_rewriter(ast_manager & m, params_ref const & p):
     m(m), m_args1(m), m_args2(m), m_subst(m) { 
     updt_params(p); 
+}
+
+expr_ref hoist_rewriter::mk_and(expr_ref_vector const& args) {
+    if (m_rewriter)
+        return m_rewriter->mk_and(args);
+    else
+        return ::mk_and(args);
+}
+
+expr_ref hoist_rewriter::mk_or(expr_ref_vector const& args) {
+    if (m_rewriter)
+        return m_rewriter->mk_or(args);
+    else
+        return ::mk_or(args);
 }
 
 br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref & result) {
@@ -152,13 +166,13 @@ expr_ref hoist_rewriter::hoist_predicates(obj_hashtable<expr> const& preds, unsi
         for (expr* e : m_args1) 
             if (!preds.contains(e))
                 fmls.push_back(e);
-        args.push_back(::mk_and(fmls));
+        args.push_back(mk_and(fmls));
     }
     fmls.reset();
-    fmls.push_back(::mk_or(args));
+    fmls.push_back(mk_or(args));
     for (auto* p : preds) 
         fmls.push_back(p);
-    result = ::mk_and(fmls);
+    result = mk_and(fmls);
     return result;
 }
 

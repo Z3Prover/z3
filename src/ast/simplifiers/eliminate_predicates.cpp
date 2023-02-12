@@ -1008,8 +1008,6 @@ void eliminate_predicates::reset() {
 
 
 void eliminate_predicates::reduce() {
-    if (!m_fmls.has_quantifiers())
-        return;
     reset();
     init_clauses();
     find_definitions();
