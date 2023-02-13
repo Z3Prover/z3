@@ -52,6 +52,7 @@ namespace sat {
                 p(p), i(lit.index()) {}
             unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
             unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i + 1]; }
+            unsigned size() const { return p.m_use_list_index[i + 1] - p.m_use_list_index[i]; }
         };
 
     protected:

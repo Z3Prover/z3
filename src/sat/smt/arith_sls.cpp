@@ -90,6 +90,7 @@ namespace arith {
                 rational new_value_(new_value, rational::i64());
                 lp::impq val(new_value_, rational::zero());
                 s.lp().set_value_for_nbasic_column(vj.index(), val);
+                // TODO - figure out why this leads to unsound (unsat).
             }
         }
     }
@@ -147,6 +148,11 @@ namespace arith {
         }
     }
 
+    //
+    // dtt is high overhead. It walks ineq.m_args
+    // m_vars[w].m_value can be computed outside and shared among calls
+    // different data-structures for storing coefficients
+    // 
     int64_t sls::dtt(ineq const& ineq, var_t v, int64_t new_value) const {
         auto new_args_value = ineq.m_args_value;
         for (auto const& [coeff, w] : ineq.m_args) {
@@ -302,6 +308,12 @@ namespace arith {
         return score;
     }
 
+    //
+    // cm_score is costly. It involves several cache misses.
+    // Note that
+    // - m_bool_search->get_use_list(lit).size() is "often" 1 or 2
+    // - dtt_old can be saved
+    //
     int sls::cm_score(var_t v, int64_t new_value) {
         int score = 0;
         auto& vi = m_vars[v];
@@ -309,6 +321,7 @@ namespace arith {
             auto const& ineq = *atom(lit);            
             int64_t dtt_old = dtt(ineq);
             int64_t dtt_new = dtt(ineq, v, new_value);
+            
             for (auto cl : m_bool_search->get_use_list(lit)) {
                 auto const& clause = get_clause_info(cl);
                 if (!clause.is_true()) {

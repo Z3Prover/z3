@@ -81,11 +81,8 @@ namespace euf {
                 return;
             }
             euf::enode* n = m_egraph.find(m_bool_var2expr.get(l.var(), nullptr));
-            for (auto const& thv : enode_th_vars(n)) {
-                auto* th = m_id2solver.get(thv.get_id(), nullptr);
-                if (th)
-                    th->set_bounds(n);
-            }
+            for (auto* s : m_solvers)
+                s->set_bounds(n);
         };
 
         for (auto cl : bool_search.unsat_set()) {
