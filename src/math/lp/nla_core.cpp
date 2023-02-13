@@ -1745,6 +1745,13 @@ bool core::influences_nl_var(lpvar j) const {
     return false;
 }
 
+void core::set_use_nra_model(bool m) {
+    if (m != m_use_nra_model) {
+        trail().push(value_trail(m_use_nra_model));
+        m_use_nra_model = m;        
+    }
+}
+    
 void core::collect_statistics(::statistics & st) {
     st.update("arith-nla-explanations", m_stats.m_nla_explanations);
     st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
