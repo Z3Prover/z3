@@ -366,7 +366,13 @@ namespace z3 {
         func_decl recfun(char const * name, sort const & domain, sort const & range);
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
 
-        void      recdef(func_decl, expr_vector const& args, expr const& body);
+        /**
+         * \brief add function definition body to declaration decl. decl needs to be declared using context::<recfun>.
+         * @param decl
+         * @param args
+         * @param body
+         */
+        void      recdef(func_decl decl, expr_vector const& args, expr const& body);
         func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
         /**
