@@ -317,10 +317,12 @@ namespace arith {
     int sls::cm_score(var_t v, int64_t new_value) {
         int score = 0;
         auto& vi = m_vars[v];
+        int64_t old_value = vi.m_value;
         for (auto const& [coeff, lit] : vi.m_literals) {
             auto const& ineq = *atom(lit);            
             int64_t dtt_old = dtt(ineq);
-            int64_t dtt_new = dtt(ineq, v, new_value);
+            int64_t delta = coeff * (new_value - old_value);
+            int64_t dtt_new = dtt(ineq.m_args_value + delta, ineq);
             
             for (auto cl : m_bool_search->get_use_list(lit)) {
                 auto const& clause = get_clause_info(cl);
@@ -331,7 +333,7 @@ namespace arith {
                 }
                 else if (dtt_new == 0 || dtt_old > 0 || clause.m_num_trues > 1) // true -> true not really, same variable can be in multiple literals
                     continue;
-                else if (all_of(*clause.m_clause, [&](auto lit) { return !atom(lit) || dtt(*atom(lit), v, new_value) > 0; })) // ?? TODO
+                else if (all_of(*clause.m_clause, [&](auto lit2) { return !atom(lit2) || lit == lit2 || dtt(*atom(lit2), v, new_value) > 0; })) // ?? TODO
                     --score;
             }
         }
