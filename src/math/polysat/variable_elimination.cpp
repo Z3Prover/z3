@@ -395,7 +395,6 @@ namespace polysat {
                 }
                 else {
                     pv_equality = get_dyadic_valuation(fac).first;
-                    verbose_stream() << "coeff-odd\n";
                     LOG("pv_equality " << pv_equality);
                     coeff_odd = get_odd(fac); // a'
                     LOG("coeff_odd: " << coeff_odd);
