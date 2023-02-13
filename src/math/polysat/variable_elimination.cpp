@@ -7,6 +7,7 @@ Module Name:
 
 Author:
 
+    Clemens Eisenhofer 2023-01-03
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-06
 
@@ -33,9 +34,10 @@ namespace polysat {
         const unsigned char pattern_33 = 0x33; // 00110011
         const unsigned char pattern_0f = 0x0f; // 00001111
         const unsigned char pattern_01 = 0x01; // 00000001
-        
-        unsigned to_alloc = (p.power_of_2() + sizeof(unsigned) - 1) / sizeof(unsigned);
-        unsigned to_alloc_bits = to_alloc * sizeof(unsigned);
+
+        unsigned to_alloc_bits = p.power_of_2();
+        unsigned to_alloc = to_alloc_bits / sizeof(unsigned);
+        SASSERT(to_alloc_bits == sizeof(unsigned)*to_alloc && "8 already divides power of power_of_2");
         
         // Cache this?
         auto* scaled_55 = (unsigned*)alloca(to_alloc_bits);
@@ -62,16 +64,33 @@ namespace polysat {
         //final_shift = (final_shift + 7) / 8 * 8 - 1; // ceil final_shift to the next multiple of 8
         return s.lshr(w * m.mk_val(rational_scaled_01), m.mk_val(p.power_of_2() - 8));
     }
-    
+
+    // [nsb cr]: m_reste_constants assume the clause added for power * rest == p is
+    // alive even after backtracking. This assumes that irredundant clauses are retained, probably
+    // still true for PolySAT, but fragile.
+    // same comment goes for get_inverse.
+    // 
+    // the caches should be invalidated if irredundant clauses get purged.
+    // old z3 uses a deletion event handler with clauses to track state; it is
+    // a bit fragile to program with.
+    //
+
+    /**
+     * Encode:
+     *
+     *   p = rest << log(p)
+     *
+     */
     pdd free_variable_elimination::get_odd(pdd p) {
         SASSERT(p.is_val() || p.is_var()); // For now
+        auto& m = p.manager();
         
         if (p.is_val()) {
             const rational& v = p.val();
             unsigned d = v.trailing_zeros(); 
-            if (!d)
-                return p.manager().mk_val(v);
-            return p.manager().mk_val(div(v, rational::power_of_two(d))); // TODO: Is there no shift?
+            if (d == 0)
+                return p;
+            return m.mk_val(div(v, rational::power_of_two(d))); // TODO: Is there no shift?
         }
         pvar v = p.var();
         if (m_rest_constants.size() > v && m_rest_constants[v] != -1)
@@ -80,7 +99,7 @@ namespace polysat {
         pdd power = get_dyadic_valuation(p).second;
         
         pvar rest = s.add_var(p.power_of_2());
-        pdd rest_pdd = p.manager().mk_var(rest);
+        pdd rest_pdd = m.mk_var(rest);
         m_rest_constants.setx(v, rest, -1);
         s.add_clause(s.eq(power * rest_pdd, p), false);
         return rest_pdd;
@@ -88,9 +107,10 @@ namespace polysat {
     
     optional<pdd> free_variable_elimination::get_inverse(pdd p) {
         SASSERT(p.is_val() || p.is_var()); // For now
+        auto& m = p.manager();
         
         if (p.is_val()) {
-            pdd i = p.manager().zero();
+            pdd i = m.zero();
             if (!inv(p, i))
                 return {};
             return optional<pdd>(i);
@@ -100,9 +120,9 @@ namespace polysat {
             return optional<pdd>(s.var(m_inverse_constants[v]));
         
         pvar inv = s.add_var(p.power_of_2());
-        pdd inv_pdd = p.manager().mk_var(inv);
+        pdd inv_pdd = m.mk_var(inv);
         m_inverse_constants.setx(v, inv, -1);
-        s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
+        s.add_clause(s.eq(inv_pdd * p, m.one()), false);
         return optional<pdd>(inv_pdd);
     }
     
@@ -118,10 +138,11 @@ namespace polysat {
         pvar pv2;
         bool new_var = false;
         if (m_pv_constants.size() <= v || m_pv_constants[v] == -1) {
-            pv = s.add_var(m.power_of_2()); // TODO: What's a good value? Unfortunately we cannot use a integer
+            pv = s.add_var(m.power_of_2()); // TODO: What's a good value? Unfortunately we cannot use an integer
             pv2 = s.add_var(m.power_of_2());
             m_pv_constants.setx(v, pv, -1);
             m_pv_power_constants.setx(v, pv2, -1);
+            // [nsb cr]: why these calls to m.mk_var()?
             m.mk_var(pv);
             m.mk_var(pv2);
             new_var = true;
@@ -137,14 +158,20 @@ namespace polysat {
         // For testing some different implementations
 #if PV_MOD == 1
         // brute-force bit extraction and <=
+        //
+        // 2^N-k-1 * p = 0 <=> k <= pv
+        // pv2 = 1 << pv
+        //
+
+        // [nsb cr] why are these clauses always added, when some are only added by new_var?
         signed_constraint c1 = s.eq(rational::power_of_two(p.power_of_2() - k - 1) * p, m.zero());
         signed_constraint c2 = s.ule(m.mk_val(k), s.var(pv));
         s.add_clause(~c1, c2, false);
         s.add_clause(c1, ~c2, false);
         
-        if (new_var) {
+        if (new_var) 
             s.add_clause(s.eq(s.var(pv2), s.shl(m.one(), s.var(pv))), false);
-        }
+
 #elif PV_MOD == 2
         // symbolic "maximal divisible"
         signed_constraint c1 = s.eq(s.shl(s.lshr(p, s.var(pv)), s.var(pv)), p);
@@ -153,6 +180,8 @@ namespace polysat {
         signed_constraint z = ~s.eq(p, p.manager().zero());
         
         // v != 0 ==> [(v >> pv) << pv == v && (v >> pv + 1) << pv + 1 != v]
+
+        // [nsb cr] why are these clauses always added, when some are only added by new_var?
         s.add_clause(~z, c1, false);
         s.add_clause(~z, c2, false);
         
@@ -162,6 +191,8 @@ namespace polysat {
 #elif PV_MOD == 3
         // computing the complete function by hamming-distance
         // proven equivalent with case 2 via bit-blasting for small sizes
+
+        // [nsb cr] why are these clauses always added, when some are only added by new_var?
         s.add_clause(s.eq(s.var(pv), get_hamming_distance(s.bxor(p, p - 1)) - 1), false);
         
         // in case v == 0 ==> pv == k - 1 (we don't care)
@@ -180,6 +211,8 @@ namespace polysat {
         signed_constraint c1 = s.eq(s.var(pv), k);
         signed_constraint c2 = s.eq(s.var(pv2), rational::power_of_two(k));
         signed_constraint c3 = s.eq(masked, rational::power_of_two(k));
+
+        // [nsb cr] why are these clauses always added, when some are only added by new_var?
         
         s.add_clause(c1, ~c3, false);
         s.add_clause(c2, ~c3, false);
@@ -292,8 +325,8 @@ namespace polysat {
             signed_constraint p1 = s.ule(m.zero(), m.zero()); 
             signed_constraint p2 = s.ule(m.zero(), m.zero());
             
-            pdd new_lhs = p.manager().zero();
-            pdd new_rhs = p.manager().zero();
+            pdd new_lhs = m.zero();
+            pdd new_rhs = m.zero();
             
             pdd fac_lhs = m.zero(); 
             pdd fac_rhs = m.zero(); 
@@ -309,10 +342,10 @@ namespace polysat {
             LOG("fac_rhs: " << fac_rhs);
             LOG("rest_rhs: " << rest_rhs);
             
-            pdd pv_equality = p.manager().zero();
-            pdd lhs_multiple = p.manager().zero(); 
-            pdd rhs_multiple = p.manager().zero(); 
-            pdd coeff_odd = p.manager().zero();
+            pdd pv_equality = m.zero();
+            pdd lhs_multiple = m.zero(); 
+            pdd rhs_multiple = m.zero(); 
+            pdd coeff_odd = m.zero();
             optional<pdd> fac_odd_inv;
             
             get_multiple_result multiple1 = get_multiple(fac_lhs, fac, new_lhs);
