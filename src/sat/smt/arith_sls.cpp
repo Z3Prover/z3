@@ -333,7 +333,7 @@ namespace arith {
                 }
                 else if (dtt_new == 0 || dtt_old > 0 || clause.m_num_trues > 1) // true -> true not really, same variable can be in multiple literals
                     continue;
-                else if (all_of(*clause.m_clause, [&](auto lit2) { return !atom(lit2) || lit == lit2 || dtt(*atom(lit2), v, new_value) > 0; })) // ?? TODO
+                else if (all_of(*clause.m_clause, [&](auto lit2) { return !atom(lit2) || dtt(*atom(lit2), v, new_value) > 0; })) // ?? TODO
                     --score;
             }
         }
