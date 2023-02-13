@@ -748,7 +748,6 @@ namespace polysat {
         unsigned a_max_parity = saturation.max_parity(a, explain_a_parity);
         if (a_parity != a_max_parity || (a_parity > 0 && saturation.min_parity(a1, explain_a_parity) < a_parity))
             return { p, false }; // We need the parity of a and this has to be for sure less than the parity of a1
-            
         
         pdd a_pi = s.pseudo_inv(a);
         for (auto c : explain_a_parity) 
@@ -758,6 +757,7 @@ namespace polysat {
             return { b1, true };
 
         
+        
         pdd shift = a; // [nsb cr: should this be a1?]
         
         if (a_parity > 0) {
@@ -766,7 +766,8 @@ namespace polysat {
             signed_constraint shift_right_left = s.eq(rational::power_of_two(a_parity) * shift, a1);
             s.add_clause(~least_parity, shift_right_left, true);
             // s.add_clause(~shift_right_left, least_parity, true); Might be interesting as well [although not needed]; needs to consider special case 0
-            precondition.insert_eval(~shift_right_left);
+            // [nsb cr: this pre-condition is already implied from the parity explanations]
+            // precondition.insert_eval(~shift_right_left);
         }
         LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
         LOG("a: " << a);
