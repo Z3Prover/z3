@@ -62,7 +62,7 @@ namespace arith {
         // first compute assignment to terms
         // then update non-basic variables in tableau.
         for (auto const& [t, v] : m_terms) {
-            int64_t val;
+            int64_t val = 0;
             lp::lar_term const& term = s.lp().get_term(t);
             for (lp::lar_term::ival arg : term) {
                 auto t2 = s.lp().column2tv(arg.column());

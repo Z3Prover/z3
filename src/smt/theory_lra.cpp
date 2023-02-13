@@ -1596,8 +1596,12 @@ public:
 
     final_check_status eval_power(expr* e) {
         expr* x, * y;
+        rational r;
         VERIFY(a.is_power(e, x, y));
-
+        if (a.is_numeral(x, r) && r == 0 && a.is_numeral(y, r) && r == 0)
+            return FC_DONE;
+        if (!m_nla)
+            return FC_GIVEUP;
         switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y), m_nla_lemma_vector)) {
         case l_true:
             return FC_DONE;
