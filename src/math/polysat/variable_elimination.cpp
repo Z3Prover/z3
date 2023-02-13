@@ -395,6 +395,7 @@ namespace polysat {
                 }
                 else {
                     pv_equality = get_dyadic_valuation(fac).first;
+                    verbose_stream() << "coeff-odd\n";
                     LOG("pv_equality " << pv_equality);
                     coeff_odd = get_odd(fac); // a'
                     LOG("coeff_odd: " << coeff_odd);
@@ -675,7 +676,33 @@ namespace polysat {
     }
     
     // a * x + b = 0 (x not in a or b; i.e., the equation is linear in x)
-    // C[x, ...] resp., C[..., x]
+    // replace x in p(x)
+    //
+    // 0. x does not occur in p
+    // 1. a is an odd numeral.
+    //    x = a^-1 * -b, substitute in p(x)
+    // 2. p has degree > 1.
+    //    bail
+    // 3. p := a1*x + b1
+    // 3.1 a1 = a*a2  - a divides a1
+    //     p := a2*a*x + b1 = a2*-b + b1
+    // 3.2 a is known to not divide a1
+    //     bail
+    // 3.3 min_parity(a) == max_parity(a), min_parity(a1) >= max_parity(a)
+    //     Result is modulo pre-conditions for min/max parity
+    // 3.3.1 b = 0
+    //     p := b1 
+    // 3.3.2 b != 0
+    //     ainv:
+    //        with property: a * ainv = 2^min_parity(a)
+    // 3.3.2.1. min_parity(a) > 0
+    //     shift := a1 >> min_parity(a)
+    //     lemma: shift << min_parity(a) == a1, note that lemma is implied by pre-conditions
+    //     p := ainv * -b * shift + b1
+    // 3.3.2.2
+    //     p := ainv * -b * a + b1
+    //           [nsb cr: isn't it a1 not a in this definition?]
+    // 
     std::tuple<pdd, bool> parity_tracker::eliminate_variable(saturation& saturation, pvar x, const pdd& a, const pdd& b, const pdd& p, clause_builder& precondition) {
         
         unsigned p_degree = p.degree(x);
@@ -717,25 +744,22 @@ namespace polysat {
             LOG("Warning: Inverting " << a << " although it is not a single variable - might not be a good idea");
         }
 
-        unsigned a_parity;
-        if ((a_parity = saturation.min_parity(a)) != saturation.max_parity(a) || saturation.min_parity(a1) < a_parity)
+        vector<signed_constraint> explain_a_parity;
+        unsigned a_parity = saturation.min_parity(a, explain_a_parity);
+        unsigned a_max_parity = saturation.max_parity(a, explain_a_parity);
+        if (a_parity != a_max_parity || (a_parity > 0 && saturation.min_parity(a1, explain_a_parity) < a_parity))
             return { p, false }; // We need the parity of a and this has to be for sure less than the parity of a1
             
+        
+        pdd a_pi = s.pseudo_inv(a);
+        for (auto c : explain_a_parity) 
+            precondition.insert_eval(~c);
+        
         if (b.is_zero())
             return { b1, true };
+
         
-#if 0
-        pdd a_pi = get_pseudo_inverse(a, a_parity);
-#else
-        pdd a_pi = s.pseudo_inv(a);
-        //precondition.insert_eval(~s.eq(a_pi * a, rational::power_of_two(a_parity))); // TODO: This is unfortunately not a justification as the inverse might not be set yet (Can we make it to one?)
-        auto c = ~s.parity_at_most(a, a_parity);
-        if (!c.is_currently_false(s))
-            return { p, false };
-        precondition.insert_eval(c);
-#endif
-        
-        pdd shift = a;
+        pdd shift = a; // [nsb cr: should this be a1?]
         
         if (a_parity > 0) {
             shift = s.lshr(a1, a1.manager().mk_val(a_parity));

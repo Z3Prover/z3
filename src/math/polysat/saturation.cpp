@@ -33,12 +33,12 @@ namespace polysat {
     saturation::saturation(solver& s) : s(s), m_lemma(s), m_parity_tracker(s) {}
 
     void saturation::log_lemma(pvar v, conflict& core) {
-        verbose_stream() << "Logging lemma:\n";
-        auto const& cl = core.lemmas().back();
-        verbose_stream() << m_rule << " v" << v << " ";
-        for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " ";
-        verbose_stream() << " " << *cl << "\n";
-        IF_VERBOSE(1, auto const& cl = core.lemmas().back(); 
+        IF_VERBOSE(1, verbose_stream() << "Logging lemma:\n";
+                   auto const& cl = core.lemmas().back();
+                   verbose_stream() << m_rule << " v" << v << " ";
+                   for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " ";
+                   verbose_stream() << " " << *cl << "\n");
+        IF_VERBOSE(2, auto const& cl = core.lemmas().back(); 
                    verbose_stream() << m_rule << " v" << v << " "; 
                    for (auto lit : *cl) verbose_stream() << s.lit2cnstr(lit) << " "; 
                    verbose_stream() << " " << *cl << "\n");
