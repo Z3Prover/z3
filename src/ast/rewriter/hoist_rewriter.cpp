@@ -35,7 +35,7 @@ expr_ref hoist_rewriter::mk_and(expr_ref_vector const& args) {
 }
 
 expr_ref hoist_rewriter::mk_or(expr_ref_vector const& args) {
-    if (m_rewriter)
+    if (false && m_rewriter)
         return m_rewriter->mk_or(args);
     else
         return ::mk_or(args);

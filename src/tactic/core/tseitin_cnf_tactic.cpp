@@ -141,7 +141,7 @@ class tseitin_cnf_tactic : public tactic {
                 sign = !sign;
                 goto start;
             case OP_OR:
-            case OP_AND:
+            // case OP_AND:
                 l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
@@ -188,7 +188,7 @@ class tseitin_cnf_tactic : public tactic {
                     goto start;
                 }
             case OP_OR:
-            case OP_AND:
+            // case OP_AND:
                 visited = false;
                 push_frame(to_app(n));
                 return;
@@ -202,6 +202,7 @@ class tseitin_cnf_tactic : public tactic {
             case OP_XOR:
             case OP_IMPLIES:
             case OP_DISTINCT:
+            case OP_AND:
                 throw_op_not_handled();
             default:
                 return;

@@ -58,10 +58,10 @@ namespace arith {
     public:
         // encode args <= bound, args = bound, args < bound
         struct ineq {
-            vector<std::pair<rational, var_t>> m_args;
+            vector<std::pair<int64_t, var_t>> m_args;
             ineq_kind  m_op = ineq_kind::LE;
-            rational   m_bound;
-            rational   m_args_value;
+            int64_t   m_bound;
+            int64_t   m_args_value;
 
             bool is_true() const {
                 switch (m_op) {
@@ -94,15 +94,15 @@ namespace arith {
     private:
 
         struct var_info {
-            rational     m_value;
-            rational     m_best_value;
+            int64_t      m_value;
+            int64_t      m_best_value;
             var_kind     m_kind = var_kind::INT;
-            vector<std::pair<rational, sat::literal>> m_literals;
+            vector<std::pair<int64_t, sat::literal>> m_literals;
         };
 
         struct clause {
             unsigned m_weight = 1;
-            rational m_dts = rational::one();
+            int64_t m_dts = 1;
         };
 
         solver& s;
@@ -137,27 +137,29 @@ namespace arith {
         bool flip_dscore();
         bool flip_dscore(unsigned cl);
         bool flip(unsigned cl);
-        rational dtt(ineq const& ineq) const { return dtt(ineq.m_args_value, ineq); }
-        rational dtt(rational const& args, ineq const& ineq) const;
-        rational dtt(ineq const& ineq, var_t v, rational const& new_value) const;
-        rational dts(unsigned cl, var_t v, rational const& new_value) const;
-        rational compute_dts(unsigned cl) const;
-        bool cm(ineq const& ineq, var_t v, rational& new_value);
-        int cm_score(var_t v, rational const& new_value);
-        void update(var_t v, rational const& new_value);
+        int64_t dtt(ineq const& ineq) const { return dtt(ineq.m_args_value, ineq); }
+        int64_t dtt(int64_t args, ineq const& ineq) const;
+        int64_t dtt(ineq const& ineq, var_t v, int64_t new_value) const;
+        int64_t dts(unsigned cl, var_t v, int64_t new_value) const;
+        int64_t compute_dts(unsigned cl) const;
+        bool cm(ineq const& ineq, var_t v, int64_t& new_value);
+        int cm_score(var_t v, int64_t new_value);
+        void update(var_t v, int64_t new_value);
         void paws();
-        rational dscore(var_t v, rational const& new_value) const;
+        int64_t dscore(var_t v, int64_t new_value) const;
         void save_best_values();
         void add_vars();
-        sls::ineq& new_ineq(ineq_kind op, rational const& bound);
-        void add_arg(sat::literal lit, ineq& ineq, rational const& c, var_t v);
+        sls::ineq& new_ineq(ineq_kind op, int64_t const& bound);
+        void add_arg(sat::literal lit, ineq& ineq, int64_t const& c, var_t v);
         void add_bounds(sat::literal_vector& bounds);
-        void add_args(sat::literal lit, ineq& ineq, lp::tv t, euf::theory_var v, rational sign);
+        void add_args(sat::literal lit, ineq& ineq, lp::tv t, euf::theory_var v, int64_t sign);
         void init_literal(sat::literal lit);
         void init_bool_var_assignment(sat::bool_var v);
         void init_literal_assignment(sat::literal lit);
 
-        rational value(var_t v) const { return m_vars[v].m_value; }
+        int64_t value(var_t v) const { return m_vars[v].m_value; }
+        int64_t to_numeral(rational const& r);
+
     public:
         sls(solver& s);
         lbool operator ()(bool_vector& phase);
