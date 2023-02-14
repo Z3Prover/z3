@@ -35,9 +35,8 @@ namespace arith {
         unsigned num_steps = 0;
         for (unsigned v = 0; v < s.s().num_vars(); ++v)
             init_bool_var_assignment(v);
-        m_best_min_unsat = unsat().size();
         verbose_stream() << "max arith steps " << m_max_arith_steps << "\n";
-        //m_max_arith_steps = 10000;
+        m_max_arith_steps = std::max(1000u, m_max_arith_steps);
         while (m.inc() && m_best_min_unsat > 0 && num_steps < m_max_arith_steps) {
             if (!flip())
                 break;
@@ -50,6 +49,7 @@ namespace arith {
                 save_best_values();
             }
         }
+        store_best_values();
         log();
         return unsat().empty() ? l_true : l_undef;
     }
@@ -59,6 +59,11 @@ namespace arith {
     }
 
     void sls::save_best_values() {
+        for (unsigned v = 0; v < s.get_num_vars(); ++v)
+            m_vars[v].m_best_value = m_vars[v].m_value;
+    }
+
+    void sls::store_best_values() {
         // first compute assignment to terms
         // then update non-basic variables in tableau.
         for (auto const& [t, v] : m_terms) {
@@ -80,7 +85,7 @@ namespace arith {
             int64_t old_value = 0;
             if (s.is_registered_var(v))
                 old_value = to_numeral(s.get_ivalue(v).x);
-            int64_t new_value = value(v);
+            int64_t new_value = m_vars[v].m_best_value;
             if (old_value == new_value)
                 continue;
             s.ensure_column(v);
@@ -104,6 +109,9 @@ namespace arith {
         for (unsigned i = 0; i < d->num_clauses(); ++i)
             for (sat::literal lit : *d->get_clause_info(i).m_clause)
                 init_literal(lit);
+        for (unsigned v = 0; v < s.s().num_vars(); ++v)
+            init_bool_var_assignment(v);
+        m_best_min_unsat = std::numeric_limits<unsigned>::max();
     }
 
     void sls::set_bounds_begin() {        
@@ -115,7 +123,7 @@ namespace arith {
     }
 
     void sls::set_bounds_end(unsigned num_literals) {
-        m_max_arith_steps = (m_config.L * m_max_arith_steps) / num_literals;
+        m_max_arith_steps = (m_config.L * m_max_arith_steps); // / num_literals;
     }
 
     bool sls::flip() {
@@ -323,6 +331,9 @@ namespace arith {
             int64_t dtt_old = dtt(ineq);
             int64_t delta = coeff * (new_value - old_value);
             int64_t dtt_new = dtt(ineq.m_args_value + delta, ineq);
+
+            if (dtt_old == dtt_new)
+                continue;
             
             for (auto cl : m_bool_search->get_use_list(lit)) {
                 auto const& clause = get_clause_info(cl);

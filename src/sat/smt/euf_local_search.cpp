@@ -40,9 +40,11 @@ namespace euf {
 
             // Non-boolean literals are assumptions to Boolean search
             literal_vector assumptions;
+#if 0
             for (unsigned v = 0; v < phase.size(); ++v)
                 if (!is_propositional(literal(v)))
                     assumptions.push_back(literal(v, !bool_search.get_value(v)));
+#endif
 
             verbose_stream() << "assumptions " << assumptions.size() << "\n";
 
@@ -50,6 +52,14 @@ namespace euf {
             
             lbool r = bool_search.check(assumptions.size(), assumptions.data(), nullptr);
             bool_search.rlimit().pop();
+
+#if 0
+            // restore state to optimal model
+            auto const& mdl = bool_search.get_model();
+            for (unsigned i = 0; i < mdl.size(); ++i)
+                if ((mdl[i] == l_true) != bool_search.get_value(i))
+                    bool_search.flip(i);
+#endif
 
             for (auto* th : m_solvers) 
                 th->local_search(phase);
@@ -92,7 +102,9 @@ namespace euf {
                 count_literal(l);
         }
 
-        m_max_bool_steps = (m_ls_config.L * num_bool) / num_literals;
+        m_max_bool_steps = (m_ls_config.L * num_bool); // / num_literals;
+        m_max_bool_steps = std::max(10000u, m_max_bool_steps);
+        verbose_stream() << "num literals " << num_literals << " num bool " << num_bool << " max bool steps " << m_max_bool_steps << "\n";
 
         for (auto* th : m_solvers)
             th->set_bounds_end(num_literals);

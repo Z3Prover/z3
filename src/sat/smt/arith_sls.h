@@ -148,6 +148,7 @@ namespace arith {
         void paws();
         int64_t dscore(var_t v, int64_t new_value) const;
         void save_best_values();
+        void store_best_values();
         void add_vars();
         sls::ineq& new_ineq(ineq_kind op, int64_t const& bound);
         void add_arg(sat::literal lit, ineq& ineq, int64_t const& c, var_t v);
