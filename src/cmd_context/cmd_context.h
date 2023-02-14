@@ -523,7 +523,7 @@ public:
 
     ptr_vector<expr> const& assertions() const { return m_assertions; }
     ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
-    expr_ref_vector tracked_assertions();
+    vector<std::pair<expr*,expr*>> tracked_assertions();
     void reset_tracked_assertions();
 
     /**

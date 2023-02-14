@@ -2201,21 +2201,18 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
 }
 
 
-expr_ref_vector cmd_context::tracked_assertions() {
-    expr_ref_vector result(m());
+vector<std::pair<expr*,expr*>> cmd_context::tracked_assertions() {
+    vector<std::pair<expr*,expr*>> result;
     if (assertion_names().size() == assertions().size()) {
         for (unsigned i = 0; i < assertions().size(); ++i) {
             expr* an  = assertion_names()[i];
             expr* asr = assertions()[i];
-            if (an) 
-                result.push_back(m().mk_implies(an, asr));
-            else 
-                result.push_back(asr);
+            result.push_back({ asr, an });
         }
     }
     else {
         for (expr * e : assertions()) 
-            result.push_back(e);
+            result.push_back({ e, nullptr});
     }
     return result;
 }

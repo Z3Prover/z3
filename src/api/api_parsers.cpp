@@ -128,7 +128,8 @@ extern "C" {
 
     static Z3_ast_vector Z3_parser_context_parse_stream(Z3_context c, scoped_ptr<cmd_context>& ctx, bool owned, std::istream& is) {
         Z3_TRY;
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        ast_manager& m = mk_c(c)->m();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);        
         mk_c(c)->save_object(v);        
         std::stringstream errstrm;
         ctx->set_regular_stream(errstrm);
@@ -147,8 +148,11 @@ extern "C" {
             SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
             return of_ast_vector(v);
         }
-        for (expr* e : ctx->tracked_assertions()) 
-            v->m_ast_vector.push_back(e);
+        for (auto const& [asr, an] : ctx->tracked_assertions())
+            if (an)
+                v->m_ast_vector.push_back(m.mk_implies(an, asr));
+            else
+                v->m_ast_vector.push_back(asr);
         ctx->reset_tracked_assertions();        
         return of_ast_vector(v);
         Z3_CATCH_RETURN(nullptr);        
