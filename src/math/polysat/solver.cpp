@@ -1471,6 +1471,16 @@ namespace polysat {
     bool solver::bool_watch_invariant() const {
         if (is_conflict())  // propagation may be unfinished if a conflict was discovered
             return true;
+        // Check that exactly the first two literals are watched.
+        for (clause const& cl : m_constraints.clauses()) {
+            if (cl.size() <= 1)  // unit clauses aren't watched
+                continue;
+            VERIFY_EQ(count(m_bvars.watch(cl[0]), &cl), 1);
+            VERIFY_EQ(count(m_bvars.watch(cl[1]), &cl), 1);
+            for (unsigned i = 2; i < cl.size(); ++i) {
+                VERIFY_EQ(count(m_bvars.watch(cl[i]), &cl), 0);
+            }
+        }
         // Check for missed boolean propagations:
         // - no clause should have exactly one unassigned literal, unless it is already true.
         // - no clause should be false
@@ -1491,6 +1501,38 @@ namespace polysat {
             VERIFY(undefs != 1);
             bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
             VERIFY(!is_false);
+        }
+        // Check watch literal invariant for long clauses:
+        // - true literals may always be watched
+        // - if at least one true literal is watched, the clause is fine
+        // - otherwise, a literal may only be watched if there is no unwatched literal at higher level.
+        auto const get_watch_level = [&](sat::literal lit) -> unsigned {
+            return m_bvars.is_false(lit) ? m_bvars.level(lit) : UINT_MAX;
+        };
+        for (clause const& cl : m_constraints.clauses()) {
+            if (cl.size() <= 2)
+                continue;
+            if (m_bvars.is_true(cl[0]))
+                continue;
+            if (m_bvars.is_true(cl[1]))
+                continue;
+            // the watched literals are cl[0] and cl[1]
+            unsigned const lvl_cl0 = get_watch_level(cl[0]);
+            unsigned const lvl_cl1 = get_watch_level(cl[1]);
+            unsigned lvl_tail = 0;
+            for (unsigned i = 2; i < cl.size(); ++i)
+                lvl_tail = std::max(lvl_tail, get_watch_level(cl[i]));
+            if (lvl_cl0 < lvl_tail || lvl_cl1 < lvl_tail) {
+                verbose_stream() << "Broken constraint on levels of watched literals of clause: " << cl << "\n";
+                for (sat::literal lit : cl) {
+                    verbose_stream() << "    " << lit_pp(*this, lit);
+                    if (count(m_bvars.watch(lit), &cl) != 0)
+                        verbose_stream() << " (bool-watched)";
+                    verbose_stream() << "\n";
+                }
+            }
+            VERIFY(lvl_cl0 >= lvl_tail);
+            VERIFY(lvl_cl1 >= lvl_tail);
         }
         return true;
     }
