@@ -1355,7 +1355,7 @@ namespace polysat {
         for (clause const& cl : m_constraints.clauses()) {
             out << "\t" << cl << "\n";
             for (sat::literal lit : cl)
-                out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";
+                out << "\t\t" << lit_pp(*this, lit) << "\n";
         }
         return out;
     }
