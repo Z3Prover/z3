@@ -68,8 +68,8 @@ void emonics::pop(unsigned n) {
     TRACE("nla_solver_mons", tout << "pop: " << n << "\n";);
     SASSERT(invariant());
     for (unsigned i = 0; i < n; ++i) {
-        m_u_f_stack.pop_scope(1);
         m_ve.pop(1);
+        m_u_f_stack.pop_scope(1);
     }
     SASSERT(invariant());
     SASSERT(monics_are_canonized());

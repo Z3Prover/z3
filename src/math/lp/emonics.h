@@ -81,8 +81,8 @@ class emonics {
         }
     };
     
-    union_find<emonics>          m_u_f;
     trail_stack                  m_u_f_stack;
+    union_find<emonics>          m_u_f;
     mutable svector<lpvar>       m_find_key; // the key used when looking for a monic with the specific variables
     var_eqs<emonics>&            m_ve;
     mutable vector<monic>        m_monics;     // set of monics
@@ -125,8 +125,8 @@ public:
        other calls to push/pop to the var_eqs should take place. 
     */
     emonics(var_eqs<emonics>& ve):
-        m_u_f(*this),
         m_u_f_stack(),
+        m_u_f(*this),
         m_ve(ve), 
         m_visited(0), 
         m_cg_hash(*this),
