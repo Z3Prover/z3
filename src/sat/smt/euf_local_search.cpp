@@ -29,44 +29,13 @@ namespace euf {
         bool_search.set_seed(rand());
         scoped_rl.push_child(&(bool_search.rlimit()));
 
-        unsigned max_rounds = 30;
-
         for (auto* th : m_solvers)
             th->set_bool_search(&bool_search);
 
-        for (unsigned rounds = 0; m.inc() && rounds < max_rounds; ++rounds) {
+        bool_search.rlimit().push(m_max_bool_steps);
+        lbool r = bool_search.check(0, nullptr, nullptr);
+        bool_search.rlimit().pop();
 
-            setup_bounds(bool_search, phase);
-
-            // Non-boolean literals are assumptions to Boolean search
-            literal_vector assumptions;
-#if 0
-            for (unsigned v = 0; v < phase.size(); ++v)
-                if (!is_propositional(literal(v)))
-                    assumptions.push_back(literal(v, !bool_search.get_value(v)));
-#endif
-
-            verbose_stream() << "assumptions " << assumptions.size() << "\n";
-
-            bool_search.rlimit().push(m_max_bool_steps);
-            
-            lbool r = bool_search.check(assumptions.size(), assumptions.data(), nullptr);
-            bool_search.rlimit().pop();
-
-#if 0
-            // restore state to optimal model
-            auto const& mdl = bool_search.get_model();
-            for (unsigned i = 0; i < mdl.size(); ++i)
-                if ((mdl[i] == l_true) != bool_search.get_value(i))
-                    bool_search.flip(i);
-#endif
-
-            for (auto* th : m_solvers) 
-                th->local_search(phase);
-
-            if (bool_search.unsat_set().empty())
-                break;
-        }
         auto const& mdl = bool_search.get_model();
         for (unsigned i = 0; i < mdl.size(); ++i)
             phase[i] = mdl[i] == l_true;     

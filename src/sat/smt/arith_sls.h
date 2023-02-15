@@ -37,7 +37,7 @@ namespace arith {
     class solver;
 
     // local search portion for arithmetic
-    class sls {
+    class sls : public sat::local_search_plugin {
         enum class ineq_kind { EQ, LE, LT, NE };
         enum class var_kind { INT, REAL };
         typedef unsigned var_t;
@@ -78,7 +78,7 @@ namespace arith {
             std::ostream& display(std::ostream& out) const {
                 bool first = true;
                 for (auto const& [c, v] : m_args)
-                    out << (first? "": " + ") << c << " * v" << v, first = false;
+                    out << (first ? "" : " + ") << c << " * v" << v, first = false;
                 switch (m_op) {
                 case ineq_kind::LE:
                     return out << " <= " << m_bound << "(" << m_args_value << ")";
@@ -97,7 +97,7 @@ namespace arith {
             int64_t      m_value;
             int64_t      m_best_value;
             var_kind     m_kind = var_kind::INT;
-            vector<std::pair<int64_t, sat::literal>> m_literals;
+            svector<std::pair<int64_t, sat::literal>> m_literals;
         };
 
         struct clause {
@@ -116,6 +116,7 @@ namespace arith {
         vector<var_info>             m_vars;
         vector<clause>               m_clauses;
         svector<std::pair<lp::tv, euf::theory_var>> m_terms;
+        bool                         m_dscore_mode = false;
 
 
         indexed_uint_set& unsat() { return m_bool_search->unsat_set(); }
@@ -136,7 +137,8 @@ namespace arith {
         bool flip_clauses();
         bool flip_dscore();
         bool flip_dscore(unsigned cl);
-        bool flip(unsigned cl);
+        bool flip_clause(unsigned cl);
+        bool flip(ineq const& ineq);
         int64_t dtt(ineq const& ineq) const { return dtt(ineq.m_args_value, ineq); }
         int64_t dtt(int64_t args, ineq const& ineq) const;
         int64_t dtt(ineq const& ineq, var_t v, int64_t new_value) const;
@@ -145,6 +147,8 @@ namespace arith {
         bool cm(ineq const& ineq, var_t v, int64_t& new_value);
         int cm_score(var_t v, int64_t new_value);
         void update(var_t v, int64_t new_value);
+        double dscore_reward(sat::bool_var v);
+        double dtt_reward(sat::bool_var v);
         void paws();
         int64_t dscore(var_t v, int64_t new_value) const;
         void save_best_values();
@@ -163,11 +167,20 @@ namespace arith {
 
     public:
         sls(solver& s);
+        ~sls() override {}
         lbool operator ()(bool_vector& phase);
         void set_bounds_begin();
         void set_bounds_end(unsigned num_literals);
         void set_bounds(euf::enode* n);
         void set(sat::ddfw* d);
+
+        void init_search() override;
+        void finish_search() override;
+        void flip(sat::bool_var v) override;
+        double reward(sat::bool_var v) override;
+        void on_rescale() override;
+        void on_save_model() override;
+        void on_restart() override;
     };
 
     inline std::ostream& operator<<(std::ostream& out, sls::ineq const& ineq) {

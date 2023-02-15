@@ -27,6 +27,10 @@
 #include "sat/sat_clause.h"
 #include "sat/sat_types.h"
 
+namespace arith {
+    class sls;
+}
+
 namespace sat {
     class solver;
     class parallel;
@@ -44,6 +48,7 @@ namespace sat {
     };
 
     class ddfw : public i_local_search {
+        friend class arith::sls;
     public:
         struct clause_info {
             clause_info(clause* cl, double init_weight): m_weight(init_weight), m_clause(cl) {}
@@ -126,7 +131,7 @@ namespace sat {
         stopwatch        m_stopwatch;
 
         parallel*        m_par;
-        scoped_ptr< local_search_plugin> m_plugin;
+        local_search_plugin* m_plugin = nullptr;
 
         void flatten_use_list(); 
 
@@ -148,7 +153,7 @@ namespace sat {
 
         inline double reward(bool_var v) const { return m_vars[v].m_reward; }
 
-        inline double plugin_reward(bool_var v) const { return m_plugin->reward(v); }
+        inline double plugin_reward(bool_var v) const { return is_external(v) ? m_plugin->reward(v) : reward(v); }
 
         void set_external(bool_var v) { m_vars[v].m_external = true; }
 

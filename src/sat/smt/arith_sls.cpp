@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2020 Microsoft Corporation
+Copyright (c) 2023 Microsoft Corporation
 
 Module Name:
 
@@ -112,6 +112,8 @@ namespace arith {
         for (unsigned v = 0; v < s.s().num_vars(); ++v)
             init_bool_var_assignment(v);
         m_best_min_unsat = std::numeric_limits<unsigned>::max();
+
+        d->set(this);
     }
 
     void sls::set_bounds_begin() {        
@@ -209,14 +211,13 @@ namespace arith {
         unsigned start = s.random();
         unsigned sz = unsat().size();
         for (unsigned i = sz; i-- > 0; ) 
-            if (flip(unsat().elem_at((i + start) % sz)))
+            if (flip_clause(unsat().elem_at((i + start) % sz)))
                 return true;        
         return false;
     }
 
-    bool sls::flip(unsigned cl) {
+    bool sls::flip_clause(unsigned cl) {
         auto const& clause = get_clause(cl);
-        int64_t new_value;
         for (literal lit : clause) {
             if (is_true(lit))
                 continue;
@@ -224,20 +225,32 @@ namespace arith {
             if (!ineq)
                 continue;
             SASSERT(!ineq->is_true());
-            for (auto const& [coeff, v] : ineq->m_args) {
-                if (!cm(*ineq, v, new_value))
-                    continue;
-                int score = cm_score(v, new_value);
-                if (score <= 0)
-                    continue;
-                unsigned num_unsat = unsat().size();
-                update(v, new_value);
-                IF_VERBOSE(2,
-                    verbose_stream() << "v" << v << " score " << score << " "
-                    << num_unsat << " -> " << unsat().size() << "\n");
-                SASSERT(num_unsat > unsat().size());
+            if (flip(*ineq))
                 return true;
-            }
+
+        }
+        return false;
+    }
+
+    // flip on the first positive score
+    // it could be changed to flip on maximal positive score
+    // or flip on maximal non-negative score
+    // or flip on first non-negative score
+    bool sls::flip(ineq const& ineq) {
+        int64_t new_value;
+        for (auto const& [coeff, v] : ineq.m_args) {
+            if (!cm(ineq, v, new_value))
+                continue;
+            int score = cm_score(v, new_value);
+            if (score <= 0)
+                continue;
+            unsigned num_unsat = unsat().size();
+            update(v, new_value);
+            IF_VERBOSE(2,
+                verbose_stream() << "v" << v << " score " << score << " "
+                << num_unsat << " -> " << unsat().size() << "\n");
+            SASSERT(num_unsat > unsat().size());
+            return true;
         }
         return false;
     }
@@ -246,7 +259,7 @@ namespace arith {
         unsigned start = s.random();
         unsigned sz = m_bool_search->num_clauses();
         for (unsigned i = sz; i-- > 0; )
-            if (flip((i + start) % sz))
+            if (flip_clause((i + start) % sz))
                 return true;
         return false;
     }
@@ -541,9 +554,85 @@ namespace arith {
 
     void sls::init_literal_assignment(sat::literal lit) {
         auto* ineq = m_literals.get(lit.index(), nullptr);
-
         if (ineq && is_true(lit) != (dtt(*ineq) == 0)) 
             m_bool_search->flip(lit.var());        
+    }
+
+    void sls::init_search()  {
+        on_restart();
+    }
+
+    void sls::finish_search()  {
+        store_best_values();
+    }
+
+    void sls::flip(sat::bool_var v)  {
+        sat::literal lit(v, m_bool_search->get_value(v));
+        SASSERT(!is_true(lit));
+        auto const* ineq = atom(lit);
+        if (!ineq) 
+            IF_VERBOSE(0, verbose_stream() << "no inequality for variable " << v << "\n");
+        if (!ineq)
+            return;
+        IF_VERBOSE(1, verbose_stream() << "flip " << lit << "\n");
+        SASSERT(!ineq->is_true());
+        flip(*ineq);
+    }
+
+    double sls::reward(sat::bool_var v) {
+        if (m_dscore_mode)
+            return dscore_reward(v);
+        else 
+            return dtt_reward(v);
+    }
+
+    double sls::dtt_reward(sat::bool_var v) {
+        sat::literal litv(v, m_bool_search->get_value(v));
+        auto const* ineq = atom(litv);
+        if (!ineq)
+            return 0;
+        int64_t new_value;
+        double result = 0;
+        for (auto const & [coeff, x] : ineq->m_args) {
+            if (!cm(*ineq, x, new_value))
+                continue;
+            for (auto const [coeff, lit] : m_vars[x].m_literals) {
+                auto dtt_old = dtt(*atom(lit));
+                auto dtt_new = dtt(*atom(lit), x, new_value);
+                if ((dtt_new == 0) != (dtt_old == 0))
+                    result += m_bool_search->reward(lit.var());
+            }
+        }
+        return result; 
+    }
+
+    double sls::dscore_reward(sat::bool_var x) {
+        m_dscore_mode = false;
+        sat::literal litv(x, m_bool_search->get_value(x));
+        auto const* ineq = atom(litv);
+        if (!ineq)
+            return 0;
+        SASSERT(!ineq->is_true());
+        int64_t new_value;
+        double result = 0;
+        for (auto const& [coeff, v] : ineq->m_args) 
+            if (cm(*ineq, v, new_value)) 
+                result += dscore(v, new_value);        
+        return result;
+    }
+
+    // switch to dscore mode
+    void sls::on_rescale()  {
+        m_dscore_mode = true;
+    }
+
+    void sls::on_save_model() {
+        save_best_values();
+    }
+
+    void sls::on_restart()  {
+        for (unsigned v = 0; v < s.s().num_vars(); ++v)
+            init_bool_var_assignment(v);
     }
 }
 
