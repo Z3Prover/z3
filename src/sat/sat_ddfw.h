@@ -31,6 +31,17 @@ namespace sat {
     class solver;
     class parallel;
 
+    class local_search_plugin {
+    public:
+        virtual void init_search() = 0;
+        virtual void finish_search() = 0;
+        virtual void flip(bool_var v) = 0;
+        virtual double reward(bool_var v) = 0;
+        virtual void on_rescale() = 0;
+        virtual void on_save_model() = 0;
+        virtual void on_restart() = 0;
+    };
+
     class ddfw : public i_local_search {
     public:
         struct clause_info {
@@ -83,6 +94,7 @@ namespace sat {
             double   m_reward = 0;
             unsigned m_make_count = 0;
             int      m_bias = 0;
+            bool     m_external = false;
             ema      m_reward_avg = 1e-5;
         };
         
@@ -113,14 +125,15 @@ namespace sat {
         stopwatch        m_stopwatch;
 
         parallel*        m_par;
-
-
+        scoped_ptr< local_search_plugin> m_plugin;
 
         void flatten_use_list(); 
 
-        double mk_score(double r);
-
-        inline double score(double r) { return r; } // TBD: { for (unsigned sz = m_scores.size(); sz <= r; ++sz) m_scores.push_back(mk_score(sz)); return m_scores[r]; }
+        /**
+         * TBD: map reward value to a score, possibly through an exponential function, such as
+         * exp(-tau/r), where tau > 0
+         */
+        inline double score(double r) { return r; } 
 
         inline unsigned num_vars() const { return m_vars.size(); }
 
@@ -133,6 +146,12 @@ namespace sat {
         inline double& reward(bool_var v) { return m_vars[v].m_reward; }
 
         inline double reward(bool_var v) const { return m_vars[v].m_reward; }
+
+        inline double plugin_reward(bool_var v) const { return m_plugin->reward(v); }
+
+        void set_external(bool_var v) { m_vars[v].m_external = true; }
+
+        inline bool is_external(bool_var v) const { return m_vars[v].m_external; }
 
         inline int& bias(bool_var v) { return m_vars[v].m_bias; }
 
@@ -164,9 +183,25 @@ namespace sat {
 
         inline void dec_reward(literal lit, double w) { reward(lit.var()) -= w; }
 
+        void check_with_plugin();
+        void check_without_plugin();
+
         // flip activity
+        template<bool uses_plugin>
         bool do_flip();
-        bool_var pick_var();       
+
+        template<bool uses_plugin>
+        bool_var pick_var();     
+
+        template<bool uses_plugin>
+        bool apply_flip(bool_var v);
+
+        template<bool uses_plugin>
+        bool do_literal_flip();
+
+        template<bool uses_plugin>
+        bool_var pick_literal_var();
+
         void save_best_values();
         void save_model();
         void save_priorities();
@@ -214,6 +249,8 @@ namespace sat {
         ddfw(): m_par(nullptr) {}
 
         ~ddfw() override;
+
+        void set(local_search_plugin* p) { m_plugin = p; }
 
         lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
 

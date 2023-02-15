@@ -9,7 +9,7 @@
    
     DDFW Local search module for clauses
 
-  Author:
+  Author:        
 
     Nikolaj Bjorner, Marijn Heule 2019-4-23
      
@@ -33,25 +33,43 @@
 namespace sat {
 
     ddfw::~ddfw() {
-        for (auto& ci : m_clauses) {
-            m_alloc.del_clause(ci.m_clause);
-        }
+        for (auto& ci : m_clauses) 
+            m_alloc.del_clause(ci.m_clause);        
     }
-
 
     lbool ddfw::check(unsigned sz, literal const* assumptions, parallel* p) {
         init(sz, assumptions);
         flet<parallel*> _p(m_par, p);
-        while (m_limit.inc() && m_min_sz > 0) {
-            if (should_reinit_weights()) do_reinit_weights();
-            else if (do_flip()) ;
-            else if (should_restart()) do_restart();
-            else if (should_parallel_sync()) do_parallel_sync();
-            else shift_weights();                       
-        }
+        if (m_plugin)
+            check_with_plugin();
+        else
+            check_without_plugin();
         remove_assumptions();
         log();
         return m_min_sz == 0 ? l_true : l_undef;
+    }
+
+    void ddfw::check_without_plugin() {
+        while (m_limit.inc() && m_min_sz > 0) {
+            if (should_reinit_weights()) do_reinit_weights();
+            else if (do_flip<false>());
+            else if (should_restart()) do_restart();
+            else if (should_parallel_sync()) do_parallel_sync();
+            else shift_weights();
+        }
+    }
+
+    void ddfw::check_with_plugin() {
+        m_plugin->init_search();
+        while (m_limit.inc() && m_min_sz > 0) {
+            if (should_reinit_weights()) do_reinit_weights();
+            else if (do_flip<true>());
+            else if (do_literal_flip<true>());
+            else if (should_restart()) do_restart(), m_plugin->on_restart();
+            else if (should_parallel_sync()) do_parallel_sync();
+            else shift_weights(), m_plugin->on_rescale();
+        }
+        m_plugin->finish_search();
     }
 
     void ddfw::log() {
@@ -77,55 +95,72 @@ namespace sat {
         m_last_flips = m_flips;
     }
 
+    template<bool uses_plugin>
     bool ddfw::do_flip() {
-        bool_var v = pick_var();
+        bool_var v = pick_var<uses_plugin>();
+        return apply_flip<uses_plugin>(v);
+    }
+
+    template<bool uses_plugin>
+    bool ddfw::apply_flip(bool_var v) {
+        if (v == null_bool_var)
+            return false;
         if (reward(v) > 0 || (reward(v) == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
-            flip(v);
-            if (m_unsat.size() <= m_min_sz) save_best_values();
+            if (uses_plugin)
+                m_plugin->flip(v);
+            else
+                flip(v);
+            if (m_unsat.size() <= m_min_sz) 
+                save_best_values();
             return true;
         }
         return false;
     }
 
+    template<bool uses_plugin>
     bool_var ddfw::pick_var() {
         double sum_pos = 0;
         unsigned n = 1;
+        double r;
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
-            double r = reward(v);
-            if (r > 0.0) {                
-                sum_pos += score(r);
-            }
-            else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) {
-                v0 = v;
-            }
+            r = uses_plugin ? plugin_reward(v) : reward(v);
+            if (r > 0.0)    
+                sum_pos += score(r);            
+            else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) 
+                v0 = v;            
         }
         if (sum_pos > 0) {
             double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
-                double r = reward(v);
+                r = uses_plugin ? plugin_reward(v) : reward(v);
                 if (r > 0) {
                     lim_pos -= score(r);
-                    if (lim_pos <= 0) {
-                        return v;
-                    }
+                    if (lim_pos <= 0) 
+                        return v;                    
                 }
             }
         }
-        if (v0 != null_bool_var) {
+        if (v0 != null_bool_var) 
             return v0;
-        }
+        if (m_unsat_vars.empty())
+            return 0;
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
-    /**
-     * TBD: map reward value to a score, possibly through an exponential function, such as
-     * exp(-tau/r), where tau > 0
-     */
-    double ddfw::mk_score(double r) {
-        return r;
+    template<bool uses_plugin>
+    bool ddfw::do_literal_flip() {
+        return apply_flip<uses_plugin>(pick_literal_var<uses_plugin>());
     }
 
+    /*
+    * Pick a random false literal from a satisfied clause such that
+    * the literal has zero break count and positive reward.
+    */
+    template<bool uses_plugin>
+    bool_var ddfw::pick_literal_var() {
+        return null_bool_var;
+    }
 
     void ddfw::add(unsigned n, literal const* c) {        
         clause* cls = m_alloc.mk_clause(n, c, false);
@@ -409,6 +444,8 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
+        if (m_plugin)
+            m_plugin->on_save_model();
     }
 
 
