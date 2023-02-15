@@ -33,6 +33,7 @@ namespace sat {
 
     class local_search_plugin {
     public:
+        virtual ~local_search_plugin() {}
         virtual void init_search() = 0;
         virtual void finish_search() = 0;
         virtual void flip(bool_var v) = 0;
