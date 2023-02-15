@@ -32,6 +32,7 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     m_blast_distinct       = p.blast_distinct();
     m_blast_distinct_threshold = p.blast_distinct_threshold();
     m_ite_extra_rules      = p.ite_extra_rules();
+    m_hoist.set_elim_and(m_elim_and);
 }
 
 void bool_rewriter::get_param_descrs(param_descrs & r) {

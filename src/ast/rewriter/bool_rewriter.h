@@ -83,7 +83,6 @@ class bool_rewriter {
 public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_hoist(m), m_local_ctx_cost(0) { 
         updt_params(p); 
-        m_hoist.set(*this);
     }
     ast_manager & m() const { return m_manager; }
     family_id get_fid() const { return m().get_basic_family_id(); }

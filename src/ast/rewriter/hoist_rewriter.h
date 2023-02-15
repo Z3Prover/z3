@@ -29,7 +29,6 @@ class bool_rewriter;
 
 class hoist_rewriter {
     ast_manager &                   m;
-    bool_rewriter*                  m_rewriter = nullptr;
     expr_ref_vector                 m_args1, m_args2;
     obj_hashtable<expr>             m_preds1, m_preds2;
     basic_union_find                m_uf1, m_uf2, m_uf0;
@@ -40,6 +39,7 @@ class hoist_rewriter {
     obj_map<expr, unsigned>         m_expr2var;
     ptr_vector<expr>                m_var2expr;
     expr_mark                       m_mark;
+    bool                            m_elim_and = false;
 
     bool is_and(expr* e, expr_ref_vector* args);
     expr_ref mk_and(expr_ref_vector const& args);
@@ -62,7 +62,7 @@ public:
     static void get_param_descrs(param_descrs & r) {}
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);    
     br_status mk_or(unsigned num_args, expr * const * args, expr_ref & result);    
-    void set(bool_rewriter& r) { m_rewriter = &r; }
+    void set_elim_and(bool b) { m_elim_and = b; }
 };
 
 struct hoist_rewriter_cfg : public default_rewriter_cfg {
