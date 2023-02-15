@@ -814,12 +814,13 @@ class theory_lra::imp {
     }
 
     lpvar get_lpvar(expr* e) {
-        return get_lpvar(get_enode(e));
+        theory_var v = mk_var(e);
+        m_solver->register_existing_terms();
+        return register_theory_var_in_lar_solver(v);
     }
 
     lpvar get_lpvar(enode* n)  {
-        ensure_column(n);
-        return n ? get_lpvar(n->get_th_var(get_id())) : lp::null_lpvar;
+        return get_lpvar(n->get_expr());
     }
 
     lpvar get_lpvar(theory_var v) const {
@@ -1674,7 +1675,6 @@ public:
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
-                st = FC_DONE;
                 switch (eval_unsupported(e)) {
                 case FC_CONTINUE:
                     st = FC_CONTINUE;
