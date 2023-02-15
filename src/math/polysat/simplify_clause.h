@@ -17,6 +17,18 @@ Author:
 namespace polysat {
 
     class solver;
+    
+    struct trailing_bits {
+        unsigned length;
+        rational bits;
+        bool positive;
+        unsigned src_idx;
+    };
+    struct single_bit {
+        bool positive;
+        unsigned position;
+        unsigned src_idx;
+    };
 
     class simplify_clause {
 
@@ -33,6 +45,7 @@ namespace polysat {
         bool try_remove_equations(clause& cl);
         bool try_recognize_bailout(clause& cl);
         bool try_equal_body_subsumptions(clause& cl);
+        bool try_bit_subsumptions(clause& cl);
 
         void prepare_subs_entry(subs_entry& entry, signed_constraint c);
 
@@ -46,6 +59,9 @@ namespace polysat {
         simplify_clause(solver& s);
 
         bool apply(clause& cl);
+        
+        static bool get_trailing_mask(pdd lhs, pdd rhs, pdd& p, trailing_bits& mask, bool pos);
+        static bool get_bit(const pdd& lhs, const pdd& rhs, pdd& p, single_bit& bit, bool pos);
     };
 
 }

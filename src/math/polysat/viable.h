@@ -72,6 +72,7 @@ namespace polysat {
 
     class viable {
         friend class test_fi;
+        friend class test_polysat;
 
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
@@ -98,6 +99,8 @@ namespace polysat {
         bool refine_equal_lin(pvar v, rational const& val);
 
         bool refine_disequal_lin(pvar v, rational const& val);
+        
+        bool quick_bit_check(pvar v);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;

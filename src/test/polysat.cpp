@@ -668,6 +668,34 @@ namespace polysat {
             VERIFY_EQ((*cl)[0], s.ule(p, q).blit());
         }
 
+        // 2^1*x + 2^1 == 0 and 2^2*x == 0
+        static void test_fi_quickcheck1() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(3));
+            signed_constraint c1 = s.eq(x * 2 + 2, 0);
+            signed_constraint c2 = s.eq(4 * x, 0);
+            s.add_clause(c1, false);
+            s.add_clause(c2, false);
+            s.m_viable.intersect(x.var(), c1);
+            s.m_viable.intersect(x.var(), c2);
+            
+            VERIFY(!s.m_viable.quick_bit_check(x.var()));
+        }
+        
+        // parity(x) >= 3 and bit_1(x)
+        static void test_fi_quickcheck2() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(4));
+            signed_constraint c1 = s.parity_at_least(x, 3);
+            signed_constraint c2 = s.bit(x, 1);
+            s.add_clause(c1, false);
+            s.add_clause(c2, false);
+            s.m_viable.intersect(x.var(), c1);
+            s.m_viable.intersect(x.var(), c2);
+            
+            VERIFY(!s.m_viable.quick_bit_check(x.var()));
+        }
+        
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
         static void test_parity1() {
             scoped_solver s(__func__);
@@ -2037,7 +2065,9 @@ void tst_polysat() {
     RUN(test_polysat::test_ineq_axiom6());
     RUN(test_polysat::test_ineq_non_axiom1());
     RUN(test_polysat::test_ineq_non_axiom4());
-
+    
+    RUN(test_polysat::test_fi_quickcheck1());
+    RUN(test_polysat::test_fi_quickcheck2());
     if (collect_test_records)
         test_records.display(std::cout);
 }

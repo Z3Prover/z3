@@ -742,6 +742,143 @@ namespace {
         while (e != first);
         return true;
     }
+    
+    bool viable::quick_bit_check(pvar v) {
+#if 0
+        return true;
+#endif
+        auto* e = m_equal_lin[v];
+        auto* first = e;
+        if (!e)
+            return true;
+        
+        pdd p = s.var(v);
+        clause_builder builder(s, "bit check");
+        svector<lbool> fixed(p.power_of_2(), l_undef);
+        vector<ptr_vector<entry>> justifications(p.power_of_2(), ptr_vector<entry>());
+        vector<std::pair<entry*, trailing_bits>> postponed;
+        
+        auto add_entry = [&builder](entry* e) {
+            for (const auto& sc : e->side_cond) {
+                builder.insert_eval(~sc);
+                LOG("Side cond: " << sc);
+            }
+            builder.insert_eval(~e->src);
+            LOG("Adding to core: " << e->src);
+        };
+        
+        auto add_entry_list = [add_entry](const ptr_vector<entry>& list) {
+            for (const auto& e : list) 
+                add_entry(e);
+        };
+        
+        do {
+            single_bit bit;
+            trailing_bits mask;
+            if (e->src->is_ule() && 
+                simplify_clause::get_bit(s.subst(e->src->to_ule().lhs()), s.subst(e->src->to_ule().rhs()), p, bit, e->src.is_positive()) && p.is_var()) {
+                
+                lbool prev = fixed[bit.position];
+                fixed[bit.position] = bit.positive ? l_true : l_false;
+                //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n"; 
+                if (prev != l_undef && fixed[bit.position] != prev) {
+                    LOG("Bit conflicting " << e->src << " with " << justifications[bit.position][0]->src);
+                    add_entry_list(justifications[bit.position]);
+                    add_entry(e);
+                    s.set_conflict(*builder.build());
+                    return false;
+                }
+                // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+                justifications[bit.position].clear();
+                justifications[bit.position].push_back(e);
+            }
+            else if ((e->src->is_eq() || e->src.is_diseq()) && 
+                simplify_clause::get_trailing_mask(s.subst(e->src->to_ule().lhs()), s.subst(e->src->to_ule().rhs()), p, mask, e->src.is_positive()) && p.is_var()) {
+                
+                if (e->src.is_positive()) {
+                    for (unsigned i = 0; i < mask.length; i++) {
+                        lbool prev = fixed[i];
+                        fixed[i] = mask.bits.get_bit(i) ? l_true : l_false;
+                        //verbose_stream() << "Setting bit " << i << " to " << mask.bits.get_bit(i) << " because of parity " << e->src << "\n";
+                        if (prev != l_undef) {
+                            if (fixed[i] != prev) {
+                                LOG("Positive parity conflicting " << e->src << " with " << justifications[i][0]->src);
+                                add_entry_list(justifications[i]);
+                                add_entry(e);
+                                s.set_conflict(*builder.build());
+                                return false;
+                            }
+                        }
+                        else {
+                            SASSERT(justifications[i].empty());
+                            justifications[i].push_back(e);
+                        }
+                    }
+                }
+                else 
+                    postponed.push_back({ e, mask });
+            }
+            e = e->next();
+        } while(e != first);
+        
+        // TODO: Incomplete - e.g., if we know the trailing bits are not 00 not 10 not 01 and not 11 we could also detect a conflict
+        // This would require partially clause solving (worth the effort?)
+        bool_vector removed(postponed.size(), false);
+        bool changed;
+        do { // fixed-point required? 
+            changed = false;
+            for (unsigned j = 0; j < postponed.size(); j++) {
+                if (removed[j])
+                    continue;
+                const auto& neg = postponed[j];
+                unsigned indet = 0;
+                unsigned last_indet = 0;
+                unsigned i = 0;
+                for (; i < neg.second.length; i++) {
+                    if (fixed[i] != l_undef) {
+                        if (fixed[i] != (neg.second.bits.get_bit(i) ? l_true : l_false)) {
+                            removed[j] = true;
+                            break; // this is already satisfied
+                        }
+                    }
+                    else {
+                        indet++;
+                        last_indet = i;
+                    }
+                }
+                if (i == neg.second.length) {
+                    if (indet == 0) {
+                        // Already false
+                        LOG("Found conflict with constraint " << neg.first->src);
+                        for (unsigned k = 0; k < neg.second.length; k++)
+                            add_entry_list(justifications[k]);
+                        add_entry(neg.first);
+                        s.set_conflict(*builder.build());
+                        return false;
+                    }
+                    else if (indet == 1) {
+                        // Simple BCP
+                        auto& justification = justifications[last_indet];
+                        SASSERT(justification.empty());
+                        for (unsigned k = 0; k < neg.second.length; k++) {
+                            if (k != last_indet) {
+                                SASSERT(fixed[k] != l_undef);
+                                for (const auto& just : justifications[k])
+                                    justification.push_back(just);
+                            }
+                        }
+                        justification.push_back(neg.first);
+                        fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
+                        removed[j] = true;
+                        //verbose_stream() << "Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src << "\n";
+                        changed = true;
+                    } 
+                }
+            }
+        } while(changed);
+
+        return true;
+    }
 
     bool viable::has_viable(pvar v) {
         refined:
@@ -997,7 +1134,7 @@ namespace {
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return query_fallback<mode>(v, result);
     }
-
+    
     lbool viable::query_find(pvar v, rational& lo, rational& hi) {
         auto const& max_value = s.var2pdd(v).max_value();
         lbool const refined = l_undef;
@@ -1007,6 +1144,9 @@ namespace {
         // For this reason, we start chasing the intervals from the start again.
         lo = 0;
         hi = max_value;
+        
+        if (!quick_bit_check(v))
+            return l_false;
 
         auto* e = m_units[v];
         if (!e && !refine_viable(v, lo))
@@ -1229,6 +1369,7 @@ namespace {
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
         verbose_stream() << "unsat core " << core << "\n";
+        //exit(0);
         return true;
     }
 

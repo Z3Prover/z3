@@ -749,16 +749,18 @@ namespace polysat {
         if (a_parity != a_max_parity || (a_parity > 0 && saturation.min_parity(a1, explain_a_parity) < a_parity))
             return { p, false }; // We need the parity of a and this has to be for sure less than the parity of a1
         
+#if 0
+        pdd a_pi = get_pseudo_inverse(a, a_parity);
+#else
         pdd a_pi = s.pseudo_inv(a);
         for (auto c : explain_a_parity) 
             precondition.insert_eval(~c);
         
         if (b.is_zero())
             return { b1, true };
-
+#endif
         
-        
-        pdd shift = a; // [nsb cr: should this be a1?]
+        pdd shift = a1;
         
         if (a_parity > 0) {
             shift = s.lshr(a1, a1.manager().mk_val(a_parity));
