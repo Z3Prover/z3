@@ -81,6 +81,8 @@ namespace nla {
     lbool powers::check(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
         if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
             return l_undef;
+        if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(r))
+            return l_undef;
 
         core& c = m_core;        
         if (c.use_nra_model()) 
