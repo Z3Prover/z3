@@ -260,12 +260,7 @@ namespace euf {
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
-        constraint& lit_constraint(enode* n);
-
-        // local search
-        unsigned m_max_bool_steps = 10;
-        bool is_propositional(sat::literal lit);
-        void setup_bounds(sat::ddfw& bool_search, bool_vector const& mdl);
+        constraint& lit_constraint(enode* n);        
 
         // user propagator
         void check_for_user_propagator() {

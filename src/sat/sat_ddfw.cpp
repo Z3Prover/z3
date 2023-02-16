@@ -61,7 +61,8 @@ namespace sat {
 
     void ddfw::check_with_plugin() {
         m_plugin->init_search();
-        while (m_limit.inc() && m_min_sz > 0) {
+        m_steps_since_progress = 0;
+        while (m_min_sz > 0 && m_steps_since_progress++ <= 1500000) {
             if (should_reinit_weights()) do_reinit_weights();
             else if (do_flip<true>());
             else if (do_literal_flip<true>());
@@ -106,7 +107,7 @@ namespace sat {
         if (v == null_bool_var)
             return false;
         if (reward(v) > 0 || (reward(v) == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
-            if (uses_plugin)
+            if (uses_plugin && is_external(v))
                 m_plugin->flip(v);
             else
                 flip(v);
@@ -159,6 +160,24 @@ namespace sat {
     */
     template<bool uses_plugin>
     bool_var ddfw::pick_literal_var() {
+#if false
+        unsigned sz = m_clauses.size();
+        unsigned start = rand();
+        for (unsigned i = 0; i < 100; ++i) {
+            unsigned cl = (i + start) % sz;
+            if (m_unsat.contains(cl))
+                continue;
+            for (auto lit : *m_clauses[cl].m_clause) {
+                if (is_true(lit))
+                    continue;
+                double r = uses_plugin ? plugin_reward(lit.var()) : reward(lit.var());
+                if (r < 0)
+                    continue;
+                //verbose_stream() << "false " << r << " " << lit << "\n";
+                return lit.var();
+            }
+        }
+#endif
         return null_bool_var;
     }
 
@@ -453,6 +472,7 @@ namespace sat {
         if (m_unsat.empty()) 
             save_model();
         else if (m_unsat.size() < m_min_sz) {
+            m_steps_since_progress = 0;
             if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
                 save_model();
         }

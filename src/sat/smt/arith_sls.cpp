@@ -26,32 +26,7 @@ namespace arith {
     void sls::reset() {
         m_literals.reset();
         m_vars.reset();
-        m_clauses.reset();
         m_terms.reset();
-    }
-
-    lbool sls::operator()(bool_vector& phase) {
-        
-        unsigned num_steps = 0;
-        for (unsigned v = 0; v < s.s().num_vars(); ++v)
-            init_bool_var_assignment(v);
-        verbose_stream() << "max arith steps " << m_max_arith_steps << "\n";
-        m_max_arith_steps = std::max(1000u, m_max_arith_steps);
-        while (m.inc() && m_best_min_unsat > 0 && num_steps < m_max_arith_steps) {
-            if (!flip())
-                break;
-            ++m_stats.m_num_flips;
-            ++num_steps;
-            unsigned num_unsat = unsat().size();
-            if (num_unsat < m_best_min_unsat) {
-                m_best_min_unsat = num_unsat;
-                num_steps = 0;
-                save_best_values();
-            }
-        }
-        store_best_values();
-        log();
-        return unsat().empty() ? l_true : l_undef;
     }
 
     void sls::log() {
@@ -105,7 +80,6 @@ namespace arith {
         reset();
         m_literals.reserve(s.s().num_vars() * 2);
         add_vars();
-        m_clauses.resize(d->num_clauses());
         for (unsigned i = 0; i < d->num_clauses(); ++i)
             for (sat::literal lit : *d->get_clause_info(i).m_clause)
                 init_literal(lit);
@@ -116,22 +90,6 @@ namespace arith {
         d->set(this);
     }
 
-    void sls::set_bounds_begin() {        
-        m_max_arith_steps = 0;
-    }
-
-    void sls::set_bounds(enode* n) {
-        ++m_max_arith_steps;
-    }
-
-    void sls::set_bounds_end(unsigned num_literals) {
-        m_max_arith_steps = (m_config.L * m_max_arith_steps); // / num_literals;
-    }
-
-    bool sls::flip() {
-        log();
-        return flip_unsat() || flip_clauses() || flip_dscore();
-    }
 
     // distance to true
     int64_t sls::dtt(int64_t args, ineq const& ineq) const {
@@ -207,31 +165,6 @@ namespace arith {
         return false;
     }
 
-    bool sls::flip_unsat() {
-        unsigned start = s.random();
-        unsigned sz = unsat().size();
-        for (unsigned i = sz; i-- > 0; ) 
-            if (flip_clause(unsat().elem_at((i + start) % sz)))
-                return true;        
-        return false;
-    }
-
-    bool sls::flip_clause(unsigned cl) {
-        auto const& clause = get_clause(cl);
-        for (literal lit : clause) {
-            if (is_true(lit))
-                continue;
-            auto const* ineq = atom(lit);
-            if (!ineq)
-                continue;
-            SASSERT(!ineq->is_true());
-            if (flip(*ineq))
-                return true;
-
-        }
-        return false;
-    }
-
     // flip on the first positive score
     // it could be changed to flip on maximal positive score
     // or flip on maximal non-negative score
@@ -255,77 +188,17 @@ namespace arith {
         return false;
     }
 
-    bool sls::flip_clauses() {
-        unsigned start = s.random();
-        unsigned sz = m_bool_search->num_clauses();
-        for (unsigned i = sz; i-- > 0; )
-            if (flip_clause((i + start) % sz))
-                return true;
-        return false;
-    }
-
-    bool sls::flip_dscore() {
-        paws();
-        unsigned start = s.random();
-        unsigned sz = unsat().size();
-        for (unsigned i = sz; i-- > 0; ) 
-            if (flip_dscore(unsat().elem_at((i + start) % sz)))
-                return true;        
-        return false;
-    }
-
-    bool sls::flip_dscore(unsigned cl) {
-        auto const& clause = get_clause(cl);
-        int64_t new_value, min_value, min_score(-1);
-        var_t min_var = UINT_MAX;
-        for (auto lit : clause) {
-            auto const* ineq = atom(lit);
-            if (!ineq || ineq->is_true())
-                continue;
-            for (auto const& [coeff, v] : ineq->m_args) {
-                if (cm(*ineq, v, new_value)) {
-                    int64_t score = dscore(v, new_value);
-                    if (UINT_MAX == min_var || score < min_score) {
-                        min_var = v;
-                        min_value = new_value;
-                        min_score = score;
-                    }
-                }
-            }
-        }
-        if (min_var != UINT_MAX) {
-            update(min_var, min_value);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-    * redistribute weights of clauses. 
-    * TODO - re-use ddfw weights instead.
-    */
-    void sls::paws() {
-        for (unsigned cl = num_clauses(); cl-- > 0; ) {
-            auto& clause = get_clause_info(cl);
-            bool above = 10000 * m_config.sp <= (s.random() % 10000);
-            if (!above && clause.is_true() && get_weight(cl) > 1)
-                get_weight(cl) -= 1;
-            if (above && !clause.is_true())
-                get_weight(cl) += 1;
-        }
-    }
-
     //
     // dscore(op) = sum_c (dts(c,alpha) - dts(c,alpha_after)) * weight(c)
     // TODO - use cached dts instead of computed dts
     // cached dts has to be updated when the score of literals are updated.
     // 
-    int64_t sls::dscore(var_t v, int64_t new_value) const {
+    double sls::dscore(var_t v, int64_t new_value) const {
         auto const& vi = m_vars[v];
-        int64_t score(0);
+        double score = 0;
         for (auto const& [coeff, lit] : vi.m_literals) 
             for (auto cl : m_bool_search->get_use_list(lit))              
-                score += (compute_dts(cl) - dts(cl, v, new_value)) * int64_t(get_weight(cl));        
+                score += (compute_dts(cl) - dts(cl, v, new_value)) * m_bool_search->get_weight(cl);        
         return score;
     }
 
@@ -435,46 +308,6 @@ namespace arith {
         ineq.m_args.push_back({ c, v });
         ineq.m_args_value += c * value(v);
         m_vars[v].m_literals.push_back({ c, lit });
-    }
-
-    void sls::add_bounds(sat::literal_vector& bounds) {
-        unsigned bvars = s.s().num_vars();
-        auto add_ineq = [&](sat::literal lit, ineq& i) {
-            m_literals.set(lit.index(), &i);
-            bounds.push_back(lit);
-        };
-        for (unsigned v = 0; v < s.get_num_vars(); ++v) {
-            rational lo, hi;
-            bool is_strict_lo = false, is_strict_hi = false;
-            lp::constraint_index ci;
-            if (!s.is_registered_var(v))
-                continue;
-            lp::column_index vi = s.lp().to_column_index(v);
-            if (vi.is_null())
-                continue;
-            bool has_lo = s.lp().has_lower_bound(vi.index(), ci, lo, is_strict_lo);
-            bool has_hi = s.lp().has_upper_bound(vi.index(), ci, hi, is_strict_hi);
-
-            if (has_lo && has_hi && lo == hi) {
-                auto& ineq = new_ineq(sls::ineq_kind::EQ, to_numeral(lo));
-                sat::literal lit(bvars++);
-                add_arg(lit, ineq, 1, v);
-                add_ineq(lit, ineq);
-                continue;
-            }
-            if (has_lo) {
-                auto& ineq = new_ineq(is_strict_lo ? sls::ineq_kind::LT : sls::ineq_kind::LE, to_numeral(-lo));
-                sat::literal lit(bvars++);
-                add_arg(lit, ineq, -1, v);
-                add_ineq(lit, ineq);
-            }
-            if (has_hi) {
-                auto& ineq = new_ineq(is_strict_hi ? sls::ineq_kind::LT : sls::ineq_kind::LE, to_numeral(hi));
-                sat::literal lit(bvars++);
-                add_arg(lit, ineq, 1, v);
-                add_ineq(lit, ineq);
-            }
-        }
     }
 
     int64_t sls::to_numeral(rational const& r) {
@@ -635,4 +468,3 @@ namespace arith {
             init_bool_var_assignment(v);
     }
 }
-

@@ -100,11 +100,6 @@ namespace arith {
             svector<std::pair<int64_t, sat::literal>> m_literals;
         };
 
-        struct clause {
-            unsigned m_weight = 1;
-            int64_t m_dts = 1;
-        };
-
         solver& s;
         ast_manager& m;
         sat::ddfw* m_bool_search = nullptr;
@@ -114,7 +109,6 @@ namespace arith {
         config                       m_config;
         scoped_ptr_vector<ineq>      m_literals;
         vector<var_info>             m_vars;
-        vector<clause>               m_clauses;
         svector<std::pair<lp::tv, euf::theory_var>> m_terms;
         bool                         m_dscore_mode = false;
 
@@ -129,15 +123,9 @@ namespace arith {
 
         void reset();
         ineq* atom(sat::literal lit) const { return m_literals[lit.index()]; }
-        unsigned& get_weight(unsigned idx) { return m_clauses[idx].m_weight; }
-        unsigned get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
-        bool flip();
+
         void log();
-        bool flip_unsat();
-        bool flip_clauses();
-        bool flip_dscore();
-        bool flip_dscore(unsigned cl);
-        bool flip_clause(unsigned cl);
+
         bool flip(ineq const& ineq);
         int64_t dtt(ineq const& ineq) const { return dtt(ineq.m_args_value, ineq); }
         int64_t dtt(int64_t args, ineq const& ineq) const;
@@ -149,14 +137,12 @@ namespace arith {
         void update(var_t v, int64_t new_value);
         double dscore_reward(sat::bool_var v);
         double dtt_reward(sat::bool_var v);
-        void paws();
-        int64_t dscore(var_t v, int64_t new_value) const;
+        double dscore(var_t v, int64_t new_value) const;
         void save_best_values();
         void store_best_values();
         void add_vars();
         sls::ineq& new_ineq(ineq_kind op, int64_t const& bound);
         void add_arg(sat::literal lit, ineq& ineq, int64_t const& c, var_t v);
-        void add_bounds(sat::literal_vector& bounds);
         void add_args(sat::literal lit, ineq& ineq, lp::tv t, euf::theory_var v, int64_t sign);
         void init_literal(sat::literal lit);
         void init_bool_var_assignment(sat::bool_var v);
@@ -168,12 +154,7 @@ namespace arith {
     public:
         sls(solver& s);
         ~sls() override {}
-        lbool operator ()(bool_vector& phase);
-        void set_bounds_begin();
-        void set_bounds_end(unsigned num_literals);
-        void set_bounds(euf::enode* n);
         void set(sat::ddfw* d);
-
         void init_search() override;
         void finish_search() override;
         void flip(sat::bool_var v) override;

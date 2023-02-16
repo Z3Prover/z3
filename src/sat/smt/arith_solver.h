@@ -512,10 +512,6 @@ namespace arith {
         bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_add(n->get_expr()); }
         bool has_unhandled() const override { return m_not_handled != nullptr; }
 
-        void set_bounds_begin() override { m_local_search.set_bounds_begin(); }
-        void set_bounds_end(unsigned num_literals) override { m_local_search.set_bounds_end(num_literals); }
-        void set_bounds(enode* n) override { m_local_search.set_bounds(n); }
-        lbool local_search(bool_vector& phase) override { return m_local_search(phase); }
         void set_bool_search(sat::ddfw* ddfw) override { m_local_search.set(ddfw); }
 
         // bounds and equality propagation callbacks

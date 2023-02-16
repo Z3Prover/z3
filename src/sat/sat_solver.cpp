@@ -1302,9 +1302,6 @@ namespace sat {
                 return l_undef;
             }
 
-            // uncomment this to test bounded local search:
-            // bounded_local_search();
-
             log_stats();
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {               
                 m_restart_threshold = m_config.m_burst_search;
