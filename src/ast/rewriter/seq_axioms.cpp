@@ -928,7 +928,6 @@ namespace seq {
        e1 < e2 => prefix(e1, e2) or e1 = xcy 
        e1 < e2 => prefix(e1, e2) or c < d 
        e1 < e2 => prefix(e1, e2) or e2 = xdz 
-       e1 < e2 => e1 != e2
        !(e1 < e2) => prefix(e2, e1) or e2 = xdz 
        !(e1 < e2) => prefix(e2, e1) or d < c 
        !(e1 < e2) => prefix(e2, e1) or e1 = xcy 
@@ -938,6 +937,7 @@ namespace seq {
        e1 < e2 or e1 = e2 or e2 < e1 
        !(e1 = e2) or !(e2 < e1) 
        !(e1 < e2) or !(e2 < e1)
+
     */
     void axioms::lt_axiom(expr* n) {
         expr* _e1 = nullptr, *_e2 = nullptr;
@@ -948,6 +948,7 @@ namespace seq {
         sort* char_sort = nullptr;
         VERIFY(seq.is_seq(s, char_sort));
         expr_ref lt = expr_ref(n, m);
+        expr_ref gt = expr_ref(seq.str.mk_lex_lt(e2, e1), m);
         expr_ref x = m_sk.mk("str.<.x", e1, e2);
         expr_ref y = m_sk.mk("str.<.y", e1, e2);
         expr_ref z = m_sk.mk("str.<.z", e1, e2);
@@ -969,6 +970,7 @@ namespace seq {
         add_clause(lt, pref21, ltdc);
         add_clause(lt, pref21, e2xdz);
         add_clause(~eq, ~lt);
+        add_clause(eq, lt, gt); 
     }
 
     /**
