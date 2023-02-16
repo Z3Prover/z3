@@ -1107,6 +1107,8 @@ namespace {
 
     template <query_t mode>
     lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
+        if (!quick_bit_check(v))
+            return l_false;
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
         unsigned refinements = refinement_budget;
@@ -1145,9 +1147,6 @@ namespace {
         lo = 0;
         hi = max_value;
         
-        if (!quick_bit_check(v))
-            return l_false;
-
         auto* e = m_units[v];
         if (!e && !refine_viable(v, lo))
             return refined;
