@@ -772,6 +772,8 @@ namespace {
                 add_entry(e);
         };
         
+        unsigned largest_mask = 0;
+        
         do {
             single_bit bit;
             trailing_bits mask;
@@ -807,6 +809,14 @@ namespace {
                                 add_entry(e);
                                 s.set_conflict(*builder.build());
                                 return false;
+                            }
+                            else {
+                                // Prefer justifications from larger masks (less premisses)
+                                if (largest_mask < mask.length) {
+                                    largest_mask = mask.length;
+                                    justifications[i].clear();
+                                    justifications[i].push_back(e);
+                                }
                             }
                         }
                         else {
