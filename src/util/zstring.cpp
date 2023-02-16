@@ -214,7 +214,8 @@ int zstring::indexofu(zstring const& other, unsigned offset) const {
 }
 
 int zstring::last_indexof(zstring const& other) const {
-    if (other.length() == 0) return length();
+    if (length() == 0 && other.length() == 0) return 0;
+    if (other.length() == 0) return -1;
     if (other.length() > length()) return -1;
     for (unsigned last = length() - other.length() + 1; last-- > 0; ) {
         bool suffix = true;
