@@ -545,11 +545,11 @@ namespace polysat {
                 if (rb == (pb && qb))
                     continue;
                 if (pb && qb && !rb)
-                    s.add_clause(s.mk_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true));
+                    return s.mk_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true);
                 else if (!pb && rb)
-                    s.add_clause(s.mk_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true));
+                    return s.mk_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true);
                 else if (!qb && rb)
-                    s.add_clause(s.mk_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true));
+                    return s.mk_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true);
                 else
                     UNREACHABLE();
             }
