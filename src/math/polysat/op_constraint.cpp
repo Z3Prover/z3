@@ -275,7 +275,7 @@ namespace polysat {
         }
         else {
             // forward propagation
-            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            /*SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
             if (qv.is_val() && !rv.is_val()) {
                 const rational& qr = qv.val();
                 if (qr >= m.power_of_2())
@@ -285,7 +285,7 @@ namespace polysat {
                     const rational& pr = pv.val();
                     return s.mk_clause(~lshr, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(machine_div(pr, rational::power_of_two(qr.get_unsigned())))), true);
                 }
-            }
+            }*/
         }
         return {};
     }
@@ -365,7 +365,7 @@ namespace polysat {
         }
         else {
             // forward propagation
-            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            /*SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
             if (qv.is_val() && !rv.is_val()) {
                 const rational& qr = qv.val();
                 if (qr >= m.power_of_2())
@@ -375,7 +375,7 @@ namespace polysat {
                     const rational& pr = pv.val();
                     return s.mk_clause(~shl, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(rational::power_of_two(qr.get_unsigned()) * pr)), true);
                 }
-            }
+            }*/
         }
         return {};
     }
@@ -544,16 +544,25 @@ namespace polysat {
                 bool rb = rv.val().get_bit(i);
                 if (rb == (pb && qb))
                     continue;
-                if (pb && qb && !rb)
-                    return s.mk_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true);
-                else if (!pb && rb)
-                    return s.mk_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true);
-                else if (!qb && rb)
-                    return s.mk_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true);
+                if (pb && qb && !rb) {
+                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
+                    verbose_stream() << "1 & 1 = 0 bit " << i << "\n";
+                    s.add_clause(s.mk_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true));
+                }
+                else if (!pb && rb) {
+                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
+                    verbose_stream() << "0 & ? = 1 bit " << i << "\n";
+                    s.add_clause(s.mk_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true));
+                }
+                else if (!qb && rb) {
+                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
+                    verbose_stream() << "? & 0 = 1 bit " << i << "\n";
+                    s.add_clause(s.mk_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true));
+                }
                 else
                     UNREACHABLE();
-                return {};
             }
+            return {};
         }
 
         // Propagate r if p or q are 0
@@ -562,8 +571,9 @@ namespace polysat {
         if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
             return s.mk_clause(~andc, s.ule(r(), q()), true);
         // p = a && q = b ==> r = a & b
-        if (pv.is_val() && qv.is_val() && !rv.is_val())
+        /*if (pv.is_val() && qv.is_val() && !rv.is_val()) {
             return s.mk_clause(~andc, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), bitwise_and(pv.val(), qv.val())), true);
+        }*/
 
         return {};
     }
@@ -652,8 +662,8 @@ namespace polysat {
 
         // forward propagation: p assigned  ==>  r = pseudo_inverse(eval(p))
         // TODO: (later) this should be propagated instead of adding a clause
-        if (pv.is_val() && !rv.is_val())
-            return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);
+        /*if (pv.is_val() && !rv.is_val())
+            return s.mk_clause(~invc, ~s.eq(p(), pv), s.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);*/
 
         if (!pv.is_val() || !rv.is_val())
             return {};

@@ -94,13 +94,20 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        bool refine_viable(pvar v, rational const& val);
+        template<bool FORWARD>
+        bool refine_viable(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+
+        template<bool FORWARD>
+        bool refine_bits(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
 
         bool refine_equal_lin(pvar v, rational const& val);
 
         bool refine_disequal_lin(pvar v, rational const& val);
-        
-        bool quick_bit_check(pvar v);
+
+        template<bool FORWARD>
+        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const;
+
+        bool collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
@@ -113,9 +120,9 @@ namespace polysat {
          * Interval-based queries
          * @return l_true on success, l_false on conflict, l_undef on refinement
          */
-        lbool query_min(pvar v, rational& out_lo);
-        lbool query_max(pvar v, rational& out_hi);
-        lbool query_find(pvar v, rational& out_lo, rational& out_hi);
+        lbool query_min(pvar v, rational& out_lo, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+        lbool query_max(pvar v, rational& out_hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+        lbool query_find(pvar v, rational& out_lo, rational& out_hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
 
         /**
          * Bitblasting-based queries.
@@ -261,7 +268,7 @@ namespace polysat {
             }
 
             signed_constraint& operator*() {
-                return idx < curr->side_cond.size() ? curr->side_cond[idx] : curr->src;
+                return idx < curr->side_cond.size() ? curr->side_cond[idx] : curr->src[idx - curr->side_cond.size()];
             }
 
             bool operator==(iterator const& other) const {

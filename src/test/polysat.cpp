@@ -678,8 +678,9 @@ namespace polysat {
             s.add_clause(c2, false);
             s.m_viable.intersect(x.var(), c1);
             s.m_viable.intersect(x.var(), c2);
-            
-            VERIFY(!s.m_viable.quick_bit_check(x.var()));
+            svector<lbool> fixed;
+            vector<ptr_vector<viable::entry>> justifications;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
         }
         
         // parity(x) >= 3 and bit_1(x)
@@ -692,8 +693,9 @@ namespace polysat {
             s.add_clause(c2, false);
             s.m_viable.intersect(x.var(), c1);
             s.m_viable.intersect(x.var(), c2);
-            
-            VERIFY(!s.m_viable.quick_bit_check(x.var()));
+            svector<lbool> fixed;
+            vector<ptr_vector<viable::entry>> justifications;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
         }
         
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
@@ -1490,9 +1492,9 @@ namespace polysat {
         }
 
         // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
-        static void test_ineq_axiom4(unsigned bw = 32) {
+        static void test_ineq_axiom4(unsigned bw = 32, unsigned i = 0) {
             auto const bound = rational::power_of_two(bw/2);
-            for (unsigned i = 0; i < 24; ++i) {
+            for (; i < 24; ++i) {
                 scoped_solver s(concat(__func__, " bw=", bw, " perm=", i));
                 auto x = s.var(s.add_var(bw));
                 auto y = s.var(s.add_var(bw));
@@ -1950,7 +1952,7 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 
 void tst_polysat() {
     using namespace polysat;
-
+    test_polysat::test_ineq_axiom4(32, 7);
 #if 0  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;

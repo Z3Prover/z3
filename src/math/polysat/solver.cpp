@@ -443,7 +443,9 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
+#if 0
         m_fixed_bits.push();
+#endif
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -458,8 +460,9 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
 #endif
+#if 0
         m_fixed_bits.pop();
-        
+#endif
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
