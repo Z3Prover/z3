@@ -544,21 +544,12 @@ namespace polysat {
                 bool rb = rv.val().get_bit(i);
                 if (rb == (pb && qb))
                     continue;
-                if (pb && qb && !rb) {
-                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
-                    verbose_stream() << "1 & 1 = 0 bit " << i << "\n";
+                if (pb && qb && !rb)
                     s.add_clause(s.mk_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true));
-                }
-                else if (!pb && rb) {
-                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
-                    verbose_stream() << "0 & ? = 1 bit " << i << "\n";
+                else if (!pb && rb)
                     s.add_clause(s.mk_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true));
-                }
-                else if (!qb && rb) {
-                    verbose_stream() << "Conflict propagation " << pv << " (" << p() << ") & " << qv << " (" << q() << ") = " << bitwise_and(pv.val(), qv.val()) << " (" << r() << ")\n";
-                    verbose_stream() << "? & 0 = 1 bit " << i << "\n";
+                else if (!qb && rb)
                     s.add_clause(s.mk_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true));
-                }
                 else
                     UNREACHABLE();
             }

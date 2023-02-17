@@ -898,15 +898,11 @@ namespace {
         vector<std::pair<entry*, trailing_bits>> postponed;
 
         auto add_entry = [&builder](entry* e) {
-            for (const auto& sc : e->side_cond) {
+            for (const auto& sc : e->side_cond)
                 builder.insert_eval(~sc);
-                LOG("Side cond: " << sc);
-            }
             SASSERT(e->src.size() == 1);
-            for (const auto& src : e->src) {
+            for (const auto& src : e->src)
                 builder.insert_eval(~src);
-                LOG("Adding to core: " << e->src);
-            }
         };
         
         auto add_entry_list = [add_entry](const ptr_vector<entry>& list) {
@@ -931,7 +927,7 @@ namespace {
                 fixed[bit.position] = bit.positive ? l_true : l_false;
                 //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n"; 
                 if (prev != l_undef && fixed[bit.position] != prev) {
-                    verbose_stream() << "Bit conflicting " << e->src << " with " << justifications[bit.position][0]->src << "\n";
+                    LOG("Bit conflicting " << e->src << " with " << justifications[bit.position][0]->src);
                     if (add_conflict) {
                         add_entry_list(justifications[bit.position]);
                         add_entry(e);
@@ -954,7 +950,7 @@ namespace {
                         //verbose_stream() << "Setting bit " << i << " to " << mask.bits.get_bit(i) << " because of parity " << e->src << "\n";
                         if (prev != l_undef) {
                             if (fixed[i] != prev) {
-                                verbose_stream() << "Positive parity conflicting " << e->src << " with " << justifications[i][0]->src << "\n";
+                                LOG("Positive parity conflicting " << e->src << " with " << justifications[i][0]->src);
                                 if (add_conflict) {
                                     add_entry_list(justifications[i]);
                                     add_entry(e);
@@ -1013,7 +1009,7 @@ namespace {
                 if (i == neg.second.length) {
                     if (indet == 0) {
                         // Already false
-                        verbose_stream() << "Found conflict with constraint " << neg.first->src << "\n";
+                        LOG("Found conflict with constraint " << neg.first->src);
                         if (add_conflict) {
                             for (unsigned k = 0; k < neg.second.length; k++)
                                 add_entry_list(justifications[k]);
@@ -1036,7 +1032,7 @@ namespace {
                         justification.push_back(neg.first);
                         fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
                         removed[j] = true;
-                        //verbose_stream() << "Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src << "\n";
+                        LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
                         changed = true;
                     } 
                 }
