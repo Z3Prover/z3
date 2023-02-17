@@ -78,7 +78,7 @@ namespace polysat {
         forbidden_intervals      m_forbidden_intervals;
 
         struct entry final : public dll_base<entry>, public fi_record {
-            entry const* refined = nullptr;
+            ptr_vector<entry const> refined;
         };
         enum class entry_kind { unit_e, equal_e, diseq_e };
 
@@ -105,7 +105,7 @@ namespace polysat {
         bool refine_disequal_lin(pvar v, rational const& val);
 
         template<bool FORWARD>
-        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const;
+        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const;
 
         bool collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications);
 
@@ -257,7 +257,7 @@ namespace polysat {
                 curr(curr), visited(visited || !curr) {}
 
             iterator& operator++() {
-                if (idx < curr->side_cond.size())
+                if (idx < curr->side_cond.size() + curr->src.size() - 1)
                     ++idx;
                 else {
                     idx = 0;

@@ -80,8 +80,8 @@ namespace polysat {
         auto* e = m_alloc.back();
         e->src.reset();
         e->side_cond.reset();
+        e->refined.reset();
         e->coeff = 1;
-        e->refined = nullptr;
         m_alloc.pop_back();
         return e;
     }
@@ -239,6 +239,7 @@ namespace polysat {
 
     bool viable::intersect(pvar v, entry* ne) {
         SASSERT(!s.is_assigned(v));
+        SASSERT(!ne->src.empty());
         entry* e = m_units[v];
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
@@ -493,8 +494,6 @@ namespace {
         rational y_max = compute_y_max(y0, a, lo, hi, M);
         while (y_max < y_max_max && is_valid(y_max + 1)) {
             y_max = compute_y_max(y_max + 1, a, lo, hi, M);
-            if (i >= 95)
-                verbose_stream() << "refined y_max: " << y_max << "\n";
             if (++i == max_refinements)
                 break;
         }
@@ -504,8 +503,6 @@ namespace {
         rational y_min = y0;
         while (y_min > y_min_min && is_valid(y_min - 1)) {
             y_min = compute_y_min(y_min - 1, a, lo, hi, M);
-            if (i >= 95)
-                verbose_stream() << "refined y_min: " << y_min << "\n";
             if (++i == max_refinements)
                 break;
         }
@@ -527,7 +524,7 @@ namespace {
 
         // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
         entry* ne = alloc_entry();
-        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond);
+        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
 
         if (new_val == val) {
             m_alloc.push_back(ne);
@@ -594,7 +591,7 @@ namespace {
                         // No solution
                         LOG("refined: no solution due to parity");
                         entry* ne = alloc_entry();
-                        ne->refined = e;
+                        ne->refined.push_back(e);
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -611,7 +608,7 @@ namespace {
                         LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                         SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is the solution
                         entry* ne = alloc_entry();
-                        ne->refined = e;
+                        ne->refined.push_back(e);
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -643,7 +640,7 @@ namespace {
                     SASSERT_EQ(mod(a * (lo - 1), mod_value), b);  // lo-1 is a solution
                     SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is a solution
                     entry* ne = alloc_entry();
-                    ne->refined = e;
+                    ne->refined.push_back(e);
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
@@ -671,7 +668,7 @@ namespace {
                 if (hi == mod_value)
                     hi = 0;
                 entry* ne = alloc_entry();
-                ne->refined = e;
+                ne->refined.push_back(e);
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -768,7 +765,7 @@ namespace {
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
-                ne->refined = e;
+                ne->refined.push_back(e);
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -784,7 +781,7 @@ namespace {
 
     // Skips all values that are not feasible w.r.t. fixed bits
     template<bool FORWARD>
-    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
+    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const {
         unsigned k = var.power_of_2();
         if (fixed.empty())
             return bound;
@@ -800,6 +797,7 @@ namespace {
                     side_cond.push_back(sc);
                 for (auto& c : add->src)
                     src.push_back(c);
+                refined.push_back(add);
             }
         };
 
@@ -820,7 +818,7 @@ namespace {
             if (fixed[i] != l_undef) {
                 SASSERT(fixed[i] == l_true || fixed[i] == l_false);
                 new_bound[i] = fixed[i];
-                if (FORWARD != (fixed[i] == l_false))
+                if (i == firstFail - 1 || FORWARD != (fixed[i] == l_false))
                     add_justification(i); // Minimize number of responsible fixed bits; we only add those justifications we need for sure
             }
             else
@@ -859,6 +857,7 @@ namespace {
                     add_justification(i); // Again, we need this justification; if carry is false we don't need it
             }
         }
+        SASSERT(!src.empty());
         if (carry) {
             // We covered everything
             /*if (FORWARD)
@@ -1145,7 +1144,7 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined) {
+                if (e->refined.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
@@ -1181,7 +1180,7 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined) {
+                if (e->refined.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
@@ -1316,6 +1315,9 @@ namespace {
             else {
                 UNREACHABLE();
             }
+
+            if (refinements % 50 == 0)
+                verbose_stream() << "Refinements " << refinements << "\n";
 
             if (res != l_undef)
                 return res;
@@ -1457,17 +1459,25 @@ namespace {
         entry const* first = m_units[v];
         entry const* e = first;
         do {
-            entry const* origin = e;
-            while (origin->refined)
-                origin = origin->refined;
-            for (const auto& src : origin->src) {
-                sat::literal const lit = src.blit();
-                if (!added.contains(lit)) {
-                    added.insert(lit);
-                    LOG("Adding " << lit_pp(s, lit));
-                    IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-                    verbose_stream() << ";; " << lit_pp(s, lit) << "\n";
-                    src.add_to_univariate_solver(v, s, *us, lit.to_uint());
+            ptr_vector<entry const> to_process = e->refined;
+            while (!to_process.empty()) {
+                auto current = to_process.back();
+                to_process.pop_back();
+                if (!current->refined.empty()) {
+                    for (auto& ref : current->refined)
+                        to_process.push_back(ref);
+                    continue;
+                }
+                const entry* origin = current;
+                for (const auto& src : origin->src) {
+                    sat::literal const lit = src.blit();
+                    if (!added.contains(lit)) {
+                        added.insert(lit);
+                        LOG("Adding " << lit_pp(s, lit));
+                        IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
+                        verbose_stream() << ";; " << lit_pp(s, lit) << "\n";
+                        src.add_to_univariate_solver(v, s, *us, lit.to_uint());
+                    }
                 }
             }
             e = e->next();
