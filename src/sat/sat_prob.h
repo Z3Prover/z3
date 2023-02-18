@@ -140,7 +140,7 @@ namespace sat {
 
         model const& get_model() const override { return m_model; }
 
-        double get_priority(bool_var v) const { return 0; }
+        double get_priority(bool_var v) const override { return 0; }
        
         std::ostream& display(std::ostream& out) const;
 
