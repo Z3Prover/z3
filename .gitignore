@@ -22,6 +22,7 @@ ocamlz3
 # Directories with generated code and documentation
 release/*
 build/*
+trace/*
 build-dist/*
 dist/*
 src/out/*
