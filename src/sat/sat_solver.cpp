@@ -2974,7 +2974,7 @@ namespace sat {
     }
 
     bool solver::should_rephase() {
-        return m_conflicts_since_init > 5 && m_conflicts_since_init > m_rephase_lim;
+        return m_conflicts_since_init > m_rephase_lim;
     }
 
     void solver::do_rephase() {
@@ -3023,7 +3023,7 @@ namespace sat {
             UNREACHABLE();
             break;
         }
-        m_rephase_inc = m_config.m_rephase_base;
+        m_rephase_inc += m_config.m_rephase_base;
         m_rephase_lim += m_rephase_inc;
     }
 
