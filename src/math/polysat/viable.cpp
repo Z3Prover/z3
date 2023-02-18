@@ -1317,9 +1317,6 @@ namespace {
                 UNREACHABLE();
             }
 
-            if (refinements % 50 == 0)
-                verbose_stream() << "Refinements " << refinements << "\n";
-
             if (res != l_undef)
                 return res;
         }

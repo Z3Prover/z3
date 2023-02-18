@@ -388,7 +388,7 @@ namespace polysat {
             rational inv;
             VERIFY(first.coeff.mult_inverse(lhs.power_of_2(), inv));
             p *= inv;
-            mask.bits *= inv;
+            mask.bits = mod2k(mask.bits * inv, span);
         }
         
         mask.length = span;
