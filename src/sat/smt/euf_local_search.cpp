@@ -38,6 +38,13 @@ namespace euf {
         for (unsigned i = 0; i < mdl.size(); ++i)
             phase[i] = mdl[i] == l_true;     
 
+        if (bool_search.unsat_set().empty()) {
+            enable_trace("arith");
+            enable_trace("sat");
+            enable_trace("euf");
+            TRACE("sat", s().display(tout));
+        }
+
         return bool_search.unsat_set().empty() ? l_true : l_undef;
     }
 }

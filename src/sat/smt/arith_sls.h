@@ -60,8 +60,9 @@ namespace arith {
         struct ineq {
             vector<std::pair<int64_t, var_t>> m_args;
             ineq_kind  m_op = ineq_kind::LE;
-            int64_t   m_bound;
-            int64_t   m_args_value;
+            int64_t    m_bound;
+            int64_t    m_args_value;
+            unsigned   m_var_to_flip = UINT_MAX;
 
             bool is_true() const {
                 switch (m_op) {
@@ -97,17 +98,15 @@ namespace arith {
             int64_t      m_value;
             int64_t      m_best_value;
             var_kind     m_kind = var_kind::INT;
-            svector<std::pair<int64_t, sat::literal>> m_literals;
+            svector<std::pair<int64_t, sat::bool_var>> m_bool_vars;
         };
 
         solver& s;
         ast_manager& m;
         sat::ddfw* m_bool_search = nullptr;
-        unsigned                     m_max_arith_steps = 0;
-        unsigned                     m_best_min_unsat = UINT_MAX;
         stats                        m_stats;
         config                       m_config;
-        scoped_ptr_vector<ineq>      m_literals;
+        scoped_ptr_vector<ineq>      m_bool_vars;
         vector<var_info>             m_vars;
         svector<std::pair<lp::tv, euf::theory_var>> m_terms;
         bool                         m_dscore_mode = false;
@@ -122,17 +121,19 @@ namespace arith {
         bool is_true(sat::literal lit) { return lit.sign() != m_bool_search->get_value(lit.var()); }
 
         void reset();
-        ineq* atom(sat::literal lit) const { return m_literals[lit.index()]; }
+        ineq* atom(sat::bool_var bv) const { return m_bool_vars[bv]; }
 
         void log();
 
-        bool flip(ineq const& ineq);
-        int64_t dtt(ineq const& ineq) const { return dtt(ineq.m_args_value, ineq); }
-        int64_t dtt(int64_t args, ineq const& ineq) const;
-        int64_t dtt(ineq const& ineq, var_t v, int64_t new_value) const;
+        bool flip(bool sign, ineq const& ineq);
+        int64_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
+        int64_t dtt(bool sign, int64_t args_value, ineq const& ineq) const;
+        int64_t dtt(bool sign, ineq const& ineq, var_t v, int64_t new_value) const;
+        int64_t dtt(bool sign, ineq const& ineq, int64_t coeff, int64_t old_value, int64_t new_value) const;
         int64_t dts(unsigned cl, var_t v, int64_t new_value) const;
         int64_t compute_dts(unsigned cl) const;
-        bool cm(ineq const& ineq, var_t v, int64_t& new_value);
+        bool cm(bool sign, ineq const& ineq, var_t v, int64_t& new_value);
+        bool cm(bool sign, ineq const& ineq, var_t v, int64_t coeff, int64_t& new_value);
         int cm_score(var_t v, int64_t new_value);
         void update(var_t v, int64_t new_value);
         double dscore_reward(sat::bool_var v);
@@ -142,11 +143,10 @@ namespace arith {
         void store_best_values();
         void add_vars();
         sls::ineq& new_ineq(ineq_kind op, int64_t const& bound);
-        void add_arg(sat::literal lit, ineq& ineq, int64_t const& c, var_t v);
-        void add_args(sat::literal lit, ineq& ineq, lp::tv t, euf::theory_var v, int64_t sign);
-        void init_literal(sat::literal lit);
+        void add_arg(sat::bool_var bv, ineq& ineq, int64_t const& c, var_t v);
+        void add_args(sat::bool_var bv, ineq& ineq, lp::tv t, euf::theory_var v, int64_t sign);
+        void init_bool_var(sat::bool_var v);
         void init_bool_var_assignment(sat::bool_var v);
-        void init_literal_assignment(sat::literal lit);
 
         int64_t value(var_t v) const { return m_vars[v].m_value; }
         int64_t to_numeral(rational const& r);

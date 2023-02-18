@@ -197,10 +197,10 @@ namespace sat {
         bool do_flip();
 
         template<bool uses_plugin>
-        bool_var pick_var();     
+        bool_var pick_var(double& reward);     
 
         template<bool uses_plugin>
-        bool apply_flip(bool_var v);
+        bool apply_flip(bool_var v, double reward);
 
         template<bool uses_plugin>
         bool do_literal_flip();

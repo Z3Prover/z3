@@ -1363,7 +1363,13 @@ namespace sat {
         if (m_ext) {
             verbose_stream() << "bounded local search\n";
             do_restart(true);
-            m_ext->local_search(m_best_phase);
+            lbool r = m_ext->local_search(m_best_phase);
+            verbose_stream() << r << "\n";
+            if (r == l_true) {
+                m_conflicts_since_restart = 0;
+                m_conflicts_since_gc = 0;
+                m_next_simplify = std::max(m_next_simplify, m_conflicts_since_init + 1);
+            }
             return;
         }
         literal_vector _lits;
@@ -1728,6 +1734,8 @@ namespace sat {
         push();
         m_stats.m_decision++;
         
+        CTRACE("sat", m_best_phase[next] != guess(next), tout << "phase " << phase << " " << m_best_phase[next] << " " << guess(next) << "\n");
+
         if (phase == l_undef)
             phase = guess(next) ? l_true: l_false;
         
@@ -1738,12 +1746,12 @@ namespace sat {
                 m_case_split_queue.unassign_var_eh(next);
             next_lit = literal(next, false);
         }
-        
+                
         if (phase == l_undef)
             is_pos = guess(next);
         else
             is_pos = phase == l_true;
-        
+
         if (!is_pos)
             next_lit.neg();
 
@@ -2966,7 +2974,7 @@ namespace sat {
     }
 
     bool solver::should_rephase() {
-        return m_conflicts_since_init > m_rephase_lim;
+        return m_conflicts_since_init > 5 && m_conflicts_since_init > m_rephase_lim;
     }
 
     void solver::do_rephase() {
@@ -3015,7 +3023,7 @@ namespace sat {
             UNREACHABLE();
             break;
         }
-        m_rephase_inc += m_config.m_rephase_base;
+        m_rephase_inc = m_config.m_rephase_base;
         m_rephase_lim += m_rephase_inc;
     }
 

@@ -98,15 +98,17 @@ namespace sat {
 
     template<bool uses_plugin>
     bool ddfw::do_flip() {
-        bool_var v = pick_var<uses_plugin>();
-        return apply_flip<uses_plugin>(v);
+        double reward = 0;
+        bool_var v = pick_var<uses_plugin>(reward);
+        return apply_flip<uses_plugin>(v, reward);
     }
 
     template<bool uses_plugin>
-    bool ddfw::apply_flip(bool_var v) {
-        if (v == null_bool_var)
+    bool ddfw::apply_flip(bool_var v, double reward) {
+        if (v == null_bool_var) 
             return false;
-        if (reward(v) > 0 || (reward(v) == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
+        
+        if (reward > 0 || (reward == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
             if (uses_plugin && is_external(v))
                 m_plugin->flip(v);
             else
@@ -119,10 +121,9 @@ namespace sat {
     }
 
     template<bool uses_plugin>
-    bool_var ddfw::pick_var() {
+    bool_var ddfw::pick_var(double& r) {
         double sum_pos = 0;
         unsigned n = 1;
-        double r;
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
             r = uses_plugin ? plugin_reward(v) : reward(v);
@@ -142,16 +143,18 @@ namespace sat {
                 }
             }
         }
+        r = 0;
         if (v0 != null_bool_var) 
             return v0;
         if (m_unsat_vars.empty())
-            return 0;
+            return null_bool_var;
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
     template<bool uses_plugin>
     bool ddfw::do_literal_flip() {
-        return apply_flip<uses_plugin>(pick_literal_var<uses_plugin>());
+        double reward = 1;
+        return apply_flip<uses_plugin>(pick_literal_var<uses_plugin>(), reward);
     }
 
     /*
@@ -414,7 +417,7 @@ namespace sat {
     bool ddfw::should_restart() {
         return m_flips >= m_restart_next;
     }
-
+    
     void ddfw::do_restart() {        
         reinit_values();
         init_clause_data();
