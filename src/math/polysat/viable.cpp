@@ -715,6 +715,7 @@ namespace {
             rational const& r = e->interval.hi_val();
             rational const& s_ = e->interval.hi().val();
             SASSERT(p != r && p != 0 && r != 0);
+            SASSERT(e->src.size() == 1);
 
             rational const a = mod(p * val + q_, mod_value);
             rational const b = mod(r * val + s_, mod_value);
@@ -899,7 +900,6 @@ namespace {
         auto add_entry = [&builder](entry* e) {
             for (const auto& sc : e->side_cond)
                 builder.insert_eval(~sc);
-            SASSERT(e->src.size() == 1);
             for (const auto& src : e->src)
                 builder.insert_eval(~src);
         };
