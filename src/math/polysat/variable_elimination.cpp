@@ -764,9 +764,9 @@ namespace polysat {
         
         if (a_parity > 0) {
             shift = s.lshr(a1, a1.manager().mk_val(a_parity));
-            signed_constraint least_parity = s.parity_at_least(a1, a_parity);
-            signed_constraint shift_right_left = s.eq(rational::power_of_two(a_parity) * shift, a1);
-            s.add_clause(~least_parity, shift_right_left, true);
+            //signed_constraint least_parity = s.parity_at_least(a1, a_parity);
+            //signed_constraint shift_right_left = s.eq(rational::power_of_two(a_parity) * shift, a1);
+            //s.add_clause(~least_parity, shift_right_left, true);
             // s.add_clause(~shift_right_left, least_parity, true); Might be interesting as well [although not needed]; needs to consider special case 0
             // [nsb cr: this pre-condition is already implied from the parity explanations]
             // precondition.insert_eval(~shift_right_left);
@@ -778,7 +778,6 @@ namespace polysat {
         LOG("pseudo inverse: " << a_pi);
         LOG("-b: " << (-b));
         LOG("shifted a" << shift);
-        LOG("Forced elimination: " << a_pi * (-b) * shift + b1);
         return { a_pi * (-b) * shift + b1, true };
 #endif
     }

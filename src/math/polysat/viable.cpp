@@ -913,6 +913,7 @@ namespace {
         
         do {
             if (e->src.size() != 1) {
+                // We just consider the ordinary constraints and not already contracted ones 
                 e = e->next();
                 continue;
             }

@@ -349,7 +349,7 @@ namespace polysat {
     }
 
     // decomposes into a plain constant and a part containing variables. e.g., 2*x*y + 3*z - 2 gets { 2*x*y + 3*z, -2 }
-    static std::pair<pdd, pdd> decompose_constant(const pdd& p) {
+    static std::pair<pdd, pdd> decouple_constant(const pdd& p) {
         for (const auto& m : p) {
             if (m.vars.empty())
                 return { p - m.coeff, p.manager().mk_val(m.coeff) };
@@ -358,10 +358,9 @@ namespace polysat {
     }
     
     // 2^(k - d) * x = m * 2^(k - d)
-    // TODO: Factor out constant factors from x and put them to the rhs 
     bool simplify_clause::get_trailing_mask(pdd lhs, pdd rhs, pdd& p, trailing_bits& mask, bool pos) {
-        auto lhs_decomp = decompose_constant(lhs);
-        auto rhs_decomp = decompose_constant(rhs);
+        auto lhs_decomp = decouple_constant(lhs);
+        auto rhs_decomp = decouple_constant(rhs);
         
         lhs = lhs_decomp.first - rhs_decomp.first;
         rhs = rhs_decomp.second - lhs_decomp.second;
@@ -371,7 +370,7 @@ namespace polysat {
         unsigned k = lhs.manager().power_of_2(); 
         unsigned d = lhs.max_pow2_divisor();
         unsigned span = k - d;
-        if (span == 0)
+        if (span == 0 || lhs.is_val())
             return false;
         
         p = lhs.div(rational::power_of_two(d));
@@ -379,6 +378,19 @@ namespace polysat {
         mask.bits = rhs_val / rational::power_of_two(d);
         if (!mask.bits.is_int())
             return false;
+        
+        auto it = p.begin();
+        auto first = *it;
+        it++;
+        if (it == p.end()) {
+            // if the lhs contains only one monomial it is of the form: odd * x = mask. We can multiply by the inverse to get the mask for x
+            SASSERT(first.coeff.is_odd());
+            rational inv;
+            VERIFY(first.coeff.mult_inverse(lhs.power_of_2(), inv));
+            p *= inv;
+            mask.bits *= inv;
+        }
+        
         mask.length = span;
         mask.positive = pos;
         return true;
