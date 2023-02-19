@@ -28,13 +28,9 @@ void mk_bits(ast_manager & m, char const * prefix, unsigned sz, expr_ref_vector 
     sort_ref b(m);
     b = m.mk_bool_sort();
     for (unsigned i = 0; i < sz; ++i) {
-        char buffer[128];
-#ifdef _WINDOWS
-        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "%s%d.smt", prefix, i);
-#else
-        sprintf(buffer, "%s%d.smt", prefix, i);
-#endif
-        r.push_back(m.mk_const(symbol(buffer), b));
+        std::stringstream ous;
+        ous << prefix << i << ".smt2";
+        r.push_back(m.mk_const(symbol(ous.str()), b));
     }
 }
 

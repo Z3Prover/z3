@@ -1554,7 +1554,7 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
         if (eq_args) {
             if (m.is_ite(new_args.back(), x, y, z)) {
                 ptr_buffer<expr> args1, args2;
-                for (expr* arg : new_args)
+                for (unsigned i = 0; i < new_args.size(); ++i)
                     args1.push_back(y), args2.push_back(z);
                 result = m.mk_ite(x, m_util.mk_concat(args1), m_util.mk_concat(args2));
                 return BR_REWRITE2;

@@ -72,9 +72,6 @@ namespace arith {
                 continue;
             if (!s.lp().external_is_used(v)) 
                 continue;            
-            int64_t old_value = 0;
-            if (s.is_registered_var(v))
-                old_value = to_numeral(s.get_ivalue(v).x);
             int64_t new_value = m_vars[v].m_best_value;
             s.ensure_column(v);
             lp::column_index vj = s.lp().to_column_index(v);
@@ -535,13 +532,12 @@ namespace arith {
         int64_t new_value;      
         double result = 0;
         double max_result = -1;
-        theory_var max_var = 0;
         for (auto const & [coeff, x] : ineq->m_args) {
             if (!cm(!sign0, *ineq, x, coeff, new_value))
                 continue;
             double result = 0;
             auto old_value = m_vars[x].m_value;
-            for (auto const [coeff, bv] : m_vars[x].m_bool_vars) {
+            for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
                 bool sign = !m_bool_search->value(bv);
                 auto dtt_old = dtt(sign, *atom(bv));
                 auto dtt_new = dtt(sign, *atom(bv), coeff, old_value, new_value);

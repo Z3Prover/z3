@@ -583,8 +583,7 @@ namespace sat {
     void ddfw::shift_weights() {
         ++m_shifts;
         for (unsigned to_idx : m_unsat) {
-            auto& cf = m_clauses[to_idx];
-            SASSERT(!cf.is_true());
+            SASSERT(!m_clauses[to_idx].is_true());
             unsigned from_idx = select_max_same_sign(to_idx);
             if (from_idx == UINT_MAX || disregard_neighbor())
                 from_idx = select_random_true_clause();

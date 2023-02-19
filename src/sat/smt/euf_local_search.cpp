@@ -32,7 +32,7 @@ namespace euf {
         for (auto* th : m_solvers)
             th->set_bool_search(&bool_search);
 
-        lbool r = bool_search.check(0, nullptr, nullptr);        
+        bool_search.check(0, nullptr, nullptr);        
 
         auto const& mdl = bool_search.get_model();
         for (unsigned i = 0; i < mdl.size(); ++i)
