@@ -529,8 +529,8 @@ void test_div(unsigned bvsize) {
     Z3_del_context(ctx);
 }
 
-typedef Z3_ast (Z3_API *NO_OVFL_ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed);
-typedef Z3_ast (Z3_API *ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2);
+typedef Z3_ast (*NO_OVFL_ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed);
+typedef Z3_ast (*ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2);
 
 typedef enum { OVFL_FUNC, UDFL_FUNC } overflow_type;
 

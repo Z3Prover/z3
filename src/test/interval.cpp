@@ -200,14 +200,12 @@ static void mk_random_interval(T & cfg, interval & a, unsigned magnitude) {
 
 #define BUFFER_SZ 256
 static int g_problem_id = 0;
-static char g_buffer[BUFFER_SZ];
-static std::stringstream ous;
 
-char const * get_next_file_name() {
-    ous.clear();
+std::string get_next_file_name() {
+    std::stringstream ous;
     ous << "interval_lemma_" << g_problem_id << ".smt2";
     g_problem_id++;
-    return ous.str().c_str();
+    return ous.str();
 }
 
 static void display_lemmas(unsynch_mpq_manager & nm, char const * result_term,
