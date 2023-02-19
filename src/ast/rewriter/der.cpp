@@ -197,9 +197,10 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 
         m_pos2var.reserve(num_args, -1);
 
-        // Find all disequalities
+        // Find all equalities/disequalities
         for (unsigned i = 0; i < num_args; i++) {
-            is_eq = is_forall(q) ? is_var_diseq(literals.get(i), num_decls, v, t) : is_var_eq(literals.get(i), num_decls, v, t);
+            expr* arg = literals.get(i);
+            is_eq = is_forall(q) ? is_var_diseq(arg, num_decls, v, t) : is_var_eq(arg, num_decls, v, t);
             if (is_eq) {
                 unsigned idx = v->get_idx();
                 if (m_map.get(idx, nullptr) == nullptr) {
