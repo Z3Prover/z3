@@ -3958,7 +3958,7 @@ namespace {
         void relevant_eh(enode * n, bool lazy) override {
             TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
-            TRACE("mam", tout << "relevant_eh: #" << n->get_owner_id() << "\n";);
+            TRACE("mam", tout << "relevant_eh: #" << enode_pp(n, m_context) << "\n";);
             if (n->has_lbl_hash())
                 update_lbls(n, n->get_lbl_hash());
 
