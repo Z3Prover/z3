@@ -22,21 +22,23 @@ Notes:
 #include "ast/rewriter/th_rewriter.h"
 
 namespace {
+
+#ifdef Z3DEBUG
 bool is_int_matrix(const spacer::spacer_matrix &matrix) {
-    rational val;
-    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; i++) {
+    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; i++) 
         for (unsigned j = 0, cols = matrix.num_cols(); j < cols; j++)
-            if (!matrix.get(i, j).is_int()) return false;
-    }
+            if (!matrix.get(i, j).is_int()) 
+                return false;
     return true;
 }
 
 bool is_sorted(const vector<rational> &data) {
-    for (unsigned i = 0; i < data.size() - 1; i++) {
-        if (!(data[i] >= data[i + 1])) return false;
-    }
+    for (unsigned i = 0; i < data.size() - 1; i++) 
+        if (!(data[i] >= data[i + 1])) 
+            return false;
     return true;
 }
+#endif
 
 /// Check whether all elements of \p data are congruent modulo \p m
 bool is_congruent_mod(const vector<rational> &data, const rational &m) {

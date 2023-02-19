@@ -308,10 +308,10 @@ namespace arith {
     // cached dts has to be updated when the score of literals are updated.
     // 
     double sls::dscore(var_t v, int64_t new_value) const {
-        auto const& vi = m_vars[v];
-        verbose_stream() << "dscore " << v << "\n";
         double score = 0;
 #if 0
+        auto const& vi = m_vars[v];
+        verbose_stream() << "dscore " << v << "\n";
         for (auto const& [coeff, lit] : vi.m_literals) 
             for (auto cl : m_bool_search->get_use_list(lit))              
                 score += (compute_dts(cl) - dts(cl, v, new_value)) * m_bool_search->get_weight(cl);    
@@ -530,7 +530,6 @@ namespace arith {
         if (!ineq)
             return -1;
         int64_t new_value;      
-        double result = 0;
         double max_result = -1;
         for (auto const & [coeff, x] : ineq->m_args) {
             if (!cm(!sign0, *ineq, x, coeff, new_value))
