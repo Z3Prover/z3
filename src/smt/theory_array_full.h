@@ -86,6 +86,7 @@ namespace smt {
         bool has_unitary_domain(app* array_term);
         std::pair<app*,func_decl*> mk_epsilon(sort* s);
         enode_vector m_as_array;
+        enode_vector m_lambdas;
         bool has_non_beta_as_array();
 
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
