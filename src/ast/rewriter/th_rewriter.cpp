@@ -821,16 +821,27 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             result_pr = m().mk_transitivity(p1, p2);
         }
 
+        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
+
+        proof_ref p2(m());
+        expr_ref r(m());
+
+        bool der_change = false;
         if (is_quantifier(result)) {
-            proof_ref p2(m());
-            expr_ref r(m());
             m_der(to_quantifier(result), r, p2);
+            der_change = result.get() != r.get();
+            if (m().proofs_enabled() && der_change)
+                result_pr = m().mk_transitivity(result_pr, p2);            
+            result = r;
+        }
+
+        if (der_change) {
+            th_rewriter rw(m());
+            rw(result, r, p2);
             if (m().proofs_enabled() && result.get() != r.get()) 
                 result_pr = m().mk_transitivity(result_pr, p2);
             result = r;
         }
-
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
 
         SASSERT(old_q->get_sort() == result->get_sort());
         return true;
