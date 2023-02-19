@@ -513,8 +513,8 @@ namespace seq {
 
        !contains(t, s) => i = -1   
        |t| = 0 => |s| = 0 or i = -1
-       |t| = 0 & |s| = 0 => i = 0
        |t| != 0 & contains(t, s) => t = xsy & i = len(x) 
+       |s| = 0 => i = len(t)
        |s| = 0 or s = s_head*s_tail
        |s| = 0 or !contains(s_tail*y, s)
 
@@ -540,7 +540,7 @@ namespace seq {
 
         add_clause(cnt, i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
-        add_clause(~t_eq_empty, ~s_eq_empty, i_eq_0);
+        add_clause(~s_eq_empty, mk_eq(i, mk_len(t)));
         add_clause(t_eq_empty, ~cnt, mk_seq_eq(t, xsy));
         add_clause(t_eq_empty, ~cnt, mk_eq(i, mk_len(x)));
         add_clause(s_eq_empty, mk_eq(s, mk_concat(s_head, s_tail)));
