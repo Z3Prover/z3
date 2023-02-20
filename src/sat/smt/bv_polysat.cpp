@@ -32,6 +32,8 @@ namespace bv {
 
     void solver::internalize_polysat(app* a) {
 
+#define if_unary(F) if (a->get_num_args() == 1) { polysat_unary(a, [&](pdd const& p) { return F(p); }); break; }
+
         switch (to_app(a)->get_decl_kind()) {
         case OP_BMUL:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
         case OP_BADD:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
@@ -41,9 +43,9 @@ namespace bv {
         case OP_BAND:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.band(p, q); }); break;
         case OP_BOR:              polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bor(p, q); }); break;
         case OP_BXOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxor(p, q); }); break;
-        case OP_BNAND:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnand(p, q); }); break;
-        case OP_BNOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnor(p, q); }); break;
-        case OP_BXNOR:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxnor(p, q); }); break;
+        case OP_BNAND:            if_unary(m_polysat.bnot); polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnand(p, q); }); break;
+        case OP_BNOR:             if_unary(m_polysat.bnot); polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnor(p, q); }); break;
+        case OP_BXNOR:            if_unary(m_polysat.bnot); polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxnor(p, q); }); break;
         case OP_BNOT:             polysat_unary(a, [&](pdd const& p) { return m_polysat.bnot(p); }); break;
 
         case OP_BNEG:             polysat_unary(a, [&](pdd const& p) { return -p; }); break;
@@ -94,9 +96,15 @@ namespace bv {
             return;
         default:
             std::cout << "fall back to circuit " << mk_pp(a, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+            return;
+#if 0
+            // TODO: this path leads to segfault / floating point exception
             internalize_circuit(a);
             break;            
+#endif
         }
+#undef if_unary
     }
 
     void solver::polysat_binaryc(app* e, std::function<polysat::signed_constraint(polysat::pdd, polysat::pdd)> const& fn) {
