@@ -2640,8 +2640,6 @@ namespace smt2 {
             check_lparen_next("invalid get-value command, '(' expected");
             while (!curr_is_rparen()) {
                 parse_expr();
-                if (!is_ground(expr_stack().back()))
-                    throw cmd_exception("invalid get-value term, term must be ground and must not contain quantifiers");
                 m_cached_strings.push_back(m_scanner.cached_str(cache_it, m_cache_end));
                 cache_it = m_cache_end;
             }
@@ -2680,7 +2678,7 @@ namespace smt2 {
                     m_ctx.regular_stream() << "\n ";
                 m_ctx.regular_stream() << "(" << m_cached_strings[i] << " ";
                 m_ctx.display(m_ctx.regular_stream(), v);
-                m_ctx.regular_stream() << ")";
+                m_ctx.regular_stream() << ")";                
             }
             m_ctx.regular_stream() << ")" << std::endl;
             expr_stack().shrink(spos);
