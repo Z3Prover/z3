@@ -403,6 +403,9 @@ namespace polysat {
         /** Create expression for bit-wise xor of p, q. */
         pdd bxor(pdd const& p, pdd const& q) { return m_constraints.bxor(p, q); }
 
+        /** Create expression for bit-wise xnor of p, q. */
+        pdd bxnor(pdd const& p, pdd const& q) { return m_constraints.bxnor(p, q); }
+
         /** Create expression for bit-wise nand of p, q. */
         pdd bnand(pdd const& p, pdd const& q) { return m_constraints.bnand(p, q); }
 

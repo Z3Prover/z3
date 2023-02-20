@@ -43,6 +43,7 @@ namespace bv {
         case OP_BXOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxor(p, q); }); break;
         case OP_BNAND:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnand(p, q); }); break;
         case OP_BNOR:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bnor(p, q); }); break;
+        case OP_BXNOR:            polysat_binary(a, [&](pdd const& p, pdd const& q) { return m_polysat.bxnor(p, q); }); break;
         case OP_BNOT:             polysat_unary(a, [&](pdd const& p) { return m_polysat.bnot(p); }); break;
 
         case OP_BNEG:             polysat_unary(a, [&](pdd const& p) { return -p; }); break;

@@ -130,6 +130,7 @@ namespace polysat {
         pdd bxor(pdd const& p, pdd const& q);
         pdd bnand(pdd const& p, pdd const& q);
         pdd bnor(pdd const& p, pdd const& q);
+        pdd bxnor(pdd const& p, pdd const& q);
         pdd pseudo_inv(pdd const& p);
 
         constraint* const* begin() const { return m_constraints.data(); }

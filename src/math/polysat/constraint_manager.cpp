@@ -502,6 +502,10 @@ namespace polysat {
     pdd constraint_manager::bnor(pdd const& p, pdd const& q) {
         return bnot(bor(p, q));
     }
+
+    pdd constraint_manager::bxnor(pdd const& p, pdd const& q) {
+        return bnot(bxor(p, q));
+    }
     
     pdd constraint_manager::pseudo_inv(pdd const& p) {
         auto& m = p.manager();
