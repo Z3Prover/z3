@@ -835,7 +835,7 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined) {
+                if (!e->refined && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
@@ -869,7 +869,7 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined) {
+                if (!e->refined && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
