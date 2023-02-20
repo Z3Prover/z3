@@ -240,6 +240,33 @@ namespace polysat {
     }
 
     /**
+     * Trigger boolean watchlists for the given literal
+     */
+    void solver::repropagate(sat::literal lit) {
+#ifndef NDEBUG
+        SASSERT(!m_is_propagating);
+        flet<bool> save_(m_is_propagating, true);
+#endif
+        if (m_bvars.is_true(lit))
+            return;
+        auto& wlist = m_bvars.watch(lit);
+        unsigned i = 0, j = 0, sz = wlist.size();
+        if (m_bvars.is_false(lit)) {
+            // Here we can fall back to the regular propagation which assumes that ~lit was set to true.
+            for (; i < sz && !is_conflict(); ++i)
+                if (!propagate(~lit, *wlist[i]))
+                    wlist[j++] = wlist[i];
+        } else {
+            for (; i < sz && !is_conflict(); ++i)
+                if (!repropagate(lit, *wlist[i]))
+                    wlist[j++] = wlist[i];
+        }
+        for (; i < sz; ++i)
+            wlist[j++] = wlist[i];
+        wlist.shrink(j);
+    }
+
+    /**
      * Propagate assignment to a pvar
      */
     void solver::propagate(pvar v) {
@@ -374,6 +401,54 @@ namespace polysat {
         return updated_watch;
     }
 
+    /**
+     * Check if clause propagation is triggered by literal lit.
+     * Return true if a new watch was found; or false to keep the existing one.
+     */
+    bool solver::repropagate(sat::literal lit, clause& cl) {
+        SASSERT(m_bvars.is_undef(lit));
+        SASSERT(cl.size() >= 2);
+        unsigned idx = (cl[0] == lit) ? 1 : 0;
+        SASSERT(cl[1 - idx] == lit);
+        if (m_bvars.is_true(cl[idx]))
+            return false;
+        if (m_bvars.is_undef(cl[idx]))
+            return false;
+        SASSERT(m_bvars.is_false(cl[idx]));
+        // lit is undef, other_lit is false.
+        for (unsigned i = 2; i < cl.size(); ++i) {
+            // must be assigned, or we should have watched it instead of other_lit.
+#if 1
+            if (!m_bvars.is_assigned(cl[i])) {
+                IF_VERBOSE(15, {
+                    verbose_stream() << "repropagate clause " << cl << "\n";
+                    verbose_stream() << "repropagate lit = " << lit_pp(*this, lit) << "\n";
+                    verbose_stream() << "wrong boolean watches: " << cl << "\n";
+                    for (sat::literal lit : cl) {
+                        verbose_stream() << "    " << lit_pp(*this, lit);
+                        if (count(m_bvars.watch(lit), &cl) != 0)
+                            verbose_stream() << " (bool-watched)";
+                        verbose_stream() << "\n";
+                    }
+                });
+                // TODO: debug&fix properly; for now just skip.
+                //       (unrelated clause may have propagated other_lit, and we didn't get to propagate(other_lit) yet? maybe the repropagate_queue needs to go into the main loop, with priority after standard boolean propagation.)
+                return false;
+            }
+#endif
+            VERIFY(m_bvars.is_assigned(cl[i]));
+            // there may still be a true literal in the tail; if so, watch it instead.
+            if (m_bvars.is_true(cl[i])) {
+                m_bvars.watch(cl[i]).push_back(&cl);
+                std::swap(cl[1 - idx], cl[i]);
+                return true;
+            }
+        }
+        // all literals other than lit are false
+        assign_propagate(lit, cl);
+        return false;
+    }
+
     void solver::linear_propagate() {
 #if ENABLE_LINEAR_SOLVER
         switch (m_linear_solver.check()) {
@@ -474,7 +549,7 @@ namespace polysat {
         unsigned const target_level = m_level - num_levels;
         using replay_item = std::variant<sat::literal, pvar>;
         vector<replay_item> replay;
-        sat::literal_vector repropagate;
+        sat::literal_vector repropagate_queue;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -551,13 +626,13 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
 
-                repropagate.push_back(lit);
-
                 if (active_level <= target_level) {
                     SASSERT(!m_bvars.is_decision(lit));
                     replay.push_back(lit);
-                } else
+                } else {
                     m_bvars.unassign(lit);
+                    repropagate_queue.push_back(lit);
+                }
                 m_search.pop();
                 break;
             }
@@ -578,9 +653,15 @@ namespace polysat {
         // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
         // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
         //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
-        for (sat::literal lit : repropagate)
+        // TODO: combine with replay, or at least make sure it can't interfere.
+#if 1
+        for (sat::literal lit : repropagate_queue)
+            repropagate(lit);
+#else
+        for (sat::literal lit : repropagate_queue)
             for (clause* cl : m_bvars.watch(lit))
                 propagate_clause(*cl);
+#endif
         // Replay:
         // (since levels on the search stack may be out of order)
         for (unsigned j = replay.size(); j-- > 0; ) {

@@ -252,6 +252,8 @@ namespace polysat {
         void erase_pwatch(pvar v, constraint* c);
         void erase_pwatch(constraint* c);
 
+        void repropagate(sat::literal lit);
+        bool repropagate(sat::literal lit, clause& cl);
         void propagate_clause(clause& cl);
 
         void set_conflict_at_base_level(dependency dep) { m_conflict.init_at_base_level(dep); }
