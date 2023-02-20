@@ -1618,22 +1618,17 @@ namespace polysat {
         rational max = A >= 0 ? x_max * A + B : x_min * A + B;
         rational min = A >= 0 ? x_min * A + B : x_max * A + B;
         VERIFY(min <= max);
-        if (max - min >= M)
+        if (max - min >= M) {
+            IF_VERBOSE(10, verbose_stream() << "adjust_bound: abort because max - min >= M\n");
             return false;
+        }
 
         // k0 = min k. val + kM >= 0
         //    = min k. k >= -val/M
         //    = ceil(-val/M) = -floor(val/M)
         rational offset = rational::zero();
-#if 0
-        if (max >= M)
-            offset = -M * floor(max / M);
-        else if (max < 0)
-            offset = M * floor((-max + M - 1) / M);
-#else
         if (max < 0 || max >= M)
             offset = -M * floor(max / M);
-#endif
         d += offset;
 
         // If min + offset < 0, then [min,max] contains a multiple of M.
