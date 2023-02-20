@@ -127,12 +127,40 @@ namespace {
         //
         // p + k <= p       -->  p + k <= k - 1
         // p     <= p - k   -->  p     <= k - 1
+        // TODO: subsumed by next condition
         if ((lhs - rhs).is_val()) {
             pdd k = lhs - rhs;
             rhs = k - 1;
         }
 
-        // TODO: rewrite if p - q has less variables than p, q themselves? or if one of the rules allows separating variables.
+        // Try to reduce the number of variables on one side using one of these rules:
+        //
+        //      p <= q  -->  p <= p - q - 1
+        //      p <= q  -->  q - p <= q
+        //
+        // Possible alternative to 1:
+        //      p <= q  -->  q - p <= -p - 1
+        // Possible alternative to 2:
+        //      p <= q  -->  -q-1 <= p - q - 1
+        //
+        // Example:
+        //
+        //      x <= x + y  -->  x <= - y - 1
+        //      x + y <= x  -->  -y <= x
+        if (false && !lhs.is_val() && !rhs.is_val()) {
+            // TODO: disabled because it kills bench31 (by rewriting just a single constraint...)
+            unsigned const lhs_vars = lhs.free_vars().size();
+            unsigned const rhs_vars = rhs.free_vars().size();
+            unsigned const diff_vars = (lhs - rhs).free_vars().size();
+            if (diff_vars < lhs_vars || diff_vars < rhs_vars) {
+                verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
+                if (lhs_vars <= rhs_vars)
+                    rhs = lhs - rhs - 1;
+                else
+                    lhs = rhs - lhs;
+                verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
+            }
+        }
 
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
