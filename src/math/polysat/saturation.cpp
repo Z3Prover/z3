@@ -33,7 +33,7 @@ namespace polysat {
     saturation::saturation(solver& s) : s(s), m_lemma(s), m_parity_tracker(s) {}
 
     void saturation::log_lemma(pvar v, conflict& core) {
-        IF_VERBOSE(1, {
+        IF_VERBOSE(2, {
             auto const& cl = core.lemmas().back();
             verbose_stream() << m_rule << " v" << v << " ";
             for (auto lit : *cl)
@@ -1987,6 +1987,17 @@ namespace polysat {
                        << s.var(q1) << "\n");
         };
 
+        // monotonicity0 lemma should be asserted eagerly.
+        auto monotonicity0 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val) {
+            if (q1_val * y1_val <= x1_val)
+                return;
+            // q1*y1 + r1 = x1, q1*y1 <= -r1 - 1, q1*y1 <= x1
+            propagated = true;
+            set_rule("[x1, y1] (x1 / y1) * y1 <= x1");            
+            m_lemma.reset();
+            propagate(q1, core, s.ule(s.var(q1) * y1, x1));            
+        };
+
         auto monotonicity1 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val,
                                  auto& x2, auto& x2_val, auto& y2, auto& y2_val, auto& q2, auto& q2_val) {
             if (!(x1_val <= x2_val && y1_val >= y2_val && q1_val > q2_val))
@@ -2023,6 +2034,10 @@ namespace polysat {
 
             if (q1_val == expected1)
                 continue;
+
+            // force that q1 * y1 <= x1 if it isn't the case.
+            // monotonicity0(x1, x1_val, y1, y1_val, q1, q1_val);
+            
             
             for (auto const& [x2, y2, q2, r2] : s.m_constraints.div_constraints()) {            
                 if (x1 == x2 && y1 == y2)

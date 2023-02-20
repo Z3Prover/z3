@@ -87,6 +87,8 @@ namespace polysat {
         signed_constraint mk_op_constraint(op_constraint::code op, pdd const& p, pdd const& q, pdd const& r);
         pdd mk_op_term(op_constraint::code op, pdd const& p, pdd const& q);
 
+        std::pair<pdd, pdd> div_rem_op_constraint(const pdd& p, const pdd& q);
+        
     public:
         constraint_manager(solver& s);
         ~constraint_manager();
@@ -132,6 +134,9 @@ namespace polysat {
         pdd bnor(pdd const& p, pdd const& q);
         pdd bxnor(pdd const& p, pdd const& q);
         pdd pseudo_inv(pdd const& p);
+        
+        pdd udiv(pdd const& a, pdd const& b);
+        pdd urem(pdd const& a, pdd const& b);
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }

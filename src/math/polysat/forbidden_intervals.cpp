@@ -41,7 +41,7 @@ namespace polysat {
         backtrack _backtrack(fi.side_cond);
 
         fi.coeff = 1;
-        fi.src = c;
+        fi.src.push_back(c);
 
         // eval(lhs) = a1*v + eval(e1) = a1*v + b1
         // eval(rhs) = a2*v + eval(e2) = a2*v + b2
@@ -135,7 +135,7 @@ namespace polysat {
         backtrack _backtrack(fi.side_cond);
 
         fi.coeff = 1;
-        fi.src = c;
+        fi.src.push_back(c);
 
         struct show {
             forbidden_intervals& f;

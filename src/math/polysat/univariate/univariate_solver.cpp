@@ -255,6 +255,14 @@ namespace polysat {
             add(bv->mk_ule(v_inv, v_inv_max), false, dep);
         }
 
+        void add_udiv(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_udiv(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+        
+        void add_urem(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) override {
+            add(m.mk_eq(bv->mk_bv_urem(mk_poly(in1), mk_poly(in2)), mk_poly(out)), sign, dep);
+        }
+        
         void add_ule_const(rational const& val, bool sign, dep_t dep) override {
             if (val == 0)
                 add(m.mk_eq(x, mk_poly(val)), sign, dep);

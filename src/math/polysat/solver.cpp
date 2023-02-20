@@ -539,7 +539,9 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
+#if 0
         m_fixed_bits.push();
+#endif
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -554,8 +556,9 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
 #endif
+#if 0
         m_fixed_bits.pop();
-        
+#endif
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -1160,7 +1163,9 @@ namespace polysat {
     void solver::assign_eval(sat::literal lit) {
         signed_constraint const c = lit2cnstr(lit);
         LOG_V(10, "Evaluate: " << lit_pp(*this, lit));
-        if (!c.is_currently_true(*this)) IF_VERBOSE(0, verbose_stream() << c << " is not currently true\n");
+        if (!c.is_currently_true(*this)) {
+            IF_VERBOSE(0, verbose_stream() << "\n" << c << " is not currently true\n");
+        }
         SASSERT(c.is_currently_true(*this));
         VERIFY_EQ(c.eval(*this), l_true);
         unsigned level = 0;

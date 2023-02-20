@@ -78,9 +78,10 @@ namespace polysat {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
+        e->src.reset();
         e->side_cond.reset();
+        e->refined.reset();
         e->coeff = 1;
-        e->refined = nullptr;
         m_alloc.pop_back();
         return e;
     }
@@ -238,6 +239,7 @@ namespace polysat {
 
     bool viable::intersect(pvar v, entry* ne) {
         SASSERT(!s.is_assigned(v));
+        SASSERT(!ne->src.empty());
         entry* e = m_units[v];
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
@@ -311,8 +313,9 @@ namespace polysat {
         return true;
     }
 
-    bool viable::refine_viable(pvar v, rational const& val) {
-        return refine_equal_lin(v, val) && refine_disequal_lin(v, val);
+    template<bool FORWARD>
+    bool viable::refine_viable(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+        return refine_bits<FORWARD>(v, val, fixed, justifications) && refine_equal_lin(v, val) && refine_disequal_lin(v, val);
     }
 
 namespace {
@@ -493,7 +496,7 @@ namespace {
             y_max = compute_y_max(y_max + 1, a, lo, hi, M);
             if (++i == max_refinements) {
                 // verbose_stream() << "y0=" << y0 << ", a=" << a << ", lo=" << lo << ", hi=" << hi << "\n";
-                verbose_stream() << "refined y_max: " << y_max << "\n";
+                // verbose_stream() << "refined y_max: " << y_max << "\n";
                 break;
             }
         }
@@ -505,7 +508,7 @@ namespace {
             y_min = compute_y_min(y_min - 1, a, lo, hi, M);
             if (++i == max_refinements) {
                 // verbose_stream() << "y0=" << y0 << ", a=" << a << ", lo=" << lo << ", hi=" << hi << "\n";
-                verbose_stream() << "refined y_min: " << y_min << "\n";
+                // verbose_stream() << "refined y_min: " << y_min << "\n";
                 break;
             }
         }
@@ -519,6 +522,35 @@ namespace {
             return { mod(y_min, M), mod(y_max, M) };
     }
 }
+
+    template<bool FORWARD>
+    bool viable::refine_bits(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+
+        pdd v_pdd = s.var(v);
+
+        // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
+        entry* ne = alloc_entry();
+        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
+
+        if (new_val == val) {
+            m_alloc.push_back(ne);
+            return true;
+        }
+
+        ne->coeff = 1;
+        if (FORWARD) {
+            LOG("refine-bits for v" << v << " [" << val << ", " << new_val << "[");
+            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(val), val, v_pdd.manager().mk_val(new_val), new_val);
+        }
+        else {
+            rational upper_bound = val == v_pdd.manager().max_value() ? rational::zero() : val + 1;;
+            LOG("refine-bits for v" << v << " [" << new_val << ", " << upper_bound << "[");
+            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val), new_val, v_pdd.manager().mk_val(upper_bound), upper_bound);
+        }
+        SASSERT(ne->interval.currently_contains(val));
+        intersect(v, ne);
+        return false;
+    }
 
     /**
      * Traverse all interval constraints with coefficients to check whether current value 'val' for
@@ -547,7 +579,11 @@ namespace {
         do {
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
-                LOG("refine-equal-lin for v" << v << " in src: " << lit_pp(s, e->src));
+                IF_LOGGING(
+                    verbose_stream() << "refine-equal-lin for v" << v << " in src: ";
+                    for (const auto& src : e->src)
+                        verbose_stream() << lit_pp(s, src) << "\n";
+                );
                 LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval);
 
                 if (mod(e->interval.hi_val() + 1, mod_value) == e->interval.lo_val()) {
@@ -561,7 +597,7 @@ namespace {
                         // No solution
                         LOG("refined: no solution due to parity");
                         entry* ne = alloc_entry();
-                        ne->refined = e;
+                        ne->refined.push_back(e);
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -578,7 +614,7 @@ namespace {
                         LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                         SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is the solution
                         entry* ne = alloc_entry();
-                        ne->refined = e;
+                        ne->refined.push_back(e);
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -610,7 +646,7 @@ namespace {
                     SASSERT_EQ(mod(a * (lo - 1), mod_value), b);  // lo-1 is a solution
                     SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is a solution
                     entry* ne = alloc_entry();
-                    ne->refined = e;
+                    ne->refined.push_back(e);
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
@@ -638,7 +674,7 @@ namespace {
                 if (hi == mod_value)
                     hi = 0;
                 entry* ne = alloc_entry();
-                ne->refined = e;
+                ne->refined.push_back(e);
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -670,7 +706,11 @@ namespace {
         m_diseq_lin[v] = m_diseq_lin[v]->next();
 
         do {
-            LOG("refine-disequal-lin for src: " << e->src);
+            IF_LOGGING(
+                    verbose_stream() << "refine-disequal-lin for v" << v << " in src: ";
+                    for (const auto& src : e->src)
+                        verbose_stream() << lit_pp(s, src) << "\n";
+            );
             // We compute an interval if the concrete value 'val' violates the constraint:
             //      p*val + q >  r*val + s  if e->src.is_positive()
             //      p*val + q >= r*val + s  if e->src.is_negative()
@@ -681,12 +721,13 @@ namespace {
             rational const& r = e->interval.hi_val();
             rational const& s_ = e->interval.hi().val();
             SASSERT(p != r && p != 0 && r != 0);
+            SASSERT(e->src.size() == 1);
 
             rational const a = mod(p * val + q_, mod_value);
             rational const b = mod(r * val + s_, mod_value);
             rational const np = mod_value - p;
             rational const nr = mod_value - r;
-            int const corr = e->src.is_negative() ? 1 : 0;
+            int const corr = e->src[0].is_negative() ? 1 : 0;
 
             auto delta_l = [&](rational const& val) {
                 rational num = a - b + corr;
@@ -719,7 +760,7 @@ namespace {
                 return std::min(max_value - val, dmax);
             };
 
-            if (a > b || (e->src.is_negative() && a == b)) {
+            if (a > b || (e->src[0].is_negative() && a == b)) {
                 rational lo = val - delta_l(val);
                 rational hi = val + delta_u(val) + 1;
 
@@ -731,7 +772,7 @@ namespace {
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
-                ne->refined = e;
+                ne->refined.push_back(e);
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -745,11 +786,280 @@ namespace {
         return true;
     }
 
+    // Skips all values that are not feasible w.r.t. fixed bits
+    template<bool FORWARD>
+    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const {
+        unsigned k = var.power_of_2();
+        if (fixed.empty())
+            return bound;
+
+        SASSERT(k == fixed.size());
+
+        auto add_justification = [&](unsigned i) {
+            auto& to_add = justifications[i];
+            SASSERT(!to_add.empty());
+            for (auto& add : to_add) {
+                // TODO: Check for duplicates; maybe we add the same src/side_cond over and over again
+                for (auto& sc : add->side_cond)
+                    side_cond.push_back(sc);
+                for (auto& c : add->src)
+                    src.push_back(c);
+                refined.push_back(add);
+            }
+        };
+
+        unsigned firstFail;
+        for (firstFail = k; firstFail > 0; firstFail--) {
+            if (fixed[firstFail - 1] != l_undef) {
+                lbool current = bound.get_bit(firstFail - 1) ? l_true : l_false;
+                if (current != fixed[firstFail - 1])
+                    break;
+            }
+        }
+        if (firstFail == 0)
+            return bound; // the value is feasible according to fixed bits
+
+        svector<lbool> new_bound(fixed.size());
+
+        for (unsigned i = 0; i < firstFail; i++) {
+            if (fixed[i] != l_undef) {
+                SASSERT(fixed[i] == l_true || fixed[i] == l_false);
+                new_bound[i] = fixed[i];
+                if (i == firstFail - 1 || FORWARD != (fixed[i] == l_false))
+                    add_justification(i); // Minimize number of responsible fixed bits; we only add those justifications we need for sure
+            }
+            else
+                new_bound[i] = FORWARD ? l_false : l_true;
+        }
+
+        bool carry = fixed[firstFail - 1] == (FORWARD ? l_false : l_true);
+
+        for (unsigned i = firstFail; i < new_bound.size(); i++) {
+            if (fixed[i] == l_undef) {
+                lbool current = bound.get_bit(i) ? l_true : l_false;
+                if (carry) {
+                    if (FORWARD) {
+                        if (current == l_false) {
+                            new_bound[i] = l_true;
+                            carry = false;
+                        }
+                        else
+                            new_bound[i] = l_false;
+                    }
+                    else {
+                        if (current == l_true) {
+                            new_bound[i] = l_false;
+                            carry = false;
+                        }
+                        else
+                            new_bound[i] = l_true;
+                    }
+                }
+                else
+                    new_bound[i] = current;
+            }
+            else {
+                new_bound[i] = fixed[i];
+                if (carry)
+                    add_justification(i); // Again, we need this justification; if carry is false we don't need it
+            }
+        }
+        SASSERT(!src.empty());
+        if (carry) {
+            // We covered everything
+            /*if (FORWARD)
+                return rational::power_of_two(k);
+            else*/
+                return rational::zero();
+        }
+
+        // TODO: Directly convert new_bound in rational?
+        rational ret = rational::zero();
+        for (unsigned i = new_bound.size(); i > 0; i--) {
+            ret *= 2;
+            SASSERT(new_bound[i - 1] != l_undef);
+            ret += new_bound[i - 1] == l_true ? 1 : 0;
+        }
+        if (!FORWARD)
+            return ret + 1;
+        return ret;
+    }
+
+    // returns true iff no conflict was encountered
+    bool viable::collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications) {
+
+        pdd p = s.var(v);
+        // maybe pass them as arguments rather than having them as fields...
+        fixed.clear();
+        justifications.clear();
+        fixed.resize(p.power_of_2(), l_undef);
+        justifications.resize(p.power_of_2(), ptr_vector<entry>());
+
+        auto* e = m_equal_lin[v];
+        auto* first = e;
+        if (!e)
+            return true;
+
+        clause_builder builder(s, "bit check");
+        vector<std::pair<entry*, trailing_bits>> postponed;
+
+        auto add_entry = [&builder](entry* e) {
+            for (const auto& sc : e->side_cond)
+                builder.insert_eval(~sc);
+            for (const auto& src : e->src)
+                builder.insert_eval(~src);
+        };
+        
+        auto add_entry_list = [add_entry](const ptr_vector<entry>& list) {
+            for (const auto& e : list)
+                add_entry(e);
+        };
+        
+        unsigned largest_mask = 0;
+        
+        do {
+            if (e->src.size() != 1) {
+                // We just consider the ordinary constraints and not already contracted ones 
+                e = e->next();
+                continue;
+            }
+            signed_constraint& src = e->src[0];
+            single_bit bit;
+            trailing_bits mask;
+            if (src->is_ule() &&
+                simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
+                
+                lbool prev = fixed[bit.position];
+                fixed[bit.position] = bit.positive ? l_true : l_false;
+                //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n"; 
+                if (prev != l_undef && fixed[bit.position] != prev) {
+                    LOG("Bit conflicting " << e->src << " with " << justifications[bit.position][0]->src);
+                    if (add_conflict) {
+                        add_entry_list(justifications[bit.position]);
+                        add_entry(e);
+                        s.set_conflict(*builder.build());
+                    }
+                    return false;
+                }
+                // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+                // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
+                justifications[bit.position].clear();
+                justifications[bit.position].push_back(e);
+            }
+            else if ((src->is_eq() || src.is_diseq()) &&
+                simplify_clause::get_trailing_mask(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, mask, src.is_positive()) && p.is_var()) {
+                
+                if (src.is_positive()) {
+                    for (unsigned i = 0; i < mask.length; i++) {
+                        lbool prev = fixed[i];
+                        fixed[i] = mask.bits.get_bit(i) ? l_true : l_false;
+                        //verbose_stream() << "Setting bit " << i << " to " << mask.bits.get_bit(i) << " because of parity " << e->src << "\n";
+                        if (prev != l_undef) {
+                            if (fixed[i] != prev) {
+                                LOG("Positive parity conflicting " << e->src << " with " << justifications[i][0]->src);
+                                if (add_conflict) {
+                                    add_entry_list(justifications[i]);
+                                    add_entry(e);
+                                    s.set_conflict(*builder.build());
+                                }
+                                return false;
+                            }
+                            else {
+                                // Prefer justifications from larger masks (less premisses)
+                                if (largest_mask < mask.length) {
+                                    largest_mask = mask.length;
+                                    justifications[i].clear();
+                                    justifications[i].push_back(e);
+                                    // verbose_stream() << "Adding parity constraint: " <<  e->src[0] << " (" << i << ")\n";
+                                }
+                            }
+                        }
+                        else {
+                            SASSERT(justifications[i].empty());
+                            justifications[i].push_back(e);
+                            // verbose_stream() << "Adding parity constraint: " <<  e->src[0] << " (" << i << ")\n";
+                        }
+                    }
+                }
+                else 
+                    postponed.push_back({ e, mask });
+            }
+            e = e->next();
+        } while(e != first);
+        
+        // TODO: Incomplete - e.g., if we know the trailing bits are not 00 not 10 not 01 and not 11 we could also detect a conflict
+        // This would require partially clause solving (worth the effort?)
+        bool_vector removed(postponed.size(), false);
+        bool changed;
+        do { // fixed-point required? 
+            changed = false;
+            for (unsigned j = 0; j < postponed.size(); j++) {
+                if (removed[j])
+                    continue;
+                const auto& neg = postponed[j];
+                unsigned indet = 0;
+                unsigned last_indet = 0;
+                unsigned i = 0;
+                for (; i < neg.second.length; i++) {
+                    if (fixed[i] != l_undef) {
+                        if (fixed[i] != (neg.second.bits.get_bit(i) ? l_true : l_false)) {
+                            removed[j] = true;
+                            break; // this is already satisfied
+                        }
+                    }
+                    else {
+                        indet++;
+                        last_indet = i;
+                    }
+                }
+                if (i == neg.second.length) {
+                    if (indet == 0) {
+                        // Already false
+                        LOG("Found conflict with constraint " << neg.first->src);
+                        if (add_conflict) {
+                            for (unsigned k = 0; k < neg.second.length; k++)
+                                add_entry_list(justifications[k]);
+                            add_entry(neg.first);
+                            s.set_conflict(*builder.build());
+                        }
+                        return false;
+                    }
+                    else if (indet == 1) {
+                        // Simple BCP
+                        auto& justification = justifications[last_indet];
+                        SASSERT(justification.empty());
+                        for (unsigned k = 0; k < neg.second.length; k++) {
+                            if (k != last_indet) {
+                                SASSERT(fixed[k] != l_undef);
+                                for (const auto& just : justifications[k])
+                                    justification.push_back(just);
+                            }
+                        }
+                        justification.push_back(neg.first);
+                        fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
+                        removed[j] = true;
+                        LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
+                        changed = true;
+                    } 
+                }
+            }
+        } while(changed);
+
+        return true;
+    }
+
     bool viable::has_viable(pvar v) {
+
+        svector<lbool> fixed;
+        vector<ptr_vector<entry>> justifications;
+
+        if (!collect_bit_information(v, false, fixed, justifications))
+            return false;
+
         refined:
         auto* e = m_units[v];
 
-#define CHECK_RETURN(val) { if (refine_viable(v, val)) return true; else goto refined; }
+#define CHECK_RETURN(val) { if (refine_viable<true>(v, val, fixed, justifications)) return true; else goto refined; }
 
         if (!e)
             CHECK_RETURN(rational::zero());
@@ -784,9 +1094,15 @@ namespace {
     }
 
     bool viable::is_viable(pvar v, rational const& val) {
+
+        svector<lbool> fixed;
+        vector<ptr_vector<entry>> justifications;
+
+        if (!collect_bit_information(v, false, fixed, justifications))
+            return false;
         auto* e = m_units[v];
         if (!e)
-            return refine_viable(v, val);
+            return refine_viable<true>(v, val, fixed, justifications);
         entry* first = e;
         entry* last = first->prev();
         if (last->interval.currently_contains(val))
@@ -795,9 +1111,9 @@ namespace {
             if (e->interval.currently_contains(val))
                 return false;
             if (val < e->interval.lo_val())
-                return refine_viable(v, val);
+                return refine_viable<true>(v, val, fixed, justifications);
         }
-        return refine_viable(v, val);
+        return refine_viable<true>(v, val, fixed, justifications);
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
@@ -835,17 +1151,19 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined && e->side_cond.empty()) {
+                if (e->refined.empty() && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
                         if (out_c.empty() && lo.val() > hi.val()) {
-                            out_c.push_back(e->src);
+                            for (signed_constraint src : e->src)
+                                out_c.push_back(src);
                             out_hi = lo.val() - 1;
                             found = true;
                         }
                         else if (!out_c.empty() && lo.val() <= out_hi && out_hi < hi.val()) {
-                            out_c.push_back(e->src);
+                            for (signed_constraint src : e->src)
+                                out_c.push_back(src);
                             out_hi = lo.val() - 1;
                             found = true;                        
                         }
@@ -869,17 +1187,19 @@ namespace {
         do {
             found = false;
             do {
-                if (!e->refined && e->side_cond.empty()) {
+                if (e->refined.empty() && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
                         if (out_c.empty() && hi.val() != 0 && (lo.val() == 0 || lo.val() > hi.val())) {
-                            out_c.push_back(e->src);
+                            for (signed_constraint src : e->src)
+                                out_c.push_back(src);
                             out_lo = hi.val();
                             found = true;
                         }
                         else if (!out_c.empty() && lo.val() <= out_lo && out_lo < hi.val()) {
-                            out_c.push_back(e->src);
+                            for (signed_constraint src : e->src)
+                                out_c.push_back(src);
                             out_lo = hi.val();
                             found = true;
                         }
@@ -904,14 +1224,17 @@ namespace {
         if (!e)
             return false;
 
+        bool found = false;
+
         do {
-            if (e->src == c) 
+            found = e->src.contains(c);
+            if (found)
                 break;
             e = e->next();
         }
         while (e != first);
 
-        if (e->src != c)
+        if (!found)
             return false;
         entry const* e0 = e;
 
@@ -945,7 +1268,7 @@ namespace {
                 e0_prev = e;
                 out_hi = e->interval.hi_val();
             }
-            else if (e->src == c) {
+            else if (e->src.contains(c)) {
                 // multiple intervals from the same constraint c
                 // TODO: adjacent intervals would fine but they should be merged at insertion instead of considering them here.
                 return false;
@@ -956,9 +1279,10 @@ namespace {
                 out_c.push_back(c);
             }
             if (e != e0) {
-                for (auto sc : e->side_cond)
+                for (signed_constraint sc : e->side_cond)
                     out_c.push_back(sc);
-                out_c.push_back(e->src);
+                for (signed_constraint src : e->src)
+                    out_c.push_back(src);
             }
             e = n;
         }
@@ -991,6 +1315,13 @@ namespace {
 
     template <query_t mode>
     lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
+
+        svector<lbool> fixed;
+        vector<ptr_vector<entry>> justifications;
+
+        if (!collect_bit_information(v, true, fixed, justifications))
+            return l_false; // conflict already added
+
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
         unsigned refinements = refinement_budget;
@@ -999,11 +1330,11 @@ namespace {
             lbool res = l_undef;
 
             if constexpr (mode == query_t::find_viable)
-                res = query_find(v, result.first, result.second);
+                res = query_find(v, result.first, result.second, fixed, justifications);
             else if constexpr (mode == query_t::min_viable)
-                res = query_min(v, result);
+                res = query_min(v, result, fixed, justifications);
             else if constexpr (mode == query_t::max_viable)
-                res = query_max(v, result);
+                res = query_max(v, result, fixed, justifications);
             else if constexpr (mode == query_t::has_viable) {
                 NOT_IMPLEMENTED_YET();
             }
@@ -1018,8 +1349,8 @@ namespace {
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return query_fallback<mode>(v, result);
     }
-
-    lbool viable::query_find(pvar v, rational& lo, rational& hi) {
+    
+    lbool viable::query_find(pvar v, rational& lo, rational& hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
         auto const& max_value = s.var2pdd(v).max_value();
         lbool const refined = l_undef;
 
@@ -1028,11 +1359,11 @@ namespace {
         // For this reason, we start chasing the intervals from the start again.
         lo = 0;
         hi = max_value;
-
+        
         auto* e = m_units[v];
-        if (!e && !refine_viable(v, lo))
+        if (!e && !refine_viable<true>(v, lo, fixed, justifications))
             return refined;
-        if (!e && !refine_viable(v, hi))
+        if (!e && !refine_viable<false>(v, hi, fixed, justifications))
             return refined;
         if (!e)
             return l_true;
@@ -1049,9 +1380,9 @@ namespace {
         if (last->interval.lo_val() < last->interval.hi_val() &&
             last->interval.hi_val() < max_value) {
             lo = last->interval.hi_val();
-            if (!refine_viable(v, lo))
+            if (!refine_viable<true>(v, lo, fixed, justifications))
                 return refined;
-            if (!refine_viable(v, max_value))
+            if (!refine_viable<false>(v, max_value, fixed, justifications))
                 return refined;
             return l_true;
         }
@@ -1083,18 +1414,18 @@ namespace {
         }
         while (e != last);
 
-        if (!refine_viable(v, lo))
+        if (!refine_viable<true>(v, lo, fixed, justifications))
             return refined;
-        if (!refine_viable(v, hi))
+        if (!refine_viable<false>(v, hi, fixed, justifications))
             return refined;
         return l_true;
     }
 
-    lbool viable::query_min(pvar v, rational& lo) {
+    lbool viable::query_min(pvar v, rational& lo, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
         // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
         lo = 0;
         entry* e = m_units[v];
-        if (!e && !refine_viable(v, lo))
+        if (!e && !refine_viable<true>(v, lo, fixed, justifications))
             return l_undef;
         if (!e)
             return l_true;
@@ -1109,17 +1440,17 @@ namespace {
             e = e->next();
         }
         while (e != first);
-        if (!refine_viable(v, lo))
+        if (!refine_viable<true>(v, lo, fixed, justifications))
             return l_undef;
         SASSERT(is_viable(v, lo));
         return l_true;
     }
 
-    lbool viable::query_max(pvar v, rational& hi) {
+    lbool viable::query_max(pvar v, rational& hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
         // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
         hi = s.var2pdd(v).max_value();
         auto* e = m_units[v];
-        if (!e && !refine_viable(v, hi))
+        if (!e && !refine_viable<false>(v, hi, fixed, justifications))
             return l_undef;
         if (!e)
             return l_true;
@@ -1132,7 +1463,7 @@ namespace {
             e = e->prev();
         }
         while (e != last);
-        if (!refine_viable(v, hi))
+        if (!refine_viable<false>(v, hi, fixed, justifications))
             return l_undef;
         SASSERT(is_viable(v, hi));
         return l_true;
@@ -1151,16 +1482,26 @@ namespace {
         entry const* first = m_units[v];
         entry const* e = first;
         do {
-            entry const* origin = e;
-            while (origin->refined)
-                origin = origin->refined;
-            signed_constraint const c = origin->src;
-            sat::literal const lit = c.blit();
-            if (!added.contains(lit)) {
-                added.insert(lit);
-                LOG("Adding " << lit_pp(s, lit));
-                IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-                c.add_to_univariate_solver(v, s, *us, lit.to_uint());
+            ptr_vector<entry const> to_process = e->refined;
+            while (!to_process.empty()) {
+                auto current = to_process.back();
+                to_process.pop_back();
+                if (!current->refined.empty()) {
+                    for (auto& ref : current->refined)
+                        to_process.push_back(ref);
+                    continue;
+                }
+                const entry* origin = current;
+                for (const auto& src : origin->src) {
+                    sat::literal const lit = src.blit();
+                    if (!added.contains(lit)) {
+                        added.insert(lit);
+                        LOG("Adding " << lit_pp(s, lit));
+                        IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
+                        verbose_stream() << ";; " << lit_pp(s, lit) << "\n";
+                        src.add_to_univariate_solver(v, s, *us, lit.to_uint());
+                    }
+                }
             }
             e = e->next();
         }
@@ -1250,6 +1591,7 @@ namespace {
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
         verbose_stream() << "unsat core " << core << "\n";
+        //exit(0);
         return true;
     }
 
@@ -1262,9 +1604,23 @@ namespace {
         entry const* first = e;
         SASSERT(e);
         // If there is a full interval, all others would have been removed
-        SASSERT(!e->interval.is_full() || e->next() == e);
-        SASSERT(e->interval.is_full() || all_of(*e, [](entry const& f) { return !f.interval.is_full(); }));
         clause_builder lemma(s);
+        if (first->interval.is_full()) {
+            SASSERT(first->next() == first);
+            for (auto sc : first->side_cond)
+                lemma.insert_eval(~sc);
+            for (const auto& src : first->src) {
+                lemma.insert(~src);
+                core.insert(src);
+                core.insert_vars(src);
+            }
+            core.add_lemma("viable", lemma.build());
+            core.logger().log(inf_fi(*this, v));
+            return true;
+        }
+
+        SASSERT(all_of(*first, [](entry const& f) { return !f.interval.is_full(); }));
+
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
@@ -1310,15 +1666,16 @@ namespace {
 
             // verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
 
-            if (!e->interval.is_full()) {
-                signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
-                lemma.insert_try_eval(~c);
-            }
+            signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
+            lemma.insert_try_eval(~c);
+
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);
-            lemma.insert(~e->src);
-            core.insert(e->src);
-            core.insert_vars(e->src);
+            for (const auto& src : e->src) {
+                lemma.insert(~src);
+                core.insert(src);
+                core.insert_vars(src);
+            }
             e = n;
         }
         while (e != first);
@@ -1339,7 +1696,12 @@ namespace {
             return;
         entry* first = e;
         do {
-            LOG("v" << v << ": " << e->interval << " " << e->side_cond << " " << e->src);
+            IF_LOGGING(
+                    verbose_stream() << "v" << v << ": " << e->interval << " " << e->side_cond << " ";
+                    for (const auto& src : e->src)
+                        verbose_stream() << src << " ";
+                    verbose_stream() << "\n";
+            );
             e = e->next();
         }
         while (e != first);
@@ -1363,7 +1725,7 @@ namespace {
             rational const& s_ = e->interval.hi().val();
             out << "[ ";
             out << val_pp(m, p, true) << "*v" << v << " + " << val_pp(m, q_);
-            out << (e->src.is_positive() ? " > " : " >= ");
+            out << (e->src[0].is_positive() ? " > " : " >= ");
             out << val_pp(m, r, true) << "*v" << v << " + " << val_pp(m, s_);
             out << " ] ";
         }
@@ -1371,7 +1733,9 @@ namespace {
             out << e->coeff << " * v" << v << " " << e->interval << " ";
         else
             out << e->interval << " ";
-        out << e->side_cond << " " << e->src << "; ";
+        out << e->side_cond << " ";
+        for (const auto& src : e->src)
+            out << src << "; ";
         return out;
     }
 

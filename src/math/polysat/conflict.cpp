@@ -234,7 +234,7 @@ namespace polysat {
         m_lemmas.push_back(&cl);
 
         SASSERT(!empty());
-        logger().begin_conflict();
+        logger().begin_conflict(cl.name());
     }
 
     void conflict::init_by_viable_interval(pvar v) {

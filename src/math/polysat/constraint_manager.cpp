@@ -513,4 +513,49 @@ namespace polysat {
             return m.mk_val(p.val().pseudo_inverse(m.power_of_2()));
         return mk_op_term(op_constraint::code::inv_op, p, m.zero());
     }
+    
+    pdd constraint_manager::udiv(pdd const& p, pdd const& q) {
+        return div_rem_op_constraint(p, q).first;
+    }
+    
+    pdd constraint_manager::urem(pdd const& p, pdd const& q) {
+        return div_rem_op_constraint(p, q).second;
+    }
+    
+    /** unsigned quotient/remainder */
+    std::pair<pdd, pdd> constraint_manager::div_rem_op_constraint(pdd const& a, pdd const& b) {
+        auto& m = a.manager();
+        unsigned sz = m.power_of_2();
+        if (b.is_zero()) {
+            // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
+            return {m.mk_val(m.max_value()), a};
+        }
+        if (b.is_one()) {
+            return {a, m.zero()};
+        }
+        if (a.is_val() && b.is_val()) {
+            rational const av = a.val();
+            rational const bv = b.val();
+            SASSERT(!bv.is_zero());
+            rational rv;
+            rational qv = machine_div_rem(av, bv, rv);
+            pdd q = m.mk_val(qv);
+            pdd r = m.mk_val(rv);
+            SASSERT_EQ(a, b * q + r);
+            SASSERT(b.val()*q.val() + r.val() <= m.max_value());
+            SASSERT(r.val() <= (b*q+r).val());
+            SASSERT(r.val() < b.val());
+            return {std::move(q), std::move(r)};
+        }
+        
+        pdd quot = mk_op_term(op_constraint::code::udiv_op, a, b);
+        pdd rem = mk_op_term(op_constraint::code::urem_op, a, b);
+        
+        op_constraint* op1 = (op_constraint*)mk_op_constraint(op_constraint::code::udiv_op, a, b, quot).get();
+        op_constraint* op2 = (op_constraint*)mk_op_constraint(op_constraint::code::urem_op, a, b, quot).get();
+        op1->m_linked = op2;
+        op2->m_linked = op1;
+        
+        return {std::move(quot), std::move(rem)};
+    }
 }
