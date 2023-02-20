@@ -138,8 +138,7 @@ namespace polysat {
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
-        // i := x + y >= x or x + y > x
-        bool is_add_overflow(pvar x, inequality const& i, pdd& y);
+        bool is_add_overflow(pvar x, inequality const& i, pdd& y, bool& is_minus);
 
         bool has_upper_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_ge_bound);
 

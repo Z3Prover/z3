@@ -1284,65 +1284,68 @@ namespace polysat {
 
 
     /**
-     *  x >= x + y & x <= n => y = 0 or y >= N - n
-     *  x >  x + y & x <= n => y >= N - n
-     * -x <= -x - y & x <= n => y = 0 or y >= N - n
-     * -x < -x - y & x <= n => y >= N - n
+     *  x >=  x + y  &  x <= n  ==>  y >= M - n or y = 0
+     *  x >   x + y  &  x <= n  ==>  y >= M - n
+     * -x <= -x - y  &  x <= n  ==>  y >= M - n or y = 0 or x = 0
+     * -x <  -x - y  &  x <= n  ==>  y >= M - n          or x = 0
      *
-     * NOTE:  x + y <= x   <==>  -y <= x     <==>   -x-1 <= y-1
-     *        x <= x + y   <==>  x <= -y-1   <==>   y <= -x-1
+     * NOTE:  x + y <= x   <=>  -y <= x     <=>   -x-1 <= y-1
+     *        x <= x + y   <=>  x <= -y-1   <=>   y <= -x-1
      *        (see notes on equivalent forms in ule_constraint.cpp)
      *
-     *      x >= x + y   ==>  -y <= x
-     *      x >  x + y   ==>   y <= -x-1
-     *     -x <= -x - y  ==>  -y <= x-1
-     *     -x <  -x - y  ==>   y <= -x
-     *      Add these as simplification rules on ule_constraint instead of this inference rule?
+     *        p <= q  ==>  p = 0  or  -q <= -p
      */
-    bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y) {
-        return false;
+    bool saturation::try_add_overflow_bound(pvar x, conflict& core, inequality const& i) {
         set_rule("[x] x >= x + y & x <= n => y = 0 or y >= 2^N - n");
-        signed_constraint y_eq_0;
-        vector<signed_constraint> x_ge_bound;
+        signed_constraint y_eq_0, x_eq_0;
+        vector<signed_constraint> x_le_bound;
         auto& m = s.var2pdd(x);
         pdd y = m.zero();
-        if (!is_add_overflow(x, axb_l_y, y))
+        bool is_minus;
+        if (!is_add_overflow(x, i, y, is_minus))
             return false;
-        if (!axb_l_y.is_strict() && !is_forced_diseq(y, 0, y_eq_0))
+        if (!i.is_strict() && !is_forced_diseq(y, 0, y_eq_0))
+            return false;
+        if (is_minus && !is_forced_diseq(s.var(x), 0, x_eq_0))
             return false;
         rational bound;
-        if (!has_upper_bound(x, core, bound, x_ge_bound))
+        if (!has_upper_bound(x, core, bound, x_le_bound))
             return false;
         SASSERT(bound != 0);
         m_lemma.reset();
-        if (!axb_l_y.is_strict())
-            m_lemma.insert_eval(y_eq_0);        
-        for (auto c : x_ge_bound)
+        if (!i.is_strict())
+            m_lemma.insert_eval(y_eq_0);
+        if (is_minus)
+            m_lemma.insert_eval(x_eq_0);
+        for (auto c : x_le_bound)
             m_lemma.insert_eval(~c);
-        return propagate(x, core, axb_l_y, s.uge(y, m.two_to_N() - bound));
+        return propagate(x, core, i, s.uge(y, m.two_to_N() - bound));
     }
 
     /**
      * Match one of the patterns:
-     * x >= x + y
-     * x > x + y
+     *  x >=  x + y
+     *  x >   x + y
      * -x <= -x - y
-     * -x < -x - y
+     * -x <  -x - y
      */
-    bool saturation::is_add_overflow(pvar x, inequality const& i, pdd& y) {
-        auto& m = s.var2pdd(x);        
-        pdd X = s.var(x);
+    bool saturation::is_add_overflow(pvar x, inequality const& i, pdd& y, bool& is_minus) {
+        auto& m = s.var2pdd(x);
+        pdd const X = s.var(x);
         pdd a = X;
         if (i.lhs().degree(x) != 1 || i.rhs().degree(x) != 1)
             return false;
         if (i.rhs() == X) {
             i.lhs().factor(x, 1, a, y);
-            if (a.is_one())
+            if (a.is_one()) {
+                is_minus = false;
                 return true;
+            }
         }
         if (i.lhs() == -X) {
             i.rhs().factor(x, 1, a, y);
             if ((-a).is_one()) {
+                is_minus = true;
                 y = -y;
                 return true;
             }
