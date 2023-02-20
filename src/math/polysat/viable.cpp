@@ -894,8 +894,9 @@ namespace {
     }
 
     bool viable::has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
-        // verbose_stream() << "has-max-forbidden with c = " << lit_pp(s, c) << "\n";
-        // display(verbose_stream(), v, "\n");
+        // TODO:
+        // - skip intervals adjacent to c's interval if they contain side conditions on y?
+        //      constraints over y are allowed if level(c) < level(y) (e.g., boolean propagated)
 
         out_c.reset();
         entry const* first = m_units[v];
@@ -913,7 +914,12 @@ namespace {
         if (e->src != c)
             return false;
         entry const* e0 = e;
-        // display_one(verbose_stream() << "selected e0 = ", v, e0) << "\n";
+
+        if (e0->interval.is_full())
+            return false;
+
+        entry const* e0_prev = nullptr;
+        entry const* e0_next = nullptr;
 
         do {
             entry const* n = e->next();
@@ -925,42 +931,55 @@ namespace {
                     break;
                 n = n1;
             }
-            // display_one(verbose_stream() << "e is ", v, e) << "\n";
             if (e == n) {
-                SASSERT_EQ(e, e0);
-                return false;  // TODO: return true if e is the full interval?
+                VERIFY_EQ(e, e0);
+                return false;
             }
             if (!n->interval.currently_contains(e->interval.hi_val()))
                 return false;  // gap
             if (e == e0) {
+                e0_next = n;
                 out_lo = n->interval.lo_val();
-                if (!n->interval.lo().is_val()) {
-                    // verbose_stream() << "A: " << lit_pp(s, s.eq(n->interval.lo(), out_lo)) << "\n";
-                    out_c.push_back(s.eq(n->interval.lo(), out_lo));
-                }
             }
             else if (n == e0) {
+                e0_prev = e;
                 out_hi = e->interval.hi_val();
-                if (!e->interval.hi().is_val()) {
-                    // verbose_stream() << "B: " << lit_pp(s, s.eq(e->interval.hi(), out_hi)) << "\n";
-                    out_c.push_back(s.eq(e->interval.hi(), out_hi));
-                }
-            }            
-            else if (!e->interval.is_full()) {
+            }
+            else if (e->src == c) {
+                // multiple intervals from the same constraint c
+                // TODO: adjacent intervals would fine but they should be merged at insertion instead of considering them here.
+                return false;
+            }
+            else {
+                VERIFY(!e->interval.is_full());  // if e were full then there would be no e0
                 signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
                 out_c.push_back(c);
             }
             if (e != e0) {
-                for (auto sc : e->side_cond) {
-                    // verbose_stream() << "D: " << lit_pp(s, sc) << "\n";
+                for (auto sc : e->side_cond)
                     out_c.push_back(sc);
-                }
-                // verbose_stream() << "E: " << lit_pp(s, e->src) << "\n";
                 out_c.push_back(e->src);
             }
             e = n;
         }
         while (e != e0);
+
+        // Other intervals fully cover c's interval, e.g.:
+        //              [---------[          e0 from c
+        //         [---------[               e0_prev
+        //                 [-------------[   e0_next
+        if (e0_next->interval.currently_contains(e0_prev->interval.hi_val()))
+            return false;
+
+        // Conclusion:
+        // v \not\in [out_lo; out_hi[, or equivalently
+        // v \in [out_hi; out_lo[
+
+        auto& m = s.var2pdd(v);
+
+        // To justify the endpoints, pretend that instead of e0 (coming from constraint c) we have the interval [out_hi; out_lo[.
+        out_c.push_back(s.m_constraints.elem(e0_prev->interval.hi(), m.mk_val(out_hi), m.mk_val(out_lo)));
+        out_c.push_back(s.m_constraints.elem(m.mk_val(out_lo), e0_next->interval.symbolic()));
 
         IF_VERBOSE(2, 
                    verbose_stream() << "has-max-forbidden " << e->src << "\n";
