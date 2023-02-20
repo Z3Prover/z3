@@ -96,21 +96,12 @@ namespace polysat {
         // A literal may be watched if there is no unwatched literal at higher level,
         // where true and unassigned literals are considered at infinite level.
         // We prefer true literals to unassigned literals.
-        auto get_watch_level = [&](sat::literal lit) -> unsigned {
-            switch (s.m_bvars.value(lit)) {
-                case l_false:
-                    return s.m_bvars.level(lit);
-                case l_true:
-                    return UINT_MAX;
-                case l_undef:
-                    return UINT_MAX - 1;
-            }
-            UNREACHABLE();
-            return 0;
+        auto get_watch_level = [&](sat::literal lit) -> uint64_t {
+            return s.m_bvars.get_watch_level(lit);
         };
 
-        unsigned lvl0 = get_watch_level(cl[0]);
-        unsigned lvl1 = get_watch_level(cl[1]);
+        uint64_t lvl0 = get_watch_level(cl[0]);
+        uint64_t lvl1 = get_watch_level(cl[1]);
         if (lvl0 < lvl1) {
             std::swap(lvl0, lvl1);
             std::swap(cl[0], cl[1]);
@@ -118,7 +109,7 @@ namespace polysat {
         SASSERT(lvl0 >= lvl1);
         for (unsigned i = 2; i < cl.size(); ++i) {
             sat::literal const lit = cl[i];
-            unsigned const lvl = get_watch_level(lit);
+            uint64_t const lvl = get_watch_level(lit);
             if (lvl > lvl0) {
                 cl[i] = cl[1];
                 cl[1] = cl[0];

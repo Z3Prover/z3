@@ -63,6 +63,7 @@ namespace polysat {
         lbool value(sat::literal lit) const { return m_value[lit.index()]; }
         bool is_true(sat::literal lit) const { return value(lit) == l_true; }
         bool is_false(sat::literal lit) const { return value(lit) == l_false; }
+        bool is_undef(sat::literal lit) const { return value(lit) == l_undef; }
         unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
         unsigned level(sat::literal lit) const { return level(lit.var()); }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); SASSERT(is_bool_propagation(var) == !!m_reason[var]); return m_reason[var]; }
@@ -95,6 +96,8 @@ namespace polysat {
             UNREACHABLE();
             return out;
         }
+
+        uint64_t get_watch_level(sat::literal lit) const;
     };
 
     struct bool_justification_pp {

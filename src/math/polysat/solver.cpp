@@ -331,6 +331,12 @@ namespace polysat {
      * Return true if a new watch was found; or false to keep the existing one.
      */
     bool solver::propagate(sat::literal lit, clause& cl) {
+#if 0
+        LOG_H3("Propagate " << lit << " into " << cl);
+        for (sat::literal l : cl) {
+            LOG("    " << lit_pp(*this, l));
+        }
+#endif
         SASSERT(m_bvars.is_true(lit));
         SASSERT(cl.size() >= 2);
         unsigned idx = (cl[0] == ~lit) ? 1 : 0;

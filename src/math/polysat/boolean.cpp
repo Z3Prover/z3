@@ -129,4 +129,22 @@ namespace polysat {
             out << " by " << show_deref(reason(lit));
         return out;
     }
+
+    /**
+     * A literal may be watched if there is no unwatched literal at higher level,
+     * where true and unassigned literals are considered at infinite level.
+     * We prefer true literals to unassigned literals.
+     */
+    uint64_t bool_var_manager::get_watch_level(sat::literal lit) const {
+        switch (value(lit)) {
+            case l_false:
+                return level(lit);
+            case l_true:
+                return std::numeric_limits<uint64_t>::max();
+            case l_undef:
+                return std::numeric_limits<uint64_t>::max() - 1;
+        }
+        UNREACHABLE();
+        return 0;
+    }
 }
