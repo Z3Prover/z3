@@ -1323,12 +1323,9 @@ namespace {
         }
         while (e != first);
 
-        // Doesn't hold anymore: we may get new constraints with unassigned variables, see test_polysat::test_bench23_fi_lemma.
-        // SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) == l_false || s.lit2cnstr(lit).is_currently_false(s); }));
+        // TODO: violated in bench27
+        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; }));
 
-        // NSB review: bench23 exposes a scenario where s.m_bvars.value(lit) == l_true. So the viable lemma is mute, but the literal in the premise
-        // is a conflict.
-        // SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; }));
         core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
         return true;
