@@ -1302,6 +1302,12 @@ namespace sat {
                 return l_undef;
             }
 
+            if (false && m_config.m_phase == PS_LOCAL_SEARCH && m_ext) {
+                IF_VERBOSE(0, verbose_stream() << "WARNING: local search with theories is in testing mode\n");
+                bounded_local_search();
+                exit(0);
+            }
+
             log_stats();
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {               
                 m_restart_threshold = m_config.m_burst_search;

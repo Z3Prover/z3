@@ -207,41 +207,59 @@ namespace arith {
         return false;
     }
 
-    bool sls::cm(bool sign, ineq const& ineq, var_t v, int64_t coeff, int64_t& new_value) {
-        VERIFY(ineq.is_true() == sign);
-        verbose_stream() << "cm " << ineq << " for " << v << " sign " << sign << "\n";
+    bool sls::cm(bool new_sign, ineq const& ineq, var_t v, int64_t coeff, int64_t& new_value) {
+        SASSERT(ineq.is_true() == new_sign);
+        VERIFY(ineq.is_true() == new_sign);
         auto bound = ineq.m_bound;
         auto argsv = ineq.m_args_value;
         bool solved = false;
         int64_t delta = argsv - bound;
-        if (sign) {
+        auto make_eq = [&]() {
+            SASSERT(delta != 0);
+            if (delta < 0)
+                new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
+            else
+                new_value = value(v) - (delta + abs(coeff) - 1) / coeff;
+            solved = argsv + coeff * (new_value - value(v)) == bound;
+            if (!solved && abs(coeff) == 1) {
+                verbose_stream() << "did not solve equality " << ineq << " for " << v << "\n";
+                verbose_stream() << new_value << " " << value(v) << " delta " << delta << " lhs " << (argsv + coeff * (new_value - value(v))) << " bound " << bound << "\n";
+                UNREACHABLE();
+            }
+            return solved;
+        };
+
+        auto make_diseq = [&]() {
+            if (delta >= 0)
+                delta++;
+            else
+                delta--;
+            new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
+            VERIFY(argsv + coeff * (new_value - value(v)) != bound);
+            return true;
+        };
+
+        if (new_sign) {
             switch (ineq.m_op) {                
             case ineq_kind::LE:
+                // args <= bound -> args > bound
                 SASSERT(argsv <= bound);
                 SASSERT(delta <= 0);
-                delta--;
+                --delta;
                 new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
                 VERIFY(argsv + coeff * (new_value - value(v)) > bound);
                 return true;
             case ineq_kind::LT:
+                // args < bound -> args >= bound
                 SASSERT(argsv <= ineq.m_bound);
                 SASSERT(delta <= 0);
                 new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
                 VERIFY(argsv + coeff * (new_value - value(v)) >= bound);
                 return true;
             case ineq_kind::EQ:
-                if (delta >= 0)
-                    delta++;
-                else
-                    delta--;
-                new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
-                VERIFY(argsv + coeff * (new_value - value(v)) != bound);
-                return true;
+                return make_diseq();
             case ineq_kind::NE:
-                new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
-                solved = argsv + coeff * (new_value - value(v)) == bound;
-                if (!solved) verbose_stream() << "did not solve disequality " << ineq << " for " << v << "\n";
-                return solved;
+                return make_eq();
             default:
                 UNREACHABLE();
                 break;
@@ -263,18 +281,9 @@ namespace arith {
                 VERIFY(argsv + coeff * (new_value - value(v)) < bound);
                 return true;
             case ineq_kind::NE:
-                if (delta >= 0)
-                    delta++;
-                else
-                    delta--;
-                new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
-                VERIFY(argsv + coeff * (new_value - value(v)) != bound);
-                return true;
+                return make_diseq();
             case ineq_kind::EQ:
-                new_value = value(v) + (abs(delta) + abs(coeff) - 1) / coeff;
-                solved = argsv + coeff * (new_value - value(v)) == bound;
-                if (!solved) verbose_stream() << "did not solve equality " << ineq << " for " << v << "\n";
-                return solved;
+                return make_eq();
             default:
                 UNREACHABLE();
                 break;
@@ -291,10 +300,10 @@ namespace arith {
         int64_t new_value;
         auto v = ineq.m_var_to_flip;
         if (v == UINT_MAX) {
-            verbose_stream() << "no var to flip\n";
+            // verbose_stream() << "no var to flip\n";
             return false;
         }
-        if (!cm(sign, ineq, v, new_value)) {
+        if (!cm(!sign, ineq, v, new_value)) {
             verbose_stream() << "no critical move for " << v << "\n";
             return false;
         }
@@ -308,6 +317,7 @@ namespace arith {
     // cached dts has to be updated when the score of literals are updated.
     // 
     double sls::dscore(var_t v, int64_t new_value) const {
+        verbose_stream() << "dscore\n";
         double score = 0;
 #if 0
         auto const& vi = m_vars[v];
@@ -558,12 +568,12 @@ namespace arith {
         auto* ineq = atom(bv);
         if (!ineq)
             return 0;
-        SASSERT(ineq->is_true() == sign);
+        SASSERT(ineq->is_true() != sign);
         int64_t new_value;
 
         for (auto const& [coeff, v] : ineq->m_args) {
             double result = 0;
-            if (cm(sign, *ineq, v, coeff, new_value))
+            if (cm(!sign, *ineq, v, coeff, new_value))
                 result = dscore(v, new_value);
             // just pick first positive, or pick a max?
             if (result > 0) {
@@ -576,7 +586,7 @@ namespace arith {
 
     // switch to dscore mode
     void sls::on_rescale()  {
-        m_dscore_mode = true;
+        // m_dscore_mode = true;
     }
 
     void sls::on_save_model() {

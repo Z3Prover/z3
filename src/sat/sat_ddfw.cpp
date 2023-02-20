@@ -62,7 +62,7 @@ namespace sat {
     void ddfw::check_with_plugin() {
         m_plugin->init_search();
         m_steps_since_progress = 0;
-        while (m_min_sz > 0 && m_steps_since_progress++ <= 1500000) {
+        while (m_min_sz > 0 && m_steps_since_progress++ <= 150000) {
             if (should_reinit_weights()) do_reinit_weights();
             else if (do_flip<true>());
             else if (do_literal_flip<true>());
