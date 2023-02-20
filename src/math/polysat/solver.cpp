@@ -331,6 +331,7 @@ namespace polysat {
      * Return true if a new watch was found; or false to keep the existing one.
      */
     bool solver::propagate(sat::literal lit, clause& cl) {
+        // scoped_set_log_enabled _enable(true);
 #if 0
         LOG_H3("Propagate " << lit << " into " << cl);
         for (sat::literal l : cl) {
@@ -343,20 +344,34 @@ namespace polysat {
         SASSERT(cl[1 - idx] == ~lit);
         if (m_bvars.is_true(cl[idx]))
             return false;
-        unsigned i = 2;
-        for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
-        if (i < cl.size()) {
-            // found non-false literal in cl; watch it instead
+        // Find a new watched literal:
+        // - non-false literal (as usual)
+        // - false literal, propagated at higher level than lit
+        //   (may happen if a clause has been generated that propagated lit at a lower than current level)
+        unsigned i = cl.size();
+        uint64_t i_lvl = m_bvars.level(lit);
+        for (unsigned j = 2; j < cl.size(); ++j) {
+            uint64_t j_lvl = m_bvars.get_watch_level(cl[j]);
+            if (i_lvl < j_lvl) {
+                i = j;
+                i_lvl = j_lvl;
+            }
+        }
+        bool const updated_watch = i < cl.size();
+        if (updated_watch) {
+            // found better watch literal in cl; watch it instead
             m_bvars.watch(cl[i]).push_back(&cl);
+            // LOG("Found new watch: " << cl[i]);
             std::swap(cl[1 - idx], cl[i]);
-            return true;
+            if (!m_bvars.is_false(cl[1 - idx]))
+                return true;
         }
         // all literals in cl are false, except possibly the other watch cl[idx]
         if (m_bvars.is_false(cl[idx]))
             set_conflict(cl);
         else
             assign_propagate(cl[idx], cl);
-        return false;
+        return updated_watch;
     }
 
     void solver::linear_propagate() {
