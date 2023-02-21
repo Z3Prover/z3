@@ -481,8 +481,8 @@ namespace dd {
         pdd subst_pdd(unsigned v, pdd const& r) const;
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
-        bool operator==(pdd const& other) const { return root == other.root; }
-        bool operator!=(pdd const& other) const { return root != other.root; }
+        bool operator==(pdd const& other) const { return root == other.root && (&m == &other.m); }
+        bool operator!=(pdd const& other) const { return !operator==(other); }
         unsigned hash() const { return root; }
 
         unsigned power_of_2() const { return m.power_of_2(); }
