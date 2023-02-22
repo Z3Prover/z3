@@ -105,15 +105,57 @@ namespace {
         }
 
 #if 0
+        // simple version that we had for a long time, subsumed by rule in #else
+
+        // p + 1 <= p  -->  p + 1 <= 0
+        // p <= p - 1  -->  p <= 0
+        //
+        // p + k <= p       -->  p + k <= k - 1
+        // p     <= p - k   -->  p     <= k - 1
+        if ((lhs - rhs).is_val()) {
+            pdd k = lhs - rhs;
+            rhs = k - 1;
+        }
+#else
+        // Try to reduce the number of variables on one side using one of these rules:
+        //
+        //      p <= q  -->  p <= p - q - 1
+        //      p <= q  -->  q - p <= q
+        //
+        // Possible alternative to 1:
+        //      p <= q  -->  q - p <= -p - 1
+        // Possible alternative to 2:
+        //      p <= q  -->  -q-1 <= p - q - 1
+        //
+        // Example:
+        //
+        //      x <= x + y  -->  x <= - y - 1
+        //      x + y <= x  -->  -y <= x
+        if (!lhs.is_val() && !rhs.is_val()) {
+            unsigned const lhs_vars = lhs.free_vars().size();
+            unsigned const rhs_vars = rhs.free_vars().size();
+            unsigned const diff_vars = (lhs - rhs).free_vars().size();
+            if (diff_vars < lhs_vars || diff_vars < rhs_vars) {
+                // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
+                if (lhs_vars <= rhs_vars)
+                    rhs = lhs - rhs - 1;
+                else
+                    lhs = rhs - lhs;
+                // verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
+            }
+        }
+#endif
+
+#if 0
         // TODO: maybe enable this later to make some constraints more "readable"
         // p - k <= -k - 1  -->  k <= p
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == (rhs + 1).val()) {
-            // LOG("Simplifying    " << lhs << " <= " << rhs);
+            // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
             std::abort();
             pdd k = -(rhs + 1);
             rhs = lhs + k;
             lhs = k;
-            // LOG("       into    " << lhs << " <= " << rhs);
+            // verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
         }
 #endif
 
@@ -139,46 +181,6 @@ namespace {
             rhs = - k - 1;
         }
 #endif
-
-        // p + 1 <= p  -->  p + 1 <= 0
-        // p <= p - 1  -->  p <= 0
-        //
-        // p + k <= p       -->  p + k <= k - 1
-        // p     <= p - k   -->  p     <= k - 1
-        // TODO: subsumed by next condition
-        if ((lhs - rhs).is_val()) {
-            pdd k = lhs - rhs;
-            rhs = k - 1;
-        }
-
-        // Try to reduce the number of variables on one side using one of these rules:
-        //
-        //      p <= q  -->  p <= p - q - 1
-        //      p <= q  -->  q - p <= q
-        //
-        // Possible alternative to 1:
-        //      p <= q  -->  q - p <= -p - 1
-        // Possible alternative to 2:
-        //      p <= q  -->  -q-1 <= p - q - 1
-        //
-        // Example:
-        //
-        //      x <= x + y  -->  x <= - y - 1
-        //      x + y <= x  -->  -y <= x
-        if (false && !lhs.is_val() && !rhs.is_val()) {
-            // TODO: disabled because it kills bench31 (by rewriting just a single constraint...)
-            unsigned const lhs_vars = lhs.free_vars().size();
-            unsigned const rhs_vars = rhs.free_vars().size();
-            unsigned const diff_vars = (lhs - rhs).free_vars().size();
-            if (diff_vars < lhs_vars || diff_vars < rhs_vars) {
-                verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
-                if (lhs_vars <= rhs_vars)
-                    rhs = lhs - rhs - 1;
-                else
-                    lhs = rhs - lhs;
-                verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
-            }
-        }
 
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
