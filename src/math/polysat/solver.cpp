@@ -154,21 +154,10 @@ namespace polysat {
             return;  // no need to do anything if we already have a conflict at base level
         sat::literal lit = c.blit();
         LOG("New constraint " << c << " for " << dep);
-        switch (m_bvars.value(lit)) {
-        case l_false:
-            // Input literal contradicts current boolean state (e.g., opposite literals in the input)
-            // => conflict only flags the inconsistency
-            set_conflict_at_base_level(dep);
-            m_conflict.insert(~c);  // ~c is true in the solver, need to track its original dependencies
-            return;
-        case l_true:
+        if (m_bvars.is_true(lit)) {
             // constraint c is already asserted => ignore
             SASSERT(m_bvars.level(lit) <= m_level);
             return;
-        case l_undef:
-            break;
-        default:
-            UNREACHABLE();
         }
         switch (c.eval()) {
         case l_false:
@@ -182,6 +171,13 @@ namespace polysat {
             break;
         default:
             UNREACHABLE();
+        }
+        if (m_bvars.is_false(lit)) {
+            // Input literal contradicts current boolean state (e.g., opposite literals in the input)
+            // => conflict only flags the inconsistency
+            set_conflict_at_base_level(dep);
+            m_conflict.insert(~c);  // ~c is true in the solver, need to track its original dependencies
+            return;
         }
         m_bvars.assumption(lit, m_level, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
