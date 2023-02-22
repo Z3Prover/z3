@@ -34,23 +34,25 @@ namespace polysat {
 
     void saturation::log_lemma(pvar v, conflict& core) {
         IF_VERBOSE(2, {
-            auto const& cl = core.lemmas().back();
+            clause* cl = core.lemmas().back();
             verbose_stream() << m_rule << " v" << v << " ";
             for (auto lit : *cl)
                 verbose_stream() << s.lit2cnstr(lit) << " ";
             verbose_stream() << " " << *cl << "\n";
+            IF_VERBOSE(15, {
+                for (auto lit : *cl)
+                    verbose_stream() << "    " << lit_pp(s, lit) << "\n";
+            });
         });
     }
 
     void saturation::perform(pvar v, conflict& core) {
         IF_VERBOSE(2, verbose_stream() << "v" << v << " " << core << "\n");
-        for (auto c : core) 
-            //if (perform(v, c, core)) Why stop eagerly?
-            //    return;
+        for (signed_constraint c : core)
             perform(v, c, core);
     }
 
-    bool saturation::perform(pvar v, signed_constraint const& c, conflict& core) {
+    bool saturation::perform(pvar v, signed_constraint c, conflict& core) {
         if (c.is_currently_true(s))
             return false;
 
@@ -58,10 +60,10 @@ namespace polysat {
 
         if (c->is_ule()) {
             auto i = inequality::from_ule(c);
-            return try_inequality(v, i, core) | prop;
+            return try_inequality(v, i, core) || prop;
         }
         if (c->is_umul_ovfl()) 
-            return try_umul_ovfl(v, c, core) | prop;
+            return try_umul_ovfl(v, c, core) || prop;
 
         return false;
     }

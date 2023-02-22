@@ -173,7 +173,7 @@ namespace polysat {
     public:
         saturation(solver& s);
         void perform(pvar v, conflict& core);
-        bool perform(pvar v, signed_constraint const& sc, conflict& core);
+        bool perform(pvar v, signed_constraint sc, conflict& core);
     };
 
     /*
