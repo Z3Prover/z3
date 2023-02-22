@@ -75,7 +75,10 @@ Useful lemmas:
 namespace {
     using namespace polysat;
 
-    // Simplify lhs <= rhs
+    // Simplify lhs <= rhs.
+    //
+    // NOTE: the result should not depend on the initial value of is_positive;
+    //       the purpose of is_positive is to allow flipping the sign as part of a rewrite rule.
     void simplify_impl(bool& is_positive, pdd& lhs, pdd& rhs) {
         // 0 <= p   -->   0 <= 0
         if (lhs.is_zero()) {
@@ -102,25 +105,40 @@ namespace {
         }
 
 #if 0
-        // !(k <= p) -> p <= k - 1
-        
-        if (!is_positive && lhs.is_val() && lhs.val() > 0) {
-            pdd k = lhs;
-            lhs = rhs;
-            rhs = k - 1;
-            is_positive = true;
+        // TODO: maybe enable this later to make some constraints more "readable"
+        // p - k <= -k - 1  -->  k <= p
+        if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == (rhs + 1).val()) {
+            // LOG("Simplifying    " << lhs << " <= " << rhs);
+            std::abort();
+            pdd k = -(rhs + 1);
+            rhs = lhs + k;
+            lhs = k;
+            // LOG("       into    " << lhs << " <= " << rhs);
         }
 #endif
 
         // -1 <= p  -->   p + 1 <= 0
-        // 1 <= p   -->   p - 1 <= -2           (--> p > 0 later)
+        if (lhs.is_max()) {
+            lhs = rhs + 1;
+            rhs = 0;
+        }
+
+        // 1 <= p   -->   p > 0
+        if (lhs.is_one()) {
+            lhs = rhs;
+            rhs = 0;
+            is_positive = !is_positive;
+        }
+
+#if 0
+        // TODO: enabling this rule leads to unsoundness in 1041-minimized (but the rule itself is correct)
         // k <= p   -->   p - k <= - k - 1
         if (lhs.is_val()) {
             pdd k = lhs;
             lhs = rhs - k;
             rhs = - k - 1;
         }
-        // NSB: why this?
+#endif
 
         // p + 1 <= p  -->  p + 1 <= 0
         // p <= p - 1  -->  p <= 0
@@ -164,7 +182,8 @@ namespace {
 
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
-        if (rhs.is_val() && (rhs + 2).is_zero()) {
+        if (rhs.is_val() && !rhs.is_zero() && (rhs + 2).is_zero()) {
+            // Note: rhs.is_zero() iff rhs.manager().power_of_2() == 1 (the rewrite is not wrong for M=2, but useless)
             lhs = lhs + 1;
             rhs = 0;
             is_positive = !is_positive;
