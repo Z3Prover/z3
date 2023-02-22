@@ -103,12 +103,12 @@ namespace polysat {
         return prop;
     }
 
-    bool saturation::try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core) {
-#if 1
-        return false;
-#else
+    bool saturation::try_umul_ovfl(pvar v, signed_constraint c, conflict& core) {
         SASSERT(c->is_umul_ovfl());
         bool prop = false;
+        if (try_umul_ovfl_noovfl(v, c, core))
+            prop = true;
+#if 0
         if (c.is_positive()) {
             prop = try_umul_ovfl_bounds(v, c, core);
         }
@@ -117,11 +117,40 @@ namespace polysat {
             if (false && try_umul_noovfl_lo(v, c, core))
                 prop = true;
         }
-        return prop;
 #endif
+        return prop;
     }
 
-    bool saturation::try_umul_noovfl_lo(pvar v, signed_constraint const& c, conflict& core) {
+    bool saturation::try_umul_ovfl_noovfl(pvar v, signed_constraint c1, conflict& core) {
+        set_rule("[y] ovfl(x, y) & ~ovfl(y, z) ==> x > z");
+        SASSERT(c1->is_umul_ovfl());
+        if (!c1.is_positive())  // since we search for both premises in the core, break symmetry by requiring c1 to be positive
+            return false;
+        pdd p = c1->to_umul_ovfl().p();
+        pdd q = c1->to_umul_ovfl().q();
+        for (auto c2 : core) {
+            if (!c2.is_negative())
+                continue;
+            if (!c2->is_umul_ovfl())
+                continue;
+            pdd r = c2->to_umul_ovfl().p();
+            pdd u = c2->to_umul_ovfl().q();
+            if (p == u || q == u)
+                swap(r, u);
+            if (q == r || q == u)
+                swap(p, q);
+            if (p != r)
+                continue;
+            m_lemma.reset();
+            m_lemma.insert(~c1);
+            m_lemma.insert(~c2);
+            if (propagate(v, core, s.ult(u, q)))
+                return true;
+        }
+        return false;
+    }
+
+    bool saturation::try_umul_noovfl_lo(pvar v, signed_constraint c, conflict& core) {
         set_rule("[x] ~ovfl(x, y) => y = 0 or x <= x * y");
         SASSERT(c->is_umul_ovfl());
         if (!c.is_negative())
@@ -145,9 +174,9 @@ namespace polysat {
 
     /**
      * ~ovfl(p, q) & p >= k => q < 2^N/k
-     * TODO: subusmed by narrowing inferences?
+     * TODO: subsumed by narrowing inferences?
      */
-    bool saturation::try_umul_noovfl_bounds(pvar x, signed_constraint const& c, conflict& core) {
+    bool saturation::try_umul_noovfl_bounds(pvar x, signed_constraint c, conflict& core) {
         set_rule("[x] ~ovfl(x, q) & x >= k => q <= (2^N-1)/k");
         SASSERT(c->is_umul_ovfl());
         SASSERT(c.is_negative());
@@ -184,7 +213,7 @@ namespace polysat {
    /**
     * ovfl(p, q) & p <= k => q > 2^N/k
     */
-    bool saturation::try_umul_ovfl_bounds(pvar v, signed_constraint const& c, conflict& core) {
+    bool saturation::try_umul_ovfl_bounds(pvar v, signed_constraint c, conflict& core) {
         SASSERT(c->is_umul_ovfl());
         SASSERT(c.is_positive());
         auto const& ovfl = c->to_umul_ovfl();
@@ -204,7 +233,7 @@ namespace polysat {
         return propagate(v, core, crit.as_signed_constraint(), c);
     }
 
-    bool saturation::propagate(pvar v, conflict& core, signed_constraint const& crit, signed_constraint c) {
+    bool saturation::propagate(pvar v, conflict& core, signed_constraint crit, signed_constraint c) {
         m_lemma.insert(~crit);
         return propagate(v, core, c);
     }

@@ -39,7 +39,7 @@ namespace polysat {
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
 
         void log_lemma(pvar v, conflict& core);
-        bool propagate(pvar v, conflict& core, signed_constraint const& crit1, signed_constraint c);
+        bool propagate(pvar v, conflict& core, signed_constraint crit1, signed_constraint c);
         bool propagate(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
         bool propagate(pvar v, conflict& core, signed_constraint c);
         bool add_conflict(pvar v, conflict& core, inequality const& crit1, signed_constraint c);
@@ -165,10 +165,11 @@ namespace polysat {
 
         bool try_inequality(pvar v, inequality const& i, conflict& core);
 
-        bool try_umul_ovfl(pvar v, signed_constraint const& c, conflict& core);
-        bool try_umul_noovfl_lo(pvar v, signed_constraint const& c, conflict& core);
-        bool try_umul_noovfl_bounds(pvar v, signed_constraint const& c, conflict& core);
-        bool try_umul_ovfl_bounds(pvar v, signed_constraint const& c, conflict& core);
+        bool try_umul_ovfl(pvar v, signed_constraint c, conflict& core);
+        bool try_umul_ovfl_noovfl(pvar v, signed_constraint c, conflict& core);
+        bool try_umul_noovfl_lo(pvar v, signed_constraint c, conflict& core);
+        bool try_umul_noovfl_bounds(pvar v, signed_constraint c, conflict& core);
+        bool try_umul_ovfl_bounds(pvar v, signed_constraint c, conflict& core);
 
     public:
         saturation(solver& s);
