@@ -121,6 +121,8 @@ namespace polysat {
         return prop;
     }
 
+    // Ovfl(x, y) & ~Ovfl(y, z) ==> x > z
+    // TODO: Ovfl(x, y1) & ~Ovfl(y2, z) & y1 <= y2 ==> x > z
     bool saturation::try_umul_ovfl_noovfl(pvar v, signed_constraint c1, conflict& core) {
         set_rule("[y] ovfl(x, y) & ~ovfl(y, z) ==> x > z");
         SASSERT(c1->is_umul_ovfl());
