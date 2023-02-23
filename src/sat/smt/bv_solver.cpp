@@ -388,6 +388,9 @@ namespace bv {
             ctx.add_antecedent(probing, c.a, c.c);
             break;
         }
+        default:
+            UNREACHABLE();
+            break;
         }
         if (!probing && ctx.use_drat())
             log_drat(c);
