@@ -37,6 +37,20 @@ namespace polysat {
         static interval full() { return {}; }
         static interval proper(pdd const& lo, pdd const& hi) { return {lo, hi}; }
 
+        interval(interval const&) = default;
+        interval(interval&&) = default;
+        interval& operator=(interval const& other) {
+            m_bounds = std::nullopt;  // clear pdds first to allow changing pdd_manager (probably should change the PDD assignment operator; but for now I want to be able to detect manager confusions)
+            m_bounds = other.m_bounds;
+            return *this;
+        }
+        interval& operator=(interval&& other) {
+            m_bounds = std::nullopt;  // clear pdds first to allow changing pdd_manager
+            m_bounds = std::move(other.m_bounds);
+            return *this;
+        }
+        ~interval() = default;
+
         bool is_full() const { return !m_bounds; }
         bool is_proper() const { return !!m_bounds; }
         bool is_always_empty() const { return is_proper() && lo() == hi(); }

@@ -411,6 +411,7 @@ namespace dd {
         pdd& operator=(pdd const& other);
         pdd& operator=(unsigned k);
         pdd& operator=(rational const& k);
+        // TODO: pdd& operator=(pdd&& other);  (just swap like move constructor?)
         ~pdd() { m.dec_ref(root); }
         pdd lo() const { return pdd(m.lo(root), m); }
         pdd hi() const { return pdd(m.hi(root), m); }
@@ -441,12 +442,12 @@ namespace dd {
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd operator-() const { return m.minus(*this); }
-        pdd operator+(pdd const& other) const { return m.add(*this, other); }
-        pdd operator-(pdd const& other) const { return m.sub(*this, other); }
-        pdd operator*(pdd const& other) const { return m.mul(*this, other); }
-        pdd operator&(pdd const& other) const { return m.mul(*this, other); }
-        pdd operator|(pdd const& other) const { return m.mk_or(*this, other); }
-        pdd operator^(pdd const& other) const { return m.mk_xor(*this, other); }        
+        pdd operator+(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.add(*this, other); }
+        pdd operator-(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.sub(*this, other); }
+        pdd operator*(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mul(*this, other); }
+        pdd operator&(pdd const& other) const { VERIFY_EQ(&m, &other.m); VERIFY(m.get_semantics() != pdd_manager::mod2N_e); return m.mul(*this, other); }  // ???  TODO: fix for 2^N
+        pdd operator|(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_or(*this, other); }
+        pdd operator^(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_xor(*this, other); }
         pdd operator^(unsigned other) const { return m.mk_xor(*this, other); }        
 
         pdd operator*(rational const& other) const { return m.mul(other, *this); }
@@ -455,14 +456,14 @@ namespace dd {
         pdd shl(unsigned n) const; 
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd div(rational const& other) const { return m.div(*this, other); }
-        bool try_div(rational const& other, pdd& out_result) const { return m.try_div(*this, other, out_result); }
+        bool try_div(rational const& other, pdd& out_result) const { VERIFY_EQ(&m, &out_result.m); return m.try_div(*this, other, out_result); }
         pdd pow(unsigned j) const { return m.pow(*this, j); }
-        pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
-        bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
-        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }
-        bool factor(unsigned v, unsigned degree, pdd& lc) const { return m.factor(*this, v, degree, lc); }
-        bool resolve(unsigned v, pdd const& other, pdd& result) { return m.resolve(v, *this, other, result); }
-        pdd reduce(unsigned v, pdd const& other) const { return m.reduce(v, *this, other); }
+        pdd reduce(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.reduce(*this, other); }
+        bool different_leading_term(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.different_leading_term(*this, other); }
+        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { VERIFY_EQ(&m, &lc.m); VERIFY_EQ(&m, &rest.m); m.factor(*this, v, degree, lc, rest); }
+        bool factor(unsigned v, unsigned degree, pdd& lc) const { VERIFY_EQ(&m, &lc.m); return m.factor(*this, v, degree, lc); }
+        bool resolve(unsigned v, pdd const& other, pdd& result) { VERIFY_EQ(&m, &other.m); VERIFY_EQ(&m, &result.m); return m.resolve(v, *this, other, result); }
+        pdd reduce(unsigned v, pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.reduce(v, *this, other); }
 
         /**
          * \brief factor out variables
@@ -470,7 +471,7 @@ namespace dd {
         std::pair<unsigned_vector, pdd> var_factors() const;
 
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
-        pdd subst_val(pdd const& s) const { return m.subst_val(*this, s); }
+        pdd subst_val(pdd const& s) const { VERIFY_EQ(&m, &s.m); return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
         pdd subst_add(unsigned var, rational const& val) const { return m.subst_add(*this, var, val); }
         bool subst_get(unsigned var, rational& out_val) const { return m.subst_get(*this, var, out_val); }
@@ -494,7 +495,7 @@ namespace dd {
         unsigned max_pow2_divisor() const { return m.max_pow2_divisor(root); }
         unsigned_vector const& free_vars() const { return m.free_vars(*this); }
 
-        void swap(pdd& other) { std::swap(root, other.root); }
+        void swap(pdd& other) { VERIFY_EQ(&m, &other.m); std::swap(root, other.root); }
 
         pdd_iterator begin() const;
         pdd_iterator end() const;
