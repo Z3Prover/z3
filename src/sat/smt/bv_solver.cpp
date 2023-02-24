@@ -435,6 +435,7 @@ namespace bv {
         ctx.push(restore_vector(m_proof_literals));
 
         sat::literal_vector lits;
+        euf::enode_pair_vector eqs;
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
             lits.push_back(~c.m_antecedent);
@@ -473,21 +474,29 @@ namespace bv {
             lits.push_back(leq2);
             break;
         case bv_justification::kind_t::bvext:
+            if (c.m_num_eqs > 0) {
+                ctx.push(restore_vector(m_proof_eqs));
+                ctx.push(value_trail(m_eq_tail));
+            }
             for (unsigned i = 0; i < c.m_num_literals; ++i)
                 lits.push_back(~c.m_literals[i]);
-            for (unsigned i = 0; i < c.m_num_eqs; ++i) {
-                IF_VERBOSE(0, verbose_stream() << "proof hints for bvext equalities is TBD\n");
-            }
+            for (unsigned i = 0; i < c.m_num_eqs; ++i)
+                eqs.push_back(c.m_eqs[i]);
+            m_proof_literals.append(lits);
+            m_proof_eqs.append(eqs);
             break;
 
         }
         
         m_lit_head = m_lit_tail;
-        m_lit_tail = m_proof_literals.size();        
-        proof_hint* ph = new (get_region()) proof_hint(c.m_kind, m_proof_literals, m_lit_head, m_lit_tail, a1, a2, b1, b2);
+        m_lit_tail = m_proof_literals.size();
+        m_eq_head = m_eq_tail;
+        m_eq_tail = m_proof_eqs.size();
+        proof_hint* ph = new (get_region()) proof_hint(c.m_kind, m_proof_literals, m_lit_head, m_lit_tail, m_proof_eqs, m_eq_head, m_eq_tail, a1, a2, b1, b2);
         auto st = sat::status::th(false, m.get_basic_family_id(), ph);
         ctx.get_drat().add(lits, st);
         m_lit_head = m_lit_tail;
+        m_eq_head = m_eq_tail;
         // TBD, a proper way would be to delete the lemma after use.
         ctx.set_tmp_bool_var(leq1.var(), nullptr);
         ctx.set_tmp_bool_var(leq2.var(), nullptr);
@@ -500,6 +509,8 @@ namespace bv {
         ptr_buffer<sort> sorts;
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             args.push_back(s.literal2expr(m_proof_literals[i]));
+        for (unsigned i = m_eq_head; i < m_eq_tail; ++i)
+            args.push_back(m.mk_eq(m_proof_eqs[i].first->get_expr(), m_proof_eqs[i].second->get_expr()));
         if (m_kind == bv_justification::kind_t::eq2bit)
             args.push_back(m.mk_not(m.mk_eq(a1, a2)));            
         else if (a1) 

@@ -123,15 +123,18 @@ namespace bv {
         class proof_hint : public euf::th_proof_hint {
             bv_justification::kind_t   m_kind;
             sat::literal_vector& m_proof_literals;
-            unsigned m_lit_head, m_lit_tail;
+            euf::enode_pair_vector& m_proof_eqs;
+            unsigned m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
             expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
         public:
-            proof_hint(bv_justification::kind_t k, sat::literal_vector& pl, unsigned lh, unsigned lt, expr* a1 = nullptr, expr* a2 = nullptr, expr* b1 = nullptr, expr* b2 = nullptr) :
-                m_kind(k), m_proof_literals(pl), m_lit_head(lh), m_lit_tail(lt), a1(a1), a2(a2), b1(b1), b2(b2) {}
+            proof_hint(bv_justification::kind_t k, sat::literal_vector& pl, unsigned lh, unsigned lt, euf::enode_pair_vector& es, unsigned eh, unsigned et, expr* a1 = nullptr, expr* a2 = nullptr, expr* b1 = nullptr, expr* b2 = nullptr) :
+                m_kind(k), m_proof_literals(pl), m_proof_eqs(es), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et), a1(a1), a2(a2), b1(b1), b2(b2) {}
             expr* get_hint(euf::solver& s) const override;
         };
         sat::literal_vector m_proof_literals;
+        euf::enode_pair_vector m_proof_eqs;
         unsigned m_lit_head = 0, m_lit_tail = 0;
+        unsigned m_eq_head = 0, m_eq_tail = 0;
  
         /**
            \brief Structure used to store the position of a bitvector variable that
