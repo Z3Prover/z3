@@ -388,6 +388,13 @@ namespace bv {
             ctx.add_antecedent(probing, c.a, c.c);
             break;
         }
+        case bv_justification::kind_t::bvext: {
+            for (unsigned i = 0; i < c.m_num_literals; ++i)
+                r.push_back(c.m_literals[i]);
+            for (unsigned i = 0; i < c.m_num_eqs; ++i)
+                ctx.add_antecedent(probing, c.m_eqs[i].first, c.m_eqs[i].second);            
+            break;
+        }
         default:
             UNREACHABLE();
             break;
@@ -465,6 +472,14 @@ namespace bv {
             lits.push_back(leq1);
             lits.push_back(leq2);
             break;
+        case bv_justification::kind_t::bvext:
+            for (unsigned i = 0; i < c.m_num_literals; ++i)
+                lits.push_back(~c.m_literals[i]);
+            for (unsigned i = 0; i < c.m_num_eqs; ++i) {
+                IF_VERBOSE(0, verbose_stream() << "proof hints for bvext equalities is TBD\n");
+            }
+            break;
+
         }
         
         m_lit_head = m_lit_tail;
@@ -505,6 +520,8 @@ namespace bv {
             th = "bit2ne"; break;
         case bv_justification::kind_t::bv2int:
             th = "bv2int"; break;
+        case bv_justification::kind_t::bvext:
+            th = "bvext"; break;
         }
         func_decl* f = m.mk_func_decl(th, sorts.size(), sorts.data(), proof);
         return m.mk_app(f, args);
@@ -962,6 +979,14 @@ namespace bv {
         return jst;
     }
 
+    sat::ext_constraint_idx solver::mk_bv2ext_justification(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        void* mem = get_region().allocate(bv_justification::get_obj_size(lits.size(), eqs.size()));
+        sat::constraint_base::initialize(mem, this);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bv_justification(lits, eqs);
+        auto jst = constraint->to_index();
+        return jst;
+    }
+
     bool solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
         m_stats.m_num_eq2bit++;
         SASSERT(ctx.s().value(antecedent) == l_true);
@@ -1053,6 +1078,24 @@ namespace bv {
         while (m_power2.size() <= i)
             m_power2.push_back(m_bb.power(m_power2.size()));
         return m_power2[i];
+    }
+
+    solver::bv_justification::bv_justification(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs):
+        m_kind(bv_justification::kind_t::bvext),
+        //m_consequent(sat::null_literal),
+        //m_eq(euf::enode_pair()),
+        m_num_literals(lits.size()),
+        m_num_eqs(eqs.size())
+    {
+        char* base_ptr = reinterpret_cast<char*>(this) + sizeof(bv_justification);
+        m_literals = reinterpret_cast<literal*>(base_ptr);
+        unsigned i;
+        for (i = 0; i < lits.size(); ++i)
+            m_literals[i] = lits[i];
+        base_ptr += sizeof(literal) * lits.size();
+        m_eqs = reinterpret_cast<euf::enode_pair*>(base_ptr);
+        for (i = 0; i < eqs.size(); ++i)
+            m_eqs[i] = eqs[i];
     }
 
 }

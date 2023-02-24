@@ -64,25 +64,41 @@ namespace bv {
         };
 
         struct bv_justification {
-            enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne, bv2int };
+            enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne, bv2int, bvext };
             kind_t     m_kind;
-            unsigned   m_idx = UINT_MAX;
-            theory_var m_v1 = euf::null_theory_var;
-            theory_var m_v2 = euf::null_theory_var;
-            sat::literal m_consequent;
-            sat::literal m_antecedent;
-            euf::enode* a, *b, *c;
+            union {
+                // for eq2bit, ne2bit, bit2eq, bit2ne, bv2int:
+                struct {
+                    unsigned   m_idx;
+                    theory_var m_v1;
+                    theory_var m_v2;
+                    sat::literal m_consequent;
+                    sat::literal m_antecedent;
+                    euf::enode* a, *b, *c;
+                };
+                // for bvext:
+                struct {
+                    // sat::literal     m_consequent; // literal consequent for propagations
+                    // euf::enode_pair  m_eq;         // equality consequent for propagations
+                    unsigned         m_num_literals;
+                    unsigned         m_num_eqs;        
+                    sat::literal*    m_literals;
+                    euf::enode_pair* m_eqs;
+                };
+            };
+                    
                     
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
-                m_kind(bv_justification::kind_t::eq2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+                m_kind(bv_justification::kind_t::eq2bit), m_idx(UINT_MAX), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             bv_justification(theory_var v1, theory_var v2):
-                m_kind(bv_justification::kind_t::bit2eq), m_v1(v1), m_v2(v2) {}
+                m_kind(bv_justification::kind_t::bit2eq), m_idx(UINT_MAX), m_v1(v1), m_v2(v2) {}
             bv_justification(unsigned idx, sat::literal c) :
                 m_kind(bv_justification::kind_t::bit2ne), m_idx(idx), m_consequent(c) {}
             bv_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
                 m_kind(bv_justification::kind_t::ne2bit), m_idx(idx), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             bv_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c):
-                m_kind(bv_justification::kind_t::bv2int), m_v1(v1), m_v2(v2), a(a), b(b), c(c) {}
+                m_kind(bv_justification::kind_t::bv2int), m_idx(UINT_MAX), m_v1(v1), m_v2(v2), a(a), b(b), c(c) {}
+            bv_justification(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
             sat::ext_constraint_idx to_index() const { 
                 return sat::constraint_base::mem2base(this); 
             }
@@ -90,6 +106,11 @@ namespace bv {
                 return *reinterpret_cast<bv_justification*>(sat::constraint_base::from_index(idx)->mem());
             }
             static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(bv_justification)); }
+
+            static size_t get_obj_size(unsigned num_lits, unsigned num_eqs) {
+                return sat::constraint_base::obj_size(sizeof(bv_justification) + sizeof(sat::literal) * num_lits + sizeof(euf::enode_pair) * num_eqs);
+    }
+
         };
 
         sat::justification mk_eq2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
@@ -97,6 +118,7 @@ namespace bv {
         sat::justification mk_bit2ne_justification(unsigned idx, sat::literal c);
         sat::justification mk_ne2bit_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a);
         sat::ext_constraint_idx mk_bv2int_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c);
+        sat::ext_constraint_idx mk_bv2ext_justification(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
         void log_drat(bv_justification const& c);
         class proof_hint : public euf::th_proof_hint {
             bv_justification::kind_t   m_kind;

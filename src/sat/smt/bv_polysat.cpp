@@ -268,7 +268,7 @@ namespace bv {
                 eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
             }
         }
-        auto* ex = euf::th_explain::conflict(*this, core, eqs);
+        auto ex = mk_bv2ext_justification(core, eqs);
         ctx.set_conflict(ex);
     }
 
