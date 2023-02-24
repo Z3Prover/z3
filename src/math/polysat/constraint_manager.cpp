@@ -480,6 +480,8 @@ namespace polysat {
             return p;
         if (p.is_val() && q.is_val())
             return p.manager().mk_val(bitwise_and(p.val(), q.val()));
+        if (p.power_of_2() == 1)
+            return p * q;
         return mk_op_term(op_constraint::code::and_op, p, q);
     }
 
