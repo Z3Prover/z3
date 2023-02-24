@@ -109,11 +109,29 @@ namespace dd {
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
-    
-    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
-    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
-    pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { pdd q(mk_val(x)); if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
-    pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
+
+    // NOTE: bit-wise AND cannot be expressed in mod2N_e semantics with the existing operations.
+    pdd pdd_manager::mk_and(pdd const& p, pdd const& q) {
+        VERIFY(m_semantics == mod2_e || m_semantics == zero_one_vars_e);
+        return p * q;
+    }
+
+    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) {
+        return p + q - mk_and(p, q);
+    }
+
+    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) {
+        if (m_semantics == mod2_e)
+            return p + q;
+        return p + q - 2*mk_and(p, q);
+    }
+
+    pdd pdd_manager::mk_not(pdd const& p) {
+        if (m_semantics == mod2N_e)
+            return -p - 1;
+        VERIFY(m_semantics == mod2_e || m_semantics == zero_one_vars_e);
+        return 1 - p;
+    }
 
     pdd pdd_manager::subst_val(pdd const& p, unsigned v, rational const& val) {
         pdd r = mk_var(v) + val;

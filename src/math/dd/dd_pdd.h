@@ -340,9 +340,9 @@ namespace dd {
         pdd mul(rational const& c, pdd const& b);
         pdd div(pdd const& a, rational const& c);
         bool try_div(pdd const& a, rational const& c, pdd& out_result);
+        pdd mk_and(pdd const& p, pdd const& q);
         pdd mk_or(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, pdd const& q);
-        pdd mk_xor(pdd const& p, unsigned q);
         pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val0(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
@@ -445,10 +445,10 @@ namespace dd {
         pdd operator+(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.add(*this, other); }
         pdd operator-(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.sub(*this, other); }
         pdd operator*(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mul(*this, other); }
-        pdd operator&(pdd const& other) const { VERIFY_EQ(&m, &other.m); VERIFY(m.get_semantics() != pdd_manager::mod2N_e); return m.mul(*this, other); }  // ???  TODO: fix for 2^N
+        pdd operator&(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_and(*this, other); }
         pdd operator|(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_or(*this, other); }
         pdd operator^(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_xor(*this, other); }
-        pdd operator^(unsigned other) const { return m.mk_xor(*this, other); }        
+        pdd operator^(unsigned other) const { return m.mk_xor(*this, m.mk_val(other)); }
 
         pdd operator*(rational const& other) const { return m.mul(other, *this); }
         pdd operator+(rational const& other) const { return m.add(other, *this); }
