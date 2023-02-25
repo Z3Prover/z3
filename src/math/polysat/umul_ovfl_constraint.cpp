@@ -117,9 +117,13 @@ namespace polysat {
         auto const& max = p.manager().max_value();
         // p * q >= max + 1 <=> q >= (max + 1)/p <=> q >= ceil((max+1)/p)
         auto bound = ceil((max + 1) / p.val());
+        SASSERT(bound.is_pos());
         SASSERT(bound * p.val() > max);
         SASSERT((bound - 1) * p.val() <= max);
 
+        rational relaxed_p = p.val(); // Lowest value such that bound is correct
+        relaxed_p = ceil((max + 1) / bound);
+        SASSERT(relaxed_p <= p.val());
         //
         // the clause that explains bound <= q or bound > q
         //
@@ -129,16 +133,16 @@ namespace polysat {
 
         signed_constraint sc(this, is_positive);
         if (is_positive) {
-            clause_builder lemma(s, "Ovfl(p, q) & p <= p.val() ==> q >= bound");
+            clause_builder lemma(s, "Ovfl(p, q) & p <= relaxed(p.val()) ==> q >= bound");
             lemma.insert_eval(~sc);
-            lemma.insert_eval(~s.ule(p0, p.val()));
+            lemma.insert_eval(~s.ule(p0, relaxed_p));
             lemma.insert(s.ule(bound, q0));
             s.add_clause(lemma.build());
         }
         else {
-            clause_builder lemma(s, "~Ovfl(p, q) & p >= p.val() ==> q < bound");
+            clause_builder lemma(s, "~Ovfl(p, q) & p >= relaxed(p.val()) ==> q < bound");
             lemma.insert_eval(~sc);
-            lemma.insert_eval(~s.ule(p.val(), p0));
+            lemma.insert_eval(~s.ule(relaxed_p, p0));
             lemma.insert(s.ult(q0, bound));
             s.add_clause(lemma.build());
         }
