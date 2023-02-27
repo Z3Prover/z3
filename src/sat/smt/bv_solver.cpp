@@ -410,15 +410,23 @@ namespace bv {
         expr_ref eq1(m), eq2(m);
         expr* a1 = nullptr, *a2 = nullptr, *b1 = nullptr, *b2 = nullptr;
         
-        if (c.m_kind == bv_justification::kind_t::bv2int) {
+        switch (c.m_kind) {
+        case bv_justification::kind_t::bv2int:
             a1 = c.a->get_expr();
             a2 = c.b->get_expr();
             b1 = c.a->get_expr();
             b2 = c.c->get_expr();
-        }
-        else if (c.m_kind != bv_justification::kind_t::bit2ne) {
+            break;
+        case bv_justification::kind_t::ne2bit:
+        case bv_justification::kind_t::eq2bit:
+        case bv_justification::kind_t::bit2eq:
             a1 = var2expr(c.m_v1);
             a2 = var2expr(c.m_v2);
+            break;
+        case bv_justification::kind_t::bit2ne:
+        case bv_justification::kind_t::bvext:
+        default:
+            break;
         }
 
         if (a1) {
