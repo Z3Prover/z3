@@ -1836,14 +1836,14 @@ if sys.version < '3':
 else:
   def _str_to_bytes(s):
     if isinstance(s, str):
-        enc = sys.stdout.encoding
+        enc = sys.getdefaultencoding()
         return s.encode(enc if enc != None else 'latin-1')
     else:
         return s
 
   def _to_pystr(s):
      if s != None:
-        enc = sys.stdout.encoding
+        enc = sys.getdefaultencoding()
         return s.decode(enc if enc != None else 'latin-1')
      else:
         return ""

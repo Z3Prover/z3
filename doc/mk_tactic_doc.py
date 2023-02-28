@@ -28,7 +28,7 @@ def extract_params(ous, tac):
     out = subprocess.Popen([z3_exe, f"-tacticsmd:{tac}"], stdout=subprocess.PIPE).communicate()[0]
     if not out:
         return
-    out = out.decode(sys.stdout.encoding)
+    out = out.decode(sys.getdefaultencoding())
     if is_ws(out):
         return
     ous.write("### Parameters\n\n")
