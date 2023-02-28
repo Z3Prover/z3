@@ -122,7 +122,7 @@ FPMATH_ENABLED=getenv("FPMATH_ENABLED", "True")
 def check_output(cmd):
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if out != None:
-        enc = sys.stdout.encoding
+        enc = sys.getdefaultencoding()
         if enc != None: return out.decode(enc).rstrip('\r\n')
         else: return out.rstrip('\r\n')
     else:

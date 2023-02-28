@@ -37,7 +37,7 @@ def help(ous):
     out = subprocess.Popen([z3_exe, "-pm"],stdout=subprocess.PIPE).communicate()[0]
     modules = ["global"]
     if out != None:
-        out = out.decode(sys.stdout.encoding)
+        out = out.decode(sys.getdefaultencoding())
         module_re = re.compile(r"\[module\] (.*)\,")
         lines = out.split("\n")
         for line in lines:
@@ -48,7 +48,7 @@ def help(ous):
             out = subprocess.Popen([z3_exe, "-pmmd:%s" % module],stdout=subprocess.PIPE).communicate()[0]
             if out == None:
                 continue
-            out = out.decode(sys.stdout.encoding)
+            out = out.decode(sys.getdefaultencoding())
             out = out.replace("\r","")
             ous.write(out)
 
