@@ -39,6 +39,7 @@ Notes:
 #include "ast/simplifiers/push_ite.h"
 #include "ast/simplifiers/elim_term_ite.h"
 #include "ast/simplifiers/flatten_clauses.h"
+#include "ast/simplifiers/bound_simplifier.h"
 #include "ast/simplifiers/cnf_nnf.h"
 #include "smt/params/smt_params.h"
 #include "solver/solver_preprocess.h"
@@ -59,6 +60,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dep
     if (smtp.m_refine_inj_axiom) s.add_simplifier(alloc(refine_inj_axiom_simplifier, m, p, st));
     if (smtp.m_bv_size_reduce) s.add_simplifier(alloc(bv::slice, m, st));
     if (smtp.m_distribute_forall) s.add_simplifier(alloc(distribute_forall_simplifier, m, p, st));
+    if (smtp.m_bound_simplifier) s.add_simplifier(alloc(bound_simplifier, m, p, st));
     if (smtp.m_eliminate_bounds) s.add_simplifier(alloc(elim_bounds_simplifier, m, p, st));
     if (smtp.m_simplify_bit2int) s.add_simplifier(alloc(bit2int_simplifier, m, p, st));
     if (smtp.m_bb_quantifiers) s.add_simplifier(alloc(bv::elim_simplifier, m, p, st));
