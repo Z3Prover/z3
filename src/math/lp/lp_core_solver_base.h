@@ -67,7 +67,7 @@ public:
     indexed_vector<T>     m_pivot_row_of_B_1;  // the pivot row of the reverse of B
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
-    vector<X> &           m_b; // the right side
+    // vector<X> const &           m_b; // the right side
     vector<unsigned> &    m_basis;
     vector<unsigned>&     m_nbasis;
     vector<int>&          m_basis_heading;
@@ -118,7 +118,7 @@ public:
     unsigned m_n() const { return m_A.column_count(); } // the number of columns in the matrix m_A
 
     lp_core_solver_base(static_matrix<T, X> & A,
-                        vector<X> & b, // the right side vector
+                        //vector<X> & b, // the right side vector
                         vector<unsigned> & basis,
                         vector<unsigned> & nbasis,
                         vector<int> & heading,
@@ -213,7 +213,6 @@ public:
         return !below_bound(x, bound) && !above_bound(x, bound);
     }
 
-
     bool need_to_pivot_to_basis_tableau() const {
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
@@ -284,7 +283,6 @@ public:
         return below_bound(m_x[p], m_upper_bounds[p]);
     }
 
-
     bool x_above_upper_bound(unsigned p) const {
         return above_bound(m_x[p], m_upper_bounds[p]);
     }
@@ -309,7 +307,6 @@ public:
     bool d_is_not_negative(unsigned j) const;
 
     bool d_is_not_positive(unsigned j) const;
-
 
     bool time_is_over();
 
@@ -351,8 +348,6 @@ public:
 
     std::string column_name(unsigned column) const;
 
-    void copy_right_side(vector<X> & rs);
-
     void add_delta_to_xB(vector<X> & del);
 
     void find_error_in_BxB(vector<X>& rs);
@@ -366,8 +361,6 @@ public:
             ret = snap_column_to_bound(j) || ret;
         return ret;
     }
-
-    
     
     bool snap_column_to_bound(unsigned j) {
         switch (m_column_types[j]) {

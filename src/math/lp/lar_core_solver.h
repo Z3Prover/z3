@@ -66,6 +66,7 @@ public:
                     );
 
     lp_settings & settings() { return m_r_solver.m_settings;}
+
     const lp_settings & settings() const { return m_r_solver.m_settings;}
     
     int get_infeasible_sum_sign() const { return m_infeasible_sum_sign;   }
@@ -340,6 +341,7 @@ public:
                   switch (m_column_types[j]) {
                   case column_type::free_column:
                       lp_assert(false); // unreachable
+                      break;
                   case column_type::upper_bound:
                       s.m_x[j] = s.m_upper_bounds[j];
                       break;
@@ -365,7 +367,7 @@ public:
             }
         }
 
-        lp_assert(is_zero_vector(s.m_b));
+        // lp_assert(is_zero_vector(s.m_b));
         s.solve_Ax_eq_b();
     }
 
@@ -463,7 +465,8 @@ public:
             m_d_nbasis = m_r_nbasis;
             delete m_d_solver.m_factorization;
             m_d_solver.m_factorization = nullptr;
-        } else {
+        } 
+        else {
             prepare_solver_x_with_signature_tableau(signature);
             m_r_solver.start_tracing_basis_changes();
             m_r_solver.find_feasible_solution();

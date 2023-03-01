@@ -8,8 +8,8 @@
 
 namespace lp {
 
-    ////////////////// methods ////////////////////////////////
     static_matrix<double, double>& lar_solver::A_d() { return m_mpq_lar_core_solver.m_d_A; }
+
     static_matrix<double, double > const& lar_solver::A_d() const { return m_mpq_lar_core_solver.m_d_A; }
 
     lp_settings& lar_solver::settings() { return m_settings; }
@@ -17,7 +17,6 @@ namespace lp {
     lp_settings const& lar_solver::settings() const { return m_settings; }
 
     statistics& lar_solver::stats() { return m_settings.stats(); }
-
 
     void lar_solver::updt_params(params_ref const& _p) {
         smt_params_helper p(_p);
@@ -42,7 +41,6 @@ namespace lp {
     }
 
     lar_solver::~lar_solver() {
-
         for (auto t : m_terms)
             delete t;
     }
@@ -1406,7 +1404,6 @@ namespace lp {
         A_r().m_rows.pop_back();
         A_r().m_columns.pop_back();
         CASSERT("check_static_matrix", A_r().is_correct());
-        slv.m_b.pop_back();
     }
 
     void lar_solver::remove_last_column_from_A() {
@@ -1716,8 +1713,6 @@ namespace lp {
         m_terms.push_back(t);
     }
 
-
-
     // terms
     bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>& coeffs) {
         for (const auto& p : coeffs) {
@@ -1787,8 +1782,7 @@ namespace lp {
         if (use_tableau()) {
             A_r().fill_last_row_with_pivoting(*term,
                 j,
-                m_mpq_lar_core_solver.m_r_solver.m_basis_heading);
-            m_mpq_lar_core_solver.m_r_solver.m_b.resize(A_r().column_count(), zero_of_type<mpq>());
+                m_mpq_lar_core_solver.m_r_solver.m_basis_heading); 
         }
         else {
             fill_last_row_of_A_r(A_r(), term);

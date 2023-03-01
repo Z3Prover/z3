@@ -948,7 +948,7 @@ public:
                           const vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names):
-        lp_core_solver_base<T, X>(A, b,
+        lp_core_solver_base<T, X>(A, // b,
                                   basis,
                                   nbasis,
                                   heading,
@@ -983,7 +983,7 @@ public:
                           const vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names):
-        lp_core_solver_base<T, X>(A, b,
+        lp_core_solver_base<T, X>(A, // b,
                                   basis,
                                   nbasis,
                                   heading,

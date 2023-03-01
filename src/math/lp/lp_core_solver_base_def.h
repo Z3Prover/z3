@@ -28,7 +28,7 @@ namespace lp {
 
 template <typename T, typename X> lp_core_solver_base<T, X>::
 lp_core_solver_base(static_matrix<T, X> & A,
-                    vector<X> & b, // the right side vector
+                    // vector<X> & b, // the right side vector
                     vector<unsigned> & basis,
                     vector<unsigned> & nbasis,
                     vector<int> & heading,
@@ -47,7 +47,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_pivot_row_of_B_1(A.row_count()),
     m_pivot_row(A.column_count()),
     m_A(A),
-    m_b(b),
+    // m_b(b),
     m_basis(basis),
     m_nbasis(nbasis),
     m_basis_heading(heading),
@@ -220,7 +220,7 @@ A_mult_x_is_off() const {
     lp_assert(m_x.size() == m_A.column_count());
     if (numeric_traits<T>::precise()) {
 		for (unsigned i = 0; i < m_m(); i++) {
-            X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+            X delta = /*m_b[i] */- m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
                 return true;
             }
@@ -230,8 +230,8 @@ A_mult_x_is_off() const {
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
     for (unsigned i = 0; i < m_m(); i++) {
-        X delta = abs(m_b[i] - m_A.dot_product_with_row(i, m_x));
-        X eps = feps * (one + T(0.1) * abs(m_b[i]));
+        X delta = abs(/*m_b[i] -*/ m_A.dot_product_with_row(i, m_x));
+        auto eps = feps /* * (one + T(0.1) * abs(m_b[i])) */;
 
         if (delta > eps) {
 #if 0
@@ -263,8 +263,8 @@ A_mult_x_is_off_on_index(const vector<unsigned> & index) const {
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
     for (unsigned i : index) {
-        X delta = abs(m_b[i] - m_A.dot_product_with_row(i, m_x));
-        X eps = feps * (one + T(0.1) * abs(m_b[i]));
+        X delta = abs(/*m_b[i] -*/ m_A.dot_product_with_row(i, m_x));
+        auto eps = feps /* *(one + T(0.1) * abs(m_b[i])) */;
 
         if (delta > eps) {
 #if 0
@@ -400,7 +400,8 @@ column_is_dual_feasible(unsigned j) const {
     case column_type::lower_bound:
         return x_is_at_lower_bound(j) && d_is_not_negative(j);
     case column_type::upper_bound:
-        lp_assert(false); // impossible case
+        UNREACHABLE();
+        break;
     case column_type::free_column:
         return numeric_traits<X>::is_zero(m_d[j]);
     default:
@@ -441,7 +442,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 rs_minus_Anx(vector<X> & rs) {
     unsigned row = m_m();
     while (row--) {
-        auto &rsv = rs[row] = m_b[row];
+        auto& rsv = rs[row] = zero_of_type<X>(); //m_b[row];
         for (auto & it : m_A.m_rows[row]) {
             unsigned j = it.var();
             if (m_basis_heading[j] < 0) {
@@ -454,8 +455,7 @@ rs_minus_Anx(vector<X> & rs) {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 find_x_by_solving() {
     solve_Ax_eq_b();
-    bool ret=  !A_mult_x_is_off();
-    return ret;
+    return !A_mult_x_is_off();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feasible(unsigned j) const {
@@ -463,28 +463,12 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
     switch (this->m_column_types[j]) {
     case column_type::fixed:
     case column_type::boxed:
-        if (this->above_bound(x, this->m_upper_bounds[j])) {
-            return false;
-        } else if (this->below_bound(x, this->m_lower_bounds[j])) {
-            return false;
-        } else {
-            return true;
-        }
-        break;
+        return !this->above_bound(x, this->m_upper_bounds[j]) && 
+               !this->below_bound(x, this->m_lower_bounds[j]);
     case column_type::lower_bound:
-        if (this->below_bound(x, this->m_lower_bounds[j])) {
-            return false;
-        } else {
-            return true;
-        }
-        break;
+        return !this->below_bound(x, this->m_lower_bounds[j]);
     case column_type::upper_bound:
-        if (this->above_bound(x, this->m_upper_bounds[j])) {
-            return false;
-        } else {
-            return true;
-        }
-        break;
+        return !this->above_bound(x, this->m_upper_bounds[j]);
     case column_type::free_column:
         return true;
         break;
@@ -598,7 +582,7 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
     if (is_zero(coeff)) 
         return false;
     
-    this->m_b[pivot_row] /= coeff;
+    // this->m_b[pivot_row] /= coeff;
     for (unsigned j = 0; j < size; j++) {
         auto & c = row[j];
         if (c.var() != pivot_col) {
@@ -662,59 +646,52 @@ basis_has_no_doubles() const {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 non_basis_has_no_doubles() const {
     std::set<int> bm;
-    for (auto j : m_nbasis) {
-        bm.insert(j);
-    }
+    for (auto j : m_nbasis) 
+        bm.insert(j);    
     return bm.size() == m_nbasis.size();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 basis_is_correctly_represented_in_heading() const {
-    for (unsigned i = 0; i < m_m(); i++) {
+    for (unsigned i = 0; i < m_m(); i++) 
         if (m_basis_heading[m_basis[i]] != static_cast<int>(i))
-            return false;
-    }
+            return false;    
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 non_basis_is_correctly_represented_in_heading() const {
-    for (unsigned i = 0; i < m_nbasis.size(); i++) {
+    for (unsigned i = 0; i < m_nbasis.size(); i++) 
         if (m_basis_heading[m_nbasis[i]] !=  - static_cast<int>(i) - 1)
             return false;
-    }
-    for (unsigned j = 0; j < m_A.column_count(); j++) {
-        if (m_basis_heading[j] >= 0) {
+    
+    for (unsigned j = 0; j < m_A.column_count(); j++) 
+        if (m_basis_heading[j] >= 0)
             lp_assert(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
-        }
-    }
+        
     return true;
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
     basis_heading_is_correct() const {
-    if ( m_A.column_count() > 10 ) { // for the performance reason
+    if ( m_A.column_count() > 10 )  // for the performance reason
         return true;
-    }
+    
     lp_assert(m_basis_heading.size() == m_A.column_count());
     lp_assert(m_basis.size() == m_A.row_count());
     lp_assert(m_nbasis.size() <= m_A.column_count() - m_A.row_count()); // for the dual the size of non basis can be smaller
-    if (!basis_has_no_doubles()) {
+
+    if (!basis_has_no_doubles()) 
         return false;
-    }
-
-    if (!non_basis_has_no_doubles()) {
+    
+    if (!non_basis_has_no_doubles()) 
         return false;
-    }
+    
+    if (!basis_is_correctly_represented_in_heading()) 
+        return false;    
 
-    if (!basis_is_correctly_represented_in_heading()) {
+    if (!non_basis_is_correctly_represented_in_heading()) 
         return false;
-    }
-
-    if (!non_basis_is_correctly_represented_in_heading()) {
-        return false;
-    }
-
-
+    
     return true;
 }
 
@@ -782,14 +759,6 @@ column_name(unsigned column) const {
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-copy_right_side(vector<X> & rs) {
-    unsigned i = m_m();
-    while (i --) {
-        rs[i] = m_b[i];
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_xB(vector<X> & del) {
     unsigned i = m_m();
     while (i--) {
@@ -819,7 +788,8 @@ solve_Ax_eq_b() {
         rs_minus_Anx(rs);
         m_factorization->solve_By(rs);
         copy_rs_to_xB(rs);
-    } else {
+    } 
+    else {
         vector<X> rs(m_m());
         rs_minus_Anx(rs);
         vector<X> rrs = rs; // another copy of rs

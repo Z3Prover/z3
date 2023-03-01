@@ -36,8 +36,8 @@ template lp::non_basic_column_value_position lp::lp_core_solver_base<lp::mpq, lp
 template lp::non_basic_column_value_position lp::lp_core_solver_base<lp::mpq, lp::mpq>::get_non_basic_column_value_position(unsigned int) const;
 template void lp::lp_core_solver_base<double, double>::init_reduced_costs_for_one_iteration();
 template lp::lp_core_solver_base<double, double>::lp_core_solver_base(
-    lp::static_matrix<double, double>&, vector<double>&, 
-    vector<unsigned int >&,
+    lp::static_matrix<double, double>&, // vector<double>&, 
+    vector<unsigned>&,
     vector<unsigned> &, vector<int> &,
     vector<double >&, 
     vector<double >&, 
@@ -80,7 +80,9 @@ template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calc
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init_basis_heading_and_non_basic_columns_vector();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init_reduced_costs_for_one_iteration();
-template lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::lp_core_solver_base(lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, vector<lp::numeric_pair<lp::mpq> >&, vector<unsigned int >&, vector<unsigned> &, vector<int> &, vector<lp::numeric_pair<lp::mpq> >&, vector<lp::mpq>&, lp::lp_settings&, const column_namer&, const vector<lp::column_type >&,
+template lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::lp_core_solver_base(lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, 
+    // vector<lp::numeric_pair<lp::mpq> >&, 
+    vector<unsigned int >&, vector<unsigned> &, vector<int> &, vector<lp::numeric_pair<lp::mpq> >&, vector<lp::mpq>&, lp::lp_settings&, const column_namer&, const vector<lp::column_type >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_cost_and_check_that_the_time_is_over(lp::numeric_pair<lp::mpq>, std::ostream&);
@@ -91,7 +93,7 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::upda
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::add_delta_to_entering(unsigned int, const lp::numeric_pair<lp::mpq>&);
 template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
                                                                               lp::static_matrix<lp::mpq, lp::mpq>&,
-                                                                              vector<lp::mpq>&,
+                                                                              //vector<lp::mpq>&,
                                                                               vector<unsigned int >&,
                                                                               vector<unsigned> &, vector<int> &,
                                                                               vector<lp::mpq>&,

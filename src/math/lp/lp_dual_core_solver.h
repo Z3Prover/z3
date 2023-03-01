@@ -61,7 +61,7 @@ public:
                         lp_settings & settings,
                         const column_namer & column_names):
         lp_core_solver_base<T, X>(A,
-                                  b,
+                                  // b,
                                   basis,
                                   nbasis,
                                   heading,

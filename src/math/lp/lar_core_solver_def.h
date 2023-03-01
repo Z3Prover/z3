@@ -46,13 +46,9 @@ lar_core_solver::lar_core_solver(
                column_names) {
 }    
     
-    
-
 void lar_core_solver::calculate_pivot_row(unsigned i) {
     m_r_solver.calculate_pivot_row(i);
 }
-
-
 
 void lar_core_solver::prefix_r() {
     if (!m_r_solver.m_settings.use_tableau()) {
@@ -67,7 +63,7 @@ void lar_core_solver::prefix_r() {
         init_column_row_nz_for_r_solver();
     }
 
-    m_r_solver.m_b.resize(m_r_solver.m_m());
+    // m_r_solver.m_b.resize(m_r_solver.m_m());
     if (m_r_solver.m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows) {
         if(m_r_solver.m_settings.use_breakpoints_in_feasibility_search)
             m_r_solver.m_breakpoint_indices_queue.resize(m_r_solver.m_n());
@@ -78,7 +74,7 @@ void lar_core_solver::prefix_r() {
 }
 
 void lar_core_solver::prefix_d() {
-    m_d_solver.m_b.resize(m_d_solver.m_m());
+    // m_d_solver.m_b.resize(m_d_solver.m_m());
     m_d_solver.m_breakpoint_indices_queue.resize(m_d_solver.m_n());
     m_d_solver.m_copy_of_xB.resize(m_d_solver.m_n());
     m_d_solver.m_costs.resize(m_d_solver.m_n());
@@ -100,9 +96,8 @@ void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
-    for (auto & rc : m_r_solver.m_A.m_rows[m_r_solver.m_inf_row_index_for_tableau]) {
-        m_infeasible_linear_combination.push_back(std::make_pair(rc.coeff(), rc.var()));
-    }
+    for (auto & rc : m_r_solver.m_A.m_rows[m_r_solver.m_inf_row_index_for_tableau]) 
+        m_infeasible_linear_combination.push_back(std::make_pair(rc.coeff(), rc.var()));    
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum() {
@@ -115,26 +110,23 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
     m_infeasible_linear_combination.clear();
     for (auto j : m_r_solver.m_basis) {
         const mpq & cost_j = m_r_solver.m_costs[j];
-        if (!numeric_traits<mpq>::is_zero(cost_j)) {
-            m_infeasible_linear_combination.push_back(std::make_pair(cost_j, j));
-        }
+        if (!numeric_traits<mpq>::is_zero(cost_j)) 
+            m_infeasible_linear_combination.push_back(std::make_pair(cost_j, j));        
     }
     // m_costs are expressed by m_d ( additional costs), substructing the latter gives 0
     for (unsigned j = 0; j < m_r_solver.m_n(); j++) {
         if (m_r_solver.m_basis_heading[j] >= 0) continue;
         const mpq & d_j = m_r_solver.m_d[j];
-        if (!numeric_traits<mpq>::is_zero(d_j)) {
-            m_infeasible_linear_combination.push_back(std::make_pair(-d_j, j));
-        }
+        if (!numeric_traits<mpq>::is_zero(d_j)) 
+            m_infeasible_linear_combination.push_back(std::make_pair(-d_j, j));        
     }
 }
 
 unsigned lar_core_solver::get_number_of_non_ints() const {
     unsigned n = 0;
-    for (auto & x : m_r_solver.m_x) {
-        if (x.is_int() == false)
-            n++;
-    }
+    for (auto & x : m_r_solver.m_x) 
+        if (!x.is_int())
+            n++;    
     return n;
 }
 
