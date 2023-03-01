@@ -87,23 +87,10 @@ namespace sat {
     struct no_drat_params : public params_ref {
         no_drat_params() { set_bool("drat.disable", true); }
     };
-
-    struct backoff {
-        unsigned value = 1;
-        unsigned lo    = 0;
-        unsigned hi    = 0;
-        unsigned limit = 0;
-        unsigned count = 0;    
-        void delta_effort(solver& s);
-        void delta_conflicts(solver& s);
-    };
     
     class solver : public solver_core {
     public:
         struct abort_solver {};
-        struct backoffs {
-            backoff m_local_search;
-        };
     protected:
         enum search_state { s_sat, s_unsat };
 
@@ -172,11 +159,11 @@ namespace sat {
         unsigned                m_search_next_toggle;
         unsigned                m_phase_counter; 
         unsigned                m_best_phase_size;
-        backoffs                m_backoffs;
+        backoff                 m_local_search_lim;
         unsigned                m_rephase_lim;
         unsigned                m_rephase_inc;
-        unsigned                m_reorder_lim;
-        unsigned                m_reorder_inc;
+        backoff                 m_rephase;
+        backoff                 m_reorder;
         var_queue               m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;

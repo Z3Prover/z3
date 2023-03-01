@@ -98,6 +98,7 @@ namespace sat {
             var_info() {}
             bool     m_value = false;
             double   m_reward = 0;
+            double   m_last_reward = 0;
             unsigned m_make_count = 0;
             int      m_bias = 0;
             bool     m_external = false;
@@ -127,7 +128,7 @@ namespace sat {
         uint64_t         m_restart_next = 0, m_reinit_next = 0, m_parsync_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
         unsigned         m_min_sz = 0, m_steps_since_progress = 0;
-        hashtable<unsigned, unsigned_hash, default_eq<unsigned>> m_models;
+        u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
 
         parallel*        m_par;
@@ -153,7 +154,7 @@ namespace sat {
 
         inline double reward(bool_var v) const { return m_vars[v].m_reward; }
 
-        inline double plugin_reward(bool_var v) const { return is_external(v) ? m_plugin->reward(v) : reward(v); }
+        inline double plugin_reward(bool_var v) { return is_external(v) ? (m_vars[v].m_last_reward = m_plugin->reward(v)) : reward(v); }
 
         void set_external(bool_var v) { m_vars[v].m_external = true; }
 

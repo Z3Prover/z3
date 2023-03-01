@@ -136,6 +136,40 @@ namespace sat {
     std::ostream& operator<<(std::ostream& out, sat::status const& st);
     std::ostream& operator<<(std::ostream& out, sat::status_pp const& p);
 
+    /**
+     * Special cases of kissat style general backoff calculation.
+     * The version here calculates
+     * limit := value*log(C)^2*n*log(n)
+     * (effort calculation in kissat is based on ticks not clauses)
+     *
+     * respectively
+     * limit := conflicts + value*log(C)^2*n*log(n)
+     */
+    struct backoff {
+        unsigned base = 1;
+        unsigned lo = 0;
+        unsigned hi = UINT_MAX;
+        unsigned limit = 0;
+        unsigned count = 0;
+
+        bool should_apply(unsigned n) const { 
+            return limit <= n && lo <= n && n <= hi;
+        }
+
+        void inc(unsigned num_clauses) {
+            count++;
+            unsigned d = base * count * log2(count + 1);
+            unsigned cl = log2(num_clauses + 2);
+            limit = cl * cl * d;
+        }
+
+        void inc(unsigned num_conflicts, unsigned num_clauses) {
+            inc(num_clauses);
+            limit += num_conflicts;
+        }
+
+    };
+
 };
 
 

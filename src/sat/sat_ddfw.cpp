@@ -62,13 +62,16 @@ namespace sat {
     void ddfw::check_with_plugin() {
         m_plugin->init_search();
         m_steps_since_progress = 0;
-        while (m_min_sz > 0 && m_steps_since_progress++ <= 150000) {
+        unsigned steps = 0;
+        while (m_min_sz > 0 && m_steps_since_progress++ <= 1500000) {
             if (should_reinit_weights()) do_reinit_weights();
+            else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
+            else if (should_restart()) do_restart(), m_plugin->on_restart();
             else if (do_flip<true>());
             else if (do_literal_flip<true>());
-            else if (should_restart()) do_restart(), m_plugin->on_restart();
             else if (should_parallel_sync()) do_parallel_sync();
             else shift_weights(), m_plugin->on_rescale();
+            ++steps;
         }
         m_plugin->finish_search();
     }
@@ -135,7 +138,7 @@ namespace sat {
         if (sum_pos > 0) {
             double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
-                r = uses_plugin ? plugin_reward(v) : reward(v);
+                r = uses_plugin && is_external(v) ? m_vars[v].m_last_reward : reward(v);
                 if (r > 0) {
                     lim_pos -= score(r);
                     if (lim_pos <= 0) 
@@ -472,9 +475,7 @@ namespace sat {
 
 
     void ddfw::save_best_values() {
-        if (m_unsat.empty()) 
-            save_model();
-        else if (m_unsat.size() < m_min_sz) {
+        if (m_unsat.size() < m_min_sz) {
             m_steps_since_progress = 0;
             if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
                 save_model();
@@ -489,13 +490,20 @@ namespace sat {
                 }
             }
         }
+
         unsigned h = value_hash();
+        unsigned occs = 0;
+        bool contains = m_models.find(h, occs);
         if (!m_models.contains(h)) {
-            for (unsigned v = 0; v < num_vars(); ++v) 
+            for (unsigned v = 0; v < num_vars(); ++v)
                 bias(v) += value(v) ? 1 : -1;
-            m_models.insert(h);
-            if (m_models.size() > m_config.m_max_num_models) 
-                m_models.erase(*m_models.begin());
+            if (m_models.size() > m_config.m_max_num_models)
+                m_models.erase(m_models.begin()->m_key);
+        }
+        m_models.insert(h, occs + 1);
+        if (occs > 100) {
+            m_restart_next = m_flips;            
+            m_models.erase(h);
         }
         m_min_sz = m_unsat.size();
     }

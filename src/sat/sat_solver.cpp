@@ -40,26 +40,6 @@ Revision History:
 
 namespace sat {
 
-    /**
-    * Special cases of kissat style general backoff calculation.
-    * The version here calculates
-    * limit := value*log(C)^2*n*log(n)
-    * (effort calculation in kissat is based on ticks not clauses)
-    *
-    * respectively
-    * limit := conflicts + value*log(C)^2*n*log(n)
-    */
-    void backoff::delta_effort(solver& s) {
-        count++;
-        unsigned d = value * count * log2(count + 1);
-        unsigned cl = log2(s.num_clauses() + 2);
-        limit = cl * cl * d;
-    }
-
-    void backoff::delta_conflicts(solver& s) {
-        delta_effort(s);
-        limit += s.m_conflicts_since_init;
-    }
 
     solver::solver(params_ref const & p, reslimit& l):
         solver_core(l),
@@ -1302,10 +1282,9 @@ namespace sat {
                 return l_undef;
             }
 
-            if (false && m_config.m_phase == PS_LOCAL_SEARCH && m_ext) {
-                IF_VERBOSE(0, verbose_stream() << "WARNING: local search with theories is in testing mode\n");
+            if (m_config.m_phase == PS_LOCAL_SEARCH && m_ext) {                
                 bounded_local_search();
-                exit(0);
+                // exit(0);
             }
 
             log_stats();
@@ -1367,7 +1346,7 @@ namespace sat {
 
     void solver::bounded_local_search() {
         if (m_ext) {
-            verbose_stream() << "bounded local search\n";
+            IF_VERBOSE(0, verbose_stream() << "WARNING: local search with theories is in testing mode\n");
             do_restart(true);
             lbool r = m_ext->local_search(m_best_phase);
             verbose_stream() << r << "\n";
@@ -1388,8 +1367,8 @@ namespace sat {
         m_local_search->set_seed(m_rand());
         scoped_rl.push_child(&(m_local_search->rlimit()));
 
-        m_backoffs.m_local_search.delta_effort(*this);
-        m_local_search->rlimit().push(m_backoffs.m_local_search.limit);
+        m_local_search_lim.inc(num_clauses());
+        m_local_search->rlimit().push(m_local_search_lim.limit);
 
         m_local_search->reinit(*this, m_best_phase);
         lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
@@ -1977,11 +1956,13 @@ namespace sat {
         m_search_sat_conflicts    = m_config.m_search_sat_conflicts;
         m_search_next_toggle      = m_search_unsat_conflicts;
         m_best_phase_size         = 0;
+
+        m_reorder.lo              = m_config.m_reorder_base;
+        m_rephase.base            = m_config.m_rephase_base;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
-        m_reorder_lim             = m_config.m_reorder_base;
-        m_backoffs.m_local_search.value = 500;
-        m_reorder_inc             = 0;
+        m_local_search_lim.base   = 500;        
+
         m_conflicts_since_restart = 0;
         m_force_conflict_analysis = false;
         m_restart_threshold       = m_config.m_restart_initial;
@@ -2981,6 +2962,7 @@ namespace sat {
 
     bool solver::should_rephase() {
         return m_conflicts_since_init > m_rephase_lim;
+//        return m_rephase.should_apply(m_conflicts_since_init);
     }
 
     void solver::do_rephase() {
@@ -2994,7 +2976,7 @@ namespace sat {
         case PS_FROZEN:
             break;
         case PS_BASIC_CACHING:
-            switch (m_rephase_lim % 4) {
+            switch (m_rephase.count % 4) {
             case 0:
                 for (auto& p : m_phase) p = (m_rand() % 2) == 0;
                 break;
@@ -3031,10 +3013,11 @@ namespace sat {
         }
         m_rephase_inc += m_config.m_rephase_base;
         m_rephase_lim += m_rephase_inc;
+        m_rephase.inc(m_conflicts_since_init, num_clauses());
     }
 
     bool solver::should_reorder() {
-        return m_conflicts_since_init > m_reorder_lim;
+        return m_reorder.should_apply(m_conflicts_since_init);
     }
 
     void solver::do_reorder() {
@@ -3078,8 +3061,7 @@ namespace sat {
             update_activity(v, m_rand(10)/10.0);
         }
 #endif
-        m_reorder_inc += m_config.m_reorder_base;
-        m_reorder_lim += m_reorder_inc;
+        m_reorder.inc(m_conflicts_since_init, num_clauses());
     }
 
     void solver::updt_phase_counters() {
