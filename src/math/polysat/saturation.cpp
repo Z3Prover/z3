@@ -1580,12 +1580,15 @@ namespace polysat {
             return true;
         }
         y = q.var();
-        if (!q.lo().is_val())
+        if (!q.hi().is_val() && q.hi().var() == y)
             return false;
-        if (!q.hi().is_val())
+        if (!s.try_eval(q.hi(), a))
             return false;
-        a = round(M, q.hi().val());
-        b = round(M, q.lo().val());
+        if (!s.try_eval(q.lo(), b))
+            return false;
+        
+        a = round(M, a);
+        b = round(M, b);
         return true;
     }
     
