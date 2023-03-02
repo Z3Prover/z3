@@ -262,6 +262,48 @@ namespace euf {
         }
     }
 
+    void solve_eqs::collect_num_occs(expr * t, expr_fast_mark1 & visited) {
+        ptr_buffer<app, 128> stack;
+        
+        auto visit = [&](expr* arg) {
+            if (is_uninterp_const(arg)) {                           
+                m_num_occs.insert_if_not_there(arg, 0)++;           
+            }                                                       
+            if (!visited.is_marked(arg) && is_app(arg)) {                          
+                visited.mark(arg, true);                            
+                stack.push_back(to_app(arg));                               
+            }                                                       
+        };
+        
+        visit(t);
+        
+        while (!stack.empty()) {
+            app * t = stack.back();
+            stack.pop_back();
+            for (expr* arg : *t) 
+                visit(arg);
+        }
+    }
+
+    void solve_eqs::collect_num_occs() {
+        if (m_config.m_max_occs == UINT_MAX)
+            return; // no need to compute num occs
+        m_num_occs.reset();
+        expr_fast_mark1 visited;
+        for (unsigned i : indices())
+            collect_num_occs(m_fmls[i].fml(), visited);
+    }
+
+    // Check if the number of occurrences of t is below the specified threshold :solve-eqs-max-occs
+    bool solve_eqs::check_occs(expr * t) const {
+        if (m_config.m_max_occs == UINT_MAX)
+            return true;
+        unsigned num = 0;
+        m_num_occs.find(t, num);
+        TRACE("solve_eqs_check_occs", tout << mk_ismt2_pp(t, m_manager) << " num_occs: " << num << " max: " << m_max_occs << "\n";);
+        return num <= m_config.m_max_occs;
+    }
+
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
             m_fmls.model_trail().push(m_subst.detach(), old_fmls);                
