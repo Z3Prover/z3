@@ -1237,7 +1237,7 @@ namespace seq {
             seq.str.is_string(x)) {
             expr_ref len(n, m);
             m_rewrite(len);
-            SASSERT(n != len);
+            SASSERT(m.limit().is_canceled() || n != len);
             add_clause(mk_eq(len, n));
         }
         else {

@@ -967,17 +967,41 @@ void th_rewriter::reset() {
 }
 
 void th_rewriter::operator()(expr_ref & term) {
-    expr_ref result(term.get_manager());
-    m_imp->operator()(term, result);
-    term = std::move(result);
+    expr_ref result(term.get_manager());    
+    try {
+        m_imp->operator()(term, result);
+        term = std::move(result);
+    }
+    catch (...) {
+        if (!term.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 void th_rewriter::operator()(expr * t, expr_ref & result) {
-    m_imp->operator()(t, result);
+    try {
+        m_imp->operator()(t, result);
+    }
+    catch (...) {
+        result = t;
+        if (!result.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 void th_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
-    m_imp->operator()(t, result, result_pr);
+    try {
+        m_imp->operator()(t, result, result_pr);
+    }
+    catch (...) {
+        result = t;
+        result_pr = nullptr;
+        if (!result.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 expr_ref th_rewriter::operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
