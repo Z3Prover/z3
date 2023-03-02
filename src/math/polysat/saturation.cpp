@@ -1580,7 +1580,7 @@ namespace polysat {
             return true;
         }
         y = q.var();
-        if (!q.hi().is_val() && q.hi().var() == y)
+        if (q.hi().is_var() && q.hi().var() == y)
             return false;
         if (!s.try_eval(q.hi(), a))
             return false;
