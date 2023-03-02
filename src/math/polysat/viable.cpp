@@ -88,6 +88,7 @@ namespace polysat {
 
     void viable::pop_viable() {
         auto const& [v, k, e] = m_trail.back();
+        // display_one(verbose_stream() << "Pop entry:  ", v, e) << "\n";
         SASSERT(well_formed(m_units[v]));
         switch (k) {
         case entry_kind::unit_e:
@@ -110,6 +111,7 @@ namespace polysat {
 
     void viable::push_viable() {
         auto& [v, k, e] = m_trail.back();
+        // display_one(verbose_stream() << "Push entry: ", v, e) << "\n";
         SASSERT(e->prev() != e || !m_units[v]);
         SASSERT(e->prev() != e || e->next() == e);
         SASSERT(k == entry_kind::unit_e);
