@@ -266,9 +266,8 @@ namespace euf {
         ptr_buffer<app, 128> stack;
         
         auto visit = [&](expr* arg) {
-            if (is_uninterp_const(arg)) {                           
-                m_num_occs.insert_if_not_there(arg, 0)++;           
-            }                                                       
+            if (is_uninterp_const(arg))                    
+                m_num_occs.insert_if_not_there(arg, 0)++;
             if (!visited.is_marked(arg) && is_app(arg)) {                          
                 visited.mark(arg, true);                            
                 stack.push_back(to_app(arg));                               
