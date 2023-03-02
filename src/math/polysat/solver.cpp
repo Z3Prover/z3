@@ -80,9 +80,10 @@ namespace polysat {
             SASSERT(var_queue_invariant());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
-            else if (can_repropagate()) repropagate();
+            else if (can_repropagate_units()) repropagate_units();
             else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
+            else if (can_repropagate()) repropagate();
             else if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
@@ -213,15 +214,15 @@ namespace polysat {
         if (!is_conflict())
             linear_propagate();
         SASSERT(wlist_invariant());
-        SASSERT(bool_watch_invariant());
+        // VERIFY(bool_watch_invariant());
         SASSERT(eval_invariant());
     }
 
-    bool solver::can_repropagate() {
-        return !m_repropagate_units.empty() || !m_repropagate_lits.empty();
+    bool solver::can_repropagate_units() {
+        return !m_repropagate_units.empty();
     }
 
-    void solver::repropagate() {
+    void solver::repropagate_units() {
         while (!m_repropagate_units.empty() && !is_conflict()) {
             clause& cl = *m_repropagate_units.back();
             m_repropagate_units.pop_back();
@@ -232,6 +233,7 @@ namespace polysat {
                 assign_propagate(lit, cl);
                 break;
             case l_false:
+                m_repropagate_units.push_back(&cl);
                 set_conflict(cl);
                 break;
             case l_true:
@@ -242,11 +244,19 @@ namespace polysat {
                 break;
             }
         }
+    }
+
+    bool solver::can_repropagate() {
+        return !m_repropagate_lits.empty();
+    }
+
+    void solver::repropagate() {
         while (!m_repropagate_lits.empty() && !is_conflict()) {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
             repropagate(lit);
         }
+        SASSERT(bool_watch_invariant());
     }
 
     /**
