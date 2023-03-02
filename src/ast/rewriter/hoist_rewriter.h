@@ -29,7 +29,7 @@ class bool_rewriter;
 
 class hoist_rewriter {
     ast_manager &                   m;
-    expr_ref_vector                 m_args1, m_args2;
+    expr_ref_vector                 m_args1, m_args2, m_refs;
     obj_hashtable<expr>             m_preds1, m_preds2;
     basic_union_find                m_uf1, m_uf2, m_uf0;
     ptr_vector<expr>                m_es;
