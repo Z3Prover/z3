@@ -447,7 +447,8 @@ namespace polysat {
      */
     bool solver::repropagate(sat::literal lit, clause& cl) {
         LOG("Re-propagate " << lit << " in " << cl);
-        SASSERT(m_bvars.is_undef(lit));
+        if (!m_bvars.is_undef(lit))
+            return false;
         SASSERT(cl.size() >= 2);
         unsigned idx = (cl[0] == lit) ? 1 : 0;
         SASSERT(cl[1 - idx] == lit);
