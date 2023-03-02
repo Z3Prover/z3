@@ -205,6 +205,7 @@ void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause cons
     
     // forall vars . f(args) = if eqs then body else f'(args)
     f1 = m.mk_fresh_func_decl(f->get_name(), symbol::null, sorts.size(), sorts.data(), f->get_range());
+
     lhs = m.mk_app(f, args);
     rhs = m.mk_ite(mk_and(eqs), body, m.mk_app(f1, args));
     insert_macro(lhs, rhs, cl.m_dep);
@@ -572,7 +573,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
             !occurs(x->get_decl(), y);
     };
 
-    if (cl.is_unit() && m.is_eq(cl.atom(0), x, y)) {
+    if (cl.is_unit() && m.is_eq(cl.atom(0), x, y) && !cl.m_bound.empty()) {
         if (!cl.sign(0) && can_be_qdef(x, y)) {
             insert_quasi_macro(to_app(x), y, cl);
             return;
@@ -590,7 +591,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
             return;
         }
     }
-    if (cl.is_unit()) {
+    if (cl.is_unit() && !cl.m_bound.empty()) {
         expr* body = cl.sign(0) ? m.mk_false() : m.mk_true();
         expr* x = cl.atom(0);
         if (can_be_qdef(x, body)) {
