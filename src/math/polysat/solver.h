@@ -190,6 +190,8 @@ namespace polysat {
 #if 0
         constraints              m_pwatch_trail;
 #endif
+        ptr_vector<clause>       m_repropagate_units;
+        sat::literal_vector      m_repropagate_lits;
 
         ptr_vector<clause const> m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
@@ -252,6 +254,10 @@ namespace polysat {
         void erase_pwatch(pvar v, constraint* c);
         void erase_pwatch(constraint* c);
 
+        bool can_repropagate_units();
+        void repropagate_units();
+        bool can_repropagate();
+        void repropagate();
         void repropagate(sat::literal lit);
         bool repropagate(sat::literal lit, clause& cl);
         void propagate_clause(clause& cl);

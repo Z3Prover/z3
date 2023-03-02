@@ -80,8 +80,10 @@ namespace polysat {
             SASSERT(var_queue_invariant());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
+            else if (can_repropagate_units()) repropagate_units();
             else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
+            else if (can_repropagate()) repropagate();
             else if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
@@ -212,8 +214,49 @@ namespace polysat {
         if (!is_conflict())
             linear_propagate();
         SASSERT(wlist_invariant());
-        SASSERT(bool_watch_invariant());
+        // VERIFY(bool_watch_invariant());
         SASSERT(eval_invariant());
+    }
+
+    bool solver::can_repropagate_units() {
+        return !m_repropagate_units.empty();
+    }
+
+    void solver::repropagate_units() {
+        while (!m_repropagate_units.empty() && !is_conflict()) {
+            clause& cl = *m_repropagate_units.back();
+            m_repropagate_units.pop_back();
+            VERIFY_EQ(cl.size(), 1);
+            sat::literal lit = cl[0];
+            switch (m_bvars.value(lit)) {
+            case l_undef:
+                assign_propagate(lit, cl);
+                break;
+            case l_false:
+                m_repropagate_units.push_back(&cl);
+                set_conflict(cl);
+                break;
+            case l_true:
+                /* ok */
+                break;
+            default:
+                UNREACHABLE();
+                break;
+            }
+        }
+    }
+
+    bool solver::can_repropagate() {
+        return !m_repropagate_lits.empty();
+    }
+
+    void solver::repropagate() {
+        while (!m_repropagate_lits.empty() && !is_conflict()) {
+            sat::literal lit = m_repropagate_lits.back();
+            m_repropagate_lits.pop_back();
+            repropagate(lit);
+        }
+        SASSERT(bool_watch_invariant());
     }
 
     /**
@@ -239,6 +282,7 @@ namespace polysat {
      * Trigger boolean watchlists for the given literal
      */
     void solver::repropagate(sat::literal lit) {
+        LOG_H2("Re-propagate " << lit_pp(*this, lit));
 #ifndef NDEBUG
         SASSERT(!m_is_propagating);
         flet<bool> save_(m_is_propagating, true);
@@ -402,6 +446,7 @@ namespace polysat {
      * Return true if a new watch was found; or false to keep the existing one.
      */
     bool solver::repropagate(sat::literal lit, clause& cl) {
+        LOG("Re-propagate " << lit << " in " << cl);
         SASSERT(m_bvars.is_undef(lit));
         SASSERT(cl.size() >= 2);
         unsigned idx = (cl[0] == lit) ? 1 : 0;
@@ -547,7 +592,6 @@ namespace polysat {
         unsigned const target_level = m_level - num_levels;
         using replay_item = std::variant<sat::literal, pvar>;
         vector<replay_item> replay;
-        sat::literal_vector repropagate_queue;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -609,7 +653,7 @@ namespace polysat {
                 LOG_V(20, "Undo assign_i: v" << v);
                 unsigned active_level = get_level(v);
 
-                if (active_level <= target_level) {
+                if (false && active_level <= target_level) {
                     SASSERT(m_justification[v].is_propagation());
                     replay.push_back(v);
                 }
@@ -622,15 +666,23 @@ namespace polysat {
             }
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
-                LOG_V(20, "Undo assign_bool_i: " << lit);
+                LOG_V(20, "Undo assign_bool_i: " << lit_pp(*this, lit));
                 unsigned active_level = m_bvars.level(lit);
 
-                if (active_level <= target_level) {
+                if (false && active_level <= target_level) {
                     SASSERT(!m_bvars.is_decision(lit));
                     replay.push_back(lit);
                 } else {
+                    clause* reason = m_bvars.reason(lit);
+                    if (reason && reason->size() == 1) {
+                        VERIFY(m_bvars.is_bool_propagation(lit));
+                        VERIFY_EQ(lit, (*reason)[0]);
+                        // Unit clauses are not stored in watch lists and must be re-propagated separately.
+                        m_repropagate_units.push_back(reason);
+                    }
+                    else
+                        m_repropagate_lits.push_back(lit);
                     m_bvars.unassign(lit);
-                    repropagate_queue.push_back(lit);
                 }
                 m_search.pop();
                 break;
@@ -652,15 +704,10 @@ namespace polysat {
         // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
         // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
         //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
-        // TODO: combine with replay, or at least make sure it can't interfere.
-#if 1
-        for (sat::literal lit : repropagate_queue)
-            repropagate(lit);
-#else
-        for (sat::literal lit : repropagate_queue)
-            for (clause* cl : m_bvars.watch(lit))
-                propagate_clause(*cl);
-#endif
+        // TODO: we still may miss unit clauses, if we add a unit clause after the literal was assigned by some other cause.
+        //       (reason is not a unit clause, so we don't add it to repropagate_units, and it is not stored in watchlists, so repropagate(lit) will miss it as well).
+        //       unit clauses learned from conflict analysis should be fine, because we backtrack to level 0 then.
+
         // Replay:
         // (since levels on the search stack may be out of order)
         for (unsigned j = replay.size(); j-- > 0; ) {
@@ -1578,11 +1625,23 @@ namespace polysat {
         for (clause const& cl : m_constraints.clauses()) {
             if (cl.size() <= 1)  // unit clauses aren't watched
                 continue;
-            VERIFY_EQ(count(m_bvars.watch(cl[0]), &cl), 1);
-            VERIFY_EQ(count(m_bvars.watch(cl[1]), &cl), 1);
-            for (unsigned i = 2; i < cl.size(); ++i) {
-                VERIFY_EQ(count(m_bvars.watch(cl[i]), &cl), 0);
+            size_t const count0 = count(m_bvars.watch(cl[0]), &cl);
+            size_t const count1 = count(m_bvars.watch(cl[1]), &cl);
+            size_t count_tail = 0;
+            for (unsigned i = 2; i < cl.size(); ++i)
+                count_tail += count(m_bvars.watch(cl[i]), &cl);
+            if (count0 != 1 || count1 != 1 || count_tail != 0) {
+                verbose_stream() << "wrong boolean watches: " << cl << "\n";
+                for (sat::literal lit : cl) {
+                    verbose_stream() << "    " << lit_pp(*this, lit);
+                    if (count(m_bvars.watch(lit), &cl) != 0)
+                        verbose_stream() << " (bool-watched)";
+                    verbose_stream() << "\n";
+                }
             }
+            VERIFY_EQ(count0, 1);
+            VERIFY_EQ(count1, 1);
+            VERIFY_EQ(count_tail, 0);
         }
         // Check for missed boolean propagations:
         // - no clause should have exactly one unassigned literal, unless it is already true.
