@@ -1625,11 +1625,23 @@ namespace polysat {
         for (clause const& cl : m_constraints.clauses()) {
             if (cl.size() <= 1)  // unit clauses aren't watched
                 continue;
-            VERIFY_EQ(count(m_bvars.watch(cl[0]), &cl), 1);
-            VERIFY_EQ(count(m_bvars.watch(cl[1]), &cl), 1);
-            for (unsigned i = 2; i < cl.size(); ++i) {
-                VERIFY_EQ(count(m_bvars.watch(cl[i]), &cl), 0);
+            size_t const count0 = count(m_bvars.watch(cl[0]), &cl);
+            size_t const count1 = count(m_bvars.watch(cl[1]), &cl);
+            size_t count_tail = 0;
+            for (unsigned i = 2; i < cl.size(); ++i)
+                count_tail += count(m_bvars.watch(cl[i]), &cl);
+            if (count0 != 1 || count1 != 1 || count_tail != 0) {
+                verbose_stream() << "wrong boolean watches: " << cl << "\n";
+                for (sat::literal lit : cl) {
+                    verbose_stream() << "    " << lit_pp(*this, lit);
+                    if (count(m_bvars.watch(lit), &cl) != 0)
+                        verbose_stream() << " (bool-watched)";
+                    verbose_stream() << "\n";
+                }
             }
+            VERIFY_EQ(count0, 1);
+            VERIFY_EQ(count1, 1);
+            VERIFY_EQ(count_tail, 0);
         }
         // Check for missed boolean propagations:
         // - no clause should have exactly one unassigned literal, unless it is already true.
