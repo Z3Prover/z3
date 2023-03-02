@@ -200,7 +200,6 @@ namespace sat {
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
         m_smt_proof_check = p.smt_proof_check();
-        m_smt_proof_check_rup = p.smt_proof_check_rup();
         m_drat_disable = p.drat_disable();
         m_drat            =
             !m_drat_disable && p.threads() == 1 &&

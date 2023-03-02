@@ -10,6 +10,7 @@ def_module_params('solver',
                           ('axioms2files', BOOL, False, 'print negated theory axioms to separate files during search'),
                           ('proof.log', SYMBOL, '', 'log clause proof trail into a file'),
                           ('proof.check', BOOL, True, 'check proof logs'),
+                          ('proof.check_rup', BOOL, True, 'check proof RUP inference in proof logs'),
                           ('proof.save', BOOL, False, 'save proof log into a proof object that can be extracted using (get-proof)'),
                           ('proof.trim', BOOL, False, 'trim and save proof into a proof object that an be extracted using (get-proof)'),			  
                           ))

@@ -28,7 +28,7 @@ Author:
 #include "sat/smt/bv_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
-
+#include "params/solver_params.hpp"
 
 namespace euf {
 
@@ -388,8 +388,8 @@ namespace euf {
         m_sat_solver.updt_params(m_params);
         m_drat.updt_config();        
         m_rup = symbol("rup");
-        sat_params sp(m_params);
-        m_check_rup = sp.smt_proof_check_rup();
+        solver_params sp(m_params);
+        m_check_rup = sp.proof_check_rup();
     }
 
     void smt_proof_checker::ensure_solver() {
