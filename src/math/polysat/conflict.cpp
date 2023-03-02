@@ -222,7 +222,7 @@ namespace polysat {
         m_level = s.m_level;
         for (auto lit : cl) {
             auto c = s.lit2cnstr(lit);
-            SASSERT_EQ(c.bvalue(s), l_false);
+            VERIFY_EQ(c.bvalue(s), l_false);
             insert(~c);
         }
 
