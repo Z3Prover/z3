@@ -1459,16 +1459,6 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
     }
 }
 
-template <typename T, typename X>
-void setup_solver(unsigned time_limit, bool look_for_min, argument_parser & args_parser, lp_solver<T, X> * solver) {
-    if (time_limit > 0)
-        solver->set_time_limit(time_limit);
-
-    if (look_for_min)
-        solver->flip_costs();
-
-    update_settings(args_parser, solver->settings());
-}
 
 bool values_are_one_percent_close(double a, double b);
 
@@ -1572,29 +1562,6 @@ void add_random_cost(lp_primal_simplex<double, double> * solver, int cols) {
     }
 }
 
-lp_primal_simplex<double, double> * generate_random_solver() {
-    int rows = get_random_rows();
-    int cols = get_random_columns();
-    auto * solver = new lp_primal_simplex<double, double>();
-    for (int i = 0; i < rows; i++) {
-        add_random_row(solver, cols, i);
-    }
-    add_random_cost(solver, cols);
-    return solver;
-}
-
-
-
-void random_test_on_i(unsigned i) {
-    if (i % 1000 == 0) {
-        std::cout << ".";
-    }
-    srand(i);
-    auto *solver = generate_random_solver();
-    solver->find_maximal_solution();
-    //    std::cout << lp_status_to_string(solver->get_status()) << std::endl;
-    delete solver;
-}
 
 void random_test() {
     for (unsigned i = 0; i < std::numeric_limits<unsigned>::max(); i++) {
