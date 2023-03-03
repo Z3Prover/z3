@@ -20,7 +20,6 @@ z3_add_component(lp
     lar_core_solver.cpp
     lp_core_solver_base.cpp
     lp_dual_core_solver.cpp
-    lp_dual_simplex.cpp
     lp_primal_core_solver.cpp
     lp_settings.cpp
     lp_solver.cpp
