@@ -299,7 +299,7 @@ namespace euf {
             return true;
         unsigned num = 0;
         m_num_occs.find(t, num);
-        TRACE("solve_eqs_check_occs", tout << mk_ismt2_pp(t, m_manager) << " num_occs: " << num << " max: " << m_max_occs << "\n";);
+        TRACE("solve_eqs_check_occs", tout << mk_ismt2_pp(t, m) << " num_occs: " << num << " max: " << m_config.m_max_occs << "\n";);
         return num <= m_config.m_max_occs;
     }
 
