@@ -1549,21 +1549,6 @@ int get_random_int() {
     return -1 + my_random() % 2; // (1.0 + RAND_MAX);
 }
 
-void add_random_row(lp_primal_simplex<double, double> * solver, int cols, int row) {
-    solver->add_constraint(lp_relation::Greater_or_equal, 1, row);
-    for (int i = 0; i < cols; i++) {
-        solver->set_row_column_coefficient(row, i, get_random_int());
-    }
-}
-
-void add_random_cost(lp_primal_simplex<double, double> * solver, int cols) {
-    for (int i = 0; i < cols; i++) {
-        solver->set_cost_for_column(i, get_random_int());
-    }
-}
-
-
-
 #ifndef _WINDOWS
 void fill_file_names(vector<std::string> &file_names,  std::set<std::string> & minimums) {
     char *home_dir = getenv("HOME");
