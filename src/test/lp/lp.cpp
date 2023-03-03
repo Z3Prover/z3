@@ -1563,17 +1563,6 @@ void add_random_cost(lp_primal_simplex<double, double> * solver, int cols) {
 }
 
 
-void random_test() {
-    for (unsigned i = 0; i < std::numeric_limits<unsigned>::max(); i++) {
-        try {
-            random_test_on_i(i);
-        }
-        catch (const char * error) {
-            std::cout << "i = " << i << ", throwing at ' " << error << "'" << std::endl;
-            break;
-        }
-    }
-}
 
 #ifndef _WINDOWS
 void fill_file_names(vector<std::string> &file_names,  std::set<std::string> & minimums) {
