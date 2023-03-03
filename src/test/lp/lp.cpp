@@ -33,7 +33,6 @@
 #include <stdlib.h>
 #include <utility>
 #include "math/lp/lp_utils.h"
-#include "math/lp/lp_primal_simplex.h"
 #include "test/lp/smt_reader.h"
 #include "math/lp/binary_heap_priority_queue.h"
 #include "test/lp/argument_parser.h"

@@ -23,7 +23,6 @@ Revision History:
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "math/lp/lp_primal_simplex.h"
 #include "math/lp/lar_solver.h"
 #include <iostream>
 #include <fstream>
