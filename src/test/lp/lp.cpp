@@ -34,7 +34,6 @@
 #include <utility>
 #include "math/lp/lp_utils.h"
 #include "math/lp/lp_primal_simplex.h"
-#include "math/lp/mps_reader.h"
 #include "test/lp/smt_reader.h"
 #include "math/lp/binary_heap_priority_queue.h"
 #include "test/lp/argument_parser.h"
@@ -59,6 +58,71 @@
 #include "math/lp/cross_nested.h"
 #include "math/lp/int_cube.h"
 #include "math/lp/emonics.h"
+
+bool my_white_space(const char & a) {
+    return a == ' ' || a == '\t';
+}
+size_t number_of_whites(const std::string & s)  {
+    size_t i = 0;
+    for(;i < s.size(); i++)
+        if (!my_white_space(s[i])) return i;
+    return i;
+}
+size_t number_of_whites_from_end(const std::string & s)  {
+    size_t ret = 0;
+    for(int i = static_cast<int>(s.size()) - 1;i >= 0; i--)
+        if (my_white_space(s[i])) ret++;else break;
+    
+    return ret;
+}
+
+
+std::string &ltrim(std::string &s) {
+    s.erase(0, number_of_whites(s));
+    return s;
+}
+
+
+
+
+    // trim from end
+inline std::string &rtrim(std::string &s) {
+    //       s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    s.erase(s.end() - number_of_whites_from_end(s), s.end());
+    return s;
+}
+    // trim from both ends
+inline std::string &trim(std::string &s) {
+    return ltrim(rtrim(s));
+}
+
+
+vector<std::string> string_split(const std::string &source, const char *delimiter, bool keep_empty)  {
+    vector<std::string> results;
+    size_t prev = 0;
+    size_t next = 0;
+    while ((next = source.find_first_of(delimiter, prev)) != std::string::npos) {
+        if (keep_empty || (next - prev != 0)) {
+            results.push_back(source.substr(prev, next - prev));
+        }
+        prev = next + 1;
+    }
+    if (prev < source.size()) {
+        results.push_back(source.substr(prev));
+    }
+    return results;
+}
+
+vector<std::string> split_and_trim(const std::string &line) {
+    auto split = string_split(line, " \t", false);
+    vector<std::string> ret;
+    for (auto s : split) {
+        ret.push_back(trim(s));
+    }
+    return ret;
+}
+
+
 namespace nla {
 void test_horner();
 void test_monics();
@@ -1408,156 +1472,12 @@ void setup_solver(unsigned time_limit, bool look_for_min, argument_parser & args
 
 bool values_are_one_percent_close(double a, double b);
 
-void print_x(mps_reader<double, double> & reader, lp_solver<double, double> * solver) {
-    for (const auto & name : reader.column_names()) {
-        std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-    }
-    std::cout << std::endl;
-}
-
-void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, double> * solver, lp_solver<double, double> * solver0) {
-    for (const auto & name : reader.column_names()) {
-        double a = solver->get_column_value_by_name(name);
-        double b = solver0->get_column_value_by_name(name);
-        if (!values_are_one_percent_close(a, b)) {
-            std::cout << "different values for " << name << ":" << a << " and "  << b << std::endl;
-        }
-    }
-}
 
 
-void solve_mps_double(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, bool compare_with_primal, argument_parser & args_parser) {
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (!reader.is_ok()) {
-        std::cout << "cannot process " << file_name << std::endl;
-        return;
-    }
-    
-    lp_solver<double, double> * solver =  reader.create_solver(dual);
-    setup_solver(time_limit, look_for_min, args_parser, solver);
-    stopwatch sw;
-    sw.start();
-    if (dual) {
-        std::cout << "solving for dual" << std::endl;
-    }
-    solver->find_maximal_solution();
-    sw.stop();
-    double span = sw.get_seconds(); 
-    std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
-    if (solver->get_status() == lp_status::OPTIMAL) {
-        if (reader.column_names().size() < 20) {
-            print_x(reader, solver);
-        }
-        double cost = solver->get_current_cost();
-        if (look_for_min) {
-            cost = -cost;
-        }
-        std::cout << "cost = " << cost << std::endl;
-    }
-    std::cout << "processed in " << span / 1000.0  << " seconds, running for " << solver->m_total_iterations << " iterations" << "  one iter for " << (double)span/solver->m_total_iterations << " ms" << std::endl;
-    if (compare_with_primal) {
-        auto * primal_solver = reader.create_solver(false);
-        setup_solver(time_limit, look_for_min, args_parser, primal_solver);
-        primal_solver->find_maximal_solution();
-        if (solver->get_status() != primal_solver->get_status()) {
-            std::cout << "statuses are different: dual " << lp_status_to_string(solver->get_status()) << " primal = " << lp_status_to_string(primal_solver->get_status()) << std::endl;
-        } else {
-            if (solver->get_status() == lp_status::OPTIMAL) {
-                double cost = solver->get_current_cost();
-                if (look_for_min) {
-                    cost = -cost;
-                }
-                double primal_cost = primal_solver->get_current_cost();
-                if (look_for_min) {
-                    primal_cost = -primal_cost;
-                }
-                std::cout << "primal cost = " << primal_cost << std::endl;
-                if (!values_are_one_percent_close(cost, primal_cost)) {
-                    compare_solutions(reader, primal_solver, solver);
-                    print_x(reader, primal_solver);
-                    std::cout << "dual cost is " << cost << ", but primal cost is " << primal_cost << std::endl;
-                    lp_assert(false);
-                }
-            }
-        }
-        delete primal_solver;
-    }
-    delete solver;
-}
 
-void solve_mps_rational(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, argument_parser & args_parser) {
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        setup_solver(time_limit, look_for_min, args_parser, solver);
-        stopwatch sw;
-        sw.start();
-        solver->find_maximal_solution();
-        std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
-
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            // for (auto name: reader.column_names()) {
-            //  std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-            // }
-            lp::mpq cost = solver->get_current_cost();
-            if (look_for_min) {
-                cost = -cost;
-            }
-            std::cout << "cost = " << cost.get_double() << std::endl;
-        }
-        std::cout << "processed in " << sw.get_current_seconds() / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
 void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit); // forward definition
 
-void solve_mps(std::string file_name, bool look_for_min, unsigned time_limit, bool solve_for_rational, bool dual, bool compare_with_primal, argument_parser & args_parser) {
-    if (!solve_for_rational) {
-        std::cout << "solving " << file_name << std::endl;
-        solve_mps_double(file_name, look_for_min, time_limit, dual, compare_with_primal, args_parser);
-    }
-    else {
-        std::cout << "solving " << file_name << " in rationals " << std::endl;
-        solve_mps_rational(file_name, look_for_min, time_limit, dual, args_parser);
-    }
-}
 
-void solve_mps(std::string file_name, argument_parser & args_parser) {
-    bool look_for_min = args_parser.option_is_used("--min");
-    unsigned time_limit;
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    bool dual = args_parser.option_is_used("--dual");
-    bool compare_with_primal = args_parser.option_is_used("--compare_with_primal");
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    solve_mps(file_name, look_for_min, time_limit, solve_for_rational, dual, compare_with_primal, args_parser);
-}
-
-void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /*args_parser*/) {
-    std::cout << "solving " << file_name << std::endl;
-
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        solver->find_maximal_solution();
-        std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            if (reader.column_names().size() < 20) {
-                for (const auto & name : reader.column_names()) {
-                    std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
-                }
-            }
-            std::cout << std::endl << "cost = " << numeric_traits<lp::mpq>::get_double(solver->get_current_cost()) << std::endl;
-        }
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
 
 void test_upair_queue() {
     int n = 10;
@@ -1626,53 +1546,6 @@ void test_binary_priority_queue() {
     std::cout << " done" << std::endl;
 }
 
-bool solution_is_feasible(std::string file_name, const std::unordered_map<std::string, double> & solution) {
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        lp_primal_simplex<double, double> * solver = static_cast<lp_primal_simplex<double, double> *>(reader.create_solver(false));
-        return solver->solution_is_feasible(solution);
-    }
-    return false;
-}
-
-
-void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std::string, double> * solution, lp_status status, bool dual) {
-    std::cout << "solving " << file_name << std::endl;
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        solver->find_maximal_solution();
-        std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-        if (status != solver->get_status()){
-            std::cout << "status should be " << lp_status_to_string(status) << std::endl;
-            lp_assert(status == solver->get_status());
-            throw "status is wrong";
-        }
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            std::cout << "cost = " << solver->get_current_cost() << std::endl;
-            if (solution != nullptr) {
-                for (auto it : *solution) {
-                    if (fabs(it.second - solver->get_column_value_by_name(it.first)) >= 0.000001) {
-                        std::cout << "expected:" << it.first << "=" <<
-                            it.second <<", got " << solver->get_column_value_by_name(it.first) << std::endl;
-                    }
-                    lp_assert(fabs(it.second - solver->get_column_value_by_name(it.first)) < 0.000001);
-                }
-            }
-            if (reader.column_names().size() < 20) {
-                for (const auto & name : reader.column_names()) {
-                    std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-                }
-                std::cout << std::endl;
-            }
-        }
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
 
 int get_random_rows() {
     return 5 + my_random() % 2;
@@ -1896,140 +1769,9 @@ void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
     //    std::cout << "fn = " << fn << std::endl;
 }
 
-void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
 
-void solve_some_mps(argument_parser & args_parser) {
-    unsigned max_iters = UINT_MAX, time_limit = UINT_MAX;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    unsigned successes = 0;
-    unsigned failures = 0;
-    unsigned inconclusives = 0;
-    std::set<std::string> minimums;
-    vector<std::string> file_names;
-    fill_file_names(file_names, minimums);
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    bool dual = args_parser.option_is_used("--dual");
-    bool compare_with_primal = args_parser.option_is_used("--compare_with_primal");
-    bool compare_with_glpk = args_parser.option_is_used("--compare_with_glpk");
-    if (compare_with_glpk) {
-        std::string out_dir = args_parser.get_option_value("--out_dir");
-        if (out_dir.size() == 0) {
-            out_dir = "/tmp/test";
-        }
-        test_out_dir(out_dir);
-        for (auto& a : file_names) {
-            try {
-                std::string file_dir;
-                std::string file_name;
-                find_dir_and_file_name(a, file_dir, file_name);
-                process_test_file(file_dir, file_name, args_parser, out_dir, max_iters, time_limit, successes, failures, inconclusives);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-        std::cout << "comparing with glpk: successes " << successes << ", failures " << failures << ", inconclusives " << inconclusives << std::endl;
-        return;
-    }
-    if (!solve_for_rational) {
-        solve_mps(file_names[6], false, time_limit, false, dual, compare_with_primal, args_parser);
-        solve_mps_with_known_solution(file_names[3], nullptr, lp_status::INFEASIBLE, dual); // chvatal: 135(d)
-        std::unordered_map<std::string, double> sol;
-        sol["X1"] = 0;
-        sol["X2"] = 6;
-        sol["X3"] = 0;
-        sol["X4"] = 15;
-        sol["X5"] = 2;
-        sol["X6"] = 1;
-        sol["X7"] = 1;
-        sol["X8"] = 0;
-        solve_mps_with_known_solution(file_names[9], &sol, lp_status::OPTIMAL, dual);
-        solve_mps_with_known_solution(file_names[0], &sol, lp_status::OPTIMAL, dual);
-        sol.clear();
-        sol["X1"] = 25.0/14.0;
-        // sol["X2"] = 0;
-        // sol["X3"] = 0;
-        // sol["X4"] = 0;
-        // sol["X5"] = 0;
-        // sol["X6"] = 0;
-        // sol["X7"] = 9.0/14.0;
-        solve_mps_with_known_solution(file_names[5], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[4], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[2], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(c)
-        solve_mps_with_known_solution(file_names[1], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(b)
-        solve_mps(file_names[8], false, time_limit, false, dual, compare_with_primal, args_parser);
-        // return;
-        for (auto& s : file_names) {
-            try {
-                solve_mps(s, minimums.find(s) != minimums.end(),  time_limit, false, dual, compare_with_primal, args_parser);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-    } else {
-        //        unsigned i = 0;
-        for (auto& s : file_names) {
-            // if (i++ > 9) return;
-            try {
-                solve_mps_in_rational(s, dual, args_parser);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-    }
-}
 #endif
 
-void solve_rational() {
-    lp_primal_simplex<lp::mpq, lp::mpq> solver;
-    solver.add_constraint(lp_relation::Equal, lp::mpq(7), 0);
-    solver.add_constraint(lp_relation::Equal, lp::mpq(-3), 1);
-
-    // setting the cost
-    int cost[] = {-3, -1, -1, 2, -1, 1, 1, -4};
-    std::string var_names[8] = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"};
-
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_cost_for_column(i, lp::mpq(cost[i]));
-        solver.give_symbolic_name_to_column(var_names[i], i);
-    }
-
-    int row0[] = {1, 0, 3, 1, -5, -2 , 4, -6};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(0, i, lp::mpq(row0[i]));
-    }
-
-    int row1[] = {0, 1, -2, -1, 4, 1, -3, 5};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(1, i, lp::mpq(row1[i]));
-    }
-
-    int bounds[] = {8, 6, 4, 15, 2, 10, 10, 3};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_lower_bound(i, lp::mpq(0));
-        solver.set_upper_bound(i, lp::mpq(bounds[i]));
-    }
-
-    std::unordered_map<std::string, lp::mpq>  expected_sol;
-    expected_sol["x1"] = lp::mpq(0);
-    expected_sol["x2"] = lp::mpq(6);
-    expected_sol["x3"] = lp::mpq(0);
-    expected_sol["x4"] = lp::mpq(15);
-    expected_sol["x5"] = lp::mpq(2);
-    expected_sol["x6"] = lp::mpq(1);
-    expected_sol["x7"] = lp::mpq(1);
-    expected_sol["x8"] = lp::mpq(0);
-    solver.find_maximal_solution();
-    lp_assert(solver.get_status() == lp_status::OPTIMAL);
-#ifdef Z3DEBUG
-    for (const auto & it : expected_sol) {
-        (void)it;
-        lp_assert(it.second == solver.get_column_value_by_name(it.first));
-    }
-#endif
-}
 
 
 std::string read_line(bool & end, std::ifstream & file) {
@@ -2046,49 +1788,6 @@ bool contains(std::string const & s, char const * pattern) {
     return s.find(pattern) != std::string::npos;
 }
 
-
-std::unordered_map<std::string, double> * get_solution_from_glpsol_output(std::string & file_name) {
-    std::ifstream file(file_name);
-    if (!file.is_open()){
-        std::cerr << "cannot  open " << file_name << std::endl;
-        return nullptr;
-    }
-    std::string s;
-    bool end;
-    do {
-        s = read_line(end, file);
-        if (end) {
-            std::cerr << "unexpected file end " << file_name << std::endl;
-            return nullptr;
-        }
-        if (contains(s, "Column name")){
-            break;
-        }
-    } while (true);
-
-    read_line(end, file);
-    if (end) {
-        std::cerr << "unexpected file end " << file_name << std::endl;
-        return nullptr;
-    }
-
-    auto ret = new std::unordered_map<std::string, double>();
-
-    do {
-        s = read_line(end, file);
-        if (end) {
-            std::cerr << "unexpected file end " << file_name << std::endl;
-            return nullptr;
-        }
-        auto split = string_split(s, " \t", false);
-        if (split.empty()) {
-            return ret;
-        }
-
-        lp_assert(split.size() > 3);
-        (*ret)[split[1]] = atof(split[3].c_str());
-    } while (true);
-}
 
 
 
@@ -2189,7 +1888,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--test_lp_0", "solve a small lp");
     parser.add_option_with_help_string("--solve_some_mps", "solves a list of mps problems");
     parser.add_option_with_after_string_with_help("--test_file_directory", "loads files from the directory for testing");
-    parser.add_option_with_help_string("--compare_with_glpk", "compares the results by running glpsol");
     parser.add_option_with_after_string_with_help("--out_dir", "setting the output directory for tests, if not set /tmp is used");
     parser.add_option_with_help_string("--dual", "using the dual simplex solver");
     parser.add_option_with_help_string("--compare_with_primal", "using the primal simplex solver for comparison");
@@ -2360,237 +2058,9 @@ std::string get_status(std::string file_name) {
     throw 0;
 }
 
-// returns true if the costs should be compared too
-bool compare_statuses(std::string glpk_out_file_name, std::string lp_out_file_name, unsigned & successes, unsigned & failures) {
-    std::string glpk_status = get_status(glpk_out_file_name);
-    std::string lp_tst_status = get_status(lp_out_file_name);
-
-    if (glpk_status != lp_tst_status) {
-        if (glpk_status == "UNDEFINED"  && (lp_tst_status == "UNBOUNDED" || lp_tst_status == "INFEASIBLE")) {
-            successes++;
-            return false;
-        } else {
-            std::cout << "glpsol and lp_tst disagree: glpsol status is " << glpk_status;
-            std::cout << " but lp_tst status is " << lp_tst_status << std::endl;
-            failures++;
-            return false;
-        }
-    }
-    return lp_tst_status == "OPTIMAL";
-}
-
-double get_glpk_cost(std::string file_name) {
-    std::ifstream f(file_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open " << file_name << std::endl;
-        throw 0;
-    }
-    std::string str;
-    while (getline(f, str)) {
-        if (str.find("Objective") != std::string::npos) {
-            vector<std::string> tokens = split_and_trim(str);
-            if (tokens.size() != 5) {
-                std::cout << "unexpected Objective std::string " << str << std::endl;
-                throw 0;
-            }
-            return atof(tokens[3].c_str());
-        }
-    }
-    std::cout << "cannot find the Objective line in " << file_name << std::endl;
-    throw 0;
-}
-
-double get_lp_tst_cost(std::string file_name) {
-    std::ifstream f(file_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open " << file_name << std::endl;
-        throw 0;
-    }
-    std::string str;
-    std::string cost_string;
-    while (getline(f, str)) {
-        if (str.find("cost") != std::string::npos) {
-            cost_string = str;
-        }
-    }
-    if (cost_string.empty()) {
-        std::cout << "cannot find the cost line in " << file_name << std::endl;
-        throw 0;
-    }
-
-    vector<std::string> tokens = split_and_trim(cost_string);
-    if (tokens.size() != 3) {
-        std::cout << "unexpected cost string " << cost_string << std::endl;
-        throw 0;
-    }
-    return atof(tokens[2].c_str());
-}
-
-bool values_are_one_percent_close(double a, double b) {
-    double maxval = std::max(fabs(a), fabs(b));
-    if (maxval < 0.000001) {
-        return true;
-    }
-
-    double one_percent = maxval / 100;
-    return fabs(a - b) <= one_percent;
-}
-
-// returns true if both are optimal
-void compare_costs(std::string glpk_out_file_name,
-                   std::string lp_out_file_name,
-                   unsigned & successes,
-                   unsigned & failures) {
-    double a = get_glpk_cost(glpk_out_file_name);
-    double b = get_lp_tst_cost(lp_out_file_name);
-
-    if (values_are_one_percent_close(a, b)) {
-        successes++;
-    } else {
-        failures++;
-        std::cout << "glpsol cost is " << a << " lp_tst cost is " << b << std::endl;
-    }
-}
 
 
 
-void compare_with_glpk(std::string glpk_out_file_name, std::string lp_out_file_name, unsigned & successes, unsigned & failures, std::string /*lp_file_name*/) {
-#ifdef CHECK_GLPK_SOLUTION
-    std::unordered_map<std::string, double> * solution_table =  get_solution_from_glpsol_output(glpk_out_file_name);
-    if (solution_is_feasible(lp_file_name, *solution_table)) {
-        std::cout << "glpk solution is feasible" << std::endl;
-    } else {
-        std::cout << "glpk solution is infeasible" << std::endl;
-    }
-    delete solution_table;
-#endif
-    if (compare_statuses(glpk_out_file_name, lp_out_file_name, successes, failures)) {
-        compare_costs(glpk_out_file_name, lp_out_file_name, successes, failures);
-    }
-}
-void test_lar_on_file(std::string file_name, argument_parser & args_parser);
-
-void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives) {
-    bool use_mpq = args_parser.option_is_used("--mpq");
-    bool minimize = args_parser.option_is_used("--min");
-    std::string full_lp_tst_out_name = out_dir + "/" + create_output_file_name(minimize, test_file_name, use_mpq);
-
-    std::string input_file_name = test_dir + "/" + test_file_name;
-    if (input_file_name[input_file_name.size() - 1] == '~') {
-        //        std::cout << "ignoring " << input_file_name << std::endl;
-        return;
-    }
-    std::cout <<"processing " <<  input_file_name << std::endl;
-
-    std::ofstream out(full_lp_tst_out_name);
-    if (!out.is_open()) {
-        std::cout << "cannot open file " << full_lp_tst_out_name << std::endl;
-        throw 0;
-    }
-    std::streambuf *coutbuf = std::cout.rdbuf(); // save old buffer
-    std::cout.rdbuf(out.rdbuf()); // redirect std::cout to dir_entry->d_name!
-    bool dual = args_parser.option_is_used("--dual");
-    try {
-        if (args_parser.option_is_used("--lar"))
-            test_lar_on_file(input_file_name, args_parser);
-        else
-            solve_mps(input_file_name, minimize, time_limit, use_mpq, dual, false, args_parser);
-    }
-    catch(...) {
-        std::cout << "catching the failure" << std::endl;
-        failures++;
-        std::cout.rdbuf(coutbuf); // reset to standard output again
-        return;
-    }
-    std::cout.rdbuf(coutbuf); // reset to standard output again
-
-    if (args_parser.option_is_used("--compare_with_glpk")) {
-        std::string glpk_out_file_name =  out_dir + "/" + create_output_file_name_for_glpsol(minimize, std::string(test_file_name));
-        int glpk_exit_code = run_glpk(input_file_name, glpk_out_file_name, minimize, time_limit);
-        if (glpk_exit_code != 0) {
-            std::cout << "glpk failed" << std::endl;
-            inconclusives++;
-        } else {
-            compare_with_glpk(glpk_out_file_name, full_lp_tst_out_name, successes, failures, input_file_name);
-        }
-    }
-}
-/*
-  int my_readdir(DIR *dirp, struct dirent *
-  #ifndef LEAN_WINDOWS
-  entry
-  #endif
-  , struct dirent **result) {
-  #ifdef LEAN_WINDOWS
-  *result = readdir(dirp); // NOLINT
-  return *result != nullptr? 0 : 1;
-  #else
-  return readdir_r(dirp, entry, result);
-  #endif
-  }
-*/
-/*
-  vector<std::pair<std::string, int>> get_file_list_of_dir(std::string test_file_dir) {
-  DIR *dir;
-  if ((dir  = opendir(test_file_dir.c_str())) == nullptr) {
-  std::cout << "Cannot open directory " << test_file_dir << std::endl;
-  throw 0;
-  }
-  vector<std::pair<std::string, int>> ret;
-  struct dirent entry;
-  struct dirent* result;
-  int return_code;
-  for (return_code = my_readdir(dir, &entry, &result);
-  #ifndef LEAN_WINDOWS
-  result != nullptr &&
-  #endif
-  return_code == 0;
-  return_code = my_readdir(dir, &entry, &result)) {
-  DIR *tmp_dp = opendir(result->d_name);
-  struct stat file_record;
-  if (tmp_dp == nullptr) {
-  std::string s = test_file_dir+ "/" + result->d_name;
-  int stat_ret = stat(s.c_str(), & file_record);
-  if (stat_ret!= -1) {
-  ret.push_back(make_pair(result->d_name, file_record.st_size));
-  } else {
-  perror("stat");
-  exit(1);
-  }
-  } else  {
-  closedir(tmp_dp);
-  }
-  }
-  closedir(dir);
-  return ret;
-  }
-*/
-/*
-  struct file_size_comp {
-  unordered_map<std::string, int>& m_file_sizes;
-  file_size_comp(unordered_map<std::string, int>& fs) :m_file_sizes(fs) {}
-  int operator()(std::string a, std::string b) {
-  std::cout << m_file_sizes.size() << std::endl;
-  std::cout << a << std::endl;
-  std::cout << b << std::endl;
-
-  auto ls = m_file_sizes.find(a);
-  std::cout << "fa" << std::endl;
-  auto rs = m_file_sizes.find(b);
-  std::cout << "fb" << std::endl;
-  if (ls != m_file_sizes.end() && rs != m_file_sizes.end()) {
-  std::cout << "fc " << std::endl;
-  int r = (*ls < *rs? -1: (*ls > *rs)? 1 : 0);
-  std::cout << "calc r " << std::endl;
-  return r;
-  } else {
-  std::cout << "sc " << std::endl;
-  return 0;
-  }
-  }
-  };
-
-*/
 struct sort_pred {
     bool operator()(const std::pair<std::string, int> &left, const std::pair<std::string, int> &right) {
         return left.second < right.second;
@@ -2598,121 +2068,11 @@ struct sort_pred {
 };
 
 
-void test_files_from_directory(std::string test_file_dir, argument_parser & args_parser) {
-    /*
-      std::cout << "loading files from directory \"" << test_file_dir << "\"" << std::endl;
-      std::string out_dir = args_parser.get_option_value("--out_dir");
-      if (out_dir.size() == 0) {
-      out_dir = "/tmp/test";
-      }
-      DIR *out_dir_p = opendir(out_dir.c_str());
-      if (out_dir_p == nullptr) {
-      std::cout << "Cannot open output directory \"" << out_dir << "\"" << std::endl;
-      return;
-      }
-      closedir(out_dir_p);
-      vector<std::pair<std::string, int>> files = get_file_list_of_dir(test_file_dir);
-      std::sort(files.begin(), files.end(), sort_pred());
-      unsigned max_iters, time_limit;
-      get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-      unsigned successes = 0, failures = 0, inconclusives = 0;
-      for  (auto & t : files) {
-      process_test_file(test_file_dir, t.first, args_parser, out_dir, max_iters, time_limit, successes, failures, inconclusives);
-      }
-      std::cout << "comparing with glpk: successes " << successes << ", failures " << failures << ", inconclusives " << inconclusives << std::endl;
-    */
-}
 
 
-std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
-    std::unordered_map<std::string, lp::mpq> ret;
-    for (const auto & it : reader.column_names()) {
-        ret[it] = lps->get_column_value_by_name(it);
-    }
-    return ret;
-}
 
-void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lp::mpq, lp::mpq> * reader) {
-    std::string maxng = args_parser.get_option_value("--maxng");
-    if (!maxng.empty()) {
-        solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
-    }
-    if (args_parser.option_is_used("-pd")){
-        solver->settings().presolve_with_double_solver_for_lar = true;
-    }
-    
-    if (args_parser.option_is_used("--compare_with_primal")){
-        if (reader == nullptr) {
-            std::cout << "cannot compare with primal, the reader is null " << std::endl;
-            return;
-        }
-        auto * lps = reader->create_solver(false);
-        lps->find_maximal_solution();
-        std::unordered_map<std::string, lp::mpq> sol = get_solution_map(lps, *reader);
-        std::cout << "status = " << lp_status_to_string(solver->get_status()) <<  std::endl;
-        return;
-    }
-    stopwatch sw;
-    sw.start();
-    lp_status status = solver->solve();
-    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
-    if (solver->get_status() == lp_status::INFEASIBLE) {
-        explanation evidence;
-        solver->get_infeasibility_explanation(evidence);
-    }
-    if (args_parser.option_is_used("--randomize_lar")) {
-        if (solver->get_status() != lp_status::OPTIMAL) {
-            std::cout << "cannot check randomize on an infeazible  problem" << std::endl;
-            return;
-        }
-        std::cout << "checking randomize" << std::endl;
-        vector<var_index> all_vars;
-        for (unsigned j = 0; j < solver->number_of_vars(); j++)
-            all_vars.push_back(j);
-        
-        unsigned m = all_vars.size();
-        if (m > 100)
-            m = 100;
-        
-        var_index *vars = new var_index[m];
-        for (unsigned i = 0; i < m; i++)
-            vars[i]=all_vars[i];
-        
-        solver->random_update(m, vars);
-        delete []vars;
-    }
-}
 
-lar_solver * create_lar_solver_from_file(std::string file_name, argument_parser & args_parser) {
-    if (args_parser.option_is_used("--smt")) {
-        smt_reader reader(file_name);
-        reader.read();
-        if (!reader.is_ok()){
-            std::cout << "cannot process " << file_name << std::endl;
-            return nullptr;
-        }
-        return reader.create_lar_solver();
-    }
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (!reader.is_ok()) {
-        std::cout << "cannot process " << file_name << std::endl;
-        return nullptr;
-    }
-    return reader.create_lar_solver();
-}
 
-void test_lar_on_file(std::string file_name, argument_parser & args_parser) {
-    lar_solver * solver = create_lar_solver_from_file(file_name, args_parser);
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    mps_reader<lp::mpq, lp::mpq> * mps_reader = nullptr;
-    reader.read();
-    if (reader.is_ok()) {
-        mps_reader = & reader;
-        run_lar_solver(args_parser, solver, mps_reader);
-    }
-    delete solver;
-}
 
 vector<std::string> get_file_names_from_file_list(std::string filelist) {
     std::ifstream file(filelist);
@@ -2733,23 +2093,6 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
     return ret;
 }
 
-void test_lar_solver(argument_parser & args_parser) {
-
-    std::string file_name = args_parser.get_option_value("--file");
-    if (!file_name.empty()) {
-        test_lar_on_file(file_name, args_parser);
-        return;
-    }
-
-    std::string file_list = args_parser.get_option_value("--filelist");
-    if (!file_list.empty()) {
-        for (const std::string & fn : get_file_names_from_file_list(file_list))
-            test_lar_on_file(fn, args_parser);
-        return;
-    }
-
-    std::cout << "give option --file or --filelist to test_lar_solver\n";
-}
 
 void test_numeric_pair() {
     numeric_pair<lp::mpq> a;
@@ -3934,22 +3277,6 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 
-    if (args_parser.option_is_used("--test_mpq")) {
-        test_rationals();
-        return finalize(0);
-    }
-
-    if (args_parser.option_is_used("--test_mpq_np")) {
-        test_rationals_no_numeric_pairs();
-        return finalize(0);
-    }
-
-    if (args_parser.option_is_used("--test_mpq_np_plus")) {
-        test_rationals_no_numeric_pairs_plus();
-        return finalize(0);
-    }
-
-  
     
     if (args_parser.option_is_used("--test_int_set")) {
         test_int_set();
@@ -3967,29 +3294,8 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 
-#ifdef Z3DEBUG
-    if (args_parser.option_is_used("--test_swaps")) {
-        square_sparse_matrix<double, double> m(10, 0);
-        fill_matrix(m);
-        test_swap_rows_with_permutation(m);
-        test_swap_cols_with_permutation(m);
-        return finalize(0);
-    }
-#endif
-    if (args_parser.option_is_used("--test_perm")) {
-        test_permutations();
-        return finalize(0);
-    }
-    if (args_parser.option_is_used("--test_file_directory")) {
-        test_files_from_directory(args_parser.get_option_value("--test_file_directory"), args_parser);
-        return finalize(0);
-    }
-    std::string file_list = args_parser.get_option_value("--filelist");
-    if (!file_list.empty()) {
-        for (const std::string & fn : get_file_names_from_file_list(file_list))
-            solve_mps(fn, args_parser);
-        return finalize(0);
-    }
+    
+    
 
     if (args_parser.option_is_used("-tbq")) {
         test_binary_priority_queue();
@@ -3997,100 +3303,6 @@ void test_lp_local(int argn, char**argv) {
         return finalize(ret);
     }
 
-#ifdef Z3DEBUG
-    lp_settings settings;
-    update_settings(args_parser, settings);
-    if (args_parser.option_is_used("--test_lu")) {
-        test_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--test_small_lu")) {
-        test_small_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--lar")){
-        std::cout <<"calling test_lar_solver" << std::endl;
-        test_lar_solver(args_parser);
-        return finalize(0);
-    }
-
-
-    
-    if (args_parser.option_is_used("--test_larger_lu")) {
-        test_larger_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--test_larger_lu_with_holes")) {
-        test_larger_lu_with_holes(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-#endif
-    if (args_parser.option_is_used("--eti")) {
-        test_evidence_for_total_inf_simple(args_parser);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--maximize_term")) {
-        test_maximize_term();
-        ret = 0;
-        return finalize(ret);
-    }
-    
-    if (args_parser.option_is_used("--test_lp_0")) {
-        test_lp_0();
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--smap")) {
-        test_stacked();
-        ret = 0;
-        return finalize(ret);
-    }
-    if (args_parser.option_is_used("--term")) {
-        test_term();
-        ret = 0;
-        return finalize(ret);
-    }
-    unsigned time_limit;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    bool dual = args_parser.option_is_used("--dual");
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    std::string file_name = args_parser.get_option_value("--file");
-    if (!file_name.empty()) {
-        solve_mps(file_name, args_parser.option_is_used("--min"), time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
-        ret = 0;
-        return finalize(ret);
-    }
-    
-    if (args_parser.option_is_used("--solve_some_mps")) {
-#ifndef _WINDOWS
-        solve_some_mps(args_parser);
-#endif
-        ret = 0;
-        return finalize(ret);
-    }
-    //  lp::ccc = 0;
-    return finalize(0);
-    test_init_U();
-    test_replace_column();
-#ifdef Z3DEBUG
-    square_sparse_matrix_with_permutations_test();
-    test_dense_matrix();
-    test_swap_operations();
-    test_permutations();
-    test_pivot_like_swaps_and_pivot();
-#endif
-    tst1();
-    std::cout << "done with LP tests\n";
     return finalize(0); // has_violations() ? 1 : 0);
 }
 }

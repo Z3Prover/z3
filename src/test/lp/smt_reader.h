@@ -20,7 +20,6 @@ Revision History:
 
 #pragma once
 
-// reads an MPS file representing a Mixed Integer Program
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -31,7 +30,6 @@ Revision History:
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include "math/lp/mps_reader.h"
 #include "math/lp/ul_pair.h"
 #include "math/lp/lar_constraints.h"
 #include <sstream>
