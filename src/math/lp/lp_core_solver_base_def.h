@@ -894,27 +894,11 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
 	lp_assert(m_basis_heading[j] < 0);
 	lp_assert(m_basis_heading[j_basic] >= 0);
 	unsigned row_index = m_basis_heading[j_basic];
-	if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
-		if (m_factorization->need_to_refactor()) {
-			init_lu();
-		}
-		else {
-			m_factorization->prepare_entering(j, w); // to init vector w
-			m_factorization->replace_column(zero_of_type<T>(), w, row_index);
-		}
-		if (m_factorization->get_status() != LU_status::OK) {
-			init_lu();
-			return false;
-		}
-		else {
-			change_basis(j, j_basic);
-		}
-	}
-	else { // the tableau case
+	  // the tableau case
 		if (pivot_column_tableau(j, row_index))
 			change_basis(j, j_basic);
 		else return false;
-	}
+	
 	return true;
 }
 

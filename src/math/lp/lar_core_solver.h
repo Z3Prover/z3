@@ -229,7 +229,7 @@ public:
     }
 
     bool need_to_presolve_with_double_solver() const {
-        return settings().simplex_strategy() == simplex_strategy_enum::lu;
+        return false;
     }
 
     template <typename L>
