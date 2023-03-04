@@ -1567,43 +1567,70 @@ namespace polysat {
             return x;
     }
 
+    bool saturation::eval_round(rational const& M, pdd const& p, rational& r) {
+        if (!s.try_eval(p, r))
+            return false;
+        r = round(M, r);
+        return true;
+    }
+
     /**
-     * write as q := a*y + b
+     * Write as q := a*y + b
+     *
+     * If y == null_var, chooses some variable y from q (if one exists).
      */
     bool saturation::extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b) {
-        auto & m = q.manager();
-        auto M = m.two_to_N();
+        auto& m = q.manager();
+        rational const& M = m.two_to_N();
         
         if (q.is_val()) {
             a = 0;
             b = round(M, q.val());
             return true;
         }
-        y = q.var();
-        if (q.hi().is_var() && q.hi().var() == y)
-            return false;
-        if (!s.try_eval(q.hi(), a))
-            return false;
-        if (!s.try_eval(q.lo(), b))
-            return false;
-        
-        a = round(M, a);
-        b = round(M, b);
-        return true;
+        if (y == null_var) {
+            // choose the top variable
+            y = q.var();
+            if (q.hi().is_var() && q.hi().var() == y)
+                return false;
+            if (!eval_round(M, q.hi(), a))
+                return false;
+            if (!eval_round(M, q.lo(), b))
+                return false;
+            return true;
+        }
+        else {
+            // factor according to given variable
+            SASSERT(y != null_var);
+            switch (q.degree(y)) {
+            case 0:
+                if (!eval_round(M, q, b))
+                    return false;
+                a = 0;
+                return true;
+            case 1: {
+                pdd a1(m), b1(m);
+                q.factor(y, 1, a1, b1);
+                if (!eval_round(M, a1, a))
+                    return false;
+                if (!eval_round(M, b1, b))
+                    return false;
+                return true;
+            }
+            default:
+                return false;
+            }
+        }
     }
     
     /**
-     * write as p := a*x*y + b*x + c*y + d
+     * Write as p := a*x*y + b*x + c*y + d
+     * 
+     * If y == null_var, chooses some variable y != x from p (if one exists).
      */
     bool saturation::extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d) {
-        auto & m = s.var2pdd(x);
-        auto M = m.two_to_N();
-        auto eval_round = [&](pdd const& p, rational& r) {
-            if (!s.try_eval(p, r))
-                return false;
-            r = round(M, r);
-            return true;
-        };
+        auto& m = s.var2pdd(x);
+        rational const& M = m.two_to_N();
         switch (p.degree(x)) {
         case 0:
             if (!s.try_eval(p, d))
@@ -1617,20 +1644,20 @@ namespace polysat {
                 return false;
             if (a == 0) {
                 c = 0;
-                return eval_round(r, d);
+                return eval_round(M, r, d);
             }
             SASSERT(y != null_var);
             switch (r.degree(y)) {
             case 0:
-                if (!eval_round(r, d))
+                if (!eval_round(M, r, d))
                     return false;
                 c = 0;
                 return true;
             case 1:
                 r.factor(y, 1, u, v);
-                if (!eval_round(u, c))
+                if (!eval_round(M, u, c))
                     return false;
-                if (!eval_round(v, d))
+                if (!eval_round(M, v, d))
                     return false;
                 return true;
             default:
@@ -1766,7 +1793,6 @@ namespace polysat {
     }
 
     void saturation::fix_values(pvar x, pvar y, pdd const& p) {
-        pdd q = p, r = p;
         if (p.degree(x) == 0) 
             fix_values(y, p);
         else {
@@ -1846,17 +1872,14 @@ namespace polysat {
         if (p.degree(x) == 0 && q.degree(x) == 0)
             return false;
 
-        pvar y1 = null_var, y2 = null_var, y;
+        pvar y = null_var;
         rational a1, a2, b1, b2, c1, c2, d1, d2;
-        if (!extract_bilinear_form(x, p, y1, a1, b1, c1, d1))
+        if (!extract_bilinear_form(x, p, y, a1, b1, c1, d1))
             return false;
-        if (!extract_bilinear_form(x, q, y2, a2, b2, c2, d2))
+        if (!extract_bilinear_form(x, q, y, a2, b2, c2, d2))
             return false;
-        if (y1 != null_var && y2 != null_var && y1 != y2)
+        if (y == null_var)
             return false;
-        if (y1 == null_var && y2 == null_var)
-            return false;
-        y = (y1 == null_var) ? y2 : y1;
         if (!s.is_assigned(y))
             return false;
         rational y0 = s.get_value(y);
@@ -1872,8 +1895,8 @@ namespace polysat {
         VERIFY(x_min != x_max);
         SASSERT(0 <= x_min && x_min <= m.max_value());
         SASSERT(0 <= x_max && x_max <= m.max_value());
-        rational M = m.two_to_N();
-        x_max = x_max == 0 ? M - 1 : x_max - 1;
+        rational const& M = m.two_to_N();
+        x_max = x_max == 0 ? m.max_value() : x_max - 1;
         if (x_min == x_max)
             return false;
         if (x_min > x_max)

@@ -73,6 +73,7 @@ namespace polysat {
         bool try_div_monotonicity(conflict& core);
 
         rational round(rational const& M, rational const& x);
+        bool eval_round(rational const& M, pdd const& p, rational& r);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
         bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d);
         bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d, rational* x_split);
