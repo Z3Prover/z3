@@ -267,13 +267,7 @@ class lar_solver : public column_namer {
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
     bool model_is_int_feasible() const;
-    inline
-    indexed_vector<mpq> & get_column_in_lu_mode(unsigned j) {
-        m_column_buffer.clear();
-        m_column_buffer.resize(A_r().row_count());
-        m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-        return m_column_buffer;
-    }
+    
     bool bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const;
     inline lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     void catch_up_in_updating_int_solver();
