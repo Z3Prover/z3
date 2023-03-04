@@ -19,7 +19,6 @@
 
   --*/
 #include "util/stopwatch.h"
-#include "math/lp/lp_solver.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"

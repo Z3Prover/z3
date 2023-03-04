@@ -43,15 +43,4 @@ public:
         m_value = val;
     }
 };
-#ifdef Z3DEBUG
-template <typename X>
-bool check_vector_for_small_values(indexed_vector<X> & w, lp_settings & settings) {
-    for (unsigned i : w.m_index) {
-        const X & v = w[i];
-        if ((!is_zero(v)) && settings.abs_val_is_smaller_than_drop_tolerance(v))
-            return false;
-    }
-    return true;
-}
-#endif
 }
