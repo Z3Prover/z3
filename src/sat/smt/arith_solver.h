@@ -19,9 +19,7 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
-#include "math/lp/lp_solver.h"
-#include "math/lp/lp_primal_simplex.h"
-#include "math/lp/lp_dual_simplex.h"
+
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"

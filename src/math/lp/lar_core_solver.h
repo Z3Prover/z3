@@ -651,35 +651,7 @@ public:
         }
     }
 
-    void scale_problem_for_doubles(
-                        static_matrix<double, double>& A,        
-                        vector<double> & lower_bounds,
-                        vector<double> & upper_bounds) {
-        vector<double> column_scale_vector;
-        vector<double> right_side_vector(A.column_count());
-        settings().reps_in_scaler = 5;
-        scaler<double, double > scaler(right_side_vector,
-                                       A,
-                                       settings().scaling_minimum,
-                                       settings().scaling_maximum,
-                                       column_scale_vector,
-                                       settings());
-        if (! scaler.scale()) {
-            // the scale did not succeed, unscaling
-            A.clear();
-            create_double_matrix(A);
-        } else {
-            for (unsigned j = 0; j < A.column_count(); j++) {
-                if (m_r_solver.column_has_upper_bound(j)) {
-                    upper_bounds[j] /= column_scale_vector[j];
-                }
-                if (m_r_solver.column_has_lower_bound(j)) {
-                    lower_bounds[j] /= column_scale_vector[j];
-                }
-            }
-        }
-        
-    }
+    
     // returns the trace of basis changes
     vector<unsigned> find_solution_signature_with_doubles(lar_solution_signature & signature) {
         if (m_d_solver.m_factorization == nullptr || m_d_solver.m_factorization->get_status() != LU_status::OK) {

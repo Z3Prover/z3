@@ -37,14 +37,13 @@ Revision History:
 #include "util/gparams.h"
 #include "util/env_params.h"
 #include "util/file_path.h"
-#include "shell/lp_frontend.h"
 #include "shell/drat_frontend.h"
 
 #if defined( _WINDOWS ) && defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
 #include <crtdbg.h>
 #endif
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS, IN_DRAT } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_DRAT } input_kind;
 
 static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
@@ -377,10 +376,6 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
-                else if (strcmp(ext, "mps") == 0 || strcmp(ext, "sif") == 0 ||
-                         strcmp(ext, "MPS") == 0 || strcmp(ext, "SIF") == 0) {
-                    g_input_kind = IN_MPS;
-                }
             }
         }
         switch (g_input_kind) {
@@ -405,9 +400,6 @@ int STD_CALL main(int argc, char ** argv) {
             break;
         case IN_Z3_LOG:
             replay_z3_log(g_input_file);
-            break;
-        case IN_MPS:
-            return_value = read_mps_file(g_input_file);
             break;
         case IN_DRAT:
             return_value = read_drat(g_drat_input_file);
