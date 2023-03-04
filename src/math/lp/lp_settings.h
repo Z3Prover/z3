@@ -55,8 +55,7 @@ inline std::ostream& operator<<(std::ostream& out, column_type const& t) {
 enum class simplex_strategy_enum {
     undecided = 3,
     tableau_rows = 0,
-    tableau_costs = 1,
-    lu = 2
+    tableau_costs = 1
 };
 
 std::string column_type_to_string(column_type t);
@@ -341,12 +340,11 @@ public:
     }
 
     bool use_lu() const {
-        return m_simplex_strategy == simplex_strategy_enum::lu;
+        return false;
     }
 
     bool use_tableau() const {
-        return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
-            m_simplex_strategy == simplex_strategy_enum::tableau_costs;
+        return true;
     }
 
     bool use_tableau_rows() const {

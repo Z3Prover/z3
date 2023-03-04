@@ -1422,42 +1422,6 @@ bool get_double_from_args_parser(const char * option, argument_parser & args_par
 }
 
 
-void update_settings(argument_parser & args_parser, lp_settings& settings) {
-    unsigned n;
-    settings.m_simplex_strategy = simplex_strategy_enum::lu;
-    if (get_int_from_args_parser("--rep_frq", args_parser, n))
-        settings.report_frequency = n;
-    else
-        settings.report_frequency = args_parser.option_is_used("--mpq")? 80: 1000;
-
-    settings.print_statistics = true;
-
-    if (get_int_from_args_parser("--percent_for_enter", args_parser, n))
-        settings.percent_of_entering_to_check = n;
-    if (get_int_from_args_parser("--partial_pivot", args_parser, n)) {
-        std::cout << "setting partial pivot constant to " << n << std::endl;
-        settings.c_partial_pivoting = n;
-    }
-    if (get_int_from_args_parser("--density", args_parser, n)) {
-        double density = static_cast<double>(n) / 100.0;
-        std::cout << "setting density to " << density << std::endl;
-        settings.density_threshold = density;
-    }
-    if (get_int_from_args_parser("--maxng", args_parser, n))
-        settings.max_number_of_iterations_with_no_improvements = n;
-    double d;
-    if (get_double_from_args_parser("--harris_toler", args_parser, d)) {
-        std::cout << "setting harris_feasibility_tolerance to " << d << std::endl;
-        settings.harris_feasibility_tolerance = d;
-    }
-    if (get_int_from_args_parser("--random_seed", args_parser, n)) {
-        settings.set_random_seed(n);
-    }
-    if (get_int_from_args_parser("--simplex_strategy", args_parser, n)) {
-        settings.set_simplex_strategy(static_cast<simplex_strategy_enum>(n));
-    }
-}
-
 
 bool values_are_one_percent_close(double a, double b);
 

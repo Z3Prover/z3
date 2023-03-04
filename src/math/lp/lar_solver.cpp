@@ -45,7 +45,7 @@ namespace lp {
             delete t;
     }
 
-    bool lar_solver::use_lu() const { return m_settings.simplex_strategy() == simplex_strategy_enum::lu; }
+    bool lar_solver::use_lu() const { return false; }
 
     bool lar_solver::sizes_are_correct() const {
         lp_assert(strategy_is_undecided() || !m_mpq_lar_core_solver.need_to_presolve_with_double_solver() || A_r().column_count() == A_d().column_count());
@@ -478,10 +478,7 @@ namespace lp {
             m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
             return ret;
 
-        case simplex_strategy_enum::lu:
-            lp_assert(false); // not implemented
-            return false;
-
+        
         default:
             lp_unreachable(); // wrong mode
         }
@@ -1999,20 +1996,14 @@ namespace lp {
 
     void lar_solver::decide_on_strategy_and_adjust_initial_state() {
         lp_assert(strategy_is_undecided());
-        if (m_columns_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
-            m_settings.set_simplex_strategy(simplex_strategy_enum::lu);
-        }
-        else {
-            m_settings.set_simplex_strategy(simplex_strategy_enum::tableau_rows); // todo: when to switch to tableau_costs?
-        }
+        
+        m_settings.set_simplex_strategy(simplex_strategy_enum::tableau_rows); // todo: when to switch to tableau_costs?
+        
         adjust_initial_state();
     }
 
     void lar_solver::adjust_initial_state() {
         switch (m_settings.simplex_strategy()) {
-        case simplex_strategy_enum::lu:
-            adjust_initial_state_for_lu();
-            break;
         case simplex_strategy_enum::tableau_rows:
             adjust_initial_state_for_tableau_rows();
             break;
