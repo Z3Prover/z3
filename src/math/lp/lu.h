@@ -305,66 +305,19 @@ public:
     void calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bump, T diagonal_element);
 
     void prepare_entering(unsigned entering, indexed_vector<T> & w) {
-        init_vector_w(entering, w);
+        lp_assert(false);
     }
-    bool need_to_refactor() { return m_refactor_counter >= 200; }
+    bool need_to_refactor() { lp_assert(false);
+    return m_refactor_counter >= 200; }
     
     void adjust_dimension_with_matrix_A() {
-        lp_assert(m_A.row_count() >= m_dim);
-        m_dim = m_A.row_count();
-        m_U.resize(m_dim);
-        m_Q.resize(m_dim);
-        m_R.resize(m_dim);
-        m_row_eta_work_vector.resize(m_dim);
+        lp_assert(false);
     }
 
 
-    std::unordered_set<unsigned> get_set_of_columns_to_replace_for_add_last_rows(const vector<int> & heading) const {
-        std::unordered_set<unsigned> columns_to_replace;
-        unsigned m = m_A.row_count();
-        unsigned m_prev = m_U.dimension();
-
-        lp_assert(m_A.column_count() == heading.size());
-
-        for (unsigned i = m_prev; i < m; i++) {
-            for (const row_cell<T> & c : m_A.m_rows[i]) {
-                int h = heading[c.var()];
-                if (h < 0) {
-                    continue;
-                }
-                columns_to_replace.insert(c.var());
-            }
-        }
-        return columns_to_replace;
-    }
     
-    void add_last_rows_to_B(const vector<int> & heading, const std::unordered_set<unsigned> & columns_to_replace) {
-        unsigned m = m_A.row_count();
-        lp_assert(m_A.column_count() == heading.size());
-        adjust_dimension_with_matrix_A();
-        m_w_for_extension.resize(m);
-        // At this moment the LU is correct      
-        // for B extended by only by ones at the diagonal in the lower right corner
-
-        for (unsigned j :columns_to_replace) {
-            lp_assert(heading[j] >= 0);
-            replace_column_with_only_change_at_last_rows(j, heading[j]);
-            if (get_status() == LU_status::Degenerated)
-                break;
-        }
-    }
-    // column j is a basis column, and there is a change in the last rows
-    void replace_column_with_only_change_at_last_rows(unsigned j, unsigned column_to_change_in_U) {
-        init_vector_w(j, m_w_for_extension);
-        replace_column(zero_of_type<T>(), m_w_for_extension, column_to_change_in_U);
-    }
-
-    bool has_dense_submatrix() const {
-        for (auto m : m_tail)
-            if (m->is_dense())
-                return true;
-        return false;
-    }
+    
+    
     
 }; // end of lu
 
