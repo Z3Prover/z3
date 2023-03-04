@@ -45,8 +45,7 @@ namespace lp {
             delete t;
     }
 
-    bool lar_solver::use_lu() const { return false; }
-
+    
     bool lar_solver::sizes_are_correct() const {
         lp_assert(strategy_is_undecided() || !m_mpq_lar_core_solver.need_to_presolve_with_double_solver() || A_r().column_count() == A_d().column_count());
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_column_types.size());
@@ -1622,8 +1621,7 @@ namespace lp {
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
         increase_by_one_columns_with_changed_bounds();
         add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
-        if (use_lu())
-            add_new_var_to_core_fields_for_doubles(false);
+        
     }
 
     void lar_solver::add_new_var_to_core_fields_for_doubles(bool register_in_basis) {
@@ -1785,8 +1783,6 @@ namespace lp {
             fill_last_row_of_A_r(A_r(), term);
         }
         m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
-        if (use_lu())
-            fill_last_row_of_A_d(A_d(), term);
         for (lar_term::ival c : *term) {
             unsigned j = c.column();
             while (m_usage_in_terms.size() <= j) {
@@ -1798,15 +1794,12 @@ namespace lp {
     }
 
     void lar_solver::add_basic_var_to_core_fields() {
-        bool use_lu = m_mpq_lar_core_solver.need_to_presolve_with_double_solver();
-        lp_assert(!use_lu || A_r().column_count() == A_d().column_count());
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
         increase_by_one_columns_with_changed_bounds();
         m_incorrect_columns.increase_size_by_one();
         m_rows_with_changed_bounds.increase_size_by_one();
         add_new_var_to_core_fields_for_mpq(true);
-        if (use_lu)
-            add_new_var_to_core_fields_for_doubles(true);
+        
     }
 
     bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq& right_side) const {

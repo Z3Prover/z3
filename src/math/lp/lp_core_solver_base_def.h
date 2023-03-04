@@ -82,8 +82,7 @@ allocate_basis_heading() { // the rest of initialization will be handled by the 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {    
     allocate_basis_heading();
-    if (m_settings.use_lu())
-        init_factorization(m_factorization, m_A, m_basis, m_settings);
+    
 }
 
 // i is the pivot row, and j is the pivot column

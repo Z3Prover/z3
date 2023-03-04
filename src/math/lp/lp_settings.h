@@ -339,10 +339,7 @@ public:
         m_simplex_strategy = s;
     }
 
-    bool use_lu() const {
-        return false;
-    }
-
+    
     bool use_tableau() const {
         return true;
     }
