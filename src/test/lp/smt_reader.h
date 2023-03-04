@@ -20,14 +20,18 @@ Revision History:
 
 #pragma once
 
+// reads an MPS file representing a Mixed Integer Program
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "math/lp/lp_primal_simplex.h"
+#include "math/lp/lp_dual_simplex.h"
 #include "math/lp/lar_solver.h"
 #include <iostream>
 #include <fstream>
 #include <functional>
 #include <algorithm>
+#include "math/lp/mps_reader.h"
 #include "math/lp/ul_pair.h"
 #include "math/lp/lar_constraints.h"
 #include <sstream>

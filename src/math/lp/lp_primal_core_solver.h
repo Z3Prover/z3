@@ -30,6 +30,7 @@ Revision History:
 #include <cstdlib>
 #include <algorithm>
 #include "math/lp/lu.h"
+#include "math/lp/lp_solver.h"
 #include "math/lp/static_matrix.h"
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
