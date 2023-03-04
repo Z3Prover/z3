@@ -626,161 +626,41 @@ void lu<M>::process_column(int j) {
 }
 template <typename M>
 bool lu<M>::is_correct(const vector<unsigned>& basis) {
-#ifdef Z3DEBUG
-    if (get_status() != LU_status::OK) {
-        return false;
-    }
-    dense_matrix<T, X> left_side = get_left_side(basis);
-    dense_matrix<T, X> right_side = get_right_side();
-    return left_side == right_side;
-#else
-    return true;
-#endif
+return true;
 }
 
 template <typename M>
 bool lu<M>::is_correct() {
-#ifdef Z3DEBUG
-    if (get_status() != LU_status::OK) {
-        return false;
-    }
-    dense_matrix<T, X> left_side = get_left_side();
-    dense_matrix<T, X> right_side = get_right_side();
-    return left_side == right_side;
-#else
     return true;
-#endif
 }
 
-
-#ifdef Z3DEBUG
-template <typename M>
-dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::tail_product() {
-    lp_assert(tail_size() > 0);
-    dense_matrix<T, X> left_side = permutation_matrix<T, X>(m_dim);
-    for (unsigned i = 0; i < tail_size(); i++) {
-        matrix<T, X>* lp =  get_lp_matrix(i);
-        lp->set_number_of_rows(m_dim);
-        lp->set_number_of_columns(m_dim);
-        left_side = ((*lp) * left_side);
-    }
-    return left_side;
-}
-template <typename M>
-dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::get_left_side(const vector<unsigned>& basis) {
-    dense_matrix<T, X> left_side = get_B(*this, basis);
-    for (unsigned i = 0; i < tail_size(); i++) {
-        matrix<T, X>* lp =  get_lp_matrix(i);
-        lp->set_number_of_rows(m_dim);
-        lp->set_number_of_columns(m_dim);
-        left_side = ((*lp) * left_side);
-    }
-    return left_side;
-}
-template <typename M>
-dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::get_left_side() {
-    dense_matrix<T, X> left_side = get_B(*this);
-    for (unsigned i = 0; i < tail_size(); i++) {
-        matrix<T, X>* lp =  get_lp_matrix(i);
-        lp->set_number_of_rows(m_dim);
-        lp->set_number_of_columns(m_dim);
-        left_side = ((*lp) * left_side);
-    }
-    return left_side;
-}
-template <typename M>
-dense_matrix<typename M::coefftype, typename M::argtype>  lu<M>::get_right_side() {
-    auto ret = U() * R();
-    ret = Q() * ret;
-    return ret;
-}
-#endif
 
 // needed for debugging purposes
 template <typename M>
 void lu<M>::copy_w(T *buffer, indexed_vector<T> & w) {
-    unsigned i = m_dim;
-    while (i--) {
-        buffer[i] = w[i];
-    }
+    
 }
 
 // needed for debugging purposes
 template <typename M>
 void lu<M>::restore_w(T *buffer, indexed_vector<T> & w) {
-    unsigned i = m_dim;
-    while (i--) {
-        w[i] = buffer[i];
-    }
+    
 }
 template <typename M>
 bool lu<M>::all_columns_and_rows_are_active() {
-    unsigned i = m_dim;
-    while (i--) {
-        lp_assert(m_U.col_is_active(i));
-        lp_assert(m_U.row_is_active(i));
-    }
     return true;
 }
 template <typename M>
 bool lu<M>::too_dense(unsigned j) const {
-    unsigned r = m_dim - j;
-    if (r < 5)
-        return false;
-     // if (j * 5 < m_dim * 4) // start looking for dense only at the bottom  of the rows
-     //    return false;
-    //    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
-    return r * r * m_settings.density_threshold <= m_U.get_n_of_active_elems();
+    return false;
 }
 template <typename M>
 void lu<M>::pivot_in_dense_mode(unsigned i) {
-    int j = m_dense_LU->find_pivot_column_in_row(i);
-    if (j == -1) {
-        m_failure = true;
-        return;
-    }
-    if (i != static_cast<unsigned>(j)) {
-        swap_columns(i, j);
-        m_dense_LU->swap_columns(i, j);
-    }
-    m_dense_LU->pivot(i, m_settings);
+    
 }
 template <typename M>
 void lu<M>::create_initial_factorization(){
-    m_U.prepare_for_factorization();
-    unsigned j;
-    for (j = 0; j < m_dim; j++) {
-        process_column(j);
-        if (m_failure) {
-            set_status(LU_status::Degenerated);
-            return;
-        }
-        if (too_dense(j)) {
-            break;
-        }
-    }
-    if (j == m_dim) {
-        // TBD does not compile: lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-        //        lp_assert(is_correct());
-        // lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-        return;
-    }
-    j++;
-    m_dense_LU = new square_dense_submatrix<T, X>(&m_U, j);
-    for (; j < m_dim; j++) {
-        pivot_in_dense_mode(j);
-        if (m_failure) {
-            set_status(LU_status::Degenerated);
-            return;
-        }
-    }
-    m_dense_LU->update_parent_matrix(m_settings);
-    lp_assert(m_dense_LU->is_L_matrix());
-    m_dense_LU->conjugate_by_permutation(m_Q);
-    push_matrix_to_tail(m_dense_LU);
-    m_refactor_counter = 0;
-    // lp_assert(is_correct());
-    // lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    
 }
 
 template <typename M>
@@ -856,123 +736,38 @@ void lu<M>::pivot_and_solve_the_system(unsigned replaced_column, unsigned lowest
         }
     }
 }
-// see Achim Koberstein's thesis page 58, but here we solve the system and pivot to the last
-// row at the same time
-template <typename M>
-row_eta_matrix<typename M::coefftype, typename M::argtype> *lu<M>::get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking) {
-    if (replaced_column == lowest_row_of_the_bump) return nullptr;
-    scan_last_row_to_work_vector(lowest_row_of_the_bump);
-    pivot_and_solve_the_system(replaced_column, lowest_row_of_the_bump);
-    if (numeric_traits<T>::precise() == false && !is_zero(pivot_elem_for_checking)) {
-        T denom = std::max(T(1), abs(pivot_elem_for_checking));
-        if (
-            !m_settings.abs_val_is_smaller_than_pivot_tolerance((m_row_eta_work_vector[lowest_row_of_the_bump] - pivot_elem_for_checking) / denom)) {
-            set_status(LU_status::Degenerated);
-            //        LP_OUT(m_settings, "diagonal element is off" << std::endl);
-            return nullptr;
-        }
-    }
-#ifdef Z3DEBUG
-    auto ret = new row_eta_matrix<typename M::coefftype, typename M::argtype>(replaced_column, lowest_row_of_the_bump, m_dim);
-#else
-    auto ret = new row_eta_matrix<typename M::coefftype, typename M::argtype>(replaced_column, lowest_row_of_the_bump);
-#endif
-
-    for (auto j : m_row_eta_work_vector.m_index) {
-        if (j < lowest_row_of_the_bump) {
-            auto & v = m_row_eta_work_vector[j];
-            if (!is_zero(v)) {
-                if (!m_settings.abs_val_is_smaller_than_drop_tolerance(v)){
-                    ret->push_back(j, v);
-                }
-                v = numeric_traits<T>::zero();
-            }
-        }
-    } // now the lowest_row_of_the_bump contains the rest of the row to the right of the bump with correct values
-    return ret;
-}
 
 template <typename M>
 void lu<M>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
-    m_refactor_counter++;
-    unsigned replaced_column =  transform_U_to_V_by_replacing_column( w, leaving_column_of_U);
-    unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
-    m_r_wave.init(m_dim);
-    calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, m_r_wave);
-    auto row_eta = get_row_eta_matrix_and_set_row_vector(replaced_column, lowest_row_of_the_bump, pivot_elem_for_checking);
-
-    if (get_status() == LU_status::Degenerated) {
-        m_row_eta_work_vector.clear_all();
-        return;
-    }
-    m_Q.multiply_by_permutation_from_right(m_r_wave);
-    m_R.multiply_by_permutation_reverse_from_left(m_r_wave);
-    if (row_eta != nullptr) {
-        row_eta->conjugate_by_permutation(m_Q);
-        push_matrix_to_tail(row_eta);
-    }
-    calculate_Lwave_Pwave_for_bump(replaced_column, lowest_row_of_the_bump);
-    // lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-    // lp_assert(w.is_OK() && m_row_eta_work_vector.is_OK());
+    lp_assert(false);
 }
 template <typename M>
 void lu<M>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump){
-    T diagonal_elem;
-    if (replaced_column < lowest_row_of_the_bump) {
-        diagonal_elem = m_row_eta_work_vector[lowest_row_of_the_bump];
-        //          lp_assert(m_row_eta_work_vector.is_OK());
-        m_U.set_row_from_work_vector_and_clean_work_vector_not_adjusted(m_U.adjust_row(lowest_row_of_the_bump), m_row_eta_work_vector, m_settings);
-    } else {
-        diagonal_elem = m_U(lowest_row_of_the_bump, lowest_row_of_the_bump); // todo - get it more efficiently
-    }
-    if (m_settings.abs_val_is_smaller_than_pivot_tolerance(diagonal_elem)) {
-        set_status(LU_status::Degenerated);
-        return;
-    }
-
-    calculate_Lwave_Pwave_for_last_row(lowest_row_of_the_bump, diagonal_elem);
-    //         lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    lp_assert(false);//         lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
 template <typename M>
 void lu<M>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bump, T diagonal_element) {
-    auto l = new one_elem_on_diag<T, X>(lowest_row_of_the_bump, diagonal_element);
-#ifdef Z3DEBUG
-    l->set_number_of_columns(m_dim);
-#endif
-    push_matrix_to_tail(l);
-    m_U.divide_row_by_constant(lowest_row_of_the_bump, diagonal_element, m_settings);
-    l->conjugate_by_permutation(m_Q);
+    lp_assert(false);
 }
 
 template <typename M>
 void init_factorization(lu<M>* & factorization, M & m_A, vector<unsigned> & m_basis, lp_settings &m_settings) {
-    if (factorization != nullptr)
-        delete factorization;
-    factorization = new lu<M>(m_A, m_basis, m_settings);
-    // if (factorization->get_status() != LU_status::OK) 
-    //     LP_OUT(m_settings, "failing in init_factorization" << std::endl);
+    lp_assert(false);
 }
 
 #ifdef Z3DEBUG
 template <typename M>
 dense_matrix<typename M::coefftype, typename M::argtype>  get_B(lu<M>& f, const vector<unsigned>& basis) {
-    lp_assert(basis.size() == f.dimension());
-    lp_assert(basis.size() == f.m_U.dimension());
-    dense_matrix<typename M::coefftype, typename M::argtype>  B(f.dimension(), f.dimension());
-    for (unsigned i = 0; i < f.dimension(); i++)
-        for (unsigned j = 0; j < f.dimension(); j++)
-            B.set_elem(i, j, f.B_(i, j, basis));
-
+    lp_assert(false);
+    
+    dense_matrix<typename M::coefftype, typename M::argtype>  B(0, 0);
     return B;
 }
 template <typename M>
 dense_matrix<typename M::coefftype, typename M::argtype>  get_B(lu<M>& f) {
-    dense_matrix<typename M::coefftype, typename M::argtype>  B(f.dimension(), f.dimension());
-    for (unsigned i = 0; i < f.dimension(); i++)
-        for (unsigned j = 0; j < f.dimension(); j++)
-            B.set_elem(i, j, f.m_A[i][j]);
-
+    lp_assert(false);
+    dense_matrix<typename M::coefftype, typename M::argtype>  B(0,0);
     return B;
 }
 #endif

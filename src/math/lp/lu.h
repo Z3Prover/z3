@@ -266,13 +266,6 @@ public:
     bool is_correct();
 
 
-#ifdef Z3DEBUG
-    dense_matrix<T, X> tail_product();
-    dense_matrix<T, X>  get_left_side(const vector<unsigned>& basis);
-    dense_matrix<T, X>  get_left_side();
-
-    dense_matrix<T, X>  get_right_side();
-#endif
 
     // needed for debugging purposes
     void copy_w(T *buffer, indexed_vector<T> & w);
@@ -296,8 +289,7 @@ public:
     void pivot_and_solve_the_system(unsigned replaced_column, unsigned lowest_row_of_the_bump);
     // see Achim Koberstein's thesis page 58, but here we solve the system and pivot to the last
     // row at the same time
-    row_eta_matrix<T, X> *get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking);
-
+    
     void replace_column(T pivot_elem, indexed_vector<T> & w, unsigned leaving_column_of_U);
 
     void calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump);
