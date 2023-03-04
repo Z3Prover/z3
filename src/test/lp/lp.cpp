@@ -2095,35 +2095,7 @@ void read_indexed_vector(indexed_vector<double> & v, std::ifstream & f) {
 }
 
 void check_lu_from_file(std::string lufile_name) {
-    std::ifstream f(lufile_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open file " << lufile_name << std::endl;
-    }
-    unsigned m, n;
-    get_matrix_dimensions(f, m, n);
-    std::cout << "init matrix " << m << " by " << n << std::endl;
-    static_matrix<double, double> A(m, n);
-    read_rows(A, f);
-    vector<unsigned> basis;
-    read_basis(basis, f);
-    indexed_vector<double> v(m);
-    //    read_indexed_vector(v, f);
-    f.close();
-    vector<int> basis_heading;
-    lp_settings settings;
-    vector<unsigned> non_basic_columns;
-    lu<static_matrix<double, double>> lsuhl(A, basis, settings);
-    indexed_vector<double>  d(A.row_count());
-    unsigned entering = 26;
-    lsuhl.solve_Bd(entering, d, v);
-#ifdef Z3DEBUG
-    auto B = get_B(lsuhl, basis);
-    vector<double>  a(m);
-    A.copy_column_to_vector(entering, a);
-    indexed_vector<double> cd(d);
-    B.apply_from_left(cd.m_data, settings);
-    lp_assert(vectors_are_equal(cd.m_data , a));
-#endif
+    lp_assert(false);
 }
 
 void test_square_dense_submatrix() {

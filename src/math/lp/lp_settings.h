@@ -339,11 +339,7 @@ public:
         m_simplex_strategy = s;
     }
 
-    
-    bool use_tableau() const {
-        return true;
-    }
-
+   
     bool use_tableau_rows() const {
         return m_simplex_strategy == simplex_strategy_enum::tableau_rows;
     }

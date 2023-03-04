@@ -131,35 +131,9 @@ solve_yB(vector<T> & y) const {
 //             m_index_of_ed.push_back(i);
 //     }
 // }
-template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsigned entering, indexed_vector<T> & column) {
-    lp_assert(!m_settings.use_tableau());
-    if (m_factorization == nullptr) {
-        init_factorization(m_factorization, m_A, m_basis, m_settings);
-    }
-    m_factorization->solve_Bd_faster(entering, column);
-}
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsigned , indexed_vector<T>& , indexed_vector<T> &) const  {
-    NOT_IMPLEMENTED_YET();
-}
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-solve_Bd(unsigned entering) {
-    lp_assert(m_ed.is_OK());
-    m_factorization->solve_Bd(entering, m_ed, m_w);
-    if (this->precise())
-        m_columns_nz[entering] = m_ed.m_index.size();
-    lp_assert(m_ed.is_OK());
-    lp_assert(m_w.is_OK());
-#ifdef Z3DEBUG
-    // auto B = get_B(*m_factorization, m_basis);
-    // vector<T>  a(m_m());
-    // m_A.copy_column_to_vector(entering, a);
-    // vector<T> cd(m_ed.m_data);
-    // B.apply_from_left(cd, m_settings);
-    // lp_assert(vectors_are_equal(cd , a));
-#endif
-}
+
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 pretty_print(std::ostream & out) {
@@ -279,17 +253,6 @@ A_mult_x_is_off_on_index(const vector<unsigned> & index) const {
     return false;
 }
 
-// from page 182 of Istvan Maros's book
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-calculate_pivot_row_of_B_1(unsigned pivot_row) {
-    lp_assert(! use_tableau());
-    lp_assert(m_pivot_row_of_B_1.is_OK());
-    m_pivot_row_of_B_1.clear();
-    m_pivot_row_of_B_1.set_value(numeric_traits<T>::one(), pivot_row);
-    lp_assert(m_pivot_row_of_B_1.is_OK());
-    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis_heading, m_basis, m_settings);
-    lp_assert(m_pivot_row_of_B_1.is_OK());
-}
 
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -316,13 +279,7 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_entering(unsigned entering, const X& delta) {
     m_x[entering] += delta;
-    if (!use_tableau())
-        for (unsigned i : m_ed.m_index) {
-            if (!numeric_traits<X>::precise()) 
-                m_copy_of_xB[i] = m_x[m_basis[i]];
-            m_x[m_basis[i]] -= delta * m_ed[i];
-        }
-    else 
+     
         for (const auto & c : m_A.m_columns[entering]) {
             unsigned i = c.var();
             m_x[m_basis[i]] -= delta * m_A.get_val(c);
@@ -998,27 +955,6 @@ lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j) 
         lp_assert(false);
         return true;
     }
-}
-
-template <typename T, typename X>
-void lp_core_solver_base<T, X>::calculate_pivot_row(unsigned i) {
-    lp_assert(!use_tableau());
-    lp_assert(m_pivot_row.is_OK());
-    m_pivot_row_of_B_1.clear();
-    m_pivot_row_of_B_1.resize(m_m());
-    m_pivot_row.clear();
-    m_pivot_row.resize(m_n());
-    if (m_settings.use_tableau()) {
-        unsigned basic_j = m_basis[i];
-        for (auto & c : m_A.m_rows[i]) {
-            if (c.var() != basic_j)
-                m_pivot_row.set_value(c.coeff(), c.var());
-        }
-        return;
-    }
-
-    calculate_pivot_row_of_B_1(i);
-    calculate_pivot_row_when_pivot_row_of_B1_is_ready(i);
 }
 
 

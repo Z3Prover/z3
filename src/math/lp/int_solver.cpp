@@ -344,7 +344,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         set_upper(u, inf_u, upper_bound(j) - xj);
     
 
-    lp_assert(settings().use_tableau());
     const auto & A = lra.A_r();
     TRACE("random_update", tout <<  "m = " << m << "\n";);
 

@@ -80,8 +80,7 @@ public:
     
     column_type get_column_type(unsigned j) { return m_column_types[j];}
     
-    void calculate_pivot_row(unsigned i);
-
+    
     void print_pivot_row(std::ostream & out, unsigned row_index) const  {
         for (unsigned j : m_r_solver.m_pivot_row.m_index) {
             if (numeric_traits<mpq>::is_pos(m_r_solver.m_pivot_row.m_data[j]))
@@ -138,18 +137,11 @@ public:
     void fill_not_improvable_zero_sum();
 
     void pop_basis(unsigned k) {
-        if (!settings().use_tableau()) {
-            m_r_pushed_basis.pop(k);        
-            m_r_basis = m_r_pushed_basis();
-            m_r_solver.init_basis_heading_and_non_basic_columns_vector();
-            m_d_pushed_basis.pop(k);
-            m_d_basis = m_d_pushed_basis();
-            m_d_solver.init_basis_heading_and_non_basic_columns_vector();
-        } else {
+        
             m_d_basis = m_r_basis;
             m_d_nbasis = m_r_nbasis;
             m_d_heading = m_r_heading;
-        }
+        
     }
 
     void push() {
@@ -160,19 +152,11 @@ public:
         m_stacked_simplex_strategy.push();
         m_column_types.push();
         // rational
-        if (!settings().use_tableau()) 
-            m_r_A.push();
         m_r_lower_bounds.push();
         m_r_upper_bounds.push();
-        if (!settings().use_tableau()) {
-            push_vector(m_r_pushed_basis, m_r_basis);
-            push_vector(m_r_columns_nz, m_r_solver.m_columns_nz);
-            push_vector(m_r_rows_nz, m_r_solver.m_rows_nz);
-        }
         
         m_d_A.push();
-        if (!settings().use_tableau())
-            push_vector(m_d_pushed_basis, m_d_basis);
+        
     }
 
     template <typename K> 
@@ -202,8 +186,6 @@ public:
     
     void pop(unsigned k) {
         // rationals
-        if (!settings().use_tableau()) 
-            m_r_A.pop(k);
         m_r_lower_bounds.pop(k);
         m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
@@ -213,8 +195,7 @@ public:
         m_r_x.resize(m_r_A.column_count());
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
-        if(!settings().use_tableau())
-            pop_markowitz_counts(k);
+        
         m_d_A.pop(k);
         // doubles
         delete m_d_solver.m_factorization;
@@ -454,7 +435,6 @@ public:
 
     void solve_on_signature_tableau(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
         r_basis_is_OK();
-        lp_assert(settings().use_tableau());
         bool r = catch_up_in_lu_tableau(changes_of_basis, m_d_solver.m_basis_heading);
 
         if (!r) { // it is the case where m_d_solver gives a degenerated basis
@@ -553,8 +533,7 @@ public:
 
     bool r_basis_is_OK() const {
 #ifdef Z3DEBUG
-        if (!m_r_solver.m_settings.use_tableau())
-            return true;
+        
         for (unsigned j : m_r_solver.m_basis) {
             lp_assert(m_r_solver.m_A.m_columns[j].size() == 1);
         }
@@ -568,40 +547,7 @@ public:
         return true;
     }
     
-    void solve_on_signature(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
-        SASSERT(!settings().use_tableau());
-        if (m_r_solver.m_factorization == nullptr) {
-            for (unsigned j = 0; j < changes_of_basis.size(); j+=2) {
-                unsigned entering = changes_of_basis[j];
-                unsigned leaving = changes_of_basis[j + 1];
-                m_r_solver.change_basis_unconditionally(entering, leaving);
-            }
-            init_factorization(m_r_solver.m_factorization, m_r_A, m_r_basis, settings());
-        } else {
-            catch_up_in_lu(changes_of_basis, m_d_solver.m_basis_heading, m_r_solver);
-        }
-
-        if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
-            catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
-            m_r_solver.find_feasible_solution();
-            m_d_basis = m_r_basis;
-            m_d_heading = m_r_heading;
-            m_d_nbasis = m_r_nbasis;
-            delete m_d_solver.m_factorization;
-            m_d_solver.m_factorization = nullptr;
-        } else {
-            prepare_solver_x_with_signature(signature, m_r_solver);
-            m_r_solver.start_tracing_basis_changes();
-            m_r_solver.find_feasible_solution();
-            if (settings().get_cancel_flag())
-                return;
-            m_r_solver.stop_tracing_basis_changes();
-            // and now catch up in the double solver
-            lp_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
-            catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
-        }
-    }
-
+   
     void create_double_matrix(static_matrix<double, double> & A) {
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];

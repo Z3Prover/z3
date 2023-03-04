@@ -117,7 +117,7 @@ lu<M>::lu(const M& A,
     m_failure(false),
     m_row_eta_work_vector(A.row_count()),
     m_refactor_counter(0) {
-    lp_assert(!(numeric_traits<T>::precise() && settings.use_tableau()));
+    lp_assert(!(numeric_traits<T>::precise() ));
 #ifdef Z3DEBUG
     debug_test_of_basis(A, basis);
 #endif
@@ -255,19 +255,6 @@ void lu< M>::print(indexed_vector<T> & w, const vector<unsigned>& basis) {
     print_vector(basis, f);
     print_indexed_vector(w, f);
     f.close();
-}
-template <typename M>
-void lu< M>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w) {
-    init_vector_w(a_column, w);
-
-    if (w.m_index.size() * ratio_of_index_size_to_all_size<T>() < d.m_data.size()) { // this const might need some tuning
-        d = w;
-        solve_By_for_T_indexed_only(d, m_settings);
-    } else {
-        d.m_data = w.m_data;
-        d.m_index.clear();
-        solve_By_when_y_is_ready_for_T(d.m_data, d.m_index);
-    }
 }
 
 template <typename M>

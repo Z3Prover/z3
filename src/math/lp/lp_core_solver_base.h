@@ -156,11 +156,6 @@ public:
 
     void solve_yB(vector<T> & y) const;
     
-    void solve_Bd(unsigned entering, indexed_vector<T> & d_buff, indexed_vector<T>& w_buff) const;
-
-    void solve_Bd(unsigned entering);
-
-    void solve_Bd(unsigned entering, indexed_vector<T> & column);
 
     void pretty_print(std::ostream & out);
 
@@ -184,9 +179,7 @@ public:
     bool A_mult_x_is_off() const;
 
     bool A_mult_x_is_off_on_index(const vector<unsigned> & index) const;
-    // from page 182 of Istvan Maros's book
-    void calculate_pivot_row_of_B_1(unsigned pivot_row);
-
+    
     void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
 
     void add_delta_to_entering(unsigned entering, const X & delta);
@@ -670,7 +663,6 @@ public:
             m_settings.simplex_strategy();
     }
 
-    bool use_tableau() const { return m_settings.use_tableau(); }
     
     template <typename K>
     static void swap(vector<K> &v, unsigned i, unsigned j) {
@@ -760,7 +752,7 @@ public:
         return m_iters_with_no_cost_growing;
     }
 
-    void calculate_pivot_row(unsigned i);
+    
     unsigned get_base_column_in_row(unsigned row_index) const {
         return m_basis[row_index];
     }
