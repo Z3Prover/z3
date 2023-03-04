@@ -551,90 +551,7 @@ void change_basis(unsigned entering, unsigned leaving, vector<unsigned>& basis, 
 
 #ifdef Z3DEBUG
 void test_small_lu(lp_settings & settings) {
-    std::cout << " test_small_lu" << std::endl;
-    static_matrix<double, double> m(3, 6);
-    vector<unsigned> basis(3);
-    basis[0] = 0;
-    basis[1] = 1;
-    basis[2] = 3;
-
-    m(0, 0) = 1; m(0, 2)= 3.9; m(2, 3) = 11; m(0, 5) = -3;
-    m(1, 1) = 4; m(1, 4) = 7;
-    m(2, 0) = 1.8; m(2, 2) = 5; m(2, 4) = 2; m(2, 5) = 8;
-
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<static_matrix<double, double>> l(m, basis, settings);
-    lp_assert(l.is_correct(basis));
-    indexed_vector<double> w(m.row_count());
-    std::cout << "entering 2, leaving 0" << std::endl;
-    l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(2, 0, basis, non_basic_columns, heading);
-    // #ifdef Z3DEBUG
-    // std::cout << "we were factoring " << std::endl;
-    // print_matrix(get_B(l));
-    // #endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 4, leaving 3" << std::endl;
-    l.prepare_entering(4, w); // to init vector w
-    l.replace_column(0, w, heading[3]);
-    change_basis(4, 3, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-
-    std::cout << "entering 5, leaving 1" << std::endl;
-    l.prepare_entering(5, w); // to init vector w
-    l.replace_column(0, w, heading[1]);
-    change_basis(5, 1, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 3, leaving 2" << std::endl;
-    l.prepare_entering(3, w); // to init vector w
-    l.replace_column(0, w, heading[2]);
-    change_basis(3, 2, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-
-    m.add_row();
-    m.add_column();
-    m.add_row();
-    m.add_column();
-    for (unsigned i = 0; i < m.column_count(); i++) {
-        m(3, i) = i;
-        m(4, i) = i * i; // to make the rows linearly independent
-    }
-    unsigned j = m.column_count() ;
-    basis.push_back(j-2);
-    heading.push_back(basis.size() - 1);
-    basis.push_back(j-1);
-    heading.push_back(basis.size() - 1);
     
-    auto columns_to_replace = l.get_set_of_columns_to_replace_for_add_last_rows(heading);
-    l.add_last_rows_to_B(heading, columns_to_replace);
-    lp_assert(l.is_correct(basis));
 }
 
 #endif
@@ -827,10 +744,7 @@ void test_larger_lu(lp_settings& settings) {
 
 
 void test_lu(lp_settings & settings) {
-    test_small_lu(settings);
-    test_larger_lu(settings);
-    test_larger_lu_with_holes(settings);
-    test_larger_lu_exp(settings);
+    
 }
 #endif
 
@@ -1785,10 +1699,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--time_limit", "time limit in seconds");
     parser.add_option_with_help_string("--mpq", "solve for rational numbers");
     parser.add_option_with_after_string_with_help("--simplex_strategy", "sets simplex strategy for rational number");
-    parser.add_option_with_help_string("--test_lu", "test the work of the factorization");
-    parser.add_option_with_help_string("--test_small_lu", "test the work of the factorization on a smallish matrix");
-    parser.add_option_with_help_string("--test_larger_lu", "test the work of the factorization");
-    parser.add_option_with_help_string("--test_larger_lu_with_holes", "test the work of the factorization");
     parser.add_option_with_help_string("--test_lp_0", "solve a small lp");
     parser.add_option_with_help_string("--solve_some_mps", "solves a list of mps problems");
     parser.add_option_with_after_string_with_help("--test_file_directory", "loads files from the directory for testing");

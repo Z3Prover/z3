@@ -795,24 +795,7 @@ namespace lp {
 
     template <typename K, typename L>
     void lar_solver::add_last_rows_to_lu(lp_primal_core_solver<K, L>& s) {
-        auto& f = s.m_factorization;
-        if (f != nullptr) {
-            auto columns_to_replace = f->get_set_of_columns_to_replace_for_add_last_rows(s.m_basis_heading);
-            if (f->m_refactor_counter + columns_to_replace.size() >= 200 || f->has_dense_submatrix()) {
-                delete f;
-                f = nullptr;
-            }
-            else {
-                f->add_last_rows_to_B(s.m_basis_heading, columns_to_replace);
-            }
-        }
-        if (f == nullptr) {
-            init_factorization(f, s.m_A, s.m_basis, m_settings);
-            if (f->get_status() != LU_status::OK) {
-                delete f;
-                f = nullptr;
-            }
-        }
+        lp_assert(false);
 
     }
 
