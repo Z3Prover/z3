@@ -28,7 +28,6 @@ add_executable(shell
   opt_frontend.cpp
   smtlib_frontend.cpp
   z3_log_frontend.cpp
-  lp_frontend.cpp
 # FIXME: shell should really link against libz3 but it can't due to requiring
 # use of some hidden symbols. Also libz3 has the ``api_dll`` component which
 # we don't want (I think).
