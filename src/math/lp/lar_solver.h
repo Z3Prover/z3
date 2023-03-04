@@ -166,7 +166,6 @@ class lar_solver : public column_namer {
     void adjust_initial_state_for_lu();
     void adjust_initial_state_for_tableau_rows();
     void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls);
-    bool use_lu() const;
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
     
