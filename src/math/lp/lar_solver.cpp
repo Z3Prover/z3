@@ -261,8 +261,7 @@ namespace lp {
         m_crossed_bounds_column.pop(k);
         unsigned n = m_columns_to_ul_pairs.peek_size(k);
         m_var_register.shrink(n);
-        if (m_settings.use_tableau()) 
-            pop_tableau();
+        pop_tableau();
         lp_assert(A_r().column_count() == n);
         TRACE("lar_solver_details",
             for (unsigned j = 0; j < n; j++) {
@@ -284,7 +283,7 @@ namespace lp {
         clean_popped_elements(m, m_rows_with_changed_bounds);
         clean_inf_set_of_r_solver_after_pop();
         lp_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
-            (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+            ( m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau()));
 
 
         m_constraints.pop(k);
@@ -299,7 +298,7 @@ namespace lp {
         m_simplex_strategy.pop(k);
         m_settings.set_simplex_strategy(m_simplex_strategy);
         lp_assert(sizes_are_correct());
-        lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+        lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         m_usage_in_terms.pop(k);
         set_status(lp_status::UNKNOWN);
     }
@@ -630,15 +629,7 @@ namespace lp {
     }
 
     void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column(unsigned j) {
-        if (A_r().row_count() != m_column_buffer.data_size())
-            m_column_buffer.resize(A_r().row_count());
-        else
-            m_column_buffer.clear();
-        lp_assert(m_column_buffer.size() == 0 && m_column_buffer.is_OK());
-
-        m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-        for (unsigned i : m_column_buffer.m_index)
-            insert_row_with_changed_bounds(i);
+       lp_assert(false);
     }
 
 
@@ -648,8 +639,7 @@ namespace lp {
             insert_row_with_changed_bounds(rc.var());
     }
 
-    bool lar_solver::use_tableau() const { return m_settings.use_tableau(); }
-
+    
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
@@ -692,7 +682,7 @@ namespace lp {
     }
 
     void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq>& delta) {
-        if (use_tableau()) {
+         {
             for (const auto& c : A_r().m_columns[j]) {
                 unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
                 if (tableau_with_costs()) {
@@ -705,15 +695,7 @@ namespace lp {
 
             }
         }
-        else {
-            m_column_buffer.clear();
-            m_column_buffer.resize(A_r().row_count());
-            m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-            for (unsigned i : m_column_buffer.m_index) {
-                unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-                m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -m_column_buffer[i] * delta);
-            }
-        }
+        
     }
 
     void lar_solver::update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j) {
@@ -742,10 +724,8 @@ namespace lp {
             return;
         }
 
-        if (use_tableau())
-            detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);
-        else
-            detect_rows_of_bound_change_column_for_nbasic_column(j);
+         detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);
+        
     }
 
     void lar_solver::detect_rows_with_changed_bounds() {
@@ -773,8 +753,6 @@ namespace lp {
 
 
     void lar_solver::solve_with_core_solver() {
-        if (!use_tableau())
-            add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
         if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
             add_last_rows_to_lu(m_mpq_lar_core_solver.m_d_solver);
         }
@@ -782,10 +760,7 @@ namespace lp {
         if (costs_are_used()) {
             m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
         }
-        if (use_tableau())
-            update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-        else
-            update_x_and_inf_costs_for_columns_with_changed_bounds();
+        update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
         m_mpq_lar_core_solver.solve();
         set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
         lp_assert(((stats().m_make_feasible% 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
@@ -1753,7 +1728,7 @@ namespace lp {
         SASSERT(m_terms.size() == m_term_register.size());
         unsigned adjusted_term_index = m_terms.size() - 1;
         var_index ret = tv::mask_term(adjusted_term_index);
-        if (use_tableau() && !coeffs.empty()) {
+        if ( !coeffs.empty()) {
             add_row_from_term_no_constraint(m_terms.back(), ret);
             if (m_settings.bound_propagation())
                 insert_row_with_changed_bounds(A_r().row_count() - 1);
@@ -1774,14 +1749,12 @@ namespace lp {
         ul_pair ul(true); // to mark this column as associated_with_row
         m_columns_to_ul_pairs.push_back(ul);
         add_basic_var_to_core_fields();
-        if (use_tableau()) {
-            A_r().fill_last_row_with_pivoting(*term,
+         
+        A_r().fill_last_row_with_pivoting(*term,
                 j,
                 m_mpq_lar_core_solver.m_r_solver.m_basis_heading); 
-        }
-        else {
-            fill_last_row_of_A_r(A_r(), term);
-        }
+        
+        
         m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
         for (lar_term::ival c : *term) {
             unsigned j = c.column();

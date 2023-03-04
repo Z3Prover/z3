@@ -171,8 +171,6 @@ public:
     void print_matrix_compact(std::ostream & f);
 
     void print(indexed_vector<T> & w, const vector<unsigned>& basis);
-    void solve_Bd(unsigned a_column, vector<T> & d, indexed_vector<T> & w);
-    void solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w);
     void solve_Bd_faster(unsigned a_column, indexed_vector<T> & d); // d is the right side on the input and the solution at the exit
 
     void  solve_yB(vector<T>& y);

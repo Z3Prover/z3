@@ -210,26 +210,8 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::DSE_FTran() { 
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::advance_on_known_p() {
-    if (done()) {
-        return true;
-    }
-    this->calculate_pivot_row_of_B_1(m_r);
-    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready(m_r);
-    if (!ratio_test()) {
-        return true;
-    }
-    calculate_beta_r_precisely();
-    this->solve_Bd(m_q); // FTRAN
-    int pivot_compare_result = this->pivots_in_column_and_row_are_different(m_q, m_p);
-    if (!pivot_compare_result){;}
-    else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
-        lp_unreachable(); // not implemented yet
-    } else {
-        lp_assert(pivot_compare_result == 1);
-        this->init_lu();
-    }
-    DSE_FTran();
-    return basis_change_and_update();
+    
+    return false;
 }
 
 template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_alpha_r() {

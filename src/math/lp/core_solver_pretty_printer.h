@@ -110,7 +110,6 @@ public:
         return T_to_string(m_exact_column_norms[col]);
     }
 
-    void print_exact_norms();
 
     void print_approx_norms();
 

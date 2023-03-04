@@ -468,7 +468,6 @@ public:
     }
     
     void update_basis_and_x_tableau_rows(int entering, int leaving, X const & tt) {
-        lp_assert(this->use_tableau());
         lp_assert(entering != leaving);
         update_x_tableau_rows(entering, leaving, tt);
         this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
@@ -804,7 +803,7 @@ public:
         return (a > zero_of_type<L>() && m_sign_of_entering_delta > 0) || (a < zero_of_type<L>() && m_sign_of_entering_delta < 0);
     }
 
-    void init_reduced_costs();
+    
 
     bool lower_bounds_are_set() const override { return true; }
 

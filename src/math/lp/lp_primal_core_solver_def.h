@@ -33,21 +33,14 @@ namespace lp {
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
     lp_assert(numeric_traits<T>::precise());
-    if (this->m_settings.use_tableau()) {
+    
         std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
                 unsigned ca = this->m_A.number_of_non_zeroes_in_column(a);
                 unsigned cb = this->m_A.number_of_non_zeroes_in_column(b);
                 if (ca == 0 && cb != 0) return false;
                 return ca < cb;
             });
-    } else {
-    std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
-            unsigned ca = this->m_columns_nz[a];
-            unsigned cb = this->m_columns_nz[b];
-            if (ca == 0 && cb != 0) return false;
-            return ca < cb;
-        });}
-
+     
     m_non_basis_list.clear();
     // reinit m_basis_heading
     for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
@@ -644,25 +637,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
-    this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-    //   this->set_total_iterations(0);
-    this->iters_with_no_cost_growing() = 0;
-    init_inf_set();
-    if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
-        return;
-    this->set_using_infeas_costs(false);
-    if (this->m_settings.backup_costs)
-        backup_and_normalize_costs();
-    m_epsilon_of_reduced_cost = numeric_traits<X>::precise()? zero_of_type<T>(): T(1)/T(10000000);
-    m_breakpoint_indices_queue.resize(this->m_n());
-    init_reduced_costs();
-    if (!numeric_traits<X>::precise()) {
-        this->m_column_norm_update_counter = 0;
-        init_column_norms();
-    } else {
-        if (this->m_columns_nz.size() != this->m_n())
-            init_column_row_non_zeroes();
-    }
+    
 }
 
 
@@ -676,166 +651,20 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_work
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering, X & t) {
-    CASSERT("A_off", !this->A_mult_x_is_off() );
-    this->add_delta_to_entering(entering, t * m_sign_of_entering_delta);
-    if (this->A_mult_x_is_off_on_index(this->m_ed.m_index) && !this->find_x_by_solving()) {
-        this->init_lu();
-        if (!this->find_x_by_solving()) {
-            this->restore_x(entering, t * m_sign_of_entering_delta);
-            this->iters_with_no_cost_growing()++;
-            LP_OUT(this->m_settings, "failing in advance_on_entering_equal_leaving for entering = " << entering << std::endl);
-            return;
-        }
-    }
-    if (this->using_infeas_costs()) {
-        lp_assert(is_zero(this->m_costs[entering])); 
-        init_infeasibility_costs_for_changed_basis_only();
-    }
-    if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
-        return;
     
-    if (need_to_switch_costs() ||!this->current_x_is_feasible()) {
-        init_reduced_costs();
-    }
-    this->iters_with_no_cost_growing() = 0;
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
-    lp_assert(entering >= 0 && m_non_basis_list.back() == static_cast<unsigned>(entering));
-    lp_assert(this->using_infeas_costs() || t >= zero_of_type<X>());
-    lp_assert(leaving >= 0 && entering >= 0);
-    lp_assert(entering != leaving || !is_zero(t)); // otherwise nothing changes
-    if (entering == leaving) {
-        advance_on_entering_equal_leaving(entering, t);
-        return;
-    }
-    unsigned pivot_row = this->m_basis_heading[leaving];
-    this->calculate_pivot_row_of_B_1(pivot_row);
-    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready(pivot_row);
-
-    int pivot_compare_result = this->pivots_in_column_and_row_are_different(entering, leaving);
-    if (!pivot_compare_result){;}
-    else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
-        this->set_status(lp_status::UNSTABLE);
-        this->iters_with_no_cost_growing()++;
-        return;
-    } else {
-        lp_assert(pivot_compare_result == 1);
-        this->init_lu();
-        if (this->m_factorization == nullptr || this->m_factorization->get_status() != LU_status::OK) {
-            this->set_status(lp_status::UNSTABLE);
-            this->iters_with_no_cost_growing()++;
-            return;
-        }
-    }
-    if (!numeric_traits<T>::precise())
-        calc_working_vector_beta_for_column_norms();
-    if (this->current_x_is_feasible() || !this->m_settings.use_breakpoints_in_feasibility_search) {
-        if (m_sign_of_entering_delta == -1)
-            t = -t;
-    }
-    if (!this->update_basis_and_x(entering, leaving, t)) {
-        if (this->get_status() == lp_status::FLOATING_POINT_ERROR)
-            return;
-        if (this->m_look_for_feasible_solution_only) {
-            this->set_status(lp_status::FLOATING_POINT_ERROR);
-            return;
-        }
-        init_reduced_costs();
-        return;
-    }
-
-    if (!is_zero(t)) {
-        this->iters_with_no_cost_growing() = 0;
-        init_infeasibility_after_update_x_if_inf(leaving);
-    }
-
-    if (this->current_x_is_feasible()) {
-        this->set_status(lp_status::FEASIBLE);
-        if (this->m_look_for_feasible_solution_only)
-            return;
-    }
-    if (numeric_traits<X>::precise() == false)
-        update_or_init_column_norms(entering, leaving);
-
-    
-    if (need_to_switch_costs()) {
-        init_reduced_costs();
-    }  else {
-        update_reduced_costs_from_pivot_row(entering, leaving);
-    }
-    lp_assert(!need_to_switch_costs());
-    std::list<unsigned>::iterator it = m_non_basis_list.end();
-    it--;
-    * it = static_cast<unsigned>(leaving);
+   
 }
 
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_precise(int entering) {
-    lp_assert(numeric_traits<T>::precise());
-    lp_assert(entering > -1);
-    this->solve_Bd(entering);
-    X t;
-    int leaving = find_leaving_and_t_precise(entering, t);
-    if (leaving == -1) {
-        TRACE("lar_solver", tout << "non-leaving\n";);
-        this->set_status(lp_status::UNBOUNDED);
-        return;
-    }
-    advance_on_entering_and_leaving(entering, leaving, t);
+    lp_assert(false);
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering(int entering) {
-    if (numeric_traits<T>::precise()) {
-        advance_on_entering_precise(entering);
-        return;
-    }
-    lp_assert(entering > -1);
-    this->solve_Bd(entering);
-    int refresh_result = refresh_reduced_cost_at_entering_and_check_that_it_is_off(entering);
-    if (refresh_result) {
-        if (this->m_look_for_feasible_solution_only) {
-            this->set_status(lp_status::FLOATING_POINT_ERROR);
-            return;
-        }
-
-        this->init_lu();
-        init_reduced_costs();
-        if (refresh_result == 2) {
-            this->iters_with_no_cost_growing()++;
-            return;
-        }
-    }
-    X t;
-    int leaving = find_leaving_and_t(entering, t);
-    if (leaving == -1){
-        if (!this->current_x_is_feasible()) {
-            lp_assert(!numeric_traits<T>::precise()); // we cannot have unbounded with inf costs
-               
-            // if (m_look_for_feasible_solution_only) {
-            //     this->m_status = INFEASIBLE;
-            //     return;
-            //  }
-            
-                
-            if (this->get_status() == lp_status::UNSTABLE) {
-                this->set_status(lp_status::FLOATING_POINT_ERROR);
-                return;
-            }
-            init_infeasibility_costs();
-            this->set_status(lp_status::UNSTABLE);
-
-            return;
-        }
-        if (this->get_status() == lp_status::TENTATIVE_UNBOUNDED) {
-            this->set_status(lp_status::UNBOUNDED);
-        } else {
-            this->set_status(lp_status::TENTATIVE_UNBOUNDED);
-        }
-        TRACE("lar_solver", tout << this->get_status() << "\n";);
-        return;
-    }
-    advance_on_entering_and_leaving(entering, leaving, t);
+    lp_assert(false);
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::push_forward_offset_in_non_basis(unsigned & offset_in_nb) {
@@ -867,7 +696,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
     TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
-    if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
+    if (numeric_traits<T>::precise())
         return solve_with_tableau();
 
     init_run();
@@ -893,56 +722,19 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         case lp_status::INFEASIBLE:
             if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
                 break;
-            if (!numeric_traits<T>::precise()) {
-                if(this->m_look_for_feasible_solution_only)
-                    break;
-                this->init_lu();
+            { // precise case
                 
-                if (this->m_factorization->get_status() != LU_status::OK) {
-                    this->set_status (lp_status::FLOATING_POINT_ERROR);
-                    break;
-                }
-                init_reduced_costs();
-                if (choose_entering_column(1) == -1) {
-                    decide_on_status_when_cannot_find_entering();
-                    break;
-                }
-                this->set_status(lp_status::UNKNOWN);
-            } else { // precise case
-                if (this->m_look_for_feasible_solution_only) { // todo: keep the reduced costs correct all the time!
-                    init_reduced_costs();
-                    if (choose_entering_column(1) == -1) {
-                        decide_on_status_when_cannot_find_entering();
-                        break;
-                    }
-                    this->set_status(lp_status::UNKNOWN);
-                }
             }
             break;
         case lp_status::TENTATIVE_UNBOUNDED:
-            this->init_lu();
-            if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(lp_status::FLOATING_POINT_ERROR);
-                break;
-            }
-                
-            init_reduced_costs();
+            lp_assert(false);
             break;
         case lp_status::UNBOUNDED:
-            if (this->current_x_is_infeasible()) {
-                init_reduced_costs();
-                this->set_status(lp_status::UNKNOWN);
-            }
+            lp_assert(false);
             break;
 
         case lp_status::UNSTABLE:
-            lp_assert(! (numeric_traits<T>::precise()));
-            this->init_lu();
-            if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(lp_status::FLOATING_POINT_ERROR);
-                break;
-            }
-            init_reduced_costs();
+            lp_assert(false);
             break;
 
         default:
@@ -1292,20 +1084,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_breakp
     print_bound_info_and_x(b->m_j, out);
 }
 
-template <typename T, typename X>
-void lp_primal_core_solver<T, X>::init_reduced_costs() {
-    lp_assert(!this->use_tableau());
-    if (this->current_x_is_infeasible() && !this->using_infeas_costs()) {
-        init_infeasibility_costs();
-    } else if (this->current_x_is_feasible() && this->using_infeas_costs()) {
-        if (this->m_look_for_feasible_solution_only)
-            return;
-        this->m_costs = m_costs_backup;
-        this->set_using_infeas_costs(false);
-    }
-    
-    this->init_reduced_costs_for_one_iteration();
-}
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering) {
     if (b->m_j == entering) {

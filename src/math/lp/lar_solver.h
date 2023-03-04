@@ -177,7 +177,6 @@ class lar_solver : public column_namer {
         if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation
             || row_has_a_big_num(row_index))
             return;
-        lp_assert(use_tableau());
         
         bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(A_r().m_rows[row_index],
                                                                                    null_ci,
@@ -190,7 +189,6 @@ class lar_solver : public column_namer {
     void substitute_basis_var_in_terms_for_row(unsigned i);
     template <typename T>
     void calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        SASSERT(use_tableau());
         analyze_new_bounds_on_row_tableau(i, bp);
     }
     static void clean_popped_elements(unsigned n, u_set& set);
@@ -210,7 +208,6 @@ class lar_solver : public column_namer {
                                                 vector<std::pair<mpq, var_index>> &left_side) const;
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
     void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j);
-    bool use_tableau() const;
     bool use_tableau_costs() const;
     void detect_rows_of_column_with_bound_change(unsigned j);
     void adjust_x_of_column(unsigned j);
@@ -376,7 +373,6 @@ public:
     void mark_rows_for_bound_prop(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
-        SASSERT(use_tableau());
         for (unsigned i : m_rows_with_changed_bounds) {
             calculate_implied_bounds_for_row(i, bp);
             if (settings().get_cancel_flag())
@@ -429,8 +425,8 @@ public:
     void change_basic_columns_dependend_on_a_given_nb_column_report(unsigned j,
                                                                     const numeric_pair<mpq> & delta,
                                                                     const ChangeReport& after) {
-        if (use_tableau()) {
-            for (const auto & c : A_r().m_columns[j]) {
+        
+      for (const auto & c : A_r().m_columns[j]) {
                 unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
                 if (tableau_with_costs()) {
                     m_basic_columns_with_changed_cost.insert(bj);
@@ -440,20 +436,8 @@ public:
                 TRACE("change_x_del",
                       tout << "changed basis column " << bj << ", it is " <<
                       ( m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj)?  "feas":"inf") << std::endl;);
-                
-                  
             }
-        } else {
-            NOT_IMPLEMENTED_YET();
-            m_column_buffer.clear();
-            m_column_buffer.resize(A_r().row_count());
-            m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-            for (unsigned i : m_column_buffer.m_index) {
-                unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-                m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -m_column_buffer[i] * delta); 
-            }
-        }
-    }
+   }
 
     template <typename ChangeReport>
     void set_value_for_nbasic_column_report(unsigned j,

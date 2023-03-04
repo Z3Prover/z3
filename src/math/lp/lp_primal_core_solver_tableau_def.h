@@ -126,22 +126,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         case lp_status::INFEASIBLE:
             if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
                 break;
-            if (!numeric_traits<T>::precise()) {
-                if(this->m_look_for_feasible_solution_only)
-                    break;
-                this->init_lu();
-                
-                if (this->m_factorization->get_status() != LU_status::OK) {
-                    this->set_status(lp_status::FLOATING_POINT_ERROR);
-                    break;
-                }
-                init_reduced_costs();
-                if (choose_entering_column(1) == -1) {
-                    decide_on_status_when_cannot_find_entering();
-                    break;
-                }
-                this->set_status(lp_status::UNKNOWN);
-            } else { // precise case
+             { // precise case
                 if ((!this->infeasibility_costs_are_correct())) {
                     init_reduced_costs_tableau(); // forcing recalc
                     if (choose_entering_column_tableau() == -1) {
@@ -153,13 +138,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
             }
             break;
         case lp_status::TENTATIVE_UNBOUNDED:
-            this->init_lu();
-            if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(lp_status::FLOATING_POINT_ERROR);
-                break;
-            }
-                
-            init_reduced_costs();
+           lp_assert(false);
             break;
         case lp_status::UNBOUNDED:
             if (this->current_x_is_infeasible()) {
@@ -169,13 +148,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
             break;
 
         case lp_status::UNSTABLE:
-            lp_assert(! (numeric_traits<T>::precise()));
-            this->init_lu();
-            if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(lp_status::FLOATING_POINT_ERROR);
-                break;
-            }
-            init_reduced_costs();
+           lp_assert(false);
             break;
 
         default:
@@ -348,7 +321,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::
 update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
-    lp_assert(this->use_tableau());
     lp_assert(entering != leaving);
     update_x_tableau(entering, tt);
     this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);

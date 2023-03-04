@@ -28,13 +28,10 @@ template double dot_product<double, double>(vector<double> const&, vector<double
 template lu<static_matrix<double, double>>::lu(static_matrix<double, double> const&, vector<unsigned int>&, lp_settings&);
 template void lu<static_matrix<double, double>>::push_matrix_to_tail(tail_matrix<double, double>*);
 template void lu<static_matrix<double, double>>::replace_column(double, indexed_vector<double>&, unsigned);
-template void lu<static_matrix<double, double>>::solve_Bd(unsigned int, indexed_vector<double>&, indexed_vector<double>&);
 template lu<static_matrix<double, double>>::~lu();
 template void lu<static_matrix<mpq, mpq>>::push_matrix_to_tail(tail_matrix<mpq, mpq>*);
-template void lu<static_matrix<mpq, mpq>>::solve_Bd(unsigned int, indexed_vector<mpq>&, indexed_vector<mpq>&);
 template lu<static_matrix<mpq, mpq>>::~lu();
 template void lu<static_matrix<mpq, impq>>::push_matrix_to_tail(tail_matrix<mpq, impq >*);
-template void lu<static_matrix<mpq, impq>>::solve_Bd(unsigned int, indexed_vector<mpq>&, indexed_vector<mpq>&);
 template lu<static_matrix<mpq, impq>>::~lu();
 template mpq dot_product<mpq, mpq>(vector<mpq > const&, vector<mpq > const&);
 template void init_factorization<static_matrix<double, double>>

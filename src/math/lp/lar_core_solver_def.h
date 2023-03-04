@@ -46,23 +46,9 @@ lar_core_solver::lar_core_solver(
                column_names) {
 }    
     
-void lar_core_solver::calculate_pivot_row(unsigned i) {
-    m_r_solver.calculate_pivot_row(i);
-}
 
 void lar_core_solver::prefix_r() {
-    if (!m_r_solver.m_settings.use_tableau()) {
-        m_r_solver.m_copy_of_xB.resize(m_r_solver.m_n());
-        m_r_solver.m_ed.resize(m_r_solver.m_m());
-        m_r_solver.m_pivot_row.resize(m_r_solver.m_n()); 
-        m_r_solver.m_pivot_row_of_B_1.resize(m_r_solver.m_m());
-        m_r_solver.m_w.resize(m_r_solver.m_m());
-        m_r_solver.m_y.resize(m_r_solver.m_m());
-        m_r_solver.m_rows_nz.resize(m_r_solver.m_m(), 0);
-        m_r_solver.m_columns_nz.resize(m_r_solver.m_n(), 0); 
-        init_column_row_nz_for_r_solver();
-    }
-
+    
     // m_r_solver.m_b.resize(m_r_solver.m_m());
     if (m_r_solver.m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows) {
         if(m_r_solver.m_settings.use_breakpoints_in_feasibility_search)
@@ -142,7 +128,7 @@ void lar_core_solver::solve() {
 	}
     ++settings().stats().m_need_to_solve_inf;
     CASSERT("A_off", !m_r_solver.A_mult_x_is_off());
-    lp_assert((!settings().use_tableau()) || r_basis_is_OK());
+    lp_assert( r_basis_is_OK());
     if (need_to_presolve_with_double_solver()) {
         TRACE("lar_solver", tout << "presolving\n";);
         prefix_d();
@@ -152,26 +138,17 @@ void lar_core_solver::solve() {
             m_r_solver.set_status(lp_status::TIME_EXHAUSTED);
             return;
         }
-        if (settings().use_tableau())
-            solve_on_signature_tableau(solution_signature, changes_of_basis);
-        else 
-            solve_on_signature(solution_signature, changes_of_basis);
-
-        lp_assert(!settings().use_tableau() || r_basis_is_OK());
+        solve_on_signature_tableau(solution_signature, changes_of_basis);
+        
+        lp_assert( r_basis_is_OK());
     } else {
-        if (!settings().use_tableau()) {
-            TRACE("lar_solver", tout << "no tablau\n";);
-            bool snapped = m_r_solver.snap_non_basic_x_to_bound();   
-            lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
-            if (snapped)
-                m_r_solver.solve_Ax_eq_b();
-        }
+        
         if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
             m_r_solver.find_feasible_solution();
         else {
             m_r_solver.solve();
         }
-        lp_assert(!settings().use_tableau() || r_basis_is_OK());
+        lp_assert(r_basis_is_OK());
     }
     switch (m_r_solver.get_status())
     {
