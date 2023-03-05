@@ -84,11 +84,14 @@ namespace polysat {
             else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
             else if (can_repropagate()) repropagate();
-            else if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
+            else {
+            VERIFY(bool_watch_invariant());  // TODO: merge propagate/repropagate and move this assertion there.
+            if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
             else decide();
+            }
         }
         LOG_H2("UNDEF (resource limit)");
         return l_undef;
@@ -228,6 +231,7 @@ namespace polysat {
             m_repropagate_units.pop_back();
             VERIFY_EQ(cl.size(), 1);
             sat::literal lit = cl[0];
+            LOG("Repropagate unit: " << lit_pp(*this, lit));
             switch (m_bvars.value(lit)) {
             case l_undef:
                 assign_propagate(lit, cl);
@@ -265,8 +269,9 @@ namespace polysat {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
             repropagate(lit);
+            // TODO: should we interleave this with regular propagation?
+            //       (after each successful repropagated literal, do normal propagation)
         }
-        SASSERT(bool_watch_invariant());
     }
 
     /**
@@ -1118,20 +1123,48 @@ namespace polysat {
 
     // Explicit boolean propagation over the given clause, without relying on watch lists.
     void solver::propagate_clause(clause& cl) {
+        // LOG("search: " << m_search);
+        // LOG("prop queue:" << m_prop);
+        LOG("propagate_clause: " << cl);
+        for (sat::literal lit : cl) {
+            LOG("    " << lit_pp(*this, lit));
+            // will be repropagated in reverse order, so the tail literals are assigned before trying the watched ones.
+            m_repropagate_lits.push_back(lit);
+        }
+        return;
+#if 0
+        // TODO: by invariants of watchlist-based propagation, shouldn't it be enough to check the first two literals of the clause?
         sat::literal prop = sat::null_literal;
         for (sat::literal lit : cl) {
-            if (m_bvars.is_true(lit))
+            if (m_bvars.is_true(lit)) {
+                VERIFY(cl.size() != 1 || cl[0] == lit);
+                VERIFY(cl.size() < 2 || cl[0] == lit || cl[1] == lit);
                 return;  // clause is true
+            }
             if (m_bvars.is_false(lit))
                 continue;
             SASSERT(!m_bvars.is_assigned(lit));
-            if (prop != sat::null_literal)
+            if (prop != sat::null_literal) {
+                // TODO: must update other watch if assert is violated.
+                // verbose_stream() << " clause " << cl << "\n";
+                // for (sat::literal l : cl)
+                //     verbose_stream() << "    " << lit_pp(*this, l) << "\n";
+                // if (m_bvars.is_assigned(cl[0])) {
+                //     verbose_stream() << " aaaaaaah " << cl << "\n";
+                // }
+                // VERIFY(!m_bvars.is_assigned(cl[0]));
+                // VERIFY(!m_bvars.is_assigned(cl[1]));
                 return;  // two or more undef literals
+            }
             prop = lit;
         }
         if (prop == sat::null_literal)
             return;
+        VERIFY(!m_bvars.is_assigned(cl[0]) || !m_bvars.is_assigned(cl[1]));
+        VERIFY(m_bvars.is_false(cl[0]) || m_bvars.is_false(cl[1]));
+        // verbose_stream() << "PROP " << prop << "\n";
         assign_propagate(prop, cl);
+#endif
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
