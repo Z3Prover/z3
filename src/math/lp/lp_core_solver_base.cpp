@@ -52,7 +52,6 @@ template void lp::lp_core_solver_base<double, double>::snap_xN_to_bounds_and_fre
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::snap_xN_to_bounds_and_free_columns_to_zeroes();
 template void lp::lp_core_solver_base<double, double>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<double, double>::solve_yB(vector<double >&) const;
-template bool lp::lp_core_solver_base<double, double>::update_basis_and_x(int, int, double const&);
 template void lp::lp_core_solver_base<double, double>::add_delta_to_entering(unsigned int, const double&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::A_mult_x_is_off() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::A_mult_x_is_off_on_index(const vector<unsigned> &) const;
@@ -67,7 +66,6 @@ template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::restore_x(unsigned int,
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::set_non_basic_x_to_correct_bounds();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_yB(vector<lp::mpq>&) const;
-template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::update_basis_and_x(int, int, lp::mpq const&);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
@@ -82,7 +80,6 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::prin
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::snap_xN_to_bounds_and_fill_xB();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_Ax_eq_b();
 
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::update_basis_and_x(int, int, lp::numeric_pair<lp::mpq> const&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::add_delta_to_entering(unsigned int, const lp::numeric_pair<lp::mpq>&);
 template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
                                                                               lp::static_matrix<lp::mpq, lp::mpq>&,

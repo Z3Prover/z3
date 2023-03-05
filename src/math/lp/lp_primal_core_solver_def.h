@@ -855,12 +855,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
     }
 }
 
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta) {
-    if (entering != leaving)
-        this->update_basis_and_x(entering, leaving, delta);
-    else
-        this->update_x(entering, delta);
-}
 
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::clear_breakpoints() {

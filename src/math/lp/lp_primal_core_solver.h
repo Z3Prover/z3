@@ -552,9 +552,9 @@ public:
     void clear_breakpoints();
 
     void change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering);
-    void advance_on_sorted_breakpoints(unsigned entering);
+    
 
-    void update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta);
+    
 
     void decide_on_status_when_cannot_find_entering() {
         lp_assert(!need_to_switch_costs());
