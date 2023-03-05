@@ -37,7 +37,7 @@ expr_ref hoist_rewriter::mk_and(expr_ref_vector const& args) {
                 continue;
             else
                 negs.push_back(::mk_not(m, a));
-        return expr_ref(::mk_not(m, mk_or(negs)), m);
+        return ::mk_not(mk_or(negs));
     }
     else
         return ::mk_and(args);
@@ -164,7 +164,6 @@ unsigned hoist_rewriter::mk_var(expr* e) {
 }
 
 expr_ref hoist_rewriter::hoist_predicates(obj_hashtable<expr> const& preds, unsigned num_args, expr* const* es) {
-    expr_ref result(m);
     expr_ref_vector args(m), args1(m), fmls(m);
     for (unsigned i = 0; i < num_args; ++i) {
         VERIFY(is_and(es[i], &args1));
@@ -178,8 +177,7 @@ expr_ref hoist_rewriter::hoist_predicates(obj_hashtable<expr> const& preds, unsi
     fmls.push_back(mk_or(args));
     for (auto* p : preds) 
         fmls.push_back(p);
-    result = mk_and(fmls);
-    return result;
+    return mk_and(fmls);
 }
 
 
