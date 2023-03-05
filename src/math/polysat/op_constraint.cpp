@@ -319,11 +319,10 @@ namespace polysat {
     /**
      * Enforce axioms for constraint: r == p << q
      *
-     *      q >= K  ->  r = 0
+     *      q >= N  ->  r = 0
      *      q >= k  ->  r = 0  \/  r >= 2^k
      *      q >= k  ->  r[i] = 0 for i < k
-     *      q = k   ->  r[i+k] = p[i] for 0 <= i < K - k
-     *      r != 0  ->  r >= p
+     *      q = k   ->  r[i+k] = p[i] for 0 <= i < N - k
      *      q = 0   ->  r = p
      */
     clause_ref op_constraint::lemma_shl(solver& s, assignment const& a) {
@@ -331,30 +330,25 @@ namespace polysat {
         auto const pv = a.apply_to(p());
         auto const qv = a.apply_to(q());
         auto const rv = a.apply_to(r());
-        unsigned const K = m.power_of_2();
+        unsigned const N = m.power_of_2();
 
         signed_constraint const shl(this, true);
 
-        if (pv.is_val() && !pv.is_zero() && !pv.is_one() && rv.is_val() && !rv.is_zero() && rv.val() < pv.val())
-            // r != 0  ->  r >= p
-            // r = 0 \/ r >= p      (equivalent)
-            // r-1 >= p-1           (equivalent unit constraint to better support narrowing)
-            return s.mk_clause(~shl, s.ule(p() - 1, r() - 1), true);
-        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
-            // q >= K  ->  r = 0
-            return s.mk_clause(~shl, ~s.ule(K, q()), s.eq(r()), true);
+        if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
+            // q >= N  ->  r = 0
+            return s.mk_clause(~shl, ~s.ule(N, q()), s.eq(r()), true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && rv != pv)
             // q = 0  ->  r = p
             return s.mk_clause(~shl, ~s.eq(q()), s.eq(r(), p()), true);
-        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
+        else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() &&
             !rv.is_zero() && rv.val() < rational::power_of_two(qv.val().get_unsigned()))
             // q >= k  ->  r = 0  \/  r >= 2^k  (intuitive version)
             // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
             return s.mk_clause(~shl, ~s.ule(qv.val(), q()), s.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r() - 1), true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
-            // q = k  ->  r[i+k] = p[i] for 0 <= i < K - k
-            for (unsigned i = 0; i < K - k; ++i) {
+            // q = k  ->  r[i+k] = p[i] for 0 <= i < N - k
+            for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
                     return s.mk_clause(~shl, ~s.eq(q(), k), ~s.bit(r(), i + k), s.bit(p(), i), true);
                 }
