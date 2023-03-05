@@ -1591,7 +1591,7 @@ namespace polysat {
         if (y == null_var) {
             // choose the top variable
             y = q.var();
-            if (q.hi().is_var() && q.hi().var() == y)
+            if (!q.hi().is_val() && q.hi().var() == y)
                 return false;
             if (!eval_round(M, q.hi(), a))
                 return false;
