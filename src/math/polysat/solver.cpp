@@ -591,8 +591,7 @@ namespace polysat {
             return;
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        using replay_item = std::variant<sat::literal, pvar>;
-        vector<replay_item> replay;
+        vector<sat::literal> replay;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -652,16 +651,8 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V(20, "Undo assign_i: v" << v);
-                unsigned active_level = get_level(v);
-
-                if (false && active_level <= target_level) {
-                    SASSERT(m_justification[v].is_propagation());
-                    replay.push_back(v);
-                }
-                else {
-                    m_free_pvars.unassign_var_eh(v);
-                    m_justification[v] = justification::unassigned();
-                }
+                m_free_pvars.unassign_var_eh(v);
+                m_justification[v] = justification::unassigned();
                 m_search.pop();
                 break;
             }
@@ -707,50 +698,13 @@ namespace polysat {
         // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
         // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
         //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
-        // TODO: we still may miss unit clauses, if we add a unit clause after the literal was assigned by some other cause.
-        //       (reason is not a unit clause, so we don't add it to repropagate_units, and it is not stored in watchlists, so repropagate(lit) will miss it as well).
-        //       unit clauses learned from conflict analysis should be fine, because we backtrack to level 0 then.
 
-        // Replay:
-        // (since levels on the search stack may be out of order)
+        // Replay
         for (unsigned j = replay.size(); j-- > 0; ) {
-            replay_item item = replay[j];
-            std::visit([this](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, sat::literal>) {
-                    sat::literal lit = arg;
-                    m_search.push_boolean(lit);
-                    m_trail.push_back(trail_instr_t::assign_bool_i);
-                    LOG("Replay: " << lit);
-                }
-                else if constexpr (std::is_same_v<T, pvar>) {
-                    pvar v = arg;
-                    m_search.push_assignment(v, m_value[v]);
-                    m_trail.push_back(trail_instr_t::assign_i);
-                    LOG("Replay: " << assignment_pp(*this, v, m_value[v]));
-                    // TODO: are the viable sets propagated properly?
-                    //      when substituting polynomials, it will now take into account the replayed variables, which may itself depend on previous propagations.
-                    //      will we get into trouble with cyclic dependencies?
-                    //      But we do want to take into account variables that are assigned but not yet propagated.
-                    //      Possible solutions:
-                    //      - keep the replay queue outside of this method?
-                    //        prioritize putting stuff on the stack from the replay queue.
-                    //        this might however introduce new propagations in between? maybe that is ok?
-                    //      - when evaluating/narrowing instead of passing the full assignment,
-                    //        we pass a "dependency level" which is basically an index into the search stack.
-                    //        then we get an assignment up to that dependency level.
-                    //        each literal can only depend on entries with lower dependency level
-                    //        (that is the invariant that propagations are justified by a prefix of the search stack.)
-                    //      Actually, cyclic dependencies probably don't happen:
-                    //      - viable restrictions only occur when all-but-one variable is set (or some vars are irrelevant... those might introduce additional fake dependencies)
-                    //      - we only replay propagations... so all new variable assignments are propagations (that depend on earlier decisions)
-                    //      - but now the replayed constraints may evaluate to true already and thus not give the forbidden intervals from before anymore...
-                    //        so maybe we miss some dependencies this way? a variable was propagated because of a constraint, but after replay the constraint evaluates to true and thus does not add an interval anymore.
-                    // TODO: work out example to explain and test this
-                }
-                else
-                    static_assert(always_false<T>::value, "non-exhaustive visitor");
-            }, item);
+            sat::literal lit = replay[j];
+            m_search.push_boolean(lit);
+            m_trail.push_back(trail_instr_t::assign_bool_i);
+            LOG("Replay: " << lit);
         }
     }
 
