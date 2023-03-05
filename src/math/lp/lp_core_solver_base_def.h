@@ -457,66 +457,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_set_is_cor
     return true;
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-update_basis_and_x(int entering, int leaving, X const & tt) {
-    
-    if (!is_zero(tt)) {
-        add_delta_to_entering(entering, tt);
-        if ((!numeric_traits<T>::precise()) && A_mult_x_is_off_on_index(m_ed.m_index) && !find_x_by_solving()) {
-            init_factorization(m_factorization, m_A, m_basis, m_settings);
-            if (!find_x_by_solving()) {
-                restore_x(entering, tt);
-                if(A_mult_x_is_off()) {
-                    m_status = lp_status::FLOATING_POINT_ERROR;
-                    m_iters_with_no_cost_growing++;
-                    return false;
-                }
-                    
-                init_factorization(m_factorization, m_A, m_basis, m_settings);
-                m_iters_with_no_cost_growing++;
-                if (m_factorization->get_status() != LU_status::OK) {
-                    std::stringstream s;
-                    //                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
-                    m_status = lp_status::FLOATING_POINT_ERROR;
-                    return false;
-                }
-                return false;
-            }
-        }
-    }
-
-    bool refactor = m_factorization->need_to_refactor();
-    if (!refactor) {
-        const T &  pivot = this->m_pivot_row[entering]; // m_ed[m_factorization->basis_heading(leaving)] is the same but the one that we are using is more precise
-        m_factorization->replace_column(pivot, m_w, m_basis_heading[leaving]);
-        if (m_factorization->get_status() == LU_status::OK) {
-            change_basis(entering, leaving);
-            return true;
-        }
-    }
-    // need to refactor == true
-    change_basis(entering, leaving);
-    init_lu();
-    if (m_factorization->get_status() != LU_status::OK) {
-        if (m_look_for_feasible_solution_only && !precise()) {
-            m_status = lp_status::UNSTABLE;
-            delete m_factorization;
-            m_factorization = nullptr;
-            return false; 
-        }
-        //        LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
-        restore_x_and_refactor(entering, leaving, tt);
-        if (m_status == lp_status::FLOATING_POINT_ERROR)
-            return false;
-        CASSERT("A_off", !A_mult_x_is_off());
-        m_iters_with_no_cost_growing++;
-        //        LP_OUT(m_settings, "rolled back after failing of init_factorization()" << std::endl);
-        m_status = lp_status::UNSTABLE;
-        return false;
-    }
-    return true;
-}
-
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {

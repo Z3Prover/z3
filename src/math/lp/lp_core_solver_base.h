@@ -307,8 +307,7 @@ public:
 
     bool find_x_by_solving();
 
-    bool update_basis_and_x(int entering, int leaving, X const & tt);
-
+    
     bool basis_has_no_doubles() const;
 
     bool non_basis_has_no_doubles() const;

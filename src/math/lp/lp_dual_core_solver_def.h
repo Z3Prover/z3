@@ -411,33 +411,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_betas_pre
 
 // step 7 of the algorithm from Progress
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::basis_change_and_update() {
-    update_betas();
-    update_d_and_xB();
-    //    m_theta_P = m_delta / this->m_ed[m_r];
-    m_theta_P = m_delta / this->m_pivot_row[m_q];
-    //    xb_minus_delta_p_pivot_column();
-    apply_flips();
-    if (!this->update_basis_and_x(m_q, m_p, m_theta_P)) {
-          init_betas_precisely();
-          return false;
-    }
-
-    if (snap_runaway_nonbasic_column(m_p)) {
-        if (!this->find_x_by_solving()) {
-            revert_to_previous_basis();
-            this->iters_with_no_cost_growing()++;
-            return false;
-        }
-    }
-
-    if (!problem_is_dual_feasible()) {
-        // todo : shift the costs!!!!
-        revert_to_previous_basis();
-        this->iters_with_no_cost_growing()++;
-        return false;
-    }
-
-    lp_assert(d_is_correct());
+    
     return true;
 }
 
