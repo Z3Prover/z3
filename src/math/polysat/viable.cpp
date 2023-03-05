@@ -143,6 +143,8 @@ namespace polysat {
 
     try_viable:
         if (intersect(v, sc)) {
+            if (s.is_conflict())
+                return true;
             rational val;
             switch (find_viable(v, val)) {
             case find_t::singleton:
