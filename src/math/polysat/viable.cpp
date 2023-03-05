@@ -214,7 +214,6 @@ namespace polysat {
             return false;
         }
         for (signed_constraint sc : ne->side_cond) {
-            verbose_stream() << "sc: " << lit_pp(s, sc) << "\n";
             // side conditions must evaluate to true by definition
             VERIFY(sc.is_currently_true(s));
             switch (sc.bvalue(s)) {
