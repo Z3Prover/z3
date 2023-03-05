@@ -209,11 +209,34 @@ namespace polysat {
             m_alloc.push_back(ne);
             return false;
         }
-        else if (ne->interval.is_currently_empty()) {
+        if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
             return false;
         }
-        else if (ne->coeff == 1) {
+        for (signed_constraint sc : ne->side_cond) {
+            verbose_stream() << "sc: " << lit_pp(s, sc) << "\n";
+            // side conditions must evaluate to true by definition
+            VERIFY(sc.is_currently_true(s));
+            switch (sc.bvalue(s)) {
+            case l_false:
+                // We have a bool/eval conflict with one of the side conditions.
+                // This happens if the side condition was already bool-propagated, but appears in the propagation queue after c.
+                // TODO: instead of doing this here, we could have a separate pass that checks for bool/eval conflicts before narrowing.
+                s.set_conflict(~sc);
+                return true;
+            case l_undef:
+                s.assign_eval(sc.blit());
+                break;
+            case l_true:
+                // ok
+                break;
+            }
+            // any bool/eval conflicts should have been discovered before narrowing;
+            VERIFY(sc.bvalue(s) != l_false);
+            // side conditions should be eval'd
+            VERIFY_EQ(sc.bvalue(s), l_true);
+        }
+        if (ne->coeff == 1) {
             return intersect(v, ne);
         }
         else if (ne->coeff == -1) {
