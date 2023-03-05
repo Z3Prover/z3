@@ -670,10 +670,12 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit_pp(*this, lit));
                 unsigned active_level = m_bvars.level(lit);
 
-                if (false && active_level <= target_level) {
-                    SASSERT(!m_bvars.is_decision(lit));
+                if (active_level <= target_level && m_bvars.is_evaluation(lit)) {
+                    // Replaying evaluations is fine since all dependencies (variable assignments) are left untouched.
+                    // It is also necessary because repropagate will only restore boolean propagations.
                     replay.push_back(lit);
-                } else {
+                }
+                else {
                     clause* reason = m_bvars.reason(lit);
                     if (reason && reason->size() == 1) {
                         VERIFY(m_bvars.is_bool_propagation(lit));
