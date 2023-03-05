@@ -1668,13 +1668,19 @@ namespace polysat {
             signed_constraint const c = lit2cnstr(lit);
             if (!all_of(c->vars(), [this](pvar w) { return is_assigned(w); }))
                 continue;
+            if (c.is_always_true() || c.is_always_false())
+                continue;
             lbool const bvalue = m_bvars.value(lit);
             lbool const pvalue = c.eval(*this);
             if (bvalue != l_undef && pvalue != l_undef && bvalue != pvalue) {
                 verbose_stream() << "missed bool/eval conflict: " << lit_pp(*this, lit) << "\n";
                 return false;
             }
-            if (bvalue == l_undef && pvalue != l_undef) {
+            bool const on_search_stack =
+                any_of(m_search, [lit](auto const& item) {
+                    return item.is_boolean() && (item.lit() == lit || item.lit() == ~lit);
+                });
+            if (on_search_stack && bvalue == l_undef && pvalue != l_undef) {
                 verbose_stream() << "missed evaluation: " << lit_pp(*this, lit) << "\n";
                 return false;
             }
