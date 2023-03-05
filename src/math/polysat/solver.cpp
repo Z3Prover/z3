@@ -250,6 +250,16 @@ namespace polysat {
         return !m_repropagate_lits.empty();
     }
 
+    // Repropagate:
+    // Consider the following case:
+    // 1. Literal L is decision@2
+    // 2. We are at level 10, add a clause C := A & B ==> L where A@0, B@0 (i.e., L should be propagation@0 now)
+    // 3. For whatever reason we now backtrack to 0 or 1.
+    //    We have unassigned L but the unit propagation for C does not trigger.
+    // 4. To fix that situation we explicitly "repropagate" C after backtracking.
+    // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
+    // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
+    //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
     void solver::repropagate() {
         while (!m_repropagate_lits.empty() && !is_conflict()) {
             sat::literal lit = m_repropagate_lits.back();
@@ -688,17 +698,6 @@ namespace polysat {
         }
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
-        // Repropagate:
-        // Consider the following case:
-        // 1. Literal L is decision@2
-        // 2. We are at level 10, add a clause C := A & B ==> L where A@0, B@0 (i.e., L should be propagation@0 now)
-        // 3. For whatever reason we now backtrack to 0 or 1.
-        //    We have unassigned L but the unit propagation for C does not trigger.
-        // 4. To fix that situation we explicitly "repropagate" C after backtracking.
-        // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
-        // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
-        //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
-
         // Replay
         for (unsigned j = replay.size(); j-- > 0; ) {
             sat::literal lit = replay[j];
