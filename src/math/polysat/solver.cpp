@@ -1005,6 +1005,9 @@ namespace polysat {
     }
 
     void solver::backjump_and_learn(unsigned max_jump_level, bool force_fallback_lemma) {
+        LOG_H2("backjump_and_learn");
+        LOG("force_fallback_lemma: " << force_fallback_lemma);
+        LOG("max_jump_level: " << max_jump_level);
         sat::literal_vector narrow_queue = m_conflict.take_narrow_queue();
         clause_ref_vector lemmas = m_conflict.take_lemmas();
 
@@ -1047,11 +1050,11 @@ namespace polysat {
         VERIFY(best_lemma);
 
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
-        SASSERT(jump_level <= max_jump_level);
+        VERIFY(jump_level <= max_jump_level);
 
         LOG("best_score: " << best_score);
         LOG("best_lemma: " << *best_lemma);
-            
+
         m_conflict.reset();
         backjump(jump_level);
 
@@ -1123,48 +1126,12 @@ namespace polysat {
 
     // Explicit boolean propagation over the given clause, without relying on watch lists.
     void solver::propagate_clause(clause& cl) {
-        // LOG("search: " << m_search);
-        // LOG("prop queue:" << m_prop);
         LOG("propagate_clause: " << cl);
         for (sat::literal lit : cl) {
             LOG("    " << lit_pp(*this, lit));
             // will be repropagated in reverse order, so the tail literals are assigned before trying the watched ones.
             m_repropagate_lits.push_back(lit);
         }
-        return;
-#if 0
-        // TODO: by invariants of watchlist-based propagation, shouldn't it be enough to check the first two literals of the clause?
-        sat::literal prop = sat::null_literal;
-        for (sat::literal lit : cl) {
-            if (m_bvars.is_true(lit)) {
-                VERIFY(cl.size() != 1 || cl[0] == lit);
-                VERIFY(cl.size() < 2 || cl[0] == lit || cl[1] == lit);
-                return;  // clause is true
-            }
-            if (m_bvars.is_false(lit))
-                continue;
-            SASSERT(!m_bvars.is_assigned(lit));
-            if (prop != sat::null_literal) {
-                // TODO: must update other watch if assert is violated.
-                // verbose_stream() << " clause " << cl << "\n";
-                // for (sat::literal l : cl)
-                //     verbose_stream() << "    " << lit_pp(*this, l) << "\n";
-                // if (m_bvars.is_assigned(cl[0])) {
-                //     verbose_stream() << " aaaaaaah " << cl << "\n";
-                // }
-                // VERIFY(!m_bvars.is_assigned(cl[0]));
-                // VERIFY(!m_bvars.is_assigned(cl[1]));
-                return;  // two or more undef literals
-            }
-            prop = lit;
-        }
-        if (prop == sat::null_literal)
-            return;
-        VERIFY(!m_bvars.is_assigned(cl[0]) || !m_bvars.is_assigned(cl[1]));
-        VERIFY(m_bvars.is_false(cl[0]) || m_bvars.is_false(cl[1]));
-        // verbose_stream() << "PROP " << prop << "\n";
-        assign_propagate(prop, cl);
-#endif
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
@@ -1447,6 +1414,7 @@ namespace polysat {
         deps.reset();
         m_conflict.find_deps(deps);
         IF_VERBOSE(10,
+            verbose_stream() << "\nviable:\n" << m_viable << "\n";
             verbose_stream() << "polysat unsat_core " << deps << "\n";
             // Print constraints involved in the unsat core for debugging.
             // NOTE: the output may look confusing since relevant op_constraints are not printed (does not affect correctness of the core).
