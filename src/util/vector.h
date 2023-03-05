@@ -556,6 +556,7 @@ public:
             *prev = std::move(*pos);
         }
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
+        // TODO: where is the destructor called?
     }
 
     void erase(T const & elem) {
@@ -563,6 +564,20 @@ public:
         if (it != end()) {
             erase(it);
         }
+    }
+
+    /** Erase all elements that satisfy the given predicate. Returns the number of erased elements. */
+    template <typename UnaryPredicate>
+    SZ erase_if(UnaryPredicate should_erase) {
+        iterator i = begin();
+        iterator const e = end();
+        for (iterator j = begin(); j != e; ++j)
+            if (!should_erase(std::as_const(*j)))
+                *(i++) = std::move(*j);
+        SZ const count = e - i;
+        SASSERT_EQ(i - begin(), size() - count);
+        shrink(size() - count);
+        return count;
     }
 
     void shrink(SZ s) {
