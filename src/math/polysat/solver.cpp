@@ -1663,20 +1663,23 @@ namespace polysat {
     bool solver::eval_invariant() const {
         if (is_conflict())
             return true;
-        bool ok = true;
         for (sat::bool_var v = m_bvars.size(); v-- > 0; ) {
-            sat::literal lit(v);
-            auto c = lit2cnstr(lit);
-            if (!all_of(c->vars(), [this](auto w) { return is_assigned(w); }))
+            sat::literal const lit(v);
+            signed_constraint const c = lit2cnstr(lit);
+            if (!all_of(c->vars(), [this](pvar w) { return is_assigned(w); }))
                 continue;
-            ok &= (m_bvars.value(lit) != l_true) || !c.is_currently_false(*this);
-            ok &= (m_bvars.value(lit) != l_false) || !c.is_currently_true(*this);
-            if (!ok) {
-                LOG("assignment invariant is broken " << v << "\n" << *this);
-                break;
+            lbool const bvalue = m_bvars.value(lit);
+            lbool const pvalue = c.eval(*this);
+            if (bvalue != l_undef && pvalue != l_undef && bvalue != pvalue) {
+                verbose_stream() << "missed bool/eval conflict: " << lit_pp(*this, lit) << "\n";
+                return false;
+            }
+            if (bvalue == l_undef && pvalue != l_undef) {
+                verbose_stream() << "missed evaluation: " << lit_pp(*this, lit) << "\n";
+                return false;
             }
         }
-        return ok;
+        return true;
     }
 
     /** Check that each variable is either assigned or queued for decisions */
