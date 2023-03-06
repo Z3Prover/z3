@@ -69,7 +69,6 @@ enum class lp_status {
     DUAL_UNBOUNDED,
     OPTIMAL,
     FEASIBLE,
-    FLOATING_POINT_ERROR,
     TIME_EXHAUSTED,
     EMPTY,
     UNSTABLE,

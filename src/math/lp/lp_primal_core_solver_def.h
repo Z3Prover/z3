@@ -26,6 +26,7 @@ Revision History:
 #include <set>
 #include <string>
 #include "math/lp/lp_primal_core_solver.h"
+#include "math/lp/dense_matrix.h"
 namespace lp {
 // This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )
 // The right side b is given implicitly by x and the basis
@@ -733,8 +734,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         default:
             break; // do nothing
         }
-    } while (this->get_status() != lp_status::FLOATING_POINT_ERROR
-             &&
+    } while (
              this->get_status() != lp_status::UNBOUNDED
              &&
              this->get_status() != lp_status::OPTIMAL
@@ -745,16 +745,11 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only));
 
-    lp_assert(this->get_status() == lp_status::FLOATING_POINT_ERROR
-                ||
+    lp_assert(
                 this->current_x_is_feasible() == false
                 ||
                 this->calc_current_x_is_feasible_include_non_basis());
     return this->total_iterations();
-}
-
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_factorization() {
-    lp_assert(false);
 }
 
 // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
@@ -860,7 +855,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::fill_breakpo
 
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
-    if (this->get_status() == lp_status::OPTIMAL || this->get_status() == lp_status::FLOATING_POINT_ERROR) return true;
+    if (this->get_status() == lp_status::OPTIMAL) return true;
     if (this->get_status() == lp_status::INFEASIBLE) {
         return true;
     }
