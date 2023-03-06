@@ -78,7 +78,6 @@ void lar_core_solver::prefix_d() {
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
-    CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
@@ -127,29 +126,16 @@ void lar_core_solver::solve() {
             return;
 	}
     ++settings().stats().m_need_to_solve_inf;
-    CASSERT("A_off", !m_r_solver.A_mult_x_is_off());
     lp_assert( r_basis_is_OK());
-    if (need_to_presolve_with_double_solver()) {
-        TRACE("lar_solver", tout << "presolving\n";);
-        prefix_d();
-        lar_solution_signature solution_signature;
-        vector<unsigned> changes_of_basis = find_solution_signature_with_doubles(solution_signature);
-        if (m_d_solver.get_status() == lp_status::TIME_EXHAUSTED) {
-            m_r_solver.set_status(lp_status::TIME_EXHAUSTED);
-            return;
-        }
-        solve_on_signature_tableau(solution_signature, changes_of_basis);
+     
         
-        lp_assert( r_basis_is_OK());
-    } else {
-        
-        if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
-            m_r_solver.find_feasible_solution();
-        else {
-            m_r_solver.solve();
-        }
-        lp_assert(r_basis_is_OK());
+    if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
+         m_r_solver.find_feasible_solution();
+    else {
+        m_r_solver.solve();
     }
+    lp_assert(r_basis_is_OK());
+    
     switch (m_r_solver.get_status())
     {
     case lp_status::INFEASIBLE:

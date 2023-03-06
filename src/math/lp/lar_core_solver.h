@@ -190,16 +190,12 @@ public:
         m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
         
-        delete m_r_solver.m_factorization;
-        m_r_solver.m_factorization = nullptr;
         m_r_x.resize(m_r_A.column_count());
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
         
         m_d_A.pop(k);
         // doubles
-        delete m_d_solver.m_factorization;
-        m_d_solver.m_factorization = nullptr;
         
         m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
@@ -294,172 +290,13 @@ public:
                 unsigned jb = m_r_solver.m_basis[i];
                 m_r_solver.add_delta_to_x_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
-            CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
+            
         }
         lp_assert(m_r_solver.inf_set_is_correct());
     }
 
     
-    template <typename L, typename K>
-    void prepare_solver_x_with_signature(const lar_solution_signature & signature, lp_primal_core_solver<L,K> & s) {
-        for (auto &t : signature) {
-            unsigned j = t.first;
-            lp_assert(m_r_heading[j] < 0);
-            auto pos_type = t.second;
-            switch (pos_type) {
-            case at_lower_bound:
-                s.m_x[j] = s.m_lower_bounds[j];
-                break;
-            case at_fixed:
-            case at_upper_bound:
-                s.m_x[j] = s.m_upper_bounds[j];
-                break;
-            case free_of_bounds: {
-                s.m_x[j] = zero_of_type<K>();
-                continue;
-            }
-            case not_at_bound:
-                  switch (m_column_types[j]) {
-                  case column_type::free_column:
-                      lp_assert(false); // unreachable
-                      break;
-                  case column_type::upper_bound:
-                      s.m_x[j] = s.m_upper_bounds[j];
-                      break;
-                  case column_type::lower_bound:
-                      s.m_x[j] = s.m_lower_bounds[j];
-                      break;
-                  case column_type::boxed:
-                      if (settings().random_next() % 2) {
-                          s.m_x[j] = s.m_lower_bounds[j];
-                      } else {
-                          s.m_x[j] = s.m_upper_bounds[j];
-                      }
-                      break;
-                  case column_type::fixed:
-                      s.m_x[j] = s.m_lower_bounds[j];
-                      break;
-                  default:
-                      lp_assert(false);
-                  }
-                  break;
-            default:
-                lp_unreachable();
-            }
-        }
-
-        // lp_assert(is_zero_vector(s.m_b));
-        s.solve_Ax_eq_b();
-    }
-
-    template <typename L, typename K> 
-    void catch_up_in_lu_in_reverse(const vector<unsigned> & trace_of_basis_change, lp_primal_core_solver<L,K> & cs) {
-        // recover the previous working basis
-        for (unsigned i = trace_of_basis_change.size(); i > 0;  i-= 2) {
-            unsigned entering = trace_of_basis_change[i-1];
-            unsigned leaving = trace_of_basis_change[i-2];
-            cs.change_basis_unconditionally(entering, leaving);
-        }
-        cs.init_lu();
-    }
-
-    //basis_heading is the basis heading of the solver owning trace_of_basis_change
-    // here we compact the trace as we go to avoid unnecessary column changes
-    template <typename L, typename K> 
-    void catch_up_in_lu(const vector<unsigned> & trace_of_basis_change, const vector<int> & basis_heading, lp_primal_core_solver<L,K> & cs) {
-        if (cs.m_factorization == nullptr || cs.m_factorization->m_refactor_counter + trace_of_basis_change.size()/2 >= 200) {
-            for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
-                unsigned entering = trace_of_basis_change[i];
-                unsigned leaving = trace_of_basis_change[i+1];
-                cs.change_basis_unconditionally(entering, leaving);
-            }
-            if (cs.m_factorization != nullptr) {
-                delete cs.m_factorization;
-                cs.m_factorization = nullptr;
-            }
-        } else {
-            indexed_vector<L> w(cs.m_A.row_count());
-            // the queues of delayed indices
-            std::queue<unsigned> entr_q, leav_q;
-            auto * l = cs.m_factorization;
-            lp_assert(l->get_status() == LU_status::OK);
-            for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
-                unsigned entering = trace_of_basis_change[i];
-                unsigned leaving = trace_of_basis_change[i+1];
-                bool good_e = basis_heading[entering] >= 0 && cs.m_basis_heading[entering] < 0;
-                bool good_l = basis_heading[leaving] < 0 && cs.m_basis_heading[leaving] >= 0;
-                if (!good_e && !good_l) continue;
-                if (good_e && !good_l) {
-                    while (!leav_q.empty() && cs.m_basis_heading[leav_q.front()] < 0)
-                        leav_q.pop();
-                    if (!leav_q.empty()) {
-                        leaving = leav_q.front();
-                        leav_q.pop();
-                    } else {
-                        entr_q.push(entering);
-                        continue;
-                    }
-                } else if (!good_e && good_l) {
-                    while (!entr_q.empty() && cs.m_basis_heading[entr_q.front()] >= 0)
-                        entr_q.pop();
-                    if (!entr_q.empty()) {
-                        entering = entr_q.front();
-                        entr_q.pop();
-                    } else {
-                        leav_q.push(leaving);
-                        continue;
-                    }
-                }
-                lp_assert(cs.m_basis_heading[entering] < 0);
-                lp_assert(cs.m_basis_heading[leaving] >= 0);
-                if (l->get_status() == LU_status::OK) {
-                    l->prepare_entering(entering, w); // to init vector w
-                    l->replace_column(zero_of_type<L>(), w, cs.m_basis_heading[leaving]);
-                }
-                cs.change_basis_unconditionally(entering, leaving);
-            }
-            if (l->get_status() != LU_status::OK) {
-                delete l;
-                cs.m_factorization = nullptr;
-            }
-        }
-        if (cs.m_factorization == nullptr) {
-            if (numeric_traits<L>::precise())
-                init_factorization(cs.m_factorization, cs.m_A, cs.m_basis, settings());
-        }
-    }
-
-    bool no_r_lu() const {
-        return m_r_solver.m_factorization == nullptr || m_r_solver.m_factorization->get_status() == LU_status::Degenerated;
-    }
-
-    void solve_on_signature_tableau(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
-        r_basis_is_OK();
-        bool r = catch_up_in_lu_tableau(changes_of_basis, m_d_solver.m_basis_heading);
-
-        if (!r) { // it is the case where m_d_solver gives a degenerated basis
-            prepare_solver_x_with_signature_tableau(signature); // still are going to use the signature partially
-            m_r_solver.find_feasible_solution();
-            m_d_basis = m_r_basis;
-            m_d_heading = m_r_heading;
-            m_d_nbasis = m_r_nbasis;
-            delete m_d_solver.m_factorization;
-            m_d_solver.m_factorization = nullptr;
-        } 
-        else {
-            prepare_solver_x_with_signature_tableau(signature);
-            m_r_solver.start_tracing_basis_changes();
-            m_r_solver.find_feasible_solution();
-            if (settings().get_cancel_flag())
-                return;
-            m_r_solver.stop_tracing_basis_changes();
-            // and now catch up in the double solver
-            lp_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
-            catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
-        }
-        lp_assert(r_basis_is_OK());
-    }
-
+    
     bool adjust_x_of_column(unsigned j) {
         /*
         if (m_r_solver.m_basis_heading[j] >= 0) {
@@ -475,58 +312,6 @@ public:
         m_r_solver.m_inf_set.erase(j);
         */
         lp_assert(false);
-        return true;
-    }
-
-    
-    bool catch_up_in_lu_tableau(const vector<unsigned> & trace_of_basis_change, const vector<int> & basis_heading) {
-        lp_assert(r_basis_is_OK());
-        // the queues of delayed indices
-        std::queue<unsigned> entr_q, leav_q;
-        for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
-            unsigned entering = trace_of_basis_change[i];
-            unsigned leaving = trace_of_basis_change[i+1];
-            bool good_e = basis_heading[entering] >= 0 && m_r_solver.m_basis_heading[entering] < 0;
-            bool good_l = basis_heading[leaving] < 0 && m_r_solver.m_basis_heading[leaving] >= 0;
-            if (!good_e && !good_l) continue;
-            if (good_e && !good_l) {
-                while (!leav_q.empty() && m_r_solver.m_basis_heading[leav_q.front()] < 0)
-                    leav_q.pop();
-                if (!leav_q.empty()) {
-                    leaving = leav_q.front();
-                    leav_q.pop();
-                } else {
-                    entr_q.push(entering);
-                    continue;
-                }
-            } else if (!good_e && good_l) {
-                while (!entr_q.empty() && m_r_solver.m_basis_heading[entr_q.front()] >= 0)
-                    entr_q.pop();
-                if (!entr_q.empty()) {
-                    entering = entr_q.front();
-                    entr_q.pop();
-                } else {
-                    leav_q.push(leaving);
-                    continue;
-                }
-            }
-            lp_assert(m_r_solver.m_basis_heading[entering] < 0);
-            lp_assert(m_r_solver.m_basis_heading[leaving] >= 0);
-            m_r_solver.change_basis_unconditionally(entering, leaving);
-            if(!m_r_solver.pivot_column_tableau(entering, m_r_solver.m_basis_heading[entering])) {
-                // unroll the last step
-                m_r_solver.change_basis_unconditionally(leaving, entering);
-#ifdef Z3DEBUG
-                bool t =
-#endif
-                    m_r_solver.pivot_column_tableau(leaving, m_r_solver.m_basis_heading[leaving]);
-#ifdef Z3DEBUG
-                lp_assert(t);
-#endif 
-                return false;
-            }
-        }
-        lp_assert(r_basis_is_OK());
         return true;
     }
 
@@ -598,27 +383,7 @@ public:
     }
 
     
-    // returns the trace of basis changes
-    vector<unsigned> find_solution_signature_with_doubles(lar_solution_signature & signature) {
-        if (m_d_solver.m_factorization == nullptr || m_d_solver.m_factorization->get_status() != LU_status::OK) {
-            vector<unsigned> ret;
-            return ret;
-        }
-        get_bounds_for_double_solver();
-
-        extract_signature_from_lp_core_solver(m_r_solver, signature);
-        prepare_solver_x_with_signature(signature, m_d_solver);
-        m_d_solver.start_tracing_basis_changes();
-        m_d_solver.find_feasible_solution();
-        if (settings().get_cancel_flag())
-            return vector<unsigned>();
-            
-        m_d_solver.stop_tracing_basis_changes();
-        extract_signature_from_lp_core_solver(m_d_solver, signature);
-        return m_d_solver.m_trace_of_basis_change_vector;
-    }
-
-
+    
     bool lower_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:

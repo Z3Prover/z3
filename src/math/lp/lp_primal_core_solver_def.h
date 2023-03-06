@@ -705,10 +705,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         return 0;
     }
         
-    if ((!numeric_traits<T>::precise()) && this->A_mult_x_is_off()) {
-        this->set_status(lp_status::FLOATING_POINT_ERROR);
-        return 0;
-    }
+   
     do {
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->using_infeas_costs()? "inf" : "feas"), * this->m_settings.get_message_ostream())) {
             return this->total_iterations();

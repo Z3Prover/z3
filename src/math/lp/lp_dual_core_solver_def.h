@@ -74,8 +74,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recalculate_xB
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::recalculate_d() {
-    this->solve_yB(this->m_y);
-    this->fill_reduced_costs_from_m_y_by_rows();
+lp_assert(false)
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_betas() {
@@ -316,15 +315,8 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_d() {
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::d_is_correct() {
-    this->solve_yB(this->m_y);
-    for  (auto j : this->non_basis()) {
-        T d = this->m_costs[j] -  this->m_A.dot_product_with_column(this->m_y, j);
-        if (numeric_traits<T>::get_double(abs(d - this->m_d[j])) >= 0.001) {
-            LP_OUT(this->m_settings, "total_iterations = " << this->total_iterations() << std::endl
-                << "d[" << j << "] = " << this->m_d[j] << " but should be " << d << std::endl);
-            return false;
-        }
-    }
+    
+    lp_assert(false);
     return true;
 }
 

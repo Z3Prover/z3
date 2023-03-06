@@ -116,11 +116,6 @@ fill_cb(vector<T> & y) const {
     }
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-solve_yB(vector<T> & y) const {
-    fill_cb(y); // now y = cB, that is the projection of costs to basis
-    m_factorization->solve_yB_with_error_check(y, m_basis);
-}
 
 // template <typename T, typename X> void lp_core_solver_base<T, X>::
 // update_index_of_ed() {
@@ -188,71 +183,6 @@ restore_m_ed(T * buffer) {
     }
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-A_mult_x_is_off() const {
-    lp_assert(m_x.size() == m_A.column_count());
-    if (numeric_traits<T>::precise()) {
-		for (unsigned i = 0; i < m_m(); i++) {
-            X delta = /*m_b[i] */- m_A.dot_product_with_row(i, m_x);
-            if (delta != numeric_traits<X>::zero()) {
-                return true;
-            }
-        }
-        return false;
-    }
-    T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
-    X one = convert_struct<X, double>::convert(1.0);
-    for (unsigned i = 0; i < m_m(); i++) {
-        X delta = abs(/*m_b[i] -*/ m_A.dot_product_with_row(i, m_x));
-        auto eps = feps /* * (one + T(0.1) * abs(m_b[i])) */;
-
-        if (delta > eps) {
-#if 0
-            LP_OUT(m_settings, "x is off ("
-                << "m_b[" << i  << "] = " << m_b[i] << " "
-                << "left side = " << m_A.dot_product_with_row(i, m_x) << ' '
-                << "delta = " << delta << ' '
-                   << "iters = " << total_iterations() << ")" << std::endl);
-#endif
-            return true;
-        }
-    }
-    return false;
-}
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-A_mult_x_is_off_on_index(const vector<unsigned> & index) const {
-    lp_assert(m_x.size() == m_A.column_count());
-    if (numeric_traits<T>::precise()) return false;
-#if RUN_A_MULT_X_IS_OFF_FOR_PRECESE
-    for (unsigned i : index) {
-        X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
-        if (delta != numeric_traits<X>::zero()) {
-            return true;
-        }
-    }
-    return false;
-#endif
-    // todo(levnach) run on m_ed.m_index only !!!!!
-    T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
-    X one = convert_struct<X, double>::convert(1.0);
-    for (unsigned i : index) {
-        X delta = abs(/*m_b[i] -*/ m_A.dot_product_with_row(i, m_x));
-        auto eps = feps /* *(one + T(0.1) * abs(m_b[i])) */;
-
-        if (delta > eps) {
-#if 0
-            LP_OUT(m_settings, "x is off ("
-                << "m_b[" << i  << "] = " << m_b[i] << " "
-                << "left side = " << m_A.dot_product_with_row(i, m_x) << ' '
-                << "delta = " << delta << ' '
-                   << "iters = " << total_iterations() << ")" << std::endl);
-#endif
-            return true;
-        }
-    }
-    return false;
-}
-
 
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -292,7 +222,7 @@ print_statistics(char const* str, X cost, std::ostream & out) {
     if (str!= nullptr)
         out << str << " ";
     out << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
-        << ", nonzeros = " << (m_factorization != nullptr? m_factorization->get_number_of_nonzeroes() : m_A.number_of_non_zeroes()) << std::endl;
+        << ", nonzeros = " <<  m_A.number_of_non_zeroes() << std::endl;
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -411,7 +341,7 @@ rs_minus_Anx(vector<X> & rs) {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 find_x_by_solving() {
     solve_Ax_eq_b();
-    return !A_mult_x_is_off();
+    return true;
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feasible(unsigned j) const {
@@ -592,24 +522,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-restore_x_and_refactor(int entering, int leaving, X const & t) {
-    this->restore_basis_change(entering, leaving);
-    restore_x(entering, t);
-    init_factorization(m_factorization, m_A, m_basis, m_settings);
-    if (m_factorization->get_status() == LU_status::Degenerated) {
-        LP_OUT(m_settings,  "cannot refactor" << std::endl);
-        m_status = lp_status::FLOATING_POINT_ERROR;
-        return;
-    }
-    //   solve_Ax_eq_b();
-    if (A_mult_x_is_off()) {
-        LP_OUT(m_settings, "cannot restore solution" << std::endl);
-        m_status = lp_status::FLOATING_POINT_ERROR;
-        return;
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_x(unsigned entering, X const & t) {
     if (is_zero(t)) return;
     m_x[entering] -= t;
@@ -731,11 +643,6 @@ snap_xN_to_bounds_and_free_columns_to_zeroes() {
     solve_Ax_eq_b();
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-init_reduced_costs_for_one_iteration() {
-    solve_yB(m_y);
-    fill_reduced_costs_from_m_y_by_rows();
-}
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
 get_non_basic_column_value_position(unsigned j) const {
