@@ -156,10 +156,6 @@ public:
 
     void pretty_print(std::ostream & out);
 
-    void save_state(T * w_buffer, T * d_buffer);
-
-    void restore_state(T * w_buffer, T * d_buffer);
-
     X get_cost() const {
         return dot_product(m_costs, m_x);
     }
@@ -173,8 +169,6 @@ public:
 
     void restore_m_ed(T * buffer);
     
-    void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
-
     void add_delta_to_entering(unsigned entering, const X & delta);
 
     const X & get_var_value(unsigned j) const {
@@ -422,11 +416,9 @@ public:
     void snap_non_basic_x_to_bound_and_free_to_zeroes();
     void snap_xN_to_bounds_and_fill_xB();
 
-    void snap_xN_to_bounds_and_free_columns_to_zeroes();
-  
+    
     non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
 
-    void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
     bool remove_from_basis(unsigned j);
