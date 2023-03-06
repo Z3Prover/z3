@@ -56,8 +56,6 @@ public:
 
 
     lp_primal_core_solver<mpq, numeric_pair<mpq>> m_r_solver; // solver in rational numbers
-
-    lp_primal_core_solver<double, double> m_d_solver; // solver in doubles
     
     lar_core_solver(
                     lp_settings & settings,
@@ -140,7 +138,6 @@ public:
 
     void push() {
         lp_assert(m_r_solver.basis_heading_is_correct());
-        lp_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
         lp_assert(m_column_types.size() == m_r_A.column_count());
         m_stacked_simplex_strategy = settings().simplex_strategy();
         m_stacked_simplex_strategy.push();
@@ -196,13 +193,9 @@ public:
         m_stacked_simplex_strategy.pop(k);
         settings().set_simplex_strategy(m_stacked_simplex_strategy);
         lp_assert(m_r_solver.basis_heading_is_correct());
-        lp_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }
 
-    bool need_to_presolve_with_double_solver() const {
-        return false;
-    }
-
+    
     template <typename L>
     bool is_zero_vector(const vector<L> & b) {
         for (const L & m: b)
