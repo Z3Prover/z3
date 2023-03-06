@@ -666,10 +666,8 @@ namespace datalog {
             }
             else {
                 SASSERT(m.is_value(arg));
-                if (!is_output) {
-                    TRACE("dl", tout << "input  " << i << " in " << p->get_decl()->get_name() << "\n";);
-                    bv.unset(i);
-                }
+                TRACE("dl", tout << i << " in " << p->get_decl()->get_name() << " is a value, unable to slice\n";);
+                bv.unset(i);
             }
         }
     }
