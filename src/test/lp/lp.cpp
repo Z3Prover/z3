@@ -48,7 +48,6 @@
 #include "test/lp/gomory_test.h"
 #include "math/lp/matrix.h"
 #include "math/lp/hnf.h"
-#include "math/lp/square_sparse_matrix_def.h"
 #include "math/lp/general_matrix.h"
 #include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
@@ -56,6 +55,8 @@
 #include "math/lp/cross_nested.h"
 #include "math/lp/int_cube.h"
 #include "math/lp/emonics.h"
+#include "math/lp/static_matrix.h"
+#include "math/lp/dense_matrix.h"
 
 bool my_white_space(const char & a) {
     return a == ' ' || a == '\t';
@@ -388,122 +389,6 @@ struct simple_column_namer:public column_namer
 };
 
 
-template <typename T, typename X>
-void test_matrix(square_sparse_matrix<T, X> & a) {
-    auto m = a.dimension();
-
-    // copy a to b in the reversed order
-    square_sparse_matrix<T, X> b(m, m);
-    std::cout << "copy b to a"<< std::endl;
-    for (int row = m - 1; row >= 0; row--)
-        for (int col = m - 1; col >= 0; col --) {
-            b(row, col) = (T const&) a(row, col);
-        }
-
-
-    std::cout << "zeroing b in the reverse order"<< std::endl;
-    for (int row = m - 1; row >= 0; row--)
-        for (int col = m - 1; col >= 0; col --)
-            b.set(row, col, T(0));
-
-
-
-    for (unsigned row = 0; row < m; row ++)
-        for (unsigned col = 0; col < m; col ++)
-            a.set(row, col, T(0));
-
-
-    unsigned i = my_random() % m;
-    unsigned j = my_random() % m;
-
-    auto t = T(1);
-
-    a.set(i, j, t);
-
-    lp_assert(a.get(i, j) == t);
-
-    unsigned j1;
-    if (j < m - 1) {
-        j1 = m - 1;
-        a.set(i, j1, T(2));
-    }
-}
-
-void tst1() {
-    std::cout << "testing the minimal matrix with 1 row and 1 column" << std::endl;
-    square_sparse_matrix<double, double> m0(1, 1);
-    m0.set(0, 0, 1);
-    // print_matrix(m0);
-    m0.set(0, 0, 0);
-    // print_matrix(m0);
-    test_matrix(m0);
-
-    unsigned rows = 2;
-    square_sparse_matrix<double, double> m(rows, rows);
-    std::cout << "setting m(0,1)=" << std::endl;
-
-    m.set(0, 1,  11);
-    m.set(0, 0,  12);
-
-    // print_matrix<double>(m);
-
-    test_matrix(m);
-
-    square_sparse_matrix<double, double> m1(2, 2);
-    m1.set(0, 0, 2);
-    m1.set(1, 0, 3);
-    // print_matrix(m1);
-    std::cout << " zeroing matrix 2 by 2" << std::endl;
-    m1.set(0, 0, 0);
-    m1.set(1, 0, 0);
-    // print_matrix(m1);
-
-    test_matrix(m1);
-
-
-    std::cout << "printing zero matrix 3 by 1" << std::endl;
-    square_sparse_matrix<double, double> m2(3, 3);
-    // print_matrix(m2);
-
-    m2.set(0, 0, 1);
-    m2.set(2, 0, 2);
-    std::cout << "printing  matrix 3 by 1 with a gap" << std::endl;
-    // print_matrix(m2);
-
-    test_matrix(m2);
-
-    square_sparse_matrix<double, double> m10by9(10, 10);
-    m10by9.set(0, 1, 1);
-
-    m10by9(0, 1) = 4;
-
-    double test = m10by9(0, 1);
-
-    std::cout << "got " << test << std::endl;
-
-
-    m10by9.set(0, 8, 8);
-    m10by9.set(3, 4, 7);
-    m10by9.set(3, 2, 5);
-    m10by9.set(3, 8, 99);
-    m10by9.set(3, 2, 6);
-    m10by9.set(1, 8, 9);
-    m10by9.set(4, 0, 40);
-    m10by9.set(0, 0, 10);
-
-    std::cout << "printing  matrix 10 by 9" << std::endl;
-    // print_matrix(m10by9);
-
-
-    test_matrix(m10by9);
-    std::cout <<"zeroing m10by9\n";
-#ifdef Z3DEBUG
-    for (unsigned int i = 0; i < m10by9.dimension(); i++)
-        for (unsigned int j = 0; j < m10by9.column_count(); j++)
-            m10by9.set(i, j, 0);
-#endif
-    // print_matrix(m10by9);
-}
 
 vector<int> allocate_basis_heading(unsigned count) { // the rest of initialization will be handled by lu_QR
     vector<int> basis_heading(count, -1);
@@ -555,12 +440,6 @@ void test_small_lu(lp_settings & settings) {
 
 #endif
 
-void fill_long_row(square_sparse_matrix<double, double> &m, int i) {
-    int n = m.dimension();
-    for (int j = 0; j < n; j ++) {
-        m (i, (j + i) % n) = j * j;
-    }
-}
 
 void fill_long_row(static_matrix<double, double> &m, int i) {
     int n = m.column_count();
@@ -570,13 +449,6 @@ void fill_long_row(static_matrix<double, double> &m, int i) {
 }
 
 
-void fill_long_row_exp(square_sparse_matrix<double, double> &m, int i) {
-    int n = m.dimension();
-
-    for (int j = 0; j < n; j ++) {
-        m(i, j) = my_random() % 20;
-    }
-}
 
 void fill_long_row_exp(static_matrix<double, double> &m, int i) {
     int n = m.column_count();
@@ -586,26 +458,9 @@ void fill_long_row_exp(static_matrix<double, double> &m, int i) {
     }
 }
 
-void fill_larger_square_sparse_matrix_exp(square_sparse_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.dimension(); i++ )
-        fill_long_row_exp(m, i);
-}
-
-void fill_larger_square_sparse_matrix_exp(static_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.row_count(); i++ )
-        fill_long_row_exp(m, i);
-}
 
 
-void fill_larger_square_sparse_matrix(square_sparse_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.dimension(); i++ )
-        fill_long_row(m, i);
-}
 
-void fill_larger_square_sparse_matrix(static_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.row_count(); i++ )
-        fill_long_row(m, i);
-}
 
 
 int perm_id = 0;
@@ -616,11 +471,6 @@ int perm_id = 0;
 
 
 
-void init_b(vector<double> & b, square_sparse_matrix<double, double> & m, vector<double>& x) {
-    for (unsigned i = 0; i < m.dimension(); i++) {
-        b.push_back(m.dot_product_with_row(i, x));
-    }
-}
 
 void init_b(vector<double> & b, static_matrix<double, double> & m, vector<double> & x) {
     for (unsigned i = 0; i < m.row_count(); i++) {
@@ -671,7 +521,7 @@ void test_lp_1() {
     m(2, 0) =  2;  m(2, 1) = -1; m(2, 2) = 2;  m(2, 5) = 1;
     m(3, 0) =  2;  m(3, 1) =  3; m(3, 2) = -1; m(3, 6) = 1;
 #ifdef Z3DEBUG
-    print_matrix(m, std::cout);
+    //print_matrix(m, std::cout);
 #endif
     vector<double> x_star(7);
     x_star[0] = 0; x_star[1] = 0; x_star[2] = 0;
@@ -724,213 +574,9 @@ void test_lp_primal_core_solver() {
 }
 
 
-#ifdef Z3DEBUG
-template <typename T, typename X>
-void test_swap_rows_with_permutation(square_sparse_matrix<T, X>& m){
-    std::cout << "testing swaps" << std::endl;
-    unsigned dim = m.row_count();
-    dense_matrix<double, double> original(&m);
-    permutation_matrix<double, double> q(dim);
-    print_matrix(m, std::cout);
-    lp_assert(original == q * m);
-    for (int i = 0; i < 100; i++) {
-        unsigned row1 = my_random() % dim;
-        unsigned row2 = my_random() % dim;
-        if (row1 == row2) continue;
-        std::cout << "swap " << row1 << " " << row2 << std::endl;
-        m.swap_rows(row1, row2);
-        q.transpose_from_left(row1, row2);
-        lp_assert(original == q * m);
-        print_matrix(m, std::cout);
-        std::cout << std::endl;
-    }
-}
-#endif
-template <typename T, typename X>
-void fill_matrix(square_sparse_matrix<T, X>& m); // forward definition
-#ifdef Z3DEBUG
-template <typename T, typename X>
-void test_swap_cols_with_permutation(square_sparse_matrix<T, X>& m){
-    std::cout << "testing swaps" << std::endl;
-    unsigned dim = m.row_count();
-    dense_matrix<double, double> original(&m);
-    permutation_matrix<double, double> q(dim);
-    print_matrix(m, std::cout);
-    lp_assert(original == q * m);
-    for (int i = 0; i < 100; i++) {
-        unsigned row1 = my_random() % dim;
-        unsigned row2 = my_random() % dim;
-        if (row1 == row2) continue;
-        std::cout << "swap " << row1 << " " << row2 << std::endl;
-        m.swap_rows(row1, row2);
-        q.transpose_from_right(row1, row2);
-        lp_assert(original == q * m);
-        print_matrix(m, std::cout);
-        std::cout << std::endl;
-    }
-}
 
 
-template <typename T, typename X>
-void test_swap_rows(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
-    std::cout << "test_swap_rows(" << i0 << "," << i1 << ")" << std::endl;
-    square_sparse_matrix<T, X> mcopy(m.dimension(), 0);
-    for (unsigned i = 0; i  < m.dimension(); i++)
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            mcopy(i, j)= m(i, j);
-        }
-    std::cout << "swapping rows "<< i0 << "," << i1 << std::endl;
-    m.swap_rows(i0, i1);
 
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(mcopy(i0, j) == m(i1, j));
-        lp_assert(mcopy(i1, j) == m(i0, j));
-    }
-}
-template <typename T, typename X>
-void test_swap_columns(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
-    std::cout << "test_swap_columns(" << i0 << "," << i1 << ")" << std::endl;
-    square_sparse_matrix<T, X> mcopy(m.dimension(), 0); // the second argument does not matter
-    for (unsigned i = 0; i  < m.dimension(); i++)
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            mcopy(i, j)= m(i, j);
-        }
-    m.swap_columns(i0, i1);
-
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(mcopy(j, i0) == m(j, i1));
-        lp_assert(mcopy(j, i1) == m(j, i0));
-    }
-
-    for (unsigned i = 0; i  < m.dimension(); i++) {
-        if (i == i0 || i == i1)
-            continue;
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            lp_assert(mcopy(j, i)== m(j, i));
-        }
-    }
-}
-#endif
-
-template <typename T, typename X>
-void fill_matrix(square_sparse_matrix<T, X>& m){
-    int v = 0;
-    for (int i = m.dimension() - 1; i >= 0; i--) {
-        for (int j = m.dimension() - 1; j >=0; j--){
-            m(i, j) = v++;
-        }
-    }
-}
-
-void test_pivot_like_swaps_and_pivot(){
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-    // pivot at 2,7
-    m.swap_columns(0, 7);
-    // print_matrix(m);
-    m.swap_rows(2, 0);
-    // print_matrix(m);
-    for (unsigned i = 1; i < m.dimension(); i++) {
-        m(i, 0) = 0;
-    }
-    // print_matrix(m);
-
-    // say pivot at 3,4
-    m.swap_columns(1, 4);
-    // print_matrix(m);
-    m.swap_rows(1, 3);
-    // print_matrix(m);
-
-    vector<double> row;
-    double alpha = 2.33;
-    unsigned pivot_row = 1;
-    unsigned target_row = 2;
-    unsigned pivot_row_0 = 3;
-    double beta = 3.1;
-    m(target_row, 3) = 0;
-    m(target_row, 5) = 0;
-    m(pivot_row, 6) = 0;
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        row.push_back(m(target_row, j) + alpha * m(pivot_row, j) + beta * m(pivot_row_0, j));
-    }
-
-    for (auto & t : row) {
-        std::cout << t << ",";
-    }
-    std::cout << std::endl;
-    lp_settings settings;
-    m.pivot_row_to_row(pivot_row, alpha, target_row, settings);
-    m.pivot_row_to_row(pivot_row_0, beta, target_row, settings);
-    //  print_matrix(m);
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(abs(row[j] - m(target_row, j)) < 0.00000001);
-    }
-}
-
-#ifdef Z3DEBUG
-void test_swap_rows() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-    test_swap_rows(m, 3, 5);
-
-    test_swap_rows(m, 1, 3);
-
-
-    test_swap_rows(m, 1, 3);
-
-    test_swap_rows(m, 1, 7);
-
-    test_swap_rows(m, 3, 7);
-
-    test_swap_rows(m, 0, 7);
-
-    m(0, 4) = 1;
-    // print_matrix(m);
-    test_swap_rows(m, 0, 7);
-
-    // go over some corner cases
-    square_sparse_matrix<double, double> m0(2, 2);
-    test_swap_rows(m0, 0, 1);
-    m0(0, 0) = 3;
-    test_swap_rows(m0, 0, 1);
-    m0(1, 0) = 3;
-    test_swap_rows(m0, 0, 1);
-
-
-    square_sparse_matrix<double, double> m1(10, 10);
-    test_swap_rows(m1, 0, 1);
-    m1(0, 0) = 3;
-    test_swap_rows(m1, 0, 1);
-    m1(1, 0) = 3;
-    m1(0, 3) = 5;
-    m1(1, 3) = 4;
-    m1(1, 8) = 8;
-    m1(1, 9) = 8;
-
-    test_swap_rows(m1, 0, 1);
-
-    square_sparse_matrix<double, double> m2(3, 3);
-    test_swap_rows(m2, 0, 1);
-    m2(0, 0) = 3;
-    test_swap_rows(m2, 0, 1);
-    m2(2, 0) = 3;
-    test_swap_rows(m2, 0, 2);
-}
-
-void fill_uniformly(square_sparse_matrix<double, double> & m, unsigned dim) {
-    int v = 0;
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            m(i, j) = v++;
-        }
-    }
-}
 
 void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     int v = 0;
@@ -941,146 +587,8 @@ void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     }
 }
 
-void square_sparse_matrix_with_permutations_test() {
-    unsigned dim = 4;
-    square_sparse_matrix<double, double> m(dim, dim);
-    fill_uniformly(m, dim);
-    dense_matrix<double, double> dm(dim, dim);
-    fill_uniformly(dm, dim);
-    dense_matrix<double, double> dm0(dim, dim);
-    fill_uniformly(dm0, dim);
-    permutation_matrix<double, double> q0(dim);
-    q0[0] = 1;
-    q0[1] = 0;
-    q0[2] = 3;
-    q0[3] = 2;
-    permutation_matrix<double, double> q1(dim);
-    q1[0] = 1;
-    q1[1] = 2;
-    q1[2] = 3;
-    q1[3] = 0;
-    permutation_matrix<double, double> p0(dim);
-    p0[0] = 1;
-    p0[1] = 0;
-    p0[2] = 3;
-    p0[3] = 2;
-    permutation_matrix<double, double> p1(dim);
-    p1[0] = 1;
-    p1[1] = 2;
-    p1[2] = 3;
-    p1[3] = 0;
-
-    m.multiply_from_left(q0);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[i], j));
-        }
-    }
-
-    auto q0_dm = q0 * dm;
-    lp_assert(m == q0_dm);
-
-    m.multiply_from_left(q1);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], j));
-        }
-    }
 
 
-    auto q1_q0_dm = q1 * q0_dm;
-
-    lp_assert(m == q1_q0_dm);
-
-    m.multiply_from_right(p0);
-
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p0[j]));
-        }
-    }
-
-    auto q1_q0_dm_p0 = q1_q0_dm * p0;
-
-    lp_assert(m == q1_q0_dm_p0);
-
-    m.multiply_from_right(p1);
-
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p0[j]]));
-        }
-    }
-
-    auto q1_q0_dm_p0_p1 = q1_q0_dm_p0 * p1;
-    lp_assert(m == q1_q0_dm_p0_p1);
-
-    m.multiply_from_right(p1);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p1[p0[j]]]));
-        }
-    }
-    auto q1_q0_dm_p0_p1_p1 = q1_q0_dm_p0_p1 * p1;
-
-    lp_assert(m == q1_q0_dm_p0_p1_p1);
-}
-
-void test_swap_columns() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-
-    test_swap_columns(m, 3, 5);
-
-    test_swap_columns(m, 1, 3);
-
-    test_swap_columns(m, 1, 3);
-
-    // print_matrix(m);
-    test_swap_columns(m, 1, 7);
-
-    test_swap_columns(m, 3, 7);
-
-    test_swap_columns(m, 0, 7);
-
-    test_swap_columns(m, 0, 7);
-
-    // go over some corner cases
-    square_sparse_matrix<double, double> m0(2, 2);
-    test_swap_columns(m0, 0, 1);
-    m0(0, 0) = 3;
-    test_swap_columns(m0, 0, 1);
-    m0(0, 1) = 3;
-    test_swap_columns(m0, 0, 1);
-
-
-    square_sparse_matrix<double, double> m1(10, 10);
-    test_swap_columns(m1, 0, 1);
-    m1(0, 0) = 3;
-    test_swap_columns(m1, 0, 1);
-    m1(0, 1) = 3;
-    m1(3, 0) = 5;
-    m1(3, 1) = 4;
-    m1(8, 1) = 8;
-    m1(9, 1) = 8;
-
-    test_swap_columns(m1, 0, 1);
-
-    square_sparse_matrix<double, double> m2(3, 3);
-    test_swap_columns(m2, 0, 1);
-    m2(0, 0) = 3;
-    test_swap_columns(m2, 0, 1);
-    m2(0, 2) = 3;
-    test_swap_columns(m2, 0, 2);
-}
-
-
-
-void test_swap_operations() {
-    test_swap_rows();
-    test_swap_columns();
-}
 
 void test_dense_matrix() {
     dense_matrix<double, double> d(3, 2);
@@ -1110,7 +618,7 @@ void test_dense_matrix() {
     p2.set_elem(1, 0, 1);
     auto c2 = d * p2;
 }
-#endif
+
 
 
 
@@ -1471,59 +979,6 @@ bool contains(std::string const & s, char const * pattern) {
 
 
 
-
-void test_init_U() {
-    static_matrix<double, double> m(3, 7);
-    m(0, 0) = 10; m(0, 1) = 11; m(0, 2) = 12; m(0, 3) = 13; m(0, 4) = 14;
-    m(1, 0) = 20; m(1, 1) = 21; m(1, 2) = 22; m(1, 3) = 23; m(1, 5) = 24;
-    m(2, 0) = 30; m(2, 1) = 31; m(2, 2) = 32; m(2, 3) = 33; m(2, 6) = 34;
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-    vector<unsigned> basis(3);
-    basis[0] = 1;
-    basis[1] = 2;
-    basis[2] = 4;
-
-    square_sparse_matrix<double, double> u(m, basis);
-
-    for (unsigned i = 0; i < 3; i++) {
-        for (unsigned j = 0; j < 3; j ++) {
-            lp_assert(m(i, basis[j]) == u(i, j));
-        }
-    }
-
-    // print_matrix(m);
-    // print_matrix(u);
-}
-
-void test_replace_column() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    m.swap_columns(0, 7);
-    m.swap_columns(6, 3);
-    m.swap_rows(2, 0);
-    for (unsigned i = 1; i < m.dimension(); i++) {
-        m(i, 0) = 0;
-    }
-
-    indexed_vector<double> w(m.dimension());
-    for (unsigned i = 0; i < m.dimension(); i++) {
-        w.set_value(i % 3, i);
-    }
-
-    lp_settings settings;
-
-    for (unsigned column_to_replace = 0;  column_to_replace < m.dimension(); column_to_replace ++) {
-        m.replace_column(column_to_replace, w, settings);
-        for (unsigned i = 0; i < m.dimension(); i++) {
-            lp_assert(abs(w[i] - m(i, column_to_replace)) < 0.00000001);
-        }
-    }
-}
-
-
-
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-monics", "test emonics");
     parser.add_option_with_help_string("-nex_order", "test nex order");
@@ -1544,8 +999,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
-    parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
-    parser.add_option_with_help_string("--test_perm", "test permutations");
     parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
     parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
@@ -1869,38 +1322,6 @@ void read_indexed_vector(indexed_vector<double> & v, std::ifstream & f) {
 
 void check_lu_from_file(std::string lufile_name) {
     lp_assert(false);
-}
-
-void test_square_dense_submatrix() {
-    std::cout << "testing square_dense_submatrix" << std::endl;
-    unsigned parent_dim = 7;
-    square_sparse_matrix<double, double> parent(parent_dim, 0);
-    fill_matrix(parent);
-    unsigned index_start = 3;
-    square_dense_submatrix<double, double> d;
-    d.init(&parent, index_start);
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            d[i][j] = i*3+j*2;
-#ifdef Z3DEBUG
-    unsigned dim = parent_dim - index_start;
-    dense_matrix<double, double> m(dim, dim);
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            m[i-index_start][j-index_start] = d[i][j];
-    print_matrix(&m, std::cout);
-#endif
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            d[i][j] = d[j][i];
-#ifdef Z3DEBUG
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            m[i-index_start][j-index_start] = d[i][j];
-
-    print_matrix(&m, std::cout);
-    std::cout << std::endl;
-#endif
 }
 
 
@@ -2958,8 +2379,3 @@ void test_lp_local(int argn, char**argv) {
 void tst_lp(char ** argv, int argc, int& i) {
     lp::test_lp_local(argc - 2, argv + 2);
 }
-#ifdef Z3DEBUG
-namespace lp {
-template void print_matrix<general_matrix>(general_matrix&, std::ostream&);
-}
-#endif
