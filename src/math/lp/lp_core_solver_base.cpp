@@ -83,6 +83,9 @@ template std::string lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_name(unsi
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::pretty_print(std::ostream & out);
 template std::string lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::column_name(unsigned int) const;
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::pretty_print(std::ostream & out);
+template int lp::lp_core_solver_base<double, double>::pivots_in_column_and_row_are_different(int, int) const;
+template int lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::pivots_in_column_and_row_are_different(int, int) const;
+template int lp::lp_core_solver_base<lp::mpq, lp::mpq>::pivots_in_column_and_row_are_different(int, int) const;
 template bool lp::lp_core_solver_base<double, double>::calc_current_x_is_feasible_include_non_basis(void)const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::calc_current_x_is_feasible_include_non_basis(void)const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calc_current_x_is_feasible_include_non_basis() const;

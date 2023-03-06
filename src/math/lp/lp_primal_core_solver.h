@@ -43,16 +43,20 @@ class lp_primal_core_solver:public lp_core_solver_base<T, X> {
 public:
     // m_sign_of_entering is set to 1 if the entering variable needs
     // to grow and is set to -1  otherwise
+    unsigned       m_column_norm_update_counter;
     T              m_enter_price_eps;
     int            m_sign_of_entering_delta;
+    indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T                 m_epsilon_of_reduced_cost;
     vector<T>         m_costs_backup;
+    T                 m_converted_harris_eps;
     unsigned          m_inf_row_index_for_tableau;
     bool              m_bland_mode_tableau;
     u_set           m_left_basis_tableau;
     unsigned          m_bland_mode_threshold;
     unsigned          m_left_basis_repeated;
     vector<unsigned>  m_leaving_candidates;
+    //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
     void sort_non_basis_rational();
@@ -273,9 +277,14 @@ public:
         return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
     }
 
-    
+    bool get_harris_theta(X & theta);
+
+    void restore_harris_eps() { m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance); }
+    void zero_harris_eps() { m_converted_harris_eps = zero_of_type<T>(); }
+    int find_leaving_on_harris_theta(X const & harris_theta, X & t);
     bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t, bool & unlimited);
     bool try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X & t);
+    int find_leaving_and_t(unsigned entering, X & t);
     int find_leaving_and_t_precise(unsigned entering, X & t);
     int find_leaving_and_t_tableau(unsigned entering, X & t);
  
@@ -309,7 +318,10 @@ public:
         lp_assert(m > 0 && this->m_column_types[j] == column_type::upper_bound);
         limit_inf_on_bound_m_pos(m, this->m_x[j], this->m_upper_bounds[j], theta, unlimited);
     };
-    
+
+    X harris_eps_for_bound(const X & bound) const { return ( convert_struct<X, int>::convert(1) +  abs(bound)/10) * m_converted_harris_eps/3;
+    }
+
     void get_bound_on_variable_and_update_leaving_precisely(unsigned j, vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
 
     vector<T> m_lower_bounds_dummy; // needed for the base class only
@@ -502,7 +514,10 @@ public:
     // }
 
     void limit_theta_on_basis_column_for_feas_case_m_neg_no_check(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(false);
+        lp_assert(m < 0);
+        const X& eps = harris_eps_for_bound(this->m_lower_bounds[j]);
+        limit_theta((this->m_lower_bounds[j] - this->m_x[j] - eps) / m, theta, unlimited);
+        if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
     }
 
     bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
@@ -516,7 +531,16 @@ public:
                 theta = zero_of_type<X>();
                 unlimited = false;
             }
-        } 
+        } else {
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->below_bound(x, bound)) return false;
+            if (this->above_bound(x, bound)) {
+                limit_theta((bound - x - eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
+        }
         return true;
     }
 
@@ -531,7 +555,16 @@ public:
                 theta = zero_of_type<X>();
                 unlimited = false;
             }
-        } 
+        } else {
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->above_bound(x, bound)) return false;
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x + eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
+        }
         return true;
     }
 
@@ -543,32 +576,82 @@ public:
                 limit_theta((bound - x) / m, theta, unlimited);
             }
         }
-        
+        else {
+            // x gets larger
+            lp_assert(m > 0);
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x + eps) / m, theta, unlimited);
+            }
+        }
     }
 
     void limit_inf_on_upper_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
-        lp_assert(false);
-        
+        lp_assert(m < 0);
+        const X& eps = harris_eps_for_bound(bound);
+        if (this->above_bound(x, bound)) {
+            limit_theta((bound - x - eps) / m, theta, unlimited);
+        }
     }
 
     void limit_theta_on_basis_column_for_inf_case_m_pos_boxed(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(false);
-        
+        //        lp_assert(m > 0 && this->m_column_type[j] == column_type::boxed);
+        const X & x = this->m_x[j];
+        const X & lbound = this->m_lower_bounds[j];
+
+        if (this->below_bound(x, lbound)) {
+            const X& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
+            limit_theta((lbound - x + eps) / m, theta, unlimited);
+        } else {
+            const X & ubound = this->m_upper_bounds[j];
+            if (this->below_bound(x, ubound)){
+                const X& eps = harris_eps_for_bound(ubound);
+                limit_theta((ubound - x + eps) / m, theta, unlimited);
+            } else if (!this->above_bound(x, ubound)) {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
+        }
     }
 
     void limit_theta_on_basis_column_for_inf_case_m_neg_boxed(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(false);
-        
+        //  lp_assert(m < 0 && this->m_column_type[j] == column_type::boxed);
+        const X & x = this->m_x[j];
+        const X & ubound = this->m_upper_bounds[j];
+        if (this->above_bound(x, ubound)) {
+            const X& eps = harris_eps_for_bound(ubound);
+            limit_theta((ubound - x - eps) / m, theta, unlimited);
+        } else {
+            const X & lbound = this->m_lower_bounds[j];
+            if (this->above_bound(x, lbound)){
+                const X& eps = harris_eps_for_bound(lbound);
+                limit_theta((lbound - x - eps) / m, theta, unlimited);
+            } else if (!this->below_bound(x, lbound)) {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
+        }
     }
     void limit_theta_on_basis_column_for_feas_case_m_pos(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(false);
-        
+        lp_assert(m > 0);
+        const T& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
+        if (this->below_bound(this->m_x[j], this->m_upper_bounds[j])) {
+            limit_theta((this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta, unlimited);
+            if (theta < zero_of_type<X>()) {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
+        }
     }
 
     void limit_theta_on_basis_column_for_feas_case_m_pos_no_check(unsigned j, const T & m, X & theta, bool & unlimited ) {
-        lp_assert(false);
-        
+        lp_assert(m > 0);
+        const X& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
+        limit_theta( (this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta, unlimited);
+        if (theta < zero_of_type<X>()) {
+            theta = zero_of_type<X>();
+        }
     }
 
     // j is a basic column or the entering, in any case x[j] has to stay feasible.
@@ -639,12 +722,14 @@ public:
     
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
     bool column_is_benefitial_for_entering_basis_precise(unsigned j) const;
+    bool can_enter_basis(unsigned j);
     bool done();
     void init_infeasibility_costs();
     
     void init_infeasibility_cost_for_column(unsigned j);
     T get_infeasibility_cost_for_column(unsigned j) const;
-    
+    void init_infeasibility_costs_for_changed_basis_only();
+
     void print_column(unsigned j, std::ostream & out);
     // j is the basic column, x is the value at x[j]
     // d is the coefficient before m_entering in the row with j as the basis column
@@ -658,6 +743,13 @@ public:
 
     void print_bound_info_and_x(unsigned j, std::ostream & out);
 
+    void init_infeasibility_after_update_x_if_inf(unsigned leaving) {
+        if (this->using_infeas_costs()) {
+            init_infeasibility_costs_for_changed_basis_only();
+            this->m_costs[leaving] = zero_of_type<T>();
+            this->remove_column_from_inf_set(leaving);
+        } 
+    }
     
     void init_inf_set() {
         this->clear_inf_set();
@@ -793,10 +885,15 @@ public:
                                   column_type_array,
                                   lower_bound_values,
                                   upper_bound_values),
+        m_beta(A.row_count()),
         m_epsilon_of_reduced_cost(T(1)/T(10000000)),
         m_bland_mode_threshold(1000) {
 
-        
+        if (!(numeric_traits<T>::precise())) {
+            m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
+        } else {
+            m_converted_harris_eps = zero_of_type<T>();
+        }
         this->set_status(lp_status::UNKNOWN);
     }
 
@@ -822,7 +919,9 @@ public:
                                   column_names,
                                   column_type_array,
                                   m_lower_bounds_dummy,
-                                  upper_bound_values) {
+                                  upper_bound_values),
+        m_beta(A.row_count()),
+        m_converted_harris_eps(convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance)) {
         lp_assert(initial_x_is_correct());
         m_lower_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
         m_enter_price_eps = numeric_traits<T>::precise() ? numeric_traits<T>::zero() : T(1e-5);
