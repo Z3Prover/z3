@@ -31,7 +31,6 @@
 #include "math/lp/lar_constraints.h"
 #include "math/lp/lar_core_solver.h"
 #include "math/lp/numeric_pair.h"
-#include "math/lp/scaler.h"
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/random_updater.h"
 #include "util/stacked_value.h"
