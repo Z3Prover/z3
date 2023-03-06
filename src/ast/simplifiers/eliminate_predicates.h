@@ -111,9 +111,10 @@ private:
     bool try_find_binary_definition(func_decl* p, app_ref& head, expr_ref& def, expr_dependency_ref& dep);
     void try_resolve_definition(func_decl* p);
     void insert_macro(app* head, expr* def, expr_dependency* dep);
+    void insert_macro(app* head, expr* def, clause& cl);
     expr_ref bind_free_variables_in_def(clause& cl, app* head, expr* def);
     bool can_be_macro_head(expr* head, unsigned num_bound);
-    void insert_quasi_macro(app* head, expr* body, clause const& cl);
+    void insert_quasi_macro(app* head, expr* body, clause& cl);
     bool can_be_quasi_macro_head(expr* head, unsigned num_bound);
     bool is_macro_safe(expr* e);
     void try_find_macro(clause& cl);
