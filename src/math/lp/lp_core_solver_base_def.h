@@ -554,52 +554,8 @@ find_error_in_BxB(vector<X>& rs){
 // recalculates the projection of x to B, such that Ax = b
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Ax_eq_b() {
-    if (numeric_traits<X>::precise()) {
-        vector<X> rs(m_m());
-        rs_minus_Anx(rs);
-        m_factorization->solve_By(rs);
-        copy_rs_to_xB(rs);
-    } 
-    else {
-        vector<X> rs(m_m());
-        rs_minus_Anx(rs);
-        vector<X> rrs = rs; // another copy of rs
-        m_factorization->solve_By(rs);
-        copy_rs_to_xB(rs);
-        find_error_in_BxB(rrs);
-        m_factorization->solve_By(rrs);
-        add_delta_to_xB(rrs);
-    }
+    lp_assert(false);
 }
-
-
-
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-snap_non_basic_x_to_bound_and_free_to_zeroes() {
-    for (unsigned j : non_basis()) {
-        lp_assert(j < m_x.size());
-        switch (m_column_types[j]) {
-        case column_type::fixed:
-        case column_type::boxed:
-        case column_type::lower_bound:
-            m_x[j] = m_lower_bounds[j];
-            break;
-        case column_type::upper_bound:
-            m_x[j] = m_upper_bounds[j];
-            break;
-        default:
-            m_x[j] = zero_of_type<X>();
-            break;
-        }
-    }
-}
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-snap_xN_to_bounds_and_fill_xB() {
-    snap_non_basic_x_to_bound();
-    solve_Ax_eq_b();
-}
-
 
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::

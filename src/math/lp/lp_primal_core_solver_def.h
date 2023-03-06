@@ -642,11 +642,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
 
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
-    lp_assert(numeric_traits<T>::precise() == false);
-    lp_assert(this->m_ed.is_OK());
-    lp_assert(m_beta.is_OK());
-    m_beta = this->m_ed;
-    this->m_factorization->solve_yB_with_error_check_indexed(m_beta, this->m_basis_heading, this->m_basis, this->m_settings);
+    lp_assert(false);
 }
 
 template <typename T, typename X>
@@ -758,10 +754,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_factorization() {
-    if (this->m_factorization != nullptr) {
-        delete this->m_factorization;
-        this->m_factorization = nullptr;
-    }
+    lp_assert(false);
 }
 
 // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
@@ -776,15 +769,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
 
 // debug only
 template <typename T, typename X> T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
-    lp_assert(numeric_traits<T>::precise() == false);
-    indexed_vector<T> w(this->m_m());
-    this->m_A.copy_column_to_vector(j, w);
-    vector<T> d(this->m_m());
-    this->m_factorization->solve_Bd_when_w_is_ready(d, w);
-    T ret = zero_of_type<T>();
-    for (auto v : d)
-        ret += v*v;
-    return ret+1;
+    lp_assert(false);
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_or_init_column_norms(unsigned entering, unsigned leaving) {

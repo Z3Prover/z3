@@ -74,7 +74,7 @@ public:
     vector<X> &           m_x; // a feasible solution, the fist time set in the constructor
     vector<T> &           m_costs;
     lp_settings &         m_settings;
-    lu<static_matrix<T, X>> * m_factorization = nullptr;
+    
     vector<T>             m_y; // the buffer for yB = cb
     // a device that is able to solve Bx=c, xB=d, and change the basis
     const column_namer &  m_column_names;
@@ -134,7 +134,7 @@ public:
     void init();
 
     virtual ~lp_core_solver_base() {
-        delete m_factorization;
+        
     }
 
     vector<unsigned> & non_basis() {
@@ -413,9 +413,6 @@ public:
     }
 
     
-    void snap_non_basic_x_to_bound_and_free_to_zeroes();
-    void snap_xN_to_bounds_and_fill_xB();
-
     
     non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
 
