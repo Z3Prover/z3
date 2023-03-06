@@ -298,9 +298,6 @@ public:
 
     void rs_minus_Anx(vector<X> & rs);
 
-    bool find_x_by_solving();
-
-    
     bool basis_has_no_doubles() const;
 
     bool non_basis_has_no_doubles() const;
