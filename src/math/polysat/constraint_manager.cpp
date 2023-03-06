@@ -438,6 +438,8 @@ namespace polysat {
             return p;
         if (q.is_zero())
             return p;
+        if (p == q)
+            return p.manager().zero();
         if (q.is_val()) {
             auto& m = p.manager();
             unsigned N = m.power_of_2();
@@ -446,10 +448,14 @@ namespace polysat {
             SASSERT(q.val().is_unsigned());
             if (p.is_val())
                 return m.mk_val(machine_div2k(p.val(), q.val().get_unsigned()));
+#if 0
+            // NOTE: this is wrong because the multiplication/right-shift clears the upper bits but the RHS does not.
+            //       e.g., (2x >> 1) != x
             // 2^i * p' >> q  ==>  2^(i-q) * p'  if i >= q
             unsigned parity = p.min_parity();
             if (parity >= q.val())
                 return p.div(rational::power_of_two(parity));
+#endif
         }
         return mk_op_term(op_constraint::code::lshr_op, p, q);
     }
@@ -477,6 +483,8 @@ namespace polysat {
         if (p.is_max())
             return q;
         if (q.is_max())
+            return p;
+        if (p == q)
             return p;
         if (p.is_val() && q.is_val())
             return p.manager().mk_val(bitwise_and(p.val(), q.val()));
@@ -549,15 +557,15 @@ namespace polysat {
             SASSERT(r.val() < b.val());
             return {std::move(q), std::move(r)};
         }
-        
+
         pdd quot = mk_op_term(op_constraint::code::udiv_op, a, b);
         pdd rem = mk_op_term(op_constraint::code::urem_op, a, b);
-        
+
         op_constraint* op1 = (op_constraint*)mk_op_constraint(op_constraint::code::udiv_op, a, b, quot).get();
-        op_constraint* op2 = (op_constraint*)mk_op_constraint(op_constraint::code::urem_op, a, b, quot).get();
+        op_constraint* op2 = (op_constraint*)mk_op_constraint(op_constraint::code::urem_op, a, b, rem).get();
         op1->m_linked = op2;
         op2->m_linked = op1;
-        
+
         return {std::move(quot), std::move(rem)};
     }
 }
