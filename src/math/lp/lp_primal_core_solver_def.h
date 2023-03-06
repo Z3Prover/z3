@@ -112,8 +112,6 @@ template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     if (numeric_traits<T>::precise())
         return column_is_benefitial_for_entering_basis_precise(j);
-    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
-        return column_is_benefitial_for_entering_on_breakpoints(j);
     const T& dj = this->m_d[j];
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
@@ -146,8 +144,6 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsign
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
     lp_assert (numeric_traits<T>::precise());
-    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
-        return column_is_benefitial_for_entering_on_breakpoints(j);    
     const T& dj = this->m_d[j];
     TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
@@ -219,8 +215,6 @@ int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_
         return -1;
     unsigned entering = *entering_iter;
     m_sign_of_entering_delta = this->m_d[entering] > 0 ? 1 : -1;
-    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
-        m_sign_of_entering_delta = -m_sign_of_entering_delta;
     m_non_basis_list.erase(entering_iter);
     m_non_basis_list.push_back(entering);
     return entering;
@@ -259,8 +253,6 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
     if (entering_iter != m_non_basis_list.end()) {
         unsigned entering = *entering_iter;
         m_sign_of_entering_delta = this->m_d[entering] > 0? 1 : -1;
-        if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
-            m_sign_of_entering_delta = - m_sign_of_entering_delta;
         m_non_basis_list.erase(entering_iter);
         m_non_basis_list.push_back(entering);
         return entering;
@@ -268,28 +260,6 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
     return -1;
 }
 
-template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_sorted_breakpoints(unsigned entering, X &t) {
-    T slope_at_entering = this->m_d[entering];
-    breakpoint<X> * last_bp = nullptr;
-    lp_assert(m_breakpoint_indices_queue.is_empty()==false);
-    while (m_breakpoint_indices_queue.is_empty() == false) {
-        unsigned bi = m_breakpoint_indices_queue.dequeue();
-        breakpoint<X> *b = &m_breakpoints[bi];
-        change_slope_on_breakpoint(entering, b, slope_at_entering);
-        last_bp = b;
-        if (slope_at_entering * m_sign_of_entering_delta > - m_epsilon_of_reduced_cost) { // the slope started to increase infeasibility
-            break;
-        } else {
-            if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && this->m_settings.random_next() % 2 == 0)) {
-                // it is not cost beneficial to advance the delta more, so just break to increase the randomness
-                break;
-            }
-        }        
-    }
-    lp_assert (last_bp != nullptr);
-    t = last_bp->m_delta;
-    return last_bp->m_j;
-}
 
 
 template <typename T, typename X> int
@@ -406,8 +376,6 @@ try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X & t ) {
 }
 
 template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_precise(unsigned entering, X & t) {
-    if (this->m_settings.use_breakpoints_in_feasibility_search && !this->current_x_is_feasible())
-        return find_leaving_and_t_with_breakpoints(entering, t);
     bool unlimited = true;
     unsigned steps = this->m_ed.m_index.size();
     unsigned k = this->m_settings.random_next() % steps;
@@ -472,8 +440,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
 
 
 template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t) {
-    if (this->m_settings.use_breakpoints_in_feasibility_search && !this->current_x_is_feasible())
-        return find_leaving_and_t_with_breakpoints(entering, t);
     X theta = zero_of_type<X>();
     bool unlimited = get_harris_theta(theta);
     lp_assert(unlimited || theta >= zero_of_type<X>());
@@ -584,7 +550,7 @@ void lp_primal_core_solver<T, X>::update_reduced_costs_from_pivot_row(unsigned e
             this->m_d[j] -= dq * this->m_pivot_row[j];
     }
     this->m_d[leaving] = -dq;
-    if (this->current_x_is_infeasible() && !this->m_settings.use_breakpoints_in_feasibility_search) {
+    if (this->current_x_is_infeasible()) {
         this->m_d[leaving] -= this->m_costs[leaving];
         this->m_costs[leaving] = zero_of_type<T>();
     }
@@ -833,14 +799,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
 }
 
 
-
-template <typename T, typename X> void lp_primal_core_solver<T, X>::clear_breakpoints() {
-    m_breakpoints.clear();
-    m_breakpoint_indices_queue.clear();
-}
-
 template <typename T, typename X> void lp_primal_core_solver<T, X>::fill_breakpoints_array(unsigned entering) {
-    clear_breakpoints();
     for (unsigned i : this->m_ed.m_index)
         try_add_breakpoint_in_row(i);
 
@@ -924,9 +883,8 @@ lp_primal_core_solver<T, X>::get_infeasibility_cost_for_column(unsigned j) const
         break;
     }
     
-    if (!this->m_settings.use_breakpoints_in_feasibility_search) {
-        ret = - ret;
-    }
+    ret = - ret;
+    
     return ret;
 }
 
@@ -982,9 +940,8 @@ lp_primal_core_solver<T, X>::init_infeasibility_cost_for_column(unsigned j) {
     } else {
         this->insert_column_into_inf_set(j);
     }
-    if (!this->m_settings.use_breakpoints_in_feasibility_search) {
-        this->m_costs[j] = - this->m_costs[j];
-    }
+    this->m_costs[j] = - this->m_costs[j];
+   
 }
 
 
@@ -1009,10 +966,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
     }
 }
 
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::add_breakpoint(unsigned j, X delta, breakpoint_type type) {
-    m_breakpoints.push_back(breakpoint<X>(j, delta, type));
-    m_breakpoint_indices_queue.enqueue(m_breakpoint_indices_queue.size(), abs(delta));
-}
+
 
 // j is the basic column, x is the value at x[j]
 // d is the coefficient before m_entering in the row with j as the basis column

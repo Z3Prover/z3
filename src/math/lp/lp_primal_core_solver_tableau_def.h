@@ -88,8 +88,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_enteri
         return -1;
     unsigned entering = *entering_iter;
     m_sign_of_entering_delta = this->m_d[entering] > 0 ? 1 : -1;
-    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
-        m_sign_of_entering_delta = -m_sign_of_entering_delta;
     m_non_basis_list.erase(entering_iter);
     m_non_basis_list.push_back(entering);
     return entering;
@@ -188,7 +186,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         return;
     }
     if (!is_zero(t)) {
-        if (this->current_x_is_feasible() || !this->m_settings.use_breakpoints_in_feasibility_search ) {
+        if (this->current_x_is_feasible() ) {
             if (m_sign_of_entering_delta == -1)
                 t = -t;
         }
@@ -297,8 +295,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
         if (this->m_settings.backup_costs)
             backup_and_normalize_costs();
         m_epsilon_of_reduced_cost = numeric_traits<X>::precise() ? zero_of_type<T>() : T(1) / T(10000000);
-        if (this->m_settings.use_breakpoints_in_feasibility_search)
-            m_breakpoint_indices_queue.resize(this->m_n());
         if (!numeric_traits<X>::precise()) {
             this->m_column_norm_update_counter = 0;
             init_column_norms();
