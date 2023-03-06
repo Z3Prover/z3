@@ -79,6 +79,7 @@ namespace polysat {
 
         // Analyse current conflict core to extract additional lemmas
         void find_extra_lemmas(conflict& core) {
+            m_saturation.try_div_monotonicity(core);
 #if 1
             // Don't do variable elimination for now
 #else
