@@ -31,7 +31,7 @@ namespace polysat {
             return;
         }
         if (m_p.index() > m_q.index())
-            std::swap(m_p, m_q);
+            swap(m_p, m_q);
     }
 
     std::ostream& umul_ovfl_constraint::display(std::ostream& out, lbool status) const {
@@ -112,38 +112,65 @@ namespace polysat {
 
         if (!p.is_val())
             return false;
+        VERIFY(!p.is_zero() && !p.is_one());  // evaluation should catch this case
 
-        SASSERT(!p.is_zero() && !p.is_one());
-        auto const& max = p.manager().max_value();
-        // p * q >= max + 1 <=> q >= (max + 1)/p <=> q >= ceil((max+1)/p)
-        auto bound = ceil((max + 1) / p.val());
-        SASSERT(bound.is_pos());
-        SASSERT(bound * p.val() > max);
-        SASSERT((bound - 1) * p.val() <= max);
+        rational const& M = p.manager().two_to_N();
 
-        rational relaxed_p = p.val(); // Lowest value such that bound is correct
-        relaxed_p = ceil((max + 1) / bound);
-        SASSERT(relaxed_p <= p.val());
-        //
-        // the clause that explains bound <= q or bound > q
-        //
-        // Ovfl(p, q)  & p <= p.val() => q >= bound
-        // ~Ovfl(p, q) & p >= p.val() => q < bound
-        //
+        // q_bound
+        // = min q . Ovfl(p_val, q)
+        // = min q . p_val * q >= M
+        // = min q . q >= M / p_val
+        // = ceil(M / p_val)
+        rational const q_bound = ceil(M / p.val());
+        SASSERT(2 <= q_bound && q_bound <= M/2);
+        SASSERT(p.val() * q_bound >= M);
+        SASSERT(p.val() * (q_bound - 1) < M);
+        // LOG("q_bound: " << q.manager().mk_val(q_bound));
 
+        // We need the following properties for the bounds:
+        //
+        //      p_bound * (q_bound - 1) < M
+        //      p_bound * q_bound >= M
+        //
+        // With these properties we get:
+        //
+        //      p <= p_bound & q  < q_bound ==> ~Ovfl(p, q)
+        //      p >= p_bound & q >= q_bound ==> Ovfl(p, q)
+        //
+        // Written as lemmas:
+        //
+        //       Ovfl(p, q) & p <= p_bound ==> q >= q_bound
+        //      ~Ovfl(p, q) & p >= p_bound ==> q <  q_bound
+        //
         signed_constraint sc(this, is_positive);
         if (is_positive) {
-            clause_builder lemma(s, "Ovfl(p, q) & p <= relaxed(p.val()) ==> q >= bound");
+            // Find largest bound for p such that q_bound is still correct.
+            // p_bound = max p . (q_bound - 1)*p < M
+            //         = max p . p < M / (q_bound - 1)
+            //         = ceil(M / (q_bound - 1)) - 1
+            rational const p_bound = ceil(M / (q_bound - 1)) - 1;
+            SASSERT(p.val() <= p_bound);
+            SASSERT(p_bound * q_bound >= M);
+            SASSERT(p_bound * (q_bound - 1) < M);
+            // LOG("p_bound: " << p.manager().mk_val(p_bound));
+            clause_builder lemma(s, "Ovfl(p, q) & p <= p_bound ==> q >= q_bound");
             lemma.insert_eval(~sc);
-            lemma.insert_eval(~s.ule(p0, relaxed_p));
-            lemma.insert(s.ule(bound, q0));
+            lemma.insert_eval(~s.ule(p0, p_bound));
+            lemma.insert(s.ule(q_bound, q0));
             s.add_clause(lemma.build());
         }
         else {
-            clause_builder lemma(s, "~Ovfl(p, q) & p >= relaxed(p.val()) ==> q < bound");
+            // Find lowest bound for p such that q_bound is still correct.
+            // p_bound = min p . Ovfl(p, q_bound) = ceil(M / q_bound)
+            rational const p_bound = ceil(M / q_bound);
+            SASSERT(p_bound <= p.val());
+            SASSERT(p_bound * q_bound >= M);
+            SASSERT(p_bound * (q_bound - 1) < M);
+            // LOG("p_bound: " << p.manager().mk_val(p_bound));
+            clause_builder lemma(s, "~Ovfl(p, q) & p >= p_bound ==> q < q_bound");
             lemma.insert_eval(~sc);
-            lemma.insert_eval(~s.ule(relaxed_p, p0));
-            lemma.insert(s.ult(q0, bound));
+            lemma.insert_eval(~s.ule(p_bound, p0));
+            lemma.insert(s.ult(q0, q_bound));
             s.add_clause(lemma.build());
         }
         return true;
