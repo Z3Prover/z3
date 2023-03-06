@@ -51,8 +51,6 @@ void lar_core_solver::prefix_r() {
     
     // m_r_solver.m_b.resize(m_r_solver.m_m());
     if (m_r_solver.m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows) {
-        if(m_r_solver.m_settings.use_breakpoints_in_feasibility_search)
-            m_r_solver.m_breakpoint_indices_queue.resize(m_r_solver.m_n());
         m_r_solver.m_costs.resize(m_r_solver.m_n());
         m_r_solver.m_d.resize(m_r_solver.m_n());
         m_r_solver.set_using_infeas_costs(true);
@@ -61,7 +59,6 @@ void lar_core_solver::prefix_r() {
 
 void lar_core_solver::prefix_d() {
     // m_d_solver.m_b.resize(m_d_solver.m_m());
-    m_d_solver.m_breakpoint_indices_queue.resize(m_d_solver.m_n());
     m_d_solver.m_copy_of_xB.resize(m_d_solver.m_n());
     m_d_solver.m_costs.resize(m_d_solver.m_n());
     m_d_solver.m_d.resize(m_d_solver.m_n());
@@ -91,7 +88,7 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
         return;
     }
     //  reusing the existing mechanism for row_feasibility_loop
-    m_infeasible_sum_sign = m_r_solver.m_settings.use_breakpoints_in_feasibility_search? -1 : 1;
+    m_infeasible_sum_sign = 1;
     m_infeasible_linear_combination.clear();
     for (auto j : m_r_solver.m_basis) {
         const mpq & cost_j = m_r_solver.m_costs[j];

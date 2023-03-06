@@ -101,20 +101,7 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
 }
 
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-fill_cb(T * y) const {
-    for (unsigned i = 0; i < m_m(); i++) {
-        y[i] = m_costs[m_basis[i]];
-    }
-}
 
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-fill_cb(vector<T> & y) const {
-    for (unsigned i = 0; i < m_m(); i++) {
-        y[i] = m_costs[m_basis[i]];
-    }
-}
 
 
 // template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -154,25 +141,6 @@ restore_m_w(T * buffer) {
             m_w.m_index.push_back(i);
     }
 }
-
-// needed for debugging
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-copy_m_ed(T * buffer) {
-    unsigned i = m_m();
-    while (i --) {
-        buffer[i] = m_ed[i];
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-restore_m_ed(T * buffer) {
-    unsigned i = m_m();
-    while (i --) {
-        m_ed[i] = buffer[i];
-    }
-}
-
-
 
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -682,7 +650,7 @@ lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
 
 template <typename T, typename X> bool
 lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j)  const {
-    T r = (!this->m_settings.use_breakpoints_in_feasibility_search)? -one_of_type<T>(): one_of_type<T>();
+    T r =  -one_of_type<T>();
         
     switch (this->m_column_types[j]) {
     case column_type::fixed:

@@ -159,14 +159,7 @@ public:
     lp_status get_status() const{
         return m_status;
     }
-
-    void fill_cb(T * y) const;
-
-    void fill_cb(vector<T> & y) const;
-
     void pretty_print(std::ostream & out);
-
-    
 
     X get_cost() const {
         return dot_product(m_costs, m_x);
@@ -176,11 +169,6 @@ public:
 
     void restore_m_w(T * buffer);
 
-    // needed for debugging
-    void copy_m_ed(T * buffer);
-
-    void restore_m_ed(T * buffer);
-    
     void add_delta_to_entering(unsigned entering, const X & delta);
 
     const X & get_var_value(unsigned j) const {

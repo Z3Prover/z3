@@ -223,7 +223,6 @@ public:
     unsigned         column_norms_update_frequency { 12000 };
     bool             scale_with_ratio { true };
     double           density_threshold { 0.7 };
-    bool             use_breakpoints_in_feasibility_search { false };
     unsigned         max_row_length_for_bound_propagation { 300 };
     bool             backup_costs { true };
     unsigned         column_number_threshold_for_using_lu_in_lar_solver { 4000 };

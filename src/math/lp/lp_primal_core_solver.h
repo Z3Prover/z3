@@ -47,8 +47,6 @@ public:
     unsigned       m_column_norm_update_counter;
     T              m_enter_price_eps;
     int            m_sign_of_entering_delta;
-    vector<breakpoint<X>> m_breakpoints;
-    binary_heap_priority_queue<X> m_breakpoint_indices_queue;
     indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T                 m_epsilon_of_reduced_cost;
     vector<T>         m_costs_backup;
@@ -544,8 +542,6 @@ public:
     void fill_breakpoints_array(unsigned entering);
 
     void try_add_breakpoint_in_row(unsigned i);
-
-    void clear_breakpoints();
 
     void change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering);
     
