@@ -4,7 +4,6 @@ z3_add_component(lp
     binary_heap_upair_queue.cpp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
-    eta_matrix.cpp
     emonics.cpp
     factorization.cpp
     factorization_factory_imp.cpp
@@ -40,7 +39,6 @@ z3_add_component(lp
     nra_solver.cpp    
     permutation_matrix.cpp
     random_updater.cpp      
-    row_eta_matrix.cpp
     static_matrix.cpp
   COMPONENT_DEPENDENCIES
     util
