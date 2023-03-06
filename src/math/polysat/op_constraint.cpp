@@ -218,14 +218,15 @@ namespace polysat {
     /**
      * Enforce basic axioms for r == p >> q:
      *
-     *      q >= K  ->  r = 0
-     *      q >= k  ->  r[i] = 0 for K - k <= i < K     (bit indices range from 0 to K-1, inclusive)
-     *      q >= k  ->  r <= 2^{K-k} - 1
-     *      q = k   ->  r[i] = p[i+k] for 0 <= i < K - k
+     *      q >= N  ->  r = 0
+     *      q >= k  ->  r[i] = 0 for N - k <= i < N     (bit indices range from 0 to N-1, inclusive)
+     *      q >= k  ->  r <= 2^{N-k} - 1
+     *      q = k   ->  r[i] = p[i+k] for 0 <= i < N - k
      *      r <= p
      *      q != 0  ->  r <= p      (subsumed by previous axiom)
      *      q != 0  /\  p > 0 ->  r < p
      *      q = 0   ->  r = p
+     *      p = q   ->  r = 0
      *
      * when q is a constant, several axioms can be enforced at activation time.
      *
@@ -241,30 +242,32 @@ namespace polysat {
         auto const pv = a.apply_to(p());
         auto const qv = a.apply_to(q());
         auto const rv = a.apply_to(r());
-        unsigned const K = m.power_of_2();
+        unsigned const N = m.power_of_2();
 
         signed_constraint const lshr(this, true);
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             // r <= p
             return s.mk_clause(~lshr, s.ule(r(), p()), true);
-        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
-            // q >= K -> r = 0
-            return s.mk_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
+        else if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
+            // TODO: instead of rv.is_val() && !rv.is_zero(), we should use !is_forced_zero(r) which checks whether eval(r) = 0 or bvalue(r=0) = true; see saturation.cpp
+            // q >= N -> r = 0
+            return s.mk_clause(~lshr, ~s.ule(N, q()), s.eq(r()), true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
             // q = 0 -> p = r
             return s.mk_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
         else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && rv.val() >= pv.val())
             // q != 0 & p > 0 -> r < p
             return s.mk_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
-        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
-            rv.val() > rational::power_of_two(K - qv.val().get_unsigned()) - 1)
-            // q >= k -> r <= 2^{K-k} - 1
-            return s.mk_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned()) - 1), true);
+        else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() && rv.val() > rational::power_of_two(N - qv.val().get_unsigned()) - 1)
+            // q >= k -> r <= 2^{N-k} - 1
+            return s.mk_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(N - qv.val().get_unsigned()) - 1), true);
+        // else if (pv == qv && !rv.is_zero())
+        //     return s.mk_clause(~lshr, ~s.eq(p(), q()), s.eq(r()), true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
-            // q = k  ->  r[i] = p[i+k] for 0 <= i < K - k
-            for (unsigned i = 0; i < K - k; ++i) {
+            // q = k  ->  r[i] = p[i+k] for 0 <= i < N - k
+            for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i) && !pv.val().get_bit(i + k)) {
                     return s.mk_clause(~lshr, ~s.eq(q(), k), ~s.bit(r(), i), s.bit(p(), i + k), true);
                 }
@@ -466,10 +469,10 @@ namespace polysat {
         else if (yv == 0)
             s.add_clause(~andc, s.eq(r()), false);
         else {
-            unsigned K = m.power_of_2();
+            unsigned N = m.power_of_2();
             unsigned k = yv.get_num_bits();
-            SASSERT(k < K);
-            rational exp = rational::power_of_two(K - k);
+            SASSERT(k < N);
+            rational exp = rational::power_of_two(N - k);
             s.add_clause(~andc, s.eq(x * exp, r() * exp), false);
             s.add_clause(~andc, s.ule(r(), y), false);  // maybe always activate these constraints regardless?
         }
