@@ -49,7 +49,6 @@
 #include "math/lp/matrix.h"
 #include "math/lp/hnf.h"
 #include "math/lp/square_sparse_matrix_def.h"
-#include "math/lp/lu_def.h"
 #include "math/lp/general_matrix.h"
 #include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
