@@ -783,13 +783,6 @@ namespace lp {
         return r;
     }
 
-
-    template <typename K, typename L>
-    void lar_solver::add_last_rows_to_lu(lp_primal_core_solver<K, L>& s) {
-        lp_assert(false);
-
-    }
-
     bool lar_solver::x_is_correct() const {
         if (m_mpq_lar_core_solver.m_r_x.size() != A_r().column_count()) {
             return false;
