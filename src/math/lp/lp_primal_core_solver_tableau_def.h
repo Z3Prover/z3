@@ -157,8 +157,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
             this->set_status(lp_status::CANCELLED);
             break; // from the loop
         }
-    } while (this->get_status() != lp_status::FLOATING_POINT_ERROR
-             &&
+    } while (
              this->get_status() != lp_status::UNBOUNDED
              &&
              this->get_status() != lp_status::OPTIMAL
@@ -168,8 +167,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
              !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
 	);
 	
-    lp_assert(this->get_status() == lp_status::FLOATING_POINT_ERROR
-              ||
+    lp_assert(
               this->get_status() == lp_status::CANCELLED
               ||
               this->current_x_is_feasible() == false

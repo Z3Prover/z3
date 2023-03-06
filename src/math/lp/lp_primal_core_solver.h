@@ -29,7 +29,6 @@ Revision History:
 #include <math.h>
 #include <cstdlib>
 #include <algorithm>
-#include "math/lp/lu.h"
 #include "math/lp/static_matrix.h"
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
@@ -418,9 +417,6 @@ public:
     // returns the number of iterations
     unsigned solve();
 
-    lu<static_matrix<T, X>> * factorization() {return nullptr;}
-
-    void delete_factorization();
 
     // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
     void init_column_norms();

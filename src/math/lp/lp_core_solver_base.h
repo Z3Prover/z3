@@ -25,11 +25,21 @@ Revision History:
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/lu.h"
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
+#include "math/lp/u_set.h"
+
 
 namespace lp {
+template <typename T, typename X>
+X dot_product(const vector<T> & a, const vector<X> & b) {
+    lp_assert(a.size() == b.size());
+    auto r = zero_of_type<X>();
+    for (unsigned i = 0; i < a.size(); i++) {
+        r += a[i] * b[i];
+    }
+    return r;
+}
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
@@ -155,6 +165,8 @@ public:
     void fill_cb(vector<T> & y) const;
 
     void pretty_print(std::ostream & out);
+
+    
 
     X get_cost() const {
         return dot_product(m_costs, m_x);

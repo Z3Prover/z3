@@ -21,6 +21,8 @@ Revision History:
 
 #include "util/vector.h"
 #include "math/lp/square_sparse_matrix.h"
+#include "math/lp/dense_matrix.h"
+
 #include <set>
 #include <queue>
 namespace lp {

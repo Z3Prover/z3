@@ -20,7 +20,6 @@ Revision History:
 #include <memory>
 #include "util/vector.h"
 #include "math/lp/lp_settings.h"
-#include "math/lp/lu.h"
 #include "math/lp/square_sparse_matrix_def.h"
 #include "math/lp/dense_matrix.h"
 namespace lp {

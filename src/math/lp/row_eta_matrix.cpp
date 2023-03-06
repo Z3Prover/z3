@@ -20,7 +20,6 @@ Revision History:
 #include <memory>
 #include "util/vector.h"
 #include "math/lp/row_eta_matrix_def.h"
-#include "math/lp/lu.h"
 namespace lp {
 template void row_eta_matrix<double, double>::conjugate_by_permutation(permutation_matrix<double, double>&);
 template void row_eta_matrix<mpq, numeric_pair<mpq> >::conjugate_by_permutation(permutation_matrix<mpq, numeric_pair<mpq> >&);
