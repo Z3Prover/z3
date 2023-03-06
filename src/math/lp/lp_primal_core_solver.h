@@ -369,24 +369,12 @@ public:
 
     unsigned get_number_of_non_basic_column_to_try_for_enter();
 
-    void print_column_norms(std::ostream & out);
 
     // returns the number of iterations
     unsigned solve();
 
 
-    // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
-    void init_column_norms();
-
-    T calculate_column_norm_exactly(unsigned j);
-
-    void update_or_init_column_norms(unsigned entering, unsigned leaving);
-
-    // following Swietanowski - A new steepest ...
-    void update_column_norms(unsigned entering, unsigned leaving);
-
-    T calculate_norm_of_entering_exactly();
-
+    
     void find_feasible_solution();
 
     // bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
