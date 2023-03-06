@@ -338,12 +338,6 @@ rs_minus_Anx(vector<X> & rs) {
     }
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-find_x_by_solving() {
-    solve_Ax_eq_b();
-    return true;
-}
-
 template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feasible(unsigned j) const {
     const X& x = this->m_x[j];
     switch (this->m_column_types[j]) {
