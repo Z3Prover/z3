@@ -13,7 +13,6 @@ Author:
 #include <algorithm>
 #include "math/lp/indexed_vector.h"
 #include "math/lp/binary_heap_priority_queue.h"
-#include "math/lp/breakpoint.h"
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/stacked_vector.h"
 #include "math/lp/lar_solution_signature.h"
@@ -96,11 +95,6 @@ public:
         m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);        
     }
     
-
-    void advance_on_sorted_breakpoints(unsigned entering);
-
-    void change_slope_on_breakpoint(unsigned entering, breakpoint<numeric_pair<mpq>> * b, mpq & slope_at_entering);
-
     bool row_is_infeasible(unsigned row);
 
     bool row_is_evidence(unsigned row);

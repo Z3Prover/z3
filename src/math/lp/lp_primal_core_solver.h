@@ -32,7 +32,6 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
-#include "math/lp/breakpoint.h"
 #include "math/lp/binary_heap_priority_queue.h"
 #include "math/lp/u_set.h"
 namespace lp {
@@ -64,47 +63,7 @@ public:
     int choose_entering_column(unsigned number_of_benefitial_columns_to_go_over);
     int choose_entering_column_tableau();
     int choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over);
-    int find_leaving_and_t_with_breakpoints(unsigned entering, X & t);
-    // int find_inf_row() {
-    //     // mimicing CLP : todo : use a heap
-    //     int j = -1;
-    //     for (unsigned k : this->m_inf_set.m_index) {
-    //         if (k < static_cast<unsigned>(j))
-    //             j = static_cast<int>(k);
-    //     }
-    //     if (j == -1)
-    //         return -1;
-    //     return this->m_basis_heading[j];
-    //     #if 0 
-    //     vector<int> choices;
-    //     unsigned len = 100000000; 
-    //     for (unsigned j : this->m_inf_set.m_index) {
-    //         int i = this->m_basis_heading[j];
-    //         lp_assert(i >= 0);
-    //         unsigned row_len = this->m_A.m_rows[i].size();
-    //         if (row_len < len) {
-    //             choices.clear();
-    //             choices.push_back(i);
-    //             len = row_len;
-    //             if (m_settings.random_next() % 10) break;
-    //         } else if (row_len == len) {
-    //             choices.push_back(i);
-    //             if (m_settings.random_next() % 10) break;
-    //         }
-    //     }
-
-    //     if (choices.size() == 0)
-    //         return -1;
-
-    //     if (choices.size() == 1)
-    //         return choices[0];
-        
-    //     unsigned k = this->m_settings.random_next() % choices.size();
-    //     return choices[k];
-    //     #endif
-    // }
-
-
+    
     bool column_is_benefitial_for_entering_basis_on_sign_row_strategy(unsigned j, int sign) const {
         // sign = 1 means the x of the basis column of the row has to grow to become feasible, when the coeff before j is neg, or x - has to diminish when the coeff is pos
         // we have xbj = -aj * xj
@@ -538,16 +497,7 @@ public:
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
     }
-
-    void fill_breakpoints_array(unsigned entering);
-
-    void try_add_breakpoint_in_row(unsigned i);
-
-    void change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering);
     
-
-    
-
     void decide_on_status_when_cannot_find_entering() {
         lp_assert(!need_to_switch_costs());
         this->set_status(this->current_x_is_feasible()? lp_status::OPTIMAL: lp_status::INFEASIBLE);
@@ -772,10 +722,6 @@ public:
     
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
     bool column_is_benefitial_for_entering_basis_precise(unsigned j) const;
-
-    bool column_is_benefitial_for_entering_on_breakpoints(unsigned j) const;
-
-
     bool can_enter_basis(unsigned j);
     bool done();
     void init_infeasibility_costs();
@@ -785,25 +731,15 @@ public:
     void init_infeasibility_costs_for_changed_basis_only();
 
     void print_column(unsigned j, std::ostream & out);
-    void add_breakpoint(unsigned j, X delta, breakpoint_type type);
-
     // j is the basic column, x is the value at x[j]
     // d is the coefficient before m_entering in the row with j as the basis column
-    void try_add_breakpoint(unsigned j, const X & x, const T & d, breakpoint_type break_type, const X & break_value);
     template <typename L>
     bool same_sign_with_entering_delta(const L & a) {
         return (a > zero_of_type<L>() && m_sign_of_entering_delta > 0) || (a < zero_of_type<L>() && m_sign_of_entering_delta < 0);
     }
-
     
 
     bool lower_bounds_are_set() const override { return true; }
-
-    int advance_on_sorted_breakpoints(unsigned entering, X & t);
-    
-    std::string break_type_to_string(breakpoint_type type);
-
-    void print_breakpoint(const breakpoint<X> * b, std::ostream & out);
 
     void print_bound_info_and_x(unsigned j, std::ostream & out);
 
