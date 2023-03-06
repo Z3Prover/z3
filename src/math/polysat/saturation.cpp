@@ -785,21 +785,30 @@ namespace polysat {
     bool saturation::try_mul_eq_bound(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] 2^k*x = 2^k*y & x < 2^N-k => y = x or y >= 2^{N-k}");
         auto& m = s.var2pdd(x);
-        unsigned N = m.power_of_2();
+        unsigned const N = m.power_of_2();
         pdd y = m.zero();
         pdd a = y, b = y, a2 = y;
-        pdd X = s.var(x);
+        pdd const X = s.var(x);
+        // Match ax + b <= y with eval(y) = 0
         if (!is_AxB_eq_0(x, axb_l_y, a, b, y))
             return false;
         if (!a.is_val())
             return false;
         if (!a.val().is_power_of_two())
             return false;
-        unsigned k = a.val().trailing_zeros();
+        unsigned const k = a.val().trailing_zeros();
         if (k == 0)
             return false;
+        // x*2^k = b, x <= a2 < 2^{N-k}
+        rational const bound = rational::power_of_two(N - k);
         b = -b;
         if (b.leading_coefficient() != a.val())
+            return false;
+        pdd Y = m.zero();
+        if (!b.try_div(b.leading_coefficient(), Y))
+            return false;
+        rational Y_val;
+        if (!s.try_eval(Y, Y_val) || Y_val >= bound)
             return false;
         for (auto c : core) {
             if (!c->is_ule())
@@ -809,15 +818,9 @@ namespace polysat {
                 continue;
             if (!a2.is_val())
                 continue;
-            // x*2^k = b, x <= a2 < 2^{N-k}
-            rational bound = rational::power_of_two(N - k);
             if (i.is_strict() && a2.val() >= bound)
                 continue;
             if (!i.is_strict() && a2.val() > bound)
-                continue;            
-            pdd Y = b.div(b.leading_coefficient());
-            rational Y_val;
-            if (!s.try_eval(Y, Y_val) || Y_val >= bound)
                 continue;
             signed_constraint le = s.ule(Y, bound - 1);
             m_lemma.reset();
@@ -827,7 +830,6 @@ namespace polysat {
             if (propagate(x, core, axb_l_y, s.eq(X, Y)))
                 return true;
         }
-
         return false;
     }
 
