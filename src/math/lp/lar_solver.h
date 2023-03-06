@@ -222,8 +222,6 @@ class lar_solver : public column_namer {
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     void solve_with_core_solver();
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
-    template <typename K, typename L>
-    void add_last_rows_to_lu(lp_primal_core_solver<K,L> & s);
     bool x_is_correct() const;
     void fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const lar_term * ls);
     template <typename U, typename V>

@@ -926,7 +926,7 @@ public:
         m_lower_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
         m_enter_price_eps = numeric_traits<T>::precise() ? numeric_traits<T>::zero() : T(1e-5);
 #ifdef Z3DEBUG
-        // check_correctness();
+        lp_assert(false);
 #endif
     }
 

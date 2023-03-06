@@ -576,7 +576,7 @@ void test_lp_primal_core_solver() {
 
 
 
-
+#ifdef Z3DEBUG
 
 void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     int v = 0;
@@ -619,7 +619,7 @@ void test_dense_matrix() {
     auto c2 = d * p2;
 }
 
-
+#endif
 
 
 vector<permutation_matrix<double, double>> vector_of_permutations() {
