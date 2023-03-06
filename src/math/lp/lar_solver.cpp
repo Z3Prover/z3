@@ -47,7 +47,6 @@ namespace lp {
 
     
     bool lar_solver::sizes_are_correct() const {
-        lp_assert(strategy_is_undecided() || !m_mpq_lar_core_solver.need_to_presolve_with_double_solver() || A_r().column_count() == A_d().column_count());
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_column_types.size());
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_x.size());
@@ -748,9 +747,6 @@ namespace lp {
 
 
     void lar_solver::solve_with_core_solver() {
-        if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
-            add_last_rows_to_lu(m_mpq_lar_core_solver.m_d_solver);
-        }
         m_mpq_lar_core_solver.prefix_r();
         if (costs_are_used()) {
             m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());

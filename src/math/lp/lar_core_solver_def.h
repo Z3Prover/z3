@@ -31,18 +31,6 @@ lar_core_solver::lar_core_solver(
                m_r_lower_bounds(),
                m_r_upper_bounds(),
                settings,
-               column_names),
-    m_d_solver(m_d_A,
-               m_d_right_sides_dummy,
-               m_d_x,
-               m_d_basis,
-               m_d_nbasis,
-               m_d_heading,
-               m_d_costs_dummy,
-               m_column_types(),
-               m_d_lower_bounds,
-               m_d_upper_bounds,
-               settings,
                column_names) {
 }    
     
@@ -57,22 +45,7 @@ void lar_core_solver::prefix_r() {
     }
 }
 
-void lar_core_solver::prefix_d() {
-    // m_d_solver.m_b.resize(m_d_solver.m_m());
-    m_d_solver.m_copy_of_xB.resize(m_d_solver.m_n());
-    m_d_solver.m_costs.resize(m_d_solver.m_n());
-    m_d_solver.m_d.resize(m_d_solver.m_n());
-    m_d_solver.m_ed.resize(m_d_solver.m_m());
-    m_d_solver.m_pivot_row.resize(m_d_solver.m_n());
-    m_d_solver.m_pivot_row_of_B_1.resize(m_d_solver.m_m());
-    m_d_solver.m_w.resize(m_d_solver.m_m());
-    m_d_solver.m_y.resize(m_d_solver.m_m());
-    m_d_solver.m_steepest_edge_coefficients.resize(m_d_solver.m_n());
-    m_d_solver.m_column_norms.clear();
-    m_d_solver.m_column_norms.resize(m_d_solver.m_n(), 2);
-    m_d_solver.clear_inf_set();
-    m_d_solver.resize_inf_set(m_d_solver.m_n());
-}
+
 
 void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
