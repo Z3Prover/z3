@@ -111,6 +111,7 @@ namespace polysat {
         out() << hline() << "\nViable (part):\n";
         for (pvar v : m_used_vars)
             out_indent() << "v" << std::setw(3) << std::left << v << ": " << viable::var_pp(s.m_viable, v) << "\n";
+        out() << "End CONFLICT #" << m_num_conflicts << "\n";
         out().flush();
         LOG("End CONFLICT #" << m_num_conflicts);
     }

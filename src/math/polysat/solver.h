@@ -504,6 +504,9 @@ namespace polysat {
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
+        signed_constraint t() { return eq(sz2pdd(1).mk_val(0)); }
+        signed_constraint f() { return eq(sz2pdd(1).mk_val(1)); }
+
         /** Create and activate constraints */
         void add_eq(pdd const& p, dependency dep = null_dependency)                         { assign_eh(eq(p), dep); }
         void add_eq(pdd const& p, pdd const& q, dependency dep = null_dependency)           { assign_eh(eq(p, q), dep); }

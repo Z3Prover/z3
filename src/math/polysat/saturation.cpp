@@ -56,14 +56,12 @@ namespace polysat {
         if (c.is_currently_true(s))
             return false;
 
-        bool prop = try_div_monotonicity(core); // check independent of the conflicting constraint
-
         if (c->is_ule()) {
             auto i = inequality::from_ule(c);
-            return try_inequality(v, i, core) || prop;
+            return try_inequality(v, i, core);
         }
         if (c->is_umul_ovfl()) 
-            return try_umul_ovfl(v, c, core) || prop;
+            return try_umul_ovfl(v, c, core);
 
         return false;
     }
@@ -972,7 +970,6 @@ namespace polysat {
     }
 
     bool saturation::try_parity(pvar x, conflict& core, inequality const& axb_l_y) {
-        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
         auto& m = s.var2pdd(x);
         unsigned N = m.power_of_2();
         pdd y = m.zero();
@@ -1018,13 +1015,52 @@ namespace polysat {
             return propagate(x, core, axb_l_y, conseq);
         };
 
+        auto correct_parity = [&](vector<signed_constraint> const& at_least, vector<signed_constraint> const& at_most) {
+            m_lemma.reset();
+            m_lemma.insert_eval(~s.eq(y));
+            for (auto const& c : at_least) {
+                if (is_forced_false(c))
+                    return false;
+                m_lemma.insert_eval(~c);
+            }
+            for (auto const& c : at_most) {
+                if (is_forced_false(c))
+                    return false;
+                m_lemma.insert_eval(~c);
+            }
+            return propagate(x, core, axb_l_y, s.f());
+        };
+
         vector<signed_constraint> at_least_x, at_most_x, at_least_b, at_most_b, at_least_a, at_most_a;
+
+        set_rule("[x] min_parity(t[x], j1) > max_parity(t[x], j2) => (!j1 || !j2)");
+
+        bool failed = false;
         unsigned min_x = min_parity(X, at_least_x), max_x = max_parity(X, at_most_x);
         unsigned min_b = min_parity(b, at_least_b), max_b = max_parity(b, at_most_b);
         unsigned min_a = min_parity(a, at_least_a), max_a = max_parity(a, at_most_a);
-        SASSERT(min_x <= max_x && max_x <= N);
-        SASSERT(min_a <= max_a && max_a <= N);
-        SASSERT(min_b <= max_b && max_b <= N);
+
+        // correct min_parity(x) > max_parity(x)
+        if (min_x > max_x) {
+            failed = true;
+            correct_parity(at_least_x, at_most_x);
+        }
+        if (min_b > max_b) {
+            failed = true;
+            correct_parity(at_least_b, at_most_b);
+        }
+        if (min_a > max_a) {
+            failed = true;
+            correct_parity(at_least_a, at_most_a);
+        }
+
+        if (failed)
+            // we propagated at least one parity correction lemma but there is no reason to proceed
+            return true;
+
+        SASSERT(max_x <= N);
+        SASSERT(max_b <= N);
+        SASSERT(max_a <= N);
 
         IF_VERBOSE(2, 
                    verbose_stream() << "try parity v" << x << " " << axb_l_y << "\n";
@@ -1034,6 +1070,8 @@ namespace polysat {
 
         if (min_x >= N || min_a >= N)
             return false;
+
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
 
         auto at_most = [&](pdd const& p, unsigned k) {
             VERIFY(k < N);
@@ -1070,7 +1108,7 @@ namespace polysat {
      *  2^k*x != 0 => parity(x) < N - k
      *  2^k*x*y != 0 => parity(x) + parity(y) < N - k
      * 
-     *  2^k*x + b != 0 & parity(x) >= N - k => b != 0 & 2^k*x = 0  (rewriting constraints modulo parity is more powerful and subusmes this)
+     *  2^k*x + b != 0 & parity(x) >= N - k => b != 0 & 2^k*x = 0  (rewriting constraints modulo parity is more powerful and subsumes this)
      */
     bool saturation::try_parity_diseq(pvar x, conflict& core, inequality const& axb_l_y) {
         set_rule("[x] p(x,y) != 0 => constraints on parity(x), parity(y)");

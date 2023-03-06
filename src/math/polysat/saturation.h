@@ -24,7 +24,8 @@ namespace polysat {
     class saturation {
 
         friend class parity_tracker;
-        
+        friend class conflict_resolver;
+
         solver& s;
         clause_builder m_lemma;
         char const* m_rule = nullptr;
