@@ -41,7 +41,6 @@ z3_add_component(lp
     permutation_matrix.cpp
     random_updater.cpp      
     row_eta_matrix.cpp
-    scaler.cpp
     square_sparse_matrix.cpp
     static_matrix.cpp
   COMPONENT_DEPENDENCIES

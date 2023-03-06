@@ -24,7 +24,6 @@ Revision History:
 #include "math/lp/static_matrix_def.h"
 #include "math/lp/lp_core_solver_base.h"
 #include "math/lp/lp_primal_core_solver.h"
-#include "math/lp/scaler.h"
 #include "math/lp/lar_solver.h"
 namespace lp {
 template void static_matrix<double, double>::add_columns_at_the_end(unsigned int);
