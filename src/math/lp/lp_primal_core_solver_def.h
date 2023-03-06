@@ -58,14 +58,8 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
         sort_non_basis_rational();
         return;
     }
-    for (unsigned j : this->m_nbasis) {
-        T const & da = this->m_d[j];
-        this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
-    }
-    std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
-            return this->m_steepest_edge_coefficients[a] > this->m_steepest_edge_coefficients[b];
-    });
-
+    
+    
     m_non_basis_list.clear();
     // reinit m_basis_heading
     for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
@@ -190,41 +184,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_
 
 template <typename T, typename X>
 int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
-    if (numeric_traits<T>::precise())
-        return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
-    if (number_of_benefitial_columns_to_go_over == 0)
-        return -1;
-    if (this->m_basis_sort_counter == 0) {
-        sort_non_basis();
-        this->m_basis_sort_counter = 20;
-    } else {
-        this->m_basis_sort_counter--;
-    }
-    T steepest_edge = zero_of_type<T>();
-    std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
-    for (auto non_basis_iter= m_non_basis_list.begin(); number_of_benefitial_columns_to_go_over && non_basis_iter != m_non_basis_list.end(); ++non_basis_iter) {
-        unsigned j = *non_basis_iter;
-        if (!column_is_benefitial_for_entering_basis(j))
-            continue;
-
-        // if we are here then j is a candidate to enter the basis
-        T dj = this->m_d[j];
-        T t = dj * dj / this->m_column_norms[j];
-        if (t > steepest_edge) {
-            steepest_edge = t;
-            entering_iter = non_basis_iter;
-            if (number_of_benefitial_columns_to_go_over)
-                number_of_benefitial_columns_to_go_over--;
-        }
-    }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
-    if (entering_iter != m_non_basis_list.end()) {
-        unsigned entering = *entering_iter;
-        m_sign_of_entering_delta = this->m_d[entering] > 0? 1 : -1;
-        m_non_basis_list.erase(entering_iter);
-        m_non_basis_list.push_back(entering);
-        return entering;
-    }
-    return -1;
+    return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
 }
 
 
@@ -607,13 +567,6 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
     return std::max(static_cast<unsigned>(this->m_settings.random_next() % ret), 1u);
 }
 
-template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column_norms(std::ostream & out) {
-    out << " column norms " << std::endl;
-    for (unsigned j = 0; j < this->m_n(); j++) {
-        out << this->m_column_norms[j] << " ";
-    }
-    out << std::endl;
- }
 
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
@@ -675,67 +628,6 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
                 ||
                 this->calc_current_x_is_feasible_include_non_basis());
     return this->total_iterations();
-}
-
-// according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
-template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_norms() {
-    lp_assert(numeric_traits<T>::precise() == false);
-    for (unsigned j = 0; j < this->m_n(); j++) {
-        this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].size() + 1)) 
-            
-            + T(static_cast<int>(this->m_settings.random_next() % 10000)) / T(100000);
-    }
-}
-
-// debug only
-template <typename T, typename X> T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
-    lp_assert(false);
-}
-
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_or_init_column_norms(unsigned entering, unsigned leaving) {
-    lp_assert(numeric_traits<T>::precise() == false);
-    lp_assert(m_column_norm_update_counter <= this->m_settings.column_norms_update_frequency);
-    if (m_column_norm_update_counter == this->m_settings.column_norms_update_frequency) {
-        m_column_norm_update_counter = 0;
-        init_column_norms();
-    } else {
-        m_column_norm_update_counter++;
-        update_column_norms(entering, leaving);
-    }
-}
-
-// following Swietanowski - A new steepest ...
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_column_norms(unsigned entering, unsigned leaving) {
-    lp_assert(numeric_traits<T>::precise() == false);
-    T pivot = this->m_pivot_row[entering];
-    T g_ent = calculate_norm_of_entering_exactly() / pivot / pivot;
-    if (!numeric_traits<T>::precise()) {
-        if (g_ent < T(0.000001))
-            g_ent = T(0.000001);
-    }
-    this->m_column_norms[leaving] = g_ent;
-
-    for (unsigned j : this->m_pivot_row.m_index) {
-        if (j == leaving)
-            continue;
-        const T & t = this->m_pivot_row[j];
-        T s = this->m_A.dot_product_with_column(m_beta.m_data, j);
-        T k = -2 / pivot;
-        T tp = t/pivot;
-        if (this->m_column_types[j] != column_type::fixed) { // a fixed columns do not enter the basis, we don't use the norm of a fixed column
-            this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Istvan Maros, page 196
-                                               1 + tp * tp);
-             }
-    }
-}
-
-template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_norm_of_entering_exactly() {
-    T r = numeric_traits<T>::one();
-    for (auto i : this->m_ed.m_index) {
-        T t = this->m_ed[i];
-        r += t * t;
-    }
-    return r;
 }
 
 // calling it stage1 is too cryptic

@@ -86,21 +86,18 @@ public:
     lp_settings &         m_settings;
     
     vector<T>             m_y; // the buffer for yB = cb
-    // a device that is able to solve Bx=c, xB=d, and change the basis
     const column_namer &  m_column_names;
     indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs
     indexed_vector<T>     m_ed; // the solution of B*m_ed = a
     const vector<column_type> & m_column_types;
     const vector<X> &     m_lower_bounds;
-    const vector<X> &     m_upper_bounds;
-    vector<T>             m_column_norms; // the approximate squares of column norms that help choosing a profitable column
+    const vector<X> &     m_upper_bounds; 
     vector<X>             m_copy_of_xB;
     unsigned              m_basis_sort_counter;
-    vector<T>             m_steepest_edge_coefficients;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
-    u_set*              m_pivoted_rows;
+    u_set*                m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {
