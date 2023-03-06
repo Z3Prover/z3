@@ -622,66 +622,8 @@ void test_dense_matrix() {
 #endif
 
 
-vector<permutation_matrix<double, double>> vector_of_permutations() {
-    vector<permutation_matrix<double, double>> ret;
-    {
-        permutation_matrix<double, double> p0(5);
-        p0[0] = 1; p0[1] = 2; p0[2] = 3; p0[3] = 4;
-        p0[4] = 0;
-        ret.push_back(p0);
-    }
-    {
-        permutation_matrix<double, double> p0(5);
-        p0[0] = 2; p0[1] = 0; p0[2] = 1; p0[3] = 4;
-        p0[4] = 3;
-        ret.push_back(p0);
-    }
-    return ret;
-}
 
-void test_apply_reverse_from_right_to_perm(permutation_matrix<double, double> & l) {
-    permutation_matrix<double, double> p(5);
-    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
-    p[4] = 1;
 
-    permutation_matrix<double, double> pclone(5);
-    pclone[0] = 4; pclone[1] = 2; pclone[2] = 0; pclone[3] = 3;
-    pclone[4] = 1;
-
-    p.multiply_by_reverse_from_right(l);
-#ifdef Z3DEBUG
-    auto rev = l.get_inverse();
-    auto rs = pclone * rev;
-    lp_assert(p == rs)
-#endif
-        }
-
-void test_apply_reverse_from_right() {
-    auto vec = vector_of_permutations();
-    for (unsigned i = 0; i < vec.size(); i++) {
-        test_apply_reverse_from_right_to_perm(vec[i]);
-    }
-}
-
-void test_permutations() {
-    std::cout << "test permutations" << std::endl;
-    test_apply_reverse_from_right();
-    vector<double> v; v.resize(5, 0);
-    v[1] = 1;
-    v[3] = 3;
-    permutation_matrix<double, double> p(5);
-    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
-    p[4] = 1;
-
-    indexed_vector<double> vi(5);
-    vi.set_value(1, 1);
-    vi.set_value(3, 3);
-
-    p.apply_reverse_from_right_to_T(v);
-    p.apply_reverse_from_right_to_T(vi);
-    lp_assert(vectors_are_equal(v, vi.m_data));
-    lp_assert(vi.is_OK());
-}
 
 void lp_solver_test() {
     // lp_revised_solver<double> lp_revised;
