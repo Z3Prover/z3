@@ -274,47 +274,6 @@ public:
     }
 
     
-    
-    void prepare_solver_x_with_signature_tableau(const lar_solution_signature & signature) {
-        lp_assert(m_r_solver.inf_set_is_correct());
-        for (auto &t : signature) {
-            unsigned j = t.first;
-            if (m_r_heading[j] >= 0)
-                continue;
-            auto pos_type = t.second;
-            numeric_pair<mpq> delta;
-            if (!update_xj_and_get_delta(j, pos_type, delta))
-                continue;
-            for (const auto & cc : m_r_solver.m_A.m_columns[j]){
-                unsigned i = cc.var();
-                unsigned jb = m_r_solver.m_basis[i];
-                m_r_solver.add_delta_to_x_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
-            }
-            
-        }
-        lp_assert(m_r_solver.inf_set_is_correct());
-    }
-
-    
-    
-    bool adjust_x_of_column(unsigned j) {
-        /*
-        if (m_r_solver.m_basis_heading[j] >= 0) {
-            return false;
-        }
-
-        if (m_r_solver.column_is_feasible(j)) {
-            return false;
-        }
-
-        m_r_solver.snap_column_to_bound_tableau(j);
-        lp_assert(m_r_solver.column_is_feasible(j));
-        m_r_solver.m_inf_set.erase(j);
-        */
-        lp_assert(false);
-        return true;
-    }
-
 
     bool r_basis_is_OK() const {
 #ifdef Z3DEBUG

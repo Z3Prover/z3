@@ -136,17 +136,6 @@ pretty_print(std::ostream & out) {
     pp.print();
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-save_state(T * w_buffer, T * d_buffer) {
-    copy_m_w(w_buffer);
-    copy_m_ed(d_buffer);
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-restore_state(T * w_buffer, T * d_buffer) {
-    restore_m_w(w_buffer);
-    restore_m_ed(d_buffer);
-}
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 copy_m_w(T * buffer) {
@@ -185,26 +174,6 @@ restore_m_ed(T * buffer) {
 
 
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
-    m_pivot_row.clear();
-
-    for (unsigned i : m_pivot_row_of_B_1.m_index) {
-        const T & pi_1 = m_pivot_row_of_B_1[i];
-        if (numeric_traits<T>::is_zero(pi_1)) {
-            continue;
-        }
-        for (auto & c : m_A.m_rows[i]) {
-            unsigned j = c.var();
-            if (m_basis_heading[j] < 0) {
-                m_pivot_row.add_value_at_index_with_drop_tolerance(j, c.coeff() * pi_1);
-            }
-        }
-    }
-    if (precise()) {
-        m_rows_nz[pivot_row] = m_pivot_row.m_index.size();
-    }
-}
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_entering(unsigned entering, const X& delta) {
@@ -631,11 +600,6 @@ snap_xN_to_bounds_and_fill_xB() {
     solve_Ax_eq_b();
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-snap_xN_to_bounds_and_free_columns_to_zeroes() {
-    snap_non_basic_x_to_bound_and_free_to_zeroes();
-    solve_Ax_eq_b();
-}
 
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
@@ -659,10 +623,6 @@ get_non_basic_column_value_position(unsigned j) const {
     }
     lp_unreachable();
     return at_lower_bound;
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::init_lu() {
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
 }
 
 template <typename T, typename X> int lp_core_solver_base<T, X>::pivots_in_column_and_row_are_different(int entering, int leaving) const {

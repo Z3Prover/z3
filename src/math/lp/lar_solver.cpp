@@ -643,11 +643,6 @@ namespace lp {
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
-
-    void lar_solver::adjust_x_of_column(unsigned j) {
-        lp_assert(false);
-    }
-
     bool lar_solver::row_is_correct(unsigned i) const {
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
         for (const auto& c : A_r().m_rows[i]) {
