@@ -228,7 +228,53 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
 }
 
 
+template <typename T, typename X> bool lp_primal_core_solver<T, X>::get_harris_theta(X & theta) {
+    lp_assert(this->m_ed.is_OK());
+    bool unlimited = true;
+    for (unsigned i : this->m_ed.m_index) {
+        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) continue;
+        limit_theta_on_basis_column(this->m_basis[i], - this->m_ed[i] * m_sign_of_entering_delta, theta, unlimited);
+        if (!unlimited && is_zero<X>(theta)) break;
+    }
+    return unlimited;
+}
 
+
+template <typename T, typename X> int lp_primal_core_solver<T, X>::
+find_leaving_on_harris_theta(X const & harris_theta, X & t) {
+    int leaving = -1;
+    T pivot_abs_max = zero_of_type<T>();
+    // we know already that there is no bound flip on entering
+    // we also know that harris_theta is limited, so we will find a leaving
+    zero_harris_eps();
+    unsigned steps = this->m_ed.m_index.size();
+    unsigned k = this->m_settings.random_next() % steps;
+    unsigned initial_k = k;
+    do {
+        unsigned i = this->m_ed.m_index[k];
+        const T & ed = this->m_ed[i];
+        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(ed)) {
+            if (++k == steps)
+                k = 0;
+            continue;
+        }
+        X ratio;
+        unsigned j = this->m_basis[i];
+        bool unlimited = true;
+        limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, ratio, unlimited);
+        if ((!unlimited) && ratio <= harris_theta) {
+            if (leaving == -1 || abs(ed) > pivot_abs_max) {
+                t = ratio;
+                leaving = j;
+                pivot_abs_max = abs(ed);
+            }
+        }
+        if (++k == steps) k = 0;
+    } while (k != initial_k);
+    if (!this->precise())
+        restore_harris_eps();
+    return leaving;
+}
 
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering,
@@ -349,6 +395,17 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
     k = this->m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
+}
+
+
+template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t) {
+    X theta = zero_of_type<X>();
+    bool unlimited = get_harris_theta(theta);
+    lp_assert(unlimited || theta >= zero_of_type<X>());
+    if (try_jump_to_another_bound_on_entering(entering, theta, t, unlimited)) return entering;
+    if (unlimited)
+        return -1;
+    return find_leaving_on_harris_theta(theta, t);
 }
 
 
@@ -630,10 +687,47 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
     }
 }
 
+// debug only
+template <typename T, typename X> T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
+    lp_assert(false);
+}
 
-
+template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_or_init_column_norms(unsigned entering, unsigned leaving) {
+    lp_assert(numeric_traits<T>::precise() == false);
+    lp_assert(m_column_norm_update_counter <= this->m_settings.column_norms_update_frequency);
+    if (m_column_norm_update_counter == this->m_settings.column_norms_update_frequency) {
+        m_column_norm_update_counter = 0;
+        init_column_norms();
+    } else {
+        m_column_norm_update_counter++;
+        update_column_norms(entering, leaving);
+    }
+}
 
 // following Swietanowski - A new steepest ...
+template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_column_norms(unsigned entering, unsigned leaving) {
+    lp_assert(numeric_traits<T>::precise() == false);
+    T pivot = this->m_pivot_row[entering];
+    T g_ent = calculate_norm_of_entering_exactly() / pivot / pivot;
+    if (!numeric_traits<T>::precise()) {
+        if (g_ent < T(0.000001))
+            g_ent = T(0.000001);
+    }
+    this->m_column_norms[leaving] = g_ent;
+
+    for (unsigned j : this->m_pivot_row.m_index) {
+        if (j == leaving)
+            continue;
+        const T & t = this->m_pivot_row[j];
+        T s = this->m_A.dot_product_with_column(m_beta.m_data, j);
+        T k = -2 / pivot;
+        T tp = t/pivot;
+        if (this->m_column_types[j] != column_type::fixed) { // a fixed columns do not enter the basis, we don't use the norm of a fixed column
+            this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Istvan Maros, page 196
+                                               1 + tp * tp);
+             }
+    }
+}
 
 template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_norm_of_entering_exactly() {
     T r = numeric_traits<T>::one();
@@ -675,6 +769,13 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
         return true;
     }
     return false;
+}
+
+template <typename T, typename X>
+void lp_primal_core_solver<T, X>::init_infeasibility_costs_for_changed_basis_only() {
+    for (unsigned i :  this->m_ed.m_index)
+        init_infeasibility_cost_for_column(this->m_basis[i]);
+    this->set_using_infeas_costs(true);
 }
 
 

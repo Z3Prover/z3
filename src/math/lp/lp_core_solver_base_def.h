@@ -549,6 +549,23 @@ get_non_basic_column_value_position(unsigned j) const {
     return at_lower_bound;
 }
 
+template <typename T, typename X> int lp_core_solver_base<T, X>::pivots_in_column_and_row_are_different(int entering, int leaving) const {
+    const T & column_p = this->m_ed[this->m_basis_heading[leaving]];
+    const T & row_p = this->m_pivot_row[entering];
+    if (is_zero(column_p) || is_zero(row_p)) return true; // pivots cannot be zero
+    // the pivots have to have the same sign
+    if (column_p < 0) {
+        if (row_p > 0)
+            return 2;
+    } else { // column_p > 0
+        if (row_p < 0)
+            return 2;
+    }
+    T diff_normalized = abs((column_p - row_p) / (numeric_traits<T>::one() + abs(row_p)));
+    if ( !this->m_settings.abs_val_is_smaller_than_harris_tolerance(diff_normalized / T(10)))
+        return 1;
+    return 0;
+}
 template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_rows_tableau(unsigned i, unsigned j) {
     transpose_basis(i, j);
     m_A.transpose_rows(i, j);
