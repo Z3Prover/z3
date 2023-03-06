@@ -154,9 +154,6 @@ public:
 
     void fill_cb(vector<T> & y) const;
 
-    void solve_yB(vector<T> & y) const;
-    
-
     void pretty_print(std::ostream & out);
 
     void save_state(T * w_buffer, T * d_buffer);
@@ -175,10 +172,6 @@ public:
     void copy_m_ed(T * buffer);
 
     void restore_m_ed(T * buffer);
-
-    bool A_mult_x_is_off() const;
-
-    bool A_mult_x_is_off_on_index(const vector<unsigned> & index) const;
     
     void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
 
@@ -317,8 +310,6 @@ public:
 
     bool basis_heading_is_correct() const;
 
-    void restore_x_and_refactor(int entering, int leaving, X const & t);
-
     void restore_x(unsigned entering, X const & t);
 
     void fill_reduced_costs_from_m_y_by_rows();
@@ -435,9 +426,7 @@ public:
     void snap_xN_to_bounds_and_fill_xB();
 
     void snap_xN_to_bounds_and_free_columns_to_zeroes();
-
-    void init_reduced_costs_for_one_iteration();
-
+  
     non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
 
     void init_lu();

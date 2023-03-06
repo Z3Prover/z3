@@ -264,20 +264,6 @@ void lu< M>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // puts
 }
 
 template <typename M>
-void lu< M>::solve_yB(vector<T>& y) {
-    // first solve yU = cb*R(-1)
-    m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
-    m_U.solve_y_U(y); // got y*U=cb*R(-1)
-    m_Q.apply_reverse_from_right_to_T(y); //
-    for (auto e = m_tail.rbegin(); e != m_tail.rend(); ++e) {
-#ifdef Z3DEBUG
-        (*e)->set_number_of_columns(m_dim);
-#endif
-        (*e)->apply_from_right(y);
-    }
-}
-
-template <typename M>
 void lu< M>::solve_yB_indexed(indexed_vector<T>& y) {
     lp_assert(y.is_OK());
     // first solve yU = cb*R(-1)
@@ -412,55 +398,15 @@ void lu< M>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector<i
 // y is the input
 template <typename M>
 void lu< M>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const vector<int>& heading,  const vector<unsigned> & basis, const lp_settings & settings) {
-    if (numeric_traits<T>::precise()) {
-        if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() * 3 < m_A.column_count()) {
-            solve_yB_indexed(y);
-        } else {
-            solve_yB(y.m_data);
-            y.restore_index_and_clean_from_data();
-        }
-        return;
-    }
-    lp_assert(m_y_copy.is_OK());
-    lp_assert(y.is_OK());
-    if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() < m_A.column_count()) {
-        m_y_copy = y;
-        solve_yB_indexed(y);
-        lp_assert(y.is_OK());
-        if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() >= m_A.column_count()) {
-            find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
-            solve_yB(m_y_copy.m_data);
-            add_delta_to_solution(m_y_copy.m_data, y.m_data);
-            y.restore_index_and_clean_from_data();
-            m_y_copy.clear_all();
-        } else {
-            find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
-            solve_yB_indexed(m_y_copy);
-            add_delta_to_solution_indexed(y);
-        }
-        lp_assert(m_y_copy.is_OK());
-    } else {
-        solve_yB_with_error_check(y.m_data, basis);
-        y.restore_index_and_clean_from_data();
-    }
-}
+   lp_assert(false);
+   }
 
 
 // solves y*B = y
 // y is the input
 template <typename M>
 void lu< M>::solve_yB_with_error_check(vector<T> & y, const vector<unsigned>& basis) {
-    if (numeric_traits<T>::precise()) {
-        solve_yB(y);
-        return;
-    }
-    auto & yc = m_y_copy.m_data;
-    yc =y; // copy y aside
-    solve_yB(y);
-    find_error_of_yB(yc, y, basis);
-    solve_yB(yc);
-    add_delta_to_solution(yc, y);
-    m_y_copy.clear_all();
+    lp_assert(false);
 }
 template <typename M>
 void lu< M>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {

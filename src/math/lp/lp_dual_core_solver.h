@@ -76,7 +76,7 @@ public:
         m_a_wave(this->m_m()),
         m_betas(this->m_m()) {
         m_harris_tolerance = numeric_traits<T>::precise()? numeric_traits<T>::zero() : T(this->m_settings.harris_feasibility_tolerance);
-        this->solve_yB(this->m_y);
+        lp_assert(false);
         this->init_basic_part_of_basis_heading();
         fill_non_basis_with_only_able_to_enter_columns();
     }
