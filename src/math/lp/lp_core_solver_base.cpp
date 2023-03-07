@@ -29,9 +29,7 @@ template lp::non_basic_column_value_position lp::lp_core_solver_base<lp::mpq, lp
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_dual_feasible(unsigned int) const;
-template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::fill_reduced_costs_from_m_y_by_rows();
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
-template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::restore_x(unsigned int, lp::mpq const&);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::set_non_basic_x_to_correct_bounds();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
@@ -68,7 +66,6 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_feasible(unsi
 // template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_linear_combination_of_column_indices(vector<std::pair<lp::mpq, unsigned int>, std::allocator<std::pair<lp::mpq, unsigned int> > > const&, std::ostream&) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::column_is_feasible(unsigned int) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::snap_non_basic_x_to_bound();
-template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::restore_x(unsigned int, lp::numeric_pair<lp::mpq> const&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq>>::pivot_column_tableau(unsigned int, unsigned int);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::pivot_column_tableau(unsigned int, unsigned int);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::transpose_rows_tableau(unsigned int, unsigned int);

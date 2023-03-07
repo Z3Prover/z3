@@ -22,7 +22,6 @@ Revision History:
 #include <algorithm>
 #include "util/debug.h"
 #include <string>
-#include "math/lp/sparse_vector.h"
 #include "math/lp/indexed_vector.h"
 #include "math/lp/lp_settings.h"
 #include "math/lp/matrix.h"

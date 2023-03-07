@@ -24,14 +24,6 @@ Revision History:
 #include "math/lp/lp_settings.h"
 namespace lp {
 
-template <typename T>
-void print_sparse_vector(const vector<T> & t, std::ostream & out) {
-    for (unsigned i = 0; i < t.size(); i++) {
-        if (is_zero(t[i]))continue;
-        out << "[" << i << "] = " << t[i] << ", ";
-    }
-    out << std::endl;
-}
 
 void print_vector_as_doubles(const vector<mpq> & t, std::ostream & out) {
     for (unsigned i = 0; i < t.size(); i++)
