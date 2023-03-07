@@ -205,6 +205,7 @@ namespace bv {
         polysat::signed_constraint sc = a->m_sc;
         if (!sc)
             return;
+        force_push();
         SASSERT(s().value(a->m_bv) != l_undef);
         bool sign = l_false == s().value(a->m_bv);
         sat::literal lit(a->m_bv, sign);
@@ -216,6 +217,7 @@ namespace bv {
     bool solver::polysat_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
         if (!use_polysat())
             return false;
+        force_push();
         pdd p = var2pdd(r1);
         pdd q = var2pdd(r2);
         auto sc = m_polysat.eq(p, q);
@@ -229,11 +231,13 @@ namespace bv {
     bool solver::polysat_diseq_eh(euf::th_eq const& ne) {
         if (!use_polysat())
             return false;
+        force_push();
         euf::theory_var v1 = ne.v1(), v2 = ne.v2();
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
         auto sc = ~m_polysat.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
+        TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
         m_polysat.assign_eh(sc, polysat::dependency(1 + 2 * neq.index()));
         return true;
     }
@@ -241,6 +245,7 @@ namespace bv {
     void solver::polysat_propagate() {
         if (!use_polysat())
             return;
+        force_push();
         lbool r = m_polysat.unit_propagate();
         if (r == l_false)
             polysat_core();
@@ -249,6 +254,7 @@ namespace bv {
     lbool solver::polysat_final() {
         if (!use_polysat())
             return l_true;
+        force_push();
         lbool r = m_polysat.check_sat();
         if (r == l_false) 
             polysat_core();
@@ -267,6 +273,9 @@ namespace bv {
                 auto [v1, v2] = m_var_eqs[n.val() / 2];
                 eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
             }
+        }
+        for (auto lit : core) {
+            VERIFY(s().value(lit) == l_true);
         }
         auto ex = mk_bv2ext_justification(core, eqs);
         ctx.set_conflict(ex);

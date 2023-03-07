@@ -263,6 +263,7 @@ namespace polysat {
         void propagate_clause(clause& cl);
 
         void set_conflict_at_base_level(dependency dep) { m_conflict.init_at_base_level(dep); }
+        void set_conflict_at_base_level(dependency dep, sat::literal lit) { m_conflict.init_at_base_level(dep, lit); }
         void set_conflict(signed_constraint c) { m_conflict.init(c); }
         void set_conflict(clause& cl) { m_conflict.init(cl); }
         void set_conflict_by_viable_interval(pvar v) { m_conflict.init_by_viable_interval(v); }
