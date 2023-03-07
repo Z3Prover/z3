@@ -27,8 +27,7 @@ class lar_core_solver  {
     int m_infeasible_sum_sign; // todo: get rid of this field
     vector<numeric_pair<mpq>> m_right_sides_dummy;
     vector<mpq> m_costs_dummy;
-    vector<double> m_d_right_sides_dummy;
-    vector<double> m_d_costs_dummy;
+    
 public:
     stacked_value<simplex_strategy_enum> m_stacked_simplex_strategy;
     stacked_vector<column_type> m_column_types;
@@ -45,10 +44,6 @@ public:
     stacked_vector<unsigned> m_r_rows_nz;
     
     // d - solver fields, for doubles
-    vector<double> m_d_x; // the solution in doubles
-    vector<double> m_d_lower_bounds;
-    vector<double> m_d_upper_bounds;
-    static_matrix<double, double> m_d_A;
     stacked_vector<unsigned> m_d_pushed_basis;
     vector<unsigned> m_d_basis;
     vector<unsigned> m_d_nbasis;
@@ -146,7 +141,7 @@ public:
         m_r_lower_bounds.push();
         m_r_upper_bounds.push();
         
-        m_d_A.push();
+        
         
     }
 
@@ -185,10 +180,6 @@ public:
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
         
-        m_d_A.pop(k);
-        // doubles
-        
-        m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
         m_stacked_simplex_strategy.pop(k);
         settings().set_simplex_strategy(m_stacked_simplex_strategy);
@@ -279,15 +270,7 @@ public:
     }
     
    
-    void create_double_matrix(static_matrix<double, double> & A) {
-        for (unsigned i = 0; i < m_r_A.row_count(); i++) {
-            auto & row = m_r_A.m_rows[i];
-            for (row_cell<mpq> & c : row) {
-                A.add_new_element(i, c.var(), c.coeff().get_double());
-            }
-        }
-    }
-
+    
     void fill_basis_d(
                       vector<unsigned>& basis_d,
                       vector<int>& heading_d,
@@ -308,27 +291,6 @@ public:
         }
     }
 
-    void get_bounds_for_double_solver() {
-        unsigned n = m_n();
-        m_d_lower_bounds.resize(n);
-        m_d_upper_bounds.resize(n);
-        double delta = find_delta_for_strict_boxed_bounds().get_double();
-        if (delta > 0.000001)
-            delta = 0.000001;
-        for (unsigned j = 0; j < n; j++) {
-            if (lower_bound_is_set(j)) {
-                const auto & lb = m_r_solver.m_lower_bounds[j];
-                m_d_lower_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
-            }
-            if (upper_bound_is_set(j)) {
-                const auto & ub = m_r_solver.m_upper_bounds[j];
-                m_d_upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
-                lp_assert(!lower_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_lower_bounds[j]));
-            }
-        }
-    }
-
-    
     
     bool lower_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {

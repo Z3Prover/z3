@@ -43,7 +43,7 @@ template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
     clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
-    lp_assert(is_OK());
+
 }
 
 template <typename T>
@@ -72,33 +72,6 @@ void indexed_vector<T>::erase_from_index(unsigned j) {
         m_index.erase(it);
 }
 
-#ifdef Z3DEBUG
-template <typename T>
-bool indexed_vector<T>::is_OK() const {
-    return true;
-    const double drop_eps = 1e-14;
-    for (unsigned i = 0; i < m_data.size(); i++) {
-        if (!is_zero(m_data[i]) && lp_settings::is_eps_small_general(m_data[i], drop_eps)) {
-            return false;
-        }
-        if (lp_settings::is_eps_small_general(m_data[i], drop_eps) != (std::find(m_index.begin(), m_index.end(), i) == m_index.end())) {
-            return false;
-        }
-    }
-
-    std::unordered_set<unsigned> s;
-    for (unsigned i : m_index) {
-        //no duplicates!!!
-        if (s.find(i) != s.end())
-            return false;
-        s.insert(i);
-        if (i >= m_data.size())
-            return false;
-    }
-
-    return true;
-}
-#endif
 template <typename T>
 void indexed_vector<T>::print(std::ostream & out) {
     out << "m_index " << std::endl;

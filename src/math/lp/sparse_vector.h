@@ -42,7 +42,6 @@ public:
     }
 #endif
     void divide(T const & a) {
-        lp_assert(!lp_settings::is_eps_small_general(a, 1e-12));
         for (auto & t : m_data) {  t.second /= a; }
     }
 

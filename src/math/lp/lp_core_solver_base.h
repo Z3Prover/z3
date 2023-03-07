@@ -309,10 +309,7 @@ public:
 
     column_type get_column_type(unsigned j) const {return m_column_types[j]; }
 
-    bool pivot_row_element_is_too_small_for_ratio_test(unsigned j) {
-        return m_settings.abs_val_is_smaller_than_pivot_tolerance(m_pivot_row[j]);
-    }
-
+    
     X bound_span(unsigned j) const {
         return m_upper_bounds[j] - m_lower_bounds[j];
     }
@@ -410,7 +407,6 @@ public:
     
     non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
 
-    int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
     bool remove_from_basis(unsigned j);
     bool remove_from_basis(unsigned j, const impq&);

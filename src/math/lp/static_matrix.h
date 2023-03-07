@@ -359,7 +359,6 @@ public:
         for (auto p : row) {
             fill_last_row_with_pivoting_loop_block(p.column().index(), basis_heading);
         }
-        lp_assert(m_work_vector.is_OK());
         unsigned last_row = row_count() - 1;
     
         for (unsigned j : m_work_vector.m_index) {
