@@ -599,7 +599,6 @@ namespace polysat {
 #if 0
         m_fixed_bits.push();
 #endif
-        display(verbose_stream() << "push\n");
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -711,8 +710,6 @@ namespace polysat {
             m_trail.push_back(trail_instr_t::assign_bool_i);
             LOG("Replay: " << lit);
         }
-
-        display(verbose_stream());
     }
 
     bool solver::can_decide() const {
