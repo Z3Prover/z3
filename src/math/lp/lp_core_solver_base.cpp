@@ -43,7 +43,6 @@ template bool lp::lp_core_solver_base<double, double>::print_statistics_with_ite
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template void lp::lp_core_solver_base<double, double>::restore_x(unsigned int, double const&);
 template void lp::lp_core_solver_base<double, double>::set_non_basic_x_to_correct_bounds();
-template void lp::lp_core_solver_base<double, double>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<double, double>::add_delta_to_entering(unsigned int, const double&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_dual_feasible(unsigned int) const;
@@ -51,7 +50,6 @@ template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::fill_reduced_costs_from
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::restore_x(unsigned int, lp::mpq const&);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::set_non_basic_x_to_correct_bounds();
-template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init_basis_heading_and_non_basic_columns_vector();
@@ -61,7 +59,6 @@ template lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::lp_core_s
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_cost_and_check_that_the_time_is_over(lp::numeric_pair<lp::mpq>, std::ostream&);
-template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_Ax_eq_b();
 
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::add_delta_to_entering(unsigned int, const lp::numeric_pair<lp::mpq>&);
 template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(

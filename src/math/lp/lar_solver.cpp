@@ -281,9 +281,9 @@ namespace lp {
         unsigned m = A_r().row_count();
         clean_popped_elements(m, m_rows_with_changed_bounds);
         clean_inf_set_of_r_solver_after_pop();
-        lp_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
-            ( m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau()));
-
+        lp_assert(
+            m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
+            m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
 
         m_constraints.pop(k);
         m_term_count.pop(k);
@@ -627,10 +627,6 @@ namespace lp {
         m_rows_with_changed_bounds.insert(rid);
     }
 
-    void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column(unsigned j) {
-       lp_assert(false);
-    }
-
 
 
     void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
@@ -676,20 +672,16 @@ namespace lp {
     }
 
     void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq>& delta) {
-         {
-            for (const auto& c : A_r().m_columns[j]) {
-                unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
-                if (tableau_with_costs()) {
-                    m_basic_columns_with_changed_cost.insert(bj);
-                }
-                m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
-                TRACE("change_x_del",
-                    tout << "changed basis column " << bj << ", it is " <<
-                    (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
-
-            }
+        for (const auto& c : A_r().m_columns[j]) {
+           unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
+           if (tableau_with_costs()) {
+              m_basic_columns_with_changed_cost.insert(bj);
+           }
+           m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
+           TRACE("change_x_del",
+              tout << "changed basis column " << bj << ", it is " <<
+              (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
         }
-        
     }
 
     void lar_solver::update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j) {
@@ -817,19 +809,6 @@ namespace lp {
         }
         unsigned basis_j = A.column_count() - 1;
         A.set(last_row, basis_j, mpq(1));
-    }
-
-    template <typename U, typename V>
-    void lar_solver::create_matrix_A(static_matrix<U, V>& matr) {
-        lp_assert(false); // not implemented
-        /*
-          unsigned m = number_or_nontrivial_left_sides();
-          unsigned n = m_vec_of_canonic_left_sides.size();
-          if (matr.row_count() == m && matr.column_count() == n)
-          return;
-          matr.init_empty_matrix(m, n);
-          copy_from_mpq_matrix(matr);
-        */
     }
 
     template <typename U, typename V>

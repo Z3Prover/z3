@@ -511,7 +511,6 @@ public:
     bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
         lp_assert(m < 0);
-        if (numeric_traits<T>::precise()) {
             if (this->below_bound(x, bound)) return false;
             if (this->above_bound(x, bound)) {
                 limit_theta((bound - x) / m, theta, unlimited);
@@ -519,59 +518,30 @@ public:
                 theta = zero_of_type<X>();
                 unlimited = false;
             }
-        } else {
-            const X& eps = harris_eps_for_bound(bound);
-            if (this->below_bound(x, bound)) return false;
-            if (this->above_bound(x, bound)) {
-                limit_theta((bound - x - eps) / m, theta, unlimited);
-            } else {
-                theta = zero_of_type<X>();
-                unlimited = false;
-            }
-        }
         return true;
     }
 
     bool limit_inf_on_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets larger
         lp_assert(m > 0);
-        if (numeric_traits<T>::precise()) {
-            if (this->above_bound(x, bound)) return false;
-            if (this->below_bound(x, bound)) {
-                limit_theta((bound - x) / m, theta, unlimited);
-            } else {
-                theta = zero_of_type<X>();
-                unlimited = false;
-            }
+        if (this->above_bound(x, bound)) return false;
+        if (this->below_bound(x, bound)) {
+            limit_theta((bound - x) / m, theta, unlimited);
         } else {
-            const X& eps = harris_eps_for_bound(bound);
-            if (this->above_bound(x, bound)) return false;
-            if (this->below_bound(x, bound)) {
-                limit_theta((bound - x + eps) / m, theta, unlimited);
-            } else {
-                theta = zero_of_type<X>();
-                unlimited = false;
-            }
+            theta = zero_of_type<X>();
+            unlimited = false;
         }
+        
         return true;
     }
 
     void limit_inf_on_lower_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
-        if (numeric_traits<T>::precise()) {
             // x gets larger
-            lp_assert(m > 0);
-            if (this->below_bound(x, bound)) {
-                limit_theta((bound - x) / m, theta, unlimited);
-            }
-        }
-        else {
-            // x gets larger
-            lp_assert(m > 0);
-            const X& eps = harris_eps_for_bound(bound);
-            if (this->below_bound(x, bound)) {
-                limit_theta((bound - x + eps) / m, theta, unlimited);
-            }
-        }
+      lp_assert(m > 0);
+      if (this->below_bound(x, bound)) {
+           limit_theta((bound - x) / m, theta, unlimited);
+      }
+        
     }
 
     void limit_inf_on_upper_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
@@ -877,46 +847,13 @@ public:
         m_epsilon_of_reduced_cost(T(1)/T(10000000)),
         m_bland_mode_threshold(1000) {
 
-        if (!(numeric_traits<T>::precise())) {
-            m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
-        } else {
-            m_converted_harris_eps = zero_of_type<T>();
-        }
+       
+        m_converted_harris_eps = zero_of_type<T>();
+        
         this->set_status(lp_status::UNKNOWN);
     }
 
-    // constructor
-    lp_primal_core_solver(static_matrix<T, X> & A,
-                          vector<X> & b, // the right side vector
-                          vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
-                          vector<unsigned> & basis,
-                          vector<unsigned> & nbasis,
-                          vector<int> & heading,
-                          vector<T> & costs,
-                          const vector<column_type> & column_type_array,
-                          const vector<X> & upper_bound_values,
-                          lp_settings & settings,
-                          const column_namer& column_names):
-        lp_core_solver_base<T, X>(A, // b,
-                                  basis,
-                                  nbasis,
-                                  heading,
-                                  x,
-                                  costs,
-                                  settings,
-                                  column_names,
-                                  column_type_array,
-                                  m_lower_bounds_dummy,
-                                  upper_bound_values),
-        m_beta(A.row_count()),
-        m_converted_harris_eps(convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance)) {
-        lp_assert(initial_x_is_correct());
-        m_lower_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
-        m_enter_price_eps = numeric_traits<T>::precise() ? numeric_traits<T>::zero() : T(1e-5);
-#ifdef Z3DEBUG
-        lp_assert(false);
-#endif
-    }
+    
 
     bool initial_x_is_correct() {
         std::set<unsigned> basis_set;

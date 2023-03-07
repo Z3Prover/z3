@@ -205,10 +205,9 @@ class lar_solver : public column_namer {
     void set_lower_bound_witness(var_index j, constraint_index ci);
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
                                                 vector<std::pair<mpq, var_index>> &left_side) const;
-    void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
+    
     void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j);
     bool use_tableau_costs() const;
-    void detect_rows_of_column_with_bound_change(unsigned j);
     bool tableau_with_costs() const;
     bool costs_are_used() const;
     void change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta);

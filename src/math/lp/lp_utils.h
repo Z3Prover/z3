@@ -153,9 +153,6 @@ template <typename X> inline X ceil_ratio(const X & a, const X & b) { return num
 template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(a, b); }
 
 
-template <typename X> inline bool precise() { return numeric_traits<X>::precise(); }
-
-
 // returns true if a factor of b
 template <typename T>
 bool is_proper_factor(const T & a, const T & b) {

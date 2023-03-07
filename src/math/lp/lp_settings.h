@@ -78,9 +78,8 @@ enum class lp_status {
 // when the ratio of the vector length to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
 template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
-    if (numeric_traits<X>::precise())
         return 10;
-    return 120;
+    
 }
 
 const char* lp_status_to_string(lp_status status);
@@ -274,7 +273,7 @@ public:
     statistics const& stats() const { return m_stats; }
 
     template <typename T> static bool is_eps_small_general(const T & t, const double & eps) {
-        return (!numeric_traits<T>::precise())? is_epsilon_small<T>(t, eps) : numeric_traits<T>::is_zero(t);
+        return numeric_traits<T>::is_zero(t);
     }
 
     template <typename T>
@@ -373,9 +372,7 @@ inline std::string T_to_string(const mpq & t) {
 
 template <typename T>
 bool val_is_smaller_than_eps(T const & t, double const & eps) {
-    if (!numeric_traits<T>::precise()) {
-        return numeric_traits<T>::get_double(t) < eps;
-    }
+    
     return t <= numeric_traits<T>::zero();
 }
 

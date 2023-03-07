@@ -33,9 +33,7 @@ namespace lp {
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
-    lp_assert(numeric_traits<T>::precise());
-    
-        std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
+     std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
                 unsigned ca = this->m_A.number_of_non_zeroes_in_column(a);
                 unsigned cb = this->m_A.number_of_non_zeroes_in_column(b);
                 if (ca == 0 && cb != 0) return false;
@@ -54,57 +52,15 @@ void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis() {
-    if (numeric_traits<T>::precise()) {
-        sort_non_basis_rational();
-        return;
-    }
-    
-    
-    m_non_basis_list.clear();
-    // reinit m_basis_heading
-    for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
-        unsigned col = this->m_nbasis[j];
-        this->m_basis_heading[col] = - static_cast<int>(j) - 1;
-        m_non_basis_list.push_back(col);
-    }
+     sort_non_basis_rational();   
 }
 
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
-    if (numeric_traits<T>::precise())
-        return column_is_benefitial_for_entering_basis_precise(j);
-    const T& dj = this->m_d[j];
-    switch (this->m_column_types[j]) {
-    case column_type::fixed:  break;
-    case column_type::free_column:
-        if (dj > m_epsilon_of_reduced_cost || dj < -m_epsilon_of_reduced_cost)
-            return true;
-        break;
-    case column_type::lower_bound:
-        if (dj > m_epsilon_of_reduced_cost) return true;;
-        break;
-    case column_type::upper_bound:
-        if (dj < -m_epsilon_of_reduced_cost) return true;
-        break;
-    case column_type::boxed:
-        if (dj > m_epsilon_of_reduced_cost) {
-            if (this->m_x[j] < this->m_upper_bounds[j] - this->bound_span(j)/2)
-                return true;
-            break;
-        } else if (dj < - m_epsilon_of_reduced_cost) {
-            if (this->m_x[j] > this->m_lower_bounds[j] + this->bound_span(j)/2)
-                return true;
-        }
-        break;
-    default:
-        lp_unreachable();
-        break;
-    }
-    return false;
+    return column_is_benefitial_for_entering_basis_precise(j);    
 }
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
-    lp_assert (numeric_traits<T>::precise());
     const T& dj = this->m_d[j];
     TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
@@ -144,7 +100,6 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precis
 
 template <typename T, typename X>
 int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
-    lp_assert(numeric_traits<T>::precise());
     if (number_of_benefitial_columns_to_go_over == 0)
         return -1;
     if (this->m_basis_sort_counter == 0) {
@@ -231,8 +186,6 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
         }
         if (++k == steps) k = 0;
     } while (k != initial_k);
-    if (!this->precise())
-        restore_harris_eps();
     return leaving;
 }
 
@@ -479,57 +432,20 @@ void lp_primal_core_solver<T, X>::update_reduced_costs_from_pivot_row(unsigned e
 // return 0 if the reduced cost at entering is close enough to the refreshed
 // 1 if it is way off, and 2 if it is unprofitable
 template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_reduced_cost_at_entering_and_check_that_it_is_off(unsigned entering) {
-    if (numeric_traits<T>::precise()) return 0;
-    T reduced_at_entering_was = this->m_d[entering];  // can benefit from going over non-zeros of m_ed
-    lp_assert(abs(reduced_at_entering_was) > m_epsilon_of_reduced_cost);
-    T refreshed_cost = this->m_costs[entering];
-    unsigned i = this->m_m();
-    while (i--) refreshed_cost -= this->m_costs[this->m_basis[i]] * this->m_ed[i];
-    this->m_d[entering] = refreshed_cost;
-    T delta = abs(reduced_at_entering_was - refreshed_cost);
-    if (delta * 2 > abs(reduced_at_entering_was)) {
-        // this->m_status = UNSTABLE;
-        if (reduced_at_entering_was > m_epsilon_of_reduced_cost) {
-            if (refreshed_cost <= zero_of_type<T>())
-                return 2; // abort entering
-        } else {
-            if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entering
-        }
-        return 1; // go on with this entering
-    } else {
-        if (reduced_at_entering_was > m_epsilon_of_reduced_cost) {
-            if (refreshed_cost <= zero_of_type<T>())
-                return 2; // abort entering
-        } else {
-            if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entering
-        }
-    }
     return 0;
+    
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_and_normalize_costs() {
     if (this->m_look_for_feasible_solution_only)
         return; // no need to backup cost, since we are going to use only feasibility costs
-    if (numeric_traits<T>::precise() ) {        
-        m_costs_backup = this->m_costs;
-    } else {
-        T cost_max = std::max(max_abs_in_vector(this->m_costs), T(1));
-        lp_assert(m_costs_backup.size() == 0);
-        for (unsigned j = 0; j < this->m_costs.size(); j++)
-            m_costs_backup.push_back(this->m_costs[j] /= cost_max);
-    }
+    m_costs_backup = this->m_costs;    
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
     
 }
 
-
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
-    lp_assert(false);
-}
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering, X & t) {
@@ -571,63 +487,7 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
     TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
-    if (numeric_traits<T>::precise())
-        return solve_with_tableau();
-
-    init_run();
-    if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
-        this->set_status(lp_status::FEASIBLE);
-        return 0;
-    }
-        
-   
-    do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->using_infeas_costs()? "inf" : "feas"), * this->m_settings.get_message_ostream())) {
-            return this->total_iterations();
-        }
-        one_iteration();
-
-        TRACE("lar_solver", tout << "one iteration: " << this->get_status() << "\n";);
-        lp_assert(!this->using_infeas_costs() || this->costs_on_nbasis_are_zeros());
-        switch (this->get_status()) {
-        case lp_status::OPTIMAL:  // double check that we are at optimum
-        case lp_status::INFEASIBLE:
-            if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
-                break;
-            { // precise case
-                
-            }
-            break;
-        case lp_status::TENTATIVE_UNBOUNDED:
-            lp_assert(false);
-            break;
-        case lp_status::UNBOUNDED:
-            lp_assert(false);
-            break;
-
-        case lp_status::UNSTABLE:
-            lp_assert(false);
-            break;
-
-        default:
-            break; // do nothing
-        }
-    } while (
-             this->get_status() != lp_status::UNBOUNDED
-             &&
-             this->get_status() != lp_status::OPTIMAL
-             &&
-             this->get_status() != lp_status::INFEASIBLE
-             &&
-             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
-             &&
-             !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only));
-
-    lp_assert(
-                this->current_x_is_feasible() == false
-                ||
-                this->calc_current_x_is_feasible_include_non_basis());
-    return this->total_iterations();
+    return solve_with_tableau();
 }
 
 // calling it stage1 is too cryptic

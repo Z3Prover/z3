@@ -45,7 +45,6 @@ template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
 public:
-    static bool precise() { return true; }
     static unsigned zero() { return 0; }
     static unsigned one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
@@ -56,7 +55,6 @@ public:
 
 template <>  class numeric_traits<int> {
 public:
-    static bool precise() { return true; }
     static int zero() { return 0; }
     static int one() { return 1; }
     static bool is_zero(int v) { return v == 0; }
@@ -71,7 +69,6 @@ public:
 
 template <>  class numeric_traits<double> {
 public:
-    static bool precise() { return false; }
     static double g_zero;
     static double const &zero() { return g_zero;  }
     static double g_one;
@@ -88,7 +85,6 @@ public:
 template<>
 class numeric_traits<rational> {
 public:
-    static bool precise() { return true; }
     static rational const & zero() { return rational::zero(); }
     static rational const & one() { return rational::one(); }
     static bool is_zero(const rational & v) { return v.is_zero(); }
@@ -251,8 +247,6 @@ struct numeric_pair {
         return numeric_pair(-x, -y);
     }
 
-    static bool precize() { return lp::numeric_traits<T>::precize();}
-
     bool is_zero() const { return x.is_zero() && y.is_zero(); }
 
     bool is_pos() const { return x.is_pos() || (x.is_zero() && y.is_pos());}
@@ -294,12 +288,10 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
     return numeric_pair<T>(r.x / a,  r.y / a);
 }
 
-// template <numeric_pair, typename T>  bool precise() { return numeric_traits<T>::precise();}
 template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
 public:
-    static bool precise() { return numeric_traits<T>::precise();}
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
