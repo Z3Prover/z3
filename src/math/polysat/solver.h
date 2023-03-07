@@ -24,7 +24,6 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/constraint_manager.h"
 #include "math/polysat/clause_builder.h"
-#include "math/polysat/fixed_bits.h"
 #include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"
 #include "math/polysat/restart.h"
@@ -119,8 +118,6 @@ namespace polysat {
         friend class conflict_explainer;
         friend class simplify_clause;
         friend class simplify;
-        friend class fixed_bits;
-        friend class bit_justification_constraint;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
@@ -151,7 +148,6 @@ namespace polysat {
         viable                   m_viable;   // viable sets per variable
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         linear_solver            m_linear_solver;
-        fixed_bits               m_fixed_bits;
         conflict                 m_conflict;
         simplify_clause          m_simplify_clause;
         simplify                 m_simplify;
@@ -288,11 +284,13 @@ namespace polysat {
         std::optional<lemma_score> compute_lemma_score(clause const& lemma);
 
         // activity of variables based on standard VSIDS
-        unsigned m_activity_inc = 128;
-        unsigned m_variable_decay = 110;
+        const unsigned activity_inc_default = 128;
+        unsigned m_activity_inc = activity_inc_default;
+        const unsigned m_variable_decay = 110;
         void inc_activity(pvar v);
         void decay_activity();
         void rescale_activity();
+        void randomize_activity();
 
         void report_unsat();
         void backjump(unsigned new_level);
@@ -505,7 +503,7 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
         signed_constraint t() { return eq(sz2pdd(1).mk_val(0)); }
-        signed_constraint f() { return eq(sz2pdd(1).mk_val(1)); }
+        signed_constraint f() { return ~t(); }
 
         /** Create and activate constraints */
         void add_eq(pdd const& p, dependency dep = null_dependency)                         { assign_eh(eq(p), dep); }

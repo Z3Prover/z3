@@ -83,7 +83,6 @@ namespace polysat {
         bool is_currently_false(solver const& s, bool is_positive) const { return is_currently_true(s, !is_positive); }
 
         virtual void narrow(solver& s, bool is_positive, bool first) = 0;
-        virtual bool propagate_bits(solver& s, bool is_positive) { return true; }
         /**
          * If possible, produce a lemma that contradicts the given assignment.
          * This method should not modify the solver's search state.

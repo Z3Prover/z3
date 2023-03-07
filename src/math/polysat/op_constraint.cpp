@@ -130,34 +130,11 @@ namespace polysat {
         if (first)
             activate(s);
 
-#if 0
-        if (!propagate_bits(s, is_positive))
-            return; // conflict
-#endif
-
         if (clause_ref lemma = produce_lemma(s, s.get_assignment()))
             s.add_clause(*lemma);
 
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
-    }
-
-    bool op_constraint::propagate_bits(solver& s, bool is_positive) {
-        switch (m_op) {
-        case code::lshr_op:
-            return propagate_bits_lshr(s, is_positive);
-        case code::shl_op:
-            return propagate_bits_shl(s, is_positive);
-        case code::and_op:
-            return propagate_bits_and(s, is_positive);
-        case code::inv_op:
-        case code::udiv_op:
-        case code::urem_op:
-            return false;
-        default:
-            NOT_IMPLEMENTED_YET();
-            return false;
-        }
     }
 
     /**
@@ -278,17 +255,21 @@ namespace polysat {
         }
         else {
             // forward propagation
-            /*SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [>>] " << r() << " = " << (qv.val().is_unsigned() ? machine_div(pv.val(), rational::power_of_two(qv.val().get_unsigned())) : rational::zero()));
             if (qv.is_val() && !rv.is_val()) {
                 const rational& qr = qv.val();
-                if (qr >= m.power_of_2())
+                if (qr >= N)
                     return s.mk_clause(~lshr, ~s.ule(m.mk_val(m.power_of_2()), q()), s.eq(r()), true);
 
                 if (rv.is_val()) {
                     const rational& pr = pv.val();
-                    return s.mk_clause(~lshr, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(machine_div(pr, rational::power_of_two(qr.get_unsigned())))), true);
+                    return s.mk_clause(~lshr, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(
+                            qr.is_unsigned()
+                            ? machine_div(pr, rational::power_of_two(qr.get_unsigned()))
+                            : rational::zero())), true);
                 }
-            }*/
+            }
         }
         return {};
     }
@@ -311,12 +292,6 @@ namespace polysat {
         // TODO: other cases when we know lower bound of q,
         //       e.g, q = 2^k*q1 + q2, where q2 is a constant.
         return l_undef;
-    }
-
-    bool op_constraint::propagate_bits_lshr(solver& s, bool is_positive) {
-        // TODO: Implement: copy from the left shift
-        // TODO: Implement: negative case
-        return true;
     }
 
     /**
@@ -362,17 +337,18 @@ namespace polysat {
         }
         else {
             // forward propagation
-            /*SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
+            LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [<<] " << r() << " = " << (qv.val().is_unsigned() ? rational::power_of_two(qv.val().get_unsigned()) * pv.val() : rational::zero()));
             if (qv.is_val() && !rv.is_val()) {
                 const rational& qr = qv.val();
-                if (qr >= m.power_of_2())
+                if (qr >= N)
                     return s.mk_clause(~shl, ~s.ule(m.mk_val(m.power_of_2()), q()), s.eq(r()), true);
 
                 if (rv.is_val()) {
                     const rational& pr = pv.val();
                     return s.mk_clause(~shl, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(rational::power_of_two(qr.get_unsigned()) * pr)), true);
                 }
-            }*/
+            }
         }
         return {};
     }
@@ -398,59 +374,6 @@ namespace polysat {
         //       e.g, q = 2^k*q1 + q2, where q2 is a constant.
         //       (bounds should be tracked by viable, then just use min_viable here)
         return l_undef;
-    }
-
-    bool op_constraint::propagate_bits_shl(solver& s, bool is_positive) {
-        // TODO: Implement: negative case
-        const tbv_ref& p_val = *s.m_fixed_bits.eval(s, m_p);
-        const tbv_ref& q_val = *s.m_fixed_bits.eval(s, m_q);
-        const tbv_ref& r_val = *s.m_fixed_bits.eval(s, m_r);
-        unsigned sz = m_p.power_of_2();
-
-        auto [shift_min, shift_max] = fixed_bits::min_max(q_val);
-
-        unsigned shift_min_u, shift_max_u;
-
-        if (!shift_min.is_unsigned() || shift_min.get_unsigned() > sz)
-            shift_min_u = sz;
-        else
-            shift_min_u = shift_min.get_unsigned();
-
-        if (!shift_max.is_unsigned() || shift_max.get_unsigned() > sz)
-            shift_max_u = sz;
-        else
-            shift_max_u = shift_max.get_unsigned();
-
-        SASSERT(shift_max_u <= sz);
-        SASSERT(shift_min_u <= shift_max_u);
-
-        unsigned span = shift_max_u - shift_min_u;
-
-        // Shift by at the value we know q to be at least
-        // TODO: Improve performance; we can reuse the justifications from the previous iteration
-        if (shift_min_u > 0) {
-            for (unsigned i = 0; i < shift_min_u; i++) {
-                if (!s.m_fixed_bits.fix_bit(s, m_r, i, BIT_0, bit_justification_constraint::mk_justify_at_least(s, this, m_q, q_val, rational(i + 1)), true))
-                    return false;
-            }
-        }
-        for (unsigned i = shift_min_u; i < sz; i++) {
-            unsigned j = 0;
-            tbit val = p_val[i - shift_min_u];
-            if (val == BIT_z)
-                continue;
-
-            for (; j < span; j++) {
-                if (p_val[i - shift_min_u + 1] != val)
-                    break;
-            }
-            if (j == span) { // all elements we could shift there are equal. We can safely set this value
-                // TODO: Relax. Sometimes we can reduce the span if further elements in q are set to the respective value
-                if (!s.m_fixed_bits.fix_bit(s, m_r, i, val, bit_justification_constraint::mk_justify_between(s, this, m_q, q_val, shift_min, shift_max), true))
-                    return false;
-            }
-        }
-        return true;
     }
 
     void op_constraint::activate_and(solver& s) {
@@ -497,7 +420,7 @@ namespace polysat {
         auto qv = a.apply_to(q());
         auto rv = a.apply_to(r());
 
-        signed_constraint const andc(this, true);
+        signed_constraint const andc(this, true); // op_constraints are always true
 
         // r <= p
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
@@ -559,9 +482,11 @@ namespace polysat {
         if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
             return s.mk_clause(~andc, s.ule(r(), q()), true);
         // p = a && q = b ==> r = a & b
-        /*if (pv.is_val() && qv.is_val() && !rv.is_val()) {
+        if (pv.is_val() && qv.is_val() && !rv.is_val()) {
+            // Just assign by this very weak justification. It will be strengthened in saturation in case of a conflict
+            LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [band] " << r() << " = " << bitwise_and(pv.val(), qv.val()));
             return s.mk_clause(~andc, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), bitwise_and(pv.val(), qv.val())), true);
-        }*/
+        }
 
         return {};
     }
@@ -575,51 +500,6 @@ namespace polysat {
             return r.val() == bitwise_and(p.val(), q.val()) ? l_true : l_false;
 
         return l_undef;
-    }
-
-    bool op_constraint::propagate_bits_and(solver& s, bool is_positive) {
-        // TODO: Implement: negative case
-        LOG_H2("Bit-Propagating: " << m_r << " = (" << m_p << ") & (" << m_q << ")");
-        const tbv_ref& p_val = *s.m_fixed_bits.eval(s, m_p);
-        const tbv_ref& q_val = *s.m_fixed_bits.eval(s, m_q);
-        const tbv_ref& r_val = *s.m_fixed_bits.eval(s, m_r);
-        LOG("p: " << m_p << " = " << p_val);
-        LOG("q: " << m_q << " = " << q_val);
-        LOG("r: " << m_r << " = " << r_val);
-        unsigned sz = m_p.power_of_2();
-
-        for (unsigned i = 0; i < sz; i++) {
-            tbit bp = p_val[i];
-            tbit bq = q_val[i];
-            tbit br = r_val[i];
-
-            if (bp == BIT_0 || bq == BIT_0) {
-                // TODO: In case both are 0 use the one with the lower decision-level and not necessarily p
-                if (!s.m_fixed_bits.fix_bit(s, m_r, i, BIT_0, bit_justification_constraint::mk_unary(s, this, { bp == BIT_0 ? m_p : m_q, i }), true))
-                    return false;
-            }
-            else if (bp == BIT_1 && bq == BIT_1) {
-                if (!s.m_fixed_bits.fix_bit(s, m_r, i, BIT_1, bit_justification_constraint::mk_binary(s, this, { m_p, i }, { m_q, i }), true))
-                    return false;
-            }
-            else if (br == BIT_1) {
-                if (!s.m_fixed_bits.fix_bit(s, m_p, i, BIT_1, bit_justification_constraint::mk_unary(s, this, { m_r, i }), true))
-                    return false;
-                if (!s.m_fixed_bits.fix_bit(s, m_q, i, BIT_1, bit_justification_constraint::mk_unary(s, this, { m_r, i }), true))
-                    return false;
-            }
-            else if (br == BIT_0) {
-                if (bp == BIT_1) {
-                    if (!s.m_fixed_bits.fix_bit(s, m_q, i, BIT_1, bit_justification_constraint::mk_binary(s, this, { m_p, i }, { m_r, i }), true))
-                        return false;
-                }
-                else if (bq == BIT_1) {
-                    if (!s.m_fixed_bits.fix_bit(s, m_p, i, BIT_1, bit_justification_constraint::mk_binary(s, this, { m_q, i }, { m_r, i }), true))
-                        return false;
-                }
-            }
-        }
-        return true;
     }
 
     /**

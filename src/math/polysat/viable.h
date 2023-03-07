@@ -73,6 +73,7 @@ namespace polysat {
     class viable {
         friend class test_fi;
         friend class test_polysat;
+        friend class conflict;
 
         solver& s;
         forbidden_intervals      m_forbidden_intervals;
@@ -108,6 +109,9 @@ namespace polysat {
         rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const;
 
         bool collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications);
+#if 0
+        bool collect_bit_information(pvar v, bool add_conflict, const vector<signed_constraint>& cnstr, svector<lbool>& fixed, vector<vector<signed_constraint>>& justifications);
+#endif
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
@@ -226,6 +230,11 @@ namespace polysat {
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
         lbool find_viable(pvar v, rational& out_lo, rational& out_hi);
+
+#if 0
+        void make_bit_justification(pvar v);
+        void get_bit_min_max(pvar v, conflict& core, rational& min, rational& max, vector<signed_constraint>& justifications_min, vector<signed_constraint>& justifications_max);
+#endif
 
         /**
          * Retrieve the unsat core for v,

@@ -358,7 +358,7 @@ namespace polysat {
     }
     
     // 2^(k - d) * x = m * 2^(k - d)
-    bool simplify_clause::get_trailing_mask(pdd lhs, pdd rhs, pdd& p, trailing_bits& mask, bool pos) {
+    bool simplify_clause::get_lsb(pdd lhs, pdd rhs, pdd& p, trailing_bits& info, bool pos) {
         auto lhs_decomp = decouple_constant(lhs);
         auto rhs_decomp = decouple_constant(rhs);
         
@@ -375,10 +375,12 @@ namespace polysat {
         
         p = lhs.div(rational::power_of_two(d));
         rational rhs_val = rhs.val();
-        mask.bits = rhs_val / rational::power_of_two(d);
-        if (!mask.bits.is_int())
+        info.bits = rhs_val / rational::power_of_two(d);
+        if (!info.bits.is_int())
             return false;
-        
+
+        SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+
         auto it = p.begin();
         auto first = *it;
         it++;
@@ -388,32 +390,85 @@ namespace polysat {
             rational inv;
             VERIFY(first.coeff.mult_inverse(lhs.power_of_2(), inv));
             p *= inv;
-            mask.bits = mod2k(mask.bits * inv, span);
+            info.bits = mod2k(info.bits * inv, span);
         }
         
-        mask.length = span;
-        mask.positive = pos;
+        info.length = span;
+        info.positive = pos;
+        return true;
+    }
+
+    // 2^k - 2^(k - i) <= x -> first i bits 1
+    // 2^(k - i) > x -> first i bits 0
+    bool simplify_clause::get_msb(pdd lhs, pdd rhs, pdd& p, leading_bits& info, bool pos) {
+        if (lhs.is_var() && rhs.is_val()) {
+            if (rhs.is_zero())
+                return false;
+            // rewrite into expected form
+            pdd t = lhs;
+            lhs = rhs;
+            rhs = t - 1;
+            pos = !pos;
+        }
+        if (!rhs.is_var() || !lhs.is_val())
+            return false;
+        p = rhs;
+        rational v = lhs.val();
+        if (pos)
+            v = rational::power_of_two(lhs.power_of_2()) - v;
+        SASSERT(!v.is_neg());
+
+        info.positive = pos;
+
+        if (v.is_zero())
+            return false;
+        if (v.is_one()) {
+            if (pos)
+                return false;
+            info.length = lhs.power_of_2();
+            return true; // p = 0
+        }
+
+        unsigned d = (v - 1).get_num_bits(); // ceil(log2(lhs))
+        info.length = lhs.power_of_2() - d;
+        if (info.length == 0)
+            return false;
         return true;
     }
     
-    // 2^(k - 1) <= 2^(k - i - 1) * x (original definition) // TODO: Have this as well
-    // 2^(k - i - 1) * x + 2^(k - 1) <= 2^(k - 1) - 1 (currently we test only for this form) 
+    // 2^(k - 1) <= 2^(k - i - 1) * x (original definition)
+    // 2^(k - i - 1) * x + 2^(k - 1) <= 2^(k - 1) - 1 (rewritten)
     bool simplify_clause::get_bit(const pdd& lhs, const pdd& rhs, pdd& p, single_bit& bit, bool pos) {
-        if (!rhs.is_val())
-            return false;
-        
-        rational rhs_val = rhs.val() + 1;
         unsigned k = rhs.power_of_2();
-        
-        if (rhs_val != rational::power_of_two(k - 1))
-            return false;
-        
-        pdd rest = lhs - rhs_val;
-        unsigned d = rest.max_pow2_divisor();
-        bit.position = k - d - 1;
-        bit.positive = pos;
-        p = rest.div(rational::power_of_two(d));
-        return true;
+        if (rhs.is_val()) {
+            // 2^(k - i - 1) * x + 2^(k - 1) <= 2^(k - 1) - 1
+            rational rhs_val = rhs.val() + 1;
+            if (rhs_val != rational::power_of_two(k - 1))
+                return false;
+
+            pdd rest = lhs - rhs_val;
+            if (rest.is_val()) // e.g., lhs=2^255; rhs=2^255-1
+                return false;
+
+            SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+
+            unsigned d = rest.max_pow2_divisor();
+            bit.position = k - d - 1;
+            bit.positive = pos;
+            p = rest.div(rational::power_of_two(d));
+            return p.is_var();
+        }
+        else {
+            // 2^(k - 1) <= 2^(k - i - 1) * x
+            unsigned pow;
+            if (!lhs.is_val() || !lhs.val().is_power_of_two(pow) || pow != k - 1)
+                return false;
+            unsigned d = rhs.max_pow2_divisor();
+            bit.position = k - d - 1;
+            bit.positive = pos;
+            p = rhs.div(rational::power_of_two(d));
+            return p.is_var();
+        }
     }
 
     // Compares with respect to "subsumption"
@@ -444,7 +499,7 @@ namespace polysat {
      *
      *   let lsb(t, d) = m := 2^(k - d)*t = m * 2^(k - d) denotes that the last (least significant) d bits of t are the binary representation of m
      *   let bit(t, i) :=  2^(k - 1) <= 2^(k - i - 1)*t
-     *   TODO: 2^(k - 1 - d) <= 2^(k - i - 1)*t denotes that bits i-d...i are set to 0
+     *   TODO: t == val || bit(t, i) resp. !bit(t, i) resp. lsb(t, d) = m with matching values removes the equality
      *   
      *   lsb(t, d) = m with log2(m) >= d => false
      *   
@@ -500,7 +555,7 @@ namespace polysat {
             trailing_bits mask;
             single_bit bit;
             pdd p = c->to_ule().lhs();
-            if ((c.is_eq() || c.is_diseq()) && get_trailing_mask(c->to_ule().lhs(), c->to_ule().rhs(), p, mask, c.is_positive())) {
+            if ((c.is_eq() || c.is_diseq()) && get_lsb(c->to_ule().lhs(), c->to_ule().rhs(), p, mask, c.is_positive())) {
                 if (mask.bits.bitsize() > mask.length) {
                     removed[i] = true; // skip this constraint. e.g., 2^(k-3)*x = 9*2^(k-3) is false as 9 >= 2^3
                     continue;

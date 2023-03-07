@@ -24,6 +24,11 @@ namespace polysat {
         bool positive;
         unsigned src_idx;
     };
+    struct leading_bits {
+        unsigned length;
+        bool positive; // either all 0 or all 1
+        unsigned src_idx;
+    };
     struct single_bit {
         bool positive;
         unsigned position;
@@ -60,7 +65,8 @@ namespace polysat {
 
         bool apply(clause& cl);
         
-        static bool get_trailing_mask(pdd lhs, pdd rhs, pdd& p, trailing_bits& mask, bool pos);
+        static bool get_lsb(pdd lhs, pdd rhs, pdd& p, trailing_bits& info, bool pos);
+        static bool get_msb(pdd lhs, pdd rhs, pdd& p, leading_bits& info, bool pos);
         static bool get_bit(const pdd& lhs, const pdd& rhs, pdd& p, single_bit& bit, bool pos);
     };
 

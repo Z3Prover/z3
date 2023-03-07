@@ -173,6 +173,8 @@ namespace polysat {
         bool try_umul_noovfl_bounds(pvar v, signed_constraint c, conflict& core);
         bool try_umul_ovfl_bounds(pvar v, signed_constraint c, conflict& core);
 
+        bool try_op(pvar v, signed_constraint c, conflict& core);
+
     public:
         saturation(solver& s);
         void perform(pvar v, conflict& core);

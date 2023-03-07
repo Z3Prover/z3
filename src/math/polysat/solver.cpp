@@ -32,7 +32,6 @@ namespace polysat {
         m_viable(*this),
         m_viable_fallback(*this),
         m_linear_solver(*this),
-        m_fixed_bits(*this),
         m_conflict(*this),
         m_simplify_clause(*this),
         m_simplify(*this),
@@ -596,9 +595,6 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
-#if 0
-        m_fixed_bits.push();
-#endif
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -610,9 +606,6 @@ namespace polysat {
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
-#endif
-#if 0
-        m_fixed_bits.pop();
 #endif
         while (num_levels > 0) {
             switch (m_trail.back()) {
@@ -1401,6 +1394,17 @@ namespace polysat {
             act >>= 14;
         }
         m_activity_inc >>= 14;
+    }
+
+    void solver::randomize_activity() {
+        m_activity_inc = activity_inc_default;
+        m_free_pvars.reset();
+        for (unsigned v = num_vars(); v > 0; v--) {
+            if (is_assigned(v - 1))
+                continue;
+            m_activity[v - 1] = m_rand() % activity_inc_default;
+            m_free_pvars.mk_var_eh(v - 1);
+        }
     }
 
     void solver::report_unsat() {

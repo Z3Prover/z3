@@ -63,6 +63,9 @@ namespace polysat {
         if (c->is_umul_ovfl()) 
             return try_umul_ovfl(v, c, core);
 
+        if (c->is_op())
+            return try_op(v, c, core);
+
         return false;
     }
 
@@ -219,6 +222,30 @@ namespace polysat {
         auto const& ovfl = c->to_umul_ovfl();
         auto p = ovfl.p(), q = ovfl.q();
         rational p_val, q_val;
+        return false;
+    }
+
+    bool saturation::try_op(pvar v, signed_constraint c, conflict& core) {
+        SASSERT(c->is_op());
+        SASSERT(c.is_positive());
+        return false;
+        op_constraint* op = ((op_constraint*)c.get());
+        clause_ref correction = op->produce_lemma(s, s.get_assignment(), c.is_positive());
+        if (correction) {
+            IF_LOGGING(
+                LOG("correcting op_constraint: " << *correction);
+                for (sat::literal lit : *correction) {
+                    LOG("\t" << lit_pp(s, lit));
+                }
+            );
+
+            for (const sat::literal& l : *correction)
+                if (!s.m_bvars.is_assigned(l))
+                    s.assign_eval(~l);
+            core.add_lemma(correction);
+            log_lemma(v, core);
+            return true;
+        }
         return false;
     }
 
@@ -1028,7 +1055,7 @@ namespace polysat {
                     return false;
                 m_lemma.insert_eval(~c);
             }
-            return propagate(x, core, axb_l_y, s.f());
+            return propagate(x, core, axb_l_y, s.f()); // TODO: Conflict overload
         };
 
         vector<signed_constraint> at_least_x, at_most_x, at_least_b, at_most_b, at_least_a, at_most_a;

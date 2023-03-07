@@ -563,15 +563,17 @@ namespace {
             return true;
         }
 
+        // TODO: Extend in both directions? (Less justifications vs. bigger intervals)
+        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
+
         ne->coeff = 1;
         if (FORWARD) {
-            LOG("refine-bits for v" << v << " [" << val << ", " << new_val << "[");
-            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(val), val, v_pdd.manager().mk_val(new_val), new_val);
+            LOG("refine-bits FORWARD for v" << v << " = " << val << " to [" << new_val2 << ", " << new_val << "[");
+            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val2), new_val2, v_pdd.manager().mk_val(new_val), new_val);
         }
         else {
-            rational upper_bound = val == v_pdd.manager().max_value() ? rational::zero() : val + 1;;
-            LOG("refine-bits for v" << v << " [" << new_val << ", " << upper_bound << "[");
-            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val), new_val, v_pdd.manager().mk_val(upper_bound), upper_bound);
+            LOG("refine-bits BACKWARD for v" << v << " = " << val << " to [" << new_val << ", " << new_val2 << "[");
+            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val), new_val, v_pdd.manager().mk_val(new_val2), new_val2);
         }
         SASSERT(ne->interval.currently_contains(val));
         intersect(v, ne);
@@ -921,98 +923,150 @@ namespace {
         fixed.resize(p.power_of_2(), l_undef);
         justifications.resize(p.power_of_2(), ptr_vector<entry>());
 
-        auto* e = m_equal_lin[v];
-        auto* first = e;
-        if (!e)
+        auto* e1 = m_equal_lin[v];
+        auto* e2 = m_units[v];
+        auto* first = e1;
+        if (!e1 && !e2)
             return true;
 
         clause_builder builder(s, "bit check");
+        uint_set already_added;
         vector<std::pair<entry*, trailing_bits>> postponed;
 
-        auto add_entry = [&builder](entry* e) {
-            for (const auto& sc : e->side_cond)
+        auto add_entry = [&builder, &already_added](entry* e) {
+            for (const auto& sc : e->side_cond) {
+                if (already_added.contains(sc.bvar()))
+                    continue;
+                already_added.insert(sc.bvar());
                 builder.insert_eval(~sc);
-            for (const auto& src : e->src)
+            }
+            for (const auto& src : e->src) {
+                if (already_added.contains(src.bvar()))
+                    continue;
+                already_added.insert(src.bvar());
                 builder.insert_eval(~src);
+            }
         };
-        
+
         auto add_entry_list = [add_entry](const ptr_vector<entry>& list) {
             for (const auto& e : list)
                 add_entry(e);
         };
-        
-        unsigned largest_mask = 0;
-        
-        do {
-            if (e->src.size() != 1) {
-                // We just consider the ordinary constraints and not already contracted ones 
-                e = e->next();
-                continue;
-            }
-            signed_constraint& src = e->src[0];
-            single_bit bit;
-            trailing_bits mask;
-            if (src->is_ule() &&
-                simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
-                
-                lbool prev = fixed[bit.position];
-                fixed[bit.position] = bit.positive ? l_true : l_false;
-                //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n"; 
-                if (prev != l_undef && fixed[bit.position] != prev) {
-                    LOG("Bit conflicting " << e->src << " with " << justifications[bit.position][0]->src);
-                    if (add_conflict) {
-                        add_entry_list(justifications[bit.position]);
-                        add_entry(e);
-                        s.set_conflict(*builder.build());
-                    }
-                    return false;
-                }
-                // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
-                // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
-                justifications[bit.position].clear();
-                justifications[bit.position].push_back(e);
-            }
-            else if ((src->is_eq() || src.is_diseq()) &&
-                simplify_clause::get_trailing_mask(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, mask, src.is_positive()) && p.is_var()) {
-                
-                if (src.is_positive()) {
-                    for (unsigned i = 0; i < mask.length; i++) {
-                        lbool prev = fixed[i];
-                        fixed[i] = mask.bits.get_bit(i) ? l_true : l_false;
-                        //verbose_stream() << "Setting bit " << i << " to " << mask.bits.get_bit(i) << " because of parity " << e->src << "\n";
-                        if (prev != l_undef) {
-                            if (fixed[i] != prev) {
-                                LOG("Positive parity conflicting " << e->src << " with " << justifications[i][0]->src);
-                                if (add_conflict) {
-                                    add_entry_list(justifications[i]);
-                                    add_entry(e);
-                                    s.set_conflict(*builder.build());
-                                }
-                                return false;
-                            }
-                            else {
-                                // Prefer justifications from larger masks (less premisses)
-                                if (largest_mask < mask.length) {
-                                    largest_mask = mask.length;
-                                    justifications[i].clear();
-                                    justifications[i].push_back(e);
-                                    // verbose_stream() << "Adding parity constraint: " <<  e->src[0] << " (" << i << ")\n";
-                                }
-                            }
-                        }
-                        else {
-                            SASSERT(justifications[i].empty());
-                            justifications[i].push_back(e);
-                            // verbose_stream() << "Adding parity constraint: " <<  e->src[0] << " (" << i << ")\n";
-                        }
-                    }
-                }
-                else 
-                    postponed.push_back({ e, mask });
-            }
-            e = e->next();
-        } while(e != first);
-        
+
+        if (e1) {
+            unsigned largest_lsb = 0;
+			do {
+				if (e1->src.size() != 1) {
+					// We just consider the ordinary constraints and not already contracted ones
+					e1 = e1->next();
+					continue;
+				}
+				signed_constraint& src = e1->src[0];
+				single_bit bit;
+				trailing_bits lsb;
+				if (src->is_ule() &&
+					simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
+					lbool prev = fixed[bit.position];
+					fixed[bit.position] = bit.positive ? l_true : l_false;
+					//verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
+					if (prev != l_undef && fixed[bit.position] != prev) {
+						LOG("Bit conflicting " << e1->src << " with " << justifications[bit.position][0]->src);
+						if (add_conflict) {
+							add_entry_list(justifications[bit.position]);
+							add_entry(e1);
+							s.set_conflict(*builder.build());
+						}
+						return false;
+					}
+					// just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+					// verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
+					justifications[bit.position].clear();
+					justifications[bit.position].push_back(e1);
+				}
+				else if ((src->is_eq() || src.is_diseq()) &&
+					simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
+					if (src.is_positive()) {
+						for (unsigned i = 0; i < lsb.length; i++) {
+							lbool prev = fixed[i];
+							fixed[i] = lsb.bits.get_bit(i) ? l_true : l_false;
+							if (prev != l_undef) {
+								if (fixed[i] != prev) {
+									LOG("Positive parity conflicting " << e1->src << " with " << justifications[i][0]->src);
+									if (add_conflict) {
+										add_entry_list(justifications[i]);
+										add_entry(e1);
+										s.set_conflict(*builder.build());
+									}
+									return false;
+								}
+								else {
+									// Prefer justifications from larger masks (less premisses)
+									// TODO: Check that we don't override justifications comming from bit constraints
+									if (largest_lsb < lsb.length) {
+										justifications[i].clear();
+										justifications[i].push_back(e1);
+									}
+								}
+							}
+							else {
+								SASSERT(justifications[i].empty());
+								justifications[i].push_back(e1);
+							}
+						}
+						largest_lsb = std::max(largest_lsb, lsb.length);
+					}
+					else
+						postponed.push_back({ e1, lsb });
+				}
+				e1 = e1->next();
+			} while(e1 != first);
+        }
+
+#if 0 // is the benefit enough?
+        if (e2) {
+            unsigned largest_msb = 0;
+            first = e2;
+			do {
+				if (e2->src.size() != 1) {
+					e2 = e2->next();
+					continue;
+				}
+				signed_constraint& src = e2->src[0];
+				leading_bits msb;
+				if (src->is_ule() &&
+					simplify_clause::get_msb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, msb, src.is_positive()) && p.is_var()) {
+					for (unsigned i = fixed.size() - msb.length; i < fixed.size(); i++) {
+						lbool prev = fixed[i];
+						fixed[i] = msb.positive ? l_true : l_false;
+						if (prev != l_undef) {
+							if (fixed[i] != prev) {
+								LOG("msb conflicting " << e2->src << " with " << justifications[i][0]->src);
+								if (add_conflict) {
+									add_entry_list(justifications[i]);
+									add_entry(e2);
+									s.set_conflict(*builder.build());
+								}
+								return false;
+							}
+							else {
+								if (largest_msb < msb.length) {
+									justifications[i].clear();
+									justifications[i].push_back(e2);
+								}
+							}
+						}
+						else {
+							SASSERT(justifications[i].empty());
+							justifications[i].push_back(e2);
+						}
+					}
+					largest_msb = std::max(largest_msb, msb.length);
+				}
+				e2 = e2->next();
+			} while(e2 != first);
+        }
+#endif
+
         // TODO: Incomplete - e.g., if we know the trailing bits are not 00 not 10 not 01 and not 11 we could also detect a conflict
         // This would require partially clause solving (worth the effort?)
         bool_vector removed(postponed.size(), false);
@@ -1073,6 +1127,151 @@ namespace {
 
         return true;
     }
+
+#if 0
+    bool viable::collect_bit_information(pvar v, bool add_conflict, const vector<signed_constraint>& cnstr, svector<lbool>& fixed, vector<vector<signed_constraint>>& justifications) {
+        pdd p = s.var(v);
+        fixed.clear();
+        justifications.clear();
+        fixed.resize(p.power_of_2(), l_undef);
+        justifications.resize(p.power_of_2(), vector<signed_constraint>());
+        if (cnstr.empty())
+            return true;
+
+        clause_builder builder(s, "bit check");
+        uint_set already_added;
+        vector<std::pair<signed_constraint, trailing_bits>> postponed;
+
+        auto add_entry = [&builder, &already_added](const signed_constraint& src) {
+            if (already_added.contains(src.bvar()))
+                return;
+            already_added.insert(src.bvar());
+            builder.insert_eval(~src);
+        };
+
+        auto add_entry_list = [add_entry](const vector<signed_constraint>& list) {
+            for (const auto& e : list)
+                add_entry(e);
+        };
+
+        unsigned largest_mask = 0;
+
+        for (unsigned i = 0; i < cnstr.size(); i++) {
+            const signed_constraint& src = cnstr[i];
+
+            single_bit bit;
+            trailing_bits mask;
+            if (src->is_ule() &&
+                simplify_clause::get_bit(src->to_ule().lhs(), src->to_ule().rhs(), p, bit, src.is_positive()) && p.is_var()) {
+                lbool prev = fixed[bit.position];
+                fixed[bit.position] = bit.positive ? l_true : l_false;
+                if (prev != l_undef && fixed[bit.position] != prev) {
+                    LOG("Bit conflicting " << src << " with " << justifications[bit.position][0]);
+                    if (add_conflict) {
+                        add_entry_list(justifications[bit.position]);
+                        add_entry(src);
+                        s.set_conflict(*builder.build());
+                    }
+                    return false;
+                }
+                justifications[bit.position].clear();
+                justifications[bit.position].push_back(src);
+            }
+            else if ((src->is_eq() || src.is_diseq()) &&
+                simplify_clause::get_lsb(src->to_ule().lhs(), src->to_ule().rhs(), p, mask, src.is_positive()) && p.is_var()) {
+                if (src.is_positive()) {
+                    for (unsigned i = 0; i < mask.length; i++) {
+                        lbool prev = fixed[i];
+                        fixed[i] = mask.bits.get_bit(i) ? l_true : l_false;
+                        //verbose_stream() << "Setting bit " << i << " to " << mask.bits.get_bit(i) << " because of parity " << e->src << "\n";
+                        if (prev != l_undef) {
+                            if (fixed[i] != prev) {
+                                LOG("Positive parity conflicting " << src << " with " << justifications[i][0]);
+                                if (add_conflict) {
+                                    add_entry_list(justifications[i]);
+                                    add_entry(src);
+                                    s.set_conflict(*builder.build());
+                                }
+                                return false;
+                            }
+                            else {
+                                if (largest_mask < mask.length) {
+                                    largest_mask = mask.length;
+                                    justifications[i].clear();
+                                    justifications[i].push_back(src);
+                                }
+                            }
+                        }
+                        else {
+                            SASSERT(justifications[i].empty());
+                            justifications[i].push_back(src);
+                        }
+                    }
+                }
+                else
+                    postponed.push_back({ src, mask });
+            }
+        }
+
+        bool_vector removed(postponed.size(), false);
+        bool changed;
+        do {
+            changed = false;
+            for (unsigned j = 0; j < postponed.size(); j++) {
+                if (removed[j])
+                    continue;
+                const auto& neg = postponed[j];
+                unsigned indet = 0;
+                unsigned last_indet = 0;
+                unsigned i = 0;
+                for (; i < neg.second.length; i++) {
+                    if (fixed[i] != l_undef) {
+                        if (fixed[i] != (neg.second.bits.get_bit(i) ? l_true : l_false)) {
+                            removed[j] = true;
+                            break; // this is already satisfied
+                        }
+                    }
+                    else {
+                        indet++;
+                        last_indet = i;
+                    }
+                }
+                if (i == neg.second.length) {
+                    if (indet == 0) {
+                        // Already false
+                        LOG("Found conflict with constraint " << neg.first);
+                        if (add_conflict) {
+                            for (unsigned k = 0; k < neg.second.length; k++)
+                                add_entry_list(justifications[k]);
+                            add_entry(neg.first);
+                            s.set_conflict(*builder.build());
+                        }
+                        return false;
+                    }
+                    else if (indet == 1) {
+                        // Simple BCP
+                        auto& justification = justifications[last_indet];
+                        SASSERT(justification.empty());
+                        for (unsigned k = 0; k < neg.second.length; k++) {
+                            if (k != last_indet) {
+                                SASSERT(fixed[k] != l_undef);
+                                for (const auto& just : justifications[k])
+                                    justification.push_back(just);
+                            }
+                        }
+                        justification.push_back(neg.first);
+                        fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
+                        removed[j] = true;
+                        LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first);
+                        changed = true;
+                    }
+                }
+            }
+        } while(changed);
+
+        return true;
+    }
+#endif
 
     bool viable::has_viable(pvar v) {
 
@@ -1367,11 +1566,12 @@ namespace {
             else {
                 UNREACHABLE();
             }
-
+            if (refinements % 100 == 0)
+                verbose_stream() << "Refinements " << refinements << "\n";
             if (res != l_undef)
                 return res;
         }
-
+        verbose_stream() << "Fallback\n";
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return query_fallback<mode>(v, result);
     }
@@ -1621,10 +1821,91 @@ namespace {
         return true;
     }
 
+#if 0
+    void viable::make_bit_justification(pvar v) {
+        if (!m_units[v] || m_units[v]->interval.is_full())
+            return;
+        // TODO: Maybe this helps? This prefers justifications from bits
+        svector<lbool> fixed;
+        vector<ptr_vector<entry>> justifications;
+        if (!collect_bit_information(v, false, fixed, justifications))
+            return;
+
+        entry* first = m_units[v];
+        entry* e = first;
+        vector<eval_interval> intervals;
+        do {
+            intervals.push_back(e->interval);
+            e = e->next();
+        }
+        while (e != first);
+        int additional = 0;
+        for (unsigned i = 0; i < intervals.size(); i++) { // Try to justify by bits as good as possible
+            if (intervals[i].hi_val().is_zero())
+                additional += refine_bits<true>(v, s.var(v).manager().max_value(), fixed, justifications);
+            else
+                additional += refine_bits<true>(v, intervals[i].hi_val() - 1, fixed, justifications);
+        }
+        verbose_stream() << "Found " << additional << " intervals\n";
+    }
+
+    void viable::get_bit_min_max(pvar v, conflict& core, rational& min, rational& max, vector<signed_constraint>& justifications_min, vector<signed_constraint>& justifications_max) {
+        pdd v_pdd = s.var(v);
+        min = 0;
+        max = v_pdd.manager().max_value();
+        svector<lbool> fixed;
+        vector<vector<signed_constraint>> justifications;
+        vector<signed_constraint> candidates;
+        for (const auto& c : core) {
+            if (!c->is_ule())
+                continue;
+            ule_constraint ule = c->to_ule();
+            pdd sum = ule.lhs() + ule.rhs();
+            if (sum.is_univariate_in(v) && sum.degree(v) == 1)
+                candidates.push_back(c);
+        }
+
+        if (candidates.empty() || !collect_bit_information(v, false, candidates, fixed, justifications))
+            return;
+
+        for (unsigned i = 0; i < fixed.size(); i++) {
+            verbose_stream() << (fixed[fixed.size() - 1] == l_true ? '1' : fixed[fixed.size() - 1] == l_false ? '0' : '?');
+        }
+        verbose_stream() << "\n";
+
+        max = 0;
+
+        for (unsigned i = fixed.size(); i > 0; i--) {
+            min *= 2;
+            max *= 2;
+            lbool val = fixed[i - 1];
+            if (val == l_true) {
+                min++;
+                max++;
+                for (auto& add : justifications[i - 1])
+                    justifications_min.push_back(add);
+            }
+            else if (val == l_undef)
+                max++;
+            else {
+                SASSERT(val == l_false);
+                for (auto& add : justifications[i - 1])
+                    justifications_max.push_back(add);
+            }
+        }
+    }
+#endif
+
     bool viable::resolve_interval(pvar v, conflict& core) {
         DEBUG_CODE( log(v); );
         if (has_viable(v))
             return false;
+
+#if 0
+        // Prefer bit information as justifications
+        make_bit_justification(v);
+#endif
+
         entry const* e = m_units[v];
         // TODO: in the forbidden interval paper, they start with the longest interval. We should also try that at some point.
         entry const* first = e;
@@ -1759,9 +2040,15 @@ namespace {
             out << e->coeff << " * v" << v << " " << e->interval << " ";
         else
             out << e->interval << " ";
-        out << e->side_cond << " ";
-        for (const auto& src : e->src)
-            out << src << "; ";
+        if (e->side_cond.size() <= 5)
+            out << e->side_cond << " ";
+        else
+            out << e->side_cond.size() << " side-conditions ";
+        if (e->src.size() <= 5)
+            for (const auto& src : e->src)
+                out << src << "; ";
+        else
+            out << e->src.size() << " sources";
         return out;
     }
 
