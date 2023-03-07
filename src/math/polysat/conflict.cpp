@@ -584,7 +584,7 @@ namespace polysat {
                 }
             }
         }
-
+        
         for (unsigned d : deps)
             out_deps.push_back(dependency(d));
         if (!m_dep.is_null() && !deps.contains(m_dep.val()))

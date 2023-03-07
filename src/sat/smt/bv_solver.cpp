@@ -247,10 +247,10 @@ namespace bv {
             return;
         if (s().is_probing())
             return;
+        TRACE("bv", tout << "diff: " << v1 << " != " << v2 << " @" << s().scope_lvl() << "\n";);
         if (polysat_diseq_eh(ne))
             return;
         
-        TRACE("bv", tout << "diff: " << v1 << " != " << v2 << " @" << s().scope_lvl() << "\n";);
         unsigned sz = m_bits[v1].size();
         if (sz == 1)
             return;
@@ -801,6 +801,13 @@ namespace bv {
             return out << "bv <- " << m_bits[v1] << " != " << m_bits[v2] << " @" << cidx;
         case bv_justification::kind_t::bv2int:
             return out << "bv <- v" << v1 << " == v" << v2 << " <== " << ctx.bpp(c.a) << " == " << ctx.bpp(c.b) << " == " << ctx.bpp(c.c);
+        case bv_justification::kind_t::bvext: {
+            for (unsigned i = 0; i < c.m_num_literals; ++i)
+                out << c.m_literals[i] << " ";
+            for (unsigned i = 0; i < c.m_num_eqs; ++i)
+                out << ctx.bpp(c.m_eqs[i].first) << " == " << ctx.bpp(c.m_eqs[i].second) << " ";
+            return out << "\n";
+        }            
         default:
             UNREACHABLE();
             break;
