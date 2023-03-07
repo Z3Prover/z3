@@ -228,7 +228,6 @@ namespace polysat {
     bool saturation::try_op(pvar v, signed_constraint c, conflict& core) {
         SASSERT(c->is_op());
         SASSERT(c.is_positive());
-        return false;
         op_constraint* op = ((op_constraint*)c.get());
         clause_ref correction = op->produce_lemma(s, s.get_assignment(), c.is_positive());
         if (correction) {
