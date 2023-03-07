@@ -180,7 +180,8 @@ namespace polysat {
         if (m_bvars.is_false(lit)) {
             // Input literal contradicts current boolean state (e.g., opposite literals in the input)
             // => conflict only flags the inconsistency
-            set_conflict_at_base_level(dep, ~lit);
+            set_conflict_at_base_level(dep);
+            m_conflict.insert(~c);
             return;
         }
         m_bvars.assumption(lit, m_level, dep);

@@ -167,7 +167,6 @@ namespace polysat {
     void conflict::reset() {
         m_literals.reset();
         m_vars.reset();
-        m_dep_literal = sat::null_literal;
         m_var_occurrences.reset();
         m_vars_occurring.reset();
         m_lemmas.reset();
@@ -185,19 +184,14 @@ namespace polysat {
         return contains(lit) || contains(~lit);
     }
 
-    void conflict::init_at_base_level(dependency dep, sat::literal lit) {
+    void conflict::init_at_base_level(dependency dep) {
         SASSERT(empty());
         SASSERT(s.at_base_level());
         m_level = s.m_level;
         m_dep = dep;
-        m_dep_literal = lit;
         SASSERT(!empty());
         // TODO: logger().begin_conflict???
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
-    }
-
-    void conflict::init_at_base_level(dependency dep) {
-        init_at_base_level(dep, sat::null_literal);
     }
 
     void conflict::init(signed_constraint c) {
@@ -590,9 +584,6 @@ namespace polysat {
                 }
             }
         }
-
-        if (m_dep_literal != sat::null_literal)
-            enqueue_lit(m_dep_literal);
         
         for (unsigned d : deps)
             out_deps.push_back(dependency(d));

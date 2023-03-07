@@ -102,7 +102,6 @@ namespace polysat {
         // Level at which the conflict was discovered
         unsigned m_level = UINT_MAX;
         dependency m_dep = null_dependency;
-        sat::literal m_dep_literal = sat::null_literal;
 
     public:
         conflict(solver& s);
@@ -129,8 +128,6 @@ namespace polysat {
 
         /** conflict due to obvious input inconsistency */
         void init_at_base_level(dependency dep);
-        /** conflict due to obvious input inconsistency with literal */
-        void init_at_base_level(dependency dep, sat::literal lit);
         /** conflict because the constraint c is false under current variable assignment */
         void init(signed_constraint c);
         /** boolean conflict with the given clause */
