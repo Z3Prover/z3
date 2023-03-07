@@ -43,12 +43,6 @@ public:
     stacked_vector<unsigned> m_r_columns_nz;
     stacked_vector<unsigned> m_r_rows_nz;
     
-    // d - solver fields, for doubles
-    stacked_vector<unsigned> m_d_pushed_basis;
-    vector<unsigned> m_d_basis;
-    vector<unsigned> m_d_nbasis;
-    vector<int> m_d_heading;
-
 
     lp_primal_core_solver<mpq, numeric_pair<mpq>> m_r_solver; // solver in rational numbers
     
@@ -123,14 +117,6 @@ public:
     
     void fill_not_improvable_zero_sum();
 
-    void pop_basis(unsigned k) {
-        
-            m_d_basis = m_r_basis;
-            m_d_nbasis = m_r_nbasis;
-            m_d_heading = m_r_heading;
-        
-    }
-
     void push() {
         lp_assert(m_r_solver.basis_heading_is_correct());
         lp_assert(m_column_types.size() == m_r_A.column_count());
@@ -180,7 +166,6 @@ public:
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
         
-        pop_basis(k);
         m_stacked_simplex_strategy.pop(k);
         settings().set_simplex_strategy(m_stacked_simplex_strategy);
         lp_assert(m_r_solver.basis_heading_is_correct());
@@ -354,10 +339,6 @@ public:
                 update_delta(delta, m_r_x[j], m_r_upper_bounds[j]);
         }
         return delta;
-    }
-
-    void init_column_row_nz_for_r_solver() {
-        m_r_solver.init_column_row_non_zeroes();
     }
 
     bool column_is_fixed(unsigned j) const {

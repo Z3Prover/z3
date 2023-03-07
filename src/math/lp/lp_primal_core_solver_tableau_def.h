@@ -43,6 +43,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     }
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
 }
+
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
@@ -84,9 +85,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     return entering;
 
 }
-
-
-
 
 template <typename T, typename X>
 unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {

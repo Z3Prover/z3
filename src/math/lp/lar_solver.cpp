@@ -245,11 +245,7 @@ namespace lp {
             set.erase(j);
     }
 
-    void lar_solver::shrink_inf_set_after_pop(unsigned n, u_set& set) {
-        clean_popped_elements(n, set);
-        set.resize(n);
-    }
-
+    
 
     void lar_solver::pop(unsigned k) {
         TRACE("lar_solver", tout << "k = " << k << std::endl;);
@@ -714,11 +710,6 @@ namespace lp {
             detect_rows_with_changed_bounds_for_column(j);
     }
 
-    void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds() {
-        for (auto j : m_columns_with_changed_bounds)
-            update_x_and_inf_costs_for_column_with_changed_bounds(j);
-    }
-
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
         for (auto j : m_columns_with_changed_bounds)
             update_x_and_inf_costs_for_column_with_changed_bounds(j);
@@ -791,31 +782,6 @@ namespace lp {
         return vj < A_r().column_count();
     }
 
-
-    void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>>& A, const lar_term* ls) {
-        lp_assert(A.row_count() > 0);
-        lp_assert(A.column_count() > 0);
-        unsigned last_row = A.row_count() - 1;
-        lp_assert(A.m_rows[last_row].size() == 0);
-        for (auto t : *ls) {
-            lp_assert(!is_zero(t.coeff()));
-            var_index j = t.column();
-            A.set(last_row, j, -t.coeff());
-        }
-        unsigned basis_j = A.column_count() - 1;
-        A.set(last_row, basis_j, mpq(1));
-    }
-
-    template <typename U, typename V>
-    void lar_solver::copy_from_mpq_matrix(static_matrix<U, V>& matr) {
-        matr.m_rows.resize(A_r().row_count());
-        matr.m_columns.resize(A_r().column_count());
-        for (unsigned i = 0; i < matr.row_count(); i++) {
-            for (auto& it : A_r().m_rows[i]) {
-                matr.set(i, it.var(), convert_struct<U, mpq>::convert(it.coeff()));
-            }
-        }
-    }
 
     bool lar_solver::all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side) {
         for (auto it : left_side) {

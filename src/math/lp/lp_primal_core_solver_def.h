@@ -142,53 +142,6 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
     return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
 }
 
-
-template <typename T, typename X> bool lp_primal_core_solver<T, X>::get_harris_theta(X & theta) {
-    bool unlimited = true;
-    for (unsigned i : this->m_ed.m_index) {
-        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) continue;
-        limit_theta_on_basis_column(this->m_basis[i], - this->m_ed[i] * m_sign_of_entering_delta, theta, unlimited);
-        if (!unlimited && is_zero<X>(theta)) break;
-    }
-    return unlimited;
-}
-
-
-template <typename T, typename X> int lp_primal_core_solver<T, X>::
-find_leaving_on_harris_theta(X const & harris_theta, X & t) {
-    int leaving = -1;
-    T pivot_abs_max = zero_of_type<T>();
-    // we know already that there is no bound flip on entering
-    // we also know that harris_theta is limited, so we will find a leaving
-    zero_harris_eps();
-    unsigned steps = this->m_ed.m_index.size();
-    unsigned k = this->m_settings.random_next() % steps;
-    unsigned initial_k = k;
-    do {
-        unsigned i = this->m_ed.m_index[k];
-        const T & ed = this->m_ed[i];
-        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(ed)) {
-            if (++k == steps)
-                k = 0;
-            continue;
-        }
-        X ratio;
-        unsigned j = this->m_basis[i];
-        bool unlimited = true;
-        limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, ratio, unlimited);
-        if ((!unlimited) && ratio <= harris_theta) {
-            if (leaving == -1 || abs(ed) > pivot_abs_max) {
-                t = ratio;
-                leaving = j;
-                pivot_abs_max = abs(ed);
-            }
-        }
-        if (++k == steps) k = 0;
-    } while (k != initial_k);
-    return leaving;
-}
-
-
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering,
                                                                                                           const X & theta,
                                                                                                           X & t,
@@ -246,68 +199,6 @@ try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X & t ) {
     return true;
 }
 
-template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_precise(unsigned entering, X & t) {
-    bool unlimited = true;
-    unsigned steps = this->m_ed.m_index.size();
-    unsigned k = this->m_settings.random_next() % steps;
-    unsigned initial_k = k;
-    unsigned row_min_nz = this->m_n() + 1;
-    m_leaving_candidates.clear();
-    do {
-        unsigned i = this->m_ed.m_index[k];
-        const T & ed = this->m_ed[i];
-        lp_assert(!numeric_traits<T>::is_zero(ed));
-        unsigned j = this->m_basis[i];
-        limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
-        if (!unlimited) {
-            m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_rows_nz[i];
-        }
-        if (++k == steps) k = 0;
-    } while (unlimited && k != initial_k);
-    if (unlimited) {
-        if (try_jump_to_another_bound_on_entering_unlimited(entering, t))
-            return entering;
-        return -1;
-    }
-
-    X ratio;
-    while (k != initial_k) {
-        unsigned i = this->m_ed.m_index[k];
-        const T & ed = this->m_ed[i];
-        lp_assert(!numeric_traits<T>::is_zero(ed));
-        unsigned j = this->m_basis[i];
-        unlimited = true;
-        limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
-        if (unlimited) {
-            if (++k == steps) k = 0;
-            continue;
-        }
-        unsigned i_nz = this->m_rows_nz[i];
-        if (ratio < t) {
-            t = ratio;
-            m_leaving_candidates.clear();
-            m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_rows_nz[i];
-        } else if (ratio == t && i_nz < row_min_nz) {
-            m_leaving_candidates.clear();
-            m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_rows_nz[i];
-        } else if (ratio == t && i_nz == row_min_nz) {
-            m_leaving_candidates.push_back(j);
-        }
-        if (++k == steps) k = 0;
-    }
-
-    ratio = t;
-    unlimited = false;
-    if (try_jump_to_another_bound_on_entering(entering, t, ratio, unlimited)) {
-        t = ratio;
-        return entering;
-    }
-    k = this->m_settings.random_next() % m_leaving_candidates.size();
-    return m_leaving_candidates[k];
-}
 
 
 
@@ -499,17 +390,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
 
 
 
-template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
-    if (this->get_status() == lp_status::OPTIMAL) return true;
-    if (this->get_status() == lp_status::INFEASIBLE) {
-        return true;
-    }
-    if (this->m_iters_with_no_cost_growing >= this->m_settings.max_number_of_iterations_with_no_improvements) {
-        this->set_status(lp_status::CANCELLED);
-        return true;
-    }
-    return false;
-}
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_infeasibility_costs_for_changed_basis_only() {
