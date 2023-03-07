@@ -92,7 +92,6 @@ lp_status lp_status_from_string(std::string status);
 
 enum non_basic_column_value_position { at_lower_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
 
-template <typename X> bool is_epsilon_small(const X & v, const double& eps);    // forward definition
 
 class lp_resource_limit {
 public:
@@ -182,36 +181,18 @@ public:
     unsigned      reps_in_scaler { 20 };
     // when the absolute value of an element is less than pivot_epsilon
     // in pivoting, we treat it as a zero
-    double        pivot_epsilon { 0.00000001 };
-    // see Chatal, page 115
-    double        positive_price_epsilon { 1e-7 };
     // a quotation "if some choice of the entering variable leads to an eta matrix
     // whose diagonal element in the eta column is less than e2 (entering_diag_epsilon) in magnitude, the this choice is rejected ...
-    double        entering_diag_epsilon { 1e-8 };
     int           c_partial_pivoting { 10 }; // this is the constant c from page 410
     unsigned      depth_of_rook_search { 4 };
     bool          using_partial_pivoting { true };
     // dissertation of Achim Koberstein
     // if Bx - b is different at any component more that refactor_epsilon then we refactor
-    double       refactor_tolerance { 1e-4 };
-    double       pivot_tolerance { 1e-6 };
-    double       zero_tolerance { 1e-12 };
-    double       drop_tolerance { 1e-14 };
-    double       tolerance_for_artificials { 1e-4 };
-    double       can_be_taken_to_basis_tolerance { 0.00001 };
-
+    
     unsigned     percent_of_entering_to_check { 5 }; // we try to find a profitable column in a percentage of the columns
     bool         use_scaling { true };
-    double       scaling_maximum { 1.0 };
-    double       scaling_minimum { 0.5 };
-    double       harris_feasibility_tolerance { 1e-7 };         // page 179 of Istvan Maros
-    double       ignore_epsilon_of_harris { 10e-5 };
     unsigned     max_number_of_iterations_with_no_improvements { 2000000 };
-    double       time_limit; // the maximum time limit of the total run time in seconds
-    // dual section
-    double       dual_feasibility_tolerance { 1e-7 };            // page 71 of the PhD thesis of Achim Koberstein
-    double       primal_feasibility_tolerance { 1e-7 };          // page 71 of the PhD thesis of Achim Koberstein
-    double       relative_primal_feasibility_tolerance { 1e-9 }; // page 71 of the PhD thesis of Achim Koberstein
+ double       time_limit; // the maximum time limit of the total run time in seconds
     // end of dual section
     bool                   m_bound_propagation { true };
     bool                   presolve_with_double_solver_for_lar { true };
@@ -221,7 +202,6 @@ public:
     bool             print_statistics { false };
     unsigned         column_norms_update_frequency { 12000 };
     bool             scale_with_ratio { true };
-    double           density_threshold { 0.7 };
     unsigned         max_row_length_for_bound_propagation { 300 };
     bool             backup_costs { true };
     unsigned         column_number_threshold_for_using_lu_in_lar_solver { 4000 };
@@ -272,61 +252,10 @@ public:
     statistics& stats() { return m_stats; }
     statistics const& stats() const { return m_stats; }
 
-    template <typename T> static bool is_eps_small_general(const T & t, const double & eps) {
-        return numeric_traits<T>::is_zero(t);
-    }
+    
 
-    template <typename T>
-    bool abs_val_is_smaller_than_dual_feasibility_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, dual_feasibility_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_primal_feasibility_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, primal_feasibility_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_can_be_taken_to_basis_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, can_be_taken_to_basis_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_drop_tolerance(T const & t) const {
-        return is_eps_small_general<T>(t, drop_tolerance);
-    }
-
-
-    template <typename T>
-    bool abs_val_is_smaller_than_zero_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, zero_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_refactor_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, refactor_tolerance);
-    }
-
-
-    template <typename T>
-    bool abs_val_is_smaller_than_pivot_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, pivot_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_harris_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, harris_feasibility_tolerance);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_ignore_epslilon_for_harris(T const & t) {
-        return is_eps_small_general<T>(t, ignore_epsilon_of_harris);
-    }
-
-    template <typename T>
-    bool abs_val_is_smaller_than_artificial_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, tolerance_for_artificials);
-    }
+    
+    
     // the method of lar solver to use
     simplex_strategy_enum simplex_strategy() const {
         return m_simplex_strategy;
@@ -370,11 +299,6 @@ inline std::string T_to_string(const mpq & t) {
     return strs.str();
 }
 
-template <typename T>
-bool val_is_smaller_than_eps(T const & t, double const & eps) {
-    
-    return t <= numeric_traits<T>::zero();
-}
 
 template <typename T>
 bool vectors_are_equal(T * a, vector<T>  &b, unsigned n);

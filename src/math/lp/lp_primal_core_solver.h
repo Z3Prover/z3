@@ -56,7 +56,7 @@ public:
     unsigned          m_bland_mode_threshold;
     unsigned          m_left_basis_repeated;
     vector<unsigned>  m_leaving_candidates;
-    //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
+    
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
     void sort_non_basis_rational();
@@ -279,12 +279,10 @@ public:
 
     bool get_harris_theta(X & theta);
 
-    void restore_harris_eps() { m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance); }
     void zero_harris_eps() { m_converted_harris_eps = zero_of_type<T>(); }
     int find_leaving_on_harris_theta(X const & harris_theta, X & t);
     bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t, bool & unlimited);
     bool try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X & t);
-    int find_leaving_and_t(unsigned entering, X & t);
     int find_leaving_and_t_precise(unsigned entering, X & t);
     int find_leaving_and_t_tableau(unsigned entering, X & t);
  

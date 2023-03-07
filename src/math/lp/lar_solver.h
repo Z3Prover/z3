@@ -112,8 +112,6 @@ class lar_solver : public column_namer {
     // end of fields
 
     ////////////////// methods ////////////////////////////////
-    static_matrix<double, double> & A_d();
-    static_matrix<double, double > const & A_d() const;
     
     static bool valid_index(unsigned j) { return static_cast<int>(j) >= 0;}
     const lar_term & get_term(unsigned j) const;
@@ -162,9 +160,7 @@ class lar_solver : public column_namer {
     unsigned row_of_basic_column(unsigned) const;
     void decide_on_strategy_and_adjust_initial_state();
     void adjust_initial_state();
-    void adjust_initial_state_for_lu();
     void adjust_initial_state_for_tableau_rows();
-    void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls);
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
     

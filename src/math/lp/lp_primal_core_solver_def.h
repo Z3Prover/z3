@@ -144,7 +144,6 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
 
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::get_harris_theta(X & theta) {
-    lp_assert(this->m_ed.is_OK());
     bool unlimited = true;
     for (unsigned i : this->m_ed.m_index) {
         if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) continue;
@@ -308,17 +307,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
     k = this->m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
-}
-
-
-template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t) {
-    X theta = zero_of_type<X>();
-    bool unlimited = get_harris_theta(theta);
-    lp_assert(unlimited || theta >= zero_of_type<X>());
-    if (try_jump_to_another_bound_on_entering(entering, theta, t, unlimited)) return entering;
-    if (unlimited)
-        return -1;
-    return find_leaving_on_harris_theta(theta, t);
 }
 
 

@@ -90,11 +90,7 @@ public:
 
     void set_elem(unsigned i, unsigned j, const T& val) {  m_values[i * m_n + j] = val;  }
 
-    // This method pivots row i to row i0 by muliplying row i by
-    //   alpha and adding it to row i0.
-    void pivot_row_to_row(unsigned i, const T& alpha, unsigned i0,
-                          const double & pivot_epsilon);
-
+    // This method pivots
     void swap_columns(unsigned a, unsigned b);
 
     void swap_rows(unsigned a, unsigned b);

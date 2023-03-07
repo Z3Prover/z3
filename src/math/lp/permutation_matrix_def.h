@@ -133,7 +133,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::apply_from_righ
         unsigned pj = m_permutation[j];
         w.set_value(buffer[i], pj);
     }
-    lp_assert(w.is_OK());
+    
 #ifdef Z3DEBUG
     lp_assert(vectors_are_equal(wcopy, w.m_data));
 #endif
@@ -235,7 +235,6 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> &
     // vector<T> wcopy(w.m_data);
     // apply_reverse_from_right_to_T(wcopy);
 #endif
-    lp_assert(w.is_OK());
     vector<T> tmp;
     vector<unsigned> tmp_index(w.m_index);
     for (auto i : w.m_index) {
@@ -248,8 +247,7 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> &
         w.set_value(tmp[k], m_rev[j]);
     }
 
-    // lp_assert(w.is_OK());    
-    // lp_assert(vectors_are_equal(w.m_data, wcopy));
+    
 }
 
 

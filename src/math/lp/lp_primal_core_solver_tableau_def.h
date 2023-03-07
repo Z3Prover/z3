@@ -107,7 +107,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         }
         TRACE("lar_solver", tout << "one iteration tableau " << this->get_status() << "\n";);
         switch (this->get_status()) {
-        case lp_status::OPTIMAL:  // double check that we are at optimum
+        case lp_status::OPTIMAL:  // check again that we are at optimum
         case lp_status::INFEASIBLE:
             if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
                 break;

@@ -8,10 +8,6 @@
 
 namespace lp {
 
-    static_matrix<double, double>& lar_solver::A_d() { return m_mpq_lar_core_solver.m_d_A; }
-
-    static_matrix<double, double > const& lar_solver::A_d() const { return m_mpq_lar_core_solver.m_d_A; }
-
     lp_settings& lar_solver::settings() { return m_settings; }
 
     lp_settings const& lar_solver::settings() const { return m_settings; }
@@ -574,7 +570,6 @@ namespace lp {
 
     void lar_solver::pop_core_solver_params(unsigned k) {
         A_r().pop(k);
-        A_d().pop(k);
     }
 
 
@@ -1544,27 +1539,7 @@ namespace lp {
         add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
         
     }
-
-    void lar_solver::add_new_var_to_core_fields_for_doubles(bool register_in_basis) {
-        unsigned j = A_d().column_count();
-        A_d().add_column();
-        lp_assert(m_mpq_lar_core_solver.m_d_x.size() == j);
-        //        lp_assert(m_mpq_lar_core_solver.m_d_lower_bounds.size() == j && m_mpq_lar_core_solver.m_d_upper_bounds.size() == j);  // restore later
-        m_mpq_lar_core_solver.m_d_x.resize(j + 1);
-        m_mpq_lar_core_solver.m_d_lower_bounds.resize(j + 1);
-        m_mpq_lar_core_solver.m_d_upper_bounds.resize(j + 1);
-        lp_assert(m_mpq_lar_core_solver.m_d_heading.size() == j); // as A().column_count() on the entry to the method
-        if (register_in_basis) {
-            A_d().add_row();
-            m_mpq_lar_core_solver.m_d_heading.push_back(m_mpq_lar_core_solver.m_d_basis.size());
-            m_mpq_lar_core_solver.m_d_basis.push_back(j);
-        }
-        else {
-            m_mpq_lar_core_solver.m_d_heading.push_back(-static_cast<int>(m_mpq_lar_core_solver.m_d_nbasis.size()) - 1);
-            m_mpq_lar_core_solver.m_d_nbasis.push_back(j);
-        }
-    }
-
+    
     void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
         unsigned j = A_r().column_count();
         TRACE("add_var", tout << "j = " << j << std::endl;);
@@ -1927,34 +1902,7 @@ namespace lp {
         }
     }
 
-    void lar_solver::adjust_initial_state_for_lu() {
-        copy_from_mpq_matrix(A_d());
-        unsigned n = A_d().column_count();
-        m_mpq_lar_core_solver.m_d_x.resize(n);
-        m_mpq_lar_core_solver.m_d_lower_bounds.resize(n);
-        m_mpq_lar_core_solver.m_d_upper_bounds.resize(n);
-        m_mpq_lar_core_solver.m_d_heading = m_mpq_lar_core_solver.m_r_heading;
-        m_mpq_lar_core_solver.m_d_basis = m_mpq_lar_core_solver.m_r_basis;
-
-        /*
-          unsigned j = A_d().column_count();
-          A_d().add_column();
-          lp_assert(m_mpq_lar_core_solver.m_d_x.size() == j);
-          //        lp_assert(m_mpq_lar_core_solver.m_d_lower_bounds.size() == j && m_mpq_lar_core_solver.m_d_upper_bounds.size() == j);  // restore later
-          m_mpq_lar_core_solver.m_d_x.resize(j + 1 );
-          m_mpq_lar_core_solver.m_d_lower_bounds.resize(j + 1);
-          m_mpq_lar_core_solver.m_d_upper_bounds.resize(j + 1);
-          lp_assert(m_mpq_lar_core_solver.m_d_heading.size() == j); // as A().column_count() on the entry to the method
-          if (register_in_basis) {
-          A_d().add_row();
-          m_mpq_lar_core_solver.m_d_heading.push_back(m_mpq_lar_core_solver.m_d_basis.size());
-          m_mpq_lar_core_solver.m_d_basis.push_back(j);
-          }else {
-          m_mpq_lar_core_solver.m_d_heading.push_back(- static_cast<int>(m_mpq_lar_core_solver.m_d_nbasis.size()) - 1);
-          m_mpq_lar_core_solver.m_d_nbasis.push_back(j);
-          }*/
-    }
-
+    
     void lar_solver::adjust_initial_state_for_tableau_rows() {
         for (unsigned i = 0; i < m_terms.size(); i++) {
             if (m_var_register.external_is_used(tv::mask_term(i)))
@@ -1963,24 +1911,7 @@ namespace lp {
         }
     }
 
-    // this fills the last row of A_d and sets the basis column: -1 in the last column of the row
-    void lar_solver::fill_last_row_of_A_d(static_matrix<double, double>& A, const lar_term* ls) {
-        lp_assert(A.row_count() > 0);
-        lp_assert(A.column_count() > 0);
-        unsigned last_row = A.row_count() - 1;
-        lp_assert(A.m_rows[last_row].empty());
-
-        for (auto t : *ls) {
-            lp_assert(!is_zero(t.coeff()));
-            var_index j = t.column();
-            A.set(last_row, j, -t.coeff().get_double());
-        }
-
-        unsigned basis_j = A.column_count() - 1;
-        A.set(last_row, basis_j, -1);
-        lp_assert(A.is_correct());
-    }
-
+    
     void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, unsigned constraint_index) {
         SASSERT(column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
