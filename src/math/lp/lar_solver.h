@@ -519,8 +519,6 @@ public:
         return m_mpq_lar_core_solver.lower_bound(j);
     }
 
-    void pivot_column_tableau(unsigned j, unsigned row_index);
-    
     inline const impq & column_upper_bound(unsigned j) const {
         return m_mpq_lar_core_solver.upper_bound(j);
     }
