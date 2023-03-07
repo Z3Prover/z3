@@ -467,15 +467,15 @@ namespace datalog {
     void mk_slice::solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars) {
         expr_ref_vector conjs = get_tail_conjs(r);
         for (expr * e : conjs) {
-            expr_ref r(m);
+            expr_ref rhs(m);
             unsigned v = 0;
-            if (is_eq(e, v, r) && is_output(v) && m_var_is_sliceable[v]) {
+            if (is_eq(e, v, rhs) && is_output(v) && m_var_is_sliceable[v]) {
                 TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
                 add_var(v);
                 if (!m_solved_vars[v].get()) { 
                     TRACE("dl", tout << v << " is solved\n";);
-                    add_free_vars(parameter_vars, r);
-                    m_solved_vars[v] = r;
+                    add_free_vars(parameter_vars, rhs);
+                    m_solved_vars[v] = rhs;
                 }
                 else {
                     TRACE("dl", tout << v << " is used\n";);
@@ -666,10 +666,8 @@ namespace datalog {
             }
             else {
                 SASSERT(m.is_value(arg));
-                if (!is_output) {
-                    TRACE("dl", tout << "input  " << i << " in " << p->get_decl()->get_name() << "\n";);
-                    bv.unset(i);
-                }
+                TRACE("dl", tout << i << " in " << p->get_decl()->get_name() << " is a value, unable to slice\n";);
+                bv.unset(i);
             }
         }
     }
