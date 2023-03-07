@@ -122,7 +122,6 @@ class lar_solver : public column_namer {
     bool term_is_int(const lar_term * t) const;
     bool term_is_int(const vector<std::pair<mpq, unsigned int>> & coeffs) const;
     void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
-    void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
     void add_new_var_to_core_fields_for_mpq(bool register_in_basis);
     mpq adjust_bound_for_int(lpvar j, lconstraint_kind&, const mpq&);
 
@@ -131,7 +130,6 @@ class lar_solver : public column_namer {
     var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
     bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs);
     void push_term(lar_term* t);
-    void add_row_for_term(const lar_term * term, unsigned term_ext_index);
     void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index);
     void add_basic_var_to_core_fields();
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs);
@@ -187,7 +185,6 @@ class lar_solver : public column_namer {
         analyze_new_bounds_on_row_tableau(i, bp);
     }
     static void clean_popped_elements(unsigned n, u_set& set);
-    static void shrink_inf_set_after_pop(unsigned n, u_set & set);
     bool maximize_term_on_tableau(const lar_term & term,
                                   impq &term_max);
     bool costs_are_zeros_for_r_solver() const;
@@ -213,17 +210,10 @@ class lar_solver : public column_namer {
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     void detect_rows_with_changed_bounds();
 
-    void update_x_and_inf_costs_for_columns_with_changed_bounds();
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     void solve_with_core_solver();
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
     bool x_is_correct() const;
-    void fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const lar_term * ls);
-    template <typename U, typename V>
-    void create_matrix_A(static_matrix<U, V> & matr);
-    template <typename U, typename V>
-    void copy_from_mpq_matrix(static_matrix<U, V> & matr);
-    bool try_to_set_fixed(column_info<mpq> & ci);
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side);
     bool all_constraints_hold() const;
     bool constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
@@ -231,7 +221,6 @@ class lar_solver : public column_namer {
     static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a);
     static void register_monoid_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence) const;
-    bool the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence);
     bool explanation_is_correct(explanation&) const;
     bool inf_explanation_is_correct() const;
     mpq sum_of_right_sides_of_explanation(explanation &) const;
@@ -251,21 +240,16 @@ class lar_solver : public column_namer {
     void remove_last_column_from_tableau();
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
-    void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
     bool model_is_int_feasible() const;
     
     bool bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const;
     inline lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
-    void catch_up_in_updating_int_solver();
     var_index to_column(unsigned ext_j) const;
     void fix_terms_with_rounded_columns();
-    void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
-    void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     bool remove_from_basis(unsigned);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     bool sum_first_coords(const lar_term& t, mpq & val) const;
-    void collect_rounded_rows_to_fix();
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
 

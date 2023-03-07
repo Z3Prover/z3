@@ -80,7 +80,7 @@ public:
     vector<unsigned> &    m_basis;
     vector<unsigned>&     m_nbasis;
     vector<int>&          m_basis_heading;
-    vector<X> &           m_x; // a feasible solution, the fist time set in the constructor
+    vector<X> &           m_x; // a feasible solution, the first time set in the constructor
     vector<T> &           m_costs;
     lp_settings &         m_settings;
     

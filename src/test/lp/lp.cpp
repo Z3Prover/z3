@@ -56,7 +56,6 @@
 #include "math/lp/int_cube.h"
 #include "math/lp/emonics.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/dense_matrix.h"
 
 bool my_white_space(const char & a) {
     return a == ' ' || a == '\t';
@@ -431,204 +430,7 @@ void change_basis(unsigned entering, unsigned leaving, vector<unsigned>& basis, 
     nbasis[place_in_non_basis] = leaving;
 }
 
-
-
-#ifdef Z3DEBUG
-void test_small_lu(lp_settings & settings) {
-    
-}
-
-#endif
-
-
-void fill_long_row(static_matrix<double, double> &m, int i) {
-    int n = m.column_count();
-    for (int j = 0; j < n; j ++) {
-        m (i, (j + i) % n) = j * j;
-    }
-}
-
-
-
-void fill_long_row_exp(static_matrix<double, double> &m, int i) {
-    int n = m.column_count();
-
-    for (int j = 0; j < n; j ++) {
-        m(i, j) = my_random() % 20;
-    }
-}
-
-
-
-
-
-
 int perm_id = 0;
-
-
-
-
-
-
-
-
-void init_b(vector<double> & b, static_matrix<double, double> & m, vector<double> & x) {
-    for (unsigned i = 0; i < m.row_count(); i++) {
-        b.push_back(m.dot_product_with_row(i, x));
-    }
-}
-
-
-void test_lp_0() {
-    std::cout << " test_lp_0 " << std::endl;
-    static_matrix<double, double> m_(3, 7);
-    m_(0, 0) = 3; m_(0, 1) = 2; m_(0, 2) = 1; m_(0, 3) = 2; m_(0, 4) = 1;
-    m_(1, 0) = 1; m_(1, 1) = 1; m_(1, 2) = 1; m_(1, 3) = 1; m_(1, 5) = 1;
-    m_(2, 0) = 4; m_(2, 1) = 3; m_(2, 2) = 3; m_(2, 3) = 4; m_(2, 6) = 1;
-    vector<double> x_star(7);
-    x_star[0] = 225; x_star[1] = 117; x_star[2] = 420;
-    x_star[3] = x_star[4] = x_star[5] = x_star[6] = 0;
-    vector<double> b;
-    init_b(b, m_, x_star);
-    vector<unsigned> basis(3);
-    basis[0] = 0; basis[1] = 1; basis[2] = 2;
-    vector<double> costs(7);
-    costs[0] = 19;
-    costs[1] = 13;
-    costs[2] = 12;
-    costs[3] = 17;
-    costs[4] = 0;
-    costs[5] = 0;
-    costs[6] = 0;
-    
-    vector<column_type> column_types(7, column_type::lower_bound);
-    vector<double>  upper_bound_values;
-    lp_settings settings;
-    simple_column_namer cn;
-    vector<unsigned> nbasis;
-    vector<int>  heading;
-
-    lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, nbasis, heading, costs, column_types, upper_bound_values, settings, cn);
-
-    lpsolver.solve();
-}
-
-void test_lp_1() {
-    std::cout << " test_lp_1 " << std::endl;
-    static_matrix<double, double> m(4, 7);
-    m(0, 0) =  1;  m(0, 1) = 3;  m(0, 2) = 1;  m(0, 3) = 1;
-    m(1, 0) = -1;                m(1, 2) = 3;  m(1, 4) = 1;
-    m(2, 0) =  2;  m(2, 1) = -1; m(2, 2) = 2;  m(2, 5) = 1;
-    m(3, 0) =  2;  m(3, 1) =  3; m(3, 2) = -1; m(3, 6) = 1;
-#ifdef Z3DEBUG
-    //print_matrix(m, std::cout);
-#endif
-    vector<double> x_star(7);
-    x_star[0] = 0; x_star[1] = 0; x_star[2] = 0;
-    x_star[3] = 3; x_star[4] = 2; x_star[5] = 4; x_star[6] = 2;
-
-    vector<unsigned> basis(4);
-    basis[0] = 3; basis[1] = 4; basis[2] = 5; basis[3] = 6;
-
-    vector<double> b;
-    b.push_back(3);
-    b.push_back(2);
-    b.push_back(4);
-    b.push_back(2);
-
-    vector<double> costs(7);
-    costs[0] = 5;
-    costs[1] = 5;
-    costs[2] = 3;
-    costs[3] = 0;
-    costs[4] = 0;
-    costs[5] = 0;
-    costs[6] = 0;
-
-
-
-    vector<column_type> column_types(7, column_type::lower_bound);
-    vector<double>  upper_bound_values;
-
-    std::cout << "calling lp\n";
-    lp_settings settings;
-    simple_column_namer cn;
-
-    vector<unsigned> nbasis;
-    vector<int>  heading;
-
-    lp_primal_core_solver<double, double> lpsolver(m, b,
-                                                   x_star,
-                                                   basis,
-                                                   nbasis, heading,
-                                                   costs,
-                                                   column_types, upper_bound_values, settings, cn);
-    
-    lpsolver.solve();
-}
-
-
-void test_lp_primal_core_solver() {
-    test_lp_0();
-    test_lp_1();
-}
-
-
-
-
-#ifdef Z3DEBUG
-
-void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
-    int v = 0;
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            m.set_elem(i, j, v++);
-        }
-    }
-}
-
-
-
-
-void test_dense_matrix() {
-    dense_matrix<double, double> d(3, 2);
-    d.set_elem(0, 0, 1);
-    d.set_elem(1, 1, 2);
-    d.set_elem(2, 0, 3);
-    // print_matrix(d);
-
-    dense_matrix<double, double> unit(2, 2);
-    d.set_elem(0, 0, 1);
-    d.set_elem(1, 1, 1);
-
-    dense_matrix<double, double> c = d * unit;
-
-    // print_matrix(d);
-
-    dense_matrix<double, double> perm(3, 3);
-    perm.set_elem(0, 1, 1);
-    perm.set_elem(1, 0, 1);
-    perm.set_elem(2, 2, 1);
-    auto c1 = perm * d;
-    // print_matrix(c1);
-
-
-    dense_matrix<double, double> p2(2, 2);
-    p2.set_elem(0, 1, 1);
-    p2.set_elem(1, 0, 1);
-    auto c2 = d * p2;
-}
-
-#endif
-
-
-
-
-
-void lp_solver_test() {
-    // lp_revised_solver<double> lp_revised;
-    // lp_revised.get_minimal_solution();
-}
 
 bool get_int_from_args_parser(const char * option, argument_parser & args_parser, unsigned & n) {
     std::string s = args_parser.get_option_value(option);
@@ -648,9 +450,6 @@ bool get_double_from_args_parser(const char * option, argument_parser & args_par
     return false;
 }
 
-
-
-bool values_are_one_percent_close(double a, double b);
 
 
 
@@ -939,10 +738,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
-    parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
-    parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
-    parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
-    parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
     parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishing infeasibility of the rows");
     parser.add_option_with_after_string_with_help("--rep_frq", "the report frequency, in how many iterations print the cost and other info ");
@@ -1201,71 +996,6 @@ void get_matrix_dimensions(std::ifstream & f, unsigned & m, unsigned & n) {
     r = split_and_trim(line);
     n = atoi(r[1].c_str());
 }
-
-void read_row_cols(unsigned i, static_matrix<double, double>& A, std::ifstream & f) {
-    do {
-        std::string line;
-        getline(f, line);
-        if (line== "row_end")
-            break;
-        auto r = split_and_trim(line);
-        lp_assert(r.size() == 4);
-        unsigned j = atoi(r[1].c_str());
-        double v = atof(r[3].c_str());
-        A.set(i, j, v);
-    } while (true);
-}
-
-bool read_row(static_matrix<double, double> & A, std::ifstream & f) {
-    std::string line;
-    getline(f, line);
-    if (static_cast<int>(line.find("row")) == -1)
-        return false;
-    auto r = split_and_trim(line);
-    if (r[0] != "row")
-        std::cout << "wrong row line" << line << std::endl;
-    unsigned i = atoi(r[1].c_str());
-    read_row_cols(i, A, f);
-    return true;
-}
-
-void read_rows(static_matrix<double, double>& A, std::ifstream & f) {
-    while (read_row(A, f)) {}
-}
-
-void read_basis(vector<unsigned> & basis, std::ifstream & f) {
-    std::cout << "reading basis" << std::endl;
-    std::string line;
-    getline(f, line);
-    lp_assert(line == "basis_start");
-    do {
-        getline(f, line);
-        if (line == "basis_end")
-            break;
-        unsigned j = atoi(line.c_str());
-        basis.push_back(j);
-    } while (true);
-}
-
-void read_indexed_vector(indexed_vector<double> & v, std::ifstream & f) {
-    std::string line;
-    getline(f, line);
-    lp_assert(line == "vector_start");
-    do {
-        getline(f, line);
-        if (line == "vector_end") break;
-        auto r = split_and_trim(line);
-        unsigned i = atoi(r[0].c_str());
-        double val = atof(r[1].c_str());
-        v.set_value(val, i);
-        std::cout << "setting value " << i << " = " << val << std::endl;
-    } while (true);
-}
-
-void check_lu_from_file(std::string lufile_name) {
-    lp_assert(false);
-}
-
 
 
 void print_st(lp_status status) {
@@ -2298,15 +2028,6 @@ void test_lp_local(int argn, char**argv) {
         test_bound_propagation();
         return finalize(0);
     }
-        
-    
-    std::string lufile = args_parser.get_option_value("--checklu");
-    if (!lufile.empty()) {
-        check_lu_from_file(lufile);
-        return finalize(0);
-    }
-
-    
     
 
     if (args_parser.option_is_used("-tbq")) {
