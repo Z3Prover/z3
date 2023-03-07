@@ -72,8 +72,6 @@ public:
     unsigned inf_set_size() const { return m_inf_set.size(); }
     bool using_infeas_costs() const { return m_using_infeas_costs; }
     void set_using_infeas_costs(bool val)  { m_using_infeas_costs = val; }
-    vector<unsigned>      m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
-    vector<unsigned>      m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     // vector<X> const &           m_b; // the right side

@@ -107,7 +107,6 @@ public:
 template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
-    static bool is_epsilon_small(const X & x,  const double & y) { return std::abs(numeric_traits<X>::get_double(x)) < y; }
     static bool below_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false;}
     static bool above_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false; }
 };
@@ -316,15 +315,11 @@ struct convert_struct<double, numeric_pair<double>> {
 
 typedef numeric_pair<mpq> impq;
 
-template <typename X> bool is_epsilon_small(const X & v, const double& eps);   // forward definition { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 
 template <typename T>
 struct convert_struct<numeric_pair<T>, double> {
     static numeric_pair<T> convert(const double & q) {
         return numeric_pair<T>(convert_struct<T, double>::convert(q), numeric_traits<T>::zero());
-    }
-    static bool is_epsilon_small(const numeric_pair<T> & p, const double & eps) {
-        return convert_struct<T, double>::is_epsilon_small(p.x, eps) && convert_struct<T, double>::is_epsilon_small(p.y, eps);
     }
     static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
         // lp_unreachable();
@@ -340,10 +335,7 @@ struct convert_struct<numeric_pair<double>, double> {
     static numeric_pair<double> convert(const double & q) {
         return numeric_pair<double>(q, 0.0);
     }
-    static bool is_epsilon_small(const numeric_pair<double> & p, const double & eps) {
-        return std::abs(p.x) < eps && std::abs(p.y) < eps;
-    }
-
+    
     static int compare_on_coord(const double & x, const double & bound, const double eps) {
         if (bound == 0) return (x < - eps)? -1: (x > eps? 1 : 0); // it is an important special case
         double relative = (bound > 0)? - eps: eps;
@@ -369,9 +361,6 @@ struct convert_struct<numeric_pair<double>, double> {
 
 template <>
 struct convert_struct<double, double> {
-    static bool is_epsilon_small(const double& x, const double & eps) {
-        return x < eps && x > -eps;
-    }
     static double convert(const double & y){ return y;}
     static bool below_bound_numeric(const double & x, const double & bound, const double & eps) {
         if (bound == 0) return x < - eps;
@@ -384,8 +373,6 @@ struct convert_struct<double, double> {
         return x > bound * (1.0 + relative) + eps;
     }
 };
-
-template <typename X> bool is_epsilon_small(const X & v, const double &eps) { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}
 template  <typename T>  T floor(const numeric_pair<T> & r) {

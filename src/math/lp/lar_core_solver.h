@@ -20,9 +20,6 @@ Author:
 namespace lp {
 
 class lar_core_solver  {
-    // m_sign_of_entering is set to 1 if the entering variable needs
-    // to grow and is set to -1  otherwise
-    int m_sign_of_entering_delta;
     vector<std::pair<mpq, unsigned>> m_infeasible_linear_combination;
     int m_infeasible_sum_sign; // todo: get rid of this field
     vector<numeric_pair<mpq>> m_right_sides_dummy;
@@ -40,8 +37,6 @@ public:
     vector<unsigned>         m_r_basis;
     vector<unsigned>         m_r_nbasis;
     vector<int>              m_r_heading;
-    stacked_vector<unsigned> m_r_columns_nz;
-    stacked_vector<unsigned> m_r_rows_nz;
     
 
     lp_primal_core_solver<mpq, numeric_pair<mpq>> m_r_solver; // solver in rational numbers
@@ -82,15 +77,8 @@ public:
         m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);        
     }
     
-    bool row_is_infeasible(unsigned row);
-
-    bool row_is_evidence(unsigned row);
-
-    bool find_evidence_row();
-
+    
     void prefix_r();
-
-    void prefix_d();
 
     unsigned m_m() const { return m_r_A.row_count();  }
 
@@ -102,8 +90,6 @@ public:
 
     template <typename L>
     int get_sign(const L & v) { return v > zero_of_type<L>() ? 1 : (v < zero_of_type<L>() ? -1 : 0); }
-
-    void fill_evidence(unsigned row);
 
     unsigned get_number_of_non_ints() const;
 
@@ -131,31 +117,6 @@ public:
         
     }
 
-    template <typename K> 
-    void push_vector(stacked_vector<K> & pushed_vector, const vector<K> & vector) {
-        lp_assert(pushed_vector.size() <= vector.size());
-        for (unsigned i = 0; i < vector.size();i++) {
-            if (i == pushed_vector.size()) {
-                pushed_vector.push_back(vector[i]);
-            } else {
-                pushed_vector[i] = vector[i];
-            }
-        }
-        pushed_vector.push();
-    }
-
-    void pop_markowitz_counts(unsigned k) {
-        m_r_columns_nz.pop(k);
-        m_r_rows_nz.pop(k);
-        m_r_solver.m_columns_nz.resize(m_r_columns_nz.size());
-        m_r_solver.m_rows_nz.resize(m_r_rows_nz.size());
-        for (unsigned i = 0; i < m_r_columns_nz.size(); i++)
-            m_r_solver.m_columns_nz[i] = m_r_columns_nz[i];
-        for (unsigned i = 0; i < m_r_rows_nz.size(); i++)
-            m_r_solver.m_rows_nz[i] = m_r_rows_nz[i];
-    }
-
-    
     void pop(unsigned k) {
         // rationals
         m_r_lower_bounds.pop(k);
@@ -172,72 +133,7 @@ public:
     }
 
     
-    template <typename L>
-    bool is_zero_vector(const vector<L> & b) {
-        for (const L & m: b)
-            if (!is_zero(m)) return false;
-        return true;
-    }
-
-
-    bool update_xj_and_get_delta(unsigned j, non_basic_column_value_position pos_type, numeric_pair<mpq> & delta) {
-        auto & x = m_r_x[j];
-        switch (pos_type) {
-        case at_lower_bound:
-            if (x == m_r_solver.m_lower_bounds[j])
-                return false;
-            delta = m_r_solver.m_lower_bounds[j] - x;
-            m_r_solver.m_x[j] = m_r_solver.m_lower_bounds[j];
-            break;
-        case at_fixed:
-        case at_upper_bound:
-            if (x == m_r_solver.m_upper_bounds[j])
-                return false;
-            delta = m_r_solver.m_upper_bounds[j] - x;
-            x = m_r_solver.m_upper_bounds[j];
-            break;
-        case free_of_bounds: {
-            return false;
-        }
-        case not_at_bound:
-            switch (m_column_types[j]) {
-            case column_type::free_column:
-                return false;
-            case column_type::upper_bound:
-                delta = m_r_solver.m_upper_bounds[j] - x;
-                x = m_r_solver.m_upper_bounds[j];
-                break;
-            case column_type::lower_bound:
-                delta = m_r_solver.m_lower_bounds[j] - x;
-                x = m_r_solver.m_lower_bounds[j];
-                break;
-            case column_type::boxed:
-                if (x > m_r_solver.m_upper_bounds[j]) {
-                    delta = m_r_solver.m_upper_bounds[j] - x;
-                    x += m_r_solver.m_upper_bounds[j];
-                } else {
-                    delta = m_r_solver.m_lower_bounds[j] - x;
-                    x = m_r_solver.m_lower_bounds[j];
-                }
-                break;
-            case column_type::fixed:
-                delta = m_r_solver.m_lower_bounds[j] - x;
-                x = m_r_solver.m_lower_bounds[j];
-                break;
-
-            default:
-                lp_assert(false);
-            }
-            break;
-        default:
-            lp_unreachable();
-        }
-        m_r_solver.remove_column_from_inf_set(j);
-        return true;
-    }
-
     
-
     bool r_basis_is_OK() const {
 #ifdef Z3DEBUG
         
@@ -255,28 +151,6 @@ public:
     }
     
    
-    
-    void fill_basis_d(
-                      vector<unsigned>& basis_d,
-                      vector<int>& heading_d,
-                      vector<unsigned>& nbasis_d){
-        basis_d = m_r_basis;
-        heading_d = m_r_heading;
-        nbasis_d = m_r_nbasis;
-    }
-
-    template <typename L, typename K>
-    void extract_signature_from_lp_core_solver(const lp_primal_core_solver<L, K> & solver, lar_solution_signature & signature) {
-        signature.clear();
-        lp_assert(signature.size() == 0);
-        for (unsigned j = 0; j < solver.m_basis_heading.size(); j++) {
-            if (solver.m_basis_heading[j] < 0) {
-                signature[j] = solver.get_non_basic_column_value_position(j);
-            }
-        }
-    }
-
-    
     bool lower_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:
