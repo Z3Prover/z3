@@ -41,53 +41,20 @@ namespace lp {
 template <typename T, typename X>
 class lp_primal_core_solver:public lp_core_solver_base<T, X> {
 public:
-    // m_sign_of_entering is set to 1 if the entering variable needs
-    // to grow and is set to -1  otherwise
-    unsigned       m_column_norm_update_counter;
-    T              m_enter_price_eps;
     int            m_sign_of_entering_delta;
-    indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
-    T                 m_epsilon_of_reduced_cost;
     vector<T>         m_costs_backup;
     unsigned          m_inf_row_index_for_tableau;
     bool              m_bland_mode_tableau;
-    u_set           m_left_basis_tableau;
+    u_set             m_left_basis_tableau;
     unsigned          m_bland_mode_threshold;
     unsigned          m_left_basis_repeated;
     vector<unsigned>  m_leaving_candidates;
     
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
-    void sort_non_basis_rational();
     int choose_entering_column(unsigned number_of_benefitial_columns_to_go_over);
     int choose_entering_column_tableau();
     int choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over);
-    
-    bool column_is_benefitial_for_entering_basis_on_sign_row_strategy(unsigned j, int sign) const {
-        // sign = 1 means the x of the basis column of the row has to grow to become feasible, when the coeff before j is neg, or x - has to diminish when the coeff is pos
-        // we have xbj = -aj * xj
-        lp_assert(this->m_basis_heading[j] < 0);
-        lp_assert(this->column_is_feasible(j));
-        switch (this->m_column_types[j]) {
-        case column_type::free_column: return true;
-        case column_type::fixed: return false;
-        case column_type::lower_bound:
-            if (sign < 0)
-                return true;
-            return !this->x_is_at_lower_bound(j);
-        case column_type::upper_bound:
-            if (sign > 0)
-                return true;
-            return !this->x_is_at_upper_bound(j);
-        case column_type::boxed:
-            if (sign < 0)
-                return !this->x_is_at_lower_bound(j);
-            return !this->x_is_at_upper_bound(j);
-        }
-
-        lp_assert(false); // cannot be here
-        return false;
-    }
     
 
     bool needs_to_grow(unsigned bj) const {
@@ -272,10 +239,7 @@ public:
         a_ent = rc.coeff();
         return rc.var();
     }
-    static X positive_infinity() {
-        return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
-    }
-
+    
     bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t, bool & unlimited);
     bool try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X & t);
     int find_leaving_and_t_tableau(unsigned entering, X & t);
@@ -313,8 +277,6 @@ public:
 
     void get_bound_on_variable_and_update_leaving_precisely(unsigned j, vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
 
-    vector<T> m_lower_bounds_dummy; // needed for the base class only
-
     X get_max_bound(vector<X> & b);
 
 #ifdef Z3DEBUG
@@ -333,10 +295,6 @@ public:
     int refresh_reduced_cost_at_entering_and_check_that_it_is_off(unsigned entering);
 
     void backup_and_normalize_costs();
-
-    void init_run();
-
-    void calc_working_vector_beta_for_column_norms();
 
     void advance_on_entering_and_leaving(int entering, int leaving, X & t);
     void advance_on_entering_and_leaving_tableau(int entering, int leaving, X & t);
@@ -368,7 +326,6 @@ public:
 
     // bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
 
-    void one_iteration();
     void one_iteration_tableau();
 
     // this version assumes that the leaving already has the right value, and does not update it
@@ -658,12 +615,6 @@ public:
     void init_infeasibility_costs_for_changed_basis_only();
 
     void print_column(unsigned j, std::ostream & out);
-    // j is the basic column, x is the value at x[j]
-    // d is the coefficient before m_entering in the row with j as the basis column
-    template <typename L>
-    bool same_sign_with_entering_delta(const L & a) {
-        return (a > zero_of_type<L>() && m_sign_of_entering_delta > 0) || (a < zero_of_type<L>() && m_sign_of_entering_delta < 0);
-    }
     
     void print_bound_info_and_x(unsigned j, std::ostream & out);
     
@@ -730,8 +681,6 @@ public:
                                   column_type_array,
                                   lower_bound_values,
                                   upper_bound_values),
-        m_beta(A.row_count()),
-        m_epsilon_of_reduced_cost(T(1)/T(10000000)),
         m_bland_mode_threshold(1000) {
         this->set_status(lp_status::UNKNOWN);
     }

@@ -32,7 +32,7 @@ namespace lp {
 // The right side b is given implicitly by x and the basis
 
 template <typename T, typename X>
-void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
+void lp_primal_core_solver<T, X>::sort_non_basis() {
      std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
                 unsigned ca = this->m_A.number_of_non_zeroes_in_column(a);
                 unsigned cb = this->m_A.number_of_non_zeroes_in_column(b);
@@ -50,10 +50,6 @@ void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
 }
 
 
-template <typename T, typename X>
-void lp_primal_core_solver<T, X>::sort_non_basis() {
-     sort_non_basis_rational();   
-}
 
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
@@ -249,15 +245,6 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
     }
 }
 
-template <typename T, typename X>    X lp_primal_core_solver<T, X>::get_max_bound(vector<X> & b) {
-    X ret = zero_of_type<X>();
-    for (auto & v : b) {
-        X a = abs(v);
-        if (a > ret) ret = a;
-    }
-    return ret;
-}
-
 #ifdef Z3DEBUG
 template <typename T, typename X>   void lp_primal_core_solver<T, X>::check_Ax_equal_b() {
     dense_matrix<T, X> d(this->m_A);
@@ -282,38 +269,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_cor
 }
 #endif
 
-// from page 183 of Istvan Maros's book
-// the basis structures have not changed yet
-template <typename T, typename X>
-void lp_primal_core_solver<T, X>::update_reduced_costs_from_pivot_row(unsigned entering, unsigned leaving) {
-    // the basis heading has changed already
-#ifdef Z3DEBUG
-    auto & basis_heading = this->m_basis_heading;
-    lp_assert(basis_heading[entering] >= 0 && static_cast<unsigned>(basis_heading[entering]) < this->m_m());
-    lp_assert(basis_heading[leaving] < 0);
-#endif
-    T pivot = this->m_pivot_row[entering];
-    T dq = this->m_d[entering]/pivot;
-    for (auto j : this->m_pivot_row.m_index) {
-        //            for (auto j : this->m_nbasis)
-        if (this->m_basis_heading[j] >= 0) continue;
-        if (j != leaving)
-            this->m_d[j] -= dq * this->m_pivot_row[j];
-    }
-    this->m_d[leaving] = -dq;
-    if (this->current_x_is_infeasible()) {
-        this->m_d[leaving] -= this->m_costs[leaving];
-        this->m_costs[leaving] = zero_of_type<T>();
-    }
-    this->m_d[entering] = numeric_traits<T>::zero();
-}
-
-// return 0 if the reduced cost at entering is close enough to the refreshed
-// 1 if it is way off, and 2 if it is unprofitable
-template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_reduced_cost_at_entering_and_check_that_it_is_off(unsigned entering) {
-    return 0;
-    
-}
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_and_normalize_costs() {
     if (this->m_look_for_feasible_solution_only)
@@ -321,9 +276,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
     m_costs_backup = this->m_costs;    
 }
 
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
-    
-}
 
 
 template <typename T, typename X>
@@ -376,20 +328,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feas
     this->set_status(lp_status::UNKNOWN);
     solve();
 }
-
-template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteration() {
-    unsigned number_of_benefitial_columns_to_go_over = get_number_of_non_basic_column_to_try_for_enter();
-    int entering = choose_entering_column(number_of_benefitial_columns_to_go_over);
-    if (entering == -1) {
-        decide_on_status_when_cannot_find_entering();
-    }
-    else {
-        advance_on_entering(entering);
-    }
-}
-
-
-
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_infeasibility_costs_for_changed_basis_only() {

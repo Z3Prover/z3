@@ -179,15 +179,9 @@ public:
     bool int_run_gcd_test() const { return m_int_run_gcd_test; }
     bool& int_run_gcd_test() { return m_int_run_gcd_test; }
     unsigned      reps_in_scaler { 20 };
-    // when the absolute value of an element is less than pivot_epsilon
-    // in pivoting, we treat it as a zero
-    // a quotation "if some choice of the entering variable leads to an eta matrix
-    // whose diagonal element in the eta column is less than e2 (entering_diag_epsilon) in magnitude, the this choice is rejected ...
     int           c_partial_pivoting { 10 }; // this is the constant c from page 410
     unsigned      depth_of_rook_search { 4 };
     bool          using_partial_pivoting { true };
-    // dissertation of Achim Koberstein
-    // if Bx - b is different at any component more that refactor_epsilon then we refactor
     
     unsigned     percent_of_entering_to_check { 5 }; // we try to find a profitable column in a percentage of the columns
     bool         use_scaling { true };

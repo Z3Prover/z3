@@ -283,7 +283,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
             return;
         if (this->m_settings.backup_costs)
             backup_and_normalize_costs();
-        m_epsilon_of_reduced_cost = zero_of_type<T>();
         
         if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             init_tableau_rows();
