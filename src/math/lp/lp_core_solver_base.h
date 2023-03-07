@@ -74,7 +74,6 @@ public:
     void set_using_infeas_costs(bool val)  { m_using_infeas_costs = val; }
     vector<unsigned>      m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
     vector<unsigned>      m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
-    indexed_vector<T>     m_pivot_row_of_B_1;  // the pivot row of the reverse of B
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     // vector<X> const &           m_b; // the right side
@@ -85,15 +84,11 @@ public:
     vector<T> &           m_costs;
     lp_settings &         m_settings;
     
-    vector<T>             m_y; // the buffer for yB = cb
     const column_namer &  m_column_names;
-    indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs
-    indexed_vector<T>     m_ed; // the solution of B*m_ed = a
     const vector<column_type> & m_column_types;
     const vector<X> &     m_lower_bounds;
     const vector<X> &     m_upper_bounds; 
-    vector<X>             m_copy_of_xB;
     unsigned              m_basis_sort_counter;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
@@ -161,10 +156,6 @@ public:
     X get_cost() const {
         return dot_product(m_costs, m_x);
     }
-
-    void copy_m_w(T * buffer);
-
-    void restore_m_w(T * buffer);
 
     void add_delta_to_entering(unsigned entering, const X & delta);
 
@@ -298,11 +289,6 @@ public:
 
     bool basis_heading_is_correct() const;
 
-    void restore_x(unsigned entering, X const & t);
-
-    void fill_reduced_costs_from_m_y_by_rows();
-
-    void copy_rs_to_xB(vector<X> & rs);
     virtual bool lower_bounds_are_set() const { return false; }
     X lower_bound_value(unsigned j) const { return m_lower_bounds[j]; }
     X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
@@ -315,10 +301,6 @@ public:
     }
 
     std::string column_name(unsigned column) const;
-
-    void add_delta_to_xB(vector<X> & del);
-
-    void find_error_in_BxB(vector<X>& rs);
 
     bool snap_non_basic_x_to_bound() {
         bool ret = false;

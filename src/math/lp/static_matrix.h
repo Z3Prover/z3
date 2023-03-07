@@ -12,7 +12,6 @@ Author:
 #include <set>
 #include <unordered_map>
 #include <utility>
-#include "math/lp/sparse_vector.h"
 #include "math/lp/indexed_vector.h"
 #include "math/lp/permutation_matrix.h"
 #include <stack>

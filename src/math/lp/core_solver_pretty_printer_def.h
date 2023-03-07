@@ -37,9 +37,8 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(const lp_core_solve
     m_signs(core_solver.m_A.row_count(), vector<string>(core_solver.m_A.column_count(), " ")),
     m_costs(ncols(), ""),
     m_cost_signs(ncols(), " "),
-    m_rs(ncols(), zero_of_type<X>()),
-    m_w_buff(core_solver.m_w),
-    m_ed_buff(core_solver.m_ed) {
+    m_rs(ncols(), zero_of_type<X>())
+     {
     m_lower_bounds_title = "low";
     m_upp_bounds_title = "upp";
     m_exact_norm_title = "exact cn";
@@ -78,13 +77,6 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_rs
             m_rs_width = wt;
         }
     }
-}
-
-template <typename T, typename X> T core_solver_pretty_printer<T, X>::current_column_norm() {
-    T ret = zero_of_type<T>();
-    for (auto i : m_core_solver.m_ed.m_index)
-        ret += m_core_solver.m_ed[i] * m_core_solver.m_ed[i];
-    return ret;
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_A_and_signs() { 
@@ -166,13 +158,6 @@ template <typename T, typename X> unsigned core_solver_pretty_printer<T, X>:: ge
     
     return w;
 }
-
-template <typename T, typename X> std::string core_solver_pretty_printer<T, X>::regular_cell_string(unsigned row, unsigned /* column */, std::string name) {
-    T t = fabs(m_core_solver.m_ed[row]);
-    if ( t == 1) return name;
-    return T_to_string(t) + name;
-}
-
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::set_coeff(vector<string>& row, vector<string> & row_signs, unsigned col, const T & t, string name) {
     if (numeric_traits<T>::is_zero(t)) {

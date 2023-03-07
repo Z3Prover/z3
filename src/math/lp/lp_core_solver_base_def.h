@@ -44,25 +44,19 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_status(lp_status::FEASIBLE),
     m_inf_set(A.column_count()),
     m_using_infeas_costs(false),
-    m_pivot_row_of_B_1(A.row_count()),
     m_pivot_row(A.column_count()),
     m_A(A),
-    // m_b(b),
     m_basis(basis),
     m_nbasis(nbasis),
     m_basis_heading(heading),
     m_x(x),
     m_costs(costs),
     m_settings(settings),
-    m_y(m_m()),
     m_column_names(column_names),
-    m_w(m_m()),
     m_d(m_n()),
-    m_ed(m_m()),
     m_column_types(column_types),
     m_lower_bounds(lower_bound_values),
     m_upper_bounds(upper_bound_values),
-    m_copy_of_xB(m_m()),
     m_basis_sort_counter(0),
     m_tracing_basis_changes(false),
     m_pivoted_rows(nullptr),
@@ -119,25 +113,6 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 pretty_print(std::ostream & out) {
     core_solver_pretty_printer<T, X> pp(*this, out);
     pp.print();
-}
-
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-copy_m_w(T * buffer) {
-    unsigned i = m_m();
-    while (i --) {
-        buffer[i] = m_w[i];
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-restore_m_w(T * buffer) {
-    m_w.m_index.clear();
-    unsigned i = m_m();
-    while (i--) {
-        if (!is_zero(m_w[i] = buffer[i]))
-            m_w.m_index.push_back(i);
-    }
 }
 
 
@@ -443,71 +418,9 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     return true;
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-restore_x(unsigned entering, X const & t) {
-    if (is_zero(t)) return;
-    m_x[entering] -= t;
-    for (unsigned i : m_ed.m_index) {
-        m_x[m_basis[i]]  = m_copy_of_xB[i];
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-fill_reduced_costs_from_m_y_by_rows() {
-    unsigned j = m_n();
-    while (j--) {
-        if (m_basis_heading[j] < 0)
-            m_d[j] = m_costs[j];
-        else
-            m_d[j] = numeric_traits<T>::zero();
-    }
-
-    unsigned i = m_m();
-    while (i--) {
-        const T & y = m_y[i];
-        if (is_zero(y)) continue;
-        for (row_cell<T> & c : m_A.m_rows[i]) {
-            j = c.var();
-            if (m_basis_heading[j] < 0) {
-                m_d[j] -= y * c.coeff();
-            }
-        }
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-copy_rs_to_xB(vector<X> & rs) {
-    unsigned j = m_m();
-    while (j--) {
-        m_x[m_basis[j]] = rs[j];
-    }
-}
-
 template <typename T, typename X> std::string lp_core_solver_base<T, X>::
 column_name(unsigned column) const {
     return m_column_names.get_variable_name(column);
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-add_delta_to_xB(vector<X> & del) {
-    unsigned i = m_m();
-    while (i--) {
-        this->m_x[this->m_basis[i]] -= del[i];
-    }
-}
-
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-find_error_in_BxB(vector<X>& rs){
-    unsigned row = m_m();
-    while (row--) {
-        auto &rsv = rs[row];
-        for (auto & it : m_A.m_rows[row]) {
-            unsigned j = it.var();
-            if (m_basis_heading[j] >= 0) {
-                rsv -= m_x[j] * it.coeff();
-            }
-        }
-    }
 }
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
@@ -543,9 +456,9 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
 	lp_assert(m_basis_heading[j_basic] >= 0);
 	unsigned row_index = m_basis_heading[j_basic];
 	  // the tableau case
-		if (pivot_column_tableau(j, row_index))
-			change_basis(j, j_basic);
-		else return false;
+	if (pivot_column_tableau(j, row_index))
+		change_basis(j, j_basic);
+	else return false;
 	
 	return true;
 }
