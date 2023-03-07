@@ -344,7 +344,6 @@ public:
     void fill_last_row_with_pivoting(const term& row,
                                      unsigned bj, // the index of the basis column
                                      const vector<int> & basis_heading) {
-        lp_assert(numeric_traits<T>::precise());
         lp_assert(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;

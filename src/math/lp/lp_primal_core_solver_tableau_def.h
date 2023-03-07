@@ -43,19 +43,10 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     }
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
 }
-/*
-template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau_rows() {
-    int i = find_inf_row();
-    if (i == -1)
-        return -1;
-    return find_shortest_beneficial_column_in_row(i);
- }
-*/
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
     
-    lp_assert(numeric_traits<T>::precise());
     if (number_of_benefitial_columns_to_go_over == 0)
         return -1;
     if (this->m_basis_sort_counter == 0) {
@@ -294,7 +285,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
             return;
         if (this->m_settings.backup_costs)
             backup_and_normalize_costs();
-        m_epsilon_of_reduced_cost = numeric_traits<X>::precise() ? zero_of_type<T>() : T(1) / T(10000000);
+        m_epsilon_of_reduced_cost = zero_of_type<T>();
         
         if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             init_tableau_rows();

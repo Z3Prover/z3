@@ -238,11 +238,11 @@ public:
     }
     
     bool below_bound(const X & x, const X & bound) const {
-        return precise()? x < bound : below_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return x < bound ;
     }
 
     bool above_bound(const X & x, const X & bound) const {
-        return precise()? x > bound : above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return x > bound ;
     }
 
     bool x_below_low_bound(unsigned p) const {
@@ -322,9 +322,6 @@ public:
     void add_delta_to_xB(vector<X> & del);
 
     void find_error_in_BxB(vector<X>& rs);
-
-    // recalculates the projection of x to B, such that Ax = b, whereab is the right side
-    void solve_Ax_eq_b();
 
     bool snap_non_basic_x_to_bound() {
         bool ret = false;
@@ -628,8 +625,6 @@ public:
     bool pivot_column_tableau(unsigned j, unsigned row_index);
     bool divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col);
     
-    bool precise() const { return numeric_traits<T>::precise(); }
-
     simplex_strategy_enum simplex_strategy() const { return
             m_settings.simplex_strategy();
     }

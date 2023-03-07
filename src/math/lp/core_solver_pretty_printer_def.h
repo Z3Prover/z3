@@ -88,7 +88,6 @@ template <typename T, typename X> T core_solver_pretty_printer<T, X>::current_co
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_A_and_signs() { 
-    if (numeric_traits<T>::precise() ) {
         for (unsigned column = 0; column < ncols(); column++) {
             vector<T> t(nrows(), zero_of_type<T>());
             for (const auto & c : m_core_solver.m_A.m_columns[column]){
@@ -115,8 +114,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_
                           name);
                 m_rs[row] += t[row] * m_core_solver.m_x[column];
             }
-        }
-    } 
+        }     
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_column_widths() {

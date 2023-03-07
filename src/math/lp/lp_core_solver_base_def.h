@@ -233,18 +233,12 @@ column_is_dual_feasible(unsigned j) const {
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 d_is_not_negative(unsigned j) const {
-    if (numeric_traits<T>::precise()) {
-        return m_d[j] >= numeric_traits<T>::zero();
-    }
-    return m_d[j] > -T(0.00001);
+    return m_d[j] >= numeric_traits<T>::zero();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 d_is_not_positive(unsigned j) const {
-    if (numeric_traits<T>::precise()) {
-        return m_d[j] <= numeric_traits<T>::zero();
-    }
-    return m_d[j] < T(0.00001);
+    return m_d[j] <= numeric_traits<T>::zero();    
 }
 
 
@@ -319,7 +313,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_set_is_cor
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
-    lp_assert(numeric_traits<T>::precise());
     int pivot_index = -1;
     auto & row = m_A.m_rows[pivot_row];
     unsigned size = row.size();
@@ -516,13 +509,6 @@ find_error_in_BxB(vector<X>& rs){
         }
     }
 }
-
-// recalculates the projection of x to B, such that Ax = b
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-solve_Ax_eq_b() {
-    lp_assert(false);
-}
-
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
 get_non_basic_column_value_position(unsigned j) const {
