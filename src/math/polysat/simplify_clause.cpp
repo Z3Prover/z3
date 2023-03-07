@@ -358,49 +358,78 @@ namespace polysat {
     }
     
     // 2^(k - d) * x = m * 2^(k - d)
+    // Special case [still seems to occur frequently]: -2^(k - 2) * x > 2^(k - 1) - TODO: Generalize [the obvious solution does not work] => lsb(x, 2) = 1
     bool simplify_clause::get_lsb(pdd lhs, pdd rhs, pdd& p, trailing_bits& info, bool pos) {
-        auto lhs_decomp = decouple_constant(lhs);
-        auto rhs_decomp = decouple_constant(rhs);
-        
-        lhs = lhs_decomp.first - rhs_decomp.first;
-        rhs = rhs_decomp.second - lhs_decomp.second;
-        
-        SASSERT(rhs.is_val());
-        
-        unsigned k = lhs.manager().power_of_2(); 
-        unsigned d = lhs.max_pow2_divisor();
-        unsigned span = k - d;
-        if (span == 0 || lhs.is_val())
-            return false;
-        
-        p = lhs.div(rational::power_of_two(d));
-        rational rhs_val = rhs.val();
-        info.bits = rhs_val / rational::power_of_two(d);
-        if (!info.bits.is_int())
-            return false;
-
         SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+        SASSERT(rhs.is_univariate() && rhs.degree() <= 1);
 
-        auto it = p.begin();
-        auto first = *it;
-        it++;
-        if (it == p.end()) {
-            // if the lhs contains only one monomial it is of the form: odd * x = mask. We can multiply by the inverse to get the mask for x
-            SASSERT(first.coeff.is_odd());
-            rational inv;
-            VERIFY(first.coeff.mult_inverse(lhs.power_of_2(), inv));
-            p *= inv;
-            info.bits = mod2k(info.bits * inv, span);
+        if (rhs.is_zero()) { // equality
+            auto lhs_decomp = decouple_constant(lhs);
+
+            lhs = lhs_decomp.first;
+            rhs = -lhs_decomp.second;
+
+            SASSERT(rhs.is_val());
+
+            unsigned k = lhs.manager().power_of_2();
+            unsigned d = lhs.max_pow2_divisor();
+            unsigned span = k - d;
+            if (span == 0 || lhs.is_val())
+                return false;
+
+            p = lhs.div(rational::power_of_two(d));
+            rational rhs_val = rhs.val();
+            info.bits = rhs_val / rational::power_of_two(d);
+            if (!info.bits.is_int())
+                return false;
+
+            SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+
+            auto it = p.begin();
+            auto first = *it;
+            it++;
+            if (it == p.end()) {
+                // if the lhs contains only one monomial it is of the form: odd * x = mask. We can multiply by the inverse to get the mask for x
+                SASSERT(first.coeff.is_odd());
+                rational inv;
+                VERIFY(first.coeff.mult_inverse(lhs.power_of_2(), inv));
+                p *= inv;
+                info.bits = mod2k(info.bits * inv, span);
+            }
+
+            info.length = span;
+            info.positive = pos;
+            return true;
         }
-        
-        info.length = span;
-        info.positive = pos;
-        return true;
+        else { // inequality - check for special case
+            if (pos || lhs.power_of_2() < 3)
+                return false;
+            auto it = lhs.begin();
+            if (it == lhs.end())
+                return false;
+            if (it->vars.size() != 1)
+                return false;
+            rational coeff = it->coeff;
+            it++;
+            if (it != lhs.end())
+                return false;
+            if ((mod2k(-coeff, lhs.power_of_2())) != rational::power_of_two(lhs.power_of_2() - 2))
+                return false;
+            p = lhs.div(coeff);
+            SASSERT(p.is_var());
+            info.bits = 1;
+            info.length = 2;
+            info.positive = true; // this is a conjunction
+            return true;
+        }
     }
 
     // 2^k - 2^(k - i) <= x -> first i bits 1
     // 2^(k - i) > x -> first i bits 0
     bool simplify_clause::get_msb(pdd lhs, pdd rhs, pdd& p, leading_bits& info, bool pos) {
+        SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+        SASSERT(rhs.is_univariate() && rhs.degree() <= 1);
+
         if (lhs.is_var() && rhs.is_val()) {
             if (rhs.is_zero())
                 return false;
@@ -439,7 +468,10 @@ namespace polysat {
     // 2^(k - 1) <= 2^(k - i - 1) * x (original definition)
     // 2^(k - i - 1) * x + 2^(k - 1) <= 2^(k - 1) - 1 (rewritten)
     bool simplify_clause::get_bit(const pdd& lhs, const pdd& rhs, pdd& p, single_bit& bit, bool pos) {
+        SASSERT(lhs.is_univariate() && lhs.degree() <= 1);
+        SASSERT(rhs.is_univariate() && rhs.degree() <= 1);
         unsigned k = rhs.power_of_2();
+
         if (rhs.is_val()) {
             // 2^(k - i - 1) * x + 2^(k - 1) <= 2^(k - 1) - 1
             rational rhs_val = rhs.val() + 1;

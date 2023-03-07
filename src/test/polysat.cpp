@@ -697,7 +697,22 @@ namespace polysat {
             vector<ptr_vector<viable::entry>> justifications;
             VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
         }
-        
+
+        // parity(x) >= 1 and bit_1(x)
+        static void test_fi_quickcheck3() {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(256));
+            signed_constraint c1 = s.eq(rational::power_of_two(255) * x);
+            signed_constraint c2 = s.ult(rational::power_of_two(255), -rational::power_of_two(254) * x);
+            s.add_clause(c1, false);
+            s.add_clause(c2, false);
+            s.m_viable.intersect(x.var(), c1);
+            s.m_viable.intersect(x.var(), c2);
+            svector<lbool> fixed;
+            vector<ptr_vector<viable::entry>> justifications;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
+        }
+
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
         static void test_parity1() {
             scoped_solver s(__func__);
@@ -2069,6 +2084,8 @@ void tst_polysat() {
     
     RUN(test_polysat::test_fi_quickcheck1());
     RUN(test_polysat::test_fi_quickcheck2());
+    RUN(test_polysat::test_fi_quickcheck3());
+
     if (collect_test_records)
         test_records.display(std::cout);
 }
