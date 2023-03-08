@@ -23,9 +23,6 @@ Revision History:
 #include "util/vector.h"
 #include <functional>
 #include "math/lp/lp_core_solver_base_def.h"
-template lp::non_basic_column_value_position lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::get_non_basic_column_value_position(unsigned int) const;
-template lp::non_basic_column_value_position lp::lp_core_solver_base<lp::mpq, lp::mpq>::get_non_basic_column_value_position(unsigned int) const;
-
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_dual_feasible(unsigned int) const;
@@ -61,7 +58,6 @@ template std::string lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> 
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::pretty_print(std::ostream & out);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::calc_current_x_is_feasible_include_non_basis(void)const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calc_current_x_is_feasible_include_non_basis() const;
-template void  lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot_fixed_vars_from_basis();
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_feasible(unsigned int) const;
 // template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_linear_combination_of_column_indices(vector<std::pair<lp::mpq, unsigned int>, std::allocator<std::pair<lp::mpq, unsigned int> > > const&, std::ostream&) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::column_is_feasible(unsigned int) const;

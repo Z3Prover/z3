@@ -14,7 +14,6 @@ Revision History:
 #include <string>
 #include "util/vector.h"
 #include "math/lp/lar_core_solver.h"
-#include "math/lp/lar_solution_signature.h"
 namespace lp {
 lar_core_solver::lar_core_solver(
     lp_settings & settings,
