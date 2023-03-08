@@ -693,7 +693,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--compare_with_primal", "using the primal simplex solver for comparison");
     parser.add_option_with_help_string("--lar", "test lar_solver");
     parser.add_option_with_after_string_with_help("--maxng", "max iterations without progress");
-    parser.add_option_with_help_string("-tbq", "test binary queue");
     parser.add_option_with_help_string("--randomize_lar", "test randomize functionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
@@ -1962,13 +1961,6 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
     
-
-    if (args_parser.option_is_used("-tbq")) {
-        test_binary_priority_queue();
-        ret = 0;
-        return finalize(ret);
-    }
-
     return finalize(0); // has_violations() ? 1 : 0);
 }
 }
