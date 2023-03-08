@@ -107,8 +107,8 @@ public:
 template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
-    static bool below_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false;}
-    static bool above_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false; }
+    static bool below_bound_numeric(const X &, const X &, const Y &) { /*UNREACHABLE();*/ return false;}
+    static bool above_bound_numeric(const X &, const X &, const Y &) { /*UNREACHABLE();*/ return false; }
 };
 
 
@@ -190,7 +190,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        // lp_unreachable();
+        // UNREACHABLE();
     }
 
 
@@ -199,7 +199,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        // lp_unreachable();
+        // UNREACHABLE();
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -275,14 +275,14 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
     return numeric_pair<T>(r.x / a,  r.y / a);
 }
 
-template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
+template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* UNREACHABLE(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
 public:
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
-    static double one() { /*lp_unreachable();*/ return 0;}
+    static double one() { /*UNREACHABLE();*/ return 0;}
     static bool is_pos(const numeric_pair<T> &p) {
         return numeric_traits<T>::is_pos(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));

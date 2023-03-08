@@ -130,7 +130,7 @@ struct gomory_test {
 
 
     void report_conflict_from_gomory_cut(mpq &k) {
-        lp_assert(false);
+        UNREACHABLE();
     }
 
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq &lcm_den) {

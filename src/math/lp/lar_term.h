@@ -179,7 +179,7 @@ public:
                 return p.coeff().is_one();
             }
         }
-        lp_unreachable();
+        UNREACHABLE();
         return false;        
     }
 

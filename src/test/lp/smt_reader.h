@@ -272,7 +272,7 @@ namespace lp {
             } else if (el.m_head == "+") {
                 add_sum(c, el.m_elems);
             } else {
-                lp_assert(false); // unexpected input
+                UNREACHABLE(); // unexpected input
             }
         }
 

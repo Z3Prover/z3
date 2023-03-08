@@ -1365,7 +1365,7 @@ void test_gomory_cut_0() {
             if (j == 2)
                 return zero_of_type<mpq>();
             if (j == 3) return mpq(3);
-            lp_assert(false);
+            UNREACHABLE();
             return zero_of_type<mpq>();
         },
         [](unsigned j) { // at_low_p
@@ -1375,7 +1375,7 @@ void test_gomory_cut_0() {
                 return true;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // at_upper
@@ -1385,31 +1385,31 @@ void test_gomory_cut_0() {
                 return true;
             if (j == 3)
                 return false;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // lower_bound
             if (j == 1) {
-                lp_assert(false); //unlimited from below
+                UNREACHABLE(); //unlimited from below
                 return impq(0);
             }
             if (j == 2)
                 return impq(0);
             if (j == 3)
                 return impq(3);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [](unsigned j) { // upper
             if (j == 1) {
-                lp_assert(false); //unlimited from above
+                UNREACHABLE(); //unlimited from above
                 return impq(0);
             }
             if (j == 2)
                 return impq(0);
             if (j == 3)
                 return impq(10);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [] (unsigned) { return 0; },
@@ -1437,7 +1437,7 @@ void test_gomory_cut_1() {
                 return mpq(4363334, 2730001);
             if (j == 3)
                 return mpq(1);
-            lp_assert(false);
+            UNREACHABLE();
             return zero_of_type<mpq>();
         },
         [](unsigned j) { // at_low_p
@@ -1447,7 +1447,7 @@ void test_gomory_cut_1() {
                 return false;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // at_upper
@@ -1457,19 +1457,19 @@ void test_gomory_cut_1() {
                 return false;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // lower_bound
             if (j == 1) {
-                lp_assert(false); //unlimited from below
+                UNREACHABLE(); //unlimited from below
                 return impq(0);
             }
             if (j == 2)
                 return impq(1);
             if (j == 3)
                 return impq(1);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [](unsigned j) { // upper
@@ -1480,7 +1480,7 @@ void test_gomory_cut_1() {
                 return impq(3333);
             if (j == 3)
                 return impq(10000);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [] (unsigned) { return 0; },

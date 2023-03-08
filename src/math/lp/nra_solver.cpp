@@ -171,7 +171,7 @@ struct solver::imp {
             lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
             break;
         default:
-            lp_assert(false); // unreachable
+            UNREACHABLE(); // unreachable
         }
         m_nlsat->mk_clause(1, &lit, a);
     }

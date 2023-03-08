@@ -31,7 +31,6 @@ template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::
 template void static_matrix<mpq, mpq>::add_column_to_vector(mpq const&, unsigned int, mpq*) const;
 template void static_matrix<mpq, mpq>::add_columns_at_the_end(unsigned int);
 template bool static_matrix<mpq, mpq>::is_correct() const;
-template void static_matrix<mpq, mpq>::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
 
 template mpq static_matrix<mpq, mpq>::get_balance() const;
 template mpq static_matrix<mpq, mpq>::get_elem(unsigned int, unsigned int) const;
@@ -47,7 +46,6 @@ template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
 #ifdef Z3DEBUG
 template bool static_matrix<mpq, numeric_pair<mpq> >::is_correct() const;
 #endif
-template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
 template mpq static_matrix<mpq, numeric_pair<mpq> >::get_elem(unsigned int, unsigned int) const;
 template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned int, unsigned int);
 template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);

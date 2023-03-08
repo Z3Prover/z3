@@ -168,8 +168,6 @@ public:
 
     std::set<std::pair<unsigned, unsigned>>  get_domain();
 
-    void copy_column_to_indexed_vector(unsigned j, indexed_vector<T> & v) const;
-
     T get_max_abs_in_row(unsigned row) const;
     void add_column_to_vector (const T & a, unsigned j, T * v) const {
         for (const auto & it : m_columns[j]) {
@@ -222,7 +220,7 @@ public:
     virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
 
-    T get_max_val_in_row(unsigned /* i */) const { lp_unreachable();   }
+    T get_max_val_in_row(unsigned /* i */) const { UNREACHABLE();   }
 
     T get_balance() const;
 

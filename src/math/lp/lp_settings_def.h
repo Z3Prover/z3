@@ -31,7 +31,7 @@ std::string column_type_to_string(column_type t) {
     case column_type::lower_bound:   return "lower_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
-    default:  lp_unreachable();
+    default:  UNREACHABLE();
     }
     return "unknown"; // it is unreachable
 }
@@ -50,7 +50,7 @@ const char* lp_status_to_string(lp_status status) {
     case lp_status::UNSTABLE: return "UNSTABLE";
     case lp_status::CANCELLED: return "CANCELLED";
     default:
-        lp_unreachable();
+        UNREACHABLE();
     }
     return "UNKNOWN";  // it is unreachable
 }
@@ -63,7 +63,7 @@ lp_status lp_status_from_string(std::string status) {
     if (status == "FEASIBLE") return lp_status::FEASIBLE;
     if (status == "TIME_EXHAUSTED") return lp_status::TIME_EXHAUSTED;
     if (status == "EMPTY") return lp_status::EMPTY;
-    lp_unreachable();
+    UNREACHABLE();
     return lp_status::UNKNOWN; // it is unreachable
 }
 

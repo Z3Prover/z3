@@ -122,7 +122,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
             }
             break;
         case lp_status::TENTATIVE_UNBOUNDED:
-           lp_assert(false);
+           UNREACHABLE();
             break;
         case lp_status::UNBOUNDED:
             if (this->current_x_is_infeasible()) {
@@ -132,7 +132,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
             break;
 
         case lp_status::UNSTABLE:
-           lp_assert(false);
+           UNREACHABLE();
             break;
 
         default:

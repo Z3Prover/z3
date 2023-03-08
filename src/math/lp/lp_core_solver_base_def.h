@@ -166,26 +166,6 @@ print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream 
     return time_is_over();
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-set_non_basic_x_to_correct_bounds() {
-    for (unsigned j : non_basis()) {
-        switch (m_column_types[j]) {
-        case column_type::boxed:
-            m_x[j] = m_d[j] < 0? m_upper_bounds[j]: m_lower_bounds[j];
-            break;
-        case column_type::lower_bound:
-            m_x[j] = m_lower_bounds[j];
-            lp_assert(column_is_dual_feasible(j));
-            break;
-        case column_type::upper_bound:
-            m_x[j] = m_upper_bounds[j];
-            lp_assert(column_is_dual_feasible(j));
-            break;
-        default:
-            break;
-        }
-    }
-}
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 column_is_dual_feasible(unsigned j) const {
     switch (m_column_types[j]) {
@@ -201,9 +181,9 @@ column_is_dual_feasible(unsigned j) const {
     case column_type::free_column:
         return numeric_traits<X>::is_zero(m_d[j]);
     default:
-        lp_unreachable();
+        UNREACHABLE();
     }
-    lp_unreachable();
+    UNREACHABLE();
     return false;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -257,7 +237,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
         return true;
         break;
     default:
-        lp_unreachable();
+        UNREACHABLE();
     }
     return false; // it is unreachable
 }
@@ -453,18 +433,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_ba
     return false;
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j, const impq& val) {
-    indexed_vector<T> w(m_basis.size()); // the buffer
-    unsigned i = m_basis_heading[basic_j];
-    for (auto &c : m_A.m_rows[i]) {
-        if (c.var() == basic_j)
-            continue;
-        if (pivot_column_general(c.var(), basic_j, w))
-            return true;
-    }
-    return false;
-}
-
 
 template <typename T, typename X> bool 
 lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
@@ -513,7 +481,7 @@ lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j) 
     case column_type::free_column:
         return is_zero(this->m_costs[j]);
     default:
-        lp_assert(false);
+        UNREACHABLE();
         return true;
     }
 }
