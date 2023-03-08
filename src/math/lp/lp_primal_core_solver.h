@@ -618,8 +618,6 @@ public:
     
     void print_bound_info_and_x(unsigned j, std::ostream & out);
     
-    unsigned solve_with_tableau();
-
     bool basis_column_is_set_correctly(unsigned j) const {
         return this->m_A.m_columns[j].size() == 1;
             

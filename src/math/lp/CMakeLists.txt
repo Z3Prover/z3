@@ -20,7 +20,6 @@ z3_add_component(lp
     lp_core_solver_base.cpp
     lp_primal_core_solver.cpp
     lp_settings.cpp
-    lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
     monomial_bounds.cpp
