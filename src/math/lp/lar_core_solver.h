@@ -12,7 +12,6 @@ Author:
 #include "math/lp/lp_core_solver_base.h"
 #include <algorithm>
 #include "math/lp/indexed_vector.h"
-#include "math/lp/binary_heap_priority_queue.h"
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/stacked_vector.h"
 #include "math/lp/lar_solution_signature.h"

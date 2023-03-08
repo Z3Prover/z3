@@ -1,7 +1,5 @@
 z3_add_component(lp
   SOURCES
-    binary_heap_priority_queue.cpp
-    binary_heap_upair_queue.cpp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
     emonics.cpp

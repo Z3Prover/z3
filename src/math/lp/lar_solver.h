@@ -37,7 +37,6 @@
 #include "math/lp/stacked_vector.h"
 #include "math/lp/implied_bound.h"
 #include "math/lp/bound_analyzer_on_row.h"
-#include "math/lp/conversion_helper.h"
 #include "math/lp/int_solver.h"
 #include "math/lp/nra_solver.h"
 #include "math/lp/lp_types.h"

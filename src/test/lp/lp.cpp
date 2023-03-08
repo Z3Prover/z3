@@ -34,13 +34,11 @@
 #include <utility>
 #include "math/lp/lp_utils.h"
 #include "test/lp/smt_reader.h"
-#include "math/lp/binary_heap_priority_queue.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/test_file_reader.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/numeric_pair.h"
-#include "math/lp/binary_heap_upair_queue.h"
 #include "util/stacked_value.h"
 #include "math/lp/u_set.h"
 #include "util/stopwatch.h"
@@ -458,72 +456,7 @@ void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, uns
 
 
 
-void test_upair_queue() {
-    int n = 10;
-    binary_heap_upair_queue<int> q(2);
-    std::unordered_map<upair, int> m;
-    for (int k = 0; k < 100; k++) {
-        int i = my_random()%n;
-        int j = my_random()%n;
-        q.enqueue(i, j, my_random()%n);
-    }
 
-    q.remove(5, 5);
-
-    while (!q.is_empty()) {
-        unsigned i, j;
-        q.dequeue(i, j);
-    }
-}
-
-void test_binary_priority_queue() {
-    std::cout << "testing binary_heap_priority_queue...";
-    auto q = binary_heap_priority_queue<int>(10);
-    q.enqueue(2, 2);
-    q.enqueue(1, 1);
-    q.enqueue(9, 9);
-    q.enqueue(8, 8);
-    q.enqueue(5, 25);
-    q.enqueue(3, 3);
-    q.enqueue(4, 4);
-    q.enqueue(7, 30);
-    q.enqueue(6, 6);
-    q.enqueue(0, 0);
-    q.enqueue(5, 5);
-    q.enqueue(7, 7);
-
-    for (unsigned i = 0; i < 10; i++) {
-        unsigned de = q.dequeue();
-        lp_assert(i == de);
-        std::cout << de << std::endl;
-    }
-    q.enqueue(2, 2);
-    q.enqueue(1, 1);
-    q.enqueue(9, 9);
-    q.enqueue(8, 8);
-    q.enqueue(5, 5);
-    q.enqueue(3, 3);
-    q.enqueue(4, 4);
-    q.enqueue(7, 2);
-    q.enqueue(0, 1);
-    q.enqueue(6, 6);
-    q.enqueue(7, 7);
-    q.enqueue(33, 1000);
-    q.enqueue(20, 0);
-    q.dequeue();
-    q.remove(33);
-    q.enqueue(0, 0);
-#ifdef Z3DEBUG
-    unsigned t = 0;
-    while (q.size() > 0) {
-        unsigned d =q.dequeue();
-        lp_assert(t++ == d);
-        std::cout << d << std::endl;
-    }
-#endif
-    test_upair_queue();
-    std::cout << " done" << std::endl;
-}
 
 
 int get_random_rows() {

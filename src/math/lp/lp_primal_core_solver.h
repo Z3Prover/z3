@@ -32,7 +32,6 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
-#include "math/lp/binary_heap_priority_queue.h"
 #include "math/lp/u_set.h"
 namespace lp {
 
