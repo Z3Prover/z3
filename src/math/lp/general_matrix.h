@@ -114,9 +114,6 @@ public:
         }
     }
     
-    void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
-        lp_assert(false); // not implemented
-    }
     general_matrix operator*(const general_matrix & m) const {
         lp_assert(m.row_count() == column_count());
         general_matrix ret(row_count(), m.column_count());
@@ -172,24 +169,7 @@ public:
         return r;
     }
 
-    // bool create_upper_triangle(general_matrix& m, vector<mpq>& x) {
-    //     for (unsigned i = 1; i < m.row_count(); i++) {
-    //         lp_assert(false); // to be continued
-    //     }
-    // }
-
-    // bool solve_A_x_equal_b(const general_matrix& m, vector<mpq>& x, const vector<mpq>& b) const {
-    //     auto m_copy = m;
-    //     // for square matrices
-    //     lp_assert(row_count() == b.size());
-    //     lp_assert(x.size() == column_count());
-    //     lp_assert(row_count() == column_count());
-    //     x = b;
-    //     create_upper_triangle(copy_of_m, x);
-    //     solve_on_triangle(copy_of_m, x);
-    // }
-    //
-
+    
     void transpose_rows(unsigned i, unsigned l) {
         lp_assert(i != l);
         m_row_permutation.transpose_from_right(i, l);

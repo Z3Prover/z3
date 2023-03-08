@@ -466,7 +466,7 @@ namespace lp {
 
         
         default:
-            lp_unreachable(); // wrong mode
+            UNREACHABLE(); // wrong mode
         }
         return false;
     }
@@ -802,7 +802,7 @@ namespace lp {
         case GT: return left_side_val > constr.rhs();
         case EQ: return left_side_val == constr.rhs();
         default:
-            lp_unreachable();
+            UNREACHABLE();
         }
         return false; // it is unreachable
     }
@@ -857,7 +857,7 @@ namespace lp {
         case EQ: lp_assert(rs != zero_of_type<mpq>());
             break;
         default:
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         }
 #endif
@@ -1816,7 +1816,7 @@ namespace lp {
             adjust_initial_state_for_tableau_rows();
             break;
         case simplex_strategy_enum::tableau_costs:
-            lp_assert(false); // not implemented
+            UNREACHABLE(); // not implemented
         case simplex_strategy_enum::undecided:
             adjust_initial_state_for_tableau_rows();
             break;
@@ -1905,7 +1905,7 @@ namespace lp {
         }
 
         default:
-            lp_unreachable();
+            UNREACHABLE();
         }
         if (m_mpq_lar_core_solver.m_r_upper_bounds[j] == m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
@@ -1959,7 +1959,7 @@ namespace lp {
         }
 
         default:
-            lp_unreachable();
+            UNREACHABLE();
         }
 
     }
@@ -2009,7 +2009,7 @@ namespace lp {
         }
 
         default:
-            lp_unreachable();
+            UNREACHABLE();
         }
     }
     void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
@@ -2050,7 +2050,7 @@ namespace lp {
         }
 
         default:
-            lp_unreachable();
+            UNREACHABLE();
         }
     }
 

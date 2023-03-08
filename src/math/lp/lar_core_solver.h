@@ -159,7 +159,7 @@ public:
         case column_type::fixed:
             return true;
         default:
-            lp_assert(false);
+            UNREACHABLE();
         }
         return false;
     }
@@ -174,7 +174,7 @@ public:
         case column_type::fixed:
             return true;
         default:
-            lp_assert(false);
+            UNREACHABLE();
         }
         return false;
     }

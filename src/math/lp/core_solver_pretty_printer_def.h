@@ -139,7 +139,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_
     case column_type::free_column:
         break;
     default:
-        lp_assert(false);
+        UNREACHABLE();
         break;
     }
 }

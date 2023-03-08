@@ -44,7 +44,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     case EQ: return std::string("=");
     case NE: return std::string("!=");
     }
-    lp_unreachable();
+    UNREACHABLE();
     return std::string(); // it is unreachable
 }
 

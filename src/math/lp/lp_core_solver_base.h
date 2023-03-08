@@ -173,8 +173,6 @@ public:
 
     void set_total_iterations(unsigned s) { m_total_iterations = s; }
 
-    void set_non_basic_x_to_correct_bounds();
-
     bool at_bound(const X &x, const X & bound) const {
         return !below_bound(x, bound) && !above_bound(x, bound);
     }
@@ -300,45 +298,6 @@ public:
 
     std::string column_name(unsigned column) const;
 
-    bool snap_non_basic_x_to_bound() {
-        bool ret = false;
-        for (unsigned j : non_basis())
-            ret = snap_column_to_bound(j) || ret;
-        return ret;
-    }
-    
-    bool snap_column_to_bound(unsigned j) {
-        switch (m_column_types[j]) {
-        case column_type::fixed:
-            if (x_is_at_bound(j))
-                break;
-            m_x[j] = m_lower_bounds[j];
-            return true;
-        case column_type::boxed:
-            if (x_is_at_bound(j))
-                break; // we should preserve x if possible
-            // snap randomly
-            if (m_settings.random_next() % 2 == 1) 
-                m_x[j] = m_lower_bounds[j];
-            else
-                m_x[j] = m_upper_bounds[j];
-            return true;
-        case column_type::lower_bound:
-            if (x_is_at_lower_bound(j))
-                break;
-            m_x[j] = m_lower_bounds[j];
-            return true;
-        case column_type::upper_bound:
-            if (x_is_at_upper_bound(j))
-                break;
-            m_x[j] = m_upper_bounds[j];
-            return true;
-        default:
-            break;
-        }
-        return false;
-    }
-
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
         lp_assert(m_basis_heading[j] < 0);
@@ -384,7 +343,6 @@ public:
     }
 
     bool remove_from_basis(unsigned j);
-    bool remove_from_basis(unsigned j, const impq&);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     void init_basic_part_of_basis_heading() {
         unsigned m = m_basis.size();
@@ -456,31 +414,6 @@ public:
         change_basis_unconditionally(leaving, entering);
     }
 
-    bool non_basic_column_is_set_correctly(unsigned j) const {
-        if (j >= this->m_n())
-            return false;
-        switch (this->m_column_types[j]) {
-        case column_type::fixed:
-        case column_type::boxed:
-            if (!this->x_is_at_bound(j))
-                return false;
-            break;
-        case column_type::lower_bound:
-            if (!this->x_is_at_lower_bound(j))
-                return false;
-            break;
-        case column_type::upper_bound:
-            if (!this->x_is_at_upper_bound(j))
-                return false;
-            break;
-        case column_type::free_column:
-            break;
-        default:
-            lp_assert(false);
-            break;
-        }
-        return true;
-    }
     bool non_basic_columns_are_set_correctly() const {
         for (unsigned j : this->m_nbasis)
             if (!column_is_feasible(j)) {
@@ -540,12 +473,10 @@ public:
             out << "[-oo, oo]";
             break;
         default:
-            lp_assert(false);
+            UNREACHABLE();
         }
         return out << "\n";
     }
-
-    bool column_is_free(unsigned j) const { return this->m_column_types[j] == column_type::free_column; }
 
     bool column_is_fixed(unsigned j) const { return this->m_column_types[j] == column_type::fixed; }
 
@@ -577,16 +508,6 @@ public:
         default:
             return true;
         }
-    }
-
-    // only check for basic columns
-    bool calc_current_x_is_feasible() const {
-        unsigned i = this->m_m();
-        while (i--) {
-            if (!column_is_feasible(m_basis[i]))
-                return false;
-        }
-        return true;
     }
 
     void transpose_rows_tableau(unsigned i, unsigned ii);

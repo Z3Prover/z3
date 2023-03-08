@@ -53,10 +53,6 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
 
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
-    return column_is_benefitial_for_entering_basis_precise(j);    
-}
-template <typename T, typename X>
-bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
     const T& dj = this->m_d[j];
     TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
@@ -88,54 +84,10 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precis
         }
         break;
     default:
-        lp_unreachable();
+        UNREACHABLE();
         break;
     }
     return false;
-}
-
-template <typename T, typename X>
-int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
-    if (number_of_benefitial_columns_to_go_over == 0)
-        return -1;
-    if (this->m_basis_sort_counter == 0) {
-        sort_non_basis();
-        this->m_basis_sort_counter = 20;
-    }
-    else {
-        this->m_basis_sort_counter--;
-    }
-    unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
-    std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
-    for (auto non_basis_iter = m_non_basis_list.begin(); number_of_benefitial_columns_to_go_over && non_basis_iter != m_non_basis_list.end(); ++non_basis_iter) {
-        unsigned j = *non_basis_iter;
-        if (!column_is_benefitial_for_entering_basis(j))
-            continue;
-
-        // if we are here then j is a candidate to enter the basis
-        unsigned t = this->m_columns_nz[j];
-        if (t < j_nz) {
-            j_nz = t;
-            entering_iter = non_basis_iter;
-            if (number_of_benefitial_columns_to_go_over)
-                number_of_benefitial_columns_to_go_over--;
-        } else if (t == j_nz && this->m_settings.random_next() % 2 == 0) {
-            entering_iter = non_basis_iter;
-        }
-    }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
-    if (entering_iter == m_non_basis_list.end())
-        return -1;
-    unsigned entering = *entering_iter;
-    m_sign_of_entering_delta = this->m_d[entering] > 0 ? 1 : -1;
-    m_non_basis_list.erase(entering_iter);
-    m_non_basis_list.push_back(entering);
-    return entering;
-}
-
-
-template <typename T, typename X>
-int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
-    return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
 }
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering,
@@ -278,24 +230,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
 
 
 
-template <typename T, typename X>
-void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering, X & t) {
-    
-}
-
-template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
-   
-}
-
-
-template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_precise(int entering) {
-    lp_assert(false);
-}
-
-template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering(int entering) {
-    lp_assert(false);
-}
-
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::push_forward_offset_in_non_basis(unsigned & offset_in_nb) {
     if (++offset_in_nb == this->m_nbasis.size())
         offset_in_nb = 0;
@@ -377,7 +311,7 @@ lp_primal_core_solver<T, X>::get_infeasibility_cost_for_column(unsigned j) const
         ret = numeric_traits<T>::zero();
         break;
     default:
-        lp_assert(false);
+        UNREACHABLE();
         ret = numeric_traits<T>::zero(); // does not matter
         break;
     }
@@ -427,7 +361,7 @@ lp_primal_core_solver<T, X>::init_infeasibility_cost_for_column(unsigned j) {
         this->m_costs[j] = numeric_traits<T>::zero();
         break;
     default:
-        lp_assert(false);
+        UNREACHABLE();
         break;
     }
     
@@ -458,7 +392,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
         out << "( _" << this->m_x[j] << "_)" << std::endl;
         break;
     default:
-        lp_unreachable();
+        UNREACHABLE();
     }
 }
 
@@ -480,7 +414,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_bound_
         out << "inf, inf" << std::endl;
         break;
     default:
-        lp_assert(false);
+        UNREACHABLE();
         break;
     }
 }
