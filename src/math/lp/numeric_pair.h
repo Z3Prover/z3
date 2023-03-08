@@ -112,18 +112,6 @@ struct convert_struct {
 };
 
 
-template <>
-struct convert_struct<double, mpq> {
-    static double convert(const mpq & q) {return q.get_double();}
-};
-
-
-template <>
-struct convert_struct<mpq, unsigned> {
-    static mpq convert(unsigned q) {return mpq(q);}
-};
-
-
 
 template <typename T>
 struct numeric_pair {
@@ -308,71 +296,8 @@ public:
     }
 };
 
-template <>
-struct convert_struct<double, numeric_pair<double>> {
-    static double convert(const numeric_pair<double> & q) {return q.x;}
-};
-
 typedef numeric_pair<mpq> impq;
 
-
-template <typename T>
-struct convert_struct<numeric_pair<T>, double> {
-    static numeric_pair<T> convert(const double & q) {
-        return numeric_pair<T>(convert_struct<T, double>::convert(q), numeric_traits<T>::zero());
-    }
-    static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lp_unreachable();
-        return false;
-    }
-    static bool above_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lp_unreachable();
-        return false;
-    }
-};
-template <>
-struct convert_struct<numeric_pair<double>, double> {
-    static numeric_pair<double> convert(const double & q) {
-        return numeric_pair<double>(q, 0.0);
-    }
-    
-    static int compare_on_coord(const double & x, const double & bound, const double eps) {
-        if (bound == 0) return (x < - eps)? -1: (x > eps? 1 : 0); // it is an important special case
-        double relative = (bound > 0)? - eps: eps;
-        return (x < bound * (1.0 + relative) - eps)? -1 : ((x > bound * (1.0 - relative) + eps)? 1 : 0);
-    }
-
-    static bool below_bound_numeric(const numeric_pair<double> & x, const numeric_pair<double> & bound, const double & eps) {
-        int r = compare_on_coord(x.x, bound.x, eps);
-        if (r == 1) return false;
-        if (r == -1) return true;
-        // the first coordinates are almost the same
-        return compare_on_coord(x.y, bound.y, eps) == -1;
-    }
-
-    static bool above_bound_numeric(const numeric_pair<double> & x, const numeric_pair<double> & bound, const double & eps) {
-        int r = compare_on_coord(x.x, bound.x, eps);
-        if (r == -1) return false;
-        if (r ==  1) return true;
-        // the first coordinates are almost the same
-        return compare_on_coord(x.y, bound.y, eps) == 1;
-    }
-};
-
-template <>
-struct convert_struct<double, double> {
-    static double convert(const double & y){ return y;}
-    static bool below_bound_numeric(const double & x, const double & bound, const double & eps) {
-        if (bound == 0) return x < - eps;
-        double relative = (bound > 0)? - eps: eps;
-        return x < bound * (1.0 + relative) - eps;
-    }
-    static bool above_bound_numeric(const double & x, const double & bound, const double & eps) {
-        if (bound == 0) return x > eps;
-        double relative = (bound > 0)?  eps: - eps;
-        return x > bound * (1.0 + relative) + eps;
-    }
-};
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}
 template  <typename T>  T floor(const numeric_pair<T> & r) {
