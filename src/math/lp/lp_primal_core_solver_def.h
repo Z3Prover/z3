@@ -315,11 +315,6 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
 }
 
 
-// returns the number of iterations
-template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
-    TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
-    return solve_with_tableau();
-}
 
 // calling it stage1 is too cryptic
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feasible_solution() {

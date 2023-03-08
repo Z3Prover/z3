@@ -87,7 +87,8 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
 }
 
 template <typename T, typename X>
-unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
+unsigned lp_primal_core_solver<T, X>::solve() {
+    TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
     init_run_tableau();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
         this->set_status(lp_status::FEASIBLE);
