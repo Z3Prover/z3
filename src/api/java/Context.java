@@ -227,7 +227,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new array sort.
      **/
-    public <D extends Sort, R extends Sort> ArraySort<D, R> mkArraySort(D domain, R range)
+    public final <D extends Sort, R extends Sort> ArraySort<D, R> mkArraySort(D domain, R range)
     {
         checkContextMatch(domain);
         checkContextMatch(range);
@@ -238,7 +238,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new array sort.
      **/
-    public <R extends Sort> ArraySort<Sort, R> mkArraySort(Sort[] domains, R range)
+    public final <R extends Sort> ArraySort<Sort, R> mkArraySort(Sort[] domains, R range)
     {
         checkContextMatch(domains);
         checkContextMatch(range);
@@ -256,7 +256,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new sequence sort
      **/
-    public <R extends Sort> SeqSort<R> mkSeqSort(R s)
+    public final <R extends Sort> SeqSort<R> mkSeqSort(R s)
     {
         return new SeqSort<>(this, Native.mkSeqSort(nCtx(), s.getNativeObject()));
     }
@@ -264,7 +264,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new regular expression sort
      **/
-    public <R extends Sort> ReSort<R> mkReSort(R s)
+    public final <R extends Sort> ReSort<R> mkReSort(R s)
     {
         return new ReSort<>(this, Native.mkReSort(nCtx(), s.getNativeObject()));
     }
@@ -286,7 +286,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new enumeration sort.
      **/
-    public <R> EnumSort<R> mkEnumSort(Symbol name, Symbol... enumNames)
+    public final <R> EnumSort<R> mkEnumSort(Symbol name, Symbol... enumNames)
 
     {
         checkContextMatch(name);
@@ -297,7 +297,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new enumeration sort.
      **/
-    public <R> EnumSort<R> mkEnumSort(String name, String... enumNames)
+    public final <R> EnumSort<R> mkEnumSort(String name, String... enumNames)
 
     {
         return new EnumSort<>(this, mkSymbol(name), mkSymbols(enumNames));
@@ -306,7 +306,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new list sort.
      **/
-    public <R extends Sort> ListSort<R> mkListSort(Symbol name, R elemSort)
+    public final <R extends Sort> ListSort<R> mkListSort(Symbol name, R elemSort)
     {
         checkContextMatch(name);
         checkContextMatch(elemSort);
@@ -316,7 +316,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new list sort.
      **/
-    public <R extends Sort> ListSort<R> mkListSort(String name, R elemSort)
+    public final <R extends Sort> ListSort<R> mkListSort(String name, R elemSort)
     {
         checkContextMatch(elemSort);
         return new ListSort<>(this, mkSymbol(name), elemSort);
@@ -325,7 +325,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new finite domain sort.
      **/
-    public <R> FiniteDomainSort<R> mkFiniteDomainSort(Symbol name, long size)
+    public final <R> FiniteDomainSort<R> mkFiniteDomainSort(Symbol name, long size)
 
     {
         checkContextMatch(name);
@@ -335,7 +335,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new finite domain sort.
      **/
-    public <R> FiniteDomainSort<R> mkFiniteDomainSort(String name, long size)
+    public final <R> FiniteDomainSort<R> mkFiniteDomainSort(String name, long size)
 
     {
         return new FiniteDomainSort<>(this, mkSymbol(name), size);
@@ -352,7 +352,7 @@ public class Context implements AutoCloseable {
      * an index referring to one of the recursive datatypes that is
      * declared.
      **/
-    public <R> Constructor<R> mkConstructor(Symbol name, Symbol recognizer,
+    public final <R> Constructor<R> mkConstructor(Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
 
     {
@@ -362,7 +362,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a datatype constructor. 
      **/
-    public <R> Constructor<R> mkConstructor(String name, String recognizer,
+    public final <R> Constructor<R> mkConstructor(String name, String recognizer,
             String[] fieldNames, Sort[] sorts, int[] sortRefs)
     {
         return of(this, mkSymbol(name), mkSymbol(recognizer), mkSymbols(fieldNames), sorts, sortRefs);
@@ -371,7 +371,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new datatype sort.
      **/
-    public <R> DatatypeSort<R> mkDatatypeSort(Symbol name, Constructor<R>[] constructors)
+    public final <R> DatatypeSort<R> mkDatatypeSort(Symbol name, Constructor<R>[] constructors)
     {
         checkContextMatch(name);
         checkContextMatch(constructors);
@@ -381,7 +381,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new datatype sort.
      **/
-    public <R> DatatypeSort<R> mkDatatypeSort(String name, Constructor<R>[] constructors)
+    public final <R> DatatypeSort<R> mkDatatypeSort(String name, Constructor<R>[] constructors)
 
     {
         checkContextMatch(constructors);
@@ -431,7 +431,7 @@ public class Context implements AutoCloseable {
      * that is passed in as argument is updated with value v,
      * the remaining fields of t are unchanged.
      **/
-    public <F extends Sort, R extends Sort> Expr<R> mkUpdateField(FuncDecl<F> field, Expr<R> t, Expr<F> v)
+    public final <F extends Sort, R extends Sort> Expr<R> mkUpdateField(FuncDecl<F> field, Expr<R> t, Expr<F> v)
         throws Z3Exception
     {
         return (Expr<R>) Expr.create(this,
@@ -444,7 +444,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkFuncDecl(Symbol name, Sort[] domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkFuncDecl(Symbol name, Sort[] domain, R range)
     {
         checkContextMatch(name);
         checkContextMatch(domain);
@@ -455,7 +455,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkFuncDecl(Symbol name, Sort domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkFuncDecl(Symbol name, Sort domain, R range)
 
     {
         checkContextMatch(name);
@@ -468,7 +468,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkFuncDecl(String name, Sort[] domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkFuncDecl(String name, Sort[] domain, R range)
 
     {
         checkContextMatch(domain);
@@ -479,7 +479,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkFuncDecl(String name, Sort domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkFuncDecl(String name, Sort domain, R range)
 
     {
         checkContextMatch(domain);
@@ -491,7 +491,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new recursive function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkRecFuncDecl(Symbol name, Sort[] domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkRecFuncDecl(Symbol name, Sort[] domain, R range)
     {
         checkContextMatch(name);
         checkContextMatch(domain);
@@ -506,7 +506,7 @@ public class Context implements AutoCloseable {
      * MkRecFuncDecl. The body may contain recursive uses of the function or
      * other mutually recursive functions. 
      */
-    public <R extends Sort> void AddRecDef(FuncDecl<R> f, Expr<?>[] args, Expr<R> body)
+    public final <R extends Sort> void AddRecDef(FuncDecl<R> f, Expr<?>[] args, Expr<R> body)
     {
         checkContextMatch(f);
         checkContextMatch(args);
@@ -521,7 +521,7 @@ public class Context implements AutoCloseable {
      * @see #mkFuncDecl(String,Sort,Sort)
      * @see #mkFuncDecl(String,Sort[],Sort)
      **/
-    public <R extends Sort> FuncDecl<R> mkFreshFuncDecl(String prefix, Sort[] domain, R range)
+    public final <R extends Sort> FuncDecl<R> mkFreshFuncDecl(String prefix, Sort[] domain, R range)
 
     {
         checkContextMatch(domain);
@@ -532,7 +532,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new constant function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkConstDecl(Symbol name, R range)
+    public final <R extends Sort> FuncDecl<R> mkConstDecl(Symbol name, R range)
     {
         checkContextMatch(name);
         checkContextMatch(range);
@@ -542,7 +542,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a new constant function declaration.
      **/
-    public <R extends Sort> FuncDecl<R> mkConstDecl(String name, R range)
+    public final <R extends Sort> FuncDecl<R> mkConstDecl(String name, R range)
     {
         checkContextMatch(range);
         return new FuncDecl<>(this, mkSymbol(name), null, range);
@@ -554,7 +554,7 @@ public class Context implements AutoCloseable {
      * @see #mkFuncDecl(String,Sort,Sort)
      * @see #mkFuncDecl(String,Sort[],Sort)
      **/
-    public <R extends Sort> FuncDecl<R> mkFreshConstDecl(String prefix, R range)
+    public final <R extends Sort> FuncDecl<R> mkFreshConstDecl(String prefix, R range)
 
     {
         checkContextMatch(range);
@@ -566,7 +566,7 @@ public class Context implements AutoCloseable {
      * @param index The de-Bruijn index of the variable 
      * @param ty The sort of the variable
      **/
-    public <R extends Sort> Expr<R> mkBound(int index, R ty)
+    public final <R extends Sort> Expr<R> mkBound(int index, R ty)
     {
         return (Expr<R>) Expr.create(this,
                 Native.mkBound(nCtx(), index, ty.getNativeObject()));
@@ -590,7 +590,7 @@ public class Context implements AutoCloseable {
      * Creates a new Constant of sort {@code range} and named
      * {@code name}.
      **/
-    public <R extends Sort> Expr<R> mkConst(Symbol name, R range)
+    public final <R extends Sort> Expr<R> mkConst(Symbol name, R range)
     {
         checkContextMatch(name);
         checkContextMatch(range);
@@ -605,7 +605,7 @@ public class Context implements AutoCloseable {
      * Creates a new Constant of sort {@code range} and named
      * {@code name}.
      **/
-    public <R extends Sort> Expr<R> mkConst(String name, R range)
+    public final <R extends Sort> Expr<R> mkConst(String name, R range)
     {
         return mkConst(mkSymbol(name), range);
     }
@@ -614,7 +614,7 @@ public class Context implements AutoCloseable {
      * Creates a fresh Constant of sort {@code range} and a name
      * prefixed with {@code prefix}.
      **/
-    public <R extends Sort> Expr<R> mkFreshConst(String prefix, R range)
+    public final <R extends Sort> Expr<R> mkFreshConst(String prefix, R range)
     {
         checkContextMatch(range);
         return (Expr<R>) Expr.create(this,
@@ -625,7 +625,7 @@ public class Context implements AutoCloseable {
      * Creates a fresh constant from the FuncDecl {@code f}. 
      * @param f A decl of a 0-arity function
      **/
-    public <R extends Sort> Expr<R> mkConst(FuncDecl<R> f)
+    public final <R extends Sort> Expr<R> mkConst(FuncDecl<R> f)
     {
         return mkApp(f, (Expr<?>[]) null);
     }
@@ -914,7 +914,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 ^ t2}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkPower(Expr<? extends R> t1,
+    public final <R extends ArithSort> ArithExpr<R> mkPower(Expr<? extends R> t1,
             Expr<? extends R> t2)
     {
         checkContextMatch(t1);
@@ -1693,7 +1693,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an array constant.
      **/
-    public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkArrayConst(Symbol name, D domain, R range)
+    public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkArrayConst(Symbol name, D domain, R range)
 
     {
         return (ArrayExpr<D, R>) mkConst(name, mkArraySort(domain, range));
@@ -1702,7 +1702,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an array constant.
      **/
-    public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkArrayConst(String name, D domain, R range)
+    public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkArrayConst(String name, D domain, R range)
 
     {
         return (ArrayExpr<D, R>) mkConst(mkSymbol(name), mkArraySort(domain, range));
@@ -1720,7 +1720,7 @@ public class Context implements AutoCloseable {
      * @see #mkArraySort(Sort[], R)
      * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
      **/
-    public <D extends Sort, R extends Sort> Expr<R> mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
+    public final <D extends Sort, R extends Sort> Expr<R> mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
     {
         checkContextMatch(a);
         checkContextMatch(i);
@@ -1742,7 +1742,7 @@ public class Context implements AutoCloseable {
      * @see #mkArraySort(Sort[], R)
      * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
      **/
-    public <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<Sort, R>> a, Expr<?>[] args)
+    public final <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<Sort, R>> a, Expr<?>[] args)
     {
         checkContextMatch(a);
         checkContextMatch(args);
@@ -1767,7 +1767,7 @@ public class Context implements AutoCloseable {
      * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
 
      **/
-    public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
+    public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
     {
         checkContextMatch(a);
         checkContextMatch(i);
@@ -1792,7 +1792,7 @@ public class Context implements AutoCloseable {
      * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
 
      **/
-    public <R extends Sort> ArrayExpr<Sort, R> mkStore(Expr<ArraySort<Sort, R>> a, Expr<?>[] args, Expr<R> v)
+    public final <R extends Sort> ArrayExpr<Sort, R> mkStore(Expr<ArraySort<Sort, R>> a, Expr<?>[] args, Expr<R> v)
     {
         checkContextMatch(a);
         checkContextMatch(args);
@@ -1810,7 +1810,7 @@ public class Context implements AutoCloseable {
      * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
      *
      **/
-    public <D extends Sort, R extends Sort> ArrayExpr<D, R> mkConstArray(D domain, Expr<R> v)
+    public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkConstArray(D domain, Expr<R> v)
     {
         checkContextMatch(domain);
         checkContextMatch(v);
@@ -1847,7 +1847,7 @@ public class Context implements AutoCloseable {
      * value, for arrays that can be represented as finite maps with a default
      * range value. 
      **/
-    public <D extends Sort, R extends Sort> Expr<R> mkTermArray(Expr<ArraySort<D, R>> array)
+    public final <D extends Sort, R extends Sort> Expr<R> mkTermArray(Expr<ArraySort<D, R>> array)
     {
         checkContextMatch(array);
         return (Expr<R>) Expr.create(this,
@@ -1857,7 +1857,7 @@ public class Context implements AutoCloseable {
     /**
      * Create Extentionality index. Two arrays are equal if and only if they are equal on the index returned by MkArrayExt.
      **/
-    public <D extends Sort, R extends Sort> Expr<D> mkArrayExt(Expr<ArraySort<D, R>> arg1, Expr<ArraySort<D, R>> arg2)
+    public final <D extends Sort, R extends Sort> Expr<D> mkArrayExt(Expr<ArraySort<D, R>> arg1, Expr<ArraySort<D, R>> arg2)
     {
     checkContextMatch(arg1);
     checkContextMatch(arg2);
@@ -1868,7 +1868,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a set type.
      **/
-    public <D extends Sort> SetSort<D> mkSetSort(D ty)
+    public final <D extends Sort> SetSort<D> mkSetSort(D ty)
     {
         checkContextMatch(ty);
         return new SetSort<>(this, ty);
@@ -1877,7 +1877,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an empty set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkEmptySet(D domain)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkEmptySet(D domain)
     {
         checkContextMatch(domain);
         return (ArrayExpr<D, BoolSort>) Expr.create(this,
@@ -1887,7 +1887,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the full set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkFullSet(D domain)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkFullSet(D domain)
     {
         checkContextMatch(domain);
         return (ArrayExpr<D, BoolSort>) Expr.create(this,
@@ -1897,7 +1897,7 @@ public class Context implements AutoCloseable {
     /**
      * Add an element to the set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetAdd(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetAdd(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
@@ -1909,7 +1909,7 @@ public class Context implements AutoCloseable {
     /**
      * Remove an element from a set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDel(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetDel(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
@@ -1945,7 +1945,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the difference between two sets.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDifference(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetDifference(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
@@ -1957,7 +1957,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the complement of a set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetComplement(Expr<ArraySort<D, BoolSort>> arg)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetComplement(Expr<ArraySort<D, BoolSort>> arg)
     {
         checkContextMatch(arg);
         return (ArrayExpr<D, BoolSort>)Expr.create(this,
@@ -1967,7 +1967,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for set membership.
      **/
-    public <D extends Sort> BoolExpr mkSetMembership(Expr<D> elem, Expr<ArraySort<D, BoolSort>> set)
+    public final <D extends Sort> BoolExpr mkSetMembership(Expr<D> elem, Expr<ArraySort<D, BoolSort>> set)
     {
         checkContextMatch(elem);
         checkContextMatch(set);
@@ -1979,7 +1979,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for subsetness of sets.
      **/
-    public <D extends Sort> BoolExpr mkSetSubset(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
+    public final <D extends Sort> BoolExpr mkSetSubset(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
@@ -1996,7 +1996,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the empty sequence.
     */
-    public <R extends Sort> SeqExpr<R> mkEmptySeq(R s)
+    public final <R extends Sort> SeqExpr<R> mkEmptySeq(R s)
     {
         checkContextMatch(s);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
@@ -2005,7 +2005,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the singleton sequence.
      */
-    public <R extends Sort> SeqExpr<R> mkUnit(Expr<R> elem)
+    public final <R extends Sort> SeqExpr<R> mkUnit(Expr<R> elem)
     {
         checkContextMatch(elem);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
@@ -2073,7 +2073,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieve the length of a given sequence.
      */
-    public <R extends Sort> IntExpr mkLength(Expr<SeqSort<R>> s)
+    public final <R extends Sort> IntExpr mkLength(Expr<SeqSort<R>> s)
     {
         checkContextMatch(s);
         return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
@@ -2082,7 +2082,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence prefix.
      */
-    public <R extends Sort> BoolExpr mkPrefixOf(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
+    public final <R extends Sort> BoolExpr mkPrefixOf(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2091,7 +2091,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence suffix.
      */
-    public <R extends Sort> BoolExpr mkSuffixOf(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
+    public final <R extends Sort> BoolExpr mkSuffixOf(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2100,7 +2100,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence containment of s2 in s1.
      */
-    public <R extends Sort> BoolExpr mkContains(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
+    public final <R extends Sort> BoolExpr mkContains(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2129,7 +2129,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieve sequence of length one at index.
      */
-    public <R extends Sort> SeqExpr<R> mkAt(Expr<SeqSort<R>> s, Expr<IntSort> index)
+    public final <R extends Sort> SeqExpr<R> mkAt(Expr<SeqSort<R>> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2138,7 +2138,7 @@ public class Context implements AutoCloseable {
     /**
      *  Retrieve element at index.
      */
-    public <R extends Sort> Expr<R> mkNth(Expr<SeqSort<R>> s, Expr<IntSort> index)
+    public final <R extends Sort> Expr<R> mkNth(Expr<SeqSort<R>> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (Expr<R>) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2148,7 +2148,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract subsequence.
      */
-    public <R extends Sort> SeqExpr<R> mkExtract(Expr<SeqSort<R>> s, Expr<IntSort> offset, Expr<IntSort> length)
+    public final <R extends Sort> SeqExpr<R> mkExtract(Expr<SeqSort<R>> s, Expr<IntSort> offset, Expr<IntSort> length)
     {
         checkContextMatch(s, offset, length);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
@@ -2157,7 +2157,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract index of sub-string starting at offset.
      */
-    public <R extends Sort> IntExpr mkIndexOf(Expr<SeqSort<R>> s, Expr<SeqSort<R>> substr, Expr<IntSort> offset)
+    public final <R extends Sort> IntExpr mkIndexOf(Expr<SeqSort<R>> s, Expr<SeqSort<R>> substr, Expr<IntSort> offset)
     {
         checkContextMatch(s, substr, offset);
         return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
@@ -2166,7 +2166,7 @@ public class Context implements AutoCloseable {
     /**
      * Replace the first occurrence of src by dst in s.
      */
-    public <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
+    public final <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
     {
         checkContextMatch(s, src, dst);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
@@ -2175,7 +2175,7 @@ public class Context implements AutoCloseable {
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public <R extends Sort> ReExpr<R> mkToRe(Expr<SeqSort<R>> s)
+    public final <R extends Sort> ReExpr<R> mkToRe(Expr<SeqSort<R>> s)
     {
         checkContextMatch(s);
         return (ReExpr<R>) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));
@@ -2185,7 +2185,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for regular expression membership.
      */
-    public <R extends Sort> BoolExpr mkInRe(Expr<SeqSort<R>> s, Expr<ReSort<R>> re)
+    public final <R extends Sort> BoolExpr mkInRe(Expr<SeqSort<R>> s, Expr<ReSort<R>> re)
     {
         checkContextMatch(s, re);
         return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));
@@ -2194,7 +2194,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkStar(Expr<ReSort<R>> re)
+    public final <R extends Sort> ReExpr<R> mkStar(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));
@@ -2203,7 +2203,7 @@ public class Context implements AutoCloseable {
     /**
      * Create power regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkPower(Expr<ReSort<R>> re, int n)
+    public final <R extends Sort> ReExpr<R> mkPower(Expr<ReSort<R>> re, int n)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkRePower(nCtx(), re.getNativeObject(), n));
     }
@@ -2211,7 +2211,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower and upper-bounded Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo, int hi)
+    public final <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo, int hi)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));
     }
@@ -2219,7 +2219,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower-bounded Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo)
+    public final <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));
     }
@@ -2228,7 +2228,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the Kleene plus of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkPlus(Expr<ReSort<R>> re)
+    public final <R extends Sort> ReExpr<R> mkPlus(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));
@@ -2237,7 +2237,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the optional regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkOption(Expr<ReSort<R>> re)
+    public final <R extends Sort> ReExpr<R> mkOption(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));
@@ -2246,7 +2246,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the complement regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkComplement(Expr<ReSort<R>> re)
+    public final <R extends Sort> ReExpr<R> mkComplement(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));
@@ -2285,7 +2285,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a difference regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkDiff(Expr<ReSort<R>> a, Expr<ReSort<R>> b)
+    public final <R extends Sort> ReExpr<R> mkDiff(Expr<ReSort<R>> a, Expr<ReSort<R>> b)
     {
         checkContextMatch(a, b);
 	return (ReExpr<R>) Expr.create(this, Native.mkReDiff(nCtx(), a.getNativeObject(), b.getNativeObject()));
@@ -2296,7 +2296,7 @@ public class Context implements AutoCloseable {
      * Create the empty regular expression.
      * Coresponds to re.none
      */
-    public <R extends Sort> ReExpr<R> mkEmptyRe(R s)
+    public final <R extends Sort> ReExpr<R> mkEmptyRe(R s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
     }
@@ -2305,7 +2305,7 @@ public class Context implements AutoCloseable {
      * Create the full regular expression.
      * Corresponds to re.all
      */
-    public <R extends Sort> ReExpr<R> mkFullRe(R s)
+    public final <R extends Sort> ReExpr<R> mkFullRe(R s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }
@@ -2314,7 +2314,7 @@ public class Context implements AutoCloseable {
      * Create regular expression that accepts all characters
      * Corresponds to re.allchar
      */
-    public <R extends Sort> ReExpr<R> mkAllcharRe(R s)
+    public final <R extends Sort> ReExpr<R> mkAllcharRe(R s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReAllchar(nCtx(), s.getNativeObject()));
     }
@@ -2322,7 +2322,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a range expression.
      */
-    public <R extends Sort> ReExpr<R> mkRange(Expr<SeqSort<CharSort>> lo, Expr<SeqSort<CharSort>> hi)
+    public final <R extends Sort> ReExpr<R> mkRange(Expr<SeqSort<CharSort>> lo, Expr<SeqSort<CharSort>> hi)
     {
         checkContextMatch(lo, hi);
         return (ReExpr<R>) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
@@ -2429,7 +2429,7 @@ public class Context implements AutoCloseable {
      *
      * @return A Term with value {@code v} and sort {@code ty}
      **/
-    public <R extends Sort> Expr<R> mkNumeral(String v, R ty)
+    public final <R extends Sort> Expr<R> mkNumeral(String v, R ty)
     {
         checkContextMatch(ty);
         return (Expr<R>) Expr.create(this,
@@ -2446,7 +2446,7 @@ public class Context implements AutoCloseable {
      *
      * @return A Term with value {@code v} and type {@code ty}
      **/
-    public <R extends Sort> Expr<R> mkNumeral(int v, R ty)
+    public final <R extends Sort> Expr<R> mkNumeral(int v, R ty)
     {
         checkContextMatch(ty);
         return (Expr<R>) Expr.create(this, Native.mkInt(nCtx(), v, ty.getNativeObject()));
@@ -2462,7 +2462,7 @@ public class Context implements AutoCloseable {
      *
      * @return A Term with value {@code v} and type {@code ty}
      **/
-    public <R extends Sort> Expr<R> mkNumeral(long v, R ty)
+    public final <R extends Sort> Expr<R> mkNumeral(long v, R ty)
     {
         checkContextMatch(ty);
         return (Expr<R>) Expr.create(this,
@@ -2717,7 +2717,7 @@ public class Context implements AutoCloseable {
      * @param names names of the bound variables.
      * @param body the body of the quantifier.
      **/
-     public <R extends Sort> Lambda<R> mkLambda(Sort[] sorts, Symbol[] names, Expr<R> body)
+     public final <R extends Sort> Lambda<R> mkLambda(Sort[] sorts, Symbol[] names, Expr<R> body)
      {
          return Lambda.of(this, sorts, names, body);
      }
@@ -2728,7 +2728,7 @@ public class Context implements AutoCloseable {
      * Creates a lambda expression using a list of constants that will
      * form the set of bound variables.
      **/
-     public <R extends Sort> Lambda<R> mkLambda(Expr<?>[] boundConstants, Expr<R> body)
+     public final <R extends Sort> Lambda<R> mkLambda(Expr<?>[] boundConstants, Expr<R> body)
      {
          return Lambda.of(this, boundConstants, body);
      }
@@ -4179,7 +4179,7 @@ public class Context implements AutoCloseable {
      * @param index The index of the order.
      * @param sort The sort of the order.
      */
-    public <R extends Sort> FuncDecl<BoolSort> mkLinearOrder(R sort, int index) {
+    public final <R extends Sort> FuncDecl<BoolSort> mkLinearOrder(R sort, int index) {
         return (FuncDecl<BoolSort>) FuncDecl.create(
                 this,
                 Native.mkLinearOrder(
@@ -4195,7 +4195,7 @@ public class Context implements AutoCloseable {
      * @param index The index of the order.
      * @param sort The sort of the order.
      */
-    public <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
+    public final <R extends Sort> FuncDecl<BoolSort> mkPartialOrder(R sort, int index) {
         return (FuncDecl<BoolSort>) FuncDecl.create(
                 this,
                 Native.mkPartialOrder(
