@@ -423,29 +423,6 @@ column_name(unsigned column) const {
     return m_column_names.get_variable_name(column);
 }
 
-template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
-get_non_basic_column_value_position(unsigned j) const {
-    switch (m_column_types[j]) {
-    case column_type::fixed:
-        return x_is_at_lower_bound(j)? at_fixed : not_at_bound;
-    case column_type::free_column:
-        return free_of_bounds;
-    case column_type::boxed:
-        return x_is_at_lower_bound(j)? at_lower_bound :(
-                                                    x_is_at_upper_bound(j)? at_upper_bound:
-                                                    not_at_bound
-                                                    );
-    case column_type::lower_bound:
-        return x_is_at_lower_bound(j)? at_lower_bound : not_at_bound;
-    case column_type::upper_bound:
-        return x_is_at_upper_bound(j)? at_upper_bound : not_at_bound;
-    default:
-        lp_unreachable();
-    }
-    lp_unreachable();
-    return at_lower_bound;
-}
-
 template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_rows_tableau(unsigned i, unsigned j) {
     transpose_basis(i, j);
     m_A.transpose_rows(i, j);
@@ -463,27 +440,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
 	return true;
 }
 
-template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
-    // run over basis and non-basis at the same time
-    indexed_vector<T> w(m_basis.size()); // the buffer
-    unsigned i = 0; // points to basis
-    for (; i < m_basis.size(); i++) {
-        unsigned basic_j = m_basis[i];
-
-        if (get_column_type(basic_j) != column_type::fixed) continue;
-        T a;
-        unsigned j;
-        for (auto &c : m_A.m_rows[i]) {
-            j = c.var();
-            if (j == basic_j)
-                continue;
-            if (get_column_type(j) != column_type::fixed) {
-                if (pivot_column_general(j, basic_j, w))
-                    break;
-            }
-        }
-    }
-}
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j) {
     indexed_vector<T> w(m_basis.size()); // the buffer

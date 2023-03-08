@@ -90,8 +90,6 @@ inline std::ostream& operator<<(std::ostream& out, lp_status status) {
 
 lp_status lp_status_from_string(std::string status);
 
-enum non_basic_column_value_position { at_lower_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
-
 
 class lp_resource_limit {
 public:

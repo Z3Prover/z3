@@ -383,11 +383,6 @@ public:
         
     }
 
-    
-    
-    non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
-
-    void pivot_fixed_vars_from_basis();
     bool remove_from_basis(unsigned j);
     bool remove_from_basis(unsigned j, const impq&);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);

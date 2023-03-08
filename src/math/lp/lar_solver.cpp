@@ -221,9 +221,6 @@ namespace lp {
         evidence.add_pair(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
     }
 
-
-    unsigned lar_solver::get_total_iterations() const { return m_mpq_lar_core_solver.m_r_solver.total_iterations(); }
-
     void lar_solver::push() {
         m_simplex_strategy = m_settings.simplex_strategy();
         m_simplex_strategy.push();
@@ -761,20 +758,6 @@ namespace lp {
         return r;
     }
 
-    bool lar_solver::x_is_correct() const {
-        if (m_mpq_lar_core_solver.m_r_x.size() != A_r().column_count()) {
-            return false;
-        }
-        for (unsigned i = 0; i < A_r().row_count(); i++) {
-            numeric_pair<mpq> delta = A_r().dot_product_with_row(i, m_mpq_lar_core_solver.m_r_x);
-            if (!delta.is_zero()) {
-                return false;
-            }
-        }
-        return true;;
-
-    }
-
     bool lar_solver::var_is_registered(var_index vj) const {
         if (tv::is_term(vj)) {
             return tv::unmask_term(vj) < m_terms.size();
@@ -824,28 +807,6 @@ namespace lp {
         return false; // it is unreachable
     }
 
-    bool lar_solver::the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>>& evidence, lconstraint_kind& the_kind_of_sum) const {
-        unsigned n_of_G = 0, n_of_L = 0;
-        bool strict = false;
-        for (auto& it : evidence) {
-            mpq coeff = it.first;
-            constraint_index con_ind = it.second;
-            lconstraint_kind kind = coeff.is_pos() ?
-                m_constraints[con_ind].kind() :
-                flip_kind(m_constraints[con_ind].kind());
-            if (kind == GT || kind == LT)
-                strict = true;
-            if (kind == GE || kind == GT)
-                n_of_G++;
-            else if (kind == LE || kind == LT)
-                n_of_L++;
-        }
-        the_kind_of_sum = n_of_G ? GE : (n_of_L ? LE : EQ);
-        if (strict)
-            the_kind_of_sum = static_cast<lconstraint_kind>((static_cast<int>(the_kind_of_sum) / 2));
-
-        return n_of_G == 0 || n_of_L == 0;
-    }
 
     void lar_solver::register_in_map(std::unordered_map<var_index, mpq>& coeffs, const lar_base_constraint& cn, const mpq& a) {
         for (auto& it : cn.coeffs()) {
@@ -1225,12 +1186,6 @@ namespace lp {
         auto& column = A_r().m_columns[j];
         for (auto const& r : column) 
             insert_row_with_changed_bounds(r.var());        
-    }
-
-
-
-    void lar_solver::pivot_fixed_vars_from_basis() {
-        m_mpq_lar_core_solver.m_r_solver.pivot_fixed_vars_from_basis();
     }
 
     void lar_solver::pop() {

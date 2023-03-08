@@ -212,11 +212,9 @@ class lar_solver : public column_namer {
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     void solve_with_core_solver();
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
-    bool x_is_correct() const;
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side);
     bool all_constraints_hold() const;
     bool constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
-    bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
     static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a);
     static void register_monoid_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence) const;
@@ -229,7 +227,6 @@ class lar_solver : public column_namer {
         int inf_sign) const;
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
-    void pivot_fixed_vars_from_basis();
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);
     void remove_last_row_and_column_from_tableau(unsigned j);
@@ -264,10 +261,7 @@ public:
         return m_fixed_var_table_int;
     }
 
-    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() {
-        return m_fixed_var_table_int;
-    }
-
+    
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() const {
         return m_fixed_var_table_real;
     }
@@ -293,9 +287,7 @@ public:
     inline void set_column_value_test(unsigned j, const impq& v) {
         set_column_value(j, v);
     }
-
-    unsigned get_total_iterations() const;
-
+    
     var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
 
     lp_status maximize_term(unsigned j_or_term, impq &term_max);
