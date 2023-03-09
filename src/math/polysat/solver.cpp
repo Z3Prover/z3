@@ -791,6 +791,7 @@ namespace polysat {
             //       because the fallback solver has access to all univariate constraints
             //       even if they are not used for intervals (e.g., op_constraints)
             VERIFY(is_conflict());
+            m_free_pvars.unassign_var_eh(v);
             return;
         case find_t::singleton:
             // NOTE: see comment on find_t::empty.
@@ -805,6 +806,7 @@ namespace polysat {
         case find_t::resource_out:
             verbose_stream() << "TODO: solver::pdecide got resource_out\n";
             m_lim.cancel();
+            m_free_pvars.unassign_var_eh(v);
             return;
         default:
             UNREACHABLE();
