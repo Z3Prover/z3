@@ -787,11 +787,18 @@ namespace polysat {
         justification j;
         switch (m_viable.find_viable(v, val)) {
         case find_t::empty:
-            UNREACHABLE();  // should have been discovered earlier in viable::intersect
+            // NOTE: this case can happen if find_viable calls the fallback solver,
+            //       because the fallback solver has access to all univariate constraints
+            //       even if they are not used for intervals (e.g., op_constraints)
+            VERIFY(is_conflict());
             return;
         case find_t::singleton:
-            UNREACHABLE();  // should have been discovered earlier in viable::intersect
-            return;
+            // NOTE: see comment on find_t::empty.
+            //       We treat this case the same as decisions, because
+            //       - it is very rare (not yet observed once as far as I can tell, but it should be possible),
+            //       - if we set it as propagation we would need to handle justifications differently since they must
+            //         contain at least one constraint that's not handled by intervals.
+            Z3_fallthrough;
         case find_t::multiple:
             j = justification::decision(m_level + 1);
             break;
