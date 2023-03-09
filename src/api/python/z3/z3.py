@@ -11343,7 +11343,7 @@ def Range(lo, hi, ctx=None):
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
 
 def Diff(a, b, ctx=None):
-    """Create the difference regular epression
+    """Create the difference regular expression
     """
     return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
 
