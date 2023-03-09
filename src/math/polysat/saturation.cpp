@@ -749,6 +749,8 @@ namespace polysat {
             if (!d->is_ule())
                 continue;
             auto u_l_k = inequality::from_ule(d);
+            if (u_l_k.rhs().power_of_2() != m.power_of_2())
+                continue;
             // a <= k or x <= k
             k = u_l_k.rhs();
             if (!k.is_val())
