@@ -239,8 +239,8 @@ namespace polysat {
         bool should_search();
 
         void propagate(sat::literal lit);
-        void propagate(pvar v);
-        bool propagate(pvar v, constraint* c);
+        void propagate(pvar v, bool do_narrow);
+        bool propagate(pvar v, constraint* c, bool do_narrow);
         bool propagate(sat::literal lit, clause& cl);
         void enqueue_pwatch(constraint* c);
         bool should_add_pwatch() const;

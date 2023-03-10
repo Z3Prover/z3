@@ -218,7 +218,7 @@ namespace polysat {
                     propagate(item.lit());
             }
             else if (eval_qhead < m_search.size()) {
-                // Second priority: check for bool/eval conflicts
+                // Second priority: evaluate constraints and check for bool/eval conflicts
                 //
                 // Why do we do this here? Consider the situation:
                 // - Literal L is bool-propagated by some clause, so L is put on the propagation queue (m_search)
@@ -228,18 +228,14 @@ namespace polysat {
                 // - L is bool-true but eval-false --> we actually have a bool/eval conflict that we didn't detect
                 // - the viable lemma is problematic because L is bool-true
                 auto const& item = m_search[eval_qhead++];
-                if (item.is_boolean()) {
-                    // TODO: what happens if evaluation depends on a variable assignment that occurs later in m_search? can that happen? should not happen because we only narrow after exhausting this branch; and narrow is the only place where we do value propagation.
-                    signed_constraint c = lit2cnstr(item.lit());
-                    if (c.is_currently_false(*this))
-                        set_conflict(c);
-                }
+                if (item.is_assignment())
+                    propagate(item.var(), false);
             }
             else {
                 // Third priority: activate/narrow
                 auto const& item = m_search[m_qhead++];
                 if (item.is_assignment())
-                    propagate(item.var());
+                    propagate(item.var(), true);
                 else {
                     signed_constraint c = lit2cnstr(item.lit());
                     activate_constraint(c);
@@ -354,13 +350,14 @@ namespace polysat {
     /**
      * Propagate assignment to a pvar
      */
-    void solver::propagate(pvar v) {
+    void solver::propagate(pvar v, bool do_narrow) {
         LOG_H2("Propagate " << assignment_pp(*this, v, get_value(v)));
         SASSERT(!m_locked_wlist);
         DEBUG_CODE(m_locked_wlist = v;);
         unsigned i = 0, j = 0;
+        // NOTE: use m_pwatch[v] because propagate may change watch-list reference (introduction of new variables)
         for (; i < m_pwatch[v].size() && !is_conflict(); ++i)
-            if (!propagate(v, m_pwatch[v][i])) // propagate may change watch-list reference
+            if (!propagate(v, m_pwatch[v][i], do_narrow))
                 m_pwatch[v][j++] = m_pwatch[v][i];
         auto& wlist = m_pwatch[v];
         for (; i < wlist.size(); ++i) 
@@ -375,7 +372,7 @@ namespace polysat {
      * Propagate assignment to variable v into constraint c.
      * Return true if a new watch was found; or false to keep the existing one.
      */
-    bool solver::propagate(pvar v, constraint* c) {
+    bool solver::propagate(pvar v, constraint* c, bool do_narrow) {
         lbool const bvalue = m_bvars.value(c->bvar());
         LOG_H3("Propagate " << m_vars[v] << " in " << constraint_pp(c, bvalue));
         SASSERT(is_assigned(v));
@@ -397,12 +394,18 @@ namespace polysat {
         if (bvalue != l_undef) {
             // constraint state: bool-propagated
             signed_constraint sc(c, bvalue == l_true);
-            if (c->vars().size() >= 2) {
-                unsigned other_v = c->var(1 - idx);
-                if (!is_assigned(other_v))
-                    m_viable_fallback.push_constraint(other_v, sc);
+            if (do_narrow) {
+                if (c->vars().size() >= 2) {
+                    unsigned other_v = c->var(1 - idx);
+                    if (!is_assigned(other_v))
+                        m_viable_fallback.push_constraint(other_v, sc);
+                }
+                sc.narrow(*this, false);
             }
-            sc.narrow(*this, false);
+            else {
+                if (sc.is_currently_false(*this))
+                    set_conflict(sc);
+            }
         } else {
             // constraint state: active but unassigned (bvalue undef, but pwatch is set; e.g., new constraints generated for lemmas)
 #if 1
