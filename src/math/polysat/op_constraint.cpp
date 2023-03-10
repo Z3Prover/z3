@@ -256,18 +256,16 @@ namespace polysat {
         else {
             // forward propagation
             SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
-            LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [>>] " << r() << " = " << (qv.val().is_unsigned() ? machine_div(pv.val(), rational::power_of_two(qv.val().get_unsigned())) : rational::zero()));
+            // LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [>>] " << r() << " = " << (qv.val().is_unsigned() ? machine_div2k(pv.val(), qv.val().get_unsigned()) : rational::zero()));
             if (qv.is_val() && !rv.is_val()) {
                 const rational& qr = qv.val();
                 if (qr >= N)
-                    return s.mk_clause(~lshr, ~s.ule(m.mk_val(m.power_of_2()), q()), s.eq(r()), true);
-
-                if (rv.is_val()) {
-                    const rational& pr = pv.val();
-                    return s.mk_clause(~lshr, ~s.eq(p(), m.mk_val(pr)), ~s.eq(q(), m.mk_val(qr)), s.eq(r(), m.mk_val(
-                            qr.is_unsigned()
-                            ? machine_div(pr, rational::power_of_two(qr.get_unsigned()))
-                            : rational::zero())), true);
+                    // q >= N  ->  r = 0
+                    return s.mk_clause(~lshr, ~s.ule(m.mk_val(N), q()), s.eq(r()), true);
+                if (pv.is_val()) {
+                    // p = pv & q = qv ==> r = rv
+                    rational const rval = qr.is_unsigned() ? machine_div2k(pv.val(), qr.get_unsigned()) : rational::zero();
+                    return s.mk_clause(~lshr, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), m.mk_val(rval)), true);
                 }
             }
         }

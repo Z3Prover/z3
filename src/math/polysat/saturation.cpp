@@ -35,7 +35,7 @@ namespace polysat {
     void saturation::log_lemma(pvar v, conflict& core) {
         IF_VERBOSE(2, {
             clause* cl = core.lemmas().back();
-            verbose_stream() << m_rule << " v" << v << " ";
+            verbose_stream() << (m_rule ? m_rule : "m_rule is null!") << " v" << v << " ";
             for (auto lit : *cl)
                 verbose_stream() << s.lit2cnstr(lit) << " ";
             verbose_stream() << " " << *cl << "\n";
@@ -226,10 +226,10 @@ namespace polysat {
     }
 
     bool saturation::try_op(pvar v, signed_constraint c, conflict& core) {
+        set_rule("try_op");
         SASSERT(c->is_op());
         SASSERT(c.is_positive());
-        op_constraint* op = ((op_constraint*)c.get());
-        clause_ref correction = op->produce_lemma(s, s.get_assignment(), c.is_positive());
+        clause_ref correction = c.produce_lemma(s, s.get_assignment());
         if (correction) {
             IF_LOGGING(
                 LOG("correcting op_constraint: " << *correction);
@@ -238,9 +238,9 @@ namespace polysat {
                 }
             );
 
-            for (const sat::literal& l : *correction)
-                if (!s.m_bvars.is_assigned(l))
-                    s.assign_eval(~l);
+            for (sat::literal lit : *correction)
+                if (!s.m_bvars.is_assigned(lit) && s.lit2cnstr(lit).is_currently_false(s))
+                    s.assign_eval(~lit);
             core.add_lemma(correction);
             log_lemma(v, core);
             return true;
