@@ -222,7 +222,7 @@ namespace polysat {
             case l_false:
                 // We have a bool/eval conflict with one of the side conditions.
                 // This happens if the side condition was already bool-propagated, but appears in the propagation queue after c.
-                // TODO: instead of doing this here, we could have a separate pass that checks for bool/eval conflicts before narrowing.
+                UNREACHABLE();  // since propagation now checks bool/eval conflicts before narrowing, this case should be impossible.
                 s.set_conflict(~sc);
                 return true;
             case l_undef:
