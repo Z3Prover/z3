@@ -206,12 +206,45 @@ namespace polysat {
         flet<bool> save_(m_is_propagating, true);
 #endif
         push_qhead();
+        unsigned bool_qhead = m_qhead;
+        unsigned eval_qhead = m_qhead;
         while (can_propagate()) {
-            auto const& item = m_search[m_qhead++];
-            if (item.is_assignment())
-                propagate(item.var());
-            else
-                propagate(item.lit());
+            SASSERT(bool_qhead >= eval_qhead);
+            SASSERT(eval_qhead >= m_qhead);
+            if (bool_qhead < m_search.size()) {
+                // First priority: propagate boolean values
+                auto const& item = m_search[bool_qhead++];
+                if (item.is_boolean())
+                    propagate(item.lit());
+            }
+            else if (eval_qhead < m_search.size()) {
+                // Second priority: check for bool/eval conflicts
+                //
+                // Why do we do this here? Consider the situation:
+                // - Literal L is bool-propagated by some clause, so L is put on the propagation queue (m_search)
+                // - Before we get to activate/narrow L, we reach another constraint L' in the queue
+                // - Narrowing L' causes a viable conflict
+                // - When building the viable lemma, one of the linking constraints happens to be L
+                // - L is bool-true but eval-false --> we actually have a bool/eval conflict that we didn't detect
+                // - the viable lemma is problematic because L is bool-true
+                auto const& item = m_search[eval_qhead++];
+                if (item.is_boolean()) {
+                    // TODO: what happens if evaluation depends on a variable assignment that occurs later in m_search? can that happen? should not happen because we only narrow after exhausting this branch; and narrow is the only place where we do value propagation.
+                    signed_constraint c = lit2cnstr(item.lit());
+                    if (c.is_currently_false(*this))
+                        set_conflict(c);
+                }
+            }
+            else {
+                // Third priority: activate/narrow
+                auto const& item = m_search[m_qhead++];
+                if (item.is_assignment())
+                    propagate(item.var());
+                else {
+                    signed_constraint c = lit2cnstr(item.lit());
+                    activate_constraint(c);
+                }
+            }
         }
         if (!is_conflict())
             linear_propagate();
@@ -279,8 +312,6 @@ namespace polysat {
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         LOG("Literal " << lit_pp(*this, lit));
-        signed_constraint c = lit2cnstr(lit);
-        activate_constraint(c);
         auto& wlist = m_bvars.watch(~lit);
         LOG("wlist[" << ~lit << "]: " << wlist);
         unsigned i = 0, j = 0, sz = wlist.size();
