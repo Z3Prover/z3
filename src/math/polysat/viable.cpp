@@ -1343,8 +1343,13 @@ namespace {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable(v, lo, hi)) {
+        switch (find_viable2(v, lo, hi)) {
         case l_true:
+            if (hi < 0) {
+                // fallback solver, treat propagations as decisions for now
+                // (this is because the propagation justification currently always uses intervals, which is unsound in this case)
+                return find_t::multiple;
+            }
             return (lo == hi) ? find_t::singleton : find_t::multiple;
         case l_false:
             return find_t::empty;
@@ -1353,7 +1358,7 @@ namespace {
         }
     }
 
-    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
         std::pair<rational&, rational&> args{lo, hi};
         return query<query_t::find_viable>(v, args);
     }
@@ -1789,7 +1794,10 @@ namespace {
     }
 
     lbool viable::query_find_fallback(pvar v, univariate_solver& us, rational& lo, rational& hi) {
-        return us.find_two(lo, hi) ? l_true : l_undef;
+        lo = us.model();
+        hi = -1;
+        return l_true;
+        // return us.find_two(lo, hi) ? l_true : l_undef;
     }
 
     lbool viable::query_min_fallback(pvar v, univariate_solver& us, rational& lo) {
@@ -1817,7 +1825,6 @@ namespace {
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
         verbose_stream() << "unsat core " << core << "\n";
-        //exit(0);
         return true;
     }
 

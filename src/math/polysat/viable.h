@@ -225,11 +225,14 @@ namespace polysat {
          */
         find_t find_viable(pvar v, rational& out_val);
 
+    private:
         /**
          * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
+         * NOTE: out_hi is set to -1 by the fallback solver.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool find_viable(pvar v, rational& out_lo, rational& out_hi);
+        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
+    public:
 
 #if 0
         void make_bit_justification(pvar v);
