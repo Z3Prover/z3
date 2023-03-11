@@ -913,26 +913,27 @@ namespace polysat {
      * parity(x) <= i, parity(y) >= j => parity(a) >= j - i
      * parity(x) >= i, parity(y) <= j => parity(a) <= j - i 
      * symmetric rules for swapping x, a
-     * 
-     * min_parity(x) = number of trailing bits of x if x is a value
+     *
+     * min_parity(x) = N if x = 0
+     * min_parity(x) = number of trailing bits of x if x is a non-zero value
      * min_parity(x) = k if 2^{N-k}*x == 0 is forced for max k
      * min_parity(x1*x2) = min_parity(x1) + min_parity(x2)
      * min_parity(x) = 0, otherwise
-     * 
-     * max_parity(x) = number of trailing bits of x
+     *
+     * max_parity(x) = N if x = 0
+     * max_parity(x) = number of trailing bits of x if x is a non-zero value
      * max_parity(x) = k if 2^{N-k-1}*x != 0 for min k
      * max_parity(x1*x2) = max_parity(x1) + max_parity(x2)
      * max_parity(x) = N, otherwise
-     * 
+     *
      */
-
     unsigned saturation::min_parity(pdd const& p, vector<signed_constraint>& explain) {
-        rational val;
         auto& m = p.manager();
-        unsigned N = m.power_of_2();
+        unsigned const N = m.power_of_2();
         if (p.is_val())
             return p.val().parity(N);
-        
+
+        rational val;
         if (s.try_eval(p, val)) {
             unsigned k = val.parity(N);
             if (k > 0)
@@ -941,20 +942,21 @@ namespace polysat {
         }
         
         unsigned min = 0;
-        unsigned sz = explain.size();
+        unsigned const sz = explain.size();
         if (!p.is_var()) {
             // parity of a product => sum of parities
             // parity of sum => minimum of monomial's minimal parities
-            min = UINT32_MAX;
-            for (const auto& monomial : p) {
+            min = N;
+            for (auto const& monomial : p) {
+                SASSERT(!monomial.coeff.is_zero());
                 unsigned parity_sum = monomial.coeff.trailing_zeros();
-                for (pvar c : monomial.vars)
-                    parity_sum += min_parity(m.mk_var(c), explain);
+                for (pvar v : monomial.vars)
+                    parity_sum += min_parity(m.mk_var(v), explain);
                 min = std::min(min, parity_sum);
             }
         }
         SASSERT(min <= N);
-        
+
         for (unsigned j = N; j > min; --j)
             if (is_forced_true(s.parity_at_least(p, j))) {
                 explain.shrink(sz);
