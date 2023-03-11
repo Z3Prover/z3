@@ -1608,8 +1608,21 @@ namespace polysat {
                                verbose_stream() << "& " << s.ule(c, c_val) << "\n";
                                verbose_stream() << "& " << s.ule(y, y_val) << "\n";
                                verbose_stream() << "==> " << -a << " >= " << dd::val_pp(m, bound, false) << "\n");
-                    if (propagate(x, core, a_l_b, conclusion)) 
+                    // this is broken!
+                    // creates e.g. the "conflict":
+                    //     78: -1*v7*v1 <= 7                   [ b:l_true  p:l_true  eval@0 pwatched ]
+                    //     93: v7 <= 7                         [ b:l_true  p:l_true  eval@0 pwatched ]
+                    //    -94: 8 > v1                          [ b:l_true  p:l_true  eval@0 pwatched ]
+                    // As lemma:
+                    //    -1*v7*v1 <= 7  &  v7 <= 7  ==>  8 <= v1
+                    //    need to add at least v1 != 0 | v7 != 0 to the conclusion?
+                    //    (assignment v1 := 0, v7 := 0; so there is no need to propagate anything as the constraint is satisfied anyway.)
+                    // Anyway, disable for now as the new bounds propagation should eventually cover this
+                    if (false && propagate(x, core, a_l_b, conclusion)) {
+                        verbose_stream() << "TODO: bound not covered by new impl\n";
+                        std::abort();
                         return true;
+                    }
                 }
                 // verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
             }
