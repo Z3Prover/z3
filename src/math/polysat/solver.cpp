@@ -296,7 +296,21 @@ namespace polysat {
         while (!m_repropagate_lits.empty() && !is_conflict()) {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
+            // check for missed lower boolean propagations
             repropagate(lit);
+            // check for missed lower evaluations
+            if (m_bvars.is_undef(lit)) {
+                switch (lit2cnstr(lit).eval(*this)) {
+                case l_true:
+                    assign_eval(lit);
+                    break;
+                case l_false:
+                    assign_eval(~lit);
+                    break;
+                default:
+                    break;
+                }
+            }
             // TODO: should we interleave this with regular propagation?
             //       (after each successful repropagated literal, do normal propagation)
         }
@@ -522,7 +536,8 @@ namespace polysat {
                     }
                 });
                 // TODO: debug&fix properly; for now just skip.
-                //       (unrelated clause may have propagated other_lit, and we didn't get to propagate(other_lit) yet? maybe the repropagate_queue needs to go into the main loop, with priority after standard boolean propagation.)
+                //       (unrelated clause may have propagated other_lit, and we didn't get to propagate(other_lit) yet?
+                //        maybe the repropagate_queue needs to go into the main loop, with priority after standard boolean propagation.)
                 return false;
             }
 #endif
@@ -703,9 +718,13 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit_pp(*this, lit));
                 unsigned active_level = m_bvars.level(lit);
 
-                if (active_level <= target_level && m_bvars.is_evaluation(lit)) {
+                if (false && active_level <= target_level && m_bvars.is_evaluation(lit)) {
                     // Replaying evaluations is fine since all dependencies (variable assignments) are left untouched.
                     // It is also necessary because repropagate will only restore boolean propagations.
+                    // TODO: no this is wrong. also value propagations need to be replayed in the right order.
+                    //       since value propagations can also be out of order. and they have to come before the corresponding eval'd literals.
+                    //       now: repropagate also tries to restore missed lower evaluations.
+                    // TODO: what's missing is to restore value propagations (x := val) ... it will happen when the variable is chosen for pdecide but we should do it before other decisions.
                     replay.push_back(lit);
                 }
                 else {
@@ -771,7 +790,6 @@ namespace polysat {
             }
         }
 #endif
-        
         if (can_bdecide())
             bdecide();
         else
