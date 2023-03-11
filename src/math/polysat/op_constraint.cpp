@@ -540,9 +540,12 @@ namespace polysat {
         unsigned parity_pv = pv.val().trailing_zeros();
         unsigned parity_rv = rv.val().trailing_zeros();
 
+        LOG("p: " << p() << " := " << pv << "   parity " << parity_pv);
+        LOG("r: " << r() << " := " << rv << "   parity " << parity_rv);
+
         // p != 0  ==>  odd(r)
         if (parity_rv != 0)
-            return s.mk_clause(~invc, ~s.eq(p()), s.odd(r()), true);
+            return s.mk_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, ~s.eq(p()), s.odd(r())}, true);
 
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
@@ -558,19 +561,22 @@ namespace polysat {
                 LOG("Its in [" << lower << "; " << upper << ")");
                 // parity(p) >= k  ==>  p * r >= 2^k
                 if (prodv < rational::power_of_two(middle))
-                    return s.mk_clause(~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle)), false);
+                    return s.mk_clause("r = inv p  &  parity(p) >= k  ==>  p*r >= 2^k",
+                        {~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle))}, false);
             }
             else { // parity less than middle
                 upper = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
                 // parity(p) < k   ==>  p * r <= 2^k - 1
                 if (prodv > rational::power_of_two(middle))
-                    return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle) - 1), false);
+                    return s.mk_clause("r = inv p  &  parity(p) < k  ==>  p*r <= 2^k - 1",
+                        {~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle) - 1)}, false);
             }
             // parity(p) < k    ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
             rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
             if (rv.val() > max_rv)
-                return s.mk_clause(~invc, s.parity_at_least(p(), middle), s.ule(r(), max_rv), false);
+                return s.mk_clause("r = inv p  &  parity(p) < k  ==>  r <= 2^(N-k) - 1",
+                    {~invc, s.parity_at_least(p(), middle), s.ule(r(), max_rv)}, false);
         }
          // Why did it evaluate to false in this case?
         UNREACHABLE();
