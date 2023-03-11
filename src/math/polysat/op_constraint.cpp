@@ -545,7 +545,7 @@ namespace polysat {
 
         // p != 0  ==>  odd(r)
         if (parity_rv != 0)
-            return s.mk_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, ~s.eq(p()), s.odd(r())}, true);
+            return s.mk_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, s.eq(p()), s.odd(r())}, true);
 
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
