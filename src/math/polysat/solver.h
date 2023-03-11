@@ -312,6 +312,8 @@ namespace polysat {
         clause_ref mk_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, signed_constraint c5, bool is_redundant);
         clause_ref mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
         clause_ref mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
+        clause_ref mk_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant);
+        clause_ref mk_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant);
 
         // Evaluate constraint under the current assignment.
         sat::literal try_eval(sat::literal lit);

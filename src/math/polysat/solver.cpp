@@ -1347,16 +1347,24 @@ namespace polysat {
         add_clause({ c1, c2, c3, c4 }, is_redundant);
     }
 
+    clause_ref solver::mk_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant) {
+        return mk_clause(name, static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
+    }
+
+    clause_ref solver::mk_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant) {
+        clause_builder cb(*this, name);
+        for (unsigned i = 0; i < n; ++i)
+            cb.insert(cs[i]);
+        cb.set_redundant(is_redundant);
+        return cb.build();
+    }
+
     clause_ref solver::mk_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
         return mk_clause(static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
     }
 
     clause_ref solver::mk_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
-        clause_builder cb(*this);
-        for (unsigned i = 0; i < n; ++i)
-            cb.insert(cs[i]);
-        cb.set_redundant(is_redundant);
-        return cb.build();
+        return mk_clause("", n, cs, is_redundant);
     }
 
     clause_ref solver::mk_clause(signed_constraint c1, bool is_redundant) {
