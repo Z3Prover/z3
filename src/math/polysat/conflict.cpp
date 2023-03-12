@@ -199,20 +199,10 @@ namespace polysat {
         SASSERT(empty());
         m_level = s.m_level;
         m_narrow_queue.push_back(c.blit());  // if the conflict is only due to a missed propagation of c
-        if (c.bvalue(s) == l_false) {
-            // boolean conflict
-            // This case should not happen:
-            // - opposite input literals are handled separately
-            // - other boolean conflicts will discover violated clause during boolean propagation
-            VERIFY(false);  // fail here to force check when we encounter this case
-        }
-        else {
-            // Constraint c conflicts with the variable assignment
-            SASSERT_EQ(c.bvalue(s), l_true);
-            SASSERT(c.is_currently_false(s));
-            insert(c);
-            insert_vars(c);
-        }
+        VERIFY_EQ(c.bvalue(s), l_true);
+        SASSERT(c.is_currently_false(s));
+        insert(c);
+        insert_vars(c);
         SASSERT(!empty());
         logger().begin_conflict();
     }
@@ -271,7 +261,7 @@ namespace polysat {
         if (c.is_always_true())  // TODO: caller should avoid this?
             return;
         LOG("Inserting " << lit_pp(s, c));
-        SASSERT_EQ(c.bvalue(s), l_true);
+        VERIFY_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_true());   // such constraints would be removed earlier
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
         SASSERT(!c->vars().empty());
@@ -307,8 +297,11 @@ namespace polysat {
         VERIFY(lemma);
 
         for (auto lit : *lemma)
-            if (s.m_bvars.is_true(lit))
+            if (s.m_bvars.is_true(lit)) {
                 verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
+                // for (sat::literal lit : *lemma)
+                //     verbose_stream() << "    " << lit_pp(s, lit) << "\n";
+            }
 
         s.m_simplify_clause.apply(*lemma);
         lemma->set_redundant(true);
