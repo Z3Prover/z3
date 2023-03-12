@@ -146,6 +146,7 @@ namespace polysat {
 
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
+        bool sign() const { return is_negative(); }
 
         /** Evaluate the constraint under the empty assignment */
         lbool eval() const { return is_positive() ? get()->eval() : ~get()->eval(); }

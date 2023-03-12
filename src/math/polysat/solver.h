@@ -140,6 +140,7 @@ namespace polysat {
         friend class test_polysat;
         friend class test_fi;
         friend struct inf_resolve_evaluated;
+        friend class polysat_ast;
 
         reslimit&                m_lim;
         params_ref               m_params;
