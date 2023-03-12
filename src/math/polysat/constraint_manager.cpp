@@ -417,6 +417,20 @@ namespace polysat {
         return -p - 1;
     }
 
+    signed_constraint constraint_manager::find_op(op_constraint::code op, pdd const& p, pdd const& q) const {
+        auto& m = p.manager();
+        unsigned sz = m.power_of_2();
+
+        op_constraint_args const args(op, p, q);
+        auto it = m_dedup.op_constraint_expr.find_iterator(args);
+        if (it == m_dedup.op_constraint_expr.end())
+            return {};
+        pdd r = m.mk_var(it->m_value);
+
+        op_constraint tmp(op, p, q, r);  // TODO: this still allocates op_constraint::m_vars
+        return { dedup_find(&tmp), true };
+    }
+
     pdd constraint_manager::mk_op_term(op_constraint::code op, pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
@@ -516,14 +530,18 @@ namespace polysat {
     pdd constraint_manager::bxnor(pdd const& p, pdd const& q) {
         return bnot(bxor(p, q));
     }
-    
+
     pdd constraint_manager::pseudo_inv(pdd const& p) {
         auto& m = p.manager();
         if (p.is_val())
             return m.mk_val(p.val().pseudo_inverse(m.power_of_2()));
         return mk_op_term(op_constraint::code::inv_op, p, m.zero());
     }
-    
+
+    signed_constraint constraint_manager::find_op_pseudo_inv(pdd const& p) const {
+        return find_op(op_constraint::code::inv_op, p, p.manager().zero());
+    }
+
     pdd constraint_manager::udiv(pdd const& p, pdd const& q) {
         return div_rem_op_constraint(p, q).first;
     }

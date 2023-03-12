@@ -107,7 +107,11 @@ namespace polysat {
 
         /** Find constraint p == 0; returns null if it doesn't exist yet */
         signed_constraint find_eq(pdd const& p) const;
-        signed_constraint find_ule(pdd const& a, pdd const& b) const;
+        /** Find constraint p <= q; returns null if it doesn't exist yet */
+        signed_constraint find_ule(pdd const& p, pdd const& q) const;
+        /** Find op_constraint; returns null if it doesn't exist yet */
+        signed_constraint find_op(op_constraint::code op, pdd const& p, pdd const& q) const;
+        signed_constraint find_op_pseudo_inv(pdd const& p) const;
 
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
