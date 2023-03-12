@@ -1096,14 +1096,12 @@ namespace polysat {
 
         IF_VERBOSE(2, 
                    verbose_stream() << "try parity v" << x << " " << axb_l_y << "\n";
-                   verbose_stream() << X << " " << min_x << " " << max_x << "\n";
-                   verbose_stream() << a << " " << min_a << " " << max_a << "\n";
-                   verbose_stream() << b << " " << min_b << " " << max_b << "\n");                    
+                   verbose_stream() << "x " << X << " " << min_x << " " << max_x << "\n";
+                   verbose_stream() << "a " << a << " " << min_a << " " << max_a << "\n";
+                   verbose_stream() << "b " << b << " " << min_b << " " << max_b << "\n");                    
 
         if (min_x >= N || min_a >= N)
             return false;
-
-        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b))");
 
         auto at_most = [&](pdd const& p, unsigned k) {
             VERIFY(k < N);
@@ -1112,23 +1110,32 @@ namespace polysat {
 
         auto at_least = [&](pdd const& p, unsigned k) {
             VERIFY(k != 0);
+            VERIFY(k <= N);
             return s.parity_at_least(p, k);
         };
  
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 1");
         if (!b.is_val() && max_b > max_a + max_x && propagate2(at_most_a, at_most_x, at_most(b, max_x + max_a)))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 2");
         if (!b.is_val() && min_x > min_b && propagate1(at_least_x, at_least(b, min_x)))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 3");
         if (!b.is_val() && min_a > min_b && propagate1(at_least_a, at_least(b, min_a)))
             return true;
-        if (!b.is_val() && min_x > 0 && min_a > 0 && min_x + min_a > min_b && propagate2(at_least_a, at_least_x, at_least(b, min_a + min_x)))
+        set_rule("[x] a*x + b = 0 => parity(b) >= parity(a) + parity(x)");
+        if (!b.is_val() && min_x > 0 && min_a > 0 && min_x + min_a > min_b && N > min_b && propagate2(at_least_a, at_least_x, at_least(b, std::min(N, min_a + min_x))))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 5");
         if (!a.is_val() && max_x <= min_b && min_a < min_b - max_x && propagate2(at_most_x, at_least_b, at_least(a, min_b - max_x)))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 6");
         if (max_a <= min_b && min_x < min_b - max_a && propagate2(at_most_a, at_least_b, at_least(X, min_b - max_a)))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 7");
         if (max_b < N && !a.is_val() && min_x > 0 && min_x <= max_b && max_a > max_b - min_x && propagate2(at_least_x, at_most_b, at_most(a, max_b - min_x)))
             return true;
+        set_rule("[x] a*x + b = 0 => (odd(a) & odd(x) <=> odd(b)) 8");
         if (max_b < N && min_a > 0 && min_a <= max_b && max_x > max_b - min_a && propagate2(at_least_a, at_most_b, at_most(X, max_b - min_a)))
             return true;
 
