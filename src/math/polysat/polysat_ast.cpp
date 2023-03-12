@@ -44,7 +44,7 @@ namespace polysat {
 
         ast*  store(ast*  a) { storage.push_back(ast_ref{a, m}); return a; }
         expr* store(expr* e) { storage.push_back(ast_ref{e, m}); return e; }
-
+        app*  store(app*  a) { storage.push_back(ast_ref{a, m}); return a; }
     };
 
     polysat_ast::polysat_ast(solver& s)
@@ -57,6 +57,12 @@ namespace polysat {
     ast_manager& polysat_ast::m() const { return d->m; }
     bv_util& polysat_ast::bv() const { return *d->bv; }
 
+    expr* polysat_ast::mk_fresh_bool_const(char const* prefix) {
+        app* b = d->store(m().mk_fresh_const(prefix, m().mk_bool_sort()));
+        d->decls.push_back(b->get_decl());
+        return b;
+    }
+
     expr* polysat_ast::mk_val(rational const& val, unsigned bit_width) {
         return d->store(bv().mk_numeral(val, bit_width));
     }
@@ -67,7 +73,7 @@ namespace polysat {
             unsigned bit_width = s.size(x);
             std::string name = "v";
             name += std::to_string(x);
-            auto decl = m().mk_const_decl(name, bv().mk_sort(bit_width));
+            func_decl* decl = m().mk_const_decl(name, bv().mk_sort(bit_width));
             d->decls.push_back(decl);
             node = d->store(m().mk_const(decl));
             d->var_expr.insert(x, node);
@@ -108,6 +114,51 @@ namespace polysat {
         return d->store(bv().mk_bv_add(args));
     }
 
+    expr* polysat_ast::mk_parity(pdd const& p) {
+        unsigned const N = p.power_of_2();
+        if (p.is_val())
+            return mk_val(rational(p.val().parity(N)), N);
+        app*  parity = d->store(m().mk_fresh_const("parity", bv().mk_sort(N)));
+        d->decls.push_back(parity->get_decl());
+        expr* parity_1 = d->store(bv().mk_bv_add(parity, mk_val(rational(1), N)));
+        expr* v = mk_poly(p);
+        // if v = 0
+        //   then parity = N
+        //   else v = (v >> parity) << parity
+        //        && v != (v >> parity+1) << parity+1
+        // TODO: what about:  v[k:] = 0  &&  v[k+1:] != 0  ==>  parity = k  for each k?
+        // TODO: add helper axiom like parity <= N ?
+        expr* definition =
+            m().mk_ite(
+                m().mk_eq(v, mk_val(rational(0), N)),
+                m().mk_eq(parity, mk_val(rational(N), N)),
+                m().mk_and(
+                    m().mk_eq(v, bv().mk_bv_shl(bv().mk_bv_lshr(v, parity), parity)),
+                    m().mk_not(m().mk_eq(v, bv().mk_bv_shl(bv().mk_bv_lshr(v, parity_1), parity_1)))
+                ));
+        add(definition);
+        return parity;
+    }
+
+    expr* polysat_ast::mk_inv(pdd const& p, pdd const& p_inv) {
+        unsigned const N = p.power_of_2();
+        // p_inv == smallest_pseudo_inverse(p)
+        expr* v = mk_poly(p);
+        expr* v_inv = mk_poly(p_inv);
+        expr* parity = mk_parity(p);
+        expr* one = mk_val(rational(1), N);
+        // 2^parity = v * v_inv
+        expr* definition1 = m().mk_eq(bv().mk_bv_shl(one, parity), bv().mk_bv_mul(v, v_inv));
+        // v_inv <= 2^(N - parity) - 1
+        expr* v_inv_max = bv().mk_bv_sub(bv().mk_bv_shl(one, bv().mk_bv_sub(mk_val(rational(N), N), parity)), one);
+        expr* definition2 = bv().mk_ule(v_inv, v_inv_max);
+        // conditional on b
+        expr* b = mk_fresh_bool_const("parity_enable");
+        add(m().mk_iff(b, definition1));
+        add(m().mk_iff(b, definition2));
+        return b;
+    }
+
     expr* polysat_ast::mk_not(expr* e) {
         return d->store(m().mk_not(e));
     }
@@ -142,6 +193,15 @@ namespace polysat {
             return mk_ule(c->to_ule().lhs(), c->to_ule().rhs(), c.sign());
         if (c->is_umul_ovfl())
             return mk_umul_ovfl(c->to_umul_ovfl().p(), c->to_umul_ovfl().q(), c.sign());
+        if (c->is_op()) {
+            op_constraint& op = c->to_op();
+            switch (op.get_op()) {
+            case op_constraint::code::inv_op:
+                return mk_inv(op.p(), op.r());
+            default:
+                break;
+            }
+        }
         verbose_stream() << "polysat_ast not yet supported: " << c << "\n";
         m_ok = false;
         // NOT_IMPLEMENTED_YET();

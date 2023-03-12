@@ -33,6 +33,11 @@ namespace polysat {
         ast_manager& m() const;
         bv_util& bv() const;
 
+        expr* mk_fresh_bool_const(char const* prefix);
+
+        // expression for "parity of p"
+        expr* mk_parity(pdd const& p);
+
     public:
         polysat_ast(solver&);
         ~polysat_ast();
@@ -58,6 +63,9 @@ namespace polysat {
 
         // ovfl*(p, q)
         expr* mk_umul_ovfl(pdd const& p, pdd const& q, bool sign);
+
+        // p_inv = pseudo-inverse(p)
+        expr* mk_inv(pdd const& p, pdd const& p_inv);
 
         expr* mk_not(expr* e);
 
