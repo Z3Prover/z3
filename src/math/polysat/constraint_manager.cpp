@@ -431,6 +431,13 @@ namespace polysat {
         return { dedup_find(&tmp), true };
     }
 
+    signed_constraint constraint_manager::find_op_by_result_var(pvar r) const {
+        auto it = m_dedup.op_constraint_by_result_var.find_iterator(r);
+        if (it == m_dedup.op_constraint_by_result_var.end())
+            return {};
+        return it->m_value;
+    }
+
     pdd constraint_manager::mk_op_term(op_constraint::code op, pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
@@ -443,7 +450,11 @@ namespace polysat {
         pdd r = m.mk_var(s.add_var(sz));
         m_dedup.op_constraint_expr.insert(args, r.var());
 
-        s.add_clause(mk_op_constraint(op, p, q, r), false);
+        signed_constraint c = mk_op_constraint(op, p, q, r);
+        SASSERT(!m_dedup.op_constraint_by_result_var.contains(r.var()));
+        m_dedup.op_constraint_by_result_var.insert(r.var(), c);
+
+        s.add_clause(c, false);
         return r;
     }
 

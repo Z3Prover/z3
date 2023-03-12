@@ -29,6 +29,7 @@ namespace polysat {
         using op_constraint_args_hash = obj_hash<op_constraint_args>;
         using op_constraint_expr_map = map<op_constraint_args, pvar, op_constraint_args_hash, op_constraint_args_eq>;
         op_constraint_expr_map op_constraint_expr;
+        u_map<signed_constraint> op_constraint_by_result_var;
 
         using quot_rem_args = std::optional<std::pair<pdd, pdd>>;  // NOTE: this is only wrapped in optional because table2map requires a default constructor
         using quot_rem_args_eq = default_eq<quot_rem_args>;
@@ -111,6 +112,7 @@ namespace polysat {
         signed_constraint find_ule(pdd const& p, pdd const& q) const;
         /** Find op_constraint; returns null if it doesn't exist yet */
         signed_constraint find_op(op_constraint::code op, pdd const& p, pdd const& q) const;
+        signed_constraint find_op_by_result_var(pvar r) const;
         signed_constraint find_op_pseudo_inv(pdd const& p) const;
 
         signed_constraint eq(pdd const& p);
