@@ -1358,10 +1358,11 @@ namespace polysat {
         
         for (auto c : core) {
             change = false;
-            if (c == a_l_b.as_signed_constraint())
+            if (c == a_l_b)
                 continue;
             LOG("Trying to eliminate v" << x << " in " << c << " by using equation " << a_l_b.as_signed_constraint());
             if (c->is_ule()) {
+                set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b] ule");
                 // If both are equalities this boils down to polynomial superposition => Might generate the same lemma twice
                 auto const& ule = c->to_ule();
                 m_lemma.reset();
@@ -1376,6 +1377,7 @@ namespace polysat {
                     prop = true;
             }
             else if (c->is_umul_ovfl()) {
+                set_rule("[x] ax + b = 0 & C[x] => C[-inv(a)*b] umul_ovfl");
                 auto const& ovf = c->to_umul_ovfl();
                 m_lemma.reset();
                 auto [lhs_new, changed_lhs] = m_parity_tracker.eliminate_variable(*this, x, a, b, ovf.p(), m_lemma);

@@ -20,10 +20,16 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/polysat_params.hpp"
 #include "math/polysat/variable_elimination.h"
+#include "math/polysat/polysat_ast.h"
 #include <variant>
+#include <filesystem>
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
+
+// Write lemma validity check into an *.smt2 file for soundness debugging. Disabled by default.
+// Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
+#define ENABLE_LEMMA_VALIDITY_CHECK 0
 
 namespace polysat {
 
@@ -1330,6 +1336,55 @@ namespace polysat {
             }
             LOG("    " << lit_pp(*this, lit));
         }
+
+#if ENABLE_LEMMA_VALIDITY_CHECK
+        // Write lemma validity check into an *.smt2 file for soundness debugging.
+        if (clause.is_redundant()) {
+            namespace fs = std::filesystem;
+            static unsigned num_lemma = 0;
+            fs::path filename = std::string("dbg-lemmas/lemma-") + std::to_string(++num_lemma) + ".smt2";
+            if (fs::is_directory(filename.parent_path())) {
+                verbose_stream() << "Writing clause validity check to " << filename << "\n";
+                std::stringstream description;
+                description << "    Name: " << clause.name() << "\n";
+                description << "    Literals:\n";
+                uint_set vars;
+                for (sat::literal lit : clause) {
+                    description << "        " << lit_pp(*this, lit) << "\n";
+                    for (pvar v : lit2cnstr(lit).vars())
+                        vars.insert(v);
+                }
+                bool op_header = false;
+                for (pvar v : vars) {
+                    signed_constraint c = m_constraints.find_op_by_result_var(v);
+                    if (c && !op_header) {
+                        description << "    Relevant op_constraints:\n";
+                        op_header = true;
+                    }
+                    if (c)
+                        description << "        " << c << "\n";
+                }
+                polysat_ast pa(*this);
+                pa.set_status(l_false);
+                pa.set_description(description.str());
+                pa.add(pa.mk_not(pa.mk_clause(clause)));
+                if (pa.is_ok()) {
+                    std::ofstream file(filename);
+                    file << pa;
+                }
+                else {
+                    filename.replace_extension("txt");
+                    std::ofstream file(filename);
+                    file << "Not yet implemented in polysat_ast.cpp:\n\n" << description.str();
+                }
+            }
+            // if (num_lemma == 7)
+            //     std::exit(0);
+            // if (num_lemma == 161)
+            //     std::exit(0);
+        }
+#endif
+
         SASSERT(!clause.empty());
         m_constraints.store(&clause);
 
