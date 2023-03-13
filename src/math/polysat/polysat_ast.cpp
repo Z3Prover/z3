@@ -159,6 +159,20 @@ namespace polysat {
         return b;
     }
 
+    expr* polysat_ast::mk_op(op_constraint const& op, bool sign) {
+        expr* e = nullptr;
+        switch (op.get_op()) {
+        case op_constraint::code::inv_op:
+            e = mk_inv(op.p(), op.r());
+            break;
+        default:
+            return nullptr;
+        }
+        if (sign)
+            e = mk_not(e);
+        return e;
+    }
+
     expr* polysat_ast::mk_not(expr* e) {
         return d->store(m().mk_not(e));
     }
@@ -193,15 +207,9 @@ namespace polysat {
             return mk_ule(c->to_ule().lhs(), c->to_ule().rhs(), c.sign());
         if (c->is_umul_ovfl())
             return mk_umul_ovfl(c->to_umul_ovfl().p(), c->to_umul_ovfl().q(), c.sign());
-        if (c->is_op()) {
-            op_constraint& op = c->to_op();
-            switch (op.get_op()) {
-            case op_constraint::code::inv_op:
-                return mk_inv(op.p(), op.r());
-            default:
-                break;
-            }
-        }
+        if (c->is_op())
+            if (expr* e = mk_op(c->to_op(), c.sign()))
+                return e;
         verbose_stream() << "polysat_ast not yet supported: " << c << "\n";
         m_ok = false;
         // NOT_IMPLEMENTED_YET();

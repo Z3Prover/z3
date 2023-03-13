@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include "math/polysat/constraint.h"
 
 class expr;
 class ast_manager;
@@ -21,7 +22,6 @@ class bv_util;
 namespace polysat {
 
     struct polysat_ast_d;
-    class signed_constraint;
 
     class polysat_ast {
         solver& s;
@@ -66,6 +66,8 @@ namespace polysat {
 
         // p_inv = pseudo-inverse(p)
         expr* mk_inv(pdd const& p, pdd const& p_inv);
+
+        expr* mk_op(op_constraint const& op, bool sign);
 
         expr* mk_not(expr* e);
 
