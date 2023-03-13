@@ -563,8 +563,14 @@ namespace polysat {
                 if (prodv < rational::power_of_two(middle))
                     return s.mk_clause("r = inv p  &  parity(p) >= k  ==>  p*r >= 2^k",
                         {~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle))}, false);
+                // parity(p) >= k  ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
+                rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
+                if (rv.val() > max_rv)
+                    return s.mk_clause("r = inv p  &  parity(p) >= k  ==>  r <= 2^(N - k) - 1",
+                        {~invc, ~s.parity_at_least(p(), middle), s.ule(r(), max_rv)}, false);
             }
             else { // parity less than middle
+                SASSERT(parity_pv < middle);
                 upper = middle;
                 LOG("Its in [" << lower << "; " << upper << ")");
                 // parity(p) < k   ==>  p * r <= 2^k - 1
@@ -572,11 +578,6 @@ namespace polysat {
                     return s.mk_clause("r = inv p  &  parity(p) < k  ==>  p*r <= 2^k - 1",
                         {~invc, s.parity_at_least(p(), middle), s.ule(prod, rational::power_of_two(middle) - 1)}, false);
             }
-            // parity(p) < k    ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
-            rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
-            if (rv.val() > max_rv)
-                return s.mk_clause("r = inv p  &  parity(p) < k  ==>  r <= 2^(N-k) - 1",
-                    {~invc, s.parity_at_least(p(), middle), s.ule(r(), max_rv)}, false);
         }
          // Why did it evaluate to false in this case?
         UNREACHABLE();
