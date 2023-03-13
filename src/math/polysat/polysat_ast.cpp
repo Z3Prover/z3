@@ -34,7 +34,11 @@ namespace polysat {
         // just keep all expressions alive
         ast_ref_vector storage;
 
-        polysat_ast_d(): m(), decls(m), formulas(m), storage(m)
+        polysat_ast_d()
+            : m()
+            , decls(m)
+            , formulas(m)
+            , storage(m)
         {
             reg_decl_plugins(m);
             bv = alloc(bv_util, m);
@@ -153,24 +157,47 @@ namespace polysat {
         expr* v_inv_max = bv().mk_bv_sub(bv().mk_bv_shl(one, bv().mk_bv_sub(mk_val(rational(N), N), parity)), one);
         expr* definition2 = bv().mk_ule(v_inv, v_inv_max);
         // conditional on b
-        expr* b = mk_fresh_bool_const("parity_enable");
+        expr* b = mk_fresh_bool_const("op_inv");
         add(m().mk_iff(b, definition1));
         add(m().mk_iff(b, definition2));
         return b;
     }
 
-    expr* polysat_ast::mk_op(op_constraint const& op, bool sign) {
-        expr* e = nullptr;
+    template <typename Fn>
+    expr* polysat_ast::mk_bin(char const* name, pdd const& p, pdd const& q, pdd const& r, Fn mk_bin_expr) {
+        unsigned const N = p.power_of_2();
+        // r = p OP q
+        expr* definition = m().mk_eq(mk_poly(r), mk_bin_expr(mk_poly(p), mk_poly(q)));
+        // b <=> definition
+        expr* b = mk_fresh_bool_const(name);
+        add(m().mk_iff(b, definition));
+        return b;
+    }
+
+    expr* polysat_ast::mk_op(op_constraint const& op) {
+        using code = op_constraint::code;
         switch (op.get_op()) {
-        case op_constraint::code::inv_op:
-            e = mk_inv(op.p(), op.r());
-            break;
+        case code::lshr_op:
+            return mk_bin("op_lshr", op.p(), op.q(), op.r(), [&](expr* p, expr* q) { return bv().mk_bv_lshr(p, q); });
+        case code::ashr_op:
+            return mk_bin("op_ashr", op.p(), op.q(), op.r(), [&](expr* p, expr* q) { return bv().mk_bv_ashr(p, q); });
+        case code::shl_op:
+            return mk_bin("op_shl", op.p(), op.q(), op.r(), [&](expr* p, expr* q) { return bv().mk_bv_shl(p, q); });
+        case code::and_op:
+            return mk_bin("op_and", op.p(), op.q(), op.r(), [&](expr* p, expr* q) { return bv().mk_bv_and(p, q); });
+        case code::inv_op:
+            return mk_inv(op.p(), op.r());
         default:
             return nullptr;
         }
-        if (sign)
-            e = mk_not(e);
-        return e;
+    }
+
+    expr* polysat_ast::mk_op(op_constraint const& op, bool sign) {
+        expr* e = mk_op(op);
+        if (e && sign)
+            return mk_not(e);
+        else
+            return e;
     }
 
     expr* polysat_ast::mk_not(expr* e) {

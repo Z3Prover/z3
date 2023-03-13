@@ -35,8 +35,18 @@ namespace polysat {
 
         expr* mk_fresh_bool_const(char const* prefix);
 
+        expr* mk_ule(pdd const& p, pdd const& q);
+
         // expression for "parity of p"
         expr* mk_parity(pdd const& p);
+
+        // p_inv = pseudo-inverse(p)
+        expr* mk_inv(pdd const& p, pdd const& p_inv);
+
+        expr* mk_op(op_constraint const& op);
+
+        template <typename Fn>
+        expr* mk_bin(char const* name, pdd const& p, pdd const& q, pdd const& r, Fn mk_bin_expr);
 
     public:
         polysat_ast(solver&);
@@ -52,7 +62,6 @@ namespace polysat {
         expr* mk_poly(pdd const& p);
 
         // p <= q
-        expr* mk_ule(pdd const& p, pdd const& q);
         expr* mk_ule(pdd const& p, pdd const& q, bool sign);
         // p >= q
         expr* mk_uge(pdd const& p, pdd const& q, bool sign) { return mk_ule(q, p, sign); }
@@ -63,9 +72,6 @@ namespace polysat {
 
         // ovfl*(p, q)
         expr* mk_umul_ovfl(pdd const& p, pdd const& q, bool sign);
-
-        // p_inv = pseudo-inverse(p)
-        expr* mk_inv(pdd const& p, pdd const& p_inv);
 
         expr* mk_op(op_constraint const& op, bool sign);
 
