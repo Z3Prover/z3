@@ -220,8 +220,10 @@ namespace polysat {
             if (bool_qhead < m_search.size()) {
                 // First priority: propagate boolean values
                 auto const& item = m_search[bool_qhead++];
-                if (item.is_boolean())
+                if (item.is_boolean()) {
+                    // LOG_H1("P1: bool " << item.lit());
                     propagate(item.lit());
+                }
             }
             else if (eval_qhead < m_search.size()) {
                 // Second priority: evaluate constraints and check for bool/eval conflicts
@@ -234,15 +236,28 @@ namespace polysat {
                 // - L is bool-true but eval-false --> we actually have a bool/eval conflict that we didn't detect
                 // - the viable lemma is problematic because L is bool-true
                 auto const& item = m_search[eval_qhead++];
-                if (item.is_assignment())
+                if (item.is_assignment()) {
+                    // LOG_H1("P2: eval pvar v" << item.var());
                     propagate(item.var(), false);
+                }
+                else {
+                    SASSERT(item.is_boolean());
+                    // LOG_H1("P2: eval lit v" << item.lit());
+                    signed_constraint c = lit2cnstr(item.lit());
+                    if (c.is_currently_false(*this))
+                        set_conflict(c);
+                }
             }
             else {
                 // Third priority: activate/narrow
                 auto const& item = m_search[m_qhead++];
-                if (item.is_assignment())
+                if (item.is_assignment()) {
+                    // LOG_H1("P3: narrow " << item.var());
                     propagate(item.var(), true);
+                }
                 else {
+                    SASSERT(item.is_boolean());
+                    // LOG_H1("P3: activate " << item.lit());
                     signed_constraint c = lit2cnstr(item.lit());
                     activate_constraint(c);
                 }
