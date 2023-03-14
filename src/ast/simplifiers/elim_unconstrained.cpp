@@ -73,7 +73,7 @@ void elim_unconstrained::eliminate() {
         node& n = get_node(v);
         if (n.m_refcount == 0)
             continue;
-        if (n.m_refcount > 1)
+        if (n.m_refcount > 1) 
             return;
 
         if (n.m_parents.empty()) {
@@ -90,10 +90,10 @@ void elim_unconstrained::eliminate() {
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(get_node(arg)));
-        bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r);
+        bool inverted = m_inverter(t->get_decl(), t->get_num_args(), m_args.data() + sz, r);
         proof_ref pr(m);
         if (inverted && m_enable_proofs) {
-            expr * s    = m.mk_app(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+            expr * s    = m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz);
             expr * eq   = m.mk_eq(s, r);
             proof * pr1 = m.mk_def_intro(eq);
             proof * pr  = m.mk_apply_def(s, r, pr1);

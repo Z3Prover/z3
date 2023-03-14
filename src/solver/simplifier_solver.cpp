@@ -23,7 +23,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/simplifiers/dependent_expr_state.h"
-#include "ast/simplifiers/seq_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include "solver/solver.h"
 #include "solver/simplifier_solver.h"
 #include "solver/solver_preprocess.h"
@@ -91,7 +91,7 @@ class simplifier_solver : public solver {
     solver_ref  s;
     vector<dependent_expr>      m_fmls;
     dep_expr_state              m_preprocess_state;
-    seq_simplifier              m_preprocess;
+    then_simplifier             m_preprocess;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
     bool                        m_inconsistent = false;

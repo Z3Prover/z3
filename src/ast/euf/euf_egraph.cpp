@@ -67,6 +67,8 @@ namespace euf {
     }
 
     enode_bool_pair egraph::insert_table(enode* p) {
+        TRACE("euf", tout << bpp(p) << "\n");
+        //SASSERT(!m_table.contains_ptr(p));
         auto rc = m_table.insert(p);
         p->m_cg = rc.first;
         return rc;
@@ -280,6 +282,7 @@ namespace euf {
         if (!m.is_bool(n->get_sort()))
             return;
         if (enable_merge_tf != n->merge_tf()) {
+            TRACE("euf", tout << "set tf " << enable_merge_tf << " " << bpp(n) << "\n");
             n->set_merge_tf(enable_merge_tf);
             m_updates.push_back(update_record(n, update_record::toggle_merge_tf()));
         }
@@ -487,6 +490,7 @@ namespace euf {
     }
 
     void egraph::remove_parents(enode* r) {
+        TRACE("euf", tout << bpp(r) << "\n");
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
@@ -496,6 +500,7 @@ namespace euf {
                 SASSERT(m_table.contains_ptr(p));
                 p->mark1();
                 erase_from_table(p);
+                CTRACE("euf", m_table.contains_ptr(p), tout << bpp(p) << "\n"; display(tout));
                 SASSERT(!m_table.contains_ptr(p));
             }
             else if (p->is_equality())

@@ -19,6 +19,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/converters/expr_inverter.h"
 
 class basic_expr_inverter : public iexpr_inverter {
@@ -742,6 +743,53 @@ public:
 };
 
 
+class seq_expr_inverter : public iexpr_inverter {
+    seq_util seq;
+public:
+    seq_expr_inverter(ast_manager& m) : iexpr_inverter(m), seq(m) {}
+    
+    family_id get_fid() const override { return seq.get_family_id(); }
+
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
+        switch (f->get_decl_kind()) {
+        case _OP_STRING_CONCAT:
+        case OP_SEQ_CONCAT: {
+            expr* x, *y;
+            
+            if (uncnstr(args[0]) && num == 2 &&
+                seq.str.is_concat(args[1], x, y) &&
+                uncnstr(x)) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc) {
+                    add_def(args[0], seq.str.mk_empty(args[0]->get_sort()));
+                    add_def(x, r);
+                }
+                r = seq.str.mk_concat(r, y);
+                return true;                
+            }
+                
+            if (!uncnstr(num, args)) 
+                return false;
+            mk_fresh_uncnstr_var_for(f, r);
+            if (m_mc) {
+                add_def(args[0], r);
+                for (unsigned i = 1; i < num; ++i)
+                    add_def(args[i], seq.str.mk_empty(args[0]->get_sort()));
+            }            
+            return true;
+        }
+        default:
+            return false;                
+            
+        }
+    }
+    
+    bool mk_diff(expr* t, expr_ref& r) override {
+        return false;
+    }
+    
+};
+
 
 expr_inverter::~expr_inverter() {
     for (auto* v : m_inverters)
@@ -796,6 +844,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
     add(alloc(array_expr_inverter, m, *this));
     add(alloc(dt_expr_inverter, m));
     add(alloc(basic_expr_inverter, m, *this));
+    add(alloc(seq_expr_inverter, m));
 }
 
 
