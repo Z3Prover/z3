@@ -421,20 +421,20 @@ namespace mbp {
         SASSERT(marks_are_clear());
     }
 
-    expr* term_graph::mk_app_core (expr *e) {
-        if (is_app(e)) {
-            expr_ref_buffer kids(m);
-            app* a = ::to_app(e);
-            for (expr * arg : *a) {
-                kids.push_back (mk_app(arg));
-            }
-            app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
-            m_pinned.push_back(res);
-            return res;
-        }
-        else {
-            return e;
-        }
+
+    expr *term_graph::mk_app_core(expr *e) {
+      if (is_app(e)) {
+          expr_ref_buffer kids(m);
+          app *a = ::to_app(e);
+          for (expr *arg : *a) {
+            kids.push_back(mk_app(arg));
+          }
+          app *res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
+          m_pinned.push_back(res);
+          return res;
+      } else {
+          return e;
+      }
     }
 
     expr_ref term_graph::mk_app(term &r) {
@@ -449,17 +449,15 @@ namespace mbp {
             return expr_ref(res, m);
         }
 
-        res = mk_app_core (r.get_expr());
+        res = mk_app_core(r.get_expr());
         m_term2app.insert(r.get_id(), res);
         return expr_ref(res, m);
-
     }
 
     expr_ref term_graph::mk_app(expr *a) {
-        term *t = get_term(a);
-        if (!t)
-            return expr_ref(a, m);
-
+      term *t = get_term(a);
+      if (!t)
+        return expr_ref(a, m);
       else {
         SASSERT(t->get_repr());
         return mk_app(*t->get_repr());
@@ -475,14 +473,18 @@ namespace mbp {
         }
     }
 
+
     void term_graph::mk_all_equalities(term const &t, expr_ref_vector &out) {
+        if (t.get_class_size() == 1)
+            return;
+
         mk_equalities(t, out);
 
         for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
-            expr* a1 = mk_app_core (it->get_expr());
+            expr* a1 = mk_app_core(it->get_expr());
             for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
-                expr* a2 =  mk_app_core(it2->get_expr());
-                out.push_back (m.mk_eq (a1, a2));
+              expr *a2 = mk_app_core(it2->get_expr());
+              out.push_back(m.mk_eq(a1, a2));
             }
         }
     }
@@ -1140,7 +1142,7 @@ namespace mbp {
 
     expr_ref_vector term_graph::shared_occurrences(family_id fid) {
         term_graph::projector p(*this);
-        return p.shared_occurrences(fid);        
+        return p.shared_occurrences(fid);
     }
 
     void term_graph::add_model_based_terms(model& mdl, expr_ref_vector const& terms) {
@@ -1150,7 +1152,7 @@ namespace mbp {
         m_is_var.reset_solved();
         
         SASSERT(!m_projector);
-        m_projector = alloc(term_graph::projector, *this);        
+        m_projector = alloc(term_graph::projector, *this);
 
         // retrieve partition of terms
         vector<expr_ref_vector> equivs = m_projector->get_partition(mdl, true);

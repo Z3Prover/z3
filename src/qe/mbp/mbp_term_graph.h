@@ -54,7 +54,7 @@ namespace mbp {
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
         ptr_vector<term>  m_terms;
-        expr_ref_vector    m_lits; // NSB: expr_ref_vector?
+        expr_ref_vector   m_lits; // NSB: expr_ref_vector?
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;
         projector*        m_projector;
@@ -118,13 +118,13 @@ namespace mbp {
         expr_ref_vector solve();
         expr_ref_vector project(model &mdl);
 
-        /**
-         * Return disequalities to ensure that disequalities between 
-         * excluded functions are preserved.
-         * For example if f(a) = b, f(c) = d, and b and d are not 
-         * congruent, then produce the disequality a != c.
-         */
-        expr_ref_vector get_ackerman_disequalities();
+      /**
+       * Return disequalities to ensure that disequalities between
+       * excluded functions are preserved.
+       * For example if f(a) = b, f(c) = d, and b and d are not
+       * congruent, then produce the disequality a != c.
+       */
+      expr_ref_vector get_ackerman_disequalities();
 
         /**
          * Produce model-based disequality 
@@ -134,12 +134,12 @@ namespace mbp {
          * disequalities, true under mdl, such that the literals
          * can be satisfied when non-shared symbols are projected.
          */
-        expr_ref_vector dcert(model& mdl, expr_ref_vector const& lits);
+      expr_ref_vector dcert(model& mdl, expr_ref_vector const& lits);
 
         /**
          * Produce a model-based partition.
          */
-        vector<expr_ref_vector> get_partition(model& mdl);
+      vector<expr_ref_vector> get_partition(model& mdl);
 
         /**
          * Extract shared occurrences of terms whose sort are 
