@@ -51,11 +51,18 @@ namespace mbp {
     }
 
     namespace {
-        struct sort_lt_proc {
+      struct sort_lt_proc { // for representatives in model_complete
             bool operator()(const expr* a, const expr *b) const {
                 return a->get_sort()->get_id() < b->get_sort()->get_id();
             }
         };
+      struct mark_all_sub_expr {
+        expr_sparse_mark& m_mark;
+        mark_all_sub_expr(expr_sparse_mark& mark): m_mark(mark) {}
+        void operator()(var *n) const {}
+        void operator()(app *n) const {m_mark.mark(n);}
+        void operator()(quantifier *n) const {}
+      };
     }
 
     namespace is_pure_ns {
@@ -79,6 +86,17 @@ namespace mbp {
         }
         return true;
     }
+
+  bool term_graph::is_ground(expr *e) {
+    try {
+      is_ground_ns::proc v(m_is_var);
+      quick_for_each_expr(v, e);
+    }
+    catch (const is_ground_ns::found &) {
+      return false;
+    }
+    return true;
+  }
 
     class term {
         // -- an app represented by this term
@@ -232,6 +250,20 @@ namespace mbp {
         bool is_class_gr() const { return m_root->is_class_gr_root(); }
         void set_class_gr(bool v) { m_root->set_class_gr_root(v); }
 
+        static bool are_deq(const term &t1, const term &t2) {
+          term_graph::deqs const &ds1 = t1.get_root().get_deqs();
+          term_graph::deqs const &ds2 = t2.get_root().get_deqs();
+
+          term_graph::deqs tmp(ds1); // copy
+
+          tmp &= ds2;
+          return tmp != 0;
+        }
+
+        static void set_deq(term_graph::deqs& ds, unsigned idx) {
+          ds.resize(idx+1);
+          ds.set(idx);
+        }
 
         bool all_children_ground() {
           SASSERT(deg() != 0);
@@ -307,7 +339,24 @@ namespace mbp {
   static std::ostream& operator<<(std::ostream& out, term const& t) {
     return t.display(out);
   }
+
+  // t1 != t2
+  void term_graph::add_deq_proc::operator()(term *t1, term *t2) {
+    ptr_vector<term> ts(2);
+    ts[0] = t1;
+    ts[1] = t2;
+    (*this)(ts);
+  }
+
+  // distinct(ts)
+  void term_graph::add_deq_proc::operator()(ptr_vector<term> &ts) {
+    for (auto t : ts) {
+      term::set_deq(t->get_root().get_deqs(), m_deq_cnt);
     }
+    SASSERT(m_deq_cnt < UINT64_MAX);
+    m_deq_cnt++;
+  }
+
   bool term_graph::is_variable_proc::operator()(const expr * e) const {
     if (!is_app(e)) return false;
     const app *a = ::to_app(e);
@@ -317,6 +366,7 @@ namespace mbp {
       !m_solved.contains(a->get_decl()) &&
       m_exclude == m_decls.contains(a->get_decl());
   }
+
   bool term_graph::is_variable_proc::operator()(const term &t) const {
     return (*this)(t.get_expr());
   }
@@ -327,7 +377,22 @@ namespace mbp {
     for (auto *d : decls) m_decls.insert(d);
   }
 
+  void term_graph::is_variable_proc::add_decls(const app_ref_vector &decls) {
+    for (auto *d : decls) m_decls.insert(d->get_decl());
+  }
 
+  void term_graph::is_variable_proc::add_decl(app* d) {
+    m_decls.insert(d->get_decl());
+  }
+
+  void
+  term_graph::is_variable_proc::set_decls(const app_ref_vector &vars,
+                                          bool exclude) {
+    reset();
+    m_exclude = exclude;
+    for (auto *v : vars)
+      m_decls.insert(v->get_decl());
+  }
 
   void term_graph::is_variable_proc::mark_solved(const expr *e) {
     if ((*this)(e) && is_app(e))
@@ -402,6 +467,15 @@ namespace mbp {
     term *term_graph::mk_term(expr *a) {
         expr_ref e(a, m);
         term * t = alloc(term, e, m_app2term);
+        if (is_ground(a)) {
+          t->set_gr(true);
+          t->set_cgr(true);
+          t->set_class_gr(true);
+        }
+        else if (t->deg() > 0 && t->all_children_ground()) {
+            t->set_cgr(true);
+            t->set_class_gr(true);
+        }
         if (t->get_num_args() == 0 && m.is_unique_value(a))
             t->mark_as_interpreted();
 
@@ -564,7 +638,7 @@ namespace mbp {
     }
 
 
-    void term_graph::mk_all_equalities(term const &t, expr_ref_vector &out) {
+    void term_graph::mk_all_equalities(term &t, expr_ref_vector &out) {
         if (t.get_class_size() == 1)
             return;
 
@@ -622,6 +696,32 @@ namespace mbp {
 
     }
     }
+  //returns true if tg ==> e = v where v is a value
+  bool term_graph::has_val_in_class(expr *e) {
+    term* r = get_term(e);
+    if(!r) return false;
+    auto is_val = [&](term* t) {
+        return m.is_value(t->get_expr());
+    };
+    if (is_val(r)) return true;
+    for(term* it = &r->get_next(); it != r; it = &it->get_next())
+      if (is_val(it)) return true;
+    return false;
+  }
+
+  //if there exists an uninterpreted const c s.t. tg ==> e = c, return c
+  //else return nullptr
+  app* term_graph::get_const_in_class(expr *e) {
+    term* r = get_term(e);
+    if(!r) return nullptr;
+    auto is_const = [](term* t) {
+        return is_uninterp_const(t->get_expr());
+    };
+    if (is_const(r)) return ::to_app(r->get_expr());
+    for(term* it = &r->get_next(); it != r; it = &it->get_next())
+      if (is_const(it)) return ::to_app(it->get_expr());
+    return nullptr;
+  }
 
   void term_graph::display(std::ostream &out) {
     for (term * t : m_terms) {
@@ -1119,8 +1219,7 @@ namespace mbp {
                     continue;
                 expr_ref val = mdl(a);
                 insert_val(a, val);
-            }            
-
+            }
             return result;
         }
 
@@ -1199,8 +1298,23 @@ namespace mbp {
 
     };
 
+    void term_graph::set_vars(func_decl_ref_vector const &decls, bool exclude) {
+      m_is_var.set_decls(decls, exclude);
     }
 
+    void term_graph::set_vars(app_ref_vector const &vars, bool exclude) {
+      m_is_var.set_decls(vars, exclude);
+    }
+
+    void term_graph::add_vars(app_ref_vector const &vars) {
+      m_is_var.add_decls(vars);
+    }
+
+
+    void term_graph::add_var(app* var) {
+      m_is_var.add_decl(var);
+    }
+  
     expr_ref_vector term_graph::project() {
         // reset solved vars so that they are not considered pure by projector
         m_is_var.reset_solved();
@@ -1278,7 +1392,7 @@ namespace mbp {
         SASSERT(t && "only get representatives");
         return m_projector->find_term2app(*t);
     }
-    
+
     expr_ref_vector term_graph::dcert(model& mdl, expr_ref_vector const& lits) {
         TRACE("qe", tout << "dcert " << lits << "\n";);
         struct pair_t {
@@ -1306,10 +1420,9 @@ namespace mbp {
             }
             else if (is_uninterp(e)) {
                 diseqs.insert(pair_t(e, m.mk_false()));
+            } else if (m.is_not(e, ne) && is_uninterp(ne)) {
+              diseqs.insert(pair_t(ne, m.mk_true()));
             }
-            else if (m.is_not(e, ne) && is_uninterp(ne)) {
-                diseqs.insert(pair_t(ne, m.mk_true()));
-            }           
         }
         for (auto& p : diseqs) todo.push_back(p);
 
