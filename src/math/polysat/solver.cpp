@@ -83,7 +83,7 @@ namespace polysat {
             if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
             SASSERT(var_queue_invariant());
-            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); log_lemma_smt2(*m_conflict.build_lemma()); return l_false; }
+            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_repropagate_units()) repropagate_units();
             else if (should_add_pwatch()) add_pwatch();
@@ -1525,6 +1525,17 @@ namespace polysat {
                 }
             }
         );
+#if ENABLE_LEMMA_VALIDITY_CHECK
+        clause_builder clauseBuilder(*this);
+        for (auto d : deps) {
+            for (sat::bool_var b = 0; b < m_bvars.size(); ++b) {
+                if (m_bvars.dep(b) != d)
+                    continue;
+                clauseBuilder.insert(sat::literal(b, m_bvars.value(b) != l_false));
+            }
+        }
+        log_lemma_smt2(*clauseBuilder.build()); // check the unsat-core
+#endif
     }
 
     std::ostream& solver::display_search(std::ostream& out) const {
