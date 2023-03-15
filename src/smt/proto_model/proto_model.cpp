@@ -32,7 +32,7 @@ proto_model::proto_model(ast_manager & m, params_ref const & p):
     model_core(m),
     m_eval(*this),
     m_rewrite(m) {
-    register_factory(alloc(basic_factory, m));
+    register_factory(alloc(basic_factory, m, m.get_num_asts()));
     m_user_sort_factory = alloc(user_sort_factory, m);
     register_factory(m_user_sort_factory);
     m_model_partial = model_params(p).partial();

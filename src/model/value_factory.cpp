@@ -28,13 +28,13 @@ value_factory::value_factory(ast_manager & m, family_id fid):
 value_factory::~value_factory() {
 }
 
-basic_factory::basic_factory(ast_manager & m):
-    value_factory(m, m.get_basic_family_id()) {
+basic_factory::basic_factory(ast_manager & m, unsigned seed):
+    value_factory(m, m.get_basic_family_id()), m_rand(seed) {
 }
 
 expr * basic_factory::get_some_value(sort * s) {
-    if (m_manager.is_bool(s))
-        return m_manager.mk_false();
+    if (m_manager.is_bool(s)) 
+        return (m_rand() % 2 == 0) ? m_manager.mk_false() : m_manager.mk_true();
     return nullptr;
 }
 
