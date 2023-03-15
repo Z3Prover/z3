@@ -552,8 +552,8 @@ namespace mbp {
       if (!t) mk_term(d);
     }
 
+   //Assumes that a1 != a2 is satisfiable
     void term_graph::internalize_deq(expr *a1, expr *a2) {
-      // TODO: what do not add disequalities of interpreted terms? (e.g. 1 != 2)
       term *t1 = internalize_term(a1);
       term *t2 = internalize_term(a2);
       m_add_deq(t1, t2);
@@ -761,22 +761,25 @@ namespace mbp {
     /// Order of preference for roots of equivalence classes
     /// XXX This should be factored out to let clients control the preference
     bool term_graph::term_lt(term const &t1, term const &t2) {
-        // prefer constants over applications
-        // prefer uninterpreted constants over values
-        // prefer smaller expressions over larger ones
-        if (t1.get_num_args() == 0 || t2.get_num_args() == 0) {
-            if (t1.get_num_args() == t2.get_num_args()) {
-                // t1.get_num_args() == t2.get_num_args() == 0
-                if (m.is_value(t1.get_expr()) == m.is_value(t2.get_expr()))
-                    return t1.get_id() < t2.get_id();
-                return m.is_value(t2.get_expr());
-            }
-            return t1.get_num_args() < t2.get_num_args();
-        }
+      // prefer constants over applications (ground)
+      // prefer applications over variables (for non-ground)
+      // prefer uninterpreted constants over values
+      // prefer smaller expressions over larger ones
 
-        unsigned sz1 = get_num_exprs(t1.get_expr());
-        unsigned sz2 = get_num_exprs(t2.get_expr());
-        return sz1 < sz2;
+      if (t1.get_num_args() == 0 || t2.get_num_args() == 0) {
+        if (t1.get_num_args() == t2.get_num_args()) {
+          if (m.is_value(t1.get_expr()) == m.is_value(t2.get_expr()))
+            return t1.get_id() < t2.get_id();
+          return m.is_value(t2.get_expr());
+        }
+        return t1.get_num_args() < t2.get_num_args();
+      }
+
+      // XXX this is the internalized size, not the size with the new
+      // representatives
+      unsigned sz1 = get_num_exprs(t1.get_expr());
+      unsigned sz2 = get_num_exprs(t2.get_expr());
+      return sz1 < sz2;
     }
 
   bool all_children_picked(term* t) {
@@ -861,7 +864,9 @@ namespace mbp {
     r->mk_repr();
   }
 
-  // check if t makes a cycle if chosen as repr
+  // check if t makes a cycle if chosen as repr. This function assumes that the
+  // current repr doesn't have cycles. If there is a cycle in a child class the
+  // function doesn't terminate.
   bool term_graph::makes_cycle(term* t) {
     term&  r = t->get_root();
     ptr_vector<term> todo;
@@ -1588,7 +1593,7 @@ namespace mbp {
     else
       fml = m.mk_and(lits);
 
-    // Remove all variables that are do not apprear in the formula
+    // Remove all variables that are do not appear in the formula
     expr_sparse_mark mark;
     mark_all_sub_expr marker(mark);
     quick_for_each_expr(marker, fml);
