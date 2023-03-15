@@ -404,9 +404,12 @@ namespace mbp {
 
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
-    term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m), m_projector(nullptr) {
-        m_plugins.register_plugin(mbp::mk_basic_solve_plugin(m, m_is_var));
-        m_plugins.register_plugin(mbp::mk_arith_solve_plugin(m, m_is_var));
+    term_graph::term_graph(ast_manager &man)
+        : m(man), m_lits(m), m_pinned(m), m_projector(nullptr),
+          m_explicit_eq(false), m_repick_repr(false) {
+      m_is_var.reset();
+      m_plugins.register_plugin(mbp::mk_basic_solve_plugin(m, m_is_var));
+      m_plugins.register_plugin(mbp::mk_arith_solve_plugin(m, m_is_var));
     }
 
     term_graph::~term_graph() {
