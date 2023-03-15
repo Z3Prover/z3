@@ -12,6 +12,12 @@ Abstract:
 Author:
 
     Arie Gurfinkel
+    Hari Govind V K (hgvk94)
+    Isabel Garcia (igcontreras)
+
+Revision History:
+
+    Added implementation of qe_lite using term graph
 
 Notes:
 
@@ -71,8 +77,6 @@ namespace mbp {
         bool is_internalized(expr *a);
 
         bool term_lt(term const &t1, term const &t2);
-        void pick_root (term &t);
-        void pick_roots();
 
         void reset_marks();
         bool marks_are_clear();

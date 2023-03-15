@@ -12,11 +12,18 @@ Abstract:
 Author:
 
     Arie Gurfinkel
+    Hari Govind V K (hgvk94)
+    Isabel Garcia (igcontreras)
+
+Revision History:
+
+    Added implementation of qe_lite using term graph
 
 Notes:
 
 --*/
 
+#include "ast/ast.h"
 #include "util/util.h"
 #include "util/uint_set.h"
 #include "util/obj_pair_hashtable.h"
@@ -27,6 +34,9 @@ Notes:
 #include "ast/rewriter/th_rewriter.h"
 #include "model/model_evaluator.h"
 #include "qe/mbp/mbp_term_graph.h"
+#include "util/bit_vector.h"
+#include "qe/mbp/mbp_arrays.h"
+#include "ast/array_peq.h"
 
 namespace mbp {
 
@@ -75,6 +85,8 @@ namespace mbp {
         expr_ref m_expr; // NSB: to make usable with exprs
         // -- root of the equivalence class
         term* m_root;
+        // -- representative of the equivalence class
+        term* m_repr;
         // -- next element in the equivalence class (cyclic linked list)
         term* m_next;
         // -- eq class size
@@ -181,22 +193,14 @@ namespace mbp {
             b.m_class_size = 0;
         }
 
-        // -- make this term the root of its equivalence class
-        void mk_root() {
-            if (is_root()) return;
-
-            term *curr = this;
-            do {
-                if (curr->is_root()) {
-                    // found previous root
-                    SASSERT(curr != this);
-                    m_class_size = curr->get_class_size();
-                    curr->m_class_size = 0;
-                }
-                curr->set_root(*this);
-                curr = &curr->get_next();
-            }
-            while (curr != this);
+        // -- make this term the repr of its equivalence class
+        void mk_repr() {
+          term *curr = this;
+          do {
+            curr->set_repr(this);
+            curr = &curr->get_next();
+          }
+          while (curr != this);
         }
 
         std::ostream& display(std::ostream& out) const {
@@ -433,8 +437,8 @@ namespace mbp {
         }
     }
 
-    expr_ref term_graph::mk_app(term const &r) {
-        SASSERT(r.is_root());
+    expr_ref term_graph::mk_app(term &r) {
+      SASSERT(r.is_repr());
 
         if (r.get_num_args() == 0) {
             return expr_ref(r.get_expr(), m);
@@ -455,13 +459,15 @@ namespace mbp {
         term *t = get_term(a);
         if (!t)
             return expr_ref(a, m);
-        else
-            return mk_app(t->get_root());
 
+      else {
+        SASSERT(t->get_repr());
+        return mk_app(*t->get_repr());
+      }
     }
 
-    void term_graph::mk_equalities(term const &t, expr_ref_vector &out) {
-        SASSERT(t.is_root());
+    void term_graph::mk_equalities(term &t, expr_ref_vector &out) {
+        SASSERT(t.is_repr());
         expr_ref rep(mk_app(t), m);
         for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
             expr* mem = mk_app_core(it->get_expr());
@@ -515,27 +521,7 @@ namespace mbp {
         return sz1 < sz2;
     }
 
-    void term_graph::pick_root (term &t) {
-        term *r = &t;
-        for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-            it->set_mark(true);
-            if (term_lt(*it, *r)) { r = it; }
-        }
-
-        // -- if found something better, make it the new root
-        if (r != &t) {
-            r->mk_root();
-        }
     }
-
-    /// Choose better roots for equivalence classes
-    void term_graph::pick_roots() {
-        SASSERT(marks_are_clear());
-        for (term* t : m_terms) {
-            if (!t->is_marked() && t->is_root())
-                pick_root(*t);
-        }
-        reset_marks();
     }
 
     void term_graph::display(std::ostream &out) {
@@ -545,7 +531,6 @@ namespace mbp {
     }
 
     void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
-        pick_roots();
 
         for (expr * a : m_lits) {
             if (is_internalized(a)) {
@@ -554,7 +539,7 @@ namespace mbp {
         }
 
         for (term * t : m_terms) {
-            if (!t->is_root())
+          if (!t->is_repr())
                 continue;
             else if (all_equalities)
                 mk_all_equalities (*t, lits);
