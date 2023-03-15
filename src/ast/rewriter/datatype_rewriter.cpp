@@ -21,7 +21,27 @@ Notes:
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     switch(f->get_decl_kind()) {
-    case OP_DT_CONSTRUCTOR: return BR_FAILED;
+    // cons(head(x), tail(x)) --> x
+    case OP_DT_CONSTRUCTOR: {
+        ptr_vector<func_decl> const *accessors = m_util.get_constructor_accessors(f);
+        SASSERT(num_args == accessors->size());
+        if (num_args >= 1 && is_app(args[0]) && accessors->get(0) == to_app(args[0])->get_decl()) {
+            unsigned i = 1;
+            bool rew = true;
+            expr* t = to_app(args[0])->get_arg(0);
+            for(; i < num_args && rew; i++) {
+                rew = rew && is_app(args[i]) && \
+                             accessors->get(i) == to_app(args[i])->get_decl() && \
+                                 to_app(args[i])->get_arg(0) == t;
+            }
+            if (rew) {
+                result = t;
+                return BR_DONE;
+            }
+            return BR_FAILED;
+        }
+        return BR_FAILED;
+    }
     case OP_DT_RECOGNISER:
         SASSERT(num_args == 1);
         result = m_util.mk_is(m_util.get_recognizer_constructor(f), args[0]);
