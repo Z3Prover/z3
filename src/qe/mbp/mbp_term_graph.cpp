@@ -530,6 +530,11 @@ namespace mbp {
         merge(*internalize_term(a1), *internalize_term(a2));
         merge_flush();
         SASSERT(m_merge.empty());
+        if (!m_explicit_eq) return;
+        expr_ref eq(m.mk_eq(a1, a2), m);
+        term* res = get_term(eq);
+        if (!res)
+          mk_term(eq);
     }
 
     void term_graph::internalize_distinct(expr *d) {
@@ -542,14 +547,27 @@ namespace mbp {
       }
       m_add_deq(ts);
       m_deq_distinct.push_back(ts);
+      if (!m_explicit_eq) return;
+      term* t  = get_term(d);
+      if (!t) mk_term(d);
     }
+
     void term_graph::internalize_deq(expr *a1, expr *a2) {
       // TODO: what do not add disequalities of interpreted terms? (e.g. 1 != 2)
       term *t1 = internalize_term(a1);
       term *t2 = internalize_term(a2);
       m_add_deq(t1, t2);
       m_deq_pairs.push_back({t1, t2});
+      if (!m_explicit_eq) return;
+      expr_ref eq(m.mk_eq(a1, a2), m);
+      term* eq_term = mk_term(eq);
+      eq_term->set_neq_child();
+      expr_ref deq(m.mk_not(eq), m);
+      term* res = get_term(deq);
+      if (!res)
+        mk_term(deq);
     }
+
   void term_graph::internalize_lit(expr * lit) {
         expr *e1 = nullptr, *e2 = nullptr, *ne = nullptr, *v = nullptr;
         if (m.is_eq(lit, e1, e2)) { // internalize equality
@@ -884,11 +902,13 @@ namespace mbp {
 
         for (expr * a : m_lits) {
             if (is_internalized(a)) {
-                lits.push_back (::to_app(mk_app(a)));
+              if (m_explicit_eq && get_term(a)->is_eq_or_neq()) continue;
+              lits.push_back (::to_app(mk_app(a)));
             }
         }
 
         for (term * t : m_terms) {
+          if (t->is_eq_or_neq()) continue;
           if (!t->is_repr())
                 continue;
             else if (all_equalities)
@@ -916,6 +936,7 @@ namespace mbp {
       to_lits(lits, false, repick_repr);
       return mk_and(lits);
     }
+
 
     void term_graph::reset() {
         m_term2app.reset();
@@ -981,11 +1002,11 @@ namespace mbp {
         void solve_core() {
             ptr_vector<term> worklist;
             for (term * t : m_tg.m_terms) {
-                // skip pure terms
-                if (!in_term2app(*t)) {
-                    worklist.push_back(t);
-                    t->set_mark(true);
-                }
+              // skip pure terms
+              if (!in_term2app(*t) && !t->is_eq_or_neq()) {
+                worklist.push_back(t);
+                t->set_mark(true);
+              }
             }
             term_depth td;
             std::sort(worklist.begin(), worklist.end(), td);
@@ -1091,6 +1112,7 @@ namespace mbp {
             m_decl2terms.reset();
             m_decls.reset();
             for (term *t : m_tg.m_terms) {
+	        if (t->is_eq_or_neq()) continue;
                 expr* e = t->get_expr();
                 if (!is_app(e)) continue;
                 if (!is_projected(*t)) continue;
@@ -1200,6 +1222,7 @@ namespace mbp {
         template<bool pure>
         void mk_equalities(expr_ref_vector &res) {
             for (term *t : m_tg.m_terms) {
+	        if (t->is_eq_or_neq()) continue;
                 if (!t->is_root()) continue;
                 if (!m_root2rep.contains(t->get_id())) continue;
                 if (pure)
@@ -1376,6 +1399,7 @@ namespace mbp {
             };
             model::scoped_model_completion _smc(mdl, true);
             for (term *t : m_tg.m_terms) {
+              if (t->is_eq_or_neq()) continue;
                 expr* a = t->get_expr();
                 if (!is_app(a)) 
                     continue;
@@ -1390,6 +1414,7 @@ namespace mbp {
         expr_ref_vector shared_occurrences(family_id fid) {
             expr_ref_vector result(m);
             for (term *t : m_tg.m_terms) {
+              if (t->is_eq_or_neq()) continue;
                 expr* e = t->get_expr();
                 if (e->get_sort()->get_family_id() != fid) continue;
                 for (term * p : term::parents(t->get_root())) {
@@ -1414,6 +1439,7 @@ namespace mbp {
 
             ptr_vector<term> worklist;
             for (term * t : m_tg.m_terms) {
+              if (t->is_eq_or_neq()) continue;
                 worklist.push_back(t);
                 t->set_mark(true);
             }

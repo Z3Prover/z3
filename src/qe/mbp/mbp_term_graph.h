@@ -69,6 +69,7 @@ namespace mbp {
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;
         projector*        m_projector;
+        bool              m_explicit_eq;
         bool              m_repick_repr;
         u_map<expr *>     m_term2app; // any representative change invalidates this cache
         plugin_manager<solve_plugin> m_plugins;
