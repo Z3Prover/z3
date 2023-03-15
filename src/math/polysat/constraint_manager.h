@@ -128,6 +128,9 @@ namespace polysat {
         signed_constraint elem(pdd const& t, pdd const& lo, pdd const& hi);
         signed_constraint elem(pdd const& t, interval const& i);
 
+        signed_constraint t();
+        signed_constraint f();
+
         std::pair<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
         pdd bnot(pdd const& p);

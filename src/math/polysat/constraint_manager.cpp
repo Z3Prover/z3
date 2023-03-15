@@ -338,10 +338,13 @@ namespace polysat {
 
     signed_constraint constraint_manager::elem(pdd const& t, interval const& i) {
         if (i.is_full())
-            return eq(t.manager().zero());
+            return this->t();
         else
             return elem(t, i.lo(), i.hi());
     }
+
+    signed_constraint constraint_manager::t() { return eq(s.sz2pdd(1).mk_val(0)); }
+    signed_constraint constraint_manager::f() { return ~t(); }
 
     /** unsigned quotient/remainder */
     std::pair<pdd, pdd> constraint_manager::quot_rem(pdd const& a, pdd const& b) {

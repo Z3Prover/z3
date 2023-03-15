@@ -83,7 +83,7 @@ namespace polysat {
             if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
             SASSERT(var_queue_invariant());
-            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
+            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); log_lemma_smt2(*m_conflict.build_lemma()); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_repropagate_units()) repropagate_units();
             else if (should_add_pwatch()) add_pwatch();
@@ -1352,53 +1352,7 @@ namespace polysat {
             LOG("    " << lit_pp(*this, lit));
         }
 
-#if ENABLE_LEMMA_VALIDITY_CHECK
-        // Write lemma validity check into an *.smt2 file for soundness debugging.
-        if (clause.is_redundant()) {
-            namespace fs = std::filesystem;
-            static unsigned num_lemma = 0;
-            fs::path filename = std::string("dbg-lemmas/lemma-") + std::to_string(++num_lemma) + ".smt2";
-            if (fs::is_directory(filename.parent_path())) {
-                verbose_stream() << "Writing clause validity check to " << filename << "\n";
-                std::stringstream description;
-                description << "    Name: " << clause.name() << "\n";
-                description << "    Literals:\n";
-                uint_set vars;
-                for (sat::literal lit : clause) {
-                    description << "        " << lit_pp(*this, lit) << "\n";
-                    for (pvar v : lit2cnstr(lit).vars())
-                        vars.insert(v);
-                }
-                bool op_header = false;
-                for (pvar v : vars) {
-                    signed_constraint c = m_constraints.find_op_by_result_var(v);
-                    if (c && !op_header) {
-                        description << "    Relevant op_constraints:\n";
-                        op_header = true;
-                    }
-                    if (c)
-                        description << "        " << c << "\n";
-                }
-                polysat_ast pa(*this);
-                pa.set_status(l_false);
-                pa.set_description(description.str());
-                pa.add(pa.mk_not(pa.mk_clause(clause)));
-                if (pa.is_ok()) {
-                    std::ofstream file(filename);
-                    file << pa;
-                }
-                else {
-                    filename.replace_extension("txt");
-                    std::ofstream file(filename);
-                    file << "Not yet implemented in polysat_ast.cpp:\n\n" << description.str();
-                }
-            }
-            // if (num_lemma == 7)
-            //     std::exit(0);
-            // if (num_lemma == 161)
-            //     std::exit(0);
-        }
-#endif
+        log_lemma_smt2(clause);
 
         SASSERT(!clause.empty());
         m_constraints.store(&clause);
@@ -1662,6 +1616,56 @@ namespace polysat {
         st.update("polysat propagations",    m_stats.m_num_propagations);
         st.update("polysat restarts",        m_stats.m_num_restarts);
         st.update("polysat viable fallback", m_stats.m_num_viable_fallback);
+    }
+
+    void solver::log_lemma_smt2(clause& clause) {
+#if ENABLE_LEMMA_VALIDITY_CHECK
+        // Write lemma validity check into an *.smt2 file for soundness debugging.
+        if (clause.is_redundant()) {
+            namespace fs = std::filesystem;
+            static unsigned num_lemma = 0;
+            fs::path filename = std::string("dbg-lemmas/lemma-") + std::to_string(++num_lemma) + ".smt2";
+            if (fs::is_directory(filename.parent_path())) {
+                verbose_stream() << "Writing clause validity check to " << filename << "\n";
+                std::stringstream description;
+                description << "    Name: " << clause.name() << "\n";
+                description << "    Literals:\n";
+                uint_set vars;
+                for (sat::literal lit : clause) {
+                    description << "        " << lit_pp(*this, lit) << "\n";
+                    for (pvar v : lit2cnstr(lit).vars())
+                        vars.insert(v);
+                }
+                bool op_header = false;
+                for (pvar v : vars) {
+                    signed_constraint c = m_constraints.find_op_by_result_var(v);
+                    if (c && !op_header) {
+                        description << "    Relevant op_constraints:\n";
+                        op_header = true;
+                    }
+                    if (c)
+                        description << "        " << c << "\n";
+                }
+                polysat_ast pa(*this);
+                pa.set_status(l_false);
+                pa.set_description(description.str());
+                pa.add(pa.mk_not(pa.mk_clause(clause)));
+                if (pa.is_ok()) {
+                    std::ofstream file(filename);
+                    file << pa;
+                }
+                else {
+                    filename.replace_extension("txt");
+                    std::ofstream file(filename);
+                    file << "Not yet implemented in polysat_ast.cpp:\n\n" << description.str();
+                }
+            }
+            // if (num_lemma == 7)
+            //     std::exit(0);
+            // if (num_lemma == 161)
+            //     std::exit(0);
+        }
+#endif
     }
 
     bool solver::invariant() {

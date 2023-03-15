@@ -324,6 +324,8 @@ namespace polysat {
 
         bool inc() { return m_lim.inc(); }
 
+        void log_lemma_smt2(clause& clause);
+
         bool invariant();
         static bool invariant(signed_constraints const& cs);
         bool wlist_invariant() const;
@@ -532,8 +534,8 @@ namespace polysat {
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
-        signed_constraint t() { return eq(sz2pdd(1).mk_val(0)); }
-        signed_constraint f() { return ~t(); }
+        signed_constraint t() { return m_constraints.t(); }
+        signed_constraint f() { return m_constraints.f(); }
 
         /** Create and activate constraints */
         void add_eq(pdd const& p,                    dependency dep = null_dependency) { assign_eh(eq(p), dep); }
