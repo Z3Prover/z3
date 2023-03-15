@@ -89,36 +89,80 @@ namespace mbp {
         term* m_repr;
         // -- next element in the equivalence class (cyclic linked list)
         term* m_next;
-        // -- eq class size
-        unsigned m_class_size;
         // -- general purpose mark
         unsigned m_mark:1;
         // -- general purpose second mark
         unsigned m_mark2:1;
         // -- is an interpreted constant
         unsigned m_interpreted:1;
+        // caches whether m_expr is an equality
+        unsigned m_is_eq: 1;
+        // caches whether m_expr is an inequality
+        unsigned m_is_neq: 1;
+        // caches whether m_expr is a distinct
+        unsigned m_is_distinct: 1;
+        // caches whether m_expr is a partial equality
+        unsigned m_is_peq: 1;
+        // caches whether m_expr is the child of not
+        unsigned m_is_neq_child: 1;
 
-        // -- terms that contain this term as a child
+        // -- the term is a compound term can be rewritten to be ground or it is a ground constant
+        unsigned m_cgr:1;
+        // -- the term is ground
+        unsigned m_gr:1;
+
+        // -- terms that contain this term as a child (only maintained for root
+        // nodes)
         ptr_vector<term> m_parents;
 
         // arguments of term.
         ptr_vector<term> m_children;
 
-    public:
-        term(expr_ref const& v, u_map<term*>& app2term) :
-            m_expr(v),
-            m_root(this),
-            m_next(this),
-            m_class_size(1),
-            m_mark(false),
-            m_mark2(false),
-            m_interpreted(false) {
-            if (!is_app(m_expr)) return;
-            for (expr* e : *to_app(m_expr)) {
-                term* t = app2term[e->get_id()];
-                t->get_root().m_parents.push_back(this);
-                m_children.push_back(t);
-            }
+        struct class_props {
+          // TODO: parents should be here
+          // -- the class has a ground representative
+          unsigned m_gr_class : 1;
+          // -- eq class size
+          unsigned m_class_size;
+          // -- disequality sets that the class belongs to
+          term_graph::deqs m_deqs;
+
+          class_props() : m_gr_class(0), m_class_size(1) {}
+          void merge(class_props& b) {
+            m_class_size += b.m_class_size;
+            m_gr_class |= b.m_gr_class;
+            m_deqs |= b.m_deqs; // merge disequalities
+            // -- reset (useful for debugging)
+            b.m_class_size = 0;
+            b.m_gr_class = false;
+            b.m_deqs.reset();
+          }
+          void transfer(class_props &b) {
+            // TODO replace by std::swap of the whole struct?
+            m_class_size = b.m_class_size;
+            b.m_class_size = 0;
+            std::swap(m_deqs, b.m_deqs);
+            m_gr_class = b.m_gr_class;
+            b.m_gr_class = false;
+          }
+         };
+         class_props m_class_props;
+
+      public:
+        term(expr_ref const &v, u_map<term *> &app2term)
+          : m_expr(v), m_root(this), m_repr(nullptr), m_next(this),
+            m_mark(false), m_mark2(false), m_interpreted(false), m_is_eq(m_expr.get_manager().is_eq(m_expr)), m_is_peq(false), m_is_neq_child(false), m_cgr(0), m_gr(0) {
+          m_is_neq =  m_expr.get_manager().is_not(m_expr) && m_expr.get_manager().is_eq(to_app(m_expr)->get_arg(0));
+          m_is_distinct = m_expr.get_manager().is_distinct(m_expr);
+          m_children.reset();
+          if (!is_app(m_expr))
+            return;
+          for (expr *e : *to_app(m_expr)) {
+            term *t = app2term[e->get_id()];
+            t->get_root().m_parents.push_back(this);
+            m_children.push_back(t);
+          }
+          m_is_peq = is_partial_eq(to_app(m_expr));
         }
 
         ~term() {}
@@ -139,7 +183,7 @@ namespace mbp {
             children(term const* _t):t(*_t) {}
             ptr_vector<term>::const_iterator begin() const { return t.m_children.begin(); }
             ptr_vector<term>::const_iterator end() const { return t.m_children.end(); }
-        };        
+        };
 
         // Congruence table hash function is based on
         // roots of children and function declaration.
@@ -163,14 +207,49 @@ namespace mbp {
             return true;
         }
 
+        unsigned deg() const { return m_children.size(); }
         unsigned get_id() const { return m_expr->get_id();}
-
+        bool is_eq_or_neq() const { return m_is_eq || m_is_neq || m_is_distinct; }
+        bool is_eq_or_peq() const { return m_is_eq || m_is_peq; }
+        bool is_neq() const { return m_is_neq; }
+        void set_neq_child() { m_is_neq_child = true; }
+        bool is_neq_child() const { return m_is_neq_child; }
         unsigned get_decl_id() const { return is_app(m_expr) ? to_app(m_expr)->get_decl()->get_id() : m_expr->get_id(); }
 
         bool is_marked() const {return m_mark;}
         void set_mark(bool v){m_mark = v;}
         bool is_marked2() const {return m_mark2;} // NSB: where is this used?
         void set_mark2(bool v){m_mark2 = v;}      // NSB: where is this used?
+
+        bool is_cgr() const {return m_cgr;}
+        void set_cgr(bool v) {m_cgr = v;}
+
+        bool is_gr() const {return m_gr;}
+        void set_gr(bool v) {m_gr = v;}
+
+        bool is_class_gr_root() const { SASSERT(is_root()); return m_class_props.m_gr_class; }
+        void set_class_gr_root(bool v) {SASSERT(is_root()); m_class_props.m_gr_class = v;}
+        bool is_class_gr() const { return m_root->is_class_gr_root(); }
+        void set_class_gr(bool v) { m_root->set_class_gr_root(v); }
+
+
+        bool all_children_ground() {
+          SASSERT(deg() != 0);
+          for (auto c :m_children) {
+            if (!c->is_class_gr()) return false;
+          }
+          return true;
+        }
+
+        void set_mark2_terms_class(bool v) { // TODO: remove
+          if (is_marked2())
+            return;
+          term *curr = this;
+          do {
+            curr->set_mark2(v);
+            curr = &curr->get_next();
+          } while (curr != this);
+        }
 
         bool is_interpreted() const {return m_interpreted;}
         bool is_theory() const { return !is_app(m_expr) || to_app(m_expr)->get_family_id() != null_family_id; }
@@ -181,16 +260,21 @@ namespace mbp {
         term &get_root() const {return *m_root;}
         bool is_root() const {return m_root == this;}
         void set_root(term &r) {m_root = &r;}
+        term *get_repr() { return m_repr; }
+        bool is_repr() const {return m_repr == this;}
+        void set_repr(term *t) {
+          SASSERT(get_root().get_id() == t->get_root().get_id());
+          m_repr = t;
+        }
+        void reset_repr() { m_repr = nullptr; }
         term &get_next() const {return *m_next;}
         void add_parent(term* p) { m_parents.push_back(p); }
 
-        unsigned get_class_size() const {return m_class_size;}
+        unsigned get_class_size() const {return m_class_props.m_class_size;}
 
         void merge_eq_class(term &b) {
-            std::swap(this->m_next, b.m_next);
-            m_class_size += b.get_class_size();
-            // -- reset (useful for debugging)
-            b.m_class_size = 0;
+          std::swap(this->m_next, b.m_next);
+          m_class_props.merge(b.m_class_props);
         }
 
         // -- make this term the repr of its equivalence class
@@ -204,48 +288,54 @@ namespace mbp {
         }
 
         std::ostream& display(std::ostream& out) const {
-            out << get_id() << ": " << m_expr 
-                << (is_root() ? " R" : "") << " - ";
-            term const* r = &this->get_next();
-            while (r != this) {
-                out << r->get_id() << " ";
-                r = &r->get_next();
-            }
-            out << "\n";
-            return out;
+          out << get_id() << ": " << m_expr
+              << (is_repr() ? " R" : "") << (is_gr() ? " G" : "") << (is_class_gr() ? " clsG" : "") << (is_cgr() ? " CG" : "") << " deg:" << deg() << " - ";
+          term const* r = &this->get_next();
+          while (r != this) {
+            out << r->get_id() << " " << (r->is_cgr() ? " CG" : "") << " ";
+            r = &r->get_next();
+          }
+          out << "\n";
+          return out;
         }
+
+        term_graph::deqs &get_deqs() { return m_class_props.m_deqs; }
     };
 
-    static std::ostream& operator<<(std::ostream& out, term const& t) {
-        return t.display(out);
     }
 
-    bool term_graph::is_variable_proc::operator()(const expr * e) const {
-        if (!is_app(e)) return false;
-        const app *a = ::to_app(e);
-        TRACE("qe_verbose", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
-        return
-            a->get_family_id() == null_family_id &&
-            !m_solved.contains(a->get_decl()) &&
-            m_exclude == m_decls.contains(a->get_decl());
+  static std::ostream& operator<<(std::ostream& out, term const& t) {
+    return t.display(out);
+  }
     }
+  bool term_graph::is_variable_proc::operator()(const expr * e) const {
+    if (!is_app(e)) return false;
+    const app *a = ::to_app(e);
+    TRACE("qe_verbose", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
+    return
+      a->get_family_id() == null_family_id &&
+      !m_solved.contains(a->get_decl()) &&
+      m_exclude == m_decls.contains(a->get_decl());
+  }
+  bool term_graph::is_variable_proc::operator()(const term &t) const {
+    return (*this)(t.get_expr());
+  }
 
-    bool term_graph::is_variable_proc::operator()(const term &t) const {
-        return (*this)(t.get_expr());
-    }
-
-    void term_graph::is_variable_proc::set_decls(const func_decl_ref_vector &decls, bool exclude) {
-        reset();
-        m_exclude = exclude;
-        for (auto *d : decls) m_decls.insert(d);
-    }
-    void term_graph::is_variable_proc::mark_solved(const expr *e) {
-        if ((*this)(e) && is_app(e))
-            m_solved.insert(::to_app(e)->get_decl());
-    }
+  void term_graph::is_variable_proc::set_decls(const func_decl_ref_vector &decls, bool exclude) {
+    reset();
+    m_exclude = exclude;
+    for (auto *d : decls) m_decls.insert(d);
+  }
 
 
-    unsigned term_graph::term_hash::operator()(term const* t) const { return t->get_hash(); }
+
+  void term_graph::is_variable_proc::mark_solved(const expr *e) {
+    if ((*this)(e) && is_app(e))
+      m_solved.insert(::to_app(e)->get_decl());
+  }
+
+
+  unsigned term_graph::term_hash::operator()(term const* t) const { return t->get_hash(); }
 
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
@@ -495,6 +585,13 @@ namespace mbp {
         }
     }
 
+    void term_graph::reset_marks2() {
+        for (term *t : m_terms) {
+            t->set_mark2(false);
+        }
+    }
+
+
     bool term_graph::marks_are_clear() {
         for (term * t : m_terms) {
             if (t->is_marked()) return false;
@@ -526,11 +623,11 @@ namespace mbp {
     }
     }
 
-    void term_graph::display(std::ostream &out) {
-        for (term * t : m_terms) {
-            out << *t;
-        }
+  void term_graph::display(std::ostream &out) {
+    for (term * t : m_terms) {
+      out << *t;
     }
+  }
 
     void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
 
@@ -1102,8 +1199,6 @@ namespace mbp {
 
     };
 
-    void term_graph::set_vars(func_decl_ref_vector const& decls, bool exclude) {
-        m_is_var.set_decls(decls, exclude);
     }
 
     expr_ref_vector term_graph::project() {
@@ -1286,4 +1381,5 @@ namespace mbp {
         return result;
     }
 
+}
 }
