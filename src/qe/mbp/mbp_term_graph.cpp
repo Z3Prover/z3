@@ -466,6 +466,7 @@ namespace mbp {
         return m_app2term.find (a->get_id(), res) ? res : nullptr;
     }
 
+
     term *term_graph::mk_term(expr *a) {
         expr_ref e(a, m);
         term * t = alloc(term, e, m_app2term);
@@ -579,18 +580,18 @@ namespace mbp {
           internalize_term(lit);
         }
         if (is_pure_def(lit, v)) {
-            m_is_var.mark_solved(v);
+          m_is_var.mark_solved(v);
         }
-    }
+      }
 
-    void term_graph::merge_flush() {
+      void term_graph::merge_flush() {
         while (!m_merge.empty()) {
             term* t1 = m_merge.back().first;
             term* t2 = m_merge.back().second;
             m_merge.pop_back();
             merge(*t1, *t2);
         }
-    }
+      }
 
     void term_graph::merge(term &t1, term &t2) {
         term *a = &t1.get_root();
@@ -607,13 +608,14 @@ namespace mbp {
             std::swap(a, b);
         }
 
-        // Remove parents of b from the cg table.
-        for (term* p : term::parents(b)) {
-            if (!p->is_marked()) {
-                p->set_mark(true);
-                m_cg_table.erase(p);
-            }
+        // Remove parents of b from the cg table
+        for (term *p : term::parents(b)) {
+          if (!p->is_marked()) {
+            p->set_mark(true);
+            m_cg_table.erase(p);
+          }
         }
+
         bool prop_cgroundness = (b->is_class_gr() != a->is_class_gr());
         // make 'a' be the root of the equivalence class of 'b'
         b->set_root(*a);
@@ -624,19 +626,21 @@ namespace mbp {
         // merge equivalence classes
         a->merge_eq_class(*b);
 
-        // Insert parents of b's old equilvalence class into the cg table
-        for (term* p : term::parents(b)) {
-            if (p->is_marked()) {
-                term* p_old = m_cg_table.insert_if_not_there(p);
-                p->set_mark(false);
-                a->add_parent(p);
-                // propagate new equalities.
-                if (p->get_root().get_id() != p_old->get_root().get_id()) {
-                    m_merge.push_back(std::make_pair(p, p_old));
-                }
+        // Insert parents of b's old equivalence class into the cg table
+        // bottom-up merge of parents
+        for (term *p : term::parents(b)) {
+          if (p->is_marked()) {
+            term* p_old = m_cg_table.insert_if_not_there(p);
+            p->set_mark(false);
+            a->add_parent(p);
+            // propagate new equalities.
+            if (p->get_root().get_id() != p_old->get_root().get_id()) {
+              m_merge.push_back(std::make_pair(p, p_old));
             }
+          }
         }
         if (prop_cgroundness) cground_percolate_up(a);
+
         SASSERT(marks_are_clear());
     }
 
@@ -749,7 +753,7 @@ namespace mbp {
 
     bool term_graph::marks_are_clear() {
         for (term * t : m_terms) {
-            if (t->is_marked()) return false;
+          if (t->is_marked()) return false;
         }
         return true;
     }
@@ -934,11 +938,11 @@ namespace mbp {
         for (term * t : m_terms) {
           if (t->is_eq_or_neq()) continue;
           if (!t->is_repr())
-                continue;
-            else if (all_equalities)
-                mk_all_equalities (*t, lits);
-            else
-                mk_equalities(*t, lits);
+            continue;
+          else if (all_equalities)
+            mk_all_equalities (*t, lits);
+          else
+            mk_equalities(*t, lits);
         }
 
         //TODO: use seen to prevent duplicate disequalities
