@@ -560,6 +560,7 @@ namespace mbp {
         // -- merge might invalidate term2app cache
         m_term2app.reset();
         m_pinned.reset();
+        m_repick_repr = true;
 
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
@@ -572,6 +573,7 @@ namespace mbp {
                 m_cg_table.erase(p);
             }
         }
+        bool prop_cgroundness = (b->is_class_gr() != a->is_class_gr());
         // make 'a' be the root of the equivalence class of 'b'
         b->set_root(*a);
         for (term *it = &b->get_next(); it != b; it = &it->get_next()) {
@@ -593,6 +595,7 @@ namespace mbp {
                 }
             }
         }
+        if (prop_cgroundness) cground_percolate_up(a);
         SASSERT(marks_are_clear());
     }
 
@@ -641,6 +644,7 @@ namespace mbp {
 
     void term_graph::mk_equalities(term &t, expr_ref_vector &out) {
         SASSERT(t.is_repr());
+        if(t.get_class_size() == 1) return;
         expr_ref rep(mk_app(t), m);
         for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
             expr* mem = mk_app_core(it->get_expr());
@@ -705,8 +709,116 @@ namespace mbp {
         return sz1 < sz2;
     }
 
+  bool all_children_picked(term* t) {
+    if (t->deg() == 0) return true;
+    for (term* c : term::children(t)) {
+      if (!c->get_repr()) return false;
     }
+    return true;
+  }
+
+  //pick representatives for all terms in todo. Then, pick representatives for
+  //all terms whose children have representatives
+  void term_graph::pick_repr_percolate_up(ptr_vector<term>& todo) {
+    term* t;
+    while(!todo.empty()) {
+      t = todo.back();
+      todo.pop_back();
+      if (t->get_repr()) continue;
+      pick_repr_class(t);
+      for (auto it : term::parents(t->get_root()))
+        if (all_children_picked(it)) todo.push_back(it);
     }
+  }
+
+  //iterate through all terms in a class and pick a representative that:
+  // 1. is cgr and 2. least according to term_lt
+  void term_graph::pick_repr_class(term *t) {
+    SASSERT(all_children_picked(t));
+    term *r = t;
+    for (term *it = &t->get_next(); it != t; it = &it->get_next()) {
+      if (!all_children_picked(it)) continue;
+      if ((it->is_cgr() && !r->is_cgr()) ||
+          (it->is_cgr() == r->is_cgr() && term_lt(*it, *r)))
+        r = it;
+    }
+    r->mk_repr();
+  }
+
+  // Choose repr for equivalence classes
+  // repr has the following properties:
+  // 1. acyclicity (mk_app terminates)
+  // 2. maximal wrt cgr
+  // 3. each class has exactly one repr
+  // assumes that cgroundness has been computed
+  void term_graph::pick_repr() {
+    //invalidates cache
+    m_term2app.reset();
+    DEBUG_CODE(for (term* t : m_terms) SASSERT(t->deg() == 0 || !t->all_children_ground() || t->is_cgr()););
+    for (term* t : m_terms) t->reset_repr();
+    ptr_vector<term> todo;
+    for (term *t : m_terms) {
+      if (t->deg() == 0 && t->is_cgr())
+        todo.push_back(t);
+    }
+    pick_repr_percolate_up(todo);
+    DEBUG_CODE(for (term* t : m_terms) SASSERT(!t->is_cgr() || t->get_repr()););
+
+    for (term *t : m_terms) {
+      if (t->get_repr()) continue;
+      if (t->deg() == 0)
+        todo.push_back(t);
+    }
+    pick_repr_percolate_up(todo);
+    DEBUG_CODE(for (term* t : m_terms) SASSERT(t->get_repr()););
+    DEBUG_CODE(for(auto t : m_terms) SASSERT(!t->is_cgr() || t->get_repr()->is_cgr()););
+  }
+
+  // if t is a variable, attempt to pick non-var
+  void term_graph::refine_repr_class(term* t) {
+    SASSERT(t->is_repr());
+    auto is_var = [&] (term *p) {
+      SASSERT(is_app(p->get_expr()));
+      return m_is_var.contains(to_app(p->get_expr())->get_decl());
+    };
+    if (!is_var(t)) return;
+    term *r = t;
+    for (term *it = &t->get_next(); it != t; it = &it->get_next()) {
+      if (makes_cycle(it)) continue;
+      if (is_var(r) && !is_var(it))
+        r = it;
+    }
+    r->mk_repr();
+  }
+
+  // check if t makes a cycle if chosen as repr
+  bool term_graph::makes_cycle(term* t) {
+    term&  r = t->get_root();
+    ptr_vector<term> todo;
+    for(auto* it : term::children(t)) {
+      todo.push_back(it->get_repr());
+    }
+    term* it;
+    while(!todo.empty()) {
+      it = todo.back();
+      todo.pop_back();
+      if (it->get_root().get_id() == r.get_id()) return true;
+      for(auto* ch : term::children(it)) {
+        todo.push_back(ch->get_repr());
+      }
+    }
+    return false;
+  }
+
+  void term_graph::refine_repr() {
+    //invalidates cache
+    m_term2app.reset();
+    for (term* t : m_terms) {
+      if (!t->get_repr()->is_cgr())
+        refine_repr_class(t->get_repr());
+    }
+  }
+
   //returns true if tg ==> e = v where v is a value
   bool term_graph::has_val_in_class(expr *e) {
     term* r = get_term(e);
@@ -740,7 +852,11 @@ namespace mbp {
     }
   }
 
-    void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
+
+  void term_graph::to_lits(expr_ref_vector & lits, bool all_equalities,
+                               bool repick_repr) {
+        if (m_repick_repr || repick_repr)
+          pick_repr();
 
         for (expr * a : m_lits) {
             if (is_internalized(a)) {
@@ -758,10 +874,10 @@ namespace mbp {
         }
     }
 
-    expr_ref term_graph::to_expr() {
-        expr_ref_vector lits(m);
-        to_lits(lits);
-        return mk_and(lits);
+    expr_ref term_graph::to_expr(bool repick_repr) {
+      expr_ref_vector lits(m);
+      to_lits(lits, false, repick_repr);
+      return mk_and(lits);
     }
 
     void term_graph::reset() {
@@ -1504,6 +1620,52 @@ namespace mbp {
         TRACE("qe", tout << result << "\n";);
         return result;
     }
+
+  void term_graph::cground_percolate_up(term* t) {
+    SASSERT(t->is_class_gr());
+    term* it = t;
+    //there is a cgr term in all ground classes
+    while(!it->is_cgr()) {
+      it = &it->get_next();
+      SASSERT(it != t);
+    }
+
+    ptr_vector<term> todo;
+    todo.push_back(it);
+    cground_percolate_up(todo);
+  }
+
+  void term_graph::cground_percolate_up(ptr_vector<term>& todo) {
+    term *t;
+
+    while (!todo.empty()) {
+      t = todo.back();
+      todo.pop_back();
+      t->set_cgr(true);
+      t->set_class_gr(true);
+      for (auto p : term::parents(t->get_root()))
+        if (!p->is_cgr() && p->all_children_ground()) todo.push_back(p);
+    }
+  }
+
+  void term_graph::compute_cground() {
+    for (auto t : m_terms) {
+      t->set_cgr(false);
+      t->set_class_gr(false);
+    }
+    ptr_vector<term> todo;
+    for (auto t : m_terms) {
+      if (t->is_gr()) {
+        todo.push_back(t);
+      }
+    }
+    cground_percolate_up(todo);
+    DEBUG_CODE(for (auto t : m_terms) {
+      bool isclsg = true;
+      for (auto c : term::children(t)) isclsg &= c->is_class_gr();
+      SASSERT(t->deg() == 0 || !isclsg || t->is_cgr());
+      SASSERT(t->deg() ==0 || isclsg || !t->is_cgr());
+    });
 
 }
 }

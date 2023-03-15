@@ -69,6 +69,7 @@ namespace mbp {
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;
         projector*        m_projector;
+        bool              m_repick_repr;
         u_map<expr *>     m_term2app; // any representative change invalidates this cache
         plugin_manager<solve_plugin> m_plugins;
         ptr_hashtable<term, term_hash, term_eq> m_cg_table;
@@ -90,6 +91,9 @@ namespace mbp {
         bool is_ground(expr *e);
 
         bool term_lt(term const &t1, term const &t2);
+        void pick_repr_percolate_up(ptr_vector<term>& todo);
+        void pick_repr_class (term *t);
+        void pick_repr();
 
         void reset_marks();
         void reset_marks2();
@@ -104,8 +108,12 @@ namespace mbp {
         void display(std::ostream &out);
 
         bool is_pure_def(expr* atom, expr *& v);
-        
-    public:
+        void cground_percolate_up(ptr_vector<term>&);
+        void cground_percolate_up(term* t);
+        void compute_cground();
+
+
+      public:
         term_graph(ast_manager &m);
         ~term_graph();
 
@@ -123,8 +131,9 @@ namespace mbp {
         void reset();
 
         // deprecate?
-        void to_lits(expr_ref_vector &lits, bool all_equalities = false);
-        expr_ref to_expr();
+        void to_lits(expr_ref_vector &lits, bool all_equalities = false,
+                     bool repick_repr = true);
+        expr_ref to_expr(bool repick_repr = true);
 
         /**
          * Return literals obtained by projecting added literals
