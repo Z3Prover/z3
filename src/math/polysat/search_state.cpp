@@ -101,13 +101,25 @@ namespace polysat {
         return false;
     }
 
-    void search_state::push_assignment(pvar p, rational const& r) {
-        m_items.push_back(search_item::assignment(p));
-        m_assignment.push(p, r);
+    void search_state::push_assignment(pvar v, rational const& r) {
+        m_pvar_to_idx.setx(v, m_items.size(), UINT_MAX);
+        m_items.push_back(search_item::assignment(v));
+        m_assignment.push(v, r);
     }
 
     void search_state::push_boolean(sat::literal lit) {
+        m_bool_to_idx.setx(lit.var(), m_items.size(), UINT_MAX);
         m_items.push_back(search_item::boolean(lit));
+    }
+
+    unsigned search_state::get_pvar_index(pvar v) const {
+        SASSERT(s.is_assigned(v));
+        return m_pvar_to_idx[v];
+    }
+
+    unsigned search_state::get_bool_index(sat::bool_var var) const {
+        SASSERT(s.m_bvars.is_assigned(var));
+        return m_bool_to_idx[var];
     }
 
     void search_state::pop() {

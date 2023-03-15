@@ -380,8 +380,9 @@ namespace polysat {
 #endif
 
         if (!has_decision) {
+            unsigned const eval_idx = s.m_search.get_bool_index(lit);
             for (pvar v : c->vars()) {
-                if (s.is_assigned(v) && s.get_level(v) <= lvl) {
+                if (s.is_assigned(v) && s.m_search.get_pvar_index(v) <= eval_idx) {
                     m_vars.insert(v);
 // TODO - figure out what to do with constraints from conflict lemma that disappear here.
 //                    if (s.m_bvars.is_false(lit))

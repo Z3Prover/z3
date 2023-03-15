@@ -51,6 +51,10 @@ namespace polysat {
         vector<search_item> m_items;
         assignment          m_assignment;
 
+        // store index into m_items
+        unsigned_vector     m_pvar_to_idx;
+        unsigned_vector     m_bool_to_idx;
+
         bool value(pvar v, rational& r) const;
 
     public:
@@ -67,9 +71,13 @@ namespace polysat {
         //       (update on set_resolved? might be one iteration too early, looking at the old solver::resolve_conflict loop)
         substitution const& unresolved_assignment(unsigned sz) const;
 
-        void push_assignment(pvar p, rational const& r);
+        void push_assignment(pvar v, rational const& r);
         void push_boolean(sat::literal lit);
         void pop();
+
+        unsigned get_pvar_index(pvar v) const;
+        unsigned get_bool_index(sat::bool_var var) const;
+        unsigned get_bool_index(sat::literal lit) const { return get_bool_index(lit.var()); }
 
         void set_resolved(unsigned i) { m_items[i].set_resolved(); }
 
