@@ -86,6 +86,8 @@ namespace mbp {
         term *internalize_term(expr *t);
         void internalize_eq(expr *a1, expr *a2);
         void internalize_lit(expr *lit);
+        void internalize_distinct(expr *d);
+        void internalize_deq(expr *a1, expr *a2);
 
         bool is_internalized(expr *a);
         bool is_ground(expr *e);
@@ -127,6 +129,7 @@ namespace mbp {
         void add_lit(expr *lit);
         void add_lits(expr_ref_vector const &lits) { for (expr* e : lits) add_lit(e); }
         void add_eq(expr* a, expr* b) { internalize_eq(a, b); }
+        void add_deq(expr* a, expr* b) { internalize_deq(a, b); }
 
         void reset();
 

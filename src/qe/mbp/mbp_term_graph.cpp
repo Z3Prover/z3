@@ -529,13 +529,34 @@ namespace mbp {
         SASSERT(m_merge.empty());
     }
 
-    void term_graph::internalize_lit(expr* lit) {
-        expr *e1 = nullptr, *e2 = nullptr, *v = nullptr;
-        if (m.is_eq (lit, e1, e2)) {
-            internalize_eq (e1, e2);
-        }
-        else {
-            internalize_term(lit);
+    void term_graph::internalize_distinct(expr *d) {
+      app *a = to_app(d);
+      ptr_vector<term> ts(a->get_decl()->get_arity());
+      auto tsit = ts.begin();
+      for (auto arg : *a) {
+        *tsit = internalize_term(arg);
+        tsit++;
+      }
+      m_add_deq(ts);
+      m_deq_distinct.push_back(ts);
+    }
+    void term_graph::internalize_deq(expr *a1, expr *a2) {
+      // TODO: what do not add disequalities of interpreted terms? (e.g. 1 != 2)
+      term *t1 = internalize_term(a1);
+      term *t2 = internalize_term(a2);
+      m_add_deq(t1, t2);
+      m_deq_pairs.push_back({t1, t2});
+    }
+  void term_graph::internalize_lit(expr * lit) {
+        expr *e1 = nullptr, *e2 = nullptr, *ne = nullptr, *v = nullptr;
+        if (m.is_eq(lit, e1, e2)) { // internalize equality
+          internalize_eq(e1, e2);
+        } else if (m.is_distinct(lit)) {
+          internalize_distinct(lit);
+        } else if (m.is_not(lit, ne) && m.is_eq(ne, e1, e2)) {
+          internalize_deq(e1, e2);
+        } else {
+          internalize_term(lit);
         }
         if (is_pure_def(lit, v)) {
             m_is_var.mark_solved(v);
@@ -871,6 +892,19 @@ namespace mbp {
                 mk_all_equalities (*t, lits);
             else
                 mk_equalities(*t, lits);
+        }
+
+        //TODO: use seen to prevent duplicate disequalities
+        for (auto p : m_deq_pairs) {
+          lits.push_back(mk_neq(m, mk_app(p.first->get_expr()),
+                                mk_app(p.second->get_expr())));
+        }
+
+        for (auto t : m_deq_distinct) {
+          ptr_vector<expr> args(t.size());
+          for (auto c : t)
+            args.push_back(mk_app(c->get_expr()));
+          lits.push_back(m.mk_distinct(args.size(), args.data()));
         }
     }
 
