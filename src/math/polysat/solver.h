@@ -106,6 +106,7 @@ namespace polysat {
 
         // TODO: Why so many friends? Can't we just make the relevant functions public?
         friend class assignment;
+        friend class bool_var_manager;
         friend class constraint;
         friend class ule_constraint;
         friend class umul_ovfl_constraint;

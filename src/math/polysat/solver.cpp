@@ -42,7 +42,7 @@ namespace polysat {
         m_simplify_clause(*this),
         m_simplify(*this),
         m_restart(*this),
-        m_bvars(),
+        m_bvars(*this),
         m_free_pvars(m_activity),
         m_constraints(*this),
         m_search(*this) {
@@ -499,7 +499,7 @@ namespace polysat {
         // - false literal, propagated at higher level than lit
         //   (may happen if a clause has been generated that propagated lit at a lower than current level)
         unsigned i = cl.size();
-        uint64_t i_lvl = m_bvars.level(lit);
+        uint64_t i_lvl = m_bvars.get_watch_level(~lit);
         for (unsigned j = 2; j < cl.size(); ++j) {
             uint64_t j_lvl = m_bvars.get_watch_level(cl[j]);
             if (i_lvl < j_lvl) {
@@ -1794,10 +1794,10 @@ namespace polysat {
         }
         // Check watch literal invariant for long clauses:
         // - true literals may always be watched
-        // - if at least one true literal is watched, the clause is fine
-        // - otherwise, a literal may only be watched if there is no unwatched literal at higher level.
+        // - if at least one true literal is watched, the clause is fine ... (or at least, we cannot detect violations because we do not update watches after a true literal is watched)
+        // - otherwise, a literal may only be watched if there is no unwatched literal at higher search-queue-index.
         auto const get_watch_level = [&](sat::literal lit) -> unsigned {
-            return m_bvars.is_false(lit) ? m_bvars.level(lit) : UINT_MAX;
+            return m_bvars.is_false(lit) ? m_search.get_bool_index(lit) : UINT_MAX;
         };
         for (clause const& cl : m_constraints.clauses()) {
             if (cl.size() <= 2)
@@ -1813,7 +1813,7 @@ namespace polysat {
             for (unsigned i = 2; i < cl.size(); ++i)
                 lvl_tail = std::max(lvl_tail, get_watch_level(cl[i]));
             if (lvl_cl0 < lvl_tail || lvl_cl1 < lvl_tail) {
-                verbose_stream() << "Broken constraint on levels of watched literals of clause: " << cl << "\n";
+                verbose_stream() << "Broken constraint on index of watched literals of clause: " << cl << "\n";
                 for (sat::literal lit : cl) {
                     verbose_stream() << "    " << lit_pp(*this, lit);
                     if (count(m_bvars.watch(lit), &cl) != 0)

@@ -12,6 +12,7 @@ Author:
 --*/
 #include "math/polysat/boolean.h"
 #include "math/polysat/clause.h"
+#include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 
 namespace polysat {
@@ -131,14 +132,14 @@ namespace polysat {
     }
 
     /**
-     * A literal may be watched if there is no unwatched literal at higher level,
+     * A literal may be watched if there is no unwatched literal that has been assigned later,
      * where true and unassigned literals are considered at infinite level.
      * We prefer true literals to unassigned literals.
      */
     uint64_t bool_var_manager::get_watch_level(sat::literal lit) const {
         switch (value(lit)) {
             case l_false:
-                return level(lit);
+                return s.m_search.get_bool_index(lit);
             case l_true:
                 return std::numeric_limits<uint64_t>::max();
             case l_undef:

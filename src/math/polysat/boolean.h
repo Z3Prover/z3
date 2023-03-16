@@ -15,6 +15,8 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     class bool_var_manager {
 
         enum class kind_t {
@@ -28,6 +30,7 @@ namespace polysat {
             evaluation,
         };
 
+        solver&                     s;
         svector<sat::bool_var>      m_unused;   // previously deleted variables that can be reused by new_var();
         svector<lbool>              m_value;    // current value (indexed by literal)
         unsigned_vector             m_level;    // level of assignment (indexed by variable)
@@ -41,7 +44,7 @@ namespace polysat {
         bool invariant(sat::literal lit) const { return invariant(lit.var()); }
 
     public:
-        bool_var_manager() {}
+        bool_var_manager(solver& s): s(s) {}
 
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
