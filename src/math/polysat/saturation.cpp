@@ -1473,184 +1473,6 @@ namespace polysat {
         return s.m_viable.has_lower_bound(x, bound, x_ge_bound);
     }
 
-    /*
-     * Bounds propagation for base case ax <= y
-     * where
-     *  & y <= u_y
-     *  & 0 < x <= u_x
-     *
-     * Special case for interval including -1
-     * Compute max n, such that a \not\in [-n,0[ is implied, then 
-     *
-     * => a < -n
-     * Claim n = floor(- u_y / u_x), 
-     * - provided n != 0
-     *
-     * Justification: for a1 in [1,n[ :
-     *        0 < a1*x <= floor (- u_y / u_x) * u_x
-     *                 <= - u_y
-     * and therefore for a1 in [-n-1:0[ :
-     *        u_y < a1*x < 0
-     *
-     * 
-     * Bounds case for additive case ax - b <= y
-     * where
-     *  & y <= u_y
-     *  & b <= u_b
-     *  & u_y + u_b does not overflow (implies y + b >= y)
-     *  => ax - b + b <= y + b
-     *  => ax <= y + b
-     *  => ax <= u_y + u_b
-     * 
-     * Base case for additive case ax + b <= y
-     * where
-     *  & y <= u_y
-     *  & b >= l_b
-     *  & ax + b >= b 
-     * 
-     *  => ax + b - b <= y - b
-     *  => ax <= y - b
-     *  => ax <= u_y - l_b
-     * 
-     * TODO - deal with side condition ax + b >= b?
-     * It requires that ax + b does not overflow
-     * If the literal is already assigned, we are fine, otherwise?
-     * 
-
-     * Bench 23
-     * CONFLICT #474: viable_interval v43
-     * Forbidden intervals for v43: 
-     * [0 ; 1[ := [0;1[  v43 != 0; 
-     * [1 ; 254488108213881748183672494524588808468725241023385855031774909907501383825[ := [1;254488108213881748183672494524588808468725241023385855031774909907501383825[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
-     * [2^128 ; 0[ := [340282366920938463463374607431768211456;0[  v43 <= 2^128-1; -1 * v43 [0 ; 1[ := [-1;-455[ v97 + -454 == 0 -1*v43 <= -1*v97*v43 + -1*v43 + 1; 
-     * -13: v43 != 0
-     * 1778: -1*v43 <= -1*v97*v43 + -1*v43 + 1
-     * 1242: v43 <= 2^128-1
-     * v97 := 454
-     *
-     * Analysis
-     * x >= x*y + x - 1 = (y + 1)*x - 1
-     * A_x : 1 <= x < 2^128   (A_x is the "allowed" range for x, F_x, the forbidden range is the complement)
-     * Compute largest infeasible interval on y
-     * => F_y = [2, 2^128 + 1[
-     * 
-     * starting point y0 := 454
-     *
-     * consider the equation p(x,y) < q(x,y) where
-     *
-     * p(x, y) = x
-     * for every x in A_x : 0 <= p(x,y0) < N, where N is shorthand for 2^256
-     *
-     * q(x, y) = x*y + x - 1
-     * for every x in A_x : 0 <= q(x,y0) < N
-     * So we can form:
-     * r(x,y) = q(x, y) - p(x, y) = x*y - 1
-     * for every x in A_x : 0 < r(x, y0) = x*y0 - 1 < N
-
-     * find F_y, maximal such that
-     * for every x in A_x, for every y in F_y : 0 < r(x,y) < N, 0 <= p(x,y) < N, 0 <= q(x,y) < N
-     * 
-     * Use the fact that the coefficiens to x, y in p, q, r are non-negative
-     * Note: There isn't ereally anything as negative coefficients because they are already normalized mod N.
-     * Then p, q, r are monotone functions of x, y. Evaluate at x_max, x_min
-     * Note: If A_x wraps around, then set set x_max := x_max + N to ensure that x_min < x_max.
-     * Then it could be that the intervals for p, q are not 0 .. N but shifted. Subtract/add the shift amount.
-     * 
-     * It could be that p or q overflow 0 .. N on y0. In this case give up (or come up with something smarter).
-     * 
-     *    max y.  r(x,y) < N forall x in A_x
-     * =  max y . r(x_max,y) < N, where x_max = 2^128-1
-     * =  max y . y*x_max - 1 <= N - 1
-     * =  floor(N / x_max)
-     * =  2^128  + 1
-     * 
-     *    max y . q(x, y) < N
-     * =  max y . (y + 1) * x_max - 1 <= N -1
-     * =  floor(N / x_max) - 1
-     * =  2^128                     
-     * 
-     *    min y . 0 < r(x,y) forall x in A_x
-     * =  min y . 0 < r(x_min, y)
-     * =  min y . 1 <= y*x_min - 1
-     * =  ceil(2 / x_min)
-     * =  2
-     * 
-     * we have now computed a range around y0 where x >= x*y + x - 1 is false for every x in A_x
-     * The range is a "forbidden interval" for y and is implied. It is much stronger than resolving on y0.
-     *
-     */
-    
-    bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
-        if (try_add_mul_bound2(x, core, a_l_b))
-            return true;
-        
-        set_rule("[x] ax + b <= y, ... => a >= u_a");
-        auto& m = s.var2pdd(x);        
-        pdd const X = s.var(x);
-        pdd a = s.var(x);
-        pdd b = a, c = a, y = a;
-        rational a_val, b_val, c_val, y_val, x_bound;
-        vector<signed_constraint> x_le_bound, x_ge_bound;
-        signed_constraint b_bound;
-        if (is_AxB_l_Y(x, a_l_b, a, b, y) && !a.is_val() && s.try_eval(y, y_val) && s.try_eval(b, b_val) && s.try_eval(a, a_val) && !y_val.is_zero()) {
-            IF_VERBOSE(2, verbose_stream() << "v" << x << ": " << a_l_b << "   a " << a << " := " << dd::val_pp(m, a_val, false) << "  b " << b << " := " << dd::val_pp(m, b_val, false) << "   y " << y << " := " << dd::val_pp(m, y_val, false) << "\n");
-            SASSERT(!a.is_zero());
-
-            // define c := -b
-            c = -b;
-            VERIFY(s.try_eval(c, c_val));
-
-            if (has_upper_bound(x, core, x_bound, x_le_bound) && !x_le_bound.contains(a_l_b.as_signed_constraint())) {
-                // ax - c <= y
-                // ==>  ax <= y + c                              if int(y) + int(c) <= 2^N, y <= int(y), c <= int(c)
-                // ==>  a not in [-floor(-int(y+c) / int(x), 0[
-                // ==>  -a >= floor(-int(y+c) / int(x)
-                if (c_val + y_val <= m.max_value() && x_bound != 0) {
-                    auto bound = floor((m.two_to_N() - y_val - c_val) / x_bound);
-                    m_lemma.reset();
-                    for (auto c : x_le_bound)
-                        m_lemma.insert_eval(~c);               // x <= x_bound
-                    m_lemma.insert_eval(~s.ule(c, c_val));      // c <= c_val
-                    m_lemma.insert_eval(~s.ule(y, y_val));      // y <= y_val
-                    auto conclusion = s.uge(-a, bound);         // ==>  -a >= bound
-                    IF_VERBOSE(2, 
-                               verbose_stream() << core << "\n";
-                               verbose_stream() << "& " << X << " <= " << dd::val_pp(m, x_bound, false) << " := " << x_le_bound << "\n";
-                               verbose_stream() << "& " << s.ule(c, c_val) << "\n";
-                               verbose_stream() << "& " << s.ule(y, y_val) << "\n";
-                               verbose_stream() << "==> " << -a << " >= " << dd::val_pp(m, bound, false) << "\n");
-                    // this is broken!
-                    // creates e.g. the "conflict":
-                    //     78: -1*v7*v1 <= 7                   [ b:l_true  p:l_true  eval@0 pwatched ]
-                    //     93: v7 <= 7                         [ b:l_true  p:l_true  eval@0 pwatched ]
-                    //    -94: 8 > v1                          [ b:l_true  p:l_true  eval@0 pwatched ]
-                    // As lemma:
-                    //    -1*v7*v1 <= 7  &  v7 <= 7  ==>  8 <= v1
-                    //    need to add at least v1 != 0 | v7 != 0 to the conclusion?
-                    //    (assignment v1 := 0, v7 := 0; so there is no need to propagate anything as the constraint is satisfied anyway.)
-                    // Anyway, disable for now as the new bounds propagation should eventually cover this
-                    if (false && propagate(x, core, a_l_b, conclusion)) {
-                        verbose_stream() << "TODO: bound not covered by new impl\n";
-                        std::abort();
-                        return true;
-                    }
-                }
-                // verbose_stream() << "TODO bound 1 " << a_l_b << " " << x_ge_bound << " " << b << " " << b_val << " " << y << "\n";
-            }
-#if 0
-            if (has_lower_bound(x, core, x_bound, x_le_bound) && !x_le_bound.contains(a_l_b.as_signed_constraint())) {
-                
-                // verbose_stream() << "TODO bound 2 " << a_l_b << " " << x_le_bound << "\n";
-            }
-#endif
-        }
-        if (is_Y_l_AxB(x, a_l_b, y, a, b) && y.is_val() && s.try_eval(b, b_val)) {
-            // verbose_stream() << "TODO bound 3 " << a_l_b << "\n";
-        }
-        return false;
-    }
-
-
     rational saturation::round(rational const& M, rational const& x) {
         SASSERT(0 <= x && x < M);
         if (x + M/2 > M)
@@ -1951,7 +1773,7 @@ namespace polysat {
     }
 
     // wip - outline of what should be a more general approach
-    bool saturation::try_add_mul_bound2(pvar x, conflict& core, inequality const& a_l_b) {
+    bool saturation::try_add_mul_bound(pvar x, conflict& core, inequality const& a_l_b) {
         set_rule("[x] mul-bound2 ax + b <= y, ... => a >= u_a");
 
         // comment out for dev
@@ -1993,6 +1815,11 @@ namespace polysat {
             return false;
         if (x_min > x_max)
             x_min -= M;
+        // else if (m.max_value() - x_max < x_min) {
+        //     TODO: deal with large x values like this?
+        //     x_min -= M;
+        //     x_max -= M;
+        // }
         SASSERT(x_min <= x_max);
 
         IF_VERBOSE(2,

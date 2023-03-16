@@ -69,7 +69,6 @@ namespace polysat {
         bool try_tangent(pvar v, conflict& core, inequality const& c);
         bool try_add_overflow_bound(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_add_mul_bound(pvar x, conflict& core, inequality const& axb_l_y);
-        bool try_add_mul_bound2(pvar x, conflict& core, inequality const& axb_l_y);
         bool try_infer_parity_equality(pvar x, conflict& core, inequality const& a_l_b);
         bool try_div_monotonicity(conflict& core);
 
