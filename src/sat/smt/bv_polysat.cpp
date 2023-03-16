@@ -218,10 +218,10 @@ namespace bv {
         if (!use_polysat())
             return false;
         force_push();
-        pdd p = var2pdd(r1);
-        pdd q = var2pdd(r2);
+        pdd p = var2pdd(v1);
+        pdd q = var2pdd(v2);
         auto sc = m_polysat.eq(p, q);
-        m_var_eqs.setx(m_var_eqs_head, std::make_pair(r1, r2), std::make_pair(r1, r2));
+        m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));        
         m_polysat.assign_eh(sc, polysat::dependency(2 * m_var_eqs_head)); 
         m_var_eqs_head++;
@@ -274,9 +274,12 @@ namespace bv {
                 eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
             }
         }
-        for (auto lit : core) {
-            VERIFY(s().value(lit) == l_true);
-        }
+        DEBUG_CODE(
+            for (auto lit : core) 
+                VERIFY(s().value(lit) == l_true);
+            for (auto const& [a, b] : eqs)
+                VERIFY(var2enode(v1)->get_root() == var2enode(v2)->get_root());
+            );
         auto ex = mk_bv2ext_justification(core, eqs);
         ctx.set_conflict(ex);
     }
