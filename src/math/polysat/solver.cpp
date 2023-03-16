@@ -867,12 +867,10 @@ namespace polysat {
             m_free_pvars.unassign_var_eh(v);
             return;
         case find_t::singleton:
-            // NOTE: see comment on find_t::empty.
-            //       We treat this case the same as decisions, because
-            //       - it is very rare (not yet observed once as far as I can tell, but it should be possible),
-            //       - if we set it as propagation we would need to handle justifications differently since they must
-            //         contain at least one constraint that's not handled by intervals.
-            Z3_fallthrough;
+            // Any propagations should have been discovered by viable::intersect.
+            // The fallback solver currently does not detect propagations, because we would need to handle justifications differently.
+            UNREACHABLE();
+            Z3_fallthrough;  // we could still treat it as decision
         case find_t::multiple:
             j = justification::decision(m_level + 1);
             break;
