@@ -1577,8 +1577,12 @@ namespace polysat {
         out << "Clauses:\n";
         for (clause const& cl : m_constraints.clauses()) {
             out << "\t" << cl << "\n";
-            for (sat::literal lit : cl)
-                out << "\t\t" << lit_pp(*this, lit) << "\n";
+            for (sat::literal lit : cl) {
+                out << "\t\t" << lit_pp(*this, lit);
+                if (count(m_bvars.watch(lit), &cl) != 0)
+                    out << " (bool-watched)";
+                out << "\n";
+            }
         }
         return out;
     }
@@ -1612,6 +1616,7 @@ namespace polysat {
             else if (s.m_bvars.is_decision(lit))
                 out << "decide";
             out << '@' << s.m_bvars.level(lit);
+            out << " idx:" << s.m_search.get_bool_index(lit);
         }
         if (c->is_pwatched())
             out << " pwatched";
