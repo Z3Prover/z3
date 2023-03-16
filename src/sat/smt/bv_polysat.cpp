@@ -277,8 +277,8 @@ namespace bv {
         DEBUG_CODE(
             for (auto lit : core) 
                 VERIFY(s().value(lit) == l_true);
-            for (auto const& [a, b] : eqs)
-                VERIFY(var2enode(v1)->get_root() == var2enode(v2)->get_root());
+            for (auto const& [n1, n2] : eqs)
+                VERIFY(n1->get_root() == n2->get_root());
             );
         auto ex = mk_bv2ext_justification(core, eqs);
         ctx.set_conflict(ex);
