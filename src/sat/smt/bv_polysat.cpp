@@ -221,7 +221,7 @@ namespace bv {
         pdd p = var2pdd(r1);
         pdd q = var2pdd(r2);
         auto sc = m_polysat.eq(p, q);
-        m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
+        m_var_eqs.setx(m_var_eqs_head, std::make_pair(r1, r2), std::make_pair(r1, r2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));        
         m_polysat.assign_eh(sc, polysat::dependency(2 * m_var_eqs_head)); 
         m_var_eqs_head++;
