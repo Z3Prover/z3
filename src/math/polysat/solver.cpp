@@ -271,11 +271,11 @@ namespace polysat {
     }
 
     bool solver::can_repropagate_units() {
-        return !m_repropagate_units.empty();
+        return !m_repropagate_units.empty() && !is_conflict();
     }
 
     void solver::repropagate_units() {
-        while (!m_repropagate_units.empty() && !is_conflict()) {
+        while (can_repropagate_units()) {
             clause& cl = *m_repropagate_units.back();
             m_repropagate_units.pop_back();
             VERIFY_EQ(cl.size(), 1);
@@ -300,7 +300,7 @@ namespace polysat {
     }
 
     bool solver::can_repropagate() {
-        return !m_repropagate_lits.empty();
+        return !m_repropagate_lits.empty() && !is_conflict();
     }
 
     // Repropagate:
@@ -314,7 +314,7 @@ namespace polysat {
     // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
     //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
     void solver::repropagate() {
-        while (!m_repropagate_lits.empty() && !is_conflict()) {
+        while (can_repropagate() /* && !can_propagate() */) {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
             // check for missed lower boolean propagations
