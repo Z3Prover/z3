@@ -1032,18 +1032,26 @@ namespace polysat {
         unsigned max_level = 0;             // highest level in lemma
         unsigned lits_at_max_level = 0;     // how many literals at the highest level in lemma
         unsigned snd_level = 0;             // second-highest level in lemma
-        bool is_propagation = false;        // whether there is an unassigned literal (at most one)
+        unsigned num_undef = 0;        // whether there is an unassigned literal (at most one)
         for (sat::literal lit : lemma) {
-            if (m_bvars.is_true(lit))  // may happen if we only use the clause to justify a new constraint; it is not a real lemma
+            switch (m_bvars.value(lit)) {
+            case l_true:
                 return std::nullopt;
-            if (!m_bvars.is_assigned(lit)) {
-                DEBUG_CODE({
-                    if (lit2cnstr(lit).eval(*this) != l_undef)
-                        LOG("WARNING: missed evaluation of literal: " << lit_pp(*this, lit));
-                });
-                SASSERT(!is_propagation);
-                is_propagation = true;
-                continue;
+            case l_false:
+                break;
+            default:
+                switch (lit2cnstr(lit).eval(*this)) {
+                case l_true:
+                    return std::nullopt;
+                case l_false:
+                    assign_eval(~lit);
+                    break;
+                case l_undef:
+                    ++num_undef;
+                    if (num_undef > 1)
+                        return std::nullopt;
+                    continue;
+                }
             }
 
             unsigned const lit_level = m_bvars.level(lit);
@@ -1070,7 +1078,7 @@ namespace polysat {
         //                       backjump to max_level so we can propagate
         unsigned jump_level;
         unsigned branching_factor = lits_at_max_level;
-        if (is_propagation)
+        if (num_undef == 1)
             jump_level = max_level, branching_factor = 1;
         else if (lits_at_max_level <= 1)
             jump_level = snd_level;

@@ -318,6 +318,7 @@ namespace polysat {
    }
 
     void conflict::restore_lemma(clause_ref lemma) {
+        LOG_H3("Restore Lemma: " << ": " << show_deref(lemma));
         m_lemmas.push_back(std::move(lemma));
     }
 

@@ -1605,7 +1605,7 @@ namespace polysat {
                 // ==>  ax <= y + c                              if int(y) + int(c) <= 2^N, y <= int(y), c <= int(c)
                 // ==>  a not in [-floor(-int(y+c) / int(x), 0[
                 // ==>  -a >= floor(-int(y+c) / int(x)
-                if (c_val + y_val <= m.max_value()) {
+                if (c_val + y_val <= m.max_value() && x_bound != 0) {
                     auto bound = floor((m.two_to_N() - y_val - c_val) / x_bound);
                     m_lemma.reset();
                     for (auto c : x_le_bound)
