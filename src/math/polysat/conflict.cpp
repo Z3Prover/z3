@@ -415,8 +415,14 @@ namespace polysat {
         for (signed_constraint const c : s.m_viable.get_constraints(v))
             insert(c);
         for (auto const& i : s.m_viable.units(v)) {
-            insert(s.eq(i.lo(), i.lo_val()));
-            insert(s.eq(i.hi(), i.hi_val()));
+            signed_constraint eq1 = s.eq(i.lo(), i.lo_val());
+            signed_constraint eq2 = s.eq(i.hi(), i.hi_val());
+            if (eq1.bvalue(s) == l_undef)
+                s.assign_eval(eq1.blit());
+            if (eq2.bvalue(s) == l_undef)
+                s.assign_eval(eq2.blit());
+            insert(eq1);
+            insert(eq2);
         }
         logger().log(inf_resolve_value(s, v));
 
