@@ -1516,9 +1516,14 @@ namespace polysat {
     void solver::report_unsat() {
         // NOTE: backjump may destroy dependencies of the conflict (e.g., lose boolean propagations).
         //       so we reset the conflict, backjump, then propagate to restore the conflicts
+        clause_ref confl = m_conflict.build_lemma();
+        LOG("confl: " << show_deref(confl));
         m_conflict.reset();
         backjump(base_level());
+        propagate_clause(*confl);
         propagate();
+        if (!is_conflict())
+            add_clause(confl);
         VERIFY(!m_conflict.empty());
     }
 
