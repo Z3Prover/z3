@@ -876,8 +876,10 @@ namespace polysat {
         case find_t::singleton:
             // Any propagations should have been discovered by viable::intersect.
             // The fallback solver currently does not detect propagations, because we would need to handle justifications differently.
-            UNREACHABLE();
-            Z3_fallthrough;  // we could still treat it as decision
+            // However, this case may still occur if during viable::intersect, we run into the refinement budget,
+            // but here, we continue refinement and actually succeed until propagation.
+            assign_propagate(v, val);
+            return;
         case find_t::multiple:
             j = justification::decision(m_level + 1);
             break;
