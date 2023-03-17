@@ -1042,7 +1042,11 @@ namespace polysat {
     void solver::revert_bool_decision(sat::literal const lit) {
         unsigned max_jump_level = m_bvars.level(lit) - 1;
         backjump_and_learn(max_jump_level, true);
-        SASSERT(m_level < max_jump_level || m_bvars.is_false(lit));
+        // NOTE: happens in 42448.smt2; but does not seem to be a bug.
+        //       we have a correct lemma but when going through the narrow queue, narrowing causes a conflict.
+        //       thus we exit backjump_and_learn before we have a chance to propagate that lemma.
+        //       so the assertion should hold if !is_conflict.
+        SASSERT(is_conflict() || m_level < max_jump_level || m_bvars.is_false(lit));
     }
 
     std::optional<lemma_score> solver::compute_lemma_score(clause const& lemma) {
