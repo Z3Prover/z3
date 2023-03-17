@@ -1507,7 +1507,16 @@ namespace polysat {
     }
 
     void solver::report_unsat() {
+        // NOTE: backjump may destroy dependencies of the conflict (e.g., lose boolean propagations).
+        //       so we reset the conflict, backjump, then propagate to restore the conflicts
+        m_conflict.reset();
         backjump(base_level());
+        while (can_repropagate_units() || should_add_pwatch() || can_propagate() || can_repropagate()) {
+            if (can_repropagate_units()) repropagate_units();
+            else if (should_add_pwatch()) add_pwatch();
+            else if (can_propagate()) propagate();
+            else if (can_repropagate()) repropagate();
+        }
         VERIFY(!m_conflict.empty());
     }
 
