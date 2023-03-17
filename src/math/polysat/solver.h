@@ -252,8 +252,12 @@ namespace polysat {
         void erase_pwatch(pvar v, constraint* c);
         void erase_pwatch(constraint* c);
 
+        bool can_propagate();
+        void propagate();
         bool can_repropagate_units();
         void repropagate_units();
+        bool can_propagate_search();
+        void propagate_search();
         bool can_repropagate();
         void repropagate();
         void repropagate(sat::literal lit);
@@ -334,9 +338,6 @@ namespace polysat {
         bool eval_invariant() const;
         bool var_queue_invariant() const;
         bool verify_sat();
-
-        bool can_propagate();
-        void propagate();
 
     public:
 

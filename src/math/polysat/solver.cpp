@@ -85,18 +85,12 @@ namespace polysat {
             SASSERT(var_queue_invariant());
             if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
-            else if (can_repropagate_units()) repropagate_units();
-            else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate()) propagate();
-            else if (can_repropagate()) repropagate();
-            else {
-            VERIFY(bool_watch_invariant());  // TODO: merge propagate/repropagate and move this assertion there.
-            if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
+            else if (!can_decide()) { LOG_H2("SAT"); VERIFY(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc();
             else if (m_simplify.should_apply()) m_simplify();
             else if (m_restart.should_apply()) m_restart();
             else decide();
-            }
         }
         LOG_H2("UNDEF (resource limit)");
         return l_undef;
@@ -199,13 +193,26 @@ namespace polysat {
 #endif
     }
 
-
     bool solver::can_propagate() {
-        return m_qhead < m_search.size() && !is_conflict();
+        return can_repropagate_units() || should_add_pwatch() || can_propagate_search() || can_repropagate();
     }
 
     void solver::propagate() {
-        if (!can_propagate())
+        while (can_propagate()) {
+            if (can_repropagate_units()) repropagate_units();
+            else if (should_add_pwatch()) add_pwatch();
+            else if (can_propagate_search()) propagate_search();
+            else if (can_repropagate()) repropagate();
+        }
+        VERIFY(bool_watch_invariant());
+    }
+
+    bool solver::can_propagate_search() {
+        return m_qhead < m_search.size() && !is_conflict();
+    }
+
+    void solver::propagate_search() {
+        if (!can_propagate_search())
             return;
 #ifndef NDEBUG
         SASSERT(!m_is_propagating);
@@ -214,7 +221,7 @@ namespace polysat {
         push_qhead();
         unsigned bool_qhead = m_qhead;
         unsigned eval_qhead = m_qhead;
-        while (can_propagate()) {
+        while (can_propagate_search()) {
             SASSERT(bool_qhead >= eval_qhead);
             SASSERT(eval_qhead >= m_qhead);
             if (bool_qhead < m_search.size()) {
@@ -242,7 +249,7 @@ namespace polysat {
                 }
                 else {
                     SASSERT(item.is_boolean());
-                    // LOG_H1("P2: eval lit v" << item.lit());
+                    // LOG_H1("P2: eval lit " << item.lit());
                     signed_constraint c = lit2cnstr(item.lit());
                     if (c.is_currently_false(*this))
                         set_conflict(c);
@@ -262,7 +269,7 @@ namespace polysat {
                     activate_constraint(c);
                 }
             }
-        }
+        }  // while (can_propagate_search())
         if (!is_conflict())
             linear_propagate();
         SASSERT(wlist_invariant());
@@ -314,7 +321,7 @@ namespace polysat {
     // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
     //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
     void solver::repropagate() {
-        while (can_repropagate() /* && !can_propagate() */) {
+        while (can_repropagate() && !can_propagate_search()) {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
             // check for missed lower boolean propagations
@@ -1175,7 +1182,7 @@ namespace polysat {
             // (because the actual jump_level of the lemma may be lower that best_level.)
             if (is_conflict()) {
                 // Keep the remaining lemmas for later.
-                for (; it != lemmas.end(); ++it)
+                while (++it != lemmas.end())
                     m_conflict.restore_lemma(*it);
                 return;
             }
@@ -1511,12 +1518,7 @@ namespace polysat {
         //       so we reset the conflict, backjump, then propagate to restore the conflicts
         m_conflict.reset();
         backjump(base_level());
-        while (can_repropagate_units() || should_add_pwatch() || can_propagate() || can_repropagate()) {
-            if (can_repropagate_units()) repropagate_units();
-            else if (should_add_pwatch()) add_pwatch();
-            else if (can_propagate()) propagate();
-            else if (can_repropagate()) repropagate();
-        }
+        propagate();
         VERIFY(!m_conflict.empty());
     }
 
@@ -1691,10 +1693,6 @@ namespace polysat {
                     file << "Not yet implemented in polysat_ast.cpp:\n\n" << description.str();
                 }
             }
-            // if (num_lemma == 7)
-            //     std::exit(0);
-            // if (num_lemma == 161)
-            //     std::exit(0);
         }
 #endif
     }
