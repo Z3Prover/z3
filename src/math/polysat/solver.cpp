@@ -984,7 +984,7 @@ namespace polysat {
                         report_unsat();
                         return;
                     }
-                    continue;
+                    // continue;
                 }
                 if (j.is_decision()) {
                     m_conflict.revert_pvar(v);
@@ -1007,11 +1007,11 @@ namespace polysat {
                 // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
                 //       Thus we can only skip base level literals here, instead of aborting the loop.
                 if (m_bvars.level(var) <= base_level()) {
-                    if (m_bvars.is_decision(var)) {
+                    if (m_bvars.is_decision(var) || m_bvars.is_assumption(var)) {
                         report_unsat();  // decisions are always in order
                         return;
                     }
-                    continue;
+                    // continue;
                 }
                 SASSERT(!m_bvars.is_assumption(var));   // TODO: "assumption" is basically "propagated by unit clause" (or "at base level"); except we do not explicitly store the unit clause.
                 if (m_bvars.is_decision(var)) {
@@ -1523,17 +1523,24 @@ namespace polysat {
     }
 
     void solver::report_unsat() {
+#if 0
         // NOTE: backjump may destroy dependencies of the conflict (e.g., lose boolean propagations).
         //       so we reset the conflict, backjump, then propagate to restore the conflicts
         clause_ref confl = m_conflict.build_lemma();
-        LOG("confl: " << show_deref(confl));
         m_conflict.reset();
         backjump(base_level());
         propagate_clause(*confl);
         propagate();
         if (!is_conflict())
             add_clause(confl);
-        VERIFY(!m_conflict.empty());
+        if (!is_conflict()) {
+            LOG("confl: " << show_deref(confl));
+            LOG("state:\n" << *this);
+        }
+#else
+        backjump(base_level());
+#endif
+        VERIFY(is_conflict());
     }
 
     void solver::unsat_core(dependency_vector& deps) {
