@@ -771,8 +771,6 @@ namespace polysat {
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
                 LOG_V(20, "Undo assign_bool_i: " << lit_pp(*this, lit));
-                unsigned active_level = m_bvars.level(lit);
-
                 clause* reason = m_bvars.reason(lit);
                 if (reason && reason->size() == 1) {
                     SASSERT(m_bvars.is_bool_propagation(lit));
