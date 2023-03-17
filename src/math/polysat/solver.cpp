@@ -683,7 +683,6 @@ namespace polysat {
             return;
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        vector<sat::literal> replay;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -753,27 +752,17 @@ namespace polysat {
                 LOG_V(20, "Undo assign_bool_i: " << lit_pp(*this, lit));
                 unsigned active_level = m_bvars.level(lit);
 
-                if (false && active_level <= target_level && m_bvars.is_evaluation(lit)) {
-                    // Replaying evaluations is fine since all dependencies (variable assignments) are left untouched.
-                    // It is also necessary because repropagate will only restore boolean propagations.
-                    // TODO: no this is wrong. also value propagations need to be replayed in the right order.
-                    //       since value propagations can also be out of order. and they have to come before the corresponding eval'd literals.
-                    //       now: repropagate also tries to restore missed lower evaluations.
-                    // TODO: what's missing is to restore value propagations (x := val) ... it will happen when the variable is chosen for pdecide but we should do it before other decisions.
-                    replay.push_back(lit);
+                clause* reason = m_bvars.reason(lit);
+                if (reason && reason->size() == 1) {
+                    SASSERT(m_bvars.is_bool_propagation(lit));
+                    SASSERT_EQ(lit, (*reason)[0]);
+                    // Unit clauses are not stored in watch lists and must be re-propagated separately.
+                    m_repropagate_units.push_back(reason);
                 }
                 else {
-                    clause* reason = m_bvars.reason(lit);
-                    if (reason && reason->size() == 1) {
-                        VERIFY(m_bvars.is_bool_propagation(lit));
-                        VERIFY_EQ(lit, (*reason)[0]);
-                        // Unit clauses are not stored in watch lists and must be re-propagated separately.
-                        m_repropagate_units.push_back(reason);
-                    }
-                    else
-                        m_repropagate_lits.push_back(lit);
-                    m_bvars.unassign(lit);
+                    m_repropagate_lits.push_back(lit);
                 }
+                m_bvars.unassign(lit);
                 m_search.pop();
                 break;
             }
@@ -784,13 +773,6 @@ namespace polysat {
         }
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
-        // Replay
-        for (unsigned j = replay.size(); j-- > 0; ) {
-            sat::literal lit = replay[j];
-            m_search.push_boolean(lit);
-            m_trail.push_back(trail_instr_t::assign_bool_i);
-            LOG("Replay: " << lit);
-        }
     }
 
     bool solver::can_decide() const {
