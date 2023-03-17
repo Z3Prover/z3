@@ -324,6 +324,7 @@ namespace polysat {
         while (can_repropagate() && !can_propagate_search()) {
             sat::literal lit = m_repropagate_lits.back();
             m_repropagate_lits.pop_back();
+            LOG("Repropagate lit " << lit);
             // check for missed lower boolean propagations
             repropagate(lit);
             // check for missed lower evaluations
@@ -339,8 +340,11 @@ namespace polysat {
                     break;
                 }
             }
-            // TODO: should we interleave this with regular propagation?
-            //       (after each successful repropagated literal, do normal propagation)
+            // put the interval back into viable if we lost it
+            if (m_bvars.is_assigned(lit)) {
+                signed_constraint sc = m_bvars.is_true(lit) ? lit2cnstr(lit) : ~lit2cnstr(lit);
+                sc.narrow(*this, false);
+            }
         }
     }
 
@@ -736,6 +740,9 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V(20, "Undo assign_i: v" << v);
+                if (get_level(v) <= target_level)
+                    for (signed_constraint c : m_viable.get_constraints(v))
+                        m_repropagate_lits.push_back(c.blit());
                 m_free_pvars.unassign_var_eh(v);
                 m_justification[v] = justification::unassigned();
                 m_search.pop();
