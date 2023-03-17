@@ -219,6 +219,7 @@ namespace polysat {
         flet<bool> save_(m_is_propagating, true);
 #endif
         push_qhead();
+        unsigned const qhead_init = m_qhead;
         unsigned bool_qhead = m_qhead;
         unsigned eval_qhead = m_qhead;
         while (can_propagate_search()) {
@@ -245,7 +246,27 @@ namespace polysat {
                 auto const& item = m_search[eval_qhead++];
                 if (item.is_assignment()) {
                     // LOG_H1("P2: eval pvar v" << item.var());
-                    propagate(item.var(), false);
+                    // propagate(item.var(), false);
+                    for (int i = 0; i < qhead_init; ++i) {
+                        if (!m_search[i].is_boolean())
+                            continue;
+                        sat::literal lit = m_search[i].lit();
+                        if (m_ptrue_lits.contains(lit))
+                            continue;
+                        signed_constraint c = lit2cnstr(lit);
+                        if (!c.contains_var(item.var()))
+                            continue;
+                        SASSERT(m_bvars.is_true(lit));
+                        lbool const pvalue = c.eval(*this);
+                        if (pvalue == l_true) {
+                            m_ptrue_lits.insert(lit);
+                            m_ptrue_lits_trail.push_back(lit);
+                        }
+                        else if (pvalue == l_false) {
+                            set_conflict(c);
+                            break;
+                        }
+                    }
                 }
                 else {
                     SASSERT(item.is_boolean());

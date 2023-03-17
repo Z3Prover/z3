@@ -196,14 +196,32 @@ namespace polysat {
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope.
 
+        // Cache literals that evaluate to true in the current assignment.
+        // TODO: convert to proper pvalue caching. decouple trail from qhead. push size on trail when a pvar is assigned, because that's the point where evaluations can change.
+        sat::literal_set         m_ptrue_lits;
+        sat::literal_vector      m_ptrue_lits_trail;
+        unsigned_vector          m_ptrue_lits_size_trail;
+
         void push_qhead() {
             m_trail.push_back(trail_instr_t::qhead_i);
             m_qhead_trail.push_back(m_qhead);
+            //
+            SASSERT(m_ptrue_lits.size() == m_ptrue_lits_trail.size());
+            m_ptrue_lits_size_trail.push_back(m_ptrue_lits_trail.size());
         }
 
         void pop_qhead() {
             m_qhead = m_qhead_trail.back();
             m_qhead_trail.pop_back();
+            //
+            unsigned sz = m_ptrue_lits_size_trail.back();
+            m_ptrue_lits_size_trail.pop_back();
+            while (m_ptrue_lits_trail.size() > sz) {
+                sat::literal lit = m_ptrue_lits_trail.back();
+                m_ptrue_lits.remove(lit);
+                m_ptrue_lits_trail.pop_back();
+            }
+            SASSERT(m_ptrue_lits.size() == m_ptrue_lits_trail.size());
         }
 
         unsigned size(pvar v) const { return m_size[v]; }
