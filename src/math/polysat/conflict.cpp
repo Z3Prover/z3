@@ -393,6 +393,30 @@ namespace polysat {
         unsigned const lvl = s.m_bvars.level(lit);
         signed_constraint c = s.lit2cnstr(lit);
 
+        // If evaluation depends on a decision,
+        // then we rather keep the more general constraint c instead of inserting "x = v"
+        // TODO: the old implementation based on bail_vars is broken because it may skip relevant decisions.
+        //       is there a way to keep the same effect by adding a side lemma at this point?
+        bool has_decision = false;
+#if 0
+        for (pvar v : c->vars())
+            if (s.is_assigned(v) && s.m_justification[v].is_decision())
+                m_bail_vars.insert(v), has_decision = true;
+#endif
+
+        if (!has_decision) {
+            unsigned const eval_idx = s.m_search.get_bool_index(lit);
+            for (pvar v : c->vars()) {
+                if (s.is_assigned(v) && s.m_search.get_pvar_index(v) <= eval_idx) {
+                    m_vars.insert(v);
+// TODO - figure out what to do with constraints from conflict lemma that disappear here.
+//                    if (s.m_bvars.is_false(lit))
+//                        m_resolver->infer_lemmas_for_value(v, ~c, *this);
+                }
+            }
+            remove(c);
+        }
+
         SASSERT(!contains(lit));
         SASSERT(!contains(~lit));
 
