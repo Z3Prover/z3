@@ -132,10 +132,14 @@ namespace polysat {
 
     conflict::conflict(solver& s) : s(s) {
         // TODO: m_log_conflicts is always false even if "polysat.log_conflicts=true" is given on the command line
-        if (ENABLE_CONFLICTS_TXT || s.get_config().m_log_conflicts)
+#if ENABLE_CONFLICTS_TXT
+        if (true || s.get_config().m_log_conflicts)
             m_logger = alloc(file_inference_logger, s);
         else
             m_logger = alloc(dummy_inference_logger);
+#else
+        m_logger = alloc(dummy_inference_logger);
+#endif
         m_resolver = alloc(conflict_resolver, s);
     }
 
