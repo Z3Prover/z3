@@ -148,6 +148,13 @@ namespace polysat {
          */
         void insert(signed_constraint c);
 
+        /**
+         * Like 'insert', but check for missed lower bool/eval conflicts.
+         * If such a constraint is inserted, replace the current conflict by this one.
+         * Return true if the conflict has been replaced.
+         */
+        bool insert_or_replace(signed_constraint c);
+
         /** Insert assigned variables of c */
         void insert_vars(signed_constraint c);
 

@@ -263,6 +263,7 @@ namespace polysat {
         if (c.is_always_true())  // TODO: caller should avoid this?
             return;
         LOG("Inserting " << lit_pp(s, c));
+        SASSERT_EQ(c.bvalue(s), l_true);
         VERIFY_EQ(c.bvalue(s), l_true);
         SASSERT(!c.is_always_true());   // such constraints would be removed earlier
         SASSERT(!c.is_always_false());  // if we added c, the core would be a tautology
@@ -275,6 +276,27 @@ namespace polysat {
                 m_vars_occurring.insert(v);
             m_var_occurrences[v]++;
         }
+    }
+
+    bool conflict::insert_or_replace(signed_constraint c) {
+        switch (c.bvalue(s)) {
+        case l_true:
+            // regular case
+            insert(c);
+            return false;
+        case l_undef:
+            VERIFY_EQ(c.eval(s), l_true);
+            s.assign_eval(c.blit());
+            insert(c);
+            return false;
+        case l_false:
+            VERIFY_EQ(c.eval(s), l_true);
+            break;
+        }
+        // TODO: could keep lemmas? but whatever, this case seems very rare
+        reset();
+        init(~c);
+        return true;
     }
 
     void conflict::insert_vars(signed_constraint c) {
@@ -389,16 +411,13 @@ namespace polysat {
 
         m_vars.remove(v);
         for (signed_constraint const c : s.m_viable.get_constraints(v))
-            insert(c);
+            if (insert_or_replace(c))
+                return;
         for (auto const& i : s.m_viable.units(v)) {
-            signed_constraint eq1 = s.eq(i.lo(), i.lo_val());
-            signed_constraint eq2 = s.eq(i.hi(), i.hi_val());
-            if (eq1.bvalue(s) == l_undef)
-                s.assign_eval(eq1.blit());
-            if (eq2.bvalue(s) == l_undef)
-                s.assign_eval(eq2.blit());
-            insert(eq1);
-            insert(eq2);
+            if (insert_or_replace(s.eq(i.lo(), i.lo_val())))
+                return;
+            if (insert_or_replace(s.eq(i.hi(), i.hi_val())))
+                return;
         }
         logger().log(inf_resolve_value(s, v));
 
@@ -571,7 +590,8 @@ namespace polysat {
     }
 
     std::ostream& conflict::display(std::ostream& out) const {
-        char const* sep = "";
+        out << "lvl " << m_level;
+        char const* sep = " ";
         for (auto c : *this)
             out << sep << c->bvar2string() << " " << c, sep = " ; ";
         if (!m_vars.empty())
