@@ -40,7 +40,7 @@ namespace polysat {
         s.pop_levels(s.m_level - s.base_level());
         m_conflicts_at_restart = s.m_stats.m_num_conflicts;
         m_restart_threshold = m_restart_init * get_luby(++m_luby_idx);
-        verbose_stream() << "Restart with Conflict #" << s.m_stats.m_num_conflicts << "\n";
+        IF_VERBOSE(10, verbose_stream() << "Restart with Conflict #" << s.m_stats.m_num_conflicts << "\n";);
         s.randomize_activity();
     }
 

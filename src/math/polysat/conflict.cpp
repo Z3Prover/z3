@@ -320,12 +320,14 @@ namespace polysat {
         LOG_H3("Lemma: " << ": " << show_deref(lemma));
         VERIFY(lemma);
 
-        for (auto lit : *lemma)
-            if (s.m_bvars.is_true(lit)) {
-                verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
-                // for (sat::literal lit : *lemma)
-                //     verbose_stream() << "    " << lit_pp(s, lit) << "\n";
-            }
+        IF_VERBOSE(1, {
+            for (auto lit : *lemma)
+                if (s.m_bvars.is_true(lit)) {
+                    verbose_stream() << "REDUNDANT lemma " << lit << " : " << show_deref(lemma) << "\n";
+                    for (sat::literal lit : *lemma)
+                        verbose_stream() << "    " << lit_pp(s, lit) << "\n";
+                }
+        });
 
         s.m_simplify_clause.apply(*lemma);
         lemma->set_redundant(true);

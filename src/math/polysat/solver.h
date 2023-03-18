@@ -470,12 +470,12 @@ namespace polysat {
             // <=> p * 2^(N - k) == 0
             if (k > N) {
                 // parity(p) > N is never true
-                verbose_stream() << "REDUNDANT parity constraint: parity_at_least(" << p << ", " << k << ")\n";
+                IF_VERBOSE(1, verbose_stream() << "REDUNDANT parity constraint: parity_at_least(" << p << ", " << k << ")\n";);
                 return ~eq(p.manager().zero());
             }
             else if (k == 0) {
                 // parity(p) >= 0 is a tautology
-                verbose_stream() << "REDUNDANT parity constraint: parity_at_least(" << p << ", " << k << ")\n";
+                IF_VERBOSE(1, verbose_stream() << "REDUNDANT parity constraint: parity_at_least(" << p << ", " << k << ")\n";);
                 return eq(p.manager().zero());
             }
             else if (k == N)
@@ -491,7 +491,7 @@ namespace polysat {
             // <=>  ~(parity(p) >= k+1)
             if (k >= N) {
                 // parity(p) <= N is a tautology
-                verbose_stream() << "REDUNDANT parity constraint: parity_at_most(" << p << ", " << k << ")\n";
+                IF_VERBOSE(1, verbose_stream() << "REDUNDANT parity constraint: parity_at_most(" << p << ", " << k << ")\n";);
                 return eq(p.manager().zero());
             }
             else

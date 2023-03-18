@@ -1572,12 +1572,14 @@ namespace {
             else {
                 UNREACHABLE();
             }
-            if (refinements % 100 == 0)
-                verbose_stream() << "Refinements " << refinements << "\n";
+            IF_VERBOSE(10, {
+                if (refinements % 100 == 0)
+                    verbose_stream() << "Refinements " << refinements << "\n";
+            });
             if (res != l_undef)
                 return res;
         }
-        verbose_stream() << "Fallback\n";
+        IF_VERBOSE(10, verbose_stream() << "Fallback\n";);
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return query_fallback<mode>(v, result);
     }
@@ -1730,7 +1732,6 @@ namespace {
                         added.insert(lit);
                         LOG("Adding " << lit_pp(s, lit));
                         IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-                        verbose_stream() << ";; " << lit_pp(s, lit) << "\n";
                         src.add_to_univariate_solver(v, s, *us, lit.to_uint());
                     }
                 }
@@ -1825,7 +1826,7 @@ namespace {
         }
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
-        verbose_stream() << "unsat core " << core << "\n";
+        IF_VERBOSE(10, verbose_stream() << "unsat core " << core << "\n";);
         return true;
     }
 
