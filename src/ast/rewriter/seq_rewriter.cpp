@@ -5954,6 +5954,7 @@ bool seq_rewriter::reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, 
  */
 bool seq_rewriter::reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
     ptr_buffer<expr> es;
+
     if (ls.empty() || rs.empty())
         return true;
     es.append(ls.size(), ls.data());
@@ -5976,7 +5977,12 @@ bool seq_rewriter::reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, 
         if (!is_unit_value(r))
             return true;
     }
-    return any_of(es, [&](expr* e) { return is_unit_value(e); });
+    if (es.empty())
+        return true;
+    for (expr* e : es)
+        if (!is_unit_value(e))
+            return true;
+    return false;
 }
 
 bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
