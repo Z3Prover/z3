@@ -341,6 +341,14 @@ namespace polysat {
     // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
     // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
     //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
+
+    // Z3 (and maybe other SMT solvers) remembers new clauses added under a decision level.
+    // It uses the function solver::reinit_clauses(unsigned old_sz)
+    // to re-initialize clauses on the stack. They are detached from watch lists then re-inserted.
+    // Nadel's SAT paper describes a different scheme.
+    // Just using clause detach and re-initialization after pop should allow using the same code
+    // paths for propagation.
+    
     void solver::repropagate() {
         while (can_repropagate() && !can_propagate_search()) {
             sat::literal lit = m_repropagate_lits.back();
@@ -1067,6 +1075,9 @@ namespace polysat {
                     break;
                 case l_undef:
                     ++num_undef;
+                    // NSB: we used to not return null here.
+                    // Lemmas that were not false under evaluation are now skipped
+                    // with this change. 
                     if (num_undef > 1)
                         return std::nullopt;
                     continue;

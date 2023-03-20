@@ -359,11 +359,6 @@ namespace polysat {
 
     public:
 
-        /**
-         * to share chronology we pass an external trail stack.
-         * every update to the solver is going to be retractable
-         * by pushing an undo action on the trail stack.
-         */
         solver(reslimit& lim);
 
         ~solver();
