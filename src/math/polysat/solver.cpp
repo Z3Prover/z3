@@ -25,7 +25,6 @@ Author:
 #include <filesystem>
 
 // For development; to be removed once the linear solver works well enough
-#define ENABLE_LINEAR_SOLVER 0
 
 // Write lemma validity check into an *.smt2 file for soundness debugging. Disabled by default.
 // Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
@@ -37,7 +36,6 @@ namespace polysat {
         m_lim(lim),
         m_viable(*this),
         m_viable_fallback(*this),
-        m_linear_solver(*this),
         m_conflict(*this),
         m_simplify_clause(*this),
         m_simplify(*this),
@@ -188,9 +186,6 @@ namespace polysat {
         m_search.push_boolean(lit);
         if (c.is_currently_false(*this))
             set_conflict(c);
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.new_constraint(*c.get());
-#endif
     }
 
     bool solver::can_propagate() {
@@ -247,7 +242,7 @@ namespace polysat {
                 if (item.is_assignment()) {
                     // LOG_H1("P2: eval pvar v" << item.var());
                     // propagate(item.var(), false);
-                    for (int i = 0; i < qhead_init; ++i) {
+                    for (unsigned i = 0; i < qhead_init; ++i) {
                         if (!m_search[i].is_boolean())
                             continue;
                         sat::literal lit = m_search[i].lit();
@@ -291,8 +286,6 @@ namespace polysat {
                 }
             }
         }  // while (can_propagate_search())
-        if (!is_conflict())
-            linear_propagate();
         SASSERT(wlist_invariant());
         // VERIFY(bool_watch_invariant());
         SASSERT(eval_invariant());
@@ -615,17 +608,6 @@ namespace polysat {
         return false;
     }
 
-    void solver::linear_propagate() {
-#if ENABLE_LINEAR_SOLVER
-        switch (m_linear_solver.check()) {
-        case l_false:
-            // TODO extract conflict
-            break;
-        default:
-            break;
-        }
-#endif
-    }
 
     /** Enqueue constraint c to perform add_pwatch(c) on the next solver iteration */
     void solver::enqueue_pwatch(constraint* c) {
@@ -702,9 +684,6 @@ namespace polysat {
     void solver::push_level() {
         ++m_level;
         m_trail.push_back(trail_instr_t::inc_level_i);
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.push();
-#endif
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -713,9 +692,6 @@ namespace polysat {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.pop(num_levels);
-#endif
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -957,10 +933,6 @@ namespace polysat {
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j;
-#if ENABLE_LINEAR_SOLVER
-        // TODO: convert justification into a format that can be tracked in a dependency core.
-        m_linear_solver.set_value(v, val, UINT_MAX);
-#endif
     }
 
     /**
@@ -1356,9 +1328,6 @@ namespace polysat {
         //       So the same axioms may be added multiple times.
         //       Maybe separate narrow/activate? And keep a flag in m_bvars to remember whether constraint has already been activated.
         c.narrow(*this, true);
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.activate_constraint(c);
-#endif
     }
 
     void solver::backjump(unsigned new_level) {

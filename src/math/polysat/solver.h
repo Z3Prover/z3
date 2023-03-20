@@ -29,7 +29,6 @@ Author:
 #include "math/polysat/restart.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
-#include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
 #include "math/polysat/assignment.h"
 #include "math/polysat/trail.h"
@@ -149,7 +148,6 @@ namespace polysat {
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
-        linear_solver            m_linear_solver;
         conflict                 m_conflict;
         simplify_clause          m_simplify_clause;
         simplify                 m_simplify;
@@ -295,7 +293,6 @@ namespace polysat {
         void bdecide();
         void pdecide(pvar v);
 
-        void linear_propagate();
 
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
