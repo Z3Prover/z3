@@ -22,6 +22,8 @@ Author:
 
 class elim_unconstrained : public dependent_expr_simplifier {
 
+    friend class seq_simplifier;
+    
     struct node {
         unsigned         m_refcount = 0;
         expr*            m_term = nullptr;

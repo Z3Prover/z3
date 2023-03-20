@@ -34,6 +34,7 @@ Revision History:
 #include "ast/for_each_ast.h"
 #include "ast/decl_collector.h"
 #include "math/polynomial/algebraic_numbers.h"
+#include "ast/pp_params.hpp"
 
 
 // ---------------------------------------
@@ -911,7 +912,9 @@ ast_smt_pp::ast_smt_pp(ast_manager& m):
 void ast_smt_pp::display_expr_smt2(std::ostream& strm, expr* n, unsigned indent, unsigned num_var_names, char const* const* var_names) {
     ptr_vector<quantifier> ql;
     smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
+    pp_params params;
+    bool no_lets = params.no_lets();
+    smt_printer p(strm, m_manager, ql, rn, m_logic, no_lets, m_simplify_implies, indent, num_var_names, var_names);
     p(n);
 }
 
