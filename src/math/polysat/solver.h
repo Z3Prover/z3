@@ -193,6 +193,7 @@ namespace polysat {
         unsigned                 m_lemmas_qhead = 0;
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope.
+        unsigned_vector          m_base_index;   // m_search size corresponding to base levels
 
         // Cache literals that evaluate to true in the current assignment.
         // TODO: convert to proper pvalue caching. decouple trail from qhead. push size on trail when a pvar is assigned, because that's the point where evaluations can change.
@@ -297,6 +298,7 @@ namespace polysat {
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
+        unsigned base_index() const;
 
         void resolve_conflict();
         void revert_decision(pvar v);

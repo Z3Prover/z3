@@ -24,8 +24,6 @@ Author:
 #include <variant>
 #include <filesystem>
 
-// For development; to be removed once the linear solver works well enough
-
 // Write lemma validity check into an *.smt2 file for soundness debugging. Disabled by default.
 // Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
 #define ENABLE_LEMMA_VALIDITY_CHECK 0
@@ -946,32 +944,26 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        for (unsigned i = m_search.size(); i-- > 0; ) {
+        unsigned const base_idx = base_index();
+        for (unsigned i = m_search.size(); i-- > base_idx; ) {
             auto& item = m_search[i];
             m_search.set_resolved(i);
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                if (!m_conflict.is_relevant_pvar(v)) {
+                if (!m_conflict.is_relevant_pvar(v))
                     continue;
-                }
                 LOG_H2("Working on " << search_item_pp(m_search, item));
                 LOG(m_justification[v]);
                 LOG("Conflict: " << m_conflict);
                 justification const& j = m_justification[v];
-                // NOTE: propagation level may be out of order (cf. replay), but decisions are always in order
-                if (j.level() <= base_level()) {
-                    if (j.is_decision()) {
-                        report_unsat();
-                        return;
-                    }
-                    // continue;
-                }
                 if (j.is_decision()) {
+                    VERIFY(j.level() > base_level());  // otherwise, i < base_idx and we should have left the loop
                     m_conflict.revert_pvar(v);
                     revert_decision(v);
                     return;
                 }
+                SASSERT(j.is_propagation());
                 m_conflict.resolve_value(v);
             }
             else {
@@ -985,26 +977,22 @@ namespace polysat {
                 LOG(bool_justification_pp(m_bvars, lit));
                 LOG("Literal " << lit_pp(*this, lit));
                 LOG("Conflict: " << m_conflict);
-                // NOTE: the levels of boolean literals on the stack aren't always ordered by level (cf. replay functionality in pop_levels).
-                //       Thus we can only skip base level literals here, instead of aborting the loop.
-                if (m_bvars.level(var) <= base_level()) {
-                    if (m_bvars.is_decision(var) || m_bvars.is_assumption(var)) {
-                        report_unsat();  // decisions are always in order
-                        return;
-                    }
-                    // continue;
+                if (m_bvars.is_assumption(var)) {
+                    SASSERT(m_bvars.level(var) <= base_level());
+                    report_unsat();
+                    return;
                 }
-                SASSERT(!m_bvars.is_assumption(var));   // TODO: "assumption" is basically "propagated by unit clause" (or "at base level"); except we do not explicitly store the unit clause.
                 if (m_bvars.is_decision(var)) {
+                    VERIFY(m_bvars.level(var) > base_level());  // otherwise, i < base_idx and we should have left the loop
                     revert_bool_decision(lit);
                     return;
                 }
                 if (m_bvars.is_bool_propagation(var))
-                    // TODO: this could be a propagation at an earlier level.
-                    //       do we really want to resolve these eagerly?
                     m_conflict.resolve_bool(lit, *m_bvars.reason(lit));
-                else
+                else {
+                    SASSERT(m_bvars.is_evaluation(var));
                     m_conflict.resolve_evaluated(lit);
+                }
             }
         }
         LOG("End of resolve_conflict loop");
@@ -1440,16 +1428,19 @@ namespace polysat {
         LOG_H3("Push user scope");
         push_level();
         m_base_levels.push_back(m_level);
+        m_base_index.push_back(m_search.size());
     }
 
     void solver::pop(unsigned num_scopes) {
         VERIFY(m_base_levels.size() >= num_scopes);
+        SASSERT_EQ(m_base_index.size(), m_base_levels.size());
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG_H3("Pop " << num_scopes << " user scopes");
         pop_levels(m_level - base_level + 1);
         if (m_level < m_conflict.level())
             m_conflict.reset();
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
+        m_base_index.shrink(m_base_index.size() - num_scopes);
     }
 
     bool solver::at_base_level() const {
@@ -1458,6 +1449,10 @@ namespace polysat {
 
     unsigned solver::base_level() const {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
+    }
+
+    unsigned solver::base_index() const {
+        return m_base_index.empty() ? 0 : m_base_index.back();
     }
 
     bool solver::try_eval(pdd const& p, rational& out_value) const {
