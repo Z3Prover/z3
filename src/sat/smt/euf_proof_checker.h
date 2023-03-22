@@ -35,7 +35,7 @@ namespace euf {
         virtual bool check(app* jst) = 0;
         virtual expr_ref_vector clause(app* jst) = 0;
         virtual void register_plugins(theory_checker& pc) = 0;
-        virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { v.reset(); v.append(this->clause(jst)); return false; }
+        virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { v.append(this->clause(jst)); return false; }
     };
 
     class theory_checker {
