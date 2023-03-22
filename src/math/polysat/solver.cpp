@@ -1437,8 +1437,14 @@ namespace polysat {
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG_H3("Pop " << num_scopes << " user scopes");
         pop_levels(m_level - base_level + 1);
-        if (m_level < m_conflict.level())
+        if (m_level < m_conflict.level()) {
+            clause_ref_vector lemmas = m_conflict.take_lemmas();
             m_conflict.reset();
+            // TODO: currently we forget all new lemmas at this point.
+            for (clause* lemma : lemmas)
+                if (lemma->is_active())
+                    propagate_clause(*lemma);
+        }
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
         m_base_index.shrink(m_base_index.size() - num_scopes);
     }
