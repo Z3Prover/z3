@@ -1439,20 +1439,35 @@ namespace polysat {
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         unsigned const target_level = base_level - 1;
 
-        clause_ref_vector lemmas;
-        if (is_conflict() && target_level < m_conflict.effective_level()) {
-            lemmas = m_conflict.take_lemmas();
-            m_conflict.reset();
+        // TODO: effective_level is the wrong measure (or rather, we would need additional work to be able to keep the conflict).
+        //       we should compare m_search index. Alternatively, simply check if pop_levels unassigned any relevant element.
+        // clause_ref_vector lemmas;
+        // if (is_conflict() && target_level < m_conflict.effective_level()) {
+        //     lemmas = m_conflict.take_lemmas();
+        //     m_conflict.reset();
+        // }
+        if (is_conflict()) {
+            for (signed_constraint c : m_conflict) {
+                VERIFY(m_bvars.is_assigned(c.blit()));
+            }
+            for (pvar v : m_conflict.vars()) {
+                VERIFY(is_assigned(v));
+            }
+            VERIFY(m_conflict.is_valid());
         }
 
         pop_levels(m_level - base_level + 1);
         SASSERT_EQ(m_level, target_level);
 
-        // TODO: currently we forget all new lemmas at this point.
-        //       (but anything that uses popped assumptions cannot be used anymore.)
-        for (clause* lemma : lemmas)
-            if (lemma->is_active())
-                propagate_clause(*lemma);
+        if (is_conflict() && !m_conflict.is_valid()) {
+            clause_ref_vector lemmas = m_conflict.take_lemmas();
+            m_conflict.reset();
+            // TODO: currently we forget all new lemmas at this point.
+            //       (but anything that uses popped assumptions cannot be used anymore.)
+            for (clause* lemma : lemmas)
+                if (lemma->is_active())
+                    propagate_clause(*lemma);
+        }
 
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
         m_base_index.shrink(m_base_index.size() - num_scopes);

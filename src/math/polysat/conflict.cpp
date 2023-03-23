@@ -192,6 +192,7 @@ namespace polysat {
     }
 
     unsigned conflict::effective_level() const {
+        SASSERT(!empty());
         // If m_dep is set, the corresponding constraint was asserted at m_level and is not valid earlier.
         if (m_dep != null_dependency)
             return m_level;
@@ -205,6 +206,22 @@ namespace polysat {
         for (pvar v : m_vars)
             lvl = std::max(lvl, s.get_level(v));
         return lvl;
+    }
+
+    bool conflict::is_valid() const {
+        SASSERT(!empty());
+        // If m_dep is set, the corresponding constraint was asserted at m_level and is not valid earlier.
+        if (m_dep != null_dependency)
+            return m_level <= s.m_level;
+        // All conflict constraints must be bool-assigned.
+        for (unsigned lit_idx : m_literals)
+            if (!s.m_bvars.is_assigned(sat::to_literal(lit_idx)))
+                return false;
+        // All conflict variables must be assigned.
+        for (pvar v : m_vars)
+            if (!s.is_assigned(v))
+                return false;
+        return true;
     }
 
     void conflict::init_at_base_level(dependency dep) {

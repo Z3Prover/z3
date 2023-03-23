@@ -123,6 +123,7 @@ namespace polysat {
 
         unsigned level() const { return m_level; }
         unsigned effective_level() const;
+        bool is_valid() const;  // TODO: better name?
 
         bool is_relevant_pvar(pvar v) const;
         bool is_relevant(sat::literal lit) const;
