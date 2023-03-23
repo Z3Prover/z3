@@ -102,9 +102,11 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 #define COND_LOG(c, x) if (c) LOG(x)
 #define LOGE(x)   LOG(#x << " = " << (x))
 
-#define IF_LOGGING(x) \
-  do {                \
-    x;                \
+#define IF_LOGGING(x)           \
+  do {                          \
+      if (get_log_enabled()) {  \
+        x;                      \
+      }                         \
   } while (false)
 
 
