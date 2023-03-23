@@ -1426,6 +1426,7 @@ namespace polysat {
 
     void solver::push() {
         LOG_H3("Push user scope");
+        propagate();
         push_level();
         m_base_levels.push_back(m_level);
         m_base_index.push_back(m_search.size());
