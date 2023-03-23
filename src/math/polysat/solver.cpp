@@ -562,25 +562,6 @@ namespace polysat {
         // lit is undef, other_lit is false.
         for (unsigned i = 2; i < cl.size(); ++i) {
             // must be assigned, or we should have watched it instead of other_lit.
-#if 1
-            if (!m_bvars.is_assigned(cl[i])) {
-                IF_VERBOSE(15, {
-                    verbose_stream() << "repropagate clause " << cl << "\n";
-                    verbose_stream() << "repropagate lit = " << lit_pp(*this, lit) << "\n";
-                    verbose_stream() << "wrong boolean watches: " << cl << "\n";
-                    for (sat::literal lit : cl) {
-                        verbose_stream() << "    " << lit_pp(*this, lit);
-                        if (count(m_bvars.watch(lit), &cl) != 0)
-                            verbose_stream() << " (bool-watched)";
-                        verbose_stream() << "\n";
-                    }
-                });
-                // TODO: debug&fix properly; for now just skip.
-                //       (unrelated clause may have propagated other_lit, and we didn't get to propagate(other_lit) yet?
-                //        maybe the repropagate_queue needs to go into the main loop, with priority after standard boolean propagation.)
-                return false;
-            }
-#endif
             VERIFY(m_bvars.is_assigned(cl[i]));
             // there may still be a true literal in the tail; if so, watch it instead.
             if (m_bvars.is_true(cl[i])) {
