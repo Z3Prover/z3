@@ -330,7 +330,7 @@ namespace polysat {
     //    We have unassigned L but the unit propagation for C does not trigger.
     // 4. To fix that situation we explicitly "repropagate" C after backtracking.
     // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
-    // TODO: for assumptions this isn't implemented yet. But if we can bool-propagate an assumption from other literals,
+    // TODO: for assumptions this isn't implemented yet. If we can bool-propagate an assumption from other literals,
     //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
 
     // Z3 (and maybe other SMT solvers) remembers new clauses added under a decision level.
@@ -462,7 +462,8 @@ namespace polysat {
             signed_constraint sc(c, bvalue == l_true);
             if (do_narrow) {
                 if (c->vars().size() >= 2) {
-                    unsigned other_v = c->var(1 - idx);
+                    // single variable remaining? register for univariate solver
+                    pvar other_v = c->var(1 - idx);
                     if (!is_assigned(other_v))
                         m_viable_fallback.push_constraint(other_v, sc);
                 }
@@ -474,9 +475,9 @@ namespace polysat {
             }
         } else {
             // constraint state: active but unassigned (bvalue undef, but pwatch is set; e.g., new constraints generated for lemmas)
-#if 1
+            // (note: this shouldn't occur anymore since evaluation has higher propagation priority now.)
             if (c->vars().size() >= 2) {
-                unsigned other_v = c->var(1 - idx);
+                pvar other_v = c->var(1 - idx);
                 // Wait for the remaining variable to be assigned
                 // (although sometimes we would be able to evaluate constraints earlier)
                 if (!is_assigned(other_v))
@@ -490,19 +491,6 @@ namespace polysat {
                 SASSERT(sc.is_currently_false(*this));
                 assign_eval(~sc.blit());
             }
-#else
-            signed_constraint sc(c, true);
-            switch (sc.eval(*this)) {
-                case l_true:
-                    assign_eval(sc.blit());
-                    break;
-                case l_false:
-                    assign_eval(~sc.blit());
-                    break;
-                default:
-                    break;
-            }
-#endif
         }
         return false;
     }
@@ -1440,22 +1428,7 @@ namespace polysat {
         unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         unsigned const target_level = base_level - 1;
 
-        // TODO: effective_level is the wrong measure (or rather, we would need additional work to be able to keep the conflict).
-        //       we should compare m_search index. Alternatively, simply check if pop_levels unassigned any relevant element.
-        // clause_ref_vector lemmas;
-        // if (is_conflict() && target_level < m_conflict.effective_level()) {
-        //     lemmas = m_conflict.take_lemmas();
-        //     m_conflict.reset();
-        // }
-        if (is_conflict()) {
-            for (signed_constraint c : m_conflict) {
-                VERIFY(m_bvars.is_assigned(c.blit()));
-            }
-            for (pvar v : m_conflict.vars()) {
-                VERIFY(is_assigned(v));
-            }
-            VERIFY(m_conflict.is_valid());
-        }
+        VERIFY(!is_conflict() || m_conflict.is_valid());
 
         pop_levels(m_level - base_level + 1);
         SASSERT_EQ(m_level, target_level);
@@ -1761,21 +1734,20 @@ namespace polysat {
         for (auto c : m_constraints) {
             if (skip.contains(c->bvar()))
                 continue;
-
             lbool value = m_bvars.value(c->bvar());
             if (value == l_undef)
                 continue;
-            bool is_positive = value == l_true;
+            bool const is_positive = value == l_true;
             int64_t num_watches = 0;
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
-                auto n = count(wlist, c);
+                auto const n = count(wlist, c);
                 if (n > 1)
                     std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }
-            unsigned expected_watches = std::min(2u, c->vars().size());
+            unsigned const expected_watches = std::min(2u, c->vars().size());
             if (num_watches != expected_watches)
                 LOG("Wrong number of watches: " << sc.blit() << ": " << sc << " (vars: " << sc->vars() << ")");
             VERIFY_EQ(num_watches, expected_watches);
@@ -1827,6 +1799,15 @@ namespace polysat {
             }
             VERIFY(undefs != 1);
             bool const is_false = all_of(cl, [&](auto lit) { return m_bvars.is_false(lit); });
+            if (is_false) {
+                verbose_stream() << "Missed boolean conflict: " << cl << "\n";
+                for (sat::literal lit : cl) {
+                    verbose_stream() << "    " << lit_pp(*this, lit);
+                    if (count(m_bvars.watch(lit), &cl) != 0)
+                        verbose_stream() << " (bool-watched)";
+                    verbose_stream() << "\n";
+                }
+            }
             VERIFY(!is_false);
         }
         // Check watch literal invariant for long clauses:
