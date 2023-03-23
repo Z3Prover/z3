@@ -122,6 +122,7 @@ namespace polysat {
         uint_set const& vars() const { return m_vars; }
 
         unsigned level() const { return m_level; }
+        unsigned effective_level() const;
 
         bool is_relevant_pvar(pvar v) const;
         bool is_relevant(sat::literal lit) const;

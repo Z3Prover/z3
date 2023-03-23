@@ -171,6 +171,7 @@ namespace polysat {
     }
 
     void conflict::reset() {
+        LOG("Reset conflict");
         m_literals.reset();
         m_vars.reset();
         m_var_occurrences.reset();
@@ -188,6 +189,22 @@ namespace polysat {
 
     bool conflict::is_relevant(sat::literal lit) const {
         return contains(lit) || contains(~lit);
+    }
+
+    unsigned conflict::effective_level() const {
+        // If m_dep is set, the corresponding constraint was asserted at m_level and is not valid earlier.
+        if (m_dep != null_dependency)
+            return m_level;
+        // In other cases, m_level just tracks the level at which the conflict appeared.
+        // Find the minimal level at which the conflict is still valid.
+        unsigned lvl = 0;
+        for (unsigned lit_idx : m_literals) {
+            sat::literal const lit = sat::to_literal(lit_idx);
+            lvl = std::max(lvl, s.m_bvars.level(lit));
+        }
+        for (pvar v : m_vars)
+            lvl = std::max(lvl, s.get_level(v));
+        return lvl;
     }
 
     void conflict::init_at_base_level(dependency dep) {
@@ -396,7 +413,6 @@ namespace polysat {
         SASSERT(contains(lit));
         SASSERT(!contains(~lit));
 
-        unsigned const lvl = s.m_bvars.level(lit);
         signed_constraint c = s.lit2cnstr(lit);
 
         unsigned const eval_idx = s.m_search.get_bool_index(lit);

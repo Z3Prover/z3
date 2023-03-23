@@ -1434,17 +1434,26 @@ namespace polysat {
     void solver::pop(unsigned num_scopes) {
         VERIFY(m_base_levels.size() >= num_scopes);
         SASSERT_EQ(m_base_index.size(), m_base_levels.size());
-        unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG_H3("Pop " << num_scopes << " user scopes");
-        pop_levels(m_level - base_level + 1);
-        if (m_level < m_conflict.level()) {
-            clause_ref_vector lemmas = m_conflict.take_lemmas();
+
+        unsigned const base_level = m_base_levels[m_base_levels.size() - num_scopes];
+        unsigned const target_level = base_level - 1;
+
+        clause_ref_vector lemmas;
+        if (is_conflict() && target_level < m_conflict.effective_level()) {
+            lemmas = m_conflict.take_lemmas();
             m_conflict.reset();
-            // TODO: currently we forget all new lemmas at this point.
-            for (clause* lemma : lemmas)
-                if (lemma->is_active())
-                    propagate_clause(*lemma);
         }
+
+        pop_levels(m_level - base_level + 1);
+        SASSERT_EQ(m_level, target_level);
+
+        // TODO: currently we forget all new lemmas at this point.
+        //       (but anything that uses popped assumptions cannot be used anymore.)
+        for (clause* lemma : lemmas)
+            if (lemma->is_active())
+                propagate_clause(*lemma);
+
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
         m_base_index.shrink(m_base_index.size() - num_scopes);
     }
