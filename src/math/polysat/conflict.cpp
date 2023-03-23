@@ -600,11 +600,11 @@ namespace polysat {
                         enqueue_lit(other);
                 }
                 else if (s.m_bvars.is_evaluation(lit)) {
-                    unsigned const lvl = s.m_bvars.level(lit);
+                    unsigned const eval_idx = s.m_search.get_bool_index(lit);
                     for (pvar v : s.lit2cnstr(lit).vars()) {
                         if (!s.is_assigned(v))
                             continue;
-                        if (s.get_level(v) > lvl)
+                        if (s.m_search.get_pvar_index(v) > eval_idx)
                             continue;
                         enqueue_var(v);
                     }
