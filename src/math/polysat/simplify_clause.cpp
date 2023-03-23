@@ -342,19 +342,17 @@ namespace polysat {
             return false;
         unsigned j = 0;
         for (unsigned i = 0; i < cl.size(); ++i)
-            if (!m_entries[i].subsuming)
+            if (!m_entries[i].valid || !m_entries[i].subsuming)
                 cl[j++] = cl[i];
         cl.m_literals.shrink(j);
         return true;
     }
 
-    // decomposes into a plain constant and a part containing variables. e.g., 2*x*y + 3*z - 2 gets { 2*x*y + 3*z, -2 }
-    static std::pair<pdd, pdd> decouple_constant(const pdd& p) {
-        for (const auto& m : p) {
-            if (m.vars.empty())
-                return { p - m.coeff, p.manager().mk_val(m.coeff) };
-        }
-        return { p, p.manager().mk_val(0) };
+    // decomposes into a plain constant and a part containing variables. e.g., 2*x*y + 3*z - 2 becomes { 2*x*y + 3*z, -2 }
+    static std::pair<pdd, pdd> decouple_constant(pdd const& p) {
+        auto& m = p.manager();
+        rational offset = p.offset();
+        return { p - offset, m.mk_val(offset) };
     }
     
     // 2^(k - d) * x = m * 2^(k - d)
@@ -549,6 +547,7 @@ namespace polysat {
      *   More generally: parity can be replaced by lsb in case we check for subsumption between the bit-masks rather than comparing the parities (special case)
      */
     bool simplify_clause::try_bit_subsumptions(clause& cl) {
+        LOG_H2("Try bit subsumptions: " << cl);
         
         struct pdd_info {
             unsigned sz;
