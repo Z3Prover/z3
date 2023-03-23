@@ -1497,11 +1497,11 @@ namespace polysat {
         VERIFY(at_base_level());
         deps.reset();
         m_conflict.find_deps(deps);
-        IF_VERBOSE(10,
-            verbose_stream() << "\nviable:\n" << m_viable << "\n";
+        IF_VERBOSE(10, {
             verbose_stream() << "polysat unsat_core " << deps << "\n";
             // Print constraints involved in the unsat core for debugging.
             // NOTE: the output may look confusing since relevant op_constraints are not printed (does not affect correctness of the core).
+            uint_set vars;
             for (auto d : deps) {
                 for (sat::bool_var b = 0; b < m_bvars.size(); ++b) {
                     if (m_bvars.dep(b) != d)
@@ -1509,9 +1509,14 @@ namespace polysat {
                     sat::literal lit(b, m_bvars.value(b) == l_false);
                     SASSERT(m_bvars.is_true(lit));
                     verbose_stream() << "    " << d << ": " << lit_pp(*this, lit) << "\n";
+                    for (pvar v : lit2cnstr(lit).vars())
+                        vars.insert(v);
                 }
             }
-        );
+            for (pvar v : vars)
+                if (signed_constraint c = m_constraints.find_op_by_result_var(v))
+                    verbose_stream() << "    op: " << lit_pp(*this, c) << "\n";
+        });
 #if ENABLE_LEMMA_VALIDITY_CHECK
         clause_builder cb(*this, "unsat core check");
         for (auto d : deps) {

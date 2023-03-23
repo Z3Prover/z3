@@ -249,6 +249,8 @@ namespace polysat {
 
     void conflict::init(clause& cl) {
         LOG("Conflict: clause " << cl);
+        for (sat::literal lit : cl)
+            LOG("    " << lit_pp(s, lit));
         SASSERT(empty());
         m_level = s.m_level;
         for (auto lit : cl) {
@@ -382,6 +384,7 @@ namespace polysat {
    }
 
     void conflict::restore_lemma(clause_ref lemma) {
+        SASSERT(!empty());
         LOG_H3("Restore Lemma: " << ": " << show_deref(lemma));
         m_lemmas.push_back(std::move(lemma));
     }
@@ -557,7 +560,12 @@ namespace polysat {
         uint_set done_vars;
         indexed_uint_set deps;
 
-        LOG("Conflict: " << *this);
+        LOG_V(11, "State:\n" << s);
+        LOG_V(11, "Conflict: " << *this);
+        // LOG_V(11, "Viable:\n" << s.m_viable);
+        // for (pvar v : m_vars) {
+        //     s.m_viable.log(v);
+        // }
         SASSERT(s.at_base_level());
 
         auto const enqueue_lit = [&](sat::literal lit) {
@@ -565,7 +573,7 @@ namespace polysat {
                 return;
             if (!s.m_bvars.is_assigned(lit))
                 return;
-            // verbose_stream() << "enqueue " << lit_pp(s, lit) << "\n";
+            IF_VERBOSE(11, verbose_stream() << "    enqueue " << lit_pp(s, lit) << "\n";);
             todo_lits.push_back(lit);
             done_lits.insert(lit.var());
         };
@@ -577,7 +585,12 @@ namespace polysat {
         auto const enqueue_var = [&](pvar v) {
             if (done_vars.contains(v))
                 return;
-            // verbose_stream() << "enqueue v" << v << "\n";
+            IF_VERBOSE(11, {
+                verbose_stream() << "    enqueue v" << v << "\n";
+                if (signed_constraint c = s.m_constraints.find_op_by_result_var(v))
+                    verbose_stream() << "      defined by op_constraint: " << lit_pp(s, c) << "\n";
+            });
+            SASSERT(s.is_assigned(v));
             todo_vars.push_back(v);
             done_vars.insert(v);
         };
@@ -592,6 +605,7 @@ namespace polysat {
             while (!todo_vars.empty()) {
                 pvar const v = todo_vars.back();
                 todo_vars.pop_back();
+                IF_VERBOSE(11, verbose_stream() << "Handling v" << v << "\n";);
 
                 SASSERT(s.m_justification[v].is_propagation());  // no decisions at base level
 
@@ -605,6 +619,7 @@ namespace polysat {
             while (!todo_lits.empty()) {
                 sat::literal const lit = todo_lits.back();
                 todo_lits.pop_back();
+                IF_VERBOSE(11, verbose_stream() << "Handling " << lit_pp(s, lit) << "\n";);
 
                 if (s.m_bvars.is_assumption(lit)) {
                     // only assumptions have external dependencies
@@ -613,6 +628,7 @@ namespace polysat {
                         deps.insert(d.val());
                 }
                 else if (s.m_bvars.is_bool_propagation(lit)) {
+                    IF_VERBOSE(11, verbose_stream() << "    reason " << *s.m_bvars.reason(lit) << "\n";);
                     for (sat::literal other : *s.m_bvars.reason(lit))
                         enqueue_lit(other);
                 }
