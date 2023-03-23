@@ -1503,15 +1503,19 @@ namespace polysat {
             // NOTE: the output may look confusing since relevant op_constraints are not printed (does not affect correctness of the core).
             uint_set vars;
             for (auto d : deps) {
+                bool found = false;
                 for (sat::bool_var b = 0; b < m_bvars.size(); ++b) {
                     if (m_bvars.dep(b) != d)
                         continue;
+                    found = true;
                     sat::literal lit(b, m_bvars.value(b) == l_false);
                     SASSERT(m_bvars.is_true(lit));
                     verbose_stream() << "    " << d << ": " << lit_pp(*this, lit) << "\n";
                     for (pvar v : lit2cnstr(lit).vars())
                         vars.insert(v);
                 }
+                if (!found)
+                    verbose_stream() << "    " << d << ": <no constraint in polysat>\n";
             }
             for (pvar v : vars)
                 if (signed_constraint c = m_constraints.find_op_by_result_var(v))
@@ -1519,16 +1523,24 @@ namespace polysat {
         });
 #if ENABLE_LEMMA_VALIDITY_CHECK
         clause_builder cb(*this, "unsat core check");
+        bool ok = true;
         for (auto d : deps) {
+            bool found = false;
             for (sat::bool_var b = 0; b < m_bvars.size(); ++b) {
                 if (m_bvars.dep(b) != d)
                     continue;
+                found = true;
                 sat::literal lit(b, m_bvars.value(b) == l_false);
                 VERIFY(m_bvars.is_true(lit));
                 cb.insert(~lit);
             }
+            if (!found) {
+                ok = false;
+                // VERIFY_EQ(d, m_conflict.m_dep);
+            }
         }
-        log_lemma_smt2(*cb.build());  // check the unsat core
+        if (ok)
+            log_lemma_smt2(*cb.build());  // check the unsat core
 #endif
     }
 
