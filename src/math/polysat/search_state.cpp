@@ -38,24 +38,12 @@ namespace polysat {
         }
         case search_item_k::boolean: {
             sat::literal const lit = item.lit();
-            out << rpad(4, lit);
-            out << ": " << rpad(32, s.lit2cnstr(lit));
-            out << " @" << s.m_bvars.level(lit);
-            if (s.m_bvars.is_assumption(lit))
-                out << " assumption";
-            else if (s.m_bvars.is_bool_propagation(lit)) {
+            out << lit_pp(s, lit);
+            if (s.m_bvars.is_bool_propagation(lit)) {
                 clause* reason = s.m_bvars.reason(lit);
-                out << " bool propagation " << show_deref(reason);
-                for (auto l2 : *reason) {
-                    out << "\n\t" << rpad(4, l2) << ": " << rpad(16, s.lit2cnstr(l2)) << "   " << bool_justification_pp(s.m_bvars, l2);
-                }
-            }
-            else if (s.m_bvars.is_evaluation(lit)) {
-                out << " evaluated";
-            }
-            else {
-                SASSERT(s.m_bvars.is_decision(lit));
-                out << " decision";
+                out << "\n\treason " << show_deref(reason);
+                for (auto l2 : *reason)
+                    out << "\n\t" << lit_pp(s, l2);
             }
             return out;
         }

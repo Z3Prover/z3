@@ -1529,15 +1529,17 @@ namespace polysat {
             }
         );
 #if ENABLE_LEMMA_VALIDITY_CHECK
-        clause_builder clauseBuilder(*this);
+        clause_builder cb(*this, "unsat core check");
         for (auto d : deps) {
             for (sat::bool_var b = 0; b < m_bvars.size(); ++b) {
                 if (m_bvars.dep(b) != d)
                     continue;
-                clauseBuilder.insert(sat::literal(b, m_bvars.value(b) != l_false));
+                sat::literal lit(b, m_bvars.value(b) == l_false);
+                VERIFY(m_bvars.is_true(lit));
+                cb.insert(~lit);
             }
         }
-        log_lemma_smt2(*clauseBuilder.build()); // check the unsat-core
+        log_lemma_smt2(*cb.build());  // check the unsat core
 #endif
     }
 
