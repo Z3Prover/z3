@@ -30,7 +30,7 @@ resolution.
 the predicate `p` occurs once positively. All negative occurrences of `p` are resolved against this positive occurrence.
 The result of resolution is a set of equalities between arguments to `p`. The function `f` is replaced by a partial solution.
 
-```
+```z3
 (declare-fun f (Int Int Int) Int)
 (declare-fun p (Int) Bool)
 (declare-const a Int)
