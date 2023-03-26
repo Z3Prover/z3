@@ -802,7 +802,7 @@ namespace smt {
         setup_dl();
         setup_seq_str(st);
         setup_fpa();
-        if (st.m_has_sr) setup_special_relations();
+        setup_special_relations();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -818,7 +818,7 @@ namespace smt {
             setup_seq_str(st);
             setup_fpa();
             setup_recfuns();
-            if (st.m_has_sr) setup_special_relations();
+            setup_special_relations();
             return;
         }
 
