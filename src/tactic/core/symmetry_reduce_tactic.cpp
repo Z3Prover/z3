@@ -146,9 +146,10 @@ public:
                     app* c = select_const(consts, cts);
                     if (!c) break;
                     cts.push_back(c);
-                    expr_ref mem(mk_member(t, cts), m);
+                    expr_ref mem = mk_member(t, cts);
                     g.assert_expr(mem); 
                     num_sym_break_preds++;
+
                     TRACE("symmetry_reduce", tout << "member predicate: " << mem << "\n";);
                     
                     fml = m.mk_and(fml.get(), mem);
@@ -592,7 +593,7 @@ private:
         return (j == A.size())? nullptr:A[j];
     }
 
-    expr* mk_member(app* t, term_set const& C) {
+    expr_ref mk_member(app* t, term_set const& C) {
         expr_ref_vector eqs(m);
         for (expr* e : C) 
             eqs.push_back(m.mk_eq(t, e));        
