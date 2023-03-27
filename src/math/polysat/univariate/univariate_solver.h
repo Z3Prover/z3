@@ -24,6 +24,8 @@ Author:
 namespace polysat {
 
     class univariate_solver {
+    protected:
+        unsigned bit_width;
     public:
         using dep_t = unsigned;
         using dep_vector = svector<dep_t>;
@@ -33,6 +35,8 @@ namespace polysat {
         using univariate = vector<rational>;
 
         const dep_t null_dep = UINT_MAX;
+
+        univariate_solver(unsigned bit_width) : bit_width(bit_width) {}
 
         virtual ~univariate_solver() = default;
 
@@ -59,7 +63,7 @@ namespace polysat {
          * Precondition: check() returned l_true
          * Returns: true on success, false on resource out.
          */
-        virtual bool find_min(rational& out_min) = 0;
+        bool find_min(rational& out_min);
 
         /**
          * Find maximal model.
@@ -67,7 +71,7 @@ namespace polysat {
          * Precondition: check() returned l_true
          * Returns: true on success, false on resource out.
          */
-        virtual bool find_max(rational& out_max) = 0;
+        bool find_max(rational& out_max);
 
         /**
          * Find up to two viable values.
