@@ -1542,7 +1542,7 @@ struct
 
       let to_string (x:func_entry) =
         let a = get_args x in
-        let f c p = (p ^ (Expr.to_string c) ^ ", ") in
+        let f c p = ((Expr.to_string c) ^ ", " ^ p) in
         "[" ^ List.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
     end
 
