@@ -2175,10 +2175,10 @@ public class Context implements AutoCloseable {
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public final <R extends Sort> ReExpr<R> mkToRe(Expr<SeqSort<R>> s)
+    public final <R extends Sort> ReExpr<SeqSort<R>> mkToRe(Expr<SeqSort<R>> s)
     {
         checkContextMatch(s);
-        return (ReExpr<R>) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));
+        return (ReExpr<SeqSort<R>>) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));
     }
 
 
@@ -2296,7 +2296,7 @@ public class Context implements AutoCloseable {
      * Create the empty regular expression.
      * Coresponds to re.none
      */
-    public final <R extends Sort> ReExpr<R> mkEmptyRe(R s)
+    public final <R extends Sort> ReExpr<R> mkEmptyRe(ReSort<R> s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
     }
@@ -2305,16 +2305,17 @@ public class Context implements AutoCloseable {
      * Create the full regular expression.
      * Corresponds to re.all
      */
-    public final <R extends Sort> ReExpr<R> mkFullRe(R s)
+    public final <R extends Sort> ReExpr<R> mkFullRe(ReSort<R> s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }
 
     /**
      * Create regular expression that accepts all characters
+     * R has to be a sequence sort.
      * Corresponds to re.allchar
      */
-    public final <R extends Sort> ReExpr<R> mkAllcharRe(R s)
+    public final <R extends Sort> ReExpr<R> mkAllcharRe(ReSort<R> s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReAllchar(nCtx(), s.getNativeObject()));
     }
@@ -2322,10 +2323,10 @@ public class Context implements AutoCloseable {
     /**
      * Create a range expression.
      */
-    public final <R extends Sort> ReExpr<R> mkRange(Expr<SeqSort<CharSort>> lo, Expr<SeqSort<CharSort>> hi)
+    public final ReExpr<SeqSort<CharSort>> mkRange(Expr<SeqSort<CharSort>> lo, Expr<SeqSort<CharSort>> hi)
     {
         checkContextMatch(lo, hi);
-        return (ReExpr<R>) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
+        return (ReExpr<SeqSort<CharSort>>) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
     }
 
     /**
