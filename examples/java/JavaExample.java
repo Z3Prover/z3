@@ -2262,13 +2262,13 @@ class JavaExample
     public void stringExample() {
 	System.out.println("String example");
 	Context ctx = new Context();
-	var a = ctx.mkToRe(ctx.mkString("abcd"));
-	var b = ctx.mkFullRe(ctx.mkReSort(ctx.mkStringSort()));
+	Expr a = ctx.mkToRe(ctx.mkString("abcd"));
+	Expr b = ctx.mkFullRe(ctx.mkReSort(ctx.mkStringSort()));
 	System.out.println(a);
 	System.out.println(b);
 	System.out.println(a.getSort());
 	System.out.println(b.getSort());
-	var c = ctx.mkConcat(ctx.mkToRe(ctx.mkString("abc")),
+	Expr c = ctx.mkConcat(ctx.mkToRe(ctx.mkString("abc")),
 			     ctx.mkFullRe(ctx.mkReSort(ctx.mkStringSort())),
 			     ctx.mkEmptyRe(ctx.mkReSort(ctx.mkStringSort())),
 			     ctx.mkAllcharRe(ctx.mkReSort(ctx.mkStringSort())),
