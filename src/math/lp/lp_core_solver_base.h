@@ -63,15 +63,12 @@ public:
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
 private:
     u_set m_inf_set;
-    bool m_using_infeas_costs;
 public:
     const u_set& inf_set() const { return m_inf_set; }
     u_set& inf_set() { return m_inf_set; }
     void inf_set_increase_size_by_one() { m_inf_set.increase_size_by_one(); }
     bool inf_set_contains(unsigned j) const { return m_inf_set.contains(j); }
-    unsigned inf_set_size() const { return m_inf_set.size(); }
-    bool using_infeas_costs() const { return m_using_infeas_costs; }
-    void set_using_infeas_costs(bool val)  { m_using_infeas_costs = val; }
+    unsigned inf_set_size() const { return m_inf_set.size(); }    
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     // vector<X> const &           m_b; // the right side
@@ -198,11 +195,7 @@ public:
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
         CASSERT("check_static_matrix", m_A.is_correct());
-        if (m_using_infeas_costs) {
-            if (infeasibility_costs_are_correct() == false) {
-                return false;
-            }
-        }
+        
             
         unsigned n = m_A.column_count();
         for (unsigned j = 0; j < n; j++) {
@@ -236,8 +229,6 @@ public:
         return below_bound(m_x[p], m_lower_bounds[p]);
     }
 
-    bool infeasibility_costs_are_correct() const;
-    bool infeasibility_cost_is_correct_for_column(unsigned j) const;
     
     bool x_above_lower_bound(unsigned p) const {
         return above_bound(m_x[p], m_lower_bounds[p]);

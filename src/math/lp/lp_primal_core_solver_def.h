@@ -258,12 +258,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feas
     solve();
 }
 
-template <typename T, typename X>
-void lp_primal_core_solver<T, X>::init_infeasibility_costs_for_changed_basis_only() {
-    for (unsigned i :  this->m_ed.m_index)
-        init_infeasibility_cost_for_column(this->m_basis[i]);
-    this->set_using_infeas_costs(true);
-}
 
 
 template <typename T, typename X>
@@ -275,51 +269,6 @@ void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
     this->set_using_infeas_costs(true);
 }
 
-template <typename T, typename X> T
-lp_primal_core_solver<T, X>::get_infeasibility_cost_for_column(unsigned j) const {
-    if (this->m_basis_heading[j] < 0) {
-        return zero_of_type<T>();
-    }
-    T ret;
-    // j is a basis column
-    switch (this->m_column_types[j]) {
-    case column_type::fixed:
-    case column_type::boxed:
-        if (this->x_above_upper_bound(j)) {
-            ret = 1;
-        } else if (this->x_below_low_bound(j)) {
-            ret = -1;
-        } else {
-            ret = numeric_traits<T>::zero();
-        }
-        break;
-    case column_type::lower_bound:
-        if (this->x_below_low_bound(j)) {
-            ret = -1;
-        } else {
-            ret = numeric_traits<T>::zero();
-        }
-        break;
-    case column_type::upper_bound:
-        if (this->x_above_upper_bound(j)) {
-            ret = 1;
-        } else {
-            ret = numeric_traits<T>::zero();
-        }
-        break;
-    case column_type::free_column:
-        ret = numeric_traits<T>::zero();
-        break;
-    default:
-        UNREACHABLE();
-        ret = numeric_traits<T>::zero(); // does not matter
-        break;
-    }
-    
-    ret = - ret;
-    
-    return ret;
-}
 
 
 // changed m_inf_set too!

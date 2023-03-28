@@ -191,9 +191,11 @@ namespace lp {
             stats().m_max_rows = A_r().row_count();
         if (strategy_is_undecided())
             decide_on_strategy_and_adjust_initial_state();
-
+        auto strategy_was =     settings().simplex_strategy();
+        settings().set_simplex_strategy(simplex_strategy_enum::tableau_rows);
         m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = true;
         auto ret = solve();
+        settings().set_simplex_strategy(strategy_was);
         return ret;
     }
 
@@ -355,7 +357,6 @@ namespace lp {
         m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
         move_non_basic_columns_to_bounds(false);
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
-        rslv.set_using_infeas_costs(false);
         lp_assert(costs_are_zeros_for_r_solver());
         lp_assert(reduced_costs_are_zeroes_for_r_solver());
         rslv.m_costs.resize(A_r().column_count(), zero_of_type<mpq>());
@@ -490,11 +491,11 @@ namespace lp {
     lp_status lar_solver::maximize_term(unsigned j_or_term,
         impq& term_max) {
         TRACE("lar_solver", print_values(tout););
+
         lar_term term = get_term_to_maximize(j_or_term);
         if (term.is_empty()) {
             return lp_status::UNBOUNDED;
         }
-
         impq prev_value;
         auto backup = m_mpq_lar_core_solver.m_r_x;
         if (m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis()) {
@@ -710,14 +711,6 @@ namespace lp {
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
         for (auto j : m_columns_with_changed_bounds)
             update_x_and_inf_costs_for_column_with_changed_bounds(j);
-
-        if (tableau_with_costs()) {
-            if (m_mpq_lar_core_solver.m_r_solver.using_infeas_costs()) {
-                for (unsigned j : m_basic_columns_with_changed_cost)
-                    m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
-                lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-            }
-        }
     }
 
 
@@ -1344,14 +1337,6 @@ namespace lp {
         for (unsigned j : became_feas)
             m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
 
-
-        if (use_tableau_costs()) {
-            for (unsigned j : became_feas)
-                m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
-            for (unsigned j : basic_columns_with_changed_cost)
-                m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
-            lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-        }
     }
 
     bool lar_solver::model_is_int_feasible() const {

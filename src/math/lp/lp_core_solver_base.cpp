@@ -65,8 +65,6 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::pivot_column_tableau(un
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::transpose_rows_tableau(unsigned int, unsigned int);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::inf_set_is_correct() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::inf_set_is_correct() const;
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::infeasibility_costs_are_correct() const;
-template bool lp::lp_core_solver_base<lp::mpq, lp::mpq >::infeasibility_costs_are_correct() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_from_basis(unsigned int);
 
 
